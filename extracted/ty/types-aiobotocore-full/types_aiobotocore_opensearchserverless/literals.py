@@ -43,7 +43,9 @@ __all__ = (
 
 
 AccessPolicyTypeType = Literal["data"]
-CollectionStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
+CollectionStatusType = Literal[
+    "ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATE_FAILED", "UPDATING"
+]
 CollectionTypeType = Literal["SEARCH", "TIMESERIES", "VECTORSEARCH"]
 IamIdentityCenterGroupAttributeType = Literal["GroupId", "GroupName"]
 IamIdentityCenterUserAttributeType = Literal["Email", "UserId", "UserName"]
@@ -173,6 +175,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -408,6 +411,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -443,6 +447,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -455,6 +460,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

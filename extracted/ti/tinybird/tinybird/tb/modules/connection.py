@@ -36,7 +36,7 @@ from tinybird.tb.modules.create import (
     generate_gcs_connection_file_with_secrets,
 )
 from tinybird.tb.modules.exceptions import CLIConnectionException
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.project import Project
 from tinybird.tb.modules.secret import save_secret_to_env_file
 
@@ -311,7 +311,7 @@ def connection_create_kafka_cmd(
                     click.echo(FeedbackManager.info(message=error))
                     click.echo(
                         FeedbackManager.error(
-                            message="✗ Build failed. Please fix the errors and run `tb connection data` to preview this connection."
+                            message=f"✗ Build failed. Please fix the errors and run `{get_cli_name()} connection data` to preview this connection."
                         )
                     )
                     return
@@ -360,7 +360,7 @@ def connection_data_cmd(
         if not all_connections:
             raise CLIConnectionException(
                 FeedbackManager.error(
-                    message="No connections found. Create a connection first with `tb connection create`."
+                    message=f"No connections found. Create a connection first with `{get_cli_name()} connection create`."
                 )
             )
 

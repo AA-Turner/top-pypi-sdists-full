@@ -59,6 +59,7 @@ __all__ = (
     "AutoMLSortOrderType",
     "AutoMountHomeEFSType",
     "AutotuneModeType",
+    "AvailabilityZoneBalanceEnforcementModeType",
     "AwsManagedHumanLoopRequestSourceType",
     "BatchAddClusterNodesErrorCodeType",
     "BatchDeleteClusterNodesErrorCodeType",
@@ -169,6 +170,7 @@ __all__ = (
     "ImageVersionSortOrderType",
     "ImageVersionStatusType",
     "InferenceComponentCapacitySizeTypeType",
+    "InferenceComponentPlacementStrategyType",
     "InferenceComponentSortKeyType",
     "InferenceComponentStatusType",
     "InferenceExecutionModeType",
@@ -277,6 +279,7 @@ __all__ = (
     "ListWorkteamsSortByOptionsType",
     "MIGProfileTypeType",
     "MaintenanceStatusType",
+    "ManagedInstanceScalingScaleInStrategyType",
     "ManagedInstanceScalingStatusType",
     "MetricSetSourceType",
     "MlToolsType",
@@ -768,6 +771,7 @@ AutoMLSortByType = Literal["CreationTime", "Name", "Status"]
 AutoMLSortOrderType = Literal["Ascending", "Descending"]
 AutoMountHomeEFSType = Literal["DefaultAsDomain", "Disabled", "Enabled"]
 AutotuneModeType = Literal["Enabled"]
+AvailabilityZoneBalanceEnforcementModeType = Literal["PERMISSIVE"]
 AwsManagedHumanLoopRequestSourceType = Literal[
     "AWS/Rekognition/DetectModerationLabels/Image/V3", "AWS/Textract/AnalyzeDocument/Forms/V1"
 ]
@@ -961,6 +965,7 @@ ClusterInstanceTypeType = Literal[
     "ml.p6-b200.48xlarge",
     "ml.p6-b300.48xlarge",
     "ml.p6e-gb200.36xlarge",
+    "ml.r5d.16xlarge",
     "ml.r6i.12xlarge",
     "ml.r6i.16xlarge",
     "ml.r6i.24xlarge",
@@ -1123,6 +1128,7 @@ ImageVersionStatusType = Literal[
     "CREATED", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING"
 ]
 InferenceComponentCapacitySizeTypeType = Literal["CAPACITY_PERCENT", "COPY_COUNT"]
+InferenceComponentPlacementStrategyType = Literal["BINPACK", "SPREAD"]
 InferenceComponentSortKeyType = Literal["CreationTime", "Name", "Status"]
 InferenceComponentStatusType = Literal["Creating", "Deleting", "Failed", "InService", "Updating"]
 InferenceExecutionModeType = Literal["Direct", "Serial"]
@@ -1452,6 +1458,7 @@ MIGProfileTypeType = Literal[
     "mig-7g.80gb",
 ]
 MaintenanceStatusType = Literal["MaintenanceComplete", "MaintenanceFailed", "MaintenanceInProgress"]
+ManagedInstanceScalingScaleInStrategyType = Literal["CONSOLIDATION", "IDLE_RELEASE"]
 ManagedInstanceScalingStatusType = Literal["DISABLED", "ENABLED"]
 MetricSetSourceType = Literal["Test", "Train", "Validation"]
 MlToolsType = Literal[
@@ -2688,6 +2695,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -2923,6 +2931,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -2958,6 +2967,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -2970,6 +2980,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

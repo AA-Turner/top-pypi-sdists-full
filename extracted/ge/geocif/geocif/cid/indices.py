@@ -44,6 +44,9 @@ def standardize_dataframe(df: pd.DataFrame, vi_var: str) -> pd.DataFrame:
         "cpc_tmin": "tasmin",
         "cpc_precip": "pr",
         "chirps": "pr",  # if present, unify with "pr"
+        "daymet_tmax": "tasmax",
+        "daymet_tmin": "tasmin",
+        "daymet_prcp": "pr",
         "snow": "snd",
         "esi_4wk": "esi_4wk",
         "region": "adm1_name",
@@ -557,6 +560,30 @@ class CEIs:
             return pd.concat(frames_region_and_stage, ignore_index=True)
         return pd.DataFrame()
 
+    def _canonical_season_months(self, key: tuple[str, str]) -> set:
+        """
+        Return the set of calendar months that comprise the full crop season
+        for ``key = (adm0, adm1)``, drawn from the most recent **completed**
+        historical harvest year.
+
+        This is used to widen the FLDAS in-season mask so that forecast leads
+        (LEAD1..LEAD5) targeting future months still pass the mask when the
+        current harvest-year slice has been truncated to today by
+        ``filter_data_for_harvest_year``.
+
+        Returns an empty set if no completed historical data exists; caller
+        should fall back to ``set(df_harvest_year_region["Month"].unique())``.
+        """
+        region_hist = self.df_country_crop[
+            (self.df_country_crop["adm1_name"] == key[1]) &
+            (self.df_country_crop["Season"] < self.harvest_year)
+        ]
+        if region_hist.empty:
+            return set()
+        last_complete = int(region_hist["Season"].max())
+        ref_slice = region_hist[region_hist["Season"] == last_complete]
+        return set(int(m) for m in ref_slice["Month"].unique())
+
     def determine_stages_and_column(self, df: pd.DataFrame):
         """
         Figure out which column we’re grouping by (crop_cal, fraction_season, etc.)
@@ -827,16 +854,49 @@ class CEIs:
 
             eo_vals = df_time_period[col_name].values
 
-            # Mask FLDAS values where the forecast month falls outside the crop season
+            # FLDAS: restrict to the single most-recent init-month row in
+            # the cumulative stage window, then drop the value entirely if
+            # its forecast target month falls outside the crop season.
+            #
+            # Per FF2 STM §6.1.1, each FLDAS file is the forecast issued at
+            # that month's initialization: lead-N targets month init+N. The
+            # user-facing semantic is "use the latest FLDAS file", i.e. for
+            # stage window [Apr..Jul] the row we care about is Jul's file
+            # and its six lead columns describe Jul..Dec target months.
+            #
+            # Previously this branch computed a MEAN over every init-month
+            # row in the window, which mixed multiple forecast targets into
+            # a single feature and introduced a train/inference sample-count
+            # asymmetry on the current year (df_harvest_year_region is
+            # capped at time <= today by filter_data_for_harvest_year, so
+            # the inference mean averaged fewer months than the training
+            # mean). Restricting to the latest init row removes both
+            # problems: a single value per (stage, lead), with a deterministic
+            # target month independent of how much of the season has elapsed.
             if var == "FLDAS" and "Month" in df_time_period.columns:
+                if df_time_period.empty:
+                    continue
+                # Latest init-month row by absolute time (handles year-wrap
+                # seasons like Nov-Jul where max(Month) is wrong).
+                if "time" in df_time_period.columns:
+                    latest_idx = df_time_period["time"].idxmax()
+                else:
+                    latest_idx = df_time_period["Month"].idxmax()
+                latest_row = df_time_period.loc[latest_idx]
+                init_month = int(latest_row["Month"])
+
                 lead = int(iname.rsplit("LEAD", 1)[1])
-                season_months = set(df_harvest_year_region["Month"].unique())
-                months = df_time_period["Month"].values
-                forecast_months = ((months - 1 + lead) % 12) + 1
-                valid = np.isin(forecast_months, list(season_months))
-                if not valid.any():
-                    continue  # lead entirely out of season for this stage
-                eo_vals = np.where(valid, eo_vals, np.nan)
+                canonical = self._canonical_season_months(key)
+                if canonical:
+                    season_months = canonical
+                else:
+                    # Fallback: no historical data available — preserve legacy behavior
+                    season_months = set(df_harvest_year_region["Month"].unique())
+                target_month = ((init_month - 1 + lead) % 12) + 1
+                if target_month not in season_months:
+                    continue  # forecast target outside crop season
+
+                eo_vals = np.array([latest_row[col_name]], dtype=float)
 
             # Derive the numeric aggregator from iname: e.g. if it ends with MIN, MAX, etc.
             aggregator = None

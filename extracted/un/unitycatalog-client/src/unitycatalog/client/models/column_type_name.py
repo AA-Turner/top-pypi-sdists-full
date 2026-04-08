@@ -43,6 +43,7 @@ class ColumnTypeName(str, Enum):
     ARRAY = 'ARRAY'
     STRUCT = 'STRUCT'
     MAP = 'MAP'
+    VARIANT = 'VARIANT'
     CHAR = 'CHAR'
     NULL = 'NULL'
     USER_DEFINED_TYPE = 'USER_DEFINED_TYPE'

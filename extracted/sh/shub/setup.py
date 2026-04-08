@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='shub',
-    version='2.16.0',
+    version='2.17.0',
     packages=find_packages(exclude=('tests', 'tests.*')),
     url="https://shub.readthedocs.io/en/stable/",
     description='Scrapinghub Command Line Client',
@@ -18,7 +18,7 @@ setup(
     },
     include_package_data=True,
     zip_safe=False,
-    python_requires='>=3.9',
+    python_requires='>=3.10',
     install_requires=[
         'click',
         'docker',
@@ -39,7 +39,6 @@ setup(
         'Natural Language :: English',
         'License :: OSI Approved :: BSD License',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',

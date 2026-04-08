@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: unique-toolkit
-Version: 1.68.13
+Version: 1.69.0
 Summary: 
 Author: Cedric Klinkert, Martin Fadler, Sadique Sheik, Fabian Schläpfer, Pascal Hauri, Ejiroghene Oki-Peter, Rami Azouz, Ricardo Visini, Sanzio Monti
 Author-email: Cedric Klinkert <cedric.klinkert@unique.ch>, Martin Fadler <martin.fadler@unique.ch>, Sadique Sheik <sadique@unique.ch>, Fabian Schläpfer <fabian@unique.ch>, Pascal Hauri <pascal@unique.ch>, Ejiroghene Oki-Peter <oki-peter.ejiroghene@unique.ai>, Rami Azouz <rami.ext@unique.ch>, Ricardo Visini <ricardo.visini@unique.ch>, Sanzio Monti <sanzio.monti@unique.ai>
@@ -38,9 +38,11 @@ Requires-Dist: openai>=1.105.0,<2 ; extra == 'langchain'
 Requires-Dist: langchain>=1.0.0,<2 ; extra == 'langchain'
 Requires-Dist: langchain-openai>=0.3.28 ; extra == 'langchain'
 Requires-Dist: langchain-core>=1.0.0,<2 ; extra == 'langchain'
+Requires-Dist: prometheus-client>=0.24.1,<1 ; extra == 'monitoring'
 Requires-Python: >=3.12
 Provides-Extra: fastapi
 Provides-Extra: langchain
+Provides-Extra: monitoring
 Description-Content-Type: text/markdown
 
 # Unique Toolkit

@@ -129,8 +129,8 @@ def sync_detailed(
 
     Args:
         organization_id (UUID):
-        limit (Union[Unset, int]):  Default: 100.
-        offset (Union[Unset, int]):  Default: 0.
+        limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
+        offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -177,8 +177,8 @@ def sync(
 
     Args:
         organization_id (UUID):
-        limit (Union[Unset, int]):  Default: 100.
-        offset (Union[Unset, int]):  Default: 0.
+        limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
+        offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -220,8 +220,8 @@ async def asyncio_detailed(
 
     Args:
         organization_id (UUID):
-        limit (Union[Unset, int]):  Default: 100.
-        offset (Union[Unset, int]):  Default: 0.
+        limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
+        offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -266,8 +266,8 @@ async def asyncio(
 
     Args:
         organization_id (UUID):
-        limit (Union[Unset, int]):  Default: 100.
-        offset (Union[Unset, int]):  Default: 0.
+        limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
+        offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

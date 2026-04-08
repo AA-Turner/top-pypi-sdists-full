@@ -40,6 +40,8 @@ def build_runtime_context(
     interface: str = "web",
     working_dir: str | None = None,
     tls_enabled: bool = False,
+    background_suggest_seconds: int = 0,
+    detach_suggest_seconds: int = 0,
 ) -> str:
     """Build an XML-tagged runtime context block for the system prompt."""
     from anteroom import __version__ as version
@@ -105,6 +107,23 @@ def build_runtime_context(
         lines.append(f"\nWorking directory: {working_dir}")
     if interface == "web":
         lines.append(f"\nTLS: {'enabled' if tls_enabled else 'disabled'}")
+
+    # Execution surface routing advisory (#1317)
+    if background_suggest_seconds > 0 or detach_suggest_seconds > 0:
+        lines.append("")
+        lines.append("Execution surface routing:")
+        if background_suggest_seconds > 0:
+            lines.append(
+                f"  - For shell commands expected to take over {background_suggest_seconds}s, "
+                "use background: true to keep the conversation responsive."
+            )
+        if detach_suggest_seconds > 0:
+            lines.append(
+                f"  - For AI work expected to take over {detach_suggest_seconds}s with no required "
+                "inline return, use detach: true on run_agent."
+            )
+        lines.append("  - For multi-step pipelines with checkpoints, prefer a workflow definition.")
+        lines.append("  - When you choose an execution surface, briefly tell the user why.")
 
     lines.append("</anteroom_context>")
     return "\n".join(lines)
@@ -359,8 +378,11 @@ class CliConfig:
     stall_warning_threshold: float = 15.0  # seconds before showing full stall warning
     stall_throughput_threshold: float = 30.0  # chars/sec below which "slow" indicator shows
     tool_output_max_chars: int = 2000  # max chars per tool result before truncation
+    tool_replay_max_chars: int = 2000  # max chars per tool result on conversation resume
     file_reference_max_chars: int = 100_000  # max chars from @file references
     model_context_window: int = 128_000  # model context window size for usage bar
+    background_suggest_seconds: int = 30  # advisory threshold for background shell tasks (0 = disabled)
+    detach_suggest_seconds: int = 120  # advisory threshold for detached subagents (0 = disabled)
     planning: PlanningConfig = field(default_factory=PlanningConfig)
     usage: UsageConfig = field(default_factory=UsageConfig)
     skills: SkillsConfig = field(default_factory=SkillsConfig)
@@ -1410,6 +1432,18 @@ def load_config(
     except (ValueError, TypeError):
         tool_output_max_chars = 2000
     try:
+        tool_replay_max_chars = max(
+            100,
+            int(
+                cli_raw.get(
+                    "tool_replay_max_chars",
+                    os.environ.get("AI_CHAT_TOOL_REPLAY_MAX_CHARS", 2000),
+                )
+            ),
+        )
+    except (ValueError, TypeError):
+        tool_replay_max_chars = 2000
+    try:
         file_reference_max_chars = max(1000, min(10_000_000, int(cli_raw.get("file_reference_max_chars", 100_000))))
     except (ValueError, TypeError):
         file_reference_max_chars = 100_000
@@ -1417,6 +1451,32 @@ def load_config(
         model_context_window = max(1000, min(2_000_000, int(cli_raw.get("model_context_window", 128_000))))
     except (ValueError, TypeError):
         model_context_window = 128_000
+
+    # Execution surface routing thresholds (#1317)
+    try:
+        background_suggest_seconds = max(
+            0,
+            int(
+                cli_raw.get(
+                    "background_suggest_seconds",
+                    os.environ.get("AI_CHAT_BACKGROUND_SUGGEST_SECONDS", 30),
+                )
+            ),
+        )
+    except (ValueError, TypeError):
+        background_suggest_seconds = 30
+    try:
+        detach_suggest_seconds = max(
+            0,
+            int(
+                cli_raw.get(
+                    "detach_suggest_seconds",
+                    os.environ.get("AI_CHAT_DETACH_SUGGEST_SECONDS", 120),
+                )
+            ),
+        )
+    except (ValueError, TypeError):
+        detach_suggest_seconds = 120
 
     planning_raw = cli_raw.get("planning", {})
     if not isinstance(planning_raw, dict):
@@ -1561,8 +1621,11 @@ def load_config(
         stall_warning_threshold=stall_warning_threshold,
         stall_throughput_threshold=stall_throughput_threshold,
         tool_output_max_chars=tool_output_max_chars,
+        tool_replay_max_chars=tool_replay_max_chars,
         file_reference_max_chars=file_reference_max_chars,
         model_context_window=model_context_window,
+        background_suggest_seconds=background_suggest_seconds,
+        detach_suggest_seconds=detach_suggest_seconds,
         planning=planning_config,
         usage=usage_config,
         skills=skills_config,

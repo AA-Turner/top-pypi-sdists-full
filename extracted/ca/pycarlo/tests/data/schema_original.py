@@ -27455,6 +27455,7 @@ class GithubAppInstallation(sgqlc.types.Type):
         "settings_link",
         "gh_org",
         "display_name",
+        "pr_agent_enabled",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Internal Github installation uuid"""
@@ -27475,6 +27476,9 @@ class GithubAppInstallation(sgqlc.types.Type):
     """GitHub organization name"""
 
     display_name = sgqlc.types.Field(String, graphql_name="displayName")
+
+    pr_agent_enabled = sgqlc.types.Field(Boolean, graphql_name="prAgentEnabled")
+    """Whether PR risk assessment is enabled for this account."""
 
 
 class GithubPullRequestConnection(sgqlc.types.relay.Connection):
@@ -72689,6 +72693,7 @@ class Query(sgqlc.types.Type):
         graphql_name="getInvitesInAccount",
         args=sgqlc.types.ArgDict(
             (
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=100)),
                 (
                     "roles",
                     sgqlc.types.Arg(
@@ -72698,7 +72703,6 @@ class Query(sgqlc.types.Type):
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
                 ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
                 ("state", sgqlc.types.Arg(String, graphql_name="state", default=None)),
             )
@@ -72706,11 +72710,11 @@ class Query(sgqlc.types.Type):
     )
     """Arguments:
 
+    * `first` (`Int`)None (default: `100`)
     * `roles` (`[String]`): Filter by user role membership
     * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
-    * `first` (`Int`)None
     * `last` (`Int`)None
     * `state` (`String`)None
     """

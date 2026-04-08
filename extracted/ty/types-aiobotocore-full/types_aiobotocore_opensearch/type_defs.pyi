@@ -29,6 +29,7 @@ from .literals import (
     ApplicationStatusType,
     AutoTuneDesiredStateType,
     AutoTuneStateType,
+    CapabilityStatusType,
     ConfigChangeStatusType,
     ConnectionModeType,
     DataSourceStatusType,
@@ -44,6 +45,12 @@ from .literals import (
     InboundConnectionStatusCodeType,
     IndexStatusType,
     InitiatedByType,
+    InsightEntityTypeType,
+    InsightFieldTypeType,
+    InsightPriorityLevelType,
+    InsightSortOrderType,
+    InsightStatusType,
+    InsightTypeType,
     IPAddressTypeType,
     LogTypeType,
     MaintenanceStatusType,
@@ -132,6 +139,10 @@ __all__ = (
     "CancelServiceSoftwareUpdateRequestTypeDef",
     "CancelServiceSoftwareUpdateResponseTypeDef",
     "CancelledChangePropertyTypeDef",
+    "CapabilityBaseRequestConfigTypeDef",
+    "CapabilityBaseResponseConfigTypeDef",
+    "CapabilityExtendedResponseConfigTypeDef",
+    "CapabilityFailureTypeDef",
     "ChangeProgressDetailsTypeDef",
     "ChangeProgressStageTypeDef",
     "ChangeProgressStatusDetailsTypeDef",
@@ -179,6 +190,8 @@ __all__ = (
     "DeleteVpcEndpointResponseTypeDef",
     "DeploymentStrategyOptionsStatusTypeDef",
     "DeploymentStrategyOptionsTypeDef",
+    "DeregisterCapabilityRequestTypeDef",
+    "DeregisterCapabilityResponseTypeDef",
     "DescribeDomainAutoTunesRequestTypeDef",
     "DescribeDomainAutoTunesResponseTypeDef",
     "DescribeDomainChangeProgressRequestTypeDef",
@@ -197,6 +210,8 @@ __all__ = (
     "DescribeDryRunProgressResponseTypeDef",
     "DescribeInboundConnectionsRequestTypeDef",
     "DescribeInboundConnectionsResponseTypeDef",
+    "DescribeInsightDetailsRequestTypeDef",
+    "DescribeInsightDetailsResponseTypeDef",
     "DescribeInstanceTypeLimitsRequestTypeDef",
     "DescribeInstanceTypeLimitsResponseTypeDef",
     "DescribeOutboundConnectionsRequestTypeDef",
@@ -238,6 +253,8 @@ __all__ = (
     "FilterTypeDef",
     "GetApplicationRequestTypeDef",
     "GetApplicationResponseTypeDef",
+    "GetCapabilityRequestTypeDef",
+    "GetCapabilityResponseTypeDef",
     "GetCompatibleVersionsRequestTypeDef",
     "GetCompatibleVersionsResponseTypeDef",
     "GetDataSourceRequestTypeDef",
@@ -265,6 +282,10 @@ __all__ = (
     "IdentityCenterOptionsTypeDef",
     "InboundConnectionStatusTypeDef",
     "InboundConnectionTypeDef",
+    "InsightEntityTypeDef",
+    "InsightFieldTypeDef",
+    "InsightTimeRangeTypeDef",
+    "InsightTypeDef",
     "InstanceCountLimitsTypeDef",
     "InstanceLimitsTypeDef",
     "InstanceTypeDetailsTypeDef",
@@ -285,6 +306,8 @@ __all__ = (
     "ListDomainNamesResponseTypeDef",
     "ListDomainsForPackageRequestTypeDef",
     "ListDomainsForPackageResponseTypeDef",
+    "ListInsightsRequestTypeDef",
+    "ListInsightsResponseTypeDef",
     "ListInstanceTypeDetailsRequestTypeDef",
     "ListInstanceTypeDetailsResponseTypeDef",
     "ListPackagesForDomainRequestTypeDef",
@@ -327,11 +350,14 @@ __all__ = (
     "PackageVersionHistoryTypeDef",
     "PaginatorConfigTypeDef",
     "PluginPropertiesTypeDef",
+    "PrometheusDirectQueryDataSourceTypeDef",
     "PurchaseReservedInstanceOfferingRequestTypeDef",
     "PurchaseReservedInstanceOfferingResponseTypeDef",
     "PutDefaultApplicationSettingRequestTypeDef",
     "PutDefaultApplicationSettingResponseTypeDef",
     "RecurringChargeTypeDef",
+    "RegisterCapabilityRequestTypeDef",
+    "RegisterCapabilityResponseTypeDef",
     "RejectInboundConnectionRequestTypeDef",
     "RejectInboundConnectionResponseTypeDef",
     "RemoveTagsRequestTypeDef",
@@ -546,6 +572,19 @@ class ServiceSoftwareOptionsTypeDef(TypedDict):
     AutomatedUpdateDate: NotRequired[datetime]
     OptionalDeployment: NotRequired[bool]
 
+class CapabilityBaseRequestConfigTypeDef(TypedDict):
+    aiConfig: NotRequired[Mapping[str, Any]]
+
+class CapabilityBaseResponseConfigTypeDef(TypedDict):
+    aiConfig: NotRequired[dict[str, Any]]
+
+class CapabilityExtendedResponseConfigTypeDef(TypedDict):
+    aiConfig: NotRequired[dict[str, Any]]
+
+class CapabilityFailureTypeDef(TypedDict):
+    reason: NotRequired[Literal["KMS_KEY_INSUFFICIENT_PERMISSION"]]
+    details: NotRequired[str]
+
 class ChangeProgressDetailsTypeDef(TypedDict):
     ChangeId: NotRequired[str]
     Message: NotRequired[str]
@@ -710,6 +749,10 @@ class VpcEndpointSummaryTypeDef(TypedDict):
     DomainArn: NotRequired[str]
     Status: NotRequired[VpcEndpointStatusType]
 
+class DeregisterCapabilityRequestTypeDef(TypedDict):
+    applicationId: str
+    capabilityName: str
+
 class DescribeDomainAutoTunesRequestTypeDef(TypedDict):
     DomainName: str
     MaxResults: NotRequired[int]
@@ -757,6 +800,22 @@ class FilterTypeDef(TypedDict):
     Name: NotRequired[str]
     Values: NotRequired[Sequence[str]]
 
+InsightEntityTypeDef = TypedDict(
+    "InsightEntityTypeDef",
+    {
+        "Type": InsightEntityTypeType,
+        "Value": NotRequired[str],
+    },
+)
+InsightFieldTypeDef = TypedDict(
+    "InsightFieldTypeDef",
+    {
+        "Name": str,
+        "Type": InsightFieldTypeType,
+        "Value": str,
+    },
+)
+
 class DescribeInstanceTypeLimitsRequestTypeDef(TypedDict):
     InstanceType: OpenSearchPartitionInstanceTypeType
     EngineVersion: str
@@ -783,6 +842,10 @@ class VpcEndpointErrorTypeDef(TypedDict):
     VpcEndpointId: NotRequired[str]
     ErrorCode: NotRequired[VpcEndpointErrorCodeType]
     ErrorMessage: NotRequired[str]
+
+class PrometheusDirectQueryDataSourceTypeDef(TypedDict):
+    RoleArn: str
+    WorkspaceArn: str
 
 class SecurityLakeDirectQueryDataSourceTypeDef(TypedDict):
     RoleArn: str
@@ -844,6 +907,10 @@ GetApplicationRequestTypeDef = TypedDict(
     },
 )
 
+class GetCapabilityRequestTypeDef(TypedDict):
+    applicationId: str
+    capabilityName: str
+
 class GetCompatibleVersionsRequestTypeDef(TypedDict):
     DomainName: NotRequired[str]
 
@@ -878,6 +945,24 @@ class GetUpgradeStatusRequestTypeDef(TypedDict):
 class InboundConnectionStatusTypeDef(TypedDict):
     StatusCode: NotRequired[InboundConnectionStatusCodeType]
     Message: NotRequired[str]
+
+class InsightTimeRangeTypeDef(TypedDict):
+    From: int
+    To: int
+
+InsightTypeDef = TypedDict(
+    "InsightTypeDef",
+    {
+        "InsightId": NotRequired[str],
+        "DisplayName": NotRequired[str],
+        "Type": NotRequired[InsightTypeType],
+        "Priority": NotRequired[InsightPriorityLevelType],
+        "Status": NotRequired[InsightStatusType],
+        "CreationTime": NotRequired[datetime],
+        "UpdateTime": NotRequired[datetime],
+        "IsExperimental": NotRequired[bool],
+    },
+)
 
 class InstanceCountLimitsTypeDef(TypedDict):
     MinimumInstanceCount: NotRequired[int]
@@ -1124,6 +1209,10 @@ class DeleteIndexResponseTypeDef(TypedDict):
     Status: IndexStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeregisterCapabilityResponseTypeDef(TypedDict):
+    status: CapabilityStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1236,6 +1325,26 @@ class CancelServiceSoftwareUpdateResponseTypeDef(TypedDict):
 
 class StartServiceSoftwareUpdateResponseTypeDef(TypedDict):
     ServiceSoftwareOptions: ServiceSoftwareOptionsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class RegisterCapabilityRequestTypeDef(TypedDict):
+    applicationId: str
+    capabilityName: str
+    capabilityConfig: CapabilityBaseRequestConfigTypeDef
+
+class RegisterCapabilityResponseTypeDef(TypedDict):
+    capabilityName: str
+    applicationId: str
+    status: CapabilityStatusType
+    capabilityConfig: CapabilityBaseResponseConfigTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetCapabilityResponseTypeDef(TypedDict):
+    capabilityName: str
+    applicationId: str
+    status: CapabilityStatusType
+    capabilityConfig: CapabilityExtendedResponseConfigTypeDef
+    failures: list[CapabilityFailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpgradeDomainResponseTypeDef(TypedDict):
@@ -1426,6 +1535,15 @@ class DescribeOutboundConnectionsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class DescribeInsightDetailsRequestTypeDef(TypedDict):
+    Entity: InsightEntityTypeDef
+    InsightId: str
+    ShowHtmlContent: NotRequired[bool]
+
+class DescribeInsightDetailsResponseTypeDef(TypedDict):
+    Fields: list[InsightFieldTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribePackagesRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[DescribePackagesFilterTypeDef]]
     MaxResults: NotRequired[int]
@@ -1434,6 +1552,7 @@ class DescribePackagesRequestTypeDef(TypedDict):
 class DirectQueryDataSourceTypeTypeDef(TypedDict):
     CloudWatchLog: NotRequired[CloudWatchDirectQueryDataSourceTypeDef]
     SecurityLake: NotRequired[SecurityLakeDirectQueryDataSourceTypeDef]
+    Prometheus: NotRequired[PrometheusDirectQueryDataSourceTypeDef]
 
 class ListDomainNamesResponseTypeDef(TypedDict):
     DomainNames: list[DomainInfoTypeDef]
@@ -1466,6 +1585,18 @@ class DryRunProgressStatusTypeDef(TypedDict):
     CreationDate: str
     UpdateDate: str
     ValidationFailures: NotRequired[list[ValidationFailureTypeDef]]
+
+class ListInsightsRequestTypeDef(TypedDict):
+    Entity: InsightEntityTypeDef
+    TimeRange: NotRequired[InsightTimeRangeTypeDef]
+    SortOrder: NotRequired[InsightSortOrderType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ListInsightsResponseTypeDef(TypedDict):
+    Insights: list[InsightTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class InstanceLimitsTypeDef(TypedDict):
     InstanceCountLimits: NotRequired[InstanceCountLimitsTypeDef]
@@ -1682,8 +1813,8 @@ class UpdateDataSourceRequestTypeDef(TypedDict):
 class AddDirectQueryDataSourceRequestTypeDef(TypedDict):
     DataSourceName: str
     DataSourceType: DirectQueryDataSourceTypeTypeDef
-    OpenSearchArns: Sequence[str]
     Description: NotRequired[str]
+    OpenSearchArns: NotRequired[Sequence[str]]
     DataSourceAccessPolicy: NotRequired[str]
     TagList: NotRequired[Sequence[TagTypeDef]]
 
@@ -1707,8 +1838,8 @@ class GetDirectQueryDataSourceResponseTypeDef(TypedDict):
 class UpdateDirectQueryDataSourceRequestTypeDef(TypedDict):
     DataSourceName: str
     DataSourceType: DirectQueryDataSourceTypeTypeDef
-    OpenSearchArns: Sequence[str]
     Description: NotRequired[str]
+    OpenSearchArns: NotRequired[Sequence[str]]
     DataSourceAccessPolicy: NotRequired[str]
 
 class CreateVpcEndpointResponseTypeDef(TypedDict):

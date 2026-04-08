@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_timestream_influxdb.type_defs import ResponseMetadataTypeDef
+    from types_aiobotocore_timestream_influxdb.type_defs import ClusterConfigurationTypeDef
 
-    data: ResponseMetadataTypeDef = ...
+    data: ClusterConfigurationTypeDef = ...
     ```
 """
 
@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 
 from .literals import (
     ClusterStatusType,
@@ -41,6 +42,7 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "ClusterConfigurationTypeDef",
     "CreateDbClusterInputTypeDef",
     "CreateDbClusterOutputTypeDef",
     "CreateDbInstanceInputTypeDef",
@@ -81,6 +83,7 @@ __all__ = (
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "LogDeliveryConfigurationTypeDef",
+    "MaintenanceScheduleTypeDef",
     "PaginatorConfigTypeDef",
     "ParametersTypeDef",
     "PercentOrAbsoluteLongTypeDef",
@@ -97,6 +100,15 @@ __all__ = (
     "UpdateDbInstanceInputTypeDef",
     "UpdateDbInstanceOutputTypeDef",
 )
+
+class ClusterConfigurationTypeDef(TypedDict):
+    ingestQueryInstances: NotRequired[int]
+    queryOnlyInstances: NotRequired[int]
+    dedicatedCompactor: NotRequired[bool]
+
+class MaintenanceScheduleTypeDef(TypedDict):
+    timezone: str
+    preferredMaintenanceWindow: str
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -448,6 +460,7 @@ class CreateDbClusterInputTypeDef(TypedDict):
     deploymentType: NotRequired[Literal["MULTI_NODE_READ_REPLICAS"]]
     failoverMode: NotRequired[FailoverModeType]
     logDeliveryConfiguration: NotRequired[LogDeliveryConfigurationTypeDef]
+    maintenanceSchedule: NotRequired[MaintenanceScheduleTypeDef]
     tags: NotRequired[Mapping[str, str]]
 
 class CreateDbInstanceInputTypeDef(TypedDict):
@@ -465,6 +478,7 @@ class CreateDbInstanceInputTypeDef(TypedDict):
     dbParameterGroupIdentifier: NotRequired[str]
     deploymentType: NotRequired[DeploymentTypeType]
     logDeliveryConfiguration: NotRequired[LogDeliveryConfigurationTypeDef]
+    maintenanceSchedule: NotRequired[MaintenanceScheduleTypeDef]
     tags: NotRequired[Mapping[str, str]]
     port: NotRequired[int]
     networkType: NotRequired[NetworkTypeType]
@@ -494,6 +508,9 @@ CreateDbInstanceOutputTypeDef = TypedDict(
         "dbClusterId": str,
         "instanceMode": InstanceModeType,
         "instanceModes": list[InstanceModeType],
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
+        "lastMaintenanceTime": datetime,
+        "nextMaintenanceTime": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -522,6 +539,9 @@ DeleteDbInstanceOutputTypeDef = TypedDict(
         "dbClusterId": str,
         "instanceMode": InstanceModeType,
         "instanceModes": list[InstanceModeType],
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
+        "lastMaintenanceTime": datetime,
+        "nextMaintenanceTime": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -544,10 +564,14 @@ GetDbClusterOutputTypeDef = TypedDict(
         "publiclyAccessible": bool,
         "dbParameterGroupIdentifier": str,
         "logDeliveryConfiguration": LogDeliveryConfigurationTypeDef,
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
+        "lastMaintenanceTime": datetime,
+        "nextMaintenanceTime": datetime,
         "influxAuthParametersSecretArn": str,
         "vpcSubnetIds": list[str],
         "vpcSecurityGroupIds": list[str],
         "failoverMode": FailoverModeType,
+        "clusterConfiguration": ClusterConfigurationTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -576,6 +600,9 @@ GetDbInstanceOutputTypeDef = TypedDict(
         "dbClusterId": str,
         "instanceMode": InstanceModeType,
         "instanceModes": list[InstanceModeType],
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
+        "lastMaintenanceTime": datetime,
+        "nextMaintenanceTime": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -604,6 +631,9 @@ RebootDbInstanceOutputTypeDef = TypedDict(
         "dbClusterId": str,
         "instanceMode": InstanceModeType,
         "instanceModes": list[InstanceModeType],
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
+        "lastMaintenanceTime": datetime,
+        "nextMaintenanceTime": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -615,6 +645,7 @@ class UpdateDbClusterInputTypeDef(TypedDict):
     port: NotRequired[int]
     dbInstanceType: NotRequired[DbInstanceTypeType]
     failoverMode: NotRequired[FailoverModeType]
+    maintenanceSchedule: NotRequired[MaintenanceScheduleTypeDef]
 
 class UpdateDbInstanceInputTypeDef(TypedDict):
     identifier: str
@@ -625,6 +656,7 @@ class UpdateDbInstanceInputTypeDef(TypedDict):
     deploymentType: NotRequired[DeploymentTypeType]
     dbStorageType: NotRequired[DbStorageTypeType]
     allocatedStorage: NotRequired[int]
+    maintenanceSchedule: NotRequired[MaintenanceScheduleTypeDef]
 
 UpdateDbInstanceOutputTypeDef = TypedDict(
     "UpdateDbInstanceOutputTypeDef",
@@ -651,6 +683,9 @@ UpdateDbInstanceOutputTypeDef = TypedDict(
         "dbClusterId": str,
         "instanceMode": InstanceModeType,
         "instanceModes": list[InstanceModeType],
+        "maintenanceSchedule": MaintenanceScheduleTypeDef,
+        "lastMaintenanceTime": datetime,
+        "nextMaintenanceTime": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

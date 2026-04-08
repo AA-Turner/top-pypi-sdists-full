@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: syrupy
-Version: 2026.4.6.124150327040
+Version: 5.1.0
 Summary: Pytest Snapshot Test Utility
-Project-URL: repository, https://github.com/syrupy-project/syrupy
-Author: Noah Ulster
 License-Expression: MIT
 License-File: LICENSE
+Author: Noah Ulster
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
@@ -15,11 +15,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.10
-Requires-Dist: pytest>=8.0.0
+Requires-Dist: pytest (>=8.0.0)
+Project-URL: Repository, https://github.com/syrupy-project/syrupy
 Description-Content-Type: text/markdown
 
 # syrupy
@@ -680,9 +681,6 @@ To develop locally, clone this repository and run `. script/bootstrap` to instal
       <td align="center" valign="top" width="14.28%"><a href="http://serl.it/"><img src="https://avatars.githubusercontent.com/u/2742655?v=4?s=100" width="100px;" alt="Sergio Livi"/><br /><sub><b>Sergio Livi</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/commits?author=serl" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://bwrob.github.io/"><img src="https://avatars.githubusercontent.com/u/43605200?v=4?s=100" width="100px;" alt="Bartosz Marcin Wróblewski"/><br /><sub><b>Bartosz Marcin Wróblewski</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/commits?author=bwrob" title="Code">💻</a></td>
     </tr>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="http://www.drmaciver.com"><img src="https://avatars.githubusercontent.com/u/28623?v=4?s=100" width="100px;" alt="David R. MacIver"/><br /><sub><b>David R. MacIver</b></sub></a><br /><a href="https://github.com/syrupy-project/syrupy/issues?q=author%3ADRMacIver" title="Bug reports">🐛</a></td>
-    </tr>
   </tbody>
 </table>
 
@@ -700,3 +698,4 @@ This section is automatically generated via tagging the all-contributors bot in 
 ## License
 
 Syrupy is licensed under [MIT](https://github.com/syrupy-project/syrupy/tree/main/LICENSE).
+

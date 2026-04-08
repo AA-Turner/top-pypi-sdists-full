@@ -81,6 +81,13 @@ class PoolDetails:
 
 
 @dataclass
+class TeamDetails:
+    """Represents the details of a team."""
+
+    name: str | None = None
+
+
+@dataclass
 class VariableDetails:
     """Represents the details of a variable."""
 

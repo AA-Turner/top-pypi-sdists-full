@@ -226,6 +226,7 @@ class AccountTypeDef(TypedDict):
     Name: NotRequired[str]
     Status: NotRequired[AccountStatusType]
     State: NotRequired[AccountStateType]
+    Paths: NotRequired[list[str]]
     JoinedMethod: NotRequired[AccountJoinedMethodType]
     JoinedTimestamp: NotRequired[datetime]
 
@@ -276,6 +277,7 @@ class OrganizationalUnitTypeDef(TypedDict):
     Id: NotRequired[str]
     Arn: NotRequired[str]
     Name: NotRequired[str]
+    Path: NotRequired[str]
 
 
 class DeclineHandshakeRequestTypeDef(TypedDict):

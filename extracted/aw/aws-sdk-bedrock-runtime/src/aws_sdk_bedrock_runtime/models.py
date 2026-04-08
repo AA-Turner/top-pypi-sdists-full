@@ -766,6 +766,12 @@ GET_ASYNC_INVOKE = APIOperation(
         ShapeID("aws.auth#sigv4"),
         ShapeID("smithy.api#httpBearerAuth"),
     ],
+    error_schemas=[
+        _SCHEMA_ACCESS_DENIED_EXCEPTION,
+        _SCHEMA_INTERNAL_SERVER_EXCEPTION,
+        _SCHEMA_THROTTLING_EXCEPTION,
+        _SCHEMA_VALIDATION_EXCEPTION,
+    ],
 )
 
 
@@ -1150,6 +1156,12 @@ LIST_ASYNC_INVOKES = APIOperation(
     effective_auth_schemes=[
         ShapeID("aws.auth#sigv4"),
         ShapeID("smithy.api#httpBearerAuth"),
+    ],
+    error_schemas=[
+        _SCHEMA_ACCESS_DENIED_EXCEPTION,
+        _SCHEMA_INTERNAL_SERVER_EXCEPTION,
+        _SCHEMA_THROTTLING_EXCEPTION,
+        _SCHEMA_VALIDATION_EXCEPTION,
     ],
 )
 
@@ -1554,6 +1566,16 @@ START_ASYNC_INVOKE = APIOperation(
     effective_auth_schemes=[
         ShapeID("aws.auth#sigv4"),
         ShapeID("smithy.api#httpBearerAuth"),
+    ],
+    error_schemas=[
+        _SCHEMA_ACCESS_DENIED_EXCEPTION,
+        _SCHEMA_CONFLICT_EXCEPTION,
+        _SCHEMA_INTERNAL_SERVER_EXCEPTION,
+        _SCHEMA_RESOURCE_NOT_FOUND_EXCEPTION,
+        _SCHEMA_SERVICE_QUOTA_EXCEEDED_EXCEPTION,
+        _SCHEMA_SERVICE_UNAVAILABLE_EXCEPTION,
+        _SCHEMA_THROTTLING_EXCEPTION,
+        _SCHEMA_VALIDATION_EXCEPTION,
     ],
 )
 
@@ -5658,6 +5680,15 @@ APPLY_GUARDRAIL = APIOperation(
     effective_auth_schemes=[
         ShapeID("aws.auth#sigv4"),
         ShapeID("smithy.api#httpBearerAuth"),
+    ],
+    error_schemas=[
+        _SCHEMA_ACCESS_DENIED_EXCEPTION,
+        _SCHEMA_INTERNAL_SERVER_EXCEPTION,
+        _SCHEMA_RESOURCE_NOT_FOUND_EXCEPTION,
+        _SCHEMA_SERVICE_QUOTA_EXCEEDED_EXCEPTION,
+        _SCHEMA_SERVICE_UNAVAILABLE_EXCEPTION,
+        _SCHEMA_THROTTLING_EXCEPTION,
+        _SCHEMA_VALIDATION_EXCEPTION,
     ],
 )
 
@@ -11852,6 +11883,17 @@ CONVERSE = APIOperation(
         ShapeID("aws.auth#sigv4"),
         ShapeID("smithy.api#httpBearerAuth"),
     ],
+    error_schemas=[
+        _SCHEMA_ACCESS_DENIED_EXCEPTION,
+        _SCHEMA_INTERNAL_SERVER_EXCEPTION,
+        _SCHEMA_MODEL_ERROR_EXCEPTION,
+        _SCHEMA_MODEL_NOT_READY_EXCEPTION,
+        _SCHEMA_MODEL_TIMEOUT_EXCEPTION,
+        _SCHEMA_RESOURCE_NOT_FOUND_EXCEPTION,
+        _SCHEMA_SERVICE_UNAVAILABLE_EXCEPTION,
+        _SCHEMA_THROTTLING_EXCEPTION,
+        _SCHEMA_VALIDATION_EXCEPTION,
+    ],
 )
 
 
@@ -14177,6 +14219,17 @@ CONVERSE_STREAM = APIOperation(
         ShapeID("aws.auth#sigv4"),
         ShapeID("smithy.api#httpBearerAuth"),
     ],
+    error_schemas=[
+        _SCHEMA_ACCESS_DENIED_EXCEPTION,
+        _SCHEMA_INTERNAL_SERVER_EXCEPTION,
+        _SCHEMA_MODEL_ERROR_EXCEPTION,
+        _SCHEMA_MODEL_NOT_READY_EXCEPTION,
+        _SCHEMA_MODEL_TIMEOUT_EXCEPTION,
+        _SCHEMA_RESOURCE_NOT_FOUND_EXCEPTION,
+        _SCHEMA_SERVICE_UNAVAILABLE_EXCEPTION,
+        _SCHEMA_THROTTLING_EXCEPTION,
+        _SCHEMA_VALIDATION_EXCEPTION,
+    ],
 )
 
 
@@ -14518,6 +14571,18 @@ INVOKE_MODEL = APIOperation(
     effective_auth_schemes=[
         ShapeID("aws.auth#sigv4"),
         ShapeID("smithy.api#httpBearerAuth"),
+    ],
+    error_schemas=[
+        _SCHEMA_ACCESS_DENIED_EXCEPTION,
+        _SCHEMA_INTERNAL_SERVER_EXCEPTION,
+        _SCHEMA_MODEL_ERROR_EXCEPTION,
+        _SCHEMA_MODEL_NOT_READY_EXCEPTION,
+        _SCHEMA_MODEL_TIMEOUT_EXCEPTION,
+        _SCHEMA_RESOURCE_NOT_FOUND_EXCEPTION,
+        _SCHEMA_SERVICE_QUOTA_EXCEEDED_EXCEPTION,
+        _SCHEMA_SERVICE_UNAVAILABLE_EXCEPTION,
+        _SCHEMA_THROTTLING_EXCEPTION,
+        _SCHEMA_VALIDATION_EXCEPTION,
     ],
 )
 
@@ -15122,6 +15187,19 @@ INVOKE_MODEL_WITH_BIDIRECTIONAL_STREAM = APIOperation(
     effective_auth_schemes=[
         ShapeID("aws.auth#sigv4"),
         ShapeID("smithy.api#httpBearerAuth"),
+    ],
+    error_schemas=[
+        _SCHEMA_ACCESS_DENIED_EXCEPTION,
+        _SCHEMA_INTERNAL_SERVER_EXCEPTION,
+        _SCHEMA_MODEL_ERROR_EXCEPTION,
+        _SCHEMA_MODEL_NOT_READY_EXCEPTION,
+        _SCHEMA_MODEL_STREAM_ERROR_EXCEPTION,
+        _SCHEMA_MODEL_TIMEOUT_EXCEPTION,
+        _SCHEMA_RESOURCE_NOT_FOUND_EXCEPTION,
+        _SCHEMA_SERVICE_QUOTA_EXCEEDED_EXCEPTION,
+        _SCHEMA_SERVICE_UNAVAILABLE_EXCEPTION,
+        _SCHEMA_THROTTLING_EXCEPTION,
+        _SCHEMA_VALIDATION_EXCEPTION,
     ],
 )
 
@@ -15758,6 +15836,19 @@ INVOKE_MODEL_WITH_RESPONSE_STREAM = APIOperation(
         ShapeID("aws.auth#sigv4"),
         ShapeID("smithy.api#httpBearerAuth"),
     ],
+    error_schemas=[
+        _SCHEMA_ACCESS_DENIED_EXCEPTION,
+        _SCHEMA_INTERNAL_SERVER_EXCEPTION,
+        _SCHEMA_MODEL_ERROR_EXCEPTION,
+        _SCHEMA_MODEL_NOT_READY_EXCEPTION,
+        _SCHEMA_MODEL_STREAM_ERROR_EXCEPTION,
+        _SCHEMA_MODEL_TIMEOUT_EXCEPTION,
+        _SCHEMA_RESOURCE_NOT_FOUND_EXCEPTION,
+        _SCHEMA_SERVICE_QUOTA_EXCEEDED_EXCEPTION,
+        _SCHEMA_SERVICE_UNAVAILABLE_EXCEPTION,
+        _SCHEMA_THROTTLING_EXCEPTION,
+        _SCHEMA_VALIDATION_EXCEPTION,
+    ],
 )
 
 
@@ -16162,5 +16253,13 @@ COUNT_TOKENS = APIOperation(
     effective_auth_schemes=[
         ShapeID("aws.auth#sigv4"),
         ShapeID("smithy.api#httpBearerAuth"),
+    ],
+    error_schemas=[
+        _SCHEMA_ACCESS_DENIED_EXCEPTION,
+        _SCHEMA_INTERNAL_SERVER_EXCEPTION,
+        _SCHEMA_RESOURCE_NOT_FOUND_EXCEPTION,
+        _SCHEMA_SERVICE_UNAVAILABLE_EXCEPTION,
+        _SCHEMA_THROTTLING_EXCEPTION,
+        _SCHEMA_VALIDATION_EXCEPTION,
     ],
 )

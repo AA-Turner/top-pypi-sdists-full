@@ -64,9 +64,34 @@ def _find_free_port(start: int) -> int:
 
 
 @app.command
-def version() -> None:
-    """Display the current Prefab version."""
-    console.print(f"prefab-ui [cyan]{prefab_ui.__version__}[/cyan]")
+def version(
+    *,
+    copy: Annotated[
+        bool,
+        cyclopts.Parameter("--copy", help="Copy version information to clipboard"),
+    ] = False,
+) -> None:
+    """Display version information and platform details."""
+    import platform
+
+    info = {
+        "Prefab version": prefab_ui.__version__,
+        "Python version": platform.python_version(),
+        "Platform": platform.platform(),
+    }
+
+    plain_text = "\n".join(f"{k}: {v}" for k, v in info.items())
+    console.print(plain_text)
+
+    if copy:
+        for cmd in (["pbcopy"], ["xclip", "-selection", "clipboard"]):
+            try:
+                subprocess.run(cmd, input=plain_text.encode(), check=True)
+                console.print("[green]Copied to clipboard[/green]")
+                return
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                continue
+        console.print("[yellow]Could not copy to clipboard[/yellow]")
 
 
 def _load_prefab_app(target: str) -> PrefabApp:
@@ -262,6 +287,80 @@ def serve(
         console.print("\n[yellow]Server stopped[/yellow]")
         stop_event.set()
         server.shutdown()
+
+
+@app.command
+def export(
+    target: Annotated[
+        str,
+        cyclopts.Parameter(
+            help="Path to a Python file, optionally with :attribute (e.g. app.py:my_app)",
+        ),
+    ],
+    *,
+    output: Annotated[
+        str | None,
+        cyclopts.Parameter(
+            name="--output",
+            alias="-o",
+            help="Output HTML file path (default: <input_stem>.html)",
+        ),
+    ] = None,
+    bundled: Annotated[
+        bool,
+        cyclopts.Parameter(
+            "--bundled",
+            help="Inline all JS/CSS for fully self-contained output (no network needed)",
+        ),
+    ] = False,
+    cdn_version: Annotated[
+        str | None,
+        cyclopts.Parameter(
+            "--cdn-version",
+            help="Pin CDN renderer to a specific version (default: installed version, or 'latest' for dev builds)",
+        ),
+    ] = None,
+) -> None:
+    """Export a PrefabApp as a static HTML file.
+
+    Loads a PrefabApp from a Python file, renders it to HTML, and writes
+    the result to disk. The output is a single file you can open directly,
+    embed in an iframe, or deploy to any static host.
+
+    By default the renderer loads from CDN (small file, version-pinned).
+    Pass --bundled to inline everything for offline use.
+
+    Example:
+        prefab export app.py
+        prefab export app.py -o dashboard.html
+        prefab export app.py --cdn-version 0.14.1
+        prefab export app.py:sidebar --bundled
+    """
+    from prefab_ui.renderer import RendererMode
+
+    if bundled and cdn_version is not None:
+        console.print(
+            "[bold red]Error:[/bold red] --bundled and --cdn-version cannot be used together"
+        )
+        raise SystemExit(1)
+
+    prefab_app = _load_prefab_app(target)
+
+    mode: RendererMode = "bundled" if bundled else "cdn"
+    html = prefab_app.html(renderer_mode=mode, cdn_version=cdn_version, pretty=True)
+
+    if output is None:
+        stem = Path(target.partition(":")[0]).stem
+        output = f"{stem}.html"
+
+    out_path = Path(output)
+    out_path.write_text(html, encoding="utf-8")
+
+    size_kb = out_path.stat().st_size / 1024
+    console.print(
+        f"[bold green]✓[/bold green] Exported to [cyan]{out_path}[/cyan]"
+        f" ({size_kb:.0f} KB, {'bundled' if bundled else 'CDN'})"
+    )
 
 
 @app.command

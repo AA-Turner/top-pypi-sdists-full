@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langextract
-Version: 1.2.0
+Version: 1.2.1
 Summary: LangExtract: A library for extracting structured data from language models
 Author-email: Akshay Goel <goelak@google.com>
 License-Expression: Apache-2.0

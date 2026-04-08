@@ -26,7 +26,7 @@ DEFAULT_RAY_IAM_ASSUME_ROLE_POLICY = {
 # Used for control-plane role.
 ANYSCALE_IAM_POLICY_NAME_STEADY_STATE = "Anyscale_IAM_Policy_Steady_State"
 
-# Refer to https://docs.anyscale.com/cloud-deployment/aws/manage-clouds#appendix-detailed-resource-requirements
+# Refer to https://docs.anyscale.com/administration/cloud-deployment/manage-aws-cloud
 ANYSCALE_IAM_PERMISSIONS_EC2_STEADY_STATE: Dict[str, Any] = {
     "Version": "2012-10-17",
     "Statement": [
@@ -137,7 +137,7 @@ ANYSCALE_IAM_PERMISSIONS_EC2_STEADY_STATE: Dict[str, Any] = {
 
 
 def get_anyscale_iam_permissions_ec2_restricted(cloud_id: str) -> Dict[str, Any]:
-    # Refer to https://docs.anyscale.com/cloud-deployment/aws/manage-clouds#appendix-detailed-resource-requirements
+    # Refer to https://docs.anyscale.com/administration/cloud-deployment/manage-aws-cloud
     return {
         "Version": ANYSCALE_IAM_PERMISSIONS_EC2_STEADY_STATE["Version"],
         "Statement": [

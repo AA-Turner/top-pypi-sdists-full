@@ -64,6 +64,21 @@ ENV_PHOENIX_COLLECTOR_ENDPOINT = "PHOENIX_COLLECTOR_ENDPOINT"
 The endpoint traces and evals are sent to. This must be set if the Phoenix
 server is running on a remote instance.
 """
+ENV_PHOENIX_PXI_COLLECTOR_ENDPOINT = "PHOENIX_PXI_COLLECTOR_ENDPOINT"
+"""
+Optional HTTP collector endpoint used by the server-side pxi tracer pipeline to
+mirror spans to a remote Phoenix collector in addition to local persistence.
+"""
+ENV_PHOENIX_PXI_COLLECTOR_API_KEY = "PHOENIX_PXI_COLLECTOR_API_KEY"
+"""
+Optional bearer token paired with PHOENIX_PXI_COLLECTOR_ENDPOINT for exporting
+PXI traces to a remote collector.
+"""
+ENV_PHOENIX_PXI_PROJECT_NAME = "PHOENIX_PXI_PROJECT_NAME"
+"""
+Project name used for PXI chat traces locally and when mirrored to a remote
+collector.
+"""
 ENV_PHOENIX_WORKING_DIR = "PHOENIX_WORKING_DIR"
 """
 The directory in which to save, load, and export datasets. This directory must
@@ -105,6 +120,16 @@ Phoenix supports two types of database URLs:
 
 Note that if you plan on using SQLite, it's advised to to use a persistent volume
 and simply point the PHOENIX_WORKING_DIR to that volume.
+"""
+ENV_PHOENIX_SQL_DATABASE_READ_REPLICA_URL = "PHOENIX_SQL_DATABASE_READ_REPLICA_URL"
+"""
+The connection URL for a PostgreSQL read replica. When set, read-only database
+queries (dataloaders, query resolvers, read-only REST endpoints) are routed to
+this replica instead of the primary. Ignored for SQLite deployments.
+
+Example::
+
+    PHOENIX_SQL_DATABASE_READ_REPLICA_URL=postgresql://user:pass@replica-host:5432/phoenix
 """
 ENV_PHOENIX_LOG_SQL = "PHOENIX_LOG_SQL"
 """
@@ -1217,6 +1242,18 @@ def get_env_phoenix_use_secure_cookies() -> bool:
 
 def get_env_phoenix_api_key() -> Optional[str]:
     return getenv(ENV_PHOENIX_API_KEY)
+
+
+def get_env_phoenix_pxi_collector_endpoint() -> Optional[str]:
+    return getenv(ENV_PHOENIX_PXI_COLLECTOR_ENDPOINT)
+
+
+def get_env_phoenix_pxi_collector_api_key() -> Optional[str]:
+    return getenv(ENV_PHOENIX_PXI_COLLECTOR_API_KEY)
+
+
+def get_env_phoenix_pxi_project_name() -> str:
+    return getenv(ENV_PHOENIX_PXI_PROJECT_NAME, "pxi_agent")
 
 
 class AuthSettings(NamedTuple):
@@ -2875,6 +2912,10 @@ def get_env_database_connection_str() -> str:
     return f"sqlite:///{working_dir}/phoenix.db"
 
 
+def get_env_read_replica_url() -> str | None:
+    return getenv(ENV_PHOENIX_SQL_DATABASE_READ_REPLICA_URL)
+
+
 def get_env_log_sql() -> bool:
     return _bool_val(ENV_PHOENIX_LOG_SQL, False)
 
@@ -3270,6 +3311,9 @@ def verify_server_environment_variables() -> None:
 SKLEARN_VERSION = cast(tuple[int, int], tuple(map(int, version("scikit-learn").split(".", 2)[:2])))
 PLAYGROUND_PROJECT_NAME = "playground"
 
+EPHEMERAL_EXPERIMENT_TIME_TO_LIVE_HOURS = 24
+"""The time to live for ephemeral experiments in hours."""
+
 SYSTEM_USER_ID: Optional[int] = None
 """
 The ID of the system user in the database.
@@ -3280,6 +3324,19 @@ identify the system user for authentication purposes.
 When the PHOENIX_ADMIN_SECRET is used as a bearer token in API requests, the
 request is authenticated as the system user with the user_id set to this
 SYSTEM_USER_ID value (only if this variable is not None).
+"""
+
+# Experiment execution config
+EXPERIMENT_STALE_CLAIM_TIMEOUT = timedelta(minutes=2)
+"""
+Timeout after which an experiment claim is considered stale.
+Used by ExperimentRunner for heartbeat and orphan scan.
+"""
+
+EXPERIMENT_TOGGLE_COOLDOWN = timedelta(seconds=5)
+"""
+Cooldown period between pause/resume toggles.
+Prevents rapid state thrashing that wastes work.
 """
 
 

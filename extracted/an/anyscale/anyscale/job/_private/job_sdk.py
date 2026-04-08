@@ -236,6 +236,7 @@ class PrivateJobSDK(WorkloadSDK):
                 containerfile=self.get_containerfile_contents(config.containerfile),
                 containerfile_path=config.containerfile,
                 ray_version=config.ray_version,
+                cloud_id=cloud_id,
             )
         elif config.image_uri is not None:
             build_id = self._image_sdk.registery_image(
@@ -255,6 +256,7 @@ class PrivateJobSDK(WorkloadSDK):
                         name=f"image-for-job-{name}",
                         base_build_id=self.client.get_default_build_id(),
                         requirements=requirements,
+                        cloud_id=cloud_id,
                     )
         else:
             requirements_path_to_be_populated_in_runtime_env = (

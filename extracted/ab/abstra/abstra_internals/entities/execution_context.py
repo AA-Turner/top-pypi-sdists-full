@@ -131,9 +131,17 @@ ClientContext = Annotated[
 
 
 def extract_flask_request(request: flask.Request) -> Request:
+    content_type = (request.content_type or "").lower()
+    if content_type.startswith("multipart/form-data"):
+        import base64
+
+        body = base64.b64encode(request.get_data()).decode("ascii")
+    else:
+        body = request.get_data(as_text=True)
+
     return Request(
         headers=filter_non_string_values(dict(request.headers)),
-        body=request.get_data(as_text=True),
+        body=body,
         query_params={**request.args},
         method=request.method,
     )

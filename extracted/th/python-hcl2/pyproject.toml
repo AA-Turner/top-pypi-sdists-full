@@ -9,14 +9,13 @@ license = {text = "MIT"}
 description = "A parser for HCL2"
 keywords = []
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -24,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-requires-python = ">=3.7.0"
+requires-python = ">=3.8.0"
 
 dependencies = [
     "lark>=1.1.5,<2.0",
@@ -40,10 +39,12 @@ content-type = "text/markdown"
 Homepage = "https://github.com/amplify-education/python-hcl2"
 
 [project.scripts]
-hcl2tojson = "hcl2.__main__:main"
+hcl2tojson = "cli.hcl_to_json:main"
+jsontohcl2 = "cli.json_to_hcl:main"
+hq = "cli.hq:main"
 
 [tool.setuptools]
-packages = ["hcl2"]
+packages = ["hcl2", "hcl2.rules", "hcl2.query", "cli"]
 zip-safe = false
 include-package-data = true
 

@@ -6926,6 +6926,7 @@ class AgentInfoTypeDef(TypedDict):
     AfterContactWorkEndTimestamp: NotRequired[datetime]
     AgentInitiatedHoldDuration: NotRequired[int]
     StateTransitions: NotRequired[list[StateTransitionTypeDef]]
+    VoiceEnhancementMode: NotRequired[VoiceEnhancementModeType]
 
 class StartWebRTCContactRequestTypeDef(TypedDict):
     ContactFlowId: str

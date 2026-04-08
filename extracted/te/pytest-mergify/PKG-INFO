@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-mergify
-Version: 2026.1.26.1
+Version: 2026.4.7.1
 Summary: Pytest plugin for Mergify
 Author-email: Julien Danjou <jd@mergify.com>
 License-Expression: GPL-3.0-only

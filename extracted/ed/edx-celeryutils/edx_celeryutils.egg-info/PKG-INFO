@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-celeryutils
-Version: 1.4.0
+Version: 2.0.0
 Summary: Code to support working with celery
 Home-page: https://github.com/openedx/edx-celeryutils
 Author: edX
@@ -14,7 +14,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2

@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
 
 from pydantic import AliasPath, ConfigDict, Field, JsonValue, NonNegativeInt, field_validator
@@ -58,6 +59,14 @@ class LastAssetEventResponse(BaseModel):
     timestamp: datetime | None = None
 
 
+class AssetWatcherResponse(BaseModel):
+    """Asset watcher serializer for responses."""
+
+    name: str
+    trigger_id: int
+    created_date: datetime
+
+
 class AssetResponse(BaseModel):
     """Asset serializer for responses."""
 
@@ -72,6 +81,7 @@ class AssetResponse(BaseModel):
     producing_tasks: list[TaskOutletAssetReference]
     consuming_tasks: list[TaskInletAssetReference]
     aliases: list[AssetAliasResponse]
+    watchers: list[AssetWatcherResponse]
     last_asset_event: LastAssetEventResponse | None = None
 
     @field_validator("extra", mode="after")
@@ -98,12 +108,12 @@ class AssetAliasResponse(BaseModel):
 class AssetAliasCollectionResponse(BaseModel):
     """Asset alias collection response."""
 
-    asset_aliases: list[AssetAliasResponse]
+    asset_aliases: Iterable[AssetAliasResponse]
     total_entries: int
 
 
 class DagRunAssetReference(StrictBaseModel):
-    """DAGRun serializer for asset responses."""
+    """DagRun serializer for asset responses."""
 
     run_id: str
     dag_id: str
@@ -113,6 +123,7 @@ class DagRunAssetReference(StrictBaseModel):
     state: str
     data_interval_start: datetime | None
     data_interval_end: datetime | None
+    partition_key: str | None
 
 
 class AssetEventResponse(BaseModel):
@@ -130,6 +141,7 @@ class AssetEventResponse(BaseModel):
     source_map_index: int
     created_dagruns: list[DagRunAssetReference]
     timestamp: datetime
+    partition_key: str | None = None
 
     @field_validator("extra", mode="after")
     @classmethod
@@ -140,7 +152,7 @@ class AssetEventResponse(BaseModel):
 class AssetEventCollectionResponse(BaseModel):
     """Asset event collection response."""
 
-    asset_events: list[AssetEventResponse]
+    asset_events: Iterable[AssetEventResponse]
     total_entries: int
 
 
@@ -164,6 +176,7 @@ class CreateAssetEventsBody(StrictBaseModel):
     """Create asset events request."""
 
     asset_id: int
+    partition_key: str | None = None
     extra: dict = Field(default_factory=dict)
 
     @field_validator("extra", mode="after")

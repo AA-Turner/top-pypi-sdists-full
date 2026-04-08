@@ -360,6 +360,7 @@ class SeeqNames:
             property_value_uoms = 'propertyValueUoms'
             ancestor_property = 'ancestorProperty'
             column_id = 'columnId'
+            column_uom = 'columnUom'
             boolean_value = 'booleanValue'
             string_value = 'stringValue'
             numeric_value = 'numericValue'
@@ -433,6 +434,7 @@ class SeeqNames:
             datasource_column = 'Datasource'
             value_uom_column = 'Value UOM'
             source_column_id_column = 'Source Column ID'
+            search_ancestor_prefix = 'Search Ancestor'
         
         class Vantage:
             extinct_column = 'Extinct'
@@ -907,6 +909,7 @@ class SeeqNames:
             height = 'x-sq-height'
             width = 'x-sq-width'
             warning_message = 'x-sq-warning-message'
+            export_truncated = 'x-sq-export-truncated'
             class Timings:
                 datasource = 'Datasource'
                 cache = 'Cache'

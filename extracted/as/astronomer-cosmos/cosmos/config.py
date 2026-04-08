@@ -9,19 +9,16 @@ import warnings
 from collections.abc import Callable, Iterator
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import yaml
-from airflow.version import version as airflow_version
+
+try:
+    from airflow.sdk import ObjectStoragePath
+except ImportError:
+    from airflow.io.path import ObjectStoragePath
 
 from cosmos import settings
-
-if settings.AIRFLOW_IO_AVAILABLE or TYPE_CHECKING:
-    try:
-        from airflow.sdk import ObjectStoragePath
-    except ImportError:
-        from airflow.io.path import ObjectStoragePath
-
 from cosmos.cache import create_cache_profile, get_cached_profile, is_profile_cache_enabled
 from cosmos.constants import (
     DEFAULT_PROFILES_FILE_NAME,
@@ -71,6 +68,7 @@ class RenderConfig:
     :param dbt_project_path: Configures the DBT project location accessible on the airflow controller for DAG rendering. Mutually Exclusive with ProjectConfig.dbt_project_path. Required when using ``load_method=LoadMode.DBT_LS`` or ``load_method=LoadMode.CUSTOM``.
     :param dbt_ls_path: Configures the location of an output of ``dbt ls``. Required when using ``load_method=LoadMode.DBT_LS_FILE``.
     :param enable_mock_profile: Allows to enable/disable mocking profile. Enabled by default. Mock profiles are useful for parsing Cosmos DAGs in the CI, but should be disabled to benefit from partial parsing (since Cosmos 1.4).
+    :param group_nodes_by_folder: When enabled, groups nodes by folder structure, creating a ``TaskGroup`` per resource type and folder. Disabled by default.
     :param source_rendering_behavior: Determines how source nodes are rendered when using cosmos default source node rendering (ALL, NONE, WITH_TESTS_OR_FRESHNESS). Defaults to "NONE" (since Cosmos 1.6).
     :param source_pruning: Determines if source nodes without a corresponding downstream task should be removed or not. Default is False
     :param airflow_vars_to_purge_dbt_ls_cache: Specify Airflow variables that will affect the LoadMode.DBT_LS cache.
@@ -97,6 +95,7 @@ class RenderConfig:
     dbt_ls_path: Path | None = None
     project_path: Path | None = field(init=False)
     enable_mock_profile: bool = True
+    group_nodes_by_folder: bool = False
     source_rendering_behavior: SourceRenderingBehavior = SourceRenderingBehavior.NONE
     source_pruning: bool = False
     airflow_vars_to_purge_dbt_ls_cache: list[str] = field(default_factory=list)
@@ -233,17 +232,7 @@ class ProjectConfig:
                 # Use the default Airflow connection ID for the scheme if it is not provided.
                 manifest_conn_id = FILE_SCHEME_AIRFLOW_DEFAULT_CONN_ID_MAP.get(manifest_scheme, lambda: None)()
 
-            if manifest_conn_id is not None and not settings.AIRFLOW_IO_AVAILABLE:
-                raise CosmosValueError(
-                    f"The manifest path {manifest_path_str} uses a remote file scheme, but the required Object "
-                    f"Storage feature is unavailable in Airflow version {airflow_version}. Please upgrade to "
-                    f"Airflow 2.8 or later."
-                )
-
-            if settings.AIRFLOW_IO_AVAILABLE:
-                self.manifest_path = ObjectStoragePath(manifest_path_str, conn_id=manifest_conn_id)
-            else:
-                self.manifest_path = Path(manifest_path_str)
+            self.manifest_path = ObjectStoragePath(manifest_path_str, conn_id=manifest_conn_id)
 
         self.env_vars = env_vars
         self.dbt_vars = dbt_vars
@@ -263,11 +252,10 @@ class ProjectConfig:
 
         mandatory_paths: dict[str, Path | ObjectStoragePath | None] = {}
         # We validate the existence of paths added to the `mandatory_paths` map by calling the `exists()` method on each
-        # one. Starting with Cosmos 1.6.0, if the Airflow version is `>= 2.8.0` and a `manifest_path` is provided, we
-        # cast it to an `airflow.io.path.ObjectStoragePath` instance during `ProjectConfig` initialisation, and it
-        # includes the `exists()` method. For the remaining paths in the `mandatory_paths` map, we cast them to
-        # `pathlib.Path` objects to ensure that the subsequent `exists()` call while iterating on the `mandatory_paths`
-        # map works correctly for all paths, thereby validating the project.
+        # one. If a `manifest_path` is provided, we cast it to an `airflow.io.path.ObjectStoragePath` instance during
+        # `ProjectConfig` initialisation, and it includes the `exists()` method. For the remaining paths in the
+        # `mandatory_paths` map, we cast them to `pathlib.Path` objects to ensure that the subsequent `exists()` call
+        # while iterating on the `mandatory_paths` map works correctly for all paths, thereby validating the project.
         if self.dbt_project_path:
             project_yml_path = self.dbt_project_path / "dbt_project.yml"
             mandatory_paths.update(
@@ -344,8 +332,6 @@ class ProfileConfig:
             profile = profiles[self.profile_name]
             target_type = profile["outputs"][self.target_name]["type"]
             return str(target_type)
-
-        return "undefined"
 
     def _get_profile_path(self, use_mock_values: bool = False) -> Path:
         """

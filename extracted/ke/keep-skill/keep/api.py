@@ -43,6 +43,7 @@ import sys
 
 from .config import load_or_create_config, save_config, StoreConfig, EmbeddingIdentity
 from .paths import get_config_dir, get_default_store_path
+from .provider_identity import provider_model_name
 from .protocol import DocumentStoreProtocol, VectorStoreProtocol, PendingQueueProtocol
 from .providers import get_registry
 from .providers.base import (
@@ -62,7 +63,7 @@ from .types import (
     iter_tag_pairs, note_display_name, normalize_edge_value, set_tag_values, tag_values, parse_ref,
     SYSTEM_TAG_PREFIX, local_date, utc_now,
     parse_utc_timestamp, validate_tag_key, validate_id, normalize_id, is_part_id,
-    is_system_id,
+    is_system_id, file_uri_to_path,
     MAX_TAG_VALUE_LENGTH,
     repair_surrogate_text,
 )
@@ -207,6 +208,12 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             source="KEEP_TAG_* environment tags",
             check_constraints=False,
         )
+
+        # Ensure the store directory exists before any file I/O against it.
+        # Previously this was a side-effect of save_config() mkdir'ing the
+        # config dir when config_dir == store_path; making it explicit avoids
+        # breaking when KEEP_CONFIG points elsewhere (e.g. test isolation).
+        self._store_path.mkdir(parents=True, exist_ok=True)
 
         # --- Persistent operations log ---
         from .logging_config import configure_ops_log
@@ -994,7 +1001,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         # Get current provider's identity
         current = EmbeddingIdentity(
             provider=self._config.embedding.name,
-            model=getattr(provider, "model_name", "unknown"),
+            model=provider_model_name(provider),
             dimension=provider.dimension,
         )
 
@@ -2477,7 +2484,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             is_file_uri = uri.startswith("file://") or uri.startswith("/")
             if is_file_uri and summary is None and not force:
                 try:
-                    fpath = Path(uri.removeprefix("file://")).resolve()
+                    fpath = Path(file_uri_to_path(uri)).resolve()
                     st = fpath.stat()
                     doc_coll = self._resolve_doc_collection()
                     existing = self._document_store.get(doc_coll, doc_id)
@@ -2546,7 +2553,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             # Store file stat for fast-path change detection on next put
             if is_file_uri and doc.metadata:
                 try:
-                    fpath = Path(uri.removeprefix("file://")).resolve()
+                    fpath = Path(file_uri_to_path(uri)).resolve()
                     st = fpath.stat()
                     system_tags["_file_mtime_ns"] = str(st.st_mtime_ns)
                     system_tags["_file_size"] = str(st.st_size)
@@ -3189,7 +3196,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 if not item.id.startswith("file://"):
                     continue
 
-                fpath = Path(item.id.removeprefix("file://"))
+                fpath = Path(file_uri_to_path(item.id))
                 try:
                     content = fpath.read_text(encoding="utf-8", errors="replace")
                 except OSError:
@@ -5331,7 +5338,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 return FlowResult(status="error", data={"error": str(e)})
             if result is None:
                 return FlowResult(status="error", data={"error": f"prompt not found: {name}"})
-            from .cli import expand_prompt
+            from .console_support import expand_prompt
             expanded = expand_prompt(result, self)
             data: dict[str, Any] = {"text": expanded}
             if result.context:

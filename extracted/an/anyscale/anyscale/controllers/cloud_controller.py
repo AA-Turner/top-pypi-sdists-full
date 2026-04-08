@@ -86,6 +86,8 @@ from anyscale.job._private.job_sdk import (
 from anyscale.shared_anyscale_utils.aws import AwsRoleArn
 from anyscale.shared_anyscale_utils.conf import ANYSCALE_ENV, ANYSCALE_HOST
 from anyscale.util import (  # pylint:disable=private-import
+    _apn_boto3_session,
+    _apn_config,
     _client,
     _get_aws_efs_mount_target_ip,
     _get_memorydb_cluster_config,
@@ -268,7 +270,7 @@ class CloudController(BaseController):
         shared_storage: SharedStorageType = SharedStorageType.OBJECT_STORAGE,
     ):
         if boto3_session is None:
-            boto3_session = boto3.Session(region_name=region)
+            boto3_session = _apn_boto3_session(region_name=region)
 
         cfn_client = boto3_session.client("cloudformation", region_name=region)
         cfn_stack_name = cloud_id.replace("_", "-").lower()
@@ -372,7 +374,7 @@ class CloudController(BaseController):
                 CFN stack name prefix. If not provided, defaults to cloud_id (backward compatible).
         """
         if boto3_session is None:
-            boto3_session = boto3.Session(region_name=region)
+            boto3_session = _apn_boto3_session(region_name=region)
 
         cfn_client = boto3_session.client("cloudformation", region_name=region)
         # Use resource_id if provided, otherwise fall back to cloud_id for backward compatibility
@@ -1437,7 +1439,7 @@ class CloudController(BaseController):
         if provider == "aws":
             if boto3_session is None:
                 # If boto3_session is not provided, we will create a new session with the given region.
-                boto3_session = boto3.Session(region_name=region)
+                boto3_session = _apn_boto3_session(region_name=region)
             if not validate_aws_credentials(self.log, boto3_session):
                 raise ClickException(
                     "Cloud setup requires valid AWS credentials to be set locally. Learn more: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html"
@@ -2359,7 +2361,7 @@ class CloudController(BaseController):
 
             if file_storage.file_storage_id:
                 try:
-                    boto3_session = boto3.Session(region_name=deployment.region)
+                    boto3_session = _apn_boto3_session(region_name=deployment.region)
                     efs_mount_target_ip = _get_aws_efs_mount_target_ip(
                         boto3_session, file_storage.file_storage_id,
                     )
@@ -2507,6 +2509,17 @@ class CloudController(BaseController):
             self._preprocess_aws(cloud_id=cloud_id, deployment=new_deployment)
         elif new_deployment.provider == CloudProviders.GCP:
             self._preprocess_gcp(deployment=new_deployment)
+
+        # For Kubernetes clouds, verification requires the Anyscale Operator to already
+        # be installed, but installing the operator requires the cloud resource ID that
+        # this command is creating (passed as global.cloudDeploymentId in the Helm chart).
+        # Skip verification to break this dependency.
+        # Users should run verification separately after installing the operator.
+        if new_deployment.compute_stack == ComputeStack.K8S and not skip_verification:
+            self.log.info(
+                "Skipping verification is required for Kubernetes cloud resource creation. Doing this by default."
+            )
+            skip_verification = True
 
         if not skip_verification and not self.verify_cloud_deployment(
             cloud_id=cloud_id, cloud_deployment=new_deployment
@@ -3086,7 +3099,7 @@ class CloudController(BaseController):
             object_storage = ObjectStorage(**object_storage)
 
         if boto3_session is None:
-            boto3_session = boto3.Session(region_name=cloud_deployment.region)
+            boto3_session = _apn_boto3_session(region_name=cloud_deployment.region)
 
         return self.verify_aws_cloud_resources(
             aws_vpc_id=aws_config.vpc_id,
@@ -3353,7 +3366,7 @@ class CloudController(BaseController):
         to support LLM workloads
         """
         if boto3_session is None:
-            boto3_session = boto3.Session(region_name=region)
+            boto3_session = _apn_boto3_session(region_name=region)
 
         QUOTAS_CONFIG = {
             "L-3819A6DF": {
@@ -4501,7 +4514,7 @@ class CloudController(BaseController):
         tag_name = "anyscale-cloud-id"
         key_name = cloud.id
 
-        acm = boto3.client("acm", cloud.region)
+        acm = boto3.client("acm", cloud.region, config=_apn_config())
 
         certificates = _unroll_resources_for_aws_list_call(
             acm.list_certificates, "CertificateSummaryList"
@@ -4617,7 +4630,7 @@ class CloudController(BaseController):
         return True
 
     def delete_tls_cert(self, certificate_arn: str, cloud: Cloud) -> bool:
-        acm = boto3.client("acm", cloud.region)
+        acm = boto3.client("acm", cloud.region, config=_apn_config())
 
         try:
             acm.delete_certificate(CertificateArn=certificate_arn)
@@ -4795,7 +4808,7 @@ class CloudController(BaseController):
         self.log.close_block("EditDetail")
 
         try:
-            boto3_session = boto3.Session(region_name=cloud.region)
+            boto3_session = _apn_boto3_session(region_name=cloud.region)
             if aws_efs_id and not aws_efs_mount_target_ip:
                 # Get the mount target IP for new aws_efs_ip (consistent with cloud register).
                 aws_efs_mount_target_ip = _get_aws_efs_mount_target_ip(

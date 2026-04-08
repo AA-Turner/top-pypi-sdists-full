@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: edx-milestones
-Version: 1.1.0
+Version: 2.0.0
 Summary: Significant events module for Open edX
 Home-page: https://github.com/openedx/edx-milestones
 Author: edX
@@ -12,7 +12,6 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
@@ -31,6 +30,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary
 

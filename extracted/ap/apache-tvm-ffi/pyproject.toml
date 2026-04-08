@@ -60,7 +60,7 @@ dev = [
   "ipdb",
   "ipython",
   "cython>=3.0",
-  "cmake",
+  "cmake!=4.3.1",
   "scikit-build-core",
   "tomli",
   "setuptools-scm",
@@ -75,7 +75,9 @@ docs = [
   "nbconvert",
   "nbsphinx",
   "nbstripout",
-  "sphinx",
+  # TODO: unpin when sphinx-toolbox fixes `from sphinx.ext.autodoc import logger` (removed in Sphinx 9)
+  # Blocked by: sphinx-toolbox/utils.py imports logger from sphinx.ext.autodoc (broken as of v4.1.2)
+  "sphinx<9",
   "sphinx-autobuild",
   "sphinx-book-theme",
   "sphinx-copybutton",
@@ -198,6 +200,7 @@ ignore = [
   "PLR2004", # pylint: magic-value-comparison
   "ANN401",  # flake8-annotations: any-type
   "D105",    # pydocstyle: undocumented-magic-method
+  "D107",    # pydocstyle: undocumented-public-init
   "D203",    # pydocstyle: incorrect-blank-line-before-class
   "D213",    # pydocstyle: multi-line-summary-second-line
 ]

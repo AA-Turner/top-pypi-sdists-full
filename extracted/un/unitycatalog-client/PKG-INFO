@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unitycatalog-client
-Version: 0.4.0
+Version: 0.4.1
 Summary: Official Python SDK for Unity Catalog
 Project-URL: homepage, https://www.unitycatalog.io/
 Project-URL: issues, https://github.com/unitycatalog/unitycatalog/issues
@@ -29,12 +29,12 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: User Interfaces
 Requires-Python: >=3.9
-Requires-Dist: aiohttp-retry>=2.8.3
-Requires-Dist: aiohttp>=3.8.4
-Requires-Dist: pydantic<3,>=2
-Requires-Dist: python-dateutil>=2.8.2
-Requires-Dist: typing-extensions>=4.7.1
-Requires-Dist: urllib3>=1.25.3
+Requires-Dist: aiohttp-retry<=2.9.1,>=2.8.3
+Requires-Dist: aiohttp<=3.13.3,>=3.8.4
+Requires-Dist: pydantic<=2.12.5,>=2
+Requires-Dist: python-dateutil<=2.9.0.post0,>=2.8.2
+Requires-Dist: typing-extensions<=4.15.0,>=4.7.1
+Requires-Dist: urllib3<=2.6.3,>=1.25.3
 Description-Content-Type: text/markdown
 
 # Unity Catalog Python Client SDK

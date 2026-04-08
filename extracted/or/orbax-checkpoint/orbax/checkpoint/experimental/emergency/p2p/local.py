@@ -24,13 +24,15 @@ import jax
 import orbax.checkpoint as ocp
 from orbax.checkpoint import args as args_lib
 from orbax.checkpoint import checkpoint_manager
+from orbax.checkpoint import checkpoint_utils
 from orbax.checkpoint import type_handlers
 from orbax.checkpoint._src.multihost import multihost
 from orbax.checkpoint._src.serialization import type_handler_registry
-from orbax.checkpoint.experimental.emergency import checkpoint_manager as emergency_checkpoint_manager
 from orbax.checkpoint.experimental.emergency import path as emergency_path
 from orbax.checkpoint.experimental.emergency.p2p import args as p2p_args_lib
 from orbax.checkpoint.experimental.emergency.p2p import constants
+from orbax.checkpoint.experimental.emergency.p2p import options as options_lib
+from orbax.checkpoint.experimental.emergency.p2p import policies
 from orbax.checkpoint.experimental.emergency.p2p import utils
 
 
@@ -108,6 +110,23 @@ if utils.pygrain() is not None:
     item: Any
 
 
+def _prepare_state_restore_args(
+    state: args_lib.PyTreeRestore,
+) -> args_lib.PyTreeRestore:
+  """Ensures restore_args are populated and converted to ArrayRestoreArgs."""
+  if state.item is None:
+    return state
+
+  restore_args = jax.tree.map(
+      lambda x: type_handlers.ArrayRestoreArgs(sharding=x.sharding)
+      if isinstance(x, jax.ShapeDtypeStruct)
+      else checkpoint_utils.construct_restore_args(x),
+      state.item,
+  )
+
+  return args_lib.PyTreeRestore(item=state.item, restore_args=restore_args)
+
+
 @final
 class LocalCheckpointManager:
   """Wrapper around Orbax CheckpointManager for local P2P shards."""
@@ -117,24 +136,35 @@ class LocalCheckpointManager:
       directory: epath.PathLike,
       global_mesh: jax.sharding.Mesh,
       *,
-      options: emergency_checkpoint_manager.CheckpointManagerOptions,
+      options: options_lib.CheckpointManagerOptions,
   ):
     self._directory = epath.Path(directory)
     self._global_mesh = global_mesh
     self._process_index = multihost.process_index()
 
-    barrier_sync_key_prefix = f'p2p_shard_{self._process_index}'
+    # While forming smaller process groups for synchronization via
+    # `active_processes` (e.g., per-replica) might improve barrier
+    # performance at scale, it would require more complex coordination
+    # than currently implemented.
     mp_options = ocp.options.MultiprocessingOptions(
-        primary_host=None,  # Symmetric read/write
-        active_processes={self._process_index},  # Only I write to my shard
-        barrier_sync_key_prefix=barrier_sync_key_prefix,
+        # `primary_host` is None because all hosts save to local storage
+        # independently. This causes local checkpoint to be saved on all
+        # processes.
+        # It is the caller's responsibility to make sure we are not doubling the
+        # memory pressure by saving persistent on the same step.
+        primary_host=None,
+        barrier_sync_key_prefix='local',
     )
 
     p2p_specific_options = checkpoint_manager.CheckpointManagerOptions(
         step_name_format=options.step_name_format,
-        save_interval_steps=options.local.save_interval_steps,
+        # Specify save_decision_policy to skip InitialSavePolicy, which
+        # results in inconsistent save policy across processes with local.
+        save_decision_policy=policies.OffsetFixedIntervalPolicy(
+            interval=options.local.save_interval_steps,
+            offset=options.local.save_interval_offset_steps,
+        ),
         max_to_keep=options.local.max_to_keep,
-        should_save_fn=options.local.should_save_fn,
         multiprocessing_options=mp_options,
         create=False,
         cleanup_tmp_directories=False,
@@ -199,6 +229,12 @@ class LocalCheckpointManager:
     )
     return detected_index, steps
 
+  def all_steps(self, _: bool = False) -> Sequence[int]:
+    detected_index, steps = self.scan_stored_steps()
+    if self._process_index != detected_index:
+      return []
+    return steps
+
   def save(
       self,
       step: int,
@@ -226,6 +262,9 @@ class LocalCheckpointManager:
   ) -> p2p_args_lib.Composite:
     """Restores the checkpoint, enforcing process identity check."""
     # No need to check for P2P restore directory
+    if args is None:
+      raise ValueError('args must be provided for local restore.')
+
     if directory is None:
       # 1. Fast Fail: Verify Process Identity
       stored_index = utils.detect_process_index(self._directory, step)
@@ -239,13 +278,15 @@ class LocalCheckpointManager:
         )
         raise ValueError(error_msg)
 
+    args_dict = dict(args.items())
+    args_dict['state'] = _prepare_state_restore_args(args.state)
+
     if utils.pygrain() is not None and args and constants.DATA_ITER_KEY in args:
       original_restore = args[constants.DATA_ITER_KEY]
-      args_dict = dict(args.items())
       args_dict[constants.DATA_ITER_KEY] = LocalPyGrainRestore(
           original_restore.item
       )
-      args = args_lib.Composite(**args_dict)
+    args = args_lib.Composite(**args_dict)
 
     # 2. Delegate to Orbax
     restored = self._manager.restore(

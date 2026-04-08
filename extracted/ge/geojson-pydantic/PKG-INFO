@@ -1,11 +1,32 @@
 Metadata-Version: 2.4
 Name: geojson-pydantic
-Version: 2.1.0
+Version: 2.1.1
 Summary: Pydantic data models for the GeoJSON spec.
-Keywords: geojson,Pydantic
+Project-URL: Source, https://github.com/developmentseed/geojson-pydantic
 Author-email: Drew Bollinger <drew@developmentseed.org>
-Requires-Python: >=3.9
-Description-Content-Type: text/markdown
+License: MIT License
+        
+        Copyright (c) 2020 Development Seed
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+License-File: LICENSE
+Keywords: Pydantic,geojson
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
@@ -17,20 +38,9 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Typing :: Typed
-License-File: LICENSE
+Requires-Python: >=3.9
 Requires-Dist: pydantic~=2.0
-Requires-Dist: pre-commit ; extra == "dev"
-Requires-Dist: bump-my-version ; extra == "dev"
-Requires-Dist: mkdocs ; extra == "docs"
-Requires-Dist: mkdocs-material ; extra == "docs"
-Requires-Dist: pygments ; extra == "docs"
-Requires-Dist: pytest ; extra == "test"
-Requires-Dist: pytest-cov ; extra == "test"
-Requires-Dist: shapely ; extra == "test"
-Project-URL: Source, https://github.com/developmentseed/geojson-pydantic
-Provides-Extra: dev
-Provides-Extra: docs
-Provides-Extra: test
+Description-Content-Type: text/markdown
 
 # geojson-pydantic
 
@@ -73,21 +83,27 @@ Provides-Extra: test
 ## Install
 
 ```bash
-$ python -m pip install -U pip
-$ python -m pip install geojson-pydantic
+python -m pip install -U pip
+python -m pip install geojson-pydantic
 ```
 
 Or install from source:
 
+We recommand using [`uv`](https://docs.astral.sh/uv) as project manager for development.
+
+See https://docs.astral.sh/uv/getting-started/installation/ for installation 
+
 ```bash
-$ python -m pip install -U pip
-$ python -m pip install git+https://github.com/developmentseed/geojson-pydantic.git
+git clone https://github.com/developmentseed/geojson-pydantic.git
+cd geojson-pydantic
+
+uv sync
 ```
 
 Install with conda from [`conda-forge`](https://anaconda.org/conda-forge/geojson-pydantic):
 
 ```bash
-$ conda install -c conda-forge geojson-pydantic
+conda install -c conda-forge geojson-pydantic
 ```
 
 ## Contributing
@@ -107,4 +123,3 @@ See [contributors](hhttps://github.com/developmentseed/geojson-pydantic/graphs/c
 ## License
 
 See [LICENSE](https://github.com/developmentseed/geojson-pydantic/blob/main/LICENSE)
-

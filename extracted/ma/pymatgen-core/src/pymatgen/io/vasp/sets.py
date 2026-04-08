@@ -744,6 +744,11 @@ class VaspInputSet(InputGenerator, abc.ABC):
         # > 0.5 (2 reciprocal Angstrom). An error handler in Custodian is available to
         # correct overly large KSPACING values (small number of kpoints) if necessary.
         if kpoints is not None and np.prod(kpoints.kpts) < 4 and incar.get("ISMEAR", 0) == -5:
+            warnings.warn(
+                "Too few KPOINTS for tetrahedron method (ISMEAR=-5). Replacing with ISMEAR=0.",
+                BadInputSetWarning,
+                stacklevel=2,
+            )
             incar["ISMEAR"] = 0
 
         if incar.get("KSPACING", 0) > 0.5 and incar.get("ISMEAR", 0) == -5:

@@ -15,11 +15,15 @@ Usage::
         DescribeAccountLimitsPaginator,
         DescribeConfigurationSetsPaginator,
         DescribeKeywordsPaginator,
+        DescribeNotifyConfigurationsPaginator,
+        DescribeNotifyTemplatesPaginator,
         DescribeOptOutListsPaginator,
         DescribeOptedOutNumbersPaginator,
         DescribePhoneNumbersPaginator,
         DescribePoolsPaginator,
         DescribeProtectConfigurationsPaginator,
+        DescribeRcsAgentCountryLaunchStatusPaginator,
+        DescribeRcsAgentsPaginator,
         DescribeRegistrationAttachmentsPaginator,
         DescribeRegistrationFieldDefinitionsPaginator,
         DescribeRegistrationFieldValuesPaginator,
@@ -30,6 +34,7 @@ Usage::
         DescribeSenderIdsPaginator,
         DescribeSpendLimitsPaginator,
         DescribeVerifiedDestinationNumbersPaginator,
+        ListNotifyCountriesPaginator,
         ListPoolOriginationIdentitiesPaginator,
         ListProtectConfigurationRuleSetNumberOverridesPaginator,
         ListRegistrationAssociationsPaginator,
@@ -46,11 +51,15 @@ Usage::
     describe_account_limits_paginator: DescribeAccountLimitsPaginator = client.get_paginator("describe_account_limits")
     describe_configuration_sets_paginator: DescribeConfigurationSetsPaginator = client.get_paginator("describe_configuration_sets")
     describe_keywords_paginator: DescribeKeywordsPaginator = client.get_paginator("describe_keywords")
+    describe_notify_configurations_paginator: DescribeNotifyConfigurationsPaginator = client.get_paginator("describe_notify_configurations")
+    describe_notify_templates_paginator: DescribeNotifyTemplatesPaginator = client.get_paginator("describe_notify_templates")
     describe_opt_out_lists_paginator: DescribeOptOutListsPaginator = client.get_paginator("describe_opt_out_lists")
     describe_opted_out_numbers_paginator: DescribeOptedOutNumbersPaginator = client.get_paginator("describe_opted_out_numbers")
     describe_phone_numbers_paginator: DescribePhoneNumbersPaginator = client.get_paginator("describe_phone_numbers")
     describe_pools_paginator: DescribePoolsPaginator = client.get_paginator("describe_pools")
     describe_protect_configurations_paginator: DescribeProtectConfigurationsPaginator = client.get_paginator("describe_protect_configurations")
+    describe_rcs_agent_country_launch_status_paginator: DescribeRcsAgentCountryLaunchStatusPaginator = client.get_paginator("describe_rcs_agent_country_launch_status")
+    describe_rcs_agents_paginator: DescribeRcsAgentsPaginator = client.get_paginator("describe_rcs_agents")
     describe_registration_attachments_paginator: DescribeRegistrationAttachmentsPaginator = client.get_paginator("describe_registration_attachments")
     describe_registration_field_definitions_paginator: DescribeRegistrationFieldDefinitionsPaginator = client.get_paginator("describe_registration_field_definitions")
     describe_registration_field_values_paginator: DescribeRegistrationFieldValuesPaginator = client.get_paginator("describe_registration_field_values")
@@ -61,6 +70,7 @@ Usage::
     describe_sender_ids_paginator: DescribeSenderIdsPaginator = client.get_paginator("describe_sender_ids")
     describe_spend_limits_paginator: DescribeSpendLimitsPaginator = client.get_paginator("describe_spend_limits")
     describe_verified_destination_numbers_paginator: DescribeVerifiedDestinationNumbersPaginator = client.get_paginator("describe_verified_destination_numbers")
+    list_notify_countries_paginator: ListNotifyCountriesPaginator = client.get_paginator("list_notify_countries")
     list_pool_origination_identities_paginator: ListPoolOriginationIdentitiesPaginator = client.get_paginator("list_pool_origination_identities")
     list_protect_configuration_rule_set_number_overrides_paginator: ListProtectConfigurationRuleSetNumberOverridesPaginator = client.get_paginator("list_protect_configuration_rule_set_number_overrides")
     list_registration_associations_paginator: ListRegistrationAssociationsPaginator = client.get_paginator("list_registration_associations")
@@ -73,11 +83,15 @@ from .paginator import (
     DescribeAccountLimitsPaginator,
     DescribeConfigurationSetsPaginator,
     DescribeKeywordsPaginator,
+    DescribeNotifyConfigurationsPaginator,
+    DescribeNotifyTemplatesPaginator,
     DescribeOptedOutNumbersPaginator,
     DescribeOptOutListsPaginator,
     DescribePhoneNumbersPaginator,
     DescribePoolsPaginator,
     DescribeProtectConfigurationsPaginator,
+    DescribeRcsAgentCountryLaunchStatusPaginator,
+    DescribeRcsAgentsPaginator,
     DescribeRegistrationAttachmentsPaginator,
     DescribeRegistrationFieldDefinitionsPaginator,
     DescribeRegistrationFieldValuesPaginator,
@@ -88,6 +102,7 @@ from .paginator import (
     DescribeSenderIdsPaginator,
     DescribeSpendLimitsPaginator,
     DescribeVerifiedDestinationNumbersPaginator,
+    ListNotifyCountriesPaginator,
     ListPoolOriginationIdentitiesPaginator,
     ListProtectConfigurationRuleSetNumberOverridesPaginator,
     ListRegistrationAssociationsPaginator,
@@ -101,11 +116,15 @@ __all__ = (
     "DescribeAccountLimitsPaginator",
     "DescribeConfigurationSetsPaginator",
     "DescribeKeywordsPaginator",
+    "DescribeNotifyConfigurationsPaginator",
+    "DescribeNotifyTemplatesPaginator",
     "DescribeOptOutListsPaginator",
     "DescribeOptedOutNumbersPaginator",
     "DescribePhoneNumbersPaginator",
     "DescribePoolsPaginator",
     "DescribeProtectConfigurationsPaginator",
+    "DescribeRcsAgentCountryLaunchStatusPaginator",
+    "DescribeRcsAgentsPaginator",
     "DescribeRegistrationAttachmentsPaginator",
     "DescribeRegistrationFieldDefinitionsPaginator",
     "DescribeRegistrationFieldValuesPaginator",
@@ -116,6 +135,7 @@ __all__ = (
     "DescribeSenderIdsPaginator",
     "DescribeSpendLimitsPaginator",
     "DescribeVerifiedDestinationNumbersPaginator",
+    "ListNotifyCountriesPaginator",
     "ListPoolOriginationIdentitiesPaginator",
     "ListProtectConfigurationRuleSetNumberOverridesPaginator",
     "ListRegistrationAssociationsPaginator",

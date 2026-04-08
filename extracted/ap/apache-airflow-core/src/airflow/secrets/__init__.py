@@ -31,13 +31,10 @@ from airflow.utils.deprecation_tools import add_deprecated_classes
 
 __all__ = ["BaseSecretsBackend", "DEFAULT_SECRETS_SEARCH_PATH"]
 
-from airflow.secrets.base_secrets import BaseSecretsBackend
-
-DEFAULT_SECRETS_SEARCH_PATH = [
-    "airflow.secrets.environment_variables.EnvironmentVariablesBackend",
-    "airflow.secrets.metastore.MetastoreBackend",
-]
-
+from airflow.secrets.base_secrets import (
+    DEFAULT_SECRETS_SEARCH_PATH as DEFAULT_SECRETS_SEARCH_PATH,
+    BaseSecretsBackend,
+)
 
 __deprecated_classes = {
     "cache": {
@@ -51,10 +48,12 @@ def __getattr__(name):
     if name == "DEFAULT_SECRETS_SEARCH_PATH_WORKERS":
         import warnings
 
+        from airflow.utils.deprecation_tools import DeprecatedImportWarning
+
         warnings.warn(
             "airflow.secrets.DEFAULT_SECRETS_SEARCH_PATH_WORKERS is moved to the Task SDK. "
             "Use airflow.sdk.execution_time.secrets.DEFAULT_SECRETS_SEARCH_PATH_WORKERS instead.",
-            DeprecationWarning,
+            DeprecatedImportWarning,
             stacklevel=2,
         )
         try:

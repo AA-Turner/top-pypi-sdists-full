@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot
-Version: 5.4.0
+Version: 5.5.0
 Summary: ACME client
 Author: Certbot Project
 License-Expression: Apache-2.0
@@ -25,7 +25,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: acme>=5.4.0
+Requires-Dist: acme>=5.5.0
 Requires-Dist: ConfigArgParse>=1.5.3
 Requires-Dist: configobj>=5.0.6
 Requires-Dist: cryptography>=43.0.0
@@ -36,6 +36,7 @@ Requires-Dist: parsedatetime>=2.6
 Requires-Dist: pyrfc3339
 Requires-Dist: pywin32>=300; sys_platform == "win32"
 Provides-Extra: dev
+Requires-Dist: apacheconfig>=0.3.2; extra == "dev"
 Requires-Dist: azure-devops; extra == "dev"
 Requires-Dist: build; extra == "dev"
 Requires-Dist: ipdb; extra == "dev"
@@ -64,9 +65,17 @@ Requires-Dist: types-requests; extra == "test"
 Requires-Dist: types-setuptools; extra == "test"
 Requires-Dist: uv; extra == "test"
 Requires-Dist: wheel; extra == "test"
+Provides-Extra: apache
+Requires-Dist: certbot-apache>=5.5.0; extra == "apache"
+Requires-Dist: python-augeas; extra == "apache"
+Provides-Extra: nginx
+Requires-Dist: certbot-nginx>=5.5.0; extra == "nginx"
+Requires-Dist: PyOpenSSL>=25.0.0; extra == "nginx"
+Requires-Dist: pyparsing>=3.0.0; extra == "nginx"
 Provides-Extra: all
-Requires-Dist: certbot[dev,docs,test]; extra == "all"
+Requires-Dist: certbot[apache,dev,docs,nginx,test]; extra == "all"
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 
 .. This file contains a series of comments that are used to include sections of this README in other files. Do not modify these comments unless you know what you are doing. tag:intro-begin
@@ -160,6 +169,9 @@ Current Features
 Thanks
 ------
 
-We appreciate `Digital Ocean`_ for donating credits to help us test and develop Certbot.
+We appreciate the donation of credits to help us test and develop Certbot from:
 
-.. _Digital Ocean: https://www.digitalocean.com/
+.. image:: https://opensource.nyc3.cdn.digitaloceanspaces.com/attribution/assets/SVG/DO_Logo_horizontal_blue.svg
+  :width: 201
+  :alt: DigitalOcean Logo
+  :target: https://www.digitalocean.com/

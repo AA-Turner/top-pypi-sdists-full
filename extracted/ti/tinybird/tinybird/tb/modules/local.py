@@ -18,7 +18,7 @@ from tinybird.tb.modules.common import (
 )
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.exceptions import CLILocalException
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.info import get_local_info
 from tinybird.tb.modules.local_common import (
     TB_CONTAINER_NAME,
@@ -225,16 +225,20 @@ def status(ctx: click.Context) -> None:
                     click.echo(FeedbackManager.warning(message=f"△ {warning_msg}"))
                 click.echo(
                     FeedbackManager.error(
-                        message="* Tinybird Local is unhealthy. Try running `tb local restart` in a few seconds."
+                        message=f"* Tinybird Local is unhealthy. Try running `{get_cli_name()} local restart` in a few seconds."
                     )
                 )
             else:
                 click.echo(
-                    FeedbackManager.error(message="✗ Tinybird Local is not running. Run 'tb local start' to start it")
+                    FeedbackManager.error(
+                        message=f"✗ Tinybird Local is not running. Run '{get_cli_name()} local start' to start it"
+                    )
                 )
         else:
             click.echo(
-                FeedbackManager.error(message="✗ Tinybird Local is not running. Run 'tb local start' to start it")
+                FeedbackManager.error(
+                    message=f"✗ Tinybird Local is not running. Run '{get_cli_name()} local start' to start it"
+                )
             )
     except Exception as e:
         raise CLILocalException(FeedbackManager.error(message=f"Tinybird Local is not ready. Reason: {e}"))

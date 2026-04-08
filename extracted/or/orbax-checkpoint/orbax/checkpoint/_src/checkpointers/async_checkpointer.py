@@ -14,6 +14,7 @@
 
 """AsyncCheckpointer."""
 
+import datetime
 import sys
 import threading
 import time
@@ -30,12 +31,12 @@ from orbax.checkpoint._src.checkpointers import checkpointer
 from orbax.checkpoint._src.futures import future
 from orbax.checkpoint._src.futures import synchronization
 from orbax.checkpoint._src.handlers import async_checkpoint_handler
+from orbax.checkpoint._src.logging import event_tracking
 from orbax.checkpoint._src.metadata import checkpoint
 from orbax.checkpoint._src.multihost import multihost
 from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint._src.path import atomicity
 from orbax.checkpoint._src.path import atomicity_types
-from orbax.checkpoint._src.path import utils as path_utils
 
 
 
@@ -56,11 +57,6 @@ def _on_commit_callback(
           checkpoint_start_time=checkpoint_start_time,
       )
   )
-  total_duration_secs = time.time() - checkpoint_start_time
-  jax.monitoring.record_event_duration_secs(
-      '/jax/checkpoint/write/async/total_duration_secs',
-      total_duration_secs,
-  )
 
 
 def _background_wait_for_commit_futures(
@@ -69,7 +65,8 @@ def _background_wait_for_commit_futures(
     on_commit_callback: Callable[[], None],
     *,
     barrier_sync_key_prefix: str,
-    sync_fn: Callable[[str], None],
+    sync_fn: Callable[[str, int], None],
+    timeout_secs: int,
     primary_host: int | None,
 ):
   """A function to be run in a background thread that waits for futures."""
@@ -77,15 +74,18 @@ def _background_wait_for_commit_futures(
   current_thread_id = threading.current_thread().name
   process_count = jax.process_count()
   logging.info(
-      '[process=%s][thread=%s] Background save thread started.',
+      '[process=%s][thread=%s] Background save thread started. Deadline for'
+      ' this save operation is %s',
       current_process,
       current_thread_id,
+      datetime.datetime.now() + datetime.timedelta(seconds=timeout_secs),
   )
   thread_start_time = time.time()
 
   # Wait for commit operations to complete.
-  for commit_future in commit_futures:
-    commit_future.result()
+  future.ChainedFuture(commit_futures, cb=lambda: None).result(
+      timeout=timeout_secs
+  )
   commit_duration_secs = time.time() - thread_start_time
   logging.info(
       '[process=%s][thread=%s] %d Handler Commit operations completed. Time'
@@ -95,9 +95,7 @@ def _background_wait_for_commit_futures(
       len(commit_futures),
       commit_duration_secs,
   )
-  # Log the number of async writes that are in flight. Abuses a duration
-  # metric as a counter since jax.monitoring only has events and durations.
-  jax.monitoring.record_event_duration_secs(
+  jax.monitoring.record_scalar(
       '/jax/checkpoint/write/async/commit_future_count',
       len(commit_futures),
   )
@@ -111,30 +109,48 @@ def _background_wait_for_commit_futures(
     # All processes will wait at the barrier. When all processes are at the
     # barrier, the barrier will be satisfied. If not, then it will timeout.
     try:
+      time_remaining_secs = future.get_remaining_time(
+          thread_start_time, timeout_secs
+      )
       sync_fn(
           multihost.unique_barrier_key(
               'async_write_complete',
               prefix=barrier_sync_key_prefix,
               suffix=f'{directory.name}',
-          )
+          ),
+          int(time_remaining_secs * 1000),
       )
     except jax.errors.JaxRuntimeError as e:
       if sys.version_info >= (3, 11):
         if 'DEADLINE_EXCEEDED' in str(e):
           _add_deadline_exceeded_notes(e)
-      raise
+      raise TimeoutError(
+          'Timed out while waiting for async_write_complete barrier.'
+      ) from e
 
   if utils.is_primary_host(primary_host):
     on_commit_callback()
   if process_count > 1:
     # Block until process 0 completes on_commit_callback.
-    sync_fn(
-        multihost.unique_barrier_key(
-            'async_commit_complete',
-            prefix=barrier_sync_key_prefix,
-            suffix=f'{directory.name}',
-        )
-    )
+    try:
+      time_remaining_secs = future.get_remaining_time(
+          thread_start_time, timeout_secs
+      )
+      sync_fn(
+          multihost.unique_barrier_key(
+              'async_commit_complete',
+              prefix=barrier_sync_key_prefix,
+              suffix=f'{directory.name}',
+          ),
+          int(time_remaining_secs * 1000),
+      )
+    except jax.errors.JaxRuntimeError as e:
+      if sys.version_info >= (3, 11):
+        if 'DEADLINE_EXCEEDED' in str(e):
+          _add_deadline_exceeded_notes(e)
+      raise TimeoutError(
+          'Timed out while waiting for async_commit_complete barrier.'
+      ) from e
 
   thread_duration_secs = time.time() - thread_start_time
   jax.monitoring.record_event_duration_secs(
@@ -165,11 +181,10 @@ class _AsyncManager:
       self,
       *,
       barrier_sync_fn: multihost.BarrierSyncFn,
-      timeout_secs: int | None = None,
+      timeout_secs: int,
       primary_host: Optional[int] = 0,
       barrier_sync_key_prefix: Optional[str] = None,
   ):
-    timeout_secs = timeout_secs or multihost.coordination_timeout()
     if timeout_secs <= 0:
       raise ValueError(
           f'Timeout must be positive, but got {timeout_secs} seconds.'
@@ -190,9 +205,8 @@ class _AsyncManager:
     self._thread = None
     self._exception = None
 
-    timeout_in_ms = self._timeout_secs * 1000
-    self._sync_fn: Callable[[str], None] = lambda key: barrier_sync_fn(
-        key=key, timeout_ms=timeout_in_ms
+    self._sync_fn: Callable[[str, int], None] = (
+        lambda key, timeout_ms: barrier_sync_fn(key=key, timeout_ms=timeout_ms)
     )
 
   def __del__(self):
@@ -218,6 +232,7 @@ class _AsyncManager:
           on_commit_callback,
           barrier_sync_key_prefix=self._barrier_sync_key_prefix,
           sync_fn=self._sync_fn,
+          timeout_secs=self._timeout_secs,
           primary_host=self._primary_host,
       )
     except Exception as e:  # pylint: disable=broad-exception-caught
@@ -417,11 +432,14 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
           tmpdir,
           checkpoint_start_time,
       )
-      logging.info(
-          'Finished async_save (blocking + background). Time taken: %fs.'
-          ' directory=%s',
-          time.time() - checkpoint_start_time,
+      operation_recorder = event_tracking.OperationRecorder(
           tmpdir.get_final(),
+          operation_type=event_tracking.OperationType.SAVE,
+          async_origin=True,
+          primary_host=self._primary_host,
+      )
+      operation_recorder.record_completion(
+          time.time() - checkpoint_start_time
       )
       # Clean up all awaitable signals for the current operation id as they are
       # no longer needed.
@@ -440,21 +458,6 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
       **kwargs,
   ):
     directory = tmpdir.get_final()
-
-    if utils.is_primary_host(self._primary_host):
-      jax.monitoring.record_event(
-          '/jax/orbax/write/storage_type',
-          storage_type=path_utils.get_storage_type(directory),
-      )
-    # TODO(dicentra): Revise other metrics to also only report from the primary
-    # host where appropriate.
-    jax.monitoring.record_event('/jax/orbax/write/async/start')
-    logging.info(
-        '[process=%s] Started async saving checkpoint to %s.',
-        multihost.process_index(),
-        directory,
-    )
-
     if await async_path.exists(directory):
       if force:
         if utils.is_primary_host(self._primary_host):
@@ -484,8 +487,15 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
     ckpt_args = checkpointer.construct_checkpoint_args(
         self._handler, True, *args, **kwargs
     )
+    if isinstance(
+        self._handler,
+        async_checkpoint_handler.DeferredPathAsyncCheckpointHandler,
+    ) and isinstance(tmpdir, atomicity.DeferredWritableTemporaryPath):
+      path = tmpdir.get_awaitable_path()
+    else:
+      path = tmpdir.get()
     commit_ops.extend(
-        await self._handler.async_save(tmpdir.get(), args=ckpt_args) or []
+        await self._handler.async_save(path, args=ckpt_args) or []
     )
     commit_ops, _ = jax.tree.flatten(commit_ops)
     commit_ops = [op for op in commit_ops if op is not None]
@@ -534,6 +544,13 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
         ),
     )
     directory = epath.Path(directory)
+    operation_recorder = event_tracking.OperationRecorder(
+        directory,
+        operation_type=event_tracking.OperationType.SAVE,
+        async_origin=True,
+        primary_host=self._primary_host,
+    )
+    operation_recorder.record_start()
     tmpdir = self.get_temporary_path(directory)
     self.wait_until_finished()
     self.synchronize_next_awaitable_signal_operation_id()
@@ -548,21 +565,13 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
             **kwargs,
         )
     )
+    operation_recorder.record_blocking_completion(
+        time.time() - checkpoint_start_time
+    )
     self._async_manager.start_async_commit(
         directory,
         commit_futures=commit_ops,
         on_commit_callback=on_commit_callback,
-    )
-    blocking_duration_secs = time.time() - checkpoint_start_time
-    jax.monitoring.record_event_duration_secs(
-        '/jax/checkpoint/write/async/blocking_duration_secs',
-        blocking_duration_secs,
-    )
-    logging.info(
-        'Finished blocking save. Time taken: %fs. Continuing background save'
-        ' to %s.',
-        blocking_duration_secs,
-        directory,
     )
 
   def restore(self, directory: epath.PathLike, *args, **kwargs) -> Any:

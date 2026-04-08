@@ -3583,6 +3583,10 @@ class FileNotFoundException(System.IO.IOException):
 class DirectoryNotFoundException(System.IO.IOException):
     """This class has no documentation."""
 
+    @property
+    def directory_path(self) -> str:
+        ...
+
     @overload
     def __init__(self) -> None:
         ...
@@ -3596,7 +3600,21 @@ class DirectoryNotFoundException(System.IO.IOException):
         ...
 
     @overload
+    def __init__(self, message: str, directory_path: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, directory_path: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
     def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def to_string(self) -> str:
         ...
 
 

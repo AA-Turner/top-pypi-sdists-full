@@ -1040,9 +1040,7 @@ def test_append_handles_arcnames_of_type_str(
         assert archive.getmember("nested/file.txt").isfile()
 
 
-def test_multithreaded_append(
-    source_path, target_path, archive_path, write_mode, read_mode
-):
+def test_append_with_multiple_threads(target_path, archive_path, write_mode, read_mode):
     def worker(barrier, writer, target_path, lock, thread_index):
         barrier.wait()
         thread_target_path = target_path / f"thread_{thread_index}"
@@ -1059,8 +1057,8 @@ def test_multithreaded_append(
 
     with ArchiveWriter.open(archive_path, write_mode) as writer:
         with ThreadPoolExecutor(max_workers=num_workers) as tpe:
+            futures = []
             try:
-                futures = []
                 for i in range(num_workers):
                     futures.append(
                         tpe.submit(worker, barrier, writer, target_path, lock, i)
@@ -1074,3 +1072,17 @@ def test_multithreaded_append(
 
     with tarfile.open(archive_path, read_mode) as archive:
         assert sorted(archive.getnames()) == [f"thread_{i}" for i in range(num_workers)]
+
+
+def test_open_and_append_with_sparse_option_disabled(
+    source_path, archive_path, write_mode, read_mode
+):
+    file_path = source_path / "file.txt"
+    file_path.touch()
+
+    with ArchiveWriter.open(archive_path, write_mode, sparse=False) as writer:
+        writer.append(file_path)
+
+    with tarfile.open(archive_path, read_mode) as archive:
+        assert archive.getnames() == ["file.txt"]
+        assert archive.getmember("file.txt").isfile()

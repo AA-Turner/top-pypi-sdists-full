@@ -18,9 +18,11 @@
  */
 import dayjs from "dayjs";
 import dayjsDuration from "dayjs/plugin/duration";
+import relativeTime from "dayjs/plugin/relativeTime";
 import tz from "dayjs/plugin/timezone";
 
 dayjs.extend(dayjsDuration);
+dayjs.extend(relativeTime);
 dayjs.extend(tz);
 
 export const DEFAULT_DATETIME_FORMAT = "YYYY-MM-DD HH:mm:ss";
@@ -45,10 +47,19 @@ export const renderDuration = (
     : dayjs.duration(durationSeconds, "seconds").format("D[d]HH:mm:ss");
 };
 
-export const getDuration = (startDate?: string | null, endDate?: string | null) => {
-  const seconds = dayjs.duration(dayjs(endDate ?? undefined).diff(startDate ?? undefined)).asSeconds();
+export const getDuration = (
+  startDate?: string | null,
+  endDate?: string | null,
+  withMilliseconds: boolean = true,
+) => {
+  if (startDate === undefined || startDate === null) {
+    return undefined;
+  }
 
-  return renderDuration(seconds);
+  const end = endDate ?? dayjs().toISOString();
+  const seconds = dayjs.duration(dayjs(end).diff(startDate)).asSeconds();
+
+  return renderDuration(seconds, withMilliseconds);
 };
 
 export const formatDate = (
@@ -61,4 +72,20 @@ export const formatDate = (
   }
 
   return dayjs(date).tz(timezone).format(format);
+};
+
+export const getRelativeTime = (date: string | null | undefined): string => {
+  if (date === null || date === "" || date === undefined) {
+    return "";
+  }
+
+  return dayjs(date).fromNow();
+};
+
+export const getTimezoneOffsetString = (timezone: string): string => dayjs().tz(timezone).format("Z");
+
+export const getTimezoneTooltipLabel = (timezone: string): string => {
+  const now = dayjs().tz(timezone);
+
+  return `${timezone} — ${now.format(DEFAULT_DATETIME_FORMAT_WITH_TZ)}`;
 };

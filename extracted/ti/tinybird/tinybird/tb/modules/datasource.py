@@ -58,7 +58,7 @@ from tinybird.tb.modules.create import (
 )
 from tinybird.tb.modules.datafile.fixture import persist_fixture
 from tinybird.tb.modules.exceptions import CLIDatasourceException
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.llm import LLM
 from tinybird.tb.modules.llm_utils import extract_xml
 from tinybird.tb.modules.project import Project
@@ -223,9 +223,9 @@ def datasource_append(
         data = file or url or events
 
     if env == "local":
-        tip = "Did you build your project? Run `tb build` first."
+        tip = f"Did you build your project? Run `{get_cli_name()} build` first."
     else:
-        tip = "Did you deploy your project? Run `tb --cloud deploy` first."
+        tip = f"Did you deploy your project? Run `{get_cli_name()} --cloud deploy` first."
 
     datasources = client.datasources()
     if not datasources:
@@ -242,7 +242,9 @@ def datasource_append(
             for index, datasource in enumerate(datasources):
                 click.echo(f"  [{index + 1}] {datasource['name']}")
             click.echo(
-                FeedbackManager.gray(message="Tip: Run tb datasource append [datasource_name] to skip this step.")
+                FeedbackManager.gray(
+                    message=f"Tip: Run {get_cli_name()} datasource append [datasource_name] to skip this step."
+                )
             )
 
             datasource_index = click.prompt("\nSelect option", default=1)
@@ -272,7 +274,7 @@ def datasource_append(
                 click.echo(f"  [{index + 1}] {option}")
             click.echo(
                 FeedbackManager.gray(
-                    message="Tip: Run tb datasource append [datasource_name] --events | --file | --url to skip this step"
+                    message=f"Tip: Run {get_cli_name()} datasource append [datasource_name] --events | --file | --url to skip this step"
                 )
             )
 
@@ -956,7 +958,9 @@ ENGINE "MergeTree"
                 click.echo(FeedbackManager.gray(message="\nFiles can be either NDJSON, CSV or Parquet."))
                 click.echo(
                     FeedbackManager.gray(
-                        message=("Tip: Run `tb datasource create --file | --url | --connection` to skip this step.")
+                        message=(
+                            f"Tip: Run `{get_cli_name()} datasource create --file | --url | --connection` to skip this step."
+                        )
                     )
                 )
                 datasource_type_index = click.prompt("\nSelect option", default=1)
@@ -1048,7 +1052,7 @@ ENGINE "MergeTree"
                 else:
                     click.echo(
                         FeedbackManager.info(
-                            message=f"→ To continue, you need a connection. Run `tb connection create {datasource_type}` to create one."
+                            message=f"→ To continue, you need a connection. Run `{get_cli_name()} connection create {datasource_type}` to create one."
                         )
                     )
                     wizard_data["exit_reason"] = "user_declined_connection_creation"
@@ -1432,12 +1436,12 @@ IMPORT_SCHEDULE "@auto"
         click.echo(FeedbackManager.success(message=f"✓ /datasources/{name}.datasource created"))
 
         if datasource_type == "kafka":
-            tip_message = """Next steps:
-    - Run `tb deploy` to consume from the topic in Tinybird Local.
-    - Run `tb --cloud deploy` to deploy the new resource to Tinybird Cloud."""
+            tip_message = f"""Next steps:
+    - Run `{get_cli_name()} deploy` to consume from the topic in Tinybird Local.
+    - Run `{get_cli_name()} --cloud deploy` to deploy the new resource to Tinybird Cloud."""
         else:
-            tip_message = """Next steps:
-    - Run `tb --cloud deploy` to deploy the new resource to Tinybird Cloud."""
+            tip_message = f"""Next steps:
+    - Run `{get_cli_name()} --cloud deploy` to deploy the new resource to Tinybird Cloud."""
 
         click.echo(FeedbackManager.gray(message=tip_message))
 

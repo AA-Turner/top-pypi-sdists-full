@@ -42,6 +42,7 @@ else:
 __all__ = (
     "AccountingRequestTypeDef",
     "AccountingTypeDef",
+    "CgroupCustomSettingTypeDef",
     "ClusterSlurmConfigurationRequestTypeDef",
     "ClusterSlurmConfigurationTypeDef",
     "ClusterSummaryTypeDef",
@@ -101,6 +102,7 @@ __all__ = (
     "SlurmCustomSettingTypeDef",
     "SlurmRestRequestTypeDef",
     "SlurmRestTypeDef",
+    "SlurmdbdCustomSettingTypeDef",
     "SpotOptionsTypeDef",
     "TagResourceRequestTypeDef",
     "UntagResourceRequestTypeDef",
@@ -128,6 +130,11 @@ class AccountingTypeDef(TypedDict):
     defaultPurgeTimeInDays: NotRequired[int]
 
 
+class CgroupCustomSettingTypeDef(TypedDict):
+    parameterName: str
+    parameterValue: str
+
+
 class SlurmCustomSettingTypeDef(TypedDict):
     parameterName: str
     parameterValue: str
@@ -135,6 +142,11 @@ class SlurmCustomSettingTypeDef(TypedDict):
 
 class SlurmRestRequestTypeDef(TypedDict):
     mode: SlurmRestModeType
+
+
+class SlurmdbdCustomSettingTypeDef(TypedDict):
+    parameterName: str
+    parameterValue: str
 
 
 class SlurmAuthKeyTypeDef(TypedDict):
@@ -383,6 +395,8 @@ class UpdateQueueSlurmConfigurationRequestTypeDef(TypedDict):
 class ClusterSlurmConfigurationRequestTypeDef(TypedDict):
     scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
+    slurmdbdCustomSettings: NotRequired[Sequence[SlurmdbdCustomSettingTypeDef]]
+    cgroupCustomSettings: NotRequired[Sequence[CgroupCustomSettingTypeDef]]
     accounting: NotRequired[AccountingRequestTypeDef]
     slurmRest: NotRequired[SlurmRestRequestTypeDef]
 
@@ -438,6 +452,8 @@ class ListQueuesResponseTypeDef(TypedDict):
 class UpdateClusterSlurmConfigurationRequestTypeDef(TypedDict):
     scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[Sequence[SlurmCustomSettingTypeDef]]
+    slurmdbdCustomSettings: NotRequired[Sequence[SlurmdbdCustomSettingTypeDef]]
+    cgroupCustomSettings: NotRequired[Sequence[CgroupCustomSettingTypeDef]]
     accounting: NotRequired[UpdateAccountingRequestTypeDef]
     slurmRest: NotRequired[UpdateSlurmRestRequestTypeDef]
 
@@ -543,6 +559,8 @@ class CreateClusterRequestTypeDef(TypedDict):
 class ClusterSlurmConfigurationTypeDef(TypedDict):
     scaleDownIdleTimeInSeconds: NotRequired[int]
     slurmCustomSettings: NotRequired[list[SlurmCustomSettingTypeDef]]
+    slurmdbdCustomSettings: NotRequired[list[SlurmdbdCustomSettingTypeDef]]
+    cgroupCustomSettings: NotRequired[list[CgroupCustomSettingTypeDef]]
     authKey: NotRequired[SlurmAuthKeyTypeDef]
     jwtAuth: NotRequired[JwtAuthTypeDef]
     accounting: NotRequired[AccountingTypeDef]

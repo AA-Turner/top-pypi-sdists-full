@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-toggles
-Version: 5.4.1
+Version: 6.0.0
 Summary: Library and utilities for feature toggles
 Home-page: https://github.com/openedx/edx-toggles
 Author: edX
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE.txt
 Requires-Dist: Django>=2.2

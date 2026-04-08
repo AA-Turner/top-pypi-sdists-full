@@ -25,10 +25,10 @@ import structlog
 
 from airflow.api_fastapi.common.parameters import state_priority
 from airflow.api_fastapi.core_api.services.ui.task_group import get_task_group_children_getter
-from airflow.models.mappedoperator import MappedOperator
 from airflow.models.taskmap import TaskMap
+from airflow.serialization.definitions.baseoperator import SerializedBaseOperator
+from airflow.serialization.definitions.mappedoperator import SerializedMappedOperator
 from airflow.serialization.definitions.taskgroup import SerializedTaskGroup
-from airflow.serialization.serialized_objects import SerializedBaseOperator
 
 log = structlog.get_logger(logger_name=__name__)
 
@@ -72,11 +72,18 @@ def _get_aggs_for_node(detail):
         max_end_date = max(x["end_date"] for x in detail if x["end_date"])
     except ValueError:
         max_end_date = None
+
+    dag_version_numbers = [
+        x.get("dag_version_number") for x in detail if x.get("dag_version_number") is not None
+    ]
+    dag_version_number = max(dag_version_numbers) if dag_version_numbers else None
+
     return {
         "state": agg_state(states),
         "min_start_date": min_start_date,
         "max_end_date": max_end_date,
         "child_states": dict(Counter(states)),
+        "dag_version_number": dag_version_number,
     }
 
 
@@ -93,7 +100,7 @@ def _find_aggregates(
 
     if node is None:
         return
-    if isinstance(node, MappedOperator):
+    if isinstance(node, SerializedMappedOperator):
         # For unmapped tasks, reflect a single None state so UI shows one square
         mapped_details = details or [{"state": None, "start_date": None, "end_date": None}]
         yield {

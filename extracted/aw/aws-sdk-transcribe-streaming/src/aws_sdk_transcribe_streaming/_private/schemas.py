@@ -1879,6 +1879,18 @@ RESULT_LIST = Schema.collection(
     members={"member": {"target": RESULT}},
 )
 
+SESSION_RESUME_WINDOW = Schema(
+    id=ShapeID("com.amazonaws.transcribestreaming#SessionResumeWindow"),
+    shape_type=ShapeType.INTEGER,
+    traits=[
+        Trait.new(id=ShapeID("smithy.api#box")),
+        Trait.new(
+            id=ShapeID("smithy.api#range"),
+            value=MappingProxyType({"min": 1, "max": 300}),
+        ),
+    ],
+)
+
 SPECIALTY = Schema.collection(
     id=ShapeID("com.amazonaws.transcribestreaming#Specialty"),
     shape_type=ShapeType.ENUM,
@@ -3000,6 +3012,15 @@ START_STREAM_TRANSCRIPTION_INPUT = Schema.collection(
                 )
             ],
         },
+        "SessionResumeWindow": {
+            "target": SESSION_RESUME_WINDOW,
+            "traits": [
+                Trait.new(
+                    id=ShapeID("smithy.api#httpHeader"),
+                    value="x-amzn-transcribe-session-resume-window",
+                )
+            ],
+        },
     },
 )
 
@@ -3249,6 +3270,15 @@ START_STREAM_TRANSCRIPTION_OUTPUT = Schema.collection(
                 Trait.new(
                     id=ShapeID("smithy.api#httpHeader"),
                     value="x-amzn-transcribe-vocabulary-filter-names",
+                )
+            ],
+        },
+        "SessionResumeWindow": {
+            "target": SESSION_RESUME_WINDOW,
+            "traits": [
+                Trait.new(
+                    id=ShapeID("smithy.api#httpHeader"),
+                    value="x-amzn-transcribe-session-resume-window",
                 )
             ],
         },

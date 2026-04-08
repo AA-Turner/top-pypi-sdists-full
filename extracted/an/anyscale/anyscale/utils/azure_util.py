@@ -17,7 +17,7 @@ def disabled_on_azure(command_name: str) -> Callable[..., Any]:
         def wrapper(*args, **kwargs) -> Any:
             if ANYSCALE_HOST in AZURE_HOSTS:
                 raise click.ClickException(
-                    f"`{command_name}` is not supported on Azure, see http://docs.anyscale.com/azure#limitations"
+                    f"`{command_name}` is not supported on Azure, see https://docs.anyscale.com/azure#limitations"
                 )
             return func(*args, **kwargs)
 

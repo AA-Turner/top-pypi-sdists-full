@@ -39,6 +39,8 @@ __all__ = (
     "FindingTypeType",
     "GetFindingRecommendationPaginatorName",
     "GetFindingV2PaginatorName",
+    "ImpactAnalysisJobStatusType",
+    "ImpactAnalysisJobTypeType",
     "InternalAccessTypeType",
     "JobErrorCodeType",
     "JobStatusType",
@@ -51,9 +53,15 @@ __all__ = (
     "ListFindingsPaginatorName",
     "ListFindingsV2PaginatorName",
     "ListPolicyGenerationsPaginatorName",
+    "ListPolicyPreviewJobsPaginatorName",
     "LocaleType",
     "OrderByType",
     "PaginatorName",
+    "PolicyPreviewConfigurationActiveWaiterName",
+    "PolicyPreviewJobCompletedWaiterName",
+    "PolicyPreviewJobFilterNameType",
+    "PolicyPreviewScopeType",
+    "PolicyPreviewStatusType",
     "PolicyTypeType",
     "PrincipalTypeType",
     "ReasonCodeType",
@@ -70,6 +78,7 @@ __all__ = (
     "ValidatePolicyFindingTypeType",
     "ValidatePolicyPaginatorName",
     "ValidatePolicyResourceTypeType",
+    "WaiterName",
 )
 
 AccessCheckPolicyTypeType = Literal["IDENTITY_POLICY", "RESOURCE_POLICY"]
@@ -124,10 +133,21 @@ FindingTypeType = Literal[
 ]
 GetFindingRecommendationPaginatorName = Literal["get_finding_recommendation"]
 GetFindingV2PaginatorName = Literal["get_finding_v2"]
+ImpactAnalysisJobStatusType = Literal["CANCELED", "COMPLETED", "FAILED", "IN_PROGRESS", "SUBMITTED"]
+ImpactAnalysisJobTypeType = Literal["SCP"]
 InternalAccessTypeType = Literal["INTRA_ACCOUNT", "INTRA_ORG"]
 JobErrorCodeType = Literal[
     "AUTHORIZATION_ERROR",
+    "CANCELED_JOB_ERROR",
+    "INSUFFICIENT_PERMISSIONS_ERROR",
+    "INVALID_ORGANIZATION_CONFIGURATION",
+    "INVALID_POLICY_PREVIEW_CONFIGURATION",
+    "INVALID_SERVICE_LINKED_ROLE",
+    "INVALID_TARGET_ERROR",
+    "ORGANIZATION_ACCESS_DENIED_ERROR",
     "RESOURCE_NOT_FOUND_ERROR",
+    "S3_BUCKET_NOT_FOUND_ERROR",
+    "S3_BUCKET_PERMISSION_ERROR",
     "SERVICE_ERROR",
     "SERVICE_QUOTA_EXCEEDED_ERROR",
 ]
@@ -156,8 +176,14 @@ ListArchiveRulesPaginatorName = Literal["list_archive_rules"]
 ListFindingsPaginatorName = Literal["list_findings"]
 ListFindingsV2PaginatorName = Literal["list_findings_v2"]
 ListPolicyGenerationsPaginatorName = Literal["list_policy_generations"]
+ListPolicyPreviewJobsPaginatorName = Literal["list_policy_preview_jobs"]
 LocaleType = Literal["DE", "EN", "ES", "FR", "IT", "JA", "KO", "PT_BR", "ZH_CN", "ZH_TW"]
 OrderByType = Literal["ASC", "DESC"]
+PolicyPreviewConfigurationActiveWaiterName = Literal["policy_preview_configuration_active"]
+PolicyPreviewJobCompletedWaiterName = Literal["policy_preview_job_completed"]
+PolicyPreviewJobFilterNameType = Literal["jobStatus", "targetId"]
+PolicyPreviewScopeType = Literal["GLOBAL"]
+PolicyPreviewStatusType = Literal["ACTIVE", "FAILED", "PENDING_CREATION"]
 PolicyTypeType = Literal[
     "IDENTITY_POLICY", "RESOURCE_CONTROL_POLICY", "RESOURCE_POLICY", "SERVICE_CONTROL_POLICY"
 ]
@@ -333,6 +359,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -568,6 +595,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -603,6 +631,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -615,6 +644,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -647,8 +677,10 @@ PaginatorName = Literal[
     "list_findings",
     "list_findings_v2",
     "list_policy_generations",
+    "list_policy_preview_jobs",
     "validate_policy",
 ]
+WaiterName = Literal["policy_preview_configuration_active", "policy_preview_job_completed"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

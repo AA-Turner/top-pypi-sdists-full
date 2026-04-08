@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import Annotated, Any, Literal
 
@@ -3631,7 +3632,7 @@ class SimulatorVersionDetails(BaseModel):
     )
     artifact_id: Annotated[str, Field(title="Artifact Id")]
     version: Annotated[str, Field(title="Version")]
-    created_at: Annotated[AwareDatetime, Field(title="Created At")]
+    created_at: Annotated[datetime, Field(title="Created At")]
     worker_image: Annotated[str, Field(title="Worker Image")]
     ecs_task_definition_arn: Annotated[str, Field(title="Ecs Task Definition Arn")]
     snapshot_s3_uri: Annotated[str, Field(title="Snapshot S3 Uri")]

@@ -599,8 +599,9 @@ class BackupClient(AioBaseClient):
 
     async def describe_global_settings(self) -> DescribeGlobalSettingsOutputTypeDef:
         """
-        Describes whether the Amazon Web Services account is opted in to cross-account
-        backup.
+        Describes whether the Amazon Web Services account has enabled different
+        cross-account management options, including cross-account backup, multi-party
+        approval, and delegated administrator.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/describe_global_settings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#describe_global_settings)
@@ -1345,8 +1346,9 @@ class BackupClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateGlobalSettingsInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Updates whether the Amazon Web Services account is opted in to cross-account
-        backup.
+        Updates whether the Amazon Web Services account has enabled different
+        cross-account management options, including cross-account backup, multi-party
+        approval, and delegated administrator.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/update_global_settings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_backup/client/#update_global_settings)

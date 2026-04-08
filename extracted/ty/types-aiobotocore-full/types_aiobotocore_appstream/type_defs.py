@@ -43,6 +43,7 @@ from .literals import (
     ImageStateChangeReasonCodeType,
     ImageStateType,
     ImageTypeType,
+    InstanceDrainStatusType,
     LatestAppstreamAgentVersionType,
     MessageActionType,
     PackagingTypeType,
@@ -95,6 +96,9 @@ __all__ = (
     "CertificateBasedAuthPropertiesTypeDef",
     "ComputeCapacityStatusTypeDef",
     "ComputeCapacityTypeDef",
+    "ContentRedirectionOutputTypeDef",
+    "ContentRedirectionTypeDef",
+    "ContentRedirectionUnionTypeDef",
     "CopyImageRequestTypeDef",
     "CopyImageResponseTypeDef",
     "CreateAppBlockBuilderRequestTypeDef",
@@ -199,6 +203,7 @@ __all__ = (
     "DisassociateFleetRequestTypeDef",
     "DisassociateSoftwareFromImageBuilderRequestTypeDef",
     "DomainJoinInfoTypeDef",
+    "DrainSessionInstanceRequestTypeDef",
     "EnableUserRequestTypeDef",
     "EntitledApplicationTypeDef",
     "EntitlementAttributeTypeDef",
@@ -276,6 +281,8 @@ __all__ = (
     "UpdateStackResultTypeDef",
     "UpdateThemeForStackRequestTypeDef",
     "UpdateThemeForStackResultTypeDef",
+    "UrlRedirectionConfigOutputTypeDef",
+    "UrlRedirectionConfigTypeDef",
     "UsageReportSubscriptionTypeDef",
     "UserSettingTypeDef",
     "UserStackAssociationErrorTypeDef",
@@ -416,11 +423,26 @@ class ComputeCapacityStatusTypeDef(TypedDict):
     AvailableUserSessions: NotRequired[int]
     ActiveUserSessions: NotRequired[int]
     ActualUserSessions: NotRequired[int]
+    Draining: NotRequired[int]
+    DrainModeActiveUserSessions: NotRequired[int]
+    DrainModeUnusedUserSessions: NotRequired[int]
 
 
 class ComputeCapacityTypeDef(TypedDict):
     DesiredInstances: NotRequired[int]
     DesiredSessions: NotRequired[int]
+
+
+class UrlRedirectionConfigOutputTypeDef(TypedDict):
+    Enabled: bool
+    AllowedUrls: NotRequired[list[str]]
+    DeniedUrls: NotRequired[list[str]]
+
+
+class UrlRedirectionConfigTypeDef(TypedDict):
+    Enabled: bool
+    AllowedUrls: NotRequired[Sequence[str]]
+    DeniedUrls: NotRequired[Sequence[str]]
 
 
 class CopyImageRequestTypeDef(TypedDict):
@@ -739,6 +761,10 @@ class DisassociateFleetRequestTypeDef(TypedDict):
 class DisassociateSoftwareFromImageBuilderRequestTypeDef(TypedDict):
     ImageBuilderName: str
     SoftwareNames: Sequence[str]
+
+
+class DrainSessionInstanceRequestTypeDef(TypedDict):
+    SessionId: str
 
 
 class EnableUserRequestTypeDef(TypedDict):
@@ -1060,6 +1086,14 @@ class UserStackAssociationErrorTypeDef(TypedDict):
     ErrorMessage: NotRequired[str]
 
 
+class ContentRedirectionOutputTypeDef(TypedDict):
+    HostToClient: NotRequired[UrlRedirectionConfigOutputTypeDef]
+
+
+class ContentRedirectionTypeDef(TypedDict):
+    HostToClient: NotRequired[UrlRedirectionConfigTypeDef]
+
+
 class CreateDirectoryConfigRequestTypeDef(TypedDict):
     DirectoryName: str
     OrganizationalUnitDistinguishedNames: Sequence[str]
@@ -1310,6 +1344,7 @@ class SessionTypeDef(TypedDict):
     AuthenticationType: NotRequired[AuthenticationTypeType]
     NetworkAccessConfiguration: NotRequired[NetworkAccessConfigurationTypeDef]
     InstanceId: NotRequired[str]
+    InstanceDrainStatus: NotRequired[InstanceDrainStatusType]
 
 
 class SharedImagePermissionsTypeDef(TypedDict):
@@ -1328,23 +1363,6 @@ class UsageReportSubscriptionTypeDef(TypedDict):
     Schedule: NotRequired[Literal["DAILY"]]
     LastGeneratedReportDate: NotRequired[datetime]
     SubscriptionErrors: NotRequired[list[LastReportGenerationExecutionErrorTypeDef]]
-
-
-class StackTypeDef(TypedDict):
-    Name: str
-    Arn: NotRequired[str]
-    Description: NotRequired[str]
-    DisplayName: NotRequired[str]
-    CreatedTime: NotRequired[datetime]
-    StorageConnectors: NotRequired[list[StorageConnectorOutputTypeDef]]
-    RedirectURL: NotRequired[str]
-    FeedbackURL: NotRequired[str]
-    StackErrors: NotRequired[list[StackErrorTypeDef]]
-    UserSettings: NotRequired[list[UserSettingTypeDef]]
-    ApplicationSettings: NotRequired[ApplicationSettingsResponseTypeDef]
-    AccessEndpoints: NotRequired[list[AccessEndpointTypeDef]]
-    EmbedHostDomains: NotRequired[list[str]]
-    StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
 
 
 StorageConnectorUnionTypeDef = Union[StorageConnectorTypeDef, StorageConnectorOutputTypeDef]
@@ -1477,6 +1495,27 @@ class BatchDisassociateUserStackResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class StackTypeDef(TypedDict):
+    Name: str
+    Arn: NotRequired[str]
+    Description: NotRequired[str]
+    DisplayName: NotRequired[str]
+    CreatedTime: NotRequired[datetime]
+    StorageConnectors: NotRequired[list[StorageConnectorOutputTypeDef]]
+    RedirectURL: NotRequired[str]
+    FeedbackURL: NotRequired[str]
+    StackErrors: NotRequired[list[StackErrorTypeDef]]
+    UserSettings: NotRequired[list[UserSettingTypeDef]]
+    ApplicationSettings: NotRequired[ApplicationSettingsResponseTypeDef]
+    AccessEndpoints: NotRequired[list[AccessEndpointTypeDef]]
+    EmbedHostDomains: NotRequired[list[str]]
+    StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
+    ContentRedirection: NotRequired[ContentRedirectionOutputTypeDef]
+
+
+ContentRedirectionUnionTypeDef = Union[ContentRedirectionTypeDef, ContentRedirectionOutputTypeDef]
+
+
 class CreateDirectoryConfigResultTypeDef(TypedDict):
     DirectoryConfig: DirectoryConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1583,37 +1622,6 @@ class DescribeUsageReportSubscriptionsResultTypeDef(TypedDict):
     UsageReportSubscriptions: list[UsageReportSubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-class CreateStackResultTypeDef(TypedDict):
-    Stack: StackTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeStacksResultTypeDef(TypedDict):
-    Stacks: list[StackTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class UpdateStackResultTypeDef(TypedDict):
-    Stack: StackTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateStackRequestTypeDef(TypedDict):
-    Name: str
-    Description: NotRequired[str]
-    DisplayName: NotRequired[str]
-    StorageConnectors: NotRequired[Sequence[StorageConnectorUnionTypeDef]]
-    RedirectURL: NotRequired[str]
-    FeedbackURL: NotRequired[str]
-    UserSettings: NotRequired[Sequence[UserSettingTypeDef]]
-    ApplicationSettings: NotRequired[ApplicationSettingsTypeDef]
-    Tags: NotRequired[Mapping[str, str]]
-    AccessEndpoints: NotRequired[Sequence[AccessEndpointTypeDef]]
-    EmbedHostDomains: NotRequired[Sequence[str]]
-    StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
 
 
 class UpdateStackRequestTypeDef(TypedDict):
@@ -1765,3 +1773,35 @@ class DescribeAppBlocksResultTypeDef(TypedDict):
     AppBlocks: list[AppBlockTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class CreateStackResultTypeDef(TypedDict):
+    Stack: StackTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeStacksResultTypeDef(TypedDict):
+    Stacks: list[StackTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateStackResultTypeDef(TypedDict):
+    Stack: StackTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateStackRequestTypeDef(TypedDict):
+    Name: str
+    Description: NotRequired[str]
+    DisplayName: NotRequired[str]
+    StorageConnectors: NotRequired[Sequence[StorageConnectorUnionTypeDef]]
+    RedirectURL: NotRequired[str]
+    FeedbackURL: NotRequired[str]
+    UserSettings: NotRequired[Sequence[UserSettingTypeDef]]
+    ApplicationSettings: NotRequired[ApplicationSettingsTypeDef]
+    Tags: NotRequired[Mapping[str, str]]
+    AccessEndpoints: NotRequired[Sequence[AccessEndpointTypeDef]]
+    EmbedHostDomains: NotRequired[Sequence[str]]
+    StreamingExperienceSettings: NotRequired[StreamingExperienceSettingsTypeDef]
+    ContentRedirection: NotRequired[ContentRedirectionUnionTypeDef]

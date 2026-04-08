@@ -28,6 +28,7 @@ __all__ = (
     "ApiKeyCredentialLocationType",
     "AuthorizerTypeType",
     "BedrockAgentCoreControlServiceName",
+    "BrowserEnterprisePolicyTypeType",
     "BrowserNetworkModeType",
     "BrowserProfileStatusType",
     "BrowserStatusType",
@@ -38,6 +39,7 @@ __all__ = (
     "ContentTypeType",
     "CredentialProviderTypeType",
     "CredentialProviderVendorTypeType",
+    "EndpointIpAddressTypeType",
     "EvaluatorLevelType",
     "EvaluatorStatusType",
     "EvaluatorTypeType",
@@ -110,6 +112,7 @@ AgentRuntimeStatusType = Literal[
 ]
 ApiKeyCredentialLocationType = Literal["HEADER", "QUERY_PARAMETER"]
 AuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT", "NONE"]
+BrowserEnterprisePolicyTypeType = Literal["MANAGED", "RECOMMENDED"]
 BrowserNetworkModeType = Literal["PUBLIC", "VPC"]
 BrowserProfileStatusType = Literal["DELETED", "DELETING", "READY", "SAVING"]
 BrowserStatusType = Literal[
@@ -150,11 +153,12 @@ CredentialProviderVendorTypeType = Literal[
     "YandexOauth2",
     "ZoomOauth2",
 ]
+EndpointIpAddressTypeType = Literal["IPV4", "IPV6"]
 EvaluatorLevelType = Literal["SESSION", "TOOL_CALL", "TRACE"]
 EvaluatorStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
-EvaluatorTypeType = Literal["Builtin", "Custom"]
+EvaluatorTypeType = Literal["Builtin", "Custom", "CustomCode"]
 ExceptionLevelType = Literal["DEBUG"]
 FilterOperatorType = Literal[
     "Contains",
@@ -234,12 +238,15 @@ SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "str
 SearchTypeType = Literal["SEMANTIC"]
 ServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
 TargetStatusType = Literal[
+    "CREATE_PENDING_AUTH",
     "CREATING",
     "DELETING",
     "FAILED",
     "READY",
+    "SYNCHRONIZE_PENDING_AUTH",
     "SYNCHRONIZE_UNSUCCESSFUL",
     "SYNCHRONIZING",
+    "UPDATE_PENDING_AUTH",
     "UPDATE_UNSUCCESSFUL",
     "UPDATING",
 ]
@@ -362,6 +369,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -597,6 +605,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -632,6 +641,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -644,6 +654,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

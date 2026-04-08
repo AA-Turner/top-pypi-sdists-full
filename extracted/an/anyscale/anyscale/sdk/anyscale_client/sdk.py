@@ -446,56 +446,56 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
         raise AnyscaleSDKDeprecationError(
             "AnyscaleSDK.launch_cluster() is deprecated. "
             "Please use anyscale.workspace.create() instead. "
-            "See https://docs.anyscale.com/reference/workspace for details."
+            "See https://docs.anyscale.com/reference/workspaces for details."
         )
 
     def launch_cluster_with_new_cluster_environment(self, *args, **kwargs):
         raise AnyscaleSDKDeprecationError(
             "AnyscaleSDK.launch_cluster_with_new_cluster_environment() is deprecated. "
             "Please use anyscale.workspace.create() instead. "
-            "See https://docs.anyscale.com/reference/workspace for details."
+            "See https://docs.anyscale.com/reference/workspaces for details."
         )
 
     def create_cluster(self, create_cluster, **kwargs):
         raise AnyscaleSDKDeprecationError(
             "AnyscaleSDK.create_cluster() is deprecated. "
             "Please use anyscale.workspace.create() instead. "
-            "See https://docs.anyscale.com/reference/workspace for details."
+            "See https://docs.anyscale.com/reference/workspaces for details."
         )
 
     def delete_cluster(self, cluster_id, **kwargs):
         raise AnyscaleSDKDeprecationError(
             "AnyscaleSDK.delete_cluster() is deprecated. "
             "No replacement. Deleting a cluster is no longer supported. "
-            "See https://docs.anyscale.com/reference/workspace for details."
+            "See https://docs.anyscale.com/reference/workspaces for details."
         )
 
     def search_clusters(self, clusters_query, **kwargs):
         raise AnyscaleSDKDeprecationError(
             "AnyscaleSDK.search_clusters() is deprecated. "
             "Please use anyscale.workspace.list() instead. "
-            "See https://docs.anyscale.com/reference/workspace for details."
+            "See https://docs.anyscale.com/reference/workspaces for details."
         )
 
     def start_cluster(self, cluster_id, start_cluster_options, **kwargs):
         raise AnyscaleSDKDeprecationError(
             "AnyscaleSDK.start_cluster() is deprecated. "
             "Please use anyscale.workspace.start() instead. "
-            "See https://docs.anyscale.com/reference/workspace for details."
+            "See https://docs.anyscale.com/reference/workspaces for details."
         )
 
     def terminate_cluster(self, cluster_id, terminate_cluster_options, **kwargs):
         raise AnyscaleSDKDeprecationError(
             "AnyscaleSDK.terminate_cluster() is deprecated. "
             "Please use anyscale.workspace.terminate() instead. "
-            "See https://docs.anyscale.com/reference/workspace for details."
+            "See https://docs.anyscale.com/reference/workspaces for details."
         )
 
     def update_cluster(self, cluster_id, update_cluster, **kwargs):
         raise AnyscaleSDKDeprecationError(
             "AnyscaleSDK.update_cluster() is deprecated. "
             "Please use anyscale.workspace.update() instead. "
-            "See https://docs.anyscale.com/reference/workspace for details."
+            "See https://docs.anyscale.com/reference/workspaces for details."
         )
 
     # Cluster Environment

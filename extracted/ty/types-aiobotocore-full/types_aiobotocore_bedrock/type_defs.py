@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_bedrock.type_defs import ModelEnforcementOutputTypeDef
+    from types_aiobotocore_bedrock.type_defs import SelectiveContentGuardingTypeDef
 
-    data: ModelEnforcementOutputTypeDef = ...
+    data: SelectiveContentGuardingTypeDef = ...
     ```
 """
 
@@ -83,6 +83,7 @@ from .literals import (
     RerankingMetadataSelectionModeType,
     RetrieveAndGenerateTypeType,
     SearchTypeType,
+    SelectiveGuardingModeType,
     SortOrderType,
     StatusType,
 )
@@ -267,6 +268,7 @@ __all__ = (
     "DeleteMarketplaceModelEndpointRequestTypeDef",
     "DeletePromptRouterRequestTypeDef",
     "DeleteProvisionedModelThroughputRequestTypeDef",
+    "DeleteResourcePolicyRequestTypeDef",
     "DeregisterMarketplaceModelEndpointRequestTypeDef",
     "DimensionalPriceRateTypeDef",
     "DistillationConfigTypeDef",
@@ -357,6 +359,8 @@ __all__ = (
     "GetPromptRouterResponseTypeDef",
     "GetProvisionedModelThroughputRequestTypeDef",
     "GetProvisionedModelThroughputResponseTypeDef",
+    "GetResourcePolicyRequestTypeDef",
+    "GetResourcePolicyResponseTypeDef",
     "GetUseCaseForModelAccessResponseTypeDef",
     "GraderConfigTypeDef",
     "GuardrailAutomatedReasoningPolicyConfigTypeDef",
@@ -509,6 +513,8 @@ __all__ = (
     "PutEnforcedGuardrailConfigurationRequestTypeDef",
     "PutEnforcedGuardrailConfigurationResponseTypeDef",
     "PutModelInvocationLoggingConfigurationRequestTypeDef",
+    "PutResourcePolicyRequestTypeDef",
+    "PutResourcePolicyResponseTypeDef",
     "PutUseCaseForModelAccessRequestTypeDef",
     "QueryTransformationConfigurationTypeDef",
     "RAGConfigOutputTypeDef",
@@ -538,6 +544,7 @@ __all__ = (
     "S3ObjectDocTypeDef",
     "SageMakerEndpointOutputTypeDef",
     "SageMakerEndpointTypeDef",
+    "SelectiveContentGuardingTypeDef",
     "StartAutomatedReasoningPolicyBuildWorkflowRequestTypeDef",
     "StartAutomatedReasoningPolicyBuildWorkflowResponseTypeDef",
     "StartAutomatedReasoningPolicyTestWorkflowRequestTypeDef",
@@ -590,6 +597,11 @@ __all__ = (
     "VpcConfigTypeDef",
     "VpcConfigUnionTypeDef",
 )
+
+
+class SelectiveContentGuardingTypeDef(TypedDict):
+    system: NotRequired[SelectiveGuardingModeType]
+    messages: NotRequired[SelectiveGuardingModeType]
 
 
 class ModelEnforcementOutputTypeDef(TypedDict):
@@ -1016,6 +1028,10 @@ class DeleteProvisionedModelThroughputRequestTypeDef(TypedDict):
     provisionedModelId: str
 
 
+class DeleteResourcePolicyRequestTypeDef(TypedDict):
+    resourceArn: str
+
+
 class DeregisterMarketplaceModelEndpointRequestTypeDef(TypedDict):
     endpointArn: str
 
@@ -1224,6 +1240,10 @@ class GetPromptRouterRequestTypeDef(TypedDict):
 
 class GetProvisionedModelThroughputRequestTypeDef(TypedDict):
     provisionedModelId: str
+
+
+class GetResourcePolicyRequestTypeDef(TypedDict):
+    resourceArn: str
 
 
 class LambdaGraderConfigTypeDef(TypedDict):
@@ -1600,6 +1620,11 @@ QueryTransformationConfigurationTypeDef = TypedDict(
 )
 
 
+class PutResourcePolicyRequestTypeDef(TypedDict):
+    resourceArn: str
+    resourcePolicy: str
+
+
 class RFTHyperParametersTypeDef(TypedDict):
     epochCount: NotRequired[int]
     batchSize: NotRequired[int]
@@ -1710,6 +1735,7 @@ class AccountEnforcedGuardrailOutputConfigurationTypeDef(TypedDict):
     guardrailArn: NotRequired[str]
     guardrailId: NotRequired[str]
     inputTags: NotRequired[InputTagsType]
+    selectiveContentGuarding: NotRequired[SelectiveContentGuardingTypeDef]
     guardrailVersion: NotRequired[str]
     createdAt: NotRequired[datetime]
     createdBy: NotRequired[str]
@@ -2034,6 +2060,11 @@ class GetProvisionedModelThroughputResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetResourcePolicyResponseTypeDef(TypedDict):
+    resourcePolicy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetUseCaseForModelAccessResponseTypeDef(TypedDict):
     formData: bytes
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2063,6 +2094,11 @@ class PutEnforcedGuardrailConfigurationResponseTypeDef(TypedDict):
     configId: str
     updatedAt: datetime
     updatedBy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutResourcePolicyResponseTypeDef(TypedDict):
+    resourceArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3213,7 +3249,7 @@ class GetModelImportJobResponseTypeDef(TypedDict):
 class AccountEnforcedGuardrailInferenceInputConfigurationTypeDef(TypedDict):
     guardrailIdentifier: str
     guardrailVersion: str
-    inputTags: InputTagsType
+    selectiveContentGuarding: NotRequired[SelectiveContentGuardingTypeDef]
     modelEnforcement: NotRequired[ModelEnforcementUnionTypeDef]
 
 
@@ -3234,6 +3270,10 @@ class GetModelInvocationJobResponseTypeDef(TypedDict):
     timeoutDurationInHours: int
     jobExpirationTime: datetime
     modelInvocationType: ModelInvocationTypeType
+    totalRecordCount: int
+    processedRecordCount: int
+    successRecordCount: int
+    errorRecordCount: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3254,6 +3294,10 @@ class ModelInvocationJobSummaryTypeDef(TypedDict):
     timeoutDurationInHours: NotRequired[int]
     jobExpirationTime: NotRequired[datetime]
     modelInvocationType: NotRequired[ModelInvocationTypeType]
+    totalRecordCount: NotRequired[int]
+    processedRecordCount: NotRequired[int]
+    successRecordCount: NotRequired[int]
+    errorRecordCount: NotRequired[int]
 
 
 class CustomMetricDefinitionOutputTypeDef(TypedDict):

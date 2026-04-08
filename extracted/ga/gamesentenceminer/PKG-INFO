@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GameSentenceMiner
-Version: 2026.4.2
+Version: 2026.4.3
 Summary: A tool for mining sentences from games. Update: Dependencies, replay buffer based line searching, and bug fixes.
 Author-email: Beangate <bpwhelan95@gmail.com>
 License: MIT License
@@ -31,7 +31,6 @@ Requires-Dist: regex~=2025.10.23
 Requires-Dist: opencv-python~=4.12.0.88
 Requires-Dist: scikit-image~=0.25.2
 Requires-Dist: oneocr==1.0.10
-Requires-Dist: google-genai~=1.46.0
 Requires-Dist: sounddevice~=0.5.2
 Requires-Dist: matplotlib~=3.10.6
 Requires-Dist: groq~=0.33.0
@@ -71,6 +70,7 @@ Requires-Dist: ollama~=0.6.1
 Requires-Dist: aiohttp~=3.13.3
 Requires-Dist: fpng~=0.1.0
 Requires-Dist: onnxruntime~=1.23.2
+Requires-Dist: google-genai~=1.70.0
 Provides-Extra: lens
 Requires-Dist: protobuf>=6.33.2; extra == "lens"
 Provides-Extra: gpu

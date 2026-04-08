@@ -24,7 +24,6 @@ from typing import (
     Union,
 )
 from unittest.mock import ANY
-from urllib.parse import urljoin
 
 import httpx
 
@@ -289,13 +288,19 @@ class MultiItemsMixin:
     value: Any
 
     def _multi_items(
-        self, value: Any, *, parse_any: bool = False
+        self, value: Any, *, parse_any: bool = False, encode_any: bool = False
     ) -> Tuple[Tuple[str, Tuple[Any, ...]], ...]:
         return tuple(
             (
                 key,
                 tuple(
-                    ANY if parse_any and v == str(ANY) else v
+                    (
+                        ANY
+                        if parse_any and v == str(ANY)
+                        else str(ANY)
+                        if encode_any and v == ANY
+                        else v
+                    )
                     for v in value.get_list(key)
                 ),
             )
@@ -303,7 +308,13 @@ class MultiItemsMixin:
         )
 
     def __hash__(self):
-        return hash((self.__class__, self.lookup, self._multi_items(self.value)))
+        return hash(
+            (
+                self.__class__,
+                self.lookup,
+                self._multi_items(self.value, encode_any=True),
+            )
+        )
 
     def _eq(self, value: Any) -> Match:
         value_items = self._multi_items(self.value, parse_any=True)
@@ -429,7 +440,11 @@ class Path(Pattern):
                 else "".join(f"%{byte:02x}" for byte in char.encode("utf-8")).upper()
                 for char in value
             )
-            path = urljoin("/", path)  # Ensure leading slash
+            # Ensure a leading slash. Note we don't use urljoin because its
+            # behaviour with multiple slashes in the path is incorrect - see
+            # https://github.com/lundberg/respx/issues/273
+            if not path.startswith("/"):
+                path = f"/{path}"
             value = httpx.URL(path).path
         elif self.lookup is Lookup.REGEX and isinstance(value, str):
             value = re.compile(value)
@@ -548,9 +563,17 @@ class Data(MultiItemsMixin, Pattern):
     key = "data"
     value: MultiItems
 
-    def clean(self, value: Dict) -> MultiItems:
+    def _normalize_value(self, value: Any) -> Union[str, List[str]]:
+        if value is None:
+            return ""
+        elif isinstance(value, (tuple, list)):
+            return [str(v) for v in value]
+        else:
+            return str(value)
+
+    def clean(self, value: Dict[str, Any]) -> MultiItems:
         return MultiItems(
-            (key, "" if value is None else str(value)) for key, value in value.items()
+            (key, self._normalize_value(value)) for key, value in value.items()
         )
 
     def parse(self, request: httpx.Request) -> Any:
@@ -563,7 +586,7 @@ class Files(MultiItemsMixin, Pattern):
     key = "files"
     value: MultiItems
 
-    def _normalize_file_value(self, value: FileTypes) -> Tuple[Any, Any]:
+    def _normalize_file_value(self, value: FileTypes) -> Tuple[Tuple[Any, Any]]:
         # Mimic httpx `FileField` to normalize `files` kwarg to shortest tuple style
         if isinstance(value, tuple):
             filename, fileobj = value[:2]
@@ -580,7 +603,7 @@ class Files(MultiItemsMixin, Pattern):
         elif isinstance(fileobj, str):
             fileobj = fileobj.encode()
 
-        return filename, fileobj
+        return ((filename, fileobj),)
 
     def clean(self, value: RequestFiles) -> MultiItems:
         if isinstance(value, Mapping):

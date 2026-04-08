@@ -3678,6 +3678,7 @@ class CreateDBClusterMessageTypeDef(TypedDict):
     EngineLifecycleSupport: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
     MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
+    WithExpressConfiguration: NotRequired[bool]
     SourceRegion: NotRequired[str]
 
 
@@ -3958,6 +3959,8 @@ class RestoreDBClusterFromSnapshotMessageTypeDef(TypedDict):
     PreferredBackupWindow: NotRequired[str]
     EngineLifecycleSupport: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
+    EnableVPCNetworking: NotRequired[bool]
+    EnableInternetAccessGateway: NotRequired[bool]
 
 
 class RestoreDBClusterToPointInTimeMessageTypeDef(TypedDict):
@@ -3999,6 +4002,8 @@ class RestoreDBClusterToPointInTimeMessageTypeDef(TypedDict):
     PreferredBackupWindow: NotRequired[str]
     EngineLifecycleSupport: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
+    EnableVPCNetworking: NotRequired[bool]
+    EnableInternetAccessGateway: NotRequired[bool]
 
 
 class RestoreDBInstanceFromDBSnapshotMessageTypeDef(TypedDict):
@@ -4278,6 +4283,8 @@ class DBClusterTypeDef(TypedDict):
     ClusterScalabilityType: NotRequired[ClusterScalabilityTypeType]
     CertificateDetails: NotRequired[CertificateDetailsTypeDef]
     EngineLifecycleSupport: NotRequired[str]
+    VPCNetworkingEnabled: NotRequired[bool]
+    InternetAccessGatewayEnabled: NotRequired[bool]
 
 
 class DescribeDBProxyTargetGroupsResponseTypeDef(TypedDict):

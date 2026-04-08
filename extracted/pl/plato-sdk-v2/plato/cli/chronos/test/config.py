@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
 from plato.cli.chronos.config import WorldConfig, _expand_vars_recursive
-from plato.worlds.config import DevConfig, SessionConfig
+from plato.worlds.config import ChronosConfig, DevConfig
 
 
 class TestPhaseConfig(BaseModel):
@@ -68,7 +68,7 @@ class TestConfig(BaseModel):
     tags: list[str] = Field(default_factory=list)
     world: WorldConfig
     dev: DevConfig = Field(default_factory=DevConfig)
-    session: SessionConfig = Field(default_factory=SessionConfig)
+    session: ChronosConfig = Field(default_factory=ChronosConfig)
     test: TestRunnerConfig = Field(default_factory=TestRunnerConfig)
 
     model_config = {"extra": "allow"}

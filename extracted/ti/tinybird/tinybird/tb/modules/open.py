@@ -6,7 +6,7 @@ from click import Context
 from tinybird.tb.config import get_display_cloud_host
 from tinybird.tb.modules.cli import cli
 from tinybird.tb.modules.exceptions import CLIException
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 
 
 @cli.command()
@@ -30,7 +30,7 @@ def open(ctx: Context, workspace: str):
     if not workspace:
         raise CLIException(
             FeedbackManager.error(
-                message="No workspace found. Run 'tb login' first or pass a workspace using the --workspace parameter"
+                message=f"No workspace found. Run '{get_cli_name()} login' first or pass a workspace using the --workspace parameter"
             )
         )
 

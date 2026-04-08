@@ -42,9 +42,12 @@ from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
     PlanSqlQueryRequest,
 )
 from chalk._gen.chalk.protosql.v1.sql_service_pb2_grpc import SqlServiceStub
+from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as scalinggroup_service_pb2
+from chalk._gen.chalk.scalinggroup.v1.service_pb2_grpc import ScalingGroupManagerServiceStub
 from chalk._gen.chalk.server.v1.auth_pb2_grpc import AuthServiceStub
 from chalk._gen.chalk.server.v1.builder_pb2 import StartBranchResponse
 from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
+from chalk._gen.chalk.server.v1.dataframe_pb2_grpc import DataFrameServiceStub as ApiDataFrameServiceStub
 from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import (
     GetJobQueueOperationSummaryRequest,
     GetJobQueueOperationSummaryResponse,
@@ -152,6 +155,12 @@ from chalk.ml import LocalSourceConfig, ModelEncoding, ModelRunCriterion, ModelT
 from chalk.ml.model_file_transfer import ModelFileUploader
 from chalk.ml.utils import ModelClass, model_class_from_proto, model_encoding_from_proto, model_type_from_proto
 from chalk.parsed._proto.utils import datetime_to_proto_timestamp, value_to_proto
+from chalk.scalinggroup.spec import (
+    DeleteScalingGroupResponse,
+    ListScalingGroupsResponse,
+    ScalingGroup,
+    proto_to_scaling_group,
+)
 from chalk.utils import df_utils
 from chalk.utils.df_utils import record_batch_to_arrow_ipc
 from chalk.utils.grpc import AuthenticatedChalkClientInterceptor, TokenRefresher, UnauthenticatedChalkClientInterceptor
@@ -160,6 +169,14 @@ from chalk.utils.tracing import add_trace_headers, safe_trace
 if TYPE_CHECKING:
     from pyarrow import RecordBatch, Table
     from pydantic import BaseModel
+
+    from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobResponse
+    from chalk._gen.chalk.aggregate.v1.service_pb2_grpc import AggregateServiceStub
+    from chalk._gen.chalk.dataframe.v1.dataframe_pb2 import DataFramePlan
+    from chalk._gen.chalk.server.v1.builder_pb2 import StartBranchResponse
+    from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
+    from chalk._gen.chalk.server.v1.dataframe_pb2 import GetDataFrameRunResponse
+    from chalk.client import ChalkError
 
 
 @dataclasses.dataclass
@@ -412,10 +429,22 @@ class StubProvider:
         return AggregateServiceStub(self._server_channel)
 
     @cached_property
+    def api_dataframe_stub(self) -> ApiDataFrameServiceStub:
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return ApiDataFrameServiceStub(self._server_channel)
+
+    @cached_property
     def model_deployment_stub(self) -> "ModelDeploymentServiceStub":
         if self._server_channel is None:
             raise RuntimeError("Unable to connect to API server.")
         return ModelDeploymentServiceStub(self._server_channel)
+
+    @cached_property
+    def scaling_group_stub(self) -> "ScalingGroupManagerServiceStub":
+        if self._server_channel is None:
+            raise RuntimeError("Unable to connect to API server.")
+        return ScalingGroupManagerServiceStub(self._server_channel)
 
     def __init__(
         self,
@@ -628,6 +657,9 @@ class StubRefresher:
     def call_dataframe_stub(self, fn: Callable[[DataFrameServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.dataframe_stub)
 
+    def call_api_dataframe_stub(self, fn: Callable[[ApiDataFrameServiceStub], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.api_dataframe_stub)
+
     def call_model_stub(self, fn: Callable[[ModelRegistryServiceStub], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.model_stub)
 
@@ -636,6 +668,9 @@ class StubRefresher:
 
     def call_model_deployment_stub(self, fn: Callable[["ModelDeploymentServiceStub"], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.model_deployment_stub)
+
+    def call_scaling_group_stub(self, fn: Callable[["ScalingGroupManagerServiceStub"], T]) -> T:
+        return self._retry_callable(fn, lambda: self._stub.scaling_group_stub)
 
     def call_builder_stub(self, fn: Callable[["BuilderServiceStub"], T]) -> T:
         return self._retry_callable(fn, lambda: self._stub.builder_stub)
@@ -1674,6 +1709,211 @@ class ChalkGRPCClient:
             request.persistence_settings.CopyFrom(ExecuteSqlResultPersistenceSettings(enabled=enabled))
 
         return self._stub_refresher.call_sql_stub(lambda x: x.ExecuteSqlQuery(request))
+
+    def execute_dataframe_plan(
+        self,
+        plan: "DataFramePlan",
+        resource_group: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+    ) -> str:
+        """Submit a DataFramePlan for remote async execution.
+
+        Returns the operation_id string.
+        """
+        from chalk._gen.chalk.server.v1.dataframe_pb2 import ExecuteDataFramePlanRequest
+
+        request = ExecuteDataFramePlanRequest(plan=plan)
+        if correlation_id is not None:
+            request.correlation_id = correlation_id
+        if resource_group is not None:
+            request.resource_group = resource_group
+
+        response = self._stub_refresher.call_api_dataframe_stub(lambda x: x.ExecuteDataFramePlan(request))
+        return response.operation_id
+
+    def get_dataframe_job_status(self, operation_id: str) -> "GetDataFrameRunResponse":
+        """Poll the status of a DataFrame run.
+
+        Returns a GetDataFrameRunResponse proto with a ``run`` field (DataFrameRun) containing
+        status, output_uri_prefix, and other metadata.
+        """
+        from chalk._gen.chalk.server.v1.dataframe_pb2 import GetDataFrameRunRequest
+
+        request = GetDataFrameRunRequest(operation_id=operation_id)
+        return self._stub_refresher.call_api_dataframe_stub(lambda x: x.GetDataFrameRun(request))
+
+    def get_dataframe_job_result(self, operation_id: str) -> str:
+        """Return the output URI prefix for a completed DataFrame run.
+
+        The run must be in COMPLETED status; raises RuntimeError otherwise.
+        Callers are responsible for reading the parquet files at the returned prefix.
+        """
+        resp = self.get_dataframe_job_status(operation_id)
+        # status 3 = COMPLETED (DATA_FRAME_RUN_STATUS_COMPLETED)
+        if resp.run.status != 3:
+            raise RuntimeError(
+                f"DataFrame run {operation_id} is not completed (status={resp.run.status}); cannot fetch results."
+            )
+        if not resp.run.output_uri_prefix:
+            raise RuntimeError(f"DataFrame run {operation_id} has no output_uri_prefix.")
+        return resp.run.output_uri_prefix
+
+    def remote_execute_plan(
+        self,
+        plan: "DataFramePlan",
+        resource_group: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+        poll_interval: float = 2.0,
+    ) -> str:
+        """Submit a DataFramePlan for remote execution and wait for it to complete.
+
+        In a Jupyter notebook, displays a live progress UI while waiting.
+        Outside a notebook, polls silently until the run reaches a terminal state.
+        Returns the operation_id string.
+        """
+        operation_id = self.execute_dataframe_plan(
+            plan=plan,
+            resource_group=resource_group,
+            correlation_id=correlation_id,
+        )
+        self.follow_dataframe_run(operation_id, poll_interval=poll_interval)
+        return operation_id
+
+    def wait_dataframe_run(self, operation_id: str, poll_interval: float = 2.0) -> None:
+        """Poll a DataFrame run silently until it reaches a terminal state."""
+        import time
+
+        from chalk._gen.chalk.server.v1.dataframe_pb2 import DataFrameRunStatus
+
+        _TERMINAL_CODES = {
+            DataFrameRunStatus.DATA_FRAME_RUN_STATUS_COMPLETED,
+            DataFrameRunStatus.DATA_FRAME_RUN_STATUS_FAILED,
+            DataFrameRunStatus.DATA_FRAME_RUN_STATUS_CANCELED,
+        }
+
+        while True:
+            resp = self.get_dataframe_job_status(operation_id)
+            if resp.run.status in _TERMINAL_CODES:
+                break
+            time.sleep(poll_interval)
+
+    def follow_dataframe_run(self, operation_id: str, poll_interval: float = 2.0) -> Any:
+        """Poll a DataFrame run until it reaches a terminal state.
+
+        In a Jupyter notebook, displays a live Rich progress UI.
+        Outside a notebook, polls silently.
+        Returns the final ``GetDataFrameRunResponse``.
+        """
+        from chalk.utils import notebook
+
+        if not notebook.is_notebook():
+            return self.wait_dataframe_run(operation_id, poll_interval=poll_interval)
+
+        import time
+
+        from rich.columns import Columns
+        from rich.console import Console, Group
+        from rich.live import Live
+        from rich.spinner import Spinner
+        from rich.style import Style
+        from rich.table import Table
+        from rich.text import Text
+
+        from chalk._gen.chalk.server.v1.dataframe_pb2 import DataFrameRun, DataFrameRunStatus
+        from chalk._reporting.rich.color import CITRUSY_YELLOW, GRASSY_GREEN, SHADOWY_LAVENDER, SHY_RED, UNDERLYING_CYAN
+
+        _TERMINAL_CODES = {
+            DataFrameRunStatus.DATA_FRAME_RUN_STATUS_COMPLETED,
+            DataFrameRunStatus.DATA_FRAME_RUN_STATUS_FAILED,
+            DataFrameRunStatus.DATA_FRAME_RUN_STATUS_CANCELED,
+        }
+
+        _STATUS_NAMES = {
+            DataFrameRunStatus.DATA_FRAME_RUN_STATUS_UNSPECIFIED: "Unspecified",
+            DataFrameRunStatus.DATA_FRAME_RUN_STATUS_QUEUED: "Queued",
+            DataFrameRunStatus.DATA_FRAME_RUN_STATUS_WORKING: "Working",
+            DataFrameRunStatus.DATA_FRAME_RUN_STATUS_COMPLETED: "Completed",
+            DataFrameRunStatus.DATA_FRAME_RUN_STATUS_FAILED: "Failed",
+            DataFrameRunStatus.DATA_FRAME_RUN_STATUS_CANCELED: "Canceled",
+        }
+
+        def _status_renderable(status: DataFrameRunStatus):
+            name = _STATUS_NAMES.get(status, str(status))
+            if status == DataFrameRunStatus.DATA_FRAME_RUN_STATUS_COMPLETED:
+                return Text(f"✓ {name}", style=Style(color=GRASSY_GREEN, bold=True))
+            elif status == DataFrameRunStatus.DATA_FRAME_RUN_STATUS_FAILED:
+                return Text(f"✗ {name}", style=Style(color=SHY_RED, bold=True))
+            elif status == DataFrameRunStatus.DATA_FRAME_RUN_STATUS_CANCELED:
+                return Text(f"⊗ {name}", style=Style(color=SHADOWY_LAVENDER))
+            elif status == DataFrameRunStatus.DATA_FRAME_RUN_STATUS_WORKING:
+                return Columns(
+                    [
+                        Spinner("dots", style=Style(color=UNDERLYING_CYAN)),
+                        Text(name, style=Style(color=UNDERLYING_CYAN, bold=True)),
+                    ],
+                    expand=False,
+                )
+            else:  # QUEUED or UNSPECIFIED
+                return Columns(
+                    [
+                        Spinner("dots2", style=Style(color=CITRUSY_YELLOW)),
+                        Text(name, style=Style(color=CITRUSY_YELLOW)),
+                    ],
+                    expand=False,
+                )
+
+        def _build_display(run: DataFrameRun, elapsed: float) -> Group:
+            minutes, seconds = divmod(int(elapsed), 60)
+            hours, minutes = divmod(minutes, 60)
+            elapsed_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}" if hours else f"{minutes:02d}:{seconds:02d}"
+
+            title_text = Text("DataFrame Run", style=Style(color=UNDERLYING_CYAN, bold=True))
+            title_text.append(f" [{elapsed_str}]", style=Style(color=SHADOWY_LAVENDER, dim=True))
+
+            table = Table(
+                title=title_text,
+                title_justify="left",
+                box=None,
+                show_header=False,
+            )
+            table.add_column("Label", style=Style(color=SHADOWY_LAVENDER))
+            table.add_column("Value")
+
+            table.add_row("Status", _status_renderable(run.status))
+            table.add_row("Operation", Text(operation_id, style=Style(color=SHADOWY_LAVENDER, dim=True)))
+
+            return Group(table)
+
+        console = Console()
+        start = time.time()
+        last_resp = None
+
+        with Live(console=console, refresh_per_second=8) as live:
+            while True:
+                try:
+                    last_resp = self.get_dataframe_job_status(operation_id)
+                except Exception as e:
+                    live.update(Text(f"[error polling status] {e}", style=Style(color=SHY_RED)))
+                    time.sleep(poll_interval)
+                    continue
+
+                live.update(_build_display(last_resp.run, time.time() - start))
+
+                if last_resp.run.status in _TERMINAL_CODES:
+                    break
+
+                time.sleep(poll_interval)
+
+        # Print final summary outside the Live context
+        if last_resp.run.status == DataFrameRunStatus.DATA_FRAME_RUN_STATUS_COMPLETED:
+            console.print(Text("✓ DataFrame run completed successfully", style=Style(color=GRASSY_GREEN, bold=True)))
+        else:
+            status_name = _STATUS_NAMES.get(last_resp.run.status, str(last_resp.run.status))
+            console.print(
+                Text(f"✗ DataFrame run ended with status: {status_name}", style=Style(color=SHY_RED, bold=True))
+            )
+
+        return last_resp
 
     def explain_sql(self, sql: str):
         return self._stub_refresher.call_sql_stub(lambda x: x.PlanSqlQuery(PlanSqlQueryRequest(query=sql)))
@@ -3012,3 +3252,86 @@ class ChalkGRPCClient:
             return json_format.MessageToDict(resp)
 
         return self._stub_refresher.call_model_deployment_stub(create_request_and_call)
+
+    def list_scaling_groups(self) -> ListScalingGroupsResponse:
+        """List all scaling groups in the current environment.
+
+        Returns
+        -------
+        ListScalingGroupsResponse
+            Response containing a list of scaling groups.
+        """
+
+        def do_call(stub: ScalingGroupManagerServiceStub):
+            req = scalinggroup_service_pb2.ListScalingGroupsRequest()
+            resp = stub.ListScalingGroups(req)
+            return resp
+
+        resp = self._stub_refresher.call_scaling_group_stub(do_call)
+        scaling_groups = [proto_to_scaling_group(sg) for sg in resp.scaling_groups]
+        return ListScalingGroupsResponse(scalingGroups=scaling_groups)
+
+    def get_scaling_group(self, name: Optional[str] = None, id: Optional[str] = None) -> ScalingGroup:
+        """Get a scaling group by name or id.
+
+        Parameters
+        ----------
+        name
+            Name of the scaling group.
+        id
+            ID of the scaling group.
+
+        Returns
+        -------
+        ScalingGroup
+            The scaling group details.
+        """
+        if name is not None and id is not None:
+            raise ValueError("Provide either name or id, not both")
+        if name is None and id is None:
+            raise ValueError("Provide either name or id")
+
+        def do_call(stub: ScalingGroupManagerServiceStub):
+            req = scalinggroup_service_pb2.GetScalingGroupRequest()
+            if name is not None:
+                req.name = name
+            if id is not None:
+                req.id = id
+            resp = stub.GetScalingGroup(req)
+            return resp
+
+        resp = self._stub_refresher.call_scaling_group_stub(do_call)
+        return proto_to_scaling_group(resp.scaling_group)
+
+    def delete_scaling_group(self, name: Optional[str] = None, id: Optional[str] = None) -> DeleteScalingGroupResponse:
+        """Delete a scaling group by name or id.
+
+        Parameters
+        ----------
+        name
+            Name of the scaling group to delete.
+        id
+            ID of the scaling group to delete.
+
+        Returns
+        -------
+        DeleteScalingGroupResponse
+            Response containing the deleted scaling group.
+        """
+        if name is not None and id is not None:
+            raise ValueError("Provide either name or id, not both")
+        if name is None and id is None:
+            raise ValueError("Provide either name or id")
+
+        def do_call(stub: ScalingGroupManagerServiceStub):
+            req = scalinggroup_service_pb2.DeleteScalingGroupRequest()
+            if name is not None:
+                req.name = name
+            if id is not None:
+                req.id = id
+            resp = stub.DeleteScalingGroup(req)
+            return resp
+
+        resp = self._stub_refresher.call_scaling_group_stub(do_call)
+        scaling_group = proto_to_scaling_group(resp.scaling_group) if resp.scaling_group else None
+        return DeleteScalingGroupResponse(scalingGroup=scaling_group)

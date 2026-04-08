@@ -144,6 +144,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 containerfile=self.get_containerfile_contents(config.containerfile),
                 containerfile_path=config.containerfile,
                 ray_version=config.ray_version,
+                cloud_id=cloud_id,
             )
         elif config.image_uri is not None:
             build_id = self._image_sdk.registery_image(
@@ -168,6 +169,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                     name=f"image-for-workspace-{name}",
                     base_build_id=self.client.get_default_build_id(),
                     requirements=requirements,
+                    cloud_id=cloud_id,
                 )
         elif config.requirements:
             dynamic_requirements = (
@@ -757,6 +759,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 containerfile=self.get_containerfile_contents(config.containerfile),
                 containerfile_path=config.containerfile,
                 ray_version=config.ray_version,
+                cloud_id=workspace.cloud_id,
             )
         elif config.image_uri is not None:
             build_id = self._image_sdk.registery_image(
@@ -781,6 +784,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                     name=f"image-for-workspace-{name}",
                     base_build_id=self.client.get_default_build_id(),
                     requirements=requirements,
+                    cloud_id=workspace.cloud_id,
                 )
         elif config.requirements:
             dynamic_requirements = (

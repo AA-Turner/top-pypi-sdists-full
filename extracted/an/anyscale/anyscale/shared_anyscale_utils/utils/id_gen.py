@@ -129,6 +129,8 @@ class IDTypes(Enum):
     entra_user_mappings = "eum"
     entra_oauth_sessions = "eos"
     workspace_blocked_users = "wbu"
+    azure_oro_tracking = "aot"
+    scheduler_configs = "schcfg"
 
 
 _default_id_length: int = 26

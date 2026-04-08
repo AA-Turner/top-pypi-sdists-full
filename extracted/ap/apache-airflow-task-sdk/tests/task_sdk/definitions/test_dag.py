@@ -24,19 +24,19 @@ from typing import Any
 
 import pytest
 
-from airflow.exceptions import DuplicateTaskIdFound, RemovedInAirflow4Warning
 from airflow.sdk import Context, Label, TaskGroup
 from airflow.sdk.bases.operator import BaseOperator
 from airflow.sdk.definitions.dag import DAG, dag as dag_decorator
 from airflow.sdk.definitions.param import DagParam, Param, ParamsDict
-from airflow.sdk.exceptions import AirflowDagCycleException
+from airflow.sdk.exceptions import AirflowDagCycleException, DuplicateTaskIdFound, RemovedInAirflow4Warning
+from airflow.utils.types import DagRunType
 
 DEFAULT_DATE = datetime(2016, 1, 1, tzinfo=timezone.utc)
 
 
 class TestDag:
     @pytest.mark.parametrize(
-        "dag_id, exc_type, exc_value",
+        ("dag_id", "exc_type", "exc_value"),
         [
             pytest.param(
                 123,
@@ -212,7 +212,11 @@ class TestDag:
         """
         params = {"param1": Param(type="string")}
 
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match="Dag 'my-dag' is not allowed to define a Schedule, "
+            "as there are required params without default values, or the default values are not valid.",
+        ):
             DAG("my-dag", schedule=timedelta(days=1), start_date=DEFAULT_DATE, params=params)
 
     def test_roots(self):
@@ -316,6 +320,90 @@ class TestDag:
         # Make sure we don't affect the original!
         assert task.task_group.upstream_group_ids is not copied_task.task_group.upstream_group_ids
 
+    def test_partial_subset_with_depth(self):
+        """Test that partial_subset respects the depth parameter for filtering."""
+        with DAG("test_dag", schedule=None, start_date=DEFAULT_DATE) as dag:
+            # Create a linear chain: t1 -> t2 -> t3 -> t4 -> t5
+            t1 = BaseOperator(task_id="t1")
+            t2 = BaseOperator(task_id="t2")
+            t3 = BaseOperator(task_id="t3")
+            t4 = BaseOperator(task_id="t4")
+            t5 = BaseOperator(task_id="t5")
+            t1 >> t2 >> t3 >> t4 >> t5
+
+        # Test downstream with depth=1 (only direct downstream)
+        partial = dag.partial_subset("t3", include_downstream=True, include_upstream=False, depth=1)
+        assert set(partial.task_dict.keys()) == {"t3", "t4"}
+
+        # Test downstream with depth=2
+        partial = dag.partial_subset("t3", include_downstream=True, include_upstream=False, depth=2)
+        assert set(partial.task_dict.keys()) == {"t3", "t4", "t5"}
+
+        # Test upstream with depth=1 (only direct upstream)
+        partial = dag.partial_subset("t3", include_downstream=False, include_upstream=True, depth=1)
+        assert set(partial.task_dict.keys()) == {"t2", "t3"}
+
+        # Test upstream with depth=2
+        partial = dag.partial_subset("t3", include_downstream=False, include_upstream=True, depth=2)
+        assert set(partial.task_dict.keys()) == {"t1", "t2", "t3"}
+
+        # Test both directions with depth=1
+        partial = dag.partial_subset("t3", include_downstream=True, include_upstream=True, depth=1)
+        assert set(partial.task_dict.keys()) == {"t2", "t3", "t4"}
+
+        # Test with depth=None (unlimited, original behavior - should get all upstream/downstream)
+        partial = dag.partial_subset("t3", include_downstream=True, include_upstream=True, depth=None)
+        assert set(partial.task_dict.keys()) == {"t1", "t2", "t3", "t4", "t5"}
+
+    def test_partial_subset_with_depth_branching(self):
+        """Test partial_subset with depth on a branching DAG structure."""
+        with DAG("test_dag", schedule=None, start_date=DEFAULT_DATE) as dag:
+            # Create a diamond pattern:
+            #     t1
+            #    /  \
+            #   t2  t3
+            #    \  /
+            #     t4
+            #     |
+            #     t5
+            t1 = BaseOperator(task_id="t1")
+            t2 = BaseOperator(task_id="t2")
+            t3 = BaseOperator(task_id="t3")
+            t4 = BaseOperator(task_id="t4")
+            t5 = BaseOperator(task_id="t5")
+            t1 >> [t2, t3]
+            [t2, t3] >> t4
+            t4 >> t5
+
+        # From t4, depth=1 upstream should get both t2 and t3
+        partial = dag.partial_subset("t4", include_downstream=False, include_upstream=True, depth=1)
+        assert set(partial.task_dict.keys()) == {"t2", "t3", "t4"}
+
+        # From t4, depth=2 upstream should get t1, t2, t3
+        partial = dag.partial_subset("t4", include_downstream=False, include_upstream=True, depth=2)
+        assert set(partial.task_dict.keys()) == {"t1", "t2", "t3", "t4"}
+
+        # From t1, depth=1 downstream should get t2 and t3
+        partial = dag.partial_subset("t1", include_downstream=True, include_upstream=False, depth=1)
+        assert set(partial.task_dict.keys()) == {"t1", "t2", "t3"}
+
+        # From t1, depth=2 downstream should get t2, t3, and t4
+        partial = dag.partial_subset("t1", include_downstream=True, include_upstream=False, depth=2)
+        assert set(partial.task_dict.keys()) == {"t1", "t2", "t3", "t4"}
+
+    def test_partial_subset_with_negative_depth(self):
+        """Test that partial_subset rejects negative depth values."""
+        with DAG("test_dag", schedule=None, start_date=DEFAULT_DATE) as dag:
+            t1 = BaseOperator(task_id="t1")
+            t2 = BaseOperator(task_id="t2")
+            t1 >> t2
+
+        with pytest.raises(ValueError, match="depth must be non-negative, got -1"):
+            dag.partial_subset("t1", include_downstream=True, depth=-1)
+
+        with pytest.raises(ValueError, match="depth must be non-negative, got -5"):
+            dag.partial_subset("t1", include_upstream=True, depth=-5)
+
     def test_dag_owner_links(self):
         dag = DAG(
             "dag",
@@ -336,7 +424,7 @@ class TestDag:
             dag.validate()
 
     def test_continuous_schedule_linmits_max_active_runs(self):
-        from airflow.timetables.simple import ContinuousTimetable
+        from airflow.sdk.definitions.timetables.simple import ContinuousTimetable
 
         dag = DAG("continuous", start_date=DEFAULT_DATE, schedule="@continuous", max_active_runs=1)
         assert isinstance(dag.timetable, ContinuousTimetable)
@@ -393,7 +481,7 @@ class TestDag:
 
 # Test some of the arg validation. This is not all the validations we perform, just some of them.
 @pytest.mark.parametrize(
-    ["attr", "value"],
+    ("attr", "value"),
     [
         pytest.param("max_consecutive_failed_dag_runs", "not_an_int", id="max_consecutive_failed_dag_runs"),
         pytest.param("dagrun_timeout", "not_an_int", id="dagrun_timeout"),
@@ -406,7 +494,7 @@ def test_invalid_type_for_args(attr: str, value: Any):
 
 
 @pytest.mark.parametrize(
-    "tags, should_pass",
+    ("tags", "should_pass"),
     [
         pytest.param([], True, id="empty tags"),
         pytest.param(["a normal tag"], True, id="one tag"),
@@ -419,12 +507,12 @@ def test__tags_length(tags: list[str], should_pass: bool):
     if should_pass:
         DAG("test-dag", schedule=None, tags=tags)
     else:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="tag cannot be longer than 100 characters"):
             DAG("test-dag", schedule=None, tags=tags)
 
 
 @pytest.mark.parametrize(
-    "input_tags, expected_result",
+    ("input_tags", "expected_result"),
     [
         pytest.param([], set(), id="empty tags"),
         pytest.param(
@@ -449,6 +537,98 @@ def test__tags_duplicates(input_tags: list[str], expected_result: set[str]):
     assert result.tags == expected_result
 
 
+@pytest.mark.parametrize(
+    ("schedule", "input_val", "expected"),
+    [
+        pytest.param("@daily", None, None, id="none"),
+        pytest.param(
+            "@daily",
+            [DagRunType.SCHEDULED],
+            frozenset([DagRunType.SCHEDULED]),
+            id="list_single",
+        ),
+        pytest.param(
+            "@daily",
+            [DagRunType.SCHEDULED, DagRunType.MANUAL],
+            frozenset([DagRunType.SCHEDULED, DagRunType.MANUAL]),
+            id="list_multiple",
+        ),
+        pytest.param(
+            "@daily",
+            {DagRunType.SCHEDULED},
+            frozenset([DagRunType.SCHEDULED]),
+            id="set",
+        ),
+        pytest.param(
+            "@daily",
+            DagRunType.SCHEDULED,
+            frozenset([DagRunType.SCHEDULED]),
+            id="single_enum",
+        ),
+        pytest.param(
+            None,
+            DagRunType.MANUAL,
+            frozenset([DagRunType.MANUAL]),
+            id="no_schedule_single_enum",
+        ),
+        pytest.param(
+            None,
+            [DagRunType.MANUAL, DagRunType.BACKFILL_JOB],
+            frozenset([DagRunType.MANUAL, DagRunType.BACKFILL_JOB]),
+            id="no_schedule_allow_manual_and_backfill",
+        ),
+    ],
+)
+def test_allowed_run_types_converter(schedule, input_val, expected):
+    dag = DAG("test-allowed-types", schedule=schedule, allowed_run_types=input_val)
+    assert dag.allowed_run_types == expected
+
+
+@pytest.mark.parametrize(
+    ("schedule", "allowed_run_types", "match"),
+    [
+        pytest.param(
+            "@daily",
+            [DagRunType.MANUAL],
+            "allowed_run_types must include SCHEDULED",
+            id="scheduled_dag_missing_scheduled",
+        ),
+        pytest.param(
+            "@hourly",
+            [DagRunType.BACKFILL_JOB],
+            "allowed_run_types must include SCHEDULED",
+            id="hourly_dag_missing_scheduled",
+        ),
+        pytest.param(
+            None,
+            [DagRunType.SCHEDULED],
+            "allowed_run_types must include MANUAL",
+            id="no_schedule_missing_manual",
+        ),
+        pytest.param(
+            None,
+            DagRunType.BACKFILL_JOB,
+            "allowed_run_types must include MANUAL",
+            id="no_schedule_single_missing_manual",
+        ),
+    ],
+)
+def test_allowed_run_types_conflicting_schedule(schedule, allowed_run_types, match):
+    with pytest.raises(ValueError, match=match):
+        DAG("test-allowed-conflict", schedule=schedule, allowed_run_types=allowed_run_types)
+
+
+def test_allowed_run_types_asset_triggered_missing_with_asset_schedule():
+    from airflow.sdk.definitions.asset import Asset
+
+    with pytest.raises(ValueError, match="allowed_run_types must include ASSET_TRIGGERED"):
+        DAG(
+            "test-allowed-asset",
+            schedule=[Asset("test")],
+            allowed_run_types=[DagRunType.MANUAL],
+        )
+
+
 def test__tags_mutable():
     expected_tags = {"6", "7"}
     test_dag = DAG("test-dag")
@@ -468,7 +648,7 @@ def test_create_dag_while_active_context():
 
 @pytest.mark.parametrize("max_active_runs", [0, 1])
 def test_continuous_schedule_interval_limits_max_active_runs(max_active_runs):
-    from airflow.timetables.simple import ContinuousTimetable
+    from airflow.sdk.definitions.timetables.simple import ContinuousTimetable
 
     dag = DAG(dag_id="continuous", schedule="@continuous", max_active_runs=max_active_runs)
     assert isinstance(dag.timetable, ContinuousTimetable)
@@ -476,9 +656,10 @@ def test_continuous_schedule_interval_limits_max_active_runs(max_active_runs):
 
 
 def test_continuous_schedule_interval_limits_max_active_runs_error():
-    with pytest.raises(ValueError) as ctx:
+    with pytest.raises(
+        ValueError, match="Invalid max_active_runs: ContinuousTimetable requires max_active_runs <= 1"
+    ):
         DAG(dag_id="continuous", schedule="@continuous", max_active_runs=2)
-    assert str(ctx.value) == "Invalid max_active_runs: ContinuousTimetable requires max_active_runs <= 1"
 
 
 class TestDagDecorator:
@@ -530,8 +711,8 @@ class TestDagDecorator:
         assert dag.dag_id == "noop_pipeline"
 
     @pytest.mark.parametrize(
-        argnames=["dag_doc_md", "expected_doc_md"],
-        argvalues=[
+        ("dag_doc_md", "expected_doc_md"),
+        [
             pytest.param("dag docs.", "dag docs.", id="use_dag_doc_md"),
             pytest.param(None, "Regular Dag documentation", id="use_dag_docstring"),
         ],

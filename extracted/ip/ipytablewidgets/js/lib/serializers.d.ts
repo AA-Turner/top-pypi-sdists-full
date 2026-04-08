@@ -1,6 +1,6 @@
 import ndarray = require('ndarray');
 type NdArray = ndarray.NdArray;
-import { WidgetModel, ManagerBase } from '@jupyter-widgets/base';
+import { WidgetModel, IWidgetManager } from '@jupyter-widgets/base';
 export interface IReceivedSerializedArray {
     shape: number[];
     dtype: "bool" | "int8" | "int16" | "int32" | "uint8" | "uint16" | "uint32" | "float32" | "float64" | "str";
@@ -22,7 +22,7 @@ export interface ISendSerializedTable {
     data: IDict<NdArray | string[]>;
     size: number;
 }
-export declare function JSONToTable(obj: IReceivedSerializedTable | null, manager?: ManagerBase<any>): ISendSerializedTable | null;
+export declare function JSONToTable(obj: IReceivedSerializedTable | null, manager?: IWidgetManager): ISendSerializedTable | null;
 export declare function rowProxy(table: ISendSerializedTable | null): any;
 export declare function tableToJSON(obj: IDict<NdArray> | null, widget?: WidgetModel): ISendSerializedTable | null;
 /**

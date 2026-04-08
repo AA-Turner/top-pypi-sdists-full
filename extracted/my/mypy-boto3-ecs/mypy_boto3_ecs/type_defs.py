@@ -433,6 +433,7 @@ __all__ = (
     "RunTaskRequestTypeDef",
     "RunTaskResponseTypeDef",
     "RuntimePlatformTypeDef",
+    "S3FilesVolumeConfigurationTypeDef",
     "ScaleTypeDef",
     "SecretTypeDef",
     "ServiceConnectAccessLogConfigurationTypeDef",
@@ -1605,6 +1606,13 @@ class RollbackTypeDef(TypedDict):
     serviceRevisionArn: NotRequired[str]
 
 
+class S3FilesVolumeConfigurationTypeDef(TypedDict):
+    fileSystemArn: str
+    rootDirectory: NotRequired[str]
+    transitEncryptionPort: NotRequired[int]
+    accessPointArn: NotRequired[str]
+
+
 ServiceConnectAccessLogConfigurationTypeDef = TypedDict(
     "ServiceConnectAccessLogConfigurationTypeDef",
     {
@@ -2769,6 +2777,7 @@ class VolumeOutputTypeDef(TypedDict):
     host: NotRequired[HostVolumePropertiesTypeDef]
     dockerVolumeConfiguration: NotRequired[DockerVolumeConfigurationOutputTypeDef]
     efsVolumeConfiguration: NotRequired[EFSVolumeConfigurationTypeDef]
+    s3filesVolumeConfiguration: NotRequired[S3FilesVolumeConfigurationTypeDef]
     fsxWindowsFileServerVolumeConfiguration: NotRequired[
         FSxWindowsFileServerVolumeConfigurationTypeDef
     ]
@@ -2780,6 +2789,7 @@ class VolumeTypeDef(TypedDict):
     host: NotRequired[HostVolumePropertiesTypeDef]
     dockerVolumeConfiguration: NotRequired[DockerVolumeConfigurationUnionTypeDef]
     efsVolumeConfiguration: NotRequired[EFSVolumeConfigurationTypeDef]
+    s3filesVolumeConfiguration: NotRequired[S3FilesVolumeConfigurationTypeDef]
     fsxWindowsFileServerVolumeConfiguration: NotRequired[
         FSxWindowsFileServerVolumeConfigurationTypeDef
     ]

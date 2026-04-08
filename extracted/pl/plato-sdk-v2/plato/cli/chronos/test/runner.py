@@ -46,7 +46,7 @@ from plato.cli.chronos.registry import parse_package_string
 from plato.cli.chronos.settings import get_settings
 from plato.cli.chronos.test.config import TestConfig, TestPhaseConfig
 from plato.otel import get_tracer, init_tracing, shutdown_tracing
-from plato.runtime import VMRuntimeConfig
+from plato.runtimes.config import VMRuntimeConfig
 from plato.utils.pypi_index import redact_pypi_token_credential
 from plato.utils.subprocess import VM_PATH_EXPORT
 from plato.v2 import AsyncPlato, Env
@@ -317,6 +317,7 @@ class TestRunner:
                         "session_id": chronos.public_id,
                         "otel_url": otel_url,
                         "chronos_url": settings.chronos_url,
+                        "api_key": self.api_key,
                     }
                 )
             }
@@ -344,9 +345,9 @@ class TestRunner:
                 Env.resource(
                     simulator=f"test-{world_package}",
                     sim_config=SimConfigCompute(
-                        cpus=world_runtime.vm.cpus,
-                        memory=world_runtime.vm.memory,
-                        disk=world_runtime.vm.disk,
+                        cpus=world_runtime.cpus,
+                        memory=world_runtime.memory,
+                        disk=world_runtime.disk,
                     ),
                     alias="runtime",
                     docker_image_url=world_image,
@@ -354,7 +355,7 @@ class TestRunner:
                     rootfs_storage_backend="snapshot-store",
                 )
             ],
-            timeout=world_runtime.vm.timeout or 7200,
+            timeout=world_runtime.timeout or 7200,
         )
         await self.session.start_heartbeat()
 
@@ -427,6 +428,7 @@ class TestRunner:
                         "session_id": chronos.public_id,
                         "otel_url": otel_url,
                         "chronos_url": settings.chronos_url,
+                        "api_key": self.api_key,
                     }
                 )
             }
@@ -620,7 +622,7 @@ class TestRunner:
             logger.info("Uninstalled %s: %.1fs", " ".join(uninstall_pkgs), perf_counter() - t0)
 
         # Strip "-e " prefix to get bare paths for build_editable_install_commands
-        from plato.agents.runtime.install import build_editable_install_commands
+        from plato.agents.install import build_editable_install_commands
 
         paths = [e.removeprefix("-e ") for e in editables]
         install_cmds = build_editable_install_commands(paths)
@@ -685,6 +687,7 @@ class TestRunner:
             raise RuntimeError("VM and SSH key must be initialized")
 
         env_map = {"PLATO_API_KEY": self.api_key, **self.config.test.env}
+        env_map["JOB_ID"] = self.world_env.job_id
         # Tell the world runner not to call /complete — the test runner
         # handles session completion after collecting artifacts.  The
         # Chronos /complete endpoint closes the Plato session (killing
@@ -807,15 +810,41 @@ class TestRunner:
         self.config = self.config.model_copy(
             update={
                 "dev": self.config.dev.model_copy(update={"ssh_key_path": Path("/root/.ssh/agent_key")}),
-                "session": self.config.session.model_copy(update={"plato_session": self.session.dump()}),
             }
         )
+        serialized_session = self.session.dump()
+        runtime_hostname = self.world_env.mesh_ip or await self.world_env.get_mesh_ip() or self.world_env.job_id
+        if runtime_hostname == self.world_env.job_id:
+            logger.warning(
+                "Falling back to world job_id for runtime hostname because no mesh_ip was available: %s",
+                self.world_env.job_id,
+            )
 
-        config_json = json.dumps(self.config.model_dump(mode="json"))
+        config_dict = self.config.model_dump(mode="json")
+        # Inject serialized Plato session into runtime_info for the world runner
+        if serialized_session:
+            config_dict.setdefault("world", {})["runtime_info"] = {
+                "runtime_id": self.world_env.job_id,
+                "hostname": runtime_hostname,
+                "ssh_key_path": "/root/.ssh/agent_key",
+                "serialized_session": serialized_session.model_dump(mode="json")
+                if hasattr(serialized_session, "model_dump")
+                else serialized_session,
+                "metadata": {
+                    "kind": "vm",
+                    "job_id": self.world_env.job_id,
+                    "hostname": runtime_hostname,
+                },
+            }
+        config_json = json.dumps(config_dict)
         await self._write_file_to_vm("/tmp/config.json", config_json)
 
-        if self.config.session.plato_session:
-            session_json = json.dumps(self.config.session.plato_session.model_dump(mode="json"))
+        if serialized_session:
+            session_json = json.dumps(
+                serialized_session.model_dump(mode="json")
+                if hasattr(serialized_session, "model_dump")
+                else serialized_session
+            )
             await self._write_file_to_vm("/etc/plato/session.json", session_json, mkdir=True)
 
     async def _create_chronos_session(self) -> CreateSessionResponse:

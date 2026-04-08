@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-mypy-extensions
-Version: 1.1.0.20250425
+Version: 1.1.0.20260408
 Summary: Typing stubs for mypy-extensions
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -10,21 +10,16 @@ Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file
 
 ## Typing stubs for mypy-extensions
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`mypy-extensions`](https://github.com/python/mypy_extensions) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `mypy-extensions`. This version of
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`mypy-extensions`](https://github.com/python/mypy_extensions) package. It can be used by type checkers
+to check code that uses `mypy-extensions`. This version of
 `types-mypy-extensions` aims to provide accurate annotations for
 `mypy-extensions==1.1.*`.
 
@@ -35,9 +30,9 @@ for more details. The source for this package can be found in the
 [`stubs/mypy-extensions`](https://github.com/python/typeshed/tree/main/stubs/mypy-extensions)
 directory.
 
-This package was tested with
-mypy 1.15.0,
-pyright 1.1.399,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
+
 It was generated from typeshed commit
-[`0c6ef9c6aeac5eb4c316366a21bb2644f0a989bc`](https://github.com/python/typeshed/commit/0c6ef9c6aeac5eb4c316366a21bb2644f0a989bc).
+[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).

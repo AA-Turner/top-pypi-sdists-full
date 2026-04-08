@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import threading
 from pathlib import Path
 
 from git import Actor, Git, Repo
@@ -12,20 +13,46 @@ from plato.git_ops.models import GitOpResult
 
 PLATO_ACTOR = Actor("Plato", "plato@plato.dev")
 AGENT_ACTOR = Actor("Plato Agent", "agent@plato.dev")
+_TRUSTED_DIRECTORIES: set[str] = set()
+_TRUSTED_DIRECTORIES_LOCK = threading.Lock()
 
 
 def trust_git_directory(path: str | Path) -> None:
     """Mark a repository path as trusted for GitPython/git."""
-    Git().config("--global", "--add", "safe.directory", str(Path(path).resolve()))
+    resolved_path = str(Path(path).resolve())
+    if resolved_path in _TRUSTED_DIRECTORIES:
+        return
+
+    with _TRUSTED_DIRECTORIES_LOCK:
+        if resolved_path in _TRUSTED_DIRECTORIES:
+            return
+        Git().config("--global", "--add", "safe.directory", resolved_path)
+        _TRUSTED_DIRECTORIES.add(resolved_path)
 
 
 def checkout_main_from_bare(*, bare_repo_path: str, worktree_path: str) -> None:
-    """Refresh a worktree from the bare repo's main branch."""
+    """Refresh the repo/ working tree from the bare repo's main branch.
+
+    If worktree_path is a git clone (has .git), fetches from the bare repo
+    and resets to match main. Otherwise falls back to bare checkout.
+    """
+    from pathlib import Path
+
     trust_git_directory(bare_repo_path)
     trust_git_directory(worktree_path)
-    repo = Repo(bare_repo_path)
-    repo.git.update_environment(GIT_WORK_TREE=worktree_path)
-    repo.git.checkout("-f", "main")
+
+    git_dir = Path(worktree_path) / ".git"
+    if git_dir.is_dir():
+        repo = Repo(worktree_path)
+        repo.git.fetch("origin", "main")
+        repo.git.reset("--hard", "origin/main")
+        repo.git.clean(
+            "-fd", "-e", ".durable", "-e", ".code-review-output", "-e", ".webclone", "-e", ".pr-review-results"
+        )
+    else:
+        repo = Repo(bare_repo_path)
+        repo.git.update_environment(GIT_WORK_TREE=worktree_path)
+        repo.git.checkout("-f", "main")
 
 
 def _repo(path: str) -> Repo:
@@ -75,7 +102,17 @@ def clone_setup(
         config.set_value("user", "email", AGENT_ACTOR.email)
         config.set_value("user", "name", AGENT_ACTOR.name)
     if checkout_ref is not None:
-        repo.git.checkout("-B", branch_name or "plato-task", checkout_ref)
+        effective_branch = branch_name or "plato-task"
+        # Reuse existing branch if it was previously pushed (resume scenario).
+        # Otherwise create a fresh branch from the checkout ref.
+        remote_ref = f"origin/{effective_branch}"
+        try:
+            repo.git.rev_parse("--verify", remote_ref)
+            # Branch exists on remote — check it out
+            repo.git.checkout("-B", effective_branch, remote_ref)
+        except GitCommandError:
+            # Branch doesn't exist yet — create from base ref
+            repo.git.checkout("-B", effective_branch, checkout_ref)
     branch = repo.active_branch.name if not repo.head.is_detached else ""
     return GitOpResult(ok=True, branch=branch, head=repo.head.commit.hexsha)
 

@@ -27,6 +27,7 @@ import numpy as np
 from orbax.checkpoint._src.futures import future
 from orbax.checkpoint._src.serialization import type_handlers as type_handlers_v0
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
+from orbax.checkpoint.experimental.v1._src.serialization import registration
 from orbax.checkpoint.experimental.v1._src.serialization import types
 
 Scalar = types.Scalar
@@ -39,8 +40,7 @@ ScalarDeserializationParam = types.DeserializationParam[
 
 def _create_v0_scalar_handler() -> type_handlers_v0.ScalarHandler:
   """Creates a V0 ScalarHandler."""
-  scalar_handler = type_handlers_v0.ScalarHandler()
-  return scalar_handler
+  return registration.get_scalar_handler()
 
 
 def _create_v0_saving_paraminfo(
@@ -70,20 +70,16 @@ def _create_v0_savearg(
     context: context_lib.Context,
 ) -> type_handlers_v0.SaveArgs:
   """Creates a V0 SaveArgs from V1 params and context for saving."""
-
   fn = context.pytree_options.saving.create_array_storage_options_fn
-
   if fn:
     storage_options = fn(param.keypath, param.value)
-    savearg = type_handlers_v0.SaveArgs(
-        dtype=storage_options.dtype,
-        chunk_byte_size=storage_options.chunk_byte_size,
-        shard_axes=storage_options.shard_axes,
-    )
   else:
-    savearg = type_handlers_v0.SaveArgs()
-
-  return savearg
+    storage_options = context.array_options.saving.storage_options
+  return type_handlers_v0.SaveArgs(
+      dtype=np.dtype(storage_options.dtype) if storage_options.dtype else None,
+      chunk_byte_size=storage_options.chunk_byte_size,
+      shard_axes=storage_options.shard_axes,
+  )
 
 
 def _create_v0_restore_paraminfo(

@@ -1,4 +1,5 @@
 import os
+import json
 import importlib
 import subprocess
 import unittest
@@ -7,6 +8,7 @@ from unittest.mock import patch, MagicMock, mock_open
 import skylos.api as api
 from skylos.api import (
     upload_report,
+    upload_defense_report,
     extract_snippet,
     get_git_info,
     _detect_ci,
@@ -63,7 +65,7 @@ class TestSkylosApi(unittest.TestCase):
         self.assertFalse(result["success"])
         self.assertEqual(
             result["error"],
-            "No token found. Run 'skylos login' or set SKYLOS_TOKEN.",
+            "No token found. Run 'skylos login' or 'skylos project use', or set SKYLOS_TOKEN.",
         )
 
     @patch("subprocess.check_output")
@@ -83,6 +85,32 @@ class TestSkylosApi(unittest.TestCase):
         self.assertFalse(result["success"])
         self.assertEqual(mock_post.call_count, 3)
         self.assertIn("Server Error 500", result["error"])
+
+    @patch("skylos.api.get_project_token")
+    @patch("skylos.api.get_git_info", return_value=("c", "b", "actor", {}))
+    @patch("skylos.api.get_git_root", return_value=None)
+    @patch("requests.post")
+    def test_upload_defense_report_retry_logic(
+        self, mock_post, _mock_root, _mock_git_info, mock_token
+    ):
+        mock_token.return_value = "token"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.text = "Internal Server Error"
+        mock_post.return_value = mock_response
+
+        result = upload_defense_report(
+            json.dumps({"summary": {"score_pct": 92, "risk_rating": "LOW"}}),
+            quiet=True,
+        )
+
+        self.assertFalse(result["success"])
+        self.assertEqual(mock_post.call_count, 3)
+        self.assertIn("Server Error 500", result["error"])
+        args, kwargs = mock_post.call_args
+        payload = kwargs["json"]
+        self.assertEqual(payload["tool"], "skylos-defend")
 
     def test_extract_snippet_valid(self):
         content = "line1\nline2\nline3\nline4\nline5\n"
@@ -139,7 +167,7 @@ class TestSkylosApi(unittest.TestCase):
         self.assertFalse(result["success"])
         self.assertEqual(
             result["error"],
-            "Invalid API token. Run 'skylos sync connect' to reconnect.",
+            "Invalid API token. Run 'skylos login' to reconnect or 'skylos sync connect' to set a token manually.",
         )
         self.assertEqual(mock_post.call_count, 1)
 
@@ -762,6 +790,39 @@ class TestVerifyReport(unittest.TestCase):
 
         self.assertFalse(result["success"])
         self.assertIn("No security findings", result["error"])
+
+    @patch("skylos.api.get_project_token")
+    @patch("skylos.api.get_project_info")
+    @patch("skylos.api.get_git_info", return_value=("sha", "branch", "actor", {}))
+    @patch("skylos.api.get_git_root", return_value=None)
+    @patch("requests.post")
+    def test_verify_report_normalizes_payload(
+        self, mock_post, _, _git, mock_info, mock_token
+    ):
+        mock_token.return_value = "token"
+        mock_info.return_value = {"plan": "pro"}
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {"results": []}
+        mock_post.return_value = resp
+
+        from skylos.api import verify_report
+
+        result = verify_report(
+            {
+                "danger": [{"file": "app.py", "line": 5, "message": "oops"}],
+                "secrets": [{"file": "secret.py", "line": 7, "message": "shh"}],
+            },
+            quiet=True,
+        )
+
+        self.assertTrue(result["success"])
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(len(payload["findings"]), 2)
+        self.assertEqual(payload["findings"][0]["category"], "SECURITY")
+        self.assertEqual(payload["findings"][0]["finding_id"], "SKY-D000::app.py::5")
+        self.assertEqual(payload["findings"][1]["category"], "SECRET")
+        self.assertEqual(payload["findings"][1]["finding_id"], "SKY-S000::secret.py::7")
 
 
 if __name__ == "__main__":

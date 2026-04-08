@@ -414,7 +414,11 @@ class CheckpointerTestBase:
           checkpoint_metadata.metadata['pytree'].keys(),
           ['jax_array', 'numpy_array'],
       )
-      self.assertIsInstance(checkpoint_metadata.metadata['baz'], AbstractBaz)
+      # Saved with v1 save_checkpointables, so v1 handler registry can resolve
+      # Baz metadata using stored handler typestr.
+      self.assertIsInstance(
+          checkpoint_metadata.metadata['baz'], handler_utils.AbstractBaz
+      )
 
     def test_custom_checkpointables(self):
       """Test custom checkpointables are saved and loaded.
@@ -663,5 +667,60 @@ class CheckpointerTestBase:
       self.assertSequenceEqual(
           [c.metrics for c in checkpointer.checkpoints],
           [all_metrics[step] for step in expected_steps],
+      )
+      checkpointer.close()
+
+    def test_gcs_deletion_options(self):
+      deletion_options = ocp.options.DeletionOptions(
+          gcs_deletion_options=ocp.options.DeletionOptions.GcsDeletionOptions(
+              todelete_full_path='trash'
+          )
+      )
+      with ocp.Context(deletion_options=deletion_options):
+        checkpointer = Checkpointer(self.directory)
+        self.assertEqual(
+            checkpointer._manager._options.todelete_full_path, 'trash'
+        )
+
+
+    @parameterized.named_parameters(
+        dict(
+            testcase_name='true',
+            cleanup_tmp_directories=True,
+        ),
+        dict(
+            testcase_name='false',
+            cleanup_tmp_directories=False,
+        ),
+    )
+    def test_cleanup_tmp_directories(
+        self, cleanup_tmp_directories
+    ):
+      checkpointer = Checkpointer(
+          self.directory, cleanup_tmp_directories=cleanup_tmp_directories
+      )
+      self.assertIs(
+          checkpointer._manager._options.cleanup_tmp_directories,
+          cleanup_tmp_directories,
+      )
+      checkpointer.close()
+
+    @parameterized.named_parameters(
+        dict(
+            testcase_name='true',
+            lightweight_initialize=True,
+        ),
+        dict(
+            testcase_name='false',
+            lightweight_initialize=False,
+        ),
+    )
+    def test_lightweight_initialize(self, lightweight_initialize):
+      checkpointer = Checkpointer(
+          self.directory, lightweight_initialize=lightweight_initialize
+      )
+      self.assertIs(
+          checkpointer._manager._options.lightweight_initialize,
+          lightweight_initialize,
       )
       checkpointer.close()

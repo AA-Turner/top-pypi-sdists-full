@@ -132,7 +132,7 @@ class TokenManager:
         """
         async with self._lock:
             if self._http_creds is None or self._http_creds.expires_at < time.time() + 300:
-                await self._refresh_http()
+                await self.refresh_http()
             if self._http_creds is None:
                 raise ReLoginRequiredError(self._account_id, "HTTP credentials unavailable after refresh")
             return self._http_creds.access_token
@@ -170,7 +170,7 @@ class TokenManager:
         """
         async with self._lock:
             if self._mqtt_creds is None or self._mqtt_creds.expires_at < time.time() + 1800:
-                await self._refresh_mqtt_creds()
+                await self.refresh_mqtt_creds()
             if self._mqtt_creds is None:
                 raise ReLoginRequiredError(self._account_id, "MQTT credentials unavailable after refresh")
             return self._mqtt_creds
@@ -186,9 +186,9 @@ class TokenManager:
 
         """
         async with self._lock:
-            await self._refresh_http()
+            await self.refresh_http()
             if self._mqtt_creds is not None:
-                await self._refresh_mqtt_creds()
+                await self.refresh_mqtt_creds()
             if self._cloud_gateway is not None:
                 await self._refresh_aliyun()
 
@@ -214,13 +214,13 @@ class TokenManager:
 
         """
         async with self._lock:
-            await self._refresh_mqtt_creds()
+            await self.refresh_mqtt_creds()
 
     # ------------------------------------------------------------------
     # Private helpers — callers are responsible for holding self._lock.
     # ------------------------------------------------------------------
 
-    async def _refresh_http(self) -> None:
+    async def refresh_http(self) -> None:
         """Refresh the HTTP OAuth access token using the stored MammotionHTTP instance.
 
         Updates *_http_creds* in place.
@@ -230,7 +230,7 @@ class TokenManager:
 
         """
         try:
-            response = await self._http.refresh_token_v2()
+            response = await self._http.refresh_login()
             data = response.data
             if data is None:
                 raise ReLoginRequiredError(self._account_id, "refresh_login returned no data")
@@ -299,7 +299,7 @@ class TokenManager:
         await cloud_client.session_by_auth_code()
         await cloud_client.list_binding_by_account()
 
-    async def _refresh_mqtt_creds(self) -> None:
+    async def refresh_mqtt_creds(self) -> MQTTCredentials:
         """Fetch fresh MQTT credentials from the Mammotion API.
 
         Updates *_mqtt_creds* in place. The API does not return an explicit expiry,
@@ -347,3 +347,4 @@ class TokenManager:
                     raise ReLoginRequiredError(self._account_id, str(exc)) from exc
         except Exception as exc:
             raise ReLoginRequiredError(self._account_id, str(exc)) from exc
+        return self._mqtt_creds

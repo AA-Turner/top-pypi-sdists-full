@@ -64,6 +64,10 @@ from anyscale.utils.cloud_utils import CloudSetupError
 
 logger = logging.getLogger(__file__)
 
+# AWS Partner Network (APN) user-agent string for partner revenue attribution.
+# See https://prm.partner.aws.dev/automated-user-agent.html
+AWS_PRM_USER_AGENT_STRING = "APN/1.1 (8q2qyyettux52j80lzixegorb)"
+
 BOTO_MAX_RETRIES = 5
 PROJECT_NAME_ENV_VAR = "ANYSCALE_PROJECT_NAME"
 
@@ -264,8 +268,24 @@ def get_requirements(requirements_path: str) -> str:
         return f.read()
 
 
+def _apn_config(config: Optional[Config] = None) -> Config:
+    """Return a botocore Config with APN partner user-agent tracking."""
+    apn = Config(user_agent_extra=AWS_PRM_USER_AGENT_STRING)
+    return config.merge(apn) if config is not None else apn
+
+
+def _apn_boto3_session(**kwargs: Any) -> boto3.Session:
+    """Create a boto3 Session whose clients include the APN user-agent."""
+    session = boto3.Session(**kwargs)
+    session._session.user_agent_extra = AWS_PRM_USER_AGENT_STRING  # noqa: SLF001
+    return session
+
+
 def _resource(name: str, region: str) -> Boto3Resource:
-    boto_config = Config(retries={"max_attempts": BOTO_MAX_RETRIES})
+    boto_config = Config(
+        retries={"max_attempts": BOTO_MAX_RETRIES},
+        user_agent_extra=AWS_PRM_USER_AGENT_STRING,
+    )
     return boto3.resource(name, region, config=boto_config)  # type: ignore
 
 
@@ -334,7 +354,9 @@ def _get_memorydb_cluster_config(
     memorydb_cluster_id: str, region: str, logger: CloudSetupLogger
 ) -> Optional[AWSMemoryDBClusterConfig]:
     try:
-        memorydb_client = boto3.client("memorydb", region_name=region)
+        memorydb_client = boto3.client(
+            "memorydb", region_name=region, config=_apn_config()
+        )
         response = memorydb_client.describe_clusters(ClusterName=memorydb_cluster_id)
 
         if not response.get("Clusters") or not response.get("Clusters")[0]:
@@ -375,7 +397,7 @@ def _get_memorydb_cluster_config(
 
 def get_available_regions(boto3_session: Optional[boto3.Session] = None) -> List[str]:
     if boto3_session is None:
-        boto3_session = boto3.Session()
+        boto3_session = _apn_boto3_session()
     try:
         client = boto3_session.client("ec2")
     except NoRegionError:
@@ -391,7 +413,7 @@ def get_availability_zones(
     Returns a mapping of availability zone ids to names for the given region.
     """
     if boto3_session is None:
-        boto3_session = boto3.Session()
+        boto3_session = _apn_boto3_session()
     client = boto3_session.client("ec2", region_name=region)
     return {
         zone["ZoneId"]: zone["ZoneName"]
@@ -841,7 +863,9 @@ def str_data_size(s: str) -> int:
 
 def get_user_env_aws_account(region: str) -> str:
     """Get the AWS account used in the user environment"""
-    return boto3.client("sts", region_name=region).get_caller_identity()["Account"]
+    return boto3.client(
+        "sts", region_name=region, config=_apn_config()
+    ).get_caller_identity()["Account"]
 
 
 def generate_inline_policy_parameter(policy: AnyscaleIAMPolicy) -> str:

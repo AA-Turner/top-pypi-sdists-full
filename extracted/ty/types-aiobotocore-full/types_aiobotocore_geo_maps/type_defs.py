@@ -23,6 +23,7 @@ from aiobotocore.response import StreamingBody
 
 from .literals import (
     ColorSchemeType,
+    ContourDensityType,
     LabelSizeType,
     MapFeatureModeType,
     MapStyleType,
@@ -30,6 +31,7 @@ from .literals import (
     StaticMapStyleType,
     TerrainType,
     TileAdditionalFeatureType,
+    TrafficType,
     TravelModeType,
 )
 
@@ -102,8 +104,8 @@ class GetStyleDescriptorRequestTypeDef(TypedDict):
     ColorScheme: NotRequired[ColorSchemeType]
     PoliticalView: NotRequired[str]
     Terrain: NotRequired[TerrainType]
-    ContourDensity: NotRequired[Literal["Medium"]]
-    Traffic: NotRequired[Literal["All"]]
+    ContourDensity: NotRequired[ContourDensityType]
+    Traffic: NotRequired[TrafficType]
     TravelModes: NotRequired[Sequence[TravelModeType]]
     Buildings: NotRequired[Literal["Buildings3D"]]
     Key: NotRequired[str]

@@ -8,18 +8,20 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_polly.type_defs import DeleteLexiconInputTypeDef
+    from types_aiobotocore_polly.type_defs import AudioEventTypeDef
 
-    data: DeleteLexiconInputTypeDef = ...
+    data: AudioEventTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime
+from typing import Any
 
+from aiobotocore.eventstream import AioEventStream
 from aiobotocore.response import StreamingBody
 
 from .literals import (
@@ -27,22 +29,26 @@ from .literals import (
     GenderType,
     LanguageCodeType,
     OutputFormatType,
+    QuotaCodeType,
     SpeechMarkTypeType,
     TaskStatusType,
     TextTypeType,
+    ValidationExceptionReasonType,
     VoiceIdType,
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AudioEventTypeDef",
     "DeleteLexiconInputTypeDef",
     "DescribeVoicesInputPaginateTypeDef",
     "DescribeVoicesInputTypeDef",
     "DescribeVoicesOutputTypeDef",
+    "FlushStreamConfigurationTypeDef",
     "GetLexiconInputTypeDef",
     "GetLexiconOutputTypeDef",
     "GetSpeechSynthesisTaskInputTypeDef",
@@ -59,13 +65,28 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "PutLexiconInputTypeDef",
     "ResponseMetadataTypeDef",
+    "ServiceFailureExceptionTypeDef",
+    "ServiceQuotaExceededExceptionTypeDef",
+    "StartSpeechSynthesisStreamActionStreamTypeDef",
+    "StartSpeechSynthesisStreamEventStreamTypeDef",
+    "StartSpeechSynthesisStreamInputTypeDef",
+    "StartSpeechSynthesisStreamOutputTypeDef",
     "StartSpeechSynthesisTaskInputTypeDef",
     "StartSpeechSynthesisTaskOutputTypeDef",
+    "StreamClosedEventTypeDef",
     "SynthesisTaskTypeDef",
     "SynthesizeSpeechInputTypeDef",
     "SynthesizeSpeechOutputTypeDef",
+    "TextEventTypeDef",
+    "ThrottlingExceptionTypeDef",
+    "ThrottlingReasonTypeDef",
+    "ValidationExceptionFieldTypeDef",
+    "ValidationExceptionTypeDef",
     "VoiceTypeDef",
 )
+
+class AudioEventTypeDef(TypedDict):
+    AudioChunk: NotRequired[bytes]
 
 class DeleteLexiconInputTypeDef(TypedDict):
     Name: str
@@ -96,6 +117,9 @@ class VoiceTypeDef(TypedDict):
     Name: NotRequired[str]
     AdditionalLanguageCodes: NotRequired[list[LanguageCodeType]]
     SupportedEngines: NotRequired[list[EngineType]]
+
+class FlushStreamConfigurationTypeDef(TypedDict):
+    Force: NotRequired[bool]
 
 class GetLexiconInputTypeDef(TypedDict):
     Name: str
@@ -144,6 +168,17 @@ class PutLexiconInputTypeDef(TypedDict):
     Name: str
     Content: str
 
+class ServiceFailureExceptionTypeDef(TypedDict):
+    message: NotRequired[str]
+
+class ServiceQuotaExceededExceptionTypeDef(TypedDict):
+    message: str
+    quotaCode: QuotaCodeType
+    serviceCode: Literal["polly"]
+
+class StreamClosedEventTypeDef(TypedDict):
+    RequestCharacters: NotRequired[int]
+
 StartSpeechSynthesisTaskInputTypeDef = TypedDict(
     "StartSpeechSynthesisTaskInputTypeDef",
     {
@@ -176,6 +211,14 @@ SynthesizeSpeechInputTypeDef = TypedDict(
     },
 )
 
+class ThrottlingReasonTypeDef(TypedDict):
+    reason: NotRequired[str]
+    resource: NotRequired[str]
+
+class ValidationExceptionFieldTypeDef(TypedDict):
+    name: str
+    message: str
+
 class DescribeVoicesInputPaginateTypeDef(TypedDict):
     Engine: NotRequired[EngineType]
     LanguageCode: NotRequired[LanguageCodeType]
@@ -200,6 +243,15 @@ class DescribeVoicesOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+TextEventTypeDef = TypedDict(
+    "TextEventTypeDef",
+    {
+        "Text": str,
+        "TextType": NotRequired[TextTypeType],
+        "FlushStreamConfiguration": NotRequired[FlushStreamConfigurationTypeDef],
+    },
+)
+
 class LexiconDescriptionTypeDef(TypedDict):
     Name: NotRequired[str]
     Attributes: NotRequired[LexiconAttributesTypeDef]
@@ -222,7 +274,41 @@ class StartSpeechSynthesisTaskOutputTypeDef(TypedDict):
     SynthesisTask: SynthesisTaskTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ThrottlingExceptionTypeDef(TypedDict):
+    message: NotRequired[str]
+    throttlingReasons: NotRequired[list[ThrottlingReasonTypeDef]]
+
+class ValidationExceptionTypeDef(TypedDict):
+    message: str
+    reason: ValidationExceptionReasonType
+    fields: NotRequired[list[ValidationExceptionFieldTypeDef]]
+
+class StartSpeechSynthesisStreamActionStreamTypeDef(TypedDict):
+    TextEvent: NotRequired[TextEventTypeDef]
+    CloseStreamEvent: NotRequired[Mapping[str, Any]]
+
 class ListLexiconsOutputTypeDef(TypedDict):
     Lexicons: list[LexiconDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class StartSpeechSynthesisStreamEventStreamTypeDef(TypedDict):
+    AudioEvent: NotRequired[AudioEventTypeDef]
+    StreamClosedEvent: NotRequired[StreamClosedEventTypeDef]
+    ValidationException: NotRequired[ValidationExceptionTypeDef]
+    ServiceQuotaExceededException: NotRequired[ServiceQuotaExceededExceptionTypeDef]
+    ServiceFailureException: NotRequired[ServiceFailureExceptionTypeDef]
+    ThrottlingException: NotRequired[ThrottlingExceptionTypeDef]
+
+class StartSpeechSynthesisStreamInputTypeDef(TypedDict):
+    Engine: EngineType
+    OutputFormat: OutputFormatType
+    VoiceId: VoiceIdType
+    LanguageCode: NotRequired[LanguageCodeType]
+    LexiconNames: NotRequired[Sequence[str]]
+    SampleRate: NotRequired[str]
+    ActionStream: NotRequired[AioEventStream[StartSpeechSynthesisStreamActionStreamTypeDef]]
+
+class StartSpeechSynthesisStreamOutputTypeDef(TypedDict):
+    EventStream: AioEventStream[StartSpeechSynthesisStreamEventStreamTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef

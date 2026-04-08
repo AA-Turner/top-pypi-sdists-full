@@ -54,6 +54,7 @@ from cosmos.dbt.project import (
     copy_dbt_packages,
     create_symlinks,
     environ,
+    get_dbt_packages_subpath,
     get_partial_parse_path,
     has_non_empty_dependencies_file,
 )
@@ -63,11 +64,14 @@ from cosmos.log import get_logger
 logger = get_logger(__name__)
 
 
-def _normalize_path(path: str) -> str:
+def _normalize_path(path: str | None) -> str:
     """
     Converts a potentially Windows path string into a Posix-friendly path.
     """
-    return Path(path.replace("\\", "/")).as_posix()
+    if path is None:
+        return ""
+    else:
+        return Path(path.replace("\\", "/")).as_posix()
 
 
 class CosmosLoadDbtException(Exception):
@@ -87,7 +91,8 @@ class DbtNode:
     unique_id: str
     resource_type: DbtResourceType
     depends_on: list[str]
-    file_path: Path
+    path_base: Path
+    original_file_path: Path
     package_name: str | None = None
     tags: list[str] = field(default_factory=lambda: [])
     config: dict[str, Any] = field(default_factory=lambda: {})
@@ -96,6 +101,11 @@ class DbtNode:
     has_non_detached_test: bool = False
     downstream: list[str] = field(default_factory=lambda: [])
     fqn: list[str] | None = None
+
+    @property
+    def file_path(self) -> Path:
+        """Combined path to the node's file (path_base / original_file_path)."""
+        return self.path_base / self.original_file_path
 
     @property
     def meta(self) -> dict[str, Any]:
@@ -170,14 +180,15 @@ class DbtNode:
     @property
     def context_dict(self) -> dict[str, Any]:
         """
-        Returns a dictionary containing all the attributes of the DbtNode object,
-        ensuring that the output is JSON serializable so it can be stored in Airflow's db
+        Returns a JSON-serializable dictionary containing a curated subset of
+        DbtNode attributes, suitable for storing in Airflow's database.
         """
         return {
             "unique_id": self.unique_id,
             "resource_type": self.resource_type.value,  # convert enum to value
             "depends_on": self.depends_on,
             "file_path": str(self.file_path),  # convert path to string
+            "original_file_path": str(self.original_file_path),  # convert original path to string
             "tags": self.tags,
             "config": self.config,
             "has_test": self.has_test,
@@ -312,8 +323,10 @@ def parse_dbt_ls_output(project_path: Path | None, ls_stdout: str) -> dict[str, 
         except json.decoder.JSONDecodeError:
             logger.debug("Skipped dbt ls line: %s", line)
         else:
-            base_path = (
-                project_path.parent / node_dict["package_name"] if node_dict.get("package_name") else project_path  # type: ignore
+            if project_path is None:
+                continue
+            base_path: Path = (
+                project_path.parent / node_dict["package_name"] if node_dict.get("package_name") else project_path
             )
 
             # dbt-core defined the node path via "original_file_path", dbt fusion identifies it via "path"
@@ -335,7 +348,8 @@ def parse_dbt_ls_output(project_path: Path | None, ls_stdout: str) -> dict[str, 
                     package_name=node_dict.get("package_name"),
                     resource_type=DbtResourceType(node_dict["resource_type"]),
                     depends_on=node_dict.get("depends_on", {}).get("nodes", []),
-                    file_path=base_path / node_file_path,  # type: ignore[arg-type]
+                    path_base=base_path,
+                    original_file_path=Path(_normalize_path(node_file_path)),
                     tags=node_dict.get("tags") or [],
                     config=node_dict.get("config") or {},
                     has_freshness=(
@@ -351,6 +365,49 @@ def parse_dbt_ls_output(project_path: Path | None, ls_stdout: str) -> dict[str, 
                 nodes[node.unique_id] = node
                 logger.debug("Parsed dbt resource `%s` of type `%s`", node.unique_id, node.resource_type)
     return nodes
+
+
+def _build_dbt_node_from_manifest_resource(
+    unique_id: str,
+    node_dict: dict[str, Any],
+    project_path: Path,
+    packages_subpath: str,
+    manifest_project_name: str | None,
+) -> DbtNode | None:
+    """
+    Build a DbtNode from a manifest resource entry, or None if the node should be skipped
+    (e.g. external nodes with no file path).
+    """
+    original_file_path = node_dict.get("original_file_path")
+    if not original_file_path:
+        logger.debug(
+            "Skipping node `%s` because it has no file path (likely an external reference from dbt-loom or similar)",
+            unique_id,
+        )
+        return None
+
+    package_name = node_dict.get("package_name")
+    is_root_project_node = manifest_project_name is None or (package_name == manifest_project_name)
+    if package_name and not is_root_project_node:
+        path_base = project_path / packages_subpath / package_name
+    else:
+        path_base = project_path
+
+    resource_type = DbtResourceType(node_dict["resource_type"])
+    return DbtNode(
+        unique_id=unique_id,
+        package_name=package_name,
+        resource_type=resource_type,
+        depends_on=node_dict.get("depends_on", {}).get("nodes", []),
+        path_base=path_base,
+        original_file_path=Path(_normalize_path(original_file_path)),
+        tags=node_dict.get("tags") or [],
+        config=node_dict.get("config") or {},
+        has_freshness=(
+            is_freshness_effective(node_dict.get("freshness")) if resource_type == DbtResourceType.SOURCE else False
+        ),
+        fqn=node_dict.get("fqn"),
+    )
 
 
 class DbtGraph:
@@ -372,6 +429,7 @@ class DbtGraph:
 
     nodes: dict[str, DbtNode] = dict()
     filtered_nodes: dict[str, DbtNode] = dict()
+    tests_per_model: dict[str, list[str]] = dict()
     load_method: LoadMode = LoadMode.AUTOMATIC
 
     def __init__(
@@ -934,11 +992,8 @@ class DbtGraph:
                 unique_id=f"{model.type.value}.{self.project.project_name}.{model_name}",
                 resource_type=DbtResourceType(model.type.value),
                 depends_on=list(model.config.upstream_models),
-                file_path=Path(
-                    model.path.as_posix().replace(
-                        self.render_config.project_path.as_posix(), self.execution_config.project_path.as_posix()
-                    )
-                ),
+                path_base=self.execution_config.project_path,
+                original_file_path=model.path.relative_to(self.render_config.project_path),
                 tags=tags or [],
                 config=config,
             )
@@ -1111,9 +1166,56 @@ class DbtGraph:
 
         return self.parse_yaml_selectors(selector_definitions)
 
+    def _load_nodes_from_manifest_data(self, manifest: dict[str, Any], project_path: Path) -> dict[str, DbtNode]:
+        """Build a nodes dict from manifest resources (nodes, sources, exposures)."""
+        resources = {**manifest.get("nodes", {}), **manifest.get("sources", {}), **manifest.get("exposures", {})}
+        packages_subpath = get_dbt_packages_subpath(project_path)
+        manifest_metadata = manifest.get("metadata")
+        manifest_project_name = manifest_metadata.get("project_name") if isinstance(manifest_metadata, dict) else None
+        nodes: dict[str, DbtNode] = {}
+        for unique_id, node_dict in resources.items():
+            node = _build_dbt_node_from_manifest_resource(
+                unique_id, node_dict, project_path, packages_subpath, manifest_project_name
+            )
+            if node is not None:
+                nodes[node.unique_id] = node
+        return nodes
+
+    def _apply_manifest_node_selection(self, nodes: dict[str, DbtNode], manifest: dict[str, Any]) -> None:
+        """Set self.nodes and self.filtered_nodes using selector or render_config select/exclude."""
+        project_dir = self.execution_config.project_path
+        if self.render_config.selector:
+            selector_definitions = manifest.get("selectors", {})
+            if not selector_definitions:
+                if TYPE_CHECKING:
+                    assert self.project.manifest_path is not None  # pragma: no cover
+                raise CosmosLoadDbtException(f"Selectors not found in manifest file `{self.project.manifest_path}`")
+
+            yaml_selectors = self.load_parsed_selectors(selector_definitions)
+            selections = yaml_selectors.get_parsed(self.render_config.selector)
+            if not selections:
+                raise CosmosLoadDbtException(
+                    f"Selector `{self.render_config.selector}` not found in parsed YAML selectors `{selector_definitions}`"
+                )
+            self.nodes = nodes
+            self.filtered_nodes = select_nodes(
+                project_dir=project_dir,
+                nodes=nodes,
+                select=selections["select"],
+                exclude=selections["exclude"],
+            )
+        else:
+            self.nodes = nodes
+            self.filtered_nodes = select_nodes(
+                project_dir=project_dir,
+                nodes=nodes,
+                select=self.render_config.select,
+                exclude=self.render_config.exclude,
+            )
+
     def load_from_dbt_manifest(self) -> None:
         """
-        This approach accurately loads `dbt` projects using the `manifest.yml` file.
+        This approach accurately loads `dbt` projects using the `manifest.json` dbt manifest artifact.
 
         However, since the Manifest does not represent filters, it relies on the Custom Cosmos implementation
         to filter out the nodes relevant to the user (based on self.exclude and self.select).
@@ -1131,82 +1233,27 @@ class DbtGraph:
         if not self.execution_config.project_path:
             raise CosmosLoadDbtException("Unable to load manifest without ExecutionConfig.dbt_project_path")
 
-        nodes = {}
-
         if TYPE_CHECKING:
             assert self.project.manifest_path is not None  # pragma: no cover
 
         with self.project.manifest_path.open() as fp:
-            manifest = json.load(fp)
+            manifest = json.load(fp) or {}
 
-            resources = {**manifest.get("nodes", {}), **manifest.get("sources", {}), **manifest.get("exposures", {})}
-            for unique_id, node_dict in resources.items():
-                # External nodes (e.g., from dbt-loom) may not have a file path - skip them
-                # Check for both None and empty string since dbt-loom may set either
-                original_file_path = node_dict.get("original_file_path")
-                if not original_file_path:
-                    logger.debug(
-                        "Skipping node `%s` because it has no file path (likely an external reference from dbt-loom or similar)",
-                        unique_id,
-                    )
-                    continue
-
-                node = DbtNode(
-                    unique_id=unique_id,
-                    package_name=node_dict.get("package_name"),
-                    resource_type=DbtResourceType(node_dict["resource_type"]),
-                    depends_on=node_dict.get("depends_on", {}).get("nodes", []),
-                    file_path=self.execution_config.project_path / _normalize_path(original_file_path),
-                    tags=node_dict.get("tags") or [],
-                    config=node_dict.get("config") or {},
-                    has_freshness=(
-                        is_freshness_effective(node_dict.get("freshness"))
-                        if DbtResourceType(node_dict["resource_type"]) == DbtResourceType.SOURCE
-                        else False
-                    ),
-                    fqn=node_dict.get("fqn"),
-                )
-
-                nodes[node.unique_id] = node
-
-            if self.render_config.selector:
-                selector_definitions = manifest.get("selectors", {})
-
-                if not selector_definitions:
-                    raise CosmosLoadDbtException(f"Selectors not found in manifest file `{self.project.manifest_path}`")
-
-                yaml_selectors = self.load_parsed_selectors(selector_definitions)
-                selections = yaml_selectors.get_parsed(self.render_config.selector)
-
-                if not selections:
-                    raise CosmosLoadDbtException(
-                        f"Selector `{self.render_config.selector}` not found in parsed YAML selectors `{selector_definitions}`"
-                    )
-
-                self.nodes = nodes
-                self.filtered_nodes = select_nodes(
-                    project_dir=self.execution_config.project_path,
-                    nodes=nodes,
-                    select=selections["select"],
-                    exclude=selections["exclude"],
-                )
-            else:
-                self.nodes = nodes
-                self.filtered_nodes = select_nodes(
-                    project_dir=self.execution_config.project_path,
-                    nodes=nodes,
-                    select=self.render_config.select,
-                    exclude=self.render_config.exclude,
-                )
+        project_path = self.execution_config.project_path
+        nodes = self._load_nodes_from_manifest_data(manifest, project_path)
+        self._apply_manifest_node_selection(nodes, manifest)
 
     def update_node_dependency(self) -> None:
         """
         This will update the property `has_test` if node has `dbt` test and update the property
-        `has_non_detached_test` if there's at least one non-detached `dbt` test
+        `has_non_detached_test` if there's at least one non-detached `dbt` test.
+        Also builds `tests_per_model`: a mapping of model unique_id to its associated test names.
 
         Updates in-place:
         * self.filtered_nodes
+        * self.tests_per_model
         """
+        tests_per_model: dict[str, list[str]] = {}
         for _, node in list(self.nodes.items()):
             if node.resource_type == DbtResourceType.TEST:
                 for node_id in node.depends_on:
@@ -1218,8 +1265,10 @@ class DbtGraph:
                             or self.render_config.should_detach_multiple_parents_tests is False
                         ):
                             self.filtered_nodes[node_id].has_non_detached_test = True
+                        tests_per_model.setdefault(node_id, []).append(node.unique_id)
             else:
                 for parent_node_id in node.depends_on:
                     parent_node = self.nodes.get(parent_node_id)
                     if parent_node is not None:
                         parent_node.downstream.append(node.unique_id)
+        self.tests_per_model = tests_per_model

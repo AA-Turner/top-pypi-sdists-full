@@ -43,7 +43,7 @@ from tinybird.tb.modules.datafile.build_pipe import (
     is_materialized,
     new_pipe,
 )
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.project import Project
 
 
@@ -998,7 +998,9 @@ def process_file(
                     ]
 
                     if not all(required_params):
-                        raise click.ClickException(FeedbackManager.error_unknown_kafka_connection(datasource=name))
+                        raise click.ClickException(
+                            FeedbackManager.error_unknown_kafka_connection(datasource=name, cli=get_cli_name())
+                        )
 
                     connector = tb_client.connection_create_kafka(**connector_params)
             except Exception as e:

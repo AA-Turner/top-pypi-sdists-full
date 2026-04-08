@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: segment-analytics-python
-Version: 2.3.5
+Version: 2.3.6
 Summary: The hassle-free way to integrate analytics into any python application.
 Home-page: https://github.com/segmentio/analytics-python
 Author: Segment
@@ -21,7 +21,7 @@ License-File: LICENSE
 Requires-Dist: requests~=2.7
 Requires-Dist: backoff~=2.1
 Requires-Dist: python-dateutil~=2.2
-Requires-Dist: PyJWT~=2.10.1
+Requires-Dist: PyJWT~=2.12
 Provides-Extra: test
 Requires-Dist: mock==2.0.0; extra == "test"
 Requires-Dist: pylint==3.3.1; extra == "test"

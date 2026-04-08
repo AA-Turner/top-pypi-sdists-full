@@ -46,7 +46,13 @@ __all__ = (
     "TemplateStatusType",
 )
 
-AuditEventTypeType = Literal["Case.Created", "Case.Updated", "RelatedItem.Created"]
+AuditEventTypeType = Literal[
+    "Case.Created",
+    "Case.Updated",
+    "RelatedItem.Created",
+    "RelatedItem.Deleted",
+    "RelatedItem.Updated",
+]
 CommentBodyTextTypeType = Literal["Text/Plain"]
 DomainStatusType = Literal["Active", "CreationFailed", "CreationInProgress"]
 FieldNamespaceType = Literal["Custom", "System"]
@@ -182,6 +188,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -417,6 +424,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -452,6 +460,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -464,6 +473,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

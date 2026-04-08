@@ -189,6 +189,9 @@ __all__ = (
     "ColumnFilterConfigurationTypeDef",
     "ConfigurableActionParameterTypeDef",
     "ConfigurableEnvironmentActionTypeDef",
+    "ConfigurationOutputTypeDef",
+    "ConfigurationTypeDef",
+    "ConfigurationUnionTypeDef",
     "ConnectionCredentialsTypeDef",
     "ConnectionPropertiesInputTypeDef",
     "ConnectionPropertiesOutputTypeDef",
@@ -1132,6 +1135,16 @@ class ConfigurableActionParameterTypeDef(TypedDict):
     value: NotRequired[str]
 
 
+class ConfigurationOutputTypeDef(TypedDict):
+    classification: NotRequired[str]
+    properties: NotRequired[dict[str, str]]
+
+
+class ConfigurationTypeDef(TypedDict):
+    classification: NotRequired[str]
+    properties: NotRequired[Mapping[str, str]]
+
+
 class ConnectionCredentialsTypeDef(TypedDict):
     accessKeyId: NotRequired[str]
     secretAccessKey: NotRequired[str]
@@ -1154,6 +1167,7 @@ class MlflowPropertiesInputTypeDef(TypedDict):
 class S3PropertiesInputTypeDef(TypedDict):
     s3Uri: str
     s3AccessGrantLocationId: NotRequired[str]
+    registerS3AccessGrantLocation: NotRequired[bool]
 
 
 class SparkEmrPropertiesInputTypeDef(TypedDict):
@@ -1194,6 +1208,7 @@ class MlflowPropertiesOutputTypeDef(TypedDict):
 class S3PropertiesOutputTypeDef(TypedDict):
     s3Uri: str
     s3AccessGrantLocationId: NotRequired[str]
+    registerS3AccessGrantLocation: NotRequired[bool]
     status: NotRequired[ConnectionStatusType]
     errorMessage: NotRequired[str]
 
@@ -1213,6 +1228,7 @@ class MlflowPropertiesPatchTypeDef(TypedDict):
 class S3PropertiesPatchTypeDef(TypedDict):
     s3Uri: str
     s3AccessGrantLocationId: NotRequired[str]
+    registerS3AccessGrantLocation: NotRequired[bool]
 
 
 class SparkEmrPropertiesPatchTypeDef(TypedDict):
@@ -3204,6 +3220,7 @@ ConfigurableEnvironmentActionTypeDef = TypedDict(
         "auth": NotRequired[ConfigurableActionTypeAuthorizationType],
     },
 )
+ConfigurationUnionTypeDef = Union[ConfigurationTypeDef, ConfigurationOutputTypeDef]
 
 
 class CreateAssetTypeInputTypeDef(TypedDict):
@@ -4684,6 +4701,7 @@ class RejectPredictionsInputTypeDef(TypedDict):
 class SparkGluePropertiesInputTypeDef(TypedDict):
     additionalArgs: NotRequired[SparkGlueArgsTypeDef]
     glueConnectionName: NotRequired[str]
+    glueConnectionNames: NotRequired[Sequence[str]]
     glueVersion: NotRequired[str]
     idleTimeout: NotRequired[int]
     javaVirtualEnv: NotRequired[str]
@@ -4695,6 +4713,7 @@ class SparkGluePropertiesInputTypeDef(TypedDict):
 class SparkGluePropertiesOutputTypeDef(TypedDict):
     additionalArgs: NotRequired[SparkGlueArgsTypeDef]
     glueConnectionName: NotRequired[str]
+    glueConnectionNames: NotRequired[list[str]]
     glueVersion: NotRequired[str]
     idleTimeout: NotRequired[int]
     javaVirtualEnv: NotRequired[str]
@@ -6501,6 +6520,7 @@ class AssetFilterConfigurationTypeDef(TypedDict):
 class PhysicalEndpointTypeDef(TypedDict):
     awsLocation: NotRequired[AwsLocationTypeDef]
     glueConnectionName: NotRequired[str]
+    glueConnectionNames: NotRequired[list[str]]
     glueConnection: NotRequired[GlueConnectionTypeDef]
     enableTrustedIdentityPropagation: NotRequired[bool]
     host: NotRequired[str]
@@ -6828,6 +6848,7 @@ UpdateSubscriptionRequestOutputTypeDef = TypedDict(
 class UpdateConnectionInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
+    configurations: NotRequired[Sequence[ConfigurationUnionTypeDef]]
     description: NotRequired[str]
     awsLocation: NotRequired[AwsLocationTypeDef]
     props: NotRequired[ConnectionPropertiesPatchTypeDef]
@@ -6994,6 +7015,7 @@ ConnectionSummaryTypeDef = TypedDict(
         "name": str,
         "physicalEndpoints": list[PhysicalEndpointTypeDef],
         "type": ConnectionTypeType,
+        "configurations": NotRequired[list[ConfigurationOutputTypeDef]],
         "environmentId": NotRequired[str],
         "projectId": NotRequired[str],
         "props": NotRequired[ConnectionPropertiesOutputTypeDef],
@@ -7004,6 +7026,7 @@ CreateConnectionOutputTypeDef = TypedDict(
     "CreateConnectionOutputTypeDef",
     {
         "connectionId": str,
+        "configurations": list[ConfigurationOutputTypeDef],
         "description": str,
         "domainId": str,
         "domainUnitId": str,
@@ -7021,6 +7044,7 @@ GetConnectionOutputTypeDef = TypedDict(
     "GetConnectionOutputTypeDef",
     {
         "connectionCredentials": ConnectionCredentialsTypeDef,
+        "configurations": list[ConfigurationOutputTypeDef],
         "connectionId": str,
         "description": str,
         "domainId": str,
@@ -7039,6 +7063,7 @@ GetConnectionOutputTypeDef = TypedDict(
 UpdateConnectionOutputTypeDef = TypedDict(
     "UpdateConnectionOutputTypeDef",
     {
+        "configurations": list[ConfigurationOutputTypeDef],
         "connectionId": str,
         "description": str,
         "domainId": str,
@@ -7130,6 +7155,7 @@ class CreateConnectionInputTypeDef(TypedDict):
     name: str
     awsLocation: NotRequired[AwsLocationTypeDef]
     clientToken: NotRequired[str]
+    configurations: NotRequired[Sequence[ConfigurationUnionTypeDef]]
     description: NotRequired[str]
     environmentIdentifier: NotRequired[str]
     props: NotRequired[ConnectionPropertiesInputTypeDef]

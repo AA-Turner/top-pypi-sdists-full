@@ -120,30 +120,37 @@ struct SnapshotEdge {
 /// With `temporal`: stores full property version history.
 /// Without: wraps each current value as a single-entry version list at epoch 0.
 fn collect_snapshot_nodes(store: &grafeo_core::graph::lpg::LpgStore) -> Vec<SnapshotNode> {
-    store
+    let mut nodes: Vec<SnapshotNode> = store
         .all_nodes()
         .map(|n| {
             #[cfg(feature = "temporal")]
-            let properties = store
+            let mut properties: Vec<(String, Vec<(EpochId, Value)>)> = store
                 .node_property_history(n.id)
                 .into_iter()
                 .map(|(k, entries)| (k.to_string(), entries))
                 .collect();
 
             #[cfg(not(feature = "temporal"))]
-            let properties = n
+            let mut properties: Vec<(String, Vec<(EpochId, Value)>)> = n
                 .properties
                 .into_iter()
                 .map(|(k, v)| (k.to_string(), vec![(EpochId::new(0), v)]))
                 .collect();
 
+            properties.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+            let mut labels: Vec<String> = n.labels.iter().map(|l| l.to_string()).collect();
+            labels.sort();
+
             SnapshotNode {
                 id: n.id,
-                labels: n.labels.iter().map(|l| l.to_string()).collect(),
+                labels,
                 properties,
             }
         })
-        .collect()
+        .collect();
+    nodes.sort_by_key(|n| n.id);
+    nodes
 }
 
 /// Collects all edges from a store into snapshot format.
@@ -151,22 +158,24 @@ fn collect_snapshot_nodes(store: &grafeo_core::graph::lpg::LpgStore) -> Vec<Snap
 /// With `temporal`: stores full property version history.
 /// Without: wraps each current value as a single-entry version list at epoch 0.
 fn collect_snapshot_edges(store: &grafeo_core::graph::lpg::LpgStore) -> Vec<SnapshotEdge> {
-    store
+    let mut edges: Vec<SnapshotEdge> = store
         .all_edges()
         .map(|e| {
             #[cfg(feature = "temporal")]
-            let properties = store
+            let mut properties: Vec<(String, Vec<(EpochId, Value)>)> = store
                 .edge_property_history(e.id)
                 .into_iter()
                 .map(|(k, entries)| (k.to_string(), entries))
                 .collect();
 
             #[cfg(not(feature = "temporal"))]
-            let properties = e
+            let mut properties: Vec<(String, Vec<(EpochId, Value)>)> = e
                 .properties
                 .into_iter()
                 .map(|(k, v)| (k.to_string(), vec![(EpochId::new(0), v)]))
                 .collect();
+
+            properties.sort_by(|(a, _), (b, _)| a.cmp(b));
 
             SnapshotEdge {
                 id: e.id,
@@ -176,7 +185,9 @@ fn collect_snapshot_edges(store: &grafeo_core::graph::lpg::LpgStore) -> Vec<Snap
                 properties,
             }
         })
-        .collect()
+        .collect();
+    edges.sort_by_key(|e| e.id);
+    edges
 }
 
 /// Populates a store from snapshot node/edge data.
@@ -319,7 +330,7 @@ pub(super) fn load_snapshot_into_store(
             graph_store.sync_epoch(EpochId::new(snapshot.epoch));
         }
     }
-    restore_schema_from_snapshot(catalog, &snapshot.schema);
+    restore_schema_from_snapshot(store, catalog, &snapshot.schema);
 
     // Restore RDF triples
     #[cfg(feature = "rdf")]
@@ -374,7 +385,11 @@ fn populate_store_from_snapshot_ref(
 }
 
 /// Restores schema definitions from a snapshot into the catalog.
+///
+/// Also ensures each schema has its `__default__` graph partition, which
+/// may be missing in snapshots created before the schema hierarchy feature.
 fn restore_schema_from_snapshot(
+    store: &std::sync::Arc<grafeo_core::graph::lpg::LpgStore>,
     catalog: &std::sync::Arc<crate::catalog::Catalog>,
     schema: &SnapshotSchema,
 ) {
@@ -392,6 +407,9 @@ fn restore_schema_from_snapshot(
     }
     for name in &schema.schemas {
         let _ = catalog.register_schema_namespace(name.clone());
+        // Ensure the schema's default graph partition exists
+        let default_key = format!("{name}/__default__");
+        let _ = store.create_graph(&default_key);
     }
     for (graph_name, type_name) in &schema.graph_type_bindings {
         let _ = catalog.bind_graph_type(graph_name, type_name.clone());
@@ -978,7 +996,7 @@ impl super::GrafeoDB {
         }
 
         // Restore schema
-        restore_schema_from_snapshot(&db.catalog, &snapshot.schema);
+        restore_schema_from_snapshot(db.lpg_store(), &db.catalog, &snapshot.schema);
 
         // Restore indexes (must come after data population)
         restore_indexes_from_snapshot(&db, &snapshot.indexes);
@@ -1068,7 +1086,7 @@ impl super::GrafeoDB {
         }
 
         // Restore schema
-        restore_schema_from_snapshot(&self.catalog, &snapshot.schema);
+        restore_schema_from_snapshot(self.lpg_store(), &self.catalog, &snapshot.schema);
 
         // Restore indexes (must come after data population)
         restore_indexes_from_snapshot(self, &snapshot.indexes);

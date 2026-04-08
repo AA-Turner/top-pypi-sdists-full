@@ -34,8 +34,10 @@ from vertexai._genai import _evals_visualization
 from vertexai._genai import _evals_metric_loaders
 from vertexai._genai import _gcs_utils
 from vertexai._genai import _observability_data_converter
+from vertexai._genai import _transformers
 from vertexai._genai import evals
 from vertexai._genai import types as vertexai_genai_types
+from vertexai._genai.types import common as common_types
 from google.genai import client
 from google.genai import errors as genai_errors
 from google.genai import types as genai_types
@@ -216,6 +218,51 @@ class TestGetApiClientWithLocation:
             mock_api_client_fixture, new_location
         )
         mock_vertexai_client.assert_not_called()
+
+
+class TestTransformers:
+    """Unit tests for transformers."""
+
+    def test_t_inline_results(self):
+        eval_result = common_types.EvaluationResult(
+            eval_case_results=[
+                common_types.EvalCaseResult(
+                    eval_case_index=0,
+                    response_candidate_results=[
+                        common_types.ResponseCandidateResult(
+                            response_index=0,
+                            metric_results={
+                                "tool_use_quality": common_types.EvalCaseMetricResult(
+                                    score=0.0,
+                                    explanation="Failed tool use",
+                                )
+                            },
+                        )
+                    ],
+                )
+            ],
+            evaluation_dataset=[
+                common_types.EvaluationDataset(
+                    eval_cases=[
+                        common_types.EvalCase(
+                            prompt=genai_types.Content(
+                                parts=[genai_types.Part(text="test prompt")]
+                            )
+                        )
+                    ]
+                )
+            ],
+            metadata=common_types.EvaluationRunMetadata(candidate_names=["gemini-pro"]),
+        )
+
+        payload = _transformers.t_inline_results([eval_result])
+
+        assert len(payload) == 1
+        assert payload[0]["metric"] == "tool_use_quality"
+        assert payload[0]["request"]["prompt"]["text"] == "test prompt"
+        assert len(payload[0]["candidate_results"]) == 1
+        assert payload[0]["candidate_results"][0]["candidate"] == "gemini-pro"
+        assert payload[0]["candidate_results"][0]["score"] == 0.0
 
 
 class TestEvals:
@@ -1754,7 +1801,7 @@ class TestEvalsRunInference:
         self,
         mock_api_client_fixture,
     ):
-        """Tests inference with LiteLLM where the row contains an chat completion request body."""
+        """Tests inference with LiteLLM where the row contains a chat completion request body."""
         with mock.patch(
             "vertexai._genai._evals_common.litellm"
         ) as mock_litellm, mock.patch(
@@ -2010,6 +2057,23 @@ class TestEvalsMetricHandlers:
                     ]
                 ),
             ),
+        ]
+        assert _evals_metric_handlers._has_tool_call(events)
+
+    def test_has_tool_call_with_agent_event(self):
+        events = [
+            vertexai_genai_types.evals.AgentEvent(
+                author="model",
+                content=genai_types.Content(
+                    parts=[
+                        genai_types.Part(
+                            function_call=genai_types.FunctionCall(
+                                name="search", args={}
+                            )
+                        )
+                    ]
+                ),
+            )
         ]
         assert _evals_metric_handlers._has_tool_call(events)
 
@@ -4892,9 +4956,52 @@ class TestPredefinedMetricHandler:
         handler._build_request_payload(eval_case, response_index=0)
         mock_warning.assert_called_once_with(
             "Metric 'tool_use_quality_v1' requires tool usage in "
-            "'intermediate_events', but no tool usage was found for case %s.",
+            "'intermediate_events' or 'agent_data', but no tool usage was found for case %s.",
             "case-no-tool-call",
         )
+
+    @mock.patch.object(_evals_metric_handlers.logger, "warning")
+    def test_build_request_payload_tool_use_quality_v1_with_agent_data_tool_call(
+        self, mock_warning, mock_api_client_fixture
+    ):
+        """Tests that PredefinedMetricHandler does not warn if tool call is in agent_data."""
+        metric = vertexai_genai_types.Metric(name="tool_use_quality_v1")
+        handler = _evals_metric_handlers.PredefinedMetricHandler(
+            module=evals.Evals(api_client_=mock_api_client_fixture), metric=metric
+        )
+        eval_case = vertexai_genai_types.EvalCase(
+            eval_case_id="case-with-agent-data-tool-call",
+            prompt=genai_types.Content(parts=[genai_types.Part(text="Hello")]),
+            responses=[
+                vertexai_genai_types.ResponseCandidate(
+                    response=genai_types.Content(parts=[genai_types.Part(text="Hi")])
+                )
+            ],
+            agent_data=vertexai_genai_types.evals.AgentData(
+                turns=[
+                    vertexai_genai_types.evals.ConversationTurn(
+                        turn_index=0,
+                        turn_id="turn_0",
+                        events=[
+                            vertexai_genai_types.evals.AgentEvent(
+                                author="model",
+                                content=genai_types.Content(
+                                    parts=[
+                                        genai_types.Part(
+                                            function_call=genai_types.FunctionCall(
+                                                name="search", args={}
+                                            )
+                                        )
+                                    ]
+                                ),
+                            )
+                        ],
+                    )
+                ]
+            ),
+        )
+        handler._build_request_payload(eval_case, response_index=0)
+        mock_warning.assert_not_called()
 
 
 @pytest.mark.usefixtures("google_auth_mock")
@@ -4947,7 +5054,9 @@ class TestRunAdkUserSimulation:
         assert turn["events"][1]["content"] == {"text": "agent msg"}
 
         mock_scenario_cls.assert_called_once_with(
-            starting_prompt="start", conversation_plan="plan"
+            starting_prompt="start",
+            conversation_plan="plan",
+            user_persona="EVALUATOR",
         )
         mock_session_input_cls.assert_called_once()
 
@@ -5006,7 +5115,9 @@ class TestRunAdkUserSimulation:
         await _evals_common._run_adk_user_simulation(row, mock_agent)
 
         mock_scenario_cls.assert_called_once_with(
-            starting_prompt="start", conversation_plan="plan"
+            starting_prompt="start",
+            conversation_plan="plan",
+            user_persona="EVALUATOR",
         )
         mock_session_input_cls.assert_called_once_with(
             app_name="user_simulation_app",

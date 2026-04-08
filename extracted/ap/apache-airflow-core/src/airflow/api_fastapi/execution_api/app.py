@@ -28,7 +28,7 @@ import svcs
 from cadwyn import (
     Cadwyn,
 )
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -41,16 +41,17 @@ from airflow.api_fastapi.auth.tokens import (
 
 if TYPE_CHECKING:
     import httpx
-    from fastapi import Response
     from fastapi.routing import APIRoute
 
 import structlog
+from structlog.contextvars import bind_contextvars
 
 logger = structlog.get_logger(logger_name=__name__)
 
 __all__ = [
     "create_task_execution_api_app",
     "lifespan",
+    "CorrelationIdMiddleware",
 ]
 
 
@@ -97,6 +98,33 @@ async def lifespan(app: FastAPI, registry: svcs.Registry):
     registry.register_value(JWTValidator, _jwt_validator(), ping=JWTValidator.status)
 
     yield
+
+
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to handle correlation-id for request tracing.
+
+    This middleware:
+    1. Extracts correlation-id from request headers
+    2. Binds it to structlog context for all logs within the request
+    3. Echoes correlation-id back in response headers for tracing
+
+    Note: Context variables are automatically isolated per async task in Python,
+    so manual cleanup is not necessary. Each request gets its own context copy.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        correlation_id = request.headers.get("correlation-id")
+
+        if correlation_id:
+            bind_contextvars(correlation_id=correlation_id)
+
+        response: Response = await call_next(request)
+
+        if correlation_id:
+            response.headers["correlation-id"] = correlation_id
+
+        return response
 
 
 class JWTReissueMiddleware(BaseHTTPMiddleware):
@@ -192,6 +220,15 @@ class CadwynWithOpenAPICustomization(Cadwyn):
                 if prop.get("type") == "string" and (const := prop.pop("const", None)):
                     prop["enum"] = [const]
 
+        # Remove internal x-airflow-* extension fields from OpenAPI spec
+        # These are used for runtime validation but shouldn't be exposed in the public API
+        for path_item in openapi_schema.get("paths", {}).values():
+            for operation in path_item.values():
+                if isinstance(operation, dict):
+                    keys_to_remove = [key for key in operation.keys() if key.startswith("x-airflow-")]
+                    for key in keys_to_remove:
+                        del operation[key]
+
         return openapi_schema
 
 
@@ -215,7 +252,10 @@ def create_task_execution_api_app() -> FastAPI:
         versions=bundle,
     )
 
+    # Add correlation-id middleware for request tracing
+    app.add_middleware(CorrelationIdMiddleware)
     app.add_middleware(JWTReissueMiddleware)
+
     app.generate_and_include_versioned_routers(execution_api_router)
 
     # As we are mounted as a sub app, we don't get any logs for unhandled exceptions without this!
@@ -223,8 +263,8 @@ def create_task_execution_api_app() -> FastAPI:
     def handle_exceptions(request: Request, exc: Exception):
         logger.exception("Handle died with an error", exc_info=(type(exc), exc, exc.__traceback__))
         content = {"message": "Internal server error"}
-        if "correlation-id" in request.headers:
-            content["correlation-id"] = request.headers["correlation-id"]
+        if correlation_id := request.headers.get("correlation-id"):
+            content["correlation-id"] = correlation_id
         return JSONResponse(status_code=500, content=content)
 
     return app
@@ -234,6 +274,7 @@ def get_extra_schemas() -> dict[str, dict]:
     """Get all the extra schemas that are not part of the main FastAPI app."""
     from airflow.api_fastapi.execution_api.datamodels.taskinstance import TaskInstance
     from airflow.executors.workloads import BundleInfo
+    from airflow.serialization.enums import DagAttributeTypes
     from airflow.task.trigger_rule import TriggerRule
     from airflow.task.weight_rule import WeightRule
     from airflow.utils.state import TaskInstanceState, TerminalTIState
@@ -247,6 +288,11 @@ def get_extra_schemas() -> dict[str, dict]:
         "TaskInstanceState": {"type": "string", "enum": list(TaskInstanceState)},
         "WeightRule": {"type": "string", "enum": list(WeightRule)},
         "TriggerRule": {"type": "string", "enum": list(TriggerRule)},
+        "DagAttributeTypes": {
+            "type": "string",
+            "enum": [DagAttributeTypes.OP.value, DagAttributeTypes.TASK_GROUP.value],
+            "x-enum-varnames": [DagAttributeTypes.OP.name, DagAttributeTypes.TASK_GROUP.name],
+        },
     }
 
 
@@ -267,23 +313,26 @@ class InProcessExecutionAPI:
         if not self._app:
             from airflow.api_fastapi.common.dagbag import create_dag_bag
             from airflow.api_fastapi.execution_api.app import create_task_execution_api_app
-            from airflow.api_fastapi.execution_api.deps import (
-                JWTBearerDep,
-                JWTBearerTIPathDep,
-            )
+            from airflow.api_fastapi.execution_api.datamodels.token import TIToken
             from airflow.api_fastapi.execution_api.routes.connections import has_connection_access
             from airflow.api_fastapi.execution_api.routes.variables import has_variable_access
             from airflow.api_fastapi.execution_api.routes.xcoms import has_xcom_access
+            from airflow.api_fastapi.execution_api.security import _jwt_bearer
 
             self._app = create_task_execution_api_app()
 
             # Set up dag_bag in app state for dependency injection
             self._app.state.dag_bag = create_dag_bag()
 
-            async def always_allow(): ...
+            async def always_allow(request: Request):
+                from uuid import UUID
 
-            self._app.dependency_overrides[JWTBearerDep.dependency] = always_allow
-            self._app.dependency_overrides[JWTBearerTIPathDep.dependency] = always_allow
+                ti_id = UUID(
+                    request.path_params.get("task_instance_id", "00000000-0000-0000-0000-000000000000")
+                )
+                return TIToken(id=ti_id, claims={"scope": "execution"})
+
+            self._app.dependency_overrides[_jwt_bearer] = always_allow
             self._app.dependency_overrides[has_connection_access] = always_allow
             self._app.dependency_overrides[has_variable_access] = always_allow
             self._app.dependency_overrides[has_xcom_access] = always_allow

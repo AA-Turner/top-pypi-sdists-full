@@ -1,17 +1,16 @@
 Metadata-Version: 2.4
 Name: microsoft-kiota-abstractions
-Version: 1.9.10
+Version: 1.10.0
 Summary: Core abstractions for kiota generated libraries in Python
 License: MIT
 License-File: LICENSE
 Keywords: kiota,openAPI,Microsoft,Graph
 Author: Microsoft
 Author-email: graphtooling+python@microsoft.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

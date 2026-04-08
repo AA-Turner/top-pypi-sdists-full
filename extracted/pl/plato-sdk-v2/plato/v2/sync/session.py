@@ -29,6 +29,7 @@ from plato._generated.api.v2.sessions import connect_network as sessions_connect
 from plato._generated.api.v2.sessions import disk_snapshot as sessions_disk_snapshot
 from plato._generated.api.v2.sessions import evaluate as sessions_evaluate
 from plato._generated.api.v2.sessions import execute as sessions_execute
+from plato._generated.api.v2.sessions import get_public_url as sessions_get_public_url
 from plato._generated.api.v2.sessions import heartbeat as sessions_heartbeat
 from plato._generated.api.v2.sessions import link_testcase as sessions_link_testcase
 from plato._generated.api.v2.sessions import make as sessions_make
@@ -136,6 +137,9 @@ class Session:
         self._heartbeat_stop = threading.Event()
         self._heartbeat_interval = 30
         self._envs: list[Environment] | None = None
+        self._network_requested = False
+        self._network_connected = False
+        self._network_result: dict[str, object] | None = None
 
     @property
     def session_id(self) -> str:
@@ -411,6 +415,7 @@ class Session:
                 self._context = response.context
                 self._envs = None  # Reset cached envs
                 logger.info(f"All environments in session {self.session_id} are ready")
+                self._connect_network_if_requested()
                 return
 
             raise NotReadyError("Environments not ready yet")
@@ -455,6 +460,23 @@ class Session:
             if env.alias == alias:
                 return env
         return None
+
+    def _has_networkable_envs(self) -> bool:
+        env_contexts = self._context.envs or []
+        return any(env.job_id for env in env_contexts)
+
+    def _deferred_network_result(self) -> dict[str, object]:
+        return {
+            "success": True,
+            "session_id": self.session_id,
+            "subnet": None,
+            "results": {},
+            "deferred": True,
+        }
+
+    def _connect_network_if_requested(self) -> None:
+        if self._network_requested and not self._network_connected and self._has_networkable_envs():
+            self.connect_network()
 
     def reset(self, **kwargs) -> ResetSessionResponse:
         """Reset all environments in the session to initial state.
@@ -599,6 +621,36 @@ class Session:
             x_api_key=self._api_key,
         )
 
+    def get_public_url(self, port: int | None = None) -> dict[str, str]:
+        """Get public URLs for all environments in the session.
+
+        Returns browser-accessible URLs in format: {job_id}--{port}.sims.plato.so
+
+        Args:
+            port: Port number for the URLs. If not specified, uses the default port.
+
+        Returns:
+            Dict mapping alias to public URL.
+        """
+        self._check_closed()
+
+        response = sessions_get_public_url.sync(
+            client=self._http,
+            session_id=self.session_id,
+            port=port,
+            x_api_key=self._api_key,
+        )
+
+        # Map job_id to alias for easier access
+        urls = {}
+        if response and response.results:
+            for job_id, result in response.results.items():
+                alias = next((env.alias for env in self.envs if env.job_id == job_id), job_id)
+                url = result.url if hasattr(result, "url") else str(result)
+                urls[alias] = url
+
+        return urls
+
     def link_testcase(self, testcase_id: str) -> None:
         """Link a test case to this session.
 
@@ -722,6 +774,12 @@ class Session:
             RuntimeError: If session is closed or network connection fails.
         """
         self._check_closed()
+        self._network_requested = True
+        if self._network_connected:
+            return self._network_result or self._deferred_network_result()
+        if not self._has_networkable_envs():
+            logger.debug("Deferring network connection for session %s until environments exist", self.session_id)
+            return self._deferred_network_result()
 
         # Server returns 500 with error detail if network connection fails
         result = sessions_connect_network.sync(
@@ -729,7 +787,8 @@ class Session:
             session_id=self.session_id,
             x_api_key=self._api_key,
         )
-
+        self._network_connected = True
+        self._network_result = result if isinstance(result, dict) else result.model_dump()
         return result
 
     def add_env(
@@ -824,6 +883,8 @@ class Session:
 
         # Reset cached envs to force rebuild
         self._envs = None
+        if wait_for_ready:
+            self._connect_network_if_requested()
 
         # Create and return the Environment object
         new_environment = Environment(
@@ -836,7 +897,7 @@ class Session:
             mesh_ip=mesh_ip,
         )
 
-        logger.info(f"Added job {job_id} (alias={env.alias}) to session {self.session_id}")
+        logger.debug(f"Added job {job_id} (alias={env.alias}) to session {self.session_id}")
         return new_environment
 
     def remove_env(self, env: Environment | str) -> None:
@@ -887,7 +948,7 @@ class Session:
         # Reset cached envs to force rebuild
         self._envs = None
 
-        logger.info(f"Removed job {job_id} (alias={alias}) from session {self.session_id}")
+        logger.debug(f"Removed job {job_id} (alias={alias}) from session {self.session_id}")
 
     def login(
         self,

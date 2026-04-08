@@ -265,7 +265,9 @@ line experience. To opt-out, set TB_CLI_TELEMETRY_OPTOUT to '1' or 'true'."""
         try:
             self.main(*args, **kwargs)
         except AuthNoTokenException:
-            error_msg = FeedbackManager.error_notoken()
+            from tinybird.tb.modules.feedback_manager import get_cli_name
+
+            error_msg = FeedbackManager.error_notoken(cli=get_cli_name())
             error_event = "auth_error"
             exit_code = 1
         except AuthException as ex:
@@ -1136,7 +1138,11 @@ def validate_string_connector_param(param, s):
 
 def validate_connection_name(client, connection_name, service):
     if client.get_connector(connection_name, service) is not None:
-        raise CLIConnectionException(FeedbackManager.error_connection_already_exists(name=connection_name))
+        from tinybird.tb.modules.feedback_manager import get_cli_name
+
+        raise CLIConnectionException(
+            FeedbackManager.error_connection_already_exists(name=connection_name, cli=get_cli_name())
+        )
 
 
 def _get_setting_value(connection, setting, sensitive_settings):
@@ -1176,7 +1182,9 @@ def switch_workspace(config: CLIConfig, workspace_name_or_id: str, only_environm
         )
 
         if not workspace:
-            raise CLIException(FeedbackManager.error_workspace(workspace=workspace_name_or_id))
+            from tinybird.tb.modules.feedback_manager import get_cli_name
+
+            raise CLIException(FeedbackManager.error_workspace(workspace=workspace_name_or_id, cli=get_cli_name()))
 
         config.set_token(workspace["token"])
         config.set_token_for_host(workspace["token"], config.get_host())
@@ -1317,17 +1325,23 @@ def get_host_from_region(
         try:
             host = regions[index - 1]["api_host"]
         except Exception:
-            raise CLIException(FeedbackManager.error_getting_region_by_index())
+            from tinybird.tb.modules.feedback_manager import get_cli_name
+
+            raise CLIException(FeedbackManager.error_getting_region_by_index(cli=get_cli_name()))
     except ValueError:
         region_name = region_name_or_host_or_id.lower()
         try:
             region = get_region_from_host(region_name, regions)
             host = region["api_host"] if region else None
         except Exception:
-            raise CLIException(FeedbackManager.error_getting_region_by_name_or_url())
+            from tinybird.tb.modules.feedback_manager import get_cli_name
+
+            raise CLIException(FeedbackManager.error_getting_region_by_name_or_url(cli=get_cli_name()))
 
     if not host:
-        raise CLIException(FeedbackManager.error_getting_region_by_name_or_url())
+        from tinybird.tb.modules.feedback_manager import get_cli_name
+
+        raise CLIException(FeedbackManager.error_getting_region_by_name_or_url(cli=get_cli_name()))
 
     return regions, host
 
@@ -1468,7 +1482,9 @@ def try_authenticate(
                 break
 
     if not authenticated:
-        raise CLIAuthException(FeedbackManager.error_invalid_token())
+        from tinybird.tb.modules.feedback_manager import get_cli_name
+
+        raise CLIAuthException(FeedbackManager.error_invalid_token(cli=get_cli_name()))
 
     config.persist_to_file()
 
@@ -2381,7 +2397,9 @@ def create_workspace_branch(
     try:
         workspace = get_current_workspace(config)
         if not workspace:
-            raise CLIWorkspaceException(FeedbackManager.error_workspace())
+            from tinybird.tb.modules.feedback_manager import get_cli_name
+
+            raise CLIWorkspaceException(FeedbackManager.error_workspace(cli=get_cli_name()))
 
         if not branch_name:
             click.echo(FeedbackManager.info_workspace_branch_create_greeting())

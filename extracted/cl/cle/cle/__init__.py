@@ -7,7 +7,7 @@ The primary interface to CLE is the Loader class.
 
 from __future__ import annotations
 
-__version__ = "9.2.208"
+__version__ = "9.2.209"
 
 from .address_translator import AT, AddressTranslator
 from .backends import (
@@ -44,6 +44,7 @@ from .backends import (
     SymbolSubType,
     SymbolType,
     UefiFirmware,
+    Universal2,
     register_backend,
 )
 from .backends.externs import (
@@ -107,6 +108,7 @@ __all__ = [
     "Segment",
     "Soot",
     "StaticArchive",
+    "Universal2",
     "register_backend",
     "ExternObject",
     "ExternSegment",

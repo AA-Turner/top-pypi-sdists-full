@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 from fastapi import Depends, Request, status
-from starlette.responses import RedirectResponse
+from fastapi.responses import RedirectResponse
 
 from airflow.api_fastapi.app import get_cookie_path
 from airflow.api_fastapi.auth.managers.base_auth_manager import COOKIE_NAME_JWT_TOKEN

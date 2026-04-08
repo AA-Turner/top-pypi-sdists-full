@@ -33,6 +33,7 @@ from plato.chronos.models import (
     CreateSessionRequest,
     CreateSessionResponse,
     LinkPlatoSessionRequest,
+    RegistryAgentSchemaResponse,
     Status1,
 )
 from plato.cli.chronos.config import Config
@@ -48,7 +49,7 @@ from plato.cli.chronos.settings import get_settings
 if TYPE_CHECKING:
     from plato.v2 import AsyncPlato
     from plato.v2.environment import Environment
-    from plato.v2.session import Session
+    from plato.v2.session import SerializedSession, Session
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -106,40 +107,57 @@ def find_agent_configs(config: dict, prefix: str = "") -> dict[str, dict]:
 async def resolve_agent_images(config: dict, api_key: str | None = None) -> None:
     """Resolve package → image for all agent configs in a world config dict.
 
-    Mutates agent dicts in-place, setting ``image`` from the registry.
+    Mutates agent dicts in-place, setting ``image`` from the registry and
+    normalizing ``package`` to ``name:resolved_version`` for downstream VM setup.
     """
     agents = find_agent_configs(config)
     for name, agent in agents.items():
+        package_ref = agent.get("package")
+        if not package_ref:
+            continue
+
+        package_name, package_version = parse_package_string(package_ref)
+        # The ``version`` field in the agent config overrides the version
+        # embedded in the package string.  Normalise it the same way
+        # ``parse_package_string`` does (empty / "latest" → None).
+        explicit_version = agent.get("version")
+        if explicit_version is not None:
+            _, explicit_version = parse_package_string(f"_:{explicit_version}")
+        version = explicit_version or package_version
         image = agent.get("image")
-        package = agent.get("package")
-        version = agent.get("version")
 
-        if package and ":" in package and not version:
-            package, version = parse_package_string(package)
+        if not image or version is None:
+            schema = await _fetch_agent_schema_from_registry(package_name, version, api_key)
+            if not schema or not schema.image:
+                raise ValueError(
+                    f"Could not resolve image for agent '{name}' (package={package_name}, version={version or 'latest'})"
+                )
+            image = schema.image
+            version = schema.version
+            agent["image"] = image
 
-        if package and not image:
-            image = await _fetch_agent_image_from_registry(package, version, api_key)
-            if image:
-                agent["image"] = image
-                logger.info(f"Resolved agent '{name}': {package}:{version or 'latest'} -> {image}")
-            else:
-                raise ValueError(f"Could not resolve image for agent '{name}' (package={package})")
+        if version is None:
+            raise ValueError(
+                f"Could not resolve version for agent '{name}' (package={package_name}, image={image or 'unknown'})"
+            )
+
+        agent["package"] = f"{package_name}:{version}"
+        if "version" in agent:
+            agent["version"] = version
+        logger.info("Resolved agent '%s': %s -> %s", name, agent["package"], image)
 
 
-async def _fetch_agent_image_from_registry(
+async def _fetch_agent_schema_from_registry(
     package: str, version: str | None = None, api_key: str | None = None
-) -> str | None:
-    """Fetch agent image URL from Chronos registry API."""
-    import httpx
-
+) -> RegistryAgentSchemaResponse | None:
+    """Fetch agent schema from the Chronos registry API."""
     try:
         async with httpx.AsyncClient(
             base_url=settings.chronos_url.rstrip("/"),
             timeout=30.0,
             headers={"X-API-Key": api_key} if api_key else {},
         ) as client:
-            resp = await get_agent_schema_api.asyncio(client, agent_name=package, version=version)
-            return resp.image if resp.image else None
+            return await get_agent_schema_api.asyncio(client, agent_name=package, version=version)
     except Exception as e:
         logger.warning(f"Could not fetch agent schema from registry: {e}")
     return None
@@ -177,6 +195,7 @@ class DevRunner:
         self._sigint_count = 0
         self._shutdown_requested = False
         self._force_fresh_next_run = False
+        self._serialized_session: SerializedSession | None = None
         self._startup_profiler = StartupProfiler(metadata={"config_path": str(config_path)})
 
     def _resolve_path(self, path: Path | None) -> Path | None:
@@ -197,7 +216,7 @@ class DevRunner:
 
     async def run(self) -> None:
         """Run the dev workflow."""
-        from plato.runtime import VMRuntimeConfig
+        from plato.runtimes.config import VMRuntimeConfig
         from plato.v2 import AsyncPlato, Env
         from plato.v2.types import SimConfigCompute
 
@@ -281,9 +300,9 @@ class DevRunner:
                         env = Env.resource(
                             simulator=f"dev-{world_package}",
                             sim_config=SimConfigCompute(
-                                cpus=world_runtime.vm.cpus,
-                                memory=world_runtime.vm.memory,
-                                disk=world_runtime.vm.disk,
+                                cpus=world_runtime.cpus,
+                                memory=world_runtime.memory,
+                                disk=world_runtime.disk,
                             ),
                             alias="runtime",
                             docker_image_url=self.world_image,
@@ -292,7 +311,7 @@ class DevRunner:
                         )
                         self.session = await self.plato.sessions.create(
                             envs=[env],
-                            timeout=world_runtime.vm.timeout or 7200,
+                            timeout=world_runtime.timeout or 7200,
                         )
                         if not self.session:
                             raise RuntimeError("Failed to create session")
@@ -317,11 +336,9 @@ class DevRunner:
                                 "dev": self.config.dev.model_copy(
                                     update={"ssh_key_path": Path("/root/.ssh/agent_key")}
                                 ),
-                                "session": self.config.session.model_copy(
-                                    update={"plato_session": self.session.dump()}
-                                ),
                             }
                         )
+                        self._serialized_session = self.session.dump()
                 _step(f"VM [bold]{self.world_env.job_id}[/bold] provisioned")
 
                 # 5. Sync code
@@ -662,7 +679,7 @@ class DevRunner:
         if not editable_paths:
             return
 
-        from plato.agents.runtime.install import build_editable_install_commands
+        from plato.agents.install import build_editable_install_commands
 
         install_cmds = build_editable_install_commands(editable_paths)
         with self._startup_profiler.time("setup.env.packages.editable_install"):
@@ -756,6 +773,14 @@ class DevRunner:
             raise RuntimeError("world_env must be initialized")
 
         config_dict = self.config.model_dump(mode="json")
+        # Inject serialized Plato session into runtime_info for the world runner
+        serialized = self._serialized_session
+        if serialized:
+            config_dict.setdefault("world", {})["runtime_info"] = {
+                "runtime_id": self.world_env.job_id,
+                "hostname": "localhost",
+                "serialized_session": serialized.model_dump(mode="json"),
+            }
         config_json = json.dumps(config_dict)
         escaped_config = config_json.replace("'", "'\\''")
         result = await self.world_env.execute(f"echo '{escaped_config}' > /tmp/config.json", timeout=30)
@@ -764,8 +789,8 @@ class DevRunner:
 
         # Write serialized session to a well-known path so integration tests
         # running on the VM can reuse the active Plato session.
-        if self.config.session.plato_session:
-            session_json = json.dumps(self.config.session.plato_session.model_dump(mode="json"))
+        if serialized:
+            session_json = json.dumps(serialized.model_dump(mode="json"))
             escaped_session = session_json.replace("'", "'\\''")
             result = await self.world_env.execute(
                 f"mkdir -p /etc/plato && echo '{escaped_session}' > /etc/plato/session.json",
@@ -880,11 +905,19 @@ class DevRunner:
                     if old_agent and "image" in old_agent and "image" not in new_agent:
                         new_agent["image"] = old_agent["image"]
                 # Inline config write into the world command to save an SSH round-trip
-                config_json = json.dumps(self.config.model_dump(mode="json"))
+                config_dict = self.config.model_dump(mode="json")
+                serialized = self._serialized_session
+                if serialized:
+                    config_dict.setdefault("world", {})["runtime_info"] = {
+                        "runtime_id": self.world_env.job_id,
+                        "hostname": "localhost",
+                        "serialized_session": serialized.model_dump(mode="json"),
+                    }
+                config_json = json.dumps(config_dict)
                 escaped_config = config_json.replace("'", "'\\''")
                 write_config_cmd = f"echo '{escaped_config}' > /tmp/config.json; "
-                if self.config.session.plato_session:
-                    session_json = json.dumps(self.config.session.plato_session.model_dump(mode="json"))
+                if serialized:
+                    session_json = json.dumps(serialized.model_dump(mode="json"))
                     escaped_session = session_json.replace("'", "'\\''")
                     write_config_cmd += f"mkdir -p /etc/plato && echo '{escaped_session}' > /etc/plato/session.json; "
 
@@ -1028,7 +1061,7 @@ class DevRunner:
             if self._sigint_count == 1:
                 console.print("\n  [yellow]Stopping world (graceful)...[/yellow] [dim](Ctrl+C again to force)[/dim]")
                 # Send SIGTERM to the remote world process so close() runs
-                # (cleans up agents, tailscale, etc.) before SSH drops.
+                # (cleans up agents, etc.) before SSH drops.
                 if self.world_env and self.ssh_key:
                     try:
                         subprocess.run(

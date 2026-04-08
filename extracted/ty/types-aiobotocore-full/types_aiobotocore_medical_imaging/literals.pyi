@@ -57,6 +57,7 @@ ImageSetWorkflowStatusType = Literal[
     "UPDATED",
     "UPDATE_FAILED",
     "UPDATING",
+    "UPDATING_FOR_STUDY_CONSISTENCY",
 ]
 JobStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "SUBMITTED"]
 ListDICOMImportJobsPaginatorName = Literal["list_dicom_import_jobs"]
@@ -187,6 +188,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -422,6 +424,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -457,6 +460,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -469,6 +473,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

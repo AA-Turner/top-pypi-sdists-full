@@ -97,6 +97,8 @@ __all__ = (
     "CreateLogAnomalyDetectorResponseTypeDef",
     "CreateLogGroupRequestTypeDef",
     "CreateLogStreamRequestTypeDef",
+    "CreateLookupTableRequestTypeDef",
+    "CreateLookupTableResponseTypeDef",
     "CreateScheduledQueryRequestTypeDef",
     "CreateScheduledQueryResponseTypeDef",
     "DataSourceFilterTypeDef",
@@ -119,6 +121,7 @@ __all__ = (
     "DeleteLogAnomalyDetectorRequestTypeDef",
     "DeleteLogGroupRequestTypeDef",
     "DeleteLogStreamRequestTypeDef",
+    "DeleteLookupTableRequestTypeDef",
     "DeleteMetricFilterRequestTypeDef",
     "DeleteQueryDefinitionRequestTypeDef",
     "DeleteQueryDefinitionResponseTypeDef",
@@ -165,6 +168,8 @@ __all__ = (
     "DescribeLogStreamsRequestPaginateTypeDef",
     "DescribeLogStreamsRequestTypeDef",
     "DescribeLogStreamsResponseTypeDef",
+    "DescribeLookupTablesRequestTypeDef",
+    "DescribeLookupTablesResponseTypeDef",
     "DescribeMetricFiltersRequestPaginateTypeDef",
     "DescribeMetricFiltersRequestTypeDef",
     "DescribeMetricFiltersResponseTypeDef",
@@ -220,6 +225,8 @@ __all__ = (
     "GetLogObjectResponseTypeDef",
     "GetLogRecordRequestTypeDef",
     "GetLogRecordResponseTypeDef",
+    "GetLookupTableRequestTypeDef",
+    "GetLookupTableResponseTypeDef",
     "GetQueryResultsRequestTypeDef",
     "GetQueryResultsResponseTypeDef",
     "GetScheduledQueryHistoryRequestPaginateTypeDef",
@@ -278,6 +285,7 @@ __all__ = (
     "LogGroupSummaryTypeDef",
     "LogGroupTypeDef",
     "LogStreamTypeDef",
+    "LookupTableTypeDef",
     "LowerCaseStringOutputTypeDef",
     "LowerCaseStringTypeDef",
     "LowerCaseStringUnionTypeDef",
@@ -347,6 +355,7 @@ __all__ = (
     "PutTransformerRequestTypeDef",
     "QueryDefinitionTypeDef",
     "QueryInfoTypeDef",
+    "QueryParameterTypeDef",
     "QueryStatisticsTypeDef",
     "RecordFieldTypeDef",
     "RejectedEntityInfoTypeDef",
@@ -404,6 +413,8 @@ __all__ = (
     "UpdateAnomalyRequestTypeDef",
     "UpdateDeliveryConfigurationRequestTypeDef",
     "UpdateLogAnomalyDetectorRequestTypeDef",
+    "UpdateLookupTableRequestTypeDef",
+    "UpdateLookupTableResponseTypeDef",
     "UpdateScheduledQueryRequestTypeDef",
     "UpdateScheduledQueryResponseTypeDef",
     "UpperCaseStringOutputTypeDef",
@@ -477,12 +488,14 @@ class CSVOutputTypeDef(TypedDict):
     delimiter: NotRequired[str]
     columns: NotRequired[list[str]]
     source: NotRequired[str]
+    destination: NotRequired[str]
 
 class CSVTypeDef(TypedDict):
     quoteCharacter: NotRequired[str]
     delimiter: NotRequired[str]
     columns: NotRequired[Sequence[str]]
     source: NotRequired[str]
+    destination: NotRequired[str]
 
 class CancelExportTaskRequestTypeDef(TypedDict):
     taskId: str
@@ -538,6 +551,13 @@ class CreateLogGroupRequestTypeDef(TypedDict):
 class CreateLogStreamRequestTypeDef(TypedDict):
     logGroupName: str
     logStreamName: str
+
+class CreateLookupTableRequestTypeDef(TypedDict):
+    lookupTableName: str
+    tableBody: str
+    description: NotRequired[str]
+    kmsKeyId: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 DataSourceFilterTypeDef = TypedDict(
     "DataSourceFilterTypeDef",
@@ -613,6 +633,9 @@ class DeleteLogGroupRequestTypeDef(TypedDict):
 class DeleteLogStreamRequestTypeDef(TypedDict):
     logGroupName: str
     logStreamName: str
+
+class DeleteLookupTableRequestTypeDef(TypedDict):
+    lookupTableArn: str
 
 class DeleteMetricFilterRequestTypeDef(TypedDict):
     logGroupName: str
@@ -789,6 +812,21 @@ class LogStreamTypeDef(TypedDict):
     arn: NotRequired[str]
     storedBytes: NotRequired[int]
 
+class DescribeLookupTablesRequestTypeDef(TypedDict):
+    lookupTableNamePrefix: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class LookupTableTypeDef(TypedDict):
+    lookupTableArn: NotRequired[str]
+    lookupTableName: NotRequired[str]
+    description: NotRequired[str]
+    tableFields: NotRequired[list[str]]
+    recordsCount: NotRequired[int]
+    sizeBytes: NotRequired[int]
+    lastUpdatedTime: NotRequired[int]
+    kmsKeyId: NotRequired[str]
+
 class DescribeMetricFiltersRequestTypeDef(TypedDict):
     logGroupName: NotRequired[str]
     filterNamePrefix: NotRequired[str]
@@ -811,20 +849,15 @@ class QueryInfoTypeDef(TypedDict):
     status: NotRequired[QueryStatusType]
     createTime: NotRequired[int]
     logGroupName: NotRequired[str]
+    queryDuration: NotRequired[int]
+    bytesScanned: NotRequired[float]
+    userIdentity: NotRequired[str]
 
 class DescribeQueryDefinitionsRequestTypeDef(TypedDict):
     queryLanguage: NotRequired[QueryLanguageType]
     queryDefinitionNamePrefix: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
-
-class QueryDefinitionTypeDef(TypedDict):
-    queryLanguage: NotRequired[QueryLanguageType]
-    queryDefinitionId: NotRequired[str]
-    name: NotRequired[str]
-    queryString: NotRequired[str]
-    lastModified: NotRequired[int]
-    logGroupNames: NotRequired[list[str]]
 
 class DescribeResourcePoliciesRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
@@ -861,6 +894,8 @@ class SubscriptionFilterTypeDef(TypedDict):
 class S3ConfigurationTypeDef(TypedDict):
     destinationIdentifier: str
     roleArn: str
+    ownerAccountId: NotRequired[str]
+    kmsKeyId: NotRequired[str]
 
 class DisassociateKmsKeyRequestTypeDef(TypedDict):
     logGroupName: NotRequired[str]
@@ -975,6 +1010,9 @@ class InternalStreamingExceptionTypeDef(TypedDict):
 class GetLogRecordRequestTypeDef(TypedDict):
     logRecordPointer: str
     unmask: NotRequired[bool]
+
+class GetLookupTableRequestTypeDef(TypedDict):
+    lookupTableArn: str
 
 class GetQueryResultsRequestTypeDef(TypedDict):
     queryId: str
@@ -1230,13 +1268,10 @@ class PutLogGroupDeletionProtectionRequestTypeDef(TypedDict):
     logGroupIdentifier: str
     deletionProtectionEnabled: bool
 
-class PutQueryDefinitionRequestTypeDef(TypedDict):
+class QueryParameterTypeDef(TypedDict):
     name: str
-    queryString: str
-    queryLanguage: NotRequired[QueryLanguageType]
-    queryDefinitionId: NotRequired[str]
-    logGroupNames: NotRequired[Sequence[str]]
-    clientToken: NotRequired[str]
+    defaultValue: NotRequired[str]
+    description: NotRequired[str]
 
 class PutResourcePolicyRequestTypeDef(TypedDict):
     policyName: NotRequired[str]
@@ -1356,6 +1391,12 @@ class UpdateLogAnomalyDetectorRequestTypeDef(TypedDict):
     filterPattern: NotRequired[str]
     anomalyVisibilityTime: NotRequired[int]
 
+class UpdateLookupTableRequestTypeDef(TypedDict):
+    lookupTableArn: str
+    tableBody: str
+    description: NotRequired[str]
+    kmsKeyId: NotRequired[str]
+
 class UpperCaseStringTypeDef(TypedDict):
     withKeys: Sequence[str]
 
@@ -1419,6 +1460,11 @@ class CreateLogAnomalyDetectorResponseTypeDef(TypedDict):
     anomalyDetectorArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateLookupTableResponseTypeDef(TypedDict):
+    lookupTableArn: str
+    createdAt: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateScheduledQueryResponseTypeDef(TypedDict):
     scheduledQueryArn: str
     state: ScheduledQueryStateType
@@ -1460,6 +1506,16 @@ class GetLogAnomalyDetectorResponseTypeDef(TypedDict):
 
 class GetLogRecordResponseTypeDef(TypedDict):
     logRecord: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetLookupTableResponseTypeDef(TypedDict):
+    lookupTableArn: str
+    lookupTableName: str
+    description: str
+    tableBody: str
+    sizeBytes: int
+    lastUpdatedTime: int
+    kmsKeyId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListLogAnomalyDetectorsResponseTypeDef(TypedDict):
@@ -1505,6 +1561,11 @@ class StartQueryResponseTypeDef(TypedDict):
 
 class StopQueryResponseTypeDef(TypedDict):
     success: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateLookupTableResponseTypeDef(TypedDict):
+    lookupTableArn: str
+    lastUpdatedTime: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 CSVUnionTypeDef = Union[CSVTypeDef, CSVOutputTypeDef]
@@ -1781,13 +1842,13 @@ class DescribeLogStreamsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class DescribeQueriesResponseTypeDef(TypedDict):
-    queries: list[QueryInfoTypeDef]
+class DescribeLookupTablesResponseTypeDef(TypedDict):
+    lookupTables: list[LookupTableTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class DescribeQueryDefinitionsResponseTypeDef(TypedDict):
-    queryDefinitions: list[QueryDefinitionTypeDef]
+class DescribeQueriesResponseTypeDef(TypedDict):
+    queries: list[QueryInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1953,6 +2014,24 @@ class PutLogEventsResponseTypeDef(TypedDict):
     rejectedLogEventsInfo: RejectedLogEventsInfoTypeDef
     rejectedEntityInfo: RejectedEntityInfoTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class PutQueryDefinitionRequestTypeDef(TypedDict):
+    name: str
+    queryString: str
+    queryLanguage: NotRequired[QueryLanguageType]
+    queryDefinitionId: NotRequired[str]
+    logGroupNames: NotRequired[Sequence[str]]
+    clientToken: NotRequired[str]
+    parameters: NotRequired[Sequence[QueryParameterTypeDef]]
+
+class QueryDefinitionTypeDef(TypedDict):
+    queryLanguage: NotRequired[QueryLanguageType]
+    queryDefinitionId: NotRequired[str]
+    name: NotRequired[str]
+    queryString: NotRequired[str]
+    lastModified: NotRequired[int]
+    logGroupNames: NotRequired[list[str]]
+    parameters: NotRequired[list[QueryParameterTypeDef]]
 
 class RenameKeysOutputTypeDef(TypedDict):
     entries: list[RenameKeyEntryTypeDef]
@@ -2196,6 +2275,11 @@ class PutIntegrationRequestTypeDef(TypedDict):
     integrationName: str
     resourceConfig: ResourceConfigTypeDef
     integrationType: Literal["OPENSEARCH"]
+
+class DescribeQueryDefinitionsResponseTypeDef(TypedDict):
+    queryDefinitions: list[QueryDefinitionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 RenameKeysUnionTypeDef = Union[RenameKeysTypeDef, RenameKeysOutputTypeDef]
 

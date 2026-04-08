@@ -26,12 +26,12 @@ from typing import TYPE_CHECKING, Any, overload
 
 import attrs
 
-from airflow.exceptions import AirflowException, XComNotFound
 from airflow.sdk import TriggerRule
 from airflow.sdk.definitions._internal.abstractoperator import AbstractOperator
 from airflow.sdk.definitions._internal.mixins import DependencyMixin, ResolveMixin
 from airflow.sdk.definitions._internal.setup_teardown import SetupTeardownContext
-from airflow.sdk.definitions._internal.types import NOTSET, ArgNotSet
+from airflow.sdk.definitions._internal.types import NOTSET, ArgNotSet, is_arg_set
+from airflow.sdk.exceptions import AirflowException, XComNotFound
 from airflow.sdk.execution_time.lazy_sequence import LazyXComSequence
 from airflow.sdk.execution_time.xcom import BaseXCom
 
@@ -337,17 +337,32 @@ class PlainXComArg(XComArg):
             return LazyXComSequence(xcom_arg=self, ti=ti)
         tg = self.operator.get_closest_mapped_task_group()
         if tg is None:
-            map_indexes = None
+            # No mapped task group - pull from unmapped instance
+            map_indexes: int | range | None | ArgNotSet = None
         else:
-            upstream_map_indexes = getattr(ti, "_upstream_map_indexes", {})
-            map_indexes = upstream_map_indexes.get(task_id, None)
+            # Check for pre-computed value from server (backward compatibility)
+            upstream_map_indexes = getattr(ti, "_upstream_map_indexes", None)
+            if upstream_map_indexes is not None:
+                # Use None as default to match original behavior (filter for unmapped XCom)
+                map_indexes = upstream_map_indexes.get(task_id, None)
+            else:
+                # Compute lazily - ti_count will be queried if needed
+                cached_context = getattr(ti, "_cached_template_context", None)
+                ti_count = cached_context.get("expanded_ti_count") if cached_context else None
+                computed = ti.get_relevant_upstream_map_indexes(
+                    upstream=self.operator,
+                    ti_count=ti_count,
+                    session=None,  # Not used in SDK implementation
+                )
+                # None means "no filtering needed" -> use NOTSET to pull all values
+                map_indexes = NOTSET if computed is None else computed
         result = ti.xcom_pull(
             task_ids=task_id,
             key=self.key,
             default=NOTSET,
             map_indexes=map_indexes,
         )
-        if not isinstance(result, ArgNotSet):
+        if is_arg_set(result):
             return result
         if self.key == BaseXCom.XCOM_RETURN_KEY:
             return None
@@ -452,9 +467,9 @@ class _ZipResult(Sequence):
 
     def __len__(self) -> int:
         lengths = (len(v) for v in self.values)
-        if isinstance(self.fillvalue, ArgNotSet):
-            return min(lengths)
-        return max(lengths)
+        if is_arg_set(self.fillvalue):
+            return max(lengths)
+        return min(lengths)
 
 
 @attrs.define
@@ -474,15 +489,15 @@ class ZipXComArg(XComArg):
         args_iter = iter(self.args)
         first = repr(next(args_iter))
         rest = ", ".join(repr(arg) for arg in args_iter)
-        if isinstance(self.fillvalue, ArgNotSet):
-            return f"{first}.zip({rest})"
-        return f"{first}.zip({rest}, fillvalue={self.fillvalue!r})"
+        if is_arg_set(self.fillvalue):
+            return f"{first}.zip({rest}, fillvalue={self.fillvalue!r})"
+        return f"{first}.zip({rest})"
 
     def _serialize(self) -> dict[str, Any]:
         args = [serialize_xcom_arg(arg) for arg in self.args]
-        if isinstance(self.fillvalue, ArgNotSet):
-            return {"args": args}
-        return {"args": args, "fillvalue": self.fillvalue}
+        if is_arg_set(self.fillvalue):
+            return {"args": args, "fillvalue": self.fillvalue}
+        return {"args": args}
 
     def iter_references(self) -> Iterator[tuple[Operator, str]]:
         for arg in self.args:
@@ -602,9 +617,9 @@ def _(xcom_arg: ZipXComArg, resolved_val: Sized, upstream_map_indexes: dict[str,
     ready_lengths = [length for length in all_lengths if length is not None]
     if len(ready_lengths) != len(xcom_arg.args):
         return None  # If any of the referenced XComs is not ready, we are not ready either.
-    if isinstance(xcom_arg.fillvalue, ArgNotSet):
-        return min(ready_lengths)
-    return max(ready_lengths)
+    if is_arg_set(xcom_arg.fillvalue):
+        return max(ready_lengths)
+    return min(ready_lengths)
 
 
 @get_task_map_length.register

@@ -1170,7 +1170,7 @@ class GameLiftClient(AioBaseClient):
         self, **kwargs: Unpack[ListLocationsInputTypeDef]
     ) -> ListLocationsOutputTypeDef:
         """
-        <b>This API works with the following fleet types:</b> Anywhere.
+        <b>This API works with the following fleet types:</b> EC2, Anywhere, Container.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gamelift/client/list_locations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_gamelift/client/#list_locations)

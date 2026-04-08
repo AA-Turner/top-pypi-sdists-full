@@ -73,8 +73,8 @@ __all__ = (
 
 AWSServiceNameType = Literal["AWS", "EC2", "ELASTICACHE", "ELB", "RDS", "ROUTE53"]
 AddressTypeType = Literal["OPERATING_ADDRESS", "SHIPPING_ADDRESS"]
-AssetStateType = Literal["ACTIVE", "ISOLATED", "RETIRING"]
-AssetTypeType = Literal["COMPUTE"]
+AssetStateType = Literal["ACTIVE", "INSTALLING", "ISOLATED", "RETIRING"]
+AssetTypeType = Literal["COMPUTE", "NETWORKING", "POWERSHELF", "STORAGE", "SWITCH"]
 BlockingResourceTypeType = Literal[
     "EC2_INSTANCE",
     "LGW_ROUTE_TABLE",
@@ -102,7 +102,7 @@ CapacityTaskStatusType = Literal[
 ]
 CatalogItemClassType = Literal["RACK", "SERVER"]
 CatalogItemStatusType = Literal["AVAILABLE", "DISCONTINUED"]
-ComputeAssetStateType = Literal["ACTIVE", "ISOLATED", "RETIRING"]
+ComputeAssetStateType = Literal["ACTIVE", "INSTALLING", "ISOLATED", "RETIRING"]
 DecommissionRequestStatusType = Literal["BLOCKED", "REQUESTED", "SKIPPED"]
 FiberOpticCableTypeType = Literal["MULTI_MODE", "SINGLE_MODE"]
 GetOutpostBillingInformationPaginatorName = Literal["get_outpost_billing_information"]
@@ -525,6 +525,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

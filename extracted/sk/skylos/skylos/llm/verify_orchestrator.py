@@ -10,9 +10,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-MAX_LLM_RETRIES = 3
-RETRY_BACKOFF_BASE = 5
-
 from .dead_code_verifier import (
     DeadCodeVerifierAgent,
     Verdict,
@@ -26,14 +23,14 @@ from skylos.grep_verify import (
     _run_grep,
     multi_strategy_search as _multi_strategy_search,
     parallel_multi_strategy_search as _parallel_multi_strategy_search,
-    filter_grep_results as _filter_grep_results,
-    is_definition_line as _is_definition_line,
-    is_substring_match as _is_substring_match,
     repo_relative_path as _repo_relative_path,
     module_candidates as _module_candidates,
     parameter_owner_name as _parameter_owner_name,
     detect_language as _detect_language,
 )
+
+MAX_LLM_RETRIES = 3
+RETRY_BACKOFF_BASE = 5
 
 logger = logging.getLogger(__name__)
 
@@ -975,7 +972,7 @@ def _find_parent_class_info_ts(
     else:
         info += f"\n  Method `{simple_name}` has parent classes but could not confirm it overrides a parent method."
         info += (
-            f"\n  Check if the parent framework/library defines this method externally."
+            "\n  Check if the parent framework/library defines this method externally."
         )
 
     return info
@@ -1253,14 +1250,14 @@ def _find_parent_class_info(
                         "protocol",
                     ]
                 ):
-                    info += f"\n  HINT: Code comments/pragmas suggest this is an ABC/interface override."
+                    info += "\n  HINT: Code comments/pragmas suggest this is an ABC/interface override."
                     info += f"\n  Method `{simple_name}` is likely a required override — treat as NOT dead code."
                 else:
                     info += f"\n  Method `{simple_name}` has parent classes but could not confirm it overrides a parent method."
-                    info += f"\n  Check if the parent framework/library defines this method externally."
+                    info += "\n  Check if the parent framework/library defines this method externally."
             else:
                 info += f"\n  Method `{simple_name}` has parent classes but could not confirm it overrides a parent method."
-                info += f"\n  Check if the parent framework/library defines this method externally."
+                info += "\n  Check if the parent framework/library defines this method externally."
 
     return info
 
@@ -1455,9 +1452,7 @@ def _module_local_dynamic_dispatch_evidence(
             if not family:
                 continue
             prefix, dynamic_name, suffix = family
-            dynamic_fragment = _match_dynamic_dispatch_name(
-                simple_name, prefix, suffix
-            )
+            dynamic_fragment = _match_dynamic_dispatch_name(simple_name, prefix, suffix)
             if not dynamic_fragment:
                 continue
 
@@ -1468,9 +1463,8 @@ def _module_local_dynamic_dispatch_evidence(
                 ):
                     continue
                 literal_values = _literal_string_values(generator.iter)
-                if (
-                    dynamic_fragment in literal_values
-                    and _map_used_later(map_name, getattr(assign, "lineno", 0))
+                if dynamic_fragment in literal_values and _map_used_later(
+                    map_name, getattr(assign, "lineno", 0)
                 ):
                     line_no = getattr(child, "lineno", getattr(assign, "lineno", 0))
                     return [
@@ -1493,16 +1487,14 @@ def _module_local_dynamic_dispatch_evidence(
             if not family:
                 continue
             prefix, _dynamic_name, suffix = family
-            dynamic_fragment = _match_dynamic_dispatch_name(
-                simple_name, prefix, suffix
-            )
+            dynamic_fragment = _match_dynamic_dispatch_name(simple_name, prefix, suffix)
             if not dynamic_fragment:
                 continue
             if not _dispatcher_alive(func.name):
                 continue
             line_no = getattr(child, "lineno", getattr(func, "lineno", 0))
             return [
-                f"{file_path}:{line_no}: `{func.name}` resolves `{simple_name}` via getattr(..., f\"{prefix}{{...}}{suffix}\")"
+                f'{file_path}:{line_no}: `{func.name}` resolves `{simple_name}` via getattr(..., f"{prefix}{{...}}{suffix}")'
             ]
 
     return []
@@ -1618,10 +1610,7 @@ def _build_graph_context(
         and not discovered_entry_point
         and not prefilter_reason
         and not guarded_import
-        and (
-            not search_results
-            or set(search_results).issubset(compact_search_keys)
-        )
+        and (not search_results or set(search_results).issubset(compact_search_keys))
     )
 
     if compact_context_ok:
@@ -1790,7 +1779,7 @@ def _build_graph_context(
                         for ci in range(cs, ce):
                             parts.append(f"  {ci + 1:4d} | {clines[ci]}")
             else:
-                parts.append(f"  (not found in defs_map)")
+                parts.append("  (not found in defs_map)")
     else:
         parts.append("  NOBODY calls this function. Zero callers in entire project.")
     parts.append("")
@@ -2664,7 +2653,10 @@ def _batch_verify_findings(
         )
         return all(
             verdict.get("verdict", Verdict.UNCERTAIN) == Verdict.UNCERTAIN
-            and any(marker in str(verdict.get("rationale", "")) for marker in failure_markers)
+            and any(
+                marker in str(verdict.get("rationale", ""))
+                for marker in failure_markers
+            )
             for verdict in verdicts
         )
 
@@ -3342,6 +3334,102 @@ def _haiku_prefilter_exports(
     return kept, dismissed
 
 
+def _apply_dead_code_defaults(
+    items: list[dict[str, Any]],
+    *,
+    rule_id: str,
+    default_source: str,
+) -> None:
+    for item in items:
+        item.setdefault("_category", "dead_code")
+        item.setdefault("rule_id", rule_id)
+        item.setdefault("type", "function")
+        item.setdefault("full_name", item.get("name", "unknown"))
+        item.setdefault("references", 0)
+        item.setdefault("_source", default_source)
+        if not item.get("message"):
+            item["message"] = (
+                f"Unused {item.get('type', 'function')}: {item.get('name', 'unknown')}"
+            )
+
+
+def _build_verification_output(
+    findings: list[dict[str, Any]],
+    new_dead: list[dict[str, Any]],
+    discovered_eps: list[EntryPoint],
+    stats: VerifyStats,
+    verification_mode: str,
+) -> dict[str, Any]:
+    _apply_dead_code_defaults(
+        findings,
+        rule_id="SKY-DEAD",
+        default_source="static",
+    )
+    _apply_dead_code_defaults(
+        new_dead,
+        rule_id="SKY-DEAD-CHALLENGE",
+        default_source="llm_survivor_challenge",
+    )
+
+    return {
+        "verified_findings": findings,
+        "new_dead_code": new_dead,
+        "entry_points": [
+            {"name": ep.name, "source": ep.source, "reason": ep.reason}
+            for ep in discovered_eps
+        ],
+        "stats": {
+            "total_findings": stats.total_findings,
+            "verified_true_positive": stats.verified_true_positive,
+            "verified_false_positive": stats.verified_false_positive,
+            "deterministic_suppressed": stats.deterministic_suppressed,
+            "uncertain": stats.uncertain,
+            "suppression_challenged": stats.suppression_challenged,
+            "suppression_reclassified_dead": stats.suppression_reclassified_dead,
+            "survivors_challenged": stats.survivors_challenged,
+            "survivors_reclassified_dead": stats.survivors_reclassified_dead,
+            "entry_points_discovered": stats.entry_points_discovered,
+            "haiku_prefiltered": stats.haiku_prefiltered,
+            "llm_calls": stats.llm_calls,
+            "prompt_tokens": stats.prompt_tokens,
+            "completion_tokens": stats.completion_tokens,
+            "total_tokens": stats.total_tokens,
+            "elapsed_seconds": stats.elapsed_seconds,
+            "verification_mode": verification_mode,
+        },
+    }
+
+
+def _collect_feedback_adjustments(summary: dict[str, Any]) -> list[str]:
+    tuned_types = []
+    for htype, info in summary.get("heuristic_types", {}).items():
+        if info["observations"] >= 5:
+            change = info["weight_change_pct"]
+            if abs(change) > 5:
+                tuned_types.append(
+                    f"{htype}: {info['default_weight']} → {info['tuned_weight']} ({change:+.0f}%)"
+                )
+    return tuned_types
+
+
+def _attach_feedback_summary(output: dict[str, Any], log) -> None:
+    try:
+        from .feedback import record_verification_results, get_feedback_summary
+
+        record_verification_results(output)
+        summary = get_feedback_summary()
+
+        tuned_types = _collect_feedback_adjustments(summary)
+        if tuned_types:
+            log("\nFeedback loop — heuristic weight adjustments:")
+            for tuned in tuned_types:
+                log(f"  {tuned}")
+
+        output["feedback"] = summary
+    except Exception as e:
+        logger.debug(f"Feedback recording failed: {e}")
+
+
 def run_verification(
     findings: list[dict],
     defs_map: dict[str, Any],
@@ -3622,7 +3710,6 @@ def run_verification(
                 )
                 stats.llm_calls += 1
                 if result.verdict != Verdict.TRUE_POSITIVE:
-                    old_verdict = finding["_llm_verdict"]
                     finding["_llm_verdict"] = result.verdict.value
                     finding["_llm_rationale"] = f"[re-verified] {result.rationale}"
                     finding["_verified_by_llm"] = result.verdict != Verdict.UNCERTAIN
@@ -3908,81 +3995,15 @@ def run_verification(
 
     log(f"\nDone in {stats.elapsed_seconds}s ({stats.llm_calls} LLM calls)")
 
-    for f in findings:
-        f.setdefault("_category", "dead_code")
-        f.setdefault("rule_id", "SKY-DEAD")
-        f.setdefault("type", "function")
-        f.setdefault("full_name", f.get("name", "unknown"))
-        f.setdefault("references", 0)
-        f.setdefault("_source", "static")
-        if not f.get("message"):
-            f["message"] = (
-                f"Unused {f.get('type', 'function')}: {f.get('name', 'unknown')}"
-            )
+    output = _build_verification_output(
+        findings=findings,
+        new_dead=new_dead,
+        discovered_eps=discovered_eps,
+        stats=stats,
+        verification_mode=verification_mode,
+    )
 
-    for f in new_dead:
-        f.setdefault("_category", "dead_code")
-        f.setdefault("rule_id", "SKY-DEAD-CHALLENGE")
-        f.setdefault("type", "function")
-        f.setdefault("full_name", f.get("name", "unknown"))
-        f.setdefault("references", 0)
-        f.setdefault("_source", "llm_survivor_challenge")
-        if not f.get("message"):
-            f["message"] = (
-                f"Unused {f.get('type', 'function')}: {f.get('name', 'unknown')}"
-            )
-
-    output = {
-        "verified_findings": findings,
-        "new_dead_code": new_dead,
-        "entry_points": [
-            {"name": ep.name, "source": ep.source, "reason": ep.reason}
-            for ep in discovered_eps
-        ],
-        "stats": {
-            "total_findings": stats.total_findings,
-            "verified_true_positive": stats.verified_true_positive,
-            "verified_false_positive": stats.verified_false_positive,
-            "deterministic_suppressed": stats.deterministic_suppressed,
-            "uncertain": stats.uncertain,
-            "suppression_challenged": stats.suppression_challenged,
-            "suppression_reclassified_dead": stats.suppression_reclassified_dead,
-            "survivors_challenged": stats.survivors_challenged,
-            "survivors_reclassified_dead": stats.survivors_reclassified_dead,
-            "entry_points_discovered": stats.entry_points_discovered,
-            "haiku_prefiltered": stats.haiku_prefiltered,
-            "llm_calls": stats.llm_calls,
-            "prompt_tokens": stats.prompt_tokens,
-            "completion_tokens": stats.completion_tokens,
-            "total_tokens": stats.total_tokens,
-            "elapsed_seconds": stats.elapsed_seconds,
-            "verification_mode": verification_mode,
-        },
-    }
-
-    try:
-        from .feedback import record_verification_results, get_feedback_summary
-
-        feedback = record_verification_results(output)
-        summary = get_feedback_summary()
-
-        tuned_types = []
-        for htype, info in summary.get("heuristic_types", {}).items():
-            if info["observations"] >= 5:
-                change = info["weight_change_pct"]
-                if abs(change) > 5:
-                    tuned_types.append(
-                        f"{htype}: {info['default_weight']} → {info['tuned_weight']} ({change:+.0f}%)"
-                    )
-
-        if tuned_types:
-            log("\nFeedback loop — heuristic weight adjustments:")
-            for t in tuned_types:
-                log(f"  {t}")
-
-        output["feedback"] = summary
-    except Exception as e:
-        logger.debug(f"Feedback recording failed: {e}")
+    _attach_feedback_summary(output, log)
 
     grep_cache.save(grep_root)
 
@@ -4087,10 +4108,7 @@ def _search_local_emit_sites(
     owner: str, event_name: str, project_root: str | Path
 ) -> list[str]:
     pattern = (
-        re.escape(owner)
-        + r"""\.emit\(\s*['"]"""
-        + re.escape(event_name)
-        + r"""['"]"""
+        re.escape(owner) + r"""\.emit\(\s*['"]""" + re.escape(event_name) + r"""['"]"""
     )
     matches: list[str] = []
     for subdir in ("app", "tests"):

@@ -12,6 +12,7 @@ from ..voice_settings_param import VoiceSettingsParam
 from ..widget_settings_param import WidgetSettingsParam
 from ..insight_settings_param import InsightSettingsParam
 from ..privacy_settings_param import PrivacySettingsParam
+from ..observability_req_param import ObservabilityReqParam
 from ..messaging_settings_param import MessagingSettingsParam
 from ..telephony_settings_param import TelephonySettingsParam
 from ..transcription_settings_param import TranscriptionSettingsParam
@@ -76,6 +77,8 @@ class VersionUpdateParams(TypedDict, total=False):
     """
 
     name: str
+
+    observability_settings: ObservabilityReqParam
 
     privacy_settings: PrivacySettingsParam
 

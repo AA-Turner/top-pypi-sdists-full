@@ -24,7 +24,7 @@ from tinybird.tb.config import DEFAULT_API_HOST
 from tinybird.tb.modules.common import ask_for_region_interactively, get_region_from_host, get_regions
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.exceptions import CLILoginException
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.telemetry import is_ci_environment
 
 SERVER_MAX_WAIT_TIME = 180
@@ -509,7 +509,7 @@ def check_and_warn_folder_change(cli_config: CLIConfig) -> None:
         # User accepted, show pull suggestion
         click.echo(
             FeedbackManager.warning(
-                message="Remember to run `tb --cloud pull` to have your latest resources available."
+                message=f"Remember to run `{get_cli_name()} --cloud pull` to have your latest resources available."
             )
         )
 

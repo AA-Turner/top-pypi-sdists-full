@@ -123,14 +123,26 @@ class AgmetPlotter:
         self.color_list = get_colors("tableau", only_colors=True)
 
         # Determine precipitation source
-        self.precip_var = "chirps" if "chirps" in self.df.columns.values else "cpc_precip"
+        if "chirps" in self.df.columns.values:
+            self.precip_var = "chirps"
+        elif "daymet_prcp" in self.df.columns.values:
+            self.precip_var = "daymet_prcp"
+        else:
+            self.precip_var = "cpc_precip"
 
         # Preprocess data
         if "nsidc_rootzone" in self.df:
             self.df["nsidc_rootzone"] = self.df["nsidc_rootzone"].clip(0, 1)
         if "esi_4wk" in self.df:
             self.df["esi_4wk"] = self.df["esi_4wk"] / 10.0 - 4.0
-        self.df["average_temperature"] = (self.df["cpc_tmax"] + self.df["cpc_tmin"]) / 2.0
+        if "daymet_tmax" in self.df and "daymet_tmin" in self.df:
+            self.df["average_temperature"] = (
+                self.df["daymet_tmax"] + self.df["daymet_tmin"]
+            ) / 2.0
+        else:
+            self.df["average_temperature"] = (
+                self.df["cpc_tmax"] + self.df["cpc_tmin"]
+            ) / 2.0
 
         # Determine available columns
         self.available_cols = [
@@ -384,17 +396,24 @@ class AgmetPlotter:
             cur_ax, curr_vals, last_vals, past_vals, min_vals, max_vals, idx,
         )
 
-        mask_max = self.df_current["cpc_tmax"] > 30
-        mask_min = self.df_current["cpc_tmin"] < 5
+        tmax_col = (
+            "daymet_tmax" if "daymet_tmax" in self.df_current.columns else "cpc_tmax"
+        )
+        tmin_col = (
+            "daymet_tmin" if "daymet_tmin" in self.df_current.columns else "cpc_tmin"
+        )
+
+        mask_max = self.df_current[tmax_col] > 30
+        mask_min = self.df_current[tmin_col] < 5
 
         cur_ax.plot(
             self.df_current.index[mask_max],
-            self.df_current[mask_max]["cpc_tmax"],
+            self.df_current[mask_max][tmax_col],
             "ro", markersize=2, label="Max temp > 30°C",
         )
         cur_ax.plot(
             self.df_current.index[mask_min],
-            self.df_current[mask_min]["cpc_tmin"],
+            self.df_current[mask_min][tmin_col],
             "co", markersize=2, label="Min temp < 5°C",
         )
 
@@ -411,18 +430,24 @@ class AgmetPlotter:
         fig.figimage(im, 450, 2300, zorder=3)
 
         fig.text(0.83, 0.25, "Data Sources\n", fontsize=14, fontweight="bold")
-        precip_str = (
-            "Precipitation: CHIRPS\n"
-            if self.precip_var == "chirps"
-            else "Precipitation: NOAA CPC\n"
-        )
+        if self.precip_var == "chirps":
+            precip_str = "Precipitation: CHIRPS\n"
+        elif self.precip_var == "daymet_prcp":
+            precip_str = "Precipitation: Daymet V4\n"
+        else:
+            precip_str = "Precipitation: NOAA CPC\n"
         if self.use_forecast:
             precip_str += "Precipitation Forecast: CHIRPS-GEFS\n"
+        temp_str = (
+            "Temperature: Daymet V4\n"
+            if "daymet_tmax" in self.df.columns
+            else "Temperature: NOAA CPC\n"
+        )
         fig.text(
             0.83,
             0.14 if self.precip_var == "chirps" else 0.15,
             "NDVI: UMD GLAM system\n"
-            + "Temperature: NOAA CPC\n"
+            + temp_str
             + precip_str
             + "Evaporative Stress Index: NASA ESI\n"
             + "Soil Moisture: NASA-USDA Global Soil Moisture\n",

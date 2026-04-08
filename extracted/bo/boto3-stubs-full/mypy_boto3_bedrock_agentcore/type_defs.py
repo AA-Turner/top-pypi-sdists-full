@@ -26,6 +26,7 @@ from botocore.response import StreamingBody
 
 from .literals import (
     AutomationStreamStatusType,
+    BrowserActionStatusType,
     BrowserEnterprisePolicyTypeType,
     BrowserSessionStatusType,
     CodeInterpreterSessionStatusType,
@@ -33,6 +34,7 @@ from .literals import (
     ContentBlockTypeType,
     LanguageRuntimeType,
     MemoryRecordStatusType,
+    MouseButtonType,
     Oauth2FlowTypeType,
     OperatorTypeType,
     ProgrammingLanguageType,
@@ -65,6 +67,8 @@ __all__ = (
     "BlobTypeDef",
     "BranchFilterTypeDef",
     "BranchTypeDef",
+    "BrowserActionResultTypeDef",
+    "BrowserActionTypeDef",
     "BrowserEnterprisePolicyTypeDef",
     "BrowserExtensionTypeDef",
     "BrowserProfileConfigurationTypeDef",
@@ -134,8 +138,16 @@ __all__ = (
     "InvokeAgentRuntimeCommandStreamOutputTypeDef",
     "InvokeAgentRuntimeRequestTypeDef",
     "InvokeAgentRuntimeResponseTypeDef",
+    "InvokeBrowserRequestTypeDef",
+    "InvokeBrowserResponseTypeDef",
     "InvokeCodeInterpreterRequestTypeDef",
     "InvokeCodeInterpreterResponseTypeDef",
+    "KeyPressArgumentsTypeDef",
+    "KeyPressResultTypeDef",
+    "KeyShortcutArgumentsTypeDef",
+    "KeyShortcutResultTypeDef",
+    "KeyTypeArgumentsTypeDef",
+    "KeyTypeResultTypeDef",
     "LeftExpressionTypeDef",
     "ListActorsInputPaginateTypeDef",
     "ListActorsInputTypeDef",
@@ -167,6 +179,14 @@ __all__ = (
     "MemoryRecordUpdateInputTypeDef",
     "MessageMetadataTypeDef",
     "MetadataValueTypeDef",
+    "MouseClickArgumentsTypeDef",
+    "MouseClickResultTypeDef",
+    "MouseDragArgumentsTypeDef",
+    "MouseDragResultTypeDef",
+    "MouseMoveArgumentsTypeDef",
+    "MouseMoveResultTypeDef",
+    "MouseScrollArgumentsTypeDef",
+    "MouseScrollResultTypeDef",
     "PaginatorConfigTypeDef",
     "PayloadTypeOutputTypeDef",
     "PayloadTypeTypeDef",
@@ -192,6 +212,8 @@ __all__ = (
     "S3LocationTypeDef",
     "SaveBrowserSessionProfileRequestTypeDef",
     "SaveBrowserSessionProfileResponseTypeDef",
+    "ScreenshotArgumentsTypeDef",
+    "ScreenshotResultTypeDef",
     "SearchCriteriaTypeDef",
     "SecretsManagerLocationTypeDef",
     "ServiceQuotaExceededExceptionTypeDef",
@@ -277,6 +299,95 @@ class BranchFilterTypeDef(TypedDict):
 class BranchTypeDef(TypedDict):
     name: str
     rootEventId: NotRequired[str]
+
+
+class KeyPressResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class KeyShortcutResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class KeyTypeResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class MouseClickResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class MouseDragResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class MouseMoveResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class MouseScrollResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+
+
+class ScreenshotResultTypeDef(TypedDict):
+    status: BrowserActionStatusType
+    error: NotRequired[str]
+    data: NotRequired[bytes]
+
+
+class KeyPressArgumentsTypeDef(TypedDict):
+    key: str
+    presses: NotRequired[int]
+
+
+class KeyShortcutArgumentsTypeDef(TypedDict):
+    keys: Sequence[str]
+
+
+class KeyTypeArgumentsTypeDef(TypedDict):
+    text: str
+
+
+class MouseClickArgumentsTypeDef(TypedDict):
+    x: int
+    y: int
+    button: NotRequired[MouseButtonType]
+    clickCount: NotRequired[int]
+
+
+class MouseDragArgumentsTypeDef(TypedDict):
+    endX: int
+    endY: int
+    startX: int
+    startY: int
+    button: NotRequired[MouseButtonType]
+
+
+class MouseMoveArgumentsTypeDef(TypedDict):
+    x: int
+    y: int
+
+
+class MouseScrollArgumentsTypeDef(TypedDict):
+    x: int
+    y: int
+    deltaX: NotRequired[int]
+    deltaY: NotRequired[int]
+
+
+ScreenshotArgumentsTypeDef = TypedDict(
+    "ScreenshotArgumentsTypeDef",
+    {
+        "format": NotRequired[Literal["PNG"]],
+    },
+)
 
 
 class BrowserProfileConfigurationTypeDef(TypedDict):
@@ -768,6 +879,28 @@ class InvokeAgentRuntimeRequestTypeDef(TypedDict):
     accountId: NotRequired[str]
 
 
+class BrowserActionResultTypeDef(TypedDict):
+    mouseClick: NotRequired[MouseClickResultTypeDef]
+    mouseMove: NotRequired[MouseMoveResultTypeDef]
+    mouseDrag: NotRequired[MouseDragResultTypeDef]
+    mouseScroll: NotRequired[MouseScrollResultTypeDef]
+    keyType: NotRequired[KeyTypeResultTypeDef]
+    keyPress: NotRequired[KeyPressResultTypeDef]
+    keyShortcut: NotRequired[KeyShortcutResultTypeDef]
+    screenshot: NotRequired[ScreenshotResultTypeDef]
+
+
+class BrowserActionTypeDef(TypedDict):
+    mouseClick: NotRequired[MouseClickArgumentsTypeDef]
+    mouseMove: NotRequired[MouseMoveArgumentsTypeDef]
+    mouseDrag: NotRequired[MouseDragArgumentsTypeDef]
+    mouseScroll: NotRequired[MouseScrollArgumentsTypeDef]
+    keyType: NotRequired[KeyTypeArgumentsTypeDef]
+    keyPress: NotRequired[KeyPressArgumentsTypeDef]
+    keyShortcut: NotRequired[KeyShortcutArgumentsTypeDef]
+    screenshot: NotRequired[ScreenshotArgumentsTypeDef]
+
+
 class BrowserSessionStreamTypeDef(TypedDict):
     automationStream: AutomationStreamTypeDef
     liveViewStream: NotRequired[LiveViewStreamTypeDef]
@@ -990,6 +1123,18 @@ class ToolArgumentsTypeDef(TypedDict):
     directoryPath: NotRequired[str]
     taskId: NotRequired[str]
     runtime: NotRequired[LanguageRuntimeType]
+
+
+class InvokeBrowserResponseTypeDef(TypedDict):
+    result: BrowserActionResultTypeDef
+    sessionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class InvokeBrowserRequestTypeDef(TypedDict):
+    browserIdentifier: str
+    sessionId: str
+    action: BrowserActionTypeDef
 
 
 class StartBrowserSessionResponseTypeDef(TypedDict):

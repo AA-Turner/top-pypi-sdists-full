@@ -33,15 +33,20 @@ from airflow.api.common.mark_tasks import (
     set_dag_run_state_to_queued,
     set_dag_run_state_to_success,
 )
-from airflow.api_fastapi.auth.managers.models.resource_details import DagAccessEntity
+from airflow.api_fastapi.app import get_auth_manager
+from airflow.api_fastapi.auth.managers.models.resource_details import DagAccessEntity, DagDetails
 from airflow.api_fastapi.common.dagbag import DagBagDep, get_dag_for_run, get_latest_version_of_dag
 from airflow.api_fastapi.common.db.common import SessionDep, paginated_select
-from airflow.api_fastapi.common.db.dag_runs import eager_load_dag_run_for_validation
+from airflow.api_fastapi.common.db.dag_runs import (
+    attach_dag_versions_to_runs,
+    eager_load_dag_run_for_list,
+)
 from airflow.api_fastapi.common.parameters import (
     FilterOptionEnum,
     FilterParam,
     LimitFilter,
     OffsetFilter,
+    QueryDagRunPartitionKeySearch,
     QueryDagRunRunTypesFilter,
     QueryDagRunStateFilter,
     QueryDagRunVersionFilter,
@@ -52,6 +57,8 @@ from airflow.api_fastapi.common.parameters import (
     SortParam,
     _SearchParam,
     datetime_range_filter_factory,
+    filter_param_factory,
+    float_range_filter_factory,
     search_param_factory,
 )
 from airflow.api_fastapi.common.router import AirflowRouter
@@ -79,7 +86,6 @@ from airflow.api_fastapi.core_api.security import (
 )
 from airflow.api_fastapi.core_api.services.public.dag_run import DagRunWaiter
 from airflow.api_fastapi.logging.decorators import action_logging
-from airflow.exceptions import ParamValidationError
 from airflow.listeners.listener import get_listener_manager
 from airflow.models import DagModel, DagRun
 from airflow.models.asset import AssetEvent
@@ -196,7 +202,7 @@ def patch_dag_run(
 
     data = patch_body.model_dump(include=fields_to_update, by_alias=True)
 
-    for attr_name, attr_value in data.items():
+    for attr_name, attr_value_raw in data.items():
         if attr_name == "state":
             attr_value = getattr(patch_body, "state")
             if attr_value == DAGRunPatchStates.SUCCESS:
@@ -215,16 +221,18 @@ def patch_dag_run(
                 except Exception:
                     log.exception("error calling listener")
         elif attr_name == "note":
-            dag_run = session.get(DagRun, dag_run.id)
-            if dag_run.dag_run_note is None:
-                dag_run.note = (attr_value, user.get_id())
-            else:
-                dag_run.dag_run_note.content = attr_value
-                dag_run.dag_run_note.user_id = user.get_id()
+            updated_dag_run = session.get(DagRun, dag_run.id)
+            if updated_dag_run and updated_dag_run.dag_run_note is None:
+                updated_dag_run.note = (attr_value_raw, user.get_id())
+            elif updated_dag_run:
+                updated_dag_run.dag_run_note.content = attr_value_raw
+                updated_dag_run.dag_run_note.user_id = user.get_id()
 
-    dag_run = session.get(DagRun, dag_run.id)
+    final_dag_run = session.get(DagRun, dag_run.id)
+    if not final_dag_run:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "DAG run not found after update")
 
-    return dag_run
+    return final_dag_run
 
 
 @dag_run_router.get(
@@ -315,6 +323,8 @@ def clear_dag_run(
         session=session,
     )
     dag_run_cleared = session.scalar(select(DagRun).where(DagRun.id == dag_run.id))
+    if not dag_run_cleared:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "DAG run not found after clearing")
     return dag_run_cleared
 
 
@@ -331,10 +341,18 @@ def get_dag_runs(
     logical_date: Annotated[RangeFilter, Depends(datetime_range_filter_factory("logical_date", DagRun))],
     start_date_range: Annotated[RangeFilter, Depends(datetime_range_filter_factory("start_date", DagRun))],
     end_date_range: Annotated[RangeFilter, Depends(datetime_range_filter_factory("end_date", DagRun))],
+    duration_range: Annotated[RangeFilter, Depends(float_range_filter_factory("duration", DagRun))],
     update_at_range: Annotated[RangeFilter, Depends(datetime_range_filter_factory("updated_at", DagRun))],
+    conf_contains: Annotated[
+        FilterParam[str],
+        Depends(filter_param_factory(DagRun.conf, str, FilterOptionEnum.CONTAINS, "conf_contains")),
+    ],
     run_type: QueryDagRunRunTypesFilter,
     state: QueryDagRunStateFilter,
     dag_version: QueryDagRunVersionFilter,
+    bundle_version: Annotated[
+        FilterParam[str | None], Depends(filter_param_factory(DagRun.bundle_version, str | None))
+    ],
     order_by: Annotated[
         SortParam,
         Depends(
@@ -365,13 +383,15 @@ def get_dag_runs(
         _SearchParam,
         Depends(search_param_factory(DagRun.triggering_user_name, "triggering_user_name_pattern")),
     ],
+    dag_id_pattern: Annotated[_SearchParam, Depends(search_param_factory(DagRun.dag_id, "dag_id_pattern"))],
+    partition_key_pattern: QueryDagRunPartitionKeySearch,
 ) -> DAGRunCollectionResponse:
     """
     Get all DAG Runs.
 
     This endpoint allows specifying `~` as the dag_id to retrieve Dag Runs for all DAGs.
     """
-    query = select(DagRun).options(*eager_load_dag_run_for_validation())
+    query = select(DagRun).options(*eager_load_dag_run_for_list())
 
     if dag_id != "~":
         get_latest_version_of_dag(dag_bag, dag_id, session)  # Check if the DAG exists.
@@ -389,19 +409,25 @@ def get_dag_runs(
             start_date_range,
             end_date_range,
             update_at_range,
+            duration_range,
+            conf_contains,
             state,
             run_type,
             dag_version,
+            bundle_version,
             readable_dag_runs_filter,
             run_id_pattern,
             triggering_user_name_pattern,
+            dag_id_pattern,
+            partition_key_pattern,
         ],
         order_by=order_by,
         offset=offset,
         limit=limit,
         session=session,
     )
-    dag_runs = session.scalars(dag_run_select)
+    dag_runs = list(session.scalars(dag_run_select).unique())
+    attach_dag_versions_to_runs(dag_runs, session=session)
 
     return DAGRunCollectionResponse(
         dag_runs=dag_runs,
@@ -442,6 +468,12 @@ def trigger_dag_run(
             f"DAG with dag_id: '{dag_id}' has import errors and cannot be triggered",
         )
 
+    if dm.allowed_run_types is not None and DagRunType.MANUAL not in dm.allowed_run_types:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Dag with dag_id: '{dag_id}' does not allow manual runs",
+        )
+
     referer = request.headers.get("referer")
     if referer:
         triggered_by = DagRunTriggeredByType.UI
@@ -462,6 +494,7 @@ def trigger_dag_run(
             triggered_by=triggered_by,
             triggering_user_name=user.get_name(),
             state=DagRunState.QUEUED,
+            partition_key=params["partition_key"],
             session=session,
         )
 
@@ -471,8 +504,6 @@ def trigger_dag_run(
             dag_run.note = (dag_run_note, current_user_id)
         return dag_run
     except ValueError as e:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
-    except ParamValidationError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
 
 
@@ -506,6 +537,7 @@ def wait_dag_run_until_finished(
     dag_id: str,
     dag_run_id: str,
     session: SessionDep,
+    user: GetUserDep,
     interval: Annotated[float, Query(gt=0.0, description="Seconds to wait between dag run state checks")],
     result_task_ids: Annotated[
         list[str] | None,
@@ -513,6 +545,17 @@ def wait_dag_run_until_finished(
     ] = None,
 ):
     "Wait for a dag run until it finishes, and return its result(s)."
+    if result_task_ids:
+        if not get_auth_manager().is_authorized_dag(
+            method="GET",
+            access_entity=DagAccessEntity.XCOM,
+            details=DagDetails(id=dag_id),
+            user=user,
+        ):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "User is not authorized to read XCom data for this DAG",
+            )
     if not session.scalar(select(1).where(DagRun.dag_id == dag_id, DagRun.run_id == dag_run_id)):
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
@@ -540,7 +583,7 @@ def get_list_dag_runs_batch(
     session: SessionDep,
 ) -> DAGRunCollectionResponse:
     """Get a list of DAG Runs."""
-    dag_ids = FilterParam(DagRun.dag_id, body.dag_ids, FilterOptionEnum.IN)
+    dag_ids = FilterParam(DagRun.dag_id, body.dag_ids, FilterOptionEnum.IN)  # type: ignore[arg-type]
     logical_date = RangeFilter(
         Range(
             lower_bound_gte=body.logical_date_gte,
@@ -548,7 +591,7 @@ def get_list_dag_runs_batch(
             upper_bound_lte=body.logical_date_lte,
             upper_bound_lt=body.logical_date_lt,
         ),
-        attribute=DagRun.logical_date,
+        attribute=DagRun.logical_date,  # type: ignore[arg-type]
     )
     run_after = RangeFilter(
         Range(
@@ -557,7 +600,7 @@ def get_list_dag_runs_batch(
             upper_bound_lte=body.run_after_lte,
             upper_bound_lt=body.run_after_lt,
         ),
-        attribute=DagRun.run_after,
+        attribute=DagRun.run_after,  # type: ignore[arg-type]
     )
     start_date = RangeFilter(
         Range(
@@ -566,7 +609,7 @@ def get_list_dag_runs_batch(
             upper_bound_lte=body.start_date_lte,
             upper_bound_lt=body.start_date_lt,
         ),
-        attribute=DagRun.start_date,
+        attribute=DagRun.start_date,  # type: ignore[arg-type]
     )
     end_date = RangeFilter(
         Range(
@@ -575,9 +618,19 @@ def get_list_dag_runs_batch(
             upper_bound_lte=body.end_date_lte,
             upper_bound_lt=body.end_date_lt,
         ),
-        attribute=DagRun.end_date,
+        attribute=DagRun.end_date,  # type: ignore[arg-type]
     )
-    state = FilterParam(DagRun.state, body.states, FilterOptionEnum.ANY_EQUAL)
+    duration = RangeFilter(
+        Range(
+            lower_bound_gte=body.duration_gte,
+            lower_bound_gt=body.duration_gt,
+            upper_bound_lte=body.duration_lte,
+            upper_bound_lt=body.duration_lt,
+        ),
+        attribute=DagRun.duration,  # type: ignore[arg-type]
+    )
+    conf_contains = FilterParam(DagRun.conf, body.conf_contains, FilterOptionEnum.CONTAINS)  # type: ignore[arg-type]
+    state = FilterParam(DagRun.state, body.states, FilterOptionEnum.ANY_EQUAL)  # type: ignore[arg-type]
 
     offset = OffsetFilter(body.page_offset)
     limit = LimitFilter(body.page_limit)
@@ -599,18 +652,29 @@ def get_list_dag_runs_batch(
         {"dag_run_id": "run_id"},
     ).set_value([body.order_by] if body.order_by else None)
 
-    base_query = select(DagRun).options(*eager_load_dag_run_for_validation())
+    base_query = select(DagRun).options(*eager_load_dag_run_for_list())
 
     dag_runs_select, total_entries = paginated_select(
         statement=base_query,
-        filters=[dag_ids, logical_date, run_after, start_date, end_date, state, readable_dag_runs_filter],
+        filters=[
+            dag_ids,
+            logical_date,
+            run_after,
+            start_date,
+            end_date,
+            duration,
+            conf_contains,
+            state,
+            readable_dag_runs_filter,
+        ],
         order_by=order_by,
         offset=offset,
         limit=limit,
         session=session,
     )
 
-    dag_runs = session.scalars(dag_runs_select)
+    dag_runs = list(session.scalars(dag_runs_select).unique())
+    attach_dag_versions_to_runs(dag_runs, session=session)
 
     return DAGRunCollectionResponse(
         dag_runs=dag_runs,

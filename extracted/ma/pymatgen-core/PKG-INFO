@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymatgen-core
-Version: 2026.3.9
+Version: 2026.4.7
 Summary: Python Materials Genomics is a robust materials analysis code that defines core object representations for structures
 Author-email: Pymatgen Development Team <shyue@nus.edu.sg>
 Maintainer-email: Matthew Horton <m.k.horton@gmail.com>, Shyue Ping Ong <shyue@nus.edu.sg>

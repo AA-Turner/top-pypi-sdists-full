@@ -30,6 +30,7 @@ import os
 from typing import Any, AsyncIterator, Iterator
 
 from etils import epath
+from orbax.checkpoint._src.path import gcs_utils
 
 
 
@@ -50,7 +51,15 @@ async def mkdir(
 
 
 async def write_bytes(path: epath.Path, data: Any) -> int:
-  return await asyncio.to_thread(path.write_bytes, data)
+
+  def _write():
+    try:
+      path.unlink()
+    except OSError:
+      pass
+    return path.write_bytes(data)
+
+  return await asyncio.to_thread(_write)
 
 
 async def read_bytes(path: epath.Path) -> bytes:
@@ -58,7 +67,15 @@ async def read_bytes(path: epath.Path) -> bytes:
 
 
 async def write_text(path: epath.Path, text: str) -> int:
-  return await asyncio.to_thread(path.write_text, text)
+
+  def _write():
+    try:
+      path.unlink()
+    except OSError:
+      pass
+    return path.write_text(text)
+
+  return await asyncio.to_thread(_write)
 
 
 async def read_text(path: epath.Path) -> str:
@@ -73,12 +90,15 @@ async def async_stat(path: epath.Path):
   return await asyncio.to_thread(path.stat)
 
 
-async def async_rmtree(path: epath.Path):
-  return await asyncio.to_thread(path.rmtree)
-
-
 async def rmtree(path: epath.Path):
-  return await asyncio.to_thread(path.rmtree)
+  def _rmtree():
+    # TODO(b/493110683): Cleanup with refactoring of HNS GCS logic into
+    # StorageBackend.
+    if gcs_utils.is_gcs_path(path):
+      gcs_utils.rmtree(path)
+    else:
+      path.rmtree()
+  return await asyncio.to_thread(_rmtree)
 
 
 async def touch(path: epath.Path, *, exist_ok: bool = False):

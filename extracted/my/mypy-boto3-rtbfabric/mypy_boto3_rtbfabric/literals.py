@@ -3,14 +3,14 @@ Type annotations for rtbfabric service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from mypy_boto3_rtbfabric.literals import FilterTypeType
+    from mypy_boto3_rtbfabric.literals import ConnectivityTypeType
 
-    data: FilterTypeType = "EXCLUDE"
+    data: ConnectivityTypeType = "DEFAULT"
     ```
 """
 
@@ -23,16 +23,21 @@ else:
 
 
 __all__ = (
+    "ConnectivityTypeType",
     "FilterTypeType",
+    "GatewayTypeType",
     "InboundExternalLinkActiveWaiterName",
+    "InboundExternalLinkDeletedWaiterName",
     "LinkAcceptedWaiterName",
     "LinkActiveWaiterName",
+    "LinkDeletedWaiterName",
     "LinkDirectionType",
     "LinkStatusType",
     "ListLinksPaginatorName",
     "ListRequesterGatewaysPaginatorName",
     "ListResponderGatewaysPaginatorName",
     "OutboundExternalLinkActiveWaiterName",
+    "OutboundExternalLinkDeletedWaiterName",
     "PaginatorName",
     "ProtocolType",
     "RTBFabricServiceName",
@@ -50,10 +55,14 @@ __all__ = (
 )
 
 
+ConnectivityTypeType = Literal["DEFAULT", "EXTERNAL_INBOUND", "PUBLIC_EGRESS", "PUBLIC_INGRESS"]
 FilterTypeType = Literal["EXCLUDE", "INCLUDE"]
+GatewayTypeType = Literal["EXTERNAL", "INTERNAL"]
 InboundExternalLinkActiveWaiterName = Literal["inbound_external_link_active"]
+InboundExternalLinkDeletedWaiterName = Literal["inbound_external_link_deleted"]
 LinkAcceptedWaiterName = Literal["link_accepted"]
 LinkActiveWaiterName = Literal["link_active"]
+LinkDeletedWaiterName = Literal["link_deleted"]
 LinkDirectionType = Literal["REQUEST", "RESPONSE"]
 LinkStatusType = Literal[
     "ACCEPTED",
@@ -74,6 +83,7 @@ ListLinksPaginatorName = Literal["list_links"]
 ListRequesterGatewaysPaginatorName = Literal["list_requester_gateways"]
 ListResponderGatewaysPaginatorName = Literal["list_responder_gateways"]
 OutboundExternalLinkActiveWaiterName = Literal["outbound_external_link_active"]
+OutboundExternalLinkDeletedWaiterName = Literal["outbound_external_link_deleted"]
 ProtocolType = Literal["HTTP", "HTTPS"]
 RequesterGatewayActiveWaiterName = Literal["requester_gateway_active"]
 RequesterGatewayDeletedWaiterName = Literal["requester_gateway_deleted"]
@@ -206,6 +216,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -221,6 +232,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -245,16 +257,15 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -294,7 +305,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -442,6 +452,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",
@@ -458,6 +469,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -469,7 +481,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -491,6 +505,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -503,6 +518,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -510,6 +526,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -526,9 +543,12 @@ ResourceServiceName = Literal[
 PaginatorName = Literal["list_links", "list_requester_gateways", "list_responder_gateways"]
 WaiterName = Literal[
     "inbound_external_link_active",
+    "inbound_external_link_deleted",
     "link_accepted",
     "link_active",
+    "link_deleted",
     "outbound_external_link_active",
+    "outbound_external_link_deleted",
     "requester_gateway_active",
     "requester_gateway_deleted",
     "responder_gateway_active",

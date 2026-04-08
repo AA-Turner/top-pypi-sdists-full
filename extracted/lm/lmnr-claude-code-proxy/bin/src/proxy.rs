@@ -32,6 +32,7 @@ use tokio::task::JoinSet;
 
 const CREATE_MESSAGE_PATH: &str = "/v1/messages";
 const FOUNDRY_CREATE_MESSAGE_PATH: &str = "/anthropic/v1/messages";
+
 fn get_unix_nano() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -346,6 +347,7 @@ where
                             effective_span_path,
                             req,
                             response_info,
+                            nested_context.map(|ctx| ctx.parent_tool_type),
                         ) {
                             Ok(span_request) => {
                                 if let Err(e) = send_trace_to_lmnr(

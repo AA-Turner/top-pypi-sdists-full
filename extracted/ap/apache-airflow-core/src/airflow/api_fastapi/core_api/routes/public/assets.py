@@ -18,13 +18,16 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, cast
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import and_, delete, func, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import joinedload, subqueryload
 
 from airflow._shared.timezones import timezone
+from airflow.api_fastapi.app import get_auth_manager
+from airflow.api_fastapi.auth.managers.models.resource_details import DagAccessEntity, DagDetails
 from airflow.api_fastapi.common.dagbag import DagBagDep, get_latest_version_of_dag
 from airflow.api_fastapi.common.db.common import SessionDep, paginated_select
 from airflow.api_fastapi.common.parameters import (
@@ -70,12 +73,15 @@ from airflow.models.asset import (
     AssetDagRunQueue,
     AssetEvent,
     AssetModel,
+    AssetWatcherModel,
     TaskOutletAssetReference,
 )
+from airflow.typing_compat import Unpack
 from airflow.utils.state import DagRunState
 from airflow.utils.types import DagRunTriggeredByType, DagRunType
 
 if TYPE_CHECKING:
+    from sqlalchemy.engine import Result
     from sqlalchemy.sql import Select
 
 assets_router = AirflowRouter(tags=["Asset"])
@@ -177,22 +183,34 @@ def get_assets(
         session=session,
     )
 
-    assets_rows = session.execute(
+    # The below type annotation is acceptable on SQLA2.1, but not on 2.0
+    assets_rows: Result[Unpack[tuple[AssetModel, int, datetime]]] = session.execute(  # type: ignore[type-arg]
         assets_select.options(
             subqueryload(AssetModel.scheduled_dags),
             subqueryload(AssetModel.producing_tasks),
             subqueryload(AssetModel.consuming_tasks),
             subqueryload(AssetModel.aliases),
+            subqueryload(AssetModel.watchers).joinedload(AssetWatcherModel.trigger),
         )
     )
 
     assets = []
 
     for asset, last_asset_event_id, last_asset_event_timestamp in assets_rows:
+        watchers_data = [
+            {
+                "name": watcher.name,
+                "trigger_id": watcher.trigger_id,
+                "created_date": watcher.trigger.created_date,
+            }
+            for watcher in asset.watchers
+        ]
+
         asset_response = AssetResponse.model_validate(
             {
                 **asset.__dict__,
                 "aliases": asset.aliases,
+                "watchers": watchers_data,
                 "last_asset_event": {
                     "id": last_asset_event_id,
                     "timestamp": last_asset_event_timestamp,
@@ -292,13 +310,26 @@ def get_asset_events(
     source_map_index: Annotated[
         FilterParam[int | None], Depends(filter_param_factory(AssetEvent.source_map_index, int | None))
     ],
+    name_pattern: QueryAssetNamePatternSearch,
     timestamp_range: Annotated[RangeFilter, Depends(datetime_range_filter_factory("timestamp", AssetEvent))],
     session: SessionDep,
 ) -> AssetEventCollectionResponse:
     """Get asset events."""
+    base_statement = select(AssetEvent)
+    if name_pattern.value:
+        base_statement = base_statement.join(AssetModel, AssetEvent.asset_id == AssetModel.id)
+
     assets_event_select, total_entries = paginated_select(
-        statement=select(AssetEvent),
-        filters=[asset_id, source_dag_id, source_task_id, source_run_id, source_map_index, timestamp_range],
+        statement=base_statement,
+        filters=[
+            asset_id,
+            source_dag_id,
+            source_task_id,
+            source_run_id,
+            source_map_index,
+            name_pattern,
+            timestamp_range,
+        ],
         order_by=order_by,
         offset=offset,
         limit=limit,
@@ -335,6 +366,7 @@ def create_asset_event(
         asset=asset_model,
         timestamp=timestamp,
         extra=body.extra,
+        partition_key=body.partition_key,
         session=session,
     )
 
@@ -345,7 +377,9 @@ def create_asset_event(
 
 @assets_router.post(
     "/assets/{asset_id}/materialize",
-    responses=create_openapi_http_exception_doc([status.HTTP_404_NOT_FOUND, status.HTTP_409_CONFLICT]),
+    responses=create_openapi_http_exception_doc(
+        [status.HTTP_400_BAD_REQUEST, status.HTTP_404_NOT_FOUND, status.HTTP_409_CONFLICT]
+    ),
     dependencies=[Depends(requires_access_asset(method="POST")), Depends(action_logging())],
 )
 def materialize_asset(
@@ -372,15 +406,33 @@ def materialize_asset(
             f"More than one DAG materializes asset with ID: {asset_id}",
         )
 
+    if not get_auth_manager().is_authorized_dag(
+        method="POST",
+        access_entity=DagAccessEntity.RUN,
+        details=DagDetails(id=dag_id),
+        user=user,
+    ):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"User is not authorized to trigger a run for DAG: {dag_id} that materializes this asset",
+        )
+
     dag = get_latest_version_of_dag(dag_bag, dag_id, session)
+
+    if dag.allowed_run_types is not None and DagRunType.ASSET_MATERIALIZATION not in dag.allowed_run_types:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Dag with dag_id: '{dag_id}' does not allow asset materialization runs",
+        )
+
     return dag.create_dagrun(
         run_id=dag.timetable.generate_run_id(
-            run_type=DagRunType.MANUAL,
+            run_type=DagRunType.ASSET_MATERIALIZATION,
             run_after=(run_after := timezone.coerce_datetime(timezone.utcnow())),
             data_interval=None,
         ),
         run_after=run_after,
-        run_type=DagRunType.MANUAL,
+        run_type=DagRunType.ASSET_MATERIALIZATION,
         triggered_by=DagRunTriggeredByType.REST_API,
         triggering_user_name=user.get_name(),
         state=DagRunState.QUEUED,
@@ -456,6 +508,7 @@ def get_asset(
             joinedload(AssetModel.scheduled_dags),
             joinedload(AssetModel.producing_tasks),
             joinedload(AssetModel.consuming_tasks),
+            joinedload(AssetModel.watchers).joinedload(AssetWatcherModel.trigger),
         )
     )
 
@@ -465,10 +518,20 @@ def get_asset(
     if asset is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"The Asset with ID: `{asset_id}` was not found")
 
+    watchers_data = [
+        {
+            "name": watcher.name,
+            "trigger_id": watcher.trigger_id,
+            "created_date": watcher.trigger.created_date,
+        }
+        for watcher in asset.watchers
+    ]
+
     return AssetResponse.model_validate(
         {
             **asset.__dict__,
             "aliases": asset.aliases,
+            "watchers": watchers_data,
             "last_asset_event": {
                 "id": last_asset_event_id,
                 "timestamp": last_asset_event_timestamp,
@@ -565,7 +628,7 @@ def delete_asset_queued_events(
         asset_id=asset_id, before=before, permitted_dag_ids=readable_dags_filter.value
     )
     delete_stmt = delete(AssetDagRunQueue).where(*where_clause).execution_options(synchronize_session="fetch")
-    result = session.execute(delete_stmt)
+    result = cast("CursorResult", session.execute(delete_stmt))
     if result.rowcount == 0:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
@@ -599,7 +662,7 @@ def delete_dag_asset_queued_events(
     )
 
     delete_statement = delete(AssetDagRunQueue).where(*where_clause)
-    result = session.execute(delete_statement)
+    result = cast("CursorResult", session.execute(delete_statement))
 
     if result.rowcount == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Queue event with dag_id: `{dag_id}` was not found")
@@ -634,7 +697,7 @@ def delete_dag_asset_queued_event(
     delete_statement = (
         delete(AssetDagRunQueue).where(*where_clause).execution_options(synchronize_session="fetch")
     )
-    result = session.execute(delete_statement)
+    result = cast("CursorResult", session.execute(delete_statement))
     if result.rowcount == 0:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,

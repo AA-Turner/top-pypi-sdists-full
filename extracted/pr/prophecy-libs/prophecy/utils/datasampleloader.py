@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Tuple, List, Iterator
-from pyspark.sql import DataFrame, Row, functions as F, SparkSession, DataType
+from pyspark.sql import DataFrame, Row, functions as F, SparkSession
 from pyspark.sql.types import (
     StructType,
     StringType,
@@ -11,6 +11,7 @@ from pyspark.sql.types import (
     DecimalType,
     DoubleType,
     IntegerType,
+    DataType
 )
 from datetime import datetime, date, timedelta
 from decimal import Decimal

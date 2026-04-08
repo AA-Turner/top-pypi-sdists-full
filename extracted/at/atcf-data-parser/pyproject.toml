@@ -1,0 +1,58 @@
+[project]
+name = "atcf-data-parser"
+description = "Parse a-deck data posted online by the Automated Tropical Cyclone Forecasting System"
+readme = "README.md"
+license = "MIT"
+dynamic = ["version"]
+requires-python = ">=3.11"
+authors = [{ name = "Ben Welsh", email = "b@palewi.re" }]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = ["click", "numpy", "pandas", "requests", "retry", "rich"]
+
+[project.urls]
+Homepage = "https://github.com/palewire/atcf-data-parser"
+Maintainer = "https://github.com/palewire/"
+Source = "https://github.com/palewire/atcf-data-parser"
+Tracker = "https://github.com/palewire/atcf-data-parser/issues"
+
+[project.scripts]
+atcf-data-parser = "atcf_data_parser.cli:cli"
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov", "pytest-env", "pytest-vcr"]
+dev = [
+    "mypy",
+    "pre-commit",
+    "sphinx",
+    "sphinx-autobuild",
+    "sphinx-click",
+    "sphinx-palewire-theme==0.1.2",
+    "sphinxcontrib-napoleon",
+    "sphinxcontrib-mermaid",
+    "myst-parser",
+    "types-requests",
+    "types-retry",
+]
+
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[tool.setuptools.packages.find]
+include = ["atcf_data_parser*"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-ignore = ["E203", "E501"]

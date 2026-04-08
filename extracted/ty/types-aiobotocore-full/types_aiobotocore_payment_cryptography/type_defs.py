@@ -224,11 +224,13 @@ class GetKeyInputTypeDef(TypedDict):
 class GetParametersForExportInputTypeDef(TypedDict):
     KeyMaterialType: KeyMaterialTypeType
     SigningKeyAlgorithm: KeyAlgorithmType
+    ReuseLastGeneratedToken: NotRequired[bool]
 
 
 class GetParametersForImportInputTypeDef(TypedDict):
     KeyMaterialType: KeyMaterialTypeType
     WrappingKeyAlgorithm: KeyAlgorithmType
+    ReuseLastGeneratedToken: NotRequired[bool]
 
 
 class GetPublicKeyCertificateInputTypeDef(TypedDict):

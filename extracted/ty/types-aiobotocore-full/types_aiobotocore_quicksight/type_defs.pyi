@@ -43,6 +43,7 @@ from .literals import (
     AuthenticationMethodOptionType,
     AuthenticationTypeType,
     AuthorSpecifiedAggregationType,
+    AutomationJobStatusType,
     AxisBindingType,
     BarChartOrientationType,
     BarsArrangementType,
@@ -225,6 +226,8 @@ from .literals import (
     SnapshotFileSheetSelectionScopeType,
     SnapshotJobStatusType,
     SortDirectionType,
+    SparklineAxisBehaviorType,
+    SparklineVisualTypeType,
     SpecialValueType,
     StarburstProductTypeType,
     StatusType,
@@ -918,6 +921,8 @@ __all__ = (
     "DescribeAssetBundleExportJobResponseTypeDef",
     "DescribeAssetBundleImportJobRequestTypeDef",
     "DescribeAssetBundleImportJobResponseTypeDef",
+    "DescribeAutomationJobRequestTypeDef",
+    "DescribeAutomationJobResponseTypeDef",
     "DescribeBrandAssignmentRequestTypeDef",
     "DescribeBrandAssignmentResponseTypeDef",
     "DescribeBrandPublishedVersionRequestTypeDef",
@@ -1542,6 +1547,7 @@ __all__ = (
     "NumericalAggregationFunctionTypeDef",
     "NumericalDimensionFieldTypeDef",
     "NumericalMeasureFieldTypeDef",
+    "OAuthClientCredentialsTypeDef",
     "OAuthParametersTypeDef",
     "OracleParametersTypeDef",
     "OutputColumnNameOverrideTypeDef",
@@ -1878,6 +1884,7 @@ __all__ = (
     "SheetLayoutGroupTypeDef",
     "SheetStyleTypeDef",
     "SheetTextBoxTypeDef",
+    "SheetTooltipTypeDef",
     "SheetTypeDef",
     "SheetVisualScopingConfigurationOutputTypeDef",
     "SheetVisualScopingConfigurationTypeDef",
@@ -1915,6 +1922,7 @@ __all__ = (
     "SourceTableTypeDef",
     "SpacingTypeDef",
     "SparkParametersTypeDef",
+    "SparklinesOptionsTypeDef",
     "SpatialStaticFileTypeDef",
     "SqlServerParametersTypeDef",
     "SslPropertiesTypeDef",
@@ -1923,6 +1931,8 @@ __all__ = (
     "StartAssetBundleExportJobResponseTypeDef",
     "StartAssetBundleImportJobRequestTypeDef",
     "StartAssetBundleImportJobResponseTypeDef",
+    "StartAutomationJobRequestTypeDef",
+    "StartAutomationJobResponseTypeDef",
     "StartDashboardSnapshotJobRequestTypeDef",
     "StartDashboardSnapshotJobResponseTypeDef",
     "StartDashboardSnapshotJobScheduleRequestTypeDef",
@@ -2043,6 +2053,8 @@ __all__ = (
     "TooltipItemTypeDef",
     "TooltipOptionsOutputTypeDef",
     "TooltipOptionsTypeDef",
+    "TooltipSheetDefinitionOutputTypeDef",
+    "TooltipSheetDefinitionTypeDef",
     "TopBottomFilterOutputTypeDef",
     "TopBottomFilterTypeDef",
     "TopBottomMoversComputationTypeDef",
@@ -3003,8 +3015,11 @@ class CapabilitiesTypeDef(TypedDict):
     BuildCalculatedFieldWithQ: NotRequired[Literal["DENY"]]
     CreateDashboardExecutiveSummaryWithQ: NotRequired[Literal["DENY"]]
     Space: NotRequired[Literal["DENY"]]
+    CreateSpaces: NotRequired[Literal["DENY"]]
+    ShareSpaces: NotRequired[Literal["DENY"]]
     ChatAgent: NotRequired[Literal["DENY"]]
     CreateChatAgents: NotRequired[Literal["DENY"]]
+    ShareChatAgents: NotRequired[Literal["DENY"]]
     Research: NotRequired[Literal["DENY"]]
     SelfUpgradeUserRole: NotRequired[Literal["DENY"]]
     Extension: NotRequired[Literal["DENY"]]
@@ -3487,6 +3502,11 @@ class KeyPairCredentialsTypeDef(TypedDict):
     PrivateKey: str
     PrivateKeyPassphrase: NotRequired[str]
 
+class OAuthClientCredentialsTypeDef(TypedDict):
+    ClientId: NotRequired[str]
+    ClientSecret: NotRequired[str]
+    Username: NotRequired[str]
+
 class WebProxyCredentialsTypeDef(TypedDict):
     WebProxyUsername: str
     WebProxyPassword: str
@@ -3850,6 +3870,14 @@ class DescribeAssetBundleExportJobRequestTypeDef(TypedDict):
 class DescribeAssetBundleImportJobRequestTypeDef(TypedDict):
     AwsAccountId: str
     AssetBundleImportJobId: str
+
+class DescribeAutomationJobRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    AutomationGroupId: str
+    AutomationId: str
+    JobId: str
+    IncludeInputPayload: NotRequired[bool]
+    IncludeOutputPayload: NotRequired[bool]
 
 class DescribeBrandAssignmentRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -5044,6 +5072,9 @@ SheetLayoutGroupMemberTypeDef = TypedDict(
     },
 )
 
+class SheetTooltipTypeDef(TypedDict):
+    SheetId: NotRequired[str]
+
 class ShortFormatTextTypeDef(TypedDict):
     PlainText: NotRequired[str]
     RichText: NotRequired[str]
@@ -5075,6 +5106,12 @@ class SnapshotFileSheetSelectionTypeDef(TypedDict):
 class SnapshotJobResultErrorInfoTypeDef(TypedDict):
     ErrorMessage: NotRequired[str]
     ErrorType: NotRequired[str]
+
+class StartAutomationJobRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    AutomationGroupId: str
+    AutomationId: str
+    InputPayload: NotRequired[str]
 
 class StartDashboardSnapshotJobScheduleRequestTypeDef(TypedDict):
     AwsAccountId: str
@@ -6185,6 +6222,17 @@ class DescribeAccountSubscriptionResponseTypeDef(TypedDict):
     RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DescribeAutomationJobResponseTypeDef(TypedDict):
+    Arn: str
+    CreatedAt: datetime
+    StartedAt: datetime
+    EndedAt: datetime
+    JobStatus: AutomationJobStatusType
+    InputPayload: str
+    OutputPayload: str
+    RequestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeBrandAssignmentResponseTypeDef(TypedDict):
     RequestId: str
     BrandArn: str
@@ -6368,6 +6416,13 @@ class StartAssetBundleImportJobResponseTypeDef(TypedDict):
     AssetBundleImportJobId: str
     RequestId: str
     Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartAutomationJobResponseTypeDef(TypedDict):
+    Arn: str
+    JobId: str
+    Status: int
+    RequestId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartDashboardSnapshotJobResponseTypeDef(TypedDict):
@@ -7032,9 +7087,6 @@ class ListDashboardVersionsResponseTypeDef(TypedDict):
 
 class DashboardVisualPublishOptionsTypeDef(TypedDict):
     ExportHiddenFieldsOption: NotRequired[ExportHiddenFieldsOptionTypeDef]
-
-class TableInlineVisualizationTypeDef(TypedDict):
-    DataBars: NotRequired[DataBarsOptionsTypeDef]
 
 class DataLabelTypeTypeDef(TypedDict):
     FieldLabelType: NotRequired[FieldLabelTypeTypeDef]
@@ -11748,11 +11800,13 @@ class TooltipOptionsOutputTypeDef(TypedDict):
     TooltipVisibility: NotRequired[VisibilityType]
     SelectedTooltipType: NotRequired[SelectedTooltipTypeType]
     FieldBasedTooltip: NotRequired[FieldBasedTooltipOutputTypeDef]
+    SheetTooltip: NotRequired[SheetTooltipTypeDef]
 
 class TooltipOptionsTypeDef(TypedDict):
     TooltipVisibility: NotRequired[VisibilityType]
     SelectedTooltipType: NotRequired[SelectedTooltipTypeType]
     FieldBasedTooltip: NotRequired[FieldBasedTooltipTypeDef]
+    SheetTooltip: NotRequired[SheetTooltipTypeDef]
 
 class DescribeTopicResponseTypeDef(TypedDict):
     Arn: str
@@ -12098,6 +12152,17 @@ class PivotTableConditionalFormattingTypeDef(TypedDict):
 
 class TableConditionalFormattingTypeDef(TypedDict):
     ConditionalFormattingOptions: NotRequired[Sequence[TableConditionalFormattingOptionTypeDef]]
+
+class SparklinesOptionsTypeDef(TypedDict):
+    FieldId: str
+    XAxisField: DimensionFieldTypeDef
+    YAxisBehavior: NotRequired[SparklineAxisBehaviorType]
+    VisualType: NotRequired[SparklineVisualTypeType]
+    LineColor: NotRequired[str]
+    LineInterpolation: NotRequired[LineInterpolationType]
+    AllPointsMarker: NotRequired[LineChartMarkerStyleSettingsTypeDef]
+    MaxValueMarker: NotRequired[LineChartMarkerStyleSettingsTypeDef]
+    MinValueMarker: NotRequired[LineChartMarkerStyleSettingsTypeDef]
 
 class UniqueValuesComputationTypeDef(TypedDict):
     ComputationId: str
@@ -12458,6 +12523,7 @@ class DataSourceCredentialsTypeDef(TypedDict):
     SecretArn: NotRequired[str]
     KeyPairCredentials: NotRequired[KeyPairCredentialsTypeDef]
     WebProxyCredentials: NotRequired[WebProxyCredentialsTypeDef]
+    OAuthClientCredentials: NotRequired[OAuthClientCredentialsTypeDef]
 
 class SheetImageTypeDef(TypedDict):
     SheetImageId: str
@@ -12517,6 +12583,10 @@ class InnerFilterOutputTypeDef(TypedDict):
 
 class InnerFilterTypeDef(TypedDict):
     CategoryInnerFilter: NotRequired[CategoryInnerFilterTypeDef]
+
+class TableInlineVisualizationTypeDef(TypedDict):
+    DataBars: NotRequired[DataBarsOptionsTypeDef]
+    Sparklines: NotRequired[SparklinesOptionsTypeDef]
 
 class BarChartFieldWellsOutputTypeDef(TypedDict):
     BarChartAggregatedFieldWells: NotRequired[BarChartAggregatedFieldWellsOutputTypeDef]
@@ -13190,6 +13260,7 @@ class PivotTableConfigurationOutputTypeDef(TypedDict):
     TotalOptions: NotRequired[PivotTableTotalOptionsOutputTypeDef]
     FieldOptions: NotRequired[PivotTableFieldOptionsOutputTypeDef]
     PaginatedReportOptions: NotRequired[PivotTablePaginatedReportOptionsTypeDef]
+    Tooltip: NotRequired[TooltipOptionsOutputTypeDef]
     DashboardCustomizationVisualOptions: NotRequired[
         DashboardCustomizationVisualOptionsOutputTypeDef
     ]
@@ -13202,6 +13273,7 @@ class PivotTableConfigurationTypeDef(TypedDict):
     TotalOptions: NotRequired[PivotTableTotalOptionsTypeDef]
     FieldOptions: NotRequired[PivotTableFieldOptionsTypeDef]
     PaginatedReportOptions: NotRequired[PivotTablePaginatedReportOptionsTypeDef]
+    Tooltip: NotRequired[TooltipOptionsTypeDef]
     DashboardCustomizationVisualOptions: NotRequired[DashboardCustomizationVisualOptionsTypeDef]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
 
@@ -13381,6 +13453,7 @@ class TableConfigurationOutputTypeDef(TypedDict):
     FieldOptions: NotRequired[TableFieldOptionsOutputTypeDef]
     PaginatedReportOptions: NotRequired[TablePaginatedReportOptionsTypeDef]
     TableInlineVisualizations: NotRequired[list[TableInlineVisualizationTypeDef]]
+    Tooltip: NotRequired[TooltipOptionsOutputTypeDef]
     DashboardCustomizationVisualOptions: NotRequired[
         DashboardCustomizationVisualOptionsOutputTypeDef
     ]
@@ -13394,6 +13467,7 @@ class TableConfigurationTypeDef(TypedDict):
     FieldOptions: NotRequired[TableFieldOptionsTypeDef]
     PaginatedReportOptions: NotRequired[TablePaginatedReportOptionsTypeDef]
     TableInlineVisualizations: NotRequired[Sequence[TableInlineVisualizationTypeDef]]
+    Tooltip: NotRequired[TooltipOptionsTypeDef]
     DashboardCustomizationVisualOptions: NotRequired[DashboardCustomizationVisualOptionsTypeDef]
     Interactions: NotRequired[VisualInteractionOptionsTypeDef]
 
@@ -14001,6 +14075,14 @@ class SheetDefinitionOutputTypeDef(TypedDict):
     ContentType: NotRequired[SheetContentTypeType]
     CustomActionDefaults: NotRequired[VisualCustomActionDefaultsTypeDef]
 
+class TooltipSheetDefinitionOutputTypeDef(TypedDict):
+    SheetId: str
+    Name: NotRequired[str]
+    Visuals: NotRequired[list[VisualOutputTypeDef]]
+    TextBoxes: NotRequired[list[SheetTextBoxTypeDef]]
+    Images: NotRequired[list[SheetImageOutputTypeDef]]
+    Layouts: NotRequired[list[LayoutOutputTypeDef]]
+
 class SheetDefinitionTypeDef(TypedDict):
     SheetId: str
     Title: NotRequired[str]
@@ -14016,6 +14098,14 @@ class SheetDefinitionTypeDef(TypedDict):
     ContentType: NotRequired[SheetContentTypeType]
     CustomActionDefaults: NotRequired[VisualCustomActionDefaultsTypeDef]
 
+class TooltipSheetDefinitionTypeDef(TypedDict):
+    SheetId: str
+    Name: NotRequired[str]
+    Visuals: NotRequired[Sequence[VisualTypeDef]]
+    TextBoxes: NotRequired[Sequence[SheetTextBoxTypeDef]]
+    Images: NotRequired[Sequence[SheetImageTypeDef]]
+    Layouts: NotRequired[Sequence[LayoutTypeDef]]
+
 class BatchCreateTopicReviewedAnswerRequestTypeDef(TypedDict):
     AwsAccountId: str
     TopicId: str
@@ -14024,6 +14114,7 @@ class BatchCreateTopicReviewedAnswerRequestTypeDef(TypedDict):
 class AnalysisDefinitionOutputTypeDef(TypedDict):
     DataSetIdentifierDeclarations: list[DataSetIdentifierDeclarationTypeDef]
     Sheets: NotRequired[list[SheetDefinitionOutputTypeDef]]
+    TooltipSheets: NotRequired[list[TooltipSheetDefinitionOutputTypeDef]]
     CalculatedFields: NotRequired[list[CalculatedFieldTypeDef]]
     ParameterDeclarations: NotRequired[list[ParameterDeclarationOutputTypeDef]]
     FilterGroups: NotRequired[list[FilterGroupOutputTypeDef]]
@@ -14036,6 +14127,7 @@ class AnalysisDefinitionOutputTypeDef(TypedDict):
 class DashboardVersionDefinitionOutputTypeDef(TypedDict):
     DataSetIdentifierDeclarations: list[DataSetIdentifierDeclarationTypeDef]
     Sheets: NotRequired[list[SheetDefinitionOutputTypeDef]]
+    TooltipSheets: NotRequired[list[TooltipSheetDefinitionOutputTypeDef]]
     CalculatedFields: NotRequired[list[CalculatedFieldTypeDef]]
     ParameterDeclarations: NotRequired[list[ParameterDeclarationOutputTypeDef]]
     FilterGroups: NotRequired[list[FilterGroupOutputTypeDef]]
@@ -14047,6 +14139,7 @@ class DashboardVersionDefinitionOutputTypeDef(TypedDict):
 class TemplateVersionDefinitionOutputTypeDef(TypedDict):
     DataSetConfigurations: list[DataSetConfigurationOutputTypeDef]
     Sheets: NotRequired[list[SheetDefinitionOutputTypeDef]]
+    TooltipSheets: NotRequired[list[TooltipSheetDefinitionOutputTypeDef]]
     CalculatedFields: NotRequired[list[CalculatedFieldTypeDef]]
     ParameterDeclarations: NotRequired[list[ParameterDeclarationOutputTypeDef]]
     FilterGroups: NotRequired[list[FilterGroupOutputTypeDef]]
@@ -14059,6 +14152,7 @@ class TemplateVersionDefinitionOutputTypeDef(TypedDict):
 class AnalysisDefinitionTypeDef(TypedDict):
     DataSetIdentifierDeclarations: Sequence[DataSetIdentifierDeclarationTypeDef]
     Sheets: NotRequired[Sequence[SheetDefinitionTypeDef]]
+    TooltipSheets: NotRequired[Sequence[TooltipSheetDefinitionTypeDef]]
     CalculatedFields: NotRequired[Sequence[CalculatedFieldTypeDef]]
     ParameterDeclarations: NotRequired[Sequence[ParameterDeclarationTypeDef]]
     FilterGroups: NotRequired[Sequence[FilterGroupTypeDef]]
@@ -14071,6 +14165,7 @@ class AnalysisDefinitionTypeDef(TypedDict):
 class DashboardVersionDefinitionTypeDef(TypedDict):
     DataSetIdentifierDeclarations: Sequence[DataSetIdentifierDeclarationTypeDef]
     Sheets: NotRequired[Sequence[SheetDefinitionTypeDef]]
+    TooltipSheets: NotRequired[Sequence[TooltipSheetDefinitionTypeDef]]
     CalculatedFields: NotRequired[Sequence[CalculatedFieldTypeDef]]
     ParameterDeclarations: NotRequired[Sequence[ParameterDeclarationTypeDef]]
     FilterGroups: NotRequired[Sequence[FilterGroupTypeDef]]
@@ -14082,6 +14177,7 @@ class DashboardVersionDefinitionTypeDef(TypedDict):
 class TemplateVersionDefinitionTypeDef(TypedDict):
     DataSetConfigurations: Sequence[DataSetConfigurationTypeDef]
     Sheets: NotRequired[Sequence[SheetDefinitionTypeDef]]
+    TooltipSheets: NotRequired[Sequence[TooltipSheetDefinitionTypeDef]]
     CalculatedFields: NotRequired[Sequence[CalculatedFieldTypeDef]]
     ParameterDeclarations: NotRequired[Sequence[ParameterDeclarationTypeDef]]
     FilterGroups: NotRequired[Sequence[FilterGroupTypeDef]]

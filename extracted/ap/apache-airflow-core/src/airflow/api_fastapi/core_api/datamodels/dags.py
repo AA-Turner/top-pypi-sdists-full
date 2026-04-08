@@ -18,9 +18,10 @@
 from __future__ import annotations
 
 import inspect
-from collections import abc
+from collections.abc import Iterable, Mapping
 from datetime import datetime, timedelta
-from typing import Any
+from functools import cache
+from typing import TYPE_CHECKING, Any
 
 from itsdangerous import URLSafeSerializer
 from pendulum.tz.timezone import FixedTimezone, Timezone
@@ -32,11 +33,28 @@ from pydantic import (
     field_validator,
 )
 
-from airflow.api_fastapi.core_api.base import BaseModel, StrictBaseModel
+from airflow.api_fastapi.core_api.base import BaseModel, StrictBaseModel, make_partial_model
 from airflow.api_fastapi.core_api.datamodels.dag_tags import DagTagResponse
 from airflow.api_fastapi.core_api.datamodels.dag_versions import DagVersionResponse
 from airflow.configuration import conf
 from airflow.models.dag_version import DagVersion
+from airflow.utils.types import DagRunType
+
+if TYPE_CHECKING:
+    from airflow.serialization.definitions.param import SerializedParamsDict
+
+
+@cache
+def _get_file_token_serializer() -> URLSafeSerializer:
+    """
+    Return a cached URLSafeSerializer instance.
+
+    Uses @cache for lazy initialization - the serializer is created on first
+    call rather than at module import time. This avoids issues if the module
+    is imported before configuration is fully loaded.
+    """
+    return URLSafeSerializer(conf.get_mandatory_value("api", "secret_key"))
+
 
 DAG_ALIAS_MAPPING: dict[str, str] = {
     # The keys are the names in the response, the values are the original names in the model
@@ -70,6 +88,7 @@ class DAGResponse(BaseModel):
     description: str | None
     timetable_summary: str | None
     timetable_description: str | None
+    timetable_partitioned: bool
     tags: list[DagTagResponse]
     max_active_tasks: int
     max_active_runs: int | None
@@ -80,6 +99,7 @@ class DAGResponse(BaseModel):
     next_dagrun_data_interval_start: datetime | None
     next_dagrun_data_interval_end: datetime | None
     next_dagrun_run_after: datetime | None
+    allowed_run_types: list[DagRunType] | None
     owners: list[str]
 
     @field_serializer("tags")
@@ -113,12 +133,11 @@ class DAGResponse(BaseModel):
     @property
     def file_token(self) -> str:
         """Return file token."""
-        serializer = URLSafeSerializer(conf.get_mandatory_value("api", "secret_key"))
         payload = {
             "bundle_name": self.bundle_name,
             "relative_fileloc": self.relative_fileloc,
         }
-        return serializer.dumps(payload)
+        return _get_file_token_serializer().dumps(payload)
 
 
 class DAGPatchBody(StrictBaseModel):
@@ -127,10 +146,13 @@ class DAGPatchBody(StrictBaseModel):
     is_paused: bool
 
 
+DAGPatchBodyPartial = make_partial_model(DAGPatchBody)
+
+
 class DAGCollectionResponse(BaseModel):
     """DAG Collection serializer for responses."""
 
-    dags: list[DAGResponse]
+    dags: Iterable[DAGResponse]
     total_entries: int
 
 
@@ -156,14 +178,15 @@ class DAGDetailsResponse(DAGResponse):
     start_date: datetime | None
     end_date: datetime | None
     is_paused_upon_creation: bool | None
-    params: abc.Mapping | None
+    params: Mapping | None
     render_template_as_native_obj: bool
     template_search_path: list[str] | None
     timezone: str | None
     last_parsed: datetime | None
-    default_args: abc.Mapping | None
+    default_args: Mapping | None
     owner_links: dict[str, str] | None = None
     is_favorite: bool = False
+    active_runs_count: int = 0
 
     @field_validator("timezone", mode="before")
     @classmethod
@@ -183,7 +206,7 @@ class DAGDetailsResponse(DAGResponse):
 
     @field_validator("params", mode="before")
     @classmethod
-    def get_params(cls, params: abc.Mapping | None) -> dict | None:
+    def get_params(cls, params: SerializedParamsDict | None) -> dict | None:
         """Convert params attribute to dict representation."""
         if params is None:
             return None

@@ -18,12 +18,14 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING
+from uuid import UUID
 
+import sqlalchemy as sa
 import uuid6
-from sqlalchemy import Column, ForeignKey, Integer, UniqueConstraint, select
-from sqlalchemy.orm import joinedload, relationship
-from sqlalchemy_utils import UUIDType
+from sqlalchemy import ForeignKey, Integer, UniqueConstraint, select
+from sqlalchemy.orm import Mapped, joinedload, mapped_column, relationship
 
 from airflow._shared.timezones import timezone
 from airflow.dag_processing.bundles.manager import DagBundlesManager
@@ -35,6 +37,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
     from sqlalchemy.sql import Select
 
+
 log = logging.getLogger(__name__)
 
 
@@ -42,12 +45,14 @@ class DagVersion(Base):
     """Model to track the versions of DAGs in the database."""
 
     __tablename__ = "dag_version"
-    id = Column(UUIDType(binary=False), primary_key=True, default=uuid6.uuid7)
-    version_number = Column(Integer, nullable=False, default=1)
-    dag_id = Column(StringID(), ForeignKey("dag.dag_id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[UUID] = mapped_column(sa.Uuid(), primary_key=True, default=uuid6.uuid7)
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    dag_id: Mapped[str] = mapped_column(
+        StringID(), ForeignKey("dag.dag_id", ondelete="CASCADE"), nullable=False
+    )
     dag_model = relationship("DagModel", back_populates="dag_versions")
-    bundle_name = Column(StringID(), nullable=True)
-    bundle_version = Column(StringID())
+    bundle_name: Mapped[str | None] = mapped_column(StringID(), nullable=True)
+    bundle_version: Mapped[str | None] = mapped_column(StringID(), nullable=True)
     bundle = relationship(
         "DagBundleModel",
         primaryjoin="foreign(DagVersion.bundle_name) == DagBundleModel.name",
@@ -69,8 +74,10 @@ class DagVersion(Base):
         cascade_backrefs=False,
     )
     task_instances = relationship("TaskInstance", back_populates="dag_version")
-    created_at = Column(UtcDateTime, nullable=False, default=timezone.utcnow)
-    last_updated = Column(UtcDateTime, nullable=False, default=timezone.utcnow, onupdate=timezone.utcnow)
+    created_at: Mapped[datetime] = mapped_column(UtcDateTime, nullable=False, default=timezone.utcnow)
+    last_updated: Mapped[datetime] = mapped_column(
+        UtcDateTime, nullable=False, default=timezone.utcnow, onupdate=timezone.utcnow
+    )
 
     __table_args__ = (
         UniqueConstraint("dag_id", "version_number", name="dag_id_v_name_v_number_unique_constraint"),
@@ -89,6 +96,8 @@ class DagVersion(Base):
 
         # fallback to the deprecated option if the bundle model does not have a signed_url_template
         # attribute
+        if self.bundle_name is None:
+            return None
         try:
             return DagBundlesManager().view_url(self.bundle_name, self.bundle_version)
         except ValueError:

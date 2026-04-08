@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-waitress
-Version: 3.0.1.20260316
+Version: 3.0.1.20260408
 Summary: Typing stubs for waitress
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -31,8 +31,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`61524fab4e1804462cc31d2e6b43ff7279188f85`](https://github.com/python/typeshed/commit/61524fab4e1804462cc31d2e6b43ff7279188f85).
+[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).

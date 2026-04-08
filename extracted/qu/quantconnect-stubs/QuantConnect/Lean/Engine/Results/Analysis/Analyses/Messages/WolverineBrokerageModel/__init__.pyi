@@ -1,0 +1,30 @@
+from typing import overload
+from enum import IntEnum
+import typing
+
+import QuantConnect
+import QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages
+import QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.WolverineBrokerageModel
+
+
+class WolverineUnsupportedOrderTypeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects Wolverine brokerage model rejections due to an unsupported order type (only Market orders are supported)."""
+
+    @property
+    def issue(self) -> str:
+        ...
+
+    @property
+    def weight(self) -> int:
+        ...
+
+    @property
+    def expected_message_text(self) -> typing.List[str]:
+        """This codeEntityType is protected."""
+        ...
+
+    def solutions(self, _: QuantConnect.Language) -> typing.List[str]:
+        """This codeEntityType is protected."""
+        ...
+
+

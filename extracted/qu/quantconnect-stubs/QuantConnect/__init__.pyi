@@ -217,6 +217,65 @@ class Candlestick(System.Object, QuantConnect.ISeriesPoint):
         ...
 
 
+class Analysis(System.Object):
+    """
+    Represents the outcome of a single backtest diagnostic analysis,
+    containing the analysis name, diagnostic context, and a list of solutions.
+    """
+
+    @property
+    def name(self) -> str:
+        """Gets or sets the name of the analysis that produced this result."""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def issue(self) -> str:
+        """Gets or sets a short description of why the analysis was triggered."""
+        ...
+
+    @issue.setter
+    def issue(self, value: str) -> None:
+        ...
+
+    @property
+    def sample(self) -> System.Object:
+        """
+        Gets or sets a representative sample value of the issue detected by the analysis.
+        It can be something like a log message, an order or an order event.
+        """
+        ...
+
+    @sample.setter
+    def sample(self, value: System.Object) -> None:
+        ...
+
+    @property
+    def count(self) -> typing.Optional[int]:
+        """
+        Gets or sets the total number of matching occurrences found by the analysis.
+        If null, the analysis is reporting a single issue with the provided sample;
+        if not null, the sample represents one of multiple occurrences of the same issue.
+        """
+        ...
+
+    @count.setter
+    def count(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def solutions(self) -> typing.Sequence[str]:
+        """Gets or sets human-readable suggestions for resolving the detected issue."""
+        ...
+
+    @solutions.setter
+    def solutions(self, value: typing.Sequence[str]) -> None:
+        ...
+
+
 class SecurityType(IntEnum):
     """Type of tradable security / underlying asset"""
 
@@ -1595,6 +1654,12 @@ class AlgorithmStatus(IntEnum):
 
     HISTORY = 11
     """History status update (11)"""
+
+    PENDING_INPUT = 12
+    """Awaiting additional input (12)"""
+
+    IDLE = 13
+    """Algorithm is in an idle state, waiting to be started (13)"""
 
 
 class AlgorithmControl(System.Object):
@@ -5040,6 +5105,15 @@ class Result(System.Object):
     def total_performance(self, value: QuantConnect.Statistics.AlgorithmPerformance) -> None:
         ...
 
+    @property
+    def analysis(self) -> typing.Sequence[QuantConnect.Analysis]:
+        """Backtest analysis results."""
+        ...
+
+    @analysis.setter
+    def analysis(self, value: typing.Sequence[QuantConnect.Analysis]) -> None:
+        ...
+
     @overload
     def __init__(self) -> None:
         """Creates new empty instance"""
@@ -7060,6 +7134,11 @@ class Extensions(System.Object):
         :param option_style: The OptionStyle string value
         :returns: The OptionStyle value.
         """
+        ...
+
+    @staticmethod
+    def percent_change(values: System.Collections.Generic.SortedList[datetime.datetime, float]) -> System.Collections.Generic.SortedList[datetime.datetime, float]:
+        """Returns a new sorted list of (v<i> / v<i-1> - 1) values. The first key is dropped."""
         ...
 
     @staticmethod

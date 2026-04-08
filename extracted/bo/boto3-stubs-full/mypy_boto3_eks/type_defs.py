@@ -59,6 +59,7 @@ from .literals import (
     UpdateStatusType,
     UpdateTypeType,
     VersionStatusType,
+    WarmPoolStateType,
 )
 
 if sys.version_info >= (3, 12):
@@ -345,6 +346,7 @@ __all__ = (
     "VpcConfigRequestTypeDef",
     "VpcConfigResponseTypeDef",
     "WaiterConfigTypeDef",
+    "WarmPoolConfigTypeDef",
     "ZonalShiftConfigRequestTypeDef",
     "ZonalShiftConfigResponseTypeDef",
 )
@@ -656,6 +658,14 @@ class TaintTypeDef(TypedDict):
     key: NotRequired[str]
     value: NotRequired[str]
     effect: NotRequired[TaintEffectType]
+
+
+class WarmPoolConfigTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+    minSize: NotRequired[int]
+    maxGroupPreparedCapacity: NotRequired[int]
+    poolState: NotRequired[WarmPoolStateType]
+    reuseOnScaleIn: NotRequired[bool]
 
 
 class CreatePodIdentityAssociationRequestTypeDef(TypedDict):
@@ -1857,6 +1867,7 @@ class NodegroupTypeDef(TypedDict):
     nodeRepairConfig: NotRequired[NodeRepairConfigOutputTypeDef]
     launchTemplate: NotRequired[LaunchTemplateSpecificationTypeDef]
     tags: NotRequired[dict[str, str]]
+    warmPoolConfig: NotRequired[WarmPoolConfigTypeDef]
 
 
 NodeRepairConfigUnionTypeDef = Union[NodeRepairConfigTypeDef, NodeRepairConfigOutputTypeDef]
@@ -2063,6 +2074,7 @@ class CreateNodegroupRequestTypeDef(TypedDict):
     capacityType: NotRequired[CapacityTypesType]
     version: NotRequired[str]
     releaseVersion: NotRequired[str]
+    warmPoolConfig: NotRequired[WarmPoolConfigTypeDef]
 
 
 class UpdateNodegroupConfigRequestTypeDef(TypedDict):
@@ -2073,6 +2085,7 @@ class UpdateNodegroupConfigRequestTypeDef(TypedDict):
     scalingConfig: NotRequired[NodegroupScalingConfigTypeDef]
     updateConfig: NotRequired[NodegroupUpdateConfigTypeDef]
     nodeRepairConfig: NotRequired[NodeRepairConfigUnionTypeDef]
+    warmPoolConfig: NotRequired[WarmPoolConfigTypeDef]
     clientRequestToken: NotRequired[str]
 
 

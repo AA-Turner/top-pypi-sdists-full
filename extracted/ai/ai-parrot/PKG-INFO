@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.24.17
+Version: 0.24.19
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -99,7 +99,7 @@ Requires-Dist: rank_bm25==0.2.2; extra == "retrieval"
 Provides-Extra: tokenizer
 Requires-Dist: sentencepiece==0.2.1; extra == "tokenizer"
 Provides-Extra: agents
-Requires-Dist: sentence_transformers==5.0.0; extra == "agents"
+Requires-Dist: sentence_transformers>=5.3.0; extra == "agents"
 Requires-Dist: yfinance==0.2.54; extra == "agents"
 Requires-Dist: youtube_search==2.1.2; extra == "agents"
 Requires-Dist: wikipedia==1.4.0; extra == "agents"
@@ -223,7 +223,7 @@ Requires-Dist: branca==0.8.2; extra == "mcp"
 Requires-Dist: folium==0.20.0; extra == "mcp"
 Requires-Dist: opensearch-py==3.1.0; extra == "mcp"
 Provides-Extra: images
-Requires-Dist: torchvision>=0.21.0; extra == "images"
+Requires-Dist: torchvision>=0.26.0; extra == "images"
 Requires-Dist: timm==1.0.15; extra == "images"
 Requires-Dist: ultralytics==8.4.14; extra == "images"
 Requires-Dist: albumentations==2.0.6; extra == "images"
@@ -236,7 +236,7 @@ Requires-Dist: pillow-avif-plugin==1.5.2; extra == "images"
 Requires-Dist: pillow-heif==0.22.0; extra == "images"
 Requires-Dist: python-xmp-toolkit==2.1.0; extra == "images"
 Requires-Dist: exifread==3.5.1; extra == "images"
-Requires-Dist: transformers>=4.53.0; extra == "images"
+Requires-Dist: transformers>=5.0.0; extra == "images"
 Requires-Dist: ffmpeg==1.4; extra == "images"
 Requires-Dist: holoviews==1.21.0; extra == "images"
 Requires-Dist: bokeh==3.7.3; extra == "images"
@@ -280,6 +280,10 @@ Provides-Extra: security
 Requires-Dist: pytector[gguf]==0.2.0; extra == "security"
 Provides-Extra: xai
 Requires-Dist: xai-sdk>=0.1.0; extra == "xai"
+Provides-Extra: gemma4
+Requires-Dist: transformers>=5.0.0; extra == "gemma4"
+Requires-Dist: torch>=2.8.0; extra == "gemma4"
+Requires-Dist: accelerate>=1.9.0; extra == "gemma4"
 Provides-Extra: deploy
 Requires-Dist: gunicorn>=23.0.0; extra == "deploy"
 Provides-Extra: docling

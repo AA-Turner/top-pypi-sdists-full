@@ -14,6 +14,7 @@ Usage::
         CertificateValidatedWaiter,
         Client,
         ListCertificatesPaginator,
+        SearchCertificatesPaginator,
     )
 
     session = get_session()
@@ -25,14 +26,21 @@ Usage::
     certificate_validated_waiter: CertificateValidatedWaiter = client.get_waiter("certificate_validated")
 
     list_certificates_paginator: ListCertificatesPaginator = client.get_paginator("list_certificates")
+    search_certificates_paginator: SearchCertificatesPaginator = client.get_paginator("search_certificates")
     ```
 """
 
 from .client import ACMClient
-from .paginator import ListCertificatesPaginator
+from .paginator import ListCertificatesPaginator, SearchCertificatesPaginator
 from .waiter import CertificateValidatedWaiter
 
 Client = ACMClient
 
 
-__all__ = ("ACMClient", "CertificateValidatedWaiter", "Client", "ListCertificatesPaginator")
+__all__ = (
+    "ACMClient",
+    "CertificateValidatedWaiter",
+    "Client",
+    "ListCertificatesPaginator",
+    "SearchCertificatesPaginator",
+)

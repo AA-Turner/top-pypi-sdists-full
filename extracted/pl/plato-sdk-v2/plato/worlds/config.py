@@ -14,12 +14,7 @@ from plato._generated.models import (
     EnvFromSimulator,
 )
 from plato.markers import FieldMarker, WorkspaceMarker
-from plato.runtime import (
-    RuntimeConfig,
-    VMResources,
-    VMRuntimeConfig,
-)
-from plato.v2.async_.session import SerializedSession
+from plato.runtimes.config import RuntimeConfig, VMRuntimeConfig
 from plato.worlds.review.spec import ReviewSpec
 from plato.worlds.schema import get_field_annotations, get_world_config_schema
 
@@ -28,11 +23,8 @@ EnvConfig = EnvFromArtifact | EnvFromSimulator | EnvFromResource
 
 # Re-export for backwards compatibility
 __all__ = [
+    "ChronosConfig",
     "DevConfig",
-    "RuntimeConfig",
-    "SessionConfig",
-    "VMResources",
-    "VMRuntimeConfig",
     "WorkspaceSourceSpec",
 ]
 
@@ -80,25 +72,20 @@ class DevConfig(BaseModel):
     ssh_key_path: Path | None = None
 
 
-class SessionConfig(BaseModel):
-    """Session and telemetry configuration.
+class ChronosConfig(BaseModel):
+    """Chronos session and telemetry configuration.
 
     Contains session identifiers and endpoints for OTel tracing.
     The world VM uses chronos_url to request presigned URLs for
     state persistence from the Chronos API.
-
-    For cross-world trace propagation, parent_trace_id and parent_span_id
-    can be set so that this session's spans appear under the parent's trace.
-    These are populated by Chronos when the parent session's trace context
-    is available.
     """
 
     session_id: str = ""
     otel_url: str = ""
-    chronos_url: str = ""  # Base URL for Chronos API (presigned URL requests)
-    plato_session: SerializedSession | None = None
-    parent_trace_id: str | None = None  # Parent trace ID (hex) for cross-world linking
-    parent_span_id: str | None = None  # Parent span ID (hex) for cross-world linking
+    chronos_url: str = ""
+    api_key: str = ""
+    parent_trace_id: str | None = None
+    parent_span_id: str | None = None
 
 
 class PreviewConfig(BaseModel):
@@ -135,21 +122,20 @@ class AgentConfig(BaseModel):
             or provided directly for local/test runs).
         runtime: Runtime configuration (VM resources)
         config: Agent-specific configuration passed to the agent
-        max_parallel: Maximum number of concurrent agent VMs for this config.
-            When set, the world enforces a shared semaphore across all calls
-            to ``world.agent()`` with the same config.  Applies globally —
-            all pipeline stages sharing this agent config compete for the
-            same pool of slots.
+        max_parallel: Maximum number of concurrent pooled agent runtimes for
+            this config. When set, the world creates a shared lazy warm pool
+            plus queued execution across all matching ``world.agent()`` calls.
+            Healthy runtimes are preserved and reused up to this limit.
     """
 
     package: str | None = None
     image: str = ""
     runtime: RuntimeConfig = Field(default_factory=VMRuntimeConfig)
     config: dict[str, Any] = Field(default_factory=dict)
-    max_parallel: int | None = Field(
-        default=None,
+    max_parallel: int = Field(
+        default=1,
         ge=1,
-        description="Max concurrent agent VMs for this config. None = unlimited.",
+        description="Max concurrent pooled agent runtimes for this config.",
     )
 
 
@@ -263,57 +249,6 @@ class CheckpointConfig(BaseModel):
     exclude_envs: list[str] = Field(default_factory=lambda: ["runtime"])
 
 
-class TailscaleConfig(BaseModel):
-    """Optional Tailscale VPN configuration.
-
-    When ``enabled`` is True, the world VM joins the specified tailnet before
-    ``reset()`` runs.  This allows worlds to reach machines on the tailnet
-    (e.g. GPU servers) by hostname.
-
-    Uses ``api_key`` (a Tailscale API key) to generate a short-lived auth key
-    automatically via the Tailscale API.
-
-    Example YAML::
-
-        tailscale:
-          enabled: true
-          api_key: "tskey-api-..."
-    """
-
-    enabled: bool = False
-    api_key: str = ""
-
-
-class ChildWorldConfig(BaseModel):
-    """Pre-defined config for a child world, run inline or as a separate session.
-
-    Used in the top-level ``child_worlds`` block of a launch config JSON::
-
-        {
-          "world": { "package": "plato-world-foo:1.0", "config": { ... } },
-          "child_worlds": {
-            "my-reviewer": {
-              "mode": "inline",
-              "world_name": "foo-review",
-              "config": { "scoring_llm": { "model": "gemini/gemini-2.5-pro" } }
-            }
-          }
-        }
-
-    Modes:
-        - ``"inline"``: instantiate the world in-process on the same VM,
-          sharing the parent's workspaces, agents, and services.
-        - ``"session"``: launch as a new Chronos child session on a separate VM.
-    """
-
-    mode: Literal["inline", "session"] = "session"
-    package: str | None = None
-    world_name: str
-    config: dict[str, Any] = Field(default_factory=dict)
-    runtime: dict[str, Any] | None = None
-    tags: list[str] = Field(default_factory=list)
-
-
 class RunConfig(BaseModel):
     """Base configuration for running a world.
 
@@ -370,31 +305,7 @@ class RunConfig(BaseModel):
         description="How this session should be reviewed. None = no auto-review.",
     )
 
-    # E2E test mode — when set, runs test functions from this directory after
-    # reset() instead of the normal step() loop.  Tests receive the fully
-    # initialized world instance (with workspaces, agents, etc.).
-    e2e_test_dir: str | None = Field(
-        default=None,
-        description=(
-            "Path to a directory of test_*.py files.  When set, the world runs "
-            "reset() normally, then discovers and executes test functions instead "
-            "of the step() loop.  Each test_*(world) receives the live world."
-        ),
-    )
-    e2e_test_filter: str = Field(
-        default="",
-        description="Only run tests whose names contain this substring.",
-    )
-
-    # Optional Tailscale VPN — joins the tailnet before reset() if auth_key is set
-    tailscale: TailscaleConfig = Field(default_factory=TailscaleConfig)
-
     model_config = {"extra": "allow"}
-
-    # Child world configs — populated by the runner from the top-level
-    # ``child_worlds`` block in the launch JSON.  Not intended to be set
-    # directly in world-specific config classes.
-    child_worlds: dict[str, ChildWorldConfig] = Field(default_factory=dict, exclude=True)
 
     @classmethod
     def get_field_annotations(cls) -> dict[str, FieldMarker | WorkspaceMarker | None]:
@@ -428,21 +339,14 @@ class RunConfig(BaseModel):
         """Load config from a JSON file.
 
         Reads from world.config if present (Chronos config structure).
-        Also parses top-level ``child_worlds`` and attaches them to the config.
         """
         path = Path(path)
         with open(path) as f:
             full = json.load(f)
-
-        # Parse child_worlds from top-level before narrowing to world.config
-        child_worlds_raw = full.get("child_worlds", {})
-        child_worlds = {k: ChildWorldConfig.model_validate(v) for k, v in child_worlds_raw.items()}
 
         # Read from world.config if present
         data = full
         if "world" in data and isinstance(data["world"], dict) and "config" in data["world"]:
             data = data["world"]["config"]
 
-        instance = cls.model_validate(data)
-        instance.child_worlds = child_worlds
-        return instance
+        return cls.model_validate(data)

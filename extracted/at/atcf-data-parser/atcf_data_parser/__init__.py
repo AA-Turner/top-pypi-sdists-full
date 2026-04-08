@@ -1,4 +1,5 @@
 """A Python parser for the a-deck data posted online by the Automated Tropical Cyclone Forecasting System."""
+
 from __future__ import annotations
 
 import gzip
@@ -10,18 +11,21 @@ from retry import retry
 
 
 @retry()
-def get_gzipped_url(url: str) -> str:
-    """Open a gzipped file from a URL and return its contents as a list of strings.
+def get_gzipped_url(url: str, timeout: int | None = None) -> str:
+    """Open a gzipped file from a URL and return its contents as a strings.
 
     Parameters
     ----------
     url : str
         URL of the gzipped file.
+    timeout : int or None
+        Maximum number of seconds to wait for the network request.
+        Defaults to None (no timeout).
 
     Returns
     -------
     str
-        List of strings representing the lines of the file.
+        The file contents as a string.
 
     Examples
     --------
@@ -29,7 +33,8 @@ def get_gzipped_url(url: str) -> str:
     >>> get_gzipped_url(url)
     """
     # Read in the  URL
-    r = requests.get(url)
+    r = requests.get(url, timeout=timeout)
+    r.raise_for_status()
 
     # Unzip the file
     f = io.BytesIO(r.content)
@@ -46,25 +51,38 @@ def get_gzipped_url(url: str) -> str:
     return content
 
 
-def get_dataframe(url: str) -> pd.DataFrame:
+def get_dataframe(url: str, timeout: int = 30) -> pd.DataFrame:
     """Parse a fixed-width file into a pandas DataFrame.
 
     Parameters
     ----------
     url : str
         URL of the gzipped file.
+    timeout : int
+        Maximum number of seconds to wait for network requests.
+        Defaults to 30 seconds.
 
     Returns
     -------
     pandas.DataFrame
         DataFrame containing the parsed data.
 
+    Raises
+    ------
+    requests.HTTPError
+        If the URL does not exist or returns an HTTP error status.
+
     Examples
     --------
     >>> url = "https://ftp.nhc.noaa.gov/atcf/aid_public/aep182023.dat.gz"
     >>> get_dataframe(url)
     """
-    data = get_gzipped_url(url)
+    # Verify the URL exists before downloading
+    head = requests.head(url, allow_redirects=True, timeout=timeout)
+    head.raise_for_status()
+
+    data = get_gzipped_url(url, timeout=timeout)
+
     return pd.read_fwf(
         io.StringIO(data),
         colspecs=[

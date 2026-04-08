@@ -186,15 +186,17 @@ def get_import_errors(
     for import_error, file_dag_ids_iter in import_errors_result:
         dag_ids = [dag_id for _, dag_id in file_dag_ids_iter if dag_id is not None]
 
+        # No DAGs in the file, nothing to check permissions against
         if not dag_ids:
             import_errors.append(import_error)
             continue
 
+        dag_id_to_team = DagModel.get_dag_id_to_team_name_mapping(dag_ids, session=session)
         # Check if user has read access to all the DAGs defined in the file
         requests: Sequence[IsAuthorizedDagRequest] = [
             {
                 "method": "GET",
-                "details": DagDetails(id=dag_id),
+                "details": DagDetails(id=dag_id, team_name=dag_id_to_team.get(dag_id)),
             }
             for dag_id in dag_ids
         ]

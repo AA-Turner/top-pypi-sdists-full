@@ -44,6 +44,7 @@ from orbax.checkpoint._src.handlers import base_pytree_checkpoint_handler
 from orbax.checkpoint._src.metadata import array_metadata_store as array_metadata_store_lib
 from orbax.checkpoint._src.metadata import empty_values
 from orbax.checkpoint._src.metadata import tree as tree_metadata
+from orbax.checkpoint._src.path import types as path_types
 from orbax.checkpoint._src.serialization import limits
 from orbax.checkpoint._src.serialization import tensorstore_utils as ts_utils
 from orbax.checkpoint._src.serialization import type_handler_registry as handler_registry
@@ -470,7 +471,9 @@ def _concurrent_bytes(
     return concurrent_gb * 10**9
 
 
-class PyTreeCheckpointHandler(async_checkpoint_handler.AsyncCheckpointHandler):
+class PyTreeCheckpointHandler(
+    async_checkpoint_handler.DeferredPathAsyncCheckpointHandler
+):
   """A CheckpointHandler implementation for any PyTree structure.
 
   See JAX documentation for more information on what consistutes a "PyTree".
@@ -608,7 +611,7 @@ class PyTreeCheckpointHandler(async_checkpoint_handler.AsyncCheckpointHandler):
 
   async def async_save(
       self,
-      directory: epath.Path,
+      directory: epath.Path | path_types.PathAwaitingCreation,
       item: Optional[PyTree] = None,
       save_args: Optional[PyTreeSaveArgs] = None,
       args: Optional[PyTreeSaveArgs] = None,
@@ -680,7 +683,7 @@ class PyTreeCheckpointHandler(async_checkpoint_handler.AsyncCheckpointHandler):
     """Deserializes values or gets them from the aggregate file."""
     byte_limiter = limits.get_byte_limiter(self._restore_concurrent_bytes)
     param_infos = jax.tree.map(
-        lambda info: dataclasses.replace(info, byte_limiter=byte_limiter),
+        lambda info: info.replace(byte_limiter=byte_limiter),
         param_infos,
     )
 
@@ -820,11 +823,6 @@ class PyTreeCheckpointHandler(async_checkpoint_handler.AsyncCheckpointHandler):
       ValueError: `transforms` is provided without `item`.
       ValueError: `transforms` contains elements with `multi_value_fn`.
     """
-    if self._pytree_metadata_options.support_rich_types:
-      raise NotImplementedError(
-          'Restore is not supported for rich typed metadata yet. Please set'
-          ' PyTreeMetadataOptions.support_rich_types=False.'
-      )
     if not directory.exists():
       raise FileNotFoundError(
           f'Requested directory for restore does not exist at {directory}.'
@@ -876,7 +874,23 @@ class PyTreeCheckpointHandler(async_checkpoint_handler.AsyncCheckpointHandler):
       raise FileNotFoundError(
           f'Requested directory for restore does not exist at {directory}'
       )
-    structure, use_zarr3_metadata = self._get_internal_metadata(directory)
+    try:
+      structure, use_zarr3_metadata = self._get_internal_metadata(directory)
+    except FileNotFoundError:
+      if item is None:
+        raise
+      # If the checkpoint doesn't have a structure file, use the item as the
+      # structure. This is for backward compatibility with checkpoints that
+      # don't have a structure file.
+      structure = jax.tree.map(
+          lambda x: tree_metadata.ValueMetadataEntry(
+              value_type=empty_values.RESTORE_TYPE_UNKNOWN,
+              skip_deserialize=False,
+          ),
+          item,
+      )
+      use_zarr3_metadata = None
+
     # `checkpoint_restore_args` has a structure relative to the checkpoint,
     # while `restore_args` remains structured relative to the output.
 

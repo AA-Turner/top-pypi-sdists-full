@@ -421,29 +421,29 @@ src/ffi/error.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/error.cc.s
 .PHONY : src/ffi/error.cc.s
 
-src/ffi/extra/deep_copy.o: src/ffi/extra/deep_copy.cc.o
-.PHONY : src/ffi/extra/deep_copy.o
+src/ffi/extra/dataclass.o: src/ffi/extra/dataclass.cc.o
+.PHONY : src/ffi/extra/dataclass.o
 
 # target to build an object file
-src/ffi/extra/deep_copy.cc.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/deep_copy.cc.o
-.PHONY : src/ffi/extra/deep_copy.cc.o
+src/ffi/extra/dataclass.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/dataclass.cc.o
+.PHONY : src/ffi/extra/dataclass.cc.o
 
-src/ffi/extra/deep_copy.i: src/ffi/extra/deep_copy.cc.i
-.PHONY : src/ffi/extra/deep_copy.i
+src/ffi/extra/dataclass.i: src/ffi/extra/dataclass.cc.i
+.PHONY : src/ffi/extra/dataclass.i
 
 # target to preprocess a source file
-src/ffi/extra/deep_copy.cc.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/deep_copy.cc.i
-.PHONY : src/ffi/extra/deep_copy.cc.i
+src/ffi/extra/dataclass.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/dataclass.cc.i
+.PHONY : src/ffi/extra/dataclass.cc.i
 
-src/ffi/extra/deep_copy.s: src/ffi/extra/deep_copy.cc.s
-.PHONY : src/ffi/extra/deep_copy.s
+src/ffi/extra/dataclass.s: src/ffi/extra/dataclass.cc.s
+.PHONY : src/ffi/extra/dataclass.s
 
 # target to generate assembly for a file
-src/ffi/extra/deep_copy.cc.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/deep_copy.cc.s
-.PHONY : src/ffi/extra/deep_copy.cc.s
+src/ffi/extra/dataclass.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/dataclass.cc.s
+.PHONY : src/ffi/extra/dataclass.cc.s
 
 src/ffi/extra/env_c_api.o: src/ffi/extra/env_c_api.cc.o
 .PHONY : src/ffi/extra/env_c_api.o
@@ -660,30 +660,6 @@ src/ffi/extra/reflection_extra.s: src/ffi/extra/reflection_extra.cc.s
 src/ffi/extra/reflection_extra.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/reflection_extra.cc.s
 .PHONY : src/ffi/extra/reflection_extra.cc.s
-
-src/ffi/extra/repr_print.o: src/ffi/extra/repr_print.cc.o
-.PHONY : src/ffi/extra/repr_print.o
-
-# target to build an object file
-src/ffi/extra/repr_print.cc.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/repr_print.cc.o
-.PHONY : src/ffi/extra/repr_print.cc.o
-
-src/ffi/extra/repr_print.i: src/ffi/extra/repr_print.cc.i
-.PHONY : src/ffi/extra/repr_print.i
-
-# target to preprocess a source file
-src/ffi/extra/repr_print.cc.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/repr_print.cc.i
-.PHONY : src/ffi/extra/repr_print.cc.i
-
-src/ffi/extra/repr_print.s: src/ffi/extra/repr_print.cc.s
-.PHONY : src/ffi/extra/repr_print.s
-
-# target to generate assembly for a file
-src/ffi/extra/repr_print.cc.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/tvm_ffi_objs.dir/build.make CMakeFiles/tvm_ffi_objs.dir/src/ffi/extra/repr_print.cc.s
-.PHONY : src/ffi/extra/repr_print.cc.s
 
 src/ffi/extra/serialization.o: src/ffi/extra/serialization.cc.o
 .PHONY : src/ffi/extra/serialization.o
@@ -915,9 +891,9 @@ help:
 	@echo "... src/ffi/error.o"
 	@echo "... src/ffi/error.i"
 	@echo "... src/ffi/error.s"
-	@echo "... src/ffi/extra/deep_copy.o"
-	@echo "... src/ffi/extra/deep_copy.i"
-	@echo "... src/ffi/extra/deep_copy.s"
+	@echo "... src/ffi/extra/dataclass.o"
+	@echo "... src/ffi/extra/dataclass.i"
+	@echo "... src/ffi/extra/dataclass.s"
 	@echo "... src/ffi/extra/env_c_api.o"
 	@echo "... src/ffi/extra/env_c_api.i"
 	@echo "... src/ffi/extra/env_c_api.s"
@@ -945,9 +921,6 @@ help:
 	@echo "... src/ffi/extra/reflection_extra.o"
 	@echo "... src/ffi/extra/reflection_extra.i"
 	@echo "... src/ffi/extra/reflection_extra.s"
-	@echo "... src/ffi/extra/repr_print.o"
-	@echo "... src/ffi/extra/repr_print.i"
-	@echo "... src/ffi/extra/repr_print.s"
 	@echo "... src/ffi/extra/serialization.o"
 	@echo "... src/ffi/extra/serialization.i"
 	@echo "... src/ffi/extra/serialization.s"

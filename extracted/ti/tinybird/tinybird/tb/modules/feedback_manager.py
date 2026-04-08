@@ -1,8 +1,26 @@
 import os
 from collections import namedtuple
-from typing import Any, Callable
+from typing import Any, Callable, Optional
+
+import click
 
 FeedbackMessage = namedtuple("FeedbackMessage", "message")
+
+PROJECT_TYPE_PYTHON = "python-sdk"
+PROJECT_TYPE_TYPESCRIPT = "ts-sdk"
+
+
+def get_cli_name(project_type: Optional[str] = None) -> str:
+    """Return the CLI command name based on the project type."""
+    if project_type is None:
+        ctx = click.get_current_context(silent=True)
+        if ctx:
+            project_type = ctx.ensure_object(dict).get("project_type")
+    if project_type == PROJECT_TYPE_PYTHON:
+        return "uv run tinybird"
+    if project_type == PROJECT_TYPE_TYPESCRIPT:
+        return "npx tinybird"
+    return "tb"
 
 
 class bcolors:
@@ -19,6 +37,7 @@ class bcolors:
 
 def print_message(message: str, color: str = bcolors.ENDC) -> Callable[..., str]:
     def formatter(**kwargs: Any) -> str:
+        kwargs.setdefault("cli", "tb")
         return f"{color}{message.format(**kwargs)}{bcolors.ENDC}"
 
     return formatter
@@ -77,7 +96,7 @@ class FeedbackManager:
     error_exception = error_exception("{error}")
     simple_error_exception = simple_error_message("{error}")
     error_exception_trace = error_message("{error}\n** Trace:\n{trace}")
-    error_notoken = error_message("This action requires authentication. Run 'tb login' first")
+    error_notoken = error_message("This action requires authentication. Run '{cli} login' first")
     error_auth_config = error_message("{config_file} does not exist")
     error_file_config = error_message("{config_file} can't be written, check write permissions on this folder")
     error_load_file_config = error_message("{config_file} can't be loaded, remove it and run the command again")
@@ -122,7 +141,7 @@ class FeedbackManager:
         "There's no Release with semver {semver} for Workspace {workspace}"
     )
     error_invalid_token = error_message(
-        "Invalid token\n** Run 'tb auth --interactive' to select region. If you belong to a custom region, include your region host in the command:\n** tb auth --host https://<region>.tinybird.co"
+        "Invalid token\n** Run '{cli} auth --interactive' to select region. If you belong to a custom region, include your region host in the command:\n** {cli} auth --host https://<region>.tinybird.co"
     )
     error_token_cannot_be_overriden = error_message("Token '{token}' cannot be overriden")
     error_invalid_query = error_message("Only SELECT queries are supported")
@@ -214,9 +233,9 @@ class FeedbackManager:
         "Cannot diff {filename}. Datafile names must be globally unique, make sure there is no other Datafile with the same name."
     )
     error_auth = error_message("Check your local config")
-    error_wrong_config_file = error_message("Wrong {config_file}, run 'tb auth' to initialize")
+    error_wrong_config_file = error_message("Wrong {config_file}, run '{cli} auth' to initialize")
     error_workspace_not_in_local_config = error_message(
-        "Use 'tb auth add --ws {workspace}' to add this workspace to the local config"
+        "Use '{cli} auth add --ws {workspace}' to add this workspace to the local config"
     )
     error_not_personal_auth = error_message("** You have to authenticate with a personal account")
     error_incremental_not_supported = error_message(
@@ -227,7 +246,7 @@ class FeedbackManager:
     error_sync_not_supported = error_message("The --sync parameter is only supported for {valid_datasources}")
     error_invalid_connector = error_message("Invalid connector parameter: Use one of {connectors}")
     error_connector_not_configured = error_message(
-        "{connector} connector not properly configured. Please run `tb auth --connector {connector}` first"
+        "{connector} connector not properly configured. Please run `{cli} auth --connector {connector}` first"
     )
     error_connector_not_installed = error_message(
         "{connector} connector not properly installed. Please run `pip install tinybird-cli[{connector}]` first"
@@ -254,14 +273,14 @@ class FeedbackManager:
     error_datasource_connection_id = error_message("Invalid connection ID")
     error_connection_file_already_exists = error_message("Connection file {name} already exists")
     error_connection_already_exists = error_message(
-        "Connection {name} already exists. Use 'tb connection ls' to list your connections"
+        "Connection {name} already exists. Use '{cli} connection ls' to list your connections"
     )
     error_connection_does_not_exists = error_message("Connection {connection_id} does not exist")
     error_connection_create = error_message("Connection {connection_name} could not be created: {error}")
     error_connection_integration_not_available = error_message("Connection could not be created: {error}")
     error_connection_invalid_ca_pem = error_message("Invalid CA certificate in PEM format")
     error_connection_ca_pem_not_found = error_message("CA certificate in PEM format not found at {ca_pem}")
-    error_workspace = error_message("Workspace {workspace} not found. use 'tb workspace ls' to list your workspaces")
+    error_workspace = error_message("Workspace {workspace} not found. use '{cli} workspace ls' to list your workspaces")
     error_workspace_name_required = error_message("Workspace name is required")
     error_organization_not_found = error_message("Organization with id '{organization_id}' not found")
     error_organization_index = error_message(
@@ -279,23 +298,23 @@ class FeedbackManager:
         "Included file {filename} at line {lineno} not found. Check if the file exists and the path is correct."
     )
     error_branch = error_message(
-        "Branch {branch} not found. use 'tb branch ls' to list your Branches, make sure you are authenticated using the right workspace token"
+        "Branch {branch} not found. use '{cli} branch ls' to list your Branches, make sure you are authenticated using the right workspace token"
     )
     error_not_a_branch = error_message(
-        "To use this command you need to be authenticated on a Branch. Use 'tb branch ls' and 'tb branch use' and retry the command."
+        "To use this command you need to be authenticated on a Branch. Use '{cli} branch ls' and '{cli} branch use' and retry the command."
     )
     error_not_allowed_in_branch = error_message(
-        "You need to be in Main to run this command. Hint: run `tb branch use main` to switch to Main"
+        "You need to be in Main to run this command. Hint: run `{cli} branch use main` to switch to Main"
     )
     error_not_allowed_in_main_branch = error_message("Command disabled for 'main' Branch")
     error_getting_region_by_index = error_message(
-        "Unable to get region by index, list available regions using 'tb auth ls'"
+        "Unable to get region by index, list available regions using '{cli} auth ls'"
     )
     error_region_index = error_message(
         "Error selecting region '{host_index}', available options are: {available_options} or 0"
     )
     error_getting_region_by_name_or_url = error_message(
-        "Unable to get region by name or host url, list available regions using 'tb auth ls'"
+        "Unable to get region by name or host url, list available regions using '{cli} auth ls'"
     )
     error_operation_can_not_be_performed = error_message("Operation can not be performed: {error}")
     error_partial_replace_cant_be_executed = error_message(
@@ -307,7 +326,7 @@ class FeedbackManager:
     error_datasource_ls_type = error_message("Invalid Format provided")
     error_pipe_ls_type = error_message("Invalid Format provided")
     error_token_not_validate_in_any_region = error_message("Token not validated in any region")
-    error_not_authenticated = error_message("You are not authenticated, use 'tb auth -i' to authenticate yourself")
+    error_not_authenticated = error_message("You are not authenticated, use '{cli} auth -i' to authenticate yourself")
     error_missing_url_or_connector = error_message(
         "Missing url, local path or --connector argument for append to datasource '{datasource}'"
     )
@@ -319,14 +338,14 @@ class FeedbackManager:
     error_running_test = error_message("There was a problem running test file {file} (use -v for more info)")
     error_processing_blocks = error_message("There was been an error while processing some blocks: {error}")
     error_switching_to_main = error_message(
-        "** Unable to switch to 'main' Workspace. Need to authenticate again, use 'tb auth"
+        "** Unable to switch to 'main' Workspace. Need to authenticate again, use '{cli} auth"
     )
     error_parsing_node_with_unclosed_if = error_message(
         "Missing {{%end%}} block in parsing node '{node}' from pipe '{pipe}':\n Missing in line '{lineno}' of the SQL:\n '{sql}'"
     )
     error_unknown_connection = error_message("Unknown connection '{connection}' in Data Source '{datasource}'.")
     error_unknown_kafka_connection = error_message(
-        "Unknown Kafka connection in Data Source '{datasource}'. Hint: you can create it with the 'tb connection create kafka' command.\n** See https://www.tinybird.co/docs/ingest/kafka.html?highlight=kafka#using-include-to-store-connection-settings to learn more."
+        "Unknown Kafka connection in Data Source '{datasource}'. Hint: you can create it with the '{cli} connection create kafka' command.\n** See https://www.tinybird.co/docs/ingest/kafka.html?highlight=kafka#using-include-to-store-connection-settings to learn more."
     )
     error_unknown_connection_service = error_message("Unknown connection service '{service}'")
     error_missing_connection_name = error_message("Missing IMPORT_CONNECTION_NAME in '{datasource}'.")
@@ -349,7 +368,7 @@ class FeedbackManager:
     )
     error_no_git_repo_for_release = error_message("Invalid git repository in '{path}'")
     error_commit_changes_to_release = error_message(
-        "Data project has changes: 'git status -s {path}'\n\n{git_output} \n\n You need to commit your changes in the data project, then re-run 'tb deploy' to deploy"
+        "Data project has changes: 'git status -s {path}'\n\n{git_output} \n\n You need to commit your changes in the data project, then re-run '{cli} deploy' to deploy"
     )
     error_head_outdated = error_message(
         "Current HEAD commit '{commit}' is outdated.\n\n    💡Hint: consider to rebase your Git branch with base branch."
@@ -359,22 +378,22 @@ class FeedbackManager:
     )
     error_head_already_released = error_message("Current HEAD commit '{commit}' is already deployed")
     error_in_git_ancestor_commits = error_message(
-        "Error checking relationship between HEAD '{head_commit}' and Workspace commit '{workspace_commit}'.\n\n    Current Workspace commit needs to be an ancestor of the commit being deployed.\n\n    💡 Hint: consider to rebase your Git branch. If the problem persists, double check the Workspace commit exists in the git log, if it does not exist you can override the Workspace commit to an ancestor of the commit being deployed using `tb init --override-commit <commit>`"
+        "Error checking relationship between HEAD '{head_commit}' and Workspace commit '{workspace_commit}'.\n\n    Current Workspace commit needs to be an ancestor of the commit being deployed.\n\n    💡 Hint: consider to rebase your Git branch. If the problem persists, double check the Workspace commit exists in the git log, if it does not exist you can override the Workspace commit to an ancestor of the commit being deployed using `{cli} init --override-commit <commit>`"
     )
     error_init_release = error_message(
-        "No release on Workspace '{workspace}'. Hint: use 'tb init --git' to start working with git"
+        "No release on Workspace '{workspace}'. Hint: use '{cli} init --git' to start working with git"
     )
     error_branch_init_release = error_message(
-        "Branch '{workspace}' not ready for deploy. Hint: use 'tb init --git' to start working with git and assure Branch is completely created using '--wait' on 'tb branch create'"
+        "Branch '{workspace}' not ready for deploy. Hint: use '{cli} init --git' to start working with git and assure Branch is completely created using '--wait' on '{cli} branch create'"
     )
     error_commit_changes_to_init_release = error_message(
-        "Data project has changes: 'git status -s {path}'\n\n{git_output} \n\n You need to commit your changes in the data project, then re-run 'tb init --git' to finish git initialization."
+        "Data project has changes: 'git status -s {path}'\n\n{git_output} \n\n You need to commit your changes in the data project, then re-run '{cli} init --git' to finish git initialization."
     )
     error_no_git_repo_for_init = error_message(
         "'{repo_path}' does not appear to be a git repository. Hint: you can create it with 'git init'"
     )
     error_no_git_main_branch = error_message(
-        "Please make sure you run `tb init --git` over your main git branch, supported main branch names are: main, master, develop"
+        "Please make sure you run `{cli} init --git` over your main git branch, supported main branch names are: main, master, develop"
     )
     error_dottinyb_not_ignored = error_message(
         "Include '.tinyb' in .gitignore. Otherwise you could expose tokens. Hint: 'echo \".tinyb\" >> {git_working_dir}.gitignore'"
@@ -401,7 +420,7 @@ class FeedbackManager:
     error_unsupported_datafile = error_message("Unsupported Datafile type {extension}")
     error_unable_to_identify_main_workspace = error_message("We could not identify the main workspace")
     error_unsupported_diff = error_message(
-        "There are resources renamed. `tb deploy` can't deploy renamed resources, create new resources instead."
+        "There are resources renamed. `{cli} deploy` can't deploy renamed resources, create new resources instead."
     )
     error_forkdownstream_pipes_with_engine = error_message(
         "Materialized view {pipe} has the datasource definition in the same file as the SQL transformation. This is no longer supported while using Versions. Please, split the datasource definition into a separate file."
@@ -664,7 +683,7 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     warning_using_branch_host = warning_message("** You're using the token defined in $TB_HOST.")
 
     error_bump_release = error_message(
-        "Error: Bump the --semver flag, example 'tb --semver 0.0.2 {command}'. If you are in CI, bump the VERSION envvar in .tinyenv\n"
+        "Error: Bump the --semver flag, example '{cli} --semver 0.0.2 {command}'. If you are in CI, bump the VERSION envvar in .tinyenv\n"
     )
     error_connection_improper_permissions = error_message(
         "Connection is not valid. Please check your credentials and try again.\n"
@@ -672,7 +691,7 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     error_cicd_already_exists = info_message("CI/CD config for {provider} already exists. Use --force to overwrite")
 
     info_connection_already_exists = info_message(
-        "Connection {name} already exists. Use 'tb connection ls' to list your connections"
+        "Connection {name} already exists. Use '{cli} connection ls' to list your connections"
     )
     info_creating_kafka_connection = info_message("** Creating new Kafka connection '{connection_name}'")
     info_creating_s3_iamrole_connection = info_message("** Creating new S3 IAM Role connection '{connection_name}'")
@@ -692,7 +711,7 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     )
     warning_deprecated = warning_message("** 🚨🚨🚨 [DEPRECATED]: {warning}")
     warning_deprecated_releases = warning_message(
-        "** 🚨🚨🚨 [DEPRECATED]: --semver and Releases are deprecated. You can keep using `tb deploy` to deploy the changed resources from a git commit to the main Workspace and any other command without the --semver flag."
+        "** 🚨🚨🚨 [DEPRECATED]: --semver and Releases are deprecated. You can keep using `{cli} deploy` to deploy the changed resources from a git commit to the main Workspace and any other command without the --semver flag."
     )
     warning_token_pipe = warning_message("** There's no read token for pipe {pipe}")
     warning_file_not_found_inside = warning_message(
@@ -706,7 +725,7 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
         """** Warning: Data Source {datasource} already exists and can't be migrated or replaced.
 ** This is a safety feature to avoid removing a Data Source by mistake.
 ** Drop it using:
-**    $ tb datasource rm {datasource}"""
+**    $ {cli} datasource rm {datasource}"""
     )
     warning_name_already_exists = warning_message("** Warning: {name} already exists, skipping")
     warning_dry_name_already_exists = warning_message("** [DRY RUN] {name} already exists, skipping")
@@ -718,7 +737,7 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     )
     warning_fixture_not_found = warning_message("** Warning: No fixture found for the datasource {datasource_name}")
     warning_update_version = warning_message(
-        "** VERSION {latest_version} AVAILABLE: please run `tb update` to update or `export TB_VERSION_WARNING=0` to skip the check."
+        "** VERSION {latest_version} AVAILABLE: please run `{cli} update` to update or `export TB_VERSION_WARNING=0` to skip the check."
     )
     warning_current_version = warning_message("** Current version: {current_version}\n")
     warning_confirm_truncate_datasource = prompt_message(
@@ -917,7 +936,7 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
         "** Please review the list of dependent pipes that could be affected by these changes:"
     )
     info_custom_deployment = info_message(
-        "** 🚨 Warning 🚨: The changes in the branch require the `--yes` flag to the `tb deploy` command to overwrite resources. Run `tb release generate --semver <semver> to generate a custom deployment and include the `--yes` flag. Read more about custom deployments => https://www.tinybird.co/docs/production/deployment-strategies.html#customizing-deployments"
+        "** 🚨 Warning 🚨: The changes in the branch require the `--yes` flag to the `{cli} deploy` command to overwrite resources. Run `{cli} release generate --semver <semver> to generate a custom deployment and include the `--yes` flag. Read more about custom deployments => https://www.tinybird.co/docs/production/deployment-strategies.html#customizing-deployments"
     )
     info_ask_for_alter_confirmation = info_message("** Please confirm you want to apply the changes above y/N")
     info_available_regions = info_message("** List of available regions:")
@@ -941,7 +960,7 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     info_workspace_users = info_message("\nMembers in workspace '{workspace_name}':")
     info_no_git_release_yet = info_message("\n** Initializing based on git for Workspace '{workspace}'")
     info_diff_resources_for_git_init = info_message(
-        "** Checking diffs between remote Workspace and local. Hint: use 'tb diff' to check if your Data Project and Workspace synced"
+        "** Checking diffs between remote Workspace and local. Hint: use '{cli} diff' to check if your Data Project and Workspace synced"
     )
     info_cicd_file_generated = info_message("{file_path}")
     info_available_git_providers = info_message("** List of available providers:")
@@ -988,7 +1007,7 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     info_tag_resources = info_message("** Resources tagged by {tag_name}:")
     info_build_failed = info_message("** Build failed")
     warning_no_release = warning_message(
-        "** Warning: Workspace does not have Releases, run `tb init --git` to activate them."
+        "** Warning: Workspace does not have Releases, run `{cli} init --git` to activate them."
     )
     warning_release_risky_operation_in_live = warning_message(
         "** Warning: This operation will make changes to the live Release. Consider using a preview release or a branch."
@@ -1000,10 +1019,10 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     success_deployment_release = success_message("** => Release {semver} created in deploying status")
     success_test_endpoint_no_token = success_message("** => Test endpoint at {host}/v0/pipes/{pipe}.json")
     success_promote = success_message(
-        "** Release has been promoted to Live. Run `tb release ls` to list Releases in the Workspace. To rollback to the previous Release run `tb release rollback`."
+        "** Release has been promoted to Live. Run `{cli} release ls` to list Releases in the Workspace. To rollback to the previous Release run `{cli} release rollback`."
     )
     success_rollback = success_message(
-        "** Previous Release has been promoted to Live. Run `tb release ls` to list Releases in the Workspace."
+        "** Previous Release has been promoted to Live. Run `{cli} release ls` to list Releases in the Workspace."
     )
     success_processing_data = success_message("**  OK")
     success_generated_file = success_message(

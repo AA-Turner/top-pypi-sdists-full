@@ -20,12 +20,14 @@ from plato.v2.async_.flow_executor import FlowExecutionError as AsyncFlowExecuti
 from plato.v2.async_.flow_executor import FlowExecutor as AsyncFlowExecutor
 from plato.v2.async_.session import SerializedSession
 from plato.v2.async_.session import Session as AsyncSession
+from plato.v2.async_.testcase import AsyncTestcaseManager
 from plato.v2.sync.chronos import Chronos, ChronosSession
 from plato.v2.sync.client import Plato
 from plato.v2.sync.environment import Environment
 from plato.v2.sync.flow_executor import FlowExecutionError, FlowExecutor
 from plato.v2.sync.sandbox import SandboxClient
 from plato.v2.sync.session import LoginResult, Session
+from plato.v2.sync.testcase import TestcaseManager
 
 # Helper types
 from plato.v2.types import (
@@ -48,6 +50,7 @@ __all__ = [
     "Chronos",
     "ChronosSession",
     "SandboxClient",
+    "TestcaseManager",
     # Async
     "AsyncPlato",
     "AsyncSession",
@@ -57,6 +60,7 @@ __all__ = [
     "SerializedSession",
     "AsyncChronos",
     "AsyncChronosSession",
+    "AsyncTestcaseManager",
     # Models
     "Flow",
     # Helpers

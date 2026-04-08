@@ -29,28 +29,52 @@ from botocore.client import ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListBlueprintsPaginator, ListDataAutomationProjectsPaginator
+from .paginator import (
+    ListBlueprintsPaginator,
+    ListDataAutomationLibrariesPaginator,
+    ListDataAutomationLibraryEntitiesPaginator,
+    ListDataAutomationLibraryIngestionJobsPaginator,
+    ListDataAutomationProjectsPaginator,
+)
 from .type_defs import (
     CopyBlueprintStageRequestTypeDef,
     CreateBlueprintRequestTypeDef,
     CreateBlueprintResponseTypeDef,
     CreateBlueprintVersionRequestTypeDef,
     CreateBlueprintVersionResponseTypeDef,
+    CreateDataAutomationLibraryRequestTypeDef,
+    CreateDataAutomationLibraryResponseTypeDef,
     CreateDataAutomationProjectRequestTypeDef,
     CreateDataAutomationProjectResponseTypeDef,
     DeleteBlueprintRequestTypeDef,
+    DeleteDataAutomationLibraryRequestTypeDef,
+    DeleteDataAutomationLibraryResponseTypeDef,
     DeleteDataAutomationProjectRequestTypeDef,
     DeleteDataAutomationProjectResponseTypeDef,
     GetBlueprintOptimizationStatusRequestTypeDef,
     GetBlueprintOptimizationStatusResponseTypeDef,
     GetBlueprintRequestTypeDef,
     GetBlueprintResponseTypeDef,
+    GetDataAutomationLibraryEntityRequestTypeDef,
+    GetDataAutomationLibraryEntityResponseTypeDef,
+    GetDataAutomationLibraryIngestionJobRequestTypeDef,
+    GetDataAutomationLibraryIngestionJobResponseTypeDef,
+    GetDataAutomationLibraryRequestTypeDef,
+    GetDataAutomationLibraryResponseTypeDef,
     GetDataAutomationProjectRequestTypeDef,
     GetDataAutomationProjectResponseTypeDef,
     InvokeBlueprintOptimizationAsyncRequestTypeDef,
     InvokeBlueprintOptimizationAsyncResponseTypeDef,
+    InvokeDataAutomationLibraryIngestionJobRequestTypeDef,
+    InvokeDataAutomationLibraryIngestionJobResponseTypeDef,
     ListBlueprintsRequestTypeDef,
     ListBlueprintsResponseTypeDef,
+    ListDataAutomationLibrariesRequestTypeDef,
+    ListDataAutomationLibrariesResponseTypeDef,
+    ListDataAutomationLibraryEntitiesRequestTypeDef,
+    ListDataAutomationLibraryEntitiesResponseTypeDef,
+    ListDataAutomationLibraryIngestionJobsRequestTypeDef,
+    ListDataAutomationLibraryIngestionJobsResponseTypeDef,
     ListDataAutomationProjectsRequestTypeDef,
     ListDataAutomationProjectsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -59,6 +83,8 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateBlueprintRequestTypeDef,
     UpdateBlueprintResponseTypeDef,
+    UpdateDataAutomationLibraryRequestTypeDef,
+    UpdateDataAutomationLibraryResponseTypeDef,
     UpdateDataAutomationProjectRequestTypeDef,
     UpdateDataAutomationProjectResponseTypeDef,
 )
@@ -148,6 +174,16 @@ class DataAutomationforBedrockClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#create_blueprint_version)
         """
 
+    async def create_data_automation_library(
+        self, **kwargs: Unpack[CreateDataAutomationLibraryRequestTypeDef]
+    ) -> CreateDataAutomationLibraryResponseTypeDef:
+        """
+        Creates an Amazon Bedrock Data Automation Library.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/create_data_automation_library.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#create_data_automation_library)
+        """
+
     async def create_data_automation_project(
         self, **kwargs: Unpack[CreateDataAutomationProjectRequestTypeDef]
     ) -> CreateDataAutomationProjectResponseTypeDef:
@@ -166,6 +202,16 @@ class DataAutomationforBedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/delete_blueprint.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#delete_blueprint)
+        """
+
+    async def delete_data_automation_library(
+        self, **kwargs: Unpack[DeleteDataAutomationLibraryRequestTypeDef]
+    ) -> DeleteDataAutomationLibraryResponseTypeDef:
+        """
+        Deletes an existing Amazon Bedrock Data Automation Library.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/delete_data_automation_library.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#delete_data_automation_library)
         """
 
     async def delete_data_automation_project(
@@ -198,6 +244,36 @@ class DataAutomationforBedrockClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#get_blueprint_optimization_status)
         """
 
+    async def get_data_automation_library(
+        self, **kwargs: Unpack[GetDataAutomationLibraryRequestTypeDef]
+    ) -> GetDataAutomationLibraryResponseTypeDef:
+        """
+        Gets an existing Amazon Bedrock Data Automation Library.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/get_data_automation_library.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#get_data_automation_library)
+        """
+
+    async def get_data_automation_library_entity(
+        self, **kwargs: Unpack[GetDataAutomationLibraryEntityRequestTypeDef]
+    ) -> GetDataAutomationLibraryEntityResponseTypeDef:
+        """
+        Gets an existing entity based on entity type from the library.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/get_data_automation_library_entity.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#get_data_automation_library_entity)
+        """
+
+    async def get_data_automation_library_ingestion_job(
+        self, **kwargs: Unpack[GetDataAutomationLibraryIngestionJobRequestTypeDef]
+    ) -> GetDataAutomationLibraryIngestionJobResponseTypeDef:
+        """
+        API used to get status of data automation library ingestion job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/get_data_automation_library_ingestion_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#get_data_automation_library_ingestion_job)
+        """
+
     async def get_data_automation_project(
         self, **kwargs: Unpack[GetDataAutomationProjectRequestTypeDef]
     ) -> GetDataAutomationProjectResponseTypeDef:
@@ -218,6 +294,16 @@ class DataAutomationforBedrockClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#invoke_blueprint_optimization_async)
         """
 
+    async def invoke_data_automation_library_ingestion_job(
+        self, **kwargs: Unpack[InvokeDataAutomationLibraryIngestionJobRequestTypeDef]
+    ) -> InvokeDataAutomationLibraryIngestionJobResponseTypeDef:
+        """
+        Async API: Invoke data automation library ingestion job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/invoke_data_automation_library_ingestion_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#invoke_data_automation_library_ingestion_job)
+        """
+
     async def list_blueprints(
         self, **kwargs: Unpack[ListBlueprintsRequestTypeDef]
     ) -> ListBlueprintsResponseTypeDef:
@@ -226,6 +312,36 @@ class DataAutomationforBedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/list_blueprints.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#list_blueprints)
+        """
+
+    async def list_data_automation_libraries(
+        self, **kwargs: Unpack[ListDataAutomationLibrariesRequestTypeDef]
+    ) -> ListDataAutomationLibrariesResponseTypeDef:
+        """
+        Lists all existing Amazon Bedrock Data Automation Libraries.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/list_data_automation_libraries.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#list_data_automation_libraries)
+        """
+
+    async def list_data_automation_library_entities(
+        self, **kwargs: Unpack[ListDataAutomationLibraryEntitiesRequestTypeDef]
+    ) -> ListDataAutomationLibraryEntitiesResponseTypeDef:
+        """
+        Lists all stored entities in the library.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/list_data_automation_library_entities.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#list_data_automation_library_entities)
+        """
+
+    async def list_data_automation_library_ingestion_jobs(
+        self, **kwargs: Unpack[ListDataAutomationLibraryIngestionJobsRequestTypeDef]
+    ) -> ListDataAutomationLibraryIngestionJobsResponseTypeDef:
+        """
+        Lists all data automation library ingestion jobs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/list_data_automation_library_ingestion_jobs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#list_data_automation_library_ingestion_jobs)
         """
 
     async def list_data_automation_projects(
@@ -274,6 +390,16 @@ class DataAutomationforBedrockClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#update_blueprint)
         """
 
+    async def update_data_automation_library(
+        self, **kwargs: Unpack[UpdateDataAutomationLibraryRequestTypeDef]
+    ) -> UpdateDataAutomationLibraryResponseTypeDef:
+        """
+        Updates an existing Amazon Bedrock Data Automation Library.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/update_data_automation_library.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#update_data_automation_library)
+        """
+
     async def update_data_automation_project(
         self, **kwargs: Unpack[UpdateDataAutomationProjectRequestTypeDef]
     ) -> UpdateDataAutomationProjectResponseTypeDef:
@@ -288,6 +414,39 @@ class DataAutomationforBedrockClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_blueprints"]
     ) -> ListBlueprintsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_automation_libraries"]
+    ) -> ListDataAutomationLibrariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_automation_library_entities"]
+    ) -> ListDataAutomationLibraryEntitiesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_automation_library_ingestion_jobs"]
+    ) -> ListDataAutomationLibraryIngestionJobsPaginator:
         """
         Create a paginator for an operation.
 

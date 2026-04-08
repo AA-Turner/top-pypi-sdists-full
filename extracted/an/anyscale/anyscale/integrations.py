@@ -10,7 +10,7 @@ from anyscale.client.openapi_client.models import WandBRunDetails
 from anyscale.sdk.anyscale_client import JobsQuery
 from anyscale.shared_anyscale_utils.util import slugify
 from anyscale.shared_anyscale_utils.utils.protected_string import ProtectedString
-from anyscale.util import get_endpoint
+from anyscale.util import AWS_PRM_USER_AGENT_STRING, get_endpoint
 from anyscale.utils.imports.gcp import try_import_gcp_secretmanager
 
 
@@ -31,9 +31,15 @@ def get_aws_secret(secret_name: str, **kwargs) -> ProtectedString:
         secret_name: Key of your secret
         kwargs: Optional credentials passed in to authenticate instance
     """
-    import boto3  # noqa: PLC0415 - codex_reason("gpt5.2", "optional AWS SDK dependency for secrets retrieval")
+    import boto3  # noqa: PLC0415
+    from botocore.config import Config as BotoConfig  # noqa: PLC0415
 
-    client = boto3.client("secretsmanager", **kwargs)
+    caller_config = kwargs.pop("config", None)
+    apn_config = BotoConfig(user_agent_extra=AWS_PRM_USER_AGENT_STRING)
+    config = (
+        caller_config.merge(apn_config) if caller_config is not None else apn_config
+    )
+    client = boto3.client("secretsmanager", config=config, **kwargs)
     response = client.get_secret_value(SecretId=secret_name)
 
     # Depending on whether the secret is a string or binary, one of these fields will be populated.

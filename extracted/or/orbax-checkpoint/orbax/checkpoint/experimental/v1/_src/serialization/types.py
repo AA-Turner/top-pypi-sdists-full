@@ -15,7 +15,6 @@
 """Define types for :py:class:`.LeafHandler`."""
 
 import dataclasses
-import typing
 from typing import Any, Awaitable, Generic, Protocol, Sequence, Tuple, Type, TypeVar
 
 import jax
@@ -23,6 +22,7 @@ import jax.experimental.layout as jax_layout
 import numpy as np
 from orbax.checkpoint._src.arrays import types as arrays_types
 from orbax.checkpoint._src.serialization import limits
+from orbax.checkpoint._src.serialization import types as serialization_types
 from orbax.checkpoint._src.tree import utils as tree_utils
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
@@ -36,6 +36,8 @@ Shape = arrays_types.Shape
 DType = arrays_types.DType
 
 PLACEHOLDER = ...
+
+IsPrioritizedKeyFn = serialization_types.IsPrioritizedKeyFn
 
 Scalar = int | float | np.number
 # Optional type hint for a scalar leaf handler. If provided, the restored scalar
@@ -96,39 +98,170 @@ def is_placeholder(value: Any) -> bool:
   return value is PLACEHOLDER
 
 
-@typing.final
-@dataclasses.dataclass(frozen=True, kw_only=True)
+@dataclasses.dataclass
 class SerializationParam(Generic[Leaf]):
+  """Represents a specific leaf-level parameter within a PyTree.
+
+  SerializationParam represents a single PyTree leaf by pairing its value
+  (data or metadata) with its keypath (the location within the original nested
+  structure). It serves as a container for the parameters passed to
+  `LeafHandler`, which enables the implementation of serialization support for
+  custom leaf objects.
+
+  Example Usage:
+    SerializationParam is used when implementing custom LeafHandlers::
+
+      class MyCustomHandler(LeafHandler):
+        async def serialize(
+            self,
+            params: Sequence[SerializationParam],
+            context: SerializationContext
+        ):
+          for param in params:
+            # param.value contains the object to be serialized.
+            data = param.value
+
+            # Derive the name from the keypath.
+            leaf_name = "/".join(str(k) for k in param.keypath)
+
+            # Using the context to determine the save location
+            print(f"Saving {leaf_name} to {context.parent_dir}")
+
+  Attributes:
+    keypath (Tuple[Any, ...]): A tuple of keys (often JAX Key objects) that
+      defines the path from the root of the PyTree to this specific leaf.
+    value (Any): The data associated with the leaf. This could be a jax.Array,
+      a numpy.ndarray, or a metadata object depending on the stage of
+      the checkpointing process.
+  """
   keypath: tree_types.PyTreeKeyPath
   value: Leaf
 
   @property
   def name(self) -> str:
+    """The name of the parameter derived from its keypath."""
     return tree_utils.param_name_from_keypath(self.keypath)
 
 
-@typing.final
-@dataclasses.dataclass(frozen=True, kw_only=True)
+@dataclasses.dataclass
 class SerializationContext:
+  """A container for the execution context passed to :py:class:`LeafHandler`.
+
+  This class aggregates global resources—such as the destination path and
+  concurrency limits—enabling the implementation of serialization support for
+  custom leaf objects.
+
+  Example Usage:
+    SerializationContext is accessed within `LeafHandler.serialize` to determine
+    where and how to write data::
+
+      class MyCustomHandler(LeafHandler):
+        async def serialize(
+            self,
+            params: Sequence[SerializationParam],
+            context: SerializationContext
+        ):
+          # Use the context to determine the save location
+          save_path = context.parent_dir / "data.bin"
+
+          # Use the context's limiter to manage I/O concurrency
+          if context.byte_limiter:
+            async with context.byte_limiter:
+               await self._write_to_disk(save_path, params)
+
+  Attributes:
+    parent_dir: The base directory where the checkpoint or leaf data should be
+      saved.
+    ts_context: An optional :py:class:`tensorstore.Context` object used to
+      configure storage backends and shared resources.
+    byte_limiter: An optional rate limiter used to throttle I/O operations.
+  """
+
   parent_dir: path_types.PathAwaitingCreation
   ts_context: ts.Context | None = None
   byte_limiter: limits.LimitInFlightBytes | None = None
 
 
-@typing.final
-@dataclasses.dataclass(frozen=True, kw_only=True)
+@dataclasses.dataclass
 class DeserializationParam(Generic[AbstractLeaf]):
+  """Represents a leaf-level entry for PyTree restoration.
+
+  DeserializationParam represents a single PyTree leaf during the restoration
+  process by pairing its keypath (the location within the target structure)
+  with an optional template value. It serves as a container for the parameters
+  passed to `LeafHandler`, which enables the implementation of deserialization
+  support for custom leaf objects.
+
+  Example Usage:
+    DeserializationParam is utilized when implementing custom LeafHandlers::
+
+      class MyCustomHandler(LeafHandler):
+        async def deserialize(
+            self,
+            params: Sequence[DeserializationParam],
+            context: DeserializationContext
+        ):
+          results = []
+          for param in params:
+            leaf_name = "/".join(str(k) for k in param.keypath)
+
+            # The param argument provides the template metadata.
+            if param.value is not None:
+              print(f"Restoring {leaf_name} with shape: {param.value.shape}")
+
+            # results.append(restored_object)
+          return results
+
+  Attributes:
+    keypath (Tuple[Any, ...]): A tuple of keys defining the path from the
+      PyTree root to this specific leaf.
+    value (Optional[Any]): An optional template object (such as a
+      jax.ShapeDtypeStruct or an existing array) that provides the
+      metadata necessary to correctly instantiate the restored leaf.
+  """
   keypath: tree_types.PyTreeKeyPath
   value: AbstractLeaf | Type[AbstractLeaf] | None = None
 
   @property
   def name(self) -> str:
+    """The name of the parameter derived from its keypath."""
     return tree_utils.param_name_from_keypath(self.keypath)
 
 
-@typing.final
-@dataclasses.dataclass(frozen=True, kw_only=True)
+@dataclasses.dataclass
 class DeserializationContext:
+  """A container for the execution context passed to :py:class:`LeafHandler`.
+
+  This class aggregates global resources—such as the source path and
+  format-specific checkpoint handles—enabling the implementation of
+  deserialization support for custom leaf objects.
+
+  Example Usage:
+    DeserializationContext is accessed within `LeafHandler.deserialize` to
+    determine the source location and read data::
+
+      class MyCustomHandler(LeafHandler):
+        async def deserialize(
+            self,
+            params: Sequence[SerializationParam],
+            context: DeserializationContext
+        ):
+          # Use the context to determine the source location.
+          load_path = context.parent_dir / "data.bin"
+
+          # Use the context's limiter to manage I/O concurrency.
+          if context.byte_limiter:
+            async with context.byte_limiter:
+               return await self._read_from_disk(load_path, params)
+  Attributes:
+    parent_dir: The base directory where the checkpoint or leaf data is located.
+    ocdbt_checkpoint: A boolean indicating if the source is an OCDBT checkpoint.
+    zarr3_checkpoint: A boolean indicating if the source is a Zarr3 checkpoint.
+    ts_context: A TensorStore context object used to configure storage backends
+      and shared resources.
+    byte_limiter: An optional rate limiter used to throttle I/O operations.
+  """
+
   parent_dir: path_types.Path
   ocdbt_checkpoint: bool
   zarr3_checkpoint: bool
@@ -137,7 +270,20 @@ class DeserializationContext:
 
 
 class LeafHandler(Protocol[Leaf, AbstractLeaf]):
-  """Interface for reading and writing a PyTree leaf."""
+  """Interface for reading and writing a PyTree leaf.
+
+  This protocol defines the essential asynchronous operations for saving
+  (`serialize`), loading (`deserialize`), and inspecting (`metadata`) individual
+  leaf nodes within a PyTree. It is essentially a blueprint that allows for
+  implementing support for serialization of custom leaf objects.
+
+  Example:
+    This class is not intended to be used independently. It must be subclassed
+    to implement custom LeafHandlers (class) for specific leaf types.
+
+    See: `Custom Leaf Handler <
+    https://orbax.readthedocs.io/en/latest/guides/checkpoint/v1/customization.html#custom-leaf-handler>`_
+  """
 
   async def serialize(
       self,
@@ -276,6 +422,7 @@ class LeafHandlerRegistry(Protocol):
       abstract_type: Type[AbstractLeaf],
       handler_type: Type[LeafHandler[Leaf, AbstractLeaf]],
       override: bool = False,
+      secondary_typestrs: Sequence[str] | None = None,
   ):
     """Registers the handler_type for a leaf_type and abstract_type pair.
 
@@ -284,12 +431,17 @@ class LeafHandlerRegistry(Protocol):
     `override` is True. If the abstract_type has already associated with another
     leaf_type, an error will be raised if `override` is False.
 
+    `secondary_typestrs` can be used to register a handler for multiple
+    typestrs. This is useful for associating a handler with aliases or legacy
+    typestrs.
 
     Args:
       leaf_type: The type to register the handler for.
       abstract_type: The abstract type to register the handler for.
       handler_type: The handler to register.
       override: Whether to override the handler if it already exists.
+      secondary_typestrs: A sequence of alternate handler typestrs that serve as
+        secondary identifiers for the handler.
     """
     ...
 
@@ -299,4 +451,10 @@ class LeafHandlerRegistry(Protocol):
 
   def is_abstract_handleable(self, abstract_type: Type[Any]) -> bool:
     """Returns True if the abstract_type is handlable by any registered handler."""
+    ...
+
+  def get_secondary_typestrs(
+      self, handler_type: Type[LeafHandler[Any, Any]],
+  ) -> Sequence[str]:
+    """Returns all secondary typestrs associated with the given handler type."""
     ...

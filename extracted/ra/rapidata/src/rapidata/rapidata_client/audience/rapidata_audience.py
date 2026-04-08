@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     )
     from rapidata.rapidata_client.job.rapidata_job import RapidataJob
     from rapidata.rapidata_client.validation.rapids.rapids import Rapid
+    import pandas as pd
 
 
 class RapidataAudience:
@@ -225,12 +226,15 @@ class RapidataAudience:
             self._try_start_recruiting()
             return self
 
-    def find_jobs(self, name: str = "", amount: int = 10) -> list[RapidataJob]:
+    def find_jobs(
+        self, name: str = "", amount: int = 10, page: int = 1
+    ) -> list[RapidataJob]:
         """Find jobs assigned to this audience.
 
         Args:
             name (str, optional): Filter jobs by name (matching jobs will contain this string). Defaults to "" for any job.
             amount (int, optional): The maximum number of jobs to return. Defaults to 10.
+            page (int, optional): The page of jobs to return. Defaults to 1.
 
         Returns:
             list[RapidataJob]: A list of RapidataJob instances assigned to this audience.
@@ -247,7 +251,7 @@ class RapidataAudience:
 
             response = self._openapi_service.order.job_api.jobs_get(
                 request=QueryModel(
-                    page=PageInfo(index=1, size=amount),
+                    page=PageInfo(index=page, size=amount),
                     filter=RootFilter(
                         filters=[
                             Filter(
@@ -282,7 +286,40 @@ class RapidataAudience:
                 for job in response.items
             ]
 
-    def _add_rapid_example(self, rapid: "Rapid") -> RapidataAudience:
+    def get_examples(
+        self,
+        amount: int = 10,
+        page: int = 1,
+    ) -> pd.DataFrame:
+        """Get the examples for this audience as a DataFrame.
+
+        Returns a DataFrame with columns: asset, truth, context, contextAsset.
+        Asset URLs are fully qualified with the environment's asset host.
+
+        Args:
+            amount: Number of examples per page.
+            page: Page number.
+
+        Returns:
+            A DataFrame containing the examples.
+        """
+        with tracer.start_as_current_span("RapidataAudience.get_examples"):
+            import pandas as pd
+
+            from rapidata.rapidata_client.audience.example_formatter import (
+                ExampleFormatter,
+            )
+
+            response = self._openapi_service.audience.examples_api.audience_audience_id_examples_get(
+                audience_id=self.id,
+                page=page,
+                page_size=amount,
+            )
+            asset_url_prefix = f"https://assets.{self._openapi_service.environment}/"
+            rows = ExampleFormatter.format_to_csv_rows(response.items, asset_url_prefix)
+            return pd.DataFrame(rows)
+
+    def _add_rapid_example(self, rapid: Rapid) -> RapidataAudience:
         """Add a rapid example to this audience (private method).
 
         Args:

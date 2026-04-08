@@ -10,8 +10,12 @@ from abc import (
 from chalk._gen.chalk.server.v1.dataframe_pb2 import (
     ExecuteDataFramePlanRequest,
     ExecuteDataFramePlanResponse,
+    GetDataFramePlanUploadUrlRequest,
+    GetDataFramePlanUploadUrlResponse,
     GetDataFrameRunRequest,
     GetDataFrameRunResponse,
+    GetDataFrameRunStatusRequest,
+    GetDataFrameRunStatusResponse,
 )
 from grpc import (
     Channel,
@@ -30,6 +34,15 @@ class DataFrameServiceStub:
         GetDataFrameRunRequest,
         GetDataFrameRunResponse,
     ]
+    GetDataFramePlanUploadUrl: UnaryUnaryMultiCallable[
+        GetDataFramePlanUploadUrlRequest,
+        GetDataFramePlanUploadUrlResponse,
+    ]
+    GetDataFrameRunStatus: UnaryUnaryMultiCallable[
+        GetDataFrameRunStatusRequest,
+        GetDataFrameRunStatusResponse,
+    ]
+    """Returns the current status derived from shard statuses. Poll this endpoint to track progress."""
 
 class DataFrameServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -44,5 +57,18 @@ class DataFrameServiceServicer(metaclass=ABCMeta):
         request: GetDataFrameRunRequest,
         context: ServicerContext,
     ) -> GetDataFrameRunResponse: ...
+    @abstractmethod
+    def GetDataFramePlanUploadUrl(
+        self,
+        request: GetDataFramePlanUploadUrlRequest,
+        context: ServicerContext,
+    ) -> GetDataFramePlanUploadUrlResponse: ...
+    @abstractmethod
+    def GetDataFrameRunStatus(
+        self,
+        request: GetDataFrameRunStatusRequest,
+        context: ServicerContext,
+    ) -> GetDataFrameRunStatusResponse:
+        """Returns the current status derived from shard statuses. Poll this endpoint to track progress."""
 
 def add_DataFrameServiceServicer_to_server(servicer: DataFrameServiceServicer, server: Server) -> None: ...

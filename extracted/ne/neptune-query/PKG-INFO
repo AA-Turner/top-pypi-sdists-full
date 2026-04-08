@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neptune-query
-Version: 1.14.0
+Version: 1.14.1
 Summary: Neptune Query is a Python library for retrieving data from Neptune.
 License: Apache-2.0
 License-File: LICENSE

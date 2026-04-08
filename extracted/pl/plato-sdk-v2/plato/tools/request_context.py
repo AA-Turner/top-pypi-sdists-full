@@ -23,6 +23,10 @@ class ToolRequestContext(BaseModel):
     client_id: str = Field(
         description="Canonical caller identifier for the MCP request.",
     )
+    hostname: str | None = Field(
+        default=None,
+        description="SSH-reachable hostname or IP of the agent VM.",
+    )
     display_name: str | None = Field(
         default=None,
         description="Human-readable label for the current agent run.",

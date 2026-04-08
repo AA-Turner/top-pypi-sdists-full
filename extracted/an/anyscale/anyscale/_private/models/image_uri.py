@@ -35,6 +35,7 @@ class ImageURI:
         if not isinstance(image_uri_str, str):
             raise TypeError("'image_uri' must be a string.")
 
+        image_uri_str = image_uri_str.strip()
         if image_uri_str:
             matches = IMAGE_URI_PATTERN_RE.match(image_uri_str)
             if not matches:

@@ -41,7 +41,8 @@ DEFINITION: dict[str, Any] = {
     "name": "bash",
     "description": (
         "Execute a shell command and return stdout, stderr, and exit code. "
-        "Commands run in the working directory. Default timeout is 120 seconds."
+        "Commands run in the working directory. Default timeout is 120 seconds. "
+        "For commands expected to take over 30 seconds, use background: true."
     ),
     "parameters": {
         "type": "object",
@@ -289,6 +290,20 @@ async def handle_background_status(
     task = _bg_manager.get_task(task_id, db=_db)
     if task is None:
         return {"error": f"Background task not found: {task_id}"}
+
+    metadata = task.get("metadata") or {}
+    raw_result = metadata.get("task_result")
+    if raw_result is not None:
+        from ..services.task_result import TaskResult
+
+        task_result = TaskResult.from_dict(raw_result)
+        result = task_result.to_llm_dict()
+        result["task_id"] = task["id"]
+        result["command"] = task["command"]
+        result["started_at"] = task.get("started_at")
+        result["completed_at"] = task.get("completed_at")
+        return result
+
     return {
         "task_id": task["id"],
         "command": task["command"],

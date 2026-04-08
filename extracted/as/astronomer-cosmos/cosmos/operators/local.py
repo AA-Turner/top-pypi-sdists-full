@@ -6,7 +6,6 @@ import json
 import os
 import tempfile
 import time
-import urllib.parse
 import warnings
 import zlib
 from abc import ABC, abstractmethod
@@ -17,7 +16,6 @@ from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlparse
 
 import jinja2
-from airflow import DAG
 from airflow.exceptions import AirflowException, AirflowSkipException
 from airflow.models.taskinstance import TaskInstance
 from packaging.version import Version
@@ -32,13 +30,12 @@ if TYPE_CHECKING:  # pragma: no cover
 
 from attrs import define
 
-from cosmos import cache, settings
+try:
+    from airflow.sdk import ObjectStoragePath
+except ImportError:
+    from airflow.io.path import ObjectStoragePath
 
-if settings.AIRFLOW_IO_AVAILABLE:
-    try:
-        from airflow.sdk import ObjectStoragePath
-    except ImportError:
-        from airflow.io.path import ObjectStoragePath
+from cosmos import cache, settings
 from cosmos._utils.importer import load_method_from_module
 from cosmos.cache import (
     _copy_cached_package_lockfile_to_project,
@@ -52,7 +49,7 @@ from cosmos.constants import (
     FILE_SCHEME_AIRFLOW_DEFAULT_CONN_ID_MAP,
     InvocationMode,
 )
-from cosmos.dataset import get_dataset_alias_name
+from cosmos.dataset import construct_dataset_uri, get_dataset_alias_name
 from cosmos.dbt.project import (
     copy_dbt_packages,
     copy_manifest_file_if_exists,
@@ -77,7 +74,6 @@ except (ModuleNotFoundError, ImportError):  # Airflow 2
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    import openlineage  # pragma: no cover
     from dbt.cli.main import dbtRunner, dbtRunnerResult
 
     try:  # pragma: no cover
@@ -122,10 +118,22 @@ from cosmos.operators.base import (
 logger = get_logger(__name__)
 
 
+def _read_target_sources_json(project_root: Path) -> dict[str, Any] | None:
+    """Parse ``target/sources.json`` under ``project_root`` if the file exists."""
+    path = project_root / "target" / "sources.json"
+    if not path.is_file():
+        return None
+    try:
+        result: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        return result
+    except json.JSONDecodeError:
+        logger.warning("Could not parse JSON from %s", path)
+        return None
+
+
 # The following is related to the ability of Cosmos parsing dbt artifacts and generating OpenLineage URIs
 # It is used for emitting Airflow assets and not necessarily OpenLineage events
 try:
-    import openlineage
     from openlineage.common.provider.dbt.local import DbtLocalArtifactProcessor
 
     is_openlineage_common_available = True
@@ -142,9 +150,7 @@ except (ImportError, ModuleNotFoundError):
     try:
         from openlineage.airflow.extractors.base import OperatorLineage
     except (ImportError, ModuleNotFoundError):
-        logger.warning(
-            "To enable emitting Openlineage events, upgrade to Airflow 2.7 or install astronomer-cosmos[openlineage]."
-        )
+        logger.warning("To enable emitting Openlineage events, install apache-airflow-providers-openlineage.")
         logger.debug(
             "Further details on lack of Openlineage Airflow provider:",
             stack_info=True,
@@ -208,6 +214,7 @@ class AbstractDbtLocalBase(AbstractDbtBase):
         self.callback_args = callback_args or {}
         self.compiled_sql = ""
         self.freshness = ""
+        self._sources_json: dict[str, Any] | None = None
         self.should_store_compiled_sql = should_store_compiled_sql
         self.should_upload_compiled_sql = should_upload_compiled_sql
         self.openlineage_events_completes: list[RunEvent] = []
@@ -320,13 +327,6 @@ class AbstractDbtLocalBase(AbstractDbtBase):
                 "Remote target connection not set. Please, configure [cosmos][remote_target_path_conn_id] or set the environment variable AIRFLOW__COSMOS__REMOTE_TARGET_PATH_CONN_ID"
             )
             return None, None
-
-        if not settings.AIRFLOW_IO_AVAILABLE:
-            raise CosmosValueError(
-                f"You're trying to specify remote target path {target_path_str}, but the required "
-                f"Object Storage feature is unavailable in Airflow version {AIRFLOW_VERSION}. Please upgrade to "
-                "Airflow 2.8 or later."
-            )
 
         _configured_target_path = ObjectStoragePath(target_path_str, conn_id=remote_conn_id)
 
@@ -685,6 +685,10 @@ class AbstractDbtLocalBase(AbstractDbtBase):
                     cwd=tmp_project_dir,
                     context=context,
                 )
+                if context.get("_check_source_freshness"):
+                    self._sources_json = _read_target_sources_json(tmp_dir_path)
+                    self.handle_exception(result)
+                    return result
                 if is_openlineage_common_available:
                     self.calculate_openlineage_events_completes(env, tmp_dir_path)
                     if AIRFLOW_VERSION.major < _AIRFLOW3_MAJOR_VERSION:
@@ -740,38 +744,6 @@ class AbstractDbtLocalBase(AbstractDbtBase):
         except (FileNotFoundError, NotImplementedError, ValueError, KeyError, jinja2.exceptions.UndefinedError):
             logger.debug("Unable to parse OpenLineage events", stack_info=True)
 
-    @staticmethod
-    def _create_asset_uri(openlineage_event: openlineage.client.generated.base.OutputDataset) -> str:
-        """
-        Create the Airflow Asset or Dataset UIR given an OpenLineage event.
-        """
-        airflow_2_uri = str(openlineage_event.namespace + "/" + urllib.parse.quote(openlineage_event.name))
-        airflow_3_uri = str(
-            openlineage_event.namespace + "/" + urllib.parse.quote(openlineage_event.name).replace(".", "/")
-        )
-        if AIRFLOW_VERSION < Version("3.0.0"):
-            if settings.use_dataset_airflow3_uri_standard:
-                dataset_uri = airflow_3_uri
-            else:
-                logger.warning(f"""
-                    Airflow 3.0.0 Asset (Dataset) URIs validation rules changed and OpenLineage URIs (standard used by Cosmos) will no longer be valid.
-                    Therefore, if using Cosmos with Airflow 3, the Airflow Dataset URIs will be changed to <{airflow_3_uri}>.
-                    Previously, with Airflow 2.x, the URI was <{airflow_2_uri}>.
-                    If you want to use the Airflow 3 URI standard while still using Airflow 2, please, set:
-                        export AIRFLOW__COSMOS__USE_DATASET_AIRFLOW3_URI_STANDARD=1
-                    Remember to update any DAGs that are scheduled using this dataset.
-                    """)
-                dataset_uri = airflow_2_uri
-        else:
-            logger.warning(f"""
-                Airflow 3.0.0 Asset (Dataset) URIs validation rules changed and OpenLineage URIs (standard used by Cosmos) are no longer accepted.
-                Therefore, if using Cosmos with Airflow 3, the Airflow Asset (Dataset) URI is now <{airflow_3_uri}>.
-                Before, with Airflow 2.x, the URI used to be <{airflow_2_uri}>.
-                Please, change any DAGs that were scheduled using the old standard to the new one.
-                """)
-            dataset_uri = airflow_3_uri
-        return dataset_uri
-
     def get_datasets(self, source: Literal["inputs", "outputs"]) -> list[Asset]:
         """
         Use openlineage-integration-common to extract lineage events from the artifacts generated after running the dbt
@@ -786,7 +758,7 @@ class AbstractDbtLocalBase(AbstractDbtBase):
 
         for completed in self.openlineage_events_completes:
             for output in getattr(completed, source):
-                dataset_uri = self._create_asset_uri(output)
+                dataset_uri = construct_dataset_uri(output.namespace, output.name)
                 uris.append(dataset_uri)
         logger.debug("URIs to be converted to Asset: %s", uris)
 
@@ -809,6 +781,8 @@ class AbstractDbtLocalBase(AbstractDbtBase):
         with DatasetAlias:
         https://github.com/apache/airflow/issues/42495
         """
+        from airflow import DAG
+
         if AIRFLOW_VERSION.major >= 3 and not settings.enable_dataset_alias:
             logger.error("To emit datasets with Airflow 3, the setting `enable_dataset_alias` must be True (default).")
             raise AirflowCompatibilityError(
@@ -897,6 +871,7 @@ class AbstractDbtLocalBase(AbstractDbtBase):
             if "--full-refresh" not in cmd_flags:
                 cmd_flags.append("--full-refresh")
 
+        self.invoke_interceptors(context)
         dbt_cmd, env = self.build_cmd(context=context, cmd_flags=cmd_flags)
         dbt_cmd = dbt_cmd or []
         result = self.run_command(

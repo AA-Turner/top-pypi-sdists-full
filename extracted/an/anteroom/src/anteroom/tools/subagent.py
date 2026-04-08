@@ -44,7 +44,8 @@ DEFINITION: dict[str, Any] = {
         "The sub-agent runs its own AI session with access to all built-in tools "
         "and returns a summary of its work. Use this to parallelize independent tasks — "
         "the parent AI can issue multiple run_agent calls simultaneously. "
-        "Each sub-agent has its own conversation context and cannot see the parent's history."
+        "Each sub-agent has its own conversation context and cannot see the parent's history. "
+        "For fire-and-forget work, use detach: true. For multi-step pipelines, prefer a workflow."
     ),
     "parameters": {
         "type": "object",
@@ -438,6 +439,21 @@ async def handle_run_status(
     if run is None:
         return {"error": f"Detached agent run not found: {run_id}"}
     metadata = run.get("metadata") or {}
+
+    raw_result = metadata.get("task_result")
+    if raw_result is not None:
+        from ..services.task_result import TaskResult
+
+        task_result = TaskResult.from_dict(raw_result)
+        result = task_result.to_llm_dict()
+        result["run_id"] = run["id"]
+        result["title"] = run.get("title", "")
+        result["started_at"] = run.get("started_at")
+        result["completed_at"] = run.get("completed_at")
+        result["duration_ms"] = run.get("duration_ms")
+        result["parent_run_id"] = run.get("parent_run_id")
+        return result
+
     return {
         "run_id": run["id"],
         "status": run["status"],

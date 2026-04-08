@@ -30,7 +30,9 @@ __all__ = (
     "AnnotationStoreVersionCreatedWaiterName",
     "AnnotationStoreVersionDeletedWaiterName",
     "AnnotationTypeType",
+    "BatchStatusType",
     "CacheBehaviorType",
+    "ConfigurationStatusType",
     "CreationTypeType",
     "ETagAlgorithmFamilyType",
     "ETagAlgorithmType",
@@ -41,6 +43,8 @@ __all__ = (
     "ListAnnotationImportJobsPaginatorName",
     "ListAnnotationStoreVersionsPaginatorName",
     "ListAnnotationStoresPaginatorName",
+    "ListBatchPaginatorName",
+    "ListConfigurationsPaginatorName",
     "ListMultipartReadSetUploadsPaginatorName",
     "ListReadSetActivationJobsPaginatorName",
     "ListReadSetExportJobsPaginatorName",
@@ -53,6 +57,7 @@ __all__ = (
     "ListRunCachesPaginatorName",
     "ListRunGroupsPaginatorName",
     "ListRunTasksPaginatorName",
+    "ListRunsInBatchPaginatorName",
     "ListRunsPaginatorName",
     "ListSequenceStoresPaginatorName",
     "ListSharesPaginatorName",
@@ -60,6 +65,7 @@ __all__ = (
     "ListVariantStoresPaginatorName",
     "ListWorkflowVersionsPaginatorName",
     "ListWorkflowsPaginatorName",
+    "NetworkingModeType",
     "OmicsServiceName",
     "PaginatorName",
     "ReadSetActivationJobCompletedWaiterName",
@@ -100,6 +106,7 @@ __all__ = (
     "StoreFormatType",
     "StoreStatusType",
     "StoreTypeType",
+    "SubmissionStatusType",
     "TaskCompletedWaiterName",
     "TaskRunningWaiterName",
     "TaskStatusType",
@@ -132,7 +139,19 @@ AnnotationTypeType = Literal[
     "CHR_START_END_ZERO_BASE",
     "GENERIC",
 ]
+BatchStatusType = Literal[
+    "CANCELLED",
+    "FAILED",
+    "INPROGRESS",
+    "PENDING",
+    "PROCESSED",
+    "RUNS_DELETED",
+    "RUNS_DELETING",
+    "STOPPING",
+    "SUBMITTING",
+]
 CacheBehaviorType = Literal["CACHE_ALWAYS", "CACHE_ON_FAILURE"]
+ConfigurationStatusType = Literal["ACTIVE", "CREATING", "DELETED", "DELETING", "FAILED", "UPDATING"]
 CreationTypeType = Literal["IMPORT", "UPLOAD"]
 ETagAlgorithmFamilyType = Literal["MD5up", "SHA256up", "SHA512up"]
 ETagAlgorithmType = Literal[
@@ -155,6 +174,8 @@ JobStatusType = Literal[
 ListAnnotationImportJobsPaginatorName = Literal["list_annotation_import_jobs"]
 ListAnnotationStoreVersionsPaginatorName = Literal["list_annotation_store_versions"]
 ListAnnotationStoresPaginatorName = Literal["list_annotation_stores"]
+ListBatchPaginatorName = Literal["list_batch"]
+ListConfigurationsPaginatorName = Literal["list_configurations"]
 ListMultipartReadSetUploadsPaginatorName = Literal["list_multipart_read_set_uploads"]
 ListReadSetActivationJobsPaginatorName = Literal["list_read_set_activation_jobs"]
 ListReadSetExportJobsPaginatorName = Literal["list_read_set_export_jobs"]
@@ -167,6 +188,7 @@ ListReferencesPaginatorName = Literal["list_references"]
 ListRunCachesPaginatorName = Literal["list_run_caches"]
 ListRunGroupsPaginatorName = Literal["list_run_groups"]
 ListRunTasksPaginatorName = Literal["list_run_tasks"]
+ListRunsInBatchPaginatorName = Literal["list_runs_in_batch"]
 ListRunsPaginatorName = Literal["list_runs"]
 ListSequenceStoresPaginatorName = Literal["list_sequence_stores"]
 ListSharesPaginatorName = Literal["list_shares"]
@@ -174,6 +196,7 @@ ListVariantImportJobsPaginatorName = Literal["list_variant_import_jobs"]
 ListVariantStoresPaginatorName = Literal["list_variant_stores"]
 ListWorkflowVersionsPaginatorName = Literal["list_workflow_versions"]
 ListWorkflowsPaginatorName = Literal["list_workflows"]
+NetworkingModeType = Literal["RESTRICTED", "VPC"]
 ReadSetActivationJobCompletedWaiterName = Literal["read_set_activation_job_completed"]
 ReadSetActivationJobItemStatusType = Literal["FAILED", "FINISHED", "IN_PROGRESS", "NOT_STARTED"]
 ReadSetActivationJobStatusType = Literal[
@@ -245,6 +268,9 @@ StorageTypeType = Literal["DYNAMIC", "STATIC"]
 StoreFormatType = Literal["GFF", "TSV", "VCF"]
 StoreStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 StoreTypeType = Literal["REFERENCE_STORE", "SEQUENCE_STORE"]
+SubmissionStatusType = Literal[
+    "CANCEL_FAILED", "CANCEL_SUCCESS", "DELETE_FAILED", "DELETE_SUCCESS", "FAILED", "SUCCESS"
+]
 TaskCompletedWaiterName = Literal["task_completed"]
 TaskRunningWaiterName = Literal["task_running"]
 TaskStatusType = Literal[
@@ -379,6 +405,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -614,6 +641,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -649,6 +677,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -661,6 +690,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -686,6 +716,8 @@ PaginatorName = Literal[
     "list_annotation_import_jobs",
     "list_annotation_store_versions",
     "list_annotation_stores",
+    "list_batch",
+    "list_configurations",
     "list_multipart_read_set_uploads",
     "list_read_set_activation_jobs",
     "list_read_set_export_jobs",
@@ -699,6 +731,7 @@ PaginatorName = Literal[
     "list_run_groups",
     "list_run_tasks",
     "list_runs",
+    "list_runs_in_batch",
     "list_sequence_stores",
     "list_shares",
     "list_variant_import_jobs",

@@ -15,6 +15,7 @@ from django.utils import timezone
 from esi import (
     __esi_compatibility_date__, __title__, __url__, __version__, app_settings,
 )
+from esi.aiopenapi3.client import SpecCachingClient
 from esi.exceptions import (
     ESIBucketLimitException, ESIErrorLimitException, HTTPClientError,
     HTTPNotModified, HTTPServerError,
@@ -1133,7 +1134,7 @@ class TestTokenisedEndpoints(TestCase):
         self.assertEqual(send.call_count, 5)
         self.assertEqual(len(results), 10)
 
-class TestTokenisedEndpoints(TestCase):
+class SpecCacheTests(TestCase):
     def setUp(self):
         cache.clear()
         self.app_name = "TestsApp"
@@ -1156,17 +1157,74 @@ class TestTokenisedEndpoints(TestCase):
             ),
         )
 
+        self.spec_url = "https://esi.evetech.net/meta/openapi.json"
+
+    def _make_esi_client(self, compatibility_date: str = "2020-01-01") -> ESIClientProvider:
+        return ESIClientProvider(
+            ua_appname=self.app_name,
+            ua_url=self.app_url,
+            ua_version=self.app_ver,
+            compatibility_date=compatibility_date,
+            tags=["Character", "Assets"],
+        )
+
+    def _make_spec_cache_client(self, compatibility_date: str = "2020-01-01") -> SpecCachingClient:
+        client = SpecCachingClient(headers={"X-Compatibility-Date": compatibility_date})
+        self.addCleanup(client.close)
+        return client
+
+    def test_spec_contains_expected_elements_with_valid_spec(self):
+        client = self._make_spec_cache_client()
+
+        self.assertTrue(client._spec_contains_expected_elements(self.resp))
+
+    def test_spec_contains_expected_elements_with_invalid_json(self):
+        client = self._make_spec_cache_client()
+        response = httpx.Response(
+            200,
+            content=b"not-json",
+            request=httpx.Request("GET", self.spec_url),
+        )
+
+        self.assertFalse(client._spec_contains_expected_elements(response))
+
+    def test_raise_for_invalid_spec_response_object(self):
+        client = self._make_spec_cache_client()
+
+        with self.assertRaisesRegex(TypeError, "Invalid ESI OpenAPI spec response object"):
+            client._raise_for_invalid_spec_response(object())
+
+    def test_set_spec_cache_stores_response(self):
+        client = self._make_spec_cache_client()
+        cache_key = client._get_api_cache_key(self.spec_url)
+
+        client._set_spec_cache(self.spec_url, self.resp)
+
+        cached_response = cache.get(cache_key)
+        self.assertIsNotNone(cached_response)
+        self.assertEqual(cached_response.json()["openapi"], self.resp.json()["openapi"])
+
+    @patch.object(httpx.Client, "get")
+    def test_non_spec_requests_bypass_spec_cache(self, get: MagicMock):
+        client = self._make_spec_cache_client()
+        other_url = "https://example.com/status"
+        get.return_value = httpx.Response(
+            200,
+            json={"ok": True},
+            request=httpx.Request("GET", other_url),
+        )
+
+        response = client.get(other_url)
+
+        self.assertEqual(get.call_count, 1)
+        self.assertTrue(response.json()["ok"])
+        self.assertIsNone(cache.get(client._get_api_cache_key(other_url)))
+
     @patch.object(httpx.Client, "get")
     def test_load_spec(self, get: MagicMock):
         get.return_value = self.resp
 
-        esi = ESIClientProvider(
-            ua_appname=self.app_name,
-            ua_url=self.app_url,
-            ua_version=self.app_ver,
-            compatibility_date="2020-01-01",
-            tags=["Character", "Assets"],
-        )
+        esi = self._make_esi_client()
         esi.client
         self.assertEqual(get.call_count, 1)
 
@@ -1204,24 +1262,118 @@ class TestTokenisedEndpoints(TestCase):
     def test_purge_cache_load_spec(self, get: MagicMock):
         get.return_value = self.resp
 
-        esi = ESIClientProvider(
-            ua_appname=self.app_name,
-            ua_url=self.app_url,
-            ua_version=self.app_ver,
-            compatibility_date="2020-01-01",
-            tags=["Character", "Assets"],
-        )
+        esi = self._make_esi_client()
         esi.client
         self.assertEqual(get.call_count, 1)
 
         call_command("esi_clear_spec_cache")
 
-        esi2 = ESIClientProvider(
-            ua_appname=self.app_name,
-            ua_url=self.app_url,
-            ua_version=self.app_ver,
-            compatibility_date="2020-01-01",
-            tags=["Character", "Assets"],
-        )
+        esi2 = self._make_esi_client()
         esi2.client
         self.assertEqual(get.call_count, 2)
+
+    @patch.object(httpx.Client, "get")
+    def test_should_raise_for_rate_limited_spec_response(self, get: MagicMock):
+        client = self._make_spec_cache_client()
+        cache_key = client._get_api_cache_key(self.spec_url)
+        get.return_value = httpx.Response(
+            420,
+            json={"error": "error limited"},
+            request=httpx.Request("GET", self.spec_url),
+        )
+
+        with self.assertRaises(httpx.HTTPStatusError):
+            client.get(self.spec_url)
+        with self.assertRaises(httpx.HTTPStatusError):
+            client.get(self.spec_url)
+
+        self.assertEqual(get.call_count, 2)
+        self.assertIsNone(cache.get(cache_key))
+
+    @patch.object(httpx.Client, "get")
+    def test_should_raise_for_invalid_spec_payload(self, get: MagicMock):
+        client = self._make_spec_cache_client()
+        cache_key = client._get_api_cache_key(self.spec_url)
+        get.return_value = httpx.Response(
+            200,
+            json={"status": "maintenance"},
+            request=httpx.Request("GET", self.spec_url),
+        )
+
+        with self.assertRaisesRegex(ValueError, "Invalid ESI OpenAPI spec response payload"):
+            client.get(self.spec_url)
+        with self.assertRaisesRegex(ValueError, "Invalid ESI OpenAPI spec response payload"):
+            client.get(self.spec_url)
+
+        self.assertEqual(get.call_count, 2)
+        self.assertIsNone(cache.get(cache_key))
+
+    @patch.object(httpx.Client, "get")
+    def test_should_raise_for_partial_spec_payload_without_components(self, get: MagicMock):
+        client = self._make_spec_cache_client()
+        cache_key = client._get_api_cache_key(self.spec_url)
+        get.return_value = httpx.Response(
+            200,
+            json={
+                "openapi": "3.0.0",
+                "info": {"title": "ESI", "version": "latest"},
+                "paths": {},
+            },
+            request=httpx.Request("GET", self.spec_url),
+        )
+
+        with self.assertRaisesRegex(ValueError, "Invalid ESI OpenAPI spec response payload"):
+            client.get(self.spec_url)
+        with self.assertRaisesRegex(ValueError, "Invalid ESI OpenAPI spec response payload"):
+            client.get(self.spec_url)
+
+        self.assertEqual(get.call_count, 2)
+        self.assertIsNone(cache.get(cache_key))
+
+    @patch.object(httpx.Client, "get")
+    def test_should_purge_invalid_cached_spec_response(self, get: MagicMock):
+        invalid_response = httpx.Response(
+            200,
+            json={"status": "maintenance"},
+            request=httpx.Request("GET", self.spec_url),
+        )
+        valid_response = self.resp
+
+        client = self._make_spec_cache_client()
+        cache.set(client._get_api_cache_key(self.spec_url), invalid_response, 60)
+
+        get.return_value = valid_response
+
+        refreshed_response = client.get(self.spec_url)
+        self.assertEqual(get.call_count, 1)
+        self.assertEqual(refreshed_response.json()["openapi"], valid_response.json()["openapi"])
+
+        cached_response = cache.get(client._get_api_cache_key(self.spec_url))
+        self.assertIsNotNone(cached_response)
+        self.assertEqual(cached_response.json()["openapi"], valid_response.json()["openapi"])
+
+    @patch.object(httpx.Client, "get")
+    def test_should_purge_partial_invalid_cached_spec_response(self, get: MagicMock):
+        invalid_response = httpx.Response(
+            200,
+            json={
+                "openapi": "3.0.0",
+                "info": {"title": "ESI", "version": "latest"},
+                "paths": {},
+            },
+            request=httpx.Request("GET", self.spec_url),
+        )
+        valid_response = self.resp
+
+        client = self._make_spec_cache_client()
+        cache.set(client._get_api_cache_key(self.spec_url), invalid_response, 60)
+
+        get.return_value = valid_response
+
+        refreshed_response = client.get(self.spec_url)
+        self.assertEqual(get.call_count, 1)
+        self.assertEqual(refreshed_response.json()["openapi"], valid_response.json()["openapi"])
+
+        cached_response = cache.get(client._get_api_cache_key(self.spec_url))
+        self.assertIsNotNone(cached_response)
+        self.assertEqual(cached_response.json()["openapi"], valid_response.json()["openapi"])

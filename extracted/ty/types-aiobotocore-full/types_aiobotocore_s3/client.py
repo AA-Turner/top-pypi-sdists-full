@@ -477,7 +477,8 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[DeleteBucketMetricsConfigurationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This operation is not supported for directory buckets.
+        Deletes a metrics configuration for the Amazon CloudWatch request metrics
+        (specified by the metrics configuration ID) from the bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/delete_bucket_metrics_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#delete_bucket_metrics_configuration)
@@ -723,7 +724,8 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[GetBucketMetricsConfigurationRequestTypeDef]
     ) -> GetBucketMetricsConfigurationOutputTypeDef:
         """
-        This operation is not supported for directory buckets.
+        Gets a metrics configuration (specified by the metrics configuration ID) from
+        the bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_bucket_metrics_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#get_bucket_metrics_configuration)
@@ -974,7 +976,7 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[ListBucketMetricsConfigurationsRequestTypeDef]
     ) -> ListBucketMetricsConfigurationsOutputTypeDef:
         """
-        This operation is not supported for directory buckets.
+        Lists the metrics configurations for the bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/list_bucket_metrics_configurations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#list_bucket_metrics_configurations)
@@ -1168,7 +1170,8 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[PutBucketMetricsConfigurationRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        This operation is not supported for directory buckets.
+        Sets a metrics configuration (specified by the metrics configuration ID) for
+        the bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/put_bucket_metrics_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#put_bucket_metrics_configuration)

@@ -578,6 +578,27 @@ class TestSignature:
         sig = _compute_signature("e:s", {"path": Path("/tmp")}, None, None)
         assert isinstance(sig, str)
 
+    def test_columns_changes_sig(self) -> None:
+        from hud.cli.sync import _compute_signature
+
+        assert _compute_signature("e:s", {}, None, None) != _compute_signature(
+            "e:s", {}, None, None, {"difficulty": "hard"}
+        )
+
+    def test_empty_columns_same_as_none(self) -> None:
+        from hud.cli.sync import _compute_signature
+
+        assert _compute_signature("e:s", {}, None, None) == _compute_signature(
+            "e:s", {}, None, None, {}
+        )
+
+    def test_different_column_values(self) -> None:
+        from hud.cli.sync import _compute_signature
+
+        assert _compute_signature(
+            "e:s", {}, None, None, {"difficulty": "easy"}
+        ) != _compute_signature("e:s", {}, None, None, {"difficulty": "hard"})
+
 
 class TestDiff:
     def _diff(
@@ -702,6 +723,189 @@ class TestSlugRenameDetection:
         from hud.utils.hud_console import HUDConsole
 
         _detect_slug_renames({}, [], HUDConsole())
+
+
+# ===========================================================================
+# Column type inference
+# ===========================================================================
+
+
+class TestColumnInference:
+    def test_infer_text_from_strings(self) -> None:
+        from hud.cli.sync import _infer_column_type
+
+        assert _infer_column_type(["a", "b", "c"]) == "text"
+
+    def test_infer_number_from_ints(self) -> None:
+        from hud.cli.sync import _infer_column_type
+
+        assert _infer_column_type([1, 2, 3]) == "number"
+
+    def test_infer_number_from_floats(self) -> None:
+        from hud.cli.sync import _infer_column_type
+
+        assert _infer_column_type([1.5, 2.0]) == "number"
+
+    def test_infer_multi_select_from_lists(self) -> None:
+        from hud.cli.sync import _infer_column_type
+
+        assert _infer_column_type([["a", "b"], ["c"]]) == "multi-select"
+
+    def test_infer_text_from_empty(self) -> None:
+        from hud.cli.sync import _infer_column_type
+
+        assert _infer_column_type([]) == "text"
+
+    def test_infer_text_from_all_none(self) -> None:
+        from hud.cli.sync import _infer_column_type
+
+        assert _infer_column_type([None, None]) == "text"
+
+    def test_infer_text_from_mixed_str_and_int(self) -> None:
+        from hud.cli.sync import _infer_column_type
+
+        assert _infer_column_type(["a", 1]) == "text"
+
+    def test_build_column_definitions_from_specs(self) -> None:
+        from hud.cli.sync import _build_column_definitions
+
+        specs = [
+            {"columns": {"difficulty": "hard", "score": 3.5}},
+            {"columns": {"difficulty": "easy", "score": 1.0}},
+            {"columns": None},
+        ]
+        defs = _build_column_definitions(specs)
+        assert defs is not None
+        assert defs["difficulty"]["type"] == "text"
+        assert defs["score"]["type"] == "number"
+
+    def test_build_column_definitions_empty(self) -> None:
+        from hud.cli.sync import _build_column_definitions
+
+        assert _build_column_definitions([{"columns": None}]) is None
+        assert _build_column_definitions([{}]) is None
+
+    def test_build_column_definitions_multi_select(self) -> None:
+        from hud.cli.sync import _build_column_definitions
+
+        specs = [
+            {"columns": {"tags": ["a", "b"]}},
+            {"columns": {"tags": ["b", "c"]}},
+        ]
+        defs = _build_column_definitions(specs)
+        assert defs is not None
+        assert defs["tags"]["type"] == "multi-select"
+        assert set(defs["tags"]["options"]) == {"a", "b", "c"}
+
+
+class TestBuildLocalSpecsWithColumns:
+    def _build(self, tasks: list[Any]) -> list[dict[str, Any]]:
+        from hud.cli.sync import _build_local_specs
+        from hud.utils.hud_console import HUDConsole
+
+        return _build_local_specs(tasks, HUDConsole())
+
+    def test_columns_included_in_spec(self) -> None:
+        from hud.eval.task import Task
+
+        task = Task(
+            env={"name": "e"},
+            scenario="e:s",
+            args={"x": 1},
+            slug="t1",
+            columns={"difficulty": "hard"},
+        )
+        specs = self._build([task])
+        assert specs[0]["columns"] == {"difficulty": "hard"}
+
+    def test_empty_columns_omitted(self) -> None:
+        from hud.eval.task import Task
+
+        task = Task(env={"name": "e"}, scenario="e:s", args={}, slug="t1")
+        specs = self._build([task])
+        assert specs[0]["columns"] is None
+
+    def test_columns_affect_signature(self) -> None:
+        from hud.eval.task import Task
+
+        task_a = Task(
+            env={"name": "e"},
+            scenario="e:s",
+            args={},
+            slug="t1",
+            columns={"difficulty": "easy"},
+        )
+        task_b = Task(
+            env={"name": "e"},
+            scenario="e:s",
+            args={},
+            slug="t2",
+            columns={"difficulty": "hard"},
+        )
+        specs_a = self._build([task_a])
+        specs_b = self._build([task_b])
+        assert specs_a[0]["signature"] != specs_b[0]["signature"]
+
+
+class TestDiffWithColumns:
+    def _diff(
+        self,
+        local: list[dict[str, Any]],
+        remote: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        from hud.cli.sync import _diff_and_display
+        from hud.utils.hud_console import HUDConsole
+
+        return _diff_and_display(local, remote, "test", "id-123", True, HUDConsole())
+
+    def _make_spec(
+        self,
+        slug: str,
+        scenario: str = "e:s",
+        args: dict[str, Any] | None = None,
+        columns: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        from hud.cli.sync import _compute_signature
+
+        a = args or {}
+        return {
+            "slug": slug,
+            "scenario_name": scenario,
+            "args": a,
+            "env": {"name": "e"},
+            "validation": None,
+            "agent_config": None,
+            "columns": columns,
+            "signature": _compute_signature(scenario, a, None, None, columns),
+        }
+
+    def test_column_change_triggers_update(self) -> None:
+        local = [self._make_spec("t1", columns={"difficulty": "hard"})]
+        remote = [
+            {
+                "slug": "t1",
+                "external_id": "t1",
+                "scenario": "e:s",
+                "args": {},
+                "column_values": {"difficulty": "easy"},
+            }
+        ]
+        result = self._diff(local, remote)
+        assert len(result) == 1
+
+    def test_same_columns_no_update(self) -> None:
+        local = [self._make_spec("t1", columns={"difficulty": "hard"})]
+        remote = [
+            {
+                "slug": "t1",
+                "external_id": "t1",
+                "scenario": "e:s",
+                "args": {},
+                "column_values": {"difficulty": "hard"},
+            }
+        ]
+        result = self._diff(local, remote)
+        assert result == []
 
 
 # ===========================================================================
@@ -879,6 +1083,74 @@ class TestUploadAndPlatformErrors:
             assert payload["tasks"][0]["validation"] is not None
             assert payload["tasks"][0]["agent_config"]["system_prompt"] == "be nice"
 
+    def test_upload_with_columns(self) -> None:
+        from hud.cli.sync import _upload_tasks
+
+        resp = _mock_response(
+            200,
+            {
+                "evalset_id": "ts-123",
+                "evalset_name": "test",
+                "tasks_created": 1,
+                "tasks_updated": 0,
+            },
+        )
+        with patch("httpx.post", return_value=resp) as mock_post:
+            _upload_tasks(
+                [
+                    {
+                        "slug": "t1",
+                        "scenario_name": "e:s",
+                        "args": {},
+                        "env": {"name": "e"},
+                        "validation": None,
+                        "agent_config": None,
+                        "columns": {"difficulty": "hard", "score": 3.5},
+                    }
+                ],
+                "test",
+                "https://api.hud.ai",
+                {"Authorization": "Bearer x"},
+                column_definitions={"difficulty": {"type": "text"}, "score": {"type": "number"}},
+            )
+            payload = mock_post.call_args[1]["json"]
+            assert payload["tasks"][0]["column_values"] == {"difficulty": "hard", "score": 3.5}
+            assert payload["columns"]["difficulty"]["type"] == "text"
+            assert payload["columns"]["score"]["type"] == "number"
+
+    def test_upload_without_columns_omits_field(self) -> None:
+        from hud.cli.sync import _upload_tasks
+
+        resp = _mock_response(
+            200,
+            {
+                "evalset_id": "ts-123",
+                "evalset_name": "test",
+                "tasks_created": 1,
+                "tasks_updated": 0,
+            },
+        )
+        with patch("httpx.post", return_value=resp) as mock_post:
+            _upload_tasks(
+                [
+                    {
+                        "slug": "t1",
+                        "scenario_name": "e:s",
+                        "args": {},
+                        "env": {"name": "e"},
+                        "validation": None,
+                        "agent_config": None,
+                        "columns": None,
+                    }
+                ],
+                "test",
+                "https://api.hud.ai",
+                {"Authorization": "Bearer x"},
+            )
+            payload = mock_post.call_args[1]["json"]
+            assert "column_values" not in payload["tasks"][0]
+            assert "columns" not in payload
+
 
 # ===========================================================================
 # Deploy name conflict (E2, HUD-1046, HUD-1045)
@@ -1020,7 +1292,7 @@ class TestEnvironmentNameResolution:
 class TestTasksetResolution:
     def test_T1_name_resolves_to_id(self) -> None:
         """T1: Taskset name resolves to UUID via POST resolve-evalset."""
-        from hud.cli.utils.evalset import resolve_taskset_id
+        from hud.cli.utils.taskset import resolve_taskset_id
 
         resp = _mock_response(200, {"evalset_id": "uuid-123", "name": "my-taskset"})
         with patch("httpx.post", return_value=resp):
@@ -1030,7 +1302,7 @@ class TestTasksetResolution:
 
     def test_T1_creates_new_taskset(self) -> None:
         """T1: New taskset name creates it and returns UUID."""
-        from hud.cli.utils.evalset import resolve_taskset_id
+        from hud.cli.utils.taskset import resolve_taskset_id
 
         resp = _mock_response(200, {"evalset_id": "new-uuid", "name": "new-ts", "created": True})
         with patch("httpx.post", return_value=resp):
@@ -1039,7 +1311,7 @@ class TestTasksetResolution:
 
     def test_uuid_passed_directly(self) -> None:
         """UUID input skips API resolution."""
-        from hud.cli.utils.evalset import resolve_taskset_id
+        from hud.cli.utils.taskset import resolve_taskset_id
 
         ts_id, _ts_name, _ = resolve_taskset_id(
             "550e8400-e29b-41d4-a716-446655440000",
@@ -1056,7 +1328,7 @@ class TestTasksetResolution:
 
 class TestFetchRemoteTasks:
     def test_fetch_existing_taskset(self) -> None:
-        from hud.cli.utils.evalset import fetch_remote_tasks
+        from hud.cli.utils.taskset import fetch_remote_tasks
 
         resp = _mock_response(
             200,
@@ -1075,7 +1347,7 @@ class TestFetchRemoteTasks:
 
     def test_E4_fetch_nonexistent_taskset(self) -> None:
         """Taskset doesn't exist → empty results."""
-        from hud.cli.utils.evalset import fetch_remote_tasks
+        from hud.cli.utils.taskset import fetch_remote_tasks
 
         resp = _mock_response(404)
         with patch("httpx.get", return_value=resp):
@@ -1083,7 +1355,7 @@ class TestFetchRemoteTasks:
         assert tasks == []
 
     def test_fetch_empty_taskset(self) -> None:
-        from hud.cli.utils.evalset import fetch_remote_tasks
+        from hud.cli.utils.taskset import fetch_remote_tasks
 
         resp = _mock_response(
             200,
@@ -1112,7 +1384,7 @@ class TestFullSyncFlow:
             _upload_tasks,
         )
         from hud.cli.utils.collect import collect_tasks
-        from hud.cli.utils.evalset import fetch_remote_tasks
+        from hud.cli.utils.taskset import fetch_remote_tasks
         from hud.utils.hud_console import HUDConsole
 
         tasks = collect_tasks(str(project_dir / "tasks.py"))

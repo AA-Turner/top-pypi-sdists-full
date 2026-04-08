@@ -12,6 +12,7 @@ from plato.transports.base import Transport
 from plato.utils.subprocess import run_local, run_ssh
 
 if TYPE_CHECKING:
+    from plato.agents.mounts import AgentWorkspaceMount
     from plato.v2.async_.environment import Environment
 
 logger = logging.getLogger(__name__)
@@ -31,8 +32,6 @@ class NFSTransport(Transport):
         self.world_vm_ip = world_vm_ip
         self.ssh_key_path = ssh_key_path
         self.mount_path = mount_path
-        self.configure_workspace(name=None, repo_root=None, tracked=False)
-        self.configure_audit_scope(audit_run_id=None, audit_key=None)
 
     async def initialize(self) -> None:
         """Install kernel NFS server, write exports, and start the service."""
@@ -52,7 +51,7 @@ class NFSTransport(Transport):
         min_free_kb = max(131072, total_kb * 10 // 100)
         dirty_bytes = max(33554432, (total_kb * 1024) // 32)
         dirty_bg_bytes = dirty_bytes // 2
-        logger.info(
+        logger.debug(
             "Total RAM: %dMB, min_free=%dMB, dirty=%dMB, dirty_bg=%dMB",
             total_mb,
             min_free_kb // 1024,
@@ -71,7 +70,7 @@ class NFSTransport(Transport):
         if exit_code != 0:
             logger.warning("sysctl tuning failed (exit=%d): %s", exit_code, stderr.strip())
         else:
-            logger.info("VM memory tuning applied: %s", stdout.strip())
+            logger.debug("VM memory tuning applied: %s", stdout.strip())
 
         export_line = f"{self.path} *(rw,sync,fsid=0,no_subtree_check,no_root_squash)"
         exit_code, _, stderr = await run_local(
@@ -91,7 +90,7 @@ class NFSTransport(Transport):
             raise RuntimeError(f"Failed to mount nfsd filesystem: {stderr}")
 
         nfsd_threads = max(8, min(32, total_mb // 256))
-        logger.info("Setting nfsd threads: %d (for %dMB RAM)", nfsd_threads, total_mb)
+        logger.debug("Setting nfsd threads: %d (for %dMB RAM)", nfsd_threads, total_mb)
         await run_local(
             "if [ -f /etc/default/nfs-kernel-server ]; then "
             f"  sed -i 's/^RPCNFSDCOUNT=.*/RPCNFSDCOUNT={nfsd_threads}/' /etc/default/nfs-kernel-server || true; "
@@ -116,10 +115,10 @@ class NFSTransport(Transport):
             "cat /proc/fs/nfsd/threads 2>/dev/null || rpcinfo -p 2>/dev/null | grep nfs | head -1",
             timeout=5,
         )
-        logger.info("nfsd threads: %s", nfsd_threads_actual.strip())
+        logger.debug("nfsd threads: %s", nfsd_threads_actual.strip())
 
         _, exports, _ = await run_local("exportfs -s", timeout=5)
-        logger.info(f"NFS server running. Exports:\n{exports.strip()}")
+        logger.debug(f"NFS server running. Exports:\n{exports.strip()}")
 
     async def add_export(self, path: str, fsid: int) -> None:
         """Add an additional NFS export line for a workspace path."""
@@ -155,13 +154,19 @@ class NFSTransport(Transport):
             f"chown 1000:1000 {path} 2>/dev/null; chmod 1777 {path} 2>/dev/null; true",
             timeout=10,
         )
-        logger.info(f"Workspace path ready: {path}")
+        logger.debug(f"Workspace path ready: {path}")
 
-    async def setup_agent(self, agent_env: Environment, hostname: str) -> None:
+    async def setup_agent(
+        self,
+        agent_env: Environment | None,
+        hostname: str,
+        mount: AgentWorkspaceMount,
+    ) -> None:
         """Mount the world VM's NFS export on an agent VM via SSH."""
         await self._setup_workspace_path(self.path)
 
-        remote = self.agent_mount_path
+        del agent_env
+        remote = mount.agent_path
         remote_quoted = shlex.quote(remote)
         nfs_src = f"{self.world_vm_ip}:{self.path}"
 
@@ -172,8 +177,9 @@ class NFSTransport(Transport):
             f"echo \"NFS_MOUNT_INFO=$(mount | grep '{remote}')\"",
         ]
 
-        audit_key = self.audit_key
-        if self.workspace_tracked and audit_key:
+        audit_key = mount.audit_key
+        tracked = mount.tracked
+        if tracked and audit_key:
             audit_key_quoted = shlex.quote(audit_key)
             parts.extend(
                 [
@@ -204,7 +210,7 @@ class NFSTransport(Transport):
                 logger.info("NFS mounted on %s: %s", hostname, line[15:])
                 break
 
-        if self.workspace_tracked and audit_key:
+        if tracked and audit_key:
             logger.info("Filesystem audit enabled on agent VM for %s (key=%s)", remote, audit_key)
 
     async def collect_audit_log(
@@ -214,7 +220,7 @@ class NFSTransport(Transport):
     ) -> str | None:
         """Collect filesystem audit log from agent VM."""
         try:
-            key = audit_key or self.audit_key or "plato_workspace"
+            key = audit_key or "plato_workspace"
             exit_code, stdout, _ = await run_ssh(
                 self.ssh_key_path,
                 hostname,
@@ -228,9 +234,14 @@ class NFSTransport(Transport):
             logger.warning("Failed to collect audit log from agent VM", exc_info=True)
             return None
 
-    async def sync_back(self, agent_env: Environment, hostname: str) -> None:
+    async def sync_back(
+        self,
+        agent_env: Environment | None,
+        hostname: str,
+        mount: AgentWorkspaceMount,
+    ) -> None:
         """NFS writes are immediate."""
-        del agent_env, hostname
+        del agent_env, hostname, mount
 
     async def prepare(self) -> None:
         await self._setup_workspace_path(self.path)
@@ -239,14 +250,4 @@ class NFSTransport(Transport):
         sub_mount = None
         if self.mount_path and path.startswith(self.path + "/"):
             sub_mount = self.mount_path + path[len(self.path) :]
-        transport = NFSTransport(path, self.world_vm_ip, self.ssh_key_path, sub_mount)
-        transport.configure_workspace(
-            name=self.workspace_name,
-            repo_root=self.workspace_repo_root,
-            tracked=self.workspace_tracked,
-        )
-        transport.configure_audit_scope(
-            audit_run_id=self.audit_run_id,
-            audit_key=self.audit_key,
-        )
-        return transport
+        return NFSTransport(path, self.world_vm_ip, self.ssh_key_path, sub_mount)

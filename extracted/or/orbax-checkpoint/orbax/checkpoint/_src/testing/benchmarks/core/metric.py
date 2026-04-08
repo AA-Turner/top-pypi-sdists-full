@@ -30,7 +30,7 @@ from absl import logging
 from clu import metric_writers
 from etils import epath
 import numpy as np
-from orbax.checkpoint._src.multihost import multihost
+from orbax.checkpoint._src.testing.benchmarks.core import multihost
 import psutil
 import tensorstore as ts
 
@@ -47,7 +47,7 @@ class BaseMetric:
     self._start_time = time.perf_counter()
     logging.info(
         "[process_id=%s] Starting metric: '%s'...",
-        multihost.process_index(),
+        multihost.get_process_index(),
         self.name,
     )
 
@@ -56,7 +56,7 @@ class BaseMetric:
     duration = time.perf_counter() - self._start_time
     logging.info(
         "[process_id=%s] Finished metric: '%s' (took %.4fs)",
-        multihost.process_index(),
+        multihost.get_process_index(),
         self.name,
         duration,
     )
@@ -168,7 +168,7 @@ class TracemallocMetric(BaseMetric):
 
     self._log_tracemalloc_snapshot_diff(
         self.name,
-        multihost.process_index(),
+        multihost.get_process_index(),
         self._start_snapshot,
         end_snapshot,
         top_n=15,
@@ -285,7 +285,7 @@ class TensorstoreMetric(BaseMetric):
     diff = self._diff_metrics(self._start_metrics, end_metrics)
     logging.info(
         "[process_id=%s] Finished metric: %s, num_diffs=%d",
-        multihost.process_index(),
+        multihost.get_process_index(),
         self.name,
         len(diff),
     )
@@ -423,12 +423,12 @@ class Metrics:
     """Logs a formatted report of all collected metrics."""
     report_lines = []
     report_lines.append(
-        f"---[process_id={multihost.process_index()}] {self.name} Metrics"
+        f"---[process_id={multihost.get_process_index()}] {self.name} Metrics"
         " Report ---"
     )
     if not self.results:
       report_lines.append(
-          f"[process_id={multihost.process_index()}] No metrics recorded."
+          f"[process_id={multihost.get_process_index()}] No metrics recorded."
       )
     else:
       for name, (value, unit) in sorted(self.results.items()):
@@ -508,12 +508,15 @@ class MetricsManager:
       self,
       name: str,
       num_repeats: int,
+      tensorboard_dir: epath.Path | None = None,
   ):
     """Initializes the MetricsManager.
 
     Args:
       name: The name of the test suite.
       num_repeats: The number of repetitions for each benchmark configuration.
+      tensorboard_dir: The directory to write TensorBoard events to. If None,
+        metrics will not be written to TensorBoard during the run.
     """
     self._name = name
     self._num_repeats = num_repeats
@@ -522,6 +525,8 @@ class MetricsManager:
     )
     self._benchmark_options: dict[str, Any] = {}
     self._checkpoint_configs: dict[str, Any] = {}
+    self._tensorboard_dir = tensorboard_dir
+    self._writers: dict[str, Any] = {}
 
   def add_result(
       self,
@@ -546,6 +551,75 @@ class MetricsManager:
       self._benchmark_options[benchmark_name] = benchmark_options
     if benchmark_name not in self._checkpoint_configs:
       self._checkpoint_configs[benchmark_name] = checkpoint_config
+
+    if self._tensorboard_dir:
+      self._write_result_to_tensorboard(
+          benchmark_name,
+          metrics,
+          error,
+          len(self._runs[benchmark_name]) - 1,
+          benchmark_options,
+          checkpoint_config,
+      )
+
+  def _get_writer(self, benchmark_name: str) -> Any:
+    """Gets or creates a TensorBoard writer for the given benchmark."""
+    if benchmark_name not in self._writers:
+      is_primary_host = multihost.get_process_index() == 0
+      self._writers[benchmark_name] = metric_writers.create_default_writer(
+          self._tensorboard_dir,
+          just_logging=not is_primary_host,
+          collection=benchmark_name,
+      )
+    return self._writers[benchmark_name]
+
+  def _write_result_to_tensorboard(
+      self,
+      benchmark_name: str,
+      metrics: Metrics,
+      error: Exception | None,
+      step: int,
+      benchmark_options: Any | None = None,
+      checkpoint_config: Any | None = None,
+  ):
+    """Writes a single result to TensorBoard."""
+    writer = self._get_writer(benchmark_name)
+    if error is None:
+      for key, (value, unit) in metrics.results.items():
+        tag = f'{key}_{unit.replace("/", "_")}'
+        if isinstance(value, (int, float)):
+          writer.write_scalars(step=step, scalars={tag: value})
+        else:
+          writer.write_texts(step=step, texts={tag: str(value)})
+    else:
+      tag = "error"
+      writer.write_texts(step=step, texts={tag: f"<pre>{repr(error)}</pre>"})
+
+    # Write configuration if it's the first step
+    if step == 0 and benchmark_options:
+      if dataclasses.is_dataclass(benchmark_options):
+        opt_dict = dataclasses.asdict(benchmark_options)
+      else:
+        opt_dict = benchmark_options
+
+      if dataclasses.is_dataclass(checkpoint_config):
+        config_dict = dataclasses.asdict(checkpoint_config)
+      else:
+        config_dict = checkpoint_config
+
+      configuration = {
+          "benchmark_name": benchmark_name,
+          "benchmark_options": opt_dict,
+          "checkpoint_config": config_dict,
+      }
+
+      writer.write_texts(
+          step=0,
+          texts={
+              "configuration": json.dumps(configuration),
+          },
+      )
+    writer.flush()
 
   def _aggregate_metrics(
       self, results: list[tuple[Metrics, Exception | None]]
@@ -580,11 +654,10 @@ class MetricsManager:
       )
     return aggregated_stats_dict, metric_units
 
-  def generate_report(self) -> str:
+  def generate_report(self) -> None:
     """Generates a final string report containing aggregated metrics.
 
-    Returns:
-      A formatted string containing the full benchmark report.
+    And exports aggregated metrics to TensorBoard if configured.
     """
     report_lines = []
     title = f" Test Suite Report: {self._name} "
@@ -643,70 +716,27 @@ class MetricsManager:
             report_lines.append(f"Test: {metrics.name}, Error: {error_repr}")
 
     report_lines.append("\n" + "=" * 80)
-    return "\n".join(report_lines)
+    logging.info("\n".join(report_lines))
 
-  def export_to_tensorboard(self, tensorboard_dir: epath.Path):
-    """Exports metrics to TensorBoard."""
-    logging.info("Writing per-repetition metrics to TensorBoard...")
-    for benchmark_name, results in self._runs.items():
-      is_primary_host = multihost.process_index() == 0
-      writer = metric_writers.create_default_writer(
-          tensorboard_dir,
-          just_logging=not is_primary_host,
-          collection=benchmark_name,
-      )
-      # Write metrics for each repetition
-      for i, (metrics, error) in enumerate(results):
-        if error is None:
-          for key, (value, unit) in metrics.results.items():
-            tag = f'{key}_{unit.replace("/", "_")}'
-            if isinstance(value, (int, float)):
-              writer.write_scalars(step=i, scalars={tag: value})
-            else:
-              writer.write_texts(step=i, texts={tag: str(value)})
+    if self._tensorboard_dir:
+      logging.info("Writing aggregated metrics to TensorBoard...")
+      for benchmark_name, results in self._runs.items():
+        writer = self._get_writer(benchmark_name)
+
+        # Write Aggregated metrics as text
+        aggregated_metrics = []
+        aggregated_stats_dict, metric_units = self._aggregate_metrics(results)
+
+        if not aggregated_stats_dict:
+          aggregated_metrics.append("No successful runs to aggregate.")
         else:
-          tag = "error"
-          writer.write_texts(step=i, texts={tag: f"<pre>{repr(error)}</pre>"})
-      # Write benchmark configs as json text
-      if self._benchmark_options[benchmark_name]:
-        benchmark_options = self._benchmark_options[benchmark_name]
-        if dataclasses.is_dataclass(benchmark_options):
-          opt_dict = dataclasses.asdict(benchmark_options)
-        else:
-          opt_dict = benchmark_options
+          for key, stats in aggregated_stats_dict.items():
+            unit = metric_units[key]
+            aggregated_metrics.append(
+                f"{key}: {stats.mean:.4f} +/- {stats.std:.4f} {unit} (min:"
+                f" {stats.min:.4f}, max: {stats.max:.4f}, n={stats.count})"
+            )
 
-        checkpoint_configs = self._checkpoint_configs[benchmark_name]
-        if dataclasses.is_dataclass(checkpoint_configs):
-          config_dict = dataclasses.asdict(checkpoint_configs)
-        else:
-          config_dict = checkpoint_configs
-
-        configuration = {
-            "benchmark_name": benchmark_name,
-            "benchmark_options": opt_dict,
-            "checkpoint_config": config_dict,
-        }
-
-        writer.write_texts(
-            step=0,
-            texts={
-                "configuration": json.dumps(configuration),
-            },
-        )
-      # Write Aggreagated metrics as text
-      aggregated_metrics = []
-      aggregated_stats_dict, metric_units = self._aggregate_metrics(results)
-
-      if not aggregated_stats_dict:
-        aggregated_metrics.append("No successful runs to aggregate.")
-        continue
-
-      for key, stats in aggregated_stats_dict.items():
-        unit = metric_units[key]
-        aggregated_metrics.append(
-            f"{key}: {stats.mean:.4f} +/- {stats.std:.4f} {unit} (min:"
-            f" {stats.min:.4f}, max: {stats.max:.4f}, n={stats.count})"
-        )
         aggregated_metrics_str = "\n".join(aggregated_metrics)
         writer.write_texts(
             step=0,
@@ -715,6 +745,10 @@ class MetricsManager:
             },
         )
 
-      writer.flush()
-      writer.close()
-    logging.info("Finished writing metrics to TensorBoard.")
+        writer.flush()
+        writer.close()
+
+      # Clear writers after closing to prevent reuse of closed writers if called
+      # again.
+      self._writers.clear()
+      logging.info("Finished writing metrics to TensorBoard.")

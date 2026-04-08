@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 #: (plato-agent-runner, plato-world-runner, plato-git-ops-server, etc.).
 VM_PATH_EXPORT = 'export PATH="/opt/plato-venv/bin:/root/.local/bin:/usr/local/bin:$PATH"'
 
+#: Canonical Python interpreter inside Plato world/agent VM images.
+VM_VENV_PYTHON = "/opt/plato-venv/bin/python"
+
 
 def _close_subprocess(proc: asyncio.subprocess.Process) -> None:
     """Explicitly close subprocess transport pipes to prevent 'Event loop is closed' noise.
@@ -171,7 +174,9 @@ async def run_ssh_streaming(
             line = await process.stdout.readline()
             if not line:
                 break
-            output_lines.append(line.decode("utf-8", errors="replace").rstrip())
+            decoded_line = line.decode("utf-8", errors="replace").rstrip()
+            output_lines.append(decoded_line)
+            logger.debug("[%s] %s", hostname, decoded_line)
 
     await process.wait()
     _close_subprocess(process)

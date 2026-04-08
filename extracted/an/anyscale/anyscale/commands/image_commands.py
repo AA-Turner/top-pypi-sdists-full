@@ -138,13 +138,22 @@ def _format_image_output_verbose(image: ImageBuild) -> Dict[str, str]:
     type=str,
     default=None,
 )
+@click.option(
+    "--cloud-id",
+    help="The ID of the Anyscale Cloud. Required for Azure Control Plane only.",
+    type=str,
+    default=None,
+)
 def build(
-    containerfile: IO[bytes], name: str, ray_version: Optional[str] = None
+    containerfile: IO[bytes],
+    name: str,
+    ray_version: Optional[str] = None,
+    cloud_id: Optional[str] = None,
 ) -> None:
     try:
         containerfile_str = containerfile.read().decode("utf-8")
         image_uri = anyscale.image.build(
-            containerfile_str, name=name, ray_version=ray_version
+            containerfile_str, name=name, ray_version=ray_version, cloud_id=cloud_id,
         )
         print(f"Image built successfully with URI: {image_uri}")
     except ValueError as e:

@@ -87,9 +87,12 @@ from .type_defs import (
 )
 from .waiter import (
     InboundExternalLinkActiveWaiter,
+    InboundExternalLinkDeletedWaiter,
     LinkAcceptedWaiter,
     LinkActiveWaiter,
+    LinkDeletedWaiter,
     OutboundExternalLinkActiveWaiter,
+    OutboundExternalLinkDeletedWaiter,
     RequesterGatewayActiveWaiter,
     RequesterGatewayDeletedWaiter,
     ResponderGatewayActiveWaiter,
@@ -446,6 +449,17 @@ class RTBFabricClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["inbound_external_link_deleted"]
+    ) -> InboundExternalLinkDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["link_accepted"]
     ) -> LinkAcceptedWaiter:
         """
@@ -468,8 +482,30 @@ class RTBFabricClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["link_deleted"]
+    ) -> LinkDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["outbound_external_link_active"]
     ) -> OutboundExternalLinkActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["outbound_external_link_deleted"]
+    ) -> OutboundExternalLinkDeletedWaiter:
         """
         Returns an object that can wait for some condition.
 

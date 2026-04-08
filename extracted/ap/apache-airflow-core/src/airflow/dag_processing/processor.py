@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Annotated, BinaryIO, ClassVar, Literal
 import attrs
 from pydantic import BaseModel, Field, TypeAdapter
 
+from airflow._shared.observability.metrics.stats import Stats
 from airflow.callbacks.callback_requests import (
     CallbackRequest,
     DagCallbackRequest,
@@ -35,14 +36,15 @@ from airflow.callbacks.callback_requests import (
 )
 from airflow.configuration import conf
 from airflow.dag_processing.bundles.base import BundleVersionLock
-from airflow.exceptions import TaskNotFound
-from airflow.models.dagbag import BundleDagBag, DagBag
+from airflow.dag_processing.dagbag import BundleDagBag, DagBag
+from airflow.sdk.exceptions import TaskNotFound
 from airflow.sdk.execution_time.comms import (
     ConnectionResult,
     DeleteVariable,
     ErrorResponse,
     GetConnection,
     GetPreviousDagRun,
+    GetPreviousTI,
     GetPrevSuccessfulDagRun,
     GetTaskStates,
     GetTICount,
@@ -54,6 +56,7 @@ from airflow.sdk.execution_time.comms import (
     MaskSecret,
     OKResponse,
     PreviousDagRunResult,
+    PreviousTIResult,
     PrevSuccessfulDagRunResult,
     PutVariable,
     TaskStatesResult,
@@ -64,9 +67,9 @@ from airflow.sdk.execution_time.comms import (
     XComSequenceSliceResult,
 )
 from airflow.sdk.execution_time.supervisor import WatchedSubprocess
-from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance, _send_task_error_email
-from airflow.serialization.serialized_objects import LazyDeserializedDAG, SerializedDAG
-from airflow.stats import Stats
+from airflow.sdk.execution_time.task_runner import RuntimeTaskInstance, _send_error_email_notification
+from airflow.serialization.serialized_objects import DagSerialization, LazyDeserializedDAG
+from airflow.utils.dag_version_inflation_checker import check_dag_file_stability
 from airflow.utils.file import iter_airflow_imports
 from airflow.utils.state import TaskInstanceState
 
@@ -94,6 +97,9 @@ class DagFileParseRequest(BaseModel):
 
     bundle_path: Path
     """Passing bundle path around lets us figure out relative file path."""
+
+    bundle_name: str
+    """Bundle name for team-specific executor validation."""
 
     callback_requests: list[CallbackRequest] = Field(default_factory=list)
     type: Literal["DagFileParseRequest"] = "DagFileParseRequest"
@@ -124,6 +130,7 @@ ToManager = Annotated[
     | DeleteVariable
     | GetPrevSuccessfulDagRun
     | GetPreviousDagRun
+    | GetPreviousTI
     | GetXCom
     | GetXComCount
     | GetXComSequenceItem
@@ -138,6 +145,7 @@ ToDagProcessor = Annotated[
     | VariableResult
     | TaskStatesResult
     | PreviousDagRunResult
+    | PreviousTIResult
     | PrevSuccessfulDagRunResult
     | ErrorResponse
     | OKResponse
@@ -192,6 +200,7 @@ def _parse_file_entrypoint():
     log = structlog.get_logger(logger_name="task")
 
     result = _parse_file(msg, log)
+
     if result is not None:
         comms_decoder.send(result)
 
@@ -199,13 +208,25 @@ def _parse_file_entrypoint():
 def _parse_file(msg: DagFileParseRequest, log: FilteringBoundLogger) -> DagFileParsingResult | None:
     # TODO: Set known_pool names on DagBag!
 
+    stability_check_result = check_dag_file_stability(os.fspath(msg.file))
+
+    if stability_check_error_dict := stability_check_result.get_error_format_dict(msg.file, msg.bundle_path):
+        # If Dag stability check level is error, we shouldn't parse the Dags and return the result early
+        return DagFileParsingResult(
+            fileloc=msg.file,
+            serialized_dags=[],
+            import_errors=stability_check_error_dict,
+        )
+
     bag = BundleDagBag(
         dag_folder=msg.file,
         bundle_path=msg.bundle_path,
+        bundle_name=msg.bundle_name,
         load_op_links=False,
     )
+
     if msg.callback_requests:
-        # If the request is for callback, we shouldn't serialize the DAGs
+        # If the request is for callback, we shouldn't serialize the Dags
         _execute_callbacks(bag, msg.callback_requests, log)
         return None
 
@@ -215,8 +236,7 @@ def _parse_file(msg: DagFileParseRequest, log: FilteringBoundLogger) -> DagFileP
         fileloc=msg.file,
         serialized_dags=serialized_dags,
         import_errors=bag.import_errors,
-        # TODO: Make `bag.dag_warnings` not return SQLA model objects
-        warnings=[],
+        warnings=stability_check_result.get_formatted_warnings(bag.dag_ids),
     )
     return result
 
@@ -229,14 +249,16 @@ def _serialize_dags(
     serialized_dags = []
     for dag in bag.dags.values():
         try:
-            data = SerializedDAG.to_dict(dag)
+            data = DagSerialization.to_dict(dag)
             serialized_dags.append(LazyDeserializedDAG(data=data, last_loaded=dag.last_loaded))
         except Exception:
             log.exception("Failed to serialize DAG: %s", dag.fileloc)
             dagbag_import_error_traceback_depth = conf.getint(
                 "core", "dagbag_import_error_traceback_depth", fallback=None
             )
-            serialization_import_errors[dag.fileloc] = traceback.format_exc(
+            # Use relative_fileloc if available, fall back to fileloc
+            error_path = dag.relative_fileloc or dag.fileloc
+            serialization_import_errors[error_path] = traceback.format_exc(
                 limit=-dagbag_import_error_traceback_depth
             )
     return serialized_dags, serialization_import_errors
@@ -451,7 +473,9 @@ def _execute_email_callbacks(dagbag: DagBag, request: EmailRequest, log: Filteri
     )
 
     try:
-        _send_task_error_email(task.email, runtime_ti, request.msg, log)
+        context = runtime_ti.get_template_context()
+        error = Exception(request.msg) if request.msg else None
+        _send_error_email_notification(task, runtime_ti, context, error, log)
     except Exception:
         log.exception(
             "Failed to send %s email",
@@ -495,6 +519,7 @@ class DagFileProcessorProcess(WatchedSubprocess):
         *,
         path: str | os.PathLike[str],
         bundle_path: Path,
+        bundle_name: str,
         callbacks: list[CallbackRequest],
         target: Callable[[], None] = _parse_file_entrypoint,
         client: Client,
@@ -506,7 +531,7 @@ class DagFileProcessorProcess(WatchedSubprocess):
 
         proc: Self = super().start(target=target, client=client, **kwargs)
         proc.had_callbacks = bool(callbacks)  # Track if this process had callbacks
-        proc._on_child_started(callbacks, path, bundle_path)
+        proc._on_child_started(callbacks, path, bundle_path, bundle_name)
         return proc
 
     def _on_child_started(
@@ -514,10 +539,12 @@ class DagFileProcessorProcess(WatchedSubprocess):
         callbacks: list[CallbackRequest],
         path: str | os.PathLike[str],
         bundle_path: Path,
+        bundle_name: str,
     ) -> None:
         msg = DagFileParseRequest(
             file=os.fspath(path),
             bundle_path=bundle_path,
+            bundle_name=bundle_name,
             callback_requests=callbacks,
         )
         self.send_msg(msg, request_id=0)
@@ -621,6 +648,14 @@ class DagFileProcessorProcess(WatchedSubprocess):
                 resp = TaskStatesResult.from_api_response(task_states_map)
             else:
                 resp = task_states_map
+        elif isinstance(msg, GetPreviousTI):
+            resp = self.client.task_instances.get_previous(
+                dag_id=msg.dag_id,
+                task_id=msg.task_id,
+                logical_date=msg.logical_date,
+                map_index=msg.map_index,
+                state=msg.state,
+            )
         else:
             log.error("Unhandled request", msg=msg)
             self.send_msg(

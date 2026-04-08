@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-core
-Version: 3.1.8
+Version: 3.2.0
 Summary: Core packages for Apache Airflow, schedule and API server
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Documentation, https://airflow.apache.org/docs/
@@ -29,8 +29,9 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Monitoring
-Requires-Python: <3.14,>=3.10
+Requires-Python: !=3.15,>=3.10
 Requires-Dist: a2wsgi>=1.10.8
 Requires-Dist: aiosqlite<0.22.0,>=0.20.0
 Requires-Dist: alembic<2.0,>=1.13.1
@@ -39,18 +40,19 @@ Requires-Dist: apache-airflow-providers-common-io>=1.6.3
 Requires-Dist: apache-airflow-providers-common-sql>=1.28.1
 Requires-Dist: apache-airflow-providers-smtp>=2.3.1
 Requires-Dist: apache-airflow-providers-standard>=1.9.0
-Requires-Dist: apache-airflow-task-sdk<1.2.0,==1.1.8
+Requires-Dist: apache-airflow-task-sdk==1.2.0
 Requires-Dist: argcomplete>=1.10
-Requires-Dist: asgiref>=2.3.0
+Requires-Dist: asgiref>=2.3.0; python_version < '3.14'
+Requires-Dist: asgiref>=3.11.1; python_version >= '3.14'
 Requires-Dist: attrs!=25.2.0,>=22.1.0
-Requires-Dist: cadwyn>=5.2.1
+Requires-Dist: cadwyn>=6.0.4
 Requires-Dist: colorlog>=6.8.2
 Requires-Dist: cron-descriptor>=1.2.24
 Requires-Dist: croniter>=2.0.2
-Requires-Dist: cryptography>=41.0.0
+Requires-Dist: cryptography>=44.0.3
 Requires-Dist: deprecated>=1.2.13
 Requires-Dist: dill>=0.2.2
-Requires-Dist: fastapi[standard-no-fastapi-cloud-cli]<0.118.0,>=0.116.0
+Requires-Dist: fastapi[standard-no-fastapi-cloud-cli]>=0.129.0
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: importlib-metadata>=6.5; python_version < '3.12'
 Requires-Dist: importlib-metadata>=7.0; python_version >= '3.12'
@@ -58,7 +60,8 @@ Requires-Dist: itsdangerous>=2.0
 Requires-Dist: jinja2>=3.1.5
 Requires-Dist: jsonschema>=4.19.1
 Requires-Dist: lazy-object-proxy>=1.2.0
-Requires-Dist: libcst>=1.8.2
+Requires-Dist: libcst>=1.8.2; python_version < '3.14'
+Requires-Dist: libcst>=1.8.6; python_version >= '3.14'
 Requires-Dist: linkify-it-py>=2.0.0
 Requires-Dist: lockfile>=0.12.2
 Requires-Dist: methodtools>=0.4.7
@@ -79,48 +82,48 @@ Requires-Dist: pyjwt>=2.11.0
 Requires-Dist: python-daemon>=3.0.0
 Requires-Dist: python-dateutil>=2.7.0
 Requires-Dist: python-slugify>=5.0
+Requires-Dist: pyyaml>=6.0.3
 Requires-Dist: requests<3,>=2.32.0
 Requires-Dist: rich-argparse>=1.0.0
 Requires-Dist: rich>=13.6.0
 Requires-Dist: setproctitle>=1.3.3
-Requires-Dist: sqlalchemy-jsonfield>=1.0
-Requires-Dist: sqlalchemy-utils>=0.41.2
-Requires-Dist: sqlalchemy[asyncio]>=1.4.54
-Requires-Dist: starlette>=0.45.0
+Requires-Dist: sqlalchemy[asyncio]>=2.0.48
+Requires-Dist: starlette<1,>=0.45.0
 Requires-Dist: structlog>=25.4.0
 Requires-Dist: svcs>=25.1.0
 Requires-Dist: tabulate>=0.9.0
 Requires-Dist: tenacity>=8.3.0
 Requires-Dist: termcolor>=3.0.0
 Requires-Dist: typing-extensions>=4.14.1
-Requires-Dist: universal-pathlib<0.3.0,>=0.2.6
+Requires-Dist: universal-pathlib>=0.3.8
 Requires-Dist: uuid6>=2024.7.10
 Requires-Dist: uvicorn>=0.37.0
 Provides-Extra: all
-Requires-Dist: blinker>=1.1; extra == 'all'
 Requires-Dist: graphviz>=0.20; (sys_platform != 'darwin') and extra == 'all'
+Requires-Dist: gunicorn<25.1.0,>=23.0.0; extra == 'all'
 Requires-Dist: opentelemetry-exporter-prometheus>=0.47b0; extra == 'all'
 Requires-Dist: pykerberos>=1.1.13; extra == 'all'
 Requires-Dist: requests-kerberos>=0.14.0; extra == 'all'
-Requires-Dist: sentry-sdk[flask]>=2.30.0; extra == 'all'
 Requires-Dist: statsd>=3.3.0; extra == 'all'
 Requires-Dist: thrift-sasl>=0.4.2; extra == 'all'
 Provides-Extra: async
 Requires-Dist: eventlet>=0.37.0; extra == 'async'
 Requires-Dist: gevent>=25.4.1; extra == 'async'
 Requires-Dist: greenback>=1.2.1; extra == 'async'
-Requires-Dist: greenlet>=3.1.0; extra == 'async'
+Requires-Dist: greenlet>=3.1.0; (python_version < '3.14') and extra == 'async'
+Requires-Dist: greenlet>=3.3.2; (python_version >= '3.14') and extra == 'async'
 Provides-Extra: graphviz
 Requires-Dist: graphviz>=0.20; (sys_platform != 'darwin') and extra == 'graphviz'
+Provides-Extra: gunicorn
+Requires-Dist: gunicorn<25.1.0,>=23.0.0; extra == 'gunicorn'
 Provides-Extra: kerberos
 Requires-Dist: pykerberos>=1.1.13; extra == 'kerberos'
 Requires-Dist: requests-kerberos>=0.14.0; extra == 'kerberos'
 Requires-Dist: thrift-sasl>=0.4.2; extra == 'kerberos'
+Provides-Extra: memray
+Requires-Dist: memray>=1.19.0; extra == 'memray'
 Provides-Extra: otel
 Requires-Dist: opentelemetry-exporter-prometheus>=0.47b0; extra == 'otel'
-Provides-Extra: sentry
-Requires-Dist: blinker>=1.1; extra == 'sentry'
-Requires-Dist: sentry-sdk[flask]>=2.30.0; extra == 'sentry'
 Provides-Extra: statsd
 Requires-Dist: statsd>=3.3.0; extra == 'statsd'
 Description-Content-Type: text/markdown

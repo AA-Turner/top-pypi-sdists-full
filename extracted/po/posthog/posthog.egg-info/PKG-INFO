@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthog
-Version: 7.9.12
+Version: 7.10.0
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -42,7 +42,7 @@ Requires-Dist: types-requests; extra == "dev"
 Requires-Dist: types-setuptools; extra == "dev"
 Requires-Dist: types-six; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pydantic; extra == "dev"
+Requires-Dist: pydantic>=2.12.0; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: setuptools; extra == "dev"
 Requires-Dist: packaging; extra == "dev"
@@ -61,13 +61,16 @@ Requires-Dist: django; extra == "test"
 Requires-Dist: openai>=2.0; extra == "test"
 Requires-Dist: anthropic>=0.72; extra == "test"
 Requires-Dist: langgraph>=1.0; extra == "test"
+Requires-Dist: langgraph-checkpoint>=3.0.1; extra == "test"
+Requires-Dist: tiktoken>=0.12.0; extra == "test"
 Requires-Dist: langchain-core>=1.0; extra == "test"
 Requires-Dist: langchain-community>=0.4; extra == "test"
 Requires-Dist: langchain-openai>=1.0; extra == "test"
 Requires-Dist: langchain-anthropic>=1.0; extra == "test"
 Requires-Dist: google-genai; extra == "test"
-Requires-Dist: pydantic; extra == "test"
+Requires-Dist: pydantic>=2.12.0; extra == "test"
 Requires-Dist: parameterized>=0.8.1; extra == "test"
+Requires-Dist: claude-agent-sdk; extra == "test"
 Dynamic: author
 Dynamic: home-page
 Dynamic: license-file

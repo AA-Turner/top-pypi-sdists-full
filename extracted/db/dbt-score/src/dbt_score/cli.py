@@ -54,6 +54,12 @@ def cli() -> None:
     multiple=True,
 )
 @click.option(
+    "--exclude",
+    "-e",
+    help="Specify the nodes to exclude.",
+    multiple=True,
+)
+@click.option(
     "--namespace",
     "-n",
     help="Namespace to look for rules.",
@@ -115,10 +121,11 @@ def cli() -> None:
     default=False,
 )
 @click.pass_context
-def lint(  # noqa: PLR0912, PLR0913, C901
+def lint(  # noqa: PLR0913, C901
     ctx: click.Context,
-    format: Literal["plain", "manifest", "ascii"],
-    select: tuple[str],
+    format: Literal["plain", "manifest", "ascii", "json"],
+    select: tuple[str, ...],
+    exclude: tuple[str, ...],
     namespace: list[str],
     disabled_rule: list[str],
     manifest: Path,
@@ -155,7 +162,11 @@ def lint(  # noqa: PLR0912, PLR0913, C901
         if run_dbt_parse:
             dbt_parse()
         evaluation = lint_dbt_project(
-            manifest_path=manifest, config=config, format=format, select=select
+            manifest_path=manifest,
+            config=config,
+            format=format,
+            select=select,
+            exclude=exclude,
         )
 
     except FileNotFoundError:

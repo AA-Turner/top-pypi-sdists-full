@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-docutils"
-version = "0.22.3.20260322"
+version = "0.22.3.20260408"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for docutils"
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`282b1a838a565f10a4b2e9139adc26ab828b2e9d`](https://github.com/python/typeshed/commit/282b1a838a565f10a4b2e9139adc26ab828b2e9d).
+[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

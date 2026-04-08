@@ -47,6 +47,8 @@ from .type_defs import (
     ListSpeechSynthesisTasksInputTypeDef,
     ListSpeechSynthesisTasksOutputTypeDef,
     PutLexiconInputTypeDef,
+    StartSpeechSynthesisStreamInputTypeDef,
+    StartSpeechSynthesisStreamOutputTypeDef,
     StartSpeechSynthesisTaskInputTypeDef,
     StartSpeechSynthesisTaskOutputTypeDef,
     SynthesizeSpeechInputTypeDef,
@@ -80,11 +82,14 @@ class Exceptions(BaseClientExceptions):
     MaxLexemeLengthExceededException: type[BotocoreClientError]
     MaxLexiconsNumberExceededException: type[BotocoreClientError]
     ServiceFailureException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
     SsmlMarksNotSupportedForTextTypeException: type[BotocoreClientError]
     SynthesisTaskNotFoundException: type[BotocoreClientError]
     TextLengthExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
     UnsupportedPlsAlphabetException: type[BotocoreClientError]
     UnsupportedPlsLanguageException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class PollyClient(AioBaseClient):
@@ -190,6 +195,17 @@ class PollyClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/put_lexicon.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_polly/client/#put_lexicon)
+        """
+
+    async def start_speech_synthesis_stream(
+        self, **kwargs: Unpack[StartSpeechSynthesisStreamInputTypeDef]
+    ) -> StartSpeechSynthesisStreamOutputTypeDef:
+        """
+        Synthesizes UTF-8 input, plain text, or SSML over a bidirectional streaming
+        connection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly/client/start_speech_synthesis_stream.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_polly/client/#start_speech_synthesis_stream)
         """
 
     async def start_speech_synthesis_task(

@@ -34,7 +34,9 @@ OPENLINEAGE_PRODUCER = "https://github.com/astronomer/astronomer-cosmos/"
 
 # Cosmos will not emit datasets for the following Airflow versions, due to a breaking change that's fixed in later Airflow 2.x versions
 # https://github.com/apache/airflow/issues/39486
-PARTIALLY_SUPPORTED_AIRFLOW_VERSIONS = [Version("2.9.0"), Version("2.9.1")]
+# Cosmos Dataset Alias is also broken in Airflow 2.10.5, and won't be fixed:
+# https://github.com/apache/airflow/issues/42495
+PARTIALLY_SUPPORTED_AIRFLOW_VERSIONS = [Version("2.9.0"), Version("2.9.1"), Version("2.10.5")]
 
 
 AIRFLOW_OBJECT_STORAGE_PATH_URL_SCHEMES = ("s3", "gs", "gcs", "wasb", "abfs", "abfss", "az", "http", "https")
@@ -198,3 +200,4 @@ TELEMETRY_TIMEOUT = 1.0
 _AIRFLOW3_MAJOR_VERSION = 3
 
 _K8s_WATCHER_MIN_K8S_PROVIDER_VERSION = Version("10.8.0")
+_DBT_STARTUP_EVENTS_XCOM_KEY = "dbt_startup_events"

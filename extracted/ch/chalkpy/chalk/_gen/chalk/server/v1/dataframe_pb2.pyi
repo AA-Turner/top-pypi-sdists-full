@@ -34,16 +34,19 @@ DATA_FRAME_RUN_STATUS_FAILED: DataFrameRunStatus
 DATA_FRAME_RUN_STATUS_CANCELED: DataFrameRunStatus
 
 class ExecuteDataFramePlanRequest(_message.Message):
-    __slots__ = ("plan", "correlation_id", "resource_group")
+    __slots__ = ("plan", "compressed_plan_uri_prefix", "correlation_id", "resource_group")
     PLAN_FIELD_NUMBER: _ClassVar[int]
+    COMPRESSED_PLAN_URI_PREFIX_FIELD_NUMBER: _ClassVar[int]
     CORRELATION_ID_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     plan: _dataframe_pb2.DataFramePlan
+    compressed_plan_uri_prefix: str
     correlation_id: str
     resource_group: str
     def __init__(
         self,
         plan: _Optional[_Union[_dataframe_pb2.DataFramePlan, _Mapping]] = ...,
+        compressed_plan_uri_prefix: _Optional[str] = ...,
         correlation_id: _Optional[str] = ...,
         resource_group: _Optional[str] = ...,
     ) -> None: ...
@@ -63,11 +66,44 @@ class ExecuteDataFramePlanResponse(_message.Message):
         errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
     ) -> None: ...
 
+class GetDataFramePlanUploadUrlRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetDataFramePlanUploadUrlResponse(_message.Message):
+    __slots__ = ("upload_url", "compressed_plan_uri_prefix")
+    UPLOAD_URL_FIELD_NUMBER: _ClassVar[int]
+    COMPRESSED_PLAN_URI_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    upload_url: str
+    compressed_plan_uri_prefix: str
+    def __init__(self, upload_url: _Optional[str] = ..., compressed_plan_uri_prefix: _Optional[str] = ...) -> None: ...
+
 class GetDataFrameRunRequest(_message.Message):
     __slots__ = ("operation_id",)
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     operation_id: str
     def __init__(self, operation_id: _Optional[str] = ...) -> None: ...
+
+class GetDataFrameRunStatusRequest(_message.Message):
+    __slots__ = ("operation_id",)
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    operation_id: str
+    def __init__(self, operation_id: _Optional[str] = ...) -> None: ...
+
+class GetDataFrameRunStatusResponse(_message.Message):
+    __slots__ = ("status", "output_uri_prefix", "finalized_at")
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_URI_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    FINALIZED_AT_FIELD_NUMBER: _ClassVar[int]
+    status: DataFrameRunStatus
+    output_uri_prefix: str
+    finalized_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        status: _Optional[_Union[DataFrameRunStatus, str]] = ...,
+        output_uri_prefix: _Optional[str] = ...,
+        finalized_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
 
 class DataFrameRunShard(_message.Message):
     __slots__ = ("operation_id", "shard_id", "status", "finalized_at", "updated_at", "compressed_plan_uri_prefix")

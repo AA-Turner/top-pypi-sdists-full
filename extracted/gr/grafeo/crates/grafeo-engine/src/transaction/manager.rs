@@ -38,6 +38,7 @@ pub enum TransactionState {
 /// - `SnapshotIsolation`: Tracks writes + snapshot versioning
 /// - `Serializable`: Tracks writes + reads + SSI validation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum IsolationLevel {
     /// Read Committed: sees only committed data, but may see different
     /// versions of the same row within a transaction.
@@ -403,6 +404,10 @@ impl TransactionManager {
     ///
     /// This returns a copy of the entities written by this transaction,
     /// used for rollback to discard uncommitted versions.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `TransactionError::InvalidState` if the transaction is not found.
     pub fn get_write_set(&self, transaction_id: TransactionId) -> Result<HashSet<EntityId>> {
         let txns = self.transactions.read();
         let info = txns.get(&transaction_id).ok_or_else(|| {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: notebooklm-mcp-cli
-Version: 0.5.16
+Version: 0.5.17
 Summary: Unified CLI and MCP server for Google NotebookLM
 Project-URL: Homepage, https://github.com/jacob-bd/notebooklm-mcp-cli
 Project-URL: Repository, https://github.com/jacob-bd/notebooklm-mcp-cli

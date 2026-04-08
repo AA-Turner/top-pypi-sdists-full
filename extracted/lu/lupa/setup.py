@@ -17,7 +17,7 @@ try:
 except ImportError:
     from distutils.core import setup, Extension
 
-VERSION = '2.6'
+VERSION = '2.7'
 
 extra_setup_args = {}
 
@@ -208,7 +208,7 @@ def find_lua_build(no_luajit=False):
 
 
 def no_lua_error():
-    error = ("Neither LuaJIT2 nor Lua 5.[1234] were found. Please install "
+    error = ("Neither LuaJIT2 nor Lua 5.1 or later were found. Please install "
              "Lua and its development packages, "
              "or put a local build into the lupa main directory.")
     print(error)
@@ -236,10 +236,11 @@ def use_bundled_luajit(path, macros):
         else:
             build_env['CFLAGS'] = "-fPIC"
 
-    output = subprocess.check_output(build_script, cwd=src_dir, env=build_env)
-    if lib_file.encode("ascii") not in output:
+    result = subprocess.run(build_script, cwd=src_dir, env=build_env, capture_output=True)
+    if result.returncode or lib_file.encode("ascii") not in result.stdout:
         print("Building LuaJIT did not report success:")
-        print(output.decode().strip())
+        print(result.stdout.decode().strip().replace('\r\n', '\n'))
+        print(result.stderr.decode().strip().replace('\r\n', '\n'))
         print("## Building LuaJIT may have failed ##")
 
     return {
@@ -319,9 +320,11 @@ def use_bundled_lua(path, macros):
 
 
 def get_option(name):
-    for i, arg in enumerate(sys.argv[1:-1], 1):
-        if arg == name:
-            sys.argv.pop(i)
+    for i, arg in enumerate(sys.argv[1:], 1):
+        if arg == name or arg.startswith(name + '='):
+            arg = sys.argv.pop(i)
+            if '=' in arg:
+                return arg.split('=', 1)[1]
             return sys.argv.pop(i)
     return ""
 
@@ -334,8 +337,34 @@ def has_option(name):
     return os.environ.get(envvar_name) == 'true'
 
 
+def check_limited_api_option(name):
+    def handle_arg(arg: str):
+        arg = arg.lower()
+        if arg == "true":
+            # The default Limited API version is 3.9, unless we're on a lower Python version
+            # (which is mainly for the sake of testing 3.8 on the CI)
+            if sys.version_info >= (3, 9):
+                return (3, 9)
+            else:
+                return sys.version_info[:2]
+        if arg == "false":
+            return None
+        major, minor = arg.split('.', 1)
+        return (int(major), int(minor))
+
+    value = get_option(name)
+    if value:
+        return handle_arg(value)
+
+    env_var_name = 'LUPA_' + name.lstrip('-').upper().replace("-", "_")
+    env_var = os.environ.get(env_var_name)
+    if env_var is None:
+        return None
+    return handle_arg(env_var)
+
+
 c_defines = [
-    ('CYTHON_CLINE_IN_TRACEBACK', 0),
+    ('CYTHON_CLINE_IN_TRACEBACK', '0'),
 ]
 if has_option('--without-assert'):
     c_defines.append(('CYTHON_WITHOUT_ASSERTIONS', None))
@@ -344,6 +373,13 @@ if has_option('--with-lua-checks'):
 if has_option('--with-lua-dlopen'):
     c_defines.append(('LUA_USE_DLOPEN', None))
 
+option_limited_api = check_limited_api_option('--limited-api')
+if option_limited_api:
+    c_defines.append(('Py_LIMITED_API', f'0x{option_limited_api[0]:02x}{option_limited_api[1]:02x}0000'))
+
+    setup_options = extra_setup_args.setdefault('options', {})
+    bdist_wheel_options = setup_options.setdefault('bdist_wheel', {})
+    bdist_wheel_options['py_limited_api'] = f'cp{option_limited_api[0]}{option_limited_api[1]}'
 
 # find Lua
 option_no_bundle = has_option('--no-bundle')
@@ -357,12 +393,16 @@ if not configs and not option_no_bundle:
         for lua_bundle_path in glob.glob(os.path.join(basedir, 'third-party', 'lua*' + os.sep))
         if not (
             False
+            # Allow disabling LuaJIT manually.
+            or (option_no_luajit and 'luajit' in os.path.basename(lua_bundle_path.rstrip(os.sep)))
             # LuaJIT 2.0 on macOS requires a CPython linked with "-pagezero_size 10000 -image_base 100000000"
             # http://t-p-j.blogspot.com/2010/11/lupa-on-os-x-with-macports-python-26.html
             # LuaJIT 2.1-alpha3 fails at runtime.
             or (platform == 'darwin' and 'luajit' in os.path.basename(lua_bundle_path.rstrip(os.sep)))
-            # Let's restrict LuaJIT to x86_64 for now.
-            or (get_machine() not in ("x86_64", "AMD64") and 'luajit' in os.path.basename(lua_bundle_path.rstrip(os.sep)))
+            # Let's restrict LuaJIT to x86_64/Arm64 for now.
+            or (get_machine().lower() not in ("x86_64", "amd64", "aarch64", "arm64") and 'luajit' in os.path.basename(lua_bundle_path.rstrip(os.sep)))
+            # LuaJIT 2.0 does not support aarch64.
+            or (get_machine().lower() in ("aarch64", "arm64") and 'luajit20' in os.path.basename(lua_bundle_path.rstrip(os.sep)))
         )
     ]
 if not configs:
@@ -376,6 +416,11 @@ if not configs:
 def prepare_extensions(use_cython=True):
     ext_modules = []
     ext_libraries = []
+
+    extra_extension_args = {}
+    if option_limited_api:
+        extra_extension_args['py_limited_api'] = True
+
     for config in configs:
         ext_name = config.get('libversion', 'lua')
         src, dst = os.path.join('lupa', '_lupa.pyx'), os.path.join('lupa', ext_name + '.pyx')
@@ -392,6 +437,7 @@ def prepare_extensions(use_cython=True):
             extra_objects=config.get('extra_objects'),
             include_dirs=config.get('include_dirs'),
             define_macros=c_defines,
+            **extra_extension_args,
         ))
 
         if not use_cython:
@@ -435,7 +481,7 @@ long_description = '\n\n'.join([
     read_file(os.path.join(basedir, text_file))
     for text_file in ['README.rst', 'INSTALL.rst', 'CHANGES.rst', "LICENSE.txt"]])
 
-write_file(os.path.join(basedir, 'lupa', 'version.py'), u"__version__ = '%s'\n" % VERSION)
+write_file(os.path.join(basedir, 'lupa', 'version.py'), f"__version__ = '{VERSION}'\n")
 
 dll_files = []
 for config in configs:
@@ -479,6 +525,7 @@ setup(
         'Operating System :: OS Independent',
         'Topic :: Software Development',
     ],
+    python_requires=">=3.8",
 
     packages=['lupa'],
     setup_requires=[cython_dependency],

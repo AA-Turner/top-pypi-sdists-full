@@ -196,7 +196,7 @@ class CloudFunctionalVerificationController(BaseController):
         Generate the required parameters for cloud functional verification.
         """
 
-        cluster_env_build_id = self.get_default_cluster_env_build_id()
+        cluster_env_build_id = self.get_default_cluster_env_build_id(cloud_id=cloud_id)
 
         project_id = get_default_project(
             self.api_client, self.anyscale_api_client, parent_cloud_id=cloud_id
@@ -208,10 +208,10 @@ class CloudFunctionalVerificationController(BaseController):
 
         return cluster_compute_id, cluster_env_build_id, project_id
 
-    def get_default_cluster_env_build_id(self):
+    def get_default_cluster_env_build_id(self, cloud_id: Optional[str] = None):
         try:
             cluster_env_list = self.api_client.list_application_templates_api_v2_application_templates_get(
-                defaults_first=True
+                defaults_first=True, cloud_id=cloud_id,
             ).results
             if len(cluster_env_list) == 0:
                 raise ClickException("No cluster environments found")

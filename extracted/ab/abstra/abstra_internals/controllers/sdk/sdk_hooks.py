@@ -19,6 +19,20 @@ class HookSDKController:
         self.client.set_response(status, body, headers)
 
     def get_raw_request(self) -> Tuple[str, Dict[str, str], CaseInsensitiveDict]:
+        body, query, headers = self._get_body_and_headers()
+        ct = (headers.get("Content-Type") or "").lower()
+        if ct.startswith("multipart/form-data"):
+            body = base64.b64decode(body).decode("latin-1")
+        return body, query, headers
+
+    def _get_body_and_headers(self):
+        if self.client.context.mock_execution.test_request:
+            test_request = self.client.context.mock_execution.test_request
+            return (
+                test_request.body,
+                test_request.query_params,
+                CaseInsensitiveDict(test_request.headers),
+            )
         request = self.client.get_request()
         return (
             request.body,
@@ -29,15 +43,7 @@ class HookSDKController:
     def get_request(
         self,
     ) -> Tuple[Union[str, List, Dict], Dict[str, str], CaseInsensitiveDict]:
-        if self.client.context.mock_execution.test_request:
-            test_request = self.client.context.mock_execution.test_request
-            body, query, headers = (
-                test_request.body,
-                test_request.query_params,
-                CaseInsensitiveDict(test_request.headers),
-            )
-        else:
-            body, query, headers = self.get_raw_request()
+        body, query, headers = self._get_body_and_headers()
         try:
             if "application/json" in headers["Content-Type"]:
                 return json.loads(body), query, headers
@@ -53,17 +59,32 @@ class HookSDKController:
             MultipartParser,
             MultipartPart,
             parse_options_header,
-            to_bytes,
         )
 
+        raw_bytes = base64.b64decode(body)
         _, options = parse_options_header(headers["Content-Type"])
         boundary = options["boundary"].encode("utf-8")
-        p = MultipartParser(BytesIO(to_bytes(body)), boundary)  # TODO: direct from fs
-        return [
-            {"name": i.name, "value": i.value}
-            for i in p
-            if isinstance(i, MultipartPart)
-        ]
+        p = MultipartParser(BytesIO(raw_bytes), boundary)
+        parts = []
+        for i in p:
+            if not isinstance(i, MultipartPart):
+                continue
+            filename = getattr(i, "filename", None)
+            if filename:
+                raw = getattr(i, "raw", b"")
+                parts.append(
+                    {
+                        "name": i.name,
+                        "filename": filename,
+                        "content_type": getattr(
+                            i, "content_type", "application/octet-stream"
+                        ),
+                        "content": base64.b64encode(raw).decode("ascii"),
+                    }
+                )
+            else:
+                parts.append({"name": i.name, "value": i.value})
+        return parts
 
     def get_email_request(self):
         body, _, headers = self.get_raw_request()

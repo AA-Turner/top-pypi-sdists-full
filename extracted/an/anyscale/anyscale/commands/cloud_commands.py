@@ -4,7 +4,6 @@ import re
 import secrets
 from typing import Any, Dict, List, Optional
 
-import boto3
 import click
 from rich.console import Console
 from rich.table import Table
@@ -42,6 +41,7 @@ from anyscale.commands.setup_k8s import (
 from anyscale.commands.util import AnyscaleCommand, OptionPromptNull
 from anyscale.controllers.cloud_controller import CloudController
 from anyscale.util import (
+    _apn_boto3_session,
     allow_optional_file_storage,
     get_endpoint,
     SharedStorageType,
@@ -90,7 +90,7 @@ def setup_vm_cloud_resource(  # noqa: PLR0912, PLR0913
 
     if provider == "aws":
         if boto3_session is None:
-            boto3_session = boto3.Session(region_name=region)
+            boto3_session = _apn_boto3_session(region_name=region)
         if not validate_aws_credentials(controller.log, boto3_session):
             raise click.ClickException(
                 "Cloud setup requires valid AWS credentials to be set locally. "
@@ -648,7 +648,7 @@ def cloud_config_group() -> None:
 @click.option(
     "--file",
     "-f",
-    help="Path to a YAML file defining the cloud resource. Schema: https://docs.anyscale.com/reference/cloud/#cloudresource.",
+    help="Path to a YAML file defining the cloud resource. Schema: https://docs.anyscale.com/reference/cloud#cloudresource.",
     required=True,
 )
 @click.option(
@@ -900,7 +900,7 @@ def cloud_resource_delete(cloud: str, resource: str, yes: bool,) -> None:
 @click.option(
     "--resources-file",
     "-f",
-    help="Path to a YAML file defining a single cloud resource or a list of cloud resources. Only applicable for customer-managed resources. Schema: https://docs.anyscale.com/reference/cloud/#cloudresource.",
+    help="Path to a YAML file defining a single cloud resource or a list of cloud resources. Only applicable for customer-managed resources. Schema: https://docs.anyscale.com/reference/cloud#cloudresource.",
     required=False,
 )
 @click.option(
@@ -1487,7 +1487,7 @@ def cloud_config_update(  # noqa: PLR0913
 @click.option(
     "--resource-file",
     "-f",
-    help="Path to a YAML file defining a cloud resource. Schema: https://docs.anyscale.com/reference/cloud/#cloudresource.",
+    help="Path to a YAML file defining a cloud resource. Schema: https://docs.anyscale.com/reference/cloud#cloudresource.",
     required=False,
 )
 @click.option(

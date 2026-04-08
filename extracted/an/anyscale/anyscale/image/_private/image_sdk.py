@@ -142,6 +142,7 @@ class PrivateImageSDK(BaseSDK):
         ray_version: Optional[str] = None,
         anonymous: bool = False,
         containerfile_path: Optional[str] = None,
+        cloud_id: Optional[str] = None,
     ) -> str:
         return self.client.get_cluster_env_build_id_from_containerfile(
             cluster_env_name=name,
@@ -149,6 +150,7 @@ class PrivateImageSDK(BaseSDK):
             containerfile_path=containerfile_path,
             anonymous=anonymous,
             ray_version=ray_version,
+            cloud_id=cloud_id,
         )
 
     def build_image_from_containerfile_with_image_uri(
@@ -157,12 +159,14 @@ class PrivateImageSDK(BaseSDK):
         containerfile: str,
         ray_version: Optional[str] = None,
         anonymous: bool = False,
+        cloud_id: Optional[str] = None,
     ) -> str:
         build_id = self.build_image_from_containerfile(
             name=name,
             containerfile=containerfile,
             ray_version=ray_version,
             anonymous=anonymous,
+            cloud_id=cloud_id,
         )
         image_uri = self.get_image_uri_from_build_id(build_id)
         if image_uri:
@@ -172,7 +176,11 @@ class PrivateImageSDK(BaseSDK):
         )
 
     def build_image_from_requirements(
-        self, name: str, base_build_id: str, requirements: List[str]
+        self,
+        name: str,
+        base_build_id: str,
+        requirements: List[str],
+        cloud_id: Optional[str] = None,
     ):
         if requirements:
             base_build = self.client.get_cluster_env_build(base_build_id)
@@ -189,7 +197,10 @@ class PrivateImageSDK(BaseSDK):
                 for requirement in requirements:
                     lines.append(f'RUN pip install "{requirement}"')
                 return self.build_image_from_containerfile(
-                    name, "\n".join(lines), ray_version=base_build.ray_version
+                    name,
+                    "\n".join(lines),
+                    ray_version=base_build.ray_version,
+                    cloud_id=cloud_id,
                 )
             else:
                 raise RuntimeError(

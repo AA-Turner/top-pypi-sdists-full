@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.15.0"
+__version__ = "0.16.0"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
@@ -37,6 +37,7 @@ from cwsandbox._types import (
     OperationRef,
     Process,
     ProcessResult,
+    ResourceOptions,
     Secret,
     Serialization,
     StreamReader,
@@ -273,6 +274,7 @@ __all__ = [
     "Process",
     "ProcessResult",
     "RemoteFunction",
+    "ResourceOptions",
     "Runway",
     "RunwayNotFoundError",
     "set_auth_mode",

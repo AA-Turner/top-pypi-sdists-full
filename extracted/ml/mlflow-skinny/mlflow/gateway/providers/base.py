@@ -64,16 +64,16 @@ class BaseProvider(ABC):
         enable_tracing: If True, wraps method calls with MLflow tracing spans.
     """
 
-    NAME: str = ""
+    DISPLAY_NAME: str = ""
     SUPPORTED_ROUTE_TYPES: tuple[str, ...]
     CONFIG_TYPE: type[ConfigModel]
     PASSTHROUGH_PROVIDER_PATHS: dict[PassthroughAction, str] = {}
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False):
-        if self.NAME == "":
+        if self.DISPLAY_NAME == "":
             raise ValueError(
                 f"{self.__class__.__name__} is a subclass of BaseProvider and must "
-                f"override 'NAME' attribute as a non-empty string."
+                f"override 'DISPLAY_NAME' attribute as a non-empty string."
             )
 
         if not hasattr(self, "CONFIG_TYPE") or not issubclass(self.CONFIG_TYPE, ConfigModel):
@@ -85,6 +85,14 @@ class BaseProvider(ABC):
         self.config = config
         self._enable_tracing = enable_tracing
 
+    def get_endpoint_url(self, route_type: str) -> str:
+        """Return the full endpoint URL for the given route type.
+
+        Subclasses that support direct HTTP invocation (e.g. for judge
+        evaluation) should override this method.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not implement get_endpoint_url")
+
     # -------------------------------------------------------------------------
     # Internal implementation methods (override these in subclasses)
     # -------------------------------------------------------------------------
@@ -94,13 +102,13 @@ class BaseProvider(ABC):
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         raise AIGatewayException(
             status_code=501,
-            detail=f"The chat streaming route is not implemented for {self.NAME} models.",
+            detail=f"The chat streaming route is not implemented for {self.DISPLAY_NAME} models.",
         )
 
     async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         raise AIGatewayException(
             status_code=501,
-            detail=f"The chat route is not implemented for {self.NAME} models.",
+            detail=f"The chat route is not implemented for {self.DISPLAY_NAME} models.",
         )
 
     async def _completions_stream(
@@ -108,7 +116,8 @@ class BaseProvider(ABC):
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         raise AIGatewayException(
             status_code=501,
-            detail=f"The completions streaming route is not implemented for {self.NAME} models.",
+            detail="The completions streaming route is not implemented for"
+            f"{self.DISPLAY_NAME} models.",
         )
 
     async def _completions(
@@ -116,13 +125,13 @@ class BaseProvider(ABC):
     ) -> completions.ResponsePayload:
         raise AIGatewayException(
             status_code=501,
-            detail=f"The completions route is not implemented for {self.NAME} models.",
+            detail=f"The completions route is not implemented for {self.DISPLAY_NAME} models.",
         )
 
     async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         raise AIGatewayException(
             status_code=501,
-            detail=f"The embeddings route is not implemented for {self.NAME} models.",
+            detail=f"The embeddings route is not implemented for {self.DISPLAY_NAME} models.",
         )
 
     async def _passthrough(
@@ -134,7 +143,8 @@ class BaseProvider(ABC):
         route = PASSTHROUGH_ROUTES.get(action)
         raise AIGatewayException(
             status_code=501,
-            detail=f"The passthrough route '{route}' is not implemented for {self.NAME} models.",
+            detail=f"The passthrough route '{route}' is not implemented for"
+            f"{self.DISPLAY_NAME} models.",
         )
 
     # -------------------------------------------------------------------------
@@ -183,9 +193,10 @@ class BaseProvider(ABC):
                 async def passthrough():
                     span = mlflow.get_current_active_span()
                     if span is not None:
-                        span.set_attributes(
-                            {**self._get_provider_attributes(), "action": action.value}
-                        )
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "action": action.value,
+                        })
                     async for chunk in result:
                         yield chunk
 
@@ -196,9 +207,10 @@ class BaseProvider(ABC):
                 async def passthrough():
                     span = mlflow.get_current_active_span()
                     if span is not None:
-                        span.set_attributes(
-                            {**self._get_provider_attributes(), "action": action.value}
-                        )
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "action": action.value,
+                        })
                     if span is not None:
                         if token_usage := self._extract_passthrough_token_usage(action, result):
                             span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
@@ -218,14 +230,14 @@ class BaseProvider(ABC):
         """
         Get the provider name for tracing and metrics.
 
-        Override this method to return a different provider name than the class NAME.
+        Override this method to return a different provider name than the class DISPLAY_NAME.
         For example, LiteLLM provider overrides this to return the actual underlying
         provider name (e.g., "anthropic", "openai") instead of "litellm".
 
         Returns:
             The provider name string.
         """
-        return self.NAME
+        return self.DISPLAY_NAME.lower()
 
     def _get_span_name(self) -> str:
         """Generate span name based on provider and model."""
@@ -263,7 +275,6 @@ class BaseProvider(ABC):
         if (total_tokens := getattr(usage, "total_tokens", None)) is not None:
             token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
 
-        # Extract cached token details if available
         if (cached := getattr(usage, "cache_read_input_tokens", None)) is not None:
             token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
         elif details := getattr(usage, "prompt_tokens_details", None):
@@ -458,7 +469,7 @@ class BaseProvider(ABC):
             raise AIGatewayException(
                 status_code=400,
                 detail="Unsupported passthrough endpoint "
-                f"'{requested_route}' for {self.NAME} provider. "
+                f"'{requested_route}' for {self.DISPLAY_NAME} provider. "
                 f"Supported endpoints: {supported_routes}",
             )
         return provider_path
@@ -513,7 +524,7 @@ class TrafficRouteProvider(BaseProvider):
     A provider that split traffic and forward to multiple providers
     """
 
-    NAME: str = "TrafficRoute"
+    DISPLAY_NAME: str = "TrafficRoute"
 
     def __init__(
         self,
@@ -590,7 +601,7 @@ class FallbackProvider(BaseProvider):
     Attempts to call providers in order until one succeeds or max_attempts is reached.
     """
 
-    NAME: str = "Fallback"
+    DISPLAY_NAME: str = "Fallback"
 
     def __init__(
         self,

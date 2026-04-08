@@ -3232,6 +3232,10 @@ pub struct VenvArgs {
 
     /// Limit candidate packages to those that were uploaded prior to the given date.
     ///
+    /// The date is compared against the upload time of each individual distribution artifact
+    /// (i.e., when each file was uploaded to the package index), not the release date of the
+    /// package version.
+    ///
     /// Accepts RFC 3339 timestamps (e.g., `2006-12-02T02:07:43Z`), local dates in the same format
     /// (e.g., `2006-12-02`) resolved based on your system's configured time zone, a "friendly"
     /// duration (e.g., `24 hours`, `1 week`, `30 days`), or an ISO 8601 duration (e.g., `PT24H`,
@@ -5801,6 +5805,19 @@ pub struct ToolListArgs {
     #[arg(long, overrides_with("outdated"), hide = true)]
     pub no_outdated: bool,
 
+    /// Limit candidate packages to those that were uploaded prior to the given date.
+    ///
+    /// Accepts RFC 3339 timestamps (e.g., `2006-12-02T02:07:43Z`), local dates in the same format
+    /// (e.g., `2006-12-02`) resolved based on your system's configured time zone, a "friendly"
+    /// duration (e.g., `24 hours`, `1 week`, `30 days`), or an ISO 8601 duration (e.g., `PT24H`,
+    /// `P7D`, `P30D`).
+    ///
+    /// Durations do not respect semantics of the local time zone and are always resolved to a fixed
+    /// number of seconds assuming that a day is 24 hours (e.g., DST transitions are ignored).
+    /// Calendar units such as months and years are not allowed.
+    #[arg(long, env = EnvVars::UV_EXCLUDE_NEWER, help_heading = "Resolver options")]
+    pub exclude_newer: Option<ExcludeNewerValue>,
+
     // Hide unused global Python options.
     #[arg(long, hide = true)]
     pub python_preference: Option<PythonPreference>,
@@ -5886,8 +5903,9 @@ pub struct ToolUpgradeArgs {
     #[arg(long)]
     pub python_platform: Option<TargetTriple>,
 
-    // The following is equivalent to flattening `ResolverInstallerArgs`, with the `--upgrade`, and
-    // `--upgrade-package` options hidden, and the `--no-upgrade` option removed.
+    // The following is equivalent to flattening `ResolverInstallerArgs`, with the `--upgrade`,
+    // `--upgrade-package`, and `--upgrade-group` options hidden, and the `--no-upgrade` option
+    // removed.
     /// Allow package upgrades, ignoring pinned versions in any existing output file. Implies
     /// `--refresh`.
     #[arg(hide = true, long, short = 'U', help_heading = "Resolver options")]
@@ -5897,6 +5915,11 @@ pub struct ToolUpgradeArgs {
     /// file. Implies `--refresh-package`.
     #[arg(hide = true, long, short = 'P', help_heading = "Resolver options")]
     pub upgrade_package: Vec<Requirement<VerbatimParsedUrl>>,
+
+    /// Allow upgrades for all packages in a dependency group, ignoring pinned versions in any
+    /// existing output file.
+    #[arg(hide = true, long, help_heading = "Resolver options")]
+    pub upgrade_group: Vec<GroupName>,
 
     #[command(flatten)]
     pub index_args: IndexArgs,
@@ -6042,6 +6065,10 @@ pub struct ToolUpgradeArgs {
     pub build_isolation: bool,
 
     /// Limit candidate packages to those that were uploaded prior to the given date.
+    ///
+    /// The date is compared against the upload time of each individual distribution artifact
+    /// (i.e., when each file was uploaded to the package index), not the release date of the
+    /// package version.
     ///
     /// Accepts RFC 3339 timestamps (e.g., `2006-12-02T02:07:43Z`), local dates in the same format
     /// (e.g., `2006-12-02`) resolved based on your system's configured time zone, a "friendly"
@@ -7098,6 +7125,10 @@ pub struct InstallerArgs {
 
     /// Limit candidate packages to those that were uploaded prior to the given date.
     ///
+    /// The date is compared against the upload time of each individual distribution artifact
+    /// (i.e., when each file was uploaded to the package index), not the release date of the
+    /// package version.
+    ///
     /// Accepts RFC 3339 timestamps (e.g., `2006-12-02T02:07:43Z`), local dates in the same format
     /// (e.g., `2006-12-02`) resolved based on your system's configured time zone, a "friendly"
     /// duration (e.g., `24 hours`, `1 week`, `30 days`), or an ISO 8601 duration (e.g., `PT24H`,
@@ -7216,6 +7247,11 @@ pub struct ResolverArgs {
     /// file. Implies `--refresh-package`.
     #[arg(long, short = 'P', help_heading = "Resolver options")]
     pub upgrade_package: Vec<Requirement<VerbatimParsedUrl>>,
+
+    /// Allow upgrades for all packages in a dependency group, ignoring pinned versions in any
+    /// existing output file.
+    #[arg(long, help_heading = "Resolver options")]
+    pub upgrade_group: Vec<GroupName>,
 
     /// The strategy to use when resolving against multiple index URLs.
     ///
@@ -7336,6 +7372,10 @@ pub struct ResolverArgs {
 
     /// Limit candidate packages to those that were uploaded prior to the given date.
     ///
+    /// The date is compared against the upload time of each individual distribution artifact
+    /// (i.e., when each file was uploaded to the package index), not the release date of the
+    /// package version.
+    ///
     /// Accepts RFC 3339 timestamps (e.g., `2006-12-02T02:07:43Z`), local dates in the same format
     /// (e.g., `2006-12-02`) resolved based on your system's configured time zone, a "friendly"
     /// duration (e.g., `24 hours`, `1 week`, `30 days`), or an ISO 8601 duration (e.g., `PT24H`,
@@ -7427,6 +7467,11 @@ pub struct ResolverInstallerArgs {
     /// Implies `--refresh-package`.
     #[arg(long, short = 'P', help_heading = "Resolver options", value_hint = ValueHint::Other)]
     pub upgrade_package: Vec<Requirement<VerbatimParsedUrl>>,
+
+    /// Allow upgrades for all packages in a dependency group, ignoring pinned versions in any
+    /// existing output file.
+    #[arg(long, help_heading = "Resolver options")]
+    pub upgrade_group: Vec<GroupName>,
 
     /// Reinstall all packages, regardless of whether they're already installed. Implies
     /// `--refresh`.
@@ -7572,6 +7617,10 @@ pub struct ResolverInstallerArgs {
 
     /// Limit candidate packages to those that were uploaded prior to the given date.
     ///
+    /// The date is compared against the upload time of each individual distribution artifact
+    /// (i.e., when each file was uploaded to the package index), not the release date of the
+    /// package version.
+    ///
     /// Accepts RFC 3339 timestamps (e.g., `2006-12-02T02:07:43Z`), local dates in the same format
     /// (e.g., `2006-12-02`) resolved based on your system's configured time zone, a "friendly"
     /// duration (e.g., `24 hours`, `1 week`, `30 days`), or an ISO 8601 duration (e.g., `PT24H`,
@@ -7702,6 +7751,10 @@ pub struct FetchArgs {
     pub keyring_provider: Option<KeyringProviderType>,
 
     /// Limit candidate packages to those that were uploaded prior to the given date.
+    ///
+    /// The date is compared against the upload time of each individual distribution artifact
+    /// (i.e., when each file was uploaded to the package index), not the release date of the
+    /// package version.
     ///
     /// Accepts RFC 3339 timestamps (e.g., `2006-12-02T02:07:43Z`), local dates in the same format
     /// (e.g., `2006-12-02`) resolved based on your system's configured time zone, a "friendly"

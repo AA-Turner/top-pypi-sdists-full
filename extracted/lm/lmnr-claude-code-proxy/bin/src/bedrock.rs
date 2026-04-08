@@ -16,8 +16,8 @@ pub fn is_bedrock_endpoint(host: &str) -> bool {
     host.contains("bedrock-runtime") && host.contains("amazonaws.com")
 }
 
-fn load_aws_credentials(
-) -> Result<(String, String, Option<String>), Box<dyn std::error::Error + Send + Sync>> {
+fn load_aws_credentials()
+-> Result<(String, String, Option<String>), Box<dyn std::error::Error + Send + Sync>> {
     if let (Ok(ak), Ok(sk)) = (
         std::env::var("AWS_ACCESS_KEY_ID"),
         std::env::var("AWS_SECRET_ACCESS_KEY"),
@@ -193,12 +193,9 @@ pub fn parse_bedrock_event_stream(data: &[u8]) -> Vec<StreamEvent> {
             break;
         }
 
-        let headers_len = u32::from_be_bytes([
-            data[pos + 4],
-            data[pos + 5],
-            data[pos + 6],
-            data[pos + 7],
-        ]) as usize;
+        let headers_len =
+            u32::from_be_bytes([data[pos + 4], data[pos + 5], data[pos + 6], data[pos + 7]])
+                as usize;
 
         // prelude CRC is at pos+8..pos+12 (skipped)
         let payload_start = pos + 12 + headers_len;
@@ -213,9 +210,7 @@ pub fn parse_bedrock_event_stream(data: &[u8]) -> Vec<StreamEvent> {
 
         if let Ok(json) = serde_json::from_slice::<serde_json::Value>(payload) {
             if let Some(b64) = json.get("bytes").and_then(|v| v.as_str()) {
-                if let Ok(decoded) =
-                    base64::engine::general_purpose::STANDARD.decode(b64)
-                {
+                if let Ok(decoded) = base64::engine::general_purpose::STANDARD.decode(b64) {
                     if let Ok(event) = serde_json::from_slice::<StreamEvent>(&decoded) {
                         events.push(event);
                     }

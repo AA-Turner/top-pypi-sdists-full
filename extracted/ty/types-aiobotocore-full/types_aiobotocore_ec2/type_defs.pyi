@@ -958,6 +958,7 @@ __all__ = (
     "DataQueryTypeDef",
     "DataResponseTypeDef",
     "DeclarativePoliciesReportTypeDef",
+    "DefaultConnectionTrackingConfigurationTypeDef",
     "DeleteCapacityManagerDataExportRequestTypeDef",
     "DeleteCapacityManagerDataExportResultTypeDef",
     "DeleteCarrierGatewayRequestTypeDef",
@@ -2786,6 +2787,8 @@ __all__ = (
     "ReservationResponseTypeDef",
     "ReservationTypeDef",
     "ReservationValueTypeDef",
+    "ReservedCapacityOptionsRequestTypeDef",
+    "ReservedCapacityOptionsTypeDef",
     "ReservedInstanceLimitPriceTypeDef",
     "ReservedInstanceReservationValueTypeDef",
     "ReservedInstancesConfigurationTypeDef",
@@ -4166,6 +4169,9 @@ class NewDhcpConfigurationTypeDef(TypedDict):
     Key: NotRequired[str]
     Values: NotRequired[Sequence[str]]
 
+class ReservedCapacityOptionsRequestTypeDef(TypedDict):
+    ReservationTypes: NotRequired[Sequence[Literal["interruptible-capacity-reservation"]]]
+
 class TargetCapacitySpecificationRequestTypeDef(TypedDict):
     TotalTargetCapacity: int
     OnDemandTargetCapacity: NotRequired[int]
@@ -4518,6 +4524,11 @@ class MetricPointTypeDef(TypedDict):
     EndDate: NotRequired[datetime]
     Value: NotRequired[float]
     Status: NotRequired[str]
+
+class DefaultConnectionTrackingConfigurationTypeDef(TypedDict):
+    DefaultTcpEstablishedTimeout: NotRequired[int]
+    DefaultUdpTimeout: NotRequired[int]
+    DefaultUdpStreamTimeout: NotRequired[int]
 
 class DeleteCapacityManagerDataExportRequestTypeDef(TypedDict):
     CapacityManagerDataExportId: str
@@ -6031,6 +6042,9 @@ class FleetEbsBlockDeviceRequestTypeDef(TypedDict):
     SnapshotId: NotRequired[str]
     VolumeSize: NotRequired[int]
     VolumeType: NotRequired[VolumeTypeType]
+
+class ReservedCapacityOptionsTypeDef(TypedDict):
+    ReservationTypes: NotRequired[list[Literal["interruptible-capacity-reservation"]]]
 
 class TargetCapacitySpecificationTypeDef(TypedDict):
     TotalTargetCapacity: NotRequired[int]
@@ -14652,6 +14666,7 @@ class NetworkInfoTypeDef(TypedDict):
     EnaSrdSupported: NotRequired[bool]
     BandwidthWeightings: NotRequired[list[BandwidthWeightingTypeType]]
     FlexibleEnaQueuesSupport: NotRequired[FlexibleEnaQueuesSupportType]
+    ConnectionTrackingConfiguration: NotRequired[DefaultConnectionTrackingConfigurationTypeDef]
     SecondaryNetworkSupported: NotRequired[bool]
     MaximumSecondaryNetworkInterfaces: NotRequired[int]
     Ipv4AddressesPerSecondaryInterface: NotRequired[int]
@@ -20740,6 +20755,7 @@ CreateFleetRequestTypeDef = TypedDict(
         "ClientToken": NotRequired[str],
         "SpotOptions": NotRequired[SpotOptionsRequestTypeDef],
         "OnDemandOptions": NotRequired[OnDemandOptionsRequestTypeDef],
+        "ReservedCapacityOptions": NotRequired[ReservedCapacityOptionsRequestTypeDef],
         "ExcessCapacityTerminationPolicy": NotRequired[FleetExcessCapacityTerminationPolicyType],
         "TerminateInstancesWithExpiration": NotRequired[bool],
         "Type": NotRequired[FleetTypeType],
@@ -20790,6 +20806,7 @@ FleetDataTypeDef = TypedDict(
         "ReplaceUnhealthyInstances": NotRequired[bool],
         "SpotOptions": NotRequired[SpotOptionsTypeDef],
         "OnDemandOptions": NotRequired[OnDemandOptionsTypeDef],
+        "ReservedCapacityOptions": NotRequired[ReservedCapacityOptionsTypeDef],
         "Tags": NotRequired[list[TagTypeDef]],
         "Errors": NotRequired[list[DescribeFleetErrorTypeDef]],
         "Instances": NotRequired[list[DescribeFleetsInstancesTypeDef]],

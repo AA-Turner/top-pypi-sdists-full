@@ -92,6 +92,7 @@ __all__ = (
     "UpdateTypeType",
     "VersionStatusType",
     "WaiterName",
+    "WarmPoolStateType",
 )
 
 
@@ -325,6 +326,11 @@ UpdateParamTypeType = Literal[
     "UpdatedTier",
     "UpgradePolicy",
     "Version",
+    "WarmPoolEnabled",
+    "WarmPoolMaxGroupPreparedCapacity",
+    "WarmPoolMinSize",
+    "WarmPoolReuseOnScaleIn",
+    "WarmPoolState",
     "ZonalShiftConfig",
 ]
 UpdateStatusType = Literal["Cancelled", "Failed", "InProgress", "Successful"]
@@ -348,6 +354,7 @@ UpdateTypeType = Literal[
     "ZonalShiftConfigUpdate",
 ]
 VersionStatusType = Literal["EXTENDED_SUPPORT", "STANDARD_SUPPORT", "UNSUPPORTED"]
+WarmPoolStateType = Literal["HIBERNATED", "RUNNING", "STOPPED"]
 EKSServiceName = Literal["eks"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -467,6 +474,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -686,6 +694,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",
@@ -702,6 +711,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -737,6 +747,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -749,6 +760,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

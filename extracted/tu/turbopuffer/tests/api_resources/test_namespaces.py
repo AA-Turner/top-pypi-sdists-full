@@ -305,6 +305,7 @@ class TestNamespaces:
         namespace = client.namespace("namespace").recall(
             include_ground_truth=True,
             num=0,
+            rank_by={},
             top_k=0,
         )
         assert_matches_type(NamespaceRecallResponse, namespace, path=["response"])
@@ -373,6 +374,57 @@ class TestNamespaces:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    def test_method_update_metadata(self, client: Turbopuffer) -> None:
+        namespace = client.namespace("namespace").update_metadata(
+            namespace="namespace",
+        )
+        assert_matches_type(NamespaceMetadata, namespace, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_update_metadata_with_all_params(self, client: Turbopuffer) -> None:
+        namespace = client.namespace("namespace").update_metadata(
+            namespace="namespace",
+            pinning=True,
+        )
+        assert_matches_type(NamespaceMetadata, namespace, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_update_metadata(self, client: Turbopuffer) -> None:
+        response = client.namespace("namespace").with_raw_response.update_metadata(
+            namespace="namespace",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        namespace = response.parse()
+        assert_matches_type(NamespaceMetadata, namespace, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_update_metadata(self, client: Turbopuffer) -> None:
+        with client.namespace("namespace").with_streaming_response.update_metadata(
+            namespace="namespace",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            namespace = response.parse()
+            assert_matches_type(NamespaceMetadata, namespace, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_update_metadata(self, client: Turbopuffer) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `namespace` but received ''"):
+            client.namespace("namespace").with_raw_response.update_metadata(
+                namespace="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     def test_method_update_schema(self, client: Turbopuffer) -> None:
         namespace = client.namespace("namespace").update_schema()
         assert_matches_type(NamespaceUpdateSchemaResponse, namespace, path=["response"])
@@ -423,7 +475,7 @@ class TestNamespaces:
     @parametrize
     def test_method_write_with_all_params(self, client: Turbopuffer) -> None:
         namespace = client.namespace("namespace").write(
-            branch_from_namespace="branch_from_namespace",
+            branch_from_namespace="string",
             copy_from_namespace="string",
             delete_by_filter_allow_partial=True,
             deletes=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
@@ -775,6 +827,7 @@ class TestAsyncNamespaces:
             filters={},
             include_ground_truth=True,
             num=0,
+            rank_by={},
             top_k=0,
         )
         assert_matches_type(NamespaceRecallResponse, namespace, path=["response"])
@@ -843,6 +896,50 @@ class TestAsyncNamespaces:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    async def test_method_update_metadata(self, async_client: AsyncTurbopuffer) -> None:
+        namespace = await async_client.namespace("namespace").update_metadata()
+        assert_matches_type(NamespaceMetadata, namespace, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_update_metadata_with_all_params(self, async_client: AsyncTurbopuffer) -> None:
+        namespace = await async_client.namespace("namespace").update_metadata(
+            pinning=True,
+        )
+        assert_matches_type(NamespaceMetadata, namespace, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_update_metadata(self, async_client: AsyncTurbopuffer) -> None:
+        response = await async_client.namespace("namespace").with_raw_response.update_metadata()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        namespace = await response.parse()
+        assert_matches_type(NamespaceMetadata, namespace, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_update_metadata(self, async_client: AsyncTurbopuffer) -> None:
+        async with async_client.namespace("namespace").with_streaming_response.update_metadata() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            namespace = await response.parse()
+            assert_matches_type(NamespaceMetadata, namespace, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_update_metadata(self, async_client: AsyncTurbopuffer) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `namespace` but received ''"):
+            await async_client.namespace("namespace").with_raw_response.update_metadata(
+                namespace="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     async def test_method_update_schema(self, async_client: AsyncTurbopuffer) -> None:
         namespace = await async_client.namespace("namespace").update_schema()
         assert_matches_type(NamespaceUpdateSchemaResponse, namespace, path=["response"])
@@ -893,7 +990,7 @@ class TestAsyncNamespaces:
     @parametrize
     async def test_method_write_with_all_params(self, async_client: AsyncTurbopuffer) -> None:
         namespace = await async_client.namespace("namespace").write(
-            branch_from_namespace="branch_from_namespace",
+            branch_from_namespace="string",
             copy_from_namespace="string",
             delete_by_filter={},
             delete_by_filter_allow_partial=True,

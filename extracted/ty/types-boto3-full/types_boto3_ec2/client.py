@@ -168,6 +168,7 @@ from .paginator import (
     GetAwsNetworkPerformanceDataPaginator,
     GetCapacityManagerMetricDataPaginator,
     GetCapacityManagerMetricDimensionsPaginator,
+    GetCapacityManagerMonitoredTagKeysPaginator,
     GetGroupsForCapacityReservationPaginator,
     GetInstanceTypesFromInstanceRequirementsPaginator,
     GetIpamAddressHistoryPaginator,
@@ -1221,6 +1222,8 @@ from .type_defs import (
     GetCapacityManagerMetricDataResultTypeDef,
     GetCapacityManagerMetricDimensionsRequestTypeDef,
     GetCapacityManagerMetricDimensionsResultTypeDef,
+    GetCapacityManagerMonitoredTagKeysRequestTypeDef,
+    GetCapacityManagerMonitoredTagKeysResultTypeDef,
     GetCapacityReservationUsageRequestTypeDef,
     GetCapacityReservationUsageResultTypeDef,
     GetCoipPoolUsageRequestTypeDef,
@@ -1645,6 +1648,8 @@ from .type_defs import (
     UnlockSnapshotResultTypeDef,
     UnmonitorInstancesRequestTypeDef,
     UnmonitorInstancesResultTypeDef,
+    UpdateCapacityManagerMonitoredTagKeysRequestTypeDef,
+    UpdateCapacityManagerMonitoredTagKeysResultTypeDef,
     UpdateCapacityManagerOrganizationsAccessRequestTypeDef,
     UpdateCapacityManagerOrganizationsAccessResultTypeDef,
     UpdateInterruptibleCapacityReservationAllocationRequestTypeDef,
@@ -7205,6 +7210,17 @@ class EC2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_capacity_manager_metric_dimensions)
         """
 
+    def get_capacity_manager_monitored_tag_keys(
+        self, **kwargs: Unpack[GetCapacityManagerMonitoredTagKeysRequestTypeDef]
+    ) -> GetCapacityManagerMonitoredTagKeysResultTypeDef:
+        """
+        Retrieves the tag keys that are currently being monitored by EC2 Capacity
+        Manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_capacity_manager_monitored_tag_keys.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_capacity_manager_monitored_tag_keys)
+        """
+
     def get_capacity_reservation_usage(
         self, **kwargs: Unpack[GetCapacityReservationUsageRequestTypeDef]
     ) -> GetCapacityReservationUsageResultTypeDef:
@@ -9476,6 +9492,16 @@ class EC2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#unmonitor_instances)
         """
 
+    def update_capacity_manager_monitored_tag_keys(
+        self, **kwargs: Unpack[UpdateCapacityManagerMonitoredTagKeysRequestTypeDef]
+    ) -> UpdateCapacityManagerMonitoredTagKeysResultTypeDef:
+        """
+        Activates or deactivates tag keys for monitoring by EC2 Capacity Manager.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/update_capacity_manager_monitored_tag_keys.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#update_capacity_manager_monitored_tag_keys)
+        """
+
     def update_capacity_manager_organizations_access(
         self, **kwargs: Unpack[UpdateCapacityManagerOrganizationsAccessRequestTypeDef]
     ) -> UpdateCapacityManagerOrganizationsAccessResultTypeDef:
@@ -11075,6 +11101,17 @@ class EC2Client(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_capacity_manager_metric_dimensions"]
     ) -> GetCapacityManagerMetricDimensionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_capacity_manager_monitored_tag_keys"]
+    ) -> GetCapacityManagerMonitoredTagKeysPaginator:
         """
         Create a paginator for an operation.
 

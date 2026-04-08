@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-protobuf"
-version = "7.34.1.20260403"
+version = "7.34.1.20260408"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for protobuf"
@@ -35,7 +35,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`4567c8c5284f0608202aea612f3fcc1a190b97a9`](https://github.com/python/typeshed/commit/4567c8c5284f0608202aea612f3fcc1a190b97a9).
+[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

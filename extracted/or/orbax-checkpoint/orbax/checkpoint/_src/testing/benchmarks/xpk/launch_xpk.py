@@ -31,8 +31,10 @@ Usage:
 
 from collections.abc import Sequence
 import datetime
+import enum
 import itertools
 import os
+import re
 import subprocess
 import sys
 import uuid
@@ -63,14 +65,17 @@ flags.register_validator(
 _OUTPUT_DIRECTORY = flags.DEFINE_string(
     'output_directory',
     None,
-    'GCS bucket/path for artifacts and config upload.',
+    'The benchmark artifacts output directory. It must be a GCS bucket/path if'
+    ' --storage is not set.',
     required=True,
 )
-flags.register_validator(
-    'output_directory',
-    lambda value: value.startswith('gs://'),
-    message='--output_directory must start with gs://',
+_CONFIG_DIRECTORY = flags.DEFINE_string(
+    'config_directory',
+    None,
+    "Remote directory for configuration file upload. If it's not specified,"
+    ' --output_directory will be used.',
 )
+
 
 # ==============================================================================
 # 2. Basic Flags (Commonly Used)
@@ -88,6 +93,7 @@ _TPU_TYPE = flags.DEFINE_string(
 _NUM_SLICES = flags.DEFINE_integer('num_slices', 1, 'Number of slices.')
 _PROJECT = flags.DEFINE_string('project', 'orbax-checkpoint', 'GCP Project ID.')
 _ZONE = flags.DEFINE_string('zone', 'europe-west4-a', 'GCP Zone.')
+_REGION = flags.DEFINE_string('region', 'europe-west4', 'GCP Region.')
 _WORKLOAD_NAME = flags.DEFINE_string(
     'workload_name', None, 'Name of the workload. Defaults to generated name.'
 )
@@ -274,6 +280,11 @@ _TEST_RESTART_WORKFLOW = flags.DEFINE_boolean(
     False,
     'If True, run workload creation and execution twice to test restart.',
 )
+_SKIP_VALIDATION = flags.DEFINE_boolean(
+    'skip_validation',
+    False,
+    'If True, skip validation of the benchmark results.',
+)
 
 # --- Pathways Flags ---
 # Pathways uses a "Sidecar" architecture on XPK:
@@ -292,6 +303,23 @@ _PATHWAYS_PROXY_IMAGE = flags.DEFINE_string(
     'pathways_proxy_image',
     'us-docker.pkg.dev/cloud-tpu-v2-images/pathways-colocated-python/proxy_server:latest',
     'Pathways proxy image (bridges user code to server).',
+)
+
+
+def _validate_output_directory(flags_dict):
+  out_dir = flags_dict['output_directory']
+  storage = flags_dict['storage']
+  if storage:
+    return True
+  return out_dir.startswith('gs://')
+
+
+flags.register_multi_flags_validator(
+    ['output_directory', 'storage'],
+    _validate_output_directory,
+    message=(
+        '--output_directory must start with gs:// unless --storage is provided.'
+    ),
 )
 # LINT.ThenChange(README.md:launch_xpk_flags_table)
 
@@ -354,19 +382,29 @@ def run_command(
           .decode('utf-8')
           .strip()
       )
+    elif suppress_output:
+      # If suppressed, capture it so we can show it on failure.
+      subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, check=True)
+      return None
     else:
-      subprocess.check_call(
-          cmd,
-          stdout=subprocess.DEVNULL if suppress_output else None,
-          stderr=subprocess.DEVNULL if suppress_output else None,
-          cwd=cwd,
-      )
+      subprocess.check_call(cmd, cwd=cwd)
       return None
   except subprocess.CalledProcessError as e:
-    if not suppress_output:
-      logging.exception('Command failed')
-      if capture_output and e.output:
-        logging.error('Output: %s', e.output.decode('utf-8'))
+    Console.print_error(
+        f'Command failed with exit code {e.returncode}: {cmd_str}'
+    )
+    # Output captured stdout/stderr if available
+    output = getattr(e, 'output', None) or getattr(e, 'stdout', None)
+    if output:
+      if isinstance(output, bytes):
+        output = output.decode('utf-8')
+      print(f'\n--- Command Output ---\n{output}\n----------------------\n')
+
+    stderr = getattr(e, 'stderr', None)
+    if stderr:
+      if isinstance(stderr, bytes):
+        stderr = stderr.decode('utf-8')
+      print(f'\n--- Command Stderr ---\n{stderr}\n----------------------\n')
     raise
 
 
@@ -386,7 +424,7 @@ def check_preconditions() -> bool:
   Console.print_step(1, 6, 'Running Pre-flight Checks')
 
   # 1. Check Dependencies
-  dependencies = ('xpk', 'gcloud')
+  dependencies = (_XPK_PATH.value, 'gcloud')
   for dep in dependencies:
     try:
       run_command(['which', dep], capture_output=True, suppress_output=True)
@@ -396,17 +434,24 @@ def check_preconditions() -> bool:
       raise PreconditionError(f'{dep} not found.') from exc
 
   # 2. Check GCS Access
-  bucket = _OUTPUT_DIRECTORY.value.split('/')[2]
-  try:
-    run_command(
-        ['gcloud', 'storage', 'buckets', 'describe', f'gs://{bucket}'],
-        capture_output=True,
-        suppress_output=True,
+  if _OUTPUT_DIRECTORY.value.startswith('gs://'):
+    bucket = _OUTPUT_DIRECTORY.value.split('/')[2]
+    try:
+      run_command(
+          ['gcloud', 'storage', 'buckets', 'describe', f'gs://{bucket}'],
+          capture_output=True,
+          suppress_output=True,
+      )
+      Console.print_success(f'GCS Bucket accessible: gs://{bucket}')
+    except subprocess.CalledProcessError as exc:
+      Console.print_error(f'Cannot access GCS bucket: gs://{bucket}')
+      raise PreconditionError(
+          f'Cannot access GCS bucket: gs://{bucket}'
+      ) from exc
+  else:
+    Console.print_info(
+        f'Skipping GCS access check for non-GCS path: {_OUTPUT_DIRECTORY.value}'
     )
-    Console.print_success(f'GCS Bucket accessible: gs://{bucket}')
-  except subprocess.CalledProcessError as exc:
-    Console.print_error(f'Cannot access GCS bucket: gs://{bucket}')
-    raise PreconditionError(f'Cannot access GCS bucket: gs://{bucket}') from exc
 
   # 3. Check Docker Image
   images_to_check = [_DOCKER_IMAGE.value]
@@ -459,7 +504,7 @@ def check_preconditions() -> bool:
     Console.print_warning('Could not list clusters to verify existence.')
     return False
   else:
-    if _CLUSTER_NAME.value in clusters:
+    if clusters and _CLUSTER_NAME.value in clusters.split():
       Console.print_success(f'Cluster found: {_CLUSTER_NAME.value}')
       return True
 
@@ -477,6 +522,24 @@ def check_preconditions() -> bool:
         f'Cluster {_CLUSTER_NAME.value} not found. Use --create_cluster to'
         ' create it automatically.'
     )
+
+
+def get_credentials() -> None:
+  """Gets credentials for the project."""
+  try:
+    cmd = [
+        'gcloud',
+        'container',
+        'clusters',
+        'get-credentials',
+        _CLUSTER_NAME.value,
+        '--region',
+        _REGION.value
+    ]
+    run_command(cmd, suppress_output=not _VERBOSE.value)
+  except subprocess.CalledProcessError as e:
+    print(f'Failed to get cluster credentials: {e}')
+    return None
 
 
 def create_cluster() -> None:
@@ -531,6 +594,10 @@ def create_cluster() -> None:
   if _TENSORBOARD_NAME.value is not None:
     cmd.append(f'--tensorboard-name={_TENSORBOARD_NAME.value}')
 
+  if _STORAGE.value and 'lustre' in _STORAGE.value:
+    cmd.append('--enable-lustre-csi-driver')
+    cmd.append('--enable-legacy-lustre-port')
+
   # MTC Args
   # We are using MTC to enable ramdisk functionality via GCSFuse, which is
   # required for some benchmarks. We do not use multi-tier checkpointing
@@ -539,6 +606,11 @@ def create_cluster() -> None:
   # authentication during cluster creation. An alternative approach to enable
   # ramdisk without MTC might be possible and could be explored later.
   if _RAMDISK_DIRECTORY.value:
+    if not _OUTPUT_DIRECTORY.value.startswith('gs://'):
+      raise ValueError(
+          '--ramdisk_directory requires --output_directory to be a gs:// path'
+          ' for MTC.'
+      )
     bucket = _OUTPUT_DIRECTORY.value.split('/')[2]
     cmd.append('--enable-mtc')
     cmd.append('--mtc-ramdisk-size=32G')
@@ -552,13 +624,59 @@ def create_cluster() -> None:
   Console.print_success(f'Cluster {_CLUSTER_NAME.value} created.')
 
 
+class HardwareType(enum.Enum):
+  TPU = 'tpu'
+  GPU = 'gpu'
+  CPU = 'cpu'
+  UNKNOWN = 'unknown'
+
+
+def get_hardware_type(
+    tpu_type: str | None, device_type: str | None
+) -> HardwareType:
+  """Categorizes a compute instance string into a HardwareType enum."""
+  tpu_type = tpu_type.lower().strip() if tpu_type else ''
+  device_type = device_type.lower().strip() if device_type else ''
+  device_type = tpu_type or device_type
+
+  # 1. Check for TPU
+  # Matches GCP TPU names like v2, v3, v4, v5e, v5p, or explicit 'tpu'
+  if re.search(r'\bv[2-5][a-z]*\b', device_type) or 'tpu' in device_type:
+    return HardwareType.TPU
+
+  # 2. Check for GPU
+  # Matches common accelerator names (h100, a100, l4) or GPU (a2, a3, g2, p4)
+  gpu_chips = ['h100', 'a100', 'v100', 'p100', 't4', 'l4', 'k80']
+  gpu_instances = [r'^a[2-3]-', r'^g[2]-', r'^p[3-5]\.', r'^g[4-5]\.']
+
+  if (
+      any(chip in device_type for chip in gpu_chips)
+      or any(re.match(pattern, device_type) for pattern in gpu_instances)
+      or 'gpu' in device_type
+  ):
+    return HardwareType.GPU
+
+  # 3. Check for CPU
+  # Matches GCP (n1, n2, e2, c2, c3, m1) and AWS (t2, m5, c5)
+  cpu_instances = [r'^[necm][1-4]-', r'^[tcmri][2-8]\.']
+  if (
+      any(re.match(pattern, device_type) for pattern in cpu_instances)
+      or 'cpu' in device_type
+  ):
+    return HardwareType.CPU
+
+  return HardwareType.UNKNOWN
+
+
 def construct_workload_command(
     *,
+    workload_name: str,
     config_file: str,
     output_directory: str,
     run_id: str,
     enable_pathways: bool,
     benchmark_binary_path: str,
+    hardware_type: HardwareType,
     v_level: int | None,
 ) -> str:
   """Constructs the command to run inside the workload."""
@@ -570,7 +688,31 @@ def construct_workload_command(
         'export ENABLE_PJRT_COMPATIBILITY=true',
     ]
   else:
-    env_vars = ['export JAX_PLATFORMS=tpu,cpu']
+    if hardware_type == HardwareType.TPU:
+      env_vars = ['export JAX_PLATFORMS=tpu,cpu']
+    elif hardware_type == HardwareType.GPU:
+      env_vars = ['export JAX_PLATFORMS=gpu,cpu']
+    elif hardware_type == HardwareType.CPU:
+      fqdn_address = f'{workload_name}-slice-job-0-0.{workload_name}.default.svc.cluster.local'
+      env_vars = [
+          'export JAX_PLATFORMS=cpu',
+          'export JAX_NUM_PROCESSES=$JAX_PROCESS_COUNT',
+          (
+              'export JAX_PROCESS_ID=$(($JOB_INDEX * $PROCESSES_IN_JOB +'
+              ' $JOB_COMPLETION_INDEX))'
+          ),
+          (
+              'export JAX_COORDINATOR_ADDRESS=$(if [ "$JAX_PROCESS_ID" = "0" ];'
+              f' then echo "localhost"; else echo "{fqdn_address}"; fi):1234'
+          ),
+          'export XLA_FLAGS="--xla_cpu_collective_timeout_seconds=600"',
+          'echo JOB_INDEX = $JOB_INDEX',
+          'echo JAX_PROCESS_ID = $JAX_PROCESS_ID',
+          'echo JAX_COORDINATOR_ADDRESS = $JAX_COORDINATOR_ADDRESS',
+          'echo JAX_NUM_PROCESSES = $JAX_NUM_PROCESSES',
+      ]
+    else:
+      raise ValueError(f'Unsupported hardware type: {hardware_type}')
 
   env_cmd = ' && '.join(env_vars) + ' && ' if env_vars else ''
 
@@ -586,6 +728,8 @@ def construct_workload_command(
     python_args.append(f'--v={v_level}')
 
   python_cmd = ' '.join(python_args)
+  if hardware_type == HardwareType.CPU:
+    python_cmd += ' --jax_cpu_collectives_implementation=gloo'
   if enable_pathways:
     python_cmd = (
         'python3 -c "import pathwaysutils;'
@@ -646,6 +790,8 @@ def construct_xpk_command(
     base_cmd.append('--enable-ops-agent')
   if _RAMDISK_DIRECTORY.value is not None:
     base_cmd.append('--mtc-enabled')
+  if _SKIP_VALIDATION.value:
+    base_cmd.append('--skip-validation')
 
   if _ENABLE_PATHWAYS.value:
     if not _PATHWAYS_SERVER_IMAGE.value:
@@ -688,7 +834,13 @@ def print_summary(
     output_directory: str,
 ):
   """Prints a clean summary of the launched workload."""
-  gcs_bucket = output_directory.replace('gs://', '')
+  if output_directory.startswith('gs://'):
+    gcs_bucket = output_directory.replace('gs://', '')
+    artifacts_info = (
+        f' https://console.cloud.google.com/storage/browser/{gcs_bucket}/{run_id}?project={project}'
+    )
+  else:
+    artifacts_info = f' {output_directory}/{run_id}'
 
   summary = [
       '',
@@ -702,10 +854,7 @@ def print_summary(
           f'  📄 {Console.BOLD}Logs:{Console.RESET}      '
           f' https://console.cloud.google.com/logs/query;query=resource.labels.pod_name:"{workload_name}"%0Aresource.labels.container_name:"jax-tpu"?project={project}'
       ),
-      (
-          f'  📦 {Console.BOLD}Artifacts:{Console.RESET} '
-          f' https://console.cloud.google.com/storage/browser/{gcs_bucket}/{run_id}?project={project}'
-      ),
+      f'  📦 {Console.BOLD}Artifacts:{Console.RESET} {artifacts_info}',
       (
           f'  🔍 {Console.BOLD}Status:{Console.RESET}     xpk workload list'
           f' --cluster={cluster} --workload={workload_name} --project={project}'
@@ -719,6 +868,9 @@ def print_summary(
 
 def upload_config_to_gcs(local_path: str, gcs_root: str, run_id: str) -> str:
   """Uploads the local config file to GCS and returns the GCS path."""
+  if not gcs_root.startswith('gs://'):
+    raise ValueError('Config diectory is not a GCS path.')
+
   filename = os.path.basename(local_path)
   gcs_path = os.path.join(gcs_root, run_id, filename)
 
@@ -804,6 +956,7 @@ def main(argv: Sequence[str]) -> None:
   if _RAMDISK_DIRECTORY.value is not None:
     # Delete CSI driver before running any workloads, to delete any previous
     # checkpoint files.
+    get_credentials()
     update_bucket_csi_driver(mount_csi_driver=False)
     # Mount CSI driver for the workload.
     update_bucket_csi_driver(mount_csi_driver=True)
@@ -840,19 +993,23 @@ def main(argv: Sequence[str]) -> None:
 
   # 4. Upload Config
   Console.print_step(3, 6, 'Uploading Configuration')
+  config_root = _CONFIG_DIRECTORY.value or _OUTPUT_DIRECTORY.value
   remote_config_path = upload_config_to_gcs(
-      _CONFIG_FILE.value, _OUTPUT_DIRECTORY.value, run_id
+      _CONFIG_FILE.value, config_root, run_id
   )
   Console.print_success('Config uploaded.')
 
   # 5. Construct Commands
   Console.print_step(4, 6, 'Constructing Commands')
+  hardware_type = get_hardware_type(_TPU_TYPE.value, _DEVICE_TYPE.value)
   workload_cmd = construct_workload_command(
+      workload_name=workload_name_base,
       config_file=remote_config_path,
       output_directory=_OUTPUT_DIRECTORY.value,
       run_id=run_id,
       enable_pathways=_ENABLE_PATHWAYS.value,
       benchmark_binary_path=_BENCHMARK_BINARY_PATH.value,
+      hardware_type=hardware_type,
       v_level=_V_LEVEL.value,
   )
 

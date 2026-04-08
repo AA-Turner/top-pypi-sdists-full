@@ -24,6 +24,7 @@ else:
 __all__ = (
     "AutomationStreamStatusType",
     "BedrockAgentCoreServiceName",
+    "BrowserActionStatusType",
     "BrowserEnterprisePolicyTypeType",
     "BrowserSessionStatusType",
     "CodeInterpreterSessionStatusType",
@@ -38,6 +39,7 @@ __all__ = (
     "ListMemoryRecordsPaginatorName",
     "ListSessionsPaginatorName",
     "MemoryRecordStatusType",
+    "MouseButtonType",
     "Oauth2FlowTypeType",
     "OperatorTypeType",
     "PaginatorName",
@@ -46,6 +48,7 @@ __all__ = (
     "ResourceServiceName",
     "RetrieveMemoryRecordsPaginatorName",
     "RoleType",
+    "ScreenshotFormatType",
     "ServiceName",
     "SessionStatusType",
     "TaskStatusType",
@@ -54,6 +57,7 @@ __all__ = (
 )
 
 AutomationStreamStatusType = Literal["DISABLED", "ENABLED"]
+BrowserActionStatusType = Literal["FAILED", "SUCCESS"]
 BrowserEnterprisePolicyTypeType = Literal["MANAGED", "RECOMMENDED"]
 BrowserSessionStatusType = Literal["READY", "TERMINATED"]
 CodeInterpreterSessionStatusType = Literal["READY", "TERMINATED"]
@@ -68,12 +72,14 @@ ListMemoryExtractionJobsPaginatorName = Literal["list_memory_extraction_jobs"]
 ListMemoryRecordsPaginatorName = Literal["list_memory_records"]
 ListSessionsPaginatorName = Literal["list_sessions"]
 MemoryRecordStatusType = Literal["FAILED", "SUCCEEDED"]
+MouseButtonType = Literal["LEFT", "MIDDLE", "RIGHT"]
 Oauth2FlowTypeType = Literal["M2M", "USER_FEDERATION"]
 OperatorTypeType = Literal["EQUALS_TO", "EXISTS", "NOT_EXISTS"]
 ProgrammingLanguageType = Literal["javascript", "python", "typescript"]
 ResourceContentTypeType = Literal["blob", "text"]
 RetrieveMemoryRecordsPaginatorName = Literal["retrieve_memory_records"]
 RoleType = Literal["ASSISTANT", "OTHER", "TOOL", "USER"]
+ScreenshotFormatType = Literal["PNG"]
 SessionStatusType = Literal["FAILED", "IN_PROGRESS"]
 TaskStatusType = Literal["canceled", "completed", "failed", "submitted", "working"]
 ToolNameType = Literal[
@@ -433,6 +439,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

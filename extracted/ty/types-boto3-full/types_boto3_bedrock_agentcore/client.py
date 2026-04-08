@@ -74,6 +74,8 @@ from .type_defs import (
     InvokeAgentRuntimeCommandResponseTypeDef,
     InvokeAgentRuntimeRequestTypeDef,
     InvokeAgentRuntimeResponseTypeDef,
+    InvokeBrowserRequestTypeDef,
+    InvokeBrowserResponseTypeDef,
     InvokeCodeInterpreterRequestTypeDef,
     InvokeCodeInterpreterResponseTypeDef,
     ListActorsInputTypeDef,
@@ -373,6 +375,17 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_agent_runtime_command.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#invoke_agent_runtime_command)
+        """
+
+    def invoke_browser(
+        self, **kwargs: Unpack[InvokeBrowserRequestTypeDef]
+    ) -> InvokeBrowserResponseTypeDef:
+        """
+        Invokes an operating system-level action on a browser session in Amazon Bedrock
+        AgentCore.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_browser.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#invoke_browser)
         """
 
     def invoke_code_interpreter(

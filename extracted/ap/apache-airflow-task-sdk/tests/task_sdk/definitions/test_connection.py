@@ -23,10 +23,9 @@ from urllib.parse import urlparse
 
 import pytest
 
-from airflow.configuration import initialize_secrets_backends
-from airflow.exceptions import AirflowException, AirflowNotFoundException
 from airflow.sdk import Connection
-from airflow.sdk.exceptions import ErrorType
+from airflow.sdk.configuration import initialize_secrets_backends
+from airflow.sdk.exceptions import AirflowException, AirflowNotFoundException, ErrorType
 from airflow.sdk.execution_time.comms import ConnectionResult, ErrorResponse
 from airflow.sdk.execution_time.secrets import DEFAULT_SECRETS_SEARCH_PATH_WORKERS
 
@@ -37,10 +36,10 @@ class TestConnections:
     @pytest.fixture
     def mock_providers_manager(self):
         """Mock the ProvidersManager to return predefined hooks."""
-        with mock.patch("airflow.providers_manager.ProvidersManager") as mock_manager:
+        with mock.patch("airflow.sdk.definitions.connection.ProvidersManagerTaskRuntime") as mock_manager:
             yield mock_manager
 
-    @mock.patch("airflow.sdk.module_loading.import_string")
+    @mock.patch("airflow.sdk._shared.module_loading.import_string")
     def test_get_hook(self, mock_import_string, mock_providers_manager):
         """Test that get_hook returns the correct hook instance."""
 
@@ -377,6 +376,20 @@ class TestConnectionFromUri:
         uri = "http://user@host://example.com"
         with pytest.raises(AirflowException, match="Invalid connection string"):
             Connection.from_uri(uri, conn_id="test_conn")
+
+    def test_connection_constructor_with_uri(self):
+        """Test Connection(uri=..., conn_id=...) constructor form."""
+        conn = Connection(conn_id="test_conn", uri="postgres://user:pass@host:5432/db")
+
+        assert conn.conn_id == "test_conn"
+        assert conn.conn_type == "postgres"
+        assert conn.host == "host"
+        assert conn.login == "user"
+        assert conn.password == "pass"
+        assert conn.port == 5432
+        assert conn.schema == "db"
+        # uri should not exist as an attribute (it's init-only)
+        assert not hasattr(conn, "uri")
 
     def test_from_uri_roundtrip(self):
         """Test that from_uri and get_uri are inverse operations."""

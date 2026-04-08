@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: edx-when
-Version: 3.2.1
+Version: 4.0.0
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-when
 Author: edX
@@ -14,7 +14,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt

@@ -1,5 +1,8 @@
 import asyncio
 import base64
+import os
+import subprocess
+import sys
 from collections.abc import Iterable
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -337,8 +340,6 @@ class BrowserTools(AgentTools):
         self._playwright_context = playwright.sync_api.sync_playwright()
         pw = self._playwright_context.start()
 
-        import os
-
         selenium_remote_url = os.environ.get("SELENIUM_REMOTE_URL")
         self._is_remote = bool(selenium_remote_url)
         if selenium_remote_url:
@@ -353,6 +354,16 @@ class BrowserTools(AgentTools):
             if self.debug_mode:
                 print(
                     f"[DEBUG][BrowserTools.__init__] Playwright started, launching chromium (headless={self.headless})"
+                )
+            # Local only: auto-install Chromium if missing (web editor uses remote Selenium)
+            if not os.path.exists(pw.chromium.executable_path):
+                if self.debug_mode:
+                    print(
+                        "[DEBUG][BrowserTools.__init__] Chromium not found, installing..."
+                    )
+                subprocess.run(
+                    [sys.executable, "-m", "playwright", "install", "chromium"],
+                    check=True,
                 )
             self.browser = pw.chromium.launch(headless=self.headless)
             self._browser_context = self._build_browser_context(client_certificate)
@@ -721,6 +732,18 @@ class BrowserTools(AgentTools):
             )
         return content
 
+    def get_element_html(self, page_id: str, selector: str) -> str:
+        """Get the outer HTML of a specific element by CSS selector."""
+        if self.debug_mode:
+            print(
+                f"[DEBUG][BrowserTools.get_element_html] page_id={page_id}, selector={selector}"
+            )
+        page = self._get_page(page_id)
+        el = page.query_selector(selector)
+        if not el:
+            raise ValueError(f"Selector '{selector}' not found on the page")
+        return el.evaluate("el => el.outerHTML")
+
     def get_text(self, page_id: str, selector: str) -> str:
         """Get the inner text content of an element by CSS selector."""
         if self.debug_mode:
@@ -847,7 +870,24 @@ class BrowserTools(AgentTools):
 
         result = []
         for request in requests:
-            res = request.response()
+            try:
+                res = request.response()
+            except Exception:
+                res = None
+            res_data: dict = {"status": None, "headers": None, "body": None}
+            if res:
+                try:
+                    res_data["status"] = res.status
+                except Exception:
+                    pass
+                try:
+                    res_data["headers"] = dict(res.headers)
+                except Exception:
+                    pass
+                try:
+                    res_data["body"] = res.text()
+                except Exception:
+                    pass
             result.append(
                 {
                     "request": {
@@ -856,11 +896,7 @@ class BrowserTools(AgentTools):
                         "headers": dict(request.headers),
                         "post_data": request.post_data,
                     },
-                    "response": {
-                        "status": res.status if res else None,
-                        "headers": dict(res.headers) if res else None,
-                        "body": res.text() if res else None,
-                    },
+                    "response": res_data,
                 }
             )
         return result

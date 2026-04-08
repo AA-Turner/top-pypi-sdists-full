@@ -287,14 +287,11 @@ def get_expanded_path(path):
     abspath =os.path.abspath(expanded_user)
     return abspath
 def get_home_dir(path=None):
-    is_pathlib=True
-    if isinstance(path,str):
-        is_pathlib=False
+    isPath =is_pathlike(path)
     path = path or os.getcwd()
-    path = get_pathlib_path(path)
-    if not is_pathlib:
-        path = str(path.home())
-    return path
+    nupath = get_pathlib_path(path)
+    home_path = nupath.home()
+    return return_path(home_path,isPath=isPath)
 def get_spec_dir(name,directory):
     
     if name and directory:

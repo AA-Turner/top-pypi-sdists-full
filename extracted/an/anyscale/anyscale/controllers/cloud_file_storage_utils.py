@@ -7,13 +7,11 @@ across different cloud verification contexts.
 
 from typing import Dict, Optional
 
-import boto3
-
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models.cloud_deployment import CloudDeployment
 from anyscale.client.openapi_client.models.cloud_providers import CloudProviders
 from anyscale.client.openapi_client.models.file_storage import FileStorage
-from anyscale.util import _get_aws_efs_mount_target_ip
+from anyscale.util import _apn_boto3_session, _get_aws_efs_mount_target_ip
 
 
 class GCPFilestoreInfo:
@@ -201,7 +199,7 @@ def verify_file_storage_exists(
             logger.error("No region found for AWS EFS verification")
             return False
 
-        boto3_session = boto3.Session(region_name=region)
+        boto3_session = _apn_boto3_session(region_name=region)
         return _get_aws_efs_mount_target_ip(boto3_session, file_storage_id) is not None
 
     elif provider_value == CloudProviders.GCP:

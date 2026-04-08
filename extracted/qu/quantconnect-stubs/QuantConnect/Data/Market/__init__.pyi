@@ -272,6 +272,17 @@ class Greeks(System.Object):
         """Initializes a new instance of the Greeks class with specified values."""
         ...
 
+    @staticmethod
+    def get_safe_theta(theta_per_day: float) -> float:
+        """
+        Calculates the annualized theta value based on a daily theta input.
+        
+        :param theta_per_day: The theta value per day to be annualized.
+        :returns: The annualized theta value, calculated as the daily theta multiplied by 365. Returns decimal.MaxValue or
+        decimal.MinValue if the result overflows.
+        """
+        ...
+
 
 class OptionContract(QuantConnect.Data.Market.BaseContract):
     """Defines a single option contract at a specific expiration and strike price"""

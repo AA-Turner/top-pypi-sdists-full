@@ -44,6 +44,7 @@ from plato._generated.api.v2.sessions import close as sessions_close
 from plato._generated.api.v2.sessions import connect_network as sessions_connect_network
 from plato._generated.api.v2.sessions import get_public_url as sessions_get_public_url
 from plato._generated.api.v2.sessions import get_session_details
+from plato._generated.api.v2.sessions import reset as sessions_reset
 from plato._generated.api.v2.sessions import snapshot as sessions_snapshot
 from plato._generated.api.v2.sessions import state as sessions_state
 from plato._generated.models import (
@@ -56,6 +57,7 @@ from plato._generated.models import (
     EnvCleanupResponse,
     Flow,
     PrefetchRequest,
+    ResetSessionResponse,
     SessionDetailsResponse,
     SessionStateResponse,
     VMManagementRequest,
@@ -1033,6 +1035,17 @@ class SandboxClient:
             self.console.print(f"[dim]Failed to download flows: {e}[/dim]")
 
         return result
+
+    def reset(self, session_id: str) -> ResetSessionResponse:
+        """Reset all jobs in a session to initial state."""
+        from plato._generated.models import ResetSessionRequest
+
+        return sessions_reset.sync(
+            client=self._http,
+            session_id=session_id,
+            body=ResetSessionRequest(),
+            x_api_key=self.api_key,
+        )
 
     # CHECKED
     def stop(

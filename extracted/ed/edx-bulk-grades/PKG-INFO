@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-bulk-grades
-Version: 1.2.0
+Version: 2.0.0
 Summary: Support for bulk scoring and grading
 Home-page: https://github.com/openedx/edx-bulk-grades
 Author: edX
@@ -15,14 +15,13 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE.txt
 Requires-Dist: django-model-utils
-Requires-Dist: Django
-Requires-Dist: edx-opaque-keys
 Requires-Dist: super-csv
+Requires-Dist: edx-opaque-keys
 Requires-Dist: requests
+Requires-Dist: Django
 Requires-Dist: slumber
 Dynamic: author
 Dynamic: author-email

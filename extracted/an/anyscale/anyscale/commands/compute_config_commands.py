@@ -75,7 +75,7 @@ def compute_config_cli() -> None:
         "use the -f/--config-file flag:\n\n"
         "`anyscale compute-config create -f new_schema_config.yaml`\n\n"
         "(2) To use the **old schema** defined at "
-        "https://docs.anyscale.com/reference/compute-config-api/#createclustercomputeconfig-legacy, "
+        "https://docs.anyscale.com/archive/ref/compute-config-api, "
         "use the positional argument:\n\n"
         "`anyscale compute-config create old_schema_config.yaml`\n\n"
     ),
@@ -357,7 +357,7 @@ def list_compute_configs(  # noqa: A001, PLR0913
     "--old-format",
     is_flag=True,
     default=False,
-    help="Output the config in the old format: https://docs.anyscale.com/reference/python-sdk/models#createclustercomputeconfig.",
+    help="Output the config in the old format: https://docs.anyscale.com/reference/compute-config-api#computeconfig.",
 )
 def get_compute_config(
     name: Optional[str],

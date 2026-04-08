@@ -1,30 +1,25 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: types-chevron
-Version: 0.14.2.20250103
+Version: 0.14.2.20260408
 Summary: Typing stubs for chevron
-Home-page: https://github.com/python/typeshed
-License: Apache-2.0
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/python/typeshed
 Project-URL: GitHub, https://github.com/python/typeshed
 Project-URL: Changes, https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/chevron.md
 Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 ## Typing stubs for chevron
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`chevron`](https://github.com/noahmorrison/chevron) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `chevron`. This version of
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`chevron`](https://github.com/noahmorrison/chevron) package. It can be used by type checkers
+to check code that uses `chevron`. This version of
 `types-chevron` aims to provide accurate annotations for
 `chevron==0.14.*`.
 
@@ -35,9 +30,9 @@ for more details. The source for this package can be found in the
 [`stubs/chevron`](https://github.com/python/typeshed/tree/main/stubs/chevron)
 directory.
 
-This package was tested with
-mypy 1.14.1,
-pyright 1.1.389,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
+
 It was generated from typeshed commit
-[`33d1b169c1780529e8c2b91858caf58852d73220`](https://github.com/python/typeshed/commit/33d1b169c1780529e8c2b91858caf58852d73220).
+[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).

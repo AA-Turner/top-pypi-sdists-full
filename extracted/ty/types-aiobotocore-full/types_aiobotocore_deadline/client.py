@@ -77,6 +77,22 @@ from .type_defs import (
     AssumeQueueRoleForWorkerResponseTypeDef,
     BatchGetJobEntityRequestTypeDef,
     BatchGetJobEntityResponseTypeDef,
+    BatchGetJobRequestTypeDef,
+    BatchGetJobResponseTypeDef,
+    BatchGetSessionActionRequestTypeDef,
+    BatchGetSessionActionResponseTypeDef,
+    BatchGetSessionRequestTypeDef,
+    BatchGetSessionResponseTypeDef,
+    BatchGetStepRequestTypeDef,
+    BatchGetStepResponseTypeDef,
+    BatchGetTaskRequestTypeDef,
+    BatchGetTaskResponseTypeDef,
+    BatchGetWorkerRequestTypeDef,
+    BatchGetWorkerResponseTypeDef,
+    BatchUpdateJobRequestTypeDef,
+    BatchUpdateJobResponseTypeDef,
+    BatchUpdateTaskRequestTypeDef,
+    BatchUpdateTaskResponseTypeDef,
     CopyJobTemplateRequestTypeDef,
     CopyJobTemplateResponseTypeDef,
     CreateBudgetRequestTypeDef,
@@ -406,6 +422,16 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#assume_queue_role_for_worker)
         """
 
+    async def batch_get_job(
+        self, **kwargs: Unpack[BatchGetJobRequestTypeDef]
+    ) -> BatchGetJobResponseTypeDef:
+        """
+        Retrieves multiple jobs in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#batch_get_job)
+        """
+
     async def batch_get_job_entity(
         self, **kwargs: Unpack[BatchGetJobEntityRequestTypeDef]
     ) -> BatchGetJobEntityResponseTypeDef:
@@ -414,6 +440,76 @@ class DeadlineCloudClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_job_entity.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#batch_get_job_entity)
+        """
+
+    async def batch_get_session(
+        self, **kwargs: Unpack[BatchGetSessionRequestTypeDef]
+    ) -> BatchGetSessionResponseTypeDef:
+        """
+        Retrieves multiple sessions in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_session.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#batch_get_session)
+        """
+
+    async def batch_get_session_action(
+        self, **kwargs: Unpack[BatchGetSessionActionRequestTypeDef]
+    ) -> BatchGetSessionActionResponseTypeDef:
+        """
+        Retrieves multiple session actions in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_session_action.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#batch_get_session_action)
+        """
+
+    async def batch_get_step(
+        self, **kwargs: Unpack[BatchGetStepRequestTypeDef]
+    ) -> BatchGetStepResponseTypeDef:
+        """
+        Retrieves multiple steps in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_step.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#batch_get_step)
+        """
+
+    async def batch_get_task(
+        self, **kwargs: Unpack[BatchGetTaskRequestTypeDef]
+    ) -> BatchGetTaskResponseTypeDef:
+        """
+        Retrieves multiple tasks in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_task.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#batch_get_task)
+        """
+
+    async def batch_get_worker(
+        self, **kwargs: Unpack[BatchGetWorkerRequestTypeDef]
+    ) -> BatchGetWorkerResponseTypeDef:
+        """
+        Retrieves multiple workers in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_get_worker.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#batch_get_worker)
+        """
+
+    async def batch_update_job(
+        self, **kwargs: Unpack[BatchUpdateJobRequestTypeDef]
+    ) -> BatchUpdateJobResponseTypeDef:
+        """
+        Updates multiple jobs in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_update_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#batch_update_job)
+        """
+
+    async def batch_update_task(
+        self, **kwargs: Unpack[BatchUpdateTaskRequestTypeDef]
+    ) -> BatchUpdateTaskResponseTypeDef:
+        """
+        Updates multiple tasks in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/batch_update_task.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#batch_update_task)
         """
 
     async def copy_job_template(

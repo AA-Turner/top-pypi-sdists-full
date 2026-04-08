@@ -60,6 +60,20 @@ async def get_agent_run(request: Request, run_id: str) -> dict[str, Any]:
     if run is None:
         raise HTTPException(status_code=404, detail="Agent run not found")
     meta = run.get("metadata") or {}
+    raw_result = meta.get("task_result")
+    if raw_result is not None:
+        from ..services.task_result import TaskResult
+
+        task_result = TaskResult.from_dict(raw_result)
+        result = task_result.to_llm_dict()
+        result["run_id"] = run["id"]
+        result["title"] = run.get("title", "")
+        result["started_at"] = run.get("started_at")
+        result["completed_at"] = run.get("completed_at")
+        result["duration_ms"] = run.get("duration_ms")
+        result["parent_run_id"] = run.get("parent_run_id")
+        return result
+    # Legacy fallback for in-progress or pre-TaskResult runs
     return {
         "run_id": run["id"],
         "status": run["status"],
@@ -68,8 +82,6 @@ async def get_agent_run(request: Request, run_id: str) -> dict[str, Any]:
         "completed_at": run.get("completed_at"),
         "duration_ms": run.get("duration_ms"),
         "parent_run_id": run.get("parent_run_id"),
-        "output_preview": (meta.get("output") or "")[:2000],
-        "tool_calls_made": meta.get("tool_calls_made", []),
         "error": meta.get("error"),
     }
 

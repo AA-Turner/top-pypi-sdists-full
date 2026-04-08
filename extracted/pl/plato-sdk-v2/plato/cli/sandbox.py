@@ -425,6 +425,28 @@ def sandbox_snapshot(
         out.success(response, "Snapshot created")
 
 
+@sandbox_app.command(name="reset")
+def sandbox_reset(
+    working_dir: WorkingDirArg,
+    session_id: SessionIdArg,
+    json_output: JsonArg = False,
+    verbose: VerboseArg = False,
+):
+    """Reset the sandbox environment.
+
+    Sends a reset command to re-run the sim's setup callback.
+    The sandbox remains running after reset.
+
+    Examples:
+        plato sandbox reset                                # Uses session_id from .plato/state.json
+        plato sandbox reset --session-id abc123           # Explicitly provide the session to reset
+    """
+    with sandbox_context(working_dir, json_output, verbose) as (client, out):
+        out.console.print("Resetting sandbox...")
+        result = client.reset(session_id=str(session_id))
+        out.success(result, "Sandbox reset")
+
+
 # CHECKED
 @sandbox_app.command(name="stop")
 def sandbox_stop(

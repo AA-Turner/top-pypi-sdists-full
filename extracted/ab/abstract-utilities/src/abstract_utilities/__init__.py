@@ -118,10 +118,11 @@ from .error_utils import try_func
 from .class_utils import *
 from .ssh_utils import *
 from .env_utils import *
-from .path_utils import *
+
 from .file_utils import *
 from .string_utils import *
 from .import_utils import *
+from .path_utils import *
 from .read_write_utils import (read_from_file,
                                write_to_file,
                                make_dirs,

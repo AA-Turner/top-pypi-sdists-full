@@ -52,6 +52,7 @@ __all__ = (
     "AuthenticationTypeType",
     "AuthorSpecifiedAggregationType",
     "AuthorizationCodeGrantCredentialsSourceType",
+    "AutomationJobStatusType",
     "AxisBindingType",
     "BarChartOrientationType",
     "BarsArrangementType",
@@ -292,6 +293,8 @@ __all__ = (
     "SnapshotFileSheetSelectionScopeType",
     "SnapshotJobStatusType",
     "SortDirectionType",
+    "SparklineAxisBehaviorType",
+    "SparklineVisualTypeType",
     "SpecialValueType",
     "StarburstProductTypeType",
     "StatusType",
@@ -483,7 +486,7 @@ AssignmentStatusType = Literal["DISABLED", "DRAFT", "ENABLED"]
 AuthenticationMethodOptionType = Literal[
     "ACTIVE_DIRECTORY", "IAM_AND_QUICKSIGHT", "IAM_IDENTITY_CENTER", "IAM_ONLY"
 ]
-AuthenticationTypeType = Literal["PASSWORD", "TOKEN", "X509"]
+AuthenticationTypeType = Literal["KEYPAIR", "PASSWORD", "TOKEN", "X509"]
 AuthorSpecifiedAggregationType = Literal[
     "AVERAGE",
     "COUNT",
@@ -499,6 +502,7 @@ AuthorSpecifiedAggregationType = Literal[
     "VARP",
 ]
 AuthorizationCodeGrantCredentialsSourceType = Literal["PLAIN_CREDENTIALS"]
+AutomationJobStatusType = Literal["FAILED", "QUEUED", "RUNNING", "STOPPED", "SUCCEEDED"]
 AxisBindingType = Literal["PRIMARY_YAXIS", "SECONDARY_YAXIS"]
 BarChartOrientationType = Literal["HORIZONTAL", "VERTICAL"]
 BarsArrangementType = Literal["CLUSTERED", "STACKED", "STACKED_PERCENT"]
@@ -1063,7 +1067,7 @@ SearchTopicsPaginatorName = Literal["search_topics"]
 SectionPageBreakStatusType = Literal["DISABLED", "ENABLED"]
 SelectAllValueOptionsType = Literal["ALL_VALUES"]
 SelectedFieldOptionsType = Literal["ALL_FIELDS"]
-SelectedTooltipTypeType = Literal["BASIC", "DETAILED"]
+SelectedTooltipTypeType = Literal["BASIC", "DETAILED", "SHEET"]
 SelfUpgradeAdminActionType = Literal["APPROVE", "DENY", "VERIFY"]
 SelfUpgradeRequestStatusType = Literal[
     "APPROVED", "DENIED", "PENDING", "UPDATE_FAILED", "VERIFY_FAILED"
@@ -1101,6 +1105,8 @@ SnapshotFileFormatTypeType = Literal["CSV", "EXCEL", "PDF"]
 SnapshotFileSheetSelectionScopeType = Literal["ALL_VISUALS", "SELECTED_VISUALS"]
 SnapshotJobStatusType = Literal["COMPLETED", "FAILED", "QUEUED", "RUNNING"]
 SortDirectionType = Literal["ASC", "DESC"]
+SparklineAxisBehaviorType = Literal["INDEPENDENT", "SHARED"]
+SparklineVisualTypeType = Literal["AREA_LINE", "LINE"]
 SpecialValueType = Literal["EMPTY", "NULL", "OTHER"]
 StarburstProductTypeType = Literal["ENTERPRISE", "GALAXY"]
 StatusType = Literal["DISABLED", "ENABLED"]
@@ -1329,6 +1335,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -1564,6 +1571,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -1599,6 +1607,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -1611,6 +1620,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

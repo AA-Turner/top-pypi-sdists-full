@@ -68,6 +68,8 @@ from .type_defs import (
     CreateLogAnomalyDetectorResponseTypeDef,
     CreateLogGroupRequestTypeDef,
     CreateLogStreamRequestTypeDef,
+    CreateLookupTableRequestTypeDef,
+    CreateLookupTableResponseTypeDef,
     CreateScheduledQueryRequestTypeDef,
     CreateScheduledQueryResponseTypeDef,
     DeleteAccountPolicyRequestTypeDef,
@@ -82,6 +84,7 @@ from .type_defs import (
     DeleteLogAnomalyDetectorRequestTypeDef,
     DeleteLogGroupRequestTypeDef,
     DeleteLogStreamRequestTypeDef,
+    DeleteLookupTableRequestTypeDef,
     DeleteMetricFilterRequestTypeDef,
     DeleteQueryDefinitionRequestTypeDef,
     DeleteQueryDefinitionResponseTypeDef,
@@ -116,6 +119,8 @@ from .type_defs import (
     DescribeLogGroupsResponseTypeDef,
     DescribeLogStreamsRequestTypeDef,
     DescribeLogStreamsResponseTypeDef,
+    DescribeLookupTablesRequestTypeDef,
+    DescribeLookupTablesResponseTypeDef,
     DescribeMetricFiltersRequestTypeDef,
     DescribeMetricFiltersResponseTypeDef,
     DescribeQueriesRequestTypeDef,
@@ -156,6 +161,8 @@ from .type_defs import (
     GetLogObjectResponseTypeDef,
     GetLogRecordRequestTypeDef,
     GetLogRecordResponseTypeDef,
+    GetLookupTableRequestTypeDef,
+    GetLookupTableResponseTypeDef,
     GetQueryResultsRequestTypeDef,
     GetQueryResultsResponseTypeDef,
     GetScheduledQueryHistoryRequestTypeDef,
@@ -230,6 +237,8 @@ from .type_defs import (
     UpdateAnomalyRequestTypeDef,
     UpdateDeliveryConfigurationRequestTypeDef,
     UpdateLogAnomalyDetectorRequestTypeDef,
+    UpdateLookupTableRequestTypeDef,
+    UpdateLookupTableResponseTypeDef,
     UpdateScheduledQueryRequestTypeDef,
     UpdateScheduledQueryResponseTypeDef,
 )
@@ -409,6 +418,16 @@ class CloudWatchLogsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#create_log_stream)
         """
 
+    async def create_lookup_table(
+        self, **kwargs: Unpack[CreateLookupTableRequestTypeDef]
+    ) -> CreateLookupTableResponseTypeDef:
+        """
+        Creates a lookup table by uploading CSV data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/create_lookup_table.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#create_lookup_table)
+        """
+
     async def create_scheduled_query(
         self, **kwargs: Unpack[CreateScheduledQueryRequestTypeDef]
     ) -> CreateScheduledQueryResponseTypeDef:
@@ -542,6 +561,16 @@ class CloudWatchLogsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/delete_log_stream.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#delete_log_stream)
+        """
+
+    async def delete_lookup_table(
+        self, **kwargs: Unpack[DeleteLookupTableRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a lookup table permanently.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/delete_lookup_table.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#delete_lookup_table)
         """
 
     async def delete_metric_filter(
@@ -750,6 +779,16 @@ class CloudWatchLogsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#describe_log_streams)
         """
 
+    async def describe_lookup_tables(
+        self, **kwargs: Unpack[DescribeLookupTablesRequestTypeDef]
+    ) -> DescribeLookupTablesResponseTypeDef:
+        """
+        Retrieves metadata about lookup tables in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/describe_lookup_tables.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#describe_lookup_tables)
+        """
+
     async def describe_metric_filters(
         self, **kwargs: Unpack[DescribeMetricFiltersRequestTypeDef]
     ) -> DescribeMetricFiltersResponseTypeDef:
@@ -955,6 +994,16 @@ class CloudWatchLogsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_log_record.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#get_log_record)
+        """
+
+    async def get_lookup_table(
+        self, **kwargs: Unpack[GetLookupTableRequestTypeDef]
+    ) -> GetLookupTableResponseTypeDef:
+        """
+        Retrieves the full content of a lookup table, including the CSV data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_lookup_table.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#get_lookup_table)
         """
 
     async def get_query_results(
@@ -1417,6 +1466,16 @@ class CloudWatchLogsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/update_log_anomaly_detector.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#update_log_anomaly_detector)
+        """
+
+    async def update_lookup_table(
+        self, **kwargs: Unpack[UpdateLookupTableRequestTypeDef]
+    ) -> UpdateLookupTableResponseTypeDef:
+        """
+        Updates an existing lookup table by replacing all of its CSV content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/update_lookup_table.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#update_lookup_table)
         """
 
     async def update_scheduled_query(

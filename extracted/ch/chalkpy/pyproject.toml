@@ -345,7 +345,7 @@ mssql = [
 ]
 
 mysql = [
-    "pymysql>=1.0.2,<2",
+    "pymysql>=1.1.1,<2",
     "aiomysql>=0.3.0,<0.4",
     # And the sql dependencies
     # [[[cog
@@ -487,7 +487,7 @@ all = [
     "psycopg2>=2.9.4,<3",
     "psycopg[binary]>=3.1.9,<3.3",
     "pydynamodb>=0.6,<0.9",
-    "pymysql>=1.0.2,<2",
+    "pymysql>=1.1.1,<2",
     "pyodbc>=4.0.0,<6",
     "python-json-logger>=3.0.0,<4.0.0",
     "redshift_connector>=2.0.909,<2.2",

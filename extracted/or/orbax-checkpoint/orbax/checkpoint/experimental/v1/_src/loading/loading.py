@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Defines free-function interface for loading."""
+from __future__ import annotations
 
 import functools
 import time
@@ -22,6 +23,7 @@ from absl import logging
 from orbax.checkpoint._src import asyncio_utils
 from orbax.checkpoint._src.logging import event_tracking
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
+from orbax.checkpoint.experimental.v1._src.context import options as options_lib
 import orbax.checkpoint.experimental.v1._src.handlers.global_registration  # pylint: disable=unused-import
 from orbax.checkpoint.experimental.v1._src.layout import checkpoint_layout
 from orbax.checkpoint.experimental.v1._src.layout import registry as layout_registry
@@ -29,15 +31,17 @@ from orbax.checkpoint.experimental.v1._src.loading import validation
 from orbax.checkpoint.experimental.v1._src.metadata import types as metadata_types
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.synchronization import multihost
+from orbax.checkpoint.experimental.v1._src.synchronization import thread_utils
 from orbax.checkpoint.experimental.v1._src.synchronization import types as async_types
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
-
 
 
 PYTREE_CHECKPOINTABLE_KEY = checkpoint_layout.PYTREE_CHECKPOINTABLE_KEY
 AbstractPyTree = tree_types.PyTreeOf[tree_types.AbstractLeafType]
 CheckpointMetadata = metadata_types.CheckpointMetadata
 PLACEHOLDER = ...
+
+AsyncResponse = async_types.AsyncResponse
 
 
 class LoadFn(Protocol):
@@ -71,6 +75,8 @@ def load_pytree(
   containing a subdirectory with the name provided by `checkpointable_name`,
   with default value `pytree`. See `checkpointable_name` for more details.
 
+  This function must be called on all available controller processes.
+
   The operation blocks until complete. For improved performance, consider using
   :py:func:`.load_pytree_async` instead.
 
@@ -95,6 +101,28 @@ def load_pytree(
   same shape and `dtype`. Each `AbstractLeafType` has a corresponding `LeafType`
   that is restored.
 
+  Example Usage:
+
+    Load a saved PyTree with and without providing its abstract structure::
+
+      path = '/tmp/my_checkpoint'
+
+      # Save a checkpoint
+      pytree = {'a': jnp.arange(8), 'b': jnp.zeros(4)}
+      ocp.save_pytree(path, pytree)
+
+      # Load the checkpoint
+      # Highly recommended to provide the abstract pytree (structure/shapes)
+      abstract_pytree = jax.eval_shape(lambda: pytree)
+
+      # Method A: Load using the abstract structure.
+      # This automatically looks for the 'pytree' subdirectory inside 'path'.
+      restored = ocp.load_pytree(path, abstract_pytree)
+
+      # Method B: Infer structure from file (Not recommended for production use)
+      # cases or for complex trees.
+      restored_inferred = ocp.load_pytree(path)
+
   Args:
     path: The path to load the checkpoint from. This path must contain a
       subdirectory with name provided by `checkpointable_name`. See
@@ -112,7 +140,15 @@ def load_pytree(
     The restored `PyTree`.
   """
   start_time = time.time()
-  logging.info('Loading checkpoint from %s.', path)
+  event_tracking.OperationRecorder(
+      path,
+      operation_type=event_tracking.OperationType.LOAD,
+      async_origin=False,
+  ).record_start()
+
+  abstract_pytree = _standardize_abstract_checkpointables(abstract_pytree)
+  validation.validate_pytree_checkpointable_name(checkpointable_name)
+
   ctx = context_lib.get_context()
   path = ctx.file_options.path_class(path)
   layout = asyncio_utils.run_sync(
@@ -120,11 +156,8 @@ def load_pytree(
           path, ctx.checkpoint_layout, checkpointable_name
       )
   )
-  abstract_pytree = _standardize_abstract_checkpointables(abstract_pytree)
 
-  validation.validate_pytree_checkpointable_name(checkpointable_name)
-
-  loaded_contents = _load_impl(
+  loaded_pytree = _load_impl(
       path,
       functools.partial(
           layout.load_pytree,
@@ -135,16 +168,7 @@ def load_pytree(
       start_time=start_time,
   )
 
-  # TODO(b/477603241): This logic currently accounts for the V0
-  # load_pytree function returning a pytree for direct pytree checkpoints,
-  # while V1 returns a dictionary. This logic should be cleaned up once we
-  # roll up the composite handler into the layout themselves.
-  if (
-      isinstance(loaded_contents, dict)
-      and checkpointable_name in loaded_contents
-  ):
-    return loaded_contents[checkpointable_name]
-  return loaded_contents
+  return loaded_pytree
 
 
 def load_checkpointables(
@@ -162,6 +186,8 @@ def load_checkpointables(
   :py:func:`.save_checkpointables` (or :py:func:`.save_pytree`). The path should
   contain a number of subdirectories - each of these represents the name of a
   checkpointable.
+
+  This function must be called on all available controller processes.
 
   The operation blocks until complete. For improved performance, consider using
   :py:func:`.load_checkpointables_async` instead.
@@ -186,6 +212,52 @@ def load_checkpointables(
   checkpointables in the checkpoint. Any checkpointables names not provided in
   `abstract_checkpointables` will not be loaded.
 
+  Example Usage:
+
+    Load checkpointables from a saved checkpoint::
+
+      path = '/tmp/my_checkpoint_step_100'
+
+      # Save multiple components (checkpointables)
+      params = {'w': jnp.ones((8, 8)), 'b': jnp.zeros(8)}
+      opt_state = {'count': jnp.array(100)}
+
+      # Setup Grain (Stateful Checkpointable)
+      import grain
+      dataset_iter = iter(
+          grain.MapDataset.range(30)
+          .batch(3)
+          .map(lambda x: x.tolist())
+      )
+
+      ocp.save_checkpointables(path, {
+          'model': params,
+          'optimizer': opt_state,
+          'dataset': dataset_iter,
+      })
+
+      # Load the checkpointables
+      abstract_params = jax.eval_shape(lambda: params)
+      abstract_opt = jax.eval_shape(lambda: opt_state)
+
+      abstract_checkpointables = {
+          'model': abstract_params,
+          'optimizer': abstract_opt,
+          # Dataset is restored statefully. An initialized object must be
+          # passed, but its position will be set to the position recorded in the
+          # checkpoint after restoring.
+          'dataset': dataset_iter,
+      }
+
+      # Load all components
+      restored = ocp.load_checkpointables(path, abstract_checkpointables)
+
+      # Load only a subset
+      restored_subset = ocp.load_checkpointables(
+          path,
+          {'model': abstract_params}
+      )
+
   Args:
     path: The path to load the checkpoint from. This path must contain a
       subdirectory for each checkpointable.
@@ -201,17 +273,22 @@ def load_checkpointables(
     FileNotFoundError: If the checkpoint path does not exist.
   """
   start_time = time.time()
-  logging.info('Loading checkpoint from %s.', path)
-  ctx = context_lib.get_context()
-  path = ctx.file_options.path_class(path)
-  layout = asyncio_utils.run_sync(
-      layout_registry.get_checkpoint_layout(path, ctx.checkpoint_layout)
-  )
+  event_tracking.OperationRecorder(
+      path,
+      operation_type=event_tracking.OperationType.LOAD,
+      async_origin=False,
+  ).record_start()
 
   abstract_checkpointables = _standardize_abstract_checkpointables(
       abstract_checkpointables
   )
   validation.validate_abstract_checkpointables(abstract_checkpointables)
+
+  ctx = context_lib.get_context()
+  path = ctx.file_options.path_class(path)
+  layout = asyncio_utils.run_sync(
+      layout_registry.get_checkpoint_layout(path, ctx.checkpoint_layout)
+  )
 
   if not hasattr(layout, 'load_checkpointables'):
     raise NotImplementedError(
@@ -253,6 +330,11 @@ def _load_impl(
 
   async def _load() -> Any:
     load_awaitable = await load_fn()
+    event_tracking.OperationRecorder(
+        path,
+        operation_type=event_tracking.OperationType.LOAD,
+        async_origin=False,
+    ).record_blocking_completion(time.time() - start_time)
     result = await load_awaitable
     await multihost.sync_global_processes(
         multihost.unique_barrier_key(
@@ -266,15 +348,96 @@ def _load_impl(
 
   result = asyncio_utils.run_sync(_load())
 
-  event_tracking.record_read_event(path)
-
   duration_secs = time.time() - start_time
-  logging.info(
-      'Finished loading checkpoint in %.2f seconds from %s.',
-      duration_secs,
+  event_tracking.OperationRecorder(
       path,
-  )
+      operation_type=event_tracking.OperationType.LOAD,
+      async_origin=False,
+  ).record_completion(duration_secs)
   return result
+
+
+class _LoadPyTreeResponse(
+    AsyncResponse[tree_types.PyTreeOf[tree_types.LeafType]]
+):
+  """An :py:class:`.AsyncResponse` for :py:func:`.load_pytree_async`."""
+
+  def __init__(
+      self,
+      operation_id: str,
+      path: path_types.Path,
+      background_awaitable: Awaitable[tree_types.PyTreeOf[tree_types.LeafType]],
+      *,
+      start_time: float,
+      context: context_lib.Context,
+  ):
+    self._operation_id = operation_id
+    self._path = path
+    self._background_awaitable = background_awaitable
+    self._start_time = start_time
+    self._context = context
+    self._thread_runner = thread_utils.BackgroundThreadRunner[
+        tree_types.PyTreeOf[tree_types.LeafType]
+    ](self._finalize_load())
+
+  @classmethod
+  def create(
+      cls,
+      background_awaitable: Awaitable[tree_types.PyTreeOf[tree_types.LeafType]],
+      path: path_types.Path,
+      start_time: float,
+      *,
+      context: context_lib.Context,
+  ) -> _LoadPyTreeResponse:
+    """Creates and returns the final AsyncResponse for a load operation."""
+    blocking_duration_secs = time.time() - start_time
+    event_tracking.OperationRecorder(
+        path,
+        operation_type=event_tracking.OperationType.LOAD,
+        async_origin=True,
+    ).record_blocking_completion(blocking_duration_secs)
+    return cls(
+        context.operation_id(),
+        path,
+        background_awaitable,
+        start_time=start_time,
+        context=context,
+    )
+
+  async def _finalize_load(self) -> tree_types.PyTreeOf[tree_types.LeafType]:
+    logging.info(
+        '[process=%s] Waiting for background load operations',
+        multihost.process_index(),
+    )
+    result = await self._background_awaitable
+    logging.vlog(
+        1,
+        '[process=%s] Finished waiting for background load operations.',
+        multihost.process_index(),
+    )
+
+    await multihost.sync_global_processes(
+        multihost.unique_barrier_key(
+            '_load_async:finalize',
+            prefix=(
+                self._context.multiprocessing_options.barrier_sync_key_prefix
+            ),
+        ),
+        operation_id=self._context.operation_id(),
+        processes=self._context.multiprocessing_options.active_processes,
+    )
+    total_duration_secs = time.time() - self._start_time
+    event_tracking.OperationRecorder(
+        self._path,
+        operation_type=event_tracking.OperationType.LOAD,
+        async_origin=True,
+    ).record_completion(total_duration_secs)
+    return result
+
+  def result(
+      self, timeout: float | None = None
+  ) -> tree_types.PyTreeOf[tree_types.LeafType]:
+    return self._thread_runner.result(timeout=timeout)
 
 
 def load_pytree_async(
@@ -285,9 +448,43 @@ def load_pytree_async(
     *,
     checkpointable_name: str | None = PYTREE_CHECKPOINTABLE_KEY,
 ) -> async_types.AsyncResponse[tree_types.PyTreeOf[tree_types.LeafType]]:
-  """Loads a PyTree asynchronously. Not yet implemented."""
-  del path, abstract_pytree, checkpointable_name
-  raise NotImplementedError('Asynchronous loading is not yet supported.')
+  """Loads a PyTree asynchronously. Currently has limited support."""
+  start_time = time.time()
+  event_tracking.OperationRecorder(
+      path,
+      operation_type=event_tracking.OperationType.LOAD,
+      async_origin=True,
+  ).record_start()
+  ctx = context_lib.get_context()
+  if not path:
+    raise ValueError('Path must not be None.')
+  if ctx.checkpoint_layout != options_lib.CheckpointLayout.SAFETENSORS:
+    raise NotImplementedError(
+        'Asynchronous loading only supported for SAFETENSORS checkpoint '
+        f'layout, not {ctx.checkpoint_layout}.'
+    )
+  path = ctx.file_options.path_class(path)
+  abstract_pytree = _standardize_abstract_checkpointables(abstract_pytree)
+  validation.validate_pytree_checkpointable_name(checkpointable_name)
+
+  async def _blocking_load() -> Any:
+    layout = await layout_registry.get_checkpoint_layout_pytree(
+        path, ctx.checkpoint_layout, checkpointable_name
+    )
+    return await layout.load_pytree(
+        path,
+        checkpointable_name=checkpointable_name,
+        abstract_pytree=abstract_pytree,
+    )
+
+  background_awaitable = asyncio_utils.run_sync(_blocking_load())
+  response = _LoadPyTreeResponse.create(
+      background_awaitable,
+      path,
+      start_time=start_time,
+      context=ctx,
+  )
+  return response
 
 
 def load_checkpointables_async(

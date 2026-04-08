@@ -22,14 +22,14 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping
 from types import TracebackType
-from typing import Any
+from typing import Any, overload
 
 from aiobotocore.client import AioBaseClient
 from botocore.client import ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListCertificatesPaginator
+from .paginator import ListCertificatesPaginator, SearchCertificatesPaginator
 from .type_defs import (
     AddTagsToCertificateRequestTypeDef,
     DeleteCertificateRequestTypeDef,
@@ -55,6 +55,8 @@ from .type_defs import (
     ResendValidationEmailRequestTypeDef,
     RevokeCertificateRequestTypeDef,
     RevokeCertificateResponseTypeDef,
+    SearchCertificatesRequestTypeDef,
+    SearchCertificatesResponseTypeDef,
     UpdateCertificateOptionsRequestTypeDef,
 )
 from .waiter import CertificateValidatedWaiter
@@ -155,7 +157,7 @@ class ACMClient(AioBaseClient):
     ) -> ExportCertificateResponseTypeDef:
         """
         Exports a private certificate issued by a private certificate authority (CA) or
-        public certificate for use anywhere.
+        a public certificate for use anywhere.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/export_certificate.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_acm/client/#export_certificate)
@@ -273,6 +275,16 @@ class ACMClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_acm/client/#revoke_certificate)
         """
 
+    async def search_certificates(
+        self, **kwargs: Unpack[SearchCertificatesRequestTypeDef]
+    ) -> SearchCertificatesResponseTypeDef:
+        """
+        Retrieves a list of certificates matching search criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/search_certificates.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_acm/client/#search_certificates)
+        """
+
     async def update_certificate_options(
         self, **kwargs: Unpack[UpdateCertificateOptionsRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -283,9 +295,21 @@ class ACMClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_acm/client/#update_certificate_options)
         """
 
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_certificates"]
     ) -> ListCertificatesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/acm/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_acm/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_certificates"]
+    ) -> SearchCertificatesPaginator:
         """
         Create a paginator for an operation.
 

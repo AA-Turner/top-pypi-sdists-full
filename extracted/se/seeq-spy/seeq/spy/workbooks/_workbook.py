@@ -37,7 +37,8 @@ from seeq.spy.workbooks._folder import Folder
 from seeq.spy.workbooks._item import Item, ItemList, Reference, ItemExists
 from seeq.spy.workbooks._item_map import ItemMap
 from seeq.spy.workbooks._user import ItemWithOwnerAndAcl
-from seeq.spy.workbooks._worksheet import Worksheet, AnalysisWorksheet, TopicDocument, WorksheetList
+from seeq.spy.workbooks._worksheet import (Worksheet, AnalysisWorksheet, WorksheetForAnalysisOrRoom, TopicDocument,
+                                             WorksheetList, RoomView)
 
 
 class ItemJSONEncoder(json.JSONEncoder):
@@ -1027,7 +1028,7 @@ class Workbook(ItemWithOwnerAndAcl):
         session = context.session
         workbooks_api = WorkbooksApi(session.client)
 
-        if isinstance(worksheet, AnalysisWorksheet):
+        if isinstance(worksheet, WorksheetForAnalysisOrRoom):
             status.log(f'Processing worksteps for {worksheet}')
 
             pushed_current_workstep_id = None
@@ -2139,7 +2140,7 @@ class Room(Workbook):
 
         self._annotation = Journal(self)
 
-    def view(self, name: str, create: bool = True) -> Optional[AnalysisWorksheet]:
+    def view(self, name: str, create: bool = True) -> Optional[RoomView]:
         return self._new_worksheet(RoomView, name, create=create)
 
     @property
@@ -2153,7 +2154,3 @@ class Room(Workbook):
     @property
     def views(self):
         return self.worksheets
-
-
-class RoomView(AnalysisWorksheet):
-    pass

@@ -101,6 +101,10 @@ class DetachedSubagentManager:
 
                 elapsed = time.monotonic() - start_ts
                 status = "failed" if result.get("error") else "completed"
+                result_with_elapsed = {**result, "elapsed_seconds": round(elapsed, 2)}
+                from .task_result import TaskResult
+
+                task_result = TaskResult.from_subagent_result(result_with_elapsed, run_id)
                 metadata = {
                     "output": result.get("output", ""),
                     "tool_calls_made": result.get("tool_calls_made", []),
@@ -108,6 +112,7 @@ class DetachedSubagentManager:
                     "truncated": result.get("truncated", False),
                     "error": result.get("error"),
                     "elapsed_seconds": round(elapsed, 2),
+                    "task_result": task_result.to_dict(),
                 }
 
                 storage.update_agent_run(
@@ -278,6 +283,10 @@ class DetachedSubagentManager:
 
                 elapsed = time.monotonic() - start_ts
                 status = "failed" if result.get("error") else "completed"
+                result_with_elapsed = {**result, "elapsed_seconds": round(elapsed, 2)}
+                from .task_result import TaskResult as _TaskResult
+
+                task_result = _TaskResult.from_subagent_result(result_with_elapsed, new_run_id)
                 metadata = {
                     "output": result.get("output", ""),
                     "tool_calls_made": result.get("tool_calls_made", []),
@@ -285,6 +294,7 @@ class DetachedSubagentManager:
                     "truncated": result.get("truncated", False),
                     "error": result.get("error"),
                     "elapsed_seconds": round(elapsed, 2),
+                    "task_result": task_result.to_dict(),
                 }
 
                 from . import storage as _st

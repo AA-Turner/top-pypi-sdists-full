@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib.metadata
 import json
 import logging
 import signal
@@ -10,12 +11,9 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from pydantic import TypeAdapter
 
-from plato.runtime import RuntimeConfig, VMRuntimeConfig
-from plato.worlds.config import DevConfig, RunConfig, SessionConfig
-
-_RuntimeConfigAdapter = TypeAdapter(VMRuntimeConfig)
+from plato.runtimes.base import RuntimeInfo
+from plato.worlds.config import ChronosConfig, DevConfig, RunConfig
 
 app = typer.Typer(
     name="plato-world-runner",
@@ -76,26 +74,49 @@ def discover_worlds() -> None:
     discover_plugins("plato.worlds", logger)
 
 
+def discover_world(world_name: str) -> None:
+    """Discover and load a single installed world package by entry point."""
+    from plato.worlds.base import get_world
+
+    if get_world(world_name) is not None:
+        return
+
+    try:
+        entry_points = importlib.metadata.entry_points(group="plato.worlds")
+    except TypeError:
+        entry_points = importlib.metadata.entry_points().get("plato.worlds", [])
+
+    for entry_point in entry_points:
+        if entry_point.name != world_name:
+            continue
+        try:
+            entry_point.load()
+            logger.debug("Loaded plugin: %s", entry_point.name)
+        except Exception as exc:
+            logger.warning("Failed to load plugin '%s': %s", entry_point.name, exc)
+        return
+
+
 async def run_world(
     world_name: str,
     config: RunConfig,
-    session: SessionConfig | None = None,
+    chronos: ChronosConfig,
     dev: DevConfig | None = None,
-    runtime: RuntimeConfig | None = None,
+    runtime_info: RuntimeInfo | None = None,
 ) -> None:
     """Run a world by name with the given configuration.
 
     Args:
         world_name: Name of the world to run
         config: World-specific configuration
-        session: Session and telemetry configuration
+        chronos: Chronos session and telemetry configuration
         dev: Dev mode configuration
-        runtime: Runtime configuration
+        runtime_info: Runtime environment info (hostname, SSH key, etc.)
 
     Raises:
         ValueError: If world not found
     """
-    discover_worlds()
+    discover_world(world_name)
 
     from plato.worlds.base import get_registered_worlds, get_world
 
@@ -105,7 +126,7 @@ async def run_world(
         raise ValueError(f"World '{world_name}' not found. Available: {available}")
 
     world = world_cls()
-    await world.run(config, session=session, dev=dev, runtime=runtime)
+    await world.run(config, chronos=chronos, dev=dev, runtime_info=runtime_info)
 
 
 @app.command()
@@ -128,8 +149,8 @@ def run(
         typer.echo(f"Error: Config file not found: {config}", err=True)
         raise typer.Exit(1)
 
-    # Discover worlds first to get config class
-    discover_worlds()
+    # Discover just the requested world entry point.
+    discover_world(world)
 
     from plato.worlds.base import get_registered_worlds, get_world
 
@@ -140,26 +161,49 @@ def run(
         typer.echo(f"Error: {error_msg}", err=True)
         _report_crash_to_chronos(config, error_message=error_msg)
         raise typer.Exit(1)
-
     # Load full config JSON
     with open(config) as f:
         full_config = json.load(f)
 
-    # Extract session, dev, runtime from their locations
-    session = SessionConfig.model_validate(full_config.get("session", {}))
+    # Extract chronos, dev, runtime from their locations
+    session_data = full_config.get("session", {})
+    chronos = ChronosConfig.model_validate(session_data)
     dev = DevConfig.model_validate(full_config.get("dev", {}))
 
-    # Runtime is at world.runtime
+    # Runtime info is at world.runtime_info (optional, set by WorldLauncher)
+    # or reconstructed from session.plato_session (set by Chronos backend)
     world_block = full_config.get("world", {})
-    runtime_data = world_block.get("runtime", {})
-    runtime = _RuntimeConfigAdapter.validate_python(runtime_data) if runtime_data else VMRuntimeConfig()
+    runtime_info_data = world_block.get("runtime_info")
+    runtime_info = RuntimeInfo.model_validate(runtime_info_data) if runtime_info_data else None
+
+    # Chronos backend passes plato_session in session config — bridge it to runtime_info
+    # so the world can restore the Plato v2 session for agent VM management.
+    plato_session_data = session_data.get("plato_session")
+    if plato_session_data:
+        if runtime_info is None:
+            runtime_info = RuntimeInfo(
+                runtime_id="runtime",
+                hostname="localhost",
+                serialized_session=plato_session_data,
+            )
+        elif runtime_info.serialized_session is None:
+            runtime_info = runtime_info.model_copy(update={"serialized_session": plato_session_data})
+
+    # Ensure the world VM has an SSH keypair for accessing agent VMs.
+    # Generate one if missing — the public key gets registered with the Plato
+    # session later when VMRuntime.start() calls env.add_ssh_key().
+    if runtime_info is not None and runtime_info.ssh_key_path is None:
+        from plato.utils.ssh import generate_ssh_key
+
+        key_path = generate_ssh_key()
+        runtime_info = runtime_info.model_copy(update={"ssh_key_path": key_path})
 
     # Load world config using the world's typed config class (reads from world.config)
     config_class = world_cls.get_config_class()
     run_config = config_class.from_file(config)
 
     # Convert SIGTERM/SIGHUP to KeyboardInterrupt so asyncio.run() triggers
-    # graceful shutdown (close() cleans up agents, tailscale, etc.)
+    # graceful shutdown (close() cleans up agents, etc.)
     def _graceful_shutdown(signum: int, frame: object) -> None:
         sig_name = signal.Signals(signum).name
         logger.info(f"Received {sig_name}, shutting down gracefully...")
@@ -168,9 +212,9 @@ def run(
     signal.signal(signal.SIGTERM, _graceful_shutdown)
     signal.signal(signal.SIGHUP, _graceful_shutdown)
 
+    world_instance = world_cls()
     try:
-        world_instance = world_cls()
-        asyncio.run(world_instance.run(run_config, session=session, dev=dev, runtime=runtime))
+        asyncio.run(world_instance.run(run_config, chronos=chronos, dev=dev, runtime_info=runtime_info))
     except KeyboardInterrupt:
         logger.info("World interrupted, cleanup complete")
     except Exception as e:

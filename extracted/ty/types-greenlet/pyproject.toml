@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-greenlet"
-version = "3.3.0.20251206"
+version = "3.3.0.20260408"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for greenlet"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.407
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`5d41fd6800407489925bc57d29dd5ffe6f71ce0b`](https://github.com/python/typeshed/commit/5d41fd6800407489925bc57d29dd5ffe6f71ce0b).
+[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = []
 [tool.setuptools]
 packages = ['greenlet-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'greenlet-stubs' = ['__init__.pyi', '_greenlet.pyi', 'METADATA.toml', 'py.typed']

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 import pkgutil
 from pathlib import Path
 from shutil import move
@@ -2414,6 +2415,20 @@ class MainController:
             if not hand_off:
                 conn.close()
 
+    def _get_browser_base_url(self) -> str:
+        """Get the base URL that the browser (local or remote Selenium) can use
+        to reach this server.
+
+        - Local editor: http://localhost:{port}
+        - Web editor (remote Selenium): http://web-editor-{projectId}.tenants
+          (reachable from the Selenium pod via K8s DNS)
+        """
+        project_id = os.environ.get("ABSTRA_PROJECT_ID")
+        selenium_url = os.environ.get("SELENIUM_REMOTE_URL")
+        if selenium_url and project_id:
+            return f"http://web-editor-{project_id}.tenants"
+        return f"http://localhost:{Settings.server_port}"
+
     def _browser_call(self, method_name: str, *args, **kwargs):
         """Dispatch a BrowserTools method call to a dedicated thread.
 
@@ -2480,6 +2495,7 @@ class MainController:
                 # Methods that should operate on the iframe content
                 _iframe_methods = {
                     "get_html",
+                    "get_element_html",
                     "get_text",
                     "get_page_summary",
                     "get_element_by_summary_index",
@@ -2512,6 +2528,13 @@ class MainController:
 
                     if name == "get_html":
                         return True, frame.content()
+
+                    if name == "get_element_html":
+                        selector = a[1] if len(a) > 1 else kw.get("selector", "")
+                        el = frame.query_selector(selector)
+                        if not el:
+                            raise ValueError(f"Selector '{selector}' not found")
+                        return True, el.evaluate("el => el.outerHTML")
 
                     if name == "get_page_summary":
                         iframe_elements = bt.extractor.extract_elements(
@@ -2623,13 +2646,8 @@ class MainController:
         if not page:
             raise Exception(f"Page with id {id} not found")
 
-        import os
-
-        base = os.environ.get(
-            "ABSTRA_FRONTEND_HOST", f"http://localhost:{Settings.server_port}"
-        )
-        page_path = page.path
-        url = f"{base}/{page_path}" if page_path else base
+        base = self._get_browser_base_url()
+        url = f"{base}/_editor/api/pages/{id}/run"
         return self._browser_call("navigate_to_url", url)
 
     def browser_navigate(self, url: str):
@@ -2677,14 +2695,24 @@ class MainController:
         """
         return self._browser_call("get_text", tab_id, selector)
 
-    def browser_get_html(self, tab_id: str):
-        """Get the full HTML content of the tab. Prefer browser_get_page_summary for interactive elements.
+    def browser_get_html(self, tab_id: str, selector: str):
+        """Get the outer HTML of a specific element by CSS selector.
+
+        Use page_summary to find selectors, or target well-known selectors
+        like "table", "form", "main", "#content", etc.
+
+        Args:
+            tab_id (str): The tab ID from browser_open_page or run_page.
+            selector (str): CSS selector for the element (e.g. "div.my-class", "#main", "table").
+
+        Returns:
+            str: The outer HTML of the matched element.
 
         Copywritings:
-            Get page HTML
-            Getting page HTML...
+            Get element HTML
+            Getting element HTML...
         """
-        return self._browser_call("get_html", tab_id)
+        return self._browser_call("get_element_html", tab_id, selector)
 
     def browser_execute_javascript(self, tab_id: str, script: str):
         """Execute JavaScript on the tab and return the result. After this, call browser_get_page_summary again as the DOM may have changed.
@@ -2739,6 +2767,84 @@ class MainController:
             Listing browser tabs...
         """
         return self._browser_call("list_pages")
+
+    def run_page(self, id: str, query_params: Optional[dict] = None):
+        """Run a page, collect a full snapshot, and close it immediately.
+
+        Opens the page in a browser, waits for it to load, collects the visible
+        text, interactive elements, console logs, and network errors, then closes
+        the tab automatically. The page does NOT keep running after this call.
+
+        Use this for quick diagnostics — one call gives you everything you need
+        to understand what the page rendered and whether something went wrong.
+
+        For interactive debugging (clicking buttons, filling inputs), use
+        browser_open_page instead — it keeps the tab open for interaction but
+        requires you to call browser_close(tab_id) when done.
+
+        Args:
+            id (str): The page stage ID.
+            query_params (dict, optional): Query parameters to append to the URL.
+
+        Returns:
+            dict with: text_content, page_summary (interactive elements),
+            console_logs, network_errors (failed requests only), url.
+
+        Copywritings:
+            Run page for debugging
+            Running page for debugging...
+        """
+        page = self.get_page_stage(id)
+        if not page:
+            raise Exception(f"Page with id {id} not found")
+
+        from urllib.parse import urlencode
+
+        base = self._get_browser_base_url()
+        url = f"{base}/_editor/api/pages/{id}/run"
+
+        if query_params:
+            url += "?" + urlencode(query_params)
+
+        nav_result = self._browser_call("navigate_to_url", url)
+        tab_id = nav_result["tab_id"]
+
+        try:
+            # Wait a moment for async rendering to settle
+            self._browser_call("wait", tab_id, 1000)
+            return self._collect_page_state(tab_id, url)
+        finally:
+            self._browser_call("close_page", tab_id)
+
+    def _collect_page_state(self, tab_id: str, url: Optional[str] = None):
+        """Internal: collect full page state for run_page."""
+        page_summary = self._browser_call("get_page_summary", tab_id)
+        console_logs = self._browser_call("get_console_logs", tab_id)
+        text_content = self._browser_call("get_text", tab_id, "body")
+        network_requests = self._browser_call("get_network_requests", tab_id)
+
+        network_errors = [
+            {
+                "url": req["request"]["url"],
+                "method": req["request"]["method"],
+                "status": req["response"]["status"],
+            }
+            for req in network_requests
+            if req.get("response")
+            and isinstance(req["response"].get("status"), int)
+            and req["response"]["status"] >= 400
+        ]
+
+        result = {
+            "text_content": text_content,
+            "page_summary": page_summary,
+            "console_logs": console_logs,
+            "network_errors": network_errors,
+        }
+        if url is not None:
+            result["url"] = url
+
+        return result
 
     def execute_code_snippet(self, code: str, title: str = "Debug Snippet"):
         """Run a Python code snippet immediately in the project's runtime environment.

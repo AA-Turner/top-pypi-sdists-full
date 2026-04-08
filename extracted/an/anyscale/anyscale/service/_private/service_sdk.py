@@ -330,6 +330,7 @@ class PrivateServiceSDK(WorkloadSDK):
                 containerfile_path=config.containerfile,
                 anonymous=True,
                 ray_version=config.ray_version,
+                cloud_id=cloud_id,
             )
         elif config.image_uri is not None:
             build_id = self._image_sdk.registery_image(
@@ -349,6 +350,7 @@ class PrivateServiceSDK(WorkloadSDK):
                         name=f"image-for-service-{name}",
                         base_build_id=self.client.get_default_build_id(),
                         requirements=requirements,
+                        cloud_id=cloud_id,
                     )
         else:
             requirements_path_to_be_populated_in_runtime_env = (

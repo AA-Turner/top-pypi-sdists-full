@@ -12,6 +12,7 @@ from typing import Any, AsyncGenerator
 from .ai_service import AIService
 from .context_trust import wrap_untrusted
 from .token_budget import BudgetCheckResult, check_all_budgets
+from .tool_result_compact import compact_tool_output
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,8 @@ class AgentEvent:
 
 _DEFAULT_TOOL_OUTPUT_MAX_CHARS = 2000
 _DEFAULT_TOOL_TIMEOUT = 300  # 5 minutes hard cap per tool execution
-_PROACTIVE_COMPACTION_THRESHOLD = 80  # compact when messages exceed this count
+_PROACTIVE_COMPACTION_MSG_THRESHOLD = 80  # fallback: compact when messages exceed this count
+_PROACTIVE_COMPACTION_TOKEN_THRESHOLD = 90_000  # compact when estimated tokens exceed this
 
 
 def _truncate_large_tool_outputs(
@@ -333,12 +335,21 @@ async def run_agent_loop(
                         },
                     )
 
-        # Proactive compaction: compact before hitting the API context limit
-        if len(messages) >= _PROACTIVE_COMPACTION_THRESHOLD:
+        # Proactive compaction: compact before hitting the API context limit (#1339)
+        # Token-based threshold is primary; message-count is fallback for when
+        # the token estimate is unavailable or the loop lacks system prompt context.
+        from .token_estimator import count_message_tokens
+
+        _loop_token_estimate = count_message_tokens(messages)
+        _should_compact = (
+            _loop_token_estimate >= _PROACTIVE_COMPACTION_TOKEN_THRESHOLD
+            or len(messages) >= _PROACTIVE_COMPACTION_MSG_THRESHOLD
+        )
+        if _should_compact:
             logger.info(
-                "Proactive compaction triggered: %d messages (threshold %d)",
+                "Proactive compaction triggered: ~%d tokens, %d messages",
+                _loop_token_estimate,
                 len(messages),
-                _PROACTIVE_COMPACTION_THRESHOLD,
             )
             yield AgentEvent(
                 kind="token",
@@ -737,7 +748,7 @@ async def run_agent_loop(
                     {
                         "role": "tool",
                         "tool_call_id": tc["id"],
-                        "content": json.dumps(llm_result),
+                        "content": compact_tool_output(llm_result, max_chars=tool_output_max_chars),
                     }
                 )
             total_tool_calls += len(tool_calls_pending)
@@ -814,7 +825,7 @@ async def run_agent_loop(
                     {
                         "role": "tool",
                         "tool_call_id": tc["id"],
-                        "content": json.dumps(llm_result),
+                        "content": compact_tool_output(llm_result, max_chars=tool_output_max_chars),
                     }
                 )
             total_tool_calls += len(tool_calls_pending)

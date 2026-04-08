@@ -2229,6 +2229,9 @@ WHERE
                     "presto": "a[1]",
                 },
             )
+            self.validate_identity(
+                "WITH foo AS (SELECT [1, 2, 3] AS array_col) SELECT array_col[offset] FROM foo CROSS JOIN UNNEST(array_col) WITH OFFSET AS offset",
+            )
 
         with self.assertLogs(parser_logger) as cm:
             for_in_stmts = parse(
@@ -2411,6 +2414,13 @@ OPTIONS (
             "SELECT * FROM ML.FORECAST(MODEL `mydataset.mymodel`, (SELECT * FROM mydataset.query_table), STRUCT())"
         )
 
+        self.validate_identity(
+            "SELECT * FROM AI.FORECAST(TABLE citibike_trips, data_col => 'num_trips', timestamp_col => 'date', horizon => 30)"
+        )
+        self.validate_identity(
+            "SELECT * FROM AI.FORECAST((SELECT * FROM citibike_trips), data_col => 'num_trips', timestamp_col => 'date', horizon => 30)"
+        )
+
         for name in ("GENERATE_EMBEDDING", "GENERATE_TEXT_EMBEDDING"):
             with self.subTest(f"Testing BigQuery's ML function {name}"):
                 ast = self.validate_identity(
@@ -2421,6 +2431,19 @@ OPTIONS (
                 )
 
                 assert ast.find(exp.GenerateEmbedding)
+
+        self.validate_identity(
+            "SELECT * FROM ML.GENERATE_TEXT(MODEL `mydataset.gemini_model`, TABLE `mydataset.prompt_table`, STRUCT(0.15 AS temperature))"
+        )
+        self.validate_identity(
+            "SELECT * FROM AI.GENERATE_TEXT(MODEL `mydataset.gemini_model`, TABLE `mydataset.prompt_table`, STRUCT(0.15 AS temperature))"
+        )
+        self.validate_identity(
+            "SELECT * FROM AI.GENERATE_TABLE(MODEL `mydataset.gemini_model`, (SELECT 'Q' AS prompt), STRUCT('name STRING' AS output_schema))"
+        )
+        self.validate_identity(
+            "SELECT AI.GENERATE_BOOL(MODEL `mydataset.gemini_model`, 'Is sky blue?')"
+        )
 
     def test_merge(self):
         self.validate_all(

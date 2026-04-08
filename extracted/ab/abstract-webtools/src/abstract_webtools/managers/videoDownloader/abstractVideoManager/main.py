@@ -45,8 +45,8 @@ def getVideoBasename(video_url, itag=None,filename=None,ext=None, manager=None):
     ext = eatAll(ext,'.')
     return f"{filename}.{ext}"
 def check_dir_for_basename(basename,directory):
-    dirlist = os.listdir(output_dir)
-    for i,item in range(len(dirlist)):
+    dirlist = os.listdir(directory)
+    for i,item in enumerate(dirlist):
         if item == basename:
             return True
 def getFilePath(video_url,  itag=None, output_dir=None,filename=None,ext=None, manager=None):
@@ -60,7 +60,7 @@ def getFilePath(video_url,  itag=None, output_dir=None,filename=None,ext=None, m
         filename = file_part.get('filename')
         ext = file_part.get('ext')
         basename = file_part.get('basename')
-        for i,item in range(len(dirlist)):
+        for i,item in enumerate(dirlist):
             if not check_dir_for_basename(basename,dirname):
                 file_path = os.path.join(dirname,basename)
                 break

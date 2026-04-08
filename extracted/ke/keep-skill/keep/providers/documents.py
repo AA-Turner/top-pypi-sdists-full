@@ -18,6 +18,7 @@ from urllib.parse import urlparse
 import requests
 
 from ..paths import validate_path_within_home
+from ..types import file_uri_to_path
 from .base import Document, DocumentProvider, get_registry
 from . import http as _http_mod
 from .model_files import extract_3d_metadata
@@ -207,9 +208,11 @@ class FileDocumentProvider:
     
     def fetch(self, uri: str) -> Document:
         """Read file content from the filesystem with text extraction for PDF/HTML."""
-        # Normalize to path
+        # Normalize to path. For file:// URIs we percent-decode so that IDs
+        # normalized for validation (e.g. %27 for ') map back to the real
+        # on-disk path.
         if uri.startswith("file://"):
-            path_str = uri.removeprefix("file://")
+            path_str = file_uri_to_path(uri)
         else:
             path_str = uri
 

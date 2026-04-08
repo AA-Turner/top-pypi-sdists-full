@@ -7,55 +7,52 @@ import importlib.metadata
 import json
 import logging
 import os
-import shutil
+import traceback
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, get_args, get_origin
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, cast, get_args, get_origin
 
 import httpx
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from opentelemetry.trace import StatusCode
 from pydantic import BaseModel as PydanticBaseModel
 from typing_extensions import TypeVar
 
-from plato.agents.runner import AgentRunner, create_runtime
-from plato.chronos.api.registry import (
-    get_agent_schema_api_registry_agents__agent_name__schema_get as get_agent_schema_api,
-)
-from plato.cli.chronos.env import resolve_config_env_vars, substitute_env_vars
-from plato.cli.chronos.registry import parse_package_string
-from plato.llm import LLMClient
-from plato.markers import FieldMarker, WorkspaceMarker
-from plato.otel import get_tracer, init_tracing, shutdown_tracing
-from plato.runtime import RuntimeConfig, VMRuntimeConfig
-from plato.transports import GitTransport, NFSTransport, SSHFSTransport, Transport
-from plato.v2.async_.session import Session
-from plato.vm_metrics import instrument_system_metrics, shutdown_metrics
+from plato.markers import WorkspaceMarker
+from plato.otel import get_tracer
+from plato.runtimes.base import RuntimeInfo
+from plato.settings import PlatoSettings
+from plato.settings import get_settings as get_plato_settings
+from plato.utils.versions import get_plato_version
+from plato.vm_metrics import instrument_system_metrics
+from plato.worlds.chronos_mixin import ChronosSessionMixin
 from plato.worlds.config import (
     AgentConfig,
-    ChildWorldConfig,
+    ChronosConfig,
     DevConfig,
     LLMConfig,
     RunConfig,
-    SessionConfig,
-    WorkspaceSourceSpec,
 )
-from plato.worlds.human_annotation import RequiresHumanAnnotation
-from plato.worlds.models import Observation, StateHistoryEntry, StepResult, WorkspaceSnapshot
+from plato.worlds.models import (
+    Observation,
+    StepResult,
+)
+from plato.worlds.preview_mixin import PreviewMixin
+from plato.worlds.runtime_mixin import RuntimeMixin
 from plato.worlds.schema import get_world_schema
+from plato.worlds.stage_tracking import disable_stage_tracking, enable_stage_tracking
+from plato.worlds.testing import run_e2e_tests
 from plato.worlds.workspace import Workspace
 
 if TYPE_CHECKING:
-    from plato.agents.runtime.warmpool import WarmPool
-    from plato.v2.async_.environment import Environment
+    from plato.agents.execution import AgentExecutionManager
+    from plato.agents.mounts import AgentWorkspaceMount
+    from plato.agents.task import AgentTask
+    from plato.agents.warmpool import WarmPool
+    from plato.llm import LLMClient
     from plato.worlds.result_store import ResultStore
 
 logger = logging.getLogger(__name__)
-_WORLD_DEV_MODE_ENV = "PLATO_WORLD_DEV_MODE"
-_WORLD_TEST_MODE_ENV = "PLATO_WORLD_TEST_MODE"
 
 
 @dataclass
@@ -79,113 +76,13 @@ ConfigT = TypeVar("ConfigT", bound=RunConfig)
 
 # Type variable for typed state (optional, defaults to PydanticBaseModel)
 StateT = TypeVar("StateT", bound=PydanticBaseModel, default=PydanticBaseModel)
-
-
-def _generate_ssh_key() -> Path:
-    """Generate an Ed25519 SSH key pair for VM access."""
-    key_path = Path("/tmp/agent_ssh_key")
-    if key_path.exists():
-        key_path.unlink()
-    pub_path = key_path.with_suffix(".pub")
-    if pub_path.exists():
-        pub_path.unlink()
-
-    private_key = Ed25519PrivateKey.generate()
-
-    key_path.write_bytes(
-        private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.OpenSSH,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
-    )
-    key_path.chmod(0o600)
-
-    pub_path.write_bytes(
-        private_key.public_key().public_bytes(
-            encoding=serialization.Encoding.OpenSSH,
-            format=serialization.PublicFormat.OpenSSH,
-        )
-        + b"\n"
-    )
-
-    return key_path
-
-
-def _get_plato_version() -> str:
-    """Get the installed plato SDK version."""
-    try:
-        return importlib.metadata.version("plato-sdk-v2")
-    except Exception:
-        return "unknown"
-
-
-def _iter_marked_agent_configs(value: Any, prefix: str = "") -> list[tuple[str, AgentConfig]]:
-    """Walk a validated config object and return Agent-marked AgentConfig fields."""
-    found: list[tuple[str, AgentConfig]] = []
-    if isinstance(value, PydanticBaseModel):
-        for field_name, field_info in value.__class__.model_fields.items():
-            child = getattr(value, field_name)
-            child_prefix = f"{prefix}.{field_name}" if prefix else field_name
-            marker = None
-            for meta in field_info.metadata:
-                if isinstance(meta, FieldMarker) and meta.kind == "agent":
-                    marker = meta
-                    break
-            if marker is not None:
-                if not isinstance(child, AgentConfig):
-                    raise TypeError(f"Marked agent field '{child_prefix}' is not an AgentConfig")
-                found.append((child_prefix, child))
-                continue
-            found.extend(_iter_marked_agent_configs(child, child_prefix))
-        return found
-    if isinstance(value, list):
-        for idx, item in enumerate(value):
-            found.extend(_iter_marked_agent_configs(item, f"{prefix}[{idx}]"))
-        return found
-    if isinstance(value, dict):
-        for key, item in value.items():
-            child_prefix = f"{prefix}.{key}" if prefix else str(key)
-            found.extend(_iter_marked_agent_configs(item, child_prefix))
-    return found
-
-
-async def _resolve_inline_agent_images(config: PydanticBaseModel, chronos_url: str | None = None) -> None:
-    """Resolve package-only AgentConfig fields on a validated inline child config."""
-    base_url = chronos_url or os.environ.get("CHRONOS_URL", "https://chronos.plato.so")
-
-    for name, agent in _iter_marked_agent_configs(config):
-        if not agent.package or agent.image:
-            continue
-
-        package_name, version = parse_package_string(agent.package)
-        async with httpx.AsyncClient(
-            base_url=base_url.rstrip("/"),
-            timeout=30.0,
-        ) as client:
-            schema = await get_agent_schema_api.asyncio(client, agent_name=package_name, version=version)
-        if not schema.image:
-            raise ValueError(f"Could not resolve image for inline child agent '{name}' (package={package_name})")
-        agent.image = schema.image
-
-
-async def _resolve_inline_child_launch_config(
-    config: dict[str, Any],
-    api_key: str | None,
-) -> dict[str, Any]:
-    """Apply the same config placeholder resolution flow used for top-level worlds."""
-    resolved = dict(config)
-    await resolve_config_env_vars(resolved, api_key)
-    substituted = substitute_env_vars(resolved, dict(os.environ))
-    if isinstance(substituted, dict):
-        resolved = substituted
-    return resolved
+WorldT = TypeVar("WorldT", bound="BaseWorld")
 
 
 def register_world(name: str):
     """Decorator to register a world class."""
 
-    def decorator(cls: type[BaseWorld]) -> type[BaseWorld]:
+    def decorator(cls: type[WorldT]) -> type[WorldT]:
         _WORLD_REGISTRY[name] = cls
         logger.debug(f"Registered world: {name} -> {cls.__name__}")
         return cls
@@ -203,7 +100,7 @@ def get_world(name: str) -> type[BaseWorld] | None:
     return _WORLD_REGISTRY.get(name)
 
 
-class BaseWorld(ABC, Generic[ConfigT, StateT]):
+class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[ConfigT, StateT]):
     """Base class for Plato worlds.
 
     Subclass with a config type parameter for fully typed config access.
@@ -244,7 +141,6 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
 
     # Instance attributes
     config: ConfigT  # Typed via generic parameter
-    plato_session: Session | None = None  # Connected Plato session (if running on managed VM)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -256,27 +152,21 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                     cls._state_class = args[1]
 
     def __init__(self) -> None:
+        super().__init__()
         self.logger = logging.getLogger(f"plato.worlds.{self.name}")
         self._step_count: int = 0
-        self.plato_session = None
-        self._current_step_id: str | None = None
         self._session_id: str | None = None
         self._chronos_completed: bool = False
-        self._agent_containers: list[str] = []  # Track spawned agent containers for cleanup
+        self._agent_containers: list[str] = []
         self._state: StateT | None = None
-        self._transport: Transport | None = None  # NFS/SSHFS/rsync transport (set during session connect)
-        self._transport_mode: str = "nfs_kernel"
-        self._mesh_ip: str | None = None
-        self._ssh_key_path: Path | None = None
-        self._workspaces: dict[str, Workspace] = {}  # declared workspaces
-        self._tailscaled_proc: asyncio.subprocess.Process | None = None
-        self._agent_semaphores: dict[int, asyncio.Semaphore] = {}  # keyed by id(AgentConfig)
+        self._workspaces: dict[str, Workspace] = {}
+        self._agent_execution_managers: dict[str, AgentExecutionManager] = {}
 
     @property
     def state(self) -> StateT:
         """Access the typed state. Lazily initialized on first access."""
         if self._state is None and self._state_class:
-            self._state = self._state_class()
+            self._state = cast(StateT, self._state_class())
         return self._state  # type: ignore[return-value]
 
     @classmethod
@@ -326,89 +216,14 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         """
         raise NotImplementedError(f"World '{self.name}' does not implement preview mode")
 
-    async def verify(self) -> Observation:
-        """Run the world in verify mode.
-
-        Override this to run reviewers against the restored workspace state.
-        Called instead of the normal reset/step loop when config.review is set.
-        The default raises NotImplementedError.
-        """
-        raise NotImplementedError(f"World '{self.name}' does not implement verify mode")
-
     async def close(self) -> None:
         """Cleanup resources. Called after run completes."""
-        await self._cleanup_tailscale()
-        await self._cleanup_agent_containers()
-        await self._cleanup_agent_envs()
+        pass
 
-    async def _cleanup_tailscale(self) -> None:
-        """Terminate tailscaled if this world started it."""
-        proc = self._tailscaled_proc
-        self._tailscaled_proc = None
-        if proc is None:
-            return
-
-        try:
-            if proc.returncode is None:
-                proc.terminate()
-                try:
-                    await asyncio.wait_for(proc.wait(), timeout=5)
-                except TimeoutError:
-                    self.logger.warning("tailscaled did not exit after SIGTERM, sending SIGKILL")
-                    proc.kill()
-                    await proc.wait()
-            else:
-                await proc.wait()
-        except ProcessLookupError:
-            # Process already exited.
-            return
-        except Exception as e:
-            self.logger.warning(f"Failed to cleanup tailscaled process: {e}")
-
-    async def _cleanup_agent_containers(self) -> None:
-        """Stop any agent containers spawned by this world."""
-        if not self._agent_containers:
-            return
-
-        self.logger.info(f"Stopping {len(self._agent_containers)} agent container(s)...")
-        for container_name in self._agent_containers:
-            try:
-                proc = await asyncio.create_subprocess_exec(
-                    "docker",
-                    "stop",
-                    container_name,
-                    stdout=asyncio.subprocess.DEVNULL,
-                    stderr=asyncio.subprocess.DEVNULL,
-                )
-                await proc.wait()
-                self.logger.debug(f"Stopped container: {container_name}")
-            except Exception as e:
-                self.logger.warning(f"Failed to stop container {container_name}: {e}")
-        self._agent_containers.clear()
-        self.logger.info("Agent containers stopped")
-
-    async def _cleanup_agent_envs(self) -> None:
-        """Remove all non-runtime environments (agent VMs) from the session."""
-        if not self.plato_session:
-            return
-
-        try:
-            envs = self.plato_session.envs
-        except Exception as e:
-            self.logger.warning(f"Failed to list agent envs for cleanup: {e}")
-            return
-
-        for env in envs:
-            if env.alias == "runtime":
-                continue
-            try:
-                self.logger.info(f"Removing agent env: {env.alias} (job={env.job_id})")
-                await self.plato_session.remove_env(env)
-            except Exception as e:
-                self.logger.warning(f"Failed to remove env {env.alias}: {e}")
-
-    def llm(self, config: LLMConfig, store: ResultStore | None = None):
+    def llm(self, config: LLMConfig, store: ResultStore | None = None) -> LLMClient:
         """Get an LLM client for the given config, with optional ResultStore caching."""
+        from plato.llm import LLMClient
+
         return LLMClient(
             config,
             store=store,
@@ -421,9 +236,10 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         config: AgentConfig,
         display_name: str | None = None,
         workspaces: list[Workspace] | None = None,
+        mounts: list[AgentWorkspaceMount] | None = None,
         warm_pool: WarmPool | None = None,
         agent_code_path: Path | None = None,
-    ) -> AgentRunner:
+    ) -> AgentTask:
         """Get an agent runner for the given config.
 
         Args:
@@ -434,546 +250,107 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 Each workspace's mount_path (from WorkspaceMarker) determines
                 where it appears on the agent VM.
         """
-        resolved: list[Transport] = []
-        if workspaces:
-            for ws in workspaces:
-                if ws.transport is None:
-                    raise RuntimeError(
-                        f"Workspace '{ws.name}' has no transport (NFS/rsync). Is the Plato session connected?"
-                    )
-                resolved.append(ws.transport)
+        from plato.agents.execution import AgentExecutionManager
+        from plato.agents.mounts import AgentWorkspaceMount
+        from plato.agents.task import AgentTask, create_agent_runtime
 
-        primary = resolved[0] if resolved else self._transport
-        extra = resolved[1:] if len(resolved) > 1 else None
+        ssh_key_path = self._runtime_info.ssh_key_path if self._runtime_info else None
 
-        runtime = create_runtime(
+        agent_runtime = create_agent_runtime(
             config,
-            session=self.plato_session,
-            ssh_key_path=self._ssh_key_path,
-            warm_pool=warm_pool,
+            session=self._plato_session,
+            ssh_key_path=ssh_key_path,
         )
-        runner = AgentRunner(
+
+        if workspaces and mounts:
+            raise ValueError("Pass either workspaces=[...] or mounts=[...], not both")
+        resolved_mounts = mounts or [workspace.mount() for workspace in workspaces or []]
+        for mount in resolved_mounts:
+            if not isinstance(mount, AgentWorkspaceMount):
+                raise TypeError(f"Expected AgentWorkspaceMount, got {type(mount).__name__}")
+
+        # Auto-resolve dev agent code path from /agents/<name> if not explicitly provided.
+        # The test runner syncs dev.agents entries to /agents/<name> on the world VM;
+        # pass the path through so AgentTask rsyncs it to the agent VM.
+        if agent_code_path is None:
+            pkg = config.package or ""
+            agent_name = pkg.split(":")[0] if ":" in pkg else pkg
+            if agent_name:
+                candidate = Path(f"/agents/{agent_name}")
+                if candidate.exists():
+                    agent_code_path = candidate
+
+        runner = AgentTask(
             config,
-            runtime,
+            agent_runtime,
             display_name=display_name,
-            workspace=primary,
-            workspaces=extra,
+            mounts=resolved_mounts,
             agent_containers=self._agent_containers,
             agent_code_path=agent_code_path,
+            warm_pool=warm_pool,
+            session=self._plato_session,
+            world_runtime_info=self._runtime_info,
         )
 
-        # Enforce max_parallel from agent config via shared semaphore.
-        # Keyed by object identity — the same AgentConfig instance used across
-        # multiple world.agent() calls shares one semaphore automatically.
-        if config.max_parallel is not None:
-            obj_id = id(config)
-            if obj_id not in self._agent_semaphores:
-                self._agent_semaphores[obj_id] = asyncio.Semaphore(config.max_parallel)
-            runner._concurrency_semaphore = self._agent_semaphores[obj_id]
+        if warm_pool is None:
+            primary_mount = resolved_mounts[0] if resolved_mounts else None
+            primary_workspace = workspaces[0] if workspaces else self._resolve_primary_workspace(primary_mount)
+            manager_key = self._agent_execution_manager_key(config, primary_mount)
+            manager = self._agent_execution_managers.get(manager_key)
+            if manager is None:
+                manager = AgentExecutionManager(
+                    agent_config=config,
+                    runtime_factory=lambda: create_agent_runtime(
+                        config,
+                        session=self._plato_session,
+                        ssh_key_path=ssh_key_path,
+                    ),
+                    world_runtime_info=self._runtime_info,
+                    checkpoint=self.checkpoint,
+                    primary_workspace=primary_workspace,
+                    primary_mount=primary_mount,
+                )
+                self._agent_execution_managers[manager_key] = manager
+            runner._execution_manager = manager
 
         return runner
 
-    async def _connect_plato_session(self) -> None:
-        """Connect to Plato session from config."""
-        if not self.session.plato_session:
-            return
+    def _resolve_primary_workspace(self, primary_mount: AgentWorkspaceMount | None) -> Workspace | None:
+        if primary_mount is None:
+            return None
+        workspace = self._workspaces.get(primary_mount.workspace_name)
+        if workspace is None:
+            return None
+        if workspace.path != primary_mount.world_path:
+            return None
+        return workspace
 
-        try:
-            self.logger.info("Restoring Plato session from serialized data")
-            self.plato_session = await Session.load(
-                self.session.plato_session, start_heartbeat=True, heartbeat_use_process=True
-            )
-            self.logger.info(f"Plato session {self.plato_session.session_id} restored, heartbeat started")
-        except Exception as e:
-            self.logger.warning(f"Failed to restore Plato session: {e}")
-            return
-
-        await self._setup_ssh_key()
-        await self._create_transport()
-
-    async def _setup_ssh_key(self) -> None:
-        """Generate or reuse SSH key and add it to the Plato session."""
-        if self.dev.ssh_key_path:
-            self._ssh_key_path = self.dev.ssh_key_path
-        else:
-            self._ssh_key_path = _generate_ssh_key()
-
-        pub_key = Path(str(self._ssh_key_path) + ".pub").read_text().strip()
-        assert self.plato_session is not None
-        await self.plato_session.add_ssh_key(pub_key)
-        self.logger.debug("SSH key added to session")
-
-    async def _create_transport(self) -> None:
-        """Create the transport object (does NOT start the NFS server).
-
-        The server is started later by ``_start_transport()`` so that FUSE
-        mounts from workspace restore are already in place when NFS begins
-        exporting with ``crossmnt``.
-        """
-        assert self._ssh_key_path is not None, "SSH key must be set before creating transport"
-
-        mesh_ip = None
-        if self.plato_session:
-            for env in self.plato_session.envs:
-                if env.alias == "runtime":
-                    try:
-                        mesh_ip = await env.get_mesh_ip()
-                    except Exception as e:
-                        self.logger.warning(f"Failed to get mesh IP from runtime env: {e}")
-                    break
-        if not mesh_ip or not self.plato_session:
-            raise RuntimeError("NFS transport requires mesh IP from Plato session")
-
-        self._mesh_ip = mesh_ip
-        self._transport = None
-        self._transport_mode = self.config.transport_mode
-        self.logger.info(f"Transport: {self._transport_mode} (mesh_ip={mesh_ip})")
-
-    async def _start_transport(self) -> None:
-        """Start the file-sharing transport after workspaces (and any FUSE mounts) are ready."""
-        if not self._mesh_ip or not self._workspaces:
-            return
-        assert self._ssh_key_path is not None
-
-        ws_list = list(self._workspaces.values())
-
-        # Separate workspaces by transport type before FUSE setup
-        annotations = self.config.get_field_annotations()
-        default_ws = []
-        git_ws = []
-        for ws in ws_list:
-            marker = annotations.get(ws.name)
-            if isinstance(marker, WorkspaceMarker) and marker.transport == "git":
-                git_ws.append(ws)
-            else:
-                default_ws.append(ws)
-
-        # All workspaces need FUSE: tracked ones for DVC checkpointing,
-        # untracked ones so they live on a real filesystem (NFS can't export overlayfs).
-        for ws in ws_list:
-            await ws.ensure_fuse_mount()
-
-        # Initialize default transport (NFS/SSHFS) for non-git workspaces
-        if default_ws:
-            first = default_ws[0]
-            first_path = str(first.path)
-
-            if self._transport_mode == "sshfs":
-                self._transport = SSHFSTransport(first_path, self._mesh_ip, self._ssh_key_path)
-            else:
-                self._transport = NFSTransport(first_path, self._mesh_ip, self._ssh_key_path)
-
-            await self._transport.initialize()
-
-            for i, ws in enumerate(default_ws[1:], start=1):
-                await self._transport.add_export(str(ws.path), fsid=i)
-
-            await self._transport.refresh_exports()
-
-            # Assign per-workspace transports for default workspaces
-            for ws in default_ws:
-                t = self._transport.with_path(str(ws.path))
-                t.mount_path = ws.mount_path
-                ws.transport = t
-
-        # Initialize git transport for git-transported workspaces
-        for ws in git_ws:
-            ws_marker = annotations[ws.name]
-            assert isinstance(ws_marker, WorkspaceMarker)
-            t = GitTransport(
-                str(ws.path),
-                self._mesh_ip,
-                self._ssh_key_path,
-                git_config=ws_marker.git_config,
-            )
-            await t.initialize()
-            t.mount_path = ws.mount_path
-            ws.transport = t
-
-        # Ensure self._transport is set even when all workspaces use git,
-        # so agent() has a fallback primary transport.
-        if self._transport is None and git_ws:
-            self._transport = git_ws[0].transport
-
-    async def _disconnect_plato_session(self) -> None:
-        """Stop heartbeat for the Plato session (does not close the session)."""
-        if self.plato_session:
-            try:
-                await self.plato_session.stop_heartbeat()
-                self.logger.info("Plato session heartbeat stopped")
-            except Exception as e:
-                self.logger.warning(f"Error stopping Plato heartbeat: {e}")
-
-    async def _complete_chronos_session(
+    def _agent_execution_manager_key(
         self,
-        status: str,
-        exit_code: int = 0,
-        error_message: str | None = None,
-        result: dict | None = None,
-    ) -> None:
-        """Report session completion to Chronos.
-
-        Args:
-            status: Final status ('completed' or 'failed').
-            exit_code: Exit code from world runner.
-            error_message: Error message if failed.
-            result: Final observation/result data from the world. Persisted on the
-                session record so consumers can access it via get_details() without
-                needing to query the trajectory endpoint separately.
-        """
-        if not self.session.otel_url or not self.session.session_id:
-            return
-
-        base_url = self.session.otel_url.removesuffix("/api/otel")
-        url = f"{base_url}/api/sessions/{self.session.session_id}/complete"
-        api_key = os.environ.get("PLATO_API_KEY", "")
-
-        payload: dict = {"status": status, "exit_code": exit_code, "error_message": error_message}
-        if result is not None:
-            payload["result"] = result
-
-        try:
-            self.logger.info("Completing Chronos session %s as %s", self.session.session_id, status)
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    url,
-                    json=payload,
-                    headers={"X-API-Key": api_key, "Content-Type": "application/json"},
-                )
-                if resp.status_code < 300:
-                    self.logger.info(f"Reported session {status} to Chronos")
-                else:
-                    self.logger.warning(f"Chronos complete returned {resp.status_code}: {resp.text}")
-        except Exception as e:
-            self.logger.warning(f"Failed to report session completion to Chronos: {e}")
-
-    async def save_state(self) -> None:
-        """Persist world state to Chronos DB."""
-        if not self.config.state.enabled or self._state is None:
-            return
-
-        ws_snapshots: dict[str, WorkspaceSnapshot] = {}
-        if self._workspaces:
-            for name, ws in self._workspaces.items():
-                ws_dict = await ws.to_state_dict()
-                ws_snapshots[name] = WorkspaceSnapshot(**ws_dict)
-            self._state.workspaces = ws_snapshots
-
-        # Append to state history
-        self._state.state_history.append(
-            StateHistoryEntry(
-                step=self._step_count,
-                timestamp=datetime.now(UTC).isoformat(),
-                workspaces=ws_snapshots,
+        config: AgentConfig,
+        primary_mount: AgentWorkspaceMount | None,
+    ) -> str:
+        config_sig = json.dumps(config.model_dump(mode="json", exclude_none=True), sort_keys=True)
+        if primary_mount is None:
+            mount_sig = "nomount"
+        else:
+            mount_sig = json.dumps(
+                {
+                    "workspace_name": primary_mount.workspace_name,
+                    "world_path": str(primary_mount.world_path),
+                    "agent_path": primary_mount.agent_path,
+                    "transport_kind": primary_mount.transport_kind,
+                    "git_sync_mode": primary_mount.git_sync.mode if primary_mount.git_sync else None,
+                },
+                sort_keys=True,
             )
-        )
+        return f"{config_sig}:{mount_sig}"
 
-        await self._upload_state(self._state.model_dump())
-
-    async def load_state(self, session_id: str | None = None) -> bool:
-        """Load world state from Chronos DB and restore tracked workspaces.
-
-        Args:
-            session_id: Session to load state from. Defaults to the current session.
-        """
-        if not self.config.state.enabled:
-            return False
-
-        raw_workspace_specs = self.config.state.workspaces
-        # Build a reverse map: full repo name → field name
-        # Configs must use full repo names (e.g. "webclone/stripe/code") as keys.
-        repo_to_field: dict[str, str] = {}
-        for field_name in self._workspaces:
-            repo_to_field[self.workspace_repo_name(field_name)] = field_name
-
-        # Normalize workspace_specs: field → (override_repo | None, ref_spec)
-        workspace_specs: dict[str, tuple[str | None, str]] = {}
-        for key, val in raw_workspace_specs.items():
-            if isinstance(val, (dict, WorkspaceSourceSpec)):
-                # New explicit format: {repo: "...", ref: "..."}
-                spec = val if isinstance(val, WorkspaceSourceSpec) else WorkspaceSourceSpec(**val)
-                if key not in self._workspaces:
-                    self.logger.warning(
-                        "Unknown workspace field '%s' in state.workspaces",
-                        key,
-                    )
-                    continue
-                workspace_specs[key] = (spec.repo, spec.ref)
-            elif isinstance(val, str):
-                # Legacy string format: key is repo name or field name
-                field = repo_to_field.get(key) or (key if key in self._workspaces else None)
-                if field is None:
-                    self.logger.warning(
-                        "Ignoring unknown workspace key '%s' in state.workspaces. Expected one of: %s",
-                        key,
-                        list(repo_to_field.keys()) + list(self._workspaces.keys()),
-                    )
-                    continue
-                workspace_specs[field] = (None, val)
-        use_workspace_specs_mode = bool(workspace_specs)
-        sid = session_id or self.session.session_id
-        if not sid and not use_workspace_specs_mode:
-            return False
-
-        state_applied = False
-        if sid:
-            data = await self._download_state(sid)
-            if data is None:
-                if not use_workspace_specs_mode:
-                    return False
-            elif not data:
-                self.logger.info("State payload for session %s is empty; starting fresh", sid)
-                if not use_workspace_specs_mode:
-                    return False
-            else:
-                if not self._apply_state(data):
-                    return False
-                state_applied = True
-
-        # Restore tracked workspaces from the exact checkpoint recorded in state.
-        # When resuming cross-session, the source session may have used
-        # different workspace repo names. Use resume_workspaces config
-        # to override, or fall back to the saved snapshot repo name.
-        resume_repos = self.config.state.resume_workspaces
-        saved_snapshots = self._state.workspaces if self._state else {}
-        restored_any = False
-        for name, workspace in self._workspaces.items():
-            if workspace.tracked:
-                snap = saved_snapshots.get(name)
-                if use_workspace_specs_mode:
-                    ws_entry = workspace_specs.get(name)
-                    if ws_entry is None:
-                        self.logger.info(
-                            "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
-                            name,
-                        )
-                        continue
-                    override_repo_from_spec, ref_spec = ws_entry
-                    ref_spec = ref_spec.strip()
-                    if not ref_spec:
-                        self.logger.info(
-                            "State workspaces has no entry for tracked workspace '%s'; treating as empty workspace",
-                            name,
-                        )
-                        continue
-                    if ":" in ref_spec:
-                        source_session_id, exact_step = ref_spec.split(":", 1)
-                        source_session_id = source_session_id.strip()
-                        exact_step = exact_step.strip()
-                    else:
-                        source_session_id = (session_id or self.config.state.resume_from or "").strip()
-                        exact_step = ref_spec
-                    if not source_session_id:
-                        raise RuntimeError(
-                            f"Workspace resume spec for '{name}' must include session_id:step (got '{ref_spec}')"
-                        )
-                    if not exact_step:
-                        raise RuntimeError(
-                            f"Workspace resume spec for '{name}' is missing step name (got '{ref_spec}')"
-                        )
-                    should_record_resume_input = source_session_id != (self.session.session_id or "")
-                else:
-                    override_repo_from_spec = None
-                    if not snap:
-                        self.logger.info(
-                            "State has no snapshot for tracked workspace '%s'; treating as empty workspace",
-                            name,
-                        )
-                        continue
-                    if not snap.steps:
-                        self.logger.info(
-                            "State snapshot for tracked workspace '%s' has no saved step; treating as empty workspace",
-                            name,
-                        )
-                        continue
-                    exact_step = snap.steps[-1]
-                    source_session_id = (session_id or "").strip()
-                    should_record_resume_input = bool(session_id)
-
-                original = {
-                    "session_id": workspace.session_id,
-                    "repo_name": workspace.repo_name,
-                    "repo_id": workspace.repo_id,
-                    "s3_bucket": workspace.s3_bucket,
-                    "s3_prefix": workspace.s3_prefix,
-                }
-                source_session_public_id: str | None = None
-                source_repo_name: str | None = None
-                source_ref_public_id: str | None = None
-                try:
-                    if source_session_id:
-                        workspace.session_id = source_session_id
-
-                    # Override repo config for cross-session resume
-                    override_repo = (override_repo_from_spec if use_workspace_specs_mode else None) or resume_repos.get(
-                        name
-                    )
-                    if (
-                        not override_repo
-                        and not use_workspace_specs_mode
-                        and source_session_id
-                        and snap
-                        and snap.repo_name
-                    ):
-                        override_repo = snap.repo_name
-                    if override_repo and source_session_id:
-                        resolved = await self._resolve_workspace_repo_by_name(override_repo)
-                        workspace.repo_name = override_repo
-                        workspace.repo_id = resolved.repo_id
-                        workspace.s3_bucket = resolved.s3_bucket
-                        workspace.s3_prefix = resolved.s3_prefix
-                        # Force credential refresh for the new repo
-                        workspace._sts_credentials = {}
-                        workspace._sts_expires_at = 0
-
-                    self.logger.info(
-                        f"Restoring workspace '{name}' from session '{workspace.session_id}' "
-                        f"(repo={workspace.repo_name}, step={exact_step})"
-                    )
-                    restored = await workspace.restore(exact_step)
-                    if not restored:
-                        raise RuntimeError(
-                            f"Workspace '{name}' step '{exact_step}' has no DVC files "
-                            f"(session={workspace.session_id}, repo={workspace.repo_name})"
-                        )
-                    self.logger.info(f"Restored workspace '{name}' from step '{exact_step}'")
-                    restored_any = True
-                    if self._state and name in self._state.workspaces:
-                        self._state.workspaces[name].steps = [exact_step]
-                    source_session_public_id = workspace.session_id
-                    source_repo_name = workspace.repo_name
-                    source_ref_public_id = getattr(workspace, "_last_restored_source_ref_public_id", "") or None
-                except Exception as e:
-                    self.logger.exception(
-                        "Failed to restore workspace '%s' from session '%s' (repo=%s, step=%s)",
-                        name,
-                        workspace.session_id,
-                        workspace.repo_name,
-                        exact_step,
-                    )
-                    raise RuntimeError(
-                        f"Failed to restore workspace '{name}' from session '{workspace.session_id}' "
-                        f"(repo={workspace.repo_name}, step={exact_step}): {e}"
-                    ) from e
-                finally:
-                    workspace.session_id = original["session_id"]
-                    workspace.repo_name = original["repo_name"]
-                    workspace.repo_id = original["repo_id"]
-                    workspace.s3_bucket = original["s3_bucket"]
-                    workspace.s3_prefix = original["s3_prefix"]
-                    # Force credential refresh back to current repo
-                    workspace._sts_credentials = {}
-                    workspace._sts_expires_at = 0
-
-                if should_record_resume_input:
-                    # Forward the DVC files from the restored ref so downstream
-                    # sessions can resume from *this* session's input ref.
-                    restored_dvc_files = getattr(workspace, "_last_restored_dvc_files", None) or {}
-                    if source_ref_public_id:
-                        await workspace._record_workspace_ref(
-                            exact_step,
-                            "input",
-                            restored_dvc_files,
-                            source_ref_public_id=source_ref_public_id,
-                        )
-                    elif source_session_public_id and source_repo_name:
-                        await workspace._record_workspace_ref(
-                            exact_step,
-                            "input",
-                            restored_dvc_files,
-                            source_session_public_id=source_session_public_id,
-                            source_repo_name=source_repo_name,
-                            source_step_name=exact_step,
-                        )
-                    else:
-                        raise RuntimeError(
-                            f"Failed to record resume lineage for workspace '{name}' "
-                            f"(repo={workspace.repo_name}, step={exact_step}): missing source metadata"
-                        )
-
-        return restored_any or state_applied
-
-    def _apply_state(self, data: dict) -> bool:
-        """Apply a state dict to the world's in-memory state."""
-        if not self._state_class:
-            return False
-        self._state = self._state_class.model_validate(data)  # type: ignore[assignment]
-        return True
-
-    async def _try_resume(self) -> bool:
-        """Try to resume from saved state. Returns True if resumed.
-
-        Loads state and workspace data from Chronos so we pick up
-        where we left off.
-        """
-        if not self.config.state.enabled:
-            return False
-
-        resume_sid = self.config.state.resume_from or None
-        if not resume_sid and not self.config.state.workspaces:
-            return False
-        restored = await self.load_state(session_id=resume_sid)
-        return restored
-
-    def _get_chronos_base_url(self) -> str:
-        """Get the Chronos API base URL from session config."""
-        if self.session.chronos_url:
-            return self.session.chronos_url.rstrip("/")
-        if self.session.otel_url:
-            return self.session.otel_url.removesuffix("/api/otel")
-        return ""
-
-    async def _upload_state(self, state_data: dict) -> bool:
-        """Upload world state dict to Chronos DB."""
-        session_id = self.session.session_id
-        if not session_id:
-            self.logger.warning("Cannot upload state: no session_id")
-            return False
-
-        base_url = self._get_chronos_base_url()
-        if not base_url:
-            self.logger.warning("Cannot upload state: no chronos_url")
-            return False
-
-        try:
-            api_key = os.environ.get("PLATO_API_KEY", "")
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.put(
-                    f"{base_url}/api/sessions/{session_id}/state",
-                    json=state_data,
-                    headers={"X-API-Key": api_key},
-                )
-                if resp.status_code == 200:
-                    return True
-                self.logger.warning(f"State upload failed: {resp.status_code}")
-                return False
-        except Exception as e:
-            self.logger.warning(f"Failed to upload state: {e}")
-            return False
-
-    async def _download_state(self, session_id: str) -> dict | None:
-        """Download world state dict from Chronos DB. Returns None if not found."""
-        base_url = self._get_chronos_base_url()
-        if not base_url:
-            self.logger.warning("Cannot download state: no chronos_url")
-            return None
-
-        try:
-            api_key = os.environ.get("PLATO_API_KEY", "")
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.get(
-                    f"{base_url}/api/sessions/{session_id}/state",
-                    headers={"X-API-Key": api_key},
-                )
-                if resp.status_code == 404:
-                    self.logger.info(f"No state found for session {session_id}")
-                    return None
-                resp.raise_for_status()
-                self.logger.info(f"Downloaded state from session {session_id}")
-                return resp.json()
-        except Exception as e:
-            self.logger.warning(f"Failed to download state: {e}")
-            return None
+    async def _shutdown_agent_execution_managers(self) -> None:
+        managers = list(self._agent_execution_managers.values())
+        self._agent_execution_managers.clear()
+        if managers:
+            await asyncio.gather(*(manager.shutdown() for manager in managers), return_exceptions=True)
 
     # ------------------------------------------------------------------
     # Workspace access
@@ -1019,37 +396,24 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         mount_path: str,
         parent: Workspace | str,
         tracked: bool = False,
-        backup: bool = False,
     ) -> Workspace:
-        """Create an ad-hoc workspace with transport derived from a parent workspace.
-
-        Use this for staging directories, narrowed views, or other temporary
-        workspaces that need NFS transport but aren't declared in config.
-
-        The parent workspace must already have transport assigned (i.e. the
-        Plato session must be connected). The new workspace's NFS export is
-        a subdirectory of the parent's export — NFS v3 with ``no_subtree_check``
-        allows mounting subdirectories without a separate export entry.
+        """Create an ad-hoc workspace as a child of an existing workspace.
 
         Args:
             name: Logical name for the workspace.
             path: Absolute path on the world VM.
             mount_path: Where this workspace appears on agent VMs.
-            parent: Parent workspace (name or Workspace) whose transport to derive from.
+            parent: Parent workspace (name or Workspace).
                 The path must be under the parent workspace's path.
             tracked: Whether to DVC-track this workspace.
-            backup: Whether to back up this workspace.
 
         Returns:
-            A Workspace with transport assigned, ready for ``self.agent()``.
+            A new Workspace. Transport must be set up externally.
 
         Raises:
             ValueError: If path is not under the parent workspace's path.
-            RuntimeError: If the parent workspace has no transport.
         """
         parent_ws = self.workspace(parent) if isinstance(parent, str) else parent
-        if parent_ws.transport is None:
-            raise RuntimeError(f"Parent workspace '{parent_ws.name}' has no transport. Is the Plato session connected?")
 
         resolved_parent = parent_ws.path.resolve()
         resolved_child = path.resolve()
@@ -1065,12 +429,14 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             path=path,
             tracked=tracked,
             mount_path=mount_path,
-            backup=backup,
         )
-        # Use ws.path (not raw path) — tracked workspaces append /data
-        transport = parent_ws.transport.with_path(str(ws.path))
-        transport.mount_path = mount_path
-        ws.transport = transport
+
+        # Derive transport from parent if available
+        if parent_ws.transport is not None:
+            transport = parent_ws.transport.with_path(str(ws.path))
+            transport.mount_path = mount_path
+            ws.transport = transport
+
         return ws
 
     async def checkpoint(self, label: str, *, trigger_span_id: str = "") -> None:
@@ -1096,7 +462,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
     async def _resolve_workspace_repo_by_name(self, repo_name: str) -> ResolvedWorkspaceRepo:
         """Resolve a workspace repo by exact name."""
         chronos_url = self._get_chronos_base_url()
-        api_key = os.environ.get("PLATO_API_KEY", "")
+        api_key = self.chronos.api_key
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 f"{chronos_url}/api/workspace-repos/resolve",
@@ -1120,7 +486,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         repo_name = self.workspace_repo_name(field_name)
 
         chronos_url = self._get_chronos_base_url()
-        api_key = os.environ.get("PLATO_API_KEY", "")
+        api_key = self.chronos.api_key
 
         if not chronos_url:
             raise RuntimeError(
@@ -1147,116 +513,6 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             api_key=api_key,
         )
 
-    def get_env(self, alias: str) -> Environment | None:
-        """Get an environment by alias."""
-        if not self.plato_session:
-            self.logger.warning("Cannot get env: Plato session not connected")
-            return None
-        return self.plato_session.get_env(alias)
-
-    @property
-    def envs(self) -> list[Environment]:
-        """Get all environments in the Plato session."""
-        if not self.plato_session:
-            return []
-        return self.plato_session.envs
-
-    # ------------------------------------------------------------------
-    # Child worlds
-    # ------------------------------------------------------------------
-
-    def get_child_world(self, name: str) -> ChildWorldConfig | None:
-        """Get a child world config by name from the launch config's ``child_worlds`` block."""
-        return self.config.child_worlds.get(name) if self.config else None
-
-    async def launch_child(
-        self,
-        name: str,
-        config_overrides: dict[str, Any] | None = None,
-    ) -> StepResult | Any:
-        """Launch a child world by name from the ``child_worlds`` config.
-
-        Args:
-            name: Key in the ``child_worlds`` config block.
-            config_overrides: Optional dict merged on top of the child's pre-defined config.
-
-        Returns:
-            For inline mode: the :class:`StepResult` from the child world.
-            For session mode: the :class:`LaunchJobResponse` from the Chronos API.
-
-        Raises:
-            ValueError: If the child config is not found or is misconfigured.
-        """
-        child = self.get_child_world(name)
-        if child is None:
-            raise ValueError(f"No child_world '{name}' found in launch config")
-
-        merged_config = {**child.config, **(config_overrides or {})}
-
-        if child.mode == "inline":
-            return await self._launch_child_inline(child, merged_config)
-        else:
-            return await self._launch_child_session(child, merged_config)
-
-    async def _launch_child_inline(self, child: ChildWorldConfig, config: dict[str, Any]) -> StepResult:
-        """Instantiate and run a child world in-process, sharing this world's resources."""
-        from plato.worlds.review.world import BaseReviewWorld
-
-        world_cls = get_world(child.world_name)
-        if world_cls is None:
-            raise ValueError(
-                f"World '{child.world_name}' not found in registry. "
-                "Ensure the package is installed and the world is registered."
-            )
-
-        child_instance = world_cls()
-
-        resolved_config = await _resolve_inline_child_launch_config(config, os.environ.get("PLATO_API_KEY"))
-        config_class = world_cls.get_config_class()
-        child_config = config_class.model_validate(resolved_config)
-        await _resolve_inline_agent_images(child_config, chronos_url=self._get_chronos_base_url())
-
-        if isinstance(child_instance, BaseReviewWorld):
-            # Review worlds have run_inline() with resource delegation
-            child_instance.config = child_config
-            return await child_instance.run_inline(self)
-        else:
-            # Generic inline execution for non-review worlds
-            return await child_instance.run_as_child(self, child_config)
-
-    async def _launch_child_session(self, child: ChildWorldConfig, config: dict[str, Any]) -> Any:
-        """Launch a child world as a separate Chronos session."""
-        if not child.package:
-            raise ValueError(f"Child world '{child.world_name}' has mode='session' but no package specified")
-
-        from plato.chronos.sdk import AsyncChronos
-
-        api_key = os.environ.get("PLATO_API_KEY", "")
-        async with AsyncChronos(api_key=api_key) as client:
-            return await client.launch(
-                package=child.package,
-                config=config,
-                tags=child.tags or None,
-                runtime=child.runtime,
-                world_name=child.world_name,
-                parent_session_id=self._session_id,
-            )
-
-    async def run_as_child(self, host_world: BaseWorld, config: ConfigT) -> StepResult:
-        """Run this world inline within a host world, sharing its resources.
-
-        This is the generic version of :meth:`BaseReviewWorld.run_inline`.
-        The child world shares the host's session, workspaces, and services.
-        """
-        self._host = host_world
-        self._session_id = host_world._session_id
-        self.plato_session = host_world.plato_session
-        self.logger = host_world.logger.getChild(self.name)
-        self.config = config
-        self._workspaces = host_world._workspaces
-        await self.reset()
-        return await self.step()
-
     # ------------------------------------------------------------------
     # run() and helpers
     # ------------------------------------------------------------------
@@ -1264,15 +520,16 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
     async def run(
         self,
         config: ConfigT,
-        session: SessionConfig | None = None,
+        chronos: ChronosConfig,
         dev: DevConfig | None = None,
-        runtime: RuntimeConfig | None = None,
+        runtime_info: RuntimeInfo | None = None,
     ) -> None:
         """Run the world: reset -> step until done -> close."""
         self.config = config
-        self.session = session or SessionConfig()
+        self.chronos = chronos
         self.dev = dev or DevConfig()
-        self.runtime = runtime or VMRuntimeConfig()
+        self._runtime_info = runtime_info
+        self._ssh_key_path = runtime_info.ssh_key_path if runtime_info else None
         self._step_count = 0
         self._slack_notify_token = None
 
@@ -1284,18 +541,17 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         self._setup_session()
 
         if self.config.slack_notifications_enabled:
-            from plato.worlds.stage_tracking import enable_stage_tracking
-
             self._slack_notify_token = enable_stage_tracking(
-                session_id=self.session.session_id,
+                session_id=self.chronos.session_id,
                 base_url=self._get_chronos_base_url(),
             )
 
-        plato_version = _get_plato_version()
+        plato_version = get_plato_version()
         world_version = self.get_version()
-        self.logger.info(f"World version: {world_version}, Plato SDK version: {plato_version}")
+        self.logger.debug(f"World version: {world_version}, Plato SDK version: {plato_version}")
 
         await self._connect_plato_session()
+        await self._resolve_world_hostname()
 
         tracer = get_tracer("plato.world")
 
@@ -1303,108 +559,36 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
         with tracer.start_as_current_span("world") as root_span:
             root_span.set_attribute("plato.world.name", self.name)
             root_span.set_attribute("plato.world.version", self.get_version())
-            root_span.set_attribute("plato.session.id", self.session.session_id)
+            root_span.set_attribute("plato.session.id", self.chronos.session_id)
             root_span.set_attribute("plato.phase", "world_start")
 
             try:
+                plato_settings = get_plato_settings()
                 if self.config.preview.enabled:
                     await self._run_preview_loop(tracer)
-                elif self.config.review is not None:
-                    await self._run_verify_loop(tracer)
+                elif plato_settings.e2e_test_dir:
+                    await self._run_e2e_loop(tracer, plato_settings)
                 else:
                     await self._run_loop(tracer)
             except Exception as e:
                 run_error = e
-                if isinstance(e, RequiresHumanAnnotation):
-                    self.logger.warning(
-                        "RAISING REQUIRES_HUMAN_ANNOTATION: title=%s items=%d message=%s",
-                        e.request.title,
-                        len(e.request.items),
-                        str(e),
-                    )
-                    root_span.set_attribute("plato.requires_human_annotation", True)
-                    root_span.set_attribute("plato.human_annotation.title", e.request.title)
-                    root_span.add_event(
-                        "requires_human_annotation",
-                        {
-                            "message": str(e),
-                            "items": len(e.request.items),
-                        },
-                    )
-                else:
-                    root_span.set_status(StatusCode.ERROR, str(e))
-                    root_span.record_exception(e)
+                root_span.set_status(StatusCode.ERROR, str(e))
+                root_span.record_exception(e)
 
-                    # Log error as a dedicated span so it's clearly visible in traces
-                    import traceback
-
-                    with tracer.start_as_current_span("world_error") as err_span:
-                        err_span.set_status(StatusCode.ERROR, str(e))
-                        err_span.set_attribute("error.type", type(e).__name__)
-                        err_span.set_attribute("error.message", str(e))
-                        err_span.set_attribute("error.traceback", traceback.format_exc())
-                        err_span.record_exception(e)
+                with tracer.start_as_current_span("world_error") as err_span:
+                    err_span.set_status(StatusCode.ERROR, str(e))
+                    err_span.set_attribute("error.type", type(e).__name__)
+                    err_span.set_attribute("error.message", str(e))
+                    err_span.set_attribute("error.traceback", traceback.format_exc())
+                    err_span.record_exception(e)
             finally:
                 if self._slack_notify_token is not None:
-                    from plato.worlds.stage_tracking import disable_stage_tracking
-
                     disable_stage_tracking(self._slack_notify_token)
                 await self.close()
+                await self._shutdown_agent_execution_managers()
                 await self._disconnect_plato_session()
 
         await self._finalize(run_error)
-
-    def _setup_session(self) -> None:
-        """Initialize OTel tracing and session info.
-
-        Parent trace context is resolved in this order:
-        1. ``SessionConfig.parent_trace_id`` / ``parent_span_id`` (set by
-           Chronos when it has trace context for the parent session).
-        2. World config extra fields ``parent_trace_id`` / ``parent_span_id``
-           (set by a parent world that passes its trace context in world_config).
-        3. Environment variables ``OTEL_TRACE_ID`` / ``OTEL_PARENT_SPAN_ID``
-           (fallback for manual propagation).
-        """
-        if not self.session.session_id:
-            return
-
-        self._session_id = self.session.session_id
-        os.environ["SESSION_ID"] = self.session.session_id
-
-        if self.session.otel_url:
-            agent_otel_url = self.session.otel_url
-            if "localhost" in agent_otel_url or "127.0.0.1" in agent_otel_url:
-                agent_otel_url = agent_otel_url.replace("localhost", "host.docker.internal")
-                agent_otel_url = agent_otel_url.replace("127.0.0.1", "host.docker.internal")
-            os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = agent_otel_url
-            os.environ["OTEL_EXPORTER_OTLP_PROTOCOL"] = "http/protobuf"
-
-        if self.session.otel_url:
-            # Resolve parent trace context (SessionConfig > config extras > env vars)
-            parent_trace_id = (
-                getattr(self.session, "parent_trace_id", None)
-                or (self.config.model_extra or {}).get("parent_trace_id")
-                or os.environ.get("OTEL_TRACE_ID")
-            )
-            parent_span_id = (
-                getattr(self.session, "parent_span_id", None)
-                or (self.config.model_extra or {}).get("parent_span_id")
-                or os.environ.get("OTEL_PARENT_SPAN_ID")
-            )
-
-            if parent_trace_id and parent_span_id:
-                logger.debug(f"Linking to parent trace: trace_id={parent_trace_id}, span_id={parent_span_id}")
-
-            logger.debug(f"Initializing OTel tracing with endpoint: {self.session.otel_url}")
-            init_tracing(
-                service_name=f"world-{self.name}",
-                session_id=self.session.session_id,
-                otlp_endpoint=self.session.otel_url,
-                parent_trace_id=parent_trace_id,
-                parent_span_id=parent_span_id,
-            )
-        else:
-            logger.debug("No otel_url in session - OTel tracing disabled")
 
     async def _init_declared_workspaces(self) -> None:
         """Auto-discover Workspace markers on config and set everything up."""
@@ -1443,7 +627,6 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 path=ws_path,
                 tracked=marker.tracked,
                 mount_path=marker.mount_path,
-                backup=marker.tracked,
                 dvcignore=marker.dvcignore,
                 s3_bucket=repo_info.s3_bucket,
                 s3_prefix=repo_info.s3_prefix,
@@ -1451,7 +634,7 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 repo_name=repo_info.repo_name,
                 chronos_url=repo_info.chronos_url,
                 api_key=repo_info.api_key,
-                session_id=self.session.session_id if self.session else "",
+                session_id=self.chronos.session_id if self.chronos else "",
             )
 
             await workspace.init()
@@ -1464,261 +647,99 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 f"(tracked={marker.tracked}, mount_path={workspace._mount_path}, repo={repo_info.repo_name})"
             )
 
-    async def _generate_tailscale_auth_key(self, api_key: str) -> str:
-        """Generate a short-lived, single-use auth key via the Tailscale API."""
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                "https://api.tailscale.com/api/v2/tailnet/-/keys",
-                auth=("", api_key),
-                json={
-                    "capabilities": {
-                        "devices": {
-                            "create": {
-                                "reusable": False,
-                                "ephemeral": True,
-                                "preauthorized": True,
-                            }
-                        }
-                    },
-                    "expirySeconds": 300,
-                },
-            )
-            if resp.status_code != 200:
-                raise RuntimeError(f"Tailscale API key generation failed (HTTP {resp.status_code}): {resp.text}")
-            return resp.json()["key"]
-
-    async def _setup_tailscale(self) -> None:
-        """Join a Tailscale tailnet using the API key to generate an auth key.
-
-        Raises RuntimeError if any step fails.
-        """
-        ts = self.config.tailscale
-        if not ts.enabled:
+    async def _setup_workspaces(self) -> None:
+        """Mount FUSE overlays and initialize transports for all workspaces."""
+        if not self._workspaces:
             return
 
-        if shutil.which("tailscale") is None or shutil.which("tailscaled") is None:
-            self.logger.info("Installing Tailscale...")
-            proc = await asyncio.create_subprocess_shell(
-                "curl -fsSL https://tailscale.com/install.sh | sh",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            _stdout, stderr = await proc.communicate()
-            if proc.returncode != 0:
-                raise RuntimeError(f"Tailscale install failed (rc={proc.returncode}): {stderr.decode().strip()}")
-        else:
-            self.logger.info("Tailscale already installed, skipping install")
+        # 1. Mount FUSE for all workspaces in parallel.
+        #    Must happen before transport setup so NFS exports the FUSE mountpoint.
+        await asyncio.gather(*(ws.ensure_fuse_mount() for ws in self._workspaces.values()))
 
-        async def _tailscale_status() -> dict[str, Any] | None:
-            proc = await asyncio.create_subprocess_exec(
-                "sudo",
-                "tailscale",
-                "status",
-                "--json",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, _stderr = await proc.communicate()
-            if proc.returncode != 0:
-                return None
-            return json.loads(stdout.decode())
+        # 2. Setup transports (NFS/SSHFS/Git).
+        #    Skip if no runtime info (e.g., unit tests without real runtime).
+        if self._runtime_info is None:
+            return
 
-        status = await _tailscale_status()
-        is_online = bool(status and status.get("Self", {}).get("Online"))
+        runtime_info = self._runtime_info
+        annotations = self.config.get_field_annotations()
 
-        if not is_online:
-            # Containers don't have systemd, so start tailscaled manually if needed.
-            self.logger.info("Starting tailscaled daemon...")
-            self._tailscaled_proc = await asyncio.create_subprocess_exec(
-                "sudo",
-                "tailscaled",
-                "--state=/var/lib/tailscale/tailscaled.state",
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
-            )
-            await asyncio.sleep(2)
+        # Separate workspaces by transport type so git transports can init in parallel
+        # while NFS workspaces share a single server (sequential add_export).
+        nfs_ws: list[Workspace] = []
+        git_ws: list[tuple[Workspace, WorkspaceMarker]] = []
+        sshfs_ws: list[Workspace] = []
 
-            if not ts.api_key:
-                raise RuntimeError(
-                    "tailscale.enabled is True but tailscale.api_key is not set "
-                    "and no existing tailnet connection was found"
-                )
+        for ws in self._workspaces.values():
+            marker = annotations.get(ws.name)
+            marker_transport = marker.transport if isinstance(marker, WorkspaceMarker) else None
+            if marker_transport == "git" and isinstance(marker, WorkspaceMarker):
+                git_ws.append((ws, marker))
+            elif self.config.transport_mode == "sshfs" and marker_transport != "git":
+                sshfs_ws.append(ws)
+            else:
+                nfs_ws.append(ws)
 
-            # Generate a short-lived auth key via the Tailscale API only when reconnecting.
-            self.logger.info("Generating Tailscale auth key...")
-            auth_key = await self._generate_tailscale_auth_key(ts.api_key)
-
-            self.logger.info("Connecting to tailnet...")
-            proc = await asyncio.create_subprocess_exec(
-                "sudo",
-                "tailscale",
-                "up",
-                f"--auth-key={auth_key}",
-                "--accept-dns=false",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            _stdout, stderr = await proc.communicate()
-            if proc.returncode != 0:
-                raise RuntimeError(f"'tailscale up' failed (rc={proc.returncode}): {stderr.decode().strip()}")
-
-            status = await _tailscale_status()
-            if status is None:
-                raise RuntimeError("'tailscale status' failed after connect")
-        else:
-            self.logger.info("Tailscale already connected, skipping auth/up")
-
-        assert status is not None
-        self_name = status.get("Self", {}).get("HostName", "unknown")
-        peers = status.get("Peer", {})
-        peer_names = [p.get("HostName", "?") for p in peers.values()]
-        self.logger.info("Tailscale connected as '%s', %d peer(s) visible", self_name, len(peer_names))
-        self.logger.debug("Tailscale peers: %s", ", ".join(peer_names) or "(none)")
-
-        # MagicDNS doesn't reliably configure the system resolver in
-        # containers, so write /etc/hosts entries for all tailscale peers.
-        hosts_lines = []
-        for peer in peers.values():
-            # DNSName is the tailscale MagicDNS name (e.g. "plato-a100.tail1234.ts.net.")
-            # HostName is the OS hostname (e.g. "instance-20260226-193911")
-            dns_name = peer.get("DNSName", "").rstrip(".")
-            os_hostname = peer.get("HostName", "")
-            # Extract short name from DNS (e.g. "plato-a100" from "plato-a100.tail1234.ts.net")
-            short_name = dns_name.split(".")[0] if dns_name else ""
-            addrs = peer.get("TailscaleIPs", [])
-            if addrs:
-                ipv4 = next((a for a in addrs if "." in a), None)
-                if ipv4:
-                    names = []
-                    if short_name:
-                        names.append(short_name)
-                    if os_hostname and os_hostname != short_name:
-                        names.append(os_hostname)
-                    if names:
-                        hosts_lines.append(f"{ipv4}\t{' '.join(names)}")
-        if hosts_lines:
-            try:
-                hosts_block = "\n# Tailscale peers\n" + "\n".join(hosts_lines) + "\n"
-                hosts_path = Path("/etc/hosts")
-                existing = hosts_path.read_text()
-                hosts_path.write_text(existing + hosts_block)
-                self.logger.info("Added %d tailscale peer(s) to /etc/hosts", len(hosts_lines))
-                self.logger.debug("Tailscale /etc/hosts entries: %s", ", ".join(hosts_lines))
-            except Exception as e:
-                self.logger.warning(f"Failed to update /etc/hosts: {e}")
-
-    async def _run_preview_loop(self, tracer: Any) -> None:
-        """Execute the preview entrypoint after restoring runtime state."""
-        if self.session.otel_url and self.session.session_id:
-            instrument_system_metrics(
-                otlp_endpoint=self.session.otel_url,
-                session_id=self.session.session_id,
-                env_alias="world",
-                job_id=os.environ.get("JOB_ID", ""),
+        # Git transports init in parallel (each has its own bare repo)
+        async def _setup_git(ws: Workspace, marker: WorkspaceMarker) -> None:
+            await ws.setup_transport(
+                runtime_info,
+                marker_transport="git",
+                git_config=marker.git_config,
             )
 
-        await self._init_declared_workspaces()
-        await self._setup_tailscale()
-
-        resumed = await self._try_resume()
-        if resumed:
-            self.logger.info("Resumed from saved state for preview")
-
-        await self._start_transport()
-
-        with tracer.start_as_current_span("preview") as preview_span:
-            preview_span.set_attribute("plato.phase", "preview")
-            preview_span.set_attribute("plato.world.name", self.name)
-            preview_span.set_attribute("plato.preview.timeout_seconds", self.config.preview.timeout_seconds)
-            obs = await self.preview()
-            obs_data = obs.model_dump()
-            preview_span.set_attribute("plato.preview.observation", json.dumps(obs_data, default=str))
-            preview_url = (
-                obs_data.get("data", {}).get("preview_url") if isinstance(obs_data.get("data"), dict) else None
-            )
-            if preview_url:
-                preview_span.set_attribute("plato.preview.url", preview_url)
-
-        self._final_result = obs_data
-        self.logger.info("Preview loop complete, proceeding to finalize")
-
-    async def _run_verify_loop(self, tracer: Any) -> None:
-        """Execute the verify entrypoint after restoring runtime state."""
-        if self.session.otel_url and self.session.session_id:
-            instrument_system_metrics(
-                otlp_endpoint=self.session.otel_url,
-                session_id=self.session.session_id,
-                env_alias="world",
-                job_id=os.environ.get("JOB_ID", ""),
+        # SSHFS transports init in parallel (each is independent)
+        async def _setup_sshfs(ws: Workspace) -> None:
+            await ws.setup_transport(
+                runtime_info,
+                transport_mode="sshfs",
             )
 
-        await self._init_declared_workspaces()
-        await self._setup_tailscale()
+        parallel_tasks = [_setup_git(ws, m) for ws, m in git_ws]
+        parallel_tasks.extend(_setup_sshfs(ws) for ws in sshfs_ws)
 
-        resumed = await self._try_resume()
-        if resumed:
-            self.logger.info("Resumed from saved state for verify")
+        # NFS: first workspace creates server, rest add exports (sequential)
+        nfs_server = None
+        for i, ws in enumerate(nfs_ws):
+            nfs_server = await ws.setup_transport(
+                self._runtime_info,
+                transport_mode="nfs_kernel",
+                nfs_server=nfs_server,
+                export_fsid=i,
+            )
 
-        await self._start_transport()
+        # Run NFS refresh + git/sshfs inits in parallel
+        if parallel_tasks and nfs_server is not None:
+            await asyncio.gather(nfs_server.refresh_exports(), *parallel_tasks)
+        elif nfs_server is not None:
+            await nfs_server.refresh_exports()
+        elif parallel_tasks:
+            await asyncio.gather(*parallel_tasks)
 
-        with tracer.start_as_current_span("verify") as verify_span:
-            verify_span.set_attribute("plato.phase", "verify")
-            verify_span.set_attribute("plato.world.name", self.name)
-            target_sid = self.session.session_id if self.session else ""
-            verify_span.set_attribute("plato.verify.target_session_id", target_sid)
-            obs = await self.verify()
-            obs_data = obs.model_dump()
-            verify_span.set_attribute("plato.verify.observation", json.dumps(obs_data, default=str))
+    async def _init_world(self, tracer: Any) -> Observation:
+        """Common world initialization: metrics, workspaces, state resume, reset.
 
-        self._final_result = obs_data
-        self.logger.info("Verify loop complete, proceeding to finalize")
-
-    async def wait_for_preview_timeout(self) -> int:
-        """Keep the preview session alive until the configured timeout elapses.
-
-        Call this at the end of your preview() implementation to idle.
+        Called by all execution modes (run loop, preview, e2e) before their
+        mode-specific logic.
         """
-        timeout_seconds = self.config.preview.timeout_seconds
-        elapsed = 0
-        interval = 60
-        self.logger.info("Preview mode active — %d seconds remaining", timeout_seconds)
-        while elapsed < timeout_seconds:
-            wait = min(interval, timeout_seconds - elapsed)
-            await asyncio.sleep(wait)
-            elapsed += wait
-            remaining = timeout_seconds - elapsed
-            if remaining > 0:
-                self.logger.info("Preview: %d seconds remaining", remaining)
-        self.logger.info("Preview timeout reached, shutting down")
-        return timeout_seconds
-
-    async def _run_loop(self, tracer: Any) -> None:
-        """Execute the reset → step → checkpoint loop."""
-        # Start VM system metrics collection
-        if self.session.otel_url and self.session.session_id:
+        if self.chronos.otel_url and self.chronos.session_id:
             instrument_system_metrics(
-                otlp_endpoint=self.session.otel_url,
-                session_id=self.session.session_id,
+                otlp_endpoint=self.chronos.otel_url,
+                session_id=self.chronos.session_id,
                 env_alias="world",
                 job_id=os.environ.get("JOB_ID", ""),
             )
 
-        # Auto-discover and initialize declared workspaces (Workspace markers on config)
         await self._init_declared_workspaces()
 
-        # Optional Tailscale VPN setup
-        await self._setup_tailscale()
-
-        # Resume from saved state if available (before reset so state is populated)
+        # Resume state BEFORE setting up workspaces so restored .git-bare
+        # isn't nuked by _init_bare_repo during transport setup.
         resumed = await self._try_resume()
         if resumed:
             self.logger.info("Resumed from saved state")
 
-        # Start NFS server AFTER workspaces are restored (FUSE mounts must exist
-        # before NFS begins exporting with crossmnt).
-        await self._start_transport()
+        await self._setup_workspaces()
 
-        # Reset phase — world-specific initialization
         with tracer.start_as_current_span("reset") as reset_span:
             reset_span.set_attribute("plato.phase", "reset")
             reset_span.set_attribute("plato.world.name", self.name)
@@ -1727,28 +748,11 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             reset_span.set_attribute("plato.observation", json.dumps(obs_data, default=str))
 
         self.logger.info(f"World reset complete: {obs}")
+        return obs
 
-        # E2E test mode: run test functions instead of normal step loop
-        if self.config.e2e_test_dir:
-            from plato.worlds.testing import run_e2e_tests
-
-            try:
-                await run_e2e_tests(self, tracer)
-            finally:
-                # Always checkpoint workspaces after e2e tests so results
-                # are downloadable via `plato chronos download <session-id>`.
-                try:
-                    await self.checkpoint("e2e_tests")
-                    tracked = [n for n, ws in self._workspaces.items() if ws.tracked]
-                    if tracked:
-                        self.logger.info(
-                            "Checkpointed workspaces: %s (use `plato chronos workspace-refs <session-id>` to list, "
-                            "`plato chronos download <session-id> --repo <name>` to download)",
-                            ", ".join(tracked),
-                        )
-                except Exception:
-                    self.logger.warning("Failed to checkpoint after e2e tests", exc_info=True)
-            return
+    async def _run_loop(self, tracer: Any) -> None:
+        """Execute the reset → step → checkpoint loop."""
+        await self._init_world(tracer)
 
         while True:
             self._step_count += 1
@@ -1757,7 +761,6 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
                 step_span.set_attribute("plato.phase", "step")
                 step_span.set_attribute("plato.world.name", self.name)
                 step_span.set_attribute("plato.step.number", self._step_count)
-                self._current_step_id = format(step_span.get_span_context().span_id, "016x")
                 result = await self.step()
                 step_span.set_attribute("plato.step.done", result.done)
                 if result.observation is not None:
@@ -1780,71 +783,29 @@ class BaseWorld(ABC, Generic[ConfigT, StateT]):
             except Exception as e:
                 self.logger.warning(f"Failed to serialize final observation: {e}")
 
-    async def _finalize(self, run_error: Exception | None) -> None:
-        """Report completion/failure to Chronos and shutdown tracing."""
-        await shutdown_metrics()
+    async def _run_e2e_loop(self, tracer: Any, settings: PlatoSettings) -> None:
+        """Execute e2e tests after reset() instead of the step() loop."""
+        await self._init_world(tracer)
 
-        is_dev = os.environ.get(_WORLD_DEV_MODE_ENV) == "1"
-        is_test = os.environ.get(_WORLD_TEST_MODE_ENV) == "1"
-        final_result = getattr(self, "_final_result", None)
-        # RequiresHumanAnnotation must always be reported, even in dev/test
-        # mode, so the session gets the correct status in Chronos.
-        if run_error and isinstance(run_error, RequiresHumanAnnotation):
-            payload: dict[str, Any] = {}
-            if isinstance(final_result, dict):
-                payload.update(final_result)
-            payload.update(run_error.result_payload())
-            self.logger.warning(
-                "Completing session as needs_human_annotation: title=%s items=%d",
-                run_error.request.title,
-                len(run_error.request.items),
+        try:
+            await run_e2e_tests(
+                self,
+                tracer,
+                test_dir=settings.e2e_test_dir,
+                test_filter=settings.e2e_test_filter,
             )
-            await self._complete_chronos_session(
-                "needs_human_annotation",
-                exit_code=0,
-                error_message=str(run_error),
-                result=payload,
-            )
-        elif is_dev or is_test:
-            # In dev/test mode the caller (chronos dev/test runner) handles
-            # session completion.  The /complete endpoint closes the Plato
-            # session which kills the VM we're running on, so we must not
-            # call it from within the world runner process.
-            mode = "dev" if is_dev else "test"
-            self.logger.info(
-                "Skipping Chronos completion in %s mode (run_error=%s)",
-                mode,
-                type(run_error).__name__ if run_error else "None",
-            )
-        else:
-            if run_error:
-                error_msg = f"{type(run_error).__name__}: {run_error}"
-                await self._complete_chronos_session(
-                    "failed",
-                    exit_code=1,
-                    error_message=error_msg,
-                    result=final_result,
-                )
-            else:
-                await self._complete_chronos_session("completed", exit_code=0, result=final_result)
-
-        self._chronos_completed = True
-
-        shutdown_tracing()
-        self._session_id = None
-
-        if run_error and not isinstance(run_error, RequiresHumanAnnotation):
-            raise run_error
-
-        if isinstance(run_error, RequiresHumanAnnotation):
-            self.logger.info(
-                "World '%s' ended: requires human annotation (%s)",
-                self.name,
-                run_error.request.title,
-            )
-            return
-
-        self.logger.info(f"World '{self.name}' completed after {self._step_count} steps")
+        finally:
+            try:
+                await self.checkpoint("e2e_tests")
+                tracked = [n for n, ws in self._workspaces.items() if ws.tracked]
+                if tracked:
+                    self.logger.info(
+                        "Checkpointed workspaces: %s (use `plato chronos workspace-refs <session-id>` to list, "
+                        "`plato chronos download <session-id> --repo <name>` to download)",
+                        ", ".join(tracked),
+                    )
+            except Exception:
+                self.logger.warning("Failed to checkpoint after e2e tests", exc_info=True)
 
 
 # Set default review models on BaseWorld after class definition to avoid circular imports.

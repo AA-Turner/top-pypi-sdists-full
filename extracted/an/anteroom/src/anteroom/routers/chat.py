@@ -511,6 +511,8 @@ async def _build_chat_system_prompt(
         mcp_servers=mcp_manager.get_server_statuses() if mcp_manager else None,
         interface="web",
         tls_enabled=config.app.tls,
+        background_suggest_seconds=config.cli.background_suggest_seconds,
+        detach_suggest_seconds=config.cli.detach_suggest_seconds,
     )
     extra = trusted_section_marker() + runtime_ctx
 
@@ -2136,6 +2138,28 @@ async def chat(conversation_id: str, request: Request) -> Any:
         attachment_filenames=_att_filenames,
         vec_manager=getattr(request.app.state, "vec_manager", None),
     )
+
+    # Preflight: full-request token accounting (#1339)
+    from ..services.token_estimator import estimate_request_tokens as _est_req
+
+    _web_breakdown = _est_req(
+        messages=ai_messages,
+        system_prompt=request.app.state.config.ai.system_prompt or "",
+        extra_system_prompt=extra_system_prompt or "",
+        tool_schemas=tools_openai,
+    )
+    _web_warn_threshold = getattr(request.app.state.config.cli, "context_warn_tokens", 80000)
+    _context_warning: dict[str, Any] | None = None
+    if _web_breakdown.total > _web_warn_threshold:
+        _context_warning = {
+            "estimated_tokens": _web_breakdown.total,
+            "message_tokens": _web_breakdown.message_tokens,
+            "system_prompt_tokens": _web_breakdown.system_prompt_tokens,
+            "tool_schema_tokens": _web_breakdown.tool_schema_tokens,
+            "threshold": _web_warn_threshold,
+        }
+    if _context_warning is not None:
+        prompt_meta["context_warning"] = _context_warning
 
     # Build per-request safety approval context
     pending_approvals = getattr(request.app.state, "pending_approvals", {})

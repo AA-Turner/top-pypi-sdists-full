@@ -31,6 +31,7 @@ __all__ = (
     "CompressionEnumType",
     "ConnectorEgressTypeType",
     "ConnectorStatusType",
+    "ConnectorsIpAddressTypeType",
     "CustomStepStatusType",
     "DirectoryListingOptimizationType",
     "DomainType",
@@ -94,6 +95,7 @@ CertificateUsageTypeType = Literal["ENCRYPTION", "SIGNING", "TLS"]
 CompressionEnumType = Literal["DISABLED", "ZLIB"]
 ConnectorEgressTypeType = Literal["SERVICE_MANAGED", "VPC_LATTICE"]
 ConnectorStatusType = Literal["ACTIVE", "ERRORED", "PENDING"]
+ConnectorsIpAddressTypeType = Literal["DUALSTACK", "IPV4"]
 CustomStepStatusType = Literal["FAILURE", "SUCCESS"]
 DirectoryListingOptimizationType = Literal["DISABLED", "ENABLED"]
 DomainType = Literal["EFS", "S3"]
@@ -272,6 +274,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -507,6 +510,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -542,6 +546,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -554,6 +559,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

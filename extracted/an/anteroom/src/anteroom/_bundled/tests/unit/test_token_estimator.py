@@ -11,8 +11,10 @@ from unittest.mock import patch
 import pytest
 
 from anteroom.services.token_estimator import (
+    RequestTokenBreakdown,
     count_message_tokens,
     count_text_tokens,
+    estimate_request_tokens,
     estimate_usage,
 )
 
@@ -113,6 +115,98 @@ class TestEstimateUsage:
         assert result["prompt_tokens"] == 0
         assert result["completion_tokens"] == 0
         assert result["total_tokens"] == 0
+
+
+class TestEstimateRequestTokens:
+    """Tests for the shared full-request token accounting (#1339)."""
+
+    def test_message_only_returns_correct_total(self) -> None:
+        msgs = [{"role": "user", "content": "Hello, world!"}]
+        breakdown = estimate_request_tokens(messages=msgs)
+        assert breakdown.total == breakdown.message_tokens
+        assert breakdown.system_prompt_tokens == 0
+        assert breakdown.tool_schema_tokens == 0
+
+    def test_with_system_prompt_increases_total(self) -> None:
+        msgs = [{"role": "user", "content": "Hi"}]
+        without = estimate_request_tokens(messages=msgs)
+        with_sys = estimate_request_tokens(messages=msgs, system_prompt="You are a helpful assistant.")
+        assert with_sys.total > without.total
+        assert with_sys.system_prompt_tokens > 0
+        assert with_sys.message_tokens == without.message_tokens
+
+    def test_with_extra_system_prompt(self) -> None:
+        msgs = [{"role": "user", "content": "Hi"}]
+        breakdown = estimate_request_tokens(
+            messages=msgs,
+            system_prompt="Base prompt.",
+            extra_system_prompt="Extra context with RAG results and instructions.",
+        )
+        assert breakdown.system_prompt_tokens > 0
+        assert breakdown.total > breakdown.message_tokens
+
+    def test_with_tool_schemas_increases_total(self) -> None:
+        msgs = [{"role": "user", "content": "Hi"}]
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "read_file",
+                    "description": "Read a file from disk",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"path": {"type": "string"}},
+                        "required": ["path"],
+                    },
+                },
+            }
+        ]
+        without = estimate_request_tokens(messages=msgs)
+        with_tools = estimate_request_tokens(messages=msgs, tool_schemas=tools)
+        assert with_tools.total > without.total
+        assert with_tools.tool_schema_tokens > 0
+
+    def test_undercount_regression(self) -> None:
+        """Full-request estimate must exceed message-only count when overhead is present."""
+        msgs = [{"role": "user", "content": "Write a function."}]
+        system_prompt = "You are a senior Python developer. " * 20
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": f"tool_{i}",
+                    "description": f"Tool number {i} does things",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            }
+            for i in range(10)
+        ]
+        message_only = count_message_tokens(msgs)
+        full = estimate_request_tokens(messages=msgs, system_prompt=system_prompt, tool_schemas=tools)
+        assert full.total > message_only + 200
+
+    def test_breakdown_fields_sum_to_total(self) -> None:
+        msgs = [{"role": "user", "content": "Hello"}]
+        breakdown = estimate_request_tokens(
+            messages=msgs,
+            system_prompt="Be helpful.",
+            tool_schemas=[{"type": "function", "function": {"name": "bash", "parameters": {}}}],
+        )
+        expected = breakdown.message_tokens + breakdown.system_prompt_tokens + breakdown.tool_schema_tokens
+        assert breakdown.total == expected
+
+    def test_empty_inputs(self) -> None:
+        breakdown = estimate_request_tokens(messages=[])
+        assert breakdown.total == 0
+        assert breakdown.message_tokens == 0
+        assert breakdown.system_prompt_tokens == 0
+        assert breakdown.tool_schema_tokens == 0
+
+    def test_returns_frozen_dataclass(self) -> None:
+        breakdown = estimate_request_tokens(messages=[{"role": "user", "content": "x"}])
+        assert isinstance(breakdown, RequestTokenBreakdown)
+        with pytest.raises(AttributeError):
+            breakdown.total = 999  # type: ignore[misc]
 
 
 class TestTiktokenFallback:

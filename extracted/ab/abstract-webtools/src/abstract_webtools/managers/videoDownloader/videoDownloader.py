@@ -7,21 +7,49 @@ yt_dlp= lazy_import('yt_dlp')
 PyPDF2= lazy_import('PyPDF2')
 FFmpegFixupPostProcessor = lazy_import('yt_dlp','postprocessor','ffmpeg','FFmpegFixupPostProcessor')
 logger = get_logFile('video_bp')
+def get_output_basename(output_basename=None,output_filename=None,output_ext=None):
+    basename = output_basename
+    filename = output_filename
+    ext = output_ext
+    
+    if basename:
+        if ext and not filename:
+            filename,_ = os.path.splitext(basename)
+        if filename and not ext:
+            _,ext = os.path.splitext(basename)
+        if not filename and not ext:
+            filename,ext = os.path.splitext(basename)
+    if filename:
+        if not ext:
+            filename,ext = os.path.splitext(filename)
+        else:
+            filename,_ = os.path.splitext(filename)
+    if not filename:
+        filename = 'video'
+    if not ext:
+       ext = '.mp4'
+    return f"{filename}{ext}"
+
 class VideoDownloader:
     def __init__(self, url,
                  title=None,
                  download_directory=os.getcwd(),
                  user_agent=None,
-                 video_extention='mp4', 
+                 video_extention=None, 
                  download_video=True,
                  get_info=False,
                  auto_file_gen=True,
                  standalone_download=False,
                  output_filename=None,
+                 output_ext=None,
+                 output_basename=None,
                  ydl_opts=None,
                  video_id=None,
                  **kwargs
                  ):
+        output_basename = get_output_basename(output_basename=output_basename,output_ext=video_extention)
+        output_filename,output_ext = os.path.splitext(output_basename)
+        
         self.url = url
         self.ydl_opts = ydl_opts or {}
         self.video_id = video_id
@@ -33,19 +61,19 @@ class VideoDownloader:
         self.title = title
         self.auto_file_gen = auto_file_gen
         self.standalone_download = standalone_download
-        self.video_extention = video_extention
+        self.video_extention = output_ext
+        self.output_basename = output_basename
         self.download_directory = download_directory
         self.output_filename = output_filename  # New parameter for custom filename
         self.header = {}  # Placeholder for UserAgentManagerSingleton if needed
-        self.base_name = os.path.basename(self.url)
-        self.file_name, self.ext = os.path.splitext(self.base_name)
+        self.outtmpl = os.path.join(self.download_directory,self.output_basename)
         self.video_urls = [self.url]
         self.info = {}
         self.starttime = None
         self.downloaded = 0
         self.video_urls = url if isinstance(url, list) else [url]
         self.send_to_dl()
-
+        
 
 
     def send_to_dl(self):
@@ -76,17 +104,15 @@ class VideoDownloader:
         self.downloaded = total_size - bytes_remaining
 
     def download(self):
+        outtmpl = self.outtmpl
         for video_url in self.video_urls:
             # Use custom filename if provided, otherwise generate a short temporary one
-            if self.output_filename:
-                outtmpl = os.path.join(self.download_directory, self.output_filename)
-            else:
-                temp_id = re.sub(r'[^\w\d.-]', '_', video_url)[-20:]  # Short temp ID from URL
-                outtmpl = os.path.join(self.download_directory, f"temp_{temp_id}.%(ext)s")
-            
+
             ydl_opts = {
                 'external_downloader': 'ffmpeg',
-                'outtmpl': outtmpl,
+                'outtmpl': self.outtmpl,
+                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                'merge_output_format': self.video_extention.lstrip('.'),
                 'noprogress': True,
                 'quiet': True,  # Reduce verbosity in logs
             }
@@ -148,6 +174,7 @@ class VideoDownloader:
     def stop(self):
         self.monitoring = False
         self.pause_event.set()
+
 def download_image(url, save_path=None):
     """
     Downloads an image from a URL and saves it to the specified path.
@@ -193,6 +220,7 @@ def download_image(url, save_path=None):
     except Exception as e:
         print(f"An unexpected error occurred: {str(e)}")
         return None
+
 def get_thumbnails(directory,info):
     thumbnails_dir = os.path.join(directory,'thumbnails')
     os.makedirs(thumbnails_dir, exist_ok=True)
@@ -213,6 +241,7 @@ def get_thumbnails(directory,info):
         info['thumbnails'][i]['path']=thumbnail_path
         download_image(thumbnail_url, save_path=thumbnail_path)
     return info
+
 def optimize_video_for_safari(input_file, reencode=False):
     """
     Optimizes an MP4 file for Safari by moving the 'moov' atom to the beginning.
@@ -294,11 +323,12 @@ def get_video_info_from_mgr(video_mgr):
         print(f"{e}")
         return None
     return video_mgr
-def get_video_mgr(url, directory=None, output_filename=None,
-                   get_info=None, download_video=None,
-                   download_directory=None, ydl_opts=None,video_id=None,**kwargs):
-    directory = directory or download_directory or os.getcwd()
-    output_filename = output_filename or get_temp_file_name(url)
+def get_video_mgr(url, download_directory=None, output_filename=None,output_ext=None,output_basename=None,
+                   get_info=None, download_video=None, ydl_opts=None,video_id=None,**kwargs):
+    directory = download_directory or get_default_videos_dir()
+    
+    output_basename = get_output_basename(output_basename=output_basename,output_filename=output_filename,output_ext=output_ext)
+    output_basename = output_basename or get_temp_file_name(url)
     get_info = bool_or_default(get_info)
     download_video = bool_or_default(download_video, default=False)
     video_mgr = VideoDownloader(
@@ -306,55 +336,54 @@ def get_video_mgr(url, directory=None, output_filename=None,
         download_directory=directory,
         download_video=download_video,
         get_info=get_info,
-        output_filename=output_filename,
+        output_basename=output_basename,
         ydl_opts=ydl_opts,
         video_id=None
         # pass through
     )
     return video_mgr
-def downloadvideo(url, directory=None, output_filename=None,
-                   get_info=None, download=True,
-                   download_directory=None, ydl_opts=None,**kwargs):
+def downloadvideo(url, download_directory=None, output_filename=None,output_ext=None,output_basename=None,
+                   get_info=None, download=True, ydl_opts=None,**kwargs):
     download = download or kwargs.get('download_video')
-    video_mgr = get_video_mgr(url, directory=directory, output_filename=output_filename,
-                   get_info=get_info, download_video=download,
-                   download_directory=download_directory, ydl_opts=ydl_opts)
+    output_basename = get_output_basename(output_basename=output_basename,output_filename=output_filename,output_ext=output_ext)
+    video_mgr = get_video_mgr(url, directory=directory, output_basename=output_basename,
+                   get_info=get_info, download_video=download,ydl_opts=ydl_opts)
     return get_video_info_from_mgr(video_mgr)
-def get_video_info(url, directory=None, output_filename=None,
-                   get_info=None, download_video=False,
-                   download_directory=None, ydl_opts=None,**kwargs):
-    video_mgr = get_video_mgr(url, directory=directory, output_filename=output_filename,
-                   get_info=get_info, download_video=download_video,
-                   download_directory=download_directory, ydl_opts=ydl_opts,**kwargs)
+def get_video_info(url, download_directory=None, output_filename=None,output_ext=None,output_basename=None,
+                   get_info=None, download_video=False, ydl_opts=None,**kwargs):
+    output_basename = get_output_basename(output_basename=output_basename,output_filename=output_filename,output_ext=output_ext)
+    video_mgr = get_video_mgr(url, download_directory=download_directory, output_basename=output_basename,
+                   get_info=get_info, download_video=download_video,ydl_opts=ydl_opts,**kwargs)
     return get_video_info_from_mgr(video_mgr)
 
-def get_video_id(url, directory=None, output_filename=None,
-                   get_info=None, download_video=False,
-                   download_directory=None, ydl_opts=None,**kwargs):
-    video_info = get_video_info(url, directory=directory, output_filename=output_filename,
-                   get_info=get_info, download_video=download_video,
-                   download_directory=download_directory, ydl_opts=ydl_opts,**kwargs)
+def get_video_id(url, download_directory=None, output_filename=None,output_ext=None,output_basename=None,
+                   get_info=None, download_video=False, ydl_opts=None,**kwargs):
+    output_basename = get_output_basename(output_basename=output_basename,output_filename=output_filename,output_ext=output_ext)
+    video_info = get_video_info(url, download_directory=download_directory, output_basename=output_basename,
+                   get_info=get_info, download_video=download_video,ydl_opts=ydl_opts,**kwargs)
     return video_info.get('id')
-def dl_video(url, download_directory=None, output_filename=None,
+def dl_video(url, download_directory=None, output_filename=None,output_ext=None,output_basename=None,
              get_info=None, download_video=None, ydl_opts=None,**kwargs):
+    output_basename = get_output_basename(output_basename=output_basename,output_filename=output_filename,output_ext=output_ext)
     mgr = get_video_info(
         url,
         download_directory=download_directory,
-        output_filename=output_filename,
+        output_basename=output_basename,
         get_info=get_info,
         download_video=download_video,
         ydl_opts=ydl_opts,**kwargs)
     return get_video_info_from_mgr(mgr)
-def for_dl_video(url,download_directory=None,output_filename=None,get_info=None,download_video=None,**kwargs):
+def for_dl_video(url,download_directory=None,output_filename=None,get_info=None,download_video=None,output_ext=None,output_basename=None,**kwargs):
     get_info = bool_or_default(get_info,default=True)
     download_video =bool_or_default(download_video,default=True)
-    video_mgr = dl_video(url,download_directory=download_directory,output_filename=output_filename,get_info=get_info,download_video=download_video,**kwargs)
+    output_basename = get_output_basename(output_basename=output_basename,output_filename=output_filename,output_ext=output_ext)
+    video_mgr = dl_video(url,download_directory=download_directory,output_basename=output_basename,get_info=get_info,download_video=download_video,**kwargs)
     if get_video_info_from_mgr(video_mgr):
         return get_video_info_from_mgr(video_mgr)
     videos = soupManager(url).soup.find_all('video')
     for video in videos:
         src = video.get("src")
-        video_mgr = dl_video(src,download_directory=download_directory,output_filename=output_filename,download_video=download_video)
+        video_mgr = dl_video(src,download_directory=download_directory,output_basename=output_basename,get_info=get_info,download_video=download_video,**kwargs)
         if get_video_info_from_mgr(video_mgr):
             return get_video_info_from_mgr(video_mgr)
 

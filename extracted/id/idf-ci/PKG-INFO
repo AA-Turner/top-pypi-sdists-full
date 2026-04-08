@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: idf-ci
-Version: 1.0.1
+Version: 1.0.2
 Summary: The python library for CI/CD of ESP-IDF projects
 Author-email: Fu Hanxi <fuhanxi@espressif.com>
 Project-URL: Homepage, https://github.com/espressif/idf-ci

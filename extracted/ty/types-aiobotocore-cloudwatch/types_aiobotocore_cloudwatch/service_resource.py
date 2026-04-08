@@ -46,6 +46,7 @@ from .type_defs import (
     DescribeAlarmHistoryOutputTypeDef,
     DimensionFilterTypeDef,
     DimensionTypeDef,
+    EvaluationCriteriaTypeDef,
     GetMetricStatisticsInputMetricGetStatisticsTypeDef,
     GetMetricStatisticsOutputTypeDef,
     MetricDataQueryAlarmTypeDef,
@@ -393,6 +394,8 @@ class Alarm(AIOBoto3ServiceResource):
     threshold_metric_id: Awaitable[str]
     evaluation_state: Awaitable[EvaluationStateType]
     state_transitioned_timestamp: Awaitable[datetime]
+    evaluation_criteria: Awaitable[EvaluationCriteriaTypeDef]
+    evaluation_interval: Awaitable[int]
     meta: CloudWatchResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -495,7 +498,8 @@ class Metric(AIOBoto3ServiceResource):
     async def put_alarm(self, **kwargs: Unpack[PutMetricAlarmInputMetricPutAlarmTypeDef]) -> _Alarm:
         """
         Creates or updates an alarm and associates it with the specified metric, metric
-        math expression, anomaly detection model, or Metrics Insights query.
+        math expression, anomaly detection model, Metrics Insights query, or PromQL
+        query.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/metric/put_alarm.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/service_resource/#metricput_alarm-method)

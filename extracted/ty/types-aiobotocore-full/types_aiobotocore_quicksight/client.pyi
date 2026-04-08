@@ -215,6 +215,8 @@ from .type_defs import (
     DescribeAssetBundleExportJobResponseTypeDef,
     DescribeAssetBundleImportJobRequestTypeDef,
     DescribeAssetBundleImportJobResponseTypeDef,
+    DescribeAutomationJobRequestTypeDef,
+    DescribeAutomationJobResponseTypeDef,
     DescribeBrandAssignmentRequestTypeDef,
     DescribeBrandAssignmentResponseTypeDef,
     DescribeBrandPublishedVersionRequestTypeDef,
@@ -423,6 +425,8 @@ from .type_defs import (
     StartAssetBundleExportJobResponseTypeDef,
     StartAssetBundleImportJobRequestTypeDef,
     StartAssetBundleImportJobResponseTypeDef,
+    StartAutomationJobRequestTypeDef,
+    StartAutomationJobResponseTypeDef,
     StartDashboardSnapshotJobRequestTypeDef,
     StartDashboardSnapshotJobResponseTypeDef,
     StartDashboardSnapshotJobScheduleRequestTypeDef,
@@ -1335,6 +1339,17 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_asset_bundle_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_asset_bundle_import_job)
+        """
+
+    async def describe_automation_job(
+        self, **kwargs: Unpack[DescribeAutomationJobRequestTypeDef]
+    ) -> DescribeAutomationJobResponseTypeDef:
+        """
+        Retrieves the status and details of a specified automation job, including its
+        status and outputs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_automation_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#describe_automation_job)
         """
 
     async def describe_brand(
@@ -2402,6 +2417,16 @@ class QuickSightClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/start_asset_bundle_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#start_asset_bundle_import_job)
+        """
+
+    async def start_automation_job(
+        self, **kwargs: Unpack[StartAutomationJobRequestTypeDef]
+    ) -> StartAutomationJobResponseTypeDef:
+        """
+        Starts a new job for a specified automation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/start_automation_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_quicksight/client/#start_automation_job)
         """
 
     async def start_dashboard_snapshot_job(

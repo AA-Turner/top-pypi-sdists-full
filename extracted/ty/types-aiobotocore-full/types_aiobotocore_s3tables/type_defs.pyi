@@ -19,7 +19,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
 
 from .literals import (
     IcebergCompactionStrategyType,
@@ -104,6 +104,7 @@ __all__ = (
     "IcebergPartitionFieldTypeDef",
     "IcebergPartitionSpecTypeDef",
     "IcebergSchemaTypeDef",
+    "IcebergSchemaV2TypeDef",
     "IcebergSnapshotManagementSettingsTypeDef",
     "IcebergSortFieldTypeDef",
     "IcebergSortOrderTypeDef",
@@ -141,6 +142,7 @@ __all__ = (
     "ReplicationInformationTypeDef",
     "ResponseMetadataTypeDef",
     "SchemaFieldTypeDef",
+    "SchemaV2FieldTypeDef",
     "StorageClassConfigurationTypeDef",
     "TableBucketMaintenanceConfigurationValueTypeDef",
     "TableBucketMaintenanceSettingsTypeDef",
@@ -322,6 +324,16 @@ SchemaFieldTypeDef = TypedDict(
         "type": str,
         "id": NotRequired[int],
         "required": NotRequired[bool],
+    },
+)
+SchemaV2FieldTypeDef = TypedDict(
+    "SchemaV2FieldTypeDef",
+    {
+        "id": int,
+        "name": str,
+        "type": Mapping[str, Any],
+        "required": bool,
+        "doc": NotRequired[str],
     },
 )
 
@@ -586,6 +598,16 @@ class IcebergPartitionSpecTypeDef(TypedDict):
 class IcebergSchemaTypeDef(TypedDict):
     fields: Sequence[SchemaFieldTypeDef]
 
+IcebergSchemaV2TypeDef = TypedDict(
+    "IcebergSchemaV2TypeDef",
+    {
+        "type": Literal["struct"],
+        "fields": Sequence[SchemaV2FieldTypeDef],
+        "schemaId": NotRequired[int],
+        "identifierFieldIds": NotRequired[Sequence[int]],
+    },
+)
+
 class TableMaintenanceSettingsTypeDef(TypedDict):
     icebergCompaction: NotRequired[IcebergCompactionSettingsTypeDef]
     icebergSnapshotManagement: NotRequired[IcebergSnapshotManagementSettingsTypeDef]
@@ -663,7 +685,8 @@ class TableMaintenanceConfigurationValueTypeDef(TypedDict):
     settings: NotRequired[TableMaintenanceSettingsTypeDef]
 
 class IcebergMetadataTypeDef(TypedDict):
-    schema: IcebergSchemaTypeDef
+    schema: NotRequired[IcebergSchemaTypeDef]
+    schemaV2: NotRequired[IcebergSchemaV2TypeDef]
     partitionSpec: NotRequired[IcebergPartitionSpecTypeDef]
     writeOrder: NotRequired[IcebergSortOrderTypeDef]
     properties: NotRequired[Mapping[str, str]]

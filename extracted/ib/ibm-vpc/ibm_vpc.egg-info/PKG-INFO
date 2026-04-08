@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm-vpc
-Version: 0.32.0
+Version: 0.33.0
 Summary: Python client library for IBM Cloud ibm-vpc Services
 Author-email: IBM <devxsdk@us.ibm.com>
 Project-URL: Repository, https://github.com/IBM/vpc-python-sdk
@@ -28,8 +28,8 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ibm_cloud_sdk_core<4.0.0,>=3.24.2; python_version < "3.9"
-Requires-Dist: ibm_cloud_sdk_core>=3.24.2; python_version >= "3.9"
+Requires-Dist: ibm_cloud_sdk_core<4.0.0,>=3.24.4; python_version < "3.9"
+Requires-Dist: ibm_cloud_sdk_core>=3.24.4; python_version >= "3.9"
 Requires-Dist: python_dateutil<3.0.0,>=2.5.3
 Provides-Extra: dev
 Requires-Dist: coverage<8.0.0,>=7.9.0; extra == "dev"
@@ -49,7 +49,7 @@ Dynamic: license-file
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
 
-# IBM Cloud Virtual Private Cloud (VPC) Python SDK Version 0.32.0
+# IBM Cloud Virtual Private Cloud (VPC) Python SDK Version 0.33.0
 
 Python client library to interact with various [IBM Cloud Virtual Private Cloud (VPC) Service APIs](https://cloud.ibm.com/apidocs/vpc).
 
@@ -105,13 +105,13 @@ Service Name | Imported Class Name
 To install, use `pip` or `easy_install`:
 
 ```bash
-pip install --upgrade "ibm-vpc>=0.32.0"
+pip install --upgrade "ibm-vpc>=0.33.0"
 ```
 
 or
 
 ```bash
-easy_install --upgrade "ibm-vpc>=0.32.0"
+easy_install --upgrade "ibm-vpc>=0.33.0"
 ```
 
 ## Using the SDK

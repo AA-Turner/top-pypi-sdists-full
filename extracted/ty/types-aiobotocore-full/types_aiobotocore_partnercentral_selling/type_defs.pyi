@@ -26,7 +26,6 @@ from .literals import (
     AwsFundingUsedType,
     AwsMemberBusinessTitleType,
     AwsOpportunityStageType,
-    AwsProductInsightsCurrencyCodeEnumType,
     ChannelType,
     ClosedLostReasonType,
     CompetitorNameType,
@@ -36,7 +35,6 @@ from .literals import (
     EngagementContextTypeType,
     EngagementInvitationPayloadTypeType,
     EngagementScoreType,
-    ExpectedCustomerSpendCurrencyCodeEnumType,
     IndustryType,
     InvitationStatusType,
     InvolvementTypeChangeReasonType,
@@ -307,7 +305,7 @@ class ProfileNextStepsHistoryTypeDef(TypedDict):
     Time: datetime
 
 class ExpectedCustomerSpendTypeDef(TypedDict):
-    CurrencyCode: ExpectedCustomerSpendCurrencyCodeEnumType
+    CurrencyCode: CurrencyCodeType
     Frequency: Literal["Monthly"]
     TargetCompany: str
     Amount: NotRequired[str]
@@ -1200,7 +1198,7 @@ ProjectDetailsUnionTypeDef = Union[ProjectDetailsTypeDef, ProjectDetailsOutputTy
 ProjectUnionTypeDef = Union[ProjectTypeDef, ProjectOutputTypeDef]
 
 class AwsProductInsightsTypeDef(TypedDict):
-    CurrencyCode: AwsProductInsightsCurrencyCodeEnumType
+    CurrencyCode: CurrencyCodeType
     Frequency: Literal["Monthly"]
     TotalAmountByCategory: dict[str, str]
     AwsProducts: list[AwsProductDetailsTypeDef]

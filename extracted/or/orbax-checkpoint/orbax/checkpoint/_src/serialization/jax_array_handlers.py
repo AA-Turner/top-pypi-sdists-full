@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import functools
+import os
 import time
 from typing import Any, Dict, Sequence, Set, Tuple, TypeAlias, Union, cast
 import warnings
@@ -155,6 +156,7 @@ async def _async_serialize_shardings(
   for sharding, info in zip(shardings, infos):
     if sharding is None:
       continue
+    await info.await_path_creation()
     if info.parent_dir is None:
       raise ValueError('parent_dir cannot be None')
     tspec_sharding = ts_utils.get_sharding_tensorstore_spec(
@@ -514,7 +516,10 @@ def _serialize_arrays(
           ' scheduled asynchronously.'
       )
 
+    all_infos = infos
     async def _serialize():
+      for info in all_infos:
+        await info.await_path_creation()
       if prioritized:
         arrays, infos, args = zip(*prioritized)
         _serialize_batch(infos, args, arrays)
@@ -568,6 +573,7 @@ async def _async_serialize_replica_slices(
             'Replica_separate_folder is disabled as OCDBT is not enabled.',
             1,
         )
+    await info.await_path_creation()
     array_write_spec = ts_utils.build_array_write_spec(
         info=info,
         arg=arg,
@@ -908,6 +914,13 @@ def _get_abstract_arrays(
   return abstract_arrays
 
 
+def _get_default_use_replica_parallel():
+  platform = os.environ.get('JAX_PLATFORMS', '').lower()
+  if 'gpu' in platform or 'cuda' in platform:
+    return False
+  return True
+
+
 class ArrayHandler(types.TypeHandler):
   """An implementation of TypeHandler for jax.Array."""
 
@@ -916,7 +929,7 @@ class ArrayHandler(types.TypeHandler):
       metadata_key: str | None = None,
       primary_host: int | None = 0,
       replica_id: int | None = 0,
-      use_replica_parallel: bool = True,
+      use_replica_parallel: bool | None = None,
       min_slice_bytes_for_replica_parallel: int | None = None,
       max_replicas_for_replica_parallel: int | None = None,
       enable_write_sharding_file: bool = True,
@@ -952,7 +965,11 @@ class ArrayHandler(types.TypeHandler):
     self._primary_host = primary_host
     self._replica_id = replica_id
     self._enable_write_sharding_file = enable_write_sharding_file
-    self._use_replica_parallel = use_replica_parallel
+    self._use_replica_parallel = (
+        _get_default_use_replica_parallel()
+        if use_replica_parallel is None
+        else use_replica_parallel
+    )
     self._min_slice_bytes_for_replica_parallel = (
         min_slice_bytes_for_replica_parallel
     )
@@ -1003,6 +1020,7 @@ class ArrayHandler(types.TypeHandler):
     open_ops = []
     sharding_open_ops = []
     shardings = []
+    await asyncio.gather(*[info.await_path_creation() for info in infos])
     if infos[0].parent_dir is None:
       raise ValueError('parent_dir cannot be None')
     sharding_file_path = infos[0].parent_dir / _SHARDING_FILE_NAME
@@ -1197,6 +1215,7 @@ class ArrayHandler(types.TypeHandler):
     if args is None:
       raise ValueError('Must provide ArrayRestoreArgs to restore as jax.Array.')
     types.check_input_arguments(infos, args)
+    await asyncio.gather(*[info.await_path_creation() for info in infos])
     if infos[0].parent_dir is None:
       raise ValueError('parent_dir cannot be None')
     sharding_file_path = infos[0].parent_dir / _SHARDING_FILE_NAME
@@ -1346,7 +1365,7 @@ async def _single_replica_deserialize_and_broadcast(
         deserialization_elapsed_s,
     )
     logging.info(
-        'Finished primary replica deserialization in %.2f',
+        'Finished primary replica deserialization in %.2f seconds',
         deserialization_elapsed_s,
     )
   else:
@@ -1379,7 +1398,7 @@ async def _single_replica_deserialize_and_broadcast(
   jax.monitoring.record_event_duration_secs(
       '/jax/checkpoint/read/broadcast_duration_secs', broadcast_elapsed_s
   )
-  logging.info('Finished broadcasting in %.2f', broadcast_elapsed_s)
+  logging.info('Finished broadcasting in %.2f seconds', broadcast_elapsed_s)
 
   return shared_state
 
@@ -1452,7 +1471,7 @@ class SingleReplicaArrayHandler(ArrayHandler):
       replica_axis_index: Defines the axis of the global mesh along which
         replicas are defined. E.g. all devices in
         global_mesh.devices[replica_axis_index] are part of the same replica.
-      primary_replica_id: The id of the replica hosts that is used to load and
+      primary_replica_id: The id of the replica that is used to load and
         broadcast the checkpoint.
       broadcast_memory_limit_bytes: Specifies the memory size (in bytes) used
         for broadcasting data.
@@ -1517,7 +1536,10 @@ class SingleReplicaArrayHandler(ArrayHandler):
             f' {type(arg)}.'
         )
       if arg.sharding is None:
-        raise ValueError('Must provide `sharding`.')
+        raise ValueError(
+            'Must provide `sharding` to restore with'
+            ' `SingleReplicaArrayHandler`.'
+        )
 
     # arg.single_replica_sharding is not required to be passed.
     single_replica_shardings = [

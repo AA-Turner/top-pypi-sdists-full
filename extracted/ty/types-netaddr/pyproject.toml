@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-netaddr"
-version = "1.3.0.20260130"
+version = "1.3.0.20260408"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for netaddr"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`c79275d92eb624f5bba59b4e9cdf30b60195d67e`](https://github.com/python/typeshed/commit/c79275d92eb624f5bba59b4e9cdf30b60195d67e).
+[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = []
 [tool.setuptools]
 packages = ['netaddr-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'netaddr-stubs' = ['__init__.pyi', 'cli.pyi', 'compat.pyi', 'contrib/__init__.pyi', 'contrib/subnet_splitter.pyi', 'core.pyi', 'eui/__init__.pyi', 'eui/ieee.pyi', 'fbsocket.pyi', 'ip/__init__.pyi', 'ip/glob.pyi', 'ip/iana.pyi', 'ip/nmap.pyi', 'ip/rfc1924.pyi', 'ip/sets.pyi', 'strategy/__init__.pyi', 'strategy/eui48.pyi', 'strategy/eui64.pyi', 'strategy/ipv4.pyi', 'strategy/ipv6.pyi', 'METADATA.toml', 'py.typed']

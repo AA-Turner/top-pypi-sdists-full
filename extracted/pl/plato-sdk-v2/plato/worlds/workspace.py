@@ -17,10 +17,13 @@ from typing import Any
 
 import httpx
 
+from plato.agents.mounts import AgentWorkspaceMount
 from plato.chronos.api.workspace_repos import bulk_ingest_ref_audit_events
 from plato.chronos.models import AuditEventInput, BulkRefAuditEventsRequest
+from plato.runtimes.base import RuntimeInfo
 from plato.transports.base import Transport
-from plato.transports.git import GitCheckout, GitSyncBack, GitTransport
+from plato.transports.nfs import NFSTransport
+from plato.transports.sshfs import SSHFSTransport
 from plato.utils.audit import read_audit_records
 from plato.utils.subprocess import run_local
 
@@ -41,7 +44,6 @@ class Workspace:
         *,
         tracked: bool = True,
         mount_path: str | None = None,
-        backup: bool = True,
         dvcignore: list[str] | None = None,
         s3_bucket: str = "",
         s3_prefix: str = "",
@@ -56,7 +58,6 @@ class Workspace:
         self.name = name
         self.tracked = tracked
         self._mount_path = mount_path
-        self.backup = backup
         self._custom_dvcignore = dvcignore or []
         self.s3_bucket = s3_bucket
         self.s3_prefix = s3_prefix
@@ -74,10 +75,25 @@ class Workspace:
         self._commit_lock = asyncio.Lock()
 
     @property
+    def repo_path(self) -> Path:
+        """For git-backed workspaces, returns the git working tree path. Falls back to self.path."""
+        if self._transport is not None:
+            from plato.transports.git import GitTransport
+
+            if isinstance(self._transport, GitTransport):
+                return Path(self._transport.repo_path)
+        return self.path
+
+    @property
     def mount_path(self) -> str:
         if self._mount_path is not None:
             return self._mount_path
         return str(self.path)
+
+    @property
+    def root_path(self) -> Path:
+        """Root directory for workspace metadata and transport state."""
+        return self._repo_root
 
     @property
     def transport(self) -> Transport | None:
@@ -86,13 +102,6 @@ class Workspace:
     @transport.setter
     def transport(self, value: Transport | None) -> None:
         self._transport = value
-        if value is None:
-            return
-        value.configure_workspace(
-            name=self.name,
-            repo_root=str(self._repo_root),
-            tracked=self.tracked,
-        )
 
     def clone(self) -> Workspace:
         """Return a shallow copy of this workspace without copying the transport."""
@@ -101,7 +110,6 @@ class Workspace:
             path=self._repo_root,
             tracked=self.tracked,
             mount_path=self._mount_path,
-            backup=self.backup,
             dvcignore=list(self._custom_dvcignore),
             s3_bucket=self.s3_bucket,
             s3_prefix=self.s3_prefix,
@@ -112,38 +120,16 @@ class Workspace:
             session_id=self.session_id,
         )
 
-    def with_transport(self, transport: Transport) -> Workspace:
-        """Return a shallow copy of this workspace with a specific transport attached."""
-        clone = self.clone()
-        clone.transport = transport
-        return clone
-
-    def for_git_agent(
+    def mount(
         self,
         *,
-        path: str | Path | None = None,
-        mount_path: str | None = None,
-        checkout: GitCheckout | None = None,
-        sync_back: GitSyncBack | None = None,
-        raise_on_conflict: bool | None = None,
-    ) -> Workspace:
-        """Return a copy configured for a git-backed agent workspace."""
-        if self.transport is None:
-            raise RuntimeError(f"Workspace '{self.name}' has no transport configured")
-        if not isinstance(self.transport, GitTransport):
-            raise TypeError(f"Workspace '{self.name}' does not use GitTransport; got {type(self.transport).__name__}")
-
-        agent_transport = self.transport.for_agent(
-            path=str(path) if path is not None else None,
-            mount_path=mount_path,
-            checkout=checkout,
-            sync_back=sync_back,
-            raise_on_conflict=raise_on_conflict,
-        )
-        clone = self.with_transport(agent_transport)
-        if mount_path is not None:
-            clone._mount_path = mount_path
-        return clone
+        agent_path: str | None = None,
+    ) -> AgentWorkspaceMount:
+        """Build an explicit per-agent mount for this workspace."""
+        mount = AgentWorkspaceMount.from_workspace(self)
+        if agent_path is not None:
+            mount = mount.with_agent_path(agent_path)
+        return mount
 
     @staticmethod
     def _cleanup_stale_mount(path: Path) -> None:
@@ -175,13 +161,6 @@ class Workspace:
 
         self._repo_root.mkdir(parents=True, exist_ok=True)
 
-        # Remove legacy .lazy_cache from repo root (now lives in /tmp)
-        legacy_cache = self._repo_root / ".lazy_cache"
-        if legacy_cache.exists():
-            import shutil
-
-            shutil.rmtree(legacy_cache, ignore_errors=True)
-
         if not self.tracked:
             return
 
@@ -204,6 +183,67 @@ class Workspace:
                 existing.append(entry)
                 seen.add(entry)
         dvcignore_path.write_text("\n".join(existing) + "\n")
+
+    async def setup_transport(
+        self,
+        runtime_info: RuntimeInfo,
+        *,
+        transport_mode: str = "nfs_kernel",
+        marker_transport: str | None = None,
+        git_config: Any = None,
+        nfs_server: NFSTransport | None = None,
+        export_fsid: int = 0,
+    ) -> NFSTransport | None:
+        """Create and initialize the transport for this workspace.
+
+        Args:
+            runtime_info: The world's runtime environment info.
+            transport_mode: Default transport mode ("nfs_kernel" or "sshfs").
+            marker_transport: Per-workspace transport override from WorkspaceMarker.
+            git_config: GitTransportConfig for git workspaces.
+            nfs_server: Existing NFS server to share (for multi-workspace NFS).
+                If None and mode is NFS, a new server is created and returned.
+            export_fsid: FSID for NFS export (0 for first workspace).
+
+        Returns:
+            The NFS server transport if one was created (so caller can pass
+            it to subsequent workspaces), or None.
+        """
+        hostname = runtime_info.hostname
+        ssh_key = runtime_info.ssh_key_path
+        if not hostname or not ssh_key:
+            logger.debug("Workspace '%s': no hostname/ssh_key in runtime_info, skipping transport", self.name)
+            return nfs_server
+
+        effective_mode = marker_transport or transport_mode
+
+        if effective_mode == "git":
+            from plato.transports.git import GitTransport
+
+            t = GitTransport(str(self.path), hostname, ssh_key, git_config=git_config)
+            await t.initialize()
+            t.mount_path = self.mount_path
+            self.transport = t
+            return nfs_server
+
+        if effective_mode == "sshfs":
+            t = SSHFSTransport(str(self.path), hostname, ssh_key)
+            await t.initialize()
+            t.mount_path = self.mount_path
+            self.transport = t
+            return nfs_server
+
+        # NFS mode — share a single server across workspaces
+        if nfs_server is None:
+            nfs_server = NFSTransport(str(self.path), hostname, ssh_key)
+            await nfs_server.initialize()
+        else:
+            await nfs_server.add_export(str(self.path), fsid=export_fsid)
+
+        t = nfs_server.with_path(str(self.path))
+        t.mount_path = self.mount_path
+        self.transport = t
+        return nfs_server
 
     async def ensure_fuse_mount(self) -> None:
         """Mount FUSE overlay. Skips if already mounted."""
@@ -234,7 +274,7 @@ class Workspace:
         overlay_dir.mkdir(parents=True, exist_ok=True)
         contents = list(self.path.iterdir())
         if contents:
-            logger.info("Moving %d items from %s into FUSE overlay", len(contents), self.path)
+            logger.debug("Moving %d items from %s into FUSE overlay", len(contents), self.path)
             for item in contents:
                 dest = overlay_dir / item.name
                 try:
@@ -252,7 +292,7 @@ class Workspace:
 
         mount = await mount_lazy(self.path, empty_manifest, s3_config, cache_dir)
         self._lazy_mounts[dir_name] = mount
-        logger.info("Mounted FUSE at %s", self.path)
+        logger.debug("Mounted FUSE at %s", self.path)
 
     async def materialize_current_tree_into_overlay(self) -> None:
         """Mirror the current mounted tree into the overlay so smart_commit sees git-applied changes."""
@@ -273,7 +313,6 @@ class Workspace:
                         "-a",
                         "--delete",
                         "--exclude=.git",
-                        "--exclude=.git-bare",
                         f"{mountpoint}/",
                         f"{overlay_dir}/",
                     ]
@@ -463,13 +502,6 @@ class Workspace:
             "steps": [restore_step] if restore_step else [],
         }
 
-    async def list_steps(self) -> list[str]:
-        """List all committed step names from Chronos."""
-        if not self.chronos_url or not self.repo_name or not self.session_id:
-            return []
-        refs = await self._list_workspace_refs()
-        return [r["step_name"] for r in refs]
-
     # ------------------------------------------------------------------
     # Chronos integration
     # ------------------------------------------------------------------
@@ -566,15 +598,6 @@ class Workspace:
                 return ref
         return None
 
-    async def _list_workspace_refs(self, session_id: str | None = None) -> list[dict[str, Any]]:
-        sid = session_id or self.session_id
-        resp = await self._chronos_request(
-            "GET",
-            f"/api/workspace-repos/sessions/{sid}/workspace-refs",
-            params={"repo_name": self.repo_name},
-        )
-        return resp.json().get("refs", [])
-
     async def _refresh_credentials(self) -> None:
         """Fetch STS credentials from Chronos scoped to this repo's S3 prefix."""
         if not self.chronos_url or not self.repo_id:
@@ -594,7 +617,7 @@ class Workspace:
 
         expires_at = datetime.fromisoformat(data["expires_at"].replace("Z", "+00:00"))
         self._sts_expires_at = expires_at.timestamp() - 300
-        logger.info("Refreshed STS credentials for repo '%s'", self.repo_name)
+        logger.debug("Refreshed STS credentials for repo '%s'", self.repo_name)
 
     def _aws_credentials(self) -> dict[str, str]:
         env = dict(os.environ)

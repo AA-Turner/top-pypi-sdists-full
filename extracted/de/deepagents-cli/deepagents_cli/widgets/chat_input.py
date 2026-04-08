@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from pathlib import Path
@@ -12,23 +13,21 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.css.query import NoMatches
+from textual.geometry import Offset
 from textual.message import Message
 from textual.reactive import reactive
 from textual.widgets import Static, TextArea
-from textual.widgets.text_area import Selection
 
+from deepagents_cli import theme
+from deepagents_cli.command_registry import SLASH_COMMANDS
 from deepagents_cli.config import (
-    COLORS,
     MODE_DISPLAY_GLYPHS,
     MODE_PREFIXES,
     PREFIX_TO_MODE,
-    CharsetMode,
-    _detect_charset_mode,
-    get_glyphs,
+    is_ascii_mode,
 )
 from deepagents_cli.input import IMAGE_PLACEHOLDER_PATTERN, VIDEO_PLACEHOLDER_PATTERN
 from deepagents_cli.widgets.autocomplete import (
-    SLASH_COMMANDS,
     CompletionResult,
     FuzzyFileController,
     MultiCompletionManager,
@@ -37,6 +36,15 @@ from deepagents_cli.widgets.autocomplete import (
 from deepagents_cli.widgets.history import HistoryManager
 
 logger = logging.getLogger(__name__)
+
+
+def _default_history_path() -> Path:
+    """Return the default history file path.
+
+    Extracted as a function so tests can monkeypatch it to a temp path,
+    preventing test runs from polluting `~/.deepagents/history.jsonl`.
+    """
+    return Path.home() / ".deepagents" / "history.jsonl"
 
 
 _PASTE_BURST_CHAR_GAP_SECONDS = 0.03
@@ -82,6 +90,7 @@ class CompletionOption(Static):
 
     CompletionOption.completion-option-selected {
         background: $primary;
+        color: $background;
         text-style: bold;
     }
 
@@ -127,19 +136,15 @@ class CompletionOption(Static):
 
     def _update_display(self) -> None:
         """Update the display text and styling."""
-        glyphs = get_glyphs()
-        cursor = f"{glyphs.cursor} " if self._is_selected else "  "
-
+        display_label = self._label.removeprefix("/")
         if self._description:
             content = Content.from_markup(
-                f"{cursor}[bold]$label[/bold]  [dim]$desc[/dim]",
-                label=self._label,
+                "[bold]$label[/bold]  [dim]$desc[/dim]",
+                label=display_label,
                 desc=self._description,
             )
         else:
-            content = Content.from_markup(
-                f"{cursor}[bold]$label[/bold]", label=self._label
-            )
+            content = Content.from_markup("[bold]$label[/bold]", label=display_label)
 
         self.update(content)
 
@@ -153,6 +158,16 @@ class CompletionOption(Static):
         if self._is_selected != selected:
             self._is_selected = selected
             self._update_display()
+
+    def set_content(
+        self, label: str, description: str, index: int, *, is_selected: bool
+    ) -> None:
+        """Replace label, description, index, and selection in-place."""
+        self._label = label
+        self._description = description
+        self._index = index
+        self._is_selected = is_selected
+        self._update_display()
 
     def on_click(self, event: Click) -> None:
         """Handle click on this option."""
@@ -185,6 +200,9 @@ class CompletionPopup(VerticalScroll):
         self.can_focus = False
         self._options: list[CompletionOption] = []
         self._selected_index = 0
+        self._pending_suggestions: list[tuple[str, str]] = []
+        self._pending_selected: int = 0
+        self._rebuild_generation: int = 0
 
     def update_suggestions(
         self, suggestions: list[tuple[str, str]], selected_index: int
@@ -195,41 +213,82 @@ class CompletionPopup(VerticalScroll):
             return
 
         self._selected_index = selected_index
-        # Store pending update and schedule async rebuild
         self._pending_suggestions = suggestions
         self._pending_selected = selected_index
-        self.call_after_refresh(self._rebuild_options)
-        self.show()
+        # Increment generation so stale callbacks from prior calls are skipped.
+        self._rebuild_generation += 1
+        gen = self._rebuild_generation
+        # show() deferred to _rebuild_options to avoid a flash of stale content.
+        self.call_after_refresh(lambda: self._rebuild_options(gen))
 
-    async def _rebuild_options(self) -> None:
-        """Rebuild option widgets from pending suggestions."""
-        suggestions = getattr(self, "_pending_suggestions", [])
-        selected_index = getattr(self, "_pending_selected", 0)
+    async def _rebuild_options(self, generation: int) -> None:
+        """Rebuild option widgets from pending suggestions.
 
-        if not suggestions:
+        Reuses existing DOM nodes where possible to avoid flicker from
+        a full teardown/mount cycle while the popup is visible.
+
+        Args:
+            generation: Caller's generation counter; skipped if superseded.
+        """
+        if generation != self._rebuild_generation:
             return
 
-        # Remove existing options
-        await self.remove_children()
-        self._options.clear()
+        suggestions = self._pending_suggestions
+        selected_index = self._pending_selected
 
-        # Create new options
-        for idx, (label, description) in enumerate(suggestions):
-            option = CompletionOption(
-                label=label,
-                description=description,
-                index=idx,
-                is_selected=(idx == selected_index),
+        if not suggestions:
+            self.hide()
+            return
+
+        existing = len(self._options)
+        needed = len(suggestions)
+
+        # Update existing widgets in-place
+        for i in range(min(existing, needed)):
+            label, desc = suggestions[i]
+            self._options[i].set_content(
+                label, desc, i, is_selected=(i == selected_index)
             )
-            self._options.append(option)
-            await self.mount(option)
 
-        # Scroll selected option into view
+        # DOM mutations: trim extras / mount new widgets
+        try:
+            if existing > needed:
+                for option in self._options[needed:]:
+                    await option.remove()
+                del self._options[needed:]
+
+            if needed > existing:
+                new_widgets: list[CompletionOption] = []
+                for idx in range(existing, needed):
+                    label, desc = suggestions[idx]
+                    option = CompletionOption(
+                        label=label,
+                        description=desc,
+                        index=idx,
+                        is_selected=(idx == selected_index),
+                    )
+                    new_widgets.append(option)
+                self._options.extend(new_widgets)
+                await self.mount(*new_widgets)
+        except Exception:
+            logger.exception("Failed to rebuild completion popup; hiding to recover")
+            self._options = []
+            with contextlib.suppress(Exception):
+                await self.remove_children()
+            self.hide()
+            return
+
+        self.show()
+
         if 0 <= selected_index < len(self._options):
             self._options[selected_index].scroll_visible()
 
     def update_selection(self, selected_index: int) -> None:
         """Update which option is selected without rebuilding the list."""
+        # Keep pending state in sync so an in-flight _rebuild_options uses
+        # the latest selection.
+        self._pending_selected = selected_index
+
         if self._selected_index == selected_index:
             return
 
@@ -251,6 +310,7 @@ class CompletionPopup(VerticalScroll):
     def hide(self) -> None:
         """Hide the popup."""
         self._pending_suggestions = []
+        self._rebuild_generation += 1  # Cancel any in-flight rebuild
         self.styles.display = "none"  # type: ignore[assignment]  # Textual accepts string display values at runtime
 
     def show(self) -> None:
@@ -263,23 +323,26 @@ class ChatTextArea(TextArea):
 
     BINDINGS: ClassVar[list[Binding]] = [
         Binding(
-            "shift+enter,ctrl+j,alt+enter,ctrl+enter",
+            "shift+enter,alt+enter,ctrl+enter",
             "insert_newline",
             "New Line",
             show=False,
             priority=True,
         ),
-        Binding(
-            "ctrl+a",
-            "select_all_text",
-            "Select All",
-            show=False,
-            priority=True,
-        ),
-        # Mac Cmd+Z/Cmd+Shift+Z for undo/redo (in addition to Ctrl+Z/Y)
-        Binding("cmd+z,super+z", "undo", "Undo", show=False, priority=True),
-        Binding("cmd+shift+z,super+shift+z", "redo", "Redo", show=False, priority=True),
     ]
+    """Key bindings for the chat text area.
+
+    These are the single source of truth for shortcut keys. `_NEWLINE_KEYS`
+    is derived from this list so that `_on_key` stays in sync automatically.
+    """
+
+    _NEWLINE_KEYS: ClassVar[frozenset[str]] = frozenset(
+        key
+        for b in BINDINGS
+        if b.action == "insert_newline"
+        for key in b.key.split(",")
+    )
+    """Flattened set of keys that insert a newline, derived from `BINDINGS`."""
 
     _skip_history_change_events: int
     """Counter incremented before a history-driven text replacement so the
@@ -341,7 +404,6 @@ class ChatTextArea(TextArea):
         self._skip_history_change_events = 0
         self._in_history = False
         self._completion_active = False
-        self._app_has_focus = True
         # Buffer quote-prefixed high-frequency key bursts from terminals that
         # emulate paste via rapid key events instead of dispatching a paste
         # event.
@@ -351,15 +413,45 @@ class ChatTextArea(TextArea):
         # See _BACKSLASH_ENTER_GAP_SECONDS for context.
         self._backslash_pending_time: float | None = None
 
+    def scroll_cursor_visible(
+        self, center: bool = False, animate: bool = False
+    ) -> Offset:
+        """Scroll to make the cursor visible, guarding against cursor/document desync.
+
+        Textual's `WrappedDocument.location_to_offset` has an off-by-one in its
+        line-index clamp (`len(...)` instead of `len(...) - 1`). When a reactive
+        watcher (e.g. `_watch_show_vertical_scrollbar`) fires between a document
+        replacement and cursor update, the stale cursor location triggers a
+        `ValueError`. Guard here since `scroll_cursor_visible` is the sole
+        caller of `_recompute_cursor_offset`.
+
+        Args:
+            center: Whether the cursor should be scrolled to the center.
+            animate: Whether to animate while scrolling.
+
+        Returns:
+            The scroll offset applied, or `Offset(0, 0)` on desync.
+        """
+        try:
+            return super().scroll_cursor_visible(center=center, animate=animate)
+        except (
+            ValueError
+        ):  # WrappedDocument.get_offsets off-by-one clamp in location_to_offset
+            logger.warning(
+                "Cursor/document desync in scroll_cursor_visible "
+                "(cursor=%s, doc_lines=%d); skipping scroll",
+                self.cursor_location,
+                self.document.line_count,
+            )
+            return Offset(0, 0)
+
     def set_app_focus(self, *, has_focus: bool) -> None:
         """Set whether the app should show the cursor as active.
 
-        When has_focus=False (e.g., agent is running), disables cursor blink
-        so the cursor doesn't flash while waiting for a response.
+        Args:
+            has_focus: Whether the app input should be focused.
         """
-        self._app_has_focus = has_focus
         self._backslash_pending_time = None
-        self.cursor_blink = has_focus
         if has_focus and not self.has_focus:
             self.call_after_refresh(self.focus)
 
@@ -370,16 +462,6 @@ class ChatTextArea(TextArea):
     def action_insert_newline(self) -> None:
         """Insert a newline character."""
         self.insert("\n")
-
-    def action_select_all_text(self) -> None:
-        """Select all text in the text area."""
-        if not self.text:
-            return
-        # Select from start to end
-        lines = self.text.split("\n")
-        end_row = len(lines) - 1
-        end_col = len(lines[end_row])
-        self.selection = Selection(start=(0, 0), end=(end_row, end_col))
 
     def _cancel_paste_burst_timer(self) -> None:
         """Cancel any scheduled paste-burst flush timer."""
@@ -550,8 +632,8 @@ class ChatTextArea(TextArea):
         if event.key == "backslash" and event.character == "\\":
             self._backslash_pending_time = now
 
-        # Modifier+Enter inserts newline (Ctrl+J is most reliable across terminals)
-        if event.key in {"shift+enter", "ctrl+j", "alt+enter", "ctrl+enter"}:
+        # Modifier+Enter inserts newline — keys derived from BINDINGS
+        if event.key in self._NEWLINE_KEYS:
             event.prevent_default()
             event.stop()
             self.insert("\n")
@@ -764,11 +846,11 @@ class ChatInput(Vertical):
     }
 
     ChatInput.mode-shell {
-        border: solid __MODE_SHELL__;
+        border: solid $mode-bash;
     }
 
     ChatInput.mode-command {
-        border: solid __MODE_CMD__;
+        border: solid $mode-command;
     }
 
     ChatInput .input-row {
@@ -785,11 +867,11 @@ class ChatInput(Vertical):
     }
 
     ChatInput.mode-shell .input-prompt {
-        color: __MODE_SHELL__;
+        color: $mode-bash;
     }
 
     ChatInput.mode-command .input-prompt {
-        color: __MODE_CMD__;
+        color: $mode-command;
     }
 
     ChatInput ChatTextArea {
@@ -805,9 +887,8 @@ class ChatInput(Vertical):
     ChatInput ChatTextArea:focus {
         border: none;
     }
-    """.replace("__MODE_SHELL__", COLORS["mode_shell"]).replace(
-        "__MODE_CMD__", COLORS["mode_command"]
-    )
+    """
+    """Border and prompt glyph change color per mode for immediate visual feedback."""
 
     class Submitted(Message):
         """Message sent when input is submitted."""
@@ -858,6 +939,7 @@ class ChatInput(Vertical):
         self._popup: CompletionPopup | None = None
         self._completion_manager: MultiCompletionManager | None = None
         self._completion_view: _CompletionViewAdapter | None = None
+        self._slash_controller: SlashCommandController | None = None
 
         # Guard flag: set True before programmatically stripping the mode
         # prefix character so the resulting text-change event does not
@@ -887,7 +969,7 @@ class ChatInput(Vertical):
 
         # Set up history manager
         if history_file is None:
-            history_file = Path.home() / ".deepagents" / "history.jsonl"
+            history_file = _default_history_path()
         self._history = HistoryManager(history_file)
 
     def compose(self) -> ComposeResult:  # noqa: PLR6301  # Textual widget method convention
@@ -904,8 +986,9 @@ class ChatInput(Vertical):
 
     def on_mount(self) -> None:
         """Initialize components after mount."""
-        if _detect_charset_mode() == CharsetMode.ASCII:
-            self.styles.border = ("ascii", "cyan")
+        if is_ascii_mode():
+            colors = theme.get_theme_colors(self)
+            self.styles.border = ("ascii", colors.primary)
 
         self._text_area = self.query_one("#chat-input", ChatTextArea)
         self._popup = self.query_one("#completion-popup", CompletionPopup)
@@ -916,9 +999,12 @@ class ChatInput(Vertical):
         self._file_controller = FuzzyFileController(
             self._completion_view, cwd=self._cwd
         )
+        self._slash_controller = SlashCommandController(
+            SLASH_COMMANDS, self._completion_view
+        )
         self._completion_manager = MultiCompletionManager(
             [
-                SlashCommandController(SLASH_COMMANDS, self._completion_view),
+                self._slash_controller,
                 self._file_controller,
             ]  # type: ignore[list-item]  # Controller types are compatible at runtime
         )
@@ -929,6 +1015,23 @@ class ChatInput(Vertical):
             exit_on_error=False,
         )
         self._text_area.focus()
+
+    def update_slash_commands(self, commands: list[tuple[str, str, str]]) -> None:
+        """Update the slash command controller's command list.
+
+        Called by the app after discovering skills to merge static
+        commands with dynamic `/skill:` entries.
+
+        Args:
+            commands: Full list of `(command, description, hidden_keywords)` tuples.
+        """
+        if self._slash_controller:
+            self._slash_controller.update_commands(commands)
+        else:
+            logger.warning(
+                "Cannot update slash commands: controller not initialized "
+                "(widget not yet mounted)"
+            )
 
     def on_text_area_changed(self, event: TextArea.Changed) -> None:
         """Detect input mode and update completions."""
@@ -980,7 +1083,12 @@ class ChatInput(Vertical):
                 if self.mode != detected:
                     self.mode = detected
                 self._strip_mode_prefix()
-                return
+                # Fall through to update completion suggestions in the same
+                # refresh cycle as the mode/glyph change rather than waiting
+                # for the next text-change event caused by the prefix strip.
+                # Note: the strip's text-change event will also call
+                # on_text_changed (idempotently) since _stripping_prefix only
+                # skips mode detection, not the completion block below.
         # Update completion suggestions using completion-space text/cursor.
         if self._completion_manager and self._text_area:
             if is_path_payload:
@@ -1078,10 +1186,10 @@ class ChatInput(Vertical):
     @staticmethod
     def _is_existing_path_payload(text: str) -> bool:
         """Return whether text is a dropped-path payload for existing files."""
-        from deepagents_cli.input import parse_pasted_path_payload
-
         if len(text) < 2:  # noqa: PLR2004  # Need at least '/' + one char
             return False
+        from deepagents_cli.input import parse_pasted_path_payload
+
         return parse_pasted_path_payload(text, allow_leading_path=True) is not None
 
     def _is_dropped_path_payload(self, text: str) -> bool:
@@ -1404,7 +1512,7 @@ class ChatInput(Vertical):
                 except OSError as exc:
                     logger.debug("Failed to stat media file %s: %s", path, exc)
                     msg = f"Could not attach {label.lower()}: {path.name}"
-                self.app.notify(msg, severity="warning", timeout=5)
+                self.app.notify(msg, severity="warning", timeout=5, markup=False)
 
             # Not a supported media file, keep as path
             logger.debug("Could not load media from dropped path: %s", path)
@@ -1498,7 +1606,13 @@ class ChatInput(Vertical):
             and self.mode != "normal"
             and self._get_cursor_offset() == 0
         ):
-            self._completion_manager.reset()
+            # Defer the popup reset so it coalesces with the glyph update
+            # that watch_mode schedules via call_after_refresh.
+            def _deferred_reset() -> None:
+                if self._completion_manager is not None:
+                    self._completion_manager.reset()
+
+            self.call_after_refresh(_deferred_reset)
             self.mode = "normal"
             event.prevent_default()
             event.stop()
@@ -1546,25 +1660,31 @@ class ChatInput(Vertical):
         return offset + min(col, len(lines[row]))
 
     def watch_mode(self, mode: str) -> None:
-        """Post mode changed message and update prompt indicator."""
-        try:
-            prompt = self.query_one("#prompt", Static)
-        except NoMatches:
-            logger.warning("watch_mode: #prompt widget not found")
-            self.post_message(self.ModeChanged(mode))
-            return
-        self.remove_class("mode-shell", "mode-command")
+        """Post mode changed message and update prompt indicator.
+
+        The prompt glyph update is deferred via `call_after_refresh` so that
+        callers which also schedule deferred work (e.g. the completion popup)
+        can coalesce both visual changes into a single refresh.
+        """
         glyph = MODE_DISPLAY_GLYPHS.get(mode)
-        if glyph:
-            prompt.update(glyph)
-            self.add_class(f"mode-{mode}")
-        else:
-            if mode != "normal":
-                logger.warning(
-                    "No display glyph for mode %r; falling back to '>'",
-                    mode,
-                )
-            prompt.update(">")
+        if not glyph and mode != "normal":
+            logger.warning(
+                "No display glyph for mode %r; falling back to '>'",
+                mode,
+            )
+
+        def _apply() -> None:
+            self.remove_class("mode-shell", "mode-command")
+            if glyph:
+                self.add_class(f"mode-{mode}")
+            try:
+                prompt = self.query_one("#prompt", Static)
+            except NoMatches:
+                logger.warning("watch_mode._apply: #prompt widget not found")
+                return
+            prompt.update(glyph or ">")
+
+        self.call_after_refresh(_apply)
         self.post_message(self.ModeChanged(mode))
 
     def focus_input(self) -> None:
@@ -1608,10 +1728,10 @@ class ChatInput(Vertical):
                     self._completion_manager.reset()
 
     def set_cursor_active(self, *, active: bool) -> None:
-        """Set whether the cursor should be actively blinking.
+        """Toggle input focus state (e.g., unfocus while agent is working).
 
-        When active=False (e.g., agent is working), disables cursor blink
-        so the cursor doesn't flash while waiting for a response.
+        Args:
+            active: Whether the input should be focused and accepting input.
         """
         if self._text_area:
             self._text_area.set_app_focus(has_focus=active)
@@ -1653,12 +1773,16 @@ class ChatInput(Vertical):
         self, suggestions: list[tuple[str, str]], selected_index: int
     ) -> None:
         """Render completion suggestions in the popup."""
-        # Track suggestions locally for click handling
+        prev_suggestions = self._current_suggestions
         self._current_suggestions = suggestions
         self._current_selected_index = selected_index
 
         if self._popup:
-            self._popup.update_suggestions(suggestions, selected_index)
+            # If only the selection changed (same items), skip full rebuild
+            if suggestions == prev_suggestions:
+                self._popup.update_selection(selected_index)
+            else:
+                self._popup.update_suggestions(suggestions, selected_index)
         # Tell TextArea that completion is active so it yields navigation keys
         if self._text_area:
             self._text_area.set_completion_active(active=bool(suggestions))

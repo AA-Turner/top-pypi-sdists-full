@@ -1,8 +1,8 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages  # type: ignore[import-untyped]
 
 setup(
     name="altcha",
-    version="1.0.0",
+    version="2.0.0",
     description="A library for creating and verifying challenges for ALTCHA.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",

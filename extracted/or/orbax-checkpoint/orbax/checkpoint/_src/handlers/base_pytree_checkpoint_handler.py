@@ -48,6 +48,7 @@ from orbax.checkpoint._src.metadata import tree as tree_metadata
 from orbax.checkpoint._src.multihost import multihost
 from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint._src.path import format_utils
+from orbax.checkpoint._src.path import types as path_types
 from orbax.checkpoint._src.serialization import limits
 from orbax.checkpoint._src.serialization import ocdbt_utils
 from orbax.checkpoint._src.serialization import tensorstore_utils as ts_utils
@@ -209,6 +210,10 @@ def batched_serialization_requests(
     if info.skip_deserialize:
       return
 
+    if not isinstance(arg, (SaveArgs, RestoreArgs)):
+      if tree_utils.is_empty_node(arg):
+        return
+
     if isinstance(arg, RestoreArgs):
       assert isinstance(value, tree_metadata.ValueMetadataEntry), type(value)
       metadata_restore_type = value.value_type
@@ -258,6 +263,28 @@ def batched_serialization_requests(
   return list(grouped.values())
 
 
+def _update_array_restore_args(
+    v: Any, leaf_args: ArrayRestoreArgs
+) -> ArrayRestoreArgs:
+  """Updates ArrayRestoreArgs with global shape and dtype."""
+  if isinstance(v, type):
+    return leaf_args
+  is_array = getattr(v, 'shape', False) and getattr(v, 'dtype', False)
+  is_prng_key = jax.dtypes.issubdtype(
+      getattr(v, 'dtype', None), jax.dtypes.prng_key
+  )
+  if is_array and not is_prng_key:
+    updates = {}
+    if leaf_args.strict:
+      if leaf_args.global_shape is None and leaf_args.shape is None:
+        updates['global_shape'] = getattr(v, 'shape', None)
+      if getattr(leaf_args, 'dtype', None) is None:
+        updates['dtype'] = getattr(v, 'dtype', None)
+    if updates:
+      return dataclasses.replace(leaf_args, **updates)
+  return leaf_args
+
+
 def _fill_missing_save_or_restore_args(
     item: PyTree, args: Optional[PyTree], *, mode: str
 ) -> PyTree:
@@ -279,18 +306,17 @@ def _fill_missing_save_or_restore_args(
 
   # Because of empty states, the user-provided args may not contain
   # all necessary arguments. These should be filled in with default args.
-  def _maybe_set_default_save_args(_, leaf_args):
-    if isinstance(leaf_args, (SaveArgs, RestoreArgs)):
-      return leaf_args
-    elif mode == 'save':
-      return SaveArgs()
-    elif mode == 'restore':
-      return RestoreArgs()
-    else:
-      raise ValueError(f'Unknown mode: {mode}.')
+  def _maybe_set_default_save_restore_args(v, leaf_args):
+    if mode == 'save':
+      return leaf_args if isinstance(leaf_args, SaveArgs) else SaveArgs()
+    if mode == 'restore':
+      if isinstance(leaf_args, ArrayRestoreArgs):
+        return _update_array_restore_args(v, leaf_args)
+      return leaf_args if isinstance(leaf_args, RestoreArgs) else RestoreArgs()
+    raise ValueError(f'Unknown mode: {mode}.')
 
   return jax.tree_util.tree_map(
-      _maybe_set_default_save_args,
+      _maybe_set_default_save_restore_args,
       item,
       item if args is None else args,
       is_leaf=utils.is_empty_or_leaf,
@@ -308,7 +334,7 @@ def _format_bytes(bytes_value: Optional[int]) -> str:
 
 
 class BasePyTreeCheckpointHandler(
-    async_checkpoint_handler.AsyncCheckpointHandler
+    async_checkpoint_handler.DeferredPathAsyncCheckpointHandler
 ):
   """A CheckpointHandler implementation for any PyTree structure.
 
@@ -581,7 +607,7 @@ class BasePyTreeCheckpointHandler(
 
   async def async_save(
       self,
-      directory: epath.Path,
+      directory: epath.Path | path_types.PathAwaitingCreation,
       args: BasePyTreeSaveArgs,
   ) -> Optional[List[future.Future]]:
     """Saves a PyTree to a given directory.
@@ -643,9 +669,11 @@ class BasePyTreeCheckpointHandler(
         use_compression=self._use_compression,
         use_zarr3=self._use_zarr3,
     )
-    assert all(
-        leaf.parent_dir == directory for leaf in jax.tree.leaves(param_infos)
-    )
+    # TODO(b/425293362): Add validation for PathAwaitingCreation.
+    if isinstance(directory, epath.Path):
+      assert all(
+          leaf.parent_dir is directory for leaf in jax.tree.leaves(param_infos)
+      )
 
     serialize_ops = []  # List of (coros -> List of futures)
     batch_requests = batched_serialization_requests(
@@ -659,12 +687,16 @@ class BasePyTreeCheckpointHandler(
     # suffix in the checkpoint directory name and if the metadata file exists.
     # Cannot rely solely on the metadata file existing pre-empted saves may be
     # misclassified as partial saves.
-    partial_save = (
-        await async_path.exists(directory / PYTREE_METADATA_FILE)
-        # TODO: b/428711337 - Use method from v1/_src/partial/path.py instead.
+    # TODO(b/484298759): Remove the path-based check once all callers use
+    # partial_save_mode.
+    is_partial_save_path = (
+        isinstance(directory, epath.Path)
         and '.partial_save' in directory.parent.name
     )
-
+    is_partial_save = is_partial_save_path
+    partial_save = is_partial_save and await async_path.exists(
+        directory / PYTREE_METADATA_FILE
+    )
     batch_requests_ready_time = time.time()
     if partial_save:
       serialize_ops, tree_memory_size, param_infos, save_args = (
@@ -701,7 +733,6 @@ class BasePyTreeCheckpointHandler(
           future.CommitFutureAwaitingContractedSignals(
               self._write_metadata_after_commits(
                   commit_futures,
-                  checkpoint_dir=directory,
                   param_infos=param_infos,
                   save_args=save_args,
                   custom_metadata=custom_metadata,
@@ -719,7 +750,7 @@ class BasePyTreeCheckpointHandler(
     _log_io_metrics(
         tree_memory_size,
         start_time,
-        '/jax/checkpoint/write/blocking_gbytes_per_sec',
+        '/jax/orbax/write/blocking_gbytes_per_sec',
     )
     chained_futures = [
         future.ChainedFuture(
@@ -728,8 +759,8 @@ class BasePyTreeCheckpointHandler(
                 _log_io_metrics,
                 tree_memory_size,
                 start_time,
-                '/jax/checkpoint/write/gbytes_per_sec',
-                '/jax/checkpoint/write/gbytes',
+                '/jax/orbax/write/gbytes_per_sec',
+                '/jax/orbax/write/gbytes',
             ),
         )
     ]
@@ -781,7 +812,7 @@ class BasePyTreeCheckpointHandler(
     flat_metadata = tree_utils.to_flat_dict(metadata)
     byte_limiter = limits.get_byte_limiter(self._restore_concurrent_bytes)
     param_infos = jax.tree.map(
-        lambda info: dataclasses.replace(info, byte_limiter=byte_limiter),
+        lambda info: info.replace(byte_limiter=byte_limiter),
         param_infos,
     )
     batch_requests = batched_serialization_requests(
@@ -822,11 +853,13 @@ class BasePyTreeCheckpointHandler(
     )
 
   def _partial_restore_with_omission(
-      self, item: PyTree, value_metadata_tree: PyTree, restore_args: PyTree
+      self,
+      item: PyTree,
+      serialized_item: PyTree,
+      value_metadata_tree: PyTree,
+      restore_args: PyTree,
   ) -> Tuple[PyTree, PyTree]:
     """Restores leaves specified in `item`. Skips omitted leaves."""
-    serialized_item = tree_utils.serialize_tree(item, keep_empty_nodes=True)
-
     if not self._pytree_metadata_options.support_rich_types:
       # Replace empty containers with scalar values (zeros). During saving,
       # some empty containers (like named tuples) were given
@@ -851,10 +884,9 @@ class BasePyTreeCheckpointHandler(
     return value_metadata_tree, restore_args
 
   def _partial_restore_with_placeholders(
-      self, item: PyTree, value_metadata_tree: PyTree
+      self, serialized_item: PyTree, value_metadata_tree: PyTree
   ) -> PyTree:
     """Restores leaves from `item`, except for those marked as placeholders."""
-    serialized_item = tree_utils.serialize_tree(item, keep_empty_nodes=True)
     diff = (
         tree_structure_utils.tree_difference(
             serialized_item,
@@ -1009,23 +1041,31 @@ class BasePyTreeCheckpointHandler(
     )
     del internal_tree_metadata
     # Prep for restore.
+    serialized_item = tree_metadata.serialize_tree(
+        item, self._pytree_metadata_options
+    )
     if item is None:
       item = value_metadata_tree
     elif args.partial_restore:
       value_metadata_tree, restore_args = self._partial_restore_with_omission(
-          item, value_metadata_tree, restore_args
+          item, serialized_item, value_metadata_tree, restore_args
       )
     elif any(
         type_handlers.is_placeholder(leaf) for leaf in jax.tree.leaves(item)
     ):
       value_metadata_tree = self._partial_restore_with_placeholders(
-          item, value_metadata_tree
+          serialized_item, value_metadata_tree
       )
     else:
+      # Deserialize value metadata tree to the same structure as item to allow
+      # for comparison with item that contains rich types.
+      if self._pytree_metadata_options.support_rich_types:
+        value_metadata_tree = tree_utils.deserialize_tree(
+            value_metadata_tree, item
+        )
       # is_empty_or_leaf is necessary here to treat empty nodes (e.g. empty
       # dicts, lists, custom nodes) as leaves, as they do not contain any
       # actual data to be restored, but are needed to maintain the structure.
-      serialized_item = tree_utils.serialize_tree(item, keep_empty_nodes=True)
       diff = tree_structure_utils.tree_difference(
           serialized_item,
           value_metadata_tree,
@@ -1048,6 +1088,13 @@ class BasePyTreeCheckpointHandler(
     restore_args = tree_metadata.serialize_tree(
         restore_args, self._pytree_metadata_options
     )
+
+    if not self._pytree_metadata_options.support_rich_types:
+      value_metadata_tree = tree_utils.deserialize_tree(
+          value_metadata_tree, item
+      )
+    restore_args = tree_utils.deserialize_tree(restore_args, item)
+
     param_infos = self._get_param_infos(
         item=value_metadata_tree,
         directory=directory,
@@ -1136,9 +1183,8 @@ class BasePyTreeCheckpointHandler(
             f'No ArrayMetadata found for param_info: {param_info}, checkpoint'
             f' directory: {checkpoint_dir}, process_index={process_index}.'
         )
-      return dataclasses.replace(
-          param_info,
-          write_shape=array_metadatas_cache[param_info.name].write_shape,
+      return param_info.replace(
+          write_shape=array_metadatas_cache[param_info.name].write_shape
       )
 
     return jax.tree.map(update_param_info, param_infos)
@@ -1190,7 +1236,6 @@ class BasePyTreeCheckpointHandler(
   async def _write_metadata_after_commits(
       self,
       commit_futures: List[future.Future],
-      checkpoint_dir: epath.Path,
       *,
       param_infos: PyTree,
       save_args: PyTree,
@@ -1204,6 +1249,11 @@ class BasePyTreeCheckpointHandler(
       return
     for commit_future in commit_futures:
       await asyncio.to_thread(commit_future.result)
+
+    await asyncio.gather(
+        *[info.await_path_creation() for info in jax.tree.leaves(param_infos)]
+    )
+    checkpoint_dir = jax.tree.leaves(param_infos)[0].parent_dir
 
     commit_time = time.time()
     # `write_shape` is extracted from ArrayMetadata store saved during
@@ -1397,6 +1447,8 @@ class BasePyTreeSaveArgs(CheckpointArgs):
     custom_metadata: User-provided custom metadata. An arbitrary
       JSON-serializable dictionary the user can use to store additional
       information. The field is treated as opaque by Orbax.
+    partial_save_mode: When True, signals that this save is a partial save
+      operation. The handler will merge the new data with existing checkpoint
   """
 
   item: PyTree

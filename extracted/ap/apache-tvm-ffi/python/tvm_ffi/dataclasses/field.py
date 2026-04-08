@@ -14,156 +14,231 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Public helpers for describing dataclass-style defaults on FFI proxies."""
+"""Field descriptor and ``field()`` helper for Python-defined TVM-FFI types."""
 
 from __future__ import annotations
 
-from dataclasses import _MISSING_TYPE, MISSING
-from typing import Any, Callable, TypeVar, cast
+import sys
+from collections.abc import Callable
+from typing import Any, ClassVar
 
-try:
-    from dataclasses import KW_ONLY  # ty: ignore[unresolved-import]
-except ImportError:
-    # Python < 3.10: define our own KW_ONLY sentinel
-    class _KW_ONLY_Sentinel:
-        __slots__ = ()
+from ..core import MISSING, TypeSchema
 
-    KW_ONLY = _KW_ONLY_Sentinel()
+# Re-export the stdlib KW_ONLY sentinel so type checkers recognise
+# ``_: KW_ONLY`` as a keyword-only boundary rather than a real field.
+# dataclasses.KW_ONLY was added in Python 3.10; on older runtimes we
+# define a class sentinel (a class, not an instance, so that ``_: KW_ONLY``
+# is a valid type annotation for static analysers targeting 3.9).
+if sys.version_info >= (3, 10):
+    from dataclasses import KW_ONLY
+else:
 
-_FieldValue = TypeVar("_FieldValue")
-_KW_ONLY_TYPE = type(KW_ONLY)
+    class KW_ONLY:
+        """Sentinel type: annotations after ``_: KW_ONLY`` are keyword-only."""
 
 
 class Field:
-    """(Experimental) Descriptor placeholder returned by :func:`tvm_ffi.dataclasses.field`.
+    """Descriptor for a single field in a Python-defined TVM-FFI type.
 
-    A ``Field`` mirrors the object returned by :func:`dataclasses.field`, but it
-    is understood by :func:`tvm_ffi.dataclasses.c_class`.  The decorator inspects
-    the ``Field`` instances, records the ``default_factory`` and later replaces
-    the field with a property that forwards to the underlying C++ attribute.
+    When constructed directly (low-level API), *name* and *ty* should be
+    provided.  When returned by :func:`field` (``@py_class`` workflow),
+    *name* and *ty* are ``None`` and filled in by the decorator.
 
-    Users should not instantiate ``Field`` directly - use :func:`field` instead,
-    which guarantees that ``name`` and ``default_factory`` are populated in a
-    way the decorator understands.
+    Parameters
+    ----------
+    name : str | None
+        The field name.  ``None`` when created via :func:`field`; filled
+        in by the ``@py_class`` decorator.
+    ty : TypeSchema | None
+        The type schema.  ``None`` when created via :func:`field`; filled
+        in by the ``@py_class`` decorator.
+    default : object
+        Default value for the field. Mutually exclusive with *default_factory*.
+        ``MISSING`` when not set.
+    default_factory : Callable[[], object] | None
+        A zero-argument callable that produces the default value.
+        Mutually exclusive with *default*.  ``None`` when not set.
+    init : bool
+        Whether this field appears in the auto-generated ``__init__``.
+    repr : bool
+        Whether this field appears in ``__repr__`` output.
+    hash : bool | None
+        Whether this field participates in recursive hashing.
+        ``None`` means "follow *compare*" (the native dataclass default).
+    compare : bool
+        Whether this field participates in recursive comparison.
+    kw_only : bool | None
+        Whether this field is keyword-only in ``__init__``.
+        ``None`` means "inherit from the decorator-level *kw_only* flag".
+    structural_eq : str | None
+        Structural equality/hashing annotation for this field.  Valid
+        values are:
+
+        - ``None`` (default): the field participates normally in
+          structural comparison and hashing.
+        - ``"ignore"``: the field is excluded from structural equality
+          and hashing entirely (e.g. source spans, caches).
+        - ``"def"``: the field is a **definition region** that introduces
+          new variable bindings.  Free variables encountered inside this
+          field are mapped by position, enabling alpha-equivalence.
+    doc : str | None
+        Optional docstring for the field.
+
     """
 
-    __slots__ = ("default_factory", "init", "kw_only", "name")
+    __slots__ = (
+        "compare",
+        "default",
+        "default_factory",
+        "doc",
+        "hash",
+        "init",
+        "kw_only",
+        "name",
+        "repr",
+        "structural_eq",
+        "ty",
+    )
+    name: str | None
+    ty: TypeSchema | None
+    default: object
+    default_factory: Callable[[], object] | None
+    init: bool
+    repr: bool
+    hash: bool | None
+    compare: bool
+    kw_only: bool | None
+    structural_eq: str | None
+    doc: str | None
 
-    def __init__(
+    #: Valid values for the *structural_eq* parameter.
+    _VALID_STRUCTURAL_EQ_VALUES: ClassVar[frozenset[str | None]] = frozenset(
+        {None, "ignore", "def"}
+    )
+
+    def __init__(  # noqa: PLR0913
         self,
-        *,
         name: str | None = None,
-        default_factory: Callable[[], _FieldValue] | _MISSING_TYPE = MISSING,
+        ty: TypeSchema | None = None,
+        *,
+        default: object = MISSING,
+        default_factory: Callable[[], object] | None = MISSING,  # type: ignore[assignment]
         init: bool = True,
-        kw_only: bool | _MISSING_TYPE = MISSING,
+        repr: bool = True,
+        hash: bool | None = True,
+        compare: bool = False,
+        kw_only: bool | None = False,
+        structural_eq: str | None = None,
+        doc: str | None = None,
     ) -> None:
-        """Do not call directly; use :func:`field` instead."""
+        # MISSING means "parameter not provided".
+        # An explicit None from the user fails the callable() check,
+        # matching stdlib dataclasses semantics.
+        if default_factory is not MISSING:
+            if default is not MISSING:
+                raise ValueError("cannot specify both default and default_factory")
+            if not callable(default_factory):
+                raise TypeError(
+                    f"default_factory must be a callable, got {type(default_factory).__name__}"
+                )
+        if structural_eq not in Field._VALID_STRUCTURAL_EQ_VALUES:
+            raise ValueError(
+                f"structural_eq must be one of "
+                f"{sorted(Field._VALID_STRUCTURAL_EQ_VALUES, key=str)}, "
+                f"got {structural_eq!r}"
+            )
         self.name = name
+        self.ty = ty
+        self.default = default
         self.default_factory = default_factory
         self.init = init
+        self.repr = repr
+        self.hash = hash
+        self.compare = compare
         self.kw_only = kw_only
+        self.structural_eq = structural_eq
+        self.doc = doc
 
 
 def field(
     *,
-    default: _FieldValue | _MISSING_TYPE = MISSING,
-    default_factory: Callable[[], _FieldValue] | _MISSING_TYPE = MISSING,
+    default: object = MISSING,
+    default_factory: Callable[[], object] | None = MISSING,  # type: ignore[assignment]
     init: bool = True,
-    kw_only: bool | _MISSING_TYPE = MISSING,
-) -> _FieldValue:
-    """(Experimental) Declare a dataclass-style field on a :func:`c_class` proxy.
+    repr: bool = True,
+    hash: bool | None = None,
+    compare: bool = True,
+    kw_only: bool | None = None,
+    structural_eq: str | None = None,
+    doc: str | None = None,
+) -> Any:
+    """Customize a field in a ``@py_class``-decorated class.
 
-    Use this helper exactly like :func:`dataclasses.field` when defining the
-    Python side of a C++ class.  When :func:`c_class` processes the class body it
-    replaces the placeholder with a property and arranges for ``default`` or
-    ``default_factory`` to be respected by the synthesized ``__init__``.
+    Returns a :class:`Field` sentinel whose *name* and *ty* are
+    ``None``.  The ``@py_class`` decorator fills them in later
+    from the class annotations.
+
+    The return type is ``Any`` because ``dataclass_transform`` field
+    specifiers must be assignable to any annotated type (e.g.
+    ``x: int = field(default=0)``).
 
     Parameters
     ----------
     default
-        A literal default value that populates the field when no argument
-        is given. At most one of ``default`` or ``default_factory`` may be
-        given.
+        Default value for the field.  Mutually exclusive with *default_factory*.
     default_factory
-        A zero-argument callable that produces the default.  This matches the
-        semantics of :func:`dataclasses.field` and is useful for mutable
-        defaults such as ``list`` or ``dict``.
+        A zero-argument callable that produces the default value.
+        Mutually exclusive with *default*.
     init
-        If ``True`` the field is included in the generated ``__init__``.
-        If ``False`` the field is omitted from input arguments of ``__init__``.
+        Whether this field appears in the auto-generated ``__init__``.
+    repr
+        Whether this field appears in ``__repr__`` output.
+    hash
+        Whether this field participates in recursive hashing.
+        ``None`` (default) means "follow *compare*".
+    compare
+        Whether this field participates in recursive comparison.
     kw_only
-        If ``True``, the field is a keyword-only argument in ``__init__``.
-        If ``MISSING``, inherits from the class-level ``kw_only`` setting or
-        from a preceding ``KW_ONLY`` sentinel annotation.
-
-    Note
-    ----
-    The decision to forward a field to the C++ ``__ffi_init__`` constructor
-    depends on its configuration:
-
-    *   If ``init=True``, the field's value (from user input or defaults)
-        is forwarded.
-
-    *   If ``init=False``:
-
-        -   With a ``default`` or ``default_factory``, its computed value is
-            forwarded. The user cannot provide this value via Python ``__init__``.
-
-        -   Without a ``default`` or ``default_factory``, the field is *not*
-            forwarded to C++ ``__ffi_init__`` and must be initialized by the
-            C++ constructor.
+        Whether this field is keyword-only in ``__init__``.
+        ``None`` means "inherit from the decorator-level ``kw_only`` flag".
+    structural_eq
+        Structural equality/hashing annotation. ``None`` (default) means
+        the field participates normally. ``"ignore"`` excludes the field
+        from structural comparison and hashing. ``"def"`` marks the field
+        as a definition region for variable binding.
+    doc
+        Optional docstring for the field.
 
     Returns
     -------
-    Field
-        A placeholder object that :func:`c_class` will consume during class
-        registration.
+    Any
+        A :class:`Field` sentinel recognised by ``@py_class``.
 
     Examples
     --------
-    ``field`` integrates with :func:`c_class` to express defaults the same way a
-    Python ``dataclass`` would:
-
     .. code-block:: python
 
-        @c_class("testing.TestCxxClassBase")
-        class PyBase:
-            v_i64: int
-            v_i32: int = field(default=16)
+        @py_class
+        class Point(Object):
+            x: float
+            y: float = field(default=0.0, repr=False)
 
 
-        obj = PyBase(v_i64=4)
-        obj.v_i32  # -> 16
-
-    Use ``kw_only=True`` to make a field keyword-only:
-
-    .. code-block:: python
-
-        @c_class("testing.TestCxxClassBase")
-        class PyBase:
-            v_i64: int
-            v_i32: int = field(kw_only=True)
-
-
-        obj = PyBase(4, v_i32=8)  # v_i32 must be keyword
+        @py_class(structural_eq="tree")
+        class MyFunc(Object):
+            params: Array = field(structural_eq="def")
+            body: Expr
+            span: Object = field(structural_eq="ignore")
 
     """
-    if default is not MISSING and default_factory is not MISSING:
-        raise ValueError("Cannot specify both `default` and `default_factory`")
-    if not isinstance(init, bool):
-        raise TypeError("`init` must be a bool")
-    if kw_only is not MISSING and not isinstance(kw_only, bool):
-        raise TypeError(f"`kw_only` must be a bool, got {type(kw_only).__name__!r}")
-    if default is not MISSING:
-        default_factory = _make_default_factory(default)
-    ret = Field(default_factory=default_factory, init=init, kw_only=kw_only)
-    return cast(_FieldValue, ret)
-
-
-def _make_default_factory(value: Any) -> Callable[[], Any]:
-    """Make a default factory that returns the given value."""
-
-    def factory() -> Any:
-        return value
-
-    return factory
+    return Field(
+        default=default,
+        default_factory=default_factory,
+        init=init,
+        repr=repr,
+        hash=hash,
+        compare=compare,
+        kw_only=kw_only,
+        structural_eq=structural_eq,
+        doc=doc,
+    )

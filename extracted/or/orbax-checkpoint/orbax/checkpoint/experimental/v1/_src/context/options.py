@@ -39,15 +39,32 @@ from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
 class AsyncOptions:
   """Options used to configure async behavior.
 
-  timeout_secs:
-    The timeout in seconds for the async save operation.
-  post_finalization_callback:
-    A function that is called after the async save operation is complete.
-  create_directories_asynchronously:
-    If True, creates directories asynchronously in the background.
+  This dataclass defines the configuration parameters for asynchronous 
+  checkpoint saving operations within the Orbax framework.
+
+  Example:
+    Initialize async configuration with a custom timeout and callback::
+
+      from orbax.checkpoint.v1.options import AsyncOptions
+
+      def my_callback():
+          print("Async save successfully finalized.")
+
+      options = AsyncOptions(
+          timeout_secs=300,
+          post_finalization_callback=my_callback,
+          create_directories_asynchronously=False
+      )
+
+  Attributes:
+    timeout_secs: The timeout in seconds for the async save operation.
+    post_finalization_callback: A function that is called after the async save
+      operation is complete.
+    create_directories_asynchronously: If True, creates directories
+      asynchronously in the background.
   """
 
-  timeout_secs: int = 600  # 10 minutes.
+  timeout_secs: int = 1200  # 20 minutes.
   post_finalization_callback: Callable[[], None] | None = None
   create_directories_asynchronously: bool = True
 
@@ -63,21 +80,40 @@ class AsyncOptions:
 class MultiprocessingOptions:
   """Options used to configure multiprocessing behavior.
 
-  primary_host:
-    The host id of the primary host.  Default to 0.  If it's set to None, then
-    all hosts will be considered as primary.  It's useful in the case that all
-    hosts are only working with local storage.
-  active_processes:
-    A set of process indices (corresponding to :py:func:`.process_index`) over
-    which :py:class:`~.v1.training.Checkpointer` is expected to be called.
-    This makes it possible to have a :py:class:`~.v1.training.Checkpointer`
-    instance that runs over a subset of processes, rather than all processes as
-    it is normally expected to do. If specified, `primary_host` must belong to
-    `active_processes`.
-  barrier_sync_key_prefix:
-    A string to be prepended to the barrier sync key used to synchronize
-    processes. This is useful to avoid collisions with other barrier syncs if
-    another :py:class:`~.v1.training.Checkpointer` is being used concurrently.
+  NOTE: These options are generally dangerous to mess with unless you know what
+  you're doing.
+
+  This dataclass defines the configuration parameters for multiprocessing
+  checkpoint saving operations within the Orbax framework.
+
+  Example:
+    Configure a multi-host setup where process 1 is designated as the primary
+    host, only a subset of processes are active, and a custom barrier key is
+    used to prevent collisions with other concurrent checkpointers::
+
+      from orbax.checkpoint.v1.options import
+      MultiprocessingOptions
+
+      options = MultiprocessingOptions(
+          primary_host=1,
+          active_processes={1, 2, 3},
+          barrier_sync_key_prefix="model_a_sync_"
+
+  Attributes:
+    primary_host: The host id of the primary host.  Default to 0.  If it's set
+      to None, then all hosts will be considered as primary.  It's useful in the
+      case that all hosts are only working with local storage.
+    active_processes:
+      A set of process indices (corresponding to :py:func:`.process_index`) over
+      which :py:class:`~.v1.training.Checkpointer` is expected to be called.
+      This makes it possible to have a :py:class:`~.v1.training.Checkpointer`
+      instance that runs over a subset of processes, rather than all processes
+      as it is normally expected to do. If specified, `primary_host` must belong
+      to `active_processes`.
+    barrier_sync_key_prefix: A string to be prepended to the barrier sync key
+      used to synchronize processes. This is useful to avoid collisions with
+      other barrier syncs if another :py:class:`~.v1.training.Checkpointer` is
+      being used concurrently.
   """
 
   primary_host: int | None = 0
@@ -97,18 +133,31 @@ class MultiprocessingOptions:
 class FileOptions:
   """Options used to configure checkpoint directories and files.
 
+  This dataclass defines the configuration parameters for creating and managing
+  checkpoint directories and files on disk.
+
+  Example:
+    Configure checkpoint files to use strict directory permissions (e.g.,
+    read/write/execute for owner, read/execute for group)::
+
+      from orbax.checkpoint.v1.options import FileOptions
+
+      options = FileOptions(
+          path_permission_mode=0o750
+      )
+
   Attributes:
     path_permission_mode:
       Path permission mode for step directories, user metadata files. e.g.
       0o750. Please check
       https://github.com/google/etils/blob/main/etils/epath/backend.py if your
-      path is supported. default=None.
+      path is supported.
     temporary_path_class:
       A class that is used to create and finalize temporary paths, and to ensure
       atomicity.
     path_class:
-      The implementation of :py:class:`~.v1.path.Path` to use.  Defaults to 
-      `etils.epath.Path`, but may be overridden to some other subclass of 
+      The implementation of :py:class:`~.v1.path.Path` to use.  Defaults to
+      `etils.epath.Path`, but may be overridden to some other subclass of
       :py:class:`~.v1.path.Path`.
   """
 
@@ -129,6 +178,32 @@ class FileOptions:
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class PyTreeOptions:
   """Options used to configure PyTree saving and loading.
+
+  This dataclass defines the configuration parameters for creating and managing
+  PyTree saving and loading on disk.
+
+  # TODO: Include an example of registering a custom LeafHandler.
+
+  Example:
+    To save certain leaves in float16, while others in float32, we can use
+    `create_array_storage_options_fn` like so::
+
+      import jax
+      import jax.numpy as jnp
+      from orbax.checkpoint.v1 import options as ocp_options
+
+      def create_opts_fn(keypath, value):
+        if 'small' in jax.tree_util.keystr(keypath):
+          return ocp_options.ArrayOptions.Saving.StorageOptions(
+              dtype=jnp.float16
+          )
+        return ocp_options.ArrayOptions.Saving.StorageOptions(dtype=jnp.float32)
+
+      pytree_options = ocp_options.PyTreeOptions(
+          saving=ocp_options.PyTreeOptions.Saving(
+              create_array_storage_options_fn=create_opts_fn
+          )
+      )
 
   Attributes:
     saving: Options for saving PyTrees.
@@ -183,6 +258,26 @@ class PyTreeOptions:
 class ArrayOptions:
   """Options used to configure array saving and loading.
 
+  This dataclass defines the high-level configuration parameters for array
+  checkpointing operations within the Orbax framework. Because it is defined
+  as a frozen, keyword-only dataclass, instances are strictly immutable once
+  created, and all parameters must be explicitly specified by their keyword
+  names during initialization.
+
+  Example:
+    Configure array options with specific saving formats and loading behaviors::
+
+      from orbax.checkpoint.v1.options import ArrayOptions
+
+      options = ArrayOptions(
+          saving=ArrayOptions.Saving(
+              use_zarr3=True,
+              use_compression=False,
+          ),
+          loading=ArrayOptions.Loading(
+              enable_padding_and_truncation=True
+      )
+
   Attributes:
     saving: Options for saving arrays.
     loading: Options for loading arrays.
@@ -193,9 +288,6 @@ class ArrayOptions:
     """Options for saving arrays.
 
     Attributes:
-      concurrent_bytes: Max concurrent bytes that are allowed for writing. Can
-        help to reduce the possibility of OOM's when large checkpoints are
-        saved.
       storage_options: Options used to customize array storage behavior for
         individual leaves. See below.
       use_ocdbt: Enables OCDBT format.
@@ -252,7 +344,6 @@ class ArrayOptions:
       chunk_byte_size: int | None = None
       shard_axes: tuple[int, ...] = tuple()
 
-    concurrent_bytes: int | None = None
     storage_options: StorageOptions = dataclasses.field(
         default_factory=StorageOptions
     )
@@ -262,7 +353,7 @@ class ArrayOptions:
     ocdbt_target_data_file_size: int | None = None
     enable_pinned_host_transfer: bool | None = None
     enable_post_merge_validation: bool = True
-    use_replica_parallel: bool = True
+    use_replica_parallel: bool | None = None
     min_slice_bytes_for_replica_parallel: int | None = None
     max_replicas_for_replica_parallel: int | None = None
     enable_replica_parallel_separate_folder: bool = False
@@ -275,18 +366,50 @@ class ArrayOptions:
   class Loading:
     """Options for loading arrays.
 
-    concurrent_bytes:
-      Max concurrent bytes that are allowed for reading. Can help to reduce the
-      possibility of OOM's when large checkpoints are restored.
     enable_padding_and_truncation:
       If True, restoration allows silent truncating/padding of arrays if the
       stored array shape does not match the target shape. Otherwise, raises an
       error.
+    raise_array_data_missing_error:
+      If True, raises an error if array data is missing. Otherwise allows
+      returning zeros from an array range that was not necessarily written to.
+    use_load_and_broadcast: Whether to use load-and-broadcast for multi-replica
+      loading. This is useful when the model has multiple replicas across
+      different sets of devices (commonly across multiple TPU slices, but also
+      applies to data-parallel model replicas within a single slice). Array
+      shardings must be structured so that the mesh has a dimension on which
+      all model weights are replicated. The checkpoint will then be loaded only
+      on the hosts and devices taken from replica `primary_replica_id` along the
+      `replica_axis_index` dimension. It will then be broadcast to all other
+      replicas.
     """
 
-    concurrent_bytes: int | None = None
+    @dataclasses.dataclass(frozen=True, kw_only=True)
+    class LoadAndBroadcastOptions:
+      """Used to configure load-and-broadcast behavior in multi-replica loading.
+
+      replica_axis_index: Defines the axis of the global mesh along which
+        replicas are defined. E.g. all devices in
+        global_mesh.devices[replica_axis_index] are part of the same replica.
+      primary_replica_id: The id of the replica that is used to load and
+        broadcast the checkpoint.
+      broadcast_memory_limit_bytes: Specifies the memory size (in bytes) used
+        for broadcasting data.
+      broadcast_memory_scaling_factor: Specifies the fraction of available
+        memory to use for broadcasting data.
+      """
+
+      replica_axis_index: int | None = 0
+      primary_replica_id: int | None = 0
+      broadcast_memory_limit_bytes: int | None = None
+      broadcast_memory_scaling_factor: float | None = 0.75
+
     enable_padding_and_truncation: bool = False
     raise_array_data_missing_error: bool = True
+    use_load_and_broadcast: bool = False
+    load_and_broadcast_options: LoadAndBroadcastOptions = dataclasses.field(
+        default_factory=LoadAndBroadcastOptions
+    )
 
   saving: Saving = dataclasses.field(default_factory=Saving)
   loading: Loading = dataclasses.field(default_factory=Loading)
@@ -344,9 +467,9 @@ class CheckpointablesOptions:
   ) -> CheckpointablesOptions:
     registry = registration.local_registry(include_global_registry=True)
     for handler in handlers:
-      registry.add(handler, None)
+      registry.add(handler, checkpointable_name=None)
     for name, handler in named_handlers.items():
-      registry.add(handler, name)
+      registry.add(handler, checkpointable_name=name)
     return cls(registry=registry)
 
 
@@ -359,6 +482,92 @@ class PathwaysOptions:
   """
 
   checkpointing_impl: pathways_types.CheckpointingImpl | None = None
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class DeletionOptions:
+  """Options used to configure checkpoint deletion behavior.
+
+  Attributes:
+    gcs_deletion_options: Deletion options specific to GCS.
+  """
+
+  @dataclasses.dataclass(frozen=True, kw_only=True)
+  class GcsDeletionOptions:
+    """Deletion options specific to GCS.
+
+    Attributes:
+      todelete_full_path: A path relative to the bucket root for "soft-deleting"
+        checkpoints on Google Cloud Storage (GCS). Instead of being permanently
+        removed, checkpoints are moved to this new location within the same
+        bucket. This is useful if direct deletion on GCS is time-consuming, as
+        it allows an external component to manage the actual removal.
+
+        This option gathers all "deleted" items in a centralized path at the
+        bucket level for future cleanup.
+
+        For instance, if a checkpoint is in
+        gs://my-bucket/experiments/run1/, providing the value 'trash' will move
+        a deleted step to gs://my-bucket/trash/<step_id>. Useful when direct
+        deletion is time consuming. It gathers all deleted items in a
+        centralized path for future cleanup.
+    """
+
+    todelete_full_path: str | None = None
+
+
+  gcs_deletion_options: GcsDeletionOptions = dataclasses.field(
+      default_factory=GcsDeletionOptions
+  )
+
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class MemoryOptions:
+  """Options for configuring memory limits for save / load.
+
+  Can help to reduce the possibility of OOM's when large checkpoints are
+  saved or loaded.
+
+  Attributes:
+    write_concurrent_bytes: Max concurrent bytes that are allowed for writing
+      (per host). This applies only to *additional* memory used beyond the
+      baseline space required to hold the model weights in memory. E.g. if
+      model weights require 100 GB of memory in RAM, a setting below 100 GB
+      will not prevent 100 GB from being allocated, but will prevent
+      additional memory from being used during the write to disk.
+      `None` indicates no limit.
+    read_concurrent_bytes:
+      Max concurrent bytes that are allowed for reading.
+      `None` indicates no limit.
+    transfer_concurrent_bytes: Max concurrent bytes allowed for device-to-host
+      transfers (per host). When the limit is reached, arrays must be finished
+      writing to the checkpoint before a new array can start being
+      transferred. E.g. if the limit is 100 GB, and model weights would
+      require 120 GB of RAM, then the remaining 20 GB will not be able to
+      start D2H transfer until the first 100 GB have finished being written to
+      the checkpoint. Note that asynchronous saves may not be truly
+      asynchronous with this option enabled, as we have to block on some array
+      writes before beginning others. Also see `is_prioritized_key_fn`.
+      `None` indicates no limit.
+    is_prioritized_key_fn: A function that accepts a PyTree keypath (obtained
+      using jax.tree.map_with_path) that should be scheduled for D2H transfer
+      before other keys. The transfer is scheduled before returning to the
+      caller, so the values will never be corrupted by a concurrent update.
+      Keys that are not prioritized will not be scheduled for transfer until
+      all prioritized keys have been fully written to the checkpoint. This
+      means that these values may be altered if the values are updated
+      concurrently. Callers should take care to call `wait_until_finished`
+      before updating array values (e.g. `apply_gradients`) if some keys are
+      not prioritized. Note that any "prioritized" keys are assumed to be
+      lightweight, and `transfer_concurrent_bytes` will be ignored for
+      them.
+  """
+
+  write_concurrent_bytes: int | None = None
+  read_concurrent_bytes: int | None = None
+  transfer_concurrent_bytes: int | None = None
+  is_prioritized_key_fn: serialization_types.IsPrioritizedKeyFn | None = None
 
 
 class CheckpointLayout(enum.Enum):

@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,6 +33,21 @@ def _uuid() -> str:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _compute_duration(started_at: str | None, completed_at: str | None) -> float:
+    """Compute elapsed seconds between two ISO-8601 timestamps.
+
+    Returns 0.0 if either timestamp is missing or unparseable.
+    """
+    if not started_at or not completed_at:
+        return 0.0
+    try:
+        t0 = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+        t1 = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
+        return round((t1 - t0).total_seconds(), 2)
+    except Exception:
+        return 0.0
 
 
 class BackgroundTaskManager:
@@ -107,7 +123,10 @@ class BackgroundTaskManager:
 
         # Spawn collector coroutine
         async def _collect() -> None:
+            from .task_result import TaskResult
+
             job_handle: int | None = None
+            start_ts = time.monotonic()
             try:
                 # Match foreground bash: stdin=DEVNULL, cwd from working dir
                 proc = await asyncio.create_subprocess_shell(
@@ -150,13 +169,17 @@ class BackgroundTaskManager:
                     proc.kill()
                     await proc.wait()
                     stdout_bytes, stderr_bytes = b"", b""
+                    elapsed = time.monotonic() - start_ts
+                    timeout_msg = f"Command timed out after {timeout}s"
+                    timeout_result = TaskResult.from_shell_task(-1, "", timeout_msg, elapsed, task_id)
                     db.execute(
                         "UPDATE background_tasks SET status = 'failed', exit_code = -1, "
-                        "completed_at = ?, stderr_preview = ? WHERE id = ?",
-                        (_now(), f"Command timed out after {timeout}s", task_id),
+                        "completed_at = ?, stderr_preview = ?, metadata_json = ? WHERE id = ?",
+                        (_now(), timeout_msg, json.dumps({"task_result": timeout_result.to_dict()}), task_id),
                     )
                     db.commit()
                     if self._event_bus:
+                        elapsed = round(time.monotonic() - start_ts, 2)
                         await self._event_bus.publish(
                             f"conversation:{conversation_id}",
                             {
@@ -166,6 +189,7 @@ class BackgroundTaskManager:
                                     "command": command[:80],
                                     "status": "failed",
                                     "exit_code": -1,
+                                    "duration_seconds": elapsed,
                                 },
                             },
                         )
@@ -174,20 +198,34 @@ class BackgroundTaskManager:
                 exit_code = proc.returncode or 0
                 status = "completed" if exit_code == 0 else "failed"
                 completed_at = _now()
+                elapsed = time.monotonic() - start_ts
 
                 # Capture previews (last 2KB)
-                stdout_preview = (stdout_bytes[-_MAX_PREVIEW_BYTES:]).decode("utf-8", errors="replace")
-                stderr_preview = (stderr_bytes[-_MAX_PREVIEW_BYTES:]).decode("utf-8", errors="replace")
+                stdout_str = stdout_bytes.decode("utf-8", errors="replace")
+                stderr_str = stderr_bytes.decode("utf-8", errors="replace")
+                stdout_preview = stdout_str[-_MAX_PREVIEW_BYTES:]
+                stderr_preview = stderr_str[-_MAX_PREVIEW_BYTES:]
+
+                task_result = TaskResult.from_shell_task(exit_code, stdout_str, stderr_str, elapsed, task_id)
 
                 db.execute(
                     "UPDATE background_tasks SET status = ?, exit_code = ?, completed_at = ?, "
-                    "stdout_preview = ?, stderr_preview = ? WHERE id = ?",
-                    (status, exit_code, completed_at, stdout_preview, stderr_preview, task_id),
+                    "stdout_preview = ?, stderr_preview = ?, metadata_json = ? WHERE id = ?",
+                    (
+                        status,
+                        exit_code,
+                        completed_at,
+                        stdout_preview,
+                        stderr_preview,
+                        json.dumps({"task_result": task_result.to_dict()}),
+                        task_id,
+                    ),
                 )
                 db.commit()
 
                 # Publish completion event
                 if self._event_bus:
+                    elapsed = round(time.monotonic() - start_ts, 2)
                     await self._event_bus.publish(
                         f"conversation:{conversation_id}",
                         {
@@ -197,6 +235,7 @@ class BackgroundTaskManager:
                                 "command": command[:80],
                                 "status": status,
                                 "exit_code": exit_code,
+                                "duration_seconds": elapsed,
                             },
                         },
                     )
@@ -283,6 +322,8 @@ class BackgroundTaskManager:
         """Return tasks that completed since the last poll.
 
         Used by the CLI background poller for notification rendering.
+        Each result includes a ``duration_seconds`` field computed from
+        ``started_at`` and ``completed_at``.
         """
         if self._last_poll_time is None:
             self._last_poll_time = _now()
@@ -293,7 +334,12 @@ class BackgroundTaskManager:
             (self._last_poll_time,),
         )
         self._last_poll_time = _now()
-        return [self._deserialize(dict(r)) for r in rows]
+        results = []
+        for r in rows:
+            task = self._deserialize(dict(r))
+            task["duration_seconds"] = _compute_duration(task.get("started_at"), task.get("completed_at"))
+            results.append(task)
+        return results
 
     def cancel_task(self, task_id: str) -> bool:
         """Cancel a running background task."""

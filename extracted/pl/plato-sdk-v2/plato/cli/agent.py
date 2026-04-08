@@ -681,6 +681,11 @@ def agent_publish(
         help="Skip Docker build; retag the current :latest image with the new version tag instead",
     ),
     no_cache: bool = typer.Option(False, "--no-cache", help="Build Docker image without cache"),
+    no_skip_docker: bool = typer.Option(
+        False,
+        "--no-skip-docker",
+        help="Force Docker rebuild even with --dev (overrides the default skip behavior)",
+    ),
 ):
     """Build and publish an agent package to the Plato agents repository.
 
@@ -696,7 +701,15 @@ def agent_publish(
         -a, --all: Publish all agents found in the target directory
         --dry-run: Build without uploading
         --skip-docker: Retag :latest instead of rebuilding Docker image
+        --no-skip-docker: Force Docker rebuild even with --dev
     """
+
+    # --dev implies --skip-docker unless --no-skip-docker is explicitly passed
+    if dev and not skip_docker and not no_skip_docker:
+        skip_docker = True
+        console.print(
+            "[dim]--dev implies --skip-docker (retag instead of rebuild). Use --no-skip-docker to force a rebuild.[/dim]"
+        )
 
     # Handle --all flag with directory
     if all_agents:
@@ -761,11 +774,8 @@ def _push_single_agent(
 
     Builds the package and uploads to the Plato agents repository.
     """
-    # Dev publishes skip Docker by default — dev versions are for quick
-    # iteration on agent code and shouldn't rebuild the image.
-    if dev and not skip_docker:
-        skip_docker = True
-        console.print("[dim]--dev implies --skip-docker (retag instead of rebuild)[/dim]")
+    # NOTE: The dev/skip_docker default is handled by the CLI entry point.
+    # Do not override skip_docker here.
     # Load pyproject.toml for version
     pyproject_file = pkg_path / "pyproject.toml"
     if not pyproject_file.exists():
@@ -1278,7 +1288,7 @@ else:
             "-c",
             """
 try:
-    from plato.agents.runtime.vm import PlatoVMRuntime
+    from plato.runtimes.vm import VMRuntime
     print('OK')
 except ImportError as e:
     print(f'IMPORT_ERROR: {e}')
@@ -1290,16 +1300,16 @@ except Exception as e:
         text=True,
     )
     if result.returncode == 0 and "OK" in result.stdout:
-        console.print("   [green]✓[/green] PlatoVMRuntime importable")
+        console.print("   [green]✓[/green] VMRuntime importable")
         checks_passed += 1
     else:
         error_line = [line for line in result.stdout.split("\n") if "ERROR" in line]
         if error_line:
-            console.print("   [red]✗[/red] PlatoVMRuntime not available - SDK too old!")
+            console.print("   [red]✗[/red] VMRuntime not available - SDK too old!")
             console.print(f"      {error_line[0]}")
             console.print("      [dim]Rebuild with --sdk-path pointing to newer SDK[/dim]")
         else:
-            console.print("   [red]✗[/red] PlatoVMRuntime not available")
+            console.print("   [red]✗[/red] VMRuntime not available")
         checks_failed += 1
 
     # Summary

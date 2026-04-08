@@ -1845,6 +1845,7 @@ class RunJobFlowInputTypeDef(TypedDict):
     AmiVersion: NotRequired[str]
     ReleaseLabel: NotRequired[str]
     Steps: NotRequired[Sequence[StepConfigUnionTypeDef]]
+    StepExecutionRoleArn: NotRequired[str]
     BootstrapActions: NotRequired[Sequence[BootstrapActionConfigUnionTypeDef]]
     SupportedProducts: NotRequired[Sequence[str]]
     NewSupportedProducts: NotRequired[Sequence[SupportedProductConfigTypeDef]]

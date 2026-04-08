@@ -25,12 +25,13 @@ from orbax.checkpoint import checkpoint_manager
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 import orbax.checkpoint.experimental.v1._src.handlers.global_registration  # pylint: disable=unused-import
 from orbax.checkpoint.experimental.v1._src.layout import checkpoint_layout
-from orbax.checkpoint.experimental.v1._src.loading import v0_compatibility as v0_loading_utils
+from orbax.checkpoint.experimental.v1._src.loading import loading
 from orbax.checkpoint.experimental.v1._src.metadata import loading as metadata_loading
 from orbax.checkpoint.experimental.v1._src.metadata import types as metadata_types
 from orbax.checkpoint.experimental.v1._src.path import step as path_step_lib
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.saving import saving
+from orbax.checkpoint.experimental.v1._src.saving import validation
 from orbax.checkpoint.experimental.v1._src.synchronization import types as async_types
 from orbax.checkpoint.experimental.v1._src.training import errors
 from orbax.checkpoint.experimental.v1._src.training import preservation_policies
@@ -86,6 +87,8 @@ class Checkpointer(epy.ContextManager):
           path_step_lib.NameFormat[path_step_lib.Metadata] | None
       ) = None,
       custom_metadata: tree_types.JsonType | None = None,
+      cleanup_tmp_directories: bool = False,
+      lightweight_initialize: bool = False,
   ):
     """Initializes a Checkpointer.
 
@@ -149,6 +152,13 @@ class Checkpointer(epy.ContextManager):
       custom_metadata: A JSON dictionary representing user-specified custom
         metadata. This should be information that is relevant to the entire
         sequence of checkpoints, rather than to any single checkpoint.
+      cleanup_tmp_directories: If True, cleans up any existing temporary
+        directories on Checkpointer creation.
+      lightweight_initialize: If True, checkpoint step metadata is not read on
+        Checkpointer initialization during checkpoint info loading. This is
+        useful to improve init performance when there are O(1k) or more existing
+        checkpoint steps present and checkpoint info properties like `time` and
+        `metrics` are not needed.
     """
     context = context_lib.get_context()
 
@@ -168,9 +178,10 @@ class Checkpointer(epy.ContextManager):
         save_decision_policy=save_decision_policy,
         preservation_policy=preservation_policy,
         step_name_format=step_name_format,
+        cleanup_tmp_directories=cleanup_tmp_directories,
+        lightweight_initialize=lightweight_initialize,
         max_to_keep=None,  # Unlimited.
-        # TODO(b/401541834) Configure todelete_subdir.
-        # TODO(b/401541834) Enable background deletion.
+        todelete_full_path=context.deletion_options.gcs_deletion_options.todelete_full_path,
         async_options=context.async_options.v0(),
         file_options=context.file_options.v0(),
         multiprocessing_options=context.multiprocessing_options.v0(),
@@ -269,7 +280,8 @@ class Checkpointer(epy.ContextManager):
   ) -> bool:
     """Saves a checkpoint, if dictated by :py:class:`.SaveDecisionPolicy`.
 
-    This function behaves similarly to :py:func:`.save_pytree` (see
+    This method behaves similarly to the standalone free function
+    :py:func:`~orbax.checkpoint.v1.save_pytree` (see
     documentation), but performs additional tasks related to managing a sequence
     of checkpoint steps.
 
@@ -288,6 +300,41 @@ class Checkpointer(epy.ContextManager):
     will proceed as normal as long as no other save is currently in progress. If
     a save is already in progress, the function will block until the previous
     save has finished.
+
+    Example usage:
+      1. Basic Usage:
+         Save a PyTree at a specific training step. The checkpointer
+         automatically manages the step-based directory structure inside your
+         root folder::
+
+           from orbax.checkpoint.v1 import training
+
+           # Initialize the checkpointer for a directory
+           ckptr = training.Checkpointer(directory)
+
+           # Save the tree at step 0.
+           saved = ckptr.save_pytree(step=0, pytree=tree)
+
+           # Clean up background threads gracefully when the training loop ends
+           ckptr.close()
+
+      2. Advanced Saving with Metrics and Metadata:
+         Attach JSON-serializable metrics (like loss/accuracy) and custom
+         metadata to a specific step for thorough experiment tracking::
+
+           from orbax.checkpoint.v1 import training
+
+           ckptr = training.Checkpointer(directory)
+
+           ckptr.save_pytree(
+               step=1,
+               pytree=tree,
+               metrics={'loss': 0.12, 'accuracy': 0.95},
+               custom_metadata={'description': 'Model after epoch 1'},
+           )
+
+           ckptr.close()
+
 
     Args:
       step: The step number to save.
@@ -324,7 +371,73 @@ class Checkpointer(epy.ContextManager):
       metrics: tree_types.JsonType | None = None,
       custom_metadata: tree_types.JsonType | None = None,
   ) -> bool:
-    """Saves a set of checkpointables at the given step."""
+    """Saves a dictionary of checkpointable objects at the given step.
+
+    This method saves a dictionary of checkpointable objects, mapping string
+    names to values. See `the guide on Checkpointables
+    <https://orbax.readthedocs.io/en/latest/guides/checkpoint/v1/checkpointables.html>`_
+    for more details on checkpointables. Also see documentation for
+    :py:func:`~orbax.checkpoint.v1.save_pytree`.
+
+    Example:
+      1. Basic Usage:
+         Save multiple named items (checkpointables) at a specific step. The
+         dictionary keys define the names of the saved components::
+
+            from orbax.checkpoint.v1 import training
+
+            # Initialize the checkpointer for a directory
+            ckptr = training.Checkpointer(directory)
+
+            # Save multiple items, such as model weights and optimizer state
+            items_to_save = {
+                'model': my_model_state,
+                'optimizer': my_opt_state,
+            }
+
+            saved = ckptr.save_checkpointables(
+                step=0,
+                checkpointables=items_to_save
+            )
+
+            # Clean up background threads gracefully when the training loop ends
+            ckptr.close()
+
+      2. Advanced Saving with Metrics and Metadata:
+         Attach JSON-serializable metrics and custom metadata to a specific step
+         for thorough experiment tracking::
+
+            from orbax.checkpoint.v1 import training
+
+            ckptr = training.Checkpointer(directory)
+            items_to_save = {'model': my_model_state}
+
+            ckptr.save_checkpointables(
+                step=1,
+                checkpointables=items_to_save,
+                metrics={'loss': 0.12, 'accuracy': 0.95},
+                custom_metadata={'description': 'Model after epoch 1'},
+            )
+
+            ckptr.close()
+
+    Args:
+      step: The step number to save.
+      checkpointables: A dictionary mapping string names to the corresponding
+        objects (checkpointables) that need to be saved.
+      force: If True, ignores all policy checks and always decides to save a
+        checkpoint.
+      overwrite: If True, deletes any existing checkpoint at the given step
+        before saving. Otherwise, raises an error if the checkpoint already
+        exists.
+      metrics: A dictionary of metrics to be saved with the checkpoint. Must be
+        JSON-serializable.
+      custom_metadata: A JSON dictionary representing user-specified custom
+        metadata relevant to the checkpoint at this specific step.
+
+    Returns:
+      bool: True if the checkpoint was successfully saved, False otherwise.
+    """
     return self.save_checkpointables_async(
         step,
         checkpointables,
@@ -344,28 +457,31 @@ class Checkpointer(epy.ContextManager):
       metrics: tree_types.JsonType | None = None,
       custom_metadata: tree_types.JsonType | None = None,
   ) -> async_types.AsyncResponse[bool]:
-    """Saves a checkpoint asynchronously, if dictated by :py:class:`.SaveDecisionPolicy`.
+    """Saves a checkpoint asynchronously.
 
-    See documentation for :py:func:`.save_pytree` for full details. This
-    function is essentially the same, except that it executes mostly in the
-    background, and blocks for as little time as possible (primarily to
-    transfer weights from device to host).
+    This function is the asynchronous equivalent of
+    :py:meth:`~.save_pytree`. It accepts the exact same
+    arguments; please refer to that method for detailed descriptions.
+
+    This method executes mostly in the background, blocking the main thread for
+    as little time as possible.
+
+    Example:
+      ::
+
+        async_response = ckptr.save_pytree_async(step=0, pytree=tree)
+        saved = async_response.result()
 
     Args:
       step: The step number to save.
       pytree: The PyTree to save.
-      force: If True, ignores all :py:class:`.SaveDecisionPolicy` checks, and
-        always decides to save a checkpoint.
-      overwrite: If True, deletes any existing checkpoint at the given step
-        before saving. Otherwise, raises an error if the checkpoint already
-        exists.
-      metrics: A PyTree of metrics to be saved with the checkpoint.
-      custom_metadata: A JSON dictionary representing user-specified custom
-        metadata. This should be information that is relevant to the checkpoint
-        at the given step, rather than to the entire sequence of checkpoints.
+      force: See `save_pytree`.
+      overwrite: See `save_pytree`.
+      metrics: See `save_pytree`.
+      custom_metadata: See `save_pytree`.
 
     Returns:
-      An AsyncResponse, which can be awaited via `result()`, which returns a
+      An `AsyncResponse`, which can be awaited via `result()`, which returns a
       bool indicating whether a checkpoint was saved or not.
     """
     return self.save_checkpointables_async(
@@ -387,7 +503,39 @@ class Checkpointer(epy.ContextManager):
       metrics: tree_types.JsonType | None = None,
       custom_metadata: tree_types.JsonType | None = None,
   ) -> async_types.AsyncResponse[bool]:
-    """Saves a set of checkpointables asynchronously at the given step."""
+    """Saves checkpointable objects asynchronously.
+
+    This function is the asynchronous equivalent of
+    :py:meth:`~.save_checkpointables`. Please refer to that
+    method for detailed instructions and argument descriptions.
+
+    Example:
+      Save checkpointable objects asynchronously::
+
+        async_response = ckptr.save_checkpointables_async(
+            step=0,
+            checkpointables=items_to_save
+        )
+        saved = async_response.result()
+
+    Args:
+      step: The step number to save.
+      checkpointables: A dictionary mapping string names to objects to save.
+      force: See `save_checkpointables`.
+      overwrite: See `save_checkpointables`.
+      metrics: See `save_checkpointables`.
+      custom_metadata: See `save_checkpointables`.
+
+    Returns:
+      An object representing the background operation. Call `.result()` on it
+      to block and return a boolean indicating whether the checkpoint was
+      successfully saved.
+
+    Raises:
+      StepAlreadyExistsError: If `overwrite` is False and a checkpoint at the
+        target `step` already exists.
+    """
+    validation.validate_abstract_checkpointables(checkpointables)
     if overwrite:
       logging.info(
           'Specified `overwrite`: deleting existing checkpoint %d if it'
@@ -423,11 +571,53 @@ class Checkpointer(epy.ContextManager):
   ) -> tree_types.PyTreeOf[tree_types.LeafType]:
     """Loads a PyTree checkpoint at the given step.
 
-    This function behaves similarly to :py:func:`.load_pytree` (see
-    documentation).
+    This method behaves similarly to the standalone free function
+    :py:func:`~orbax.checkpoint.v1.load_pytree`.
+
+    **Note:** Loading a PyTree without providing an `abstract_pytree` is
+    provided purely for convenience. For serious or production use cases, it is
+    STRONGLY recommended to always provide an `abstract_pytree` to ensure the
+    restored PyTree strictly matches the expected shapes, dtypes, and sharding.
+
+    Example:
+      1. Basic Loading:
+         Load a PyTree without providing an abstract structure. By passing
+         `step=None` (or omitting it), it automatically loads the latest step::
+
+           from orbax.checkpoint.v1 import training
+
+           # Initialize the checkpointer for the directory
+           ckptr = training.Checkpointer(directory)
+
+           # Load the saved PyTree from latest step
+           restored_tree = ckptr.load_pytree(step=None)
+
+      2. Loading with an Abstract PyTree:
+         Provide an abstract structure (such as target shapes and dtypes)
+         to ensure the restored PyTree is safely and correctly formatted::
+
+           import jax
+           import jax.numpy as jnp
+           from orbax.checkpoint.v1 import training
+
+           ckptr = training.Checkpointer(directory)
+
+           # Define the expected structure (shapes and dtypes) to restore into
+           target_structure = {
+               'weights': jax.ShapeDtypeStruct((128, 128), dtype=jnp.float32),
+               'bias': jax.ShapeDtypeStruct((128,), dtype=jnp.float32)
+           }
+
+           # Restore exactly matching the target structure
+           restored_tree = ckptr.load_pytree(
+               step=1,
+               abstract_pytree=target_structure
+           )
 
     Args:
-      step: The step number or :py:class:`.CheckpointMetadata` to load.
+      step: The step number or :py:class:`.CheckpointMetadata` to load. If None,
+        the checkpointer will attempt to resolve and load the latest existing
+        checkpoint.
       abstract_pytree: The abstract PyTree to load.
 
     Returns:
@@ -442,19 +632,116 @@ class Checkpointer(epy.ContextManager):
       step: int | CheckpointMetadata | None = None,
       abstract_checkpointables: dict[str, Any] | None = None,
   ) -> dict[str, Any]:
-    """Loads a set of checkpointables at the given step."""
+    """Loads a set of checkpointables at the given step.
+
+    This method behaves similarly to the standalone free function
+    :py:func:`~orbax.checkpoint.v1.load_checkpointables`.
+
+    This function retrieves multiple named items (such as model weights or
+    optimizer states) from a specific checkpoint directory. If no step is
+    provided, it automatically resolves to and loads the most recently saved
+    checkpoint.
+
+    **Note:** Loading without providing an `abstract_checkpointables`
+    dictionary is provided purely for convenience. For serious or production
+    use cases, it is STRONGLY recommended to always provide
+    `abstract_checkpointables` to ensure the restored items strictly match
+    the exact nested structures, shapes, and data types expected.
+
+    Example:
+      1. Basic Loading:
+         Load multiple named items (such as a model and optimizer) from a
+         specific step. If step is omitted, it resolves to the latest
+         available checkpoint::
+
+           from orbax.checkpoint.v1 import training
+
+           # Initialize the checkpointer for the directory
+           ckptr = training.Checkpointer(directory)
+
+           # Load all checkpointables saved at the latest step
+           restored_items = ckptr.load_checkpointables(step=None)
+
+           # Access the individual components by their original string keys
+           my_model = restored_items["model"]
+           my_opt = restored_items["optimizer"]
+
+      2. Loading with Abstract Checkpointables (Recommended):
+         Provide a dictionary of abstract structures to ensure the restored
+         items strictly match your expected shapes and data types::
+
+           import jax
+           import jax.numpy as jnp
+           from orbax.checkpoint.v1 import training
+
+           ckptr = training.Checkpointer(directory)
+
+           # Define the expected structure for each named item using JAX arrays
+           target_items = {
+               "model": {
+                   'weights': jax.ShapeDtypeStruct((128, 128), jnp.float32),
+                   'bias': jax.ShapeDtypeStruct((128,), jnp.float32)
+               },
+               "optimizer": {
+                   'momentum': jax.ShapeDtypeStruct((128, 128), jnp.float32)
+               }
+           }
+
+           # Restore exactly matching the target structures
+           restored_items = ckptr.load_checkpointables(
+               step=1,
+               abstract_checkpointables=target_items
+           )
+
+      3. Partial Loading:
+         If you only need to load a subset of checkpointables (e.g., loading
+         model weights but omitting optimizer state), you can provide an
+         `abstract_checkpointables` dictionary containing only the keys for the
+         items you wish to restore::
+
+           import jax
+           import jax.numpy as jnp
+           from orbax.checkpoint.v1 import training
+
+           ckptr = training.Checkpointer(directory)
+
+           # Define abstract structure for ONLY the items to load
+           target_items = {
+               "model": {
+                   'weights': jax.ShapeDtypeStruct((128, 128), jnp.float32),
+                   'bias': jax.ShapeDtypeStruct((128,), jnp.float32)
+               },
+           }
+
+           # Load only "model", omitting "optimizer"
+           restored_items = ckptr.load_checkpointables(
+               step=1,
+               abstract_checkpointables=target_items
+           )
+           my_model = restored_items["model"]
+           # my_opt = restored_items["optimizer"]
+
+    Args:
+      step: The step number or :py:class:`.CheckpointMetadata` to load. If None,
+        the checkpointer will attempt to resolve and load the latest existing
+        checkpoint.
+      abstract_checkpointables: A dictionary mapping string names to their
+        corresponding abstract structures (e.g., target PyTrees). This guides
+        the loading process to ensure shape and type compliance. If provided, it
+        can be used to load only a subset of checkpointables by providing only a
+        subset of keys.
+
+    Returns:
+      dict[str, Any]: A dictionary containing the loaded checkpointable objects,
+        keyed by string names. If `abstract_checkpointables` was specified,
+        returns only the keys specified in that dict, otherwise returns all
+        keys saved with `save_checkpointables`.
+    """
     step = self._resolve_existing_checkpoint(step).step
-    checkpointer, args = v0_loading_utils.get_v0_checkpointer_and_args(
+    return  loading.load_checkpointables(
         self.directory / self._step_name_format.build_name(step),
         abstract_checkpointables,
-        context=context_lib.get_context(),
     )
-    self._manager._checkpointer = checkpointer  # pylint: disable=protected-access
-    restored = self._manager.restore(
-        step,
-        args=args,
-    )
-    return {k: v for k, v in zip(restored.keys(), restored.values())}
 
   def load_pytree_async(
       self,

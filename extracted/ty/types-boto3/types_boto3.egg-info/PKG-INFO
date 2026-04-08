@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-boto3
-Version: 1.42.84
-Summary: Type annotations for boto3 1.42.84 generated with mypy-boto3-builder 8.12.0
+Version: 1.42.85
+Summary: Type annotations for boto3 1.42.85 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-boto3-full<1.43.0,>=1.42.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.42.84; extra == "boto3"
+Requires-Dist: boto3==1.42.85; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: types-boto3-accessanalyzer<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-account<1.43.0,>=1.42.0; extra == "all"
@@ -373,6 +373,7 @@ Requires-Dist: types-boto3-rtbfabric<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-rum<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-s3<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-s3control<1.43.0,>=1.42.0; extra == "all"
+Requires-Dist: types-boto3-s3files<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-s3outposts<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-s3tables<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-s3vectors<1.43.0,>=1.42.0; extra == "all"
@@ -1138,6 +1139,8 @@ Provides-Extra: s3
 Requires-Dist: types-boto3-s3<1.43.0,>=1.42.0; extra == "s3"
 Provides-Extra: s3control
 Requires-Dist: types-boto3-s3control<1.43.0,>=1.42.0; extra == "s3control"
+Provides-Extra: s3files
+Requires-Dist: types-boto3-s3files<1.43.0,>=1.42.0; extra == "s3files"
 Provides-Extra: s3outposts
 Requires-Dist: types-boto3-s3outposts<1.43.0,>=1.42.0; extra == "s3outposts"
 Provides-Extra: s3tables
@@ -1317,7 +1320,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.42.84](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.42.85](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1375,7 +1378,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.84' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.85' mypy-boto3-builder`
 2. Select `boto3` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1703,9 +1706,9 @@ repository.
 
 ## Submodules
 
-- `types-boto3[full]` - Type annotations for all 420 services in one package
+- `types-boto3[full]` - Type annotations for all 421 services in one package
   (recommended).
-- `types-boto3[all]` - Type annotations for all 420 services in separate
+- `types-boto3[all]` - Type annotations for all 421 services in separate
   packages.
 - `types-boto3[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/),
@@ -2697,6 +2700,9 @@ repository.
   [S3](https://youtype.github.io/types_boto3_docs/types_boto3_s3/) service.
 - `types-boto3[s3control]` - Type annotations for
   [S3Control](https://youtype.github.io/types_boto3_docs/types_boto3_s3control/)
+  service.
+- `types-boto3[s3files]` - Type annotations for
+  [S3Files](https://youtype.github.io/types_boto3_docs/types_boto3_s3files/)
   service.
 - `types-boto3[s3outposts]` - Type annotations for
   [S3Outposts](https://youtype.github.io/types_boto3_docs/types_boto3_s3outposts/)

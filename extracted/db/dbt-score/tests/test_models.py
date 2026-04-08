@@ -23,7 +23,17 @@ def test_manifest_load(mock_read_text, raw_manifest):
         model1 = loader.models["model.package.model1"]
         assert model1.tests[0].name == "test2"
         assert model1.tests[1].name == "test4"
-        assert model1.columns[0].tests[0].name == "test1"
+
+        column_a = model1.columns[0]
+        assert column_a.name == "column_a"
+        assert column_a.config.get("meta", {}).get("custom_property") == "custom_value"
+        assert column_a.config.get("meta", {}).get("info") == "some info"
+        assert column_a.tests[0].name == "test1"
+
+        model2 = loader.models["model.package.model2"]
+        column_a_model2 = model2.columns[0]
+        assert column_a_model2.name == "column_a"
+        assert column_a_model2.config == {}
 
         assert len(loader.sources) == len(
             [
@@ -116,7 +126,7 @@ def test_manifest_select_models_dbt_ls(mock_dbt_ls, mock_read_text, raw_manifest
         manifest_loader = ManifestLoader(Path("some.json"), select=["+model1"])
 
     assert [x.name for x in manifest_loader.models.values()] == ["model1"]
-    mock_dbt_ls.assert_called_once_with(["+model1"])
+    mock_dbt_ls.assert_called_once_with(["+model1"], None)
 
 
 @patch("dbt_score.models.Path.read_text")
@@ -128,3 +138,125 @@ def test_manifest_no_model(mock_dbt_ls, mock_read_text, raw_manifest, caplog):
 
     assert len(manifest_loader.models) == 0
     assert "Nothing to evaluate!" in caplog.text
+
+
+@patch("dbt_score.models.Path.read_text")
+@patch("dbt_score.models.dbt_ls")
+def test_manifest_exclude_simple(mock_dbt_ls, mock_read_text, chain_raw_manifest):
+    """Exclude model1 — model1 is excluded, the rest are included."""
+    with patch("dbt_score.models.json.loads", return_value=chain_raw_manifest):
+        loader = ManifestLoader(Path("some.json"), exclude=["model1"])
+
+    assert sorted(m.name for m in loader.models.values()) == sorted(
+        ["model0", "model2", "model3", "standalone"]
+    )
+    mock_dbt_ls.assert_not_called()
+
+
+@patch("dbt_score.models.Path.read_text")
+@patch("dbt_score.models.dbt_ls")
+def test_manifest_exclude_ancestors(mock_dbt_ls, mock_read_text, chain_raw_manifest):
+    """Exclude +model1 — model0 and model1 are excluded, the rest are included."""
+    mock_dbt_ls.return_value = ["model2", "model3", "standalone"]
+    with patch("dbt_score.models.json.loads", return_value=chain_raw_manifest):
+        loader = ManifestLoader(Path("some.json"), exclude=["+model1"])
+
+    assert sorted(m.name for m in loader.models.values()) == sorted(
+        ["model2", "model3", "standalone"]
+    )
+    mock_dbt_ls.assert_called_once_with(None, ["+model1"])
+
+
+@patch("dbt_score.models.Path.read_text")
+@patch("dbt_score.models.dbt_ls")
+def test_manifest_exclude_descendants(mock_dbt_ls, mock_read_text, chain_raw_manifest):
+    """Exclude model1+ — model0 and standalone are kept.
+
+    model1, model2 and model3 are descendants of model1 (or model1 itself), so excluded.
+    """
+    mock_dbt_ls.return_value = ["model0", "standalone"]
+    with patch("dbt_score.models.json.loads", return_value=chain_raw_manifest):
+        loader = ManifestLoader(Path("some.json"), exclude=["model1+"])
+
+    assert sorted(m.name for m in loader.models.values()) == sorted(
+        ["model0", "standalone"]
+    )
+    mock_dbt_ls.assert_called_once_with(None, ["model1+"])
+
+
+@patch("dbt_score.models.Path.read_text")
+@patch("dbt_score.models.dbt_ls")
+def test_manifest_exclude_non_existing(mock_dbt_ls, mock_read_text, chain_raw_manifest):
+    """Exclude non_existing — all models are included since the model does not exist."""
+    with patch("dbt_score.models.json.loads", return_value=chain_raw_manifest):
+        loader = ManifestLoader(Path("some.json"), exclude=["non_existing"])
+
+    assert sorted(m.name for m in loader.models.values()) == sorted(
+        ["model0", "model1", "model2", "model3", "standalone"]
+    )
+    mock_dbt_ls.assert_not_called()
+
+
+@patch("dbt_score.models.Path.read_text")
+@patch("dbt_score.models.dbt_ls")
+def test_manifest_select_and_exclude_simple(
+    mock_dbt_ls, mock_read_text, chain_raw_manifest
+):
+    """Select model2 and exclude model1 — only model2 is included."""
+    with patch("dbt_score.models.json.loads", return_value=chain_raw_manifest):
+        loader = ManifestLoader(
+            Path("some.json"), select=["model2"], exclude=["model1"]
+        )
+
+    assert [m.name for m in loader.models.values()] == ["model2"]
+    mock_dbt_ls.assert_not_called()
+
+
+@patch("dbt_score.models.Path.read_text")
+@patch("dbt_score.models.dbt_ls")
+def test_manifest_select_and_exclude_same_model(
+    mock_dbt_ls, mock_read_text, chain_raw_manifest
+):
+    """Select model1 and exclude model1 — no models are included."""
+    with patch("dbt_score.models.json.loads", return_value=chain_raw_manifest):
+        loader = ManifestLoader(
+            Path("some.json"), select=["model1"], exclude=["model1"]
+        )
+
+    assert len(loader.models) == 0
+    mock_dbt_ls.assert_not_called()
+
+
+@patch("dbt_score.models.Path.read_text")
+@patch("dbt_score.models.dbt_ls")
+def test_manifest_select_and_exclude_ancestors_complex(
+    mock_dbt_ls, mock_read_text, chain_raw_manifest
+):
+    """Select +model1 and exclude +model1 — no models are included."""
+    mock_dbt_ls.return_value = []
+    with patch("dbt_score.models.json.loads", return_value=chain_raw_manifest):
+        loader = ManifestLoader(
+            Path("some.json"), select=["+model1"], exclude=["+model1"]
+        )
+
+    assert len(loader.models) == 0
+    mock_dbt_ls.assert_called_once()
+
+
+@patch("dbt_score.models.Path.read_text")
+@patch("dbt_score.models.dbt_ls")
+def test_manifest_select_simple_exclude_descendants(
+    mock_dbt_ls, mock_read_text, chain_raw_manifest
+):
+    """Select model2 and exclude model1+ — no models included.
+
+    model2 is a descendant of model1, so it is excluded.
+    """
+    mock_dbt_ls.return_value = []
+    with patch("dbt_score.models.json.loads", return_value=chain_raw_manifest):
+        loader = ManifestLoader(
+            Path("some.json"), select=["model2"], exclude=["model1+"]
+        )
+
+    assert len(loader.models) == 0
+    mock_dbt_ls.assert_called_once()

@@ -1,4 +1,4 @@
-#![allow(clippy::single_match_else)]
+#![expect(clippy::single_match_else)]
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
@@ -541,7 +541,7 @@ async fn do_lock(
         .collect::<Result<BTreeMap<_, _>, ProjectError>>()?;
 
     // Collect the conflicts.
-    let mut conflicts = target.conflicts();
+    let mut conflicts = target.conflicts()?;
     if let LockTarget::Workspace(workspace) = target {
         if let Some(groups) = &workspace.pyproject_toml().dependency_groups {
             if let Some(project) = &workspace.pyproject_toml().project {
@@ -913,7 +913,7 @@ async fn do_lock(
             );
 
             // Resolve the requirements.
-            let resolution = pip::operations::resolve(
+            let (resolution, _) = pip::operations::resolve(
                 ExtrasResolver::new(&hasher, state.index(), database)
                     .with_reporter(Arc::new(ResolverReporter::from(printer)))
                     .resolve(target.members_requirements())
@@ -1197,10 +1197,12 @@ impl ValidatedLock {
             return Ok(Self::Preferable(lock));
         }
 
-        // If the user specified `--upgrade-package`, then at best we can prefer some of
-        // the existing versions.
+        // If the user specified `--upgrade-package` or `--upgrade-group`, then at best we can
+        // prefer some of the existing versions.
         if !(upgrade.is_none() || upgrade.is_all()) {
-            debug!("Resolving despite existing lockfile due to `--upgrade-package`");
+            debug!(
+                "Resolving despite existing lockfile due to `--upgrade-package` or `--upgrade-group`"
+            );
             return Ok(Self::Preferable(lock));
         }
 

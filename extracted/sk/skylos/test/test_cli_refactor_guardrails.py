@@ -495,6 +495,7 @@ def test_doctor_command_reports_core_statuses(tmp_path):
 
     with (
         patch("skylos.commands.doctor_cmd.Console", return_value=console),
+        patch("skylos.commands.doctor_cmd.skylos.__version__", "9.9.9"),
         patch(
             "skylos.commands.doctor_cmd.platform.python_version", return_value="3.12.1"
         ),
@@ -520,7 +521,7 @@ def test_doctor_command_reports_core_statuses(tmp_path):
         str(call.args[0]) for call in console.print.call_args_list if call.args
     )
     assert "Python 3.12.1" in printed
-    assert "Skylos 4.2.1" in printed
+    assert "Skylos 9.9.9" in printed
     assert "Cloud connected" in printed
     assert "pyproject.toml [tool.skylos] config found" in printed
     assert "GitHub Actions workflow found" in printed
@@ -614,6 +615,83 @@ def test_defend_command_json_output_prints_empty_report(tmp_path):
     assert payload["summary"]["integrations_found"] == 0
     assert payload["summary"]["score_pct"] == 100
     assert payload["ops_score"]["rating"] == "EXCELLENT"
+
+
+def test_defend_command_json_output_writes_empty_report_file(tmp_path):
+    target = tmp_path / "repo"
+    target.mkdir()
+    output_file = tmp_path / "defense.json"
+    console = Mock()
+
+    with (
+        patch("skylos.defend.policy.load_policy", return_value=None),
+        patch(
+            "skylos.discover.detector._collect_python_files",
+            return_value=[target / "app.py"],
+        ),
+        patch(
+            "skylos.discover.detector.detect_integrations",
+            return_value=([], {}),
+        ),
+    ):
+        from skylos.commands.defend_cmd import run_defend_command
+
+        exit_code = run_defend_command(
+            [str(target), "--json", "-o", str(output_file)],
+            console_factory=lambda: console,
+            progress_factory=lambda *args, **kwargs: _progress_ctx(),
+        )
+
+    assert exit_code == 0
+    payload = json.loads(output_file.read_text(encoding="utf-8"))
+    assert payload["summary"]["integrations_found"] == 0
+    assert payload["summary"]["score_pct"] == 100
+    assert payload["ops_score"]["rating"] == "EXCELLENT"
+
+
+def test_defend_command_json_upload_formats_once(tmp_path):
+    target = tmp_path / "repo"
+    target.mkdir()
+    console = Mock()
+    score = Mock(score_pct=100)
+    ops_score = Mock()
+    json_payload = '{"summary":{"score_pct":100}}'
+
+    with (
+        patch("skylos.defend.policy.load_policy", return_value=None),
+        patch(
+            "skylos.discover.detector._collect_python_files",
+            return_value=[target / "app.py"],
+        ),
+        patch(
+            "skylos.discover.detector.detect_integrations",
+            return_value=(["app.py"], {}),
+        ),
+        patch(
+            "skylos.defend.engine.run_defense_checks",
+            return_value=([], score, ops_score),
+        ),
+        patch("skylos.defend.policy.compute_owasp_coverage", return_value={}),
+        patch(
+            "skylos.defend.report.format_defense_json", return_value=json_payload
+        ) as mock_json,
+        patch(
+            "skylos.api.upload_defense_report", return_value={"success": True}
+        ) as mock_upload,
+        patch("builtins.print") as mock_print,
+    ):
+        from skylos.commands.defend_cmd import run_defend_command
+
+        exit_code = run_defend_command(
+            [str(target), "--json", "--upload"],
+            console_factory=lambda: console,
+            progress_factory=lambda *args, **kwargs: _progress_ctx(),
+        )
+
+    assert exit_code == 0
+    mock_json.assert_called_once()
+    mock_upload.assert_called_once_with(json_payload)
+    mock_print.assert_called_once_with(json_payload)
 
 
 def test_ingest_command_json_output_prints_normalized_result():

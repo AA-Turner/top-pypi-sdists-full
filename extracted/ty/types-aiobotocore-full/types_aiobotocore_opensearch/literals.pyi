@@ -31,6 +31,8 @@ __all__ = (
     "AutoTuneDesiredStateType",
     "AutoTuneStateType",
     "AutoTuneTypeType",
+    "CapabilityFailureReasonType",
+    "CapabilityStatusType",
     "ConfigChangeStatusType",
     "ConnectionModeType",
     "DataSourceStatusType",
@@ -47,6 +49,12 @@ __all__ = (
     "InboundConnectionStatusCodeType",
     "IndexStatusType",
     "InitiatedByType",
+    "InsightEntityTypeType",
+    "InsightFieldTypeType",
+    "InsightPriorityLevelType",
+    "InsightSortOrderType",
+    "InsightStatusType",
+    "InsightTypeType",
     "ListApplicationsPaginatorName",
     "LogTypeType",
     "MaintenanceStatusType",
@@ -115,6 +123,10 @@ AutoTuneStateType = Literal[
     "ERROR",
 ]
 AutoTuneTypeType = Literal["SCHEDULED_ACTION"]
+CapabilityFailureReasonType = Literal["KMS_KEY_INSUFFICIENT_PERMISSION"]
+CapabilityStatusType = Literal[
+    "active", "create_failed", "creating", "delete_failed", "deleting", "update_failed", "updating"
+]
 ConfigChangeStatusType = Literal[
     "ApplyingChanges",
     "Cancelled",
@@ -163,6 +175,12 @@ InboundConnectionStatusCodeType = Literal[
 ]
 IndexStatusType = Literal["CREATED", "DELETED", "UPDATED"]
 InitiatedByType = Literal["CUSTOMER", "SERVICE"]
+InsightEntityTypeType = Literal["Account", "DomainName"]
+InsightFieldTypeType = Literal["metric", "text"]
+InsightPriorityLevelType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
+InsightSortOrderType = Literal["ASC", "DESC"]
+InsightStatusType = Literal["ACTIVE", "DISMISSED", "RESOLVED"]
+InsightTypeType = Literal["EVENT", "RECOMMENDATION"]
 ListApplicationsPaginatorName = Literal["list_applications"]
 LogTypeType = Literal["AUDIT_LOGS", "ES_APPLICATION_LOGS", "INDEX_SLOW_LOGS", "SEARCH_SLOW_LOGS"]
 MaintenanceStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PENDING", "TIMED_OUT"]
@@ -328,7 +346,10 @@ ScheduledByType = Literal["CUSTOMER", "SYSTEM"]
 SkipUnavailableStatusType = Literal["DISABLED", "ENABLED"]
 SubjectKeyIdCOptionType = Literal["Email", "UserId", "UserName"]
 TLSSecurityPolicyType = Literal[
-    "Policy-Min-TLS-1-0-2019-07", "Policy-Min-TLS-1-2-2019-07", "Policy-Min-TLS-1-2-PFS-2023-10"
+    "Policy-Min-TLS-1-0-2019-07",
+    "Policy-Min-TLS-1-2-2019-07",
+    "Policy-Min-TLS-1-2-PFS-2023-10",
+    "Policy-Min-TLS-1-2-RFC9151-FIPS-2024-08",
 ]
 TimeUnitType = Literal["HOURS"]
 UpgradeStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED", "SUCCEEDED_WITH_ISSUES"]
@@ -458,6 +479,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -693,6 +715,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -728,6 +751,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -740,6 +764,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

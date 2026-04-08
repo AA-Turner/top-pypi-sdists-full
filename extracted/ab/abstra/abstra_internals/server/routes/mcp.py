@@ -50,6 +50,7 @@ def get_editor_bp(main_controller: MainController):
             requires_approval(main_controller.run_job),
             requires_approval(main_controller.run_tasklet),
             requires_approval(main_controller.run_hook),
+            requires_approval(main_controller.run_page),
             requires_approval(main_controller.browser_open_page),
             requires_approval(main_controller.browser_navigate),
             main_controller.browser_get_page_summary,

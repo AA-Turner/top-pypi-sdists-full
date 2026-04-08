@@ -17,6 +17,7 @@ from typing_extensions import TypeAlias
 
 from phoenix.db import models
 from phoenix.server.api.context import Context
+from phoenix.server.api.extensions import RequireForwardPaginationExtension
 from phoenix.server.api.input_types.AnnotationFilter import AnnotationFilter, satisfies_filter
 from phoenix.server.api.input_types.TraceAnnotationSort import TraceAnnotationSort
 from phoenix.server.api.types.AnnotationSummary import AnnotationSummary
@@ -163,7 +164,7 @@ class Trace(Node):
             return None
 
         stmt = select(models.ProjectSession).filter_by(id=project_session_rowid)
-        async with info.context.db() as session:
+        async with info.context.db.read() as session:
             project_session = await session.scalar(stmt)
         if project_session is None:
             return None
@@ -188,20 +189,18 @@ class Trace(Node):
     ) -> int:
         return await info.context.data_loaders.num_spans_per_trace.load(self.id)
 
-    @strawberry.field
+    @strawberry.field(extensions=[RequireForwardPaginationExtension()])  # type: ignore[untyped-decorator]
     async def spans(
         self,
         info: Info[Context, None],
-        first: Optional[int] = 50,
+        first: Optional[int] = UNSET,
         last: Optional[int] = UNSET,
         after: Optional[CursorString] = UNSET,
         before: Optional[CursorString] = UNSET,
         root_spans_only: Optional[bool] = UNSET,
         orphan_span_as_root_span: Optional[bool] = True,
     ) -> Connection[Span]:
-        # Validate pagination arguments
-        if isinstance(first, int) and first <= 0:
-            raise ValueError('Argument "first" must be a positive int')
+        assert isinstance(first, int)
 
         # Build base query for spans in this trace
         base_query = (
@@ -223,11 +222,6 @@ class Trace(Node):
             # For descending order, "after" means we want spans with smaller IDs
             # (going forward in descending order)
             base_query = base_query.where(models.Span.id < cursor.rowid)
-        # Note: backward pagination (last/before) is not yet implemented
-        # as it requires more complex handling with reversed ordering
-        if before is not UNSET or (last is not UNSET and last is not None):
-            raise ValueError("Backward pagination (last/before) is not yet supported")
-
         # Build final query based on filtering requirements
         if root_spans_only:
             if orphan_span_as_root_span:
@@ -265,11 +259,11 @@ class Trace(Node):
             stmt = base_query
 
         # Over-fetch by one to determine whether there's a next page
-        limit = first if isinstance(first, int) else 50
+        limit = first
         stmt = stmt.limit(limit + 1)
 
         cursors_and_nodes = []
-        async with info.context.db() as session:
+        async with info.context.db.read() as session:
             span_rowids = await session.stream_scalars(stmt)
             async for span_rowid in islice(span_rowids, limit):
                 cursor = Cursor(rowid=span_rowid)
@@ -291,7 +285,7 @@ class Trace(Node):
         info: Info[Context, None],
         sort: Optional[TraceAnnotationSort] = None,
     ) -> list[TraceAnnotation]:
-        async with info.context.db() as session:
+        async with info.context.db.read() as session:
             stmt = select(models.TraceAnnotation).filter_by(trace_rowid=self.id)
             if sort:
                 sort_col = getattr(models.TraceAnnotation, sort.col.value)

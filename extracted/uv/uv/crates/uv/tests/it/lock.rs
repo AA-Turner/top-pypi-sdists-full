@@ -11799,6 +11799,232 @@ fn lock_upgrade_package() -> Result<()> {
     Ok(())
 }
 
+/// Upgrade all packages in a dependency group with `--upgrade-group`.
+#[test]
+fn lock_upgrade_group() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    // Constrain `anyio` and `idna` in both the main dependencies and a dev group.
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["idna<=3"]
+
+        [dependency-groups]
+        dev = ["anyio<=2"]
+        "#,
+    )?;
+
+    // Lock the project.
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    // Remove the constraints.
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["idna"]
+
+        [dependency-groups]
+        dev = ["anyio"]
+        "#,
+    )?;
+
+    // Upgrade just the `dev` group; `idna` should remain pinned.
+    uv_snapshot!(context.filters(), context.lock().arg("--upgrade-group").arg("dev"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    Updated anyio v2.0.0 -> v4.3.0
+    ");
+
+    Ok(())
+}
+
+/// `--upgrade-group` only upgrades direct dependencies of the group, not transitive dependencies.
+#[test]
+fn lock_upgrade_group_transitive() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    // Pin `anyio` in the dev group. `anyio` depends on `idna` and `sniffio` transitively.
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [dependency-groups]
+        dev = ["anyio<=2", "idna<=3"]
+        "#,
+    )?;
+
+    // Lock the project — `anyio` at 2.0.0, `idna` at 3.0, `sniffio` at 1.3.1.
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    ");
+
+    // Remove the version constraints.
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [dependency-groups]
+        dev = ["anyio", "idna"]
+        "#,
+    )?;
+
+    // Upgrade just `anyio` via `--upgrade-package`; `idna` should stay pinned at 3.0.
+    uv_snapshot!(context.filters(), context.lock().arg("--upgrade-package").arg("anyio"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    Updated anyio v2.0.0 -> v4.3.0
+    ");
+
+    // Reset back to the constrained versions.
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [dependency-groups]
+        dev = ["anyio<=2", "idna<=3"]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    Updated anyio v4.3.0 -> v2.0.0
+    ");
+
+    // Remove the version constraints again.
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [dependency-groups]
+        dev = ["anyio", "idna"]
+        "#,
+    )?;
+
+    // Upgrade the `dev` group. Both `anyio` and `idna` are direct dependencies of the group,
+    // so both should be upgraded.
+    uv_snapshot!(context.filters(), context.lock().arg("--upgrade-group").arg("dev"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 4 packages in [TIME]
+    Updated anyio v2.0.0 -> v4.3.0
+    Updated idna v3.0 -> v3.6
+    ");
+
+    Ok(())
+}
+
+/// `--upgrade-group` works for projects without a `[project]` table (e.g., virtual workspace
+/// roots), where dependency groups are stored in the lock manifest rather than on a package.
+#[test]
+fn lock_upgrade_group_no_project_table() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [tool.uv.workspace]
+        members = []
+
+        [dependency-groups]
+        dev = ["anyio<=2"]
+        "#,
+    )?;
+
+    // Lock the project.
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
+    Resolved 3 packages in [TIME]
+    ");
+
+    // Remove the constraint.
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [tool.uv.workspace]
+        members = []
+
+        [dependency-groups]
+        dev = ["anyio"]
+        "#,
+    )?;
+
+    // Upgrade the `dev` group.
+    uv_snapshot!(context.filters(), context.lock().arg("--upgrade-group").arg("dev"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
+    Resolved 3 packages in [TIME]
+    Updated anyio v2.0.0 -> v4.3.0
+    ");
+
+    Ok(())
+}
+
 /// Check that we discard the fork marker from the lockfile when using `--upgrade`.
 #[test]
 fn lock_upgrade_drop_fork_markers() -> Result<()> {
@@ -18313,6 +18539,226 @@ fn lock_non_project_sources() -> Result<()> {
     warning: No `requires-python` value found in the workspace. Defaulting to `>=3.12`.
     Resolved 1 package in [TIME]
     ");
+
+    Ok(())
+}
+
+/// Lock a non-project workspace root with conflicts declared between members.
+#[test]
+fn lock_non_project_member_conflicts() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [tool.uv.workspace]
+        members = ["member-a", "member-b"]
+        "#,
+    )?;
+
+    let member_a = context.temp_dir.child("member-a");
+    member_a.create_dir_all()?;
+    member_a.child("pyproject.toml").write_str(
+        r#"
+        [project]
+        name = "member-a"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["sortedcontainers==2.3.0"]
+
+        [build-system]
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
+        "#,
+    )?;
+
+    let member_b = context.temp_dir.child("member-b");
+    member_b.create_dir_all()?;
+    member_b.child("pyproject.toml").write_str(
+        r#"
+        [project]
+        name = "member-b"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["sortedcontainers==2.4.0"]
+
+        [build-system]
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+      × No solution found when resolving dependencies:
+      ╰─▶ Because member-a depends on sortedcontainers==2.3.0 and member-b depends on sortedcontainers==2.4.0, we can conclude that member-a and member-b are incompatible.
+          And because your workspace requires member-a and member-b, we can conclude that your workspace's requirements are unsatisfiable.
+    ");
+
+    pyproject_toml.write_str(
+        r#"
+        [tool.uv.workspace]
+        members = ["member-a", "member-b"]
+
+        [tool.uv]
+        conflicts = [
+          [
+            { package = "member-a" },
+            { package = "member-b" },
+          ],
+        ]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: Declaring conflicts for packages (`package = ...`) is experimental and may change without warning. Pass `--preview-features package-conflicts` to disable this warning.
+    Resolved 4 packages in [TIME]
+    ");
+
+    let lock = context.read("uv.lock");
+
+    insta::with_settings!({
+        filters => context.filters(),
+    }, {
+        assert_snapshot!(
+            lock, @r#"
+        version = 1
+        revision = 3
+        requires-python = ">=3.12"
+        conflicts = [[
+            { package = "member-a" },
+            { package = "member-b" },
+        ]]
+
+        [options]
+        exclude-newer = "2024-03-25T00:00:00Z"
+
+        [manifest]
+        members = [
+            "member-a",
+            "member-b",
+        ]
+
+        [[package]]
+        name = "member-a"
+        version = "0.1.0"
+        source = { editable = "member-a" }
+        dependencies = [
+            { name = "sortedcontainers", version = "2.3.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-8-member-a'" },
+        ]
+
+        [package.metadata]
+        requires-dist = [{ name = "sortedcontainers", specifier = "==2.3.0" }]
+
+        [[package]]
+        name = "member-b"
+        version = "0.1.0"
+        source = { editable = "member-b" }
+        dependencies = [
+            { name = "sortedcontainers", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'project-8-member-b'" },
+        ]
+
+        [package.metadata]
+        requires-dist = [{ name = "sortedcontainers", specifier = "==2.4.0" }]
+
+        [[package]]
+        name = "sortedcontainers"
+        version = "2.3.0"
+        source = { registry = "https://pypi.org/simple" }
+        sdist = { url = "https://files.pythonhosted.org/packages/14/10/6a9481890bae97da9edd6e737c9c3dec6aea3fc2fa53b0934037b35c89ea/sortedcontainers-2.3.0.tar.gz", hash = "sha256:59cc937650cf60d677c16775597c89a960658a09cf7c1a668f86e1e4464b10a1", size = 30509, upload-time = "2020-11-09T00:03:52.258Z" }
+        wheels = [
+            { url = "https://files.pythonhosted.org/packages/20/4d/a7046ae1a1a4cc4e9bbed194c387086f06b25038be596543d026946330c9/sortedcontainers-2.3.0-py2.py3-none-any.whl", hash = "sha256:37257a32add0a3ee490bb170b599e93095eed89a55da91fa9f48753ea12fd73f", size = 29479, upload-time = "2020-11-09T00:03:50.723Z" },
+        ]
+
+        [[package]]
+        name = "sortedcontainers"
+        version = "2.4.0"
+        source = { registry = "https://pypi.org/simple" }
+        sdist = { url = "https://files.pythonhosted.org/packages/e8/c4/ba2f8066cceb6f23394729afe52f3bf7adec04bf9ed2c820b39e19299111/sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88", size = 30594, upload-time = "2021-05-16T22:03:42.897Z" }
+        wheels = [
+            { url = "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f82b84065f37f3bffeb12413f947f9388e4cac22c4621ce/sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0", size = 29575, upload-time = "2021-05-16T22:03:41.177Z" },
+        ]
+        "#
+        );
+    });
+
+    uv_snapshot!(context.filters(), context.lock().arg("--locked"), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    warning: Declaring conflicts for packages (`package = ...`) is experimental and may change without warning. Pass `--preview-features package-conflicts` to disable this warning.
+    Resolved 4 packages in [TIME]
+    ");
+
+    uv_snapshot!(context.filters(), context.sync().arg("--frozen").arg("--all-packages"), @"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Package `member-a` and package `member-b` are incompatible with the declared conflicts: {member-a, member-b}
+    ");
+
+    Ok(())
+}
+
+/// Locking a non-project workspace root should reject conflicts that omit
+/// `package = ...`, since there is no root project name to infer.
+#[test]
+fn lock_non_project_member_conflicts_missing_package() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pyproject_toml = context.temp_dir.child("pyproject.toml");
+    pyproject_toml.write_str(
+        r#"
+        [tool.uv.workspace]
+        members = ["member-a"]
+
+        [tool.uv]
+        conflicts = [
+          [
+            { extra = "foo" },
+            { package = "member-a" },
+          ],
+        ]
+        "#,
+    )?;
+
+    let member_a = context.temp_dir.child("member-a");
+    member_a.create_dir_all()?;
+    member_a.child("pyproject.toml").write_str(
+        r#"
+        [project]
+        name = "member-a"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = []
+
+        [build-system]
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.lock(), @r#"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Expected `package` field in conflicting entry: { extra = "foo" }
+    "#);
 
     Ok(())
 }
@@ -34224,6 +34670,93 @@ fn lock_unsupported_wheel_url_required_platform() -> Result<()> {
       ╰─▶ Because only numpy==2.3.5 is available and numpy==2.3.5 has no Windows-compatible wheels, we can conclude that all versions of numpy cannot be used.
           And because your project depends on numpy, we can conclude that your project's requirements are unsatisfiable.
     ");
+
+    Ok(())
+}
+
+#[test]
+fn lock_required_environment_cycle_reports_resolution_error() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    context
+        .temp_dir
+        .child("pyproject.toml")
+        .write_str(&formatdoc! {r#"
+            [tool.uv]
+            required-environments = ["platform_machine == 'arm64'"]
+
+            [tool.uv.sources]
+            pkg-a = {{ workspace = true }}
+            pkg-b = {{ workspace = true }}
+
+            [tool.uv.workspace]
+            members = ["pkg-a", "pkg-b"]
+
+            [[tool.uv.index]]
+            name = "packse"
+            url = "{}"
+            default = true
+            "#,
+            packse_index_url()
+        })?;
+
+    let pkg_a = context.temp_dir.child("pkg-a");
+    pkg_a.create_dir_all()?;
+    pkg_a.child("pyproject.toml").write_str(indoc! {r#"
+        [project]
+        name = "pkg-a"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = [
+            "no-sdist-no-wheels-with-matching-platform-a",
+            "pkg-b",
+        ]
+
+        [build-system]
+        requires = ["uv_build>=0.10,<10000"]
+        build-backend = "uv_build"
+        "#
+    })?;
+
+    let pkg_b = context.temp_dir.child("pkg-b");
+    pkg_b.create_dir_all()?;
+    pkg_b.child("pyproject.toml").write_str(indoc! {r#"
+        [project]
+        name = "pkg-b"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+        dependencies = ["pkg-a"]
+
+        [build-system]
+        requires = ["uv_build>=0.10,<10000"]
+        build-backend = "uv_build"
+        "#
+    })?;
+
+    let filters: Vec<_> = context
+        .filters()
+        .into_iter()
+        .chain([(
+            // This hint is only shown when the current platform doesn't match the target.
+            r"\n\n\s+hint: The resolution failed for an environment that is not the current one[^\n]*",
+            "",
+        )])
+        .collect();
+
+    uv_snapshot!(
+        filters,
+        context.lock().env_remove(EnvVars::UV_EXCLUDE_NEWER),
+        @r"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+
+    ----- stderr -----
+      × No solution found when resolving dependencies for split (markers: platform_machine == 'arm64'):
+      ╰─▶ Because no-sdist-no-wheels-with-matching-platform-a==1.0.0 has no `platform_machine == 'arm64'`-compatible wheels and only no-sdist-no-wheels-with-matching-platform-a==1.0.0 is available, we can conclude that all versions of no-sdist-no-wheels-with-matching-platform-a cannot be used.
+          And because pkg-a depends on no-sdist-no-wheels-with-matching-platform-a and your workspace requires pkg-a, we can conclude that your workspace's requirements are unsatisfiable.
+    "
+    );
 
     Ok(())
 }

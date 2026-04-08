@@ -12,12 +12,15 @@ Usage::
     from types_boto3_rtbfabric import (
         Client,
         InboundExternalLinkActiveWaiter,
+        InboundExternalLinkDeletedWaiter,
         LinkAcceptedWaiter,
         LinkActiveWaiter,
+        LinkDeletedWaiter,
         ListLinksPaginator,
         ListRequesterGatewaysPaginator,
         ListResponderGatewaysPaginator,
         OutboundExternalLinkActiveWaiter,
+        OutboundExternalLinkDeletedWaiter,
         RTBFabricClient,
         RequesterGatewayActiveWaiter,
         RequesterGatewayDeletedWaiter,
@@ -29,9 +32,12 @@ Usage::
     client: RTBFabricClient = session.client("rtbfabric")
 
     inbound_external_link_active_waiter: InboundExternalLinkActiveWaiter = client.get_waiter("inbound_external_link_active")
+    inbound_external_link_deleted_waiter: InboundExternalLinkDeletedWaiter = client.get_waiter("inbound_external_link_deleted")
     link_accepted_waiter: LinkAcceptedWaiter = client.get_waiter("link_accepted")
     link_active_waiter: LinkActiveWaiter = client.get_waiter("link_active")
+    link_deleted_waiter: LinkDeletedWaiter = client.get_waiter("link_deleted")
     outbound_external_link_active_waiter: OutboundExternalLinkActiveWaiter = client.get_waiter("outbound_external_link_active")
+    outbound_external_link_deleted_waiter: OutboundExternalLinkDeletedWaiter = client.get_waiter("outbound_external_link_deleted")
     requester_gateway_active_waiter: RequesterGatewayActiveWaiter = client.get_waiter("requester_gateway_active")
     requester_gateway_deleted_waiter: RequesterGatewayDeletedWaiter = client.get_waiter("requester_gateway_deleted")
     responder_gateway_active_waiter: ResponderGatewayActiveWaiter = client.get_waiter("responder_gateway_active")
@@ -51,9 +57,12 @@ from .paginator import (
 )
 from .waiter import (
     InboundExternalLinkActiveWaiter,
+    InboundExternalLinkDeletedWaiter,
     LinkAcceptedWaiter,
     LinkActiveWaiter,
+    LinkDeletedWaiter,
     OutboundExternalLinkActiveWaiter,
+    OutboundExternalLinkDeletedWaiter,
     RequesterGatewayActiveWaiter,
     RequesterGatewayDeletedWaiter,
     ResponderGatewayActiveWaiter,
@@ -66,12 +75,15 @@ Client = RTBFabricClient
 __all__ = (
     "Client",
     "InboundExternalLinkActiveWaiter",
+    "InboundExternalLinkDeletedWaiter",
     "LinkAcceptedWaiter",
     "LinkActiveWaiter",
+    "LinkDeletedWaiter",
     "ListLinksPaginator",
     "ListRequesterGatewaysPaginator",
     "ListResponderGatewaysPaginator",
     "OutboundExternalLinkActiveWaiter",
+    "OutboundExternalLinkDeletedWaiter",
     "RTBFabricClient",
     "RequesterGatewayActiveWaiter",
     "RequesterGatewayDeletedWaiter",

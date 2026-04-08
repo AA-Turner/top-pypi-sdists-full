@@ -214,40 +214,46 @@ class Protocol(observer.Observable):
             return self._loop.call_soon(callable)
 
     def trace(self, object, *args, **kwargs):
+        kwargs["stacklevel"] = kwargs.pop("stacklevel", 5)
         if self._loop and hasattr(self._loop, "trace"):
             self._loop.trace(object, *args, **kwargs)
         else:
-            logger.log(log.TRACE, object, *args, **kwargs)
+            self._log_fallback(log.TRACE, object, *args, **kwargs)
 
     def debug(self, object, *args, **kwargs):
+        kwargs["stacklevel"] = kwargs.pop("stacklevel", 5)
         if self._loop and hasattr(self._loop, "debug"):
             self._loop.debug(object, *args, **kwargs)
         else:
-            logger.debug(object, *args, **kwargs)
+            self._log_fallback(logging.DEBUG, object, *args, **kwargs)
 
     def info(self, object, *args, **kwargs):
+        kwargs["stacklevel"] = kwargs.pop("stacklevel", 5)
         if self._loop and hasattr(self._loop, "info"):
             self._loop.info(object, *args, **kwargs)
         else:
-            logger.info(object, *args, **kwargs)
+            self._log_fallback(logging.INFO, object, *args, **kwargs)
 
     def warning(self, object, *args, **kwargs):
+        kwargs["stacklevel"] = kwargs.pop("stacklevel", 5)
         if self._loop and hasattr(self._loop, "warning"):
             self._loop.warning(object, *args, **kwargs)
         else:
-            logger.warning(object, *args, **kwargs)
+            self._log_fallback(logging.WARNING, object, *args, **kwargs)
 
-    def error(self, object):
+    def error(self, object, *args, **kwargs):
+        kwargs["stacklevel"] = kwargs.pop("stacklevel", 5)
         if self._loop and hasattr(self._loop, "error"):
-            self._loop.error(object)
+            self._loop.error(object, *args, **kwargs)
         else:
-            logger.error(object)
+            self._log_fallback(logging.ERROR, object, *args, **kwargs)
 
-    def critical(self, object):
+    def critical(self, object, *args, **kwargs):
+        kwargs["stacklevel"] = kwargs.pop("stacklevel", 5)
         if self._loop and hasattr(self._loop, "critical"):
-            self._loop.critical(object)
+            self._loop.critical(object, *args, **kwargs)
         else:
-            logger.critical(object)
+            self._log_fallback(logging.CRITICAL, object, *args, **kwargs)
 
     def traced(self, message=None, *args):
         if not self.is_trace():
@@ -258,9 +264,9 @@ class Protocol(observer.Observable):
         if caller_self:
             caller = "%s:%s()" % (caller_self.__class__.__name__, caller)
         if message:
-            self.trace("%s | %r | " + message, caller, self, *args)
+            self.trace("%s | %r | " + message, caller, self, *args, stacklevel=6)
         else:
-            self.trace("%s | %r", caller, self)
+            self.trace("%s | %r", caller, self, stacklevel=6)
 
     def is_pending(self):
         return not self._open and not self._closed and not self._closing
@@ -315,6 +321,15 @@ class Protocol(observer.Observable):
                 self.send(data, address, callback=callback)  # pylint: disable=E1101
             else:
                 self.send(data, callback=callback)  # pylint: disable=E1101
+
+    def _log_fallback(self, level, object, *args, **kwargs):
+        # adjusts the stacklevel to account for the shorter call chain
+        # in the fallback path compared to the Base path (2 fewer frames:
+        # `Base.log` and `log_python_3` are not in the fallback chain)
+        stacklevel = kwargs.pop("stacklevel", 3) - 2
+        if sys.version_info >= (3, 8):
+            kwargs["stacklevel"] = stacklevel
+        logger.log(level, object, *args, **kwargs)
 
 
 class DatagramProtocol(Protocol):

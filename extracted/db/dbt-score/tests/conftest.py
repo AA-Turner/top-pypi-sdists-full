@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Type
 
+from pytest import fixture
+
 from dbt_score import (
     Exposure,
     Macro,
@@ -19,7 +21,6 @@ from dbt_score import (
 from dbt_score.config import Config
 from dbt_score.models import ManifestLoader
 from dbt_score.rule_filter import RuleFilter, rule_filter
-from pytest import fixture
 
 # Configuration
 
@@ -61,6 +62,27 @@ def manifest_path() -> Path:
 def raw_manifest(manifest_path) -> Any:
     """Return a raw manifest."""
     return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+@fixture
+def chain_manifest_path() -> Path:
+    """Return the path of a chain manifest.
+
+    This manifest contains a chain of models with dependencies, depicted using
+    arrows below:
+
+    model0->model1->model2->model3
+
+    It also contains a standalone model with no dependencies:
+    standalone
+    """
+    return Path(__file__).parent / "resources" / "manifest_chain.json"
+
+
+@fixture
+def chain_raw_manifest(chain_manifest_path) -> Any:
+    """Return a raw chain manifest."""
+    return json.loads(chain_manifest_path.read_text(encoding="utf-8"))
 
 
 @fixture

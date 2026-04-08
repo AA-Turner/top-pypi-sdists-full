@@ -178,7 +178,7 @@ class ComputeConfigController(BaseController):
         )
         if cluster_compute_config_model.max_workers is not None:
             log.warning(
-                "Warning: global `max_workers` is deprecated for Anyscale Ray 2.7+. Please use global resource max instead: https://docs.anyscale.com/configure/compute-configs/global-resource-min-max"
+                "Warning: global `max_workers` is deprecated for Anyscale Ray 2.7+. Please use global resource max instead: https://docs.anyscale.com/configuration/compute/advanced#resource-limits"
             )
         cluster_compute_config = CreateClusterComputeConfig(
             cloud_id=cluster_compute_config_model.cloud_id,

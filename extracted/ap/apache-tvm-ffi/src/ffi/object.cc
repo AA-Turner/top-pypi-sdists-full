@@ -20,18 +20,27 @@
  * \file src/ffi/object.cc
  * \brief Registry to record dynamic types
  */
+#include <tvm/ffi/any.h>
 #include <tvm/ffi/c_api.h>
 #include <tvm/ffi/container/array.h>
+#include <tvm/ffi/container/dict.h>
+#include <tvm/ffi/container/list.h>
 #include <tvm/ffi/container/map.h>
+#include <tvm/ffi/container/tensor.h>
 #include <tvm/ffi/error.h>
 #include <tvm/ffi/function.h>
 #include <tvm/ffi/memory.h>
+#include <tvm/ffi/object.h>
+#include <tvm/ffi/reflection/accessor.h>
+#include <tvm/ffi/reflection/init.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ffi/string.h>
 
 #include <memory>
 #include <utility>
 #include <vector>
+
+#include "object_internal.h"
 
 namespace tvm {
 namespace ffi {
@@ -207,6 +216,15 @@ class TypeTable {
   void RegisterTypeField(int32_t type_index, const TVMFFIFieldInfo* info) {
     Entry* entry = GetTypeEntry(type_index);
     TVMFFIFieldInfo field_data = *info;
+    // Retain FunctionObj setter via any_pool_ so it outlives the Entry.
+    if ((field_data.flags & kTVMFFIFieldFlagBitSetterIsFunctionObj) &&
+        field_data.setter != nullptr) {
+      TVMFFIAny setter_ref;
+      setter_ref.type_index = kTVMFFIFunction;
+      setter_ref.zero_padding = 0;
+      setter_ref.v_obj = static_cast<TVMFFIObject*>(field_data.setter);
+      any_pool_.emplace_back(AnyView::CopyFromTVMFFIAny(setter_ref));
+    }
     field_data.name = this->CopyString(info->name);
     field_data.doc = this->CopyString(info->doc);
     field_data.metadata = this->CopyString(info->metadata);
@@ -350,6 +368,7 @@ class TypeTable {
                               -1);
     TVMFFITypeMetadata info;
     info.total_size = sizeof(Object);
+    info.structural_eq_hash_kind = kTVMFFISEqHashKindUnsupported;
     info.creator = nullptr;
     info.doc = TVMFFIByteArray{nullptr, 0};
     RegisterTypeMetadata(Object::_type_index, &info);
@@ -454,6 +473,16 @@ class OpaqueObjectImpl : public Object, public TVMFFIOpaqueObjectCell {
  private:
   void (*deleter_)(void* handle);
 };
+
+ObjectRef GetMissingObject() {
+  static ObjectRef missing_obj(make_object<Object>());
+  return missing_obj;
+}
+
+ObjectRef GetKwargsObject() {
+  static ObjectRef kwargs_obj(make_object<Object>());
+  return kwargs_obj;
+}
 
 }  // namespace ffi
 }  // namespace tvm
@@ -566,10 +595,42 @@ int TVMFFIBytesFromByteArray(const TVMFFIByteArray* input, TVMFFIAny* out) {
 
 namespace {
 TVM_FFI_STATIC_INIT_BLOCK() {
-  using namespace tvm::ffi;
-  namespace refl = tvm::ffi::reflection;
-  refl::GlobalDef().def_method("ffi.GetRegisteredTypeKeys", []() -> Array<String> {
-    return tvm::ffi::TypeTable::Global()->GetRegisteredTypeKeys();
-  });
+  namespace ffi = ::tvm::ffi;
+  namespace refl = ::tvm::ffi::reflection;
+  refl::TypeAttrDef<ffi::Object>().def(
+      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::ObjectRef>);
+  refl::TypeAttrDef<ffi::details::StringObj>().def(
+      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::String>);
+  refl::TypeAttrDef<ffi::details::BytesObj>().def(
+      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Bytes>);
+  refl::TypeAttrDef<ffi::ErrorObj>().def(
+      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Error>);
+  refl::TypeAttrDef<ffi::FunctionObj>().def(
+      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Function>);
+  refl::TypeAttrDef<ffi::ShapeObj>().def(
+      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Shape>);
+  refl::TypeAttrDef<ffi::TensorObj>().def(
+      refl::type_attr::kConvert, &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Tensor>);
+  refl::TypeAttrDef<ffi::ArrayObj>().def(
+      refl::type_attr::kConvert,
+      &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Array<ffi::Any>>);
+  refl::TypeAttrDef<ffi::MapObj>().def(
+      refl::type_attr::kConvert,
+      &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Map<ffi::Any, ffi::Any>>);
+  // Skipped: TypeIndex::kTVMFFIModule
+  // Skipped: TypeIndex::kTVMFFIOpaquePyObject
+  refl::TypeAttrDef<ffi::ListObj>().def(
+      refl::type_attr::kConvert,
+      &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::List<ffi::Any>>);
+  refl::TypeAttrDef<ffi::DictObj>().def(
+      refl::type_attr::kConvert,
+      &refl::details::FFIConvertFromAnyViewToObjectRef<ffi::Dict<ffi::Any, ffi::Any>>);
+  refl::GlobalDef()
+      .def_method("ffi.GetRegisteredTypeKeys",
+                  []() -> ffi::Array<ffi::String> {
+                    return ffi::TypeTable::Global()->GetRegisteredTypeKeys();
+                  })
+      .def("ffi.GetInvalidObject", ffi::GetMissingObject)
+      .def("ffi.GetKwargsObject", ffi::GetKwargsObject);
 }
 }  // namespace

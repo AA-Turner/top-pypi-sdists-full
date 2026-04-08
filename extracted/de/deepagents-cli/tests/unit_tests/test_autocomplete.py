@@ -5,9 +5,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from deepagents_cli.command_registry import SLASH_COMMANDS
 from deepagents_cli.widgets.autocomplete import (
     MAX_SUGGESTIONS,
-    SLASH_COMMANDS,
     CompletionController,
     FuzzyFileController,
     MultiCompletionManager,
@@ -294,6 +294,45 @@ class TestSlashCommandController:
         controller.on_text_changed("/zzzzzzzzz", 10)
         mock_view.clear_completion_suggestions.assert_called()
 
+    def test_space_dismisses_suggestions(self, controller, mock_view):
+        """Typing a space after a command name dismisses the popup."""
+        controller.on_text_changed("/model", 6)
+        mock_view.render_completion_suggestions.assert_called()
+
+        controller.on_text_changed("/model ", 7)
+        mock_view.clear_completion_suggestions.assert_called()
+
+    def test_space_with_args_stays_dismissed(self, controller, mock_view):
+        """Suggestions stay dismissed while typing arguments after a space."""
+        # First show suggestions, then dismiss with space
+        controller.on_text_changed("/model", 6)
+        mock_view.render_completion_suggestions.assert_called()
+        mock_view.reset_mock()
+
+        controller.on_text_changed("/model gpt-4o", 13)
+        mock_view.render_completion_suggestions.assert_not_called()
+
+    def test_bare_slash_space_dismisses(self, controller, mock_view):
+        """Typing '/ ' (slash then space, no command) dismisses the popup."""
+        controller.on_text_changed("/", 1)
+        mock_view.render_completion_suggestions.assert_called()
+
+        controller.on_text_changed("/ ", 2)
+        mock_view.clear_completion_suggestions.assert_called()
+
+    def test_backspace_from_space_restores_suggestions(self, controller, mock_view):
+        """Deleting the space after '/model ' re-shows suggestions."""
+        controller.on_text_changed("/model", 6)
+        mock_view.render_completion_suggestions.assert_called()
+
+        controller.on_text_changed("/model ", 7)
+        mock_view.clear_completion_suggestions.assert_called()
+        mock_view.reset_mock()
+
+        # Simulate backspace back to "/model"
+        controller.on_text_changed("/model", 6)
+        mock_view.render_completion_suggestions.assert_called()
+
     @pytest.mark.usefixtures("mock_view")
     def test_double_reset_is_safe(self, controller):
         """Calling reset twice does not raise or double-clear."""
@@ -475,3 +514,51 @@ class TestMultiCompletionManager:
         manager.reset()
         manager.reset()
         assert manager._active is None
+
+
+class TestSlashCommandControllerUpdateCommands:
+    """Tests for SlashCommandController.update_commands()."""
+
+    @pytest.fixture
+    def mock_view(self) -> MagicMock:
+        return MagicMock()
+
+    def test_update_replaces_commands(self, mock_view: MagicMock) -> None:
+        """update_commands() replaces the internal commands list."""
+        initial = [("/help", "Show help", "")]
+        controller = SlashCommandController(initial, mock_view)
+
+        new_commands = [
+            ("/help", "Show help", ""),
+            ("/skill:web-research", "Research topics", "web-research"),
+        ]
+        controller.update_commands(new_commands)
+
+        # Typing /skill: should now show the skill command
+        controller.on_text_changed("/skill:", 7)
+        mock_view.render_completion_suggestions.assert_called()
+        suggestions = mock_view.render_completion_suggestions.call_args[0][0]
+        assert any("/skill:web-research" in s[0] for s in suggestions)
+
+    def test_update_resets_suggestions(self, mock_view: MagicMock) -> None:
+        """update_commands() clears any active suggestions."""
+        commands = [("/help", "Show help", "")]
+        controller = SlashCommandController(commands, mock_view)
+        controller.on_text_changed("/h", 2)
+        mock_view.render_completion_suggestions.assert_called()
+
+        controller.update_commands([("/quit", "Exit", "")])
+        mock_view.clear_completion_suggestions.assert_called()
+
+    def test_skill_commands_fuzzy_match(self, mock_view: MagicMock) -> None:
+        """Skill commands match via hidden keywords."""
+        commands = [
+            ("/help", "Show help", ""),
+            ("/skill:code-review", "Review code changes", "code-review"),
+        ]
+        controller = SlashCommandController(commands, mock_view)
+        controller.on_text_changed("/code", 5)
+
+        mock_view.render_completion_suggestions.assert_called()
+        suggestions = mock_view.render_completion_suggestions.call_args[0][0]
+        assert any("/skill:code-review" in s[0] for s in suggestions)

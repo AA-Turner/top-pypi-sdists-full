@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-dateparser"
-version = "1.4.0.20260328"
+version = "1.4.0.20260408"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for dateparser"
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`e78872c57e4129e793f7665d62ecc91bbdc6f483`](https://github.com/python/typeshed/commit/e78872c57e4129e793f7665d62ecc91bbdc6f483).
+[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -46,9 +46,9 @@ dependencies = []
 "Chat" = "https://gitter.im/python/typing"
 
 [tool.setuptools]
-packages = ['dateparser_data-stubs', 'dateparser-stubs']
+packages = ['dateparser-stubs', 'dateparser_data-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'dateparser_data-stubs' = ['__init__.pyi', 'settings.pyi', 'METADATA.toml', 'py.typed']
 'dateparser-stubs' = ['__init__.pyi', 'calendars/__init__.pyi', 'calendars/hijri.pyi', 'calendars/hijri_parser.pyi', 'calendars/jalali.pyi', 'calendars/jalali_parser.pyi', 'conf.pyi', 'custom_language_detection/__init__.pyi', 'custom_language_detection/fasttext.pyi', 'custom_language_detection/langdetect.pyi', 'custom_language_detection/language_mapping.pyi', 'data/__init__.pyi', 'data/languages_info.pyi', 'date.pyi', 'date_parser.pyi', 'freshness_date_parser.pyi', 'languages/__init__.pyi', 'languages/dictionary.pyi', 'languages/loader.pyi', 'languages/locale.pyi', 'languages/validation.pyi', 'parser.pyi', 'search/__init__.pyi', 'search/detection.pyi', 'search/search.pyi', 'search/text_detection.pyi', 'timezone_parser.pyi', 'timezones.pyi', 'utils/__init__.pyi', 'utils/strptime.pyi', 'utils/time_spans.pyi', 'METADATA.toml', 'py.typed']
+'dateparser_data-stubs' = ['__init__.pyi', 'settings.pyi', 'METADATA.toml', 'py.typed']

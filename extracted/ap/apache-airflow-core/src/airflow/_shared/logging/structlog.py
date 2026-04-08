@@ -27,6 +27,7 @@ import sys
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from functools import cache, cached_property, partial
 from pathlib import Path
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, BinaryIO, Generic, TextIO, TypeVar, cast
 
 import pygtrie
@@ -94,9 +95,9 @@ def _make_airflow_structlogger(min_level):
             if not args:
                 return self._proxy_to_logger(name, event, **kw)
 
-            # See for reason https://github.com/python/cpython/blob/3.13/Lib/logging/__init__.py#L307-L326
+            # See https://github.com/python/cpython/blob/3.13/Lib/logging/__init__.py#L307-L326 for reason
             if args and len(args) == 1 and isinstance(args[0], Mapping) and args[0]:
-                args = args[0]
+                return self._proxy_to_logger(name, event % args[0], **kw)
             return self._proxy_to_logger(name, event % args, **kw)
 
         meth.__name__ = name
@@ -148,7 +149,9 @@ def make_filtering_logger() -> Callable[..., BindableLogger]:
         if not logger_name and isinstance(logger, (NamedWriteLogger, NamedBytesLogger)):
             logger_name = logger.name
 
-        if logger_name:
+        if (level_override := kwargs.get("context", {}).pop("__level_override", None)) is not None:
+            level = level_override
+        elif logger_name:
             level = PER_LOGGER_LEVELS.longest_prefix(logger_name).get(PER_LOGGER_LEVELS[""])
         else:
             level = PER_LOGGER_LEVELS[""]
@@ -183,14 +186,14 @@ LogOutputType = TypeVar("LogOutputType", bound=TextIO | BinaryIO)
 class LoggerFactory(Generic[LogOutputType]):
     def __init__(
         self,
-        cls: Callable[[str | None, LogOutputType | None], WrappedLogger],
+        cls: type[WrappedLogger],
         io: LogOutputType | None = None,
     ):
         self.cls = cls
         self.io = io
 
     def __call__(self, logger_name: str | None = None, *args: Any) -> WrappedLogger:
-        return self.cls(logger_name, self.io)
+        return self.cls(logger_name, self.io)  # type: ignore[call-arg]
 
 
 def logger_name(logger: Any, method_name: Any, event_dict: EventDict) -> EventDict:
@@ -199,7 +202,7 @@ def logger_name(logger: Any, method_name: Any, event_dict: EventDict) -> EventDi
     return event_dict
 
 
-# `eyJ` is `{"` in base64 encoding -- and any value that starts like that is in high likely hood a JWT
+# `eyJ` is `{"` in base64 encoding -- and any value that starts like that is very likely a JWT
 # token. Better safe than sorry
 def redact_jwt(logger: Any, method_name: str, event_dict: EventDict) -> EventDict:
     for k, v in event_dict.items():
@@ -221,19 +224,34 @@ def respect_stdlib_disable(logger: Any, method_name: Any, event_dict: EventDict)
     return event_dict
 
 
+def _make_safe_enc_hook(default):
+    """Wrap an enc_hook so that serialization failures fall back to ``str()``."""
+
+    def safe_enc_hook(obj):
+        if default is not None:
+            try:
+                return default(obj)
+            except (TypeError, ValueError):
+                pass
+        return str(obj)
+
+    return safe_enc_hook
+
+
 @cache
 def structlog_processors(
     json_output: bool,
     log_format: str = "",
     colors: bool = True,
     callsite_parameters: tuple[CallsiteParameter, ...] = (),
+    log_timestamp_format: str = "iso",
 ):
     """
     Create the correct list of structlog processors for the given config.
 
     Return value is a tuple of three elements:
 
-    1. A list of processors shared for structlgo and stblib
+    1. A list of processors shared for structlog and stdlib
     2. The final processor/renderer (one that outputs a string) for use with structlog.stdlib.ProcessorFormatter
 
 
@@ -242,7 +260,7 @@ def structlog_processors(
 
     :meta private:
     """
-    timestamper = structlog.processors.MaybeTimeStamper(fmt="iso")
+    timestamper = structlog.processors.MaybeTimeStamper(fmt=log_timestamp_format)
 
     # Processors shared between stdlib handlers and structlog processors
     shared_processors: list[structlog.typing.Processor] = [
@@ -280,17 +298,17 @@ def structlog_processors(
 
     import click
 
-    suppress = (click, contextlib)
+    suppress: tuple[ModuleType, ...] = (click, contextlib)
     try:
         import httpcore
 
-        suppress += (httpcore,)
+        suppress = (*suppress, httpcore)
     except ImportError:
         pass
     try:
         import httpx
 
-        suppress += (httpx,)
+        suppress = (*suppress, httpx)
     except ImportError:
         pass
 
@@ -313,12 +331,23 @@ def structlog_processors(
                 "event": msg.pop("event"),
                 **msg,
             }
-            return msgspec.json.encode(msg, enc_hook=default)
+
+            try:
+                return msgspec.json.encode(msg, enc_hook=_make_safe_enc_hook(default))
+            except UnicodeEncodeError:
+                # Surrogate characters in strings can't be encoded to UTF-8 JSON.
+                # Replace them and retry.
+                def _sanitize(v):
+                    return v.encode("utf-8", errors="replace").decode("utf-8") if isinstance(v, str) else v
+
+                msg = {k: _sanitize(v) for k, v in msg.items()}
+                return msgspec.json.encode(msg, enc_hook=_make_safe_enc_hook(default))
 
         json = structlog.processors.JSONRenderer(serializer=json_dumps)
 
         def json_processor(logger: Any, method_name: Any, event_dict: EventDict) -> str:
-            return json(logger, method_name, event_dict).decode("utf-8")
+            result = json(logger, method_name, event_dict)
+            return result.decode("utf-8") if isinstance(result, bytes) else result
 
         shared_processors.extend(
             (
@@ -329,8 +358,9 @@ def structlog_processors(
 
         return shared_processors, json_processor, json
 
+    exc_formatter: structlog.dev.RichTracebackFormatter | structlog.typing.ExceptionRenderer
     if os.getenv("DEV", "") != "":
-        # Only use Rich in dev -- optherwise for "production" deployments it makes the logs harder to read as
+        # Only use Rich in dev -- otherwise for "production" deployments it makes the logs harder to read as
         # it uses lots of ANSI escapes and non ASCII characters. Simpler is better for non-dev non-JSON
         exc_formatter = structlog.dev.RichTracebackFormatter(
             # These values are picked somewhat arbitrarily to produce useful-but-compact tracebacks. If
@@ -347,6 +377,7 @@ def structlog_processors(
     if colors:
         my_styles["debug"] = structlog.dev.CYAN
 
+    console: PercentFormatRender | structlog.dev.ConsoleRenderer
     if log_format:
         console = PercentFormatRender(
             fmt=log_format,
@@ -381,12 +412,13 @@ def configure_logging(
     json_output: bool = False,
     log_level: str = "DEBUG",
     log_format: str = "",
+    log_timestamp_format: str = "iso",
     stdlib_config: dict | None = None,
     extra_processors: Sequence[Processor] | None = None,
     callsite_parameters: Iterable[CallsiteParameter] | None = None,
     colors: bool = True,
     output: LogOutputType | None = None,
-    log_levels: str | dict[str, str] | None = None,
+    namespace_log_levels: str | dict[str, str] | None = None,
     cache_logger_on_first_use: bool = True,
 ):
     """
@@ -398,7 +430,10 @@ def configure_logging(
     :param json_output: Set to true to write all logs as JSON (one per line)
     :param log_level: The default log level to use for most logs
     :param log_format: A percent-style log format to write non JSON logs with.
-    :param output: Where to write the logs too. If ``json_output`` is true this must be a binary stream
+    :param log_timestamp_format: Timestamp format for component logs. Use ``"iso"`` for ISO 8601 format
+        (the default), or a strftime format string such as ``"%Y-%m-%d %H:%M:%S"``. Note: this only
+        applies to component logs rendered via structlog (scheduler, api-server, triggerer, etc.).
+    :param output: Where to write the logs to. If ``json_output`` is true this must be a binary stream
     :param colors: Whether to use colors for non-JSON logs. This only works if standard out is a TTY (that is,
         an interactive session), unless overridden by environment variables described below.
         Please note that disabling colors also disables all styling, including bold and italics.
@@ -415,7 +450,7 @@ def configure_logging(
 
         If ``log_format`` is specified, then anything required to populate that (such as ``%(lineno)d``) will
         be automatically included.
-    :param log_levels: Levels of extra loggers to configure.
+    :param namespace_log_levels: Levels of extra loggers to configure.
 
         To make this easier to use, this can be a string consisting of pairs of ``<logger>=<level>`` (either
         string, or space delimited) which will set the level for that specific logger.
@@ -440,11 +475,13 @@ def configure_logging(
     PER_LOGGER_LEVELS[""] = NAME_TO_LEVEL[log_level.lower()]
 
     # Extract per-logger-tree levels and set them
-    if isinstance(log_levels, str):
+    if isinstance(namespace_log_levels, str):
         log_from_level = partial(re.compile(r"\s*=\s*").split, maxsplit=2)
-        log_levels = {log: level for log, level in map(log_from_level, re.split(r"[\s,]+", log_levels))}
-    if log_levels:
-        for log, level in log_levels.items():
+        namespace_log_levels = {
+            log: level for log, level in map(log_from_level, re.split(r"[\s,]+", namespace_log_levels))
+        }
+    if namespace_log_levels:
+        for log, level in namespace_log_levels.items():
             try:
                 loglevel = NAME_TO_LEVEL[level.lower()]
             except KeyError:
@@ -457,17 +494,18 @@ def configure_logging(
         log_format=log_format,
         colors=colors,
         callsite_parameters=tuple(callsite_parameters or ()),
+        log_timestamp_format=log_timestamp_format,
     )
     shared_pre_chain += list(extra_processors)
     pre_chain: list[structlog.typing.Processor] = [structlog.stdlib.add_logger_name] + shared_pre_chain
 
-    # Don't cache the loggers during tests, it make it hard to capture them
+    # Don't cache the loggers during tests, it makes it hard to capture them
     if "PYTEST_VERSION" in os.environ:
         cache_logger_on_first_use = False
 
     std_lib_formatter: list[Processor] = [
         # TODO: Don't include this if we are using PercentFormatter -- it'll delete something we
-        # just have to recerated!
+        # just have to recreated!
         structlog.stdlib.ProcessorFormatter.remove_processors_meta,
         drop_positional_args,
         for_stdlib,
@@ -475,15 +513,18 @@ def configure_logging(
 
     wrapper_class = cast("type[BindableLogger]", make_filtering_logger())
     if json_output:
-        logger_factory = LoggerFactory(NamedBytesLogger, io=output)
+        logger_factory: LoggerFactory[Any] = LoggerFactory(NamedBytesLogger, io=output)
     else:
         # There is no universal way of telling if a file-like-object is binary (and needs bytes) or text that
         # works for files, sockets and io.StringIO/BytesIO.
 
         # If given a binary object, wrap it in a text mode wrapper
+        text_output: TextIO | None = None
         if output is not None and not hasattr(output, "encoding"):
-            output = io.TextIOWrapper(output, line_buffering=True)
-        logger_factory = LoggerFactory(NamedWriteLogger, io=output)
+            text_output = io.TextIOWrapper(cast("BinaryIO", output), line_buffering=True)
+        elif output is not None:
+            text_output = cast("TextIO", output)
+        logger_factory = LoggerFactory(NamedWriteLogger, io=text_output)
 
     structlog.configure(
         processors=shared_pre_chain + [for_structlog],
@@ -528,7 +569,7 @@ def configure_logging(
                 "level": log_level.upper(),
                 "class": "logging.StreamHandler",
                 "formatter": "structlog",
-                "stream": output,
+                "stream": output if output is not None else sys.stdout,
             },
         }
     )
@@ -548,6 +589,79 @@ def configure_logging(
     }
 
     logging.config.dictConfig(config)
+
+    if json_output:
+        _install_excepthook()
+
+    _WarningsInterceptor.register(_showwarning)
+
+
+class _WarningsInterceptor:
+    """Holds a reference to the original ``warnings.showwarning`` so it can be restored."""
+
+    _original_showwarning: Callable | None = None
+
+    @staticmethod
+    def register(new_callable: Callable) -> None:
+        import warnings
+
+        if _WarningsInterceptor._original_showwarning is None:
+            _WarningsInterceptor._original_showwarning = warnings.showwarning
+        warnings.showwarning = new_callable
+
+    @staticmethod
+    def reset() -> None:
+        import warnings
+
+        if _WarningsInterceptor._original_showwarning is not None:
+            warnings.showwarning = _WarningsInterceptor._original_showwarning
+            _WarningsInterceptor._original_showwarning = None
+
+    @staticmethod
+    def emit_warning(*args: Any) -> None:
+        if _WarningsInterceptor._original_showwarning is not None:
+            _WarningsInterceptor._original_showwarning(*args)
+
+
+def _showwarning(
+    message: Warning | str,
+    category: type[Warning],
+    filename: str,
+    lineno: int,
+    file: TextIO | None = None,
+    line: str | None = None,
+) -> None:
+    """
+    Redirect Python warnings to structlog.
+
+    If ``file`` is not None the warning is forwarded to the original handler
+    (e.g. when warnings are written directly to a file handle). Otherwise the
+    warning is emitted as a structured log event on the ``py.warnings`` logger
+    so it flows through the same processor chain as all other log output.
+    """
+    if file is not None:
+        _WarningsInterceptor.emit_warning(message, category, filename, lineno, file, line)
+    else:
+        warning_log = reconfigure_logger(
+            structlog.get_logger("py.warnings").bind(),
+            structlog.processors.CallsiteParameterAdder,
+        )
+        warning_log.warning(str(message), category=category.__name__, filename=filename, lineno=lineno)
+
+
+def _install_excepthook() -> None:
+    """Replace sys.excepthook so unhandled exceptions are emitted via structlog."""
+    _original = sys.excepthook
+
+    def _excepthook(exc_type: type, exc_value: BaseException, exc_tb) -> None:
+        if issubclass(exc_type, KeyboardInterrupt):
+            _original(exc_type, exc_value, exc_tb)
+            return
+        structlog.get_logger("unhandled_exception").critical(
+            "Unhandled exception", exc_info=(exc_type, exc_value, exc_tb)
+        )
+
+    sys.excepthook = _excepthook
 
 
 def init_log_folder(directory: str | os.PathLike[str], new_folder_permissions: int):
@@ -606,14 +720,19 @@ def init_log_file(
     return full_path
 
 
-def logger_without_processor_of_type(logger: WrappedLogger, processor_type: type):
+def reconfigure_logger(
+    logger: WrappedLogger, without_processor_type: type, level_override: int | None = None
+):
     procs = getattr(logger, "_processors", None)
     if procs is None:
         procs = structlog.get_config()["processors"]
-    procs = [proc for proc in procs if not isinstance(proc, processor_type)]
+    procs = [proc for proc in procs if not isinstance(proc, without_processor_type)]
 
     return structlog.wrap_logger(
-        getattr(logger, "_logger", None), processors=procs, **getattr(logger, "_context", {})
+        getattr(logger, "_logger", None),
+        processors=procs,
+        **getattr(logger, "_context", {}),
+        __level_override=level_override,
     )
 
 

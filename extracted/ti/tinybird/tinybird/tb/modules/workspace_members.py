@@ -18,7 +18,7 @@ from tinybird.tb.modules.common import (
 )
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.exceptions import CLIWorkspaceMembersException
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.workspace import workspace
 
 ROLES = ["viewer", "admin"]
@@ -84,7 +84,7 @@ def add_members_to_workspace(ctx: Context, members_emails: str, role: Optional[s
             if not user_token:
                 raise CLIWorkspaceMembersException(
                     FeedbackManager.error(
-                        message="This action requires authentication. Run 'tb login' first or use the --user-token parameter"
+                        message=f"This action requires authentication. Run '{get_cli_name()} login' first or use the --user-token parameter"
                     )
                 )
 
@@ -140,7 +140,7 @@ def remove_members_from_workspace(ctx: Context, members_emails: str, user_token:
             if not user_token:
                 raise CLIWorkspaceMembersException(
                     FeedbackManager.error(
-                        message="This action requires authentication. Run 'tb login' first or use the --user-token parameter."
+                        message=f"This action requires authentication. Run '{get_cli_name()} login' first or use the --user-token parameter."
                     )
                 )
 
@@ -195,7 +195,7 @@ def set_workspace_member_role(ctx: Context, role: str, members_emails: str, user
             if not user_token:
                 raise CLIWorkspaceMembersException(
                     FeedbackManager.error(
-                        message="This action requires authentication. Run 'tb login' first or use the --user-token parameter."
+                        message=f"This action requires authentication. Run '{get_cli_name()} login' first or use the --user-token parameter."
                     )
                 )
 

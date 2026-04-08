@@ -3021,7 +3021,7 @@ TOOL_USE_ID = Schema(
             id=ShapeID("smithy.api#length"),
             value=MappingProxyType({"min": 1, "max": 64}),
         ),
-        Trait.new(id=ShapeID("smithy.api#pattern"), value="^[a-zA-Z0-9_-]+$"),
+        Trait.new(id=ShapeID("smithy.api#pattern"), value="^[a-zA-Z0-9_.:-]+$"),
     ],
 )
 

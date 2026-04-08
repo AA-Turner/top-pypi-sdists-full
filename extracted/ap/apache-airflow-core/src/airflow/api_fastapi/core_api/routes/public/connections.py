@@ -38,12 +38,17 @@ from airflow.api_fastapi.core_api.datamodels.common import (
 )
 from airflow.api_fastapi.core_api.datamodels.connections import (
     ConnectionBody,
+    ConnectionBodyPartial,
     ConnectionCollectionResponse,
     ConnectionResponse,
     ConnectionTestResponse,
 )
 from airflow.api_fastapi.core_api.openapi.exceptions import create_openapi_http_exception_doc
-from airflow.api_fastapi.core_api.security import requires_access_connection, requires_access_connection_bulk
+from airflow.api_fastapi.core_api.security import (
+    ReadableConnectionsFilterDep,
+    requires_access_connection,
+    requires_access_connection_bulk,
+)
 from airflow.api_fastapi.core_api.services.public.connections import (
     BulkConnectionService,
     update_orm_from_pydantic,
@@ -112,19 +117,20 @@ def get_connections(
         SortParam,
         Depends(
             SortParam(
-                ["conn_id", "conn_type", "description", "host", "port", "id"],
+                ["conn_id", "conn_type", "description", "host", "port", "id", "team_name"],
                 Connection,
                 {"connection_id": "conn_id"},
             ).dynamic_depends()
         ),
     ],
+    readable_connections_filter: ReadableConnectionsFilterDep,
     session: SessionDep,
     connection_id_pattern: QueryConnectionIdPatternSearch,
 ) -> ConnectionCollectionResponse:
     """Get all connection entries."""
     connection_select, total_entries = paginated_select(
         statement=select(Connection),
-        filters=[connection_id_pattern],
+        filters=[connection_id_pattern, readable_connections_filter],
         order_by=order_by,
         offset=offset,
         limit=limit,
@@ -191,17 +197,24 @@ def patch_connection(
             "The connection_id in the request body does not match the URL parameter",
         )
 
-    connection: Connection = session.scalar(select(Connection).filter_by(conn_id=connection_id).limit(1))
+    connection = session.scalar(select(Connection).filter_by(conn_id=connection_id).limit(1))
 
     if connection is None:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, f"The Connection with connection_id: `{connection_id}` was not found"
         )
 
-    try:
-        ConnectionBody(**patch_body.model_dump())
-    except ValidationError as e:
-        raise RequestValidationError(errors=e.errors())
+    if update_mask:
+        fields_to_update = patch_body.model_fields_set & set(update_mask)
+        try:
+            ConnectionBodyPartial(**patch_body.model_dump(include=fields_to_update))
+        except ValidationError as e:
+            raise RequestValidationError(errors=e.errors())
+    else:
+        try:
+            ConnectionBody(**patch_body.model_dump())
+        except ValidationError as e:
+            raise RequestValidationError(errors=e.errors())
 
     update_orm_from_pydantic(connection, patch_body, update_mask)
     return connection

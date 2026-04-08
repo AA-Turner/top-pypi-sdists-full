@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-link-labs
-Version: 0.14.1
+Version: 0.14.2
 Summary: Semantic Link Labs for Microsoft Fabric
 Author: Microsoft Corporation
 License: MIT License
@@ -12,7 +12,7 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Framework :: Jupyter
-Requires-Python: <3.12,>=3.10
+Requires-Python: <3.13,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: semantic-link-sempy>=0.14.0
@@ -26,7 +26,7 @@ Dynamic: license-file
 # Semantic Link Labs
 
 [![PyPI version](https://badge.fury.io/py/semantic-link-labs.svg)](https://badge.fury.io/py/semantic-link-labs)
-[![Read The Docs](https://readthedocs.org/projects/semantic-link-labs/badge/?version=0.14.1&style=flat)](https://readthedocs.org/projects/semantic-link-labs/)
+[![Read The Docs](https://readthedocs.org/projects/semantic-link-labs/badge/?version=0.14.2&style=flat)](https://readthedocs.org/projects/semantic-link-labs/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Downloads](https://static.pepy.tech/badge/semantic-link-labs)](https://pepy.tech/project/semantic-link-labs)
 
@@ -156,6 +156,7 @@ An even better way to ensure the semantic-link-labs library is available in your
 2. Select your newly created environment within the 'Environment' drop down in the navigation bar at the top of the notebook
 
 ## Version History
+* [0.14.2](https://github.com/microsoft/semantic-link-labs/releases/tag/0.14.2) (April 7, 2026)
 * [0.14.1](https://github.com/microsoft/semantic-link-labs/releases/tag/0.14.1) (March 23, 2026)
 * [0.14.0](https://github.com/microsoft/semantic-link-labs/releases/tag/0.14.0) (March 18, 2026)
 * [0.13.2](https://github.com/microsoft/semantic-link-labs/releases/tag/0.13.2) (February 27, 2026)

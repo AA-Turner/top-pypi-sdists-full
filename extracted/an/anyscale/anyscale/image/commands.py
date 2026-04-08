@@ -23,6 +23,7 @@ _BUILD_ARG_DOCSTRINGS = {
     "name": "The name of the image.",
     "containerfile": "The content of the Containerfile.",
     "ray_version": "The version of Ray to use in the image",
+    "cloud_id": "The ID of the Anyscale Cloud. Required for Azure Control Plane only.",
 }
 
 
@@ -37,6 +38,7 @@ def build(
     *,
     name: str,
     ray_version: Optional[str] = None,
+    cloud_id: Optional[str] = None,
     _private_sdk: Optional[PrivateImageSDK] = None,
 ) -> str:
     """Build an image from a Containerfile.
@@ -44,7 +46,7 @@ def build(
     Returns the URI of the image.
     """
     return _private_sdk.build_image_from_containerfile_with_image_uri(  # type: ignore
-        name, containerfile, ray_version=ray_version
+        name, containerfile, ray_version=ray_version, cloud_id=cloud_id,
     )
 
 

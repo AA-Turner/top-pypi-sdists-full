@@ -12,7 +12,11 @@ from airflow.providers.cncf.kubernetes.backcompat.backwards_compat_converters im
     convert_env_vars,
 )
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
-from airflow.utils.context import context_merge
+
+try:
+    from airflow.sdk.definitions.context import context_merge  # type: ignore[attr-defined]
+except ImportError:
+    from airflow.utils.context import context_merge
 
 if TYPE_CHECKING:  # pragma: no cover
     try:
@@ -123,6 +127,7 @@ class DbtKubernetesBaseOperator(AbstractDbtBase, KubernetesPodOperator):  # type
         async_context: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any:
+        self.invoke_interceptors(context)
         self.build_kube_args(context, cmd_flags)
         self.log.info(f"Running command: {self.arguments}")
         result = KubernetesPodOperator.execute(self, context)

@@ -3541,6 +3541,12 @@ GET_MEDICAL_SCRIBE_STREAM = APIOperation(
         }
     ),
     effective_auth_schemes=[ShapeID("aws.auth#sigv4")],
+    error_schemas=[
+        _SCHEMA_BAD_REQUEST_EXCEPTION,
+        _SCHEMA_INTERNAL_FAILURE_EXCEPTION,
+        _SCHEMA_LIMIT_EXCEEDED_EXCEPTION,
+        _SCHEMA_RESOURCE_NOT_FOUND_EXCEPTION,
+    ],
 )
 
 
@@ -6933,6 +6939,13 @@ START_CALL_ANALYTICS_STREAM_TRANSCRIPTION = APIOperation(
         }
     ),
     effective_auth_schemes=[ShapeID("aws.auth#sigv4")],
+    error_schemas=[
+        _SCHEMA_BAD_REQUEST_EXCEPTION,
+        _SCHEMA_CONFLICT_EXCEPTION,
+        _SCHEMA_INTERNAL_FAILURE_EXCEPTION,
+        _SCHEMA_LIMIT_EXCEEDED_EXCEPTION,
+        _SCHEMA_SERVICE_UNAVAILABLE_EXCEPTION,
+    ],
 )
 
 
@@ -7194,6 +7207,13 @@ START_MEDICAL_SCRIBE_STREAM = APIOperation(
         }
     ),
     effective_auth_schemes=[ShapeID("aws.auth#sigv4")],
+    error_schemas=[
+        _SCHEMA_BAD_REQUEST_EXCEPTION,
+        _SCHEMA_CONFLICT_EXCEPTION,
+        _SCHEMA_INTERNAL_FAILURE_EXCEPTION,
+        _SCHEMA_LIMIT_EXCEEDED_EXCEPTION,
+        _SCHEMA_SERVICE_UNAVAILABLE_EXCEPTION,
+    ],
 )
 
 
@@ -7756,6 +7776,13 @@ START_MEDICAL_STREAM_TRANSCRIPTION = APIOperation(
         }
     ),
     effective_auth_schemes=[ShapeID("aws.auth#sigv4")],
+    error_schemas=[
+        _SCHEMA_BAD_REQUEST_EXCEPTION,
+        _SCHEMA_CONFLICT_EXCEPTION,
+        _SCHEMA_INTERNAL_FAILURE_EXCEPTION,
+        _SCHEMA_LIMIT_EXCEEDED_EXCEPTION,
+        _SCHEMA_SERVICE_UNAVAILABLE_EXCEPTION,
+    ],
 )
 
 
@@ -7964,7 +7991,8 @@ class StartStreamTranscriptionInput:
     Values must be comma-separated and can include: `ADDRESS`,
     `BANK_ACCOUNT_NUMBER`, `BANK_ROUTING`, `CREDIT_DEBIT_CVV`,
     `CREDIT_DEBIT_EXPIRY`, `CREDIT_DEBIT_NUMBER`, `EMAIL`, `NAME`, `PHONE`,
-    `PIN`, `SSN`, or `ALL`.
+    `PIN`, `SSN`, `AGE`, `DATE_TIME`, `LICENSE_PLATE`, `PASSPORT_NUMBER`,
+    `PASSWORD`, `USERNAME`, `VEHICLE_IDENTIFICATION_NUMBER`, or `ALL`.
 
     Note that if you include `PiiEntityTypes` in your request, you must also
     include `ContentIdentificationType` or `ContentRedactionType`.
@@ -8101,6 +8129,17 @@ class StartStreamTranscriptionInput:
 
     For more information, see [Using vocabulary filtering with unwanted
     words](https://docs.aws.amazon.com/transcribe/latest/dg/vocabulary-filtering.html).
+    """
+
+    session_resume_window: int | None = None
+    """
+    Specify the time window, in minutes, during which your transcription
+    session can be resumed, measured from the stream start time. This
+    optional parameter accepts integer values from 1 to 300 (5 hours).
+
+    For example, if your stream starts at 1 PM and you specify a
+    `SessionResumeWindow` of 30 minutes, you can reconnect to the session as
+    many times as you want until 1:30 PM.
     """
 
     def serialize(self, serializer: ShapeSerializer):
@@ -8257,6 +8296,12 @@ class StartStreamTranscriptionInput:
                     "VocabularyFilterNames"
                 ],
                 self.vocabulary_filter_names,
+            )
+
+        if self.session_resume_window is not None:
+            serializer.write_integer(
+                _SCHEMA_START_STREAM_TRANSCRIPTION_INPUT.members["SessionResumeWindow"],
+                self.session_resume_window,
             )
 
     @classmethod
@@ -8416,6 +8461,13 @@ class StartStreamTranscriptionInput:
                     kwargs["vocabulary_filter_names"] = de.read_string(
                         _SCHEMA_START_STREAM_TRANSCRIPTION_INPUT.members[
                             "VocabularyFilterNames"
+                        ]
+                    )
+
+                case 23:
+                    kwargs["session_resume_window"] = de.read_integer(
+                        _SCHEMA_START_STREAM_TRANSCRIPTION_INPUT.members[
+                            "SessionResumeWindow"
                         ]
                     )
 
@@ -8847,6 +8899,12 @@ class StartStreamTranscriptionOutput:
     in your request.
     """
 
+    session_resume_window: int | None = None
+    """
+    Provides the session resume window, in minutes, that you specified in
+    your request.
+    """
+
     def serialize(self, serializer: ShapeSerializer):
         serializer.write_struct(_SCHEMA_START_STREAM_TRANSCRIPTION_OUTPUT, self)
 
@@ -8997,6 +9055,14 @@ class StartStreamTranscriptionOutput:
                     "VocabularyFilterNames"
                 ],
                 self.vocabulary_filter_names,
+            )
+
+        if self.session_resume_window is not None:
+            serializer.write_integer(
+                _SCHEMA_START_STREAM_TRANSCRIPTION_OUTPUT.members[
+                    "SessionResumeWindow"
+                ],
+                self.session_resume_window,
             )
 
     @classmethod
@@ -9166,6 +9232,13 @@ class StartStreamTranscriptionOutput:
                         ]
                     )
 
+                case 24:
+                    kwargs["session_resume_window"] = de.read_integer(
+                        _SCHEMA_START_STREAM_TRANSCRIPTION_OUTPUT.members[
+                            "SessionResumeWindow"
+                        ]
+                    )
+
                 case _:
                     logger.debug("Unexpected member schema: %s", schema)
 
@@ -9201,4 +9274,11 @@ START_STREAM_TRANSCRIPTION = APIOperation(
         }
     ),
     effective_auth_schemes=[ShapeID("aws.auth#sigv4")],
+    error_schemas=[
+        _SCHEMA_BAD_REQUEST_EXCEPTION,
+        _SCHEMA_CONFLICT_EXCEPTION,
+        _SCHEMA_INTERNAL_FAILURE_EXCEPTION,
+        _SCHEMA_LIMIT_EXCEEDED_EXCEPTION,
+        _SCHEMA_SERVICE_UNAVAILABLE_EXCEPTION,
+    ],
 )

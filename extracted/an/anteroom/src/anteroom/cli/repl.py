@@ -15,6 +15,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,7 @@ from ..services.embeddings import get_effective_dimensions
 from ..services.rewind import collect_file_paths
 from ..services.rewind import rewind_conversation as rewind_service
 from ..services.slug import is_valid_slug, suggest_unique_slug
+from ..services.tool_result_compact import compact_tool_output
 from ..tools import ToolRegistry, register_default_tools
 from . import renderer
 from .instructions import (
@@ -68,6 +70,40 @@ _IS_WINDOWS = platform.system() == "Windows"
 # Populated in _run_repl, read by tool_executor in run_cli.
 _bg_manager_ref: list[Any] = [None]
 _detach_manager_ref: list[Any] = [None]
+
+
+def poll_bg_tasks(bg_manager: Any, console: Any) -> None:
+    """Poll background tasks and render completion notifications.
+
+    Extracted from ``_bg_task_poller`` so integration tests can call the real
+    rendering path without reimplementing the loop body.
+    """
+    from .layout import set_bg_task_count
+
+    completed = bg_manager.poll_completed()
+    for task in completed:
+        status = task.get("status", "unknown")
+        exit_code = task.get("exit_code", "?")
+        tid = task.get("id", "")[:8]
+        dur = task.get("duration_seconds", 0) or 0
+        console.print(f"[dim]\\[bg] Task {tid} {status} (exit {exit_code}, {dur:.1f}s)[/dim]")
+    set_bg_task_count(bg_manager.count_running())
+
+
+def poll_detached_agents(detach_manager: Any, console: Any) -> None:
+    """Poll detached subagent completions and render notifications.
+
+    Extracted from ``_bg_task_poller`` so integration tests can call the real
+    rendering path without reimplementing the loop body.
+    """
+    detach_completed = detach_manager.poll_completed()
+    for run in detach_completed:
+        rid = run.get("id", "")[:8]
+        rstatus = run.get("status", "unknown")
+        meta = run.get("metadata") or {}
+        tcalls = len(meta.get("tool_calls_made", []))
+        dur = meta.get("elapsed_seconds", 0)
+        console.print(f"[dim]\\[agent] Run {rid} {rstatus} ({tcalls} calls, {dur:.1f}s)[/dim]")
 
 
 def _add_signal_handler(loop: asyncio.AbstractEventLoop, sig: int, callback: Any) -> bool:
@@ -213,7 +249,81 @@ def _detect_git_branch() -> str | None:
     return None
 
 
-def _load_conversation_messages(db: Any, conversation_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+@dataclass(frozen=True)
+class _FixedRequestOverhead:
+    """Per-session fixed request overhead, computed once before the REPL
+    starts its concurrent tasks. Avoids re-tokenizing the (large) system
+    prompt and tool schemas on every turn, which kept the CLI auto-compact
+    check cheap enough not to starve the input collector task on slow
+    Python 3.10 CI (#1339)."""
+
+    system_prompt_tokens: int
+    tool_schema_tokens: int
+
+
+def _compute_fixed_request_overhead(
+    system_prompt: str,
+    tool_schemas: list[dict[str, Any]] | None,
+) -> _FixedRequestOverhead:
+    """Tokenize the system prompt and tool schemas once.
+
+    Called during `_run_repl` setup BEFORE the input collector and agent
+    runner tasks are created. Per-turn estimates then only pay for the
+    message list plus `extra_system_prompt` (which can change between
+    turns via RAG injection).
+    """
+    from ..services.token_estimator import estimate_request_tokens
+
+    breakdown = estimate_request_tokens(
+        messages=[],
+        system_prompt=system_prompt,
+        extra_system_prompt="",
+        tool_schemas=tool_schemas,
+    )
+    return _FixedRequestOverhead(
+        system_prompt_tokens=breakdown.system_prompt_tokens,
+        tool_schema_tokens=breakdown.tool_schema_tokens,
+    )
+
+
+def _estimate_full_request_with_pending_user(
+    ai_messages: list[dict[str, Any]],
+    pending_user_content: str,
+    extra_system_prompt: str,
+    fixed_overhead: _FixedRequestOverhead,
+) -> Any:
+    """Full-request token breakdown for the CLI auto-compact / warn check.
+
+    Counts messages (with the pending user turn appended), the per-turn
+    `extra_system_prompt`, and adds the pre-computed fixed overhead
+    (system prompt + tool schemas). Returns a `RequestTokenBreakdown`.
+
+    The pending user message (post-@file expansion) MUST be included so
+    that a single large pasted prompt or @file expansion cannot bypass
+    the warning and auto-compaction paths (#1339).
+    """
+    from ..services.token_estimator import (
+        RequestTokenBreakdown,
+        count_message_tokens,
+        count_text_tokens,
+    )
+
+    pending_messages = ai_messages + [{"role": "user", "content": pending_user_content}]
+    message_tokens = count_message_tokens(pending_messages)
+    extra_system_tokens = count_text_tokens(extra_system_prompt) + 4 if extra_system_prompt else 0
+    system_prompt_tokens = fixed_overhead.system_prompt_tokens + extra_system_tokens
+    total = message_tokens + system_prompt_tokens + fixed_overhead.tool_schema_tokens
+    return RequestTokenBreakdown(
+        message_tokens=message_tokens,
+        system_prompt_tokens=system_prompt_tokens,
+        tool_schema_tokens=fixed_overhead.tool_schema_tokens,
+        total=total,
+    )
+
+
+def _load_conversation_messages(
+    db: Any, conversation_id: str, *, tool_replay_max_chars: int = 2000
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Load existing conversation messages into AI message format.
 
     Returns (ai_messages, stored_messages) where stored_messages is the raw
@@ -246,7 +356,7 @@ def _load_conversation_messages(db: Any, conversation_id: str) -> tuple[list[dic
                         {
                             "role": "tool",
                             "tool_call_id": tc["id"],
-                            "content": json.dumps(tc.get("output", {})),
+                            "content": compact_tool_output(tc.get("output", {}), max_chars=tool_replay_max_chars),
                         }
                     )
                 continue
@@ -815,6 +925,8 @@ def _build_system_prompt(
         mcp_servers=mcp_servers,
         interface="cli",
         working_dir=working_dir,
+        background_suggest_seconds=config.cli.background_suggest_seconds,
+        detach_suggest_seconds=config.cli.detach_suggest_seconds,
     )
     parts = [trusted_section_marker() + runtime_ctx]
 
@@ -3055,7 +3167,9 @@ async def _run_one_shot(
             renderer.render_error(f"Conversation {resume_conversation_id} not found")
             return
         working_dir = _restore_working_dir(conv, tool_registry, working_dir)
-        messages, _ = _load_conversation_messages(db, resume_conversation_id)
+        messages, _ = _load_conversation_messages(
+            db, resume_conversation_id, tool_replay_max_chars=config.cli.tool_replay_max_chars
+        )
     else:
         conv = storage.create_conversation(db, working_dir=working_dir, **id_kw)
         messages = []
@@ -3673,7 +3787,9 @@ async def _run_repl(
         conv_data = storage.get_conversation(db, resume_conversation_id)
         if conv_data:
             conv = conv_data
-            ai_messages, _ = _load_conversation_messages(db, resume_conversation_id)
+            ai_messages, _ = _load_conversation_messages(
+                db, resume_conversation_id, tool_replay_max_chars=config.cli.tool_replay_max_chars
+            )
             is_first_message = False
             working_dir = _restore_working_dir(conv, tool_registry, working_dir)
             _pending_resume_info = True
@@ -4568,7 +4684,9 @@ async def _run_repl(
                     convs = storage.list_conversations(db, limit=1)
                     if convs:
                         conv = storage.get_conversation(db, convs[0]["id"]) or conv
-                        ai_messages, _ = _load_conversation_messages(db, conv["id"])
+                        ai_messages, _ = _load_conversation_messages(
+                            db, conv["id"], tool_replay_max_chars=config.cli.tool_replay_max_chars
+                        )
                         is_first_message = False
                         _show_resume_info(db, conv, ai_messages)
                     else:
@@ -6235,7 +6353,9 @@ async def _run_repl(
                         continue
                     conv = loaded
                     working_dir = _restore_working_dir(conv, tool_registry, working_dir)
-                    ai_messages, _ = _load_conversation_messages(db, conv["id"])
+                    ai_messages, _ = _load_conversation_messages(
+                        db, conv["id"], tool_replay_max_chars=config.cli.tool_replay_max_chars
+                    )
                     is_first_message = False
                     _show_resume_info(db, conv, ai_messages)
                     continue
@@ -6299,7 +6419,9 @@ async def _run_repl(
                         vec_index=vec_manager.messages if vec_manager and vec_manager.enabled else None,
                     )
 
-                    ai_messages, _ = _load_conversation_messages(db, conv["id"])
+                    ai_messages, _ = _load_conversation_messages(
+                        db, conv["id"], tool_replay_max_chars=config.cli.tool_replay_max_chars
+                    )
 
                     summary = f"Rewound {rewind_result.deleted_messages} message(s)"
                     if rewind_result.reverted_files:
@@ -6374,8 +6496,19 @@ async def _run_repl(
                 user_input, working_dir, file_max_chars=config.cli.file_reference_max_chars
             )
 
-            # Auto-compact if approaching context limit (thresholds from config)
-            token_estimate = _estimate_tokens(ai_messages)
+            # Auto-compact if approaching context limit (thresholds from config).
+            # Full-request estimate includes system prompt + tool schemas + the
+            # pending user turn (#1339). System prompt and tool schema token
+            # counts are pre-computed once at REPL startup into
+            # `_fixed_request_overhead`, so the per-turn cost is only the
+            # message list + pending turn + small per-turn extra_system_prompt.
+            _req_breakdown = _estimate_full_request_with_pending_user(
+                ai_messages=ai_messages,
+                pending_user_content=expanded,
+                extra_system_prompt=extra_system_prompt or "",
+                fixed_overhead=_fixed_request_overhead,
+            )
+            token_estimate = _req_breakdown.total
             auto_compact_threshold = config.cli.context_auto_compact_tokens
             warn_threshold = config.cli.context_warn_tokens
             if token_estimate > auto_compact_threshold:
@@ -6385,7 +6518,9 @@ async def _run_repl(
                 await _compact_messages(ai_service, ai_messages, db, conv["id"])
             elif token_estimate > warn_threshold:
                 renderer.console.print(
-                    f"[yellow]Context: ~{token_estimate:,} tokens. Use /compact to free space.[/yellow]"
+                    f"[yellow]Context: ~{token_estimate:,} tokens "
+                    f"(msgs:{_req_breakdown.message_tokens:,} sys:{_req_breakdown.system_prompt_tokens:,} "
+                    f"tools:{_req_breakdown.tool_schema_tokens:,}). Use /compact to free space.[/yellow]"
                 )
 
             # Store user message
@@ -6820,6 +6955,17 @@ async def _run_repl(
 
     from prompt_toolkit.patch_stdout import patch_stdout as _patch_stdout
 
+    # Precompute fixed per-request overhead (system prompt + tool schemas)
+    # once, before the concurrent input-collector and agent-runner tasks
+    # start. These are session-constant; paying for them in-loop tokenized
+    # the 7052-char default system prompt on every turn and starved the
+    # input collector on slow Python 3.10 CI, tipping a timing-sensitive
+    # cancel-recovery test (#1339).
+    _fixed_request_overhead = _compute_fixed_request_overhead(
+        system_prompt=config.ai.system_prompt or "",
+        tool_schemas=tools_openai or None,
+    )
+
     with _patch_stdout(raw=True):
         renderer.use_stdout_console()
         input_task = asyncio.create_task(_collect_input_simple())
@@ -6827,35 +6973,18 @@ async def _run_repl(
 
         # Background task completion poller (#1311)
         async def _bg_task_poller() -> None:
-            from .layout import set_bg_task_count
-
             while not exit_flag.is_set():
                 try:
                     if _bg_manager_ref[0] is None:
                         await asyncio.sleep(2)
                         continue
-                    completed = _bg_manager_ref[0].poll_completed()
-                    for task in completed:
-                        status = task.get("status", "unknown")
-                        exit_code = task.get("exit_code", "?")
-                        tid = task.get("id", "")[:8]
-                        renderer.console.print(f"[dim]\\[bg] Task {tid} {status} (exit {exit_code})[/dim]")
-                    set_bg_task_count(_bg_manager_ref[0].count_running())
+                    poll_bg_tasks(_bg_manager_ref[0], renderer.console)
                 except Exception:
                     pass
                 # Poll detached subagent completions (#1314)
                 try:
                     if _detach_manager_ref[0] is not None:
-                        detach_completed = _detach_manager_ref[0].poll_completed()
-                        for run in detach_completed:
-                            rid = run.get("id", "")[:8]
-                            rstatus = run.get("status", "unknown")
-                            meta = run.get("metadata") or {}
-                            tcalls = len(meta.get("tool_calls_made", []))
-                            dur = meta.get("elapsed_seconds", 0)
-                            renderer.console.print(
-                                f"[dim]\\[agent] Run {rid} {rstatus} ({tcalls} calls, {dur:.1f}s)[/dim]"
-                            )
+                        poll_detached_agents(_detach_manager_ref[0], renderer.console)
                 except Exception:
                     pass
                 await asyncio.sleep(2)

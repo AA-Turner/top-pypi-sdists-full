@@ -219,6 +219,22 @@ def get_stage_information_dict(stage_str, method):
     start_stage = stage_parts[0] if stage_parts else "0"
     end_stage = stage_parts[-1] if stage_parts else "0"
 
+    # For FLDAS MEAN_FLDAS_<var>_LEAD<N>_... features, the label must describe
+    # a single target month = end_stage + N (mod 12). At runtime the FLDAS
+    # branch in compute_eo_indices uses only the LATEST init-month row in the
+    # cumulative stage window, and lead-N targets month init+N per FF2 STM
+    # §6.1.1 / Figures 23-29. Non-FLDAS features keep the stage range unshifted.
+    fldas_lead = None
+    if parts[0] == "MEAN" and len(parts) >= 2 and parts[1] == "FLDAS":
+        lead_idx = next((i for i, p in enumerate(parts) if p.startswith("LEAD")), None)
+        if lead_idx is not None:
+            try:
+                fldas_lead = int(parts[lead_idx][len("LEAD"):])
+            except ValueError:
+                fldas_lead = 0
+        else:
+            fldas_lead = 0
+
     # Exclude cei from the stage_str string
     stage_info["Stage_ID"] = "_".join(stage_parts)
 
@@ -239,10 +255,17 @@ def get_stage_information_dict(stage_str, method):
         stage_dict_end = utils.dict_growth_stages_monthly_end
     # Wrap around for stages beyond the dictionary length
     n = len(stage_dict)
-    stage_info["Stage Name"] = (
-        stage_dict[((int(start_stage) - 1) % n) + 1] + "-" +
-        stage_dict_end[((int(end_stage) - 1) % n) + 1]
-    )
+    if fldas_lead is not None:
+        # Single-month FLDAS label: target = end_stage + lead (mod 12).
+        target = (((int(end_stage) - 1) + fldas_lead) % n) + 1
+        stage_info["Stage Name"] = (
+            stage_dict[target] + "-" + stage_dict_end[target]
+        )
+    else:
+        stage_info["Stage Name"] = (
+            stage_dict[(((int(start_stage) - 1)) % n) + 1] + "-" +
+            stage_dict_end[(((int(end_stage) - 1)) % n) + 1]
+        )
 
     return stage_info
 
@@ -257,6 +280,12 @@ def update_feature_names(df, method):
         # Splitting each element by '_'
         parts = element.split("_")
 
+        # fldas_lead tracks the FLDAS forecast lead time (None for non-FLDAS
+        # features). For FLDAS we must shift the label window by lead months
+        # because each row's Lead-N targets month init+N, not init (per
+        # FLDAS-Forecast V2 STM §6.1.1 and Figures 23-29).
+        fldas_lead = None
+
         # AEF_N has a numeric band suffix that is part of the CEI name
         if parts[0] == "AEF" and len(parts) >= 2:
             cei = "_".join(parts[:2])  # AEF_1, AEF_2, ...
@@ -268,9 +297,16 @@ def update_feature_names(df, method):
             if lead_idx is not None:
                 cei = "_".join(parts[:lead_idx + 1])
                 stage_parts = parts[lead_idx + 1:]
+                # Extract integer lead from "LEAD3" -> 3 so the label can
+                # shift by the forecast-target offset.
+                try:
+                    fldas_lead = int(parts[lead_idx][len("LEAD"):])
+                except ValueError:
+                    fldas_lead = 0
             else:
                 cei = "_".join(parts[:2])
                 stage_parts = parts[2:]
+                fldas_lead = 0
         elif len(parts) >= 2 and parts[1].isdigit():
             cei = parts[0]
             stage_parts = parts[1:]
@@ -305,8 +341,17 @@ def update_feature_names(df, method):
             stage_dict_end = utils.dict_growth_stages_monthly_end
         # Wrap around for stages beyond the dictionary length (e.g. stage 13 → month 1)
         n = len(stage_dict)
-        start_stage = stage_dict[((int(start_stage) - 1) % n) + 1]
-        end_stage = stage_dict_end[((int(end_stage) - 1) % n) + 1]
+        if fldas_lead is not None:
+            # FLDAS features are now single-month: the runtime uses ONLY the
+            # latest init-month row in the cumulative stage window (see
+            # compute_eo_indices FLDAS branch). The label therefore describes
+            # a single target month = end_stage + lead (mod 12), not a range.
+            target = (((int(end_stage) - 1) + fldas_lead) % n) + 1
+            start_stage = stage_dict[target]
+            end_stage = stage_dict_end[target]
+        else:
+            start_stage = stage_dict[(((int(start_stage) - 1)) % n) + 1]
+            end_stage = stage_dict_end[(((int(end_stage) - 1)) % n) + 1]
 
         new_column_name = f"{cei} {start_stage}-{end_stage}"
 

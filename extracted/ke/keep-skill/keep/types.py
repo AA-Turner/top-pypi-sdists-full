@@ -4,7 +4,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Iterable, Literal, Optional
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import unquote, urlparse, urlunparse
 
 
 # System tag prefix - tags starting with this are managed by the system
@@ -90,6 +90,10 @@ TagMap = dict[str, TagValue]
 #   backslash (path confusion), backtick (shell), angle brackets (HTML/XML),
 #   pipe (shell), semicolon (shell/SQL), double quote, single quote
 _ID_BLOCKED_RE = re.compile(r'[\x00-\x1f\x7f\\`<>|;"\']')
+
+# Same as _ID_BLOCKED_RE plus '%', used for file:// path encoding so that
+# literal '%' in filenames round-trips as '%25' through file_uri_to_path().
+_FILE_URI_ENCODE_RE = re.compile(r'[\x00-\x1f\x7f\\`<>|;"\'%]')
 
 # Part ID suffix: @p or @P followed by optional braces and digits
 _PART_ID_RE = re.compile(r'@[pP]\{?\d+\}?$')
@@ -212,6 +216,43 @@ def _resolve_dot_segments(path: str) -> str:
     return resolved
 
 
+def file_uri_to_path(uri: str) -> str:
+    """Inverse of :func:`_normalize_file_uri`.
+
+    Percent-decodes a ``file://`` URI's path so it maps back to the on-disk
+    path. Non-``file://`` inputs pass through.
+    """
+    if uri[:7].lower() != "file://":
+        return uri
+    return unquote(uri[7:])
+
+
+def _encode_blocked_char(m: "re.Match[str]") -> str:
+    return "".join(f"%{b:02X}" for b in m.group(0).encode("utf-8"))
+
+
+def _normalize_file_uri(uri: str) -> str:
+    """Canonicalize a ``file://`` URI to a one-to-one, idempotent form.
+
+    Decodes any percent-escapes back to raw form (per URI semantics), then
+    re-encodes characters that fail :data:`_ID_BLOCKED_RE` plus ``%`` itself.
+    Encoding ``%`` is what makes the mapping one-to-one with on-disk paths:
+    a literal ``%`` in a filename round-trips as ``%25`` through
+    :func:`file_uri_to_path`, so a file literally named ``%27x%27.md`` no
+    longer collides with the file ``'x'.md``.
+
+    Spaces and non-ASCII letters are preserved as-is for backward compat
+    with existing stored IDs. Idempotent.
+    """
+    if uri[:7].lower() != "file://":
+        return uri
+    rest = uri[7:]
+    decoded = unquote(rest)
+    if not _FILE_URI_ENCODE_RE.search(decoded):
+        return uri[:7] + decoded
+    return uri[:7] + _FILE_URI_ENCODE_RE.sub(_encode_blocked_char, decoded)
+
+
 def _normalize_http_uri(uri: str) -> str:
     """RFC 3986 §6.2.2 syntax-based normalization for HTTP/HTTPS URIs."""
     parsed = urlparse(uri)
@@ -298,6 +339,11 @@ def normalize_id(id: str) -> str:
         base = id[:m.start()]
         digits = "".join(c for c in m.group() if c.isdigit())
         id = f"{base}@p{digits}"
+    # file:// URIs: percent-encode path characters that would fail validation
+    # (quotes, backticks, etc. are legal on disk but blocked for generic IDs).
+    # Done before validate_id so real filesystem paths don't get rejected.
+    if id[:7].lower() == "file://":
+        id = _normalize_file_uri(id)
     validate_id(id)
     id = unicodedata.normalize("NFC", id)
     if id[:8].lower().startswith(('http://', 'https://')):

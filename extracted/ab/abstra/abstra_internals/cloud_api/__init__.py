@@ -146,7 +146,14 @@ def connect_tunnel(verbose: bool = False):
                                     cookies=cookies,
                                 )
 
-                                kwargs["json"] = request.body
+                                if isinstance(request.body, dict) and request.body.get(
+                                    "__raw_base64__"
+                                ):
+                                    import base64 as b64
+
+                                    kwargs["data"] = b64.b64decode(request.body["data"])
+                                else:
+                                    kwargs["json"] = request.body
                                 if (
                                     not request.path.startswith("/_hooks/")
                                     and not request.path.startswith("/_healthcheck")

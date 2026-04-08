@@ -135,6 +135,7 @@ from types_aiobotocore_dax.client import DAXClient
 from types_aiobotocore_deadline.client import DeadlineCloudClient
 from types_aiobotocore_detective.client import DetectiveClient
 from types_aiobotocore_devicefarm.client import DeviceFarmClient
+from types_aiobotocore_devops_agent.client import DevOpsAgentServiceClient
 from types_aiobotocore_devops_guru.client import DevOpsGuruClient
 from types_aiobotocore_directconnect.client import DirectConnectClient
 from types_aiobotocore_discovery.client import ApplicationDiscoveryServiceClient
@@ -380,6 +381,7 @@ from types_aiobotocore_schemas.client import SchemasClient
 from types_aiobotocore_sdb.client import SimpleDBClient
 from types_aiobotocore_secretsmanager.client import SecretsManagerClient
 from types_aiobotocore_security_ir.client import SecurityIncidentResponseClient
+from types_aiobotocore_securityagent.client import SecurityAgentClient
 from types_aiobotocore_securityhub.client import SecurityHubClient
 from types_aiobotocore_securitylake.client import SecurityLakeClient
 from types_aiobotocore_serverlessrepo.client import ServerlessApplicationRepositoryClient
@@ -415,6 +417,7 @@ from types_aiobotocore_sts.client import STSClient
 from types_aiobotocore_supplychain.client import SupplyChainClient
 from types_aiobotocore_support.client import SupportClient
 from types_aiobotocore_support_app.client import SupportAppClient
+from types_aiobotocore_sustainability.client import SustainabilityClient
 from types_aiobotocore_swf.client import SWFClient
 from types_aiobotocore_synthetics.client import SyntheticsClient
 from types_aiobotocore_taxsettings.client import TaxSettingsClient
@@ -427,6 +430,7 @@ from types_aiobotocore_transcribe.client import TranscribeServiceClient
 from types_aiobotocore_transfer.client import TransferClient
 from types_aiobotocore_translate.client import TranslateClient
 from types_aiobotocore_trustedadvisor.client import TrustedAdvisorPublicAPIClient
+from types_aiobotocore_uxc.client import UserExperienceCustomizationClient
 from types_aiobotocore_verifiedpermissions.client import VerifiedPermissionsClient
 from types_aiobotocore_voice_id.client import VoiceIDClient
 from types_aiobotocore_vpc_lattice.client import VPCLatticeClient
@@ -2714,6 +2718,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[DeviceFarmClient]:
         """
         Create client for DeviceFarm service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["devops-agent"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[DevOpsAgentServiceClient]:
+        """
+        Create client for DevOpsAgentService service.
         """
 
     @overload  # type: ignore[override]
@@ -7184,6 +7207,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["securityagent"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[SecurityAgentClient]:
+        """
+        Create client for SecurityAgent service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["securityhub"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -7849,6 +7891,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["sustainability"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[SustainabilityClient]:
+        """
+        Create client for Sustainability service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["swf"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -8072,6 +8133,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[TrustedAdvisorPublicAPIClient]:
         """
         Create client for TrustedAdvisorPublicAPI service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["uxc"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[UserExperienceCustomizationClient]:
+        """
+        Create client for UserExperienceCustomization service.
         """
 
     @overload  # type: ignore[override]

@@ -809,8 +809,8 @@ class ClientBuilder:
             self._log.warning(
                 "DEPRECATION WARNING: Anyscale Connect will be deprecated in future Anyscale versions. "
                 "Please use workspaces: "
-                "https://docs.anyscale.com/workspaces/get-started or Ray Jobs "
-                "https://docs.anyscale.com/workspaces/interactive-development instead."
+                "https://docs.anyscale.com/platform/workspaces or Ray Jobs "
+                "https://docs.anyscale.com/development instead."
             )
 
         _allow_multiple_clients = (

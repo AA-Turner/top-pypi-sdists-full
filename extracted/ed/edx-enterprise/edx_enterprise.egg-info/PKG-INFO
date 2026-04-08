@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 6.8.5
+Version: 7.0.0
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -164,6 +164,14 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[7.0.0] - 2026-04-07
+---------------------
+* chore: drop Python 3.11 support
+
+[6.8.6] - 2026-04-07
+---------------------
+* fix: allow deletion of inactive enterprise admin users (ENT-11714)
 
 [6.8.5] - 2026-03-31
 ---------------------

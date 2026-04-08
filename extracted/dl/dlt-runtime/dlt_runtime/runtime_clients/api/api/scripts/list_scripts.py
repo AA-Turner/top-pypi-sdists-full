@@ -148,8 +148,8 @@ def sync_detailed(
         workspace_id (UUID):
         script_type (Union[None, ScriptType, Unset]):
         archived (Union[Unset, ListScriptsArchived]):  Default: ListScriptsArchived.FALSE.
-        limit (Union[Unset, int]):  Default: 100.
-        offset (Union[Unset, int]):  Default: 0.
+        limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
+        offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -203,8 +203,8 @@ def sync(
         workspace_id (UUID):
         script_type (Union[None, ScriptType, Unset]):
         archived (Union[Unset, ListScriptsArchived]):  Default: ListScriptsArchived.FALSE.
-        limit (Union[Unset, int]):  Default: 100.
-        offset (Union[Unset, int]):  Default: 0.
+        limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
+        offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -253,8 +253,8 @@ async def asyncio_detailed(
         workspace_id (UUID):
         script_type (Union[None, ScriptType, Unset]):
         archived (Union[Unset, ListScriptsArchived]):  Default: ListScriptsArchived.FALSE.
-        limit (Union[Unset, int]):  Default: 100.
-        offset (Union[Unset, int]):  Default: 0.
+        limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
+        offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -306,8 +306,8 @@ async def asyncio(
         workspace_id (UUID):
         script_type (Union[None, ScriptType, Unset]):
         archived (Union[Unset, ListScriptsArchived]):  Default: ListScriptsArchived.FALSE.
-        limit (Union[Unset, int]):  Default: 100.
-        offset (Union[Unset, int]):  Default: 0.
+        limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
+        offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -19,6 +19,7 @@ Usage::
         ListConsumableResourcesPaginator,
         ListJobsByConsumableResourcePaginator,
         ListJobsPaginator,
+        ListQuotaSharesPaginator,
         ListSchedulingPoliciesPaginator,
         ListServiceJobsPaginator,
     )
@@ -34,6 +35,7 @@ Usage::
         list_consumable_resources_paginator: ListConsumableResourcesPaginator = client.get_paginator("list_consumable_resources")
         list_jobs_by_consumable_resource_paginator: ListJobsByConsumableResourcePaginator = client.get_paginator("list_jobs_by_consumable_resource")
         list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
+        list_quota_shares_paginator: ListQuotaSharesPaginator = client.get_paginator("list_quota_shares")
         list_scheduling_policies_paginator: ListSchedulingPoliciesPaginator = client.get_paginator("list_scheduling_policies")
         list_service_jobs_paginator: ListServiceJobsPaginator = client.get_paginator("list_service_jobs")
     ```
@@ -61,6 +63,8 @@ from .type_defs import (
     ListJobsByConsumableResourceResponseTypeDef,
     ListJobsRequestPaginateTypeDef,
     ListJobsResponseTypeDef,
+    ListQuotaSharesRequestPaginateTypeDef,
+    ListQuotaSharesResponseTypeDef,
     ListSchedulingPoliciesRequestPaginateTypeDef,
     ListSchedulingPoliciesResponseTypeDef,
     ListServiceJobsRequestPaginateTypeDef,
@@ -80,6 +84,7 @@ __all__ = (
     "ListConsumableResourcesPaginator",
     "ListJobsByConsumableResourcePaginator",
     "ListJobsPaginator",
+    "ListQuotaSharesPaginator",
     "ListSchedulingPoliciesPaginator",
     "ListServiceJobsPaginator",
 )
@@ -214,6 +219,24 @@ class ListJobsPaginator(_ListJobsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/paginator/ListJobs.html#Batch.Paginator.ListJobs.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/paginators/#listjobspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListQuotaSharesPaginatorBase = AioPaginator[ListQuotaSharesResponseTypeDef]
+else:
+    _ListQuotaSharesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListQuotaSharesPaginator(_ListQuotaSharesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/paginator/ListQuotaShares.html#Batch.Paginator.ListQuotaShares)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/paginators/#listquotasharespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListQuotaSharesRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListQuotaSharesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/paginator/ListQuotaShares.html#Batch.Paginator.ListQuotaShares.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_batch/paginators/#listquotasharespaginator)
         """
 
 if TYPE_CHECKING:

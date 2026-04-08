@@ -39,13 +39,14 @@ from tenacity import (
 )
 from uuid6 import uuid7
 
-from airflow.configuration import conf
 from airflow.sdk import __version__
 from airflow.sdk.api.datamodels._generated import (
     API_VERSION,
     AssetEventsResponse,
     AssetResponse,
     ConnectionResponse,
+    DagResponse,
+    DagRun,
     DagRunStateResponse,
     DagRunType,
     HITLDetailRequest,
@@ -53,6 +54,7 @@ from airflow.sdk.api.datamodels._generated import (
     HITLUser,
     InactiveAssetsResponse,
     PrevSuccessfulDagRunResponse,
+    TaskBreadcrumbsResponse,
     TaskInstanceState,
     TaskStatesResponse,
     TerminalStateNonSuccess,
@@ -73,13 +75,15 @@ from airflow.sdk.api.datamodels._generated import (
     XComSequenceIndexResponse,
     XComSequenceSliceResponse,
 )
-from airflow.sdk.exceptions import ErrorType
+from airflow.sdk.configuration import conf
+from airflow.sdk.exceptions import ErrorType, TaskAlreadyRunningError
 from airflow.sdk.execution_time.comms import (
     CreateHITLDetailPayload,
     DRCount,
     ErrorResponse,
     OKResponse,
     PreviousDagRunResult,
+    PreviousTIResult,
     SkipDownstreamTasks,
     TaskRescheduleStartDate,
     TICount,
@@ -212,7 +216,18 @@ class TaskInstanceOperations:
         """Tell the API server that this TI has started running."""
         body = TIEnterRunningPayload(pid=pid, hostname=get_hostname(), unixname=getuser(), start_date=when)
 
-        resp = self.client.patch(f"task-instances/{id}/run", content=body.model_dump_json())
+        try:
+            resp = self.client.patch(f"task-instances/{id}/run", content=body.model_dump_json())
+        except ServerResponseError as e:
+            if e.response.status_code == HTTPStatus.CONFLICT:
+                detail = e.detail
+                if (
+                    isinstance(detail, dict)
+                    and detail.get("reason") == "invalid_state"
+                    and detail.get("previous_state") == "running"
+                ):
+                    raise TaskAlreadyRunningError(f"Task instance {id} is already running") from e
+            raise
         return TIRunContext.model_validate_json(resp.read())
 
     def finish(self, id: uuid.UUID, state: TerminalStateNonSuccess, when: datetime, rendered_map_index):
@@ -271,6 +286,11 @@ class TaskInstanceOperations:
         # decouple from the server response string
         return OKResponse(ok=True)
 
+    def set_rendered_map_index(self, id: uuid.UUID, rendered_map_index: str) -> OKResponse:
+        """Set rendered_map_index for a task instance via the API server."""
+        self.client.patch(f"task-instances/{id}/rendered-map-index", json=rendered_map_index)
+        return OKResponse(ok=True)
+
     def get_previous_successful_dagrun(self, id: uuid.UUID) -> PrevSuccessfulDagRunResponse:
         """
         Get the previous successful dag run for a given task instance.
@@ -315,6 +335,32 @@ class TaskInstanceOperations:
         resp = self.client.get("task-instances/count", params=params)
         return TICount(count=resp.json())
 
+    def get_previous(
+        self,
+        dag_id: str,
+        task_id: str,
+        logical_date: datetime | None = None,
+        map_index: int = -1,
+        state: TaskInstanceState | str | None = None,
+    ) -> PreviousTIResult:
+        """
+        Get the previous task instance matching the given criteria.
+
+        :param dag_id: DAG ID
+        :param task_id: Task ID
+        :param logical_date: If provided, finds TI with logical_date < this value (before filter)
+        :param map_index: Map index to filter by (defaults to -1 for non-mapped tasks)
+        :param state: If provided, filters by TaskInstance state
+        """
+        params: dict[str, Any] = {"map_index": map_index}
+        if logical_date:
+            params["logical_date"] = logical_date.isoformat()
+        if state:
+            params["state"] = state.value if isinstance(state, TaskInstanceState) else state
+
+        resp = self.client.get(f"task-instances/previous/{dag_id}/{task_id}", params=params)
+        return PreviousTIResult(task_instance=resp.json())
+
     def get_task_states(
         self,
         dag_id: str,
@@ -342,6 +388,11 @@ class TaskInstanceOperations:
 
         resp = self.client.get("task-instances/states", params=params)
         return TaskStatesResponse.model_validate_json(resp.read())
+
+    def get_task_breakcrumbs(self, dag_id: str, run_id: str) -> TaskBreadcrumbsResponse:
+        params = {"dag_id": dag_id, "run_id": run_id}
+        resp = self.client.get("task-instances/breadcrumbs", params=params)
+        return TaskBreadcrumbsResponse.model_validate_json(resp.read())
 
     def validate_inlets_and_outlets(self, id: uuid.UUID) -> InactiveAssetsResponse:
         """Validate whether there're inactive assets in inlets and outlets of a given task instance."""
@@ -384,7 +435,7 @@ class VariableOperations:
             resp = self.client.get(f"variables/{key}")
         except ServerResponseError as e:
             if e.response.status_code == HTTPStatus.NOT_FOUND:
-                log.error(
+                log.debug(
                     "Variable not found",
                     key=key,
                     detail=e.detail,
@@ -611,13 +662,32 @@ class AssetEventOperations:
         self.client = client
 
     def get(
-        self, name: str | None = None, uri: str | None = None, alias_name: str | None = None
+        self,
+        name: str | None = None,
+        uri: str | None = None,
+        alias_name: str | None = None,
+        after: datetime | None = None,
+        before: datetime | None = None,
+        ascending: bool = True,
+        limit: int | None = None,
     ) -> AssetEventsResponse:
         """Get Asset event from the API server."""
+        common_params: dict[str, Any] = {}
+        if after:
+            common_params["after"] = after.isoformat()
+        if before:
+            common_params["before"] = before.isoformat()
+        common_params["ascending"] = ascending
+        if limit:
+            common_params["limit"] = limit
         if name or uri:
-            resp = self.client.get("asset-events/by-asset", params={"name": name, "uri": uri})
+            resp = self.client.get(
+                "asset-events/by-asset", params={"name": name, "uri": uri, **common_params}
+            )
         elif alias_name:
-            resp = self.client.get("asset-events/by-asset-alias", params={"name": alias_name})
+            resp = self.client.get(
+                "asset-events/by-asset-alias", params={"name": alias_name, **common_params}
+            )
         else:
             raise ValueError("Either `name`, `uri` or `alias_name` must be provided")
 
@@ -637,9 +707,12 @@ class DagRunOperations:
         conf: dict | None = None,
         logical_date: datetime | None = None,
         reset_dag_run: bool = False,
+        note: str | None = None,
     ) -> OKResponse | ErrorResponse:
         """Trigger a Dag run via the API server."""
-        body = TriggerDAGRunPayload(logical_date=logical_date, conf=conf or {}, reset_dag_run=reset_dag_run)
+        body = TriggerDAGRunPayload(
+            logical_date=logical_date, conf=conf or {}, reset_dag_run=reset_dag_run, note=note
+        )
 
         try:
             self.client.post(
@@ -662,6 +735,11 @@ class DagRunOperations:
         self.client.post(f"dag-runs/{dag_id}/{run_id}/clear")
         # TODO: Error handling
         return OKResponse(ok=True)
+
+    def get_detail(self, dag_id: str, run_id: str) -> DagRun:
+        """Get detail of a dag run."""
+        resp = self.client.get(f"dag-runs/{dag_id}/{run_id}")
+        return DagRun.model_validate_json(resp.read())
 
     def get_state(self, dag_id: str, run_id: str) -> DagRunStateResponse:
         """Get the state of a Dag run via the API server."""
@@ -697,14 +775,25 @@ class DagRunOperations:
     ) -> PreviousDagRunResult:
         """Get the previous DAG run before the given logical date, optionally filtered by state."""
         params = {
+            "dag_id": dag_id,
             "logical_date": logical_date.isoformat(),
         }
-
         if state:
             params["state"] = state
-
-        resp = self.client.get(f"dag-runs/{dag_id}/previous", params=params)
+        resp = self.client.get("dag-runs/previous", params=params)
         return PreviousDagRunResult(dag_run=resp.json())
+
+
+class DagsOperations:
+    __slots__ = ("client",)
+
+    def __init__(self, client: Client):
+        self.client = client
+
+    def get(self, dag_id: str) -> DagResponse:
+        """Get a DAG via the API server."""
+        resp = self.client.get(f"dags/{dag_id}")
+        return DagResponse.model_validate_json(resp.read())
 
 
 class HITLOperations:
@@ -816,6 +905,8 @@ API_RETRY_WAIT_MIN = conf.getfloat("workers", "execution_api_retry_wait_min")
 API_RETRY_WAIT_MAX = conf.getfloat("workers", "execution_api_retry_wait_max")
 API_SSL_CERT_PATH = conf.get("api", "ssl_cert")
 API_TIMEOUT = conf.getfloat("workers", "execution_api_timeout")
+API_CLIENT_SSL_CERT = conf.get("api", "client_ssl_cert", fallback=None)
+API_CLIENT_SSL_KEY = conf.get("api", "client_ssl_key", fallback=None)
 
 
 def _should_retry_api_request(exception: BaseException) -> bool:
@@ -848,7 +939,14 @@ class Client(httpx.Client):
             kwargs.setdefault("base_url", "dry-run://server")
         else:
             kwargs["base_url"] = base_url
-            kwargs["verify"] = self._get_ssl_context_cached(certifi.where(), API_SSL_CERT_PATH)
+            # Call via the class to avoid binding lru_cache wires to this instance.
+            kwargs["verify"] = type(self)._get_ssl_context_cached(certifi.where(), API_SSL_CERT_PATH)
+
+            if API_CLIENT_SSL_CERT or API_CLIENT_SSL_KEY:
+                if not (API_CLIENT_SSL_CERT and API_CLIENT_SSL_KEY):
+                    raise ValueError("Both client_ssl_cert and client_ssl_key must be set.")
+
+                kwargs["cert"] = (API_CLIENT_SSL_CERT, API_CLIENT_SSL_KEY)
 
         # Set timeout if not explicitly provided
         kwargs.setdefault("timeout", API_TIMEOUT)
@@ -938,10 +1036,16 @@ class Client(httpx.Client):
         """Operations related to HITL Responses."""
         return HITLOperations(self)
 
+    @lru_cache()  # type: ignore[misc]
+    @property
+    def dags(self) -> DagsOperations:
+        """Operations related to DAGs."""
+        return DagsOperations(self)
+
 
 # This is only used for parsing. ServerResponseError is raised instead
 class _ErrorBody(BaseModel):
-    detail: list[RemoteValidationError] | str
+    detail: list[RemoteValidationError] | dict[str, Any] | str
 
     def __repr__(self):
         return repr(self.detail)
@@ -975,6 +1079,9 @@ class ServerResponseError(httpx.HTTPStatusError):
             if isinstance(body.detail, list):
                 detail = body.detail
                 msg = "Remote server returned validation error"
+            elif isinstance(body.detail, dict):
+                detail = body.detail
+                msg = "Server returned error"
             else:
                 msg = body.detail or "Un-parseable error"
         except Exception:

@@ -3126,7 +3126,42 @@ impl ExpressionPredicate {
                 }
                 let val = self.eval_expr(&args[0], chunk, row)?;
                 match val {
-                    Value::Path { nodes, .. } => Some(Value::List(nodes)),
+                    Value::Path { nodes, .. } => {
+                        // Resolve Int64 node IDs to property maps for property access
+                        let resolved: Vec<Value> = nodes
+                            .iter()
+                            .map(|n| {
+                                if let Value::Int64(id) = n {
+                                    let node_id = NodeId(*id as u64);
+                                    if let Some(node) = self.resolve_node(node_id) {
+                                        let mut map = BTreeMap::new();
+                                        map.insert(
+                                            PropertyKey::new("_id"),
+                                            Value::Int64(node.id.as_u64() as i64),
+                                        );
+                                        let labels: Vec<Value> = node
+                                            .labels
+                                            .iter()
+                                            .map(|l| Value::String(l.clone()))
+                                            .collect();
+                                        map.insert(
+                                            PropertyKey::new("_labels"),
+                                            Value::List(labels.into()),
+                                        );
+                                        for (key, value) in &node.properties {
+                                            map.insert(key.clone(), value.clone());
+                                        }
+                                        Value::Map(Arc::new(map))
+                                    } else {
+                                        n.clone()
+                                    }
+                                } else {
+                                    n.clone()
+                                }
+                            })
+                            .collect();
+                        Some(Value::List(resolved.into()))
+                    }
                     Value::Map(map) => map.get(&PropertyKey::from("nodes")).cloned(),
                     Value::List(items) => {
                         // Legacy: alternating node, edge, node, edge, ...
@@ -3715,6 +3750,7 @@ mod tests {
         assert_eq!(result.row_count(), 3);
     }
 
+    #[cfg(any(feature = "regex", feature = "regex-lite"))]
     #[test]
     fn test_regex_operator() {
         use crate::graph::lpg::LpgStore;
@@ -5846,8 +5882,9 @@ mod tests {
         assert_eq!(result, Some(Value::String("Alix".into())));
     }
 
-    // === LIKE operator tests ===
+    // === LIKE operator tests (require regex for pattern conversion) ===
 
+    #[cfg(any(feature = "regex", feature = "regex-lite"))]
     #[test]
     fn test_eval_like_wildcard() {
         // 'hello world' LIKE 'hello%'
@@ -5883,6 +5920,7 @@ mod tests {
         assert_eq!(result, Some(Value::Bool(false)));
     }
 
+    #[cfg(any(feature = "regex", feature = "regex-lite"))]
     #[test]
     fn test_eval_like_single_char() {
         // 'cat' LIKE 'c_t'
@@ -5902,6 +5940,7 @@ mod tests {
         assert_eq!(result, Some(Value::Bool(false)));
     }
 
+    #[cfg(any(feature = "regex", feature = "regex-lite"))]
     #[test]
     fn test_eval_like_null() {
         // NULL LIKE '%' -> NULL

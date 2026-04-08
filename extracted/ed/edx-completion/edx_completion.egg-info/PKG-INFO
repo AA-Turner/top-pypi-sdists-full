@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-completion
-Version: 4.9
+Version: 5.0.0
 Summary: A library for tracking completion of blocks by learners in edX courses.
 Home-page: https://github.com/openedx/completion
 Author: edX
@@ -15,7 +15,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE
 Requires-Dist: Django
@@ -78,7 +77,7 @@ To run the test suite:
 .. code:: bash
 
     pip install tox
-    tox # to run only a single environment, do e.g. tox -e py312-django42-drflatest
+    tox # to run only a single environment, do e.g. tox -e py312-django52-drflatest
 
 
 To use a Django shell to test commands:

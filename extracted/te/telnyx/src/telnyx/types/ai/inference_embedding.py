@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 from ..._models import BaseModel
+from .observability import Observability
 from .assistant_tool import AssistantTool
 from .voice_settings import VoiceSettings
 from .import_metadata import ImportMetadata
@@ -79,6 +80,8 @@ class InferenceEmbedding(BaseModel):
     """
 
     messaging_settings: Optional[MessagingSettings] = None
+
+    observability_settings: Optional[Observability] = None
 
     privacy_settings: Optional[PrivacySettings] = None
 

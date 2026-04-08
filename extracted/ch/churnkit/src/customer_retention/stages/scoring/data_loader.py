@@ -31,6 +31,9 @@ except ImportError:  # pragma: no cover
     _vector_to_array = None  # type: ignore[assignment]
 
 
+_NATIVE_MODEL_FLAVORS: Tuple[str, ...] = ("spark", "xgboost", "sklearn")
+
+
 class ScoringDataLoader:
     def __init__(self, config: ScoringConfig):
         self.config = config
@@ -57,15 +60,48 @@ class ScoringDataLoader:
         mlflow.set_tracking_uri(self.config.mlflow_tracking_uri)
         if self.config.is_databricks and self.config.registered_model_name and model_tag is None:
             alias_uri = f"models:/{self.config.registered_model_name}@production"
-            return mlflow.spark.load_model(alias_uri), alias_uri
+            alias_flavor = self._detect_flavor_from_uri(alias_uri)
+            if alias_flavor in _NATIVE_MODEL_FLAVORS:
+                return self._load_by_flavor(alias_flavor, alias_uri), alias_uri
+            nested = self._first_native_logged_model(alias_flavor)
+            return self._load_by_flavor(nested["flavor"], nested["model_uri"]), nested["model_uri"]
         entry = self._select_logged_model(model_tag)
-        model_uri = entry["model_uri"]
-        flavor = entry["flavor"]
+        return self._load_by_flavor(entry["flavor"], entry["model_uri"]), entry["model_uri"]
+
+    @staticmethod
+    def _load_by_flavor(flavor: str, uri: str) -> Any:
         if flavor == "spark":
-            return mlflow.spark.load_model(model_uri), model_uri
+            return mlflow.spark.load_model(uri)
         if flavor == "xgboost":
-            return mlflow.xgboost.load_model(model_uri), model_uri
-        return mlflow.sklearn.load_model(model_uri), model_uri
+            return mlflow.xgboost.load_model(uri)
+        return mlflow.sklearn.load_model(uri)
+
+    @staticmethod
+    def _detect_flavor_from_uri(uri: str) -> str:
+        from mlflow.models import Model as _MlflowModel
+        flavors = _MlflowModel.load(uri).flavors or {}
+        for name in _NATIVE_MODEL_FLAVORS:
+            if name in flavors:
+                return name
+        return "wrapped"
+
+    def _first_native_logged_model(self, alias_flavor: str) -> dict:
+        if not self.config.logged_models:
+            raise ValueError(
+                f"Registered model '{self.config.registered_model_name}@production' has no native "
+                f"MLflow flavor (detected '{alias_flavor}', likely Feature-Engineering-wrapped) and "
+                f"ScoringConfig.logged_models is empty so there is no nested fallback. "
+                f"Re-run the generated training pipeline (NB10 output) so it persists nested model "
+                f"URIs into training_metadata.json."
+            )
+        nested = self._select_logged_model(None)
+        print(
+            f"[SCORING] Registered model '{self.config.registered_model_name}@production' has "
+            f"flavor='{alias_flavor}' (not a natively-loadable spark/xgboost/sklearn model — "
+            f"likely Feature-Engineering-wrapped). Falling back to nested training-run model: "
+            f"{nested['model_uri']} (flavor={nested['flavor']})."
+        )
+        return nested
 
     def list_trained_model_tags(self) -> List[str]:
         return [self._entry_display_name(e) for e in self.config.logged_models]

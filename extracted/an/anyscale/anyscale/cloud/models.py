@@ -466,14 +466,14 @@ class KubernetesConfig(ModelBase):
 
     __doc_yaml_example__ = """\
 kubernetes_config:
-  anyscale_operator_iam_id: arn:aws:iam::123456789012:role/anyscale-operator-role
+  anyscale_operator_iam_identity: arn:aws:iam::123456789012:role/anyscale-operator-role
   zones:
     - us-west-2a
     - us-west-2b
     - us-west-2c
 """
 
-    anyscale_operator_iam_id: Optional[str] = field(
+    anyscale_operator_iam_identity: Optional[str] = field(
         default=None,
         metadata={
             "docstring": "The cloud provider IAM identity federated with the Anyscale Operator's Kubernetes service account, which will be used by Anyscale control plane for validation during Anyscale Operator bootstrap in the dataplane. IN AWS EKS, this is the ARN of the IAM role. For GCP GKE, this is the service account email."

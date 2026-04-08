@@ -43,7 +43,7 @@ from tinybird.tb.modules.config import CURRENT_VERSION, CLIConfig
 from tinybird.tb.modules.datafile.build import build_graph
 from tinybird.tb.modules.datafile.pull import folder_pull
 from tinybird.tb.modules.exceptions import CLIChException
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.local_common import TB_LOCAL_HOST, TB_LOCAL_PORT, get_tinybird_local_client
 from tinybird.tb.modules.login_common import check_current_folder_in_sessions
 from tinybird.tb.modules.project import Project
@@ -68,6 +68,8 @@ PROJECT_TYPE_TYPESCRIPT = "ts-sdk"
 PROJECT_TYPE_PYTHON = "python-sdk"
 PROJECT_TYPE_CLI = "cli"
 PROJECT_TYPES = {PROJECT_TYPE_TYPESCRIPT, PROJECT_TYPE_PYTHON, PROJECT_TYPE_CLI}
+
+
 CLI_PROJECT_MARKERS = (
     "datasources",
     "pipes",
@@ -471,8 +473,8 @@ def resolve_dev_mode_target(
             raise CLIException(
                 FeedbackManager.error(
                     message=(
-                        "Cannot deploy to main workspace with 'tb build'. "
-                        "Use 'tb deploy' to deploy to production, or switch to a feature branch."
+                        f"Cannot deploy to main workspace with '{get_cli_name()} build'. "
+                        f"Use '{get_cli_name()} deploy' to deploy to production, or switch to a feature branch."
                     )
                 )
             )
@@ -565,12 +567,13 @@ def cli(
                 click.echo(FeedbackManager.warning_development_cli())
 
             if "x.y.z" not in CURRENT_VERSION and latest_version != CURRENT_VERSION:
+                cli = get_cli_name(get_project_type_from_tinybird_config(os.getcwd()))
                 click.echo(
                     FeedbackManager.warning(message=f"** New version available. {CURRENT_VERSION} -> {latest_version}")
                 )
                 click.echo(
                     FeedbackManager.warning(
-                        message="** Run `tb update` to update or `export TB_VERSION_WARNING=0` to skip the check.\n"
+                        message=f"** Run `{cli} update` to update or `export TB_VERSION_WARNING=0` to skip the check.\n"
                     )
                 )
 
@@ -700,7 +703,9 @@ def cli(
     if switched_datasource_create_to_cloud:
         click.echo(
             FeedbackManager.gray(
-                message=("Tinybird Local is not running. Running `tb datasource create` against Tinybird Cloud.")
+                message=(
+                    f"Tinybird Local is not running. Running `{get_cli_name()} datasource create` against Tinybird Cloud."
+                )
             )
         )
 

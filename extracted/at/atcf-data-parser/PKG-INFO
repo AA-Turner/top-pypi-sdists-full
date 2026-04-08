@@ -1,28 +1,54 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: atcf-data-parser
-Version: 0.0.1
+Version: 0.0.3
 Summary: Parse a-deck data posted online by the Automated Tropical Cyclone Forecasting System
-Home-page: http://www.github.com/palewire/atcf-data-parser
-Author: your name
-Author-email: your@email.com
-License: MIT
+Author-email: Ben Welsh <b@palewi.re>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/palewire/atcf-data-parser
 Project-URL: Maintainer, https://github.com/palewire/
 Project-URL: Source, https://github.com/palewire/atcf-data-parser
 Project-URL: Tracker, https://github.com/palewire/atcf-data-parser/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pandas
-Requires-Dist: numpy
-Requires-Dist: rich
 Requires-Dist: click
+Requires-Dist: numpy
+Requires-Dist: pandas
 Requires-Dist: requests
 Requires-Dist: retry
+Requires-Dist: rich
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-env; extra == "test"
+Requires-Dist: pytest-vcr; extra == "test"
+Provides-Extra: dev
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: sphinx; extra == "dev"
+Requires-Dist: sphinx-autobuild; extra == "dev"
+Requires-Dist: sphinx-click; extra == "dev"
+Requires-Dist: sphinx-palewire-theme==0.1.2; extra == "dev"
+Requires-Dist: sphinxcontrib-napoleon; extra == "dev"
+Requires-Dist: sphinxcontrib-mermaid; extra == "dev"
+Requires-Dist: myst-parser; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: types-retry; extra == "dev"
+Dynamic: license-file
 
 A Python parser and command-line utility for the a-deck data posted online by the Automated Tropical Cyclone Forecasting System
+
+
+## Links
+
+- Documentation: [palewi.re/docs/atcf-data-parser/](https://palewi.re/docs/atcf-data-parser/)
+- Code: [github.com/palewire/atcf-data-parser](https://github.com/palewire/atcf-data-parser)
+- Issues: [github.com/palewire/atcf-data-parser/issues](https://github.com/palewire/atcf-data-parser/issues)
+- Packaging: [pypi.org/project/atcf-data-parser](https://pypi.org/project/atcf-data-parser)

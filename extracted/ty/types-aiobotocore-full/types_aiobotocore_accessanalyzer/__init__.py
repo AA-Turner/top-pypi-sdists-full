@@ -22,6 +22,9 @@ Usage::
         ListFindingsPaginator,
         ListFindingsV2Paginator,
         ListPolicyGenerationsPaginator,
+        ListPolicyPreviewJobsPaginator,
+        PolicyPreviewConfigurationActiveWaiter,
+        PolicyPreviewJobCompletedWaiter,
         ValidatePolicyPaginator,
     )
 
@@ -30,6 +33,9 @@ Usage::
         client: AccessAnalyzerClient
         ...
 
+
+    policy_preview_configuration_active_waiter: PolicyPreviewConfigurationActiveWaiter = client.get_waiter("policy_preview_configuration_active")
+    policy_preview_job_completed_waiter: PolicyPreviewJobCompletedWaiter = client.get_waiter("policy_preview_job_completed")
 
     get_finding_recommendation_paginator: GetFindingRecommendationPaginator = client.get_paginator("get_finding_recommendation")
     get_finding_v2_paginator: GetFindingV2Paginator = client.get_paginator("get_finding_v2")
@@ -41,6 +47,7 @@ Usage::
     list_findings_paginator: ListFindingsPaginator = client.get_paginator("list_findings")
     list_findings_v2_paginator: ListFindingsV2Paginator = client.get_paginator("list_findings_v2")
     list_policy_generations_paginator: ListPolicyGenerationsPaginator = client.get_paginator("list_policy_generations")
+    list_policy_preview_jobs_paginator: ListPolicyPreviewJobsPaginator = client.get_paginator("list_policy_preview_jobs")
     validate_policy_paginator: ValidatePolicyPaginator = client.get_paginator("validate_policy")
     ```
 """
@@ -57,8 +64,10 @@ from .paginator import (
     ListFindingsPaginator,
     ListFindingsV2Paginator,
     ListPolicyGenerationsPaginator,
+    ListPolicyPreviewJobsPaginator,
     ValidatePolicyPaginator,
 )
+from .waiter import PolicyPreviewConfigurationActiveWaiter, PolicyPreviewJobCompletedWaiter
 
 Client = AccessAnalyzerClient
 
@@ -76,5 +85,8 @@ __all__ = (
     "ListFindingsPaginator",
     "ListFindingsV2Paginator",
     "ListPolicyGenerationsPaginator",
+    "ListPolicyPreviewJobsPaginator",
+    "PolicyPreviewConfigurationActiveWaiter",
+    "PolicyPreviewJobCompletedWaiter",
     "ValidatePolicyPaginator",
 )

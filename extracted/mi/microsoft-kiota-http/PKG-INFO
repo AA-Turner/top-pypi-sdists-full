@@ -1,24 +1,23 @@
 Metadata-Version: 2.4
 Name: microsoft-kiota-http
-Version: 1.9.10
+Version: 1.10.0
 Summary: Core abstractions for kiota generated libraries in Python
 License: MIT
 License-File: LICENSE
 Keywords: kiota,openAPI,Microsoft,Graph
 Author: Microsoft
 Author-email: graphtooling+python@microsoft.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: httpx[http2] (>=0.25,<1.0.0)
-Requires-Dist: microsoft-kiota-abstractions (>=1.9.10,<1.10.0)
+Requires-Dist: microsoft-kiota-abstractions (>=1.10.0,<1.11.0)
 Requires-Dist: opentelemetry-api (>=1.27.0)
 Requires-Dist: opentelemetry-sdk (>=1.27.0)
 Project-URL: Documentation, https://learn.microsoft.com/openapi/kiota/

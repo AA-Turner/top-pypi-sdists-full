@@ -51,10 +51,9 @@ from __future__ import annotations
 __all__ = [
     # Config
     "AgentConfig",
-    "Runtime",
+    "AppleRuntimeConfig",
     "RuntimeConfig",
     "Secret",
-    "VMResources",
     "VMRuntimeConfig",
     # Base
     "BaseAgent",
@@ -64,9 +63,7 @@ __all__ = [
     "get_registered_agents",
     # Runner
     "run_agent",
-    "AgentRunner",
-    "ParallelAgentOrchestrator",
-    "ParallelAgentResult",
+    "AgentTask",
     "WarmPool",
     "PooledVM",
     # OTel tracing
@@ -85,9 +82,8 @@ from plato.agents.base import (
     register_agent,
 )
 from plato.agents.config import AgentConfig
-from plato.agents.parallel import ParallelAgentOrchestrator, ParallelAgentResult
-from plato.agents.runner import AgentRunner, run_agent
-from plato.agents.runtime import PooledVM, WarmPool
+from plato.agents.task import AgentTask, run_agent
+from plato.agents.warmpool import PooledVM, WarmPool
 from plato.markers import Secret
 from plato.otel import (
     get_tracer,
@@ -96,9 +92,8 @@ from plato.otel import (
     is_initialized,
     shutdown_tracing,
 )
-from plato.runtime import (
-    Runtime,
+from plato.runtimes.config import (
+    AppleRuntimeConfig,
     RuntimeConfig,
-    VMResources,
     VMRuntimeConfig,
 )

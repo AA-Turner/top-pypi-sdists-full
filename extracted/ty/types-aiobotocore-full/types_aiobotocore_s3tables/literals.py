@@ -37,6 +37,7 @@ __all__ = (
     "ResourceServiceName",
     "S3TablesServiceName",
     "SSEAlgorithmType",
+    "SchemaV2FieldTypeType",
     "ServiceName",
     "StorageClassType",
     "TableBucketMaintenanceTypeType",
@@ -60,6 +61,7 @@ MaintenanceStatusType = Literal["disabled", "enabled"]
 OpenTableFormatType = Literal["ICEBERG"]
 ReplicationStatusType = Literal["completed", "failed", "pending"]
 SSEAlgorithmType = Literal["AES256", "aws:kms"]
+SchemaV2FieldTypeType = Literal["struct"]
 StorageClassType = Literal["INTELLIGENT_TIERING", "STANDARD"]
 TableBucketMaintenanceTypeType = Literal["icebergUnreferencedFileRemoval"]
 TableBucketTypeType = Literal["aws", "customer"]
@@ -189,6 +191,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -424,6 +427,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -459,6 +463,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -471,6 +476,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

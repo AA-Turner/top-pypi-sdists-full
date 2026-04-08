@@ -6,7 +6,20 @@ cl100k_base-based estimation from the message list and response content.
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass
 from typing import Any
+
+
+@dataclass(frozen=True)
+class RequestTokenBreakdown:
+    """Per-component token breakdown for a full LLM request."""
+
+    message_tokens: int
+    system_prompt_tokens: int
+    tool_schema_tokens: int
+    total: int
+
 
 _encoding: Any = None
 
@@ -90,3 +103,42 @@ def estimate_usage(
         "model": model,
         "estimated": True,
     }
+
+
+def estimate_request_tokens(
+    messages: list[dict[str, Any]],
+    system_prompt: str = "",
+    extra_system_prompt: str = "",
+    tool_schemas: list[dict[str, Any]] | None = None,
+) -> RequestTokenBreakdown:
+    """Estimate the total token cost of a full LLM request.
+
+    Accounts for message history, system prompt (default + extra),
+    and tool schemas — the three major components that the previous
+    message-only estimator missed.
+    """
+    message_tokens = count_message_tokens(messages)
+
+    combined_system = ""
+    if extra_system_prompt and system_prompt:
+        combined_system = extra_system_prompt + "\n\n" + system_prompt
+    elif extra_system_prompt:
+        combined_system = extra_system_prompt
+    elif system_prompt:
+        combined_system = system_prompt
+    system_prompt_tokens = count_text_tokens(combined_system) + 4 if combined_system else 0
+
+    tool_schema_tokens = 0
+    if tool_schemas:
+        for tool in tool_schemas:
+            func = tool.get("function", {})
+            serialized = json.dumps(func, separators=(",", ":"))
+            tool_schema_tokens += count_text_tokens(serialized)
+
+    total = message_tokens + system_prompt_tokens + tool_schema_tokens
+    return RequestTokenBreakdown(
+        message_tokens=message_tokens,
+        system_prompt_tokens=system_prompt_tokens,
+        tool_schema_tokens=tool_schema_tokens,
+        total=total,
+    )

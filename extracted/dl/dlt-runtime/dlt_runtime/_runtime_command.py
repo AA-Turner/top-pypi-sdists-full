@@ -27,17 +27,19 @@ from tabulate import tabulate
 
 from dlt_runtime.version import __version__
 
+from dlt._workspace.exceptions import WorkspaceRunContextNotAvailable
+
 from dlt_runtime.exceptions import (
-    LocalWorkspaceIdNotSet,
     NoRunnableRun,
     NoRunsFound,
     RuntimeNotAuthenticated,
-    WorkspaceIdMismatch,
+    RuntimeOperationNotAuthorized,
     exception_from_response,
     handle_client_exceptions,
 )
 from dlt_runtime.runtime import (
     RuntimeAuthService,
+    UserInfo,
     WorkspaceInfo,
     get_auth_client,
 )
@@ -84,6 +86,9 @@ from dlt_runtime.runtime_clients.api.types import File
 from dlt_runtime.runtime_clients.auth.api.workos import (
     workos_device_flow_complete,
     workos_device_flow_start,
+)
+from dlt_runtime.runtime_clients.api.errors import (
+    UnexpectedStatus as ApiUnexpectedStatus,
 )
 from dlt_runtime.runtime_clients.auth.errors import (
     UnexpectedStatus as AuthUnexpectedStatus,
@@ -214,6 +219,12 @@ JOB_RUN_HEADERS = {
     "time_ended": fmt.bold("Ended at"),
     "duration": fmt.bold("Duration (s)"),
 }
+WORKSPACE_HEADERS = {
+    "name": fmt.bold("Name"),
+    "id": fmt.bold("ID"),
+    "role": fmt.bold("Role"),
+    "description": fmt.bold("Description"),
+}
 
 
 INTERACTIVE_APP_DETECTION_RULES: dict[InteractiveScriptType, list[str]] = {
@@ -301,7 +312,9 @@ def _extract_keys(data: dict[str, Any], keys_dict: dict[str, str]) -> dict[str, 
 
 
 @track_command(operation="login")
-def login(minimal_logging: bool = True) -> RuntimeAuthService:
+def login(
+    minimal_logging: bool = True, workspace: Optional[str] = None
+) -> RuntimeAuthService:
     auth_service = RuntimeAuthService(run_context=active())
     try:
         auth_info = auth_service.authenticate()
@@ -310,7 +323,14 @@ def login(minimal_logging: bool = True) -> RuntimeAuthService:
             web_ui_url = _get_web_ui_url()
             if web_ui_url:
                 fmt.echo("  dltHub Runtime Web UI: %s" % fmt.bold(web_ui_url))
-        _connect(auth_service=auth_service, minimal_logging=minimal_logging)
+        user_info = auth_service.fetch_user_info()
+        workspace_id = _resolve_workspace(user_info, workspace) if workspace else None
+        _connect(
+            auth_service=auth_service,
+            user_info=user_info,
+            minimal_logging=minimal_logging,
+            workspace_id=workspace_id,
+        )
         return auth_service
     except RuntimeNotAuthenticated:
         client = get_auth_client()
@@ -354,7 +374,7 @@ def login(minimal_logging: bool = True) -> RuntimeAuthService:
             if isinstance(
                 token_response.parsed, workos_device_flow_complete.LoginResponse
             ):
-                auth_info = auth_service.login(
+                auth_info, user_info = auth_service.login(
                     token_response.parsed.jwt,
                     refresh_token=token_response.parsed.refresh_token,
                 )
@@ -362,7 +382,14 @@ def login(minimal_logging: bool = True) -> RuntimeAuthService:
                 web_ui_url = _get_web_ui_url()
                 if web_ui_url:
                     fmt.echo("  dltHub Runtime Web UI: %s" % fmt.bold(web_ui_url))
-                _connect(auth_service=auth_service)
+                workspace_id = (
+                    _resolve_workspace(user_info, workspace) if workspace else None
+                )
+                _connect(
+                    auth_service=auth_service,
+                    user_info=user_info,
+                    workspace_id=workspace_id,
+                )
                 return auth_service
             elif isinstance(
                 token_response.parsed, workos_device_flow_complete.ErrorResponse400
@@ -377,46 +404,112 @@ def logout() -> None:
     fmt.echo("Logged out")
 
 
-def _get_workspace_name(auth_service: RuntimeAuthService) -> Optional[str]:
-    """Look up the workspace name for the currently connected workspace."""
+def _require_auth() -> tuple[RuntimeAuthService, UserInfo]:
+    """Authenticate and return (auth_service, user_info), or raise a CLI error."""
+    auth_service = RuntimeAuthService(run_context=active())
     try:
-        ws_id = auth_service.workspace_id
-        for ws in auth_service.user_info.workspaces:
-            if ws.id == ws_id:
-                return ws.name
-    except Exception:
-        pass
+        auth_service.authenticate()
+    except RuntimeNotAuthenticated:
+        raise CliCommandInnerException(
+            cmd="runtime",
+            msg="Not logged in. Run 'dlt runtime login' first.",
+        )
+    return auth_service, auth_service.fetch_user_info()
+
+
+@track_command(operation="workspace", suboperation="list")
+def workspace_list() -> None:
+    """List all workspaces the authenticated user has access to.
+
+    Uses only authenticate() — does NOT require a workspace to be connected.
+    This allows the command to work before workspace selection.
+    """
+    auth_service, user_info = _require_auth()
+    if not user_info.workspaces:
+        fmt.echo("No workspaces found")
+        return
+
+    # Determine the currently connected workspace ID (if any)
+    try:
+        current_ws_id = auth_service.workspace_id
+    except (RuntimeOperationNotAuthorized, WorkspaceRunContextNotAvailable):
+        current_ws_id = None
+
+    rows = []
+    for ws in user_info.workspaces:
+        name = ws.name
+        if ws.id == current_ws_id:
+            name = f"* {name}"
+        rows.append(
+            {
+                "name": name,
+                "id": ws.id,
+                "role": ws.role or "",
+                "description": ws.description or "",
+            }
+        )
+
+    fmt.echo(tabulate(rows, headers=WORKSPACE_HEADERS))
+
+
+@track_command(operation="workspace", suboperation="switch")
+def workspace_switch(workspace: str) -> None:
+    """Switch the locally connected workspace by name or ID.
+
+    Uses only authenticate() — does NOT trigger the full login/OAuth flow.
+    """
+    auth_service, user_info = _require_auth()
+    workspace_id = _resolve_workspace(user_info, workspace)
+    auth_service.overwrite_local_workspace_id(workspace_id)
+    ws_name = _get_workspace_name(user_info, workspace_id)
+    ws_id_dim = fmt.style(workspace_id, dim=True)
+    if ws_name:
+        ws_label = "%s %s" % (fmt.bold(ws_name), ws_id_dim)
+    else:
+        ws_label = ws_id_dim
+    fmt.echo("Switched to workspace: %s" % ws_label)
+
+
+def _get_workspace_name(user_info: UserInfo, workspace_id: str) -> Optional[str]:
+    """Look up the workspace name for the currently connected workspace."""
+    for ws in user_info.workspaces:
+        if ws.id == workspace_id:
+            return ws.name
     return None
 
 
 def _connect(
-    auth_service: Optional[RuntimeAuthService] = None, minimal_logging: bool = False
+    auth_service: RuntimeAuthService,
+    user_info: UserInfo,
+    minimal_logging: bool = False,
+    workspace_id: Optional[str] = None,
 ) -> None:
-    if auth_service is None:
-        auth_service = RuntimeAuthService(run_context=active())
-        auth_service.authenticate()
+    if workspace_id is not None:
+        auth_service.overwrite_local_workspace_id(workspace_id)
+    else:
+        remote_ids = [ws.id for ws in user_info.workspaces]
+        local_ws_id = auth_service.workspace_run_context.runtime_config.workspace_id
 
-    try:
-        auth_service.connect()
+        selected_id: Optional[str] = None
+        if not local_ws_id:
+            fmt.echo(
+                "\nIt seems your local workspace is not connected to any remote one on dltHub Runtime."
+            )
+            selected_id = _select_or_create_workspace(auth_service, user_info)
+        elif remote_ids and local_ws_id not in remote_ids:
+            fmt.warning(
+                "\nWorkspace id in local config (%s) does not match any remote workspace id on dltHub Runtime."
+                % local_ws_id,
+            )
+            selected_id = _select_or_create_workspace(auth_service, user_info)
 
-    except LocalWorkspaceIdNotSet:
-        fmt.echo(
-            "\nIt seems your local workspace is not connected to any remote one on dltHub Runtime."
-        )
-        selected_workspace_id = _select_or_create_workspace(auth_service)
-        auth_service.overwrite_local_workspace_id(selected_workspace_id)
-
-    except WorkspaceIdMismatch as e:
-        fmt.warning(
-            "\nWorkspace id in local config (%s) does not match any remote workspace id on dltHub Runtime."
-            % e.local_workspace_id,
-        )
-        selected_workspace_id = _select_or_create_workspace(auth_service)
-        auth_service.overwrite_local_workspace_id(selected_workspace_id)
+        if selected_id is not None:
+            auth_service.overwrite_local_workspace_id(selected_id)
 
     if not minimal_logging:
-        ws_name = _get_workspace_name(auth_service)
-        ws_id_dim = fmt.style(auth_service.workspace_id, dim=True)
+        ws_id = auth_service.workspace_id
+        ws_name = _get_workspace_name(user_info, ws_id)
+        ws_id_dim = fmt.style(ws_id, dim=True)
         if ws_name:
             ws_label = "%s %s" % (fmt.bold(ws_name), ws_id_dim)
         else:
@@ -459,7 +552,9 @@ def _prompt_workspace_selection(
             raise RuntimeError("Workspace selection cancelled")
 
 
-def _prompt_and_create_new_workspace(auth_service: RuntimeAuthService) -> str:
+def _prompt_and_create_new_workspace(
+    auth_service: RuntimeAuthService, user_info: UserInfo
+) -> str:
     """Prompt user for workspace name and optional description."""
     fmt.echo("\nCreating a new workspace...")
     name = input("Workspace name (leave empty for `default`): ")
@@ -467,19 +562,62 @@ def _prompt_and_create_new_workspace(auth_service: RuntimeAuthService) -> str:
         name = "default"
     description = input("Workspace description (optional): ")
 
-    new_ws_id = auth_service.create_new_workspace(name, description)
+    new_ws_id = auth_service.create_new_workspace(user_info, name, description)
     fmt.echo(f"Created workspace with id: {fmt.bold(new_ws_id)}")
+    # Add to user_info so _get_workspace_name can find it later
+    user_info.workspaces.append(
+        WorkspaceInfo(id=new_ws_id, name=name, description=description, role="owner")
+    )
     return new_ws_id
 
 
-def _select_or_create_workspace(auth_service: RuntimeAuthService) -> str:
+def _resolve_workspace(user_info: UserInfo, workspace: str) -> str:
+    """Resolve a workspace name or ID to a verified workspace ID.
+
+    Only considers owned workspaces. When matching by name, fails if multiple
+    workspaces share the same name to keep behaviour deterministic.
+    """
+    workspace = workspace.strip()
+
+    # Exact ID match is always unambiguous — return immediately.
+    for ws in user_info.workspaces:
+        if ws.role == "owner" and workspace == ws.id:
+            return ws.id
+
+    # Name match — collect all owned workspaces with this name.
+    matches = [
+        ws for ws in user_info.workspaces if ws.role == "owner" and ws.name == workspace
+    ]
+
+    if len(matches) == 1:
+        return matches[0].id
+
+    if len(matches) > 1:
+        ids = ", ".join(ws.id for ws in matches)
+        raise CliCommandInnerException(
+            cmd="runtime",
+            msg=(
+                f"Multiple owned workspaces are named '{workspace}' ({ids}). "
+                "Pass the workspace ID instead to avoid ambiguity."
+            ),
+        )
+
+    raise CliCommandInnerException(
+        cmd="runtime",
+        msg=f"Workspace '{workspace}' not found among your owned workspaces.",
+    )
+
+
+def _select_or_create_workspace(
+    auth_service: RuntimeAuthService, user_info: UserInfo
+) -> str:
     """
     Interactive workspace selection flow.
     Returns the selected or newly created workspace ID as string.
     Only workspaces where the user has the 'owner' role are shown.
     """
-    owned = [ws for ws in auth_service.user_info.workspaces if ws.role == "owner"]
-    viewer_only = [ws for ws in auth_service.user_info.workspaces if ws.role != "owner"]
+    owned = [ws for ws in user_info.workspaces if ws.role == "owner"]
+    viewer_only = [ws for ws in user_info.workspaces if ws.role != "owner"]
 
     if not owned:
         if viewer_only:
@@ -489,7 +627,7 @@ def _select_or_create_workspace(auth_service: RuntimeAuthService) -> str:
                 % len(viewer_only)
             )
         fmt.echo("No owned workspaces found. Let's create one.")
-        return _prompt_and_create_new_workspace(auth_service)
+        return _prompt_and_create_new_workspace(auth_service, user_info)
 
     if len(owned) == 1:
         ws = owned[0]
@@ -511,7 +649,7 @@ def _select_or_create_workspace(auth_service: RuntimeAuthService) -> str:
 
     if selected is None:
         # User chose to create a new workspace
-        return _prompt_and_create_new_workspace(auth_service)
+        return _prompt_and_create_new_workspace(auth_service, user_info)
     else:
         return str(selected.id)
 
@@ -1127,6 +1265,70 @@ def _get_latest_run(
         raise exception_from_response("Failed to get runs for workspace", runs)
 
 
+def _cancel_active_run_if_exists(
+    script_name: str,
+    *,
+    auth_service: RuntimeAuthService,
+    api_client: ApiClient,
+) -> None:
+    """If the script has an active run, cancel it and wait for termination."""
+    active_states = {RunStatus.PENDING, RunStatus.STARTING, RunStatus.RUNNING}
+    transitional_states = {RunStatus.CANCELLING, RunStatus.FINALIZING}
+    terminal_states = {
+        RunStatus.FAILED,
+        RunStatus.CANCELLED,
+        RunStatus.COMPLETED,
+        RunStatus.SKIPPED,
+    }
+
+    try:
+        latest_run = _get_latest_run(api_client, auth_service, script_name)
+    except (NoRunsFound, CliCommandInnerException):
+        return  # script not found or no runs — nothing to cancel
+
+    assert latest_run.script.script_type == ScriptType.INTERACTIVE, (
+        f"Auto-cancel is only safe for interactive scripts, got {latest_run.script.script_type}"
+    )
+
+    if latest_run.status in terminal_states:
+        return  # already done
+
+    needs_cancel = latest_run.status in active_states
+
+    if needs_cancel:
+        fmt.echo(
+            f"Found existing run # {latest_run.number} ({latest_run.status}), cancelling..."
+        )
+        try:
+            with handle_client_exceptions():
+                cancel_result = cancel_run.sync_detailed(
+                    client=api_client,
+                    workspace_id=_to_uuid(auth_service.workspace_id),
+                    run_id=latest_run.id,
+                )
+            if not isinstance(cancel_result.parsed, cancel_run.DetailedRunResponse):
+                raise exception_from_response(
+                    "Failed to cancel existing run", cancel_result
+                )
+        except (CliCommandInnerException, ApiUnexpectedStatus):
+            # Run may have reached a terminal state between the check and the
+            # cancel request (race condition).  Fall through to polling which
+            # will confirm the terminal state.
+            pass
+    elif latest_run.status in transitional_states:
+        fmt.echo(
+            f"Existing run # {latest_run.number} is {latest_run.status}, waiting for it to finish..."
+        )
+
+    # Wait for terminal state
+    _follow_job_run(
+        latest_run.id,
+        terminal_states,
+        auth_service=auth_service,
+        api_client=api_client,
+    )
+
+
 @track_command(operation="configuration", suboperation="list")
 def get_configurations(
     *, auth_service: RuntimeAuthService, api_client: ApiClient
@@ -1265,7 +1467,7 @@ def _resolve_run_id_by_number(
 @track_command(operation="launch")
 def launch(
     script_path: str,
-    detach: bool = False,
+    follow: bool = False,
     *,
     auth_service: RuntimeAuthService,
     api_client: ApiClient,
@@ -1280,21 +1482,31 @@ def launch(
     # Sync and run
     _sync_deployment(auth_service=auth_service, api_client=api_client)
     _sync_configuration(auth_service=auth_service, api_client=api_client)
-    run_id = _run_script(
+    run_response = _run_script(
         script_path_obj,
         ScriptType.BATCH,
         auth_service=auth_service,
         api_client=api_client,
     )
-    if not detach:
+    if follow:
         # Show status and then logs for latest run
         _follow_run_status(
-            run_id, True, auth_service=auth_service, api_client=api_client
+            run_response.id, True, auth_service=auth_service, api_client=api_client
         )
         _follow_run_logs(
-            run_id,
+            run_response.id,
             auth_service=auth_service,
             api_client=api_client,
+        )
+    else:
+        fmt.echo(f"  Job:        {run_response.script.name}")
+        fmt.echo(f"  Run #:      {run_response.number}")
+        fmt.echo(f"  Status:     {run_response.status.value}")
+        fmt.echo("")
+        fmt.echo(f"To follow logs: dlt runtime logs {script_path}")
+        fmt.echo(
+            f"To see logs about this specific run: dlt runtime logs {script_path}"
+            f" {run_response.number}"
         )
 
 
@@ -1337,7 +1549,12 @@ def serve(
     # Sync and run interactive
     _sync_deployment(auth_service=auth_service, api_client=api_client)
     _sync_configuration(auth_service=auth_service, api_client=api_client)
-    run_id = _run_script(
+    _cancel_active_run_if_exists(
+        script_path_obj.name,
+        auth_service=auth_service,
+        api_client=api_client,
+    )
+    run_response = _run_script(
         script_path_obj,
         ScriptType.INTERACTIVE,
         interactive_script_type=interactive_script_type,
@@ -1347,7 +1564,7 @@ def serve(
     # Follow until ready: show status
     is_batch = False
     _follow_run_status(
-        run_id, is_batch, auth_service=auth_service, api_client=api_client
+        run_response.id, is_batch, auth_service=auth_service, api_client=api_client
     )
 
     # Open the application URL
@@ -1521,7 +1738,7 @@ def _run_script(
     *,
     auth_service: RuntimeAuthService,
     api_client: ApiClient,
-) -> UUID:
+) -> "create_run.DetailedRunResponse":
     if interactive_script_type and script_type != ScriptType.INTERACTIVE:
         raise CliCommandInnerException(
             cmd="runtime",
@@ -1543,7 +1760,6 @@ def _run_script(
                 script_type=script_type,
                 interactive_script_type=interactive_script_type,
                 profile=profile,
-                schedule=None,
             ),
         )
     if not isinstance(
@@ -1570,7 +1786,7 @@ def _run_script(
         if script_type == ScriptType.INTERACTIVE:
             url = create_script_result.parsed.script_url
             fmt.echo(f"Job is accessible at {url}")
-        return create_run_result.parsed.id
+        return create_run_result.parsed
     else:
         raise exception_from_response("Failed to run script", create_run_result)
 
@@ -1849,8 +2065,9 @@ def open_dashboard(*, auth_service: RuntimeAuthService, api_client: ApiClient) -
 @track_command(operation="info")
 def runtime_info(*, auth_service: RuntimeAuthService, api_client: ApiClient) -> None:
     # workspace info
-    ws_name = _get_workspace_name(auth_service)
+    user_info = auth_service.fetch_user_info()
     ws_id = auth_service.workspace_id
+    ws_name = _get_workspace_name(user_info, ws_id)
     if ws_name:
         fmt.echo(f"Workspace: {fmt.bold(ws_name)} ({ws_id})")
     else:

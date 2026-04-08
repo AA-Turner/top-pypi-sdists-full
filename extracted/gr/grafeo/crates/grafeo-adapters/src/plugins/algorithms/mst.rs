@@ -107,8 +107,7 @@ pub fn kruskal(store: &dyn GraphStore, weight_property: Option<&str>) -> MstResu
     let mut seen_edges: std::collections::HashSet<(usize, usize)> =
         std::collections::HashSet::new();
 
-    for &node in &nodes {
-        let i = *node_to_idx.get(&node).expect("node in index");
+    for (i, &node) in nodes.iter().enumerate() {
         for (neighbor, edge_id) in store.edges_from(node, Direction::Outgoing) {
             if let Some(&j) = node_to_idx.get(&neighbor) {
                 // For undirected: only add each edge once
@@ -132,8 +131,12 @@ pub fn kruskal(store: &dyn GraphStore, weight_property: Option<&str>) -> MstResu
     let mut total_weight = 0.0;
 
     for (weight, src, dst, edge_id) in edges {
-        let i = *node_to_idx.get(&src).expect("src node in index");
-        let j = *node_to_idx.get(&dst).expect("dst node in index");
+        let Some(&i) = node_to_idx.get(&src) else {
+            continue;
+        };
+        let Some(&j) = node_to_idx.get(&dst) else {
+            continue;
+        };
 
         if uf.find(i) != uf.find(j) {
             uf.union(i, j);

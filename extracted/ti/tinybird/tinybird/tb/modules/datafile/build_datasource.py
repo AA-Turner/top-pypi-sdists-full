@@ -7,7 +7,7 @@ import click
 
 from tinybird.datafile.common import PREVIEW_CONNECTOR_SERVICES, ImportReplacements
 from tinybird.tb.client import DoesNotExistException, TinyB
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 
 
 def new_ds(
@@ -324,7 +324,7 @@ def new_ds(
             FeedbackManager.error_promoting_datasource(datasource=ds_name, error=promote_error_message)
         )
     else:
-        click.echo(FeedbackManager.warning_datasource_already_exists(datasource=ds_name))
+        click.echo(FeedbackManager.warning_datasource_already_exists(datasource=ds_name, cli=get_cli_name()))
 
 
 def share_and_unshare_datasource(

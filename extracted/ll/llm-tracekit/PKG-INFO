@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llm-tracekit
-Version: 2.4.0
+Version: 2.5.0
 Summary: Meta-package for LLM Tracekit - OpenTelemetry instrumentations for LLM providers.
 Project-URL: homepage, https://coralogix.com
 Project-URL: repository, https://github.com/coralogix/llm-tracekit.git
@@ -16,7 +16,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <3.14,>=3.10
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Requires-Dist: llm-tracekit-core>=1.0.0
 Provides-Extra: bedrock
 Requires-Dist: llm-tracekit-bedrock>=1.0.0; extra == 'bedrock'

@@ -32,6 +32,7 @@ from securetar import (
     SecureTarReadError,
     SecureTarRootKeyContext,
     atomic_contents_add,
+    get_archive_max_ciphertext_size,
     secure_path,
 )
 
@@ -66,6 +67,49 @@ class TarInfo:
     """Fake TarInfo."""
 
     name: str
+
+
+@pytest.mark.parametrize(
+    ("version", "number_of_inner_tar_files", "plaintext_size", "expected"),
+    [
+        # v2: plaintext_size + n * RECORDSIZE
+        (2, 0, 0, 0),  # no inner files, no encryption overhead
+        (2, 0, 10240, 10240),  # no inner files, no encryption overhead
+        (2, 1, 10240, 20480),
+        (2, 3, 100000, 130720),
+        # v3: plaintext_size + (n + num_records) * RECORDSIZE
+        # where num_records = ceil(ceil(plaintext/1MB) * 17 / RECORDSIZE), min 1 chunk
+        (3, 0, 0, 0),  # no inner files, no encryption overhead
+        (3, 0, 10240, 10240),  # no inner files, no encryption overhead
+        (3, 1, 10240, 30720),
+        (3, 3, 100000, 140960),
+        (3, 1, 1048576, 1069056),  # exactly 1 MB: 1 chunk
+        (3, 1, 1048577, 1069057),  # 1 MB + 1: 2 chunks, still fits in 1 record
+        (3, 5, 5242880, 5304320),  # 5 MB, 5 files
+        (3, 1, 10485760, 10506240),  # 10 MB: 10 chunks * 17 = 170 bytes, 1 record
+        (3, 10, 1000, 113640),  # many small files
+    ],
+)
+def test_get_archive_max_ciphertext_size(
+    version: int,
+    number_of_inner_tar_files: int,
+    plaintext_size: int,
+    expected: int,
+) -> None:
+    """Test get_archive_max_ciphertext_size."""
+    assert (
+        get_archive_max_ciphertext_size(
+            plaintext_size, version, number_of_inner_tar_files
+        )
+        == expected
+    )
+
+
+@pytest.mark.parametrize("version", [1, 4])
+def test_get_archive_max_ciphertext_size_invalid_version(version: int) -> None:
+    """Test get_archive_max_ciphertext_size with an unsupported version."""
+    with pytest.raises(ValueError, match=f"Unsupported SecureTar version: {version}"):
+        get_archive_max_ciphertext_size(10240, version, 1)
 
 
 def test_secure_path() -> None:
@@ -305,6 +349,75 @@ def test_create_encrypted_tar_validate(
                 gzip=enable_gzip,
             )
             assert secure_tar_file.validate()
+
+
+@pytest.mark.parametrize("version", [2, 3])
+def test_empty_string_password_is_encrypted(tmp_path: Path, version: int) -> None:
+    """Empty string password must produce an encrypted archive, not a plaintext one."""
+    password = ""
+
+    temp_orig = tmp_path.joinpath("orig")
+    fixture_data = Path(__file__).parent.joinpath("fixtures/tar_data")
+    shutil.copytree(fixture_data, temp_orig, symlinks=True)
+
+    main_tar = tmp_path.joinpath("backup.tar")
+    with SecureTarArchive(
+        main_tar, "w", create_version=version, password=password
+    ) as archive:
+        with archive.create_tar("core.tar") as inner_tar_file:
+            atomic_contents_add(
+                inner_tar_file,
+                temp_orig,
+                file_filter=lambda _: False,
+                arcname=".",
+            )
+
+    assert main_tar.exists()
+
+    # The inner tar must start with the SecureTar magic — i.e. it is encrypted.
+    with SecureTarArchive(main_tar, "r") as archive:
+        for tar_info in archive.tar:
+            inner_tar = archive.tar.extractfile(tar_info)
+            assert inner_tar.read(len(SECURETAR_MAGIC)) == SECURETAR_MAGIC
+
+
+@pytest.mark.parametrize("version", [2, 3])
+def test_empty_string_password_roundtrip(tmp_path: Path, version: int) -> None:
+    """Archive encrypted with empty string password can be decrypted with same password."""
+    password = ""
+
+    temp_orig = tmp_path.joinpath("orig")
+    fixture_data = Path(__file__).parent.joinpath("fixtures/tar_data")
+    shutil.copytree(fixture_data, temp_orig, symlinks=True)
+
+    main_tar = tmp_path.joinpath("backup.tar")
+    with SecureTarArchive(
+        main_tar, "w", create_version=version, password=password
+    ) as archive:
+        with archive.create_tar("core.tar") as inner_tar_file:
+            atomic_contents_add(
+                inner_tar_file,
+                temp_orig,
+                file_filter=lambda _: False,
+                arcname=".",
+            )
+
+    temp_out = tmp_path.joinpath("out")
+    temp_out.mkdir()
+    with SecureTarArchive(main_tar, "r", password=password, streaming=True) as archive:
+        for tar_info in archive.tar:
+            buf = io.BytesIO()
+            with archive.extract_tar(tar_info) as decrypted:
+                while data := decrypted.read(10240):
+                    buf.write(data)
+            buf.seek(0)
+            with tarfile.open(fileobj=buf) as inner_tar_file:
+                inner_tar_file.extractall(temp_out, filter="tar")
+
+    # Verify extracted contents match the originals.
+    orig_files = {p.relative_to(temp_orig) for p in temp_orig.rglob("*") if p.is_file()}
+    out_files = {p.relative_to(temp_out) for p in temp_out.rglob("*") if p.is_file()}
+    assert orig_files == out_files
 
 
 @patch("securetar.time.time", new=Mock(return_value=1765362043.0))

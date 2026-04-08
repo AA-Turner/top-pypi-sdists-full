@@ -18,7 +18,7 @@ from tinybird.tb.modules.common import (
 )
 from tinybird.tb.modules.create import generate_aws_iamrole_connection_file_with_secret
 from tinybird.tb.modules.exceptions import CLIConnectionException
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.project import Project
 from tinybird.tb.modules.secret import save_secret_to_env_file
 
@@ -320,7 +320,7 @@ def connection_create_s3(
     if env == "local" and not client.check_aws_credentials():
         click.echo(
             FeedbackManager.warning(
-                message="No AWS credentials found. Please run `tb local restart --use-aws-creds` to pass your credentials. "
+                message=f"No AWS credentials found. Please run `{get_cli_name()} local restart --use-aws-creds` to pass your credentials. "
                 "Read more about this in https://www.tinybird.co/docs/forward/get-data-in/connectors/s3#local-environment"
             )
         )

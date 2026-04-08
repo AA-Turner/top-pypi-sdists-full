@@ -22,6 +22,7 @@ Usage::
         ListFindingsPaginator,
         ListFindingsV2Paginator,
         ListPolicyGenerationsPaginator,
+        ListPolicyPreviewJobsPaginator,
         ValidatePolicyPaginator,
     )
 
@@ -39,6 +40,7 @@ Usage::
         list_findings_paginator: ListFindingsPaginator = client.get_paginator("list_findings")
         list_findings_v2_paginator: ListFindingsV2Paginator = client.get_paginator("list_findings_v2")
         list_policy_generations_paginator: ListPolicyGenerationsPaginator = client.get_paginator("list_policy_generations")
+        list_policy_preview_jobs_paginator: ListPolicyPreviewJobsPaginator = client.get_paginator("list_policy_preview_jobs")
         validate_policy_paginator: ValidatePolicyPaginator = client.get_paginator("validate_policy")
     ```
 """
@@ -71,6 +73,8 @@ from .type_defs import (
     ListFindingsV2ResponseTypeDef,
     ListPolicyGenerationsRequestPaginateTypeDef,
     ListPolicyGenerationsResponseTypeDef,
+    ListPolicyPreviewJobsRequestPaginateTypeDef,
+    ListPolicyPreviewJobsResponseTypeDef,
     ValidatePolicyRequestPaginateTypeDef,
     ValidatePolicyResponseTypeDef,
 )
@@ -91,6 +95,7 @@ __all__ = (
     "ListFindingsPaginator",
     "ListFindingsV2Paginator",
     "ListPolicyGenerationsPaginator",
+    "ListPolicyPreviewJobsPaginator",
     "ValidatePolicyPaginator",
 )
 
@@ -272,6 +277,24 @@ class ListPolicyGenerationsPaginator(_ListPolicyGenerationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/paginator/ListPolicyGenerations.html#AccessAnalyzer.Paginator.ListPolicyGenerations.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_accessanalyzer/paginators/#listpolicygenerationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPolicyPreviewJobsPaginatorBase = AioPaginator[ListPolicyPreviewJobsResponseTypeDef]
+else:
+    _ListPolicyPreviewJobsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListPolicyPreviewJobsPaginator(_ListPolicyPreviewJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/paginator/ListPolicyPreviewJobs.html#AccessAnalyzer.Paginator.ListPolicyPreviewJobs)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_accessanalyzer/paginators/#listpolicypreviewjobspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPolicyPreviewJobsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListPolicyPreviewJobsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/accessanalyzer/paginator/ListPolicyPreviewJobs.html#AccessAnalyzer.Paginator.ListPolicyPreviewJobs.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_accessanalyzer/paginators/#listpolicypreviewjobspaginator)
         """
 
 if TYPE_CHECKING:

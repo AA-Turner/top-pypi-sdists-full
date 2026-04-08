@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-aiofiles"
-version = "25.1.0.20251011"
+version = "25.1.0.20260408"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for aiofiles"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.406
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`d7cf36970fd3433fe821f982591c56043c75a5ba`](https://github.com/python/typeshed/commit/d7cf36970fd3433fe821f982591c56043c75a5ba).
+[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = []
 [tool.setuptools]
 packages = ['aiofiles-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'aiofiles-stubs' = ['__init__.pyi', 'base.pyi', 'os.pyi', 'ospath.pyi', 'tempfile/__init__.pyi', 'tempfile/temptypes.pyi', 'threadpool/__init__.pyi', 'threadpool/binary.pyi', 'threadpool/text.pyi', 'threadpool/utils.pyi', 'METADATA.toml', 'py.typed']

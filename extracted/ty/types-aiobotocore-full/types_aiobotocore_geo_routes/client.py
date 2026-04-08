@@ -98,8 +98,8 @@ class LocationServiceRoutesV2Client(AioBaseClient):
         self, **kwargs: Unpack[CalculateIsolinesRequestTypeDef]
     ) -> CalculateIsolinesResponseTypeDef:
         """
-        Use the <code>CalculateIsolines</code> action to find service areas that can be
-        reached in a given threshold of time, distance.
+        Calculates areas that can be reached within specified time or distance
+        thresholds from a given point.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/geo-routes/client/calculate_isolines.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_geo_routes/client/#calculate_isolines)

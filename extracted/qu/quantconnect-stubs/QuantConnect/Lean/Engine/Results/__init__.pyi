@@ -1133,6 +1133,20 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
     """Backtesting result handler passes messages back from the Lean to the User."""
 
     @property
+    def run_results_analysis(self) -> bool:
+        """
+        Whether or not to run the results analysis at the end of the backtest.
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @run_results_analysis.setter
+    def run_results_analysis(self, value: bool) -> None:
+        ...
+
+    @property
     def final_statistics(self) -> System.Collections.Generic.Dictionary[str, str]:
         """A dictionary containing summary statistics"""
         ...

@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=77.0.3"]
+requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-zstd"
-version = "1.5.7.3.20260110"
+version = "1.5.7.3.20260408"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for zstd"
@@ -25,17 +25,17 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.19.1
+* [mypy](https://github.com/python/mypy/) 1.20.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`e213e04a8468e2cbbb432ce2676b12a7e27ab77e`](https://github.com/python/typeshed/commit/e213e04a8468e2cbbb432ce2676b12a7e27ab77e).
+[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = []
 
 [project.urls]
@@ -48,3 +48,6 @@ dependencies = []
 [tool.setuptools]
 packages = ['zstd-stubs']
 include-package-data = false
+
+[tool.setuptools.package-data]
+'zstd-stubs' = ['__init__.pyi', 'METADATA.toml', 'py.typed']

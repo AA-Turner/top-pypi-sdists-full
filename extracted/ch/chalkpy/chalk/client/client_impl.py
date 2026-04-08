@@ -184,7 +184,13 @@ from chalk.parsed.branch_state import BranchGraphSummary
 from chalk.parsed.to_proto import ToProtoConverter
 from chalk.prompts import Prompt
 from chalk.queries.query_context import ContextJsonDict, JsonValue
-from chalk.scalinggroup.spec import AutoScalingSpec, ScalingGroupResourceRequest
+from chalk.scalinggroup.spec import (
+    AutoScalingSpec,
+    DeleteScalingGroupResponse,
+    ListScalingGroupsResponse,
+    ScalingGroup,
+    ScalingGroupResourceRequest,
+)
 from chalk.utils import notebook
 from chalk.utils.collections import FrozenOrderedSet
 from chalk.utils.df_utils import chunk_table, pa_table_to_pl_df
@@ -5751,6 +5757,93 @@ https://docs.chalk.ai/cli/apply
             handler=handler,
             env_vars=env_vars,
         )
+
+    def list_scaling_groups(self, environment: Optional[EnvironmentId] = None) -> ListScalingGroupsResponse:
+        """List all scaling groups in the current environment.
+
+        Parameters
+        ----------
+        environment
+            Environment to list scaling groups in.
+
+        Returns
+        -------
+        ListScalingGroupsResponse
+            Response containing a list of scaling groups.
+        """
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=environment or self._primary_environment,
+            api_server=self._api_server,
+        )
+        return client_grpc.list_scaling_groups()
+
+    def get_scaling_group(
+        self,
+        name: Optional[str] = None,
+        id: Optional[str] = None,
+        environment: Optional[EnvironmentId] = None,
+    ) -> ScalingGroup:
+        """Get a scaling group by name or id.
+
+        Parameters
+        ----------
+        name
+            Name of the scaling group.
+        id
+            ID of the scaling group.
+        environment
+            Environment to get the scaling group from.
+
+        Returns
+        -------
+        ScalingGroup
+            The scaling group details.
+        """
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=environment or self._primary_environment,
+            api_server=self._api_server,
+        )
+        return client_grpc.get_scaling_group(name=name, id=id)
+
+    def delete_scaling_group(
+        self,
+        name: Optional[str] = None,
+        id: Optional[str] = None,
+        environment: Optional[EnvironmentId] = None,
+    ) -> DeleteScalingGroupResponse:
+        """Delete a scaling group by name or id.
+
+        Parameters
+        ----------
+        name
+            Name of the scaling group to delete.
+        id
+            ID of the scaling group to delete.
+        environment
+            Environment to delete the scaling group from.
+
+        Returns
+        -------
+        DeleteScalingGroupResponse
+            Response containing the deleted scaling group details.
+        """
+        from chalk.client.client_grpc import ChalkGRPCClient
+
+        client_grpc = ChalkGRPCClient(
+            client_id=self._client_id,
+            client_secret=self._client_secret,
+            environment=environment or self._primary_environment,
+            api_server=self._api_server,
+        )
+        return client_grpc.delete_scaling_group(name=name, id=id)
 
     def download_model_artifact(
         self,

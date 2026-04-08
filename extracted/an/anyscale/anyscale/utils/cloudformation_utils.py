@@ -13,6 +13,7 @@ from botocore.exceptions import ClientError
 from click import ClickException
 
 from anyscale.cli_logger import BlockLogger
+from anyscale.util import _apn_boto3_session, _apn_config
 
 
 class CloudFormationUtils:
@@ -52,7 +53,7 @@ class CloudFormationUtils:
             ClickException: If stack creation fails or times out
         """
         if boto3_session is None:
-            boto3_session = boto3.Session(region_name=region)
+            boto3_session = _apn_boto3_session(region_name=region)
 
         cfn_client = boto3_session.client("cloudformation", region_name=region)
 
@@ -169,7 +170,7 @@ class CloudFormationUtils:
     def _cleanup_s3_bucket(self, bucket_name: str, region: str) -> None:
         """Clean up S3 bucket created by failed stack."""
         try:
-            s3_client = boto3.client("s3", region_name=region)
+            s3_client = boto3.client("s3", region_name=region, config=_apn_config())
             s3_client.delete_bucket(Bucket=bucket_name)
             self.log.info(f"Successfully deleted S3 bucket: {bucket_name}")
         except ClientError as e:
@@ -222,7 +223,7 @@ class CloudFormationUtils:
             ClickException: If stack not found or error retrieving outputs
         """
         if boto3_session is None:
-            boto3_session = boto3.Session(region_name=region)
+            boto3_session = _apn_boto3_session(region_name=region)
 
         cfn_client = boto3_session.client("cloudformation", region_name=region)
 
@@ -291,7 +292,7 @@ class CloudFormationUtils:
             ClickException: If stack deletion fails
         """
         if boto3_session is None:
-            boto3_session = boto3.Session(region_name=region)
+            boto3_session = _apn_boto3_session(region_name=region)
 
         cfn_client = boto3_session.client("cloudformation", region_name=region)
 

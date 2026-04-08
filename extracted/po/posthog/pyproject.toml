@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "posthog"
-version = "7.9.12"
+version = "7.10.0"
 description = "Integrate PostHog into any python application."
 authors = [{ name = "PostHog", email = "hey@posthog.com" }]
 maintainers = [{ name = "PostHog", email = "hey@posthog.com" }]
@@ -49,7 +49,7 @@ dev = [
     "types-setuptools",
     "types-six",
     "pre-commit",
-    "pydantic",
+    "pydantic>=2.12.0",
     "ruff",
     "setuptools",
     "packaging",
@@ -69,13 +69,16 @@ test = [
     "openai>=2.0",
     "anthropic>=0.72",
     "langgraph>=1.0",
+    "langgraph-checkpoint>=3.0.1",
+    "tiktoken>=0.12.0",
     "langchain-core>=1.0",
     "langchain-community>=0.4",
     "langchain-openai>=1.0",
     "langchain-anthropic>=1.0",
     "google-genai",
-    "pydantic",
+    "pydantic>=2.12.0",
     "parameterized>=0.8.1",
+    "claude-agent-sdk",
 ]
 
 [tool.setuptools]
@@ -87,14 +90,25 @@ packages = [
     "posthog.ai.openai_agents",
     "posthog.ai.anthropic",
     "posthog.ai.gemini",
+    "posthog.ai.claude_agent_sdk",
     "posthog.test",
     "posthog.test.ai",
     "posthog.test.ai.openai_agents",
+    "posthog.test.ai.claude_agent_sdk",
     "posthog.integrations",
 ]
+
+[tool.uv]
+exclude-newer = "7 days"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["posthog/test"]
 norecursedirs = ["integration_tests"]
+
+[dependency-groups]
+dev = [
+    "claude-agent-sdk>=0.1.50",
+]
+

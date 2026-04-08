@@ -16,6 +16,7 @@ from git import Actor, Repo
 
 from plato.git_ops import (
     GitOpRequest,
+    checkout_main_from_bare,
     ensure_remote_git_server,
     run_remote_git_checked,
     run_remote_git_op,
@@ -26,40 +27,13 @@ from plato.transports.base import Transport
 from plato.utils.subprocess import run_local, run_ssh
 
 if TYPE_CHECKING:
+    from plato.agents.mounts import AgentWorkspaceMount
     from plato.v2.async_.environment import Environment
     from plato.worlds.config import GitTransportConfig, MergeAgentConfig
 
 logger = logging.getLogger(__name__)
 _PLATO_ACTOR = Actor("Plato", "plato@plato.dev")
 _AGENT_ACTOR = Actor("Plato Agent", "agent@plato.dev")
-
-
-@dataclass(frozen=True, slots=True)
-class GitCheckout:
-    """Checkout configuration for an agent git workspace."""
-
-    ref: str | None
-    branch_name: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class GitSyncBack:
-    """Sync-back policy for an agent git workspace."""
-
-    target_ref: str | None = None
-    exact_ref: bool = False
-
-    @classmethod
-    def merge_to_main(cls) -> GitSyncBack:
-        return cls()
-
-    @classmethod
-    def publish_ref(cls, ref: str, *, exact: bool = False) -> GitSyncBack:
-        return cls(target_ref=ref, exact_ref=exact)
-
-    @classmethod
-    def push_branch(cls, branch_name: str) -> GitSyncBack:
-        return cls(target_ref=f"refs/heads/{branch_name}", exact_ref=True)
 
 
 class GitPushConflict(RuntimeError):
@@ -90,7 +64,6 @@ class GitTransport(Transport):
         mount_path: str | None = None,
         git_config: GitTransportConfig | None = None,
         raise_on_conflict: bool = False,
-        publish_ref_prefix: str | None = None,
     ) -> None:
         self.path = path
         self.world_vm_ip = world_vm_ip
@@ -98,11 +71,7 @@ class GitTransport(Transport):
         self.mount_path = mount_path
         self._bare_repo_path = f"{path}/.git-bare"
         self._raise_on_conflict = raise_on_conflict
-        self._publish_ref_prefix = publish_ref_prefix
-        self._publish_ref_exact = False
         self._published_ref: GitPublishedRef | None = None
-        self._checkout_base_ref: str | None = None
-        self._checkout_branch_name: str | None = None
         if git_config is None:
             from plato.worlds.config import GitTransportConfig as _GitTransportConfig
 
@@ -110,12 +79,15 @@ class GitTransport(Transport):
         self._git_config = git_config
         self._merge_resolver: Callable[[str, Path, str, list[str]], Awaitable[None]] | None = None
         self._sync_lock = asyncio.Lock() if self._git_config.serialize_sync else None
-        self.configure_workspace(name=None, repo_root=None, tracked=False)
-        self.configure_audit_scope(audit_run_id=None, audit_key=None)
 
     @property
     def bare_repo_path(self) -> str:
         return self._bare_repo_path
+
+    @property
+    def repo_path(self) -> str:
+        """Path to the working tree (repo/) inside the workspace."""
+        return f"{self.path}/repo"
 
     @property
     def merge_config(self) -> GitTransportConfig:
@@ -130,61 +102,17 @@ class GitTransport(Transport):
         return self._raise_on_conflict
 
     @property
-    def publish_ref_prefix(self) -> str | None:
-        return self._publish_ref_prefix
-
-    @property
     def published_ref(self) -> GitPublishedRef | None:
         return self._published_ref
 
-    @property
-    def checkout_base_ref(self) -> str | None:
-        return self._checkout_base_ref
-
     def set_raise_on_conflict(self, enabled: bool) -> None:
         self._raise_on_conflict = enabled
-
-    def set_publish_ref_prefix(self, prefix: str | None, *, exact: bool = False) -> None:
-        self._publish_ref_prefix = prefix
-        self._publish_ref_exact = exact
-        self._published_ref = None
-
-    def set_checkout_base_ref(self, ref: str | None, *, branch_name: str | None = None) -> None:
-        self._checkout_base_ref = ref
-        self._checkout_branch_name = branch_name
 
     def set_merge_resolver(
         self,
         resolver: Callable[[str, Path, str, list[str]], Awaitable[None]],
     ) -> None:
         self._merge_resolver = resolver
-
-    def for_agent(
-        self,
-        *,
-        path: str | None = None,
-        mount_path: str | None = None,
-        checkout: GitCheckout | None = None,
-        sync_back: GitSyncBack | None = None,
-        raise_on_conflict: bool | None = None,
-    ) -> GitTransport:
-        """Return a cloned transport configured for one agent run."""
-        resolved_path = path or self.path
-        transport = self.with_path(resolved_path)
-        if mount_path is not None:
-            transport.mount_path = mount_path
-        elif resolved_path == self.path and self.mount_path is not None:
-            transport.mount_path = self.mount_path
-        if checkout is not None:
-            transport._checkout_base_ref = checkout.ref
-            transport._checkout_branch_name = checkout.branch_name
-        if sync_back is not None:
-            transport._publish_ref_prefix = sync_back.target_ref
-            transport._publish_ref_exact = sync_back.exact_ref
-            transport._published_ref = None
-        if raise_on_conflict is not None:
-            transport._raise_on_conflict = raise_on_conflict
-        return transport
 
     @staticmethod
     async def _ensure_git_installed_local() -> None:
@@ -237,37 +165,73 @@ class GitTransport(Transport):
     async def _init_bare_repo(self, workspace_path: str, bare_path: str) -> None:
         await self._ensure_git_installed_local()
         workspace_dir = Path(workspace_path)
+        repo_dir = workspace_dir / "repo"
         bare_dir = Path(bare_path)
-        trust_git_directory(workspace_dir)
         trust_git_directory(bare_dir)
+
+        # If a bare repo already exists (e.g. restored from checkpoint), keep it
+        if (bare_dir / "HEAD").exists():
+            logger.info("Bare repo already exists at %s, skipping re-init", bare_dir)
+            # Still ensure repo/ working tree is checked out from main
+            if repo_dir.exists():
+                trust_git_directory(repo_dir)
+                checkout_main_from_bare(bare_repo_path=str(bare_dir), worktree_path=str(repo_dir))
+            return
+
         shutil.rmtree(bare_dir, ignore_errors=True)
         bare_dir.parent.mkdir(parents=True, exist_ok=True)
+        bare_dir.mkdir(parents=True, exist_ok=True)
         bare_repo = Repo.init(bare_dir, bare=True, initial_branch="main")
         with bare_repo.config_writer() as config:
             config.set_value("transfer", "unpackLimit", "99999")
-        gitignore_lines = list(WorkspaceMarker.DEFAULT_DVCIGNORE) + [".git-bare"]
-        gitignore_content = "\n".join(gitignore_lines) + "\n"
-        (workspace_dir / ".gitignore").write_text(gitignore_content)
-        shutil.rmtree(workspace_dir / ".git", ignore_errors=True)
-        repo = Repo.init(workspace_dir, initial_branch="main")
-        repo.git.add(A=True)
-        repo.index.commit("Initial workspace state", author=_PLATO_ACTOR, committer=_PLATO_ACTOR)
-        origin = repo.create_remote("origin", bare_path)
-        origin.push(refspec="main:main")
-        shutil.rmtree(workspace_dir / ".git", ignore_errors=True)
+
+        # Seed bare repo with initial commit from repo/ if it has content,
+        # otherwise create an empty initial commit.
+        if repo_dir.exists() and any(repo_dir.iterdir()):
+            trust_git_directory(repo_dir)
+            shutil.rmtree(repo_dir / ".git", ignore_errors=True)
+            seed = Repo.init(repo_dir, initial_branch="main")
+            gitignore_lines = list(WorkspaceMarker.DEFAULT_DVCIGNORE)
+            (repo_dir / ".gitignore").write_text("\n".join(gitignore_lines) + "\n")
+            seed.git.add(A=True)
+            seed.index.commit("Initial workspace state", author=_PLATO_ACTOR, committer=_PLATO_ACTOR)
+            seed.create_remote("origin", str(bare_dir)).push(refspec="main:main")
+            shutil.rmtree(repo_dir / ".git")
+        else:
+            # Empty seed so bare has a main branch
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as tmp:
+                seed = Repo.init(tmp, initial_branch="main")
+                (Path(tmp) / ".gitignore").write_text("\n".join(WorkspaceMarker.DEFAULT_DVCIGNORE) + "\n")
+                seed.git.add(A=True)
+                seed.index.commit("Initial workspace state", author=_PLATO_ACTOR, committer=_PLATO_ACTOR)
+                seed.create_remote("origin", str(bare_dir)).push(refspec="main:main")
+
+        # Clone bare → repo/ as a proper git working tree
+        shutil.rmtree(repo_dir, ignore_errors=True)
+        trust_git_directory(bare_dir)
+        Repo.clone_from(str(bare_dir), str(repo_dir))
+
+        # Post-receive hook: update repo/ working tree from bare on push
         lock_name = bare_path.replace("/", "_")
+        repo_path_str = str(repo_dir)
         hook_content = (
-            "#!/usr/bin/env python3\n"
-            "import fcntl\n"
-            "from pathlib import Path\n\n"
-            "from plato.git_ops.repo import checkout_main_from_bare\n\n"
-            f'lock_path = Path("/tmp/git-transport-{lock_name}.lock")\n'
-            'with lock_path.open("w") as lock_file:\n'
-            "    fcntl.flock(lock_file, fcntl.LOCK_EX)\n"
-            f"    checkout_main_from_bare(bare_repo_path={bare_path!r}, worktree_path={workspace_path!r})\n"
+            "#!/bin/sh\n"
+            f'LOCK="/tmp/git-transport-{lock_name}.lock"\n'
+            f'REPO="{repo_path_str}"\n'
+            f'BARE="{bare_path}"\n'
+            "(\n"
+            "  flock 9\n"
+            '  git config --global --add safe.directory "$REPO" 2>/dev/null\n'
+            '  git config --global --add safe.directory "$BARE" 2>/dev/null\n'
+            '  git -C "$REPO" fetch origin main 2>&1\n'
+            '  git -C "$REPO" reset --hard origin/main 2>&1\n'
+            '  git -C "$REPO" clean -fd 2>&1\n'
+            ') 9>"$LOCK"\n'
         )
         self._write_hook(bare_dir / "hooks" / "post-receive", hook_content)
-        logger.info("Git bare repo initialized at %s (workspace: %s)", bare_path, workspace_path)
+        logger.debug("Git bare repo initialized at %s (repo: %s)", bare_path, repo_dir)
 
     async def _copy_ssh_key_to_agent(self, hostname: str) -> str:
         agent_key_path = "/root/.ssh/world_key"
@@ -359,20 +323,22 @@ class GitTransport(Transport):
         await self._init_bare_repo(self.path, self._bare_repo_path)
 
     async def update_bare_repo(self, message: str = "Update workspace") -> None:
+        """Commit any changes in repo/ and push to the bare repo."""
         await self._ensure_git_installed_local()
-        workspace_dir = Path(self.path)
-        bare_dir = Path(self._bare_repo_path)
-        trust_git_directory(workspace_dir)
-        trust_git_directory(bare_dir)
-        shutil.rmtree(workspace_dir / ".git", ignore_errors=True)
-        repo = Repo.init(workspace_dir, initial_branch="main")
+        repo_dir = Path(self.repo_path)
+        trust_git_directory(repo_dir)
+        repo = Repo(repo_dir)
         repo.git.add(A=True)
-        repo.index.commit(message, author=_PLATO_ACTOR, committer=_PLATO_ACTOR)
-        origin = repo.create_remote("origin", self._bare_repo_path)
-        origin.push(refspec="main:main", force=True)
-        shutil.rmtree(workspace_dir / ".git", ignore_errors=True)
+        if repo.is_dirty(index=True):
+            repo.index.commit(message, author=_PLATO_ACTOR, committer=_PLATO_ACTOR)
+            repo.remote("origin").push(refspec="main:main", force=True)
 
-    async def setup_agent(self, agent_env: Environment, hostname: str) -> None:
+    async def setup_agent(
+        self,
+        agent_env: Environment | None,
+        hostname: str,
+        mount: AgentWorkspaceMount,
+    ) -> None:
         del agent_env
         t0 = _time.monotonic()
         logger.info("GitTransport.setup_agent: installing git on %s", hostname)
@@ -382,10 +348,9 @@ class GitTransport(Transport):
             "which git > /dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq git)",
             timeout=180,
         )
-        logger.info("GitTransport.setup_agent: git installed on %s (%.1fs)", hostname, _time.monotonic() - t0)
+        logger.debug("GitTransport.setup_agent: git installed on %s (%.1fs)", hostname, _time.monotonic() - t0)
 
         t1 = _time.monotonic()
-        logger.info("GitTransport.setup_agent: copying SSH key to %s", hostname)
         agent_key_path = await self._copy_ssh_key_to_agent(hostname)
         ssh_config = (
             "Host world-git\n"
@@ -402,20 +367,21 @@ class GitTransport(Transport):
             f"cat > /root/.ssh/config << 'SSHCFG'\n{ssh_config}SSHCFG",
             timeout=10,
         )
-        logger.info("GitTransport.setup_agent: SSH key configured on %s (%.1fs)", hostname, _time.monotonic() - t1)
+        logger.debug("GitTransport.setup_agent: SSH key configured on %s (%.1fs)", hostname, _time.monotonic() - t1)
         await ensure_remote_git_server(self.ssh_key_path, hostname, timeout=15)
-        logger.info("GitTransport.setup_agent: git server ready on %s", hostname)
 
-        remote = self.agent_mount_path
+        remote = mount.agent_path
+        checkout_ref = mount.git_checkout.ref if mount.git_checkout is not None else None
+        branch_name = mount.git_checkout.branch_name if mount.git_checkout is not None else None
         t2 = _time.monotonic()
-        logger.info("GitTransport.setup_agent: cloning %s -> %s on %s", self._bare_repo_path, remote, hostname)
+        logger.debug("GitTransport.setup_agent: cloning %s -> %s on %s", self._bare_repo_path, remote, hostname)
         await self._run_remote_git_checked(
             hostname,
             request=GitOpRequest.clone_setup(
                 remote,
                 bare_repo_path=self._bare_repo_path,
-                checkout_ref=self._checkout_base_ref,
-                branch_name=self._checkout_branch_name or "plato-task",
+                checkout_ref=checkout_ref,
+                branch_name=branch_name or "plato-task",
             ),
             timeout=120,
             error_context="Failed to clone git repo on agent VM",
@@ -430,26 +396,43 @@ class GitTransport(Transport):
             remote,
         )
 
-    async def sync_back(self, agent_env: Environment, hostname: str) -> None:
-        logger.info(
-            "GitTransport.sync_back hostname=%s publish_ref_prefix=%s transport_id=%s",
-            hostname,
-            self._publish_ref_prefix,
-            id(self),
-        )
-        if self._publish_ref_prefix:
-            await self._publish_sync_back_impl(agent_env, hostname)
+    async def sync_back(
+        self,
+        agent_env: Environment | None,
+        hostname: str,
+        mount: AgentWorkspaceMount,
+    ) -> None:
+        sync_mode, sync_target, sync_exact = self._sync_policy(mount)
+        remote = mount.agent_path
+        raise_on_conflict = mount.git_raise_on_conflict
+
+        if sync_mode != "merge_to_main":
+            compare_ref = mount.git_checkout.ref if mount.git_checkout and mount.git_checkout.ref else "origin/main"
+            await self._publish_sync_back_impl(
+                agent_env,
+                hostname,
+                remote,
+                sync_mode,
+                sync_target,
+                sync_exact,
+                compare_ref,
+            )
             return
         if self._sync_lock:
             async with self._sync_lock:
-                await self._sync_back_impl(agent_env, hostname)
+                await self._sync_back_impl(agent_env, hostname, remote, raise_on_conflict)
         else:
-            await self._sync_back_impl(agent_env, hostname)
+            await self._sync_back_impl(agent_env, hostname, remote, raise_on_conflict)
 
-    async def _sync_back_impl(self, agent_env: Environment, hostname: str) -> None:
+    async def _sync_back_impl(
+        self,
+        agent_env: Environment | None,
+        hostname: str,
+        remote: str,
+        raise_on_conflict: bool,
+    ) -> None:
         self._published_ref = None
         cfg = self._git_config
-        remote = self.agent_mount_path
 
         if cfg.commit_on_sync:
             await self._auto_commit_changes(remote, hostname, cfg.auto_commit_message)
@@ -466,6 +449,26 @@ class GitTransport(Transport):
 
         merge_cfg = cfg.merge_agent
         for attempt in range(1, merge_cfg.max_retries + 1):
+            # Fetch and merge origin/main before every push attempt
+            await self._run_remote_git_checked(
+                hostname,
+                request=GitOpRequest.fetch_origin(remote),
+                timeout=30,
+                error_context=f"Failed to fetch origin on agent {hostname}",
+            )
+            merge_result = await self._run_remote_git(
+                hostname,
+                request=GitOpRequest.merge_origin_main(remote),
+                timeout=60,
+            )
+            if not merge_result.ok:
+                logger.info(
+                    "sync_back: agent %s pre-push merge had conflicts (attempt %d), resolving",
+                    hostname,
+                    attempt,
+                )
+                await self._resolve_merge_conflicts(agent_env, hostname, remote, merge_cfg)
+
             push_result = await self._run_remote_git(
                 hostname,
                 request=GitOpRequest.push(remote, "HEAD:main", force=False),
@@ -473,6 +476,7 @@ class GitTransport(Transport):
             )
             if push_result.ok:
                 logger.info("Git push succeeded from agent %s (attempt %d)", hostname, attempt)
+                await self._refresh_local_workspace_from_main()
                 return
 
             logger.warning(
@@ -484,13 +488,7 @@ class GitTransport(Transport):
             )
 
             push_stderr = push_result.stderr or push_result.stdout or ""
-            if self._raise_on_conflict and self._is_push_conflict(push_stderr):
-                await self._run_remote_git_checked(
-                    hostname,
-                    request=GitOpRequest.fetch_origin(remote),
-                    timeout=30,
-                    error_context=f"Failed to fetch origin on agent {hostname}",
-                )
+            if raise_on_conflict and self._is_push_conflict(push_stderr):
                 commit_sha = await self._head_commit_sha(remote, hostname)
                 conflict_ref = await self._publish_conflict_ref(remote, hostname, commit_sha)
                 raise GitPushConflict(commit_sha=commit_sha, conflict_ref=conflict_ref)
@@ -498,24 +496,26 @@ class GitTransport(Transport):
             if attempt == merge_cfg.max_retries:
                 break
 
-            resolved = await self._resolve_and_retry(agent_env, hostname, remote, merge_cfg)
-            if resolved:
-                logger.info("Git conflict resolved for agent %s without another retry push", hostname)
-                return
-
         raise RuntimeError(f"Git push failed from agent {hostname} after {merge_cfg.max_retries} attempts")
 
-    async def _publish_sync_back_impl(self, agent_env: Environment, hostname: str) -> None:
+    async def _publish_sync_back_impl(
+        self,
+        agent_env: Environment | None,
+        hostname: str,
+        remote: str,
+        sync_mode: str,
+        sync_target: str | None,
+        sync_exact: bool,
+        compare_ref: str,
+    ) -> None:
         del agent_env
         self._published_ref = None
         cfg = self._git_config
-        remote = self.agent_mount_path
 
         if cfg.commit_on_sync:
             await self._auto_commit_changes(remote, hostname, cfg.auto_commit_message)
 
         head_sha = await self._git_rev_parse(remote, hostname, "HEAD")
-        compare_ref = self._checkout_base_ref or "origin/main"
         publish_state = await self._run_remote_git_checked(
             hostname,
             request=GitOpRequest.publish_state(remote, compare_ref),
@@ -543,12 +543,14 @@ class GitTransport(Transport):
             logger.info("No committed changes to publish from agent %s", hostname)
             return
 
-        if not self._publish_ref_prefix:
-            raise RuntimeError("publish_ref_prefix must be set for publish-only sync mode")
-
-        published_ref = (
-            self._publish_ref_prefix if self._publish_ref_exact else f"{self._publish_ref_prefix}/{head_sha}"
-        )
+        if sync_mode == "push_branch":
+            if not sync_target:
+                raise RuntimeError("push_branch sync policy requires a branch target")
+            published_ref = f"refs/heads/{sync_target}"
+        else:
+            if not sync_target:
+                raise RuntimeError("publish_ref sync policy requires a target ref")
+            published_ref = sync_target if sync_exact else f"{sync_target}/{head_sha}"
         logger.info("Publishing agent %s commit %s to hidden ref %s", hostname, head_sha, published_ref)
 
         retries = max(1, cfg.merge_agent.max_retries)
@@ -569,9 +571,16 @@ class GitTransport(Transport):
                     exc_info=True,
                 )
 
+    async def _refresh_local_workspace_from_main(self) -> None:
+        await asyncio.to_thread(
+            checkout_main_from_bare,
+            bare_repo_path=self._bare_repo_path,
+            worktree_path=self.repo_path,
+        )
+
     async def _resolve_and_retry(
         self,
-        agent_env: Environment,
+        agent_env: Environment | None,
         hostname: str,
         workspace_path: str,
         merge_cfg: MergeAgentConfig,
@@ -608,20 +617,31 @@ class GitTransport(Transport):
                 )
             return True
 
+        logger.info(
+            "sync_back: agent %s merging origin/main (strategy=%s)",
+            hostname,
+            merge_cfg.strategy,
+        )
         result = await self._run_remote_git(
             hostname,
             request=GitOpRequest.merge_origin_main(workspace_path),
             timeout=60,
         )
         if result.ok:
+            logger.info("sync_back: agent %s merge origin/main succeeded cleanly", hostname)
             return False
 
+        logger.warning(
+            "sync_back: agent %s merge origin/main had conflicts: %s",
+            hostname,
+            (result.stderr or result.stdout or "").strip()[:300],
+        )
         await self._resolve_merge_conflicts(agent_env, hostname, workspace_path, merge_cfg)
         return False
 
     async def _resolve_merge_conflicts(
         self,
-        agent_env: Environment,
+        agent_env: Environment | None,
         hostname: str,
         workspace_path: str,
         merge_cfg: MergeAgentConfig,
@@ -637,8 +657,19 @@ class GitTransport(Transport):
         logger.info("Merge conflicts in %d files: %s", len(conflicted_files), conflicted_files)
 
         if not self._merge_resolver:
-            logger.warning("No merge resolver configured, resolving conflicts with 'accept theirs'")
+            logger.warning(
+                "No merge resolver configured, resolving conflicts with 'accept theirs' for files: %s",
+                conflicted_files,
+            )
             await self._accept_theirs(hostname, workspace_path, "Auto-resolved conflicts (accept theirs)")
+            post_head = await self._head_commit_sha(workspace_path, hostname)
+            post_status = await self._git_status_short(workspace_path, hostname)
+            logger.info(
+                "sync_back: agent %s after accept_theirs: HEAD=%s status=%s",
+                hostname,
+                post_head[:12] if post_head else "?",
+                post_status.strip()[:200] or "(clean)",
+            )
             return
 
         logger.info("Invoking merge resolver for %d conflicts", len(conflicted_files))
@@ -686,7 +717,7 @@ class GitTransport(Transport):
         audit_key: str | None = None,
     ) -> str | None:
         try:
-            key = audit_key or self.audit_key or "plato_workspace"
+            key = audit_key or "plato_workspace"
             exit_code, stdout, _ = await run_ssh(
                 self.ssh_key_path,
                 hostname,
@@ -714,20 +745,13 @@ class GitTransport(Transport):
             sub_mount,
             self._git_config,
             self._raise_on_conflict,
-            self._publish_ref_prefix,
         )
         transport._merge_resolver = self._merge_resolver
         transport._sync_lock = self._sync_lock
         transport._published_ref = None
-        transport._checkout_base_ref = self._checkout_base_ref
-        transport._checkout_branch_name = self._checkout_branch_name
-        transport.configure_workspace(
-            name=self.workspace_name,
-            repo_root=self.workspace_repo_root,
-            tracked=self.workspace_tracked,
-        )
-        transport.configure_audit_scope(
-            audit_run_id=self.audit_run_id,
-            audit_key=self.audit_key,
-        )
         return transport
+
+    def _sync_policy(self, mount: AgentWorkspaceMount) -> tuple[str, str | None, bool]:
+        if mount.git_sync is None:
+            return "merge_to_main", None, False
+        return mount.git_sync.mode, mount.git_sync.target, mount.git_sync.exact

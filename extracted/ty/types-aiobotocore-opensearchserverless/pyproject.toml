@@ -4,10 +4,10 @@
 
 [project]
 name = "types-aiobotocore-opensearchserverless"
-version = "3.3.0"
+version = "3.4.0"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for aiobotocore OpenSearchServiceServerless 3.3.0 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for aiobotocore OpenSearchServiceServerless 3.4.0 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

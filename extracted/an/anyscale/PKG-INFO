@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: anyscale
-Version: 0.26.92
+Version: 0.26.93
 Summary: Command Line Interface for Anyscale
 Author: Anyscale Inc.
 License: AS License
@@ -83,7 +83,7 @@ Requires-Dist: tornado; extra == "backend"
 This package contains the command line interface and the sdk for the Anyscale platform.
 
 View Anyscale docs [here](https://docs.anyscale.com)
-View CLI docs [here](https://docs.anyscale.com/reference/#cli)
-View SDK docs [here](https://docs.anyscale.com/reference/#sdk)
+View CLI docs [here](https://docs.anyscale.com/reference#cli)
+View SDK docs [here](https://docs.anyscale.com/reference#sdk)
 
 After making any changes to the CLI, be sure to run `pip install -U -e .` from within the `frontend/cli` directory to update your environment with the latest modifications.

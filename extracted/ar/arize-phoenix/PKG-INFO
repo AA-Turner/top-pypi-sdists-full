@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 13.23.0
+Version: 14.0.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -21,7 +21,7 @@ Requires-Dist: aioitertools
 Requires-Dist: aiosqlite
 Requires-Dist: alembic<2,>=1.3.0
 Requires-Dist: arize-phoenix-client>=2.1.0
-Requires-Dist: arize-phoenix-evals>=2.12.0
+Requires-Dist: arize-phoenix-evals>=2.11.0
 Requires-Dist: arize-phoenix-otel>=0.15.0
 Requires-Dist: authlib
 Requires-Dist: cachetools
@@ -46,7 +46,6 @@ Requires-Dist: opentelemetry-sdk
 Requires-Dist: orjson
 Requires-Dist: pandas>=1.0
 Requires-Dist: prometheus-client
-Requires-Dist: protobuf>=4.25.8
 Requires-Dist: psutil
 Requires-Dist: pyarrow
 Requires-Dist: pydantic>=2.1.0
@@ -91,7 +90,6 @@ Provides-Extra: evals
 Provides-Extra: experimental
 Provides-Extra: pg
 Requires-Dist: asyncpg; extra == 'pg'
-Requires-Dist: psycopg[binary,pool]; extra == 'pg'
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -254,6 +252,16 @@ Normalize and convert data across other instrumentation libraries by adding span
 | | [Prompt Flow](https://arize.com/docs/phoenix/integrations/platforms/prompt-flow) | Microsoft's prompt flow orchestration tool | [Integration Guide](https://arize.com/docs/phoenix/integrations/platforms/prompt-flow) |
 | <img src="https://unpkg.com/@lobehub/icons-static-png@latest/dark/nvidia-color.png" height="14"> | [NVIDIA NeMo](https://arize.com/docs/phoenix/integrations/python/nvidia) | NVIDIA NeMo Agent Toolkit for enterprise agents | [Integration Guide](https://arize.com/docs/phoenix/integrations/python/nvidia) |
 | | [Graphite](https://arize.com/docs/phoenix/integrations/python/graphite) | Multi-agent LLM workflow framework with visual builder | [Integration Guide](https://arize.com/docs/phoenix/integrations/python/graphite) |
+
+## Coding Agent Skills
+
+This repository includes [skills](https://docs.anthropic.com/en/docs/claude-code/skills) that teach coding agents how to work with Phoenix. They are located in [`.agents/skills/`](.agents/skills/) and can be used with Claude Code, Cursor, and other compatible tools.
+
+| Skill | Description |
+| ----- | ----------- |
+| [phoenix-cli](.agents/skills/phoenix-cli/) | Debug LLM applications using the Phoenix CLI — fetch traces, analyze errors, review experiments, and query the GraphQL API |
+| [phoenix-evals](.agents/skills/phoenix-evals/) | Build and run evaluators for AI/LLM applications using Phoenix |
+| [phoenix-tracing](.agents/skills/phoenix-tracing/) | OpenInference semantic conventions and instrumentation for tracing LLM applications |
 
 ## Security & Privacy
 

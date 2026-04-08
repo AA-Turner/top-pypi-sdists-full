@@ -42,6 +42,10 @@ from .literals import (
     LogDriverType,
     OrchestrationTypeType,
     PlatformCapabilityType,
+    QuotaShareInSharePreemptionStateType,
+    QuotaShareResourceSharingStrategyType,
+    QuotaShareStateType,
+    QuotaShareStatusType,
     ResourceTypeType,
     RetryActionType,
     ServiceEnvironmentStateType,
@@ -91,6 +95,8 @@ __all__ = (
     "CreateConsumableResourceResponseTypeDef",
     "CreateJobQueueRequestTypeDef",
     "CreateJobQueueResponseTypeDef",
+    "CreateQuotaShareRequestTypeDef",
+    "CreateQuotaShareResponseTypeDef",
     "CreateSchedulingPolicyRequestTypeDef",
     "CreateSchedulingPolicyResponseTypeDef",
     "CreateServiceEnvironmentRequestTypeDef",
@@ -98,6 +104,7 @@ __all__ = (
     "DeleteComputeEnvironmentRequestTypeDef",
     "DeleteConsumableResourceRequestTypeDef",
     "DeleteJobQueueRequestTypeDef",
+    "DeleteQuotaShareRequestTypeDef",
     "DeleteSchedulingPolicyRequestTypeDef",
     "DeleteServiceEnvironmentRequestTypeDef",
     "DeregisterJobDefinitionRequestTypeDef",
@@ -114,6 +121,8 @@ __all__ = (
     "DescribeJobQueuesResponseTypeDef",
     "DescribeJobsRequestTypeDef",
     "DescribeJobsResponseTypeDef",
+    "DescribeQuotaShareRequestTypeDef",
+    "DescribeQuotaShareResponseTypeDef",
     "DescribeSchedulingPoliciesRequestTypeDef",
     "DescribeSchedulingPoliciesResponseTypeDef",
     "DescribeServiceEnvironmentsRequestPaginateTypeDef",
@@ -177,6 +186,8 @@ __all__ = (
     "FirelensConfigurationTypeDef",
     "FrontOfQueueDetailTypeDef",
     "FrontOfQueueJobSummaryTypeDef",
+    "FrontOfQuotaShareJobSummaryTypeDef",
+    "FrontOfQuotaSharesDetailTypeDef",
     "GetJobQueueSnapshotRequestTypeDef",
     "GetJobQueueSnapshotResponseTypeDef",
     "HostTypeDef",
@@ -210,6 +221,9 @@ __all__ = (
     "ListJobsRequestPaginateTypeDef",
     "ListJobsRequestTypeDef",
     "ListJobsResponseTypeDef",
+    "ListQuotaSharesRequestPaginateTypeDef",
+    "ListQuotaSharesRequestTypeDef",
+    "ListQuotaSharesResponseTypeDef",
     "ListSchedulingPoliciesRequestPaginateTypeDef",
     "ListSchedulingPoliciesRequestTypeDef",
     "ListSchedulingPoliciesResponseTypeDef",
@@ -235,6 +249,14 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "QueueSnapshotCapacityUsageTypeDef",
     "QueueSnapshotUtilizationDetailTypeDef",
+    "QuotaShareCapacityLimitTypeDef",
+    "QuotaShareCapacityUsageTypeDef",
+    "QuotaShareCapacityUtilizationTypeDef",
+    "QuotaShareDetailTypeDef",
+    "QuotaSharePolicyTypeDef",
+    "QuotaSharePreemptionConfigurationTypeDef",
+    "QuotaShareResourceSharingConfigurationTypeDef",
+    "QuotaShareUtilizationDetailTypeDef",
     "RegisterJobDefinitionRequestTypeDef",
     "RegisterJobDefinitionResponseTypeDef",
     "RepositoryCredentialsTypeDef",
@@ -253,6 +275,9 @@ __all__ = (
     "ServiceJobCapacityUsageDetailTypeDef",
     "ServiceJobCapacityUsageSummaryTypeDef",
     "ServiceJobEvaluateOnExitTypeDef",
+    "ServiceJobPreemptedAttemptTypeDef",
+    "ServiceJobPreemptionConfigurationTypeDef",
+    "ServiceJobPreemptionSummaryTypeDef",
     "ServiceJobRetryStrategyOutputTypeDef",
     "ServiceJobRetryStrategyTypeDef",
     "ServiceJobRetryStrategyUnionTypeDef",
@@ -284,9 +309,13 @@ __all__ = (
     "UpdateJobQueueRequestTypeDef",
     "UpdateJobQueueResponseTypeDef",
     "UpdatePolicyTypeDef",
+    "UpdateQuotaShareRequestTypeDef",
+    "UpdateQuotaShareResponseTypeDef",
     "UpdateSchedulingPolicyRequestTypeDef",
     "UpdateServiceEnvironmentRequestTypeDef",
     "UpdateServiceEnvironmentResponseTypeDef",
+    "UpdateServiceJobRequestTypeDef",
+    "UpdateServiceJobResponseTypeDef",
     "VolumeTypeDef",
 )
 
@@ -347,6 +376,7 @@ class ComputeScalingPolicyTypeDef(TypedDict):
 class Ec2ConfigurationTypeDef(TypedDict):
     imageType: str
     imageIdOverride: NotRequired[str]
+    batchImageStatus: NotRequired[str]
     imageKubernetesVersion: NotRequired[str]
 
 
@@ -447,6 +477,24 @@ class ServiceEnvironmentOrderTypeDef(TypedDict):
     serviceEnvironment: str
 
 
+class QuotaShareCapacityLimitTypeDef(TypedDict):
+    maxCapacity: int
+    capacityUnit: str
+
+
+class QuotaSharePreemptionConfigurationTypeDef(TypedDict):
+    inSharePreemption: QuotaShareInSharePreemptionStateType
+
+
+class QuotaShareResourceSharingConfigurationTypeDef(TypedDict):
+    strategy: QuotaShareResourceSharingStrategyType
+    borrowLimit: NotRequired[int]
+
+
+class QuotaSharePolicyTypeDef(TypedDict):
+    idleResourceAssignmentStrategy: Literal["FIFO"]
+
+
 class DeleteComputeEnvironmentRequestTypeDef(TypedDict):
     computeEnvironment: str
 
@@ -457,6 +505,10 @@ class DeleteConsumableResourceRequestTypeDef(TypedDict):
 
 class DeleteJobQueueRequestTypeDef(TypedDict):
     jobQueue: str
+
+
+class DeleteQuotaShareRequestTypeDef(TypedDict):
+    quotaShareArn: str
 
 
 class DeleteSchedulingPolicyRequestTypeDef(TypedDict):
@@ -505,6 +557,10 @@ class DescribeJobsRequestTypeDef(TypedDict):
     jobs: Sequence[str]
 
 
+class DescribeQuotaShareRequestTypeDef(TypedDict):
+    quotaShareArn: str
+
+
 class DescribeSchedulingPoliciesRequestTypeDef(TypedDict):
     arns: Sequence[str]
 
@@ -522,6 +578,10 @@ class DescribeServiceJobRequestTypeDef(TypedDict):
 class ServiceJobCapacityUsageDetailTypeDef(TypedDict):
     capacityUnit: NotRequired[str]
     quantity: NotRequired[float]
+
+
+class ServiceJobPreemptionConfigurationTypeDef(TypedDict):
+    preemptionRetriesBeforeTermination: NotRequired[int]
 
 
 class ServiceJobTimeoutTypeDef(TypedDict):
@@ -656,6 +716,11 @@ class FrontOfQueueJobSummaryTypeDef(TypedDict):
     earliestTimeAtPosition: NotRequired[int]
 
 
+class FrontOfQuotaShareJobSummaryTypeDef(TypedDict):
+    jobArn: NotRequired[str]
+    earliestTimeAtPosition: NotRequired[int]
+
+
 class GetJobQueueSnapshotRequestTypeDef(TypedDict):
     jobQueue: str
 
@@ -731,6 +796,12 @@ class TmpfsTypeDef(TypedDict):
     mountOptions: NotRequired[Sequence[str]]
 
 
+class ListQuotaSharesRequestTypeDef(TypedDict):
+    jobQueue: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class ListSchedulingPoliciesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -745,6 +816,11 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 
 class QueueSnapshotCapacityUsageTypeDef(TypedDict):
+    capacityUnit: NotRequired[str]
+    quantity: NotRequired[float]
+
+
+class QuotaShareCapacityUsageTypeDef(TypedDict):
     capacityUnit: NotRequired[str]
     quantity: NotRequired[float]
 
@@ -789,6 +865,11 @@ class UpdateConsumableResourceRequestTypeDef(TypedDict):
     operation: NotRequired[str]
     quantity: NotRequired[int]
     clientToken: NotRequired[str]
+
+
+class UpdateServiceJobRequestTypeDef(TypedDict):
+    jobId: str
+    schedulingPriority: int
 
 
 class AttemptContainerDetailTypeDef(TypedDict):
@@ -886,6 +967,12 @@ class CreateJobQueueResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateQuotaShareResponseTypeDef(TypedDict):
+    quotaShareName: str
+    quotaShareArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateSchedulingPolicyResponseTypeDef(TypedDict):
     name: str
     arn: str
@@ -961,9 +1048,22 @@ class UpdateJobQueueResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateQuotaShareResponseTypeDef(TypedDict):
+    quotaShareName: str
+    quotaShareArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateServiceEnvironmentResponseTypeDef(TypedDict):
     serviceEnvironmentName: str
     serviceEnvironmentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateServiceJobResponseTypeDef(TypedDict):
+    jobArn: str
+    jobName: str
+    jobId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1004,6 +1104,48 @@ class UpdateJobQueueRequestTypeDef(TypedDict):
     jobStateTimeLimitActions: NotRequired[Sequence[JobStateTimeLimitActionTypeDef]]
 
 
+class CreateQuotaShareRequestTypeDef(TypedDict):
+    quotaShareName: str
+    jobQueue: str
+    capacityLimits: Sequence[QuotaShareCapacityLimitTypeDef]
+    resourceSharingConfiguration: QuotaShareResourceSharingConfigurationTypeDef
+    preemptionConfiguration: QuotaSharePreemptionConfigurationTypeDef
+    state: NotRequired[QuotaShareStateType]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class DescribeQuotaShareResponseTypeDef(TypedDict):
+    quotaShareName: str
+    quotaShareArn: str
+    jobQueueArn: str
+    capacityLimits: list[QuotaShareCapacityLimitTypeDef]
+    resourceSharingConfiguration: QuotaShareResourceSharingConfigurationTypeDef
+    preemptionConfiguration: QuotaSharePreemptionConfigurationTypeDef
+    state: QuotaShareStateType
+    status: QuotaShareStatusType
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class QuotaShareDetailTypeDef(TypedDict):
+    quotaShareName: NotRequired[str]
+    quotaShareArn: NotRequired[str]
+    jobQueueArn: NotRequired[str]
+    capacityLimits: NotRequired[list[QuotaShareCapacityLimitTypeDef]]
+    resourceSharingConfiguration: NotRequired[QuotaShareResourceSharingConfigurationTypeDef]
+    preemptionConfiguration: NotRequired[QuotaSharePreemptionConfigurationTypeDef]
+    state: NotRequired[QuotaShareStateType]
+    status: NotRequired[QuotaShareStatusType]
+
+
+class UpdateQuotaShareRequestTypeDef(TypedDict):
+    quotaShareArn: str
+    capacityLimits: NotRequired[Sequence[QuotaShareCapacityLimitTypeDef]]
+    resourceSharingConfiguration: NotRequired[QuotaShareResourceSharingConfigurationTypeDef]
+    preemptionConfiguration: NotRequired[QuotaSharePreemptionConfigurationTypeDef]
+    state: NotRequired[QuotaShareStateType]
+
+
 class DescribeComputeEnvironmentsRequestPaginateTypeDef(TypedDict):
     computeEnvironments: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1023,6 +1165,11 @@ class DescribeJobQueuesRequestPaginateTypeDef(TypedDict):
 
 class DescribeServiceEnvironmentsRequestPaginateTypeDef(TypedDict):
     serviceEnvironments: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListQuotaSharesRequestPaginateTypeDef(TypedDict):
+    jobQueue: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1136,6 +1283,11 @@ class FrontOfQueueDetailTypeDef(TypedDict):
     lastUpdatedAt: NotRequired[int]
 
 
+class FrontOfQuotaSharesDetailTypeDef(TypedDict):
+    quotaShares: NotRequired[dict[str, list[FrontOfQuotaShareJobSummaryTypeDef]]]
+    lastUpdatedAt: NotRequired[int]
+
+
 class JobSummaryTypeDef(TypedDict):
     jobId: str
     jobName: str
@@ -1223,6 +1375,13 @@ class ServiceJobAttemptDetailTypeDef(TypedDict):
     statusReason: NotRequired[str]
 
 
+class ServiceJobPreemptedAttemptTypeDef(TypedDict):
+    serviceResourceId: NotRequired[ServiceResourceIdTypeDef]
+    startedAt: NotRequired[int]
+    stoppedAt: NotRequired[int]
+    statusReason: NotRequired[str]
+
+
 class LaunchTemplateSpecificationOutputTypeDef(TypedDict):
     launchTemplateId: NotRequired[str]
     launchTemplateName: NotRequired[str]
@@ -1258,6 +1417,11 @@ class ListSchedulingPoliciesResponseTypeDef(TypedDict):
     schedulingPolicies: list[SchedulingPolicyListingDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class QuotaShareCapacityUtilizationTypeDef(TypedDict):
+    quotaShareName: NotRequired[str]
+    capacityUsage: NotRequired[list[QuotaShareCapacityUsageTypeDef]]
 
 
 class ServiceJobRetryStrategyOutputTypeDef(TypedDict):
@@ -1307,6 +1471,12 @@ class TaskPropertiesOverrideTypeDef(TypedDict):
 
 class DescribeJobQueuesResponseTypeDef(TypedDict):
     jobQueues: list[JobQueueDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListQuotaSharesResponseTypeDef(TypedDict):
+    quotaShares: list[QuotaShareDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1375,6 +1545,7 @@ class FairshareUtilizationDetailTypeDef(TypedDict):
 class SchedulingPolicyDetailTypeDef(TypedDict):
     name: str
     arn: str
+    quotaSharePolicy: NotRequired[QuotaSharePolicyTypeDef]
     fairsharePolicy: NotRequired[FairsharePolicyOutputTypeDef]
     tags: NotRequired[dict[str, str]]
 
@@ -1398,10 +1569,16 @@ class ServiceJobSummaryTypeDef(TypedDict):
     jobArn: NotRequired[str]
     scheduledAt: NotRequired[int]
     shareIdentifier: NotRequired[str]
+    quotaShareName: NotRequired[str]
     status: NotRequired[ServiceJobStatusType]
     statusReason: NotRequired[str]
     startedAt: NotRequired[int]
     stoppedAt: NotRequired[int]
+
+
+class ServiceJobPreemptionSummaryTypeDef(TypedDict):
+    preemptedAttemptCount: NotRequired[int]
+    recentPreemptedAttempts: NotRequired[list[ServiceJobPreemptedAttemptTypeDef]]
 
 
 ComputeResourceOutputTypeDef = TypedDict(
@@ -1501,29 +1678,8 @@ class TaskContainerPropertiesTypeDef(TypedDict):
     user: NotRequired[str]
 
 
-class DescribeServiceJobResponseTypeDef(TypedDict):
-    attempts: list[ServiceJobAttemptDetailTypeDef]
-    capacityUsage: list[ServiceJobCapacityUsageDetailTypeDef]
-    createdAt: int
-    isTerminated: bool
-    jobArn: str
-    jobId: str
-    jobName: str
-    jobQueue: str
-    latestAttempt: LatestServiceJobAttemptTypeDef
-    retryStrategy: ServiceJobRetryStrategyOutputTypeDef
-    scheduledAt: int
-    schedulingPriority: int
-    serviceRequestPayload: str
-    serviceJobType: Literal["SAGEMAKER_TRAINING"]
-    shareIdentifier: str
-    startedAt: int
-    status: ServiceJobStatusType
-    statusReason: str
-    stoppedAt: int
-    tags: dict[str, str]
-    timeoutConfig: ServiceJobTimeoutTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class QuotaShareUtilizationDetailTypeDef(TypedDict):
+    topCapacityUtilization: NotRequired[list[QuotaShareCapacityUtilizationTypeDef]]
 
 
 ServiceJobRetryStrategyUnionTypeDef = Union[
@@ -1654,12 +1810,6 @@ class EksPropertiesTypeDef(TypedDict):
     podProperties: NotRequired[EksPodPropertiesTypeDef]
 
 
-class QueueSnapshotUtilizationDetailTypeDef(TypedDict):
-    totalCapacityUsage: NotRequired[list[QueueSnapshotCapacityUsageTypeDef]]
-    fairshareUtilization: NotRequired[FairshareUtilizationDetailTypeDef]
-    lastUpdatedAt: NotRequired[int]
-
-
 class DescribeSchedulingPoliciesResponseTypeDef(TypedDict):
     schedulingPolicies: list[SchedulingPolicyDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1667,12 +1817,14 @@ class DescribeSchedulingPoliciesResponseTypeDef(TypedDict):
 
 class CreateSchedulingPolicyRequestTypeDef(TypedDict):
     name: str
+    quotaSharePolicy: NotRequired[QuotaSharePolicyTypeDef]
     fairsharePolicy: NotRequired[FairsharePolicyUnionTypeDef]
     tags: NotRequired[Mapping[str, str]]
 
 
 class UpdateSchedulingPolicyRequestTypeDef(TypedDict):
     arn: str
+    quotaSharePolicy: NotRequired[QuotaSharePolicyTypeDef]
     fairsharePolicy: NotRequired[FairsharePolicyUnionTypeDef]
 
 
@@ -1680,6 +1832,34 @@ class ListServiceJobsResponseTypeDef(TypedDict):
     jobSummaryList: list[ServiceJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class DescribeServiceJobResponseTypeDef(TypedDict):
+    attempts: list[ServiceJobAttemptDetailTypeDef]
+    capacityUsage: list[ServiceJobCapacityUsageDetailTypeDef]
+    createdAt: int
+    isTerminated: bool
+    jobArn: str
+    jobId: str
+    jobName: str
+    jobQueue: str
+    latestAttempt: LatestServiceJobAttemptTypeDef
+    retryStrategy: ServiceJobRetryStrategyOutputTypeDef
+    scheduledAt: int
+    schedulingPriority: int
+    serviceRequestPayload: str
+    serviceJobType: Literal["SAGEMAKER_TRAINING"]
+    shareIdentifier: str
+    quotaShareName: str
+    preemptionConfiguration: ServiceJobPreemptionConfigurationTypeDef
+    preemptionSummary: ServiceJobPreemptionSummaryTypeDef
+    startedAt: int
+    status: ServiceJobStatusType
+    statusReason: str
+    stoppedAt: int
+    tags: dict[str, str]
+    timeoutConfig: ServiceJobTimeoutTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 ComputeEnvironmentDetailTypeDef = TypedDict(
@@ -1775,6 +1955,13 @@ class EcsTaskPropertiesTypeDef(TypedDict):
     enableExecuteCommand: NotRequired[bool]
 
 
+class QueueSnapshotUtilizationDetailTypeDef(TypedDict):
+    totalCapacityUsage: NotRequired[list[QueueSnapshotCapacityUsageTypeDef]]
+    fairshareUtilization: NotRequired[FairshareUtilizationDetailTypeDef]
+    quotaShareUtilization: NotRequired[QuotaShareUtilizationDetailTypeDef]
+    lastUpdatedAt: NotRequired[int]
+
+
 class SubmitServiceJobRequestTypeDef(TypedDict):
     jobName: str
     jobQueue: str
@@ -1783,6 +1970,8 @@ class SubmitServiceJobRequestTypeDef(TypedDict):
     retryStrategy: NotRequired[ServiceJobRetryStrategyUnionTypeDef]
     schedulingPriority: NotRequired[int]
     shareIdentifier: NotRequired[str]
+    quotaShareName: NotRequired[str]
+    preemptionConfiguration: NotRequired[ServiceJobPreemptionConfigurationTypeDef]
     timeoutConfig: NotRequired[ServiceJobTimeoutTypeDef]
     tags: NotRequired[Mapping[str, str]]
     clientToken: NotRequired[str]
@@ -1798,12 +1987,6 @@ class EksPropertiesOverrideTypeDef(TypedDict):
 
 
 EksPropertiesUnionTypeDef = Union[EksPropertiesTypeDef, EksPropertiesOutputTypeDef]
-
-
-class GetJobQueueSnapshotResponseTypeDef(TypedDict):
-    frontOfQueue: FrontOfQueueDetailTypeDef
-    queueUtilization: QueueSnapshotUtilizationDetailTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeComputeEnvironmentsResponseTypeDef(TypedDict):
@@ -1848,6 +2031,13 @@ class EcsPropertiesOutputTypeDef(TypedDict):
 
 class EcsPropertiesTypeDef(TypedDict):
     taskProperties: Sequence[EcsTaskPropertiesTypeDef]
+
+
+class GetJobQueueSnapshotResponseTypeDef(TypedDict):
+    frontOfQueue: FrontOfQueueDetailTypeDef
+    frontOfQuotaShares: FrontOfQuotaSharesDetailTypeDef
+    queueUtilization: QueueSnapshotUtilizationDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class NodePropertyOverrideTypeDef(TypedDict):

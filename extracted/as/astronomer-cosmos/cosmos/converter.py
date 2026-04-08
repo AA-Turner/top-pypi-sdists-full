@@ -14,7 +14,12 @@ from warnings import warn
 
 from airflow.exceptions import ParamValidationError
 from airflow.models.dag import DAG
-from airflow.models.param import Param
+
+try:
+    # Airflow 3.0 onwards
+    from airflow.sdk.definitions.param import Param
+except ImportError:  # pragma: no cover
+    from airflow.models.param import Param
 
 try:
     # Airflow 3.1 onwards
@@ -25,7 +30,14 @@ except ImportError:
 from cosmos import cache, settings
 from cosmos.airflow.graph import build_airflow_graph
 from cosmos.config import ExecutionConfig, ProfileConfig, ProjectConfig, RenderConfig
-from cosmos.constants import DbtResourceType, ExecutionMode, InvocationMode, LoadMode
+from cosmos.constants import (
+    _AIRFLOW3_MAJOR_VERSION,
+    AIRFLOW_VERSION,
+    DbtResourceType,
+    ExecutionMode,
+    InvocationMode,
+    LoadMode,
+)
 from cosmos.dbt.executable import get_system_dbt, is_dbt_installed_in_same_environment
 from cosmos.dbt.graph import DbtGraph
 from cosmos.dbt.project import has_non_empty_dependencies_file
@@ -92,11 +104,11 @@ def validate_arguments(
     Validate that mutually exclusive selectors filters have not been given.
     Validate deprecated arguments.
 
-    :param select: A list of dbt select arguments (e.g. 'config.materialized:incremental')
-    :param exclude: A list of dbt exclude arguments (e.g. 'tag:nightly')
-    :param profile_config: ProfileConfig Object
+    :param render_config: Render configuration
+    :param profile_config: Profile configuration
     :param task_args: Arguments to be used to instantiate an Airflow Task
-    :param execution_mode: the current execution mode
+    :param execution_config: Execution configuration
+    :param project_config: Project configuration
     """
     for field in ("tags", "paths"):
         select_items = retrieve_by_label(render_config.select, field)
@@ -360,6 +372,7 @@ class DbtToAirflowConverter:
             render_config=render_config,
             async_py_requirements=execution_config.async_py_requirements,
             execution_config=execution_config,
+            tests_per_model=self.dbt_graph.tests_per_model,
         )
 
         current_time = time.perf_counter()
@@ -374,11 +387,15 @@ class DbtToAirflowConverter:
         Add dbt project content hash to DAG documentation for Airflow 3 dag versioning support.
 
         This enables Airflow 3's automatic DAG versioning to detect when dbt project
-        files change, ensuring proper DAG version updates.
+        files change, ensuring proper DAG version updates. On Airflow 2.x this is a no-op.
 
         :param dag: The Airflow DAG to add versioning information to. If None, no action is taken.
         """
         if dag is None:
+            return
+        if AIRFLOW_VERSION.major < _AIRFLOW3_MAJOR_VERSION:
+            return
+        if not settings.enable_dag_versioning:
             return
 
         try:
@@ -451,7 +468,9 @@ class DbtToAirflowConverter:
         compressed_metadata = _compress_telemetry_metadata(metadata)
         stored_metadata = False
         try:
-            dag.params["__cosmos_telemetry_metadata__"] = Param(default=compressed_metadata, const=compressed_metadata)
+            dag.params["__cosmos_telemetry_metadata__"] = Param(
+                default=compressed_metadata, description="Cosmos telemetry metadata. Do not edit."
+            )
             stored_metadata = True
         except ParamValidationError as e:
             logger.warning(f"Failed to store compressed Cosmos telemetry metadata in DAG {dag.dag_id} params: {e}")

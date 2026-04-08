@@ -16,6 +16,7 @@ from anyscale.shared_anyscale_utils.conf import (
     ANYSCALE_CORS_EXPOSE_HEADERS,
     ANYSCALE_CORS_ORIGIN,
 )
+from anyscale.util import AWS_PRM_USER_AGENT_STRING
 
 
 def check_aws_cors_needs_update(
@@ -42,6 +43,9 @@ def check_aws_cors_needs_update(
 
     if boto3_session is None:
         boto3_session = boto3_module.Session()
+        boto3_session._session.user_agent_extra = (  # noqa: SLF001
+            AWS_PRM_USER_AGENT_STRING
+        )
 
     s3 = boto3_session.resource("s3", region_name=region)
     bucket = s3.Bucket(bucket_name)
@@ -77,6 +81,9 @@ def update_aws_cors(
 
     if boto3_session is None:
         boto3_session = boto3_module.Session()
+        boto3_session._session.user_agent_extra = (  # noqa: SLF001
+            AWS_PRM_USER_AGENT_STRING
+        )
 
     s3_client = boto3_session.client("s3", region_name=region)
     s3_client.put_bucket_cors(

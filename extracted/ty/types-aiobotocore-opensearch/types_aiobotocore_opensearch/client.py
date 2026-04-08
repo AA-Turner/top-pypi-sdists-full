@@ -76,6 +76,8 @@ from .type_defs import (
     DeletePackageResponseTypeDef,
     DeleteVpcEndpointRequestTypeDef,
     DeleteVpcEndpointResponseTypeDef,
+    DeregisterCapabilityRequestTypeDef,
+    DeregisterCapabilityResponseTypeDef,
     DescribeDomainAutoTunesRequestTypeDef,
     DescribeDomainAutoTunesResponseTypeDef,
     DescribeDomainChangeProgressRequestTypeDef,
@@ -94,6 +96,8 @@ from .type_defs import (
     DescribeDryRunProgressResponseTypeDef,
     DescribeInboundConnectionsRequestTypeDef,
     DescribeInboundConnectionsResponseTypeDef,
+    DescribeInsightDetailsRequestTypeDef,
+    DescribeInsightDetailsResponseTypeDef,
     DescribeInstanceTypeLimitsRequestTypeDef,
     DescribeInstanceTypeLimitsResponseTypeDef,
     DescribeOutboundConnectionsRequestTypeDef,
@@ -113,6 +117,8 @@ from .type_defs import (
     EmptyResponseMetadataTypeDef,
     GetApplicationRequestTypeDef,
     GetApplicationResponseTypeDef,
+    GetCapabilityRequestTypeDef,
+    GetCapabilityResponseTypeDef,
     GetCompatibleVersionsRequestTypeDef,
     GetCompatibleVersionsResponseTypeDef,
     GetDataSourceRequestTypeDef,
@@ -142,6 +148,8 @@ from .type_defs import (
     ListDomainNamesResponseTypeDef,
     ListDomainsForPackageRequestTypeDef,
     ListDomainsForPackageResponseTypeDef,
+    ListInsightsRequestTypeDef,
+    ListInsightsResponseTypeDef,
     ListInstanceTypeDetailsRequestTypeDef,
     ListInstanceTypeDetailsResponseTypeDef,
     ListPackagesForDomainRequestTypeDef,
@@ -162,6 +170,8 @@ from .type_defs import (
     PurchaseReservedInstanceOfferingResponseTypeDef,
     PutDefaultApplicationSettingRequestTypeDef,
     PutDefaultApplicationSettingResponseTypeDef,
+    RegisterCapabilityRequestTypeDef,
+    RegisterCapabilityResponseTypeDef,
     RejectInboundConnectionRequestTypeDef,
     RejectInboundConnectionResponseTypeDef,
     RemoveTagsRequestTypeDef,
@@ -214,6 +224,7 @@ class Exceptions(BaseClientExceptions):
     LimitExceededException: type[BotocoreClientError]
     ResourceAlreadyExistsException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
     SlotNotAvailableException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
@@ -505,6 +516,16 @@ class OpenSearchServiceClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#delete_vpc_endpoint)
         """
 
+    async def deregister_capability(
+        self, **kwargs: Unpack[DeregisterCapabilityRequestTypeDef]
+    ) -> DeregisterCapabilityResponseTypeDef:
+        """
+        Deregisters a capability from an OpenSearch UI application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/deregister_capability.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#deregister_capability)
+        """
+
     async def describe_domain(
         self, **kwargs: Unpack[DescribeDomainRequestTypeDef]
     ) -> DescribeDomainResponseTypeDef:
@@ -604,6 +625,17 @@ class OpenSearchServiceClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#describe_inbound_connections)
         """
 
+    async def describe_insight_details(
+        self, **kwargs: Unpack[DescribeInsightDetailsRequestTypeDef]
+    ) -> DescribeInsightDetailsResponseTypeDef:
+        """
+        Describes the details of an existing insight for an Amazon OpenSearch Service
+        domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/describe_insight_details.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#describe_insight_details)
+        """
+
     async def describe_instance_type_limits(
         self, **kwargs: Unpack[DescribeInstanceTypeLimitsRequestTypeDef]
     ) -> DescribeInstanceTypeLimitsResponseTypeDef:
@@ -696,6 +728,17 @@ class OpenSearchServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/get_application.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#get_application)
+        """
+
+    async def get_capability(
+        self, **kwargs: Unpack[GetCapabilityRequestTypeDef]
+    ) -> GetCapabilityResponseTypeDef:
+        """
+        Retrieves information about a registered capability for an OpenSearch UI
+        application, including its configuration and current status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/get_capability.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#get_capability)
         """
 
     async def get_compatible_versions(
@@ -853,6 +896,17 @@ class OpenSearchServiceClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#list_domains_for_package)
         """
 
+    async def list_insights(
+        self, **kwargs: Unpack[ListInsightsRequestTypeDef]
+    ) -> ListInsightsResponseTypeDef:
+        """
+        Lists insights for an Amazon OpenSearch Service domain or Amazon Web Services
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/list_insights.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#list_insights)
+        """
+
     async def list_instance_type_details(
         self, **kwargs: Unpack[ListInstanceTypeDetailsRequestTypeDef]
     ) -> ListInstanceTypeDetailsResponseTypeDef:
@@ -956,6 +1010,16 @@ class OpenSearchServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/put_default_application_setting.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#put_default_application_setting)
+        """
+
+    async def register_capability(
+        self, **kwargs: Unpack[RegisterCapabilityRequestTypeDef]
+    ) -> RegisterCapabilityResponseTypeDef:
+        """
+        Registers a capability for an OpenSearch UI application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opensearch/client/register_capability.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opensearch/client/#register_capability)
         """
 
     async def reject_inbound_connection(

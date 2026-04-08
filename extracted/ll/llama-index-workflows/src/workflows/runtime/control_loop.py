@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import heapq
+import inspect
 import logging
 import time
 import traceback
@@ -58,7 +60,7 @@ from workflows.runtime.types.named_task import (
 from workflows.runtime.types.plugin import (
     InternalRunAdapter,
     WaitResultTick,
-    get_current_run,
+    consume_current_run,
 )
 from workflows.runtime.types.results import (
     AddCollectedEvent,
@@ -493,7 +495,9 @@ class _ControlLoopRunner:
         """Process a single tick and return StopEvent if workflow completes."""
         try:
             start = await self.adapter.get_now()
-            self.state, commands = _reduce_tick(tick, self.state, start)
+            self.state, commands = _reduce_tick(
+                tick, self.state, start, run_id=self.adapter.run_id
+            )
         except Exception:
             await self.cleanup_tasks()
             logger.error(
@@ -526,10 +530,13 @@ async def control_loop(
     """
     The main async control loop for a workflow run.
     """
-    current = get_current_run()
-    state = init_state or BrokerState.from_workflow(current.workflow)
+    # Consume the RunContext immediately so the container's strong reference
+    # to the workflow graph is dropped before any step gets a chance to schedule
+    # an asyncio handle whose Context snapshot would otherwise pin it.
+    run = consume_current_run()
+    state = init_state or BrokerState.from_workflow(run.workflow)
     runner = _ControlLoopRunner(
-        current.workflow, current.run_adapter, current.context, current.steps, state
+        run.workflow, run.run_adapter, run.context, run.steps, state
     )
     return await runner.run(start_event=start_event)
 
@@ -563,10 +570,13 @@ def rebuild_state_from_ticks(
 
 
 def _reduce_tick(
-    tick: WorkflowTick, init: BrokerState, now_seconds: float
+    tick: WorkflowTick,
+    init: BrokerState,
+    now_seconds: float,
+    run_id: str | None = None,
 ) -> tuple[BrokerState, list[WorkflowCommand]]:
     if isinstance(tick, TickStepResult):
-        state, commands = _process_step_result_tick(tick, init, now_seconds)
+        state, commands = _process_step_result_tick(tick, init, now_seconds, run_id)
     elif isinstance(tick, TickAddEvent):
         state, commands = _process_add_event_tick(tick, init, now_seconds)
     elif isinstance(tick, TickCancelRun):
@@ -643,7 +653,10 @@ def _check_idle_state(state: BrokerState) -> bool:
 
 
 def _process_step_result_tick(
-    tick: TickStepResult, init: BrokerState, now_seconds: float
+    tick: TickStepResult,
+    init: BrokerState,
+    now_seconds: float,
+    run_id: str | None = None,
 ) -> tuple[BrokerState, list[WorkflowCommand]]:
     """
     processes the results from a step function execution
@@ -697,11 +710,25 @@ def _process_step_result_tick(
             retries = worker_state.config.retry_policy
             failures = this_execution.attempts + 1
             elapsed_time = result.failed_at - this_execution.first_attempt_at
-            delay = (
-                retries.next(elapsed_time, failures, result.exception)
-                if retries is not None
+            jitter_seed = (
+                int(
+                    hashlib.sha256(
+                        f"{run_id}:{tick.step_name}:{failures}".encode()
+                    ).hexdigest(),
+                    16,
+                )
+                & 0xFFFF_FFFF
+                if run_id is not None
                 else None
             )
+            if retries is not None:
+                _next_params = inspect.signature(retries.next).parameters
+                _seed_kwarg = {"seed": jitter_seed} if "seed" in _next_params else {}
+                delay = retries.next(
+                    elapsed_time, failures, result.exception, **_seed_kwarg
+                )
+            else:
+                delay = None
             if delay is not None:
                 commands.append(
                     CommandQueueEvent(
@@ -792,7 +819,7 @@ def _process_step_result_tick(
             new_waiter = StepWorkerWaiter(
                 waiter_id=result.waiter_id,
                 event=this_execution.event,
-                waiting_for_event=result.event_type,  # ty: ignore[invalid-argument-type] - ty choking here, with result.event_type resolved as "object"
+                waiting_for_event=result.event_type,  # type: ignore[ty:invalid-argument-type]
                 requirements=result.requirements,
                 has_requirements=bool(len(result.requirements)),
                 resolved_event=None,

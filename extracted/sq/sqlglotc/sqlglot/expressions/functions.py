@@ -329,8 +329,43 @@ class GenerateEmbedding(Expression, Func):
     arg_types = {"this": True, "expression": True, "params_struct": False, "is_text": False}
 
 
+class GenerateText(Expression, Func):
+    arg_types = {"this": True, "expression": False, "params_struct": False}
+
+
+class GenerateTable(Expression, Func):
+    arg_types = {"this": True, "expression": False, "params_struct": False}
+
+
+class GenerateBool(Expression, Func):
+    arg_types = {"this": True, "expression": False, "params_struct": False}
+
+
+class GenerateInt(Expression, Func):
+    arg_types = {"this": True, "expression": False, "params_struct": False}
+
+
+class GenerateDouble(Expression, Func):
+    arg_types = {"this": True, "expression": False, "params_struct": False}
+
+
 class MLForecast(Expression, Func):
     arg_types = {"this": True, "expression": False, "params_struct": False}
+
+
+class AIForecast(Expression, Func):
+    arg_types = {
+        "this": True,
+        "data_col": False,
+        "timestamp_col": False,
+        "model": False,
+        "id_cols": False,
+        "horizon": False,
+        "forecast_end_timestamp": False,
+        "confidence_level": False,
+        "output_historical_time_series": False,
+        "context_window": False,
+    }
 
 
 class MLTranslate(Expression, Func):

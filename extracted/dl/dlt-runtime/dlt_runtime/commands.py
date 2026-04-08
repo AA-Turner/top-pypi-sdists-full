@@ -80,13 +80,20 @@ class RuntimeCommand(SupportsCliCommand):
             title="Available subcommands", dest="runtime_command", required=False
         )
 
-        subparsers.add_parser(
+        login_parser = subparsers.add_parser(
             "login",
             help=(
                 "Log in to dltHub Runtime and connect the current workspace to"
                 " the remote one"
             ),
             description="Log in to dltHub Runtime",
+        )
+        login_parser.add_argument(
+            "--workspace",
+            "-w",
+            type=str,
+            default=None,
+            help="Select workspace by name or ID (skip interactive prompt)",
         )
 
         subparsers.add_parser(
@@ -98,8 +105,8 @@ class RuntimeCommand(SupportsCliCommand):
         # convenience commands
         launch_cmd = subparsers.add_parser(
             "launch",
-            help="Deploy code/config and run a script (follow status and logs by default)",
-            description="Deploy current workspace and run a batch script remotely.",
+            help="Deploy code/config and run a script",
+            description="Deploy current workspace and run a batch script remotely. Use -f/--follow to tail logs until completion.",
         )
         self._configure_launch_parser(launch_cmd)
 
@@ -220,13 +227,43 @@ class RuntimeCommand(SupportsCliCommand):
         )
         self._configure_configurations_parser(configuration_cmd)
 
+        # workspaces
+        workspace_cmd = subparsers.add_parser(
+            "workspace",
+            help="List and manage workspaces",
+            description="List and manage workspaces in your organization.",
+        )
+        self._configure_workspace_parser(workspace_cmd)
+
+    def _configure_workspace_parser(
+        self, workspace_cmd: argparse.ArgumentParser
+    ) -> None:
+        workspace_subparsers = workspace_cmd.add_subparsers(
+            title="Available subcommands", dest="operation", required=False
+        )
+        workspace_subparsers.add_parser(
+            "list",
+            help="List all workspaces you have access to",
+            description="List all workspaces you have access to",
+        )
+        switch_parser = workspace_subparsers.add_parser(
+            "switch",
+            help="Switch to a different workspace by name or ID",
+            description="Switch the locally connected workspace without re-running login",
+        )
+        switch_parser.add_argument(
+            "workspace",
+            type=str,
+            help="Workspace name or ID to switch to",
+        )
+
     def _configure_launch_parser(self, launch_cmd: argparse.ArgumentParser) -> None:
         launch_cmd.add_argument("script_path", help="Local path to the script")
         launch_cmd.add_argument(
-            "-d",
-            "--detach",
+            "-f",
+            "--follow",
             action="store_true",
-            help="Do not follow status changes and logs after starting",
+            help="Follow status changes and stream logs until the run completes",
         )
 
     def _configure_serve_parser(self, serve_cmd: argparse.ArgumentParser) -> None:
@@ -467,18 +504,27 @@ class RuntimeCommand(SupportsCliCommand):
         fmt.echo("")
         try:
             if args.runtime_command == "login":
-                cmd.login(minimal_logging=False)
+                cmd.login(minimal_logging=False, workspace=args.workspace)
                 return
             elif args.runtime_command == "logout":
                 cmd.logout()
                 return
+            # workspace commands only need auth (token), not a connected workspace,
+            # so they are dispatched before login() which would force workspace selection.
+            elif args.runtime_command == "workspace":
+                if args.operation == "list" or not args.operation:
+                    cmd.workspace_list()
+                    return
+                elif args.operation == "switch":
+                    cmd.workspace_switch(args.workspace)
+                    return
 
             auth_service = cmd.login()
             api_client = get_api_client(auth_service)
             if args.runtime_command == "launch":
                 cmd.launch(
                     args.script_path,
-                    bool(args.detach),
+                    follow=bool(args.follow),
                     auth_service=auth_service,
                     api_client=api_client,
                 )

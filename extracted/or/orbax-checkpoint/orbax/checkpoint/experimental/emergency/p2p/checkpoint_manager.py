@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Composite Checkpoint Manager handling P2P syncing with optional Persistent Fallback."""
+"""Composite Checkpoint Manager with P2P syncing and Persistent Fallback."""
 
 import shutil
 import threading
 import time
-from typing import Any, Iterable, Mapping, Optional, Sequence, Union, final
+from typing import Any, Iterable, Sequence, final
 
 from absl import logging
 from etils import epath
@@ -26,11 +26,11 @@ import jax
 from orbax.checkpoint import abstract_checkpoint_manager
 from orbax.checkpoint._src.multihost import multihost
 from orbax.checkpoint._src.multihost import multislice
-from orbax.checkpoint.experimental.emergency import checkpoint_manager as emc
 from orbax.checkpoint.experimental.emergency import path as emergency_path
 from orbax.checkpoint.experimental.emergency.p2p import args as p2p_args_lib
 from orbax.checkpoint.experimental.emergency.p2p import constants
 from orbax.checkpoint.experimental.emergency.p2p import local
+from orbax.checkpoint.experimental.emergency.p2p import options as options_lib
 from orbax.checkpoint.experimental.emergency.p2p import peer_selector
 from orbax.checkpoint.experimental.emergency.p2p import persistent
 from orbax.checkpoint.experimental.emergency.p2p import protocol
@@ -160,11 +160,8 @@ class _P2PSubsystem:
       )
       return False
     assert self._p2p_node is not None
-    if (
-        peer_info.ip == self._p2p_node.ip
-        and peer_info.port == self._p2p_node.port
-    ):
-      return True
+
+    # TODO(exlin): optimization to process when peer is localhost
 
     return self._p2p_node.fetch_shard_from_peer(
         peer_info.ip, peer_info.port, step, peer_info.process_index
@@ -175,8 +172,13 @@ class _P2PSubsystem:
     assert self._peer_selector is not None
     return self._peer_selector.get_latest_complete_step()
 
+  def get_all_steps_from_peers(self) -> list[int]:
+    """Returns all steps available in any peer in P2P network."""
+    assert self._peer_selector is not None
+    return self._peer_selector.get_all_steps()
+
   def has_shard_for_step(self, step: int) -> bool:
-    """Checks if this process's shard for a given step exists in the P2P network."""
+    """Checks if this process's shard for a step exists in P2P."""
     assert self._peer_selector is not None
     return (
         self._peer_selector.get_source_peer(step, self._process_index)
@@ -210,7 +212,7 @@ class _P2PSubsystem:
 class CheckpointManager(
     abstract_checkpoint_manager.AbstractCheckpointManager, epy.ContextManager
 ):
-  """Orchestrates P2P local checkpointing with optional persistent storage failover.
+  """P2P local checkpointing with persistent storage failover.
 
   Restoration Strategy:
     1. Check Local Disk (Fastest)
@@ -225,7 +227,7 @@ class CheckpointManager(
       local_directory: epath.PathLike,
       persistent_directory: epath.PathLike | None = None,
       *,
-      options: emc.CheckpointManagerOptions | None = None,
+      options: options_lib.CheckpointManagerOptions | None = None,
   ):
     """Initializes the P2P Checkpoint Manager."""
     self._local_directory = epath.Path(local_directory)
@@ -233,11 +235,10 @@ class CheckpointManager(
     self._process_index = multihost.process_index()
     self._abstract_state = abstract_state
 
-    # 1. Parse and Validate Options
-    self._emc_options = options or emc.CheckpointManagerOptions()
-    self._validate_options(persistent_directory is not None)
+    # 1. Parse Options
+    self._options = options or options_lib.CheckpointManagerOptions()
 
-    self._replica_axis_index = self._emc_options.replica_axis_index
+    self._replica_axis_index = self._options.replica_axis_index
     self._replica_id = multislice.process_replica_id(
         self._process_index,
         self._global_mesh,
@@ -248,7 +249,7 @@ class CheckpointManager(
     self._local_manager = local.LocalCheckpointManager(
         self._local_directory,
         self._global_mesh,
-        options=self._emc_options,
+        options=self._options,
     )
 
     self._persistent_manager: persistent.PersistentCheckpointManager | None = (
@@ -259,7 +260,7 @@ class CheckpointManager(
           directory=persistent_directory,
           global_mesh=global_mesh,
           replica_axis_index=self._replica_axis_index,
-          options=self._emc_options,
+          options=self._options,
       )
 
     # 3. Initialize P2P Networking & Logic
@@ -277,33 +278,35 @@ class CheckpointManager(
       return self._persistent_manager.directory
     return self._local_manager.directory
 
-  def _validate_options(self, has_persistent: bool):
-    if not has_persistent:
-      return
-
-    l_interval = self._emc_options.local.save_interval_steps
-    p_interval = self._emc_options.persistent.save_interval_steps
-
-    if l_interval > p_interval:
-      raise ValueError(
-          f'Local save interval ({l_interval}) must be more frequent'
-          f' than persistent interval ({p_interval}).'
-      )
-    if p_interval % l_interval != 0:
-      raise ValueError(
-          f'Persistent interval ({p_interval}) must be a multiple of'
-          f' local interval ({l_interval}).'
-      )
-
   # --- Abstract Manager Implementation ---
 
   @override
   def all_steps(self, read: bool = False) -> Sequence[int]:
-    return self._local_manager.all_steps(read)
+    self._p2p.sync_registry_if_stale()
+    all_steps = set(self._local_manager.all_steps(read))
+    all_steps.update(self._p2p.get_all_steps_from_peers())
+    if self._persistent_manager:
+      all_steps.update(self._persistent_manager.all_steps(read))
+    return sorted(list(all_steps))
 
   @override
   def latest_step(self) -> int | None:
-    return self._local_manager.latest_step()
+    self._p2p.sync_registry_if_stale()
+
+    # We intentionally use the step returned by P2P regardless of whether a
+    # newer step is available in persistent storage. This is because we assume
+    # P2P is more efficient overall for catching up to the latest step, even
+    # if persistent storage has a newer step available.
+    # TODO(exlin): Revisit if P2P should always be prioritized over
+    # persistent storage for latest_step.
+    step = self._p2p.get_latest_complete_step()
+    logging.info('P2P latest_step=%s', step)
+
+    if step is None and self._persistent_manager:
+      step = self._persistent_manager.latest_step()
+      logging.info('Persistent latest_step=%s', step)
+
+    return step
 
   @override
   def best_step(self) -> int | None:
@@ -311,7 +314,15 @@ class CheckpointManager(
 
   @override
   def reload(self):
+    """Reloads the checkpoint manager and its components.
+
+    This method refreshes the local and persistent managers and marks the P2P
+    registry as stale, forcing a re-sync on the next access.
+    """
+    self._p2p.mark_registry_stale()
     self._local_manager.reload()
+    if self._persistent_manager:
+      self._persistent_manager.reload()
 
   @override
   def reached_preemption(self, step: int) -> bool:
@@ -319,7 +330,10 @@ class CheckpointManager(
 
   @override
   def should_save(self, step: int) -> bool:
-    return self._local_manager.should_save(step)
+    should = self._local_manager.should_save(step)
+    if self._persistent_manager is not None:
+      should = should or self._persistent_manager.should_save(step)
+    return should
 
   @override
   def delete(self, step: int):
@@ -392,7 +406,7 @@ class CheckpointManager(
   @override
   def restore(
       self, step: int | None, args: p2p_args_lib.Composite | None
-  ) -> Union[Any, Mapping[str, Any], p2p_args_lib.Composite, None]:
+  ) -> p2p_args_lib.Composite | None:
     if args is None:
       raise ValueError('The `args` parameter is required for restore.')
 
@@ -413,8 +427,9 @@ class CheckpointManager(
         use_persistent = True
 
     if step is None:
-      logging.warning('No restore step found in local storage or P2P registry.')
-      return None
+      raise FileNotFoundError(
+          'No steps found in either local/persistent storage or P2P registry.'
+      )
 
     logging.info('Targeting restore step: %d', step)
 
@@ -465,7 +480,7 @@ class CheckpointManager(
     return self._local_manager.item_metadata(step)
 
   @override
-  def metadata(self, step: Optional[int] = None) -> Any:
+  def metadata(self, step: int | None = None) -> Any:
     return self._local_manager.metadata(step)
 
   @override

@@ -24,11 +24,14 @@ else:
 __all__ = (
     "AutomationStreamStatusType",
     "BedrockAgentCoreServiceName",
+    "BrowserEnterprisePolicyTypeType",
     "BrowserSessionStatusType",
     "CodeInterpreterSessionStatusType",
     "CommandExecutionStatusType",
     "ContentBlockTypeType",
+    "EventFilterConditionType",
     "ExtractionJobStatusType",
+    "LanguageRuntimeType",
     "ListActorsPaginatorName",
     "ListEventsPaginatorName",
     "ListMemoryExtractionJobsPaginatorName",
@@ -51,11 +54,14 @@ __all__ = (
 )
 
 AutomationStreamStatusType = Literal["DISABLED", "ENABLED"]
+BrowserEnterprisePolicyTypeType = Literal["MANAGED", "RECOMMENDED"]
 BrowserSessionStatusType = Literal["READY", "TERMINATED"]
 CodeInterpreterSessionStatusType = Literal["READY", "TERMINATED"]
 CommandExecutionStatusType = Literal["COMPLETED", "TIMED_OUT"]
 ContentBlockTypeType = Literal["image", "resource", "resource_link", "text"]
+EventFilterConditionType = Literal["HAS_EVENTS"]
 ExtractionJobStatusType = Literal["FAILED"]
+LanguageRuntimeType = Literal["deno", "nodejs", "python"]
 ListActorsPaginatorName = Literal["list_actors"]
 ListEventsPaginatorName = Literal["list_events"]
 ListMemoryExtractionJobsPaginatorName = Literal["list_memory_extraction_jobs"]
@@ -207,6 +213,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -442,6 +449,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -477,6 +485,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -489,6 +498,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

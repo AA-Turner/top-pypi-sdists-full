@@ -275,6 +275,7 @@ class TestALTCHA(unittest.TestCase):
 
         self.assertIsNone(error)
         self.assertTrue(is_valid)
+        assert data is not None
         self.assertGreater(int(data.expire), 0)
         self.assertGreater(len(data.fields), 0)
         self.assertGreater(len(data.reasons), 0)
@@ -345,7 +346,7 @@ class TestALTCHA(unittest.TestCase):
             start,
         )
 
-        self.assertIsNotNone(solution, "Solution should not be None")
+        assert solution is not None
         self.assertEqual(
             challenge.challenge,
             hash_hex(
@@ -370,7 +371,7 @@ class TestALTCHA(unittest.TestCase):
         )
 
         # Verify the solution
-        self.assertIsNotNone(solution, "Solution should not be None")
+        assert solution is not None
         self.assertEqual(solution.number, 100, "Solution be 100")
 
     def test_hash_hex(self):

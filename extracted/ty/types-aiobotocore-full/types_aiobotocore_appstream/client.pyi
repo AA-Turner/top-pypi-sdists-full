@@ -145,6 +145,7 @@ from .type_defs import (
     DisassociateApplicationFromEntitlementRequestTypeDef,
     DisassociateFleetRequestTypeDef,
     DisassociateSoftwareFromImageBuilderRequestTypeDef,
+    DrainSessionInstanceRequestTypeDef,
     EnableUserRequestTypeDef,
     ExpireSessionRequestTypeDef,
     GetExportImageTaskRequestTypeDef,
@@ -878,6 +879,16 @@ class AppStreamClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/disassociate_software_from_image_builder.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#disassociate_software_from_image_builder)
+        """
+
+    async def drain_session_instance(
+        self, **kwargs: Unpack[DrainSessionInstanceRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Drains the instance hosting the specified streaming session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/appstream/client/drain_session_instance.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appstream/client/#drain_session_instance)
         """
 
     async def enable_user(self, **kwargs: Unpack[EnableUserRequestTypeDef]) -> dict[str, Any]:

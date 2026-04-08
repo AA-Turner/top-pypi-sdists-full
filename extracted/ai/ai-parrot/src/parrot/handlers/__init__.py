@@ -28,10 +28,22 @@ def __getattr__(name: str):
     if name == "VideoReelHandler":
         from .video_reel import VideoReelHandler
         return VideoReelHandler
+    if name == "VectorStoreHandler":
+        from .stores import VectorStoreHandler
+        return VectorStoreHandler
     if name == "DatasetManagerHandler":
         from .datasets import DatasetManagerHandler
         return DatasetManagerHandler
     if name == "UnderstandingHandler":
         from .understanding import UnderstandingHandler
         return UnderstandingHandler
+    if name in (
+        "DatabaseRolesHandler",
+        "DatabaseFormatsHandler",
+        "DatabaseIntentsHandler",
+        "DatabaseDriversHandler",
+        "DatabaseSchemasHandler",
+    ):
+        from . import database as _db
+        return getattr(_db, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

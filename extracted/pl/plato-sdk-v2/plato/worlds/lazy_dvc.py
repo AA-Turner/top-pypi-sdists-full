@@ -51,16 +51,16 @@ async def _ensure_plato_fuse() -> str:
     if override:
         override_path = Path(override)
         if override_path.is_file():
-            logger.info("Using PLATO_FUSE_BINARY override: %s", override_path)
+            logger.debug("Using PLATO_FUSE_BINARY override: %s", override_path)
             return str(override_path)
         raise RuntimeError(f"PLATO_FUSE_BINARY does not exist: {override}")
 
     binary = shutil.which("plato-fuse")
     if binary:
-        logger.info("Using plato-fuse from PATH: %s", binary)
+        logger.debug("Using plato-fuse from PATH: %s", binary)
         return binary
 
-    logger.info(
+    logger.debug(
         "plato-fuse not found on PATH, downloading from s3://%s/%s",
         PLATO_FUSE_S3_BUCKET,
         PLATO_FUSE_S3_KEY,
@@ -81,7 +81,7 @@ async def _ensure_plato_fuse() -> str:
         raise RuntimeError(f"Failed to download plato-fuse from S3: {stderr.decode().strip()}")
 
     os.chmod(PLATO_FUSE_INSTALL_PATH, 0o755)
-    logger.info("Installed plato-fuse to %s", PLATO_FUSE_INSTALL_PATH)
+    logger.debug("Installed plato-fuse to %s", PLATO_FUSE_INSTALL_PATH)
     return PLATO_FUSE_INSTALL_PATH
 
 
@@ -119,7 +119,7 @@ async def mount_lazy(
 
     # Start worker subprocess
     rust_binary = await _ensure_plato_fuse()
-    logger.info("Using Rust FUSE binary: %s", rust_binary)
+    logger.debug("Using Rust FUSE binary: %s", rust_binary)
     proc = await asyncio.create_subprocess_exec(
         rust_binary,
         str(config_path),
@@ -151,7 +151,7 @@ async def mount_lazy(
             err = "unknown"
         raise RuntimeError(f"FUSE mount at {mountpoint} did not appear: {err}")
 
-    logger.info("Lazy DVC mounted at %s (%d files)", mountpoint, len(manifest.entries_list))
+    logger.debug("Lazy DVC mounted at %s (%d files)", mountpoint, len(manifest.entries_list))
     return LazyDVCMount(
         mountpoint=mountpoint,
         cache_dir=cache_dir,

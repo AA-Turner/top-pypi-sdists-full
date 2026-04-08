@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shub
-Version: 2.16.0
+Version: 2.17.0
 Summary: Scrapinghub Command Line Client
 Home-page: https://shub.readthedocs.io/en/stable/
 Author: Scrapinghub
@@ -13,7 +13,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -22,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Environment :: Console
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: click
 Requires-Dist: docker
@@ -76,7 +75,7 @@ without leaving the command line.
 Requirements
 ------------
 
-* Python >= 3.6
+* Python >= 3.10
 
 
 Installation
@@ -91,6 +90,7 @@ Please note:
 
 * if you are using Python < 3.6, you should pin `shub` to `2.13.0` or lower.
 * if you are using Python < 3.9, you should pin `shub` to `2.15.4` or lower.
+* if you are using Python < 3.10, you should pin `shub` to `2.16.0` or lower.
 
 We also supply stand-alone binaries. You can find them in our `latest GitHub
 release`_.

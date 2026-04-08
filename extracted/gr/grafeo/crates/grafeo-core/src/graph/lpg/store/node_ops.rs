@@ -77,13 +77,13 @@ impl LpgStore {
     fn build_node(&self, id: NodeId) -> Node {
         let mut node = Node::new(id);
 
-        let id_to_label = self.id_to_label.read();
+        let registry = self.label_registry.read();
         let node_labels = self.node_labels.read();
 
         #[cfg(not(feature = "temporal"))]
         if let Some(label_ids) = node_labels.get(&id) {
             for &label_id in label_ids {
-                if let Some(label) = id_to_label.get(label_id as usize) {
+                if let Some(label) = registry.get_name(label_id) {
                     node.labels.push(label.clone());
                 }
             }
@@ -94,7 +94,7 @@ impl LpgStore {
             && let Some(label_ids) = log.latest()
         {
             for &label_id in label_ids {
-                if let Some(label) = id_to_label.get(label_id as usize) {
+                if let Some(label) = registry.get_name(label_id) {
                     node.labels.push(label.clone());
                 }
             }
@@ -112,13 +112,13 @@ impl LpgStore {
     fn build_node_at(&self, id: NodeId, epoch: EpochId) -> Node {
         let mut node = Node::new(id);
 
-        let id_to_label = self.id_to_label.read();
+        let registry = self.label_registry.read();
         let node_labels = self.node_labels.read();
         if let Some(log) = node_labels.get(&id)
             && let Some(label_ids) = log.at(epoch)
         {
             for &label_id in label_ids {
-                if let Some(label) = id_to_label.get(label_id as usize) {
+                if let Some(label) = registry.get_name(label_id) {
                     node.labels.push(label.clone());
                 }
             }
@@ -630,7 +630,7 @@ impl LpgStore {
             chain.mark_deleted(epoch, transaction_id);
 
             // Capture labels for undo log
-            let id_to_label = self.id_to_label.read();
+            let registry = self.label_registry.read();
             let node_labels_map = self.node_labels.read();
 
             #[cfg(not(feature = "temporal"))]
@@ -639,7 +639,7 @@ impl LpgStore {
                 .map(|label_ids| {
                     label_ids
                         .iter()
-                        .filter_map(|&lid| id_to_label.get(lid as usize).map(|s| s.to_string()))
+                        .filter_map(|&lid| registry.get_name(lid).map(|s| s.to_string()))
                         .collect()
                 })
                 .unwrap_or_default();
@@ -651,12 +651,12 @@ impl LpgStore {
                 .map(|label_ids| {
                     label_ids
                         .iter()
-                        .filter_map(|&lid| id_to_label.get(lid as usize).map(|s| s.to_string()))
+                        .filter_map(|&lid| registry.get_name(lid).map(|s| s.to_string()))
                         .collect()
                 })
                 .unwrap_or_default();
 
-            drop(id_to_label);
+            drop(registry);
             drop(node_labels_map);
 
             // Capture properties for undo log
@@ -736,7 +736,7 @@ impl LpgStore {
             index.mark_deleted(epoch, transaction_id);
 
             // Capture labels for undo log
-            let id_to_label = self.id_to_label.read();
+            let registry = self.label_registry.read();
             let node_labels_map = self.node_labels.read();
 
             #[cfg(not(feature = "temporal"))]
@@ -745,7 +745,7 @@ impl LpgStore {
                 .map(|label_ids| {
                     label_ids
                         .iter()
-                        .filter_map(|&lid| id_to_label.get(lid as usize).map(|s| s.to_string()))
+                        .filter_map(|&lid| registry.get_name(lid).map(|s| s.to_string()))
                         .collect()
                 })
                 .unwrap_or_default();
@@ -757,12 +757,12 @@ impl LpgStore {
                 .map(|label_ids| {
                     label_ids
                         .iter()
-                        .filter_map(|&lid| id_to_label.get(lid as usize).map(|s| s.to_string()))
+                        .filter_map(|&lid| registry.get_name(lid).map(|s| s.to_string()))
                         .collect()
                 })
                 .unwrap_or_default();
 
-            drop(id_to_label);
+            drop(registry);
             drop(node_labels_map);
 
             // Capture properties for undo log
@@ -818,90 +818,172 @@ impl LpgStore {
     /// Deletes all edges connected to a node (implements DETACH DELETE).
     ///
     /// Call this before `delete_node()` if you want to remove a node that
-    /// has edges. Grafeo doesn't auto-delete edges - you have to be explicit.
+    /// has edges. Grafeo doesn't auto-delete edges, you have to be explicit.
+    ///
+    /// Uses a `HashSet` to dedup self-loops (where src == dst) and holds
+    /// the edges write lock for the entire batch to prevent concurrent
+    /// readers from observing a partially detached node.
     #[cfg(not(feature = "tiered-storage"))]
     pub fn delete_node_edges(&self, node_id: NodeId) {
-        // Get outgoing edges
-        let outgoing: Vec<EdgeId> = self
-            .forward_adj
-            .edges_from(node_id)
-            .into_iter()
-            .map(|(_, edge_id)| edge_id)
-            .collect();
+        let epoch = self.current_epoch();
 
-        // Get incoming edges
-        let incoming: Vec<EdgeId> = if let Some(ref backward) = self.backward_adj {
-            backward
-                .edges_from(node_id)
-                .into_iter()
-                .map(|(_, edge_id)| edge_id)
-                .collect()
+        // Collect all edge IDs into a set to dedup self-loops
+        let mut edge_ids: FxHashSet<EdgeId> = FxHashSet::default();
+
+        for (_, edge_id) in self.forward_adj.edges_from(node_id) {
+            edge_ids.insert(edge_id);
+        }
+
+        if let Some(ref backward) = self.backward_adj {
+            for (_, edge_id) in backward.edges_from(node_id) {
+                edge_ids.insert(edge_id);
+            }
         } else {
-            // No backward adjacency - scan all edges
-            let epoch = self.current_epoch();
-            self.edges
-                .read()
-                .iter()
-                .filter_map(|(id, chain)| {
-                    chain.visible_at(epoch).and_then(|r| {
-                        if !r.is_deleted() && r.dst == node_id {
-                            Some(*id)
-                        } else {
-                            None
-                        }
-                    })
-                })
-                .collect()
-        };
+            // No backward adjacency: scan all edges for incoming
+            let edges = self.edges.read();
+            for (id, chain) in edges.iter() {
+                if let Some(r) = chain.visible_at(epoch)
+                    && !r.is_deleted()
+                    && r.dst == node_id
+                {
+                    edge_ids.insert(*id);
+                }
+            }
+        }
 
-        // Delete all edges
-        for edge_id in outgoing.into_iter().chain(incoming) {
-            self.delete_edge(edge_id);
+        if edge_ids.is_empty() {
+            return;
+        }
+
+        // Hold the write lock for the entire batch: mark all edges as deleted
+        // atomically so concurrent readers never see a partially detached node.
+        let deleted: Vec<(EdgeId, NodeId, NodeId, u32)>;
+        {
+            let mut edges = self.edges.write();
+            deleted = edge_ids
+                .iter()
+                .filter_map(|&edge_id| {
+                    let chain = edges.get_mut(&edge_id)?;
+                    let record = chain.visible_at(epoch)?;
+                    if record.is_deleted() {
+                        return None;
+                    }
+                    let src = record.src;
+                    let dst = record.dst;
+                    let type_id = record.type_id;
+                    chain.mark_deleted(epoch, TransactionId::SYSTEM);
+                    Some((edge_id, src, dst, type_id))
+                })
+                .collect();
+        }
+
+        // Batch-update adjacency under a single write lock so concurrent
+        // readers of neighbors()/edges_from() never see a partially detached node.
+        let fwd_batch: Vec<(NodeId, EdgeId)> =
+            deleted.iter().map(|&(eid, src, _, _)| (src, eid)).collect();
+        self.forward_adj.batch_mark_deleted(&fwd_batch);
+
+        if let Some(ref backward) = self.backward_adj {
+            let bwd_batch: Vec<(NodeId, EdgeId)> =
+                deleted.iter().map(|&(eid, _, dst, _)| (dst, eid)).collect();
+            backward.batch_mark_deleted(&bwd_batch);
+        }
+
+        // Properties and counters (no atomicity requirement with adjacency)
+        for &(edge_id, _, _, type_id) in &deleted {
+            #[cfg(not(feature = "temporal"))]
+            self.edge_properties.remove_all(edge_id);
+            #[cfg(feature = "temporal")]
+            self.edge_properties.remove_all(edge_id, epoch);
+
+            self.live_edge_count.fetch_sub(1, Ordering::Relaxed);
+            self.decrement_edge_type_count(type_id);
         }
     }
 
     /// Deletes all edges connected to a node (implements DETACH DELETE).
     /// (Tiered storage version)
+    ///
+    /// Uses a `HashSet` to dedup self-loops (where src == dst) and holds
+    /// the edge_versions write lock for the entire batch to prevent
+    /// concurrent readers from observing a partially detached node.
     #[cfg(feature = "tiered-storage")]
     pub fn delete_node_edges(&self, node_id: NodeId) {
-        // Get outgoing edges
-        let outgoing: Vec<EdgeId> = self
-            .forward_adj
-            .edges_from(node_id)
-            .into_iter()
-            .map(|(_, edge_id)| edge_id)
-            .collect();
+        let epoch = self.current_epoch();
 
-        // Get incoming edges
-        let incoming: Vec<EdgeId> = if let Some(ref backward) = self.backward_adj {
-            backward
-                .edges_from(node_id)
-                .into_iter()
-                .map(|(_, edge_id)| edge_id)
-                .collect()
+        // Collect all edge IDs into a set to dedup self-loops
+        let mut edge_ids: FxHashSet<EdgeId> = FxHashSet::default();
+
+        for (_, edge_id) in self.forward_adj.edges_from(node_id) {
+            edge_ids.insert(edge_id);
+        }
+
+        if let Some(ref backward) = self.backward_adj {
+            for (_, edge_id) in backward.edges_from(node_id) {
+                edge_ids.insert(edge_id);
+            }
         } else {
-            // No backward adjacency - scan all edges
-            let epoch = self.current_epoch();
+            // No backward adjacency: scan all edges for incoming
             let versions = self.edge_versions.read();
-            versions
-                .iter()
-                .filter_map(|(id, index)| {
-                    index.visible_at(epoch).and_then(|vref| {
-                        self.read_edge_record(&vref).and_then(|r| {
-                            if !r.is_deleted() && r.dst == node_id {
-                                Some(*id)
-                            } else {
-                                None
-                            }
-                        })
-                    })
-                })
-                .collect()
-        };
+            for (id, index) in versions.iter() {
+                if let Some(vref) = index.visible_at(epoch)
+                    && let Some(r) = self.read_edge_record(&vref)
+                    && !r.is_deleted()
+                    && r.dst == node_id
+                {
+                    edge_ids.insert(*id);
+                }
+            }
+        }
 
-        // Delete all edges
-        for edge_id in outgoing.into_iter().chain(incoming) {
-            self.delete_edge(edge_id);
+        if edge_ids.is_empty() {
+            return;
+        }
+
+        // Hold the write lock for the entire batch: mark all edges as deleted
+        // atomically so concurrent readers never see a partially detached node.
+        let deleted: Vec<(EdgeId, NodeId, NodeId, u32)>;
+        {
+            let mut versions = self.edge_versions.write();
+            deleted = edge_ids
+                .iter()
+                .filter_map(|&edge_id| {
+                    let index = versions.get_mut(&edge_id)?;
+                    let vref = index.visible_at(epoch)?;
+                    let record = self.read_edge_record(&vref)?;
+                    if record.is_deleted() {
+                        return None;
+                    }
+                    let src = record.src;
+                    let dst = record.dst;
+                    let type_id = record.type_id;
+                    index.mark_deleted(epoch, TransactionId::SYSTEM);
+                    Some((edge_id, src, dst, type_id))
+                })
+                .collect();
+        }
+
+        // Batch-update adjacency under a single write lock so concurrent
+        // readers of neighbors()/edges_from() never see a partially detached node.
+        let fwd_batch: Vec<(NodeId, EdgeId)> =
+            deleted.iter().map(|&(eid, src, _, _)| (src, eid)).collect();
+        self.forward_adj.batch_mark_deleted(&fwd_batch);
+
+        if let Some(ref backward) = self.backward_adj {
+            let bwd_batch: Vec<(NodeId, EdgeId)> =
+                deleted.iter().map(|&(eid, _, dst, _)| (dst, eid)).collect();
+            backward.batch_mark_deleted(&bwd_batch);
+        }
+
+        // Properties and counters (no atomicity requirement with adjacency)
+        for &(edge_id, _, _, type_id) in &deleted {
+            #[cfg(not(feature = "temporal"))]
+            self.edge_properties.remove_all(edge_id);
+            #[cfg(feature = "temporal")]
+            self.edge_properties.remove_all(edge_id, epoch);
+
+            self.live_edge_count.fetch_sub(1, Ordering::Relaxed);
+            self.decrement_edge_type_count(type_id);
         }
     }
 

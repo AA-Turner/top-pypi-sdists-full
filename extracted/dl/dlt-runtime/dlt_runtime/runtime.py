@@ -1,11 +1,11 @@
 import os
 import time
 from dataclasses import dataclass
-from typing import Generator, Optional, Union, List
+from typing import Generator, Optional, Union
 from uuid import UUID
 
 import httpx
-import jose.jwt as jose_jwt
+import jwt
 from dlt._workspace._workspace_context import WorkspaceRunContext, active
 from dlt._workspace.cli.config_toml_writer import WritableConfigValue, write_values
 from dlt._workspace.exceptions import WorkspaceRunContextNotAvailable
@@ -15,15 +15,13 @@ from dlt.common.configuration.providers.toml import (
 )
 from dlt.common.configuration.specs.pluggable_run_context import RunContextBase
 from dlt.common.configuration.specs.runtime_configuration import RuntimeConfiguration
-from jose.exceptions import JOSEError
+from jwt.exceptions import PyJWTError
 
 from dlt_runtime.version import __version__
 
 from dlt_runtime.exceptions import (
-    LocalWorkspaceIdNotSet,
     RuntimeNotAuthenticated,
     RuntimeOperationNotAuthorized,
-    WorkspaceIdMismatch,
     exception_from_response,
     handle_client_exceptions,
 )
@@ -84,11 +82,9 @@ class RuntimeAuthService:
     """
 
     auth_info: Optional[AuthInfo] = None
-    _user_info: Optional[UserInfo] = None
 
     _run_context: RunContextBase
     _local_workspace_id: Optional[str] = None
-    _remote_workspace_ids: Optional[List[str]] = None
 
     def __init__(self, run_context: RunContextBase):
         self._run_context = run_context
@@ -110,19 +106,13 @@ class RuntimeAuthService:
 
     @property
     def workspace_id(self) -> str:
-        if (
-            not self._remote_workspace_ids
-            or not self._local_workspace_id
-            or self._local_workspace_id not in self._remote_workspace_ids
-        ):
+        ws_id = (
+            self._local_workspace_id
+            or self.workspace_run_context.runtime_config.workspace_id
+        )
+        if not ws_id:
             raise RuntimeOperationNotAuthorized()
-        return self._local_workspace_id
-
-    @property
-    def user_info(self) -> UserInfo:
-        if self._user_info is None:
-            raise RuntimeNotAuthenticated("No user info found")
-        return self._user_info
+        return ws_id
 
     def authenticate(self) -> AuthInfo:
         try:
@@ -137,19 +127,19 @@ class RuntimeAuthService:
                 pass  # refresh failed — fall through to re-raise original
             raise
 
-    def login(self, token: str, refresh_token: Optional[str] = None) -> AuthInfo:
+    def login(
+        self, token: str, refresh_token: Optional[str] = None
+    ) -> tuple[AuthInfo, UserInfo]:
         auth_info = self._save_token(token)
         if refresh_token:
             self._save_refresh_token(refresh_token)
-        self._fetch_user_info()
-        return auth_info
+        user_info = self.fetch_user_info()
+        return auth_info, user_info
 
     def logout(self) -> None:
         self._delete_token()
         self._delete_refresh_token()
         self.auth_info = None
-        self._remote_workspace_ids = None
-        self._user_info = None
 
     def refresh(self) -> bool:
         """Refresh JWT using stored refresh token. Returns True on success."""
@@ -171,30 +161,6 @@ class RuntimeAuthService:
         self._save_token(response.parsed.jwt)
         self._save_refresh_token(response.parsed.refresh_token)
         return True
-
-    def connect(self) -> str:
-        # Ensuring workspace id is set and is one of the remote workspace ids
-        self._fetch_user_info()
-
-        self._local_workspace_id = (
-            self.workspace_run_context.runtime_config.workspace_id
-        )
-
-        if not self._local_workspace_id:
-            remote_ids = (
-                ", ".join(self._remote_workspace_ids)
-                if self._remote_workspace_ids
-                else "none"
-            )
-            raise LocalWorkspaceIdNotSet(remote_ids)
-        elif (
-            self._remote_workspace_ids
-            and self._local_workspace_id not in self._remote_workspace_ids
-        ):
-            remote_ids = ", ".join(self._remote_workspace_ids)
-            raise WorkspaceIdMismatch(self._local_workspace_id, remote_ids)
-
-        return self.workspace_id
 
     def overwrite_local_workspace_id(self, selected_workspace_id: str) -> None:
         local_toml_config = ConfigTomlProvider(self.workspace_run_context.settings_dir)
@@ -229,7 +195,7 @@ class RuntimeAuthService:
         secrets.write_toml()
         return self.auth_info
 
-    def _fetch_user_info(self) -> None:
+    def fetch_user_info(self) -> UserInfo:
         """Fetch user info including all accessible workspaces from /me endpoint."""
         error_message = "Failed to get your user info from the Runtime API. Try logging out and in again"
         client = get_api_client(self)
@@ -251,7 +217,7 @@ class RuntimeAuthService:
                 ws_info.role = "owner"
                 workspaces_list = [ws_info]
 
-            self._user_info = UserInfo(
+            return UserInfo(
                 email=parsed.email,
                 user_id=parsed.user_id,
                 identity_id=parsed.identity_id,
@@ -259,9 +225,6 @@ class RuntimeAuthService:
                 default_workspace=self._convert_workspace(parsed.last_workspace),
                 workspaces=workspaces_list,
             )
-            self._remote_workspace_ids = [
-                str(workspace.id) for workspace in self.user_info.workspaces
-            ]
         else:
             raise exception_from_response(error_message, me_response)
 
@@ -288,19 +251,18 @@ class RuntimeAuthService:
 
     def create_new_workspace(
         self,
+        user_info: UserInfo,
         name: str,
         description: Optional[str],
     ) -> str:
         """Create a new workspace via the API."""
         with handle_client_exceptions("Failed to create workspace"):
             create_result = create_workspace.sync_detailed(
-                organization_id=self.user_info.default_organization_id,
+                organization_id=user_info.default_organization_id,
                 client=get_api_client(self),
                 body=WorkspaceCreateRequest(name=name, description=description),
             )
         if isinstance(create_result.parsed, WorkspaceResponse):
-            # Updating user info to store a newly created workspace info as well
-            self._fetch_user_info()
             return str(create_result.parsed.id)
         else:
             raise exception_from_response("Failed to create workspace", create_result)
@@ -354,13 +316,17 @@ class RuntimeAuthService:
         if isinstance(token, str):
             token = token.encode("utf-8")
         try:
-            payload = jose_jwt.decode(
+            payload = jwt.decode(
                 token,
                 key="",
-                audience="cli",
-                options={"verify_signature": False, "verify_exp": False},
+                algorithms=["EdDSA"],
+                options={
+                    "verify_signature": False,
+                    "verify_exp": False,
+                    "verify_aud": False,
+                },
             )
-        except JOSEError as e:
+        except PyJWTError as e:
             raise RuntimeNotAuthenticated("Failed to decode JWT") from e
 
         token_expiry = payload.get("exp")

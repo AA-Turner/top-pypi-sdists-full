@@ -12,6 +12,7 @@ from plato.transports.base import Transport
 from plato.utils.subprocess import run_local, run_ssh
 
 if TYPE_CHECKING:
+    from plato.agents.mounts import AgentWorkspaceMount
     from plato.v2.async_.environment import Environment
 
 logger = logging.getLogger(__name__)
@@ -31,8 +32,6 @@ class SSHFSTransport(Transport):
         self.world_vm_ip = world_vm_ip
         self.ssh_key_path = ssh_key_path
         self.mount_path = mount_path
-        self.configure_workspace(name=None, repo_root=None, tracked=False)
-        self.configure_audit_scope(audit_run_id=None, audit_key=None)
 
     async def initialize(self) -> None:
         """Ensure workspace directory exists and tune VM memory."""
@@ -73,11 +72,17 @@ class SSHFSTransport(Transport):
     async def refresh_exports(self) -> None:
         """No-op for SSHFS."""
 
-    async def setup_agent(self, agent_env: Environment, hostname: str) -> None:
+    async def setup_agent(
+        self,
+        agent_env: Environment | None,
+        hostname: str,
+        mount: AgentWorkspaceMount,
+    ) -> None:
         """Mount the world VM's workspace on an agent VM via SSHFS."""
         await self._setup_workspace_path(self.path)
 
-        remote = self.agent_mount_path
+        del agent_env
+        remote = mount.agent_path
         remote_quoted = shlex.quote(remote)
         agent_key_path = "/root/.ssh/world_key"
 
@@ -114,8 +119,9 @@ class SSHFSTransport(Transport):
             f"echo \"SSHFS_MOUNT_INFO=$(mount | grep '{remote}')\"",
         ]
 
-        audit_key = self.audit_key
-        if self.workspace_tracked and audit_key:
+        audit_key = mount.audit_key
+        tracked = mount.tracked
+        if tracked and audit_key:
             audit_key_quoted = shlex.quote(audit_key)
             parts.extend(
                 [
@@ -144,7 +150,7 @@ class SSHFSTransport(Transport):
                 logger.info("SSHFS mounted on %s: %s", hostname, line[17:])
                 break
 
-        if self.workspace_tracked and audit_key:
+        if tracked and audit_key:
             logger.info("Filesystem audit enabled on agent VM for %s (key=%s)", remote, audit_key)
 
     async def collect_audit_log(
@@ -154,7 +160,7 @@ class SSHFSTransport(Transport):
     ) -> str | None:
         """Collect filesystem audit log from agent VM."""
         try:
-            key = audit_key or self.audit_key or "plato_workspace"
+            key = audit_key or "plato_workspace"
             exit_code, stdout, _ = await run_ssh(
                 self.ssh_key_path,
                 hostname,
@@ -168,8 +174,13 @@ class SSHFSTransport(Transport):
             logger.warning("Failed to collect audit log from agent VM", exc_info=True)
             return None
 
-    async def sync_back(self, agent_env: Environment, hostname: str) -> None:
-        del agent_env, hostname
+    async def sync_back(
+        self,
+        agent_env: Environment | None,
+        hostname: str,
+        mount: AgentWorkspaceMount,
+    ) -> None:
+        del agent_env, hostname, mount
 
     async def prepare(self) -> None:
         await self._setup_workspace_path(self.path)
@@ -178,14 +189,4 @@ class SSHFSTransport(Transport):
         sub_mount = None
         if self.mount_path and path.startswith(self.path + "/"):
             sub_mount = self.mount_path + path[len(self.path) :]
-        transport = SSHFSTransport(path, self.world_vm_ip, self.ssh_key_path, sub_mount)
-        transport.configure_workspace(
-            name=self.workspace_name,
-            repo_root=self.workspace_repo_root,
-            tracked=self.workspace_tracked,
-        )
-        transport.configure_audit_scope(
-            audit_run_id=self.audit_run_id,
-            audit_key=self.audit_key,
-        )
-        return transport
+        return SSHFSTransport(path, self.world_vm_ip, self.ssh_key_path, sub_mount)

@@ -58,7 +58,7 @@ NAME = "netius"
 identification of both the clients and the services this
 value may be prefixed or suffixed """
 
-VERSION = "1.37.2"
+VERSION = "1.38.2"
 """ The version value that identifies the version of the
 current infra-structure, all of the services and clients
 may share this value """
@@ -3491,32 +3491,38 @@ class AbstractBase(observer.Observable):
     def trace(self, object, *args, **kwargs):
         if not logging:
             return
-        self.log(object, *args, level=log.TRACE, stacklevel=4, **kwargs)
+        stacklevel = kwargs.pop("stacklevel", 4)
+        self.log(object, *args, level=log.TRACE, stacklevel=stacklevel, **kwargs)
 
     def debug(self, object, *args, **kwargs):
         if not logging:
             return
-        self.log(object, *args, level=logging.DEBUG, stacklevel=4, **kwargs)
+        stacklevel = kwargs.pop("stacklevel", 4)
+        self.log(object, *args, level=logging.DEBUG, stacklevel=stacklevel, **kwargs)
 
     def info(self, object, *args, **kwargs):
         if not logging:
             return
-        self.log(object, *args, level=logging.INFO, stacklevel=4, **kwargs)
+        stacklevel = kwargs.pop("stacklevel", 4)
+        self.log(object, *args, level=logging.INFO, stacklevel=stacklevel, **kwargs)
 
     def warning(self, object, *args, **kwargs):
         if not logging:
             return
-        self.log(object, *args, level=logging.WARNING, stacklevel=4, **kwargs)
+        stacklevel = kwargs.pop("stacklevel", 4)
+        self.log(object, *args, level=logging.WARNING, stacklevel=stacklevel, **kwargs)
 
     def error(self, object, *args, **kwargs):
         if not logging:
             return
-        self.log(object, *args, level=logging.ERROR, stacklevel=4, **kwargs)
+        stacklevel = kwargs.pop("stacklevel", 4)
+        self.log(object, *args, level=logging.ERROR, stacklevel=stacklevel, **kwargs)
 
     def critical(self, object, *args, **kwargs):
         if not logging:
             return
-        self.log(object, *args, level=logging.CRITICAL, stacklevel=4, **kwargs)
+        stacklevel = kwargs.pop("stacklevel", 4)
+        self.log(object, *args, level=logging.CRITICAL, stacklevel=stacklevel, **kwargs)
 
     def log_stack(self, method=None, info=True):
         if not method:

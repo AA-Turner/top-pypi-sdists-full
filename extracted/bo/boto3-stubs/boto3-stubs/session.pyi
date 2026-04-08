@@ -370,6 +370,7 @@ from mypy_boto3_rum.client import CloudWatchRUMClient
 from mypy_boto3_s3.client import S3Client
 from mypy_boto3_s3.service_resource import S3ServiceResource
 from mypy_boto3_s3control.client import S3ControlClient
+from mypy_boto3_s3files.client import S3FilesClient
 from mypy_boto3_s3outposts.client import S3OutpostsClient
 from mypy_boto3_s3tables.client import S3TablesClient
 from mypy_boto3_s3vectors.client import S3VectorsClient
@@ -6898,6 +6899,25 @@ class Session:
     ) -> S3ControlClient:
         """
         Create client for S3Control service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["s3files"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> S3FilesClient:
+        """
+        Create client for S3Files service.
         """
 
     @overload

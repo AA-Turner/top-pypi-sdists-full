@@ -26,6 +26,7 @@ import orbax.checkpoint.experimental.v1._src.handlers.global_registration  # pyl
 from orbax.checkpoint.experimental.v1._src.layout import checkpoint_layout
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.saving import execution
+from orbax.checkpoint.experimental.v1._src.saving import validation
 from orbax.checkpoint.experimental.v1._src.synchronization import types as async_types
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
 
@@ -42,7 +43,20 @@ def save_pytree(
   """Saves a `PyTree`.
 
   The operation blocks until complete. For improved performance, consider using
-  :py:func:`.save_pytree_async` instead.
+  :py:func:`.save_pytree_async` instead. This function should be called on
+  all available controller processes.
+
+  Example usage:
+    Simple save of a dictionary containing JAX arrays::
+      pytree = {
+          'params': {
+              'w': jnp.ones((8, 8)),
+              'b': jnp.zeros(8),
+          },
+          'step': 100
+      }
+      # Saves to /tmp/my_checkpoint/
+      ocp.save_pytree('/tmp/my_checkpoint', pytree)
 
   Args:
     path: The path to save the checkpoint to.
@@ -57,12 +71,13 @@ def save_pytree(
       JSON-serializable dictionary the user can use to store additional
       information. The field is treated as opaque by Orbax.
   """
-  save_checkpointables(
+  execution.save_checkpointables_impl(
       path,
       {PYTREE_CHECKPOINTABLE_KEY: pytree},
       overwrite=overwrite,
       custom_metadata=custom_metadata,
-  )
+      async_origin=False,
+  ).result()
 
 
 def save_checkpointables(
@@ -105,6 +120,8 @@ def save_checkpointables(
   transformations that involve the entire train state (see the
   `load_and_transform` API).
 
+  This function should be called on all available controller processes.
+
   Args:
     path: The path to save the checkpoint to.
     checkpointables: A dictionary of checkpointables. Dictionary keys represent
@@ -116,6 +133,7 @@ def save_checkpointables(
       JSON-serializable dictionary the user can use to store additional
       information. The field is treated as opaque by Orbax.
   """
+  validation.validate_abstract_checkpointables(checkpointables)
   execution.save_checkpointables_impl(
       path,
       checkpointables,
@@ -144,7 +162,30 @@ def save_pytree_async(
   :py:class:`~.AsyncResponse`
   is returned that can be used to block until the save is complete (using
   `response.result()`). Make sure to wait for completion before attempting to
-  load the checkpoint or exiting the program.
+  load the checkpoint or exiting the program. This function should be called on
+  all available controller processes.
+
+
+  Example usage:
+    Simple save of a dictionary containing JAX arrays asynchronously::
+
+      pytree = {
+          'params': {
+              'w': jnp.ones((8, 8)),
+              'b': jnp.zeros(8),
+          },
+          'step': 100
+      }
+      # Saves to /tmp/my_checkpoint/
+      future = ocp.experimental.v1.save_pytree_async(
+          '/tmp/my_checkpoint', pytree
+      )
+
+      # Perform other work here...
+
+      # Wait for completion only when necessary
+      future.result()
+
   Args:
     path: The path to save the checkpoint to.
     pytree: The `PyTree` to save. This may be any JAX `PyTree` (including custom
@@ -162,11 +203,12 @@ def save_pytree_async(
     An `AsyncResponse` that can be used to block until the save is complete.
     Blocking can be done using `response.result()`, which returns `None`.
   """
-  return save_checkpointables_async(
+  return execution.save_checkpointables_impl(
       path,
       {PYTREE_CHECKPOINTABLE_KEY: pytree},
       overwrite=overwrite,
       custom_metadata=custom_metadata,
+      async_origin=True,
   )
 
 
@@ -189,7 +231,38 @@ def save_checkpointables_async(
   continue in a background thread. An :py:class:`~.AsyncResponse` is returned
   that can be used to block until the save is complete (using
   `response.result()`). Make sure to wait for completion before attempting to
-  load the checkpoint or exiting the program.
+  load the checkpoint or exiting the program. This function should be called on
+  all available controller processes.
+
+  Example usage:
+    Saving multiple distinct components (e.g. model parameters and dataset
+    iterator) asynchronously::
+      path = '/tmp/my_checkpoint_step_100'
+
+      # Setup components
+      params = {'w': jnp.ones((8, 8)), 'b': jnp.zeros(8)}
+
+      # Setup Grain iterator (Stateful Checkpointable)
+      import grain
+      dataset_iter = iter(
+          grain.MapDataset.range(30)
+          .batch(3)
+          .map(lambda x: x.tolist())
+      )
+
+      # Save multiple components
+      checkpointables = {
+          'model': params,
+          'dataset': dataset_iter,
+      }
+
+      # Start the async save
+      response = ocp.save_checkpointables_async(path, checkpointables)
+
+      # Perform other operations here...
+
+      # Wait for the save to finish
+      response.result()
 
   Args:
     path: The path to save the checkpoint to.
@@ -206,6 +279,7 @@ def save_checkpointables_async(
     An `AsyncResponse` that can be used to block until the save is complete.
     Blocking can be done using `response.result()`, which returns `None`.
   """
+  validation.validate_abstract_checkpointables(checkpointables)
   return execution.save_checkpointables_impl(
       path,
       checkpointables,
@@ -234,13 +308,6 @@ def get_v0_checkpointer_and_args(
   Returns:
     A tuple containing the V0 Checkpointer and Args.
   """
-  if (
-      provided_reserved_keys := checkpointables.keys()
-      & checkpoint_layout.RESERVED_CHECKPOINTABLE_KEYS
-  ):
-    raise ValueError(
-        f'Provided reserved checkpointable keys: {provided_reserved_keys}.'
-    )
   checkpointables = execution.add_internal_checkpointables(
       checkpointables, context=context, metrics=metrics
   )

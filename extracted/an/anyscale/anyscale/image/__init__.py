@@ -38,14 +38,19 @@ class ImageSDK:
         doc_py_example=_BUILD_EXAMPLE, arg_docstrings=_BUILD_ARG_DOCSTRINGS,
     )
     def build(  # noqa: F811
-        self, containerfile: str, *, name: str, ray_version: Optional[str] = None
-    ) -> str:  # noqa: F811
+        self,
+        containerfile: str,
+        *,
+        name: str,
+        ray_version: Optional[str] = None,
+        cloud_id: Optional[str] = None,
+    ) -> str:
         """Build an image from a Containerfile.
 
         Returns the URI of the image.
         """
         return self._private_sdk.build_image_from_containerfile_with_image_uri(
-            name, containerfile, ray_version=ray_version
+            name, containerfile, ray_version=ray_version, cloud_id=cloud_id,
         )
 
     @sdk_docs(

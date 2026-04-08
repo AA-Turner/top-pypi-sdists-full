@@ -13,7 +13,10 @@ from langgraph.checkpoint.memory import PersistentDict
 from typing_extensions import TypedDict
 
 from langgraph_runtime_inmem import store
-from langgraph_runtime_inmem._persistence import register_persistent_dict
+from langgraph_runtime_inmem._persistence import (
+    register_persistent_dict,
+    stop_flush_loop,
+)
 from langgraph_runtime_inmem.inmem_stream import start_stream, stop_stream
 
 if TYPE_CHECKING:
@@ -117,10 +120,6 @@ class InMemoryRetryCounter:
 GLOBAL_RETRY_COUNTER = InMemoryRetryCounter()
 GLOBAL_STORE = GlobalStore(filename=OPS_FILENAME)
 
-# Register for periodic flushing
-register_persistent_dict(GLOBAL_STORE)
-register_persistent_dict(GLOBAL_RETRY_COUNTER._counters)
-
 
 class InMemConnectionProto:
     def __init__(self):
@@ -196,10 +195,13 @@ async def start_pool() -> None:
     for k in ["crons"]:
         if not GLOBAL_STORE.get(k):
             GLOBAL_STORE[k] = []
+    register_persistent_dict(GLOBAL_STORE)
+    register_persistent_dict(GLOBAL_RETRY_COUNTER._counters)
     await start_stream()
 
 
 async def stop_pool() -> None:
+    stop_flush_loop()
     await asyncio.to_thread(GLOBAL_STORE.close)
     await asyncio.to_thread(GLOBAL_RETRY_COUNTER.close)
     from langgraph_runtime_inmem.checkpoint import Checkpointer  # noqa: PLC0415

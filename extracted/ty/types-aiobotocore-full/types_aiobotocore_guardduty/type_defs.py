@@ -2465,9 +2465,9 @@ FindingCriteriaUnionTypeDef = Union[FindingCriteriaTypeDef, FindingCriteriaOutpu
 
 class CoverageResourceDetailsTypeDef(TypedDict):
     EksClusterDetails: NotRequired[CoverageEksClusterDetailsTypeDef]
-    ResourceType: NotRequired[ResourceTypeType]
     EcsClusterDetails: NotRequired[CoverageEcsClusterDetailsTypeDef]
     Ec2InstanceDetails: NotRequired[CoverageEc2InstanceDetailsTypeDef]
+    ResourceType: NotRequired[ResourceTypeType]
 
 
 class CoverageFilterCriteriaTypeDef(TypedDict):
@@ -2565,9 +2565,9 @@ KubernetesWorkloadDetailsTypeDef = TypedDict(
         "Uid": NotRequired[str],
         "Namespace": NotRequired[str],
         "HostNetwork": NotRequired[bool],
+        "ServiceAccountName": NotRequired[str],
         "Containers": NotRequired[list[ContainerTypeDef]],
         "Volumes": NotRequired[list[VolumeTypeDef]],
-        "ServiceAccountName": NotRequired[str],
         "HostIPC": NotRequired[bool],
         "HostPID": NotRequired[bool],
     },
@@ -2657,15 +2657,15 @@ AwsApiCallActionTypeDef = TypedDict(
 class KubernetesApiCallActionTypeDef(TypedDict):
     RequestUri: NotRequired[str]
     Verb: NotRequired[str]
+    Resource: NotRequired[str]
+    Subresource: NotRequired[str]
+    Namespace: NotRequired[str]
+    ResourceName: NotRequired[str]
     SourceIps: NotRequired[list[str]]
     UserAgent: NotRequired[str]
     RemoteIpDetails: NotRequired[RemoteIpDetailsTypeDef]
     StatusCode: NotRequired[int]
     Parameters: NotRequired[str]
-    Resource: NotRequired[str]
-    Subresource: NotRequired[str]
-    Namespace: NotRequired[str]
-    ResourceName: NotRequired[str]
 
 
 NetworkConnectionActionTypeDef = TypedDict(
@@ -3087,7 +3087,7 @@ class GetDetectorResponseTypeDef(TypedDict):
 
 class MemberDataSourceConfigurationTypeDef(TypedDict):
     AccountId: str
-    DataSources: NotRequired[DataSourceConfigurationsResultTypeDef]
+    DataSources: DataSourceConfigurationsResultTypeDef
     Features: NotRequired[list[MemberFeaturesConfigurationResultTypeDef]]
 
 
@@ -3127,10 +3127,10 @@ class ActionTypeDef(TypedDict):
     NetworkConnectionAction: NotRequired[NetworkConnectionActionTypeDef]
     PortProbeAction: NotRequired[PortProbeActionTypeDef]
     KubernetesApiCallAction: NotRequired[KubernetesApiCallActionTypeDef]
-    RdsLoginAttemptAction: NotRequired[RdsLoginAttemptActionTypeDef]
     KubernetesPermissionCheckedDetails: NotRequired[KubernetesPermissionCheckedDetailsTypeDef]
     KubernetesRoleBindingDetails: NotRequired[KubernetesRoleBindingDetailsTypeDef]
     KubernetesRoleDetails: NotRequired[KubernetesRoleDetailsTypeDef]
+    RdsLoginAttemptAction: NotRequired[RdsLoginAttemptActionTypeDef]
 
 
 class SequenceTypeDef(TypedDict):
@@ -3176,10 +3176,10 @@ class ResourceTypeDef(TypedDict):
     EbsVolumeDetails: NotRequired[EbsVolumeDetailsTypeDef]
     EcsClusterDetails: NotRequired[EcsClusterDetailsTypeDef]
     ContainerDetails: NotRequired[ContainerTypeDef]
+    LambdaDetails: NotRequired[LambdaDetailsTypeDef]
     RdsDbInstanceDetails: NotRequired[RdsDbInstanceDetailsTypeDef]
     RdsLimitlessDbDetails: NotRequired[RdsLimitlessDbDetailsTypeDef]
     RdsDbUserDetails: NotRequired[RdsDbUserDetailsTypeDef]
-    LambdaDetails: NotRequired[LambdaDetailsTypeDef]
     EbsSnapshotDetails: NotRequired[EbsSnapshotDetailsTypeDef]
     Ec2ImageDetails: NotRequired[Ec2ImageDetailsTypeDef]
     RecoveryPointDetails: NotRequired[RecoveryPointDetailsTypeDef]

@@ -62,7 +62,7 @@
 /*! \brief TVM FFI minor version. */
 #define TVM_FFI_VERSION_MINOR 1
 /*! \brief TVM FFI patch version. */
-#define TVM_FFI_VERSION_PATCH 9
+#define TVM_FFI_VERSION_PATCH 10
 // NOLINTEND(modernize-macro-to-enum)
 
 #ifdef __cplusplus
@@ -879,6 +879,49 @@ typedef enum {
    * By default this flag is off (meaning the field is included in repr).
    */
   kTVMFFIFieldFlagBitMaskReprOff = 1 << 6,
+  /*!
+   * \brief The field is excluded from recursive comparison.
+   *
+   * When set, the field will not participate in generic reflection-based
+   * recursive comparison (RecursiveEq, RecursiveLt, etc.).
+   * By default this flag is off (meaning the field is included in comparison).
+   */
+  kTVMFFIFieldFlagBitMaskCompareOff = 1 << 7,
+  /*!
+   * \brief The field is excluded from recursive hashing.
+   *
+   * When set, the field will not participate in generic reflection-based
+   * recursive hashing (RecursiveHash).
+   * By default this flag is off (meaning the field is included in hashing).
+   */
+  kTVMFFIFieldFlagBitMaskHashOff = 1 << 8,
+  /*!
+   * \brief The field is excluded from auto-generated ``__ffi_init__``.
+   *
+   * When set, the field will not appear as a parameter of the reflection-based
+   * auto-generated constructor.  The field must either have a default value
+   * or be initialized by the creator (default constructor / UnsafeInit).
+   * By default this flag is off (meaning the field is included in init).
+   */
+  kTVMFFIFieldFlagBitMaskInitOff = 1 << 9,
+  /*!
+   * \brief The field is keyword-only in the auto-generated ``__ffi_init__``.
+   *
+   * When set, the field can only be provided via the KWARGS calling convention
+   * (not as a positional argument) in the auto-generated constructor.
+   * This flag is only meaningful when kTVMFFIFieldFlagBitMaskInitOff is *not* set.
+   * By default this flag is off (meaning the field accepts positional arguments).
+   */
+  kTVMFFIFieldFlagBitMaskKwOnly = 1 << 10,
+  /*!
+   * \brief The setter field is a TVMFFIObjectHandle pointing to a FunctionObj.
+   *
+   * When this flag is set, the ``setter`` member of TVMFFIFieldInfo is not a
+   * TVMFFIFieldSetter function pointer but instead a TVMFFIObjectHandle
+   * pointing to a FunctionObj.  The FunctionObj is called with two arguments:
+   * ``(field_addr_as_OpaquePtr, value_as_AnyView)``.
+   */
+  kTVMFFIFieldFlagBitSetterIsFunctionObj = 1 << 11,
 #ifdef __cplusplus
 };
 #else
@@ -974,9 +1017,15 @@ typedef struct {
   TVMFFIFieldGetter getter;
   /*!
    * \brief The setter to access the field.
+   *
+   * When kTVMFFIFieldFlagBitSetterIsFunctionObj is NOT set (default),
+   * this is a TVMFFIFieldSetter function pointer (cast to void*).
+   * When kTVMFFIFieldFlagBitSetterIsFunctionObj IS set,
+   * this is a TVMFFIObjectHandle pointing to a FunctionObj.
+   *
    * \note The setter is set even if the field is readonly for serialization.
    */
-  TVMFFIFieldSetter setter;
+  void* setter;
   /*!
    * \brief The default value or default factory of the field.
    *

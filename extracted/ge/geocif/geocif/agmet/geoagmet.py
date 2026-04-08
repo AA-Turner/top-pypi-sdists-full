@@ -86,17 +86,18 @@ class AgmetGeo(base.BaseGeo):
         ordered = [
             "ndvi", "cumulative_precip", "nsidc_surface",
             "yearly_ndvi", "daily_precip", "nsidc_rootzone",
-            "esi_4wk", "cpc_tmax",
+            "esi_4wk", "cpc_tmax", "daymet_tmax",
         ]
 
         # Which raw vars expand into which subplot names
         expansions = {
             "ndvi": ["ndvi", "yearly_ndvi"],
             "chirps": ["cumulative_precip", "daily_precip"],
+            "daymet_prcp": ["cumulative_precip", "daily_precip"],
             "gcvi": ["gcvi", "yearly_gcvi"],
         }
-        # These raw vars get dropped (absorbed into cpc_tmax avg temp plot)
-        skip = {"cpc_tmin"}
+        # These raw vars get dropped (absorbed into the avg temp plot)
+        skip = {"cpc_tmin", "daymet_tmin"}
 
         # Build set of subplot names from raw eo_plot
         subplot_set = set()
@@ -145,9 +146,12 @@ class AgmetGeo(base.BaseGeo):
         self.list_regions = self.df_ccs["region"].unique()
         self.list_calendar_regions = self.df_ccs["calendar_region"].unique()
 
-        self.precip_var = (
-            "chirps" if "chirps" in self.df_ccs.columns.values else "cpc_precip"
-        )
+        if "chirps" in self.df_ccs.columns.values:
+            self.precip_var = "chirps"
+        elif "daymet_prcp" in self.df_ccs.columns.values:
+            self.precip_var = "daymet_prcp"
+        else:
+            self.precip_var = "cpc_precip"
 
     def setup_region(self, region, plot_season, type_region="region"):
         self.region = region
@@ -605,9 +609,14 @@ def _process_combination(obj, country, scale, crop, growing_season):
             except Exception:
                 continue
 
-            df_agg.loc[:, "average_temperature"] = (
-                df_agg["cpc_tmax"] + df_agg["cpc_tmin"]
-            ) / 2.0
+            if "daymet_tmax" in df_agg.columns and "daymet_tmin" in df_agg.columns:
+                df_agg.loc[:, "average_temperature"] = (
+                    df_agg["daymet_tmax"] + df_agg["daymet_tmin"]
+                ) / 2.0
+            else:
+                df_agg.loc[:, "average_temperature"] = (
+                    df_agg["cpc_tmax"] + df_agg["cpc_tmin"]
+                ) / 2.0
             df_agg.set_index(
                 pd.DatetimeIndex(df_agg["datetime"]), inplace=True, drop=True
             )

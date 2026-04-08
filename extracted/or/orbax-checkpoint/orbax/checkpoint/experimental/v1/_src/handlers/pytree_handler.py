@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 import typing
 from typing import Any, Awaitable, Sequence, get_args
 
@@ -54,25 +55,44 @@ PartialSaveReplacementError = (
 PYTREE_CHECKPOINTABLE_KEY = 'pytree'
 
 
+def _get_remaining_timeout(
+    start_time: float,
+    timeout_secs: float,
+    error_message: str,
+) -> float:
+  """Returns remaining timeout in seconds, or raises TimeoutError if expired."""
+  time_remaining = timeout_secs - (time.time() - start_time)
+  if time_remaining <= 0:
+    raise TimeoutError(error_message)
+  return time_remaining
+
+
 def _get_v0_save_args(
     checkpointable: PyTree,
+    array_storage_options: options_lib.ArrayOptions.Saving.StorageOptions,
     create_array_storage_options_fn: (
         options_lib.PyTreeOptions.Saving.CreateArrayStorageOptionsFn | None
     ),
-) -> PyTree | None:
+) -> PyTree:
   """Returns save args that are compatible with the V0 API."""
-  if create_array_storage_options_fn is None:
-    return None
 
   def _leaf_get_v0_save_args(k, v):
-    array_storage_options = create_array_storage_options_fn(k, v)
-    save_dtype = (
-        np.dtype(array_storage_options.dtype)
-        if array_storage_options.dtype
-        else None
-    )
+    if create_array_storage_options_fn:
+      individual_array_storage_options = create_array_storage_options_fn(k, v)
+      save_dtype = (
+          np.dtype(individual_array_storage_options.dtype)
+          if individual_array_storage_options.dtype
+          else None
+      )
+      return v0_serialization_types.SaveArgs(
+          dtype=save_dtype,
+          chunk_byte_size=individual_array_storage_options.chunk_byte_size,
+          shard_axes=individual_array_storage_options.shard_axes,
+      )
     return v0_serialization_types.SaveArgs(
-        dtype=save_dtype,
+        dtype=np.dtype(array_storage_options.dtype)
+        if array_storage_options.dtype
+        else None,
         chunk_byte_size=array_storage_options.chunk_byte_size,
         shard_axes=array_storage_options.shard_axes,
     )
@@ -88,8 +108,9 @@ def _create_v0_handler(
 ) -> base_pytree_checkpoint_handler.BasePyTreeCheckpointHandler:
   """Creates a V0 handler from a V1 context."""
   return base_pytree_checkpoint_handler.BasePyTreeCheckpointHandler(
-      save_concurrent_bytes=context.array_options.saving.concurrent_bytes,
-      restore_concurrent_bytes=context.array_options.loading.concurrent_bytes,
+      save_concurrent_bytes=context.memory_options.write_concurrent_bytes,
+      restore_concurrent_bytes=context.memory_options.read_concurrent_bytes,
+      save_device_host_concurrent_bytes=context.memory_options.transfer_concurrent_bytes,
       use_ocdbt=context.array_options.saving.use_ocdbt,
       use_zarr3=context.array_options.saving.use_zarr3,
       use_compression=context.array_options.saving.use_compression,
@@ -103,6 +124,7 @@ def _create_v0_handler(
       pytree_metadata_options=context.pytree_options.saving.pytree_metadata_options,
       array_metadata_validator=array_metadata_validator,
       enable_pinned_host_transfer=context.array_options.saving.enable_pinned_host_transfer,
+      is_prioritized_key_fn=context.memory_options.is_prioritized_key_fn,
   )
 
 
@@ -115,6 +137,7 @@ def create_v0_save_args(
       item=checkpointable,
       save_args=_get_v0_save_args(
           checkpointable,
+          context.array_options.saving.storage_options,
           context.pytree_options.saving.create_array_storage_options_fn,
       ),
       ocdbt_target_data_file_size=context.array_options.saving.ocdbt_target_data_file_size,
@@ -205,13 +228,74 @@ def create_v0_restore_args(
   )
 
 
-async def _async_futures(commit_futures: Sequence[future.Future]):
-  await asyncio.gather(*[asyncio.to_thread(f.result) for f in commit_futures])
+async def _async_futures(
+    commit_futures: Sequence[future.Future],
+    timeout_secs: float | None = None,
+    start_time: float | None = None,
+):
+  """Waits for commit futures to complete with a timeout."""
+  deadline = (
+      start_time + timeout_secs
+      if timeout_secs is not None and start_time is not None
+      else None
+  )
+
+  def _wait_with_timeout(f: future.Future):
+    if deadline is None:
+      return f.result()
+    timeout = deadline - time.time()
+    if timeout <= 0:
+      raise TimeoutError('Overall save timeout exceeded.')
+    return f.result(timeout=timeout)
+
+  await asyncio.gather(
+      *[asyncio.to_thread(_wait_with_timeout, f) for f in commit_futures]
+  )
 
 
 @typing.final
 class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
-  """An implementation of :py:class:`.CheckpointableHandler` for PyTrees."""
+  """An implementation of :py:class:`.CheckpointableHandler` for PyTrees.
+
+  PyTreeHandler manages the decomposition of JAX PyTree structures into leaf-
+  level parameters for persistence. It utilizes an asynchronous two-tier
+  execution model to allow for background I/O, ensuring that heavy array
+  serialization does not block the main training process.
+
+  **Note: Users are encouraged NEVER to instantiate or use this handler
+  directly.** Always use the top-level APIs like `ocp.save_checkpointables` and
+  `ocp.load_checkpointables`. Orbax uses this handler by default for standard
+  JAX PyTrees (like nested dictionaries of arrays).
+
+  To configure a specific serialization context for a PyTree and aggressively
+  force Orbax to use the customized PyTreeHandler, the recommended approach
+  is to use `ocp.Context` with `CheckpointablesOptions`. This allows you to
+  bind the handler to a specific dictionary key within the Context scope.
+
+  See :py:class:`~orbax.checkpoint.options.CheckpointablesOptions` for more
+  details on handler registration.
+
+  Usage Example:
+    Save a state dictionary configuration::
+
+      import orbax.checkpoint as ocp
+
+      state_pytree = {'weights': [1.0, 2.0], 'bias': 0.0}
+
+      checkpointables_options = (
+          ocp.options.CheckpointablesOptions.create_with_handlers(
+              model_state=ocp.handlers.PyTreeHandler()
+          )
+      )
+      with ocp.Context(checkpointables_options=checkpointables_options):
+          ocp.save_checkpointables(path, dict(model_state=state_pytree))
+
+  Attributes:
+    context (Optional[Context]): Optional V1 Context providing configuration for
+      serialization, array options, and multiprocessing coordination.
+    array_metadata_validator (Validator): A validator object used to verify
+      consistency of array metadata during restoration.
+  """
 
   def __init__(
       self,
@@ -251,31 +335,68 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
       *,
       commit_futures: Sequence[future.Future],
       operation_id: str,
+      start_time: float,
   ):
+    timeout_secs = self._context.async_options.timeout_secs
     directory = await directory.await_creation()
     active_processes = self._multiprocessing_options.active_processes or set(
         range(multihost.process_count())
     )
-    await _async_futures(commit_futures)
+    await _async_futures(
+        commit_futures, timeout_secs=timeout_secs, start_time=start_time
+    )
+
     # Global sync to ensure all participating processes have completed their
     # save operations before proceeding to finalize.
     barrier_name = f'save_and_finalize_{operation_id}_commit_complete'
-    await multihost.sync_global_processes(
-        barrier_name, operation_id=operation_id, processes=active_processes
-    )
+    if timeout_secs is None:
+      await multihost.sync_global_processes(
+          barrier_name,
+          operation_id=operation_id,
+          processes=active_processes,
+      )
+    else:
+      await multihost.sync_global_processes(
+          barrier_name,
+          operation_id=operation_id,
+          processes=active_processes,
+          timeout=int(
+              _get_remaining_timeout(
+                  start_time,
+                  timeout_secs,
+                  'Timed out while waiting for commit to complete.',
+              )
+          ),
+      )
     # Finalize.
     await self._finalize(directory)
     # Global sync to ensure all hosts are aware that the finalize operation
     # has completed before returning to the user.
     barrier_name = f'save_and_finalize_{operation_id}_finalize_complete'
-    await multihost.sync_global_processes(
-        barrier_name, operation_id=operation_id, processes=active_processes
-    )
+    if timeout_secs is None:
+      await multihost.sync_global_processes(
+          barrier_name,
+          operation_id=operation_id,
+          processes=active_processes,
+      )
+    else:
+      await multihost.sync_global_processes(
+          barrier_name,
+          operation_id=operation_id,
+          processes=active_processes,
+          timeout=int(
+              _get_remaining_timeout(
+                  start_time,
+                  timeout_secs,
+                  'Timed out while waiting for finalize to complete.',
+              )
+          ),
+      )
 
   async def save(
       self, directory: path_types.PathAwaitingCreation, checkpointable: PyTree
   ) -> Awaitable[None]:
-
+    start_time = time.time()
     self._validate_leaves_handleable(checkpointable)
 
     commit_futures = await self._handler_impl.async_save(
@@ -292,7 +413,10 @@ class PyTreeHandler(CheckpointableHandler[PyTree, PyTree]):
     # PyTreeHandlers performing a save.
     operation_id = f'{operation_id}.{directory.path.name}'
     return self._background_save(
-        directory, commit_futures=commit_futures, operation_id=operation_id
+        directory,
+        commit_futures=commit_futures,
+        operation_id=operation_id,
+        start_time=start_time,
     )
 
   async def _background_load(

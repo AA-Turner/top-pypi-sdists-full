@@ -38,11 +38,6 @@ Usage:
             ...
 """
 
-from plato._generated.models import (
-    EnvFromArtifact,
-    EnvFromResource,
-    EnvFromSimulator,
-)
 from plato.markers import Agent, Env, EnvList
 from plato.markers import WorkspaceMarker as Workspace
 from plato.markers import WorldSecret as Secret
@@ -58,12 +53,11 @@ from plato.worlds.checkpoint import checkpoint
 from plato.worlds.config import (
     AgentConfig,
     CheckpointConfig,
-    ChildWorldConfig,
+    ChronosConfig,
     DevConfig,
     EnvConfig,
     LLMConfig,
     RunConfig,
-    SessionConfig,
     StateConfig,
 )
 from plato.worlds.durable import (
@@ -76,10 +70,10 @@ from plato.worlds.durable import (
     load_durable,
     load_durable_path,
 )
-from plato.worlds.human_annotation import (
-    AnnotationWorkspaceItem,
-    HumanAnnotationRequest,
-    RequiresHumanAnnotation,
+from plato.worlds.launcher import (
+    WorldLauncher,
+    WorldLaunchMode,
+    WorldLaunchResult,
 )
 from plato.worlds.models import Observation, StepResult
 from plato.worlds.result_store import ResultStore
@@ -95,8 +89,22 @@ from plato.worlds.session_review_models import (
 from plato.worlds.slack import disable_slack_notifications, enable_slack_notifications
 from plato.worlds.stage_tracking import disable_stage_tracking, enable_stage_tracking
 
+
+def __getattr__(name: str):
+    if name in ("EnvFromArtifact", "EnvFromResource", "EnvFromSimulator"):
+        from plato._generated.models import EnvFromArtifact, EnvFromResource, EnvFromSimulator
+
+        _lazy = {
+            "EnvFromArtifact": EnvFromArtifact,
+            "EnvFromResource": EnvFromResource,
+            "EnvFromSimulator": EnvFromSimulator,
+        }
+        globals().update(_lazy)
+        return _lazy[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
-    # Base
     "BaseWorld",
     "ConfigT",
     "StateT",
@@ -105,13 +113,11 @@ __all__ = [
     "register_world",
     "get_registered_worlds",
     "get_world",
-    # Config
-    "ChildWorldConfig",
     "RunConfig",
     "LLMConfig",
     "CheckpointConfig",
     "DevConfig",
-    "SessionConfig",
+    "ChronosConfig",
     "StateConfig",
     "AgentConfig",
     "Agent",
@@ -120,13 +126,10 @@ __all__ = [
     "EnvList",
     "Workspace",
     "EnvConfig",
-    # Env types (re-exported from generated models)
     "EnvFromArtifact",
     "EnvFromSimulator",
     "EnvFromResource",
-    # Checkpoint
     "checkpoint",
-    # Durable outputs
     "durable",
     "Requires",
     "DependencyMissing",
@@ -135,19 +138,11 @@ __all__ = [
     "FromArg",
     "load_durable",
     "load_durable_path",
-    # Stage tracking (also handles server-side Slack notifications)
     "enable_stage_tracking",
     "disable_stage_tracking",
-    # Slack notifications (backward-compatible aliases)
     "enable_slack_notifications",
     "disable_slack_notifications",
-    # Human annotation
-    "AnnotationWorkspaceItem",
-    "HumanAnnotationRequest",
-    "RequiresHumanAnnotation",
-    # Result store
     "ResultStore",
-    # Review system
     "ReviewSpec",
     "BaseReviewWorld",
     "ReviewWorldConfig",
@@ -155,9 +150,10 @@ __all__ = [
     "ReviewFinding",
     "ReviewResult",
     "SessionData",
-    # Runner
     "run_world",
-    # Session review models (built-in)
+    "WorldLauncher",
+    "WorldLaunchMode",
+    "WorldLaunchResult",
     "DEFAULT_REVIEW_MODELS",
     "SessionReviewIssue",
     "SessionReviewSummary",

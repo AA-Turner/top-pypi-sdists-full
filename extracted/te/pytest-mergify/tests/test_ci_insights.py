@@ -21,20 +21,20 @@ def _set_test_environment(
     monkeypatch.setenv("_PYTEST_MERGIFY_TEST", "true")
     monkeypatch.setenv("CI", "true")
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
-    monkeypatch.setenv("GITHUB_BASE_REF", "main")
     monkeypatch.setenv("GITHUB_REPOSITORY", "Mergifyio/pytest-mergify")
     monkeypatch.setenv("MERGIFY_API_URL", "https://example.com")
     monkeypatch.setenv("MERGIFY_TOKEN", "my_token")
 
-    if mode == "unhealthy":
-        # Simulate absence of a PR context: without `GITHUB_BASE_REF` and branch
-        # ref variables, `MergifyCIInsights.branch_name` can't be derived,
-        # forcing the flaky detector to fall back to `unhealthy` mode. This
-        # explicitly exercises the fallback path used when no PR metadata is
-        # available.
+    if mode == "new":
+        # Simulate a PR context: `GITHUB_BASE_REF` is only set for PRs and is
+        # the signal used to select `new` mode.
+        monkeypatch.setenv("GITHUB_BASE_REF", "main")
+    else:
+        # Simulate a push/scheduled context: no base ref, head ref comes from
+        # `GITHUB_REF_NAME`.
         monkeypatch.delenv("GITHUB_BASE_REF", raising=False)
         monkeypatch.delenv("GITHUB_HEAD_REF", raising=False)
-        monkeypatch.delenv("GITHUB_REF_NAME", raising=False)
+        monkeypatch.setenv("GITHUB_REF_NAME", "main")
 
 
 def _make_quarantine_mock() -> None:
@@ -272,7 +272,6 @@ def test_flaky_detection_for_unhealthy_tests(
     assert result.ret == 0
 
     outcomes = result.parseoutcomes()
-    assert len(outcomes) == 3
     assert outcomes["passed"] == 4  # Initial run of each test.
     assert outcomes["skipped"] == 1
     assert outcomes["rerun"] == 3000  # 1000 reruns for each unhealthy test.
@@ -672,10 +671,9 @@ def test_flaky_detector_prepare_for_session_in_unhealthy_mode(
 
     plugin = pytest_mergify.PytestMergify()
 
-    assert pytester.runpytest_inprocess(plugins=[plugin]).parseoutcomes() == {
-        "passed": 2,
-        "rerun": 10,
-    }
+    outcomes = pytester.runpytest_inprocess(plugins=[plugin]).parseoutcomes()
+    assert outcomes["passed"] == 2
+    assert outcomes["rerun"] == 10
 
     assert plugin.mergify_ci.flaky_detector is not None
 
@@ -687,3 +685,35 @@ def test_flaky_detector_prepare_for_session_in_unhealthy_mode(
         plugin.mergify_ci.flaky_detector._available_budget_duration.total_seconds()
         == datetime.timedelta(seconds=5).total_seconds()
     )
+
+
+@responses.activate
+def test_empty_base_ref_falls_through_to_head_ref(
+    monkeypatch: pytest.MonkeyPatch,
+    pytester: _pytest.pytester.Pytester,
+) -> None:
+    """When `GITHUB_BASE_REF` is empty (push/scheduled runs), `branch_name`
+    should fall through to the HEAD ref so quarantine still works."""
+    _set_test_environment(monkeypatch, mode="unhealthy")
+
+    # Set an empty `GITHUB_BASE_REF` to simulate push runs where the env var
+    # exists but is empty.
+    monkeypatch.setenv("GITHUB_BASE_REF", "")
+
+    _make_quarantine_mock()
+    _make_flaky_detection_context_mock()
+
+    pytester.makepyfile(
+        """
+        def test_foo():
+            assert True
+        """
+    )
+
+    plugin = pytest_mergify.PytestMergify()
+    pytester.runpytest_inprocess(plugins=[plugin])
+
+    # `branch_name` should come from HEAD ref, not the empty base ref.
+    assert plugin.mergify_ci.branch_name == "main"
+    assert plugin.mergify_ci.flaky_detector is not None
+    assert plugin.mergify_ci.flaky_detector.mode == "unhealthy"

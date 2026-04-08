@@ -122,12 +122,20 @@ class OcrCustomPresetInfo(TypedDict):
     options: dict[str, Any]
 
 
+class TableStructureCustomPresetInfo(TypedDict):
+    """Info for a custom table structure preset."""
+
+    source: Literal["custom"]
+    options: dict[str, Any]
+
+
 # Registry-specific types
 LayoutPresetInfo = Union[DoclingPresetInfo, LayoutCustomPresetInfo]
 PictureClassificationPresetInfo = Union[
     DoclingPresetInfo, PictureClassificationCustomPresetInfo
 ]
 OcrPresetInfo = Union[DoclingPresetInfo, OcrCustomPresetInfo]
+TableStructurePresetInfo = Union[DoclingPresetInfo, TableStructureCustomPresetInfo]
 
 # Generic preset info type for shared functions
 AnyPresetInfo = Union[
@@ -137,6 +145,7 @@ AnyPresetInfo = Union[
     LayoutPresetInfo,
     PictureClassificationPresetInfo,
     OcrPresetInfo,
+    TableStructurePresetInfo,
 ]
 
 
@@ -247,6 +256,24 @@ class DoclingConverterManagerConfig(BaseModel):
         examples=[["docling_tableformer", "approved_plugin_kind"]],
     )
 
+    # Table Structure Preset Control
+    default_table_structure_preset: str = Field(
+        default="tableformer_v1_accurate",
+        description='Default table structure preset to use when user specifies "default".',
+    )
+    allowed_table_structure_presets: Optional[list[str]] = Field(
+        default=None,
+        description="List of allowed table structure preset IDs. None means all are allowed.",
+    )
+    custom_table_structure_presets: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Custom table structure presets. Maps preset ID to table structure options dict with 'kind' field.",
+    )
+    allow_custom_table_structure_config: bool = Field(
+        default=False,
+        description="Whether users can specify custom table structure configurations.",
+    )
+
     # Layout Control
     default_layout_kind: str = Field(
         default="docling_layout_default",
@@ -286,6 +313,10 @@ class DoclingConverterManagerConfig(BaseModel):
         default_factory=dict,
         description="Custom layout presets. Maps preset ID to layout options dict with 'kind' field.",
     )
+    allow_custom_layout_config: bool = Field(
+        default=False,
+        description="Whether users can specify custom layout configurations.",
+    )
 
     # Picture Classification Control
     default_picture_classification_preset: str = Field(
@@ -300,11 +331,22 @@ class DoclingConverterManagerConfig(BaseModel):
         default_factory=dict,
         description="Custom picture classification presets. Maps preset ID to PictureClassificationOptions.",
     )
+    allow_custom_picture_classification_config: bool = Field(
+        default=False,
+        description="Whether users can specify custom picture classification configurations.",
+    )
 
     # OCR Control
     default_ocr_preset: str = Field(
         default="auto",
         description='Default OCR preset to use when user specifies "default".',
+    )
+    default_ocr_kind: str = Field(
+        default="auto",
+        description=(
+            "Default OCR kind used when user doesn't provide custom config. "
+            "This kind will use preset/default configuration."
+        ),
     )
     allowed_ocr_presets: Optional[list[str]] = Field(
         default=None,
@@ -317,6 +359,10 @@ class DoclingConverterManagerConfig(BaseModel):
     allowed_ocr_kinds: Optional[list[str]] = Field(
         default=None,
         description="List of allowed OCR kinds. None means all are allowed.",
+    )
+    allow_custom_ocr_config: bool = Field(
+        default=False,
+        description="Whether users can specify custom OCR configurations.",
     )
 
 
@@ -614,6 +660,49 @@ class DoclingConverterManager:
                 "options": preset_options,
             }
 
+        # Table Structure Registry
+        self.table_structure_preset_registry: dict[str, TableStructurePresetInfo] = {}
+
+        # Add built-in presets
+        built_in_presets = {
+            "tableformer_v1_accurate": {
+                "kind": "docling_tableformer",
+                "mode": "accurate",
+            },
+            "tableformer_v1_fast": {
+                "kind": "docling_tableformer",
+                "mode": "fast",
+            },
+            "tableformer_v2": {
+                "kind": "docling_tableformer_v2",
+            },
+        }
+
+        for preset_id, preset_options in built_in_presets.items():
+            self.table_structure_preset_registry[preset_id] = {
+                "source": "custom",
+                "options": preset_options,
+            }
+
+        # Filter presets if allowed list is specified
+        if self.config.allowed_table_structure_presets is not None:
+            allowed_set = set(self.config.allowed_table_structure_presets)
+            self.table_structure_preset_registry = {
+                k: v
+                for k, v in self.table_structure_preset_registry.items()
+                if k in allowed_set
+            }
+
+        # Add custom presets from config (these override built-in presets)
+        for (
+            preset_id,
+            preset_options,
+        ) in self.config.custom_table_structure_presets.items():
+            self.table_structure_preset_registry[preset_id] = {
+                "source": "custom",
+                "options": preset_options,
+            }
+
     def _build_kind_registries(self):
         """Build registries of available kinds from factories."""
         # Table Structure Kinds
@@ -697,6 +786,32 @@ class DoclingConverterManager:
         ):
             raise ValueError(
                 "Custom code/formula configuration is not allowed. "
+                "Please use a preset or contact your administrator."
+            )
+        elif (
+            config_type == "table_structure"
+            and not self.config.allow_custom_table_structure_config
+        ):
+            raise ValueError(
+                "Custom table structure configuration is not allowed. "
+                "Please use a preset or contact your administrator."
+            )
+        elif config_type == "layout" and not self.config.allow_custom_layout_config:
+            raise ValueError(
+                "Custom layout configuration is not allowed. "
+                "Please use a preset or contact your administrator."
+            )
+        elif (
+            config_type == "picture_classification"
+            and not self.config.allow_custom_picture_classification_config
+        ):
+            raise ValueError(
+                "Custom picture classification configuration is not allowed. "
+                "Please use a preset or contact your administrator."
+            )
+        elif config_type == "ocr" and not self.config.allow_custom_ocr_config:
+            raise ValueError(
+                "Custom OCR configuration is not allowed. "
                 "Please use a preset or contact your administrator."
             )
 
@@ -973,10 +1088,12 @@ class DoclingConverterManager:
         return None
 
     def _parse_table_structure_options(self, request: ConvertDocumentsOptions) -> Any:
-        """Parse table structure options - preset for default kind, custom config for others."""
+        """Parse table structure options - preset OR custom config OR legacy fields."""
 
+        # Option 1: Custom config takes highest precedence
         if request.table_structure_custom_config:
-            # Custom config provided - validate and use it
+            self._validate_custom_config_allowed("table_structure")
+
             config_dict = request.table_structure_custom_config.copy()
             kind = config_dict.get("kind")
 
@@ -991,12 +1108,12 @@ class DoclingConverterManager:
                 kind,
                 self.config.allowed_table_structure_kinds,
                 self.config.default_table_structure_kind,
-                "table structure",
+                "table_structure",
             )
 
             # Validate kind is available from factory
             self._validate_kind_available(
-                kind, self.available_table_structure_kinds, "table structure"
+                kind, self.available_table_structure_kinds, "table_structure"
             )
 
             # Create options using factory with custom config
@@ -1004,34 +1121,121 @@ class DoclingConverterManager:
                 kind=kind, **{k: v for k, v in config_dict.items() if k != "kind"}
             )
 
-        else:
-            # Use default kind with legacy fields (table_mode, table_cell_matching)
-            kind = self.config.default_table_structure_kind
-            return self.table_structure_factory.create_options(
-                kind=kind,
-                mode=TableFormerMode(request.table_mode),
-                do_cell_matching=request.table_cell_matching,
+        # Option 2: Preset (recommended)
+        # Check if preset is explicitly provided OR if we should use default
+        # (when no custom config and no legacy fields are non-default)
+        use_preset = request.table_structure_preset is not None
+
+        # If no preset specified, check if legacy fields are default
+        if not use_preset:
+            # Use preset if legacy fields are at their defaults
+            legacy_is_default = (
+                request.table_mode == TableStructureOptions().mode
+                and request.table_cell_matching
+                == TableStructureOptions().do_cell_matching
             )
+            use_preset = legacy_is_default
+
+        if use_preset:
+            preset_id = request.table_structure_preset or "default"
+
+            # Resolve "default" to the actual preset
+            if preset_id == "default":
+                preset_id = self.config.default_table_structure_preset
+
+            preset_info = self.table_structure_preset_registry.get(preset_id)
+            if not preset_info:
+                raise ValueError(f"Unknown table structure preset: {preset_id}")
+
+            # All presets are now "custom" source (built-in or user-defined)
+            # Process through factory
+            if preset_info["source"] != "custom":
+                raise ValueError(f"Preset '{preset_id}' has invalid source")
+
+            config_dict = preset_info["options"].copy()
+            kind = config_dict.get("kind")
+
+            if not kind:
+                raise ValueError(f"Preset '{preset_id}' must include a 'kind' field")
+
+            # Validate kind is allowed and available
+            self._validate_kind_allowed(
+                kind,
+                self.config.allowed_table_structure_kinds,
+                self.config.default_table_structure_kind,
+                "table_structure",
+            )
+            self._validate_kind_available(
+                kind, self.available_table_structure_kinds, "table_structure"
+            )
+
+            # Create options using factory with preset config
+            table_options = self.table_structure_factory.create_options(
+                kind=kind, **{k: v for k, v in config_dict.items() if k != "kind"}
+            )
+
+            return table_options
+
+        # Option 3: Legacy fields (backward compatibility)
+        # Use default kind with legacy fields (table_mode, table_cell_matching)
+        # Only pass legacy parameters if they're not at defaults to avoid passing
+        # unsupported parameters to kinds that don't support them
+        kind = self.config.default_table_structure_kind
+
+        # Build kwargs only with non-default legacy parameters
+        kwargs: dict[str, Any] = {}
+        default_table_options = TableStructureOptions()
+
+        if request.table_mode != default_table_options.mode:
+            kwargs["mode"] = TableFormerMode(request.table_mode)
+
+        if request.table_cell_matching != default_table_options.do_cell_matching:
+            kwargs["do_cell_matching"] = request.table_cell_matching
+
+        return self.table_structure_factory.create_options(kind=kind, **kwargs)
 
     def _parse_layout_options(self, request: ConvertDocumentsOptions) -> Any:
         """Parse layout options - preset OR custom config."""
 
-        # Option 1: Preset (recommended)
-        if request.layout_preset:
-            preset_info = self.layout_preset_registry.get(request.layout_preset)
+        def _create_options_from_preset(preset_id: str) -> Any:
+            preset_info = self.layout_preset_registry.get(preset_id)
             if not preset_info:
-                raise ValueError(f"Unknown layout preset: {request.layout_preset}")
+                raise ValueError(f"Unknown layout preset: {preset_id}")
 
             if preset_info["source"] == "custom":
-                # Custom preset from manager config - stored as complete options
-                return preset_info["options"]
-            else:
-                # Docling preset - use preset_id (which is the kind)
-                preset_id = preset_info["preset_id"]
-                return self.layout_factory.create_options(kind=preset_id)
+                config_dict = preset_info["options"].copy()
+                kind = config_dict.get("kind")
+                if not kind:
+                    raise ValueError(
+                        f"Preset '{preset_id}' must include a 'kind' field"
+                    )
+
+                self._validate_kind_allowed(
+                    kind,
+                    self.config.allowed_layout_kinds,
+                    self.config.default_layout_kind,
+                    "layout",
+                )
+                self._validate_kind_available(
+                    kind, self.available_layout_kinds, "layout"
+                )
+
+                return self.layout_factory.create_options(
+                    kind=kind, **{k: v for k, v in config_dict.items() if k != "kind"}
+                )
+
+            # Docling preset - use preset_id (which is the kind)
+            docling_preset_id = preset_info["preset_id"]
+            return self.layout_factory.create_options(kind=docling_preset_id)
+
+        # Option 1: Preset (recommended)
+        if request.layout_preset:
+            return _create_options_from_preset(request.layout_preset)
 
         # Option 2: Custom config (existing logic)
         if request.layout_custom_config:
+            self._validate_custom_config_allowed("layout")
+
             config_dict = request.layout_custom_config.copy()
             kind = config_dict.get("kind")
             if not kind:
@@ -1053,9 +1257,7 @@ class DoclingConverterManager:
             )
 
         # Option 3: Use default
-        return self.layout_factory.create_options(
-            kind=self.config.default_layout_preset
-        )
+        return _create_options_from_preset("default")
 
     def _parse_picture_classification_options(
         self, request: ConvertDocumentsOptions
@@ -1085,6 +1287,8 @@ class DoclingConverterManager:
 
         # Option 2: Custom config
         if request.picture_classification_custom_config:
+            self._validate_custom_config_allowed("picture_classification")
+
             # Custom config is passed directly as options
             return request.picture_classification_custom_config
 
@@ -1112,8 +1316,35 @@ class DoclingConverterManager:
 
             ocr_options: OcrOptions
             if preset_info["source"] == "custom":
-                # Custom preset from manager config - stored as complete options
-                ocr_options = preset_info["options"]  # type: ignore[assignment]
+                config_dict = dict(preset_info["options"])
+                kind = config_dict.get("kind")
+
+                if not kind or not isinstance(kind, str):
+                    raise ValueError(
+                        f"Preset '{request.ocr_preset}' must include a 'kind' field"
+                    )
+
+                self._validate_kind_allowed(
+                    kind,
+                    self.config.allowed_ocr_kinds,
+                    self.config.default_ocr_kind,
+                    "OCR",
+                )
+                self._validate_kind_available(kind, self.available_ocr_kinds, "OCR")
+
+                try:
+                    ocr_options = self.ocr_factory.create_options(  # type: ignore[assignment]
+                        kind=kind,
+                        force_full_page_ocr=request.force_ocr,
+                        **{k: v for k, v in config_dict.items() if k != "kind"},
+                    )
+                except ImportError as err:
+                    raise ImportError(
+                        f"The requested OCR engine (preset={request.ocr_preset}) "
+                        "is not available on this system. Please choose another OCR engine "
+                        "or contact your system administrator.\n"
+                        f"{err}"
+                    )
             else:
                 # Docling preset - use preset_id (which is the kind)
                 kind = preset_info["preset_id"]
@@ -1122,7 +1353,7 @@ class DoclingConverterManager:
                 self._validate_kind_allowed(
                     kind,
                     self.config.allowed_ocr_kinds,
-                    self.config.default_ocr_preset,
+                    self.config.default_ocr_kind,
                     "OCR",
                 )
                 self._validate_kind_available(kind, self.available_ocr_kinds, "OCR")
@@ -1148,6 +1379,8 @@ class DoclingConverterManager:
 
         # Option 2: Custom config
         if request.ocr_custom_config:
+            self._validate_custom_config_allowed("ocr")
+
             config_dict = request.ocr_custom_config.copy()
             kind_value = config_dict.get("kind")
 
@@ -1161,7 +1394,7 @@ class DoclingConverterManager:
             self._validate_kind_allowed(
                 kind_value,
                 self.config.allowed_ocr_kinds,
-                self.config.default_ocr_preset,
+                self.config.default_ocr_kind,
                 "OCR",
             )
             self._validate_kind_available(kind_value, self.available_ocr_kinds, "OCR")
@@ -1182,7 +1415,7 @@ class DoclingConverterManager:
 
         # Option 3: Use default (should not reach here due to default="auto")
         return self.ocr_factory.create_options(  # type: ignore[return-value]
-            kind=self.config.default_ocr_preset,
+            kind=self.config.default_ocr_kind,
             force_full_page_ocr=request.force_ocr,
         )
 
@@ -1213,18 +1446,10 @@ class DoclingConverterManager:
             do_chart_extraction=request.do_chart_extraction,
             do_picture_description=request.do_picture_description,
         )
-        # === NEW KIND-BASED APPROACH for Table Structure ===
-        # Try new custom config approach first, fall back to legacy fields
-        if request.table_structure_custom_config:
-            pipeline_options.table_structure_options = (
-                self._parse_table_structure_options(request)
-            )
-        else:
-            # Legacy approach - use table_mode and table_cell_matching fields
-            pipeline_options.table_structure_options = TableStructureOptions(
-                mode=TableFormerMode(request.table_mode),
-                do_cell_matching=request.table_cell_matching,
-            )
+        # === NEW KIND/PRESET-BASED APPROACH for Table Structure ===
+        pipeline_options.table_structure_options = self._parse_table_structure_options(
+            request
+        )
 
         # === NEW PRESET/KIND-BASED APPROACH for Layout ===
         # Always parse layout options (will use default if no preset/custom config)

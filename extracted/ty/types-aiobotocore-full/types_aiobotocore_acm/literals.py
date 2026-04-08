@@ -30,6 +30,7 @@ __all__ = (
     "CertificateTransparencyLoggingPreferenceType",
     "CertificateTypeType",
     "CertificateValidatedWaiterName",
+    "ComparisonOperatorType",
     "DomainStatusType",
     "ExtendedKeyUsageNameType",
     "FailureReasonType",
@@ -43,6 +44,9 @@ __all__ = (
     "RenewalStatusType",
     "ResourceServiceName",
     "RevocationReasonType",
+    "SearchCertificatesPaginatorName",
+    "SearchCertificatesSortByType",
+    "SearchCertificatesSortOrderType",
     "ServiceName",
     "SortByType",
     "SortOrderType",
@@ -65,6 +69,7 @@ CertificateStatusType = Literal[
 CertificateTransparencyLoggingPreferenceType = Literal["DISABLED", "ENABLED"]
 CertificateTypeType = Literal["AMAZON_ISSUED", "IMPORTED", "PRIVATE"]
 CertificateValidatedWaiterName = Literal["certificate_validated"]
+ComparisonOperatorType = Literal["CONTAINS", "EQUALS"]
 DomainStatusType = Literal["FAILED", "PENDING_VALIDATION", "SUCCESS"]
 ExtendedKeyUsageNameType = Literal[
     "ANY",
@@ -132,6 +137,28 @@ RevocationReasonType = Literal[
     "SUPERSEDED",
     "UNSPECIFIED",
 ]
+SearchCertificatesPaginatorName = Literal["search_certificates"]
+SearchCertificatesSortByType = Literal[
+    "CERTIFICATE_ARN",
+    "COMMON_NAME",
+    "CREATED_AT",
+    "EXPORTED",
+    "EXPORT_OPTION",
+    "IMPORTED_AT",
+    "IN_USE",
+    "ISSUED_AT",
+    "KEY_ALGORITHM",
+    "MANAGED_BY",
+    "NOT_AFTER",
+    "NOT_BEFORE",
+    "RENEWAL_ELIGIBILITY",
+    "RENEWAL_STATUS",
+    "REVOKED_AT",
+    "STATUS",
+    "TYPE",
+    "VALIDATION_METHOD",
+]
+SearchCertificatesSortOrderType = Literal["ASCENDING", "DESCENDING"]
 SortByType = Literal["CREATED_AT"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 ValidationMethodType = Literal["DNS", "EMAIL", "HTTP"]
@@ -254,6 +281,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -489,6 +517,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -524,6 +553,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -536,6 +566,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -557,7 +588,7 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_certificates"]
+PaginatorName = Literal["list_certificates", "search_certificates"]
 WaiterName = Literal["certificate_validated"]
 RegionName = Literal[
     "af-south-1",

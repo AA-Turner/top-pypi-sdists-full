@@ -26,16 +26,23 @@ __all__ = (
     "AccountLimitNameType",
     "AttachmentStatusType",
     "AttachmentUploadErrorReasonType",
+    "CarrierStatusType",
     "ConfigurationSetFilterNameType",
+    "CountryLaunchStatusFilterNameType",
+    "CountryLaunchStatusType",
     "DescribeAccountAttributesPaginatorName",
     "DescribeAccountLimitsPaginatorName",
     "DescribeConfigurationSetsPaginatorName",
     "DescribeKeywordsPaginatorName",
+    "DescribeNotifyConfigurationsPaginatorName",
+    "DescribeNotifyTemplatesPaginatorName",
     "DescribeOptOutListsPaginatorName",
     "DescribeOptedOutNumbersPaginatorName",
     "DescribePhoneNumbersPaginatorName",
     "DescribePoolsPaginatorName",
     "DescribeProtectConfigurationsPaginatorName",
+    "DescribeRcsAgentCountryLaunchStatusPaginatorName",
+    "DescribeRcsAgentsPaginatorName",
     "DescribeRegistrationAttachmentsPaginatorName",
     "DescribeRegistrationFieldDefinitionsPaginatorName",
     "DescribeRegistrationFieldValuesPaginatorName",
@@ -53,11 +60,19 @@ __all__ = (
     "KeywordActionType",
     "KeywordFilterNameType",
     "LanguageCodeType",
+    "ListNotifyCountriesPaginatorName",
     "ListPoolOriginationIdentitiesPaginatorName",
     "ListProtectConfigurationRuleSetNumberOverridesPaginatorName",
     "ListRegistrationAssociationsPaginatorName",
     "MessageFeedbackStatusType",
     "MessageTypeType",
+    "NotifyConfigurationFilterNameType",
+    "NotifyConfigurationStatusType",
+    "NotifyConfigurationTierType",
+    "NotifyConfigurationUseCaseType",
+    "NotifyTemplateFilterNameType",
+    "NotifyTemplateStatusType",
+    "NotifyTemplateTypeType",
     "NumberCapabilityType",
     "NumberStatusType",
     "NumberTypeType",
@@ -74,6 +89,8 @@ __all__ = (
     "ProtectConfigurationRuleOverrideActionType",
     "ProtectConfigurationRuleSetNumberOverrideFilterNameType",
     "ProtectStatusType",
+    "RcsAgentFilterNameType",
+    "RcsAgentStatusType",
     "RegionName",
     "RegistrationAssociationBehaviorType",
     "RegistrationAssociationFilterNameType",
@@ -89,6 +106,10 @@ __all__ = (
     "SenderIdFilterNameType",
     "ServiceName",
     "SpendLimitNameType",
+    "TemplateVariableSourceType",
+    "TemplateVariableTypeType",
+    "TestingAgentStatusType",
+    "TierUpgradeStatusType",
     "VerificationChannelType",
     "VerificationStatusType",
     "VerifiedDestinationNumberFilterNameType",
@@ -109,6 +130,7 @@ AccountLimitNameType = Literal[
 ]
 AttachmentStatusType = Literal["DELETED", "UPLOAD_COMPLETE", "UPLOAD_FAILED", "UPLOAD_IN_PROGRESS"]
 AttachmentUploadErrorReasonType = Literal["INTERNAL_ERROR"]
+CarrierStatusType = Literal["ACTIVE", "PENDING", "REJECTED"]
 ConfigurationSetFilterNameType = Literal[
     "default-message-feedback-enabled",
     "default-message-type",
@@ -117,15 +139,23 @@ ConfigurationSetFilterNameType = Literal[
     "matching-event-types",
     "protect-configuration-id",
 ]
+CountryLaunchStatusFilterNameType = Literal["country-launch-status"]
+CountryLaunchStatusType = Literal["ACTIVE", "CREATED", "PARTIAL", "PENDING", "REJECTED"]
 DescribeAccountAttributesPaginatorName = Literal["describe_account_attributes"]
 DescribeAccountLimitsPaginatorName = Literal["describe_account_limits"]
 DescribeConfigurationSetsPaginatorName = Literal["describe_configuration_sets"]
 DescribeKeywordsPaginatorName = Literal["describe_keywords"]
+DescribeNotifyConfigurationsPaginatorName = Literal["describe_notify_configurations"]
+DescribeNotifyTemplatesPaginatorName = Literal["describe_notify_templates"]
 DescribeOptOutListsPaginatorName = Literal["describe_opt_out_lists"]
 DescribeOptedOutNumbersPaginatorName = Literal["describe_opted_out_numbers"]
 DescribePhoneNumbersPaginatorName = Literal["describe_phone_numbers"]
 DescribePoolsPaginatorName = Literal["describe_pools"]
 DescribeProtectConfigurationsPaginatorName = Literal["describe_protect_configurations"]
+DescribeRcsAgentCountryLaunchStatusPaginatorName = Literal[
+    "describe_rcs_agent_country_launch_status"
+]
+DescribeRcsAgentsPaginatorName = Literal["describe_rcs_agents"]
 DescribeRegistrationAttachmentsPaginatorName = Literal["describe_registration_attachments"]
 DescribeRegistrationFieldDefinitionsPaginatorName = Literal[
     "describe_registration_field_definitions"
@@ -205,6 +235,7 @@ LanguageCodeType = Literal[
     "ZH_CN",
     "ZH_TW",
 ]
+ListNotifyCountriesPaginatorName = Literal["list_notify_countries"]
 ListPoolOriginationIdentitiesPaginatorName = Literal["list_pool_origination_identities"]
 ListProtectConfigurationRuleSetNumberOverridesPaginatorName = Literal[
     "list_protect_configuration_rule_set_number_overrides"
@@ -212,7 +243,31 @@ ListProtectConfigurationRuleSetNumberOverridesPaginatorName = Literal[
 ListRegistrationAssociationsPaginatorName = Literal["list_registration_associations"]
 MessageFeedbackStatusType = Literal["FAILED", "RECEIVED"]
 MessageTypeType = Literal["PROMOTIONAL", "TRANSACTIONAL"]
-NumberCapabilityType = Literal["MMS", "SMS", "VOICE"]
+NotifyConfigurationFilterNameType = Literal[
+    "default-pool",
+    "default-template",
+    "deletion-protection-enabled",
+    "display-name",
+    "enabled-channels",
+    "enabled-countries",
+    "status",
+    "tier-upgrade-status",
+    "use-case",
+]
+NotifyConfigurationStatusType = Literal["ACTIVE", "PENDING", "REJECTED", "REQUIRES_VERIFICATION"]
+NotifyConfigurationTierType = Literal["ADVANCED", "BASIC"]
+NotifyConfigurationUseCaseType = Literal["CODE_VERIFICATION"]
+NotifyTemplateFilterNameType = Literal[
+    "channels",
+    "language-code",
+    "supported-countries",
+    "supported-voice-ids",
+    "template-type",
+    "tier-access",
+]
+NotifyTemplateStatusType = Literal["ACTIVE", "INACTIVE"]
+NotifyTemplateTypeType = Literal["OTP_VERIFICATION"]
+NumberCapabilityType = Literal["MMS", "RCS", "SMS", "VOICE"]
 NumberStatusType = Literal["ACTIVE", "ASSOCIATING", "DELETED", "DISASSOCIATING", "PENDING"]
 NumberTypeType = Literal["LONG_CODE", "SHORT_CODE", "SIMULATOR", "TEN_DLC", "TOLL_FREE"]
 OptedOutFilterNameType = Literal["end-user-opted-out"]
@@ -254,6 +309,15 @@ ProtectConfigurationRuleSetNumberOverrideFilterNameType = Literal[
     "iso-country-code",
 ]
 ProtectStatusType = Literal["ALLOW", "BLOCK", "FILTER", "MONITOR"]
+RcsAgentFilterNameType = Literal[
+    "deletion-protection-enabled",
+    "opt-out-list-name",
+    "self-managed-opt-outs-enabled",
+    "status",
+    "two-way-channel-arn",
+    "two-way-enabled",
+]
+RcsAgentStatusType = Literal["ACTIVE", "CREATED", "DELETED", "PARTIAL", "PENDING", "TESTING"]
 RegistrationAssociationBehaviorType = Literal[
     "ASSOCIATE_AFTER_COMPLETE", "ASSOCIATE_BEFORE_SUBMIT", "ASSOCIATE_ON_APPROVAL"
 ]
@@ -289,6 +353,7 @@ RegistrationVersionStatusType = Literal[
     "DISCARDED",
     "DRAFT",
     "REQUIRES_AUTHENTICATION",
+    "REQUIRES_OFFLINE_REVIEW",
     "REVIEWING",
     "REVOKED",
     "SUBMITTED",
@@ -299,12 +364,17 @@ SenderIdFilterNameType = Literal[
 ]
 SpendLimitNameType = Literal[
     "MEDIA_MESSAGE_MONTHLY_SPEND_LIMIT",
+    "NOTIFY_MESSAGE_MONTHLY_SPEND_LIMIT",
     "TEXT_MESSAGE_MONTHLY_SPEND_LIMIT",
     "VOICE_MESSAGE_MONTHLY_SPEND_LIMIT",
 ]
+TemplateVariableSourceType = Literal["CUSTOMER", "SYSTEM"]
+TemplateVariableTypeType = Literal["BOOLEAN", "INTEGER", "STRING"]
+TestingAgentStatusType = Literal["ACTIVE", "CREATED", "PENDING"]
+TierUpgradeStatusType = Literal["ADVANCED", "BASIC", "PENDING_UPGRADE", "REJECTED"]
 VerificationChannelType = Literal["TEXT", "VOICE"]
-VerificationStatusType = Literal["PENDING", "VERIFIED"]
-VerifiedDestinationNumberFilterNameType = Literal["status"]
+VerificationStatusType = Literal["PENDING", "UNSUPPORTED", "VERIFIED"]
+VerifiedDestinationNumberFilterNameType = Literal["rcs-agent-id", "status"]
 VoiceIdType = Literal[
     "AMY",
     "ASTRID",
@@ -486,6 +556,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -721,6 +792,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -756,6 +828,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -768,6 +841,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -794,11 +868,15 @@ PaginatorName = Literal[
     "describe_account_limits",
     "describe_configuration_sets",
     "describe_keywords",
+    "describe_notify_configurations",
+    "describe_notify_templates",
     "describe_opt_out_lists",
     "describe_opted_out_numbers",
     "describe_phone_numbers",
     "describe_pools",
     "describe_protect_configurations",
+    "describe_rcs_agent_country_launch_status",
+    "describe_rcs_agents",
     "describe_registration_attachments",
     "describe_registration_field_definitions",
     "describe_registration_field_values",
@@ -809,6 +887,7 @@ PaginatorName = Literal[
     "describe_sender_ids",
     "describe_spend_limits",
     "describe_verified_destination_numbers",
+    "list_notify_countries",
     "list_pool_origination_identities",
     "list_protect_configuration_rule_set_number_overrides",
     "list_registration_associations",

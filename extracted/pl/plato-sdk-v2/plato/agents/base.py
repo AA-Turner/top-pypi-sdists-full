@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
-import base64
 import importlib.metadata
-import json
 import logging
 import os
 import shlex
 from abc import ABC, abstractmethod
+from json.decoder import JSONDecodeError
 from typing import ClassVar, Generic, TypeVar, get_args, get_origin
+
+from pydantic import TypeAdapter
 
 from plato.agents.config import AgentConfig
 from plato.agents.schema import get_agent_schema
-from plato.runtime import VMRuntimeConfig
+from plato.runtimes.config import RuntimeConfig
+from plato.utils.encoding import decode_b64_json
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +68,7 @@ class BaseAgent(ABC, Generic[ConfigT]):
             name = "openhands"
             description = "OpenHands AI software engineer"
 
-            async def run(self, instruction: str, tools_path: str | None = None) -> None:
+            async def run(self, instruction: str) -> None:
                 # self.config is typed as OpenHandsConfig
                 model = self.config.model_name
                 ...
@@ -75,11 +77,11 @@ class BaseAgent(ABC, Generic[ConfigT]):
     # Class attributes
     name: ClassVar[str] = "base"
     description: ClassVar[str] = ""
-    default_runtime: ClassVar[VMRuntimeConfig | None] = None
+    default_runtime: ClassVar[RuntimeConfig | None] = None
 
     # Instance attributes
     config: ConfigT
-    runtime: VMRuntimeConfig | None = None
+    runtime: RuntimeConfig | None = None
 
     def __init__(self) -> None:
         self.logger = logging.getLogger(f"plato.agents.{self.name}")
@@ -88,12 +90,14 @@ class BaseAgent(ABC, Generic[ConfigT]):
     def _load_runtime(self) -> None:
         """Load runtime config from AGENT_RUNTIME_B64 env var if available."""
         runtime_b64 = os.environ.get("AGENT_RUNTIME_B64")
-        if runtime_b64:
-            try:
-                data = json.loads(base64.b64decode(runtime_b64).decode())
-                self.runtime = VMRuntimeConfig.model_validate(data)
-            except Exception as e:
-                logger.warning(f"Failed to parse AGENT_RUNTIME_B64: {e}")
+        if not runtime_b64:
+            raise RuntimeError("agent needs to be loaded with runtime")
+
+        try:
+            data = decode_b64_json(runtime_b64)
+            self.runtime = TypeAdapter(RuntimeConfig).validate_python(data)
+        except JSONDecodeError:
+            raise RuntimeError("agent needs to be loaded with runtime")
 
     @classmethod
     def get_config_class(cls) -> type[AgentConfig]:
@@ -139,7 +143,7 @@ class BaseAgent(ABC, Generic[ConfigT]):
         return commands
 
     @abstractmethod
-    async def run(self, instruction: str, tools_path: str | None = None) -> None:
+    async def run(self, instruction: str) -> None:
         """Run the agent with the given instruction.
 
         This is the main entry point for agent execution. Implementations should:
@@ -148,7 +152,6 @@ class BaseAgent(ABC, Generic[ConfigT]):
 
         Args:
             instruction: The task instruction/prompt for the agent.
-            tools_path: Optional path to tool definitions/config prepared by the runtime.
 
         Raises:
             RuntimeError: If agent execution fails.

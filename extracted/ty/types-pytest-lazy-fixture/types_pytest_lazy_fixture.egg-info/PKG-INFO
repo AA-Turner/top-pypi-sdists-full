@@ -1,37 +1,38 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: types-pytest-lazy-fixture
-Version: 0.6.3.20240707
+Version: 0.6.3.20260408
 Summary: Typing stubs for pytest-lazy-fixture
-Home-page: https://github.com/python/typeshed
-License: Apache-2.0 license
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/python/typeshed
 Project-URL: GitHub, https://github.com/python/typeshed
 Project-URL: Changes, https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/pytest-lazy-fixture.md
 Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
 
 ## Typing stubs for pytest-lazy-fixture
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`pytest-lazy-fixture`](https://github.com/tvorog/pytest-lazy-fixture) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-PyCharm, etc. to check code that uses
-`pytest-lazy-fixture`.
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`pytest-lazy-fixture`](https://github.com/tvorog/pytest-lazy-fixture) package. It can be used by type checkers
+to check code that uses `pytest-lazy-fixture`. This version of
+`types-pytest-lazy-fixture` aims to provide accurate annotations for
+`pytest-lazy-fixture==0.6.*`.
 
-This version of `types-pytest-lazy-fixture` aims to provide accurate annotations
-for `pytest-lazy-fixture==0.6.*`.
-The source for this package can be found at
-https://github.com/python/typeshed/tree/main/stubs/pytest-lazy-fixture. All fixes for
-types and metadata should be contributed there.
+This package is part of the [typeshed project](https://github.com/python/typeshed).
+All fixes for types and metadata should be contributed there.
+See [the README](https://github.com/python/typeshed/blob/main/README.md)
+for more details. The source for this package can be found in the
+[`stubs/pytest-lazy-fixture`](https://github.com/python/typeshed/tree/main/stubs/pytest-lazy-fixture)
+directory.
 
-See https://github.com/python/typeshed/blob/main/README.md for more details.
-This package was generated from typeshed commit `7c26da22bda786dce26d3a70fc18c14a7f4bd378` and was tested
-with mypy 1.10.1, pyright 1.1.370, and
-pytype 2024.4.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.20.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
+
+It was generated from typeshed commit
+[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).

@@ -24,6 +24,7 @@ from typing import Union
 from .literals import (
     AddressTypeType,
     AssetStateType,
+    AssetTypeType,
     AWSServiceNameType,
     BlockingResourceTypeType,
     CapacityTaskFailureTypeType,
@@ -55,9 +56,9 @@ from .literals import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import Literal, NotRequired, TypedDict
+    from typing import NotRequired, TypedDict
 else:
-    from typing_extensions import Literal, NotRequired, TypedDict
+    from typing_extensions import NotRequired, TypedDict
 
 
 __all__ = (
@@ -422,6 +423,7 @@ class ListAssetsInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     StatusFilter: NotRequired[Sequence[AssetStateType]]
+    AssetTypeFilter: NotRequired[Sequence[AssetTypeType]]
 
 
 class ListBlockingInstancesForCapacityTaskInputTypeDef(TypedDict):
@@ -725,6 +727,7 @@ class ListAssetsInputPaginateTypeDef(TypedDict):
     OutpostIdentifier: str
     HostIdFilter: NotRequired[Sequence[str]]
     StatusFilter: NotRequired[Sequence[AssetStateType]]
+    AssetTypeFilter: NotRequired[Sequence[AssetTypeType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -810,7 +813,7 @@ class ListOrdersOutputTypeDef(TypedDict):
 class AssetInfoTypeDef(TypedDict):
     AssetId: NotRequired[str]
     RackId: NotRequired[str]
-    AssetType: NotRequired[Literal["COMPUTE"]]
+    AssetType: NotRequired[AssetTypeType]
     ComputeAttributes: NotRequired[ComputeAttributesTypeDef]
     AssetLocation: NotRequired[AssetLocationTypeDef]
 

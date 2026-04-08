@@ -110,6 +110,7 @@ __all__ = (
     "RetrieveAndGenerateTypeType",
     "S3InputFormatType",
     "SearchTypeType",
+    "SelectiveGuardingModeType",
     "ServiceName",
     "SortByProvisionedModelsType",
     "SortJobsByType",
@@ -298,6 +299,7 @@ RerankingMetadataSelectionModeType = Literal["ALL", "SELECTIVE"]
 RetrieveAndGenerateTypeType = Literal["EXTERNAL_SOURCES", "KNOWLEDGE_BASE"]
 S3InputFormatType = Literal["JSONL"]
 SearchTypeType = Literal["HYBRID", "SEMANTIC"]
+SelectiveGuardingModeType = Literal["COMPREHENSIVE", "SELECTIVE"]
 SortByProvisionedModelsType = Literal["CreationTime"]
 SortJobsByType = Literal["CreationTime"]
 SortModelsByType = Literal["CreationTime"]
@@ -423,6 +425,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -658,6 +661,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -693,6 +697,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -705,6 +710,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

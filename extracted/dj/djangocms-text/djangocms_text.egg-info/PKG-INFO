@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangocms-text
-Version: 0.9.4
+Version: 0.9.5
 Summary: Rich Text Plugin for django CMS
 Author-email: Django CMS Association and contributors <info@django-cms.org>
 Maintainer-email: Django CMS Association and contributors <info@django-cms.org>
@@ -287,6 +287,24 @@ When inline editing is active the editor will save the plugin's content each tim
 loses focus. If only text has changed the user can immediately continue to edit. If a
 text-enabled plugin was changed, added, or removed he page will refresh to update the
 page tree and get the correctly rendered version of the changed plugin.
+
+Custom plugin templates
+^^^^^^^^^^^^^^^^^^^^^^^
+
+If you override the default ``cms/plugins/text.html`` template and your template wraps
+the plugin output in container elements (e.g. ``<section>``, ``<article>``, ``<div>``),
+the **innermost** container element must have the class ``cms-content-start``::
+
+    <!-- cms/plugins/text.html -->
+    <section class="my-text-plugin">
+        <div class="cms-content-start">
+            {{ body|safe }}
+        </div>
+    </section>
+
+This tells the inline editor which element to use as the editable area. Without it the
+editor will treat the outermost container as the editable region which may include
+non-editable markup.
 
 
 Text-enabled plugins

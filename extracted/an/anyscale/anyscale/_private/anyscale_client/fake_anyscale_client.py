@@ -292,6 +292,8 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
         self._deployment_infra_provider: str = "aws"
         self.last_build_from_image_uri_cloud_id: Optional[str] = None
+        self.last_build_from_containerfile_cloud_id: Optional[str] = None
+        self.last_get_cluster_env_by_name_cloud_id: Optional[str] = None
 
         # Cloud resource ID -> DecoratedCloudResource
         self._cloud_resources: Dict[str, DecoratedCloudResource] = {}
@@ -1048,7 +1050,10 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     def get_cluster_env_build(self, build_id: str) -> Optional[ClusterEnvironmentBuild]:
         return self._builds.get(build_id, None)
 
-    def get_cluster_env_by_name(self, name) -> Optional[ClusterEnvironment]:
+    def get_cluster_env_by_name(
+        self, name, cloud_id=None
+    ) -> Optional[ClusterEnvironment]:
+        self.last_get_cluster_env_by_name_cloud_id = cloud_id
         for v in self._images.values():
             if v.name == name:
                 return v
@@ -1061,7 +1066,18 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         anonymous: bool,
         ray_version: Optional[str] = None,  # noqa: ARG002
         containerfile_path: Optional[str] = None,  # noqa: ARG002
+        cloud_id: Optional[str] = None,
     ) -> str:
+        if self.get_deployment_infra_provider() == "azure":
+            if not cloud_id:
+                raise ValueError(
+                    "cloud_id is required for Azure Control Plane. "
+                    "Please provide a cloud_id."
+                )
+        else:
+            cloud_id = None
+
+        self.last_build_from_containerfile_cloud_id = cloud_id
         for build in self._builds.values():
             if build.containerfile == containerfile:
                 cluster_env = self._images.get(build.cluster_environment_id, None)  # type: ignore

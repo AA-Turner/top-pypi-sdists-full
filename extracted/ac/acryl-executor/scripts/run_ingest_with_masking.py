@@ -129,7 +129,6 @@ def check_report_to_support(datahub_binary: Path) -> bool:
             [str(datahub_binary), "ingest", "run", "--help"],
             capture_output=True,
             text=True,
-            timeout=10,
         )
         return "report-to" in result.stdout
     except Exception as e:

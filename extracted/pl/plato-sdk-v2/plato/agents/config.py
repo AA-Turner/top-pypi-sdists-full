@@ -17,16 +17,13 @@ Example:
 
 from __future__ import annotations
 
-import base64
-import json
 import os
-from typing import Any
+from typing import Any, Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from plato.agents.schema import get_agent_config_schema, get_field_secrets
 from plato.markers import Secret
-from plato.runtime import Runtime
 
 
 class AgentConfig(BaseSettings):
@@ -54,7 +51,7 @@ class AgentConfig(BaseSettings):
         env_ignore_empty=True,
     )
 
-    runtime: Runtime = "vm"
+    runtime: Literal["vm", "apple"] = "vm"
 
     @classmethod
     def get_field_secrets(cls) -> dict[str, Secret]:
@@ -101,6 +98,7 @@ class AgentConfig(BaseSettings):
         config_b64 = os.environ.get("AGENT_CONFIG_B64")
         if not config_b64:
             raise ValueError("AGENT_CONFIG_B64 environment variable not set")
-        config_json = base64.b64decode(config_b64).decode()
-        data = json.loads(config_json)
+        from plato.utils.encoding import decode_b64_json
+
+        data = decode_b64_json(config_b64)
         return cls(**data)

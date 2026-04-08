@@ -57,6 +57,7 @@ __all__ = (
     "ImageStateChangeReasonCodeType",
     "ImageStateType",
     "ImageTypeType",
+    "InstanceDrainStatusType",
     "LatestAppstreamAgentVersionType",
     "ListAssociatedFleetsPaginatorName",
     "ListAssociatedStacksPaginatorName",
@@ -197,6 +198,7 @@ ImageStateType = Literal[
     "AVAILABLE", "COPYING", "CREATING", "DELETING", "FAILED", "IMPORTING", "PENDING", "VALIDATING"
 ]
 ImageTypeType = Literal["CUSTOM", "NATIVE"]
+InstanceDrainStatusType = Literal["ACTIVE", "DRAINING", "NOT_APPLICABLE"]
 LatestAppstreamAgentVersionType = Literal["FALSE", "TRUE"]
 ListAssociatedFleetsPaginatorName = Literal["list_associated_fleets"]
 ListAssociatedStacksPaginatorName = Literal["list_associated_stacks"]
@@ -228,6 +230,7 @@ SoftwareDeploymentStatusType = Literal[
 ]
 StackAttributeType = Literal[
     "ACCESS_ENDPOINTS",
+    "CONTENT_REDIRECTION",
     "EMBED_HOST_DOMAINS",
     "FEEDBACK_URL",
     "IAM_ROLE_ARN",
@@ -373,6 +376,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -608,6 +612,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -643,6 +648,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -655,6 +661,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

@@ -1,4 +1,5 @@
 """A command line interface for the atcf-data-parser package."""
+
 from __future__ import annotations
 
 import click

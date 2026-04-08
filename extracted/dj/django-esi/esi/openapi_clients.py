@@ -22,7 +22,9 @@ from tenacity import (
     wait_combine, wait_exponential,
 )
 
+from django.conf import settings
 from django.core.cache import cache
+from django.utils import timezone
 from django.utils.text import slugify
 
 from esi import app_settings
@@ -47,6 +49,7 @@ from .helpers import pascal_case_string
 logger = logging.getLogger(__name__)
 
 ETAG_EXPIRY = 60 * 60 * 24 * 7  # 7 days
+MAX_CACHE_TIME = 60 * 60 * 24  # 24h
 
 
 def _time_to_expiry(expires_header: str) -> int:
@@ -63,6 +66,49 @@ def _time_to_expiry(expires_header: str) -> int:
         return max(int((expires_dt - dt.datetime.now(dt.timezone.utc)).total_seconds()), 0)
     except ValueError:
         return 0
+
+
+def _unpack_cache_control(headers: str) -> int:
+    """Calculate cache TTL from Cache-Control header
+    Args:
+        headers (dict): request headers to generate ttl for cache
+    Returns:
+        int: The cache TTL in seconds up to max cache time.
+
+        The value of the Cache-Control header, 'private, max-age=#####, immutable'
+        The value of the date header, '%a, %d %b %Y %H:%M:%S %Z'
+    """
+    _date = False
+    _expires = 0
+    if "date" in headers:
+        date_format = "%a, %d %b %Y %H:%M:%S %Z"
+        try:
+            _date = dt.datetime.strptime(headers.get("date"), date_format)
+            _date = _date.replace(tzinfo=dt.timezone.utc)
+        except ValueError as e:
+            logger.warning(f"Error converting date string: {e}")
+    if "cache-control" in headers:
+        try:
+            _header = headers.get("cache-control").split(",")
+            _sections = {}
+            _expires = 0
+            for sec in _header:
+                if "=" in sec:
+                    _cont = sec.strip().split("=")
+                    _sections[_cont[0]] = _cont[1]
+            if "max-age" in _sections:
+                _max_age = min(MAX_CACHE_TIME, int(_sections.get("max-age", 0)))
+                if _date:
+                    _expire_date = _date + dt.timedelta(seconds=_max_age)
+                    _expire_time: dt.timedelta = _expire_date - timezone.now()
+                    _expires = _expire_time.total_seconds()
+                    _expires = _expires
+                else:
+                    _expires = _max_age
+        except ValueError as e:
+            logger.warning(f"Error converting date strings: {e}")
+            return 0
+        return max(_expires, 0)
 
 
 def _httpx_exceptions(exc: BaseException) -> bool:
@@ -124,7 +170,8 @@ def _load_aiopenapi_client_sync(
         tenant: str,
         spec_file: str | None = None,
         tags: list[str] = [],
-        operations: list[str] = []) -> OpenAPI:
+        operations: list[str] = [],
+        additional_spec_headers: dict = {}) -> OpenAPI:
     """Create an OpenAPI3 Client from Spec
 
     Args:
@@ -141,7 +188,8 @@ def _load_aiopenapi_client_sync(
     headers = {
         "User-Agent": user_agent,
         "X-Tenant": tenant,
-        "X-Compatibility-Date": compatibility_date
+        "X-Compatibility-Date": compatibility_date,
+        **additional_spec_headers
     }
 
     def session_factory(**kwargs) -> Client:
@@ -273,7 +321,9 @@ def esi_client_factory_sync(
         ua_appname: str, ua_version: str, ua_url: str | None = None,
         spec_file: str | None = None,
         tenant: str = "tranquility",
-        tags: list[str] = [], operations: list[str] = [],
+        tags: list[str] = [],
+        operations: list[str] = [],
+        additional_spec_headers: dict = {},
         **kwargs) -> OpenAPI:
     """Generate a new OpenAPI ESI client.
     Args:
@@ -296,7 +346,8 @@ def esi_client_factory_sync(
         tenant,
         spec_file,
         tags,
-        operations
+        operations,
+        additional_spec_headers
     )
 
 
@@ -429,7 +480,11 @@ class BaseEsiOperation():
         """
         _token = self._kwargs.pop("token", None)
         if _token and not getattr(self.operation, "security", False):
-            raise ValueError("Token provided on public endpoint")
+            if getattr(settings, "DEBUG", False):
+                # Don't throw in debug for ESI Test Purposes.
+                pass
+            else:
+                raise ValueError("Token provided on public endpoint")
         return self.token or _token
 
     def _has_page_param(self) -> bool:
@@ -465,8 +520,8 @@ class BaseEsiOperation():
 
         if cached_response:
             logger.debug(f"Cache Hit {self.url}")
-            expiry = _time_to_expiry(str(cached_response.headers.get('Expires')))
 
+            expiry = self._get_cache_expiry(cached_response.headers)
             # force check to ensure cache isn't expired
             if expiry < 0:
                 logger.warning("Cache expired by %d seconds, forcing expiry", expiry)
@@ -523,8 +578,7 @@ class BaseEsiOperation():
         if not app_settings.ESI_CACHE_RESPONSE:
             return
 
-        expires = response.headers.get("Expires")
-        ttl = _time_to_expiry(expires) if expires else 0
+        ttl = self._get_cache_expiry(response.headers)
         if ttl > 0:
             try:
                 cache.set(cache_key, response, ttl)
@@ -544,7 +598,12 @@ class BaseEsiOperation():
         """
         token_scopes = set(token.scopes.all().values_list("name", flat=True))
         try:
-            required_scopes = set(getattr(getattr(self.operation, "security", [])[0], "root", {}).get("OAuth2", []))
+            security = getattr(self.operation, "security", [])
+            if security:
+                security = getattr(self.operation, "security", [])[0]
+            else:
+                security = {}
+            required_scopes = set(getattr(security, "root", {}).get("OAuth2", []))
         except KeyError:
             required_scopes = []
         missing_scopes = [x for x in required_scopes if x not in token_scopes]
@@ -582,6 +641,16 @@ class BaseEsiOperation():
             latency=latency,
             bucket=self.bucket.slug if self.bucket else ""
         )
+
+    def _get_cache_expiry(self, headers: dict = {}):
+        expiry = 0
+        if "cache-control" in headers:
+            # this first
+            expiry = _unpack_cache_control(headers)
+        elif "expires" in headers:
+            # this is the first doesn't exist.
+            expiry = _time_to_expiry(str(headers.get('Expires')))
+        return expiry
 
 
 class EsiOperation(BaseEsiOperation):
@@ -701,7 +770,7 @@ class EsiOperation(BaseEsiOperation):
         headers, data, response = self._get_cache(cache_key, etag=etag) if use_cache else (None, None, None)
 
         if response and use_cache:
-            expiry = _time_to_expiry(str(headers.get('Expires')))
+            expiry = self._get_cache_expiry(headers)
             if expiry < 0:
                 logger.warning(
                     "cache expired by %d seconds, Forcing expiry", expiry
@@ -868,10 +937,8 @@ class EsiOperation(BaseEsiOperation):
 
         elif self._has_cursor_param():
             # Untested, there are no cursor based endpoints in ESI
-            params = self._kwargs.copy()
-            params.update(extra)
             for cursor_param in ("after", "before"):
-                if params.get(cursor_param):
+                if extra.get(cursor_param):
                     break
             else:
                 cursor_param = "after"
@@ -882,16 +949,16 @@ class EsiOperation(BaseEsiOperation):
                     force_refresh=force_refresh,
                     use_cache=use_cache,
                     store_cache=store_cache,
-                    **params
+                    **extra
                 )
                 last_response = response
                 if not data:
                     break
                 all_results.extend(data if isinstance(data, list) else [data])
-                cursor_token = {k.lower(): v for k, v in response.headers.items()}.get(cursor_param)
+                cursor_token = getattr(data.cursor, cursor_param, False)
                 if not cursor_token:
                     break
-                params[cursor_param] = cursor_token
+                extra[cursor_param] = cursor_token
 
         else:
             data, response = self.result(
@@ -1260,6 +1327,7 @@ class ESIClientProvider:
         tenant: str = "tranquility",
         operations: list[str] = [],
         tags: list[str] = [],
+        additional_spec_headers: dict = {},
         **kwargs
     ) -> None:
         if type(compatibility_date) is dt.date:
@@ -1274,6 +1342,7 @@ class ESIClientProvider:
         self._kwargs = kwargs
         self._operations = operations
         self._tags = tags
+        self._spec_headers = additional_spec_headers
 
     @property
     def client(self) -> ESIClient:
@@ -1287,6 +1356,7 @@ class ESIClientProvider:
                 tenant=self._tenant,
                 operations=self._operations,
                 tags=self._tags,
+                additional_spec_headers=self._spec_headers,
                 **self._kwargs)
             self._client = ESIClient(api)
         return self._client

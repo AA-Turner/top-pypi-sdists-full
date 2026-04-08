@@ -28,7 +28,10 @@ use crate::{
             status::StatusCode,
         },
     },
-    spans::utils::{convert_attributes_to_proto_key_value, json_value_to_any_value},
+    spans::{
+        types::SpawningToolType,
+        utils::{convert_attributes_to_proto_key_value, json_value_to_any_value},
+    },
 };
 
 use utils::{
@@ -56,6 +59,7 @@ pub fn create_span_request(
     span_path: Vec<String>,
     input: PostMessagesRequest,
     response_info: ResponseInfo,
+    parent_tool_type: Option<SpawningToolType>,
 ) -> Result<ExportTraceServiceRequest, SpanError> {
     // Parse trace_id and span_id from UUID format to bytes
     let trace_id_bytes = parse_trace_id(&trace_id)?;
@@ -130,6 +134,9 @@ pub fn create_span_request(
     // Note: Tool spans are now created separately via SpanProcessor.complete_tool_spans()
     // which tracks tool duration properly (from tool_use in response to tool_result in next request)
     let mut attributes = extract_attributes(input, response_info);
+    if let Some(SpawningToolType::Bash) = parent_tool_type {
+        attributes.insert("lmnr.internal.cc_skip_span".to_string(), Value::Bool(true));
+    }
     attributes.insert(
         "lmnr.span.ids_path".to_string(),
         Value::Array(ids_path.into_iter().map(|s| Value::String(s)).collect()),

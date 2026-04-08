@@ -161,6 +161,7 @@ Usage::
         GetAwsNetworkPerformanceDataPaginator,
         GetCapacityManagerMetricDataPaginator,
         GetCapacityManagerMetricDimensionsPaginator,
+        GetCapacityManagerMonitoredTagKeysPaginator,
         GetGroupsForCapacityReservationPaginator,
         GetInstanceTypesFromInstanceRequirementsPaginator,
         GetIpamAddressHistoryPaginator,
@@ -418,6 +419,7 @@ Usage::
     get_aws_network_performance_data_paginator: GetAwsNetworkPerformanceDataPaginator = client.get_paginator("get_aws_network_performance_data")
     get_capacity_manager_metric_data_paginator: GetCapacityManagerMetricDataPaginator = client.get_paginator("get_capacity_manager_metric_data")
     get_capacity_manager_metric_dimensions_paginator: GetCapacityManagerMetricDimensionsPaginator = client.get_paginator("get_capacity_manager_metric_dimensions")
+    get_capacity_manager_monitored_tag_keys_paginator: GetCapacityManagerMonitoredTagKeysPaginator = client.get_paginator("get_capacity_manager_monitored_tag_keys")
     get_groups_for_capacity_reservation_paginator: GetGroupsForCapacityReservationPaginator = client.get_paginator("get_groups_for_capacity_reservation")
     get_instance_types_from_instance_requirements_paginator: GetInstanceTypesFromInstanceRequirementsPaginator = client.get_paginator("get_instance_types_from_instance_requirements")
     get_ipam_address_history_paginator: GetIpamAddressHistoryPaginator = client.get_paginator("get_ipam_address_history")
@@ -592,6 +594,7 @@ from .paginator import (
     GetAwsNetworkPerformanceDataPaginator,
     GetCapacityManagerMetricDataPaginator,
     GetCapacityManagerMetricDimensionsPaginator,
+    GetCapacityManagerMonitoredTagKeysPaginator,
     GetGroupsForCapacityReservationPaginator,
     GetInstanceTypesFromInstanceRequirementsPaginator,
     GetIpamAddressHistoryPaginator,
@@ -828,6 +831,7 @@ __all__ = (
     "GetAwsNetworkPerformanceDataPaginator",
     "GetCapacityManagerMetricDataPaginator",
     "GetCapacityManagerMetricDimensionsPaginator",
+    "GetCapacityManagerMonitoredTagKeysPaginator",
     "GetGroupsForCapacityReservationPaginator",
     "GetInstanceTypesFromInstanceRequirementsPaginator",
     "GetIpamAddressHistoryPaginator",

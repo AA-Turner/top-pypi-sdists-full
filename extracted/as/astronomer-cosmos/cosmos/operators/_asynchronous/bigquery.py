@@ -22,7 +22,10 @@ try:  # Airflow 3
 except (ModuleNotFoundError, ImportError):  # Airflow 2
     from airflow.datasets import Dataset as Asset  # type: ignore
 
-from airflow.utils.context import Context  # type: ignore
+try:
+    from airflow.sdk.definitions.context import Context  # type: ignore[attr-defined]
+except ImportError:
+    from airflow.utils.context import Context  # type: ignore
 from packaging.version import Version
 
 from cosmos import settings
@@ -96,7 +99,10 @@ class DbtRunAirflowAsyncBigqueryOperator(BigQueryInsertJobOperator, AbstractDbtL
             self, task_id=task_id, project_dir=project_dir, profile_config=profile_config, **self.dbt_kwargs
         )
         if kwargs.get("emit_datasets", True) and settings.enable_dataset_alias and AIRFLOW_VERSION >= Version("2.10"):
-            from airflow.datasets import DatasetAlias
+            try:
+                from airflow.sdk.definitions.asset import AssetAlias as DatasetAlias
+            except ImportError:
+                from airflow.datasets import DatasetAlias  # type: ignore
 
             # ignoring the type because older versions of Airflow raise the follow error in mypy
             # error: Incompatible types in assignment (expression has type "list[DatasetAlias]", target has type "str")
@@ -156,8 +162,6 @@ class DbtRunAirflowAsyncBigqueryOperator(BigQueryInsertJobOperator, AbstractDbtL
     def get_remote_sql(self) -> str:
         start_time = time.time()
 
-        if not settings.AIRFLOW_IO_AVAILABLE:  # pragma: no cover
-            raise CosmosValueError(f"Cosmos async support is only available starting in Airflow 2.8 or later.")
         try:
             from airflow.sdk import ObjectStoragePath
         except ImportError:

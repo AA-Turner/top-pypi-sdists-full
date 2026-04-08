@@ -959,6 +959,7 @@ async def _run_adk_user_simulation(
     """Runs a multi-turn user simulation using ADK's EvaluationGenerator."""
     starting_prompt = row.get("starting_prompt")
     conversation_plan = row.get("conversation_plan")
+    user_persona = "EVALUATOR"
 
     if not starting_prompt or not conversation_plan:
         raise ValueError(
@@ -967,7 +968,9 @@ async def _run_adk_user_simulation(
         )
 
     scenario = ConversationScenario(
-        starting_prompt=starting_prompt, conversation_plan=conversation_plan
+        starting_prompt=starting_prompt,
+        conversation_plan=conversation_plan,
+        user_persona=user_persona,
     )
 
     user_simulator_kwargs: dict[str, Any] = {}
@@ -1414,7 +1417,7 @@ def _resolve_evaluation_run_metrics(
                     resolved_metrics_list.append(
                         types.EvaluationRunMetric(
                             metric=resolved_metric.name,
-                            metric_config=genai_types.UnifiedMetric(
+                            metric_config=types.UnifiedMetric(
                                 predefined_metric_spec=genai_types.PredefinedMetricSpec(
                                     metric_spec_name=resolved_metric.name,
                                 )
@@ -1455,7 +1458,7 @@ def _resolve_evaluation_run_metrics(
                         resolved_metrics_list.append(
                             types.EvaluationRunMetric(
                                 metric=resolved_metric.name,
-                                metric_config=genai_types.UnifiedMetric(
+                                metric_config=types.UnifiedMetric(
                                     predefined_metric_spec=genai_types.PredefinedMetricSpec(
                                         metric_spec_name=resolved_metric.name,
                                     )

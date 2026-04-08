@@ -499,6 +499,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",

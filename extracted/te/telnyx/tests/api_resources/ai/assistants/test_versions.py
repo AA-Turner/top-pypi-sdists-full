@@ -112,6 +112,12 @@ class TestVersions:
             },
             model="model",
             name="name",
+            observability_settings={
+                "host": "host",
+                "public_key_ref": "public_key_ref",
+                "secret_key_ref": "secret_key_ref",
+                "status": "enabled",
+            },
             privacy_settings={"data_retention": True},
             telephony_settings={
                 "default_texml_app_id": "default_texml_app_id",
@@ -122,6 +128,7 @@ class TestVersions:
                 },
                 "recording_settings": {
                     "channels": "single",
+                    "enabled": True,
                     "format": "wav",
                 },
                 "supports_unauthenticated_web_calls": True,
@@ -516,6 +523,12 @@ class TestAsyncVersions:
             },
             model="model",
             name="name",
+            observability_settings={
+                "host": "host",
+                "public_key_ref": "public_key_ref",
+                "secret_key_ref": "secret_key_ref",
+                "status": "enabled",
+            },
             privacy_settings={"data_retention": True},
             telephony_settings={
                 "default_texml_app_id": "default_texml_app_id",
@@ -526,6 +539,7 @@ class TestAsyncVersions:
                 },
                 "recording_settings": {
                     "channels": "single",
+                    "enabled": True,
                     "format": "wav",
                 },
                 "supports_unauthenticated_web_calls": True,

@@ -19,7 +19,7 @@ import docker
 from tinybird.tb.client import AuthNoTokenException, TinyB
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.exceptions import CLILocalException
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.local_logs import (
     check_memory_sufficient,
     clickhouse_is_ready,
@@ -59,7 +59,7 @@ def get_tinybird_local_client(
     except json.JSONDecodeError:
         raise CLILocalException(
             message=FeedbackManager.error(
-                message="Tinybird Local is running but it's unhealthy. Please check if it's running and try again. If the problem persists, please run `tb local restart` and try again."
+                message=f"Tinybird Local is running but it's unhealthy. Please check if it's running and try again. If the problem persists, please run `{get_cli_name()} local restart` and try again."
             )
         )
 
@@ -171,7 +171,7 @@ def get_local_tokens(silent: bool = False) -> Dict[str, str]:
                                 "Looks like Tinybird Local is running but we are not able to connect to it.\n\n"
                                 "If you've run it manually using different host or port, please set the environment variables "
                                 "TB_LOCAL_HOST and TB_LOCAL_PORT to match the ones you're using.\n"
-                                "If you're not sure about this, please run `tb local restart` and try again."
+                                f"If you're not sure about this, please run `{get_cli_name()} local restart` and try again."
                             )
                         )
                     )
@@ -179,7 +179,7 @@ def get_local_tokens(silent: bool = False) -> Dict[str, str]:
                     FeedbackManager.error(
                         message=(
                             "Tinybird Local is running but it's unhealthy. Please check if it's running and try again.\n"
-                            "If the problem persists, please run `tb local restart` and try again."
+                            f"If the problem persists, please run `{get_cli_name()} local restart` and try again."
                         )
                     )
                 )
@@ -211,14 +211,14 @@ def get_local_tokens(silent: bool = False) -> Dict[str, str]:
                                 "Looks like Tinybird Local is running but we are not able to connect to it.\n\n"
                                 "If you've run it manually using different host or port, please set the environment variables "
                                 "TB_LOCAL_HOST and TB_LOCAL_PORT to match the ones you're using.\n"
-                                "If you're not sure about this, please run `tb local restart` and try again."
+                                f"If you're not sure about this, please run `{get_cli_name()} local restart` and try again."
                             )
                         )
                     )
                 raise CLILocalException(
                     FeedbackManager.error(
-                        message="Tinybird Local is running but it's unhealthy. Please check if it's running and try again.\n"
-                        "If the problem persists, please run `tb local restart` and try again."
+                        message=f"Tinybird Local is running but it's unhealthy. Please check if it's running and try again.\n"
+                        f"If the problem persists, please run `{get_cli_name()} local restart` and try again."
                     )
                 )
         except CLILocalException as e:
@@ -249,7 +249,9 @@ def get_local_tokens(silent: bool = False) -> Dict[str, str]:
                 return get_local_tokens()
 
         raise CLILocalException(
-            FeedbackManager.error(message="Tinybird local is not running. Please run `tb local start` first.")
+            FeedbackManager.error(
+                message=f"Tinybird local is not running. Please run `{get_cli_name()} local start` first."
+            )
         )
 
 
@@ -402,7 +404,7 @@ def start_tinybird_local(
                             raise CLILocalException(
                                 FeedbackManager.error(
                                     message=f"{health_check.get('error')}\n"
-                                    "Please run `tb local restart` to restart the container."
+                                    f"Please run `{get_cli_name()} local restart` to restart the container."
                                 )
                             )
                             return
@@ -411,11 +413,11 @@ def start_tinybird_local(
                     stop_requested.set()
                     # Check if memory might be the cause of unhealthy status
                     is_sufficient, warning_msg = check_memory_sufficient(container, docker_client)
-                    error_msg = "Tinybird Local is unhealthy. Try running `tb local restart` in a few seconds."
+                    error_msg = (
+                        f"Tinybird Local is unhealthy. Try running `{get_cli_name()} local restart` in a few seconds."
+                    )
                     if not is_sufficient and warning_msg:
-                        error_msg = (
-                            "Tinybird Local is unhealthy.\nnAfter adjusting memory, try running `tb local restart`."
-                        )
+                        error_msg = f"Tinybird Local is unhealthy.\nnAfter adjusting memory, try running `{get_cli_name()} local restart`."
                     raise CLILocalException(FeedbackManager.error(message=error_msg))
                 time.sleep(5)
         except KeyboardInterrupt:
@@ -426,7 +428,9 @@ def start_tinybird_local(
                 click.echo(FeedbackManager.success(message="✓ Tinybird Local stopped."))
             except KeyboardInterrupt:
                 click.echo(FeedbackManager.warning(message="⚠ Forced exit. Container may still be running."))
-                click.echo(FeedbackManager.info(message="  Run `tb local stop` to stop the container manually."))
+                click.echo(
+                    FeedbackManager.info(message=f"  Run `{get_cli_name()} local stop` to stop the container manually.")
+                )
             return
 
     # Non-watch mode: just wait for container to be healthy
@@ -466,7 +470,7 @@ def start_tinybird_local(
             click.echo(FeedbackManager.info(message="✓ Tinybird Local authentication"))
             break
         if health == "unhealthy":
-            error_msg = "Tinybird Local is unhealthy. Try running `tb local restart` in a few seconds."
+            error_msg = f"Tinybird Local is unhealthy. Try running `{get_cli_name()} local restart` in a few seconds."
             raise CLILocalException(FeedbackManager.error(message=error_msg))
         time.sleep(5)
 
@@ -589,7 +593,7 @@ def get_docker_client() -> DockerClient:
                     f"No container runtime is running. Make sure a Docker-compatible runtime is installed and running. "
                     f"{docker_location_message}\n\n"
                     "If you're using a custom location, please provide it using the DOCKER_HOST environment variable.\n\n"
-                    "Alternatively, you can use Tinybird branches to develop your project without Docker. Run `tb branch create my_feature_branch` to create one. Learn more at: https://www.tinybird.co/docs/forward/test-and-deploy/branches"
+                    f"Alternatively, you can use Tinybird branches to develop your project without Docker. Run `{get_cli_name()} branch create my_feature_branch` to create one. Learn more at: https://www.tinybird.co/docs/forward/test-and-deploy/branches"
                 )
             )
         )

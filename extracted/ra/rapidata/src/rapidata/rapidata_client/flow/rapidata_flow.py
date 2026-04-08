@@ -104,8 +104,12 @@ class RapidataFlow:
                 openapi_service=self._openapi_service,
             )
 
-    def get_flow_items(self) -> list[RapidataFlowItem]:
-        """Query flow items for this flow, returning up to 100 most recent items sorted by creation date.
+    def get_flow_items(self, amount: int = 10, page: int = 1) -> list[RapidataFlowItem]:
+        """Query flow items for this flow, returning them in order of creation.
+
+        Args:
+            amount (int, optional): The amount of flow items to return. Defaults to 10.
+            page (int, optional): The page of flow items to return. Defaults to 1.
 
         Returns:
             list[RapidataFlowItem]: A list of flow items.
@@ -120,8 +124,8 @@ class RapidataFlow:
             response = self._openapi_service.flow.ranking_flow_item_api.flow_ranking_flow_id_item_get(
                 flow_id=self.id,
                 sort=["-created_at"],
-                page=1,
-                page_size=100,
+                page=page,
+                page_size=amount,
             )
 
             return [
@@ -137,16 +141,16 @@ class RapidataFlow:
         self,
         instruction: str | None = None,
         starting_elo: int | None = None,
-        k_factor: int | None = None,
-        scaling_factor: int | None = None,
+        min_responses: int | None = None,
+        max_responses: int | None = None,
     ) -> None:
         """Update the configuration of this ranking flow.
 
         Args:
             instruction: New instruction for comparisons.
             starting_elo: New starting ELO rating.
-            k_factor: New K-factor for ELO calculations.
-            scaling_factor: New scaling factor for ELO calculations.
+            min_responses: New minimum number of responses.
+            max_responses: New maximum number of responses.
         """
         with tracer.start_as_current_span("RapidataFlow.update_config"):
             from rapidata.api_client.models.update_config_endpoint_input import (
@@ -160,9 +164,8 @@ class RapidataFlow:
                 update_config_endpoint_input=UpdateConfigEndpointInput(
                     criteria=instruction,
                     startingElo=starting_elo,
-                    kFactor=k_factor,
-                    scalingFactor=scaling_factor,
-                    responsesRequired=100,
+                    minResponses=min_responses,
+                    maxResponses=max_responses,
                 ),
             )
 

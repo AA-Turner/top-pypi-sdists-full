@@ -217,7 +217,10 @@ RollbackOnDisableType = Literal["DEFAULT_ROLLBACK", "NO_ROLLBACK"]
 ScheduledAutoTuneActionTypeType = Literal["JVM_HEAP_SIZE_TUNING", "JVM_YOUNG_GEN_TUNING"]
 ScheduledAutoTuneSeverityTypeType = Literal["HIGH", "LOW", "MEDIUM"]
 TLSSecurityPolicyType = Literal[
-    "Policy-Min-TLS-1-0-2019-07", "Policy-Min-TLS-1-2-2019-07", "Policy-Min-TLS-1-2-PFS-2023-10"
+    "Policy-Min-TLS-1-0-2019-07",
+    "Policy-Min-TLS-1-2-2019-07",
+    "Policy-Min-TLS-1-2-PFS-2023-10",
+    "Policy-Min-TLS-1-2-RFC9151-FIPS-2024-08",
 ]
 TimeUnitType = Literal["HOURS"]
 UpgradeStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED", "SUCCEEDED_WITH_ISSUES"]
@@ -346,6 +349,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -581,6 +585,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -616,6 +621,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -628,6 +634,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

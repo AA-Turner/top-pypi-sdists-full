@@ -119,8 +119,10 @@ class LocationServiceMapsV2Client(AioBaseClient):
         self, **kwargs: Unpack[GetStaticMapRequestTypeDef]
     ) -> GetStaticMapResponseTypeDef:
         """
-        <code>GetStaticMap</code> provides high-quality static map images with
-        customizable options.
+        <note> <p>This operation is not supported in <code>ap-southeast-1</code> and
+        <code>ap-southeast-5</code> regions for <a
+        href="https://docs.aws.amazon.com/location/latest/developerguide/GrabMaps.html">GrabMaps</a>
+        customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/geo-maps/client/get_static_map.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_geo_maps/client/#get_static_map)

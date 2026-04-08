@@ -61,7 +61,13 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from chalk.client.api import APINamespace
-    from chalk.scalinggroup.spec import AutoScalingSpec, ScalingGroupResourceRequest
+    from chalk.scalinggroup.spec import (
+        AutoScalingSpec,
+        DeleteScalingGroupResponse,
+        ListScalingGroupsResponse,
+        ScalingGroup,
+        ScalingGroupResourceRequest,
+    )
 
     QueryInput = Mapping[FeatureReference, Any] | pd.DataFrame | pl.DataFrame | DataFrame
 
@@ -2480,6 +2486,52 @@ class ChalkClient:
         ...     scaling=AutoScalingSpec(min_replicas=1, max_replicas=2),
         ...     resources=ScalingGroupResourceRequest(cpu="2", memory="4Gi"),
         ... )
+        """
+        ...
+
+    def list_scaling_groups(self) -> "ListScalingGroupsResponse":
+        """List all scaling groups in the current environment.
+
+        Returns
+        -------
+        ListScalingGroupsResponse
+            Response containing a list of scaling groups.
+        """
+        ...
+
+    def get_scaling_group(self, name: Optional[str] = None, id: Optional[str] = None) -> "ScalingGroup":
+        """Get a scaling group by name or id.
+
+        Parameters
+        ----------
+        name
+            Name of the scaling group.
+        id
+            ID of the scaling group.
+
+        Returns
+        -------
+        ScalingGroup
+            The scaling group details.
+        """
+        ...
+
+    def delete_scaling_group(
+        self, name: Optional[str] = None, id: Optional[str] = None
+    ) -> "DeleteScalingGroupResponse":
+        """Delete a scaling group by name or id.
+
+        Parameters
+        ----------
+        name
+            Name of the scaling group to delete.
+        id
+            ID of the scaling group to delete.
+
+        Returns
+        -------
+        DeleteScalingGroupResponse
+            Response containing the deleted scaling group details.
         """
         ...
 

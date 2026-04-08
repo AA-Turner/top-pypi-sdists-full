@@ -114,7 +114,7 @@ async def clear_workspace(ctx: Context, yes: bool, dry_run: bool) -> None:
     for workspace in response["workspaces"]:
         if config["id"] == workspace["id"]:
             if workspace.get("is_branch"):
-                raise CLIWorkspaceException(FeedbackManager.error_not_allowed_in_branch())
+                raise CLIWorkspaceException(FeedbackManager.error_not_allowed_in_branch(cli="tb"))
                 return
             else:
                 click.echo(FeedbackManager.info_current_workspace())
@@ -297,7 +297,7 @@ async def delete_workspace(
     )
 
     if not workspace_to_delete:
-        raise CLIWorkspaceException(FeedbackManager.error_workspace(workspace=workspace_name_or_id))
+        raise CLIWorkspaceException(FeedbackManager.error_workspace(workspace=workspace_name_or_id, cli="tb"))
 
     if yes or click.confirm(
         FeedbackManager.warning_confirm_delete_workspace(workspace_name=workspace_to_delete.get("name"))

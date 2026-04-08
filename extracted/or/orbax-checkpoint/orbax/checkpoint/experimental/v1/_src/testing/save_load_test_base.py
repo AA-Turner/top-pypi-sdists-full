@@ -35,13 +35,16 @@ import optax
 from orbax.checkpoint import test_utils
 from orbax.checkpoint._src.multihost import multihost as multihost_v0
 from orbax.checkpoint._src.path import atomicity
-from orbax.checkpoint._src.serialization import serialization
+from orbax.checkpoint._src.serialization import serialization as serialization_v0
 from orbax.checkpoint._src.tree import utils as tree_utils
 import orbax.checkpoint.experimental.v1 as ocp
 from orbax.checkpoint.experimental.v1._src.handlers import registration
 from orbax.checkpoint.experimental.v1._src.layout import checkpoint_layout
 from orbax.checkpoint.experimental.v1._src.path import async_utils
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
+from orbax.checkpoint.experimental.v1._src.serialization import array_leaf_handler
+from orbax.checkpoint.experimental.v1._src.serialization import registry as serialization_registry
+from orbax.checkpoint.experimental.v1._src.serialization import types
 from orbax.checkpoint.experimental.v1._src.synchronization import multihost
 from orbax.checkpoint.experimental.v1._src.testing import array_utils as array_test_utils
 from orbax.checkpoint.experimental.v1._src.testing import handler_utils
@@ -126,16 +129,18 @@ class SaveLoadTestBase:
 
     def test_save_pytree_async(self):
       start_serialize = threading.Event()
-      original_serialize = serialization.async_serialize_from_host
+      original_serialize = serialization_v0.async_serialize_from_host
 
       def mock_serialize(*args, **kwargs):
         start_serialize.wait()  # Wait for explicit signal before proceeding.
         return original_serialize(*args, **kwargs)
 
-      # Serialization to disk does not start until receiving an explicit signal.
+      # serialization to disk does not start until receiving an explicit signal.
       self.enter_context(
           mock.patch.object(
-              serialization, 'async_serialize_from_host', new=mock_serialize
+              serialization_v0,
+              'async_serialize_from_host',
+              new=mock_serialize,
           )
       )
 
@@ -161,6 +166,61 @@ class SaveLoadTestBase:
           self.abstract_pytree,
       )
       test_utils.assert_tree_equal(self, self.pytree, restored)
+
+    @parameterized.named_parameters(
+        dict(
+            testcase_name='host_long_finalize',
+            stage_to_delay='host_finalize',
+            sleep_secs={0: 20, 1: 0},
+            expected_msg_primary=(
+                r'Timed out while waiting for finalize to complete'
+            ),
+            expected_msg_non_primary=(
+                r'Timeout waiting at barrier .*_finalize_complete'
+            ),
+        ),
+    )
+    def test_async_save_overall_timeout(
+        self,
+        stage_to_delay,
+        sleep_secs,
+        expected_msg_primary,
+        expected_msg_non_primary,
+    ):
+      timeout_secs = 10
+
+      original_finalize = ocp.handlers.PyTreeHandler._finalize
+
+      async def mock_finalize(self_handler, directory):
+        if 'finalize' in stage_to_delay:
+          await asyncio.sleep(sleep_secs.get(multihost.process_index(), 0))
+        return await original_finalize(self_handler, directory)
+
+      self.enter_context(
+          mock.patch.object(
+              ocp.handlers.PyTreeHandler,
+              '_finalize',
+              new=mock_finalize,
+          )
+      )
+
+      context = ocp.Context(
+          async_options=ocp.options.AsyncOptions(timeout_secs=timeout_secs)
+      )
+      self.enter_context(context)
+
+      start = time.time()
+      response = ocp.save_pytree_async(self.directory / 'timeout', self.pytree)
+
+      is_primary = multihost.is_primary_host(0)
+      msg = expected_msg_primary if is_primary else expected_msg_non_primary
+      with self.assertRaisesRegex(TimeoutError, msg):
+        response.result()
+
+      check_elapsed_time = False if is_primary else True
+      if check_elapsed_time:
+        elapsed = time.time() - start
+        self.assertAlmostEqual(elapsed, timeout_secs, delta=1.5)
 
     @parameterized.parameters(
         (tuple([]),),
@@ -271,6 +331,66 @@ class SaveLoadTestBase:
             ocp.load_pytree(
                 self.directory / subdir, [np.array([], dtype=np.int64)]
             ),
+        )
+
+    def test_custom_array_type(self):
+      # Set up local context with custom registry.
+      custom_registry = serialization_registry.StandardLeafHandlerRegistry()
+      custom_registry.add(
+          handler_utils.LazyArray,
+          handler_utils.AbstractLazyArray,
+          handler_utils.LazyArrayHandler,
+      )
+
+      custom_context = ocp.Context(
+          pytree_options=ocp.options.PyTreeOptions(
+              leaf_handler_registry=custom_registry
+          )
+      )
+
+      mesh = jax.sharding.Mesh(np.asarray(jax.devices()), ('devices',))
+      sharding = jax.sharding.NamedSharding(mesh, jax.sharding.PartitionSpec())
+      lazy_arr = handler_utils.LazyArray(
+          create_sharded_array(np.arange(16), sharding)
+      )
+      pytree = {'a': lazy_arr}
+
+      with custom_context:
+        ocp.save_pytree(self.directory, pytree)
+
+      # Attempt to load without context (using global default registry), which
+      # should fail
+      with self.assertRaisesRegex(ValueError, 'TypeHandler lookup failed'):
+        ocp.load_pytree(self.directory)
+
+      # Load with the custom registry context
+      with custom_context:
+        loaded = ocp.load_pytree(self.directory)
+        self.assertEqual(loaded['a'].array.shape, lazy_arr.array.shape)
+        np.testing.assert_array_equal(loaded['a'].array, lazy_arr.array)
+
+      # Load custom array directly as jax.Array by mapping secondary_typestr
+      custom_registry2 = serialization_registry.StandardLeafHandlerRegistry()
+      # Override the default jax.Array handler with LazyArray typestr,
+      # ensuring that the serialized jax.array annotated with original LazyArray
+      # typestr is loaded as a jax.Array.
+      custom_registry2.add(
+          jax.Array,
+          types.AbstractShardedArray,
+          array_leaf_handler.ArrayLeafHandler,
+          secondary_typestrs=[str(handler_utils.LazyArray)],
+          override=True,
+      )
+      custom_context2 = ocp.Context(
+          pytree_options=ocp.options.PyTreeOptions(
+              leaf_handler_registry=custom_registry2
+          )
+      )
+      with custom_context2:
+        loaded_as_jax_array = ocp.load_pytree(self.directory)
+        self.assertIsInstance(loaded_as_jax_array['a'], jax.Array)
+        np.testing.assert_array_equal(
+            loaded_as_jax_array['a'], lazy_arr.array
         )
 
     def test_empty_array(self):
@@ -540,7 +660,7 @@ class SaveLoadTestBase:
 
       with self.subTest('load_checkpointables'):
         with self.assertRaisesRegex(
-            KeyError, 'Checkpointable "foo" was not found'
+            KeyError, 'Requested checkpointables:'
         ):
           ocp.load_checkpointables(
               self.directory, {'foo': handler_utils.AbstractFoo()}
@@ -651,7 +771,9 @@ class SaveLoadTestBase:
       loaded = ocp.load_checkpointables(self.directory)
       self.assertSameElements(['two'], loaded.keys())
 
-      with self.assertRaisesRegex(KeyError, 'not found in the checkpoint'):
+      with self.assertRaisesRegex(
+          KeyError, 'Requested checkpointables:'
+      ):
         ocp.load_checkpointables(self.directory, {'one': None})
 
 
@@ -971,3 +1093,102 @@ class SaveLoadTestBase:
           ValueError, 'Directory path mismatch in multi-process save'
       ):
         ocp.save_pytree(directory, self.pytree)
+
+    def test_load_and_broadcast(self):
+      replica_count = 2
+      partition_count = jax.device_count() // replica_count
+      mesh = jax.sharding.Mesh(
+          np.asarray(jax.devices()).reshape(replica_count, partition_count),
+          ('replica', 'model'),
+      )
+      spec = jax.sharding.PartitionSpec(None, 'model')
+      sharding = jax.sharding.NamedSharding(mesh, spec)
+      arr = array_test_utils.create_sharded_array(
+          np.arange(4 * 32).reshape(4, 32), sharding
+      )
+      self.assertEqual(
+          sharding.shard_shape((4, 32)), (4, 32 // partition_count)
+      )
+      with ocp.Context(
+          array_options=ocp.options.ArrayOptions(
+              loading=ocp.options.ArrayOptions.Loading(
+                  use_load_and_broadcast=True,
+              )
+          )
+      ):
+        ocp.save_pytree(self.directory, [arr])
+        with self.subTest('with_abstract_pytree'):
+          loaded = ocp.load_pytree(
+              self.directory, [array_test_utils.as_abstract_type(arr)]
+          )
+          test_utils.assert_tree_equal(self, [arr], loaded)
+        with self.subTest('without_abstract_pytree'):
+          with self.assertRaisesRegex(
+              ValueError,
+              'Must provide `sharding` to restore with'
+              ' `SingleReplicaArrayHandler`',
+          ):
+            ocp.load_pytree(self.directory)
+
+    def test_subchunking(self):
+      self.assertEqual(jax.device_count(), 8)
+      arr = np.arange(32, dtype=np.float32)
+      sharding = jax.sharding.NamedSharding(
+          jax.sharding.Mesh(np.array(jax.devices()), ('x',)),
+          jax.sharding.PartitionSpec(
+              'x',
+          ),
+      )
+      # Size: 4 elements * 4 bytes = 16 bytes
+      self.assertEqual(sharding.shard_shape(arr.shape), (4,))
+      pytree = {
+          'a': array_test_utils.create_sharded_array(arr, sharding),
+          'b': array_test_utils.create_sharded_array(arr, sharding),
+      }
+
+      with self.subTest('global_setting'):
+        with ocp.Context(
+            array_options=ocp.options.ArrayOptions(
+                saving=ocp.options.ArrayOptions.Saving(
+                    storage_options=ocp.options.ArrayOptions.Saving.StorageOptions(
+                        chunk_byte_size=8,  # force divide in two subchunks
+                    )
+                )
+            )
+        ):
+          ocp.save_pytree(self.directory / 'global_setting', pytree)
+          metadata = ocp.pytree_metadata(
+              self.directory / 'global_setting'
+          ).metadata
+          for k in pytree:
+            self.assertEqual(metadata[k].shape, (32,))
+            self.assertEqual(metadata[k].storage_metadata.write_shape, (4,))
+            self.assertEqual(metadata[k].storage_metadata.chunk_shape, (2,))
+
+      with self.subTest('per_key_setting'):
+        def create_array_storage_options_fn(key, value):
+          del value
+          if 'a' in tree_utils.str_keypath(key):
+            return ocp.options.ArrayOptions.Saving.StorageOptions(
+                chunk_byte_size=4,  # force divide in 4 subchunks
+            )
+          return ocp.options.ArrayOptions.Saving.StorageOptions(
+              chunk_byte_size=8,  # force divide in 2 subchunks
+          )
+        with ocp.Context(
+            pytree_options=ocp.options.PyTreeOptions(
+                saving=ocp.options.PyTreeOptions.Saving(
+                    create_array_storage_options_fn=create_array_storage_options_fn
+                )
+            ),
+        ):
+          ocp.save_pytree(self.directory / 'per_key_setting', pytree)
+          metadata = ocp.pytree_metadata(
+              self.directory / 'per_key_setting'
+          ).metadata
+          self.assertEqual(metadata['a'].shape, (32,))
+          self.assertEqual(metadata['a'].storage_metadata.write_shape, (4,))
+          self.assertEqual(metadata['a'].storage_metadata.chunk_shape, (1,))
+          self.assertEqual(metadata['b'].shape, (32,))
+          self.assertEqual(metadata['b'].storage_metadata.write_shape, (4,))
+          self.assertEqual(metadata['b'].storage_metadata.chunk_shape, (2,))

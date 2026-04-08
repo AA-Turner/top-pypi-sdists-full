@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.113.14
+Version: 2.113.19
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -226,7 +226,7 @@ Requires-Dist: s3fs>=2024.2.0; extra == "mssql"
 Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "mssql"
 Requires-Dist: sqlglot<21.2.0,>=19.0.0; extra == "mssql"
 Provides-Extra: mysql
-Requires-Dist: pymysql<2,>=1.0.2; extra == "mysql"
+Requires-Dist: pymysql<2,>=1.1.1; extra == "mysql"
 Requires-Dist: aiomysql<0.4,>=0.3.0; extra == "mysql"
 Requires-Dist: adlfs; extra == "mysql"
 Requires-Dist: duckdb<1.2.0,>=0.6; extra == "mysql"
@@ -316,7 +316,7 @@ Requires-Dist: polars[timezone]!=1.0,!=1.1,!=1.10,!=1.11,!=1.12,!=1.13,!=1.14,!=
 Requires-Dist: psycopg2<3,>=2.9.4; extra == "all"
 Requires-Dist: psycopg[binary]<3.3,>=3.1.9; extra == "all"
 Requires-Dist: pydynamodb<0.9,>=0.6; extra == "all"
-Requires-Dist: pymysql<2,>=1.0.2; extra == "all"
+Requires-Dist: pymysql<2,>=1.1.1; extra == "all"
 Requires-Dist: pyodbc<6,>=4.0.0; extra == "all"
 Requires-Dist: python-json-logger<4.0.0,>=3.0.0; extra == "all"
 Requires-Dist: redshift_connector<2.2,>=2.0.909; extra == "all"

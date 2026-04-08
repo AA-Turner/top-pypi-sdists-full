@@ -1,3 +1,4 @@
+import datetime
 from http import HTTPStatus
 from typing import Any, Optional, Union
 from uuid import UUID
@@ -12,6 +13,8 @@ from ...models.error_response_403 import ErrorResponse403
 from ...models.error_response_404 import ErrorResponse404
 from ...models.list_runs_response_200 import ListRunsResponse200
 from ...models.run_status import RunStatus
+from ...models.run_status_filter import RunStatusFilter
+from ...models.script_type import ScriptType
 from ...types import UNSET, Response, Unset
 
 
@@ -20,6 +23,11 @@ def _get_kwargs(
     *,
     script_id: Union[None, UUID, Unset] = UNSET,
     status: Union[None, RunStatus, Unset] = UNSET,
+    status_filter: Union[None, RunStatusFilter, Unset] = UNSET,
+    script_type: Union[None, ScriptType, Unset] = UNSET,
+    start: Union[None, Unset, datetime.datetime] = UNSET,
+    end: Union[None, Unset, datetime.datetime] = UNSET,
+    tz: Union[Unset, str] = "UTC",
     include_system_runs: Union[Unset, bool] = False,
     limit: Union[Unset, int] = 100,
     offset: Union[Unset, int] = 0,
@@ -43,6 +51,44 @@ def _get_kwargs(
     else:
         json_status = status
     params["status"] = json_status
+
+    json_status_filter: Union[None, Unset, str]
+    if isinstance(status_filter, Unset):
+        json_status_filter = UNSET
+    elif isinstance(status_filter, RunStatusFilter):
+        json_status_filter = status_filter.value
+    else:
+        json_status_filter = status_filter
+    params["status_filter"] = json_status_filter
+
+    json_script_type: Union[None, Unset, str]
+    if isinstance(script_type, Unset):
+        json_script_type = UNSET
+    elif isinstance(script_type, ScriptType):
+        json_script_type = script_type.value
+    else:
+        json_script_type = script_type
+    params["script_type"] = json_script_type
+
+    json_start: Union[None, Unset, str]
+    if isinstance(start, Unset):
+        json_start = UNSET
+    elif isinstance(start, datetime.datetime):
+        json_start = start.isoformat()
+    else:
+        json_start = start
+    params["start"] = json_start
+
+    json_end: Union[None, Unset, str]
+    if isinstance(end, Unset):
+        json_end = UNSET
+    elif isinstance(end, datetime.datetime):
+        json_end = end.isoformat()
+    else:
+        json_end = end
+    params["end"] = json_end
+
+    params["tz"] = tz
 
     params["include_system_runs"] = include_system_runs
 
@@ -130,6 +176,11 @@ def sync_detailed(
     client: Union[AuthenticatedClient, Client],
     script_id: Union[None, UUID, Unset] = UNSET,
     status: Union[None, RunStatus, Unset] = UNSET,
+    status_filter: Union[None, RunStatusFilter, Unset] = UNSET,
+    script_type: Union[None, ScriptType, Unset] = UNSET,
+    start: Union[None, Unset, datetime.datetime] = UNSET,
+    end: Union[None, Unset, datetime.datetime] = UNSET,
+    tz: Union[Unset, str] = "UTC",
     include_system_runs: Union[Unset, bool] = False,
     limit: Union[Unset, int] = 100,
     offset: Union[Unset, int] = 0,
@@ -157,9 +208,15 @@ def sync_detailed(
         workspace_id (UUID):
         script_id (Union[None, UUID, Unset]):
         status (Union[None, RunStatus, Unset]):
+        status_filter (Union[None, RunStatusFilter, Unset]):
+        script_type (Union[None, ScriptType, Unset]):
+        start (Union[None, Unset, datetime.datetime]):
+        end (Union[None, Unset, datetime.datetime]):
+        tz (Union[Unset, str]): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
+            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
         include_system_runs (Union[Unset, bool]):  Default: False.
-        limit (Union[Unset, int]):  Default: 100.
-        offset (Union[Unset, int]):  Default: 0.
+        limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
+        offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -173,6 +230,11 @@ def sync_detailed(
         workspace_id=workspace_id,
         script_id=script_id,
         status=status,
+        status_filter=status_filter,
+        script_type=script_type,
+        start=start,
+        end=end,
+        tz=tz,
         include_system_runs=include_system_runs,
         limit=limit,
         offset=offset,
@@ -191,6 +253,11 @@ def sync(
     client: Union[AuthenticatedClient, Client],
     script_id: Union[None, UUID, Unset] = UNSET,
     status: Union[None, RunStatus, Unset] = UNSET,
+    status_filter: Union[None, RunStatusFilter, Unset] = UNSET,
+    script_type: Union[None, ScriptType, Unset] = UNSET,
+    start: Union[None, Unset, datetime.datetime] = UNSET,
+    end: Union[None, Unset, datetime.datetime] = UNSET,
+    tz: Union[Unset, str] = "UTC",
     include_system_runs: Union[Unset, bool] = False,
     limit: Union[Unset, int] = 100,
     offset: Union[Unset, int] = 0,
@@ -218,9 +285,15 @@ def sync(
         workspace_id (UUID):
         script_id (Union[None, UUID, Unset]):
         status (Union[None, RunStatus, Unset]):
+        status_filter (Union[None, RunStatusFilter, Unset]):
+        script_type (Union[None, ScriptType, Unset]):
+        start (Union[None, Unset, datetime.datetime]):
+        end (Union[None, Unset, datetime.datetime]):
+        tz (Union[Unset, str]): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
+            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
         include_system_runs (Union[Unset, bool]):  Default: False.
-        limit (Union[Unset, int]):  Default: 100.
-        offset (Union[Unset, int]):  Default: 0.
+        limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
+        offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -235,6 +308,11 @@ def sync(
         client=client,
         script_id=script_id,
         status=status,
+        status_filter=status_filter,
+        script_type=script_type,
+        start=start,
+        end=end,
+        tz=tz,
         include_system_runs=include_system_runs,
         limit=limit,
         offset=offset,
@@ -247,6 +325,11 @@ async def asyncio_detailed(
     client: Union[AuthenticatedClient, Client],
     script_id: Union[None, UUID, Unset] = UNSET,
     status: Union[None, RunStatus, Unset] = UNSET,
+    status_filter: Union[None, RunStatusFilter, Unset] = UNSET,
+    script_type: Union[None, ScriptType, Unset] = UNSET,
+    start: Union[None, Unset, datetime.datetime] = UNSET,
+    end: Union[None, Unset, datetime.datetime] = UNSET,
+    tz: Union[Unset, str] = "UTC",
     include_system_runs: Union[Unset, bool] = False,
     limit: Union[Unset, int] = 100,
     offset: Union[Unset, int] = 0,
@@ -274,9 +357,15 @@ async def asyncio_detailed(
         workspace_id (UUID):
         script_id (Union[None, UUID, Unset]):
         status (Union[None, RunStatus, Unset]):
+        status_filter (Union[None, RunStatusFilter, Unset]):
+        script_type (Union[None, ScriptType, Unset]):
+        start (Union[None, Unset, datetime.datetime]):
+        end (Union[None, Unset, datetime.datetime]):
+        tz (Union[Unset, str]): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
+            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
         include_system_runs (Union[Unset, bool]):  Default: False.
-        limit (Union[Unset, int]):  Default: 100.
-        offset (Union[Unset, int]):  Default: 0.
+        limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
+        offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -290,6 +379,11 @@ async def asyncio_detailed(
         workspace_id=workspace_id,
         script_id=script_id,
         status=status,
+        status_filter=status_filter,
+        script_type=script_type,
+        start=start,
+        end=end,
+        tz=tz,
         include_system_runs=include_system_runs,
         limit=limit,
         offset=offset,
@@ -306,6 +400,11 @@ async def asyncio(
     client: Union[AuthenticatedClient, Client],
     script_id: Union[None, UUID, Unset] = UNSET,
     status: Union[None, RunStatus, Unset] = UNSET,
+    status_filter: Union[None, RunStatusFilter, Unset] = UNSET,
+    script_type: Union[None, ScriptType, Unset] = UNSET,
+    start: Union[None, Unset, datetime.datetime] = UNSET,
+    end: Union[None, Unset, datetime.datetime] = UNSET,
+    tz: Union[Unset, str] = "UTC",
     include_system_runs: Union[Unset, bool] = False,
     limit: Union[Unset, int] = 100,
     offset: Union[Unset, int] = 0,
@@ -333,9 +432,15 @@ async def asyncio(
         workspace_id (UUID):
         script_id (Union[None, UUID, Unset]):
         status (Union[None, RunStatus, Unset]):
+        status_filter (Union[None, RunStatusFilter, Unset]):
+        script_type (Union[None, ScriptType, Unset]):
+        start (Union[None, Unset, datetime.datetime]):
+        end (Union[None, Unset, datetime.datetime]):
+        tz (Union[Unset, str]): IANA timezone name (e.g. 'Europe/Berlin', 'America/New_York',
+            'UTC'). Used for bucket alignment and interpreting `start`/`end`. Default: 'UTC'.
         include_system_runs (Union[Unset, bool]):  Default: False.
-        limit (Union[Unset, int]):  Default: 100.
-        offset (Union[Unset, int]):  Default: 0.
+        limit (Union[Unset, int]): Maximum number of items to return. Default: 100.
+        offset (Union[Unset, int]): Number of items to skip. Default: 0.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -351,6 +456,11 @@ async def asyncio(
             client=client,
             script_id=script_id,
             status=status,
+            status_filter=status_filter,
+            script_type=script_type,
+            start=start,
+            end=end,
+            tz=tz,
             include_system_runs=include_system_runs,
             limit=limit,
             offset=offset,

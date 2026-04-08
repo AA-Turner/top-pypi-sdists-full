@@ -26,10 +26,12 @@ from aiobotocore.response import StreamingBody
 
 from .literals import (
     AutomationStreamStatusType,
+    BrowserEnterprisePolicyTypeType,
     BrowserSessionStatusType,
     CodeInterpreterSessionStatusType,
     CommandExecutionStatusType,
     ContentBlockTypeType,
+    LanguageRuntimeType,
     MemoryRecordStatusType,
     Oauth2FlowTypeType,
     OperatorTypeType,
@@ -63,10 +65,13 @@ __all__ = (
     "BlobTypeDef",
     "BranchFilterTypeDef",
     "BranchTypeDef",
+    "BrowserEnterprisePolicyTypeDef",
     "BrowserExtensionTypeDef",
     "BrowserProfileConfigurationTypeDef",
     "BrowserSessionStreamTypeDef",
     "BrowserSessionSummaryTypeDef",
+    "CertificateLocationTypeDef",
+    "CertificateTypeDef",
     "CodeInterpreterResultTypeDef",
     "CodeInterpreterSessionSummaryTypeDef",
     "CodeInterpreterStreamOutputTypeDef",
@@ -86,7 +91,10 @@ __all__ = (
     "DeleteMemoryRecordOutputTypeDef",
     "EvaluateRequestTypeDef",
     "EvaluateResponseTypeDef",
+    "EvaluationContentTypeDef",
+    "EvaluationExpectedTrajectoryTypeDef",
     "EvaluationInputTypeDef",
+    "EvaluationReferenceInputTypeDef",
     "EvaluationResultContentTypeDef",
     "EvaluationTargetTypeDef",
     "EventMetadataFilterExpressionTypeDef",
@@ -185,7 +193,9 @@ __all__ = (
     "SaveBrowserSessionProfileRequestTypeDef",
     "SaveBrowserSessionProfileResponseTypeDef",
     "SearchCriteriaTypeDef",
+    "SecretsManagerLocationTypeDef",
     "ServiceQuotaExceededExceptionTypeDef",
+    "SessionFilterTypeDef",
     "SessionSummaryTypeDef",
     "SpanContextTypeDef",
     "StartBrowserSessionRequestTypeDef",
@@ -284,6 +294,10 @@ class BrowserSessionSummaryTypeDef(TypedDict):
     createdAt: datetime
     name: NotRequired[str]
     lastUpdatedAt: NotRequired[datetime]
+
+
+class SecretsManagerLocationTypeDef(TypedDict):
+    secretArn: str
 
 
 class ToolResultStructuredContentTypeDef(TypedDict):
@@ -387,6 +401,14 @@ class EvaluationInputTypeDef(TypedDict):
 class EvaluationTargetTypeDef(TypedDict):
     spanIds: NotRequired[Sequence[str]]
     traceIds: NotRequired[Sequence[str]]
+
+
+class EvaluationContentTypeDef(TypedDict):
+    text: NotRequired[str]
+
+
+class EvaluationExpectedTrajectoryTypeDef(TypedDict):
+    toolNames: NotRequired[Sequence[str]]
 
 
 class TokenUsageTypeDef(TypedDict):
@@ -522,11 +544,8 @@ class ListMemoryRecordsInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class ListSessionsInputTypeDef(TypedDict):
-    memoryId: str
-    actorId: str
-    maxResults: NotRequired[int]
-    nextToken: NotRequired[str]
+class SessionFilterTypeDef(TypedDict):
+    eventFilter: NotRequired[Literal["HAS_EVENTS"]]
 
 
 class SessionSummaryTypeDef(TypedDict):
@@ -559,15 +578,6 @@ class SaveBrowserSessionProfileRequestTypeDef(TypedDict):
     sessionId: str
     traceId: NotRequired[str]
     traceParent: NotRequired[str]
-    clientToken: NotRequired[str]
-
-
-class StartCodeInterpreterSessionRequestTypeDef(TypedDict):
-    codeInterpreterIdentifier: str
-    traceId: NotRequired[str]
-    traceParent: NotRequired[str]
-    name: NotRequired[str]
-    sessionTimeoutSeconds: NotRequired[int]
     clientToken: NotRequired[str]
 
 
@@ -639,16 +649,6 @@ class GetAgentCardResponseTypeDef(TypedDict):
     runtimeSessionId: str
     agentCard: dict[str, Any]
     statusCode: int
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetCodeInterpreterSessionResponseTypeDef(TypedDict):
-    codeInterpreterIdentifier: str
-    sessionId: str
-    name: str
-    createdAt: datetime
-    sessionTimeoutSeconds: int
-    status: CodeInterpreterSessionStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -779,6 +779,10 @@ class ListBrowserSessionsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class CertificateLocationTypeDef(TypedDict):
+    secretsManager: NotRequired[SecretsManagerLocationTypeDef]
+
+
 class ListCodeInterpreterSessionsResponseTypeDef(TypedDict):
     items: list[CodeInterpreterSessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -823,12 +827,6 @@ class ContextTypeDef(TypedDict):
 
 class RightExpressionTypeDef(TypedDict):
     metadataValue: NotRequired[MetadataValueTypeDef]
-
-
-class EvaluateRequestTypeDef(TypedDict):
-    evaluatorId: str
-    evaluationInput: EvaluationInputTypeDef
-    evaluationTarget: NotRequired[EvaluationTargetTypeDef]
 
 
 ListMemoryExtractionJobsInputTypeDef = TypedDict(
@@ -888,10 +886,25 @@ class ListMemoryRecordsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
-class ListSessionsInputPaginateTypeDef(TypedDict):
-    memoryId: str
-    actorId: str
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+ListSessionsInputPaginateTypeDef = TypedDict(
+    "ListSessionsInputPaginateTypeDef",
+    {
+        "memoryId": str,
+        "actorId": str,
+        "filter": NotRequired[SessionFilterTypeDef],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+ListSessionsInputTypeDef = TypedDict(
+    "ListSessionsInputTypeDef",
+    {
+        "memoryId": str,
+        "actorId": str,
+        "maxResults": NotRequired[int],
+        "nextToken": NotRequired[str],
+        "filter": NotRequired[SessionFilterTypeDef],
+    },
+)
 
 
 class ListSessionsOutputTypeDef(TypedDict):
@@ -976,6 +989,7 @@ class ToolArgumentsTypeDef(TypedDict):
     content: NotRequired[Sequence[InputContentBlockTypeDef]]
     directoryPath: NotRequired[str]
     taskId: NotRequired[str]
+    runtime: NotRequired[LanguageRuntimeType]
 
 
 class StartBrowserSessionResponseTypeDef(TypedDict):
@@ -994,6 +1008,10 @@ class UpdateBrowserStreamResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CertificateTypeDef(TypedDict):
+    location: CertificateLocationTypeDef
+
+
 class CodeInterpreterResultTypeDef(TypedDict):
     content: list[ContentBlockTypeDef]
     structuredContent: NotRequired[ToolResultStructuredContentTypeDef]
@@ -1010,6 +1028,13 @@ class PayloadTypeTypeDef(TypedDict):
     blob: NotRequired[Mapping[str, Any]]
 
 
+class EvaluationReferenceInputTypeDef(TypedDict):
+    context: ContextTypeDef
+    expectedResponse: NotRequired[EvaluationContentTypeDef]
+    assertions: NotRequired[Sequence[EvaluationContentTypeDef]]
+    expectedTrajectory: NotRequired[EvaluationExpectedTrajectoryTypeDef]
+
+
 class EvaluationResultContentTypeDef(TypedDict):
     evaluatorArn: str
     evaluatorId: str
@@ -1021,6 +1046,7 @@ class EvaluationResultContentTypeDef(TypedDict):
     tokenUsage: NotRequired[TokenUsageTypeDef]
     errorMessage: NotRequired[str]
     errorCode: NotRequired[str]
+    ignoredReferenceInputFields: NotRequired[list[str]]
 
 
 EventMetadataFilterExpressionTypeDef = TypedDict(
@@ -1079,6 +1105,15 @@ class BatchUpdateMemoryRecordsInputTypeDef(TypedDict):
     records: Sequence[MemoryRecordUpdateInputTypeDef]
 
 
+BrowserEnterprisePolicyTypeDef = TypedDict(
+    "BrowserEnterprisePolicyTypeDef",
+    {
+        "location": ResourceLocationTypeDef,
+        "type": NotRequired[BrowserEnterprisePolicyTypeType],
+    },
+)
+
+
 class BrowserExtensionTypeDef(TypedDict):
     location: ResourceLocationTypeDef
 
@@ -1111,6 +1146,27 @@ class InvokeCodeInterpreterRequestTypeDef(TypedDict):
     arguments: NotRequired[ToolArgumentsTypeDef]
 
 
+class GetCodeInterpreterSessionResponseTypeDef(TypedDict):
+    codeInterpreterIdentifier: str
+    sessionId: str
+    name: str
+    createdAt: datetime
+    sessionTimeoutSeconds: int
+    status: CodeInterpreterSessionStatusType
+    certificates: list[CertificateTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartCodeInterpreterSessionRequestTypeDef(TypedDict):
+    codeInterpreterIdentifier: str
+    traceId: NotRequired[str]
+    traceParent: NotRequired[str]
+    name: NotRequired[str]
+    sessionTimeoutSeconds: NotRequired[int]
+    certificates: NotRequired[Sequence[CertificateTypeDef]]
+    clientToken: NotRequired[str]
+
+
 class CodeInterpreterStreamOutputTypeDef(TypedDict):
     result: NotRequired[CodeInterpreterResultTypeDef]
     accessDeniedException: NotRequired[AccessDeniedExceptionTypeDef]
@@ -1134,6 +1190,13 @@ class EventTypeDef(TypedDict):
 
 
 PayloadTypeUnionTypeDef = Union[PayloadTypeTypeDef, PayloadTypeOutputTypeDef]
+
+
+class EvaluateRequestTypeDef(TypedDict):
+    evaluatorId: str
+    evaluationInput: EvaluationInputTypeDef
+    evaluationTarget: NotRequired[EvaluationTargetTypeDef]
+    evaluationReferenceInputs: NotRequired[Sequence[EvaluationReferenceInputTypeDef]]
 
 
 class EvaluateResponseTypeDef(TypedDict):
@@ -1261,11 +1324,13 @@ class GetBrowserSessionResponseTypeDef(TypedDict):
     createdAt: datetime
     viewPort: ViewPortTypeDef
     extensions: list[BrowserExtensionTypeDef]
+    enterprisePolicies: list[BrowserEnterprisePolicyTypeDef]
     profileConfiguration: BrowserProfileConfigurationTypeDef
     sessionTimeoutSeconds: int
     status: BrowserSessionStatusType
     streams: BrowserSessionStreamTypeDef
     proxyConfiguration: ProxyConfigurationOutputTypeDef
+    certificates: list[CertificateTypeDef]
     sessionReplayArtifact: str
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1284,4 +1349,6 @@ class StartBrowserSessionRequestTypeDef(TypedDict):
     extensions: NotRequired[Sequence[BrowserExtensionTypeDef]]
     profileConfiguration: NotRequired[BrowserProfileConfigurationTypeDef]
     proxyConfiguration: NotRequired[ProxyConfigurationUnionTypeDef]
+    enterprisePolicies: NotRequired[Sequence[BrowserEnterprisePolicyTypeDef]]
+    certificates: NotRequired[Sequence[CertificateTypeDef]]
     clientToken: NotRequired[str]

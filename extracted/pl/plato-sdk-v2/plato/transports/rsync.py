@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from plato.transports.base import Transport
 
 if TYPE_CHECKING:
+    from plato.agents.mounts import AgentWorkspaceMount
     from plato.v2.async_.environment import Environment
 
 logger = logging.getLogger(__name__)
@@ -113,18 +114,22 @@ class RsyncTransport(Transport):
         self.path = path
         self.ssh_key_path = ssh_key_path
         self.mount_path = mount_path
-        self.configure_workspace(name=None, repo_root=None, tracked=False)
-        self.configure_audit_scope(audit_run_id=None, audit_key=None)
 
     async def initialize(self) -> None:
         pass
 
-    async def setup_agent(self, agent_env: Environment, hostname: str) -> None:
+    async def setup_agent(
+        self,
+        agent_env: Environment | None,
+        hostname: str,
+        mount: AgentWorkspaceMount,
+    ) -> None:
         workspace_path = Path(self.path)
         if not workspace_path.exists():
             logger.debug(f"Workspace path {self.path} does not exist, skipping rsync")
             return
-        remote = self.agent_mount_path
+        del agent_env
+        remote = mount.agent_path
         logger.debug(f"Syncing workspace: {self.path} -> {remote}")
         await rsync_to(
             self.ssh_key_path,
@@ -134,9 +139,15 @@ class RsyncTransport(Transport):
             chown=None,
         )
 
-    async def sync_back(self, agent_env: Environment, hostname: str) -> None:
+    async def sync_back(
+        self,
+        agent_env: Environment | None,
+        hostname: str,
+        mount: AgentWorkspaceMount,
+    ) -> None:
         workspace_path = Path(self.path)
-        remote = self.agent_mount_path
+        del agent_env
+        remote = mount.agent_path
         logger.debug(f"Syncing workspace back: {remote} -> {self.path}")
         await rsync_from(
             self.ssh_key_path,
@@ -149,14 +160,4 @@ class RsyncTransport(Transport):
         sub_mount = None
         if self.mount_path and path.startswith(self.path + "/"):
             sub_mount = self.mount_path + path[len(self.path) :]
-        transport = RsyncTransport(path, self.ssh_key_path, sub_mount)
-        transport.configure_workspace(
-            name=self.workspace_name,
-            repo_root=self.workspace_repo_root,
-            tracked=self.workspace_tracked,
-        )
-        transport.configure_audit_scope(
-            audit_run_id=self.audit_run_id,
-            audit_key=self.audit_key,
-        )
-        return transport
+        return RsyncTransport(path, self.ssh_key_path, sub_mount)

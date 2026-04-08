@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from plato.v2.async_.artifact import AsyncArtifactManager
 from plato.v2.async_.session import Session
+from plato.v2.async_.testcase import AsyncTestcaseManager
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
 
 load_dotenv()
@@ -115,6 +116,8 @@ class AsyncSessionManager:
             raise ValueError("Must specify exactly one of: envs, testcase, or artifacts")
 
         if not wait:
+            if connect_network:
+                await session.connect_network()
             return session
 
         if connect_network:
@@ -187,6 +190,7 @@ class AsyncPlato:
 
         self.sessions = AsyncSessionManager(self._http, self.api_key)
         self.artifacts = AsyncArtifactManager(self._http, self.api_key)
+        self.testcases = AsyncTestcaseManager(self._http, self.api_key)
 
     async def close(self) -> None:
         """Close the underlying HTTP client."""

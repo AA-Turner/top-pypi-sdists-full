@@ -1,19 +1,62 @@
 Metadata-Version: 2.4
 Name: strawberry-graphql
-Version: 0.313.0
+Version: 0.314.0
 Summary: A library for creating GraphQL APIs
-License: MIT
-License-File: LICENSE
 Keywords: graphql,api,rest,starlette,async
 Author: Patrick Arminio
-Author-email: patrick.arminio@gmail.com
-Requires-Python: >=3.10,<4.0
+Author-email: Patrick Arminio <patrick.arminio@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: License :: OSI Approved :: MIT License
+Requires-Dist: graphql-core>=3.2.0,<3.4.0
+Requires-Dist: typing-extensions>=4.5.0
+Requires-Dist: python-dateutil>=2.7
+Requires-Dist: packaging>=23
+Requires-Dist: cross-web>=0.4.0
+Requires-Dist: aiohttp>=3.7.4.post0,<4 ; extra == 'aiohttp'
+Requires-Dist: protobuf>=3.20 ; extra == 'apollo-federation'
+Requires-Dist: starlette>=0.18.0 ; extra == 'asgi'
+Requires-Dist: python-multipart>=0.0.7 ; extra == 'asgi'
+Requires-Dist: chalice>=1.22 ; extra == 'chalice'
+Requires-Dist: channels>=3.0.5 ; extra == 'channels'
+Requires-Dist: asgiref>=3.2 ; extra == 'channels'
+Requires-Dist: typer>=0.12.4 ; extra == 'cli'
+Requires-Dist: pygments>=2.3 ; extra == 'cli'
+Requires-Dist: rich>=12.0.0 ; extra == 'cli'
+Requires-Dist: libcst ; extra == 'cli'
+Requires-Dist: starlette>=0.18.0 ; extra == 'cli'
+Requires-Dist: uvicorn>=0.11.6 ; extra == 'cli'
+Requires-Dist: websockets>=15.0.1,<16 ; extra == 'cli'
+Requires-Dist: python-multipart>=0.0.7 ; extra == 'cli'
+Requires-Dist: rich>=12.0.0 ; extra == 'debug'
+Requires-Dist: libcst ; extra == 'debug'
+Requires-Dist: django>=3.2 ; extra == 'django'
+Requires-Dist: asgiref>=3.2 ; extra == 'django'
+Requires-Dist: fastapi>=0.65.2 ; extra == 'fastapi'
+Requires-Dist: python-multipart>=0.0.7 ; extra == 'fastapi'
+Requires-Dist: flask>=1.1 ; extra == 'flask'
+Requires-Dist: litestar>=2 ; python_full_version >= '3.10' and python_full_version < '4' and extra == 'litestar'
+Requires-Dist: opentelemetry-api<2 ; extra == 'opentelemetry'
+Requires-Dist: opentelemetry-sdk<2 ; extra == 'opentelemetry'
+Requires-Dist: pydantic>1.6.1 ; extra == 'pydantic'
+Requires-Dist: pyinstrument>=4.0.0 ; extra == 'pyinstrument'
+Requires-Dist: quart>=0.19.3 ; extra == 'quart'
+Requires-Dist: sanic>=20.12.2 ; extra == 'sanic'
+Requires-Python: >=3.10, <4.0
+Project-URL: homepage, https://strawberry.rocks/
+Project-URL: repository, https://github.com/strawberry-graphql/strawberry
+Project-URL: documentation, https://strawberry.rocks/
+Project-URL: Changelog, https://strawberry.rocks/changelog
+Project-URL: Discord, https://discord.com/invite/3uQ2PaY
+Project-URL: Twitter, https://twitter.com/strawberry_gql
+Project-URL: Mastodon, https://farbun.social/@strawberry
+Project-URL: Sponsor on GitHub, https://github.com/sponsors/strawberry-graphql
+Project-URL: Sponsor on Open Collective, https://opencollective.com/strawberry-graphql
 Provides-Extra: aiohttp
+Provides-Extra: apollo-federation
 Provides-Extra: asgi
 Provides-Extra: chalice
 Provides-Extra: channels
@@ -28,48 +71,6 @@ Provides-Extra: pydantic
 Provides-Extra: pyinstrument
 Provides-Extra: quart
 Provides-Extra: sanic
-Requires-Dist: Django (>=3.2) ; extra == "django"
-Requires-Dist: aiohttp (>=3.7.4.post0,<4) ; extra == "aiohttp"
-Requires-Dist: asgiref (>=3.2) ; extra == "channels"
-Requires-Dist: asgiref (>=3.2) ; extra == "django"
-Requires-Dist: chalice (>=1.22) ; extra == "chalice"
-Requires-Dist: channels (>=3.0.5) ; extra == "channels"
-Requires-Dist: cross-web (>=0.4.0)
-Requires-Dist: fastapi (>=0.65.2) ; extra == "fastapi"
-Requires-Dist: flask (>=1.1) ; extra == "flask"
-Requires-Dist: graphql-core (>=3.2.0,<3.4.0)
-Requires-Dist: libcst ; extra == "cli"
-Requires-Dist: libcst ; extra == "debug"
-Requires-Dist: litestar (>=2) ; (python_version ~= "3.10") and (extra == "litestar")
-Requires-Dist: opentelemetry-api (<2) ; extra == "opentelemetry"
-Requires-Dist: opentelemetry-sdk (<2) ; extra == "opentelemetry"
-Requires-Dist: packaging (>=23)
-Requires-Dist: pydantic (>1.6.1) ; extra == "pydantic"
-Requires-Dist: pygments (>=2.3) ; extra == "cli"
-Requires-Dist: pyinstrument (>=4.0.0) ; extra == "pyinstrument"
-Requires-Dist: python-dateutil (>=2.7)
-Requires-Dist: python-multipart (>=0.0.7) ; extra == "asgi"
-Requires-Dist: python-multipart (>=0.0.7) ; extra == "cli"
-Requires-Dist: python-multipart (>=0.0.7) ; extra == "fastapi"
-Requires-Dist: quart (>=0.19.3) ; extra == "quart"
-Requires-Dist: rich (>=12.0.0) ; extra == "cli"
-Requires-Dist: rich (>=12.0.0) ; extra == "debug"
-Requires-Dist: sanic (>=20.12.2) ; extra == "sanic"
-Requires-Dist: starlette (>=0.18.0) ; extra == "asgi"
-Requires-Dist: starlette (>=0.18.0) ; extra == "cli"
-Requires-Dist: typer (>=0.12.4) ; extra == "cli"
-Requires-Dist: typing-extensions (>=4.5.0)
-Requires-Dist: uvicorn (>=0.11.6) ; extra == "cli"
-Requires-Dist: websockets (>=15.0.1,<16) ; extra == "cli"
-Project-URL: Changelog, https://strawberry.rocks/changelog
-Project-URL: Documentation, https://strawberry.rocks/
-Project-URL: Discord, https://discord.com/invite/3uQ2PaY
-Project-URL: Homepage, https://strawberry.rocks/
-Project-URL: Mastodon, https://farbun.social/@strawberry
-Project-URL: Repository, https://github.com/strawberry-graphql/strawberry
-Project-URL: Sponsor on GitHub, https://github.com/sponsors/strawberry-graphql
-Project-URL: Sponsor on Open Collective, https://opencollective.com/strawberry-graphql
-Project-URL: Twitter, https://twitter.com/strawberry_gql
 Description-Content-Type: text/markdown
 
 <img src="https://github.com/strawberry-graphql/strawberry/raw/main/.github/logo.png" width="124" height="150">
@@ -174,14 +175,14 @@ urlpatterns = [
 
 ## Contributing
 
-We use [poetry](https://github.com/sdispater/poetry) to manage dependencies, to
+We use [uv](https://docs.astral.sh/uv) to manage dependencies, to
 get started follow these steps:
 
 ```shell
 git clone https://github.com/strawberry-graphql/strawberry
 cd strawberry
-poetry install
-poetry run pytest
+uv sync
+uv run pytest
 ```
 
 For all further detail, check out the [Contributing Page](CONTRIBUTING.md)
@@ -212,4 +213,3 @@ The code in this project is licensed under MIT license. See [LICENSE](./LICENSE)
 for more information.
 
 ![Recent Activity](https://images.repography.com/0/strawberry-graphql/strawberry/recent-activity/d751713988987e9331980363e24189ce.svg)
-

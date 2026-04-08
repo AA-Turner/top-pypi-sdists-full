@@ -6,7 +6,6 @@ The AI calls this tool to answer self-awareness questions like
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
@@ -227,45 +226,40 @@ def _gather_budget(
     instructions_info: dict[str, Any] | None,
     config: Any | None,
 ) -> dict[str, Any]:
-    """Estimate token budget consumed before conversation starts."""
-    result: dict[str, Any] = {}
+    """Estimate token budget consumed before conversation starts.
 
-    # Tool definitions
-    if tools_openai:
-        tool_tokens = 0
-        for tool in tools_openai:
-            func = tool.get("function", {})
-            serialized = json.dumps(func, separators=(",", ":"))
-            tool_tokens += _estimate_tokens(serialized)
-        result["tool_definitions"] = {
-            "count": len(tools_openai),
-            "estimated_tokens": tool_tokens,
-        }
-    else:
-        result["tool_definitions"] = {"count": 0, "estimated_tokens": 0}
+    Uses the shared ``estimate_request_tokens`` function (#1339) for
+    consistent accounting with the CLI/web preflight checks.
+    """
+    from ..services.token_estimator import estimate_request_tokens
 
-    # Instructions
+    system_prompt = ""
+    if config and hasattr(config, "ai"):
+        system_prompt = getattr(config.ai, "system_prompt", "") or ""
+
+    breakdown = estimate_request_tokens(
+        messages=[],
+        system_prompt=system_prompt,
+        tool_schemas=tools_openai,
+    )
+
     instruction_tokens = 0
     if instructions_info:
         instruction_tokens = instructions_info.get("total_tokens", 0)
-    result["instructions"] = {"estimated_tokens": instruction_tokens}
 
-    # System prompt
-    system_prompt_tokens = 0
-    if config and hasattr(config, "ai"):
-        sp = getattr(config.ai, "system_prompt", "")
-        if sp:
-            system_prompt_tokens = _estimate_tokens(sp)
-    result["system_prompt"] = {"estimated_tokens": system_prompt_tokens}
+    result: dict[str, Any] = {
+        "tool_definitions": {
+            "count": len(tools_openai) if tools_openai else 0,
+            "estimated_tokens": breakdown.tool_schema_tokens,
+        },
+        "instructions": {"estimated_tokens": instruction_tokens},
+        "system_prompt": {"estimated_tokens": breakdown.system_prompt_tokens},
+    }
 
-    # Total fixed cost
-    total = result["tool_definitions"]["estimated_tokens"] + instruction_tokens + system_prompt_tokens
+    total = breakdown.tool_schema_tokens + instruction_tokens + breakdown.system_prompt_tokens
     result["total_fixed_tokens"] = total
 
-    # Context window percentage
-    context_window = 128000  # default
-    if config and hasattr(config, "cli"):
-        context_window = getattr(config.cli, "model_context_window", 128000) or 128000
+    context_window = getattr(getattr(config, "cli", None), "model_context_window", 128000) or 128000
     result["context_window"] = context_window
     result["percentage_used"] = round((total / context_window) * 100, 1) if context_window else 0
 

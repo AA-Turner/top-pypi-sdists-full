@@ -11,7 +11,7 @@ from tinybird.tb.modules.cli import (
 )
 from tinybird.tb.modules.common import _get_tb_client
 from tinybird.tb.modules.deployment_common import create_deployment
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.project import Project
 
 
@@ -103,7 +103,7 @@ def preview(ctx: click.Context, dry_run: bool, check: bool, name: Optional[str])
     if cloud_source == ParameterSource.COMMANDLINE and parent_ctx and parent_ctx.params.get("cloud") is False:
         raise click.ClickException(
             FeedbackManager.error(
-                message="`tb preview` does not support `--local`. Preview always deploys to a cloud branch."
+                message=f"`{get_cli_name()} preview` does not support `--local`. Preview always deploys to a cloud branch."
             )
         )
 

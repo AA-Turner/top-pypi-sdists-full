@@ -4718,13 +4718,13 @@ class NodePackage(
         :param bin: (experimental) Binary programs vended with your module. You can use this option to add/customize how binaries are represented in your ``package.json``, but unless ``autoDetectBin`` is ``false``, every executable file under ``bin`` will automatically be added to this section.
         :param bugs_email: (experimental) The email address to which issues should be reported.
         :param bugs_url: (experimental) The url to your project's issue tracker.
-        :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include.
+        :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
-        :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
+        :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
         :param description: (experimental) The description is just a string that helps people understand the purpose of the package. It can be used when searching for packages in a package manager as well. See https://classic.yarnpkg.com/en/docs/package-json/#toc-description
-        :param dev_deps: (experimental) Build dependencies for this module. These dependencies will only be available in your build environment but will not be fetched when this module is consumed. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
+        :param dev_deps: (experimental) Build dependencies for this module. These dependencies will only be available in your build environment but will not be fetched when this module is consumed. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
         :param dev_engines: (experimental) Configure the ``devEngines`` field in ``package.json``. The ``devEngines.packageManager`` field is automatically populated based on the resolved ``packageManager`` value. Any fields provided here are merged with the auto-populated ``packageManager`` entry.
         :param entrypoint: (experimental) Module entrypoint (``main`` in ``package.json``). Set to an empty string to not include ``main`` in your package.json Default: "lib/index.js"
         :param homepage: (experimental) Package's Homepage / Website.
@@ -4838,7 +4838,7 @@ class NodePackage(
         Bundled dependencies will be added as normal dependencies as well as to the
         ``bundledDependencies`` section of your ``package.json``.
 
-        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``npx projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``yarn add/upgrade``. If you wish to specify a version range use this syntax: ``module@^7``.
+        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``pnpm projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``pnpm add/update``. If you wish to specify a version range use this syntax: ``module@^7``.
 
         :stability: experimental
         '''
@@ -4851,7 +4851,7 @@ class NodePackage(
     def add_deps(self, *deps: builtins.str) -> None:
         '''(experimental) Defines normal dependencies.
 
-        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``npx projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``yarn add/upgrade``. If you wish to specify a version range use this syntax: ``module@^7``.
+        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``pnpm projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``pnpm add/update``. If you wish to specify a version range use this syntax: ``module@^7``.
 
         :stability: experimental
         '''
@@ -4864,7 +4864,7 @@ class NodePackage(
     def add_dev_deps(self, *deps: builtins.str) -> None:
         '''(experimental) Defines development/test dependencies.
 
-        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``npx projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``yarn add/upgrade``. If you wish to specify a version range use this syntax: ``module@^7``.
+        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``pnpm projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``pnpm add/update``. If you wish to specify a version range use this syntax: ``module@^7``.
 
         :stability: experimental
         '''
@@ -4938,7 +4938,7 @@ class NodePackage(
         pinned version of the declared peer. This will ensure that you are testing
         your code against the minimum version required from your consumers.
 
-        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``npx projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``yarn add/upgrade``. If you wish to specify a version range use this syntax: ``module@^7``.
+        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``pnpm projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``pnpm add/update``. If you wish to specify a version range use this syntax: ``module@^7``.
 
         :stability: experimental
         '''
@@ -5073,7 +5073,7 @@ class NodePackage(
     @builtins.property
     @jsii.member(jsii_name="installAndUpdateLockfileCommand")
     def install_and_update_lockfile_command(self) -> builtins.str:
-        '''(experimental) Renders ``yarn install`` or ``npm install`` with lockfile update (not frozen).
+        '''(experimental) Renders ``pnpm install`` or ``npm install`` with lockfile update (not frozen).
 
         :stability: experimental
         '''
@@ -5431,13 +5431,13 @@ class NodePackageOptions:
         :param bin: (experimental) Binary programs vended with your module. You can use this option to add/customize how binaries are represented in your ``package.json``, but unless ``autoDetectBin`` is ``false``, every executable file under ``bin`` will automatically be added to this section.
         :param bugs_email: (experimental) The email address to which issues should be reported.
         :param bugs_url: (experimental) The url to your project's issue tracker.
-        :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include.
+        :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
-        :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
+        :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
         :param description: (experimental) The description is just a string that helps people understand the purpose of the package. It can be used when searching for packages in a package manager as well. See https://classic.yarnpkg.com/en/docs/package-json/#toc-description
-        :param dev_deps: (experimental) Build dependencies for this module. These dependencies will only be available in your build environment but will not be fetched when this module is consumed. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
+        :param dev_deps: (experimental) Build dependencies for this module. These dependencies will only be available in your build environment but will not be fetched when this module is consumed. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
         :param dev_engines: (experimental) Configure the ``devEngines`` field in ``package.json``. The ``devEngines.packageManager`` field is automatically populated based on the resolved ``packageManager`` value. Any fields provided here are merged with the auto-populated ``packageManager`` entry.
         :param entrypoint: (experimental) Module entrypoint (``main`` in ``package.json``). Set to an empty string to not include ``main`` in your package.json Default: "lib/index.js"
         :param homepage: (experimental) Package's Homepage / Website.
@@ -5716,11 +5716,11 @@ class NodePackageOptions:
         your ``package.json``.
 
         The recommendation is to only specify the module name here (e.g.
-        ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the
+        ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the
         sense that it will add the module as a dependency to your ``package.json``
         file with the latest version (``^``). You can specify semver requirements in
-        the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and
-        this will be what you ``package.json`` will eventually include.
+        the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and
+        this will be what your ``package.json`` will eventually include.
 
         :stability: experimental
         '''
@@ -5772,11 +5772,11 @@ class NodePackageOptions:
         '''(experimental) Runtime dependencies of this module.
 
         The recommendation is to only specify the module name here (e.g.
-        ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the
+        ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the
         sense that it will add the module as a dependency to your ``package.json``
         file with the latest version (``^``). You can specify semver requirements in
-        the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and
-        this will be what you ``package.json`` will eventually include.
+        the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and
+        this will be what your ``package.json`` will eventually include.
 
         :default: []
 
@@ -5812,11 +5812,11 @@ class NodePackageOptions:
         module is consumed.
 
         The recommendation is to only specify the module name here (e.g.
-        ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the
+        ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the
         sense that it will add the module as a dependency to your ``package.json``
         file with the latest version (``^``). You can specify semver requirements in
-        the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and
-        this will be what you ``package.json`` will eventually include.
+        the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and
+        this will be what your ``package.json`` will eventually include.
 
         :default: []
 
@@ -6397,13 +6397,13 @@ class NodeProject(
         :param bin: (experimental) Binary programs vended with your module. You can use this option to add/customize how binaries are represented in your ``package.json``, but unless ``autoDetectBin`` is ``false``, every executable file under ``bin`` will automatically be added to this section.
         :param bugs_email: (experimental) The email address to which issues should be reported.
         :param bugs_url: (experimental) The url to your project's issue tracker.
-        :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include.
+        :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
-        :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
+        :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
         :param description: (experimental) The description is just a string that helps people understand the purpose of the package. It can be used when searching for packages in a package manager as well. See https://classic.yarnpkg.com/en/docs/package-json/#toc-description
-        :param dev_deps: (experimental) Build dependencies for this module. These dependencies will only be available in your build environment but will not be fetched when this module is consumed. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
+        :param dev_deps: (experimental) Build dependencies for this module. These dependencies will only be available in your build environment but will not be fetched when this module is consumed. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
         :param dev_engines: (experimental) Configure the ``devEngines`` field in ``package.json``. The ``devEngines.packageManager`` field is automatically populated based on the resolved ``packageManager`` value. Any fields provided here are merged with the auto-populated ``packageManager`` entry.
         :param entrypoint: (experimental) Module entrypoint (``main`` in ``package.json``). Set to an empty string to not include ``main`` in your package.json Default: "lib/index.js"
         :param homepage: (experimental) Package's Homepage / Website.
@@ -6636,7 +6636,7 @@ class NodeProject(
         Bundled dependencies will be added as normal dependencies as well as to the
         ``bundledDependencies`` section of your ``package.json``.
 
-        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``npx projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``yarn add/upgrade``. If you wish to specify a version range use this syntax: ``module@^7``.
+        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``pnpm projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``pnpm add/update``. If you wish to specify a version range use this syntax: ``module@^7``.
 
         :stability: experimental
         '''
@@ -6664,7 +6664,7 @@ class NodeProject(
     def add_deps(self, *deps: builtins.str) -> None:
         '''(experimental) Defines normal dependencies.
 
-        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``npx projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``yarn add/upgrade``. If you wish to specify a version range use this syntax: ``module@^7``.
+        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``pnpm projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``pnpm add/update``. If you wish to specify a version range use this syntax: ``module@^7``.
 
         :stability: experimental
         '''
@@ -6677,7 +6677,7 @@ class NodeProject(
     def add_dev_deps(self, *deps: builtins.str) -> None:
         '''(experimental) Defines development/test dependencies.
 
-        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``npx projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``yarn add/upgrade``. If you wish to specify a version range use this syntax: ``module@^7``.
+        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``pnpm projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``pnpm add/update``. If you wish to specify a version range use this syntax: ``module@^7``.
 
         :stability: experimental
         '''
@@ -6734,7 +6734,7 @@ class NodeProject(
         pinned version of the declared peer. This will ensure that you are testing
         your code against the minimum version required from your consumers.
 
-        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``npx projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``yarn add/upgrade``. If you wish to specify a version range use this syntax: ``module@^7``.
+        :param deps: Names modules to install. By default, the the dependency will be installed in the next ``pnpm projen`` run and the version will be recorded in your ``package.json`` file. You can upgrade manually or using ``pnpm add/update``. If you wish to specify a version range use this syntax: ``module@^7``.
 
         :stability: experimental
         '''
@@ -6826,7 +6826,7 @@ class NodeProject(
         '''(experimental) Returns the shell command to execute in order to run a task.
 
         This will
-        typically be ``npx projen TASK``.
+        typically be ``pnpm projen TASK``.
 
         :param task: The task for which the command is required.
 
@@ -7434,13 +7434,13 @@ class NodeProjectOptions(
         :param bin: (experimental) Binary programs vended with your module. You can use this option to add/customize how binaries are represented in your ``package.json``, but unless ``autoDetectBin`` is ``false``, every executable file under ``bin`` will automatically be added to this section.
         :param bugs_email: (experimental) The email address to which issues should be reported.
         :param bugs_url: (experimental) The url to your project's issue tracker.
-        :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include.
+        :param bundled_deps: (experimental) List of dependencies to bundle into this module. These modules will be added both to the ``dependencies`` section and ``bundledDependencies`` section of your ``package.json``. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include.
         :param bun_version: (experimental) The version of Bun to use if using Bun as a package manager. Default: "latest"
         :param code_artifact_options: (experimental) Options for npm packages using AWS CodeArtifact. This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact Default: - undefined
         :param delete_orphaned_lock_files: (experimental) Automatically delete lockfiles from package managers that are not the active one. Only triggered when the lockfile for the configured package manager already exists. This is useful when migrating between package managers to avoid conflicts. Default: true
-        :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
+        :param deps: (experimental) Runtime dependencies of this module. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
         :param description: (experimental) The description is just a string that helps people understand the purpose of the package. It can be used when searching for packages in a package manager as well. See https://classic.yarnpkg.com/en/docs/package-json/#toc-description
-        :param dev_deps: (experimental) Build dependencies for this module. These dependencies will only be available in your build environment but will not be fetched when this module is consumed. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and this will be what you ``package.json`` will eventually include. Default: []
+        :param dev_deps: (experimental) Build dependencies for this module. These dependencies will only be available in your build environment but will not be fetched when this module is consumed. The recommendation is to only specify the module name here (e.g. ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the sense that it will add the module as a dependency to your ``package.json`` file with the latest version (``^``). You can specify semver requirements in the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and this will be what your ``package.json`` will eventually include. Default: []
         :param dev_engines: (experimental) Configure the ``devEngines`` field in ``package.json``. The ``devEngines.packageManager`` field is automatically populated based on the resolved ``packageManager`` value. Any fields provided here are merged with the auto-populated ``packageManager`` entry.
         :param entrypoint: (experimental) Module entrypoint (``main`` in ``package.json``). Set to an empty string to not include ``main`` in your package.json Default: "lib/index.js"
         :param homepage: (experimental) Package's Homepage / Website.
@@ -8497,11 +8497,11 @@ class NodeProjectOptions(
         your ``package.json``.
 
         The recommendation is to only specify the module name here (e.g.
-        ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the
+        ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the
         sense that it will add the module as a dependency to your ``package.json``
         file with the latest version (``^``). You can specify semver requirements in
-        the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and
-        this will be what you ``package.json`` will eventually include.
+        the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and
+        this will be what your ``package.json`` will eventually include.
 
         :stability: experimental
         '''
@@ -8553,11 +8553,11 @@ class NodeProjectOptions(
         '''(experimental) Runtime dependencies of this module.
 
         The recommendation is to only specify the module name here (e.g.
-        ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the
+        ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the
         sense that it will add the module as a dependency to your ``package.json``
         file with the latest version (``^``). You can specify semver requirements in
-        the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and
-        this will be what you ``package.json`` will eventually include.
+        the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and
+        this will be what your ``package.json`` will eventually include.
 
         :default: []
 
@@ -8593,11 +8593,11 @@ class NodeProjectOptions(
         module is consumed.
 
         The recommendation is to only specify the module name here (e.g.
-        ``express``). This will behave similar to ``yarn add`` or ``npm install`` in the
+        ``express``). This will behave similar to ``pnpm add`` or ``npm install`` in the
         sense that it will add the module as a dependency to your ``package.json``
         file with the latest version (``^``). You can specify semver requirements in
-        the same syntax passed to ``npm i`` or ``yarn add`` (e.g. ``express@^2``) and
-        this will be what you ``package.json`` will eventually include.
+        the same syntax passed to ``pnpm add`` or ``npm i`` (e.g. ``express@^2``) and
+        this will be what your ``package.json`` will eventually include.
 
         :default: []
 

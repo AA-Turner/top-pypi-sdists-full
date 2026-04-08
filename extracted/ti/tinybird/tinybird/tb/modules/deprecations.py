@@ -2,7 +2,7 @@ import click
 
 from tinybird.tb.modules.cli import cli
 from tinybird.tb.modules.exceptions import CLIMockException
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 
 
 @cli.command(
@@ -18,11 +18,11 @@ def auth(args) -> None:
     `tb auth` is deprecated. Use `tb login` instead.
     """
     is_info_cmd = "info" in args
-    message = "This command is deprecated. Use `tb login` instead."
+    message = f"This command is deprecated. Use `{get_cli_name()} login` instead."
     if is_info_cmd:
-        message = "This command is deprecated. Use `tb info` instead."
+        message = f"This command is deprecated. Use `{get_cli_name()} info` instead."
     else:
-        message = "This command is deprecated. Use `tb login` instead."
+        message = f"This command is deprecated. Use `{get_cli_name()} login` instead."
     click.echo(FeedbackManager.warning(message=message))
     click.echo(
         "You are using Tinybird Forward CLI.\nYou can find more information in the docs at https://www.tinybird.co/docs/forward"
@@ -43,7 +43,7 @@ def environment(args) -> None:
     """
     click.echo(
         FeedbackManager.warning(
-            message=f"`tb environment` has been renamed to `tb branch`. Please use `tb branch {args[0]}` instead."
+            message=f"`{get_cli_name()} environment` has been renamed to `{get_cli_name()} branch`. Please use `{get_cli_name()} branch {args[0]}` instead."
         )
     )
     click.echo(
@@ -99,7 +99,7 @@ def push(args) -> None:
     """
     `tb push` is deprecated. Use `tb deploy` instead.
     """
-    click.echo(FeedbackManager.warning(message="This command is deprecated. Use `tb deploy` instead."))
+    click.echo(FeedbackManager.warning(message=f"This command is deprecated. Use `{get_cli_name()} deploy` instead."))
     click.echo(
         "You are using Tinybird Forward CLI.\nYou can find more information in the docs at https://www.tinybird.co/docs/forward"
     )
@@ -136,7 +136,11 @@ def create(args) -> None:
     `tb create` is deprecated. Use `tb init` instead.
     """
     _ = args
-    click.echo(FeedbackManager.warning(message="`tb create` is deprecated. Use `tb init` to scaffold your project."))
+    click.echo(
+        FeedbackManager.warning(
+            message=f"`{get_cli_name()} create` is deprecated. Use `{get_cli_name()} init` to scaffold your project."
+        )
+    )
     click.echo(
         "You are using Tinybird Forward CLI.\nYou can find more information in the docs at https://www.tinybird.co/docs/forward"
     )
@@ -158,7 +162,7 @@ def mock(args) -> None:
     raise CLIMockException(
         FeedbackManager.error(
             message=(
-                "`tb mock` has been removed. Create fixture files manually under the `fixtures/` folder.\n"
+                f"`{get_cli_name()} mock` has been removed. Create fixture files manually under the `fixtures/` folder.\n"
                 "You can use Tinybird agent skills to generate mock behavior from your coding agent. "
                 "Run: npx skills add @tinybirdco/tinybird-agent-skills"
             )

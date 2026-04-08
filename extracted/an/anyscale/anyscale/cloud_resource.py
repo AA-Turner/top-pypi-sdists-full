@@ -640,7 +640,7 @@ def verify_aws_s3(  # noqa: PLR0911, PLR0912
         logger.log_resource_exception(CloudAnalyticsEventCloudResource.AWS_S3_BUCKET, e)
         if e.response["Error"]["Code"] == "NoSuchCORSConfiguration":
             logger.warning(
-                f"S3 bucket {bucket_name} does not have CORS rules. This is safe to ignore if you are not using Anyscale UI. Otherwise please create the correct CORS rule for Anyscale according to https://docs.anyscale.com/cloud-deployment/aws/manage-clouds#s3"
+                f"S3 bucket {bucket_name} does not have CORS rules. This is safe to ignore if you are not using Anyscale UI. Otherwise please create the correct CORS rule for Anyscale according to https://docs.anyscale.com/administration/cloud-deployment/manage-aws-cloud#s3-bucket"
             )
             cors_rules = []
             if strict:
@@ -663,7 +663,7 @@ def verify_aws_s3(  # noqa: PLR0911, PLR0912
             CloudSetupError.INCORRECT_CORS_RULE,
         )
         logger.warning(
-            f"S3 bucket {bucket_name} does not have the correct CORS rule for Anyscale. This is safe to ignore if you are not using Anyscale UI. Otherwise please create the correct CORS rule for Anyscale according to https://docs.anyscale.com/cloud-deployment/aws/manage-clouds#appendix-detailed-resource-requirements"
+            f"S3 bucket {bucket_name} does not have the correct CORS rule for Anyscale. This is safe to ignore if you are not using Anyscale UI. Otherwise please create the correct CORS rule for Anyscale according to https://docs.anyscale.com/administration/cloud-deployment/manage-aws-cloud"
         )
         if strict:
             return False

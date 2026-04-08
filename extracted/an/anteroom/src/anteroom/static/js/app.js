@@ -20,6 +20,7 @@ const App = (() => {
     let _esFailCount = 0;
     let _recovering = false;
     const _shownApprovalIds = new Set();
+    const _deliveredNotificationIds = new Set();
     const _debugMode = new URLSearchParams(window.location.search).has('debug');
 
     function _debugLog(component, message, data) {
@@ -794,7 +795,10 @@ const App = (() => {
         _eventSource.addEventListener('task_completed', (e) => {
             const data = JSON.parse(e.data);
             if (data.conversation_id === state.currentConversationId || !data.conversation_id) {
+                if (_deliveredNotificationIds.has(data.task_id)) return;
+                _deliveredNotificationIds.add(data.task_id);
                 Chat.renderTaskChip(data.task_id, data.command, data.status, data.exit_code);
+                Chat.showCompletionToast(`Task ${(data.task_id || '').slice(0, 8)}: ${data.status}`);
                 state.bgTaskCount = Math.max(0, state.bgTaskCount - 1);
                 Chat.updateBgIndicator(state.bgTaskCount);
             }
@@ -826,12 +830,16 @@ const App = (() => {
         _eventSource.addEventListener('agent_run_completed', (e) => {
             const data = JSON.parse(e.data);
             if (data.conversation_id === state.currentConversationId || !data.conversation_id) {
+                if (_deliveredNotificationIds.has(data.run_id)) return;
+                _deliveredNotificationIds.add(data.run_id);
                 Chat.renderDetachedChip(data.run_id, data.summary || '', data.status);
+                Chat.showCompletionToast(`Agent ${(data.run_id || '').slice(0, 8)}: ${data.status}`);
             }
         });
 
         _eventSource.onopen = () => {
             state.bgTaskCount = 0;
+            _deliveredNotificationIds.clear();
             Chat.updateBgIndicator(0);
             _esConnectedAt = Date.now();
             _esFailCount = 0;
@@ -1627,10 +1635,33 @@ const App = (() => {
 
     document.addEventListener('DOMContentLoaded', init);
 
+    // Test hooks — exercise the real SSE dedup + rendering path (#1315).
+    // Only called from E2E tests via page.evaluate().
+    function _testDeliverTaskCompleted(data) {
+        if (_deliveredNotificationIds.has(data.task_id)) return;
+        _deliveredNotificationIds.add(data.task_id);
+        Chat.renderTaskChip(data.task_id, data.command, data.status, data.exit_code);
+        Chat.showCompletionToast(`Task ${(data.task_id || '').slice(0, 8)}: ${data.status}`);
+        state.bgTaskCount = Math.max(0, state.bgTaskCount - 1);
+        Chat.updateBgIndicator(state.bgTaskCount);
+    }
+
+    function _testDeliverAgentCompleted(data) {
+        if (_deliveredNotificationIds.has(data.run_id)) return;
+        _deliveredNotificationIds.add(data.run_id);
+        Chat.renderDetachedChip(data.run_id, data.summary || '', data.status);
+        Chat.showCompletionToast(`Agent ${(data.run_id || '').slice(0, 8)}: ${data.status}`);
+    }
+
+    function _testClearDeliveredIds() {
+        _deliveredNotificationIds.clear();
+    }
+
     return {
         state, api, _handle401, _getCsrfToken, _selectModel, newConversation, loadConversation,
         loadDatabases, addDatabase, loadSpaces, refreshModels, formatTimestamp,
         getTheme, setTheme, THEMES, openMcpModal, openSettings,
         setPlanMode, _showPlanContent, _debugLog,
+        _testDeliverTaskCompleted, _testDeliverAgentCompleted, _testClearDeliveredIds,
     };
 })();

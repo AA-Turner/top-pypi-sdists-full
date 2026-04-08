@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: copilotkit
-Version: 0.1.84
+Version: 0.1.85
 Summary: CopilotKit python SDK
 License: MIT
 Keywords: copilot,copilotkit,langgraph,langchain,ai,langsmith,langserve
@@ -18,7 +18,7 @@ Requires-Dist: ag-ui-protocol (>=0.1.11)
 Requires-Dist: crewai (==0.118.0) ; extra == "crewai"
 Requires-Dist: fastapi (>=0.115.0,<1.0.0)
 Requires-Dist: langchain (>=0.3.0)
-Requires-Dist: langgraph (>=0.3.25,<1.1.0)
+Requires-Dist: langgraph (>=0.3.25,<2)
 Requires-Dist: partialjson (>=0.0.8,<0.0.9)
 Requires-Dist: toml (>=0.10.2,<0.11.0)
 Project-URL: Homepage, https://copilotkit.ai

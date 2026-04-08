@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow
-Version: 3.1.8
+Version: 3.2.0
 Summary: Programmatically author, schedule and monitor data pipelines
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Documentation, https://airflow.apache.org/docs/
@@ -29,10 +29,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Monitoring
-Requires-Python: <3.14,>=3.10
-Requires-Dist: apache-airflow-core==3.1.8
-Requires-Dist: apache-airflow-task-sdk==1.1.8
+Requires-Python: !=3.15,>=3.10
+Requires-Dist: apache-airflow-core==3.2.0
+Requires-Dist: apache-airflow-task-sdk==1.2.0
 Provides-Extra: aiobotocore
 Requires-Dist: apache-airflow-providers-amazon[aiobotocore]>=9.6.0; extra == 'aiobotocore'
 Provides-Extra: airbyte
@@ -44,9 +45,10 @@ Requires-Dist: amqp>=5.2.0; extra == 'all'
 Requires-Dist: apache-airflow-core[all]; extra == 'all'
 Requires-Dist: apache-airflow-core[async]; extra == 'all'
 Requires-Dist: apache-airflow-core[graphviz]; extra == 'all'
+Requires-Dist: apache-airflow-core[gunicorn]; extra == 'all'
 Requires-Dist: apache-airflow-core[kerberos]; extra == 'all'
+Requires-Dist: apache-airflow-core[memray]; extra == 'all'
 Requires-Dist: apache-airflow-core[otel]; extra == 'all'
-Requires-Dist: apache-airflow-core[sentry]; extra == 'all'
 Requires-Dist: apache-airflow-core[statsd]; extra == 'all'
 Requires-Dist: apache-airflow-providers-airbyte>=5.0.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-alibaba>=3.0.0; extra == 'all'
@@ -54,8 +56,7 @@ Requires-Dist: apache-airflow-providers-amazon>=9.0.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-amazon[aiobotocore]>=9.6.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-amazon[python3-saml]; extra == 'all'
 Requires-Dist: apache-airflow-providers-amazon[s3fs]; extra == 'all'
-Requires-Dist: apache-airflow-providers-apache-beam>=5.8.1; (python_version != '3.13') and extra == 'all'
-Requires-Dist: apache-airflow-providers-apache-cassandra>=3.7.0; extra == 'all'
+Requires-Dist: apache-airflow-providers-apache-cassandra>=3.7.0; (python_version != '3.14') and extra == 'all'
 Requires-Dist: apache-airflow-providers-apache-drill>=2.8.1; extra == 'all'
 Requires-Dist: apache-airflow-providers-apache-druid>=3.12.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-apache-flink>=1.6.0; extra == 'all'
@@ -64,7 +65,7 @@ Requires-Dist: apache-airflow-providers-apache-hdfs>=4.6.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-apache-hive>=8.2.1; extra == 'all'
 Requires-Dist: apache-airflow-providers-apache-iceberg>=1.2.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-apache-impala>=1.5.2; extra == 'all'
-Requires-Dist: apache-airflow-providers-apache-kafka>=1.6.1; (python_version != '3.13') and extra == 'all'
+Requires-Dist: apache-airflow-providers-apache-kafka>=1.6.1; extra == 'all'
 Requires-Dist: apache-airflow-providers-apache-kylin>=3.8.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-apache-livy>=3.9.2; extra == 'all'
 Requires-Dist: apache-airflow-providers-apache-pig>=4.6.0; extra == 'all'
@@ -79,6 +80,7 @@ Requires-Dist: apache-airflow-providers-celery>=3.8.3; extra == 'all'
 Requires-Dist: apache-airflow-providers-cloudant>=4.0.1; extra == 'all'
 Requires-Dist: apache-airflow-providers-cncf-kubernetes>=9.0.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-cohere>=1.4.0; extra == 'all'
+Requires-Dist: apache-airflow-providers-common-ai>=0.0.1; extra == 'all'
 Requires-Dist: apache-airflow-providers-common-compat>=1.2.1; extra == 'all'
 Requires-Dist: apache-airflow-providers-common-io>=1.4.2; extra == 'all'
 Requires-Dist: apache-airflow-providers-common-messaging>=2.0.0; extra == 'all'
@@ -94,7 +96,7 @@ Requires-Dist: apache-airflow-providers-docker>=3.14.1; extra == 'all'
 Requires-Dist: apache-airflow-providers-edge3>=1.0.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-elasticsearch>=6.5.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-exasol>=4.6.1; extra == 'all'
-Requires-Dist: apache-airflow-providers-fab>=2.2.0; (python_version != '3.13') and extra == 'all'
+Requires-Dist: apache-airflow-providers-fab>=2.2.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-facebook>=3.7.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-ftp>=3.12.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-git>=0.0.2; extra == 'all'
@@ -105,6 +107,7 @@ Requires-Dist: apache-airflow-providers-hashicorp>=4.0.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-http>=4.13.2; extra == 'all'
 Requires-Dist: apache-airflow-providers-imap>=3.8.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-influxdb>=2.8.0; extra == 'all'
+Requires-Dist: apache-airflow-providers-informatica>=0.1.1; extra == 'all'
 Requires-Dist: apache-airflow-providers-jdbc>=4.5.2; extra == 'all'
 Requires-Dist: apache-airflow-providers-jenkins>=3.7.2; extra == 'all'
 Requires-Dist: apache-airflow-providers-keycloak>=0.0.1; extra == 'all'
@@ -148,26 +151,27 @@ Requires-Dist: apache-airflow-providers-teradata>=2.6.1; extra == 'all'
 Requires-Dist: apache-airflow-providers-trino>=5.8.1; extra == 'all'
 Requires-Dist: apache-airflow-providers-vertica>=3.9.1; extra == 'all'
 Requires-Dist: apache-airflow-providers-weaviate>=3.0.0; extra == 'all'
-Requires-Dist: apache-airflow-providers-yandex>=4.0.0; (python_version != '3.13') and extra == 'all'
-Requires-Dist: apache-airflow-providers-ydb>=1.4.0; (python_version != '3.13') and extra == 'all'
+Requires-Dist: apache-airflow-providers-yandex>=4.0.0; extra == 'all'
+Requires-Dist: apache-airflow-providers-ydb>=1.4.0; extra == 'all'
 Requires-Dist: apache-airflow-providers-zendesk>=4.9.0; extra == 'all'
 Requires-Dist: atlasclient>=0.1.2; extra == 'all'
 Requires-Dist: authlib>=1.0.0; extra == 'all'
 Requires-Dist: cloudpickle>=2.2.1; extra == 'all'
 Requires-Dist: python-ldap>=3.4.4; extra == 'all'
-Requires-Dist: uv>=0.10.7; extra == 'all'
+Requires-Dist: sentry-sdk>=2.30.0; extra == 'all'
+Requires-Dist: uv>=0.11.2; extra == 'all'
 Provides-Extra: all-core
 Requires-Dist: apache-airflow-core[all]; extra == 'all-core'
+Provides-Extra: all-task-sdk
+Requires-Dist: apache-airflow-task-sdk[all]; extra == 'all-task-sdk'
 Provides-Extra: amazon
 Requires-Dist: apache-airflow-providers-amazon>=9.0.0; extra == 'amazon'
 Provides-Extra: amazon-aws-auth
 Requires-Dist: apache-airflow-providers-amazon[python3-saml]; extra == 'amazon-aws-auth'
 Provides-Extra: apache-atlas
 Requires-Dist: atlasclient>=0.1.2; extra == 'apache-atlas'
-Provides-Extra: apache-beam
-Requires-Dist: apache-airflow-providers-apache-beam>=5.8.1; (python_version != '3.13') and extra == 'apache-beam'
 Provides-Extra: apache-cassandra
-Requires-Dist: apache-airflow-providers-apache-cassandra>=3.7.0; extra == 'apache-cassandra'
+Requires-Dist: apache-airflow-providers-apache-cassandra>=3.7.0; (python_version != '3.14') and extra == 'apache-cassandra'
 Provides-Extra: apache-drill
 Requires-Dist: apache-airflow-providers-apache-drill>=2.8.1; extra == 'apache-drill'
 Provides-Extra: apache-druid
@@ -183,7 +187,7 @@ Requires-Dist: apache-airflow-providers-apache-iceberg>=1.2.0; extra == 'apache-
 Provides-Extra: apache-impala
 Requires-Dist: apache-airflow-providers-apache-impala>=1.5.2; extra == 'apache-impala'
 Provides-Extra: apache-kafka
-Requires-Dist: apache-airflow-providers-apache-kafka>=1.6.1; (python_version != '3.13') and extra == 'apache-kafka'
+Requires-Dist: apache-airflow-providers-apache-kafka>=1.6.1; extra == 'apache-kafka'
 Provides-Extra: apache-kylin
 Requires-Dist: apache-airflow-providers-apache-kylin>=3.8.0; extra == 'apache-kylin'
 Provides-Extra: apache-livy
@@ -218,6 +222,8 @@ Provides-Extra: cncf-kubernetes
 Requires-Dist: apache-airflow-providers-cncf-kubernetes>=9.0.0; extra == 'cncf-kubernetes'
 Provides-Extra: cohere
 Requires-Dist: apache-airflow-providers-cohere>=1.4.0; extra == 'cohere'
+Provides-Extra: common-ai
+Requires-Dist: apache-airflow-providers-common-ai>=0.0.1; extra == 'common-ai'
 Provides-Extra: common-compat
 Requires-Dist: apache-airflow-providers-common-compat>=1.2.1; extra == 'common-compat'
 Provides-Extra: common-io
@@ -245,7 +251,7 @@ Requires-Dist: apache-airflow-providers-elasticsearch>=6.5.0; extra == 'elastics
 Provides-Extra: exasol
 Requires-Dist: apache-airflow-providers-exasol>=4.6.1; extra == 'exasol'
 Provides-Extra: fab
-Requires-Dist: apache-airflow-providers-fab>=2.2.0; (python_version != '3.13') and extra == 'fab'
+Requires-Dist: apache-airflow-providers-fab>=2.2.0; extra == 'fab'
 Provides-Extra: facebook
 Requires-Dist: apache-airflow-providers-facebook>=3.7.0; extra == 'facebook'
 Provides-Extra: ftp
@@ -255,17 +261,19 @@ Requires-Dist: apache-airflow-providers-git>=0.0.2; extra == 'git'
 Provides-Extra: github
 Requires-Dist: apache-airflow-providers-github>=2.8.0; extra == 'github'
 Provides-Extra: github-enterprise
-Requires-Dist: apache-airflow-providers-fab>=2.2.0; (python_version != '3.13') and extra == 'github-enterprise'
+Requires-Dist: apache-airflow-providers-fab>=2.2.0; extra == 'github-enterprise'
 Requires-Dist: authlib>=1.0.0; extra == 'github-enterprise'
 Provides-Extra: google
 Requires-Dist: apache-airflow-providers-google>=10.24.0; extra == 'google'
 Provides-Extra: google-auth
-Requires-Dist: apache-airflow-providers-fab>=2.2.0; (python_version != '3.13') and extra == 'google-auth'
+Requires-Dist: apache-airflow-providers-fab>=2.2.0; extra == 'google-auth'
 Requires-Dist: authlib>=1.0.0; extra == 'google-auth'
 Provides-Extra: graphviz
 Requires-Dist: apache-airflow-core[graphviz]; extra == 'graphviz'
 Provides-Extra: grpc
 Requires-Dist: apache-airflow-providers-grpc>=3.7.0; extra == 'grpc'
+Provides-Extra: gunicorn
+Requires-Dist: apache-airflow-core[gunicorn]; extra == 'gunicorn'
 Provides-Extra: hashicorp
 Requires-Dist: apache-airflow-providers-hashicorp>=4.0.0; extra == 'hashicorp'
 Provides-Extra: http
@@ -274,6 +282,8 @@ Provides-Extra: imap
 Requires-Dist: apache-airflow-providers-imap>=3.8.0; extra == 'imap'
 Provides-Extra: influxdb
 Requires-Dist: apache-airflow-providers-influxdb>=2.8.0; extra == 'influxdb'
+Provides-Extra: informatica
+Requires-Dist: apache-airflow-providers-informatica>=0.1.1; extra == 'informatica'
 Provides-Extra: jdbc
 Requires-Dist: apache-airflow-providers-jdbc>=4.5.2; extra == 'jdbc'
 Provides-Extra: jenkins
@@ -284,6 +294,8 @@ Provides-Extra: keycloak
 Requires-Dist: apache-airflow-providers-keycloak>=0.0.1; extra == 'keycloak'
 Provides-Extra: ldap
 Requires-Dist: python-ldap>=3.4.4; extra == 'ldap'
+Provides-Extra: memray
+Requires-Dist: apache-airflow-core[memray]; extra == 'memray'
 Provides-Extra: microsoft-azure
 Requires-Dist: apache-airflow-providers-microsoft-azure>=10.5.1; extra == 'microsoft-azure'
 Provides-Extra: microsoft-mssql
@@ -347,7 +359,7 @@ Requires-Dist: apache-airflow-providers-segment>=3.7.0; extra == 'segment'
 Provides-Extra: sendgrid
 Requires-Dist: apache-airflow-providers-sendgrid>=4.0.0; extra == 'sendgrid'
 Provides-Extra: sentry
-Requires-Dist: apache-airflow-core[sentry]; extra == 'sentry'
+Requires-Dist: sentry-sdk>=2.30.0; extra == 'sentry'
 Provides-Extra: sftp
 Requires-Dist: apache-airflow-providers-sftp>=5.0.0; extra == 'sftp'
 Provides-Extra: singularity
@@ -375,15 +387,15 @@ Requires-Dist: apache-airflow-providers-teradata>=2.6.1; extra == 'teradata'
 Provides-Extra: trino
 Requires-Dist: apache-airflow-providers-trino>=5.8.1; extra == 'trino'
 Provides-Extra: uv
-Requires-Dist: uv>=0.10.7; extra == 'uv'
+Requires-Dist: uv>=0.11.2; extra == 'uv'
 Provides-Extra: vertica
 Requires-Dist: apache-airflow-providers-vertica>=3.9.1; extra == 'vertica'
 Provides-Extra: weaviate
 Requires-Dist: apache-airflow-providers-weaviate>=3.0.0; extra == 'weaviate'
 Provides-Extra: yandex
-Requires-Dist: apache-airflow-providers-yandex>=4.0.0; (python_version != '3.13') and extra == 'yandex'
+Requires-Dist: apache-airflow-providers-yandex>=4.0.0; extra == 'yandex'
 Provides-Extra: ydb
-Requires-Dist: apache-airflow-providers-ydb>=1.4.0; (python_version != '3.13') and extra == 'ydb'
+Requires-Dist: apache-airflow-providers-ydb>=1.4.0; extra == 'ydb'
 Provides-Extra: zendesk
 Requires-Dist: apache-airflow-providers-zendesk>=4.9.0; extra == 'zendesk'
 Description-Content-Type: text/markdown
@@ -418,7 +430,7 @@ PROJECT BY THE `generate-pypi-readme` PREK HOOK. YOUR CHANGES HERE WILL BE AUTOM
 | PyPI       | [![PyPI version](https://badge.fury.io/py/apache-airflow.svg)](https://badge.fury.io/py/apache-airflow) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/apache-airflow.svg)](https://pypi.org/project/apache-airflow/) [![PyPI - Downloads](https://img.shields.io/pypi/dm/apache-airflow)](https://pypi.org/project/apache-airflow/)                                                                                                                                                                               |
 | Containers | [![Docker Pulls](https://img.shields.io/docker/pulls/apache/airflow.svg)](https://hub.docker.com/r/apache/airflow) [![Docker Stars](https://img.shields.io/docker/stars/apache/airflow.svg)](https://hub.docker.com/r/apache/airflow) [![Artifact HUB](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/apache-airflow)](https://artifacthub.io/packages/search?repo=apache-airflow)                                                                                                                      |
 | Community  | [![Contributors](https://img.shields.io/github/contributors/apache/airflow)](https://github.com/apache/airflow/graphs/contributors) [![Slack Status](https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social)](https://s.apache.org/airflow-slack) ![Commit Activity](https://img.shields.io/github/commit-activity/m/apache/airflow) [![LFX Health Score](https://insights.linuxfoundation.org/api/badge/health-score?project=apache-airflow)](https://insights.linuxfoundation.org/project/apache-airflow)  |
-| Dev tools  | [![prek](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/j178/prek/master/assets/badge/v0.json)](https://github.com/j178/prek)                                                                                                                                                                                                                                                                                                                                                                            |
+| Dev tools  | [![prek](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/j178/prek/master/docs/assets/badge-v0.json)](https://github.com/j178/prek)                                                                                                                                                                                                                                                                                                                                                                            |
 
 | Version | Build Status                                                                                                                                                    |
 |---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -445,14 +457,14 @@ Use Airflow to author workflows (Dags) that orchestrate tasks. The Airflow sched
 
 Apache Airflow is tested with:
 
-|            | Main version (dev)           | Stable version (3.1.8) | Stable version (2.11.1)      |
-|------------|------------------------------|------------------------|------------------------------|
-| Python     | 3.10, 3.11, 3.12, 3.13       | 3.10, 3.11, 3.12, 3.13 | 3.10, 3.11, 3.12             |
-| Platform   | AMD64/ARM64                  | AMD64/ARM64            | AMD64/ARM64(\*)              |
-| Kubernetes | 1.30, 1.31, 1.32, 1.33, 1.34 | 1.30, 1.31, 1.32, 1.33 | 1.26, 1.27, 1.28, 1.29, 1.30 |
-| PostgreSQL | 13, 14, 15, 16, 17           | 13, 14, 15, 16, 17     | 12, 13, 14, 15, 16           |
-| MySQL      | 8.0, 8.4, Innovation         | 8.0, 8.4, Innovation   | 8.0, Innovation              |
-| SQLite     | 3.15.0+                      | 3.15.0+                | 3.15.0+                      |
+|            | Main version (dev)                 | Stable version (3.2.0)       | Stable version (2.11.2)      |
+|------------|-----------------------------------|------------------------------|------------------------------|
+| Python     | 3.10, 3.11, 3.12, 3.13, 3.14       | 3.10, 3.11, 3.12, 3.13, 3.14 | 3.10, 3.11, 3.12             |
+| Platform   | AMD64/ARM64                       | AMD64/ARM64                  | AMD64/ARM64(\*)              |
+| Kubernetes | 1.30, 1.31, 1.32, 1.33, 1.34, 1.35 | 1.30, 1.31, 1.32, 1.33       | 1.26, 1.27, 1.28, 1.29, 1.30 |
+| PostgreSQL | 14, 15, 16, 17, 18                | 13, 14, 15, 16, 17           | 12, 13, 14, 15, 16           |
+| MySQL      | 8.0, 8.4, Innovation              | 8.0, 8.4, Innovation         | 8.0, Innovation              |
+| SQLite     | 3.15.0+                           | 3.15.0+                      | 3.15.0+                      |
 
 \* Experimental
 
@@ -514,15 +526,15 @@ them to the appropriate format and workflow that your tool requires.
 
 
 ```bash
-pip install 'apache-airflow==3.1.8' \
- --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.1.8/constraints-3.10.txt"
+pip install 'apache-airflow==3.2.0' \
+ --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.2.0/constraints-3.10.txt"
 ```
 
 2. Installing with extras (i.e., postgres, google)
 
 ```bash
-pip install 'apache-airflow[postgres,google]==3.1.8' \
- --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.1.8/constraints-3.10.txt"
+pip install 'apache-airflow[postgres,google]==3.2.0' \
+ --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.2.0/constraints-3.10.txt"
 ```
 
 For information on installing provider distributions, check

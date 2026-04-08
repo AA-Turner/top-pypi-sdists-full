@@ -15,90 +15,92 @@ jobs:
     steps:
       - id: checkout
         name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - id: setup-python
-        name: Setup Python
-        uses: actions/setup-python@v4
+      - id: check-ruff
+        name: Check with Ruff
+        uses: astral-sh/ruff-action@v3
         with:
-          python-version: '3.11'
-          cache: 'pipenv'
+          args: "check --exit-zero --verbose"
 
-      - id: install-pipenv
-        name: Install pipenv
-        run: curl https://raw.githubusercontent.com/pypa/pipenv/master/get-pipenv.py | python
-        shell: bash
+      - id: format-ruff
+        name: Format with Ruff
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: "format --check --verbose"
 
-      - id: install-python-dependencies
-        name: Install Python dependencies
-        run: pipenv sync --dev
-        shell: bash
-
-      - id: lint
-        name: Lint Python code
-        run: pipenv run flake8 ./ --verbose
-        shell: bash
-
-  mypy-python:
-    name: Static-types check
+  type-check:
+    name: Verify static typing
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - id: checkout
+        name: Checkout
+        uses: actions/checkout@v6
 
-      - id: setup-python
-        name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: '3.11'
-          cache: 'pipenv'
-
-      - id: install-pipenv
-        name: Install pipenv
-        run: curl https://raw.githubusercontent.com/pypa/pipenv/master/get-pipenv.py | python
-        shell: bash
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
 
       - id: install-python-dependencies
         name: Install Python dependencies
-        run: pipenv sync --dev
-        shell: bash
+        run: uv sync --extra dev --extra test --frozen
 
-      - id: mypy
-        name: Run mypy
-        run: pipenv run mypy ./ --ignore-missing-imports --verbose
-        shell: bash
+      - id: type-check
+        name: Run type check
+        timeout-minutes: 10
+        run: uv run --with ty ty check
+
+  vulture:
+    name: Detect dead code
+    runs-on: ubuntu-latest
+    steps:
+      - id: checkout
+        name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+
+      - id: install-python-dependencies
+        name: Install Python dependencies
+        run: uv sync --extra dev --frozen
 
   test-python:
     name: Test Python code
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: ['3.9', '3.10', '3.11']
+        python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - id: setup-python
-        name: Setup Python
-        uses: actions/setup-python@v4
+      - id: install-uv
+        name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: '${{ matrix.python }}'
-          cache: 'pipenv'
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
 
-      - id: install-pipenv
-        name: Install pipenv
-        run: curl https://raw.githubusercontent.com/pypa/pipenv/master/get-pipenv.py | python
-        shell: bash
+      - id: install-python
+        name: Install Python
+        run: uv python install ${{ matrix.python }}
 
       - id: install-python-dependencies
         name: Install Python dependencies
-        run: pipenv sync --dev --python=${{ matrix.python }}
-        shell: bash
+        run: uv sync --extra test --python ${{ matrix.python }}
 
       - id: tests
         name: Run tests
-        run: pipenv run pytest --cov -sv
-        shell: bash
+        run: uv run --python ${{ matrix.python }} pytest --cov -sv
 
   build:
     name: Build release candidate
@@ -106,43 +108,23 @@ jobs:
     needs: [test-python]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
-      - id: setup-python
-        name: Setup Python
-        uses: actions/setup-python@v4
+      - id: install-uv
+        name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: '3.11'
-          cache: 'pipenv'
+          version: "latest"
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
 
-      - id: install-pipenv
-        name: Install pipenv
-        run: curl https://raw.githubusercontent.com/pypa/pipenv/master/get-pipenv.py | python
-        shell: bash
-
-      - id: install-python-dependencies
-        name: Install Python dependencies
-        run: pipenv install --dev --deploy
-        shell: bash
-
-      - id: build-source
-        name: Build source release
-        run: pipenv run python setup.py sdist
-        shell: bash
-
-      - id: build-binary
-        name: Build binary release
-        run: pipenv run python setup.py bdist_wheel
-        shell: bash
-
-      - id: check
-        name: Check release
-        run: pipenv run twine check dist/*
-        shell: bash
+      - id: build
+        name: Build releases
+        run: uv build --sdist --wheel
 
       - id: save
         name: Save artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: release-candidate
           path: ./dist
@@ -156,7 +138,7 @@ jobs:
     steps:
       - id: fetch
         name: Fetch artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v8
         with:
           name: release-candidate
           path: ./dist
@@ -168,4 +150,4 @@ jobs:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true
-          verify_metadata: false
+          verify-metadata: false

@@ -1,71 +1,56 @@
 [project]
-name = "syrupy"
-version = "2026.4.6.124150327040"
-description = "Pytest Snapshot Test Utility"
-authors = [{ name = "Noah Ulster" }]
+name = 'syrupy'
+license = 'MIT'
+dynamic = [ "version", "classifiers" ]
+description = 'Pytest Snapshot Test Utility'
+readme = 'README.md'
 requires-python = ">=3.10"
-readme = "README.md"
-license = "MIT"
-classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Framework :: Pytest",
-    "Intended Audience :: Developers",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Software Development :: Libraries",
-    "Topic :: Software Development :: Testing",
-    "Topic :: Utilities",
+authors = [{name = 'Noah Ulster'}]
+dependencies = [
+  "pytest (>= 8.0.0)"
 ]
-dependencies = ["pytest (>= 8.0.0)"]
 
 [project.urls]
-repository = "https://github.com/syrupy-project/syrupy"
+repository = 'https://github.com/syrupy-project/syrupy'
 
-[project.entry-points.pytest11]
-syrupy = "syrupy"
-
-[dependency-groups]
-test = [
-    "invoke>=2.2.0,<3",
-    "coverage[toml]>=7.6.12,<8",
-    "hypothesis>=6.0.0",
-    "pytest-benchmark>=5.1.0,<6",
-    "pytest-xdist>=3.6.1,<4",
+[tool.poetry]
+version = "5.1.0"
+packages = [{ include = 'syrupy', from = 'src' }]
+classifiers = [
+    'Development Status :: 5 - Production/Stable',
+    'Framework :: Pytest',
+    'Intended Audience :: Developers',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Topic :: Software Development :: Libraries',
+    'Topic :: Software Development :: Testing',
+    'Topic :: Utilities',
 ]
-dev = [
-    "mypy>=1.15.0,<2",
-    "py-githooks>=1.1.1,<2",
-    "twine>=6.1.0,<7",
-    "semver>=3.0.4,<4",
-    "setuptools-scm>=9.0.0,<10",
-    "debugpy>=1.8.12,<2",
-    "ruff>=0.9.6",
-    "pydantic>=2.12.5",
-    "attrs>=25.0.0"
-]
+include = ['src/syrupy/**/*']
 
-[tool.uv]
-default-groups = [
-    "test",
-    "dev",
-]
+[tool.poetry.plugins.pytest11]
+syrupy = 'syrupy'
 
-[tool.hatch.build.targets.sdist]
-include = ["src/syrupy"]
+[tool.poetry.group.test.dependencies]
+invoke = "^2.2.0"
+coverage = { version = "^7.6.12", extras = ['toml'] }
+pytest-benchmark = "^5.1.0"
+pytest-xdist = "^3.6.1"
 
-[tool.hatch.build.targets.wheel]
-include = ["src/syrupy"]
-
-[tool.hatch.build.targets.wheel.sources]
-"src/syrupy" = "syrupy"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.15.0"
+py-githooks = '^1.1.1'
+twine = '^6.1.0'
+semver = '^3.0.4'
+setuptools-scm = '^9.0.0'
+debugpy = '^1.8.12'
+ruff = '>=0.9.6'
+pydantic = "^2.12.5"
+attrs = "^25.0.0"
 
 [tool.pytest.ini_options]
 addopts = '-p syrupy -p pytester -p no:legacypath --doctest-modules'
@@ -90,3 +75,7 @@ extend-select = [
   "I", # isort
   "UP", # pyupgrade
 ]
+
+[build-system]
+requires = ['poetry-core>=2.2.1']
+build-backend = 'poetry.core.masonry.api'

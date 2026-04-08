@@ -905,7 +905,7 @@ F4vMoovPlacementType = Literal["NORMAL", "PROGRESSIVE_DOWNLOAD"]
 FileSourceConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
 FileSourceTimeDeltaUnitsType = Literal["MILLISECONDS", "SECONDS"]
 FontScriptType = Literal["AUTOMATIC", "HANS", "HANT"]
-FormatType = Literal["avi", "matroska", "mp4", "mxf", "quicktime", "wave", "webm"]
+FormatType = Literal["avi", "matroska", "mp4", "mpegts", "mxf", "quicktime", "wave", "webm"]
 FrameControlType = Literal["NEAREST_IDRFRAME", "NEAREST_IFRAME"]
 FrameMetricTypeType = Literal["MS_SSIM", "PSNR", "PSNR_HVS", "QVBR", "SHOT_CHANGE", "SSIM", "VMAF"]
 GifFramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
@@ -1745,6 +1745,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -1980,6 +1981,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -2015,6 +2017,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -2027,6 +2030,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

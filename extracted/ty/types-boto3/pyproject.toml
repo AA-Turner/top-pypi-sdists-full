@@ -4,10 +4,10 @@
 
 [project]
 name = "types-boto3"
-version = "1.42.84"
+version = "1.42.85"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.42.84 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.42.85 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "types-boto3-full>=1.42.0, <1.43.0",
 ]
 boto3 = [
-    "boto3==1.42.84",
+    "boto3==1.42.85",
 ]
 all = [
     "types-boto3-accessanalyzer>=1.42.0, <1.43.0",
@@ -409,6 +409,7 @@ all = [
     "types-boto3-rum>=1.42.0, <1.43.0",
     "types-boto3-s3>=1.42.0, <1.43.0",
     "types-boto3-s3control>=1.42.0, <1.43.0",
+    "types-boto3-s3files>=1.42.0, <1.43.0",
     "types-boto3-s3outposts>=1.42.0, <1.43.0",
     "types-boto3-s3tables>=1.42.0, <1.43.0",
     "types-boto3-s3vectors>=1.42.0, <1.43.0",
@@ -1512,6 +1513,9 @@ s3 = [
 ]
 s3control = [
     "types-boto3-s3control>=1.42.0, <1.43.0",
+]
+s3files = [
+    "types-boto3-s3files>=1.42.0, <1.43.0",
 ]
 s3outposts = [
     "types-boto3-s3outposts>=1.42.0, <1.43.0",

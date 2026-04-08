@@ -28,7 +28,7 @@ class DeltaGetCommitsResponse(BaseModel):
     DeltaGetCommitsResponse
     """ # noqa: E501
     commits: List[DeltaCommitInfo] = Field(description="The list of unbackfilled Delta table commits. Can be in arbitrary order.")
-    latest_table_version: StrictInt = Field(description="Represents the latest version of the table tracked by UC. If no commits have occurred via UC yet,  then UC cannot determine the latest version and returns -1. Use this field to manage pagination —  if the returned commits don't cover the range up to latest_table_version or end_version (whichever is smaller),  it indicates that more unbackfilled commits may be available. ")
+    latest_table_version: StrictInt = Field(description="Represents the latest version of the table tracked by UC. For a newly created managed table with no commits, this returns 0. Use this field to manage pagination — if the returned commits don't cover the range up to latest_table_version or end_version (whichever is smaller), it indicates that more unbackfilled commits may be available. ")
     __properties: ClassVar[List[str]] = ["commits", "latest_table_version"]
 
     model_config = ConfigDict(

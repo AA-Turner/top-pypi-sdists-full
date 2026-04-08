@@ -14,8 +14,10 @@ from typing import Any
 
 from fastmcp.tools import FunctionTool, ToolResult
 
+from fast_agent.agents.agent_types import ScopedFunctionToolConfig
 from fast_agent.core.exceptions import AgentConfigError
 from fast_agent.core.logging.logger import get_logger
+from fast_agent.tools.function_tool_config import FunctionToolSpec
 
 logger = get_logger(__name__)
 
@@ -60,6 +62,7 @@ def build_default_function_tool(
     *,
     name: str | None = None,
     description: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> FunctionTool:
     """
     Build a FastMCP FunctionTool with fast-agent's text-only-by-default policy.
@@ -68,12 +71,17 @@ def build_default_function_tool(
     preserves normal content rendering while suppressing implicit structured output.
     Explicit ``ToolResult`` returns pass through unchanged.
     """
-    return FunctionTool.from_function(
+    tool = FunctionTool.from_function(
         _wrap_default_tool_result(fn),
         name=name,
         description=description,
         output_schema=None,
     )
+    if metadata:
+        current_meta = dict(tool.meta or {})
+        current_meta.update(metadata)
+        tool.meta = current_meta
+    return tool
 
 
 def load_function_from_spec(spec: str, base_path: Path | None = None) -> Callable[..., Any]:
@@ -145,7 +153,8 @@ def load_function_from_spec(spec: str, base_path: Path | None = None) -> Callabl
 
 
 def load_function_tools(
-    tools_config: list[Callable[..., Any] | str] | None,
+    tools_config: list[Callable[..., Any] | str | ScopedFunctionToolConfig | FunctionToolSpec]
+    | None,
     base_path: Path | None = None,
 ) -> list[FunctionTool]:
     """
@@ -166,11 +175,30 @@ def load_function_tools(
     result: list[FunctionTool] = []
     for tool_spec in tools_config:
         try:
-            if callable(tool_spec):
-                result.append(build_default_function_tool(tool_spec))
+            if isinstance(tool_spec, ScopedFunctionToolConfig):
+                result.append(
+                    build_default_function_tool(
+                        tool_spec.function,
+                        name=tool_spec.name,
+                        description=tool_spec.description,
+                    )
+                )
+            elif callable(tool_spec):
+                tool_name = getattr(tool_spec, "_fast_tool_name", None)
+                tool_desc = getattr(tool_spec, "_fast_tool_description", None)
+                result.append(
+                    build_default_function_tool(tool_spec, name=tool_name, description=tool_desc)
+                )
             elif isinstance(tool_spec, str):
                 result.append(
                     build_default_function_tool(load_function_from_spec(tool_spec, base_path))
+                )
+            elif isinstance(tool_spec, FunctionToolSpec):
+                result.append(
+                    build_default_function_tool(
+                        load_function_from_spec(tool_spec.entrypoint, base_path),
+                        metadata=tool_spec.metadata(),
+                    )
                 )
             else:
                 logger.warning(f"Skipping invalid function tool config: {tool_spec}")

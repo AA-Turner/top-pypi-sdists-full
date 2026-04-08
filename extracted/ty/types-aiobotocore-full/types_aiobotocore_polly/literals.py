@@ -32,12 +32,15 @@ __all__ = (
     "OutputFormatType",
     "PaginatorName",
     "PollyServiceName",
+    "QuotaCodeType",
     "RegionName",
     "ResourceServiceName",
+    "ServiceCodeType",
     "ServiceName",
     "SpeechMarkTypeType",
     "TaskStatusType",
     "TextTypeType",
+    "ValidationExceptionReasonType",
     "VoiceIdType",
 )
 
@@ -91,10 +94,15 @@ LanguageCodeType = Literal[
 ]
 ListLexiconsPaginatorName = Literal["list_lexicons"]
 ListSpeechSynthesisTasksPaginatorName = Literal["list_speech_synthesis_tasks"]
-OutputFormatType = Literal["json", "mp3", "ogg_opus", "ogg_vorbis", "pcm"]
+OutputFormatType = Literal["alaw", "json", "mp3", "mulaw", "ogg_opus", "ogg_vorbis", "pcm"]
+QuotaCodeType = Literal["input-stream-inbound-event-timeout", "input-stream-timeout"]
+ServiceCodeType = Literal["polly"]
 SpeechMarkTypeType = Literal["sentence", "ssml", "viseme", "word"]
 TaskStatusType = Literal["completed", "failed", "inProgress", "scheduled"]
 TextTypeType = Literal["ssml", "text"]
+ValidationExceptionReasonType = Literal[
+    "fieldValidationFailed", "invalidInboundEvent", "other", "unsupportedOperation"
+]
 VoiceIdType = Literal[
     "Aditi",
     "Adriano",
@@ -322,6 +330,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -557,6 +566,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -592,6 +602,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -604,6 +615,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

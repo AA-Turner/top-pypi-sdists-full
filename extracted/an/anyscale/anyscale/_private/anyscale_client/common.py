@@ -312,7 +312,9 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_cluster_env_by_name(self, name: str) -> Optional[ClusterEnvironment]:
+    def get_cluster_env_by_name(
+        self, name: str, cloud_id: Optional[str] = None
+    ) -> Optional[ClusterEnvironment]:
         """Get a cluster environment by its name.
 
         """
@@ -366,6 +368,7 @@ class AnyscaleClientInterface(ABC):
         anonymous: bool,
         ray_version: Optional[str] = None,
         containerfile_path: Optional[str] = None,
+        cloud_id: Optional[str] = None,
     ) -> str:
         """Get the cluster environment build ID for the cluster environment with provided containerfile.
         Look for an existing cluster environment with the provided name.

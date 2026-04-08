@@ -54,8 +54,15 @@ dependencies = [
 [project.scripts]
 plato = "plato.cli:main"
 plato-git-ops-server = "plato.git_ops.server:main"
+plato-apple-container-server = "plato.utils.apple_container_server:main"
 plato-world-runner = "plato.worlds.runner:main"
 plato-agent-runner = "plato.agents.runner:main"
+
+[project.entry-points."plato.worlds"]
+plato-world-test-harness = "plato.worlds.testing.harness_world:WorldTestHarnessWorld"
+
+[project.entry-points."plato.agents"]
+test-harness-agent = "plato.agents.testing.harness_agent:TestHarnessAgent"
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pytest-asyncio>=0.21", "ruff>=0.1", "basedpyright>=1.18"]
@@ -102,6 +109,7 @@ exclude = ["plato/v1"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 timeout = 10
+testpaths = ["tests/unit", "tests/integration"]
 markers = [
     "integration: marks tests that require real Chronos VMs and API keys (PLATO_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY)",
     "timeout: override the default 10s unit test timeout (e.g. @pytest.mark.timeout(60))",

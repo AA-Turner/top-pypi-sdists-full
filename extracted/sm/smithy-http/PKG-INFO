@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smithy-http
-Version: 0.3.1
+Version: 0.4.0
 Summary: HTTP components for Smithy tooling.
 Project-URL: Changelog, https://github.com/smithy-lang/smithy-python/blob/develop/packages/smithy-http/CHANGELOG.md
 Project-URL: Code, https://github.com/smithy-lang/smithy-python/blob/develop/packages/smithy-http/
@@ -29,7 +29,7 @@ Provides-Extra: aiohttp
 Requires-Dist: aiohttp<4.0,>=3.11.12; extra == 'aiohttp'
 Requires-Dist: yarl; extra == 'aiohttp'
 Provides-Extra: awscrt
-Requires-Dist: awscrt~=0.28.2; extra == 'awscrt'
+Requires-Dist: awscrt~=0.32.0; extra == 'awscrt'
 Description-Content-Type: text/markdown
 
 # smithy-http

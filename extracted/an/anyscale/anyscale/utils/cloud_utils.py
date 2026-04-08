@@ -102,7 +102,9 @@ def modify_memorydb_parameter_group(
     """
     try:
         if boto3_session is None:
-            boto3_session = boto3.Session()
+            from anyscale.util import _apn_boto3_session  # noqa: PLC0415
+
+            boto3_session = _apn_boto3_session()
         memorydb_client = boto3_session.client("memorydb", region_name=region)
         memorydb_client.update_parameter_group(
             ParameterGroupName=parameter_group_name,
@@ -232,8 +234,12 @@ def validate_aws_credentials(
 ) -> bool:
     try:
         if boto3_session is None:
-            boto3_session = boto3.Session()
-        boto3.client("sts").get_caller_identity()
+            from anyscale.util import _apn_boto3_session  # noqa: PLC0415
+
+            boto3_session = _apn_boto3_session()
+        from anyscale.util import _apn_config  # noqa: PLC0415
+
+        boto3.client("sts", config=_apn_config()).get_caller_identity()
         return True
     except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to validate AWS credentials: {e}")

@@ -28,8 +28,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from pydantic import Field
 from typing_extensions import TypeVar
 
-from plato.agents.runner import AgentRunner
-from plato.llm import LLMClient
 from plato.worlds.base import BaseWorld
 from plato.worlds.config import AgentConfig, LLMConfig, RunConfig
 from plato.worlds.models import StepResult
@@ -38,6 +36,8 @@ from plato.worlds.review.spec import ReviewSpec
 from plato.worlds.workspace import Workspace
 
 if TYPE_CHECKING:
+    from plato.agents.task import AgentTask
+    from plato.llm import LLMClient
     from plato.worlds.result_store import ResultStore
 
 ReviewConfigT = TypeVar("ReviewConfigT", bound="ReviewWorldConfig")
@@ -113,8 +113,8 @@ class BaseReviewWorld(BaseWorld[ReviewConfigT]):
         """
         self._host = host_world
         self._session_id = host_world._session_id
-        self.plato_session = host_world.plato_session
-        self.session = host_world.session
+        self._plato_session = host_world._plato_session
+        self.chronos = host_world.chronos
         self.logger = host_world.logger.getChild(self.name)
         await self.reset()
         return await self.step()
@@ -135,7 +135,7 @@ class BaseReviewWorld(BaseWorld[ReviewConfigT]):
         display_name: str | None = None,
         workspaces: list[Workspace] | None = None,
         **kwargs: Any,
-    ) -> AgentRunner:
+    ) -> AgentTask:
         """Create an agent runner, delegating to the host world if running inline."""
         if self._host is not None:
             return self._host.agent(config=config, display_name=display_name, workspaces=workspaces, **kwargs)

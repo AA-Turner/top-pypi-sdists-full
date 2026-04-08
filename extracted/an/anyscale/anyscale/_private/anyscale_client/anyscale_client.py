@@ -155,6 +155,7 @@ from anyscale.shared_anyscale_utils.bytes_util import Bytes
 from anyscale.shared_anyscale_utils.conf import ANYSCALE_HOST
 from anyscale.shared_anyscale_utils.latest_ray_version import LATEST_RAY_VERSION
 from anyscale.util import (
+    AWS_PRM_USER_AGENT_STRING,
     get_cluster_model_for_current_workspace,
     get_endpoint,
     is_anyscale_workspace,
@@ -305,7 +306,11 @@ class AnyscaleClient(AnyscaleClientInterface):
                     "Could not import the Amazon S3 Python API via `import boto3`.  Please check your installation or try running `pip install boto3`."
                 )
             self._s3_client = boto3.client(  # type: ignore
-                "s3", config=botocore.config.Config(signature_version="s3v4")
+                "s3",
+                config=botocore.config.Config(
+                    signature_version="s3v4",
+                    user_agent_extra=AWS_PRM_USER_AGENT_STRING,
+                ),
             )
         return self._s3_client  # type: ignore
 
@@ -522,7 +527,7 @@ class AnyscaleClient(AnyscaleClientInterface):
                     return workspace_cluster.project_id
 
         if self._default_project_id_from_cloud_id.get(parent_cloud_id) is None:
-            # Cloud isolation organizations follow the permissions model in https://docs.anyscale.com/organization-and-user-account/access-controls
+            # Cloud isolation organizations follow the permissions model in https://docs.anyscale.com/administration/organization/permissions
             default_project: ProjectExternal = self._external_api_client.get_default_project(
                 parent_cloud_id=parent_cloud_id
             ).result
@@ -873,12 +878,15 @@ class AnyscaleClient(AnyscaleClientInterface):
         return result.id
 
     @handle_api_exceptions
-    def get_cluster_env_by_name(self, name: str) -> Optional[ClusterEnvironment]:
+    def get_cluster_env_by_name(
+        self, name: str, cloud_id: Optional[str] = None
+    ) -> Optional[ClusterEnvironment]:
         resp = self._external_api_client.search_cluster_environments(
             ClusterEnvironmentsQuery(
                 name=TextQuery(equals=name),  # pyright: ignore reportGeneralTypeIssues
                 paging=PageQuery(count=1),
                 include_anonymous=True,
+                cloud_id=cloud_id,
             )
         )
         if resp.results:
@@ -993,6 +1001,7 @@ class AnyscaleClient(AnyscaleClientInterface):
         image_uri: Optional[str] = None,
         registry_login_secret: Optional[str] = None,
         ray_version: Optional[str] = None,
+        cloud_id: Optional[str] = None,
     ) -> ClusterEnvironment:
         """
         Find or create a cluster environment with the given name.
@@ -1006,7 +1015,9 @@ class AnyscaleClient(AnyscaleClientInterface):
         with a 409 conflict error. The former one will succeed and the latter one should retry to get the
         existing cluster env.
         """
-        existing_cluster_env = self.get_cluster_env_by_name(cluster_env_name)
+        existing_cluster_env = self.get_cluster_env_by_name(
+            cluster_env_name, cloud_id=cloud_id
+        )
         if existing_cluster_env is not None:
             return existing_cluster_env
 
@@ -1024,18 +1035,23 @@ class AnyscaleClient(AnyscaleClientInterface):
                             registry_login_secret=registry_login_secret,
                         ),
                         anonymous=anonymous,
+                        cloud_id=cloud_id,
                     )
                 ).result
             else:
                 cluster_environment = self._external_api_client.create_cluster_environment(
-                    CreateClusterEnvironment(name=cluster_env_name, anonymous=anonymous)
+                    CreateClusterEnvironment(
+                        name=cluster_env_name, anonymous=anonymous, cloud_id=cloud_id
+                    )
                 ).result
             return cluster_environment
         except ExternalApiException as e:
             if e.status != 409:
                 raise e from None
             # Retry to get the existing cluster env because it might be created by another process.
-            existing_cluster_env = self.get_cluster_env_by_name(cluster_env_name)
+            existing_cluster_env = self.get_cluster_env_by_name(
+                cluster_env_name, cloud_id=cloud_id
+            )
             if existing_cluster_env is None:
                 raise e from None
             return existing_cluster_env
@@ -1048,9 +1064,18 @@ class AnyscaleClient(AnyscaleClientInterface):
         anonymous: bool = True,
         ray_version: Optional[str] = None,
         containerfile_path: Optional[str] = None,
+        cloud_id: Optional[str] = None,
     ) -> str:
+        if self.get_deployment_infra_provider() == "azure":
+            if not cloud_id:
+                raise ValueError(
+                    "cloud_id is required for Azure Control Plane. "
+                    "Please provide a cloud_id."
+                )
+        else:
+            cloud_id = None
         cluster_env = self._find_or_create_cluster_env(
-            cluster_env_name, anonymous=anonymous
+            cluster_env_name, anonymous=anonymous, cloud_id=cloud_id,
         )
         for build in self.list_cluster_env_builds(cluster_env.id):
             if (
@@ -1075,6 +1100,7 @@ class AnyscaleClient(AnyscaleClientInterface):
                     "Invalid containerfile. Please check the syntax and try again.",
                     e.body,
                 ) from None
+            raise
 
         build_url = self.get_build_ui_url(
             cluster_env.id, build_op.cluster_environment_build_id

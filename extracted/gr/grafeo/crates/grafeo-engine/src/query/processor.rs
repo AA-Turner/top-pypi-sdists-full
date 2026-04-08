@@ -26,6 +26,7 @@ use crate::transaction::TransactionManager;
 
 /// Supported query languages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum QueryLanguage {
     /// GQL (ISO/IEC 39075:2024) - default for LPG
     #[cfg(feature = "gql")]
@@ -673,6 +674,10 @@ pub(crate) fn explain_result(plan: &LogicalPlan) -> QueryResult {
 }
 
 /// Substitutes parameters in a logical plan with their values.
+///
+/// # Errors
+///
+/// Returns an error if a referenced parameter is not found in `params`.
 pub fn substitute_params(plan: &mut LogicalPlan, params: &QueryParams) -> Result<()> {
     substitute_in_operator(&mut plan.root, params)
 }

@@ -28,7 +28,7 @@ from anyscale.client.openapi_client.api.default_api import DefaultApi
 from anyscale.client.openapi_client.models.cloud_providers import CloudProviders
 from anyscale.client.openapi_client.models.user_info import UserInfo
 from anyscale.sdk.anyscale_client.api.default_api import DefaultApi as SDKDefaultApi
-from anyscale.util import is_anyscale_workspace
+from anyscale.util import AWS_PRM_USER_AGENT_STRING, is_anyscale_workspace
 from anyscale.utils.ray_utils import zip_directory  # type: ignore
 from anyscale.utils.workload_types import Workload
 
@@ -112,7 +112,10 @@ def _upload_file_to_s3(file: str, bucket: str, object_key: str):
         )
     try:
         s3_client = boto3.client(
-            "s3", config=botocore.config.Config(signature_version="s3v4")
+            "s3",
+            config=botocore.config.Config(
+                signature_version="s3v4", user_agent_extra=AWS_PRM_USER_AGENT_STRING,
+            ),
         )
         s3_client.upload_file(file, bucket, object_key)
     except Exception as e:  # noqa: BLE001

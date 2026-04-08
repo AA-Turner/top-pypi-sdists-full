@@ -34,6 +34,7 @@ from anyscale.controllers.kubernetes_verifier import (
     KubernetesConfig,
 )
 from anyscale.shared_anyscale_utils.conf import ANYSCALE_CORS_ORIGIN, ANYSCALE_HOST
+from anyscale.util import AWS_PRM_USER_AGENT_STRING
 
 
 @dataclass
@@ -521,6 +522,9 @@ class KubernetesCloudSetupCommand:
                     block_label="Setup",
                 )
                 boto3_session = boto3.Session(region_name=region)
+                boto3_session._session.user_agent_extra = (  # noqa: SLF001
+                    AWS_PRM_USER_AGENT_STRING
+                )
                 cfn_utils = CloudFormationUtils(self.log)
                 cfn_utils.create_and_wait_for_stack(
                     stack_name=stack_name,

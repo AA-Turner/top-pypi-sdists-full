@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: asammdf
-Version: 8.7.2
+Version: 8.8.0
 Summary: ASAM MDF measurement data file parser
 Keywords: read,reader,edit,editor,parse,parser,asam,mdf,measurement
 Author-Email: Daniel Hrisca <daniel.hrisca@gmail.com>
@@ -19,18 +19,20 @@ Project-URL: Documentation, https://asammdf.readthedocs.io/en/master
 Project-URL: Issues, https://github.com/danielhrisca/asammdf/issues
 Project-URL: Source, https://github.com/danielhrisca/asammdf
 Requires-Python: >=3.10
+Requires-Dist: chardet>=7.0.0
 Requires-Dist: canmatrix[arxml,dbc]>=1.2
 Requires-Dist: isal; platform_machine == "x86_64" or platform_machine == "AMD64"
+Requires-Dist: deflate; platform_machine == "x86_64" or platform_machine == "AMD64"
 Requires-Dist: lxml>=4.9.3
 Requires-Dist: lz4
 Requires-Dist: numexpr>=2.10.0
 Requires-Dist: numpy>=2.0.0
 Requires-Dist: pandas>=2.2.2
 Requires-Dist: python-dateutil
-Requires-Dist: typing-extensions~=4.10
+Requires-Dist: typing-extensions>=4.10
+Requires-Dist: zstd
 Provides-Extra: decode
-Requires-Dist: faust-cchardet==2.1.19; extra == "decode"
-Requires-Dist: chardet; extra == "decode"
+Requires-Dist: chardet>=7.0.0; extra == "decode"
 Provides-Extra: export
 Requires-Dist: pyarrow>=17.0.0; extra == "export"
 Requires-Dist: h5py>=3.11; extra == "export"
@@ -244,7 +246,6 @@ Other optional dependencies
 - PySide6 : for GUI tool
 - pyqtgraph : for GUI tool and Signal plotting
 - matplotlib : as fallback for Signal plotting
-- faust-cchardet : to detect non-standard Unicode encodings
 - chardet : to detect non-standard Unicode encodings
 - pyqtlet2 : for the GPS window
 - isal : for faster zlib compression/decompression

@@ -24,7 +24,7 @@ from tinybird.tb.modules.common import (
 )
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.exceptions import CLIWorkspaceException
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.local_common import TB_LOCAL_DEFAULT_WORKSPACE_NAME, get_local_tokens
 
 
@@ -76,7 +76,7 @@ def workspace_use(ctx: Context, workspace_name_or_id: str) -> None:
     if not is_cloud:
         raise CLIWorkspaceException(
             FeedbackManager.error(
-                message="`tb workspace use` is not available in local mode. Use --cloud to switch to a cloud workspace and it will be used in Tinybird Local."
+                message=f"`{get_cli_name()} workspace use` is not available in local mode. Use --cloud to switch to a cloud workspace and it will be used in Tinybird Local."
             )
         )
 
@@ -146,7 +146,7 @@ def create_workspace(
     if not is_cloud:
         raise CLIWorkspaceException(
             FeedbackManager.error(
-                message="`tb workspace create` is not available in local mode. Use --cloud to create a workspace in Tinybird Cloud and it will be used in Tinybird Local."
+                message=f"`{get_cli_name()} workspace create` is not available in local mode. Use --cloud to create a workspace in Tinybird Cloud and it will be used in Tinybird Local."
             )
         )
 
@@ -156,7 +156,7 @@ def create_workspace(
 
     if not user_token:
         raise CLIWorkspaceException(
-            FeedbackManager.error(message="This action requires authentication. Run 'tb login' first.")
+            FeedbackManager.error(message=f"This action requires authentication. Run '{get_cli_name()} login' first.")
         )
 
     organization_name = None
@@ -206,7 +206,7 @@ def delete_workspace(ctx: Context, workspace_name_or_id: str, confirm_hard_delet
     )
 
     if not workspace_to_delete:
-        raise CLIWorkspaceException(FeedbackManager.error_workspace(workspace=workspace_name_or_id))
+        raise CLIWorkspaceException(FeedbackManager.error_workspace(workspace=workspace_name_or_id, cli=get_cli_name()))
 
     if workspace_to_delete.get("name") == TB_LOCAL_DEFAULT_WORKSPACE_NAME:
         raise CLIWorkspaceException(
@@ -234,4 +234,8 @@ def delete_workspace(ctx: Context, workspace_name_or_id: str, confirm_hard_delet
 @click.pass_context
 def workspace_clear(ctx: Context, yes: bool) -> None:
     """Deprecated alias for branch clear."""
-    raise CLIWorkspaceException(FeedbackManager.error(message="`tb workspace clear` has moved to `tb branch clear`."))
+    raise CLIWorkspaceException(
+        FeedbackManager.error(
+            message=f"`{get_cli_name()} workspace clear` has moved to `{get_cli_name()} branch clear`."
+        )
+    )

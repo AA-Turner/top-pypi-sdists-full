@@ -64,6 +64,9 @@ line-ending = "auto"
 # Aliases for Python modules
 base64 = "base64_std"
 
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"pyspark.sql.DataType" = { msg = "Import DataType from pyspark.sql.types instead" }
+
 [tool.ruff.lint.flake8-tidy-imports]
 # These are function names from pyspark.sql.functions module which can conflict with standard modules
 # Just future-proofing here - Not all of them are standard modules

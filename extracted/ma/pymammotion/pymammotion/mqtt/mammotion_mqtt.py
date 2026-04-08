@@ -134,7 +134,7 @@ class MammotionMQTT:
         backoff = 1
         tls_context: ssl.SSLContext | None = None
         if self._use_ssl:
-            tls_context = ssl.create_default_context()
+            tls_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
         while not self._disconnect_requested:
             try:

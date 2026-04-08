@@ -142,7 +142,7 @@ def _check_for_new_format_fields(config_file: str) -> None:
             f"Please use the '--config-file' or '-f' flag instead:\n"
             f"  anyscale job submit -f {config_file}\n\n"
             f"Alternatively, update your config to use the legacy format.\n"
-            f"See https://docs.anyscale.com/reference/job-api/ for more information."
+            f"See https://docs.anyscale.com/reference/job-api for more information."
         )
 
 
@@ -322,12 +322,12 @@ def submit(  # noqa: PLR0912 PLR0913 C901
 ):
     """Submit a job.
 
-    The job config can be specified in one of the following ways:
+    Specify the job config in one of the following ways:
 
-    * Job config file can be specified as a single positional argument. E.g. `anyscale job submit config.yaml`.
+    * Specify the job config file using the `-f` or `--config-file` flag: `anyscale job submit -f config.yaml`.
 
-    * Job config can also be specified with command-line arguments. In this case, the entrypoint should be specified
-as the positional arguments starting with `--`. Other arguments can be specified with command-line flags. E.g.
+    * You can also specify job config with command-line arguments. In this case, specify the entrypoint as the positional
+    arguments starting with `--`. Specify other arguments with command-line flags:
 
       * `anyscale job submit -- python main.py`: submit a job with the entrypoint `python main.py`.
 
@@ -335,14 +335,14 @@ as the positional arguments starting with `--`. Other arguments can be specified
 entrypoint `python main.py`.
 
     * [Experimental] If you want to specify a config file and override some arguments with the commmand-line flags,
-use the `--config-file` flag. E.g.
+use the `-f` or `--config-file` flag:
 
       * `anyscale job submit --config-file config.yaml`: submit a job with the config in `config.yaml`.
 
-      * `anyscale job submit --config-file config.yaml -- python main.py`: submit a job with the config in `config.yaml`
+      * `anyscale job submit -f config.yaml -- python main.py`: submit a job with the config in `config.yaml`
 and override the entrypoint with `python main.py`.
 
-    Either containerfile or image-uri should be used, specifying both will result in an error.
+    Use only one of `containerfile` or `image-uri` as specifying both results in an error.
 
     By default, this command submits the job asynchronously and exits. To wait for the job to complete, use the `--wait` flag.
     """

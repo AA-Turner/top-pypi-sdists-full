@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ms_swift
-Version: 4.0.4
+Version: 4.1.0
 Summary: Swift: Scalable lightWeight Infrastructure for Fine-Tuning
 Home-page: https://github.com/modelscope/ms-swift
 Author: DAMO ModelScope teams
@@ -37,7 +37,6 @@ Requires-Dist: matplotlib
 Requires-Dist: modelscope>=1.23
 Requires-Dist: nltk
 Requires-Dist: numpy
-Requires-Dist: omegaconf
 Requires-Dist: openai
 Requires-Dist: oss2
 Requires-Dist: pandas
@@ -54,11 +53,15 @@ Requires-Dist: sortedcontainers>=1.5.9
 Requires-Dist: tensorboard
 Requires-Dist: tiktoken
 Requires-Dist: tqdm
-Requires-Dist: transformers<5.4.0,>=4.33
+Requires-Dist: transformers<5.6.0,>=4.33
 Requires-Dist: transformers_stream_generator
 Requires-Dist: trl<0.30,>=0.15
 Requires-Dist: uvicorn
 Requires-Dist: zstandard
+Provides-Extra: megatron
+Requires-Dist: mcore-bridge>=1.0.2; extra == "megatron"
+Requires-Dist: megatron-core>=0.12; extra == "megatron"
+Requires-Dist: peft>=0.15; extra == "megatron"
 Provides-Extra: eval
 Requires-Dist: evalscope>=1.0.0; extra == "eval"
 Requires-Dist: evalscope[opencompass]; extra == "eval"
@@ -86,7 +89,6 @@ Requires-Dist: matplotlib; extra == "all"
 Requires-Dist: modelscope>=1.23; extra == "all"
 Requires-Dist: nltk; extra == "all"
 Requires-Dist: numpy; extra == "all"
-Requires-Dist: omegaconf; extra == "all"
 Requires-Dist: openai; extra == "all"
 Requires-Dist: oss2; extra == "all"
 Requires-Dist: pandas; extra == "all"
@@ -103,7 +105,7 @@ Requires-Dist: sortedcontainers>=1.5.9; extra == "all"
 Requires-Dist: tensorboard; extra == "all"
 Requires-Dist: tiktoken; extra == "all"
 Requires-Dist: tqdm; extra == "all"
-Requires-Dist: transformers<5.4.0,>=4.33; extra == "all"
+Requires-Dist: transformers<5.6.0,>=4.33; extra == "all"
 Requires-Dist: transformers_stream_generator; extra == "all"
 Requires-Dist: trl<0.30,>=0.15; extra == "all"
 Requires-Dist: uvicorn; extra == "all"

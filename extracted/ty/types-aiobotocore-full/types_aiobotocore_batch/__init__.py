@@ -19,6 +19,7 @@ Usage::
         ListConsumableResourcesPaginator,
         ListJobsByConsumableResourcePaginator,
         ListJobsPaginator,
+        ListQuotaSharesPaginator,
         ListSchedulingPoliciesPaginator,
         ListServiceJobsPaginator,
     )
@@ -36,6 +37,7 @@ Usage::
     list_consumable_resources_paginator: ListConsumableResourcesPaginator = client.get_paginator("list_consumable_resources")
     list_jobs_by_consumable_resource_paginator: ListJobsByConsumableResourcePaginator = client.get_paginator("list_jobs_by_consumable_resource")
     list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
+    list_quota_shares_paginator: ListQuotaSharesPaginator = client.get_paginator("list_quota_shares")
     list_scheduling_policies_paginator: ListSchedulingPoliciesPaginator = client.get_paginator("list_scheduling_policies")
     list_service_jobs_paginator: ListServiceJobsPaginator = client.get_paginator("list_service_jobs")
     ```
@@ -50,6 +52,7 @@ from .paginator import (
     ListConsumableResourcesPaginator,
     ListJobsByConsumableResourcePaginator,
     ListJobsPaginator,
+    ListQuotaSharesPaginator,
     ListSchedulingPoliciesPaginator,
     ListServiceJobsPaginator,
 )
@@ -67,6 +70,7 @@ __all__ = (
     "ListConsumableResourcesPaginator",
     "ListJobsByConsumableResourcePaginator",
     "ListJobsPaginator",
+    "ListQuotaSharesPaginator",
     "ListSchedulingPoliciesPaginator",
     "ListServiceJobsPaginator",
 )

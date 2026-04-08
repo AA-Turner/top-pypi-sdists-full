@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix-evals
-Version: 2.13.0
+Version: 3.0.0
 Summary: LLM Evaluations
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -36,7 +36,6 @@ Requires-Dist: vertexai; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: anthropic>=0.18.0; extra == 'test'
 Requires-Dist: boto3; extra == 'test'
-Requires-Dist: lameenc; extra == 'test'
 Requires-Dist: litellm<1.82.7,>=1.28.9; extra == 'test'
 Requires-Dist: mistralai<2,>=1.0.0; extra == 'test'
 Requires-Dist: nest-asyncio; extra == 'test'

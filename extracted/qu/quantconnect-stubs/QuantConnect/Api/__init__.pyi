@@ -1406,6 +1406,15 @@ class Backtest(QuantConnect.Api.BasicBacktest):
     def out_of_sample_days(self, value: typing.Optional[int]) -> None:
         ...
 
+    @property
+    def analysis(self) -> typing.Sequence[QuantConnect.Analysis]:
+        """Backtest analysis results."""
+        ...
+
+    @analysis.setter
+    def analysis(self, value: typing.Sequence[QuantConnect.Analysis]) -> None:
+        ...
+
 
 class ReadChartResponse(QuantConnect.Api.RestResponse):
     """Class for wrapping Read Chart response"""

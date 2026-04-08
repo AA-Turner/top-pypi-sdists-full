@@ -51,6 +51,7 @@ def write_mcp_config(
         servers[remote_name] = {
             "type": "http",
             "url": remote_url,
+            "timeout": 1800,
         }
         logger.info("MCP server: %s (http) -> %s", remote_name, remote_url)
 

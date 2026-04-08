@@ -1867,6 +1867,39 @@ const Chat = (() => {
         }
     }
 
+    function showCompletionToast(message) {
+        const chatMessages = document.getElementById('chat-messages');
+        if (!chatMessages) return;
+        // Only show toast when the bottom of the chat area is not visible
+        const { scrollTop, scrollHeight, clientHeight } = chatMessages;
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 80;
+        if (isAtBottom) return;
+
+        const toast = document.createElement('div');
+        toast.className = 'completion-toast';
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'polite');
+
+        const label = document.createElement('span');
+        label.textContent = message;
+        toast.appendChild(label);
+
+        const btn = document.createElement('button');
+        btn.className = 'completion-toast-dismiss';
+        btn.setAttribute('aria-label', 'Dismiss');
+        btn.textContent = '\u00d7';
+        btn.addEventListener('click', () => toast.remove());
+        toast.appendChild(btn);
+
+        // Auto-dismiss after 6 seconds
+        setTimeout(() => { if (toast.parentNode) toast.remove(); }, 6000);
+
+        const chatArea = document.querySelector('.chat-area') || document.getElementById('chat-column');
+        if (chatArea) {
+            chatArea.appendChild(toast);
+        }
+    }
+
     function renderSubagentEvent(data) {
         if (!currentAssistantEl) return;
         const contentEl = currentAssistantEl.querySelector('.message-content');
@@ -2506,6 +2539,7 @@ const Chat = (() => {
         renderTaskChip,
         renderDetachedChip,
         renderTaskOutputChip,
+        showCompletionToast,
         updateBgIndicator,
     };
 })();

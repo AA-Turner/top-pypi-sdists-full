@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zensical
-Version: 0.0.31
+Version: 0.0.32
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: MIT License
@@ -13,8 +13,8 @@ Classifier: Topic :: Text Processing :: Markup :: Markdown
 Requires-Dist: click>=8.1.8
 Requires-Dist: deepmerge>=2.0
 Requires-Dist: markdown>=3.7
-Requires-Dist: pygments>=2.16
-Requires-Dist: pymdown-extensions>=10.15
+Requires-Dist: pygments>=2.20
+Requires-Dist: pymdown-extensions>=10.21.2
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: tomli>=2.0 ; python_full_version < '3.11'
 License-File: LICENSE.md

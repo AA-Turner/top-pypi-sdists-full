@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: securetar
-Version: 2026.2.0
+Version: 2026.4.1
 Summary: Python module to handle tarfile backups.
 Author-email: Pascal Vizeli <pvizeli@syshack.ch>
 License: Apache-2.0

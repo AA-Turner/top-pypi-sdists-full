@@ -58,12 +58,12 @@ pub fn messages_match_bash_command(messages: &[Message], full_command: &str) -> 
         for text in texts {
             // Check if any command part is in the message
             for part in &command_parts {
-                if text.contains(part) {
+                if text_has_command(text, part) {
                     return true;
                 }
             }
             // Also check if full command is in message (original behavior)
-            if text.contains(full_command) {
+            if text_has_command(text, full_command) {
                 return true;
             }
         }
@@ -84,4 +84,11 @@ pub fn extract_tool_result_ids(request: &PostMessagesRequest) -> Vec<String> {
         }
     }
     ids
+}
+
+fn text_has_command(text: &str, command_or_part: &str) -> bool {
+    text.trim().to_lowercase().contains(&format!(
+        "command: {}",
+        command_or_part.trim().to_lowercase()
+    ))
 }

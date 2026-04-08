@@ -32,6 +32,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     ListIdentitySourcesPaginator,
     ListPoliciesPaginator,
+    ListPolicyStoreAliasesPaginator,
     ListPolicyStoresPaginator,
     ListPolicyTemplatesPaginator,
 )
@@ -46,18 +47,23 @@ from .type_defs import (
     CreateIdentitySourceOutputTypeDef,
     CreatePolicyInputTypeDef,
     CreatePolicyOutputTypeDef,
+    CreatePolicyStoreAliasInputTypeDef,
+    CreatePolicyStoreAliasOutputTypeDef,
     CreatePolicyStoreInputTypeDef,
     CreatePolicyStoreOutputTypeDef,
     CreatePolicyTemplateInputTypeDef,
     CreatePolicyTemplateOutputTypeDef,
     DeleteIdentitySourceInputTypeDef,
     DeletePolicyInputTypeDef,
+    DeletePolicyStoreAliasInputTypeDef,
     DeletePolicyStoreInputTypeDef,
     DeletePolicyTemplateInputTypeDef,
     GetIdentitySourceInputTypeDef,
     GetIdentitySourceOutputTypeDef,
     GetPolicyInputTypeDef,
     GetPolicyOutputTypeDef,
+    GetPolicyStoreAliasInputTypeDef,
+    GetPolicyStoreAliasOutputTypeDef,
     GetPolicyStoreInputTypeDef,
     GetPolicyStoreOutputTypeDef,
     GetPolicyTemplateInputTypeDef,
@@ -72,6 +78,8 @@ from .type_defs import (
     ListIdentitySourcesOutputTypeDef,
     ListPoliciesInputTypeDef,
     ListPoliciesOutputTypeDef,
+    ListPolicyStoreAliasesInputTypeDef,
+    ListPolicyStoreAliasesOutputTypeDef,
     ListPolicyStoresInputTypeDef,
     ListPolicyStoresOutputTypeDef,
     ListPolicyTemplatesInputTypeDef,
@@ -211,6 +219,16 @@ class VerifiedPermissionsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_verifiedpermissions/client/#create_policy_store)
         """
 
+    async def create_policy_store_alias(
+        self, **kwargs: Unpack[CreatePolicyStoreAliasInputTypeDef]
+    ) -> CreatePolicyStoreAliasOutputTypeDef:
+        """
+        Creates a policy store alias for the specified policy store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/create_policy_store_alias.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_verifiedpermissions/client/#create_policy_store_alias)
+        """
+
     async def create_policy_template(
         self, **kwargs: Unpack[CreatePolicyTemplateInputTypeDef]
     ) -> CreatePolicyTemplateOutputTypeDef:
@@ -250,6 +268,16 @@ class VerifiedPermissionsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_verifiedpermissions/client/#delete_policy_store)
         """
 
+    async def delete_policy_store_alias(
+        self, **kwargs: Unpack[DeletePolicyStoreAliasInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the specified policy store alias.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/delete_policy_store_alias.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_verifiedpermissions/client/#delete_policy_store_alias)
+        """
+
     async def delete_policy_template(
         self, **kwargs: Unpack[DeletePolicyTemplateInputTypeDef]
     ) -> dict[str, Any]:
@@ -286,6 +314,16 @@ class VerifiedPermissionsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/get_policy_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_verifiedpermissions/client/#get_policy_store)
+        """
+
+    async def get_policy_store_alias(
+        self, **kwargs: Unpack[GetPolicyStoreAliasInputTypeDef]
+    ) -> GetPolicyStoreAliasOutputTypeDef:
+        """
+        Retrieves details about the specified policy store alias.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/get_policy_store_alias.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_verifiedpermissions/client/#get_policy_store_alias)
         """
 
     async def get_policy_template(
@@ -348,6 +386,17 @@ class VerifiedPermissionsClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/list_policies.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_verifiedpermissions/client/#list_policies)
+        """
+
+    async def list_policy_store_aliases(
+        self, **kwargs: Unpack[ListPolicyStoreAliasesInputTypeDef]
+    ) -> ListPolicyStoreAliasesOutputTypeDef:
+        """
+        Returns a paginated list of all policy store aliases in the calling Amazon Web
+        Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/list_policy_store_aliases.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_verifiedpermissions/client/#list_policy_store_aliases)
         """
 
     async def list_policy_stores(
@@ -465,6 +514,17 @@ class VerifiedPermissionsClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_policies"]
     ) -> ListPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/verifiedpermissions/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_verifiedpermissions/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_store_aliases"]
+    ) -> ListPolicyStoreAliasesPaginator:
         """
         Create a paginator for an operation.
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-fsutil
-Version: 0.16.0
+Version: 0.16.1
 Summary: high-level file-system operations for lazy devs.
 Author-email: Fabio Caccamo <fabio.caccamo@gmail.com>
 Maintainer-email: Fabio Caccamo <fabio.caccamo@gmail.com>

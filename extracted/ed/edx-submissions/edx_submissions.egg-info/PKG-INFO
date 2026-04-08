@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-submissions
-Version: 3.12.2
+Version: 4.0.0
 Summary: An API for creating submissions and scores.
 Home-page: http://github.com/openedx/edx-submissions.git
 Author: edX
@@ -14,7 +14,6 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE.txt
 Requires-Dist: Django

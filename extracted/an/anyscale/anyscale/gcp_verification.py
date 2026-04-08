@@ -665,7 +665,7 @@ def verify_cloud_storage(  # noqa: PLR0911, PLR0912, PLR0913
     if not has_correct_cors:
         logger.internal.warning(
             f"Bucket {bucket_name} does not have the correct CORS rule for Anyscale. This is safe to ignore if you are not using Anyscale UI.\n"
-            "If you are using the UI, please create the correct CORS rule for Anyscale according to https://docs.anyscale.com/cloud-deployment/gcp/deploy-cloud?cloud-deployment=custom#4-create-an-anyscale-cloud"
+            "If you are using the UI, please create the correct CORS rule for Anyscale according to https://docs.anyscale.com/admin/cloud/configure-google-cloud"
         )
         if strict:
             return False

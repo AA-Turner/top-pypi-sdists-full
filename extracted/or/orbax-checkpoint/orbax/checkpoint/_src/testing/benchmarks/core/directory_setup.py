@@ -16,7 +16,7 @@
 
 from absl import logging
 from etils import epath
-import jax
+from orbax.checkpoint._src.testing.benchmarks.core import multihost
 
 
 def setup_test_directory(
@@ -39,9 +39,9 @@ def setup_test_directory(
   if repeat_index is not None:
     path = path / f"repeat_{repeat_index}"
   logging.info("Setting up test directory at: %s", path)
-  if jax.process_index() == 0:
-    if path.exists():
+  if multihost.get_process_index() == 0:
+    if path.exists() and not base_path.startswith("gs://"):
       logging.warning("Test directory %s already exists. Deleting it.", path)
       path.rmtree()
-    path.mkdir(parents=True, exist_ok=False)
+    path.mkdir(parents=True, exist_ok=True)
   return path

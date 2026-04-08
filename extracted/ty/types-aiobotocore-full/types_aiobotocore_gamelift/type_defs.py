@@ -1816,6 +1816,7 @@ class GameSessionTypeDef(TypedDict):
     GameSessionData: NotRequired[str]
     MatchmakerData: NotRequired[str]
     Location: NotRequired[str]
+    ComputeName: NotRequired[str]
     PlayerGatewayStatus: NotRequired[PlayerGatewayStatusType]
 
 

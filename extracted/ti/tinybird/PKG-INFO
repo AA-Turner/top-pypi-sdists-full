@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.4.0
+Version: 4.4.1
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.4.1
+*******
+
+- `Changed` CLI messages now show `uv run tinybird` for python-sdk projects and `npx tinybird` for ts-sdk projects instead of `tb`.
 
 4.4.0
 *******

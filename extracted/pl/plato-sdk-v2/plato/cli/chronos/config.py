@@ -9,10 +9,10 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from plato.runtime import VMRuntimeConfig
+from plato.runtimes.config import VMRuntimeConfig
 
 # Import world-specific config models
-from plato.worlds.config import DevConfig, SessionConfig
+from plato.worlds.config import ChronosConfig, DevConfig
 
 
 def _expand_vars_recursive(obj: Any) -> None:
@@ -79,7 +79,7 @@ class Config(BaseModel):
     tags: list[str] = Field(default_factory=list)
     world: WorldConfig
     dev: DevConfig = Field(default_factory=DevConfig)
-    session: SessionConfig = Field(default_factory=SessionConfig)
+    session: ChronosConfig = Field(default_factory=ChronosConfig)
 
     model_config = {"extra": "allow"}
 

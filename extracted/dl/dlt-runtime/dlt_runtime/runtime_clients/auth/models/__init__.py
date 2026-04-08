@@ -5,6 +5,7 @@ from .error_response_400_extra import ErrorResponse400Extra
 from .error_response_401 import ErrorResponse401
 from .error_response_401_extra import ErrorResponse401Extra
 from .login_response import LoginResponse
+from .logout_request import LogoutRequest
 from .ping_response import PingResponse
 from .refresh_request import RefreshRequest
 from .refresh_response import RefreshResponse
@@ -18,6 +19,7 @@ __all__ = (
     "ErrorResponse401",
     "ErrorResponse401Extra",
     "LoginResponse",
+    "LogoutRequest",
     "PingResponse",
     "RefreshRequest",
     "RefreshResponse",

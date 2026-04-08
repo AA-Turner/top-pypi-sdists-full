@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-kernel
-Version: 1.41.1
+Version: 1.41.2
 Summary: Semantic Kernel Python SDK
 Author-email: Microsoft <SK-Support@microsoft.com>
 Requires-Python: >=3.10
@@ -19,7 +19,7 @@ Requires-Dist: azure-ai-projects ~= 1.0.0b12
 Requires-Dist: azure-ai-agents >= 1.2.0b3
 Requires-Dist: aiohttp ~= 3.8
 Requires-Dist: cloudevents ~=1.0
-Requires-Dist: pydantic >=2.0,!=2.10.0,!=2.10.1,!=2.10.2,!=2.10.3,<2.12
+Requires-Dist: pydantic >=2.0,!=2.10.0,!=2.10.1,!=2.10.2,!=2.10.3,<2.13
 Requires-Dist: pydantic-settings ~= 2.0
 Requires-Dist: defusedxml ~= 0.7
 Requires-Dist: azure-identity >= 1.13
@@ -47,7 +47,7 @@ Requires-Dist: azure-ai-inference >= 1.0.0b6 ; extra == "azure"
 Requires-Dist: azure-core-tracing-opentelemetry >= 1.0.0b11 ; extra == "azure"
 Requires-Dist: azure-search-documents >= 11.6.0b4 ; extra == "azure"
 Requires-Dist: azure-cosmos ~= 4.7 ; extra == "azure"
-Requires-Dist: chromadb >= 0.5,< 1.1 ; extra == "chroma"
+Requires-Dist: chromadb >= 0.5,< 1.4 ; extra == "chroma"
 Requires-Dist: microsoft-agents-copilotstudio-client >= 0.3.1 ; extra == "copilotstudio"
 Requires-Dist: microsoft-agents-activity >= 0.3.1 ; extra == "copilotstudio"
 Requires-Dist: faiss-cpu>=1.10.0 ; extra == "faiss"
@@ -60,9 +60,9 @@ Requires-Dist: mcp>=1.8 ; extra == "mcp"
 Requires-Dist: pymilvus >= 2.3,< 2.7 ; extra == "milvus"
 Requires-Dist: milvus >= 2.3,<2.3.8 ; extra == "milvus" and ( platform_system != 'Windows')
 Requires-Dist: mistralai >= 1.2,< 2.0 ; extra == "mistralai"
-Requires-Dist: pymongo >= 4.8.0, < 4.15 ; extra == "mongo"
+Requires-Dist: pymongo >= 4.8.0, < 4.16 ; extra == "mongo"
 Requires-Dist: motor >= 3.3.2,< 3.8.0 ; extra == "mongo"
-Requires-Dist: ipykernel ~= 6.29 ; extra == "notebooks"
+Requires-Dist: ipykernel >= 6.29,< 8.0 ; extra == "notebooks"
 Requires-Dist: ollama ~= 0.4 ; extra == "ollama"
 Requires-Dist: onnxruntime==1.22.1 ; extra == "onnx"
 Requires-Dist: onnxruntime-genai==0.9.0 ; extra == "onnx"
@@ -73,7 +73,7 @@ Requires-Dist: psycopg[binary, pool] ~= 3.2 ; extra == "postgres"
 Requires-Dist: qdrant-client ~= 1.9 ; extra == "qdrant"
 Requires-Dist: websockets >= 13, < 16 ; extra == "realtime"
 Requires-Dist: aiortc>=1.9.0 ; extra == "realtime"
-Requires-Dist: redis[hiredis] ~= 6.0 ; extra == "redis"
+Requires-Dist: redis[hiredis] >= 6,< 8 ; extra == "redis"
 Requires-Dist: types-redis ~= 4.6.0.20240425 ; extra == "redis"
 Requires-Dist: redisvl ~= 0.4 ; extra == "redis"
 Requires-Dist: pyodbc >= 5.2 ; extra == "sql"

@@ -1014,6 +1014,7 @@ impl ToolUpgradeSettings {
             python_platform,
             upgrade,
             upgrade_package,
+            upgrade_group,
             index_args,
             all,
             reinstall,
@@ -1053,6 +1054,7 @@ impl ToolUpgradeSettings {
             upgrade: upgrade_package.is_empty(),
             no_upgrade: false,
             upgrade_package,
+            upgrade_group,
             reinstall,
             no_reinstall,
             reinstall_package,
@@ -1111,12 +1113,13 @@ pub(crate) struct ToolListSettings {
     pub(crate) show_extras: bool,
     pub(crate) show_python: bool,
     pub(crate) outdated: bool,
+    pub(crate) args: ResolverInstallerOptions,
+    pub(crate) filesystem: ResolverInstallerOptions,
 }
 
 impl ToolListSettings {
     /// Resolve the [`ToolListSettings`] from the CLI and filesystem configuration.
-    #[expect(clippy::needless_pass_by_value)]
-    pub(crate) fn resolve(args: ToolListArgs, _filesystem: Option<FilesystemOptions>) -> Self {
+    pub(crate) fn resolve(args: ToolListArgs, filesystem: Option<FilesystemOptions>) -> Self {
         let ToolListArgs {
             show_paths,
             show_version_specifiers,
@@ -1125,9 +1128,16 @@ impl ToolListSettings {
             show_python,
             outdated,
             no_outdated,
+            exclude_newer,
             python_preference: _,
             no_python_downloads: _,
         } = args;
+
+        let filesystem = filesystem.map(FilesystemOptions::into_options);
+        let filesystem = ResolverInstallerOptions {
+            exclude_newer: filesystem.and_then(|options| options.top_level.exclude_newer),
+            ..ResolverInstallerOptions::default()
+        };
 
         Self {
             show_paths,
@@ -1136,6 +1146,11 @@ impl ToolListSettings {
             show_extras,
             show_python,
             outdated: flag(outdated, no_outdated, "outdated").unwrap_or(false),
+            args: ResolverInstallerOptions {
+                exclude_newer,
+                ..ResolverInstallerOptions::default()
+            },
+            filesystem,
         }
     }
 }
@@ -4223,6 +4238,7 @@ impl PipSettings {
                     .flatten()
                     .map(Requirement::from)
                     .collect(),
+                Vec::new(),
             )
             .combine(Upgrade::from_args(
                 upgrade,
@@ -4231,6 +4247,7 @@ impl PipSettings {
                     .flatten()
                     .map(Requirement::from)
                     .collect(),
+                Vec::new(),
             ))
             .unwrap_or_default(),
             reinstall: Reinstall::from_args(

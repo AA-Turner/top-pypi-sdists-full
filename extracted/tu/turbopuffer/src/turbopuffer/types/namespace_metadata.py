@@ -1,12 +1,13 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 from datetime import datetime
 from typing_extensions import Literal, TypeAlias
 
 from pydantic import Field as FieldInfo
 
 from .._models import BaseModel
+from .pinning_config import PinningConfig
 from .attribute_schema_config import AttributeSchemaConfig
 
 __all__ = [
@@ -18,6 +19,8 @@ __all__ = [
     "Index",
     "IndexIndexUpToDate",
     "IndexIndexUpdating",
+    "Pinning",
+    "PinningStatus",
 ]
 
 
@@ -59,6 +62,31 @@ class IndexIndexUpdating(BaseModel):
 Index: TypeAlias = Union[IndexIndexUpToDate, IndexIndexUpdating]
 
 
+class PinningStatus(BaseModel):
+    """Operational status for a pinned namespace."""
+
+    ready_replicas: int
+    """The number of replicas that are warm and serving traffic."""
+
+    updated_at: datetime
+    """The timestamp of the latest pinning status snapshot."""
+
+    utilization: float
+    """
+    Aggregate utilization for the pinned namespace, reported as a value between 0.0
+    and 1.0.
+    """
+
+
+class Pinning(PinningConfig):
+    """
+    Configuration for namespace pinning, along with the current status of the pinned namespace.
+    """
+
+    status: Optional[PinningStatus] = None
+    """Operational status for a pinned namespace."""
+
+
 class NamespaceMetadata(BaseModel):
     """Metadata about a namespace."""
 
@@ -84,3 +112,9 @@ class NamespaceMetadata(BaseModel):
 
     updated_at: datetime
     """The timestamp when the namespace was last modified by a write operation."""
+
+    pinning: Optional[Pinning] = None
+    """
+    Configuration for namespace pinning, along with the current status of the pinned
+    namespace.
+    """

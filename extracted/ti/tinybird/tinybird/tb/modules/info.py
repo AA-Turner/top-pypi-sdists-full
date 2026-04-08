@@ -9,7 +9,7 @@ from tinybird.tb.config import get_clickhouse_host, get_display_cloud_host
 from tinybird.tb.modules.cli import CLIConfig, cli
 from tinybird.tb.modules.common import echo_json, force_echo, format_robust_table
 from tinybird.tb.modules.exceptions import CLILocalException
-from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.tb.modules.feedback_manager import FeedbackManager, get_cli_name
 from tinybird.tb.modules.local_common import TB_LOCAL_ADDRESS, get_tinybird_local_config
 from tinybird.tb.modules.project import Project
 
@@ -99,7 +99,7 @@ def get_cloud_info(ctx_config: Dict[str, Any]) -> Tuple[Iterable[Any], List[str]
     except Exception:
         click.echo(
             FeedbackManager.warning(
-                message="\n⚠  Could not retrieve Tinybird Cloud info. Please run `tb login` first or check that you are located in the correct directory."
+                message=f"\n⚠  Could not retrieve Tinybird Cloud info. Please run `{get_cli_name()} login` first or check that you are located in the correct directory."
             )
         )
         return [], []
@@ -130,7 +130,7 @@ def get_local_info(config: Dict[str, Any], silent: bool = False) -> Tuple[Iterab
     except Exception as e:
         click.echo(
             FeedbackManager.warning(
-                message=f"\n⚠  Tinybird Local is running but could not retrieve the workspace info. Please run `tb login` first or check that you are located in the correct directory. {e}"
+                message=f"\n⚠  Tinybird Local is running but could not retrieve the workspace info. Please run `{get_cli_name()} login` first or check that you are located in the correct directory. {e}"
             )
         )
         return [], []
@@ -187,7 +187,7 @@ def get_env_info(
     ):
         click.echo(
             FeedbackManager.warning(
-                message="\n⚠  Tinybird Local is running but you are logged locally in a temporal workspace until you run `tb login` or check that you are located in the correct directory."
+                message=f"\n⚠  Tinybird Local is running but you are logged locally in a temporal workspace until you run `{get_cli_name()} login` or check that you are located in the correct directory."
             )
         )
     click.echo(format_robust_table(table, column_names=columns))

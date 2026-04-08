@@ -22,21 +22,21 @@ use super::utils::{bytes_to_uuid_like_string, generate_span_id};
 pub struct SpanProcessor {
     /// Pending spawning tool calls waiting for nested LLM call entry
     /// Key: prompt/query (for matching first nested request)
-    pending_spawning_tools: Arc<DashMap<String, PendingSpawningTool>>,
+    pending_spawning_tools: DashMap<String, PendingSpawningTool>,
 
     /// Maps tool_use_ids to their nested context
     /// This is how we track the chain after initial prompt match
     /// Key: tool_use_id from any tool call in a nested context
-    tool_to_nested_context: Arc<DashMap<String, NestedContext>>,
+    tool_to_nested_context: DashMap<String, NestedContext>,
 
     /// Pending tool spans waiting for results
     /// Key: tool_use_id
-    pending_tool_spans: Arc<DashMap<String, PendingToolSpan>>,
+    pending_tool_spans: DashMap<String, PendingToolSpan>,
 
     /// Tracks the latest child span end time for each spawning tool
     /// Key: parent_tool_use_id (from NestedContext)
     /// Value: latest child span end time in nanoseconds
-    spawning_tool_child_end_times: Arc<DashMap<String, u64>>,
+    spawning_tool_child_end_times: DashMap<String, u64>,
 }
 
 impl Default for SpanProcessor {
@@ -48,10 +48,10 @@ impl Default for SpanProcessor {
 impl SpanProcessor {
     pub fn new() -> Self {
         Self {
-            pending_spawning_tools: Arc::new(DashMap::new()),
-            tool_to_nested_context: Arc::new(DashMap::new()),
-            pending_tool_spans: Arc::new(DashMap::new()),
-            spawning_tool_child_end_times: Arc::new(DashMap::new()),
+            pending_spawning_tools: DashMap::new(),
+            tool_to_nested_context: DashMap::new(),
+            pending_tool_spans: DashMap::new(),
+            spawning_tool_child_end_times: DashMap::new(),
         }
     }
 
@@ -105,7 +105,18 @@ impl SpanProcessor {
             }
         }
 
-        // Second, check if the messages contain a pending spawning tool's prompt (entry point)
+        // Second, before prompt-containment matching, check if any tool_result_id is completing
+        // a pending spawning tool. If so, this request is returning the result to the caller
+        // (not a nested call spawned by that tool) — return None regardless of text matches.
+        for id in &tool_result_ids {
+            if let Some(pending) = self.pending_tool_spans.get(id) {
+                if SpawningToolType::is_spawning_tool(&pending.tool_name) {
+                    return None;
+                }
+            }
+        }
+
+        // Third, check if the messages contain a pending spawning tool's prompt (entry point)
         // We don't remove the entry here - cleanup happens when ToolResult arrives
         for entry in self.pending_spawning_tools.iter() {
             let prompt = entry.key();
@@ -152,14 +163,12 @@ impl SpanProcessor {
                     continue;
                 }
 
-                let tool_span_id_bytes = match generate_span_id() {
-                    Ok(id) => id,
-                    Err(_) => continue,
+                let Ok(tool_span_id_bytes) = generate_span_id() else {
+                    continue;
                 };
 
-                let tool_span_id_string = match bytes_to_uuid_like_string(&tool_span_id_bytes) {
-                    Ok(s) => s,
-                    Err(_) => continue,
+                let Ok(tool_span_id_string) = bytes_to_uuid_like_string(&tool_span_id_bytes) else {
+                    continue;
                 };
 
                 // Build the tool's own paths

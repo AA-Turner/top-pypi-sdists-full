@@ -12,6 +12,7 @@ import multiprocessing
 import signal
 import time
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -205,6 +206,9 @@ class Session:
         self._heartbeat_task: asyncio.Task | None = None
         self._heartbeat_interval = 30
         self._envs: list[Environment] | None = None
+        self._network_requested = False
+        self._network_connected = False
+        self._network_result: dict[str, Any] | None = None
 
     @property
     def session_id(self) -> str:
@@ -254,7 +258,7 @@ class Session:
             failure_details = ", ".join([f"{e.alias}: {e.error}" for e in failures])
             raise RuntimeError(f"Failed to create environments: {failure_details}")
 
-        logger.info(f"Session created: {response.session_id}, envs: {[e.alias for e in response.envs]}")
+        logger.debug(f"Session created: {response.session_id}, envs: {[e.alias for e in response.envs]}")
 
         if not wait:
             context = SessionContext(
@@ -513,6 +517,7 @@ class Session:
                 self._context = response.context
                 self._envs = None  # Reset cached envs
                 logger.info(f"All environments in session {self.session_id} are ready")
+                await self._connect_network_if_requested()
                 return
 
             raise NotReadyError("Environments not ready yet")
@@ -915,6 +920,12 @@ class Session:
             RuntimeError: If session is closed or network connection fails.
         """
         self._check_closed()
+        self._network_requested = True
+        if self._network_connected:
+            return self._network_result or self._deferred_network_result()
+        if not self._has_networkable_envs():
+            logger.debug("Deferring network connection for session %s until environments exist", self.session_id)
+            return self._deferred_network_result()
 
         # Server returns 500 with error detail if network connection fails
         result = await sessions_connect_network.asyncio(
@@ -922,7 +933,8 @@ class Session:
             session_id=self.session_id,
             x_api_key=self._api_key,
         )
-
+        self._network_connected = True
+        self._network_result = result if isinstance(result, dict) else result.model_dump()
         return result
 
     async def add_env(
@@ -1024,6 +1036,8 @@ class Session:
 
         # Reset cached envs to force rebuild
         self._envs = None
+        if wait_for_ready:
+            await self._connect_network_if_requested()
 
         # Create and return the Environment object
         new_environment = Environment(
@@ -1036,7 +1050,7 @@ class Session:
             mesh_ip=mesh_ip,
         )
 
-        logger.info(f"Added job {job_id} (alias={env.alias}) to session {self.session_id}")
+        logger.debug(f"Added job {job_id} (alias={env.alias}) to session {self.session_id}")
         return new_environment
 
     async def remove_env(self, env: Environment | str) -> None:
@@ -1087,7 +1101,7 @@ class Session:
         # Reset cached envs to force rebuild
         self._envs = None
 
-        logger.info(f"Removed job {job_id} (alias={alias}) from session {self.session_id}")
+        logger.debug(f"Removed job {job_id} (alias={alias}) from session {self.session_id}")
 
     async def cleanup_databases(self) -> SessionCleanupResult:
         """Clean up database audit logs for all environments.
@@ -1372,6 +1386,23 @@ class Session:
         if self._closed:
             raise RuntimeError("Session is closed")
 
+    def _has_networkable_envs(self) -> bool:
+        env_contexts = self._context.envs or []
+        return any(env.job_id for env in env_contexts)
+
+    def _deferred_network_result(self) -> dict[str, Any]:
+        return {
+            "success": True,
+            "session_id": self.session_id,
+            "subnet": None,
+            "results": {},
+            "deferred": True,
+        }
+
+    async def _connect_network_if_requested(self) -> None:
+        if self._network_requested and not self._network_connected and self._has_networkable_envs():
+            await self.connect_network()
+
     def __repr__(self) -> str:
         env_count = len(self._context.envs) if self._context.envs else 0
         return f"Session(session_id={self.session_id!r}, envs={env_count})"
@@ -1408,7 +1439,7 @@ class Session:
     @classmethod
     async def load(
         cls,
-        data: SerializedSession,
+        data: SerializedSession | Mapping[str, object],
         *,
         http_client: httpx.AsyncClient | None = None,
         start_heartbeat: bool = True,
@@ -1420,7 +1451,7 @@ class Session:
         By default, starts the heartbeat background task.
 
         Args:
-            data: SerializedSession from Session.dump().
+            data: SerializedSession from Session.dump(), or its JSON-decoded mapping form.
             http_client: Optional HTTP client. If not provided, a new one is created
                         using the base_url from the serialized data.
             start_heartbeat: Whether to start the heartbeat task (default: True).
@@ -1429,13 +1460,15 @@ class Session:
         Returns:
             A restored Session instance.
         """
+        serialized = SerializedSession.model_validate(data)
+
         # Create HTTP client if not provided
         # Use 600s timeout to match the main client (needed for long-polling like wait_for_ready)
         if http_client is None:
             timeout = httpx.Timeout(600.0)
             http_client = (
-                httpx.AsyncClient(base_url=data.base_url, timeout=timeout)
-                if data.base_url
+                httpx.AsyncClient(base_url=serialized.base_url, timeout=timeout)
+                if serialized.base_url
                 else httpx.AsyncClient(timeout=timeout)
             )
 
@@ -1449,28 +1482,28 @@ class Session:
                 artifact_id=env.artifact_id,
                 simulator=env.simulator,
             )
-            for env in data.envs
+            for env in serialized.envs
         ]
 
         context = SessionContext(
-            session_id=data.session_id,
-            task_public_id=data.task_public_id,
+            session_id=serialized.session_id,
+            task_public_id=serialized.task_public_id,
             envs=env_contexts,
         )
 
         session = cls(
             http_client=http_client,
-            api_key=data.api_key,
+            api_key=serialized.api_key,
             context=context,
         )
-        session._closed = data.closed
+        session._closed = serialized.closed
         session._started = True  # Loaded sessions are already fully initialized
 
         # Start heartbeat if requested and session isn't closed
         if start_heartbeat and not session._closed:
             await session.start_heartbeat(use_process=heartbeat_use_process)
-            logger.info(f"Session {session.session_id} restored with heartbeat started")
+            logger.debug(f"Session {session.session_id} restored with heartbeat started")
         else:
-            logger.info(f"Session {session.session_id} restored (heartbeat not started)")
+            logger.debug(f"Session {session.session_id} restored (heartbeat not started)")
 
         return session

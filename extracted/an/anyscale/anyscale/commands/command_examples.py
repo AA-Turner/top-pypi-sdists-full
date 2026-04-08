@@ -13,7 +13,7 @@ Output
 (anyscale +1m19.7s) Job 'prodjob_6ntzknwk1i9b1uw1zk1gp9dbhe' reached target state, exiting
 
 # Submit a job specified by a yaml file, this will run a job with the specified settings.
-# See https://docs.anyscale.com/reference/job-api/#jobconfig for a list of all available fields.
+# See https://docs.anyscale.com/reference/job-api#jobconfig for a list of all available fields.
 $ cat job.yaml
 name: my-job
 entrypoint: python main.py

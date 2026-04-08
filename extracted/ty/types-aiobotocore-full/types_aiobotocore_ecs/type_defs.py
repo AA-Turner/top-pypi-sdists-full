@@ -45,6 +45,12 @@ from .literals import (
     ContainerInstanceStatusType,
     CPUArchitectureType,
     CpuManufacturerType,
+    DaemonDeploymentRollbackMonitorsStatusType,
+    DaemonDeploymentStatusType,
+    DaemonPropagateTagsType,
+    DaemonStatusType,
+    DaemonTaskDefinitionStatusFilterType,
+    DaemonTaskDefinitionStatusType,
     DeploymentControllerTypeType,
     DeploymentLifecycleHookStageType,
     DeploymentRolloutStateType,
@@ -60,6 +66,7 @@ from .literals import (
     HealthStatusType,
     InstanceGenerationType,
     InstanceHealthCheckStateType,
+    InstanceHealthCheckTypeType,
     IpcModeType,
     LaunchTypeType,
     LocalStorageType,
@@ -145,6 +152,8 @@ __all__ = (
     "CreateCapacityProviderResponseTypeDef",
     "CreateClusterRequestTypeDef",
     "CreateClusterResponseTypeDef",
+    "CreateDaemonRequestTypeDef",
+    "CreateDaemonResponseTypeDef",
     "CreateExpressGatewayServiceRequestTypeDef",
     "CreateExpressGatewayServiceResponseTypeDef",
     "CreateManagedInstancesProviderConfigurationTypeDef",
@@ -153,6 +162,33 @@ __all__ = (
     "CreateTaskSetRequestTypeDef",
     "CreateTaskSetResponseTypeDef",
     "CreatedAtTypeDef",
+    "DaemonAlarmConfigurationOutputTypeDef",
+    "DaemonAlarmConfigurationTypeDef",
+    "DaemonCapacityProviderTypeDef",
+    "DaemonCircuitBreakerTypeDef",
+    "DaemonContainerDefinitionOutputTypeDef",
+    "DaemonContainerDefinitionTypeDef",
+    "DaemonContainerDefinitionUnionTypeDef",
+    "DaemonContainerImageTypeDef",
+    "DaemonDeploymentAlarmsTypeDef",
+    "DaemonDeploymentCapacityProviderTypeDef",
+    "DaemonDeploymentConfigurationOutputTypeDef",
+    "DaemonDeploymentConfigurationTypeDef",
+    "DaemonDeploymentConfigurationUnionTypeDef",
+    "DaemonDeploymentRevisionDetailTypeDef",
+    "DaemonDeploymentSummaryTypeDef",
+    "DaemonDeploymentTypeDef",
+    "DaemonDetailTypeDef",
+    "DaemonLinuxParametersOutputTypeDef",
+    "DaemonLinuxParametersTypeDef",
+    "DaemonLinuxParametersUnionTypeDef",
+    "DaemonRevisionDetailTypeDef",
+    "DaemonRevisionTypeDef",
+    "DaemonRollbackTypeDef",
+    "DaemonSummaryTypeDef",
+    "DaemonTaskDefinitionSummaryTypeDef",
+    "DaemonTaskDefinitionTypeDef",
+    "DaemonVolumeTypeDef",
     "DeleteAccountSettingRequestTypeDef",
     "DeleteAccountSettingResponseTypeDef",
     "DeleteAttributesRequestTypeDef",
@@ -161,6 +197,10 @@ __all__ = (
     "DeleteCapacityProviderResponseTypeDef",
     "DeleteClusterRequestTypeDef",
     "DeleteClusterResponseTypeDef",
+    "DeleteDaemonRequestTypeDef",
+    "DeleteDaemonResponseTypeDef",
+    "DeleteDaemonTaskDefinitionRequestTypeDef",
+    "DeleteDaemonTaskDefinitionResponseTypeDef",
     "DeleteExpressGatewayServiceRequestTypeDef",
     "DeleteExpressGatewayServiceResponseTypeDef",
     "DeleteServiceRequestTypeDef",
@@ -190,6 +230,19 @@ __all__ = (
     "DescribeClustersResponseTypeDef",
     "DescribeContainerInstancesRequestTypeDef",
     "DescribeContainerInstancesResponseTypeDef",
+    "DescribeDaemonDeploymentsRequestTypeDef",
+    "DescribeDaemonDeploymentsRequestWaitExtraTypeDef",
+    "DescribeDaemonDeploymentsRequestWaitTypeDef",
+    "DescribeDaemonDeploymentsResponseTypeDef",
+    "DescribeDaemonRequestTypeDef",
+    "DescribeDaemonRequestWaitTypeDef",
+    "DescribeDaemonResponseTypeDef",
+    "DescribeDaemonRevisionsRequestTypeDef",
+    "DescribeDaemonRevisionsResponseTypeDef",
+    "DescribeDaemonTaskDefinitionRequestTypeDef",
+    "DescribeDaemonTaskDefinitionRequestWaitExtraTypeDef",
+    "DescribeDaemonTaskDefinitionRequestWaitTypeDef",
+    "DescribeDaemonTaskDefinitionResponseTypeDef",
     "DescribeExpressGatewayServiceRequestTypeDef",
     "DescribeExpressGatewayServiceResponseTypeDef",
     "DescribeServiceDeploymentsRequestTypeDef",
@@ -285,6 +338,12 @@ __all__ = (
     "ListContainerInstancesRequestPaginateTypeDef",
     "ListContainerInstancesRequestTypeDef",
     "ListContainerInstancesResponseTypeDef",
+    "ListDaemonDeploymentsRequestTypeDef",
+    "ListDaemonDeploymentsResponseTypeDef",
+    "ListDaemonTaskDefinitionsRequestTypeDef",
+    "ListDaemonTaskDefinitionsResponseTypeDef",
+    "ListDaemonsRequestTypeDef",
+    "ListDaemonsResponseTypeDef",
     "ListServiceDeploymentsRequestTypeDef",
     "ListServiceDeploymentsResponseTypeDef",
     "ListServicesByNamespaceRequestPaginateTypeDef",
@@ -314,6 +373,7 @@ __all__ = (
     "ManagedAutoScalingTypeDef",
     "ManagedCertificateTypeDef",
     "ManagedIngressPathTypeDef",
+    "ManagedInstancesLocalStorageConfigurationTypeDef",
     "ManagedInstancesNetworkConfigurationOutputTypeDef",
     "ManagedInstancesNetworkConfigurationTypeDef",
     "ManagedInstancesNetworkConfigurationUnionTypeDef",
@@ -358,6 +418,8 @@ __all__ = (
     "PutClusterCapacityProvidersResponseTypeDef",
     "RegisterContainerInstanceRequestTypeDef",
     "RegisterContainerInstanceResponseTypeDef",
+    "RegisterDaemonTaskDefinitionRequestTypeDef",
+    "RegisterDaemonTaskDefinitionResponseTypeDef",
     "RegisterTaskDefinitionRequestTypeDef",
     "RegisterTaskDefinitionResponseTypeDef",
     "RepositoryCredentialsTypeDef",
@@ -449,6 +511,8 @@ __all__ = (
     "UpdateContainerAgentResponseTypeDef",
     "UpdateContainerInstancesStateRequestTypeDef",
     "UpdateContainerInstancesStateResponseTypeDef",
+    "UpdateDaemonRequestTypeDef",
+    "UpdateDaemonResponseTypeDef",
     "UpdateExpressGatewayServiceRequestTypeDef",
     "UpdateExpressGatewayServiceResponseTypeDef",
     "UpdateManagedInstancesProviderConfigurationTypeDef",
@@ -677,7 +741,7 @@ class ContainerImageTypeDef(TypedDict):
 InstanceHealthCheckResultTypeDef = TypedDict(
     "InstanceHealthCheckResultTypeDef",
     {
-        "type": NotRequired[Literal["CONTAINER_RUNTIME"]],
+        "type": NotRequired[InstanceHealthCheckTypeType],
         "status": NotRequired[InstanceHealthCheckStateType],
         "lastUpdated": NotRequired[datetime],
         "lastStatusChange": NotRequired[datetime],
@@ -792,6 +856,101 @@ class ScaleTypeDef(TypedDict):
 TimestampTypeDef = Union[datetime, str]
 
 
+class DaemonAlarmConfigurationOutputTypeDef(TypedDict):
+    alarmNames: NotRequired[list[str]]
+    enable: NotRequired[bool]
+
+
+class DaemonAlarmConfigurationTypeDef(TypedDict):
+    alarmNames: NotRequired[Sequence[str]]
+    enable: NotRequired[bool]
+
+
+class DaemonCapacityProviderTypeDef(TypedDict):
+    arn: NotRequired[str]
+    runningCount: NotRequired[int]
+
+
+class DaemonCircuitBreakerTypeDef(TypedDict):
+    failureCount: NotRequired[int]
+    status: NotRequired[DaemonDeploymentRollbackMonitorsStatusType]
+    threshold: NotRequired[int]
+
+
+class DaemonContainerImageTypeDef(TypedDict):
+    containerName: NotRequired[str]
+    imageDigest: NotRequired[str]
+    image: NotRequired[str]
+
+
+class DaemonDeploymentAlarmsTypeDef(TypedDict):
+    status: NotRequired[DaemonDeploymentRollbackMonitorsStatusType]
+    alarmNames: NotRequired[list[str]]
+    triggeredAlarmNames: NotRequired[list[str]]
+
+
+class DaemonDeploymentCapacityProviderTypeDef(TypedDict):
+    arn: NotRequired[str]
+    runningInstanceCount: NotRequired[int]
+    drainingInstanceCount: NotRequired[int]
+
+
+class DaemonDeploymentSummaryTypeDef(TypedDict):
+    daemonDeploymentArn: NotRequired[str]
+    daemonArn: NotRequired[str]
+    clusterArn: NotRequired[str]
+    status: NotRequired[DaemonDeploymentStatusType]
+    statusReason: NotRequired[str]
+    targetDaemonRevisionArn: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    startedAt: NotRequired[datetime]
+    stoppedAt: NotRequired[datetime]
+    finishedAt: NotRequired[datetime]
+
+
+class DaemonRollbackTypeDef(TypedDict):
+    reason: NotRequired[str]
+    startedAt: NotRequired[datetime]
+    rollbackTargetDaemonRevisionArn: NotRequired[str]
+    rollbackCapacityProviders: NotRequired[list[str]]
+
+
+class DeviceOutputTypeDef(TypedDict):
+    hostPath: str
+    containerPath: NotRequired[str]
+    permissions: NotRequired[list[DeviceCgroupPermissionType]]
+
+
+class KernelCapabilitiesOutputTypeDef(TypedDict):
+    add: NotRequired[list[str]]
+    drop: NotRequired[list[str]]
+
+
+class TmpfsOutputTypeDef(TypedDict):
+    containerPath: str
+    size: int
+    mountOptions: NotRequired[list[str]]
+
+
+class DaemonSummaryTypeDef(TypedDict):
+    daemonArn: NotRequired[str]
+    status: NotRequired[DaemonStatusType]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+
+class DaemonTaskDefinitionSummaryTypeDef(TypedDict):
+    arn: NotRequired[str]
+    registeredAt: NotRequired[datetime]
+    registeredBy: NotRequired[str]
+    deleteRequestedAt: NotRequired[datetime]
+    status: NotRequired[DaemonTaskDefinitionStatusType]
+
+
+class HostVolumePropertiesTypeDef(TypedDict):
+    sourcePath: NotRequired[str]
+
+
 class DeleteAccountSettingRequestTypeDef(TypedDict):
     name: SettingNameType
     principalArn: NotRequired[str]
@@ -815,6 +974,14 @@ class DeleteCapacityProviderRequestTypeDef(TypedDict):
 
 class DeleteClusterRequestTypeDef(TypedDict):
     cluster: str
+
+
+class DeleteDaemonRequestTypeDef(TypedDict):
+    daemonArn: str
+
+
+class DeleteDaemonTaskDefinitionRequestTypeDef(TypedDict):
+    daemonTaskDefinition: str
 
 
 class DeleteExpressGatewayServiceRequestTypeDef(TypedDict):
@@ -918,6 +1085,27 @@ class DescribeContainerInstancesRequestTypeDef(TypedDict):
     include: NotRequired[Sequence[ContainerInstanceFieldType]]
 
 
+class DescribeDaemonDeploymentsRequestTypeDef(TypedDict):
+    daemonDeploymentArns: Sequence[str]
+
+
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
+
+
+class DescribeDaemonRequestTypeDef(TypedDict):
+    daemonArn: str
+
+
+class DescribeDaemonRevisionsRequestTypeDef(TypedDict):
+    daemonRevisionArns: Sequence[str]
+
+
+class DescribeDaemonTaskDefinitionRequestTypeDef(TypedDict):
+    daemonTaskDefinition: str
+
+
 class DescribeExpressGatewayServiceRequestTypeDef(TypedDict):
     serviceArn: str
     include: NotRequired[Sequence[Literal["TAGS"]]]
@@ -937,11 +1125,6 @@ class DescribeServicesRequestTypeDef(TypedDict):
     include: NotRequired[Sequence[Literal["TAGS"]]]
 
 
-class WaiterConfigTypeDef(TypedDict):
-    Delay: NotRequired[int]
-    MaxAttempts: NotRequired[int]
-
-
 class DescribeTaskDefinitionRequestTypeDef(TypedDict):
     taskDefinition: str
     include: NotRequired[Sequence[Literal["TAGS"]]]
@@ -958,12 +1141,6 @@ class DescribeTasksRequestTypeDef(TypedDict):
     tasks: Sequence[str]
     cluster: NotRequired[str]
     include: NotRequired[Sequence[Literal["TAGS"]]]
-
-
-class DeviceOutputTypeDef(TypedDict):
-    hostPath: str
-    containerPath: NotRequired[str]
-    permissions: NotRequired[list[DeviceCgroupPermissionType]]
 
 
 class DeviceTypeDef(TypedDict):
@@ -1108,10 +1285,6 @@ class HealthCheckTypeDef(TypedDict):
     startPeriod: NotRequired[int]
 
 
-class HostVolumePropertiesTypeDef(TypedDict):
-    sourcePath: NotRequired[str]
-
-
 class InferenceAcceleratorOverrideTypeDef(TypedDict):
     deviceName: NotRequired[str]
     deviceType: NotRequired[str]
@@ -1120,6 +1293,10 @@ class InferenceAcceleratorOverrideTypeDef(TypedDict):
 class InferenceAcceleratorTypeDef(TypedDict):
     deviceName: str
     deviceType: str
+
+
+class ManagedInstancesLocalStorageConfigurationTypeDef(TypedDict):
+    useLocalStorage: NotRequired[bool]
 
 
 class ManagedInstancesNetworkConfigurationOutputTypeDef(TypedDict):
@@ -1175,20 +1352,9 @@ VCpuCountRangeRequestTypeDef = TypedDict(
 )
 
 
-class KernelCapabilitiesOutputTypeDef(TypedDict):
-    add: NotRequired[list[str]]
-    drop: NotRequired[list[str]]
-
-
 class KernelCapabilitiesTypeDef(TypedDict):
     add: NotRequired[Sequence[str]]
     drop: NotRequired[Sequence[str]]
-
-
-class TmpfsOutputTypeDef(TypedDict):
-    containerPath: str
-    size: int
-    mountOptions: NotRequired[list[str]]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -1230,6 +1396,23 @@ ListContainerInstancesRequestTypeDef = TypedDict(
         "status": NotRequired[ContainerInstanceStatusType],
     },
 )
+
+
+class ListDaemonTaskDefinitionsRequestTypeDef(TypedDict):
+    familyPrefix: NotRequired[str]
+    family: NotRequired[str]
+    revision: NotRequired[Literal["LAST_REGISTERED"]]
+    status: NotRequired[DaemonTaskDefinitionStatusFilterType]
+    sort: NotRequired[SortOrderType]
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
+class ListDaemonsRequestTypeDef(TypedDict):
+    clusterArn: NotRequired[str]
+    capacityProviderArns: NotRequired[Sequence[str]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 
 class ServiceDeploymentBriefTypeDef(TypedDict):
@@ -1288,6 +1471,7 @@ class ListTasksRequestTypeDef(TypedDict):
     serviceName: NotRequired[str]
     desiredStatus: NotRequired[DesiredStatusType]
     launchType: NotRequired[LaunchTypeType]
+    daemonName: NotRequired[str]
 
 
 class ManagedAgentStateChangeTypeDef(TypedDict):
@@ -1720,8 +1904,30 @@ class ContainerTypeDef(TypedDict):
     gpuIds: NotRequired[list[str]]
 
 
+class CreateDaemonResponseTypeDef(TypedDict):
+    daemonArn: str
+    status: DaemonStatusType
+    createdAt: datetime
+    deploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteAttributesResponseTypeDef(TypedDict):
     attributes: list[AttributeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteDaemonResponseTypeDef(TypedDict):
+    daemonArn: str
+    status: DaemonStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    deploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteDaemonTaskDefinitionResponseTypeDef(TypedDict):
+    daemonTaskDefinitionArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1790,6 +1996,11 @@ class PutAttributesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class RegisterDaemonTaskDefinitionResponseTypeDef(TypedDict):
+    daemonTaskDefinitionArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class StopServiceDeploymentResponseTypeDef(TypedDict):
     serviceDeploymentArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1810,6 +2021,15 @@ class SubmitTaskStateChangeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateDaemonResponseTypeDef(TypedDict):
+    daemonArn: str
+    status: DaemonStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    deploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateTaskSetRequestTypeDef(TypedDict):
     cluster: str
     service: str
@@ -1820,6 +2040,83 @@ class UpdateTaskSetRequestTypeDef(TypedDict):
 class CreatedAtTypeDef(TypedDict):
     before: NotRequired[TimestampTypeDef]
     after: NotRequired[TimestampTypeDef]
+
+
+class DaemonDeploymentConfigurationOutputTypeDef(TypedDict):
+    drainPercent: NotRequired[float]
+    alarms: NotRequired[DaemonAlarmConfigurationOutputTypeDef]
+    bakeTimeInMinutes: NotRequired[int]
+
+
+class DaemonDeploymentConfigurationTypeDef(TypedDict):
+    drainPercent: NotRequired[float]
+    alarms: NotRequired[DaemonAlarmConfigurationTypeDef]
+    bakeTimeInMinutes: NotRequired[int]
+
+
+class DaemonRevisionDetailTypeDef(TypedDict):
+    arn: NotRequired[str]
+    capacityProviders: NotRequired[list[DaemonCapacityProviderTypeDef]]
+    totalRunningCount: NotRequired[int]
+
+
+class DaemonRevisionTypeDef(TypedDict):
+    daemonRevisionArn: NotRequired[str]
+    clusterArn: NotRequired[str]
+    daemonArn: NotRequired[str]
+    daemonTaskDefinitionArn: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    containerImages: NotRequired[list[DaemonContainerImageTypeDef]]
+    propagateTags: NotRequired[DaemonPropagateTagsType]
+    enableECSManagedTags: NotRequired[bool]
+    enableExecuteCommand: NotRequired[bool]
+
+
+class DaemonDeploymentRevisionDetailTypeDef(TypedDict):
+    arn: NotRequired[str]
+    capacityProviders: NotRequired[list[DaemonDeploymentCapacityProviderTypeDef]]
+    totalRunningInstanceCount: NotRequired[int]
+    totalDrainingInstanceCount: NotRequired[int]
+
+
+class ListDaemonDeploymentsResponseTypeDef(TypedDict):
+    daemonDeployments: list[DaemonDeploymentSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class DaemonLinuxParametersOutputTypeDef(TypedDict):
+    capabilities: NotRequired[KernelCapabilitiesOutputTypeDef]
+    devices: NotRequired[list[DeviceOutputTypeDef]]
+    initProcessEnabled: NotRequired[bool]
+    tmpfs: NotRequired[list[TmpfsOutputTypeDef]]
+
+
+class LinuxParametersOutputTypeDef(TypedDict):
+    capabilities: NotRequired[KernelCapabilitiesOutputTypeDef]
+    devices: NotRequired[list[DeviceOutputTypeDef]]
+    initProcessEnabled: NotRequired[bool]
+    sharedMemorySize: NotRequired[int]
+    tmpfs: NotRequired[list[TmpfsOutputTypeDef]]
+    maxSwap: NotRequired[int]
+    swappiness: NotRequired[int]
+
+
+class ListDaemonsResponseTypeDef(TypedDict):
+    daemonSummariesList: list[DaemonSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListDaemonTaskDefinitionsResponseTypeDef(TypedDict):
+    daemonTaskDefinitions: list[DaemonTaskDefinitionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class DaemonVolumeTypeDef(TypedDict):
+    name: NotRequired[str]
+    host: NotRequired[HostVolumePropertiesTypeDef]
 
 
 class DeleteAccountSettingResponseTypeDef(TypedDict):
@@ -1865,6 +2162,31 @@ class DeploymentConfigurationTypeDef(TypedDict):
     lifecycleHooks: NotRequired[Sequence[DeploymentLifecycleHookTypeDef]]
     linearConfiguration: NotRequired[LinearConfigurationTypeDef]
     canaryConfiguration: NotRequired[CanaryConfigurationTypeDef]
+
+
+class DescribeDaemonDeploymentsRequestWaitExtraTypeDef(TypedDict):
+    daemonDeploymentArns: Sequence[str]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeDaemonDeploymentsRequestWaitTypeDef(TypedDict):
+    daemonDeploymentArns: Sequence[str]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeDaemonRequestWaitTypeDef(TypedDict):
+    daemonArn: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeDaemonTaskDefinitionRequestWaitExtraTypeDef(TypedDict):
+    daemonTaskDefinition: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class DescribeDaemonTaskDefinitionRequestWaitTypeDef(TypedDict):
+    daemonTaskDefinition: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
 class DescribeServicesRequestWaitExtraTypeDef(TypedDict):
@@ -2034,16 +2356,6 @@ class InstanceRequirementsRequestTypeDef(TypedDict):
 KernelCapabilitiesUnionTypeDef = Union[KernelCapabilitiesTypeDef, KernelCapabilitiesOutputTypeDef]
 
 
-class LinuxParametersOutputTypeDef(TypedDict):
-    capabilities: NotRequired[KernelCapabilitiesOutputTypeDef]
-    devices: NotRequired[list[DeviceOutputTypeDef]]
-    initProcessEnabled: NotRequired[bool]
-    sharedMemorySize: NotRequired[int]
-    tmpfs: NotRequired[list[TmpfsOutputTypeDef]]
-    maxSwap: NotRequired[int]
-    swappiness: NotRequired[int]
-
-
 class ListAccountSettingsRequestPaginateTypeDef(TypedDict):
     name: NotRequired[SettingNameType]
     value: NotRequired[str]
@@ -2109,6 +2421,7 @@ class ListTasksRequestPaginateTypeDef(TypedDict):
     serviceName: NotRequired[str]
     desiredStatus: NotRequired[DesiredStatusType]
     launchType: NotRequired[LaunchTypeType]
+    daemonName: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -2270,6 +2583,14 @@ class SubmitTaskStateChangeRequestTypeDef(TypedDict):
     executionStoppedAt: NotRequired[TimestampTypeDef]
 
 
+class ListDaemonDeploymentsRequestTypeDef(TypedDict):
+    daemonArn: str
+    status: NotRequired[Sequence[DaemonDeploymentStatusType]]
+    createdAt: NotRequired[CreatedAtTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
 class ListServiceDeploymentsRequestTypeDef(TypedDict):
     service: str
     cluster: NotRequired[str]
@@ -2277,6 +2598,121 @@ class ListServiceDeploymentsRequestTypeDef(TypedDict):
     createdAt: NotRequired[CreatedAtTypeDef]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+
+
+DaemonDeploymentConfigurationUnionTypeDef = Union[
+    DaemonDeploymentConfigurationTypeDef, DaemonDeploymentConfigurationOutputTypeDef
+]
+
+
+class DaemonDetailTypeDef(TypedDict):
+    daemonArn: NotRequired[str]
+    clusterArn: NotRequired[str]
+    status: NotRequired[DaemonStatusType]
+    currentRevisions: NotRequired[list[DaemonRevisionDetailTypeDef]]
+    deploymentArn: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+
+
+class DescribeDaemonRevisionsResponseTypeDef(TypedDict):
+    daemonRevisions: list[DaemonRevisionTypeDef]
+    failures: list[FailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DaemonDeploymentTypeDef(TypedDict):
+    daemonDeploymentArn: NotRequired[str]
+    clusterArn: NotRequired[str]
+    status: NotRequired[DaemonDeploymentStatusType]
+    statusReason: NotRequired[str]
+    targetDaemonRevision: NotRequired[DaemonDeploymentRevisionDetailTypeDef]
+    sourceDaemonRevisions: NotRequired[list[DaemonDeploymentRevisionDetailTypeDef]]
+    circuitBreaker: NotRequired[DaemonCircuitBreakerTypeDef]
+    alarms: NotRequired[DaemonDeploymentAlarmsTypeDef]
+    rollback: NotRequired[DaemonRollbackTypeDef]
+    deploymentConfiguration: NotRequired[DaemonDeploymentConfigurationOutputTypeDef]
+    createdAt: NotRequired[datetime]
+    startedAt: NotRequired[datetime]
+    stoppedAt: NotRequired[datetime]
+    finishedAt: NotRequired[datetime]
+
+
+class DaemonContainerDefinitionOutputTypeDef(TypedDict):
+    image: str
+    name: NotRequired[str]
+    memory: NotRequired[int]
+    memoryReservation: NotRequired[int]
+    repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
+    healthCheck: NotRequired[HealthCheckOutputTypeDef]
+    cpu: NotRequired[int]
+    essential: NotRequired[bool]
+    entryPoint: NotRequired[list[str]]
+    command: NotRequired[list[str]]
+    workingDirectory: NotRequired[str]
+    environmentFiles: NotRequired[list[EnvironmentFileTypeDef]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    secrets: NotRequired[list[SecretTypeDef]]
+    readonlyRootFilesystem: NotRequired[bool]
+    mountPoints: NotRequired[list[MountPointTypeDef]]
+    logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
+    firelensConfiguration: NotRequired[FirelensConfigurationOutputTypeDef]
+    privileged: NotRequired[bool]
+    user: NotRequired[str]
+    ulimits: NotRequired[list[UlimitTypeDef]]
+    linuxParameters: NotRequired[DaemonLinuxParametersOutputTypeDef]
+    dependsOn: NotRequired[list[ContainerDependencyTypeDef]]
+    startTimeout: NotRequired[int]
+    stopTimeout: NotRequired[int]
+    systemControls: NotRequired[list[SystemControlTypeDef]]
+    interactive: NotRequired[bool]
+    pseudoTerminal: NotRequired[bool]
+    restartPolicy: NotRequired[ContainerRestartPolicyOutputTypeDef]
+
+
+class ContainerDefinitionOutputTypeDef(TypedDict):
+    name: NotRequired[str]
+    image: NotRequired[str]
+    repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
+    cpu: NotRequired[int]
+    memory: NotRequired[int]
+    memoryReservation: NotRequired[int]
+    links: NotRequired[list[str]]
+    portMappings: NotRequired[list[PortMappingTypeDef]]
+    essential: NotRequired[bool]
+    restartPolicy: NotRequired[ContainerRestartPolicyOutputTypeDef]
+    entryPoint: NotRequired[list[str]]
+    command: NotRequired[list[str]]
+    environment: NotRequired[list[KeyValuePairTypeDef]]
+    environmentFiles: NotRequired[list[EnvironmentFileTypeDef]]
+    mountPoints: NotRequired[list[MountPointTypeDef]]
+    volumesFrom: NotRequired[list[VolumeFromTypeDef]]
+    linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
+    secrets: NotRequired[list[SecretTypeDef]]
+    dependsOn: NotRequired[list[ContainerDependencyTypeDef]]
+    startTimeout: NotRequired[int]
+    stopTimeout: NotRequired[int]
+    versionConsistency: NotRequired[VersionConsistencyType]
+    hostname: NotRequired[str]
+    user: NotRequired[str]
+    workingDirectory: NotRequired[str]
+    disableNetworking: NotRequired[bool]
+    privileged: NotRequired[bool]
+    readonlyRootFilesystem: NotRequired[bool]
+    dnsServers: NotRequired[list[str]]
+    dnsSearchDomains: NotRequired[list[str]]
+    extraHosts: NotRequired[list[HostEntryTypeDef]]
+    dockerSecurityOptions: NotRequired[list[str]]
+    interactive: NotRequired[bool]
+    pseudoTerminal: NotRequired[bool]
+    dockerLabels: NotRequired[dict[str, str]]
+    ulimits: NotRequired[list[UlimitTypeDef]]
+    logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
+    healthCheck: NotRequired[HealthCheckOutputTypeDef]
+    systemControls: NotRequired[list[SystemControlTypeDef]]
+    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
+    firelensConfiguration: NotRequired[FirelensConfigurationOutputTypeDef]
+    credentialSpecs: NotRequired[list[str]]
 
 
 class ServiceDeploymentTypeDef(TypedDict):
@@ -2354,6 +2790,7 @@ class InstanceLaunchTemplateOutputTypeDef(TypedDict):
     ec2InstanceProfileArn: str
     networkConfiguration: ManagedInstancesNetworkConfigurationOutputTypeDef
     storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
+    localStorageConfiguration: NotRequired[ManagedInstancesLocalStorageConfigurationTypeDef]
     monitoring: NotRequired[ManagedInstancesMonitoringOptionsType]
     capacityOptionType: NotRequired[CapacityOptionTypeType]
     instanceMetadataTagsPropagation: NotRequired[bool]
@@ -2365,51 +2802,6 @@ class InstanceLaunchTemplateOutputTypeDef(TypedDict):
 InstanceRequirementsRequestUnionTypeDef = Union[
     InstanceRequirementsRequestTypeDef, InstanceRequirementsRequestOutputTypeDef
 ]
-
-
-class ContainerDefinitionOutputTypeDef(TypedDict):
-    name: NotRequired[str]
-    image: NotRequired[str]
-    repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
-    cpu: NotRequired[int]
-    memory: NotRequired[int]
-    memoryReservation: NotRequired[int]
-    links: NotRequired[list[str]]
-    portMappings: NotRequired[list[PortMappingTypeDef]]
-    essential: NotRequired[bool]
-    restartPolicy: NotRequired[ContainerRestartPolicyOutputTypeDef]
-    entryPoint: NotRequired[list[str]]
-    command: NotRequired[list[str]]
-    environment: NotRequired[list[KeyValuePairTypeDef]]
-    environmentFiles: NotRequired[list[EnvironmentFileTypeDef]]
-    mountPoints: NotRequired[list[MountPointTypeDef]]
-    volumesFrom: NotRequired[list[VolumeFromTypeDef]]
-    linuxParameters: NotRequired[LinuxParametersOutputTypeDef]
-    secrets: NotRequired[list[SecretTypeDef]]
-    dependsOn: NotRequired[list[ContainerDependencyTypeDef]]
-    startTimeout: NotRequired[int]
-    stopTimeout: NotRequired[int]
-    versionConsistency: NotRequired[VersionConsistencyType]
-    hostname: NotRequired[str]
-    user: NotRequired[str]
-    workingDirectory: NotRequired[str]
-    disableNetworking: NotRequired[bool]
-    privileged: NotRequired[bool]
-    readonlyRootFilesystem: NotRequired[bool]
-    dnsServers: NotRequired[list[str]]
-    dnsSearchDomains: NotRequired[list[str]]
-    extraHosts: NotRequired[list[HostEntryTypeDef]]
-    dockerSecurityOptions: NotRequired[list[str]]
-    interactive: NotRequired[bool]
-    pseudoTerminal: NotRequired[bool]
-    dockerLabels: NotRequired[dict[str, str]]
-    ulimits: NotRequired[list[UlimitTypeDef]]
-    logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
-    healthCheck: NotRequired[HealthCheckOutputTypeDef]
-    systemControls: NotRequired[list[SystemControlTypeDef]]
-    resourceRequirements: NotRequired[list[ResourceRequirementTypeDef]]
-    firelensConfiguration: NotRequired[FirelensConfigurationOutputTypeDef]
-    credentialSpecs: NotRequired[list[str]]
 
 
 class ECSManagedResourcesTypeDef(TypedDict):
@@ -2434,6 +2826,13 @@ class RegisterContainerInstanceRequestTypeDef(TypedDict):
 
 class ServiceConnectTestTrafficRulesTypeDef(TypedDict):
     header: ServiceConnectTestTrafficHeaderRulesTypeDef
+
+
+class DaemonLinuxParametersTypeDef(TypedDict):
+    capabilities: NotRequired[KernelCapabilitiesUnionTypeDef]
+    devices: NotRequired[Sequence[DeviceUnionTypeDef]]
+    initProcessEnabled: NotRequired[bool]
+    tmpfs: NotRequired[Sequence[TmpfsUnionTypeDef]]
 
 
 class LinuxParametersTypeDef(TypedDict):
@@ -2592,6 +2991,56 @@ class UpdateContainerInstancesStateResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateDaemonRequestTypeDef(TypedDict):
+    daemonName: str
+    daemonTaskDefinitionArn: str
+    capacityProviderArns: Sequence[str]
+    clusterArn: NotRequired[str]
+    deploymentConfiguration: NotRequired[DaemonDeploymentConfigurationUnionTypeDef]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    propagateTags: NotRequired[DaemonPropagateTagsType]
+    enableECSManagedTags: NotRequired[bool]
+    enableExecuteCommand: NotRequired[bool]
+    clientToken: NotRequired[str]
+
+
+class UpdateDaemonRequestTypeDef(TypedDict):
+    daemonArn: str
+    daemonTaskDefinitionArn: str
+    capacityProviderArns: Sequence[str]
+    deploymentConfiguration: NotRequired[DaemonDeploymentConfigurationUnionTypeDef]
+    propagateTags: NotRequired[DaemonPropagateTagsType]
+    enableECSManagedTags: NotRequired[bool]
+    enableExecuteCommand: NotRequired[bool]
+
+
+class DescribeDaemonResponseTypeDef(TypedDict):
+    daemon: DaemonDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeDaemonDeploymentsResponseTypeDef(TypedDict):
+    failures: list[FailureTypeDef]
+    daemonDeployments: list[DaemonDeploymentTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DaemonTaskDefinitionTypeDef(TypedDict):
+    daemonTaskDefinitionArn: NotRequired[str]
+    family: NotRequired[str]
+    revision: NotRequired[int]
+    taskRoleArn: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    containerDefinitions: NotRequired[list[DaemonContainerDefinitionOutputTypeDef]]
+    volumes: NotRequired[list[DaemonVolumeTypeDef]]
+    cpu: NotRequired[str]
+    memory: NotRequired[str]
+    status: NotRequired[DaemonTaskDefinitionStatusType]
+    registeredAt: NotRequired[datetime]
+    deleteRequestedAt: NotRequired[datetime]
+    registeredBy: NotRequired[str]
+
+
 class DescribeServiceDeploymentsResponseTypeDef(TypedDict):
     serviceDeployments: list[ServiceDeploymentTypeDef]
     failures: list[FailureTypeDef]
@@ -2684,38 +3133,6 @@ class UpdateExpressGatewayServiceRequestTypeDef(TypedDict):
     scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
 
 
-VolumeUnionTypeDef = Union[VolumeTypeDef, VolumeOutputTypeDef]
-
-
-class ManagedInstancesProviderTypeDef(TypedDict):
-    infrastructureRoleArn: NotRequired[str]
-    instanceLaunchTemplate: NotRequired[InstanceLaunchTemplateOutputTypeDef]
-    propagateTags: NotRequired[PropagateMITagsType]
-    infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
-
-
-class InstanceLaunchTemplateTypeDef(TypedDict):
-    ec2InstanceProfileArn: str
-    networkConfiguration: ManagedInstancesNetworkConfigurationUnionTypeDef
-    storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
-    monitoring: NotRequired[ManagedInstancesMonitoringOptionsType]
-    capacityOptionType: NotRequired[CapacityOptionTypeType]
-    instanceMetadataTagsPropagation: NotRequired[bool]
-    instanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
-    fipsEnabled: NotRequired[bool]
-    capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
-
-
-class InstanceLaunchTemplateUpdateTypeDef(TypedDict):
-    ec2InstanceProfileArn: NotRequired[str]
-    networkConfiguration: NotRequired[ManagedInstancesNetworkConfigurationUnionTypeDef]
-    storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
-    instanceMetadataTagsPropagation: NotRequired[bool]
-    monitoring: NotRequired[ManagedInstancesMonitoringOptionsType]
-    instanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
-    capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
-
-
 class TaskDefinitionTypeDef(TypedDict):
     taskDefinitionArn: NotRequired[str]
     containerDefinitions: NotRequired[list[ContainerDefinitionOutputTypeDef]]
@@ -2739,9 +3156,44 @@ class TaskDefinitionTypeDef(TypedDict):
     proxyConfiguration: NotRequired[ProxyConfigurationOutputTypeDef]
     registeredAt: NotRequired[datetime]
     deregisteredAt: NotRequired[datetime]
+    deleteRequestedAt: NotRequired[datetime]
     registeredBy: NotRequired[str]
     ephemeralStorage: NotRequired[EphemeralStorageTypeDef]
     enableFaultInjection: NotRequired[bool]
+
+
+VolumeUnionTypeDef = Union[VolumeTypeDef, VolumeOutputTypeDef]
+
+
+class ManagedInstancesProviderTypeDef(TypedDict):
+    infrastructureRoleArn: NotRequired[str]
+    instanceLaunchTemplate: NotRequired[InstanceLaunchTemplateOutputTypeDef]
+    propagateTags: NotRequired[PropagateMITagsType]
+    infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
+
+
+class InstanceLaunchTemplateTypeDef(TypedDict):
+    ec2InstanceProfileArn: str
+    networkConfiguration: ManagedInstancesNetworkConfigurationUnionTypeDef
+    storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
+    localStorageConfiguration: NotRequired[ManagedInstancesLocalStorageConfigurationTypeDef]
+    monitoring: NotRequired[ManagedInstancesMonitoringOptionsType]
+    capacityOptionType: NotRequired[CapacityOptionTypeType]
+    instanceMetadataTagsPropagation: NotRequired[bool]
+    instanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
+    fipsEnabled: NotRequired[bool]
+    capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
+
+
+class InstanceLaunchTemplateUpdateTypeDef(TypedDict):
+    ec2InstanceProfileArn: NotRequired[str]
+    networkConfiguration: NotRequired[ManagedInstancesNetworkConfigurationUnionTypeDef]
+    storageConfiguration: NotRequired[ManagedInstancesStorageConfigurationTypeDef]
+    instanceMetadataTagsPropagation: NotRequired[bool]
+    localStorageConfiguration: NotRequired[ManagedInstancesLocalStorageConfigurationTypeDef]
+    monitoring: NotRequired[ManagedInstancesMonitoringOptionsType]
+    instanceRequirements: NotRequired[InstanceRequirementsRequestUnionTypeDef]
+    capacityReservations: NotRequired[CapacityReservationRequestTypeDef]
 
 
 class ServiceConnectClientAliasTypeDef(TypedDict):
@@ -2750,6 +3202,9 @@ class ServiceConnectClientAliasTypeDef(TypedDict):
     testTrafficRules: NotRequired[ServiceConnectTestTrafficRulesTypeDef]
 
 
+DaemonLinuxParametersUnionTypeDef = Union[
+    DaemonLinuxParametersTypeDef, DaemonLinuxParametersOutputTypeDef
+]
 LinuxParametersUnionTypeDef = Union[LinuxParametersTypeDef, LinuxParametersOutputTypeDef]
 ServiceManagedEBSVolumeConfigurationUnionTypeDef = Union[
     ServiceManagedEBSVolumeConfigurationTypeDef, ServiceManagedEBSVolumeConfigurationOutputTypeDef
@@ -2781,6 +3236,11 @@ class StartTaskResponseTypeDef(TypedDict):
 
 class StopTaskResponseTypeDef(TypedDict):
     task: TaskTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeDaemonTaskDefinitionResponseTypeDef(TypedDict):
+    daemonTaskDefinition: DaemonTaskDefinitionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2835,6 +3295,29 @@ class UpdateExpressGatewayServiceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteTaskDefinitionsResponseTypeDef(TypedDict):
+    taskDefinitions: list[TaskDefinitionTypeDef]
+    failures: list[FailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeregisterTaskDefinitionResponseTypeDef(TypedDict):
+    taskDefinition: TaskDefinitionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeTaskDefinitionResponseTypeDef(TypedDict):
+    taskDefinition: TaskDefinitionTypeDef
+    tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RegisterTaskDefinitionResponseTypeDef(TypedDict):
+    taskDefinition: TaskDefinitionTypeDef
+    tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 CapacityProviderTypeDef = TypedDict(
     "CapacityProviderTypeDef",
     {
@@ -2862,29 +3345,6 @@ class UpdateManagedInstancesProviderConfigurationTypeDef(TypedDict):
     infrastructureOptimization: NotRequired[InfrastructureOptimizationTypeDef]
 
 
-class DeleteTaskDefinitionsResponseTypeDef(TypedDict):
-    taskDefinitions: list[TaskDefinitionTypeDef]
-    failures: list[FailureTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DeregisterTaskDefinitionResponseTypeDef(TypedDict):
-    taskDefinition: TaskDefinitionTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribeTaskDefinitionResponseTypeDef(TypedDict):
-    taskDefinition: TaskDefinitionTypeDef
-    tags: list[TagTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class RegisterTaskDefinitionResponseTypeDef(TypedDict):
-    taskDefinition: TaskDefinitionTypeDef
-    tags: list[TagTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class ServiceConnectServiceOutputTypeDef(TypedDict):
     portName: str
     discoveryName: NotRequired[str]
@@ -2901,6 +3361,38 @@ class ServiceConnectServiceTypeDef(TypedDict):
     ingressPortOverride: NotRequired[int]
     timeout: NotRequired[TimeoutConfigurationTypeDef]
     tls: NotRequired[ServiceConnectTlsConfigurationTypeDef]
+
+
+class DaemonContainerDefinitionTypeDef(TypedDict):
+    image: str
+    name: NotRequired[str]
+    memory: NotRequired[int]
+    memoryReservation: NotRequired[int]
+    repositoryCredentials: NotRequired[RepositoryCredentialsTypeDef]
+    healthCheck: NotRequired[HealthCheckUnionTypeDef]
+    cpu: NotRequired[int]
+    essential: NotRequired[bool]
+    entryPoint: NotRequired[Sequence[str]]
+    command: NotRequired[Sequence[str]]
+    workingDirectory: NotRequired[str]
+    environmentFiles: NotRequired[Sequence[EnvironmentFileTypeDef]]
+    environment: NotRequired[Sequence[KeyValuePairTypeDef]]
+    secrets: NotRequired[Sequence[SecretTypeDef]]
+    readonlyRootFilesystem: NotRequired[bool]
+    mountPoints: NotRequired[Sequence[MountPointTypeDef]]
+    logConfiguration: NotRequired[LogConfigurationUnionTypeDef]
+    firelensConfiguration: NotRequired[FirelensConfigurationUnionTypeDef]
+    privileged: NotRequired[bool]
+    user: NotRequired[str]
+    ulimits: NotRequired[Sequence[UlimitTypeDef]]
+    linuxParameters: NotRequired[DaemonLinuxParametersUnionTypeDef]
+    dependsOn: NotRequired[Sequence[ContainerDependencyTypeDef]]
+    startTimeout: NotRequired[int]
+    stopTimeout: NotRequired[int]
+    systemControls: NotRequired[Sequence[SystemControlTypeDef]]
+    interactive: NotRequired[bool]
+    pseudoTerminal: NotRequired[bool]
+    restartPolicy: NotRequired[ContainerRestartPolicyUnionTypeDef]
 
 
 class ContainerDefinitionTypeDef(TypedDict):
@@ -3043,6 +3535,9 @@ class ServiceConnectConfigurationTypeDef(TypedDict):
     accessLogConfiguration: NotRequired[ServiceConnectAccessLogConfigurationTypeDef]
 
 
+DaemonContainerDefinitionUnionTypeDef = Union[
+    DaemonContainerDefinitionTypeDef, DaemonContainerDefinitionOutputTypeDef
+]
 ContainerDefinitionUnionTypeDef = Union[
     ContainerDefinitionTypeDef, ContainerDefinitionOutputTypeDef
 ]
@@ -3113,6 +3608,17 @@ class ServiceRevisionTypeDef(TypedDict):
 ServiceConnectConfigurationUnionTypeDef = Union[
     ServiceConnectConfigurationTypeDef, ServiceConnectConfigurationOutputTypeDef
 ]
+
+
+class RegisterDaemonTaskDefinitionRequestTypeDef(TypedDict):
+    family: str
+    containerDefinitions: Sequence[DaemonContainerDefinitionUnionTypeDef]
+    taskRoleArn: NotRequired[str]
+    executionRoleArn: NotRequired[str]
+    cpu: NotRequired[str]
+    memory: NotRequired[str]
+    volumes: NotRequired[Sequence[DaemonVolumeTypeDef]]
+    tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class RegisterTaskDefinitionRequestTypeDef(TypedDict):
