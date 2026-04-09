@@ -37,6 +37,7 @@ pub(crate) use {
     dump_format::DumpFormat,
     enclosure::Enclosure,
     error::Error,
+    evaluate_format::EvaluateFormat,
     evaluator::Evaluator,
     execution_context::ExecutionContext,
     executor::Executor,
@@ -44,6 +45,8 @@ pub(crate) use {
     format_string_part::FormatStringPart,
     fragment::Fragment,
     function::Function,
+    function_definition::FunctionDefinition,
+    indentation::Indentation,
     interpreter::Interpreter,
     invocation::Invocation,
     invocation_parser::InvocationParser,
@@ -76,6 +79,8 @@ pub(crate) use {
     recipe::Recipe,
     recipe_resolver::RecipeResolver,
     recipe_signature::RecipeSignature,
+    reference::Reference,
+    references::References,
     request::Request,
     scope::Scope,
     search::Search,
@@ -86,6 +91,7 @@ pub(crate) use {
     settings::Settings,
     shebang::Shebang,
     shell::Shell,
+    shell_kind::ShellKind,
     show_whitespace::ShowWhitespace,
     sigil::Sigil,
     signal::Signal,
@@ -99,7 +105,6 @@ pub(crate) use {
     suggestion::Suggestion,
     switch::Switch,
     table::Table,
-    thunk::Thunk,
     token::Token,
     token_kind::TokenKind,
     unresolved_dependency::UnresolvedDependency,
@@ -107,15 +112,13 @@ pub(crate) use {
     unstable_feature::UnstableFeature,
     usage::Usage,
     use_color::UseColor,
-    variables::Variables,
     verbosity::Verbosity,
     warning::Warning,
     which::which,
   },
   camino::Utf8Path,
-  clap::{CommandFactory, FromArgMatches, Parser as _, ValueEnum, builder::StyledStr},
+  clap::{CommandFactory, FromArgMatches, Parser as _, ValueEnum},
   clap_complete::{ArgValueCompleter, CompletionCandidate, PathCompleter},
-  derive_where::derive_where,
   edit_distance::edit_distance,
   lexiclean::Lexiclean,
   libc::EXIT_FAILURE,
@@ -133,7 +136,7 @@ pub(crate) use {
     env,
     ffi::{OsStr, OsString},
     fmt::{self, Debug, Display, Formatter},
-    fs,
+    fs::{self, File},
     io::{self, Write},
     iter::{self, FromIterator},
     mem,
@@ -142,9 +145,11 @@ pub(crate) use {
     path::{self, Component, Path, PathBuf},
     process::{self, Command, ExitStatus, Stdio},
     slice,
-    str::{self, Chars},
+    str::{self, Chars, FromStr},
     sync::{Arc, LazyLock, Mutex, MutexGuard},
-    thread, vec,
+    thread,
+    time::Instant,
+    vec,
   },
   strum::{Display, EnumDiscriminants, EnumIter, EnumString, IntoStaticStr},
   tempfile::TempDir,
@@ -222,6 +227,7 @@ mod dependency;
 mod dump_format;
 mod enclosure;
 mod error;
+mod evaluate_format;
 mod evaluator;
 mod execution_context;
 mod executor;
@@ -230,6 +236,8 @@ mod filesystem;
 mod format_string_part;
 mod fragment;
 mod function;
+mod function_definition;
+mod indentation;
 mod interpreter;
 mod invocation;
 mod invocation_parser;
@@ -262,6 +270,8 @@ mod range_ext;
 mod recipe;
 mod recipe_resolver;
 mod recipe_signature;
+mod reference;
+mod references;
 mod run;
 mod scope;
 mod search;
@@ -272,6 +282,7 @@ mod setting;
 mod settings;
 mod shebang;
 mod shell;
+mod shell_kind;
 mod show_whitespace;
 mod sigil;
 mod signal;
@@ -287,7 +298,6 @@ mod subcommand;
 mod suggestion;
 mod switch;
 mod table;
-mod thunk;
 mod token;
 mod token_kind;
 mod unindent;
@@ -296,7 +306,6 @@ mod unresolved_recipe;
 mod unstable_feature;
 mod usage;
 mod use_color;
-mod variables;
 mod verbosity;
 mod warning;
 mod which;

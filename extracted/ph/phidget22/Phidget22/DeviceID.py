@@ -115,6 +115,8 @@ class DeviceID:
 	PHIDID_ADP1000 = 49
 	# 8x Voltage Input Phidget (DAQ1000)
 	PHIDID_DAQ1000 = 51
+	# 8x Voltage Input Phidget (DAQ1001)
+	PHIDID_DAQ1001 = 157
 	# 4x Digital Input Phidget (DAQ1200)
 	PHIDID_DAQ1200 = 52
 	# 4x Isolated Digital Input Phidget (DAQ1300)
@@ -135,10 +137,14 @@ class DeviceID:
 	PHIDID_DCC1003 = 120
 	# 30V 50A DC Motor Phidget (DCC1020)
 	PHIDID_DCC1020 = 128
+	# 60V 50A DC Motor Phidget (DCC1030)
+	PHIDID_DCC1030 = 152
 	# Brushless DC Motor Phidget (DCC1100)
 	PHIDID_DCC1100 = 108
 	# 30V 50A Brushless DC Motor Phidget (DCC1120)
 	PHIDID_DCC1120 = 150
+	# 60V 50A Brushless DC Motor Phidget (DCC1130)
+	PHIDID_DCC1130 = 154
 	# Distance Phidget (DST1000)
 	PHIDID_DST1000 = 58
 	# Distance Phidget 650mm (DST1001)
@@ -239,6 +245,8 @@ class DeviceID:
 	PHIDID_TMP1101 = 89
 	# RTD Phidget (TMP1200)
 	PHIDID_TMP1200 = 90
+	# RTD Phidget (TMP1202)
+	PHIDID_TMP1202 = 158
 	# 20-bit (+-40V) Voltage Input Phidget (VCP1000)
 	PHIDID_VCP1000 = 92
 	# 10-bit (+-40V) Voltage Input Phidget (VCP1001)
@@ -364,6 +372,8 @@ class DeviceID:
 			return "PHIDID_ADP1000"
 		if val == self.PHIDID_DAQ1000:
 			return "PHIDID_DAQ1000"
+		if val == self.PHIDID_DAQ1001:
+			return "PHIDID_DAQ1001"
 		if val == self.PHIDID_DAQ1200:
 			return "PHIDID_DAQ1200"
 		if val == self.PHIDID_DAQ1300:
@@ -384,10 +394,14 @@ class DeviceID:
 			return "PHIDID_DCC1003"
 		if val == self.PHIDID_DCC1020:
 			return "PHIDID_DCC1020"
+		if val == self.PHIDID_DCC1030:
+			return "PHIDID_DCC1030"
 		if val == self.PHIDID_DCC1100:
 			return "PHIDID_DCC1100"
 		if val == self.PHIDID_DCC1120:
 			return "PHIDID_DCC1120"
+		if val == self.PHIDID_DCC1130:
+			return "PHIDID_DCC1130"
 		if val == self.PHIDID_DST1000:
 			return "PHIDID_DST1000"
 		if val == self.PHIDID_DST1001:
@@ -488,6 +502,8 @@ class DeviceID:
 			return "PHIDID_TMP1101"
 		if val == self.PHIDID_TMP1200:
 			return "PHIDID_TMP1200"
+		if val == self.PHIDID_TMP1202:
+			return "PHIDID_TMP1202"
 		if val == self.PHIDID_VCP1000:
 			return "PHIDID_VCP1000"
 		if val == self.PHIDID_VCP1001:

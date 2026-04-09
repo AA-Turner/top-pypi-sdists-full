@@ -67,6 +67,6 @@ register_trigger_rule(
     DataflowRule.from_nodes(
         "unvalidated-redirect",
         unvalidated_redirect_triggers,
-        disallowed_tags=["URL_ENCODED"],
+        disallowed_tags=["SAFE_REDIRECT", "URL_ENCODED"],
     )
 )

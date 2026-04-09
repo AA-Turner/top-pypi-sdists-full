@@ -206,6 +206,20 @@ class AuthClient:
             ):
                 session_state.jwt = cache_response.token
                 should_refresh = not cache_response.is_in_speedup_window
+
+                # If local cache is stale, consult backing store (DDB)
+                # — another instance may have already refreshed.
+                if should_refresh:
+                    cache_response = self._get_from_cache(
+                        session_state=session_state,
+                        key=key,
+                        skip_local_cache=True,
+                    )
+                    if cache_response:
+                        session_state.jwt = cache_response.token
+                        should_refresh = (
+                            not cache_response.is_in_speedup_window
+                        )
             else:
                 should_refresh = False
 
@@ -225,9 +239,11 @@ class AuthClient:
                 except Exception:
                     # Fall through if the cache doesn't support put_marker
                     won_marker = True
+
                 if not won_marker:
                     logger.info(
-                        "JWT refresh already in progress, using cached token"
+                        "JWT refresh already in progress, "
+                        "using cached token"
                     )
                     should_refresh = False
                 else:
@@ -298,7 +314,11 @@ class AuthClient:
             )
 
     def _get_from_cache(
-        self, *, session_state: SessionState, key: t.Optional[str]
+        self,
+        *,
+        session_state: SessionState,
+        key: t.Optional[str],
+        skip_local_cache: bool = False,
     ) -> t.Optional[CacheResponse]:
         """
         Take a look at PEP 76: Auth Cache Router for details on this logic
@@ -307,9 +327,17 @@ class AuthClient:
         if self._cache is None or session_state.api_key is None:
             return None
 
-        cached_jwt = self._cache.get(
-            self._get_cache_key(str(session_state.api_key))
-        )
+        cache_key = self._get_cache_key(str(session_state.api_key))
+        try:
+            cached_jwt = self._cache.get(
+                cache_key, skip_local_cache=skip_local_cache
+            )
+        except TypeError:
+            logger.warning(
+                "Cache does not support skip_local_cache, "
+                "falling back to local cache"
+            )
+            cached_jwt = self._cache.get(cache_key)
 
         if not cached_jwt:
             return None
@@ -317,7 +345,7 @@ class AuthClient:
         try:
             token = self.decode_id_token(token=cached_jwt, key=key)
         except InvalidAuthException:
-            self._cache.delete(self._get_cache_key(str(session_state.api_key)))
+            self._cache.delete(cache_key)
             return None
 
         issue_time = datetime.datetime.fromtimestamp(float(token.iat))

@@ -1,5 +1,5 @@
 name: build
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 jobs:
   test:
     name: ${{ matrix.name }}
@@ -10,104 +10,139 @@ jobs:
       matrix:
         include:
           - name: 'check'
-            python: '3.9'
-            toxpython: 'python3.9'
+            python: '3.13'
             tox_env: 'check'
             os: 'ubuntu-latest'
           - name: 'docs'
-            python: '3.9'
-            toxpython: 'python3.9'
+            python: '3.13'
             tox_env: 'docs'
             os: 'ubuntu-latest'
-          - name: 'py37-cover (ubuntu)'
+          - name: 'py37-cover (ubuntu/x64)'
             python: '3.7'
-            toxpython: 'python3.7'
             python_arch: 'x64'
-            tox_env: 'py37-cover,codecov'
+            tox_env: 'py37-cover'
             os: 'ubuntu-latest'
-          - name: 'py37-nocov (ubuntu)'
+            cover: true
+          - name: 'py37-nocov (ubuntu/x64)'
             python: '3.7'
-            toxpython: 'python3.7'
             python_arch: 'x64'
             tox_env: 'py37-nocov'
             os: 'ubuntu-latest'
-          - name: 'py38-cover (ubuntu)'
+          - name: 'py38-cover (ubuntu/x64)'
             python: '3.8'
-            toxpython: 'python3.8'
             python_arch: 'x64'
-            tox_env: 'py38-cover,codecov'
+            tox_env: 'py38-cover'
             os: 'ubuntu-latest'
-          - name: 'py38-nocov (ubuntu)'
+            cover: true
+          - name: 'py38-nocov (ubuntu/x64)'
             python: '3.8'
-            toxpython: 'python3.8'
             python_arch: 'x64'
             tox_env: 'py38-nocov'
             os: 'ubuntu-latest'
-          - name: 'py39-cover (ubuntu)'
+          - name: 'py39-cover (ubuntu/x64)'
             python: '3.9'
-            toxpython: 'python3.9'
             python_arch: 'x64'
-            tox_env: 'py39-cover,codecov'
+            tox_env: 'py39-cover'
             os: 'ubuntu-latest'
-          - name: 'py39-nocov (ubuntu)'
+            cover: true
+          - name: 'py39-nocov (ubuntu/x64)'
             python: '3.9'
-            toxpython: 'python3.9'
             python_arch: 'x64'
             tox_env: 'py39-nocov'
             os: 'ubuntu-latest'
-          - name: 'py310-cover (ubuntu)'
+          - name: 'py310-cover (ubuntu/x64)'
             python: '3.10'
-            toxpython: 'python3.10'
             python_arch: 'x64'
-            tox_env: 'py310-cover,codecov'
+            tox_env: 'py310-cover'
             os: 'ubuntu-latest'
-          - name: 'py310-nocov (ubuntu)'
+            cover: true
+          - name: 'py310-nocov (ubuntu/x64)'
             python: '3.10'
-            toxpython: 'python3.10'
             python_arch: 'x64'
             tox_env: 'py310-nocov'
             os: 'ubuntu-latest'
-          - name: 'pypy37-cover (ubuntu)'
-            python: 'pypy-3.7'
-            toxpython: 'pypy3.7'
+          - name: 'py311-cover (ubuntu/x64)'
+            python: '3.11'
             python_arch: 'x64'
-            tox_env: 'pypy37-cover,codecov'
+            tox_env: 'py311-cover'
             os: 'ubuntu-latest'
-          - name: 'pypy37-nocov (ubuntu)'
-            python: 'pypy-3.7'
-            toxpython: 'pypy3.7'
+            cover: true
+          - name: 'py311-nocov (ubuntu/x64)'
+            python: '3.11'
             python_arch: 'x64'
-            tox_env: 'pypy37-nocov'
+            tox_env: 'py311-nocov'
             os: 'ubuntu-latest'
-          - name: 'pypy38-cover (ubuntu)'
-            python: 'pypy-3.8'
-            toxpython: 'pypy3.8'
+          - name: 'py312-cover (ubuntu/x64)'
+            python: '3.12'
             python_arch: 'x64'
-            tox_env: 'pypy38-cover,codecov'
+            tox_env: 'py312-cover'
             os: 'ubuntu-latest'
-          - name: 'pypy38-nocov (ubuntu)'
-            python: 'pypy-3.8'
-            toxpython: 'pypy3.8'
+            cover: true
+          - name: 'py312-nocov (ubuntu/x64)'
+            python: '3.12'
             python_arch: 'x64'
-            tox_env: 'pypy38-nocov'
+            tox_env: 'py312-nocov'
             os: 'ubuntu-latest'
-          - name: 'pypy39-cover (ubuntu)'
+          - name: 'py313-cover (ubuntu/x64)'
+            python: '3.13'
+            python_arch: 'x64'
+            tox_env: 'py313-cover'
+            os: 'ubuntu-latest'
+            cover: true
+          - name: 'py313-nocov (ubuntu/x64)'
+            python: '3.13'
+            python_arch: 'x64'
+            tox_env: 'py313-nocov'
+            os: 'ubuntu-latest'
+          - name: 'py314-cover (ubuntu/x64)'
+            python: '3.14'
+            python_arch: 'x64'
+            tox_env: 'py314-cover'
+            os: 'ubuntu-latest'
+            cover: true
+          - name: 'py314-nocov (ubuntu/x64)'
+            python: '3.14'
+            python_arch: 'x64'
+            tox_env: 'py314-nocov'
+            os: 'ubuntu-latest'
+          - name: 'pypy39-cover (ubuntu/x64)'
             python: 'pypy-3.9'
-            toxpython: 'pypy3.9'
             python_arch: 'x64'
-            tox_env: 'pypy39-cover,codecov'
+            tox_env: 'pypy39-cover'
             os: 'ubuntu-latest'
-          - name: 'pypy39-nocov (ubuntu)'
+            cover: true
+          - name: 'pypy39-nocov (ubuntu/x64)'
             python: 'pypy-3.9'
-            toxpython: 'pypy3.9'
             python_arch: 'x64'
             tox_env: 'pypy39-nocov'
             os: 'ubuntu-latest'
+          - name: 'pypy310-cover (ubuntu/x64)'
+            python: 'pypy-3.10'
+            python_arch: 'x64'
+            tox_env: 'pypy310-cover'
+            os: 'ubuntu-latest'
+            cover: true
+          - name: 'pypy310-nocov (ubuntu/x64)'
+            python: 'pypy-3.10'
+            python_arch: 'x64'
+            tox_env: 'pypy310-nocov'
+            os: 'ubuntu-latest'
+          - name: 'pypy311-cover (ubuntu/x64)'
+            python: 'pypy-3.11'
+            python_arch: 'x64'
+            tox_env: 'pypy311-cover'
+            os: 'ubuntu-latest'
+            cover: true
+          - name: 'pypy311-nocov (ubuntu/x64)'
+            python: 'pypy-3.11'
+            python_arch: 'x64'
+            tox_env: 'pypy311-nocov'
+            os: 'ubuntu-latest'
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python }}
         architecture: ${{ matrix.python_arch }}
@@ -121,7 +156,25 @@ jobs:
         tox --version
         pip list --format=freeze
     - name: test
-      env:
-        TOXPYTHON: '${{ matrix.toxpython }}'
       run: >
         tox -e ${{ matrix.tox_env }} -v
+    - uses: coverallsapp/github-action@v2
+      if: matrix.cover
+      continue-on-error: true
+      with:
+        flag-name: ${{ matrix.name }}
+        parallel: true
+    - uses: codecov/codecov-action@v5
+      if: matrix.cover
+      with:
+        flags: ${{ matrix.name }}
+        token: ${{ secrets.CODECOV_TOKEN }}
+        verbose: true
+  finish:
+    needs: test
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: coverallsapp/github-action@v2
+      with:
+        parallel-finished: true

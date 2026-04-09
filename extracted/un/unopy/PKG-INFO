@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unopy
-Version: 0.4.2
+Version: 0.4.3
 Summary: With Uno, finally take full control of your SQP/barrier solver for nonlinearly constrained optimization
 Author-Email: Charlie Vanaret <vanaret@zib.de>, Alexis Montoison <amontoison@anl.gov>
 Maintainer-Email: Charlie Vanaret <vanaret@zib.de>, Alexis Montoison <amontoison@anl.gov>

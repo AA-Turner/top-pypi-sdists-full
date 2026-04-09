@@ -41,6 +41,28 @@ _TIME_CONVERTER_BY_PA_TYPE: dict[pa.DataType, type] = {
 }
 
 
+def make_field_converters(dc_class: type) -> "dict[str, FeatureConverter]":
+    """Build a {field_name: FeatureConverter} mapping for every field of a dataclass.
+
+    Called by make_feature_converter (for the struct branch) and lazily by
+    DataclassFeatureConverter.new when field_converters are not injected by the caller.
+    Nested dataclass fields get a DataclassFeatureConverter.for_class instance (cached,
+    default=..., is_nullable=True) so that identity checks in tests still hold.
+    """
+    import typing as _typing_mod
+    field_names = tuple(f.name for f in _dataclasses.fields(dc_class))
+    hints = _typing_mod.get_type_hints(dc_class)
+    result: dict[str, FeatureConverter] = {}
+    for name in field_names:
+        typ = hints[name]
+        inner = unwrap_optional_and_annotated_if_needed(typ)
+        if _dataclasses.is_dataclass(inner) and isinstance(inner, type):
+            result[name] = DataclassFeatureConverter.for_class(inner)
+        else:
+            result[name] = make_feature_converter(name=name, is_nullable=True, rich_type=typ)
+    return result
+
+
 def make_primitive_converter(
     name: str,
     is_nullable: bool,
@@ -131,7 +153,8 @@ def make_feature_converter(
             and isinstance(rich_primitive_type, type)
             and _dataclasses.is_dataclass(rich_primitive_type)
         ):
-            return DataclassFeatureConverter.new(rich_primitive_type, specialized_default, is_nullable)
+            field_converters = make_field_converters(rich_primitive_type)
+            return DataclassFeatureConverter.new(rich_primitive_type, specialized_default, is_nullable, field_converters=field_converters)
         if (
             (pyarrow_dtype is not None and (pa.types.is_list(pyarrow_dtype) or pa.types.is_large_list(pyarrow_dtype)))
             and rich_primitive_type is not ...

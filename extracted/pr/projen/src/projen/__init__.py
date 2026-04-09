@@ -849,6 +849,39 @@ class Dependencies(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Depende
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         return typing.cast(None, jsii.invoke(self, "removeDependency", [name, type]))
 
+    @jsii.member(jsii_name="requestDependency")
+    def request_dependency(
+        self,
+        *,
+        name: builtins.str,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        type: typing.Optional["DependencyType"] = None,
+        version: typing.Optional[builtins.str] = None,
+    ) -> "Dependency":
+        '''(experimental) Request a dependency. Unlike ``addDependency``, this merges intelligently with existing dependencies of the same name and type:.
+
+        - If the dep exists with a version that already satisfies the request,
+          the version is not changed.
+        - If the dep doesn't exist, it is added with the requested type/version.
+        - If the dep exists but the versions don't intersect, an error is thrown.
+        - If no type is provided, an existing dependency of any type will satisfy
+          the request. If none exists, it is added as BUILD.
+
+        :param name: (experimental) The package name.
+        :param metadata: (experimental) Additional metadata. Default: - none
+        :param type: (experimental) Dependency type. If not provided, an existing dependency of any type will satisfy the request. If none exists, it is added as BUILD. Default: - any existing type, or DependencyType.BUILD
+        :param version: (experimental) Semantic version constraint. Default: - any version
+
+        :return: The resulting dependency after merging.
+
+        :stability: experimental
+        '''
+        request = DependencyRequest(
+            name=name, metadata=metadata, type=type, version=version
+        )
+
+        return typing.cast("Dependency", jsii.invoke(self, "requestDependency", [request]))
+
     @jsii.member(jsii_name="tryGetDependency")
     def try_get_dependency(
         self,
@@ -956,6 +989,112 @@ class DependencyCoordinates:
 
     def __repr__(self) -> str:
         return "DependencyCoordinates(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.DependencyRequest",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "metadata": "metadata",
+        "type": "type",
+        "version": "version",
+    },
+)
+class DependencyRequest:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        metadata: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        type: typing.Optional["DependencyType"] = None,
+        version: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) A request for a dependency.
+
+        Unlike adding a dependency directly,
+        requesting a dependency will intelligently merge with existing
+        dependencies of the same name and type.
+
+        :param name: (experimental) The package name.
+        :param metadata: (experimental) Additional metadata. Default: - none
+        :param type: (experimental) Dependency type. If not provided, an existing dependency of any type will satisfy the request. If none exists, it is added as BUILD. Default: - any existing type, or DependencyType.BUILD
+        :param version: (experimental) Semantic version constraint. Default: - any version
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a412aa449199c9761c797d7f9812ae1089a1c280d3c13b1f2ca0c153eafa2b88)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if metadata is not None:
+            self._values["metadata"] = metadata
+        if type is not None:
+            self._values["type"] = type
+        if version is not None:
+            self._values["version"] = version
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''(experimental) The package name.
+
+        :stability: experimental
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''(experimental) Additional metadata.
+
+        :default: - none
+
+        :stability: experimental
+        '''
+        result = self._values.get("metadata")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional["DependencyType"]:
+        '''(experimental) Dependency type.
+
+        If not provided, an existing dependency of any type
+        will satisfy the request. If none exists, it is added as BUILD.
+
+        :default: - any existing type, or DependencyType.BUILD
+
+        :stability: experimental
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional["DependencyType"], result)
+
+    @builtins.property
+    def version(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Semantic version constraint.
+
+        :default: - any version
+
+        :stability: experimental
+        '''
+        result = self._values.get("version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DependencyRequest(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -12766,6 +12905,7 @@ __all__ = [
     "Dependencies",
     "Dependency",
     "DependencyCoordinates",
+    "DependencyRequest",
     "DependencyType",
     "DepsManifest",
     "DevEnvironmentDockerImage",
@@ -12998,6 +13138,16 @@ def _typecheckingstub__0705dd461300a1275ac19f07b173cb3d54d5b40432a75919fe838b828
 def _typecheckingstub__c64ddd02bc83dba01b190c70805fc134d208559c5dbe1186f34a86af68e73c9b(
     *,
     name: builtins.str,
+    version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a412aa449199c9761c797d7f9812ae1089a1c280d3c13b1f2ca0c153eafa2b88(
+    *,
+    name: builtins.str,
+    metadata: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    type: typing.Optional[DependencyType] = None,
     version: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

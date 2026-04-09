@@ -102,7 +102,20 @@ impl<R: Read + Seek> PptxContainer<R> {
             }
         }
 
-        slide_paths.sort();
+        slide_paths.sort_by(|a, b| {
+            fn slide_num(s: &str) -> u32 {
+                s.rsplit('/')
+                    .next()
+                    .unwrap_or("")
+                    .strip_prefix("slide")
+                    .unwrap_or("")
+                    .strip_suffix(".xml")
+                    .unwrap_or("")
+                    .parse()
+                    .unwrap_or(u32::MAX)
+            }
+            slide_num(a).cmp(&slide_num(b))
+        });
         Ok(slide_paths)
     }
 

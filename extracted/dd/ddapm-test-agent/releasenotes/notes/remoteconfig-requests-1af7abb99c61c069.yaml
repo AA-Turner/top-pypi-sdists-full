@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Remote config requests are now returned via ``/test/session/requests``.

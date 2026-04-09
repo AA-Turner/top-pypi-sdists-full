@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-fal
-Version: 1.5.1
+Version: 1.5.2
 Summary: fal plugin template for LiveKit Agents
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -18,7 +18,7 @@ Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
 Requires-Dist: fal-client
-Requires-Dist: livekit-agents>=1.5.1
+Requires-Dist: livekit-agents>=1.5.2
 Description-Content-Type: text/markdown
 
 # fal plugin for LiveKit Agents

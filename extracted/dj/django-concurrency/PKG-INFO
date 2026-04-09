@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-concurrency
-Version: 2.8
+Version: 2.8.1
 Summary: Optimistic lock implementation for Django. Prevents users from doing concurrent editing
 Project-URL: downloads, https://github.com/saxix/django-concurrency
 Project-URL: homepage, https://github.com/saxix/django-concurrency

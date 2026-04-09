@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add support for ``POST /telemetry/proxy/api/v2/apmtelemetry`` endpoint and tracking telemetry requests.

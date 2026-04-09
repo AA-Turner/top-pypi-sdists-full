@@ -69,7 +69,7 @@ def execute_command(
     workspace: Optional[str] = None,
     timeout: int = 120,
     capture_output: bool = True,
-    shell: bool = True,
+    shell: bool = False,
     env: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
@@ -83,7 +83,7 @@ def execute_command(
         workspace: Workspace root (for security validation)
         timeout: Command timeout in seconds
         capture_output: Whether to capture stdout/stderr
-        shell: Whether to run through shell
+        shell: DEPRECATED - shell=True is no longer supported for security reasons
         env: Additional environment variables
         
     Returns:
@@ -153,18 +153,39 @@ def execute_command(
     try:
         # Execute command
         if shell:
-            result = subprocess.run(
-                command,
-                shell=True,
-                cwd=work_dir,
-                capture_output=capture_output,
-                timeout=timeout,
-                env=cmd_env,
-                text=True,
-            )
+            # For security reasons, shell=True is no longer supported
+            return {
+                'success': False,
+                'error': "shell=True is no longer supported for security reasons. Use shell=False (default) with direct command execution.",
+                'command': command,
+                'exit_code': -1,
+                'stdout': '',
+                'stderr': '',
+            }
         else:
             # Parse command for non-shell execution
-            args = shlex.split(command)
+            # Use posix=True on Unix-like systems, False on Windows for proper path handling
+            try:
+                args = shlex.split(command, posix=(os.name == 'posix'))
+                if not args:
+                    return {
+                        'success': False,
+                        'error': "Empty command after parsing",
+                        'command': command,
+                        'exit_code': -1,
+                        'stdout': '',
+                        'stderr': '',
+                    }
+            except ValueError as e:
+                return {
+                    'success': False,
+                    'error': f"Invalid command syntax: {str(e)}",
+                    'command': command,
+                    'exit_code': -1,
+                    'stdout': '',
+                    'stderr': '',
+                }
+            
             result = subprocess.run(
                 args,
                 cwd=work_dir,

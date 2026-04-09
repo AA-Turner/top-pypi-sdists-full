@@ -69,6 +69,10 @@ pub struct FileExtractionConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chunking: Option<ChunkingConfig>,
 
+    /// Override content filtering configuration for this file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_filter: Option<super::super::content_filter::ContentFilterConfig>,
+
     /// Override image extraction configuration for this file.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub images: Option<ImageExtractionConfig>,
@@ -133,4 +137,12 @@ pub struct FileExtractionConfig {
     #[cfg(feature = "tree-sitter")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tree_sitter: Option<super::super::tree_sitter::TreeSitterConfig>,
+
+    /// Override structured extraction configuration for this file.
+    ///
+    /// When set, enables LLM-based structured extraction with a JSON schema
+    /// for this specific file. The extracted content is sent to a VLM/LLM
+    /// and the response is parsed according to the provided schema.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub structured_extraction: Option<super::super::llm::StructuredExtractionConfig>,
 }

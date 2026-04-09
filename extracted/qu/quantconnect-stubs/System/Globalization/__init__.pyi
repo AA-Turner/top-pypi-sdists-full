@@ -210,7 +210,94 @@ class Calendar(System.Object, System.ICloneable, metaclass=abc.ABCMeta):
         ...
 
 
-class JapaneseCalendar(System.Globalization.Calendar):
+class KoreanCalendar(System.Globalization.Calendar):
+    """This class has no documentation."""
+
+    KOREAN_ERA: int = 1
+
+    @property
+    def min_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def max_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def algorithm_type(self) -> System.Globalization.CalendarAlgorithmType:
+        ...
+
+    @property
+    def eras(self) -> typing.List[int]:
+        ...
+
+    @property
+    def two_digit_year_max(self) -> int:
+        ...
+
+    @two_digit_year_max.setter
+    def two_digit_year_max(self, value: int) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def add_months(self, time: typing.Union[datetime.datetime, datetime.date], months: int) -> datetime.datetime:
+        ...
+
+    def add_years(self, time: typing.Union[datetime.datetime, datetime.date], years: int) -> datetime.datetime:
+        ...
+
+    def get_day_of_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_day_of_week(self, time: typing.Union[datetime.datetime, datetime.date]) -> System.DayOfWeek:
+        ...
+
+    def get_day_of_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_days_in_month(self, year: int, month: int, era: int) -> int:
+        ...
+
+    def get_days_in_year(self, year: int, era: int) -> int:
+        ...
+
+    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_leap_month(self, year: int, era: int) -> int:
+        ...
+
+    def get_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_months_in_year(self, year: int, era: int) -> int:
+        ...
+
+    def get_week_of_year(self, time: typing.Union[datetime.datetime, datetime.date], rule: System.Globalization.CalendarWeekRule, first_day_of_week: System.DayOfWeek) -> int:
+        ...
+
+    def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def is_leap_day(self, year: int, month: int, day: int, era: int) -> bool:
+        ...
+
+    def is_leap_month(self, year: int, month: int, era: int) -> bool:
+        ...
+
+    def is_leap_year(self, year: int, era: int) -> bool:
+        ...
+
+    def to_date_time(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, era: int) -> datetime.datetime:
+        ...
+
+    def to_four_digit_year(self, year: int) -> int:
+        ...
+
+
+class TaiwanCalendar(System.Globalization.Calendar):
     """This class has no documentation."""
 
     @property
@@ -292,6 +379,691 @@ class JapaneseCalendar(System.Globalization.Calendar):
         ...
 
     def to_four_digit_year(self, year: int) -> int:
+        ...
+
+
+class IdnMapping(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def allow_unassigned(self) -> bool:
+        ...
+
+    @allow_unassigned.setter
+    def allow_unassigned(self, value: bool) -> None:
+        ...
+
+    @property
+    def use_std_3_ascii_rules(self) -> bool:
+        ...
+
+    @use_std_3_ascii_rules.setter
+    def use_std_3_ascii_rules(self, value: bool) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def get_ascii(self, unicode: str) -> str:
+        ...
+
+    @overload
+    def get_ascii(self, unicode: str, index: int) -> str:
+        ...
+
+    @overload
+    def get_ascii(self, unicode: str, index: int, count: int) -> str:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @overload
+    def get_unicode(self, ascii: str) -> str:
+        ...
+
+    @overload
+    def get_unicode(self, ascii: str, index: int) -> str:
+        ...
+
+    @overload
+    def get_unicode(self, ascii: str, index: int, count: int) -> str:
+        ...
+
+    def try_get_ascii(self, unicode: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    def try_get_unicode(self, ascii: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+
+class EastAsianLunisolarCalendar(System.Globalization.Calendar, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def algorithm_type(self) -> System.Globalization.CalendarAlgorithmType:
+        ...
+
+    @property
+    def two_digit_year_max(self) -> int:
+        ...
+
+    @two_digit_year_max.setter
+    def two_digit_year_max(self, value: int) -> None:
+        ...
+
+    def add_months(self, time: typing.Union[datetime.datetime, datetime.date], months: int) -> datetime.datetime:
+        ...
+
+    def add_years(self, time: typing.Union[datetime.datetime, datetime.date], years: int) -> datetime.datetime:
+        ...
+
+    def get_celestial_stem(self, sexagenary_year: int) -> int:
+        ...
+
+    def get_day_of_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_day_of_week(self, time: typing.Union[datetime.datetime, datetime.date]) -> System.DayOfWeek:
+        ...
+
+    def get_day_of_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_days_in_month(self, year: int, month: int, era: int) -> int:
+        ...
+
+    def get_days_in_year(self, year: int, era: int) -> int:
+        ...
+
+    def get_leap_month(self, year: int, era: int) -> int:
+        ...
+
+    def get_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_months_in_year(self, year: int, era: int) -> int:
+        ...
+
+    def get_sexagenary_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_terrestrial_branch(self, sexagenary_year: int) -> int:
+        ...
+
+    def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def is_leap_day(self, year: int, month: int, day: int, era: int) -> bool:
+        ...
+
+    def is_leap_month(self, year: int, month: int, era: int) -> bool:
+        ...
+
+    def is_leap_year(self, year: int, era: int) -> bool:
+        ...
+
+    def to_date_time(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, era: int) -> datetime.datetime:
+        ...
+
+    def to_four_digit_year(self, year: int) -> int:
+        ...
+
+
+class JapaneseLunisolarCalendar(System.Globalization.EastAsianLunisolarCalendar):
+    """This class has no documentation."""
+
+    JAPANESE_ERA: int = 1
+
+    @property
+    def min_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def max_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def days_in_year_before_min_supported_year(self) -> int:
+        ...
+
+    @property
+    def eras(self) -> typing.List[int]:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+
+class DigitShapes(IntEnum):
+    """This class has no documentation."""
+
+    CONTEXT = ...
+
+    NONE = ...
+
+    NATIVE_NATIONAL = ...
+
+
+class NumberFormatInfo(System.Object, System.IFormatProvider, System.ICloneable):
+    """This class has no documentation."""
+
+    INVARIANT_INFO: System.Globalization.NumberFormatInfo
+
+    @property
+    def currency_decimal_digits(self) -> int:
+        ...
+
+    @currency_decimal_digits.setter
+    def currency_decimal_digits(self, value: int) -> None:
+        ...
+
+    @property
+    def currency_decimal_separator(self) -> str:
+        ...
+
+    @currency_decimal_separator.setter
+    def currency_decimal_separator(self, value: str) -> None:
+        ...
+
+    @property
+    def is_read_only(self) -> bool:
+        ...
+
+    @property
+    def currency_group_sizes(self) -> typing.List[int]:
+        ...
+
+    @currency_group_sizes.setter
+    def currency_group_sizes(self, value: typing.List[int]) -> None:
+        ...
+
+    @property
+    def number_group_sizes(self) -> typing.List[int]:
+        ...
+
+    @number_group_sizes.setter
+    def number_group_sizes(self, value: typing.List[int]) -> None:
+        ...
+
+    @property
+    def percent_group_sizes(self) -> typing.List[int]:
+        ...
+
+    @percent_group_sizes.setter
+    def percent_group_sizes(self, value: typing.List[int]) -> None:
+        ...
+
+    @property
+    def currency_group_separator(self) -> str:
+        ...
+
+    @currency_group_separator.setter
+    def currency_group_separator(self, value: str) -> None:
+        ...
+
+    @property
+    def currency_symbol(self) -> str:
+        ...
+
+    @currency_symbol.setter
+    def currency_symbol(self, value: str) -> None:
+        ...
+
+    CURRENT_INFO: System.Globalization.NumberFormatInfo
+
+    @property
+    def na_n_symbol(self) -> str:
+        ...
+
+    @na_n_symbol.setter
+    def na_n_symbol(self, value: str) -> None:
+        ...
+
+    @property
+    def currency_negative_pattern(self) -> int:
+        ...
+
+    @currency_negative_pattern.setter
+    def currency_negative_pattern(self, value: int) -> None:
+        ...
+
+    @property
+    def number_negative_pattern(self) -> int:
+        ...
+
+    @number_negative_pattern.setter
+    def number_negative_pattern(self, value: int) -> None:
+        ...
+
+    @property
+    def percent_positive_pattern(self) -> int:
+        ...
+
+    @percent_positive_pattern.setter
+    def percent_positive_pattern(self, value: int) -> None:
+        ...
+
+    @property
+    def percent_negative_pattern(self) -> int:
+        ...
+
+    @percent_negative_pattern.setter
+    def percent_negative_pattern(self, value: int) -> None:
+        ...
+
+    @property
+    def negative_infinity_symbol(self) -> str:
+        ...
+
+    @negative_infinity_symbol.setter
+    def negative_infinity_symbol(self, value: str) -> None:
+        ...
+
+    @property
+    def negative_sign(self) -> str:
+        ...
+
+    @negative_sign.setter
+    def negative_sign(self, value: str) -> None:
+        ...
+
+    @property
+    def number_decimal_digits(self) -> int:
+        ...
+
+    @number_decimal_digits.setter
+    def number_decimal_digits(self, value: int) -> None:
+        ...
+
+    @property
+    def number_decimal_separator(self) -> str:
+        ...
+
+    @number_decimal_separator.setter
+    def number_decimal_separator(self, value: str) -> None:
+        ...
+
+    @property
+    def number_group_separator(self) -> str:
+        ...
+
+    @number_group_separator.setter
+    def number_group_separator(self, value: str) -> None:
+        ...
+
+    @property
+    def currency_positive_pattern(self) -> int:
+        ...
+
+    @currency_positive_pattern.setter
+    def currency_positive_pattern(self, value: int) -> None:
+        ...
+
+    @property
+    def positive_infinity_symbol(self) -> str:
+        ...
+
+    @positive_infinity_symbol.setter
+    def positive_infinity_symbol(self, value: str) -> None:
+        ...
+
+    @property
+    def positive_sign(self) -> str:
+        ...
+
+    @positive_sign.setter
+    def positive_sign(self, value: str) -> None:
+        ...
+
+    @property
+    def percent_decimal_digits(self) -> int:
+        ...
+
+    @percent_decimal_digits.setter
+    def percent_decimal_digits(self, value: int) -> None:
+        ...
+
+    @property
+    def percent_decimal_separator(self) -> str:
+        ...
+
+    @percent_decimal_separator.setter
+    def percent_decimal_separator(self, value: str) -> None:
+        ...
+
+    @property
+    def percent_group_separator(self) -> str:
+        ...
+
+    @percent_group_separator.setter
+    def percent_group_separator(self, value: str) -> None:
+        ...
+
+    @property
+    def percent_symbol(self) -> str:
+        ...
+
+    @percent_symbol.setter
+    def percent_symbol(self, value: str) -> None:
+        ...
+
+    @property
+    def per_mille_symbol(self) -> str:
+        ...
+
+    @per_mille_symbol.setter
+    def per_mille_symbol(self, value: str) -> None:
+        ...
+
+    @property
+    def native_digits(self) -> typing.List[str]:
+        ...
+
+    @native_digits.setter
+    def native_digits(self, value: typing.List[str]) -> None:
+        ...
+
+    @property
+    def digit_substitution(self) -> System.Globalization.DigitShapes:
+        ...
+
+    @digit_substitution.setter
+    def digit_substitution(self, value: System.Globalization.DigitShapes) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def clone(self) -> System.Object:
+        ...
+
+    def get_format(self, format_type: typing.Type) -> System.Object:
+        ...
+
+    @staticmethod
+    def get_instance(format_provider: System.IFormatProvider) -> System.Globalization.NumberFormatInfo:
+        ...
+
+    @staticmethod
+    def read_only(nfi: System.Globalization.NumberFormatInfo) -> System.Globalization.NumberFormatInfo:
+        ...
+
+
+class UnicodeCategory(IntEnum):
+    """This class has no documentation."""
+
+    UPPERCASE_LETTER = 0
+
+    LOWERCASE_LETTER = 1
+
+    TITLECASE_LETTER = 2
+
+    MODIFIER_LETTER = 3
+
+    OTHER_LETTER = 4
+
+    NON_SPACING_MARK = 5
+
+    SPACING_COMBINING_MARK = 6
+
+    ENCLOSING_MARK = 7
+
+    DECIMAL_DIGIT_NUMBER = 8
+
+    LETTER_NUMBER = 9
+
+    OTHER_NUMBER = 10
+
+    SPACE_SEPARATOR = 11
+
+    LINE_SEPARATOR = 12
+
+    PARAGRAPH_SEPARATOR = 13
+
+    CONTROL = 14
+
+    FORMAT = 15
+
+    SURROGATE = 16
+
+    PRIVATE_USE = 17
+
+    CONNECTOR_PUNCTUATION = 18
+
+    DASH_PUNCTUATION = 19
+
+    OPEN_PUNCTUATION = 20
+
+    CLOSE_PUNCTUATION = 21
+
+    INITIAL_QUOTE_PUNCTUATION = 22
+
+    FINAL_QUOTE_PUNCTUATION = 23
+
+    OTHER_PUNCTUATION = 24
+
+    MATH_SYMBOL = 25
+
+    CURRENCY_SYMBOL = 26
+
+    MODIFIER_SYMBOL = 27
+
+    OTHER_SYMBOL = 28
+
+    OTHER_NOT_ASSIGNED = 29
+
+
+class CharUnicodeInfo(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    @overload
+    def get_decimal_digit_value(ch: str) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def get_decimal_digit_value(s: str, index: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def get_digit_value(ch: str) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def get_digit_value(s: str, index: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def get_numeric_value(ch: str) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def get_numeric_value(s: str, index: int) -> float:
+        ...
+
+    @staticmethod
+    @overload
+    def get_unicode_category(ch: str) -> System.Globalization.UnicodeCategory:
+        ...
+
+    @staticmethod
+    @overload
+    def get_unicode_category(code_point: int) -> System.Globalization.UnicodeCategory:
+        ...
+
+    @staticmethod
+    @overload
+    def get_unicode_category(s: str, index: int) -> System.Globalization.UnicodeCategory:
+        ...
+
+
+class TaiwanLunisolarCalendar(System.Globalization.EastAsianLunisolarCalendar):
+    """This class has no documentation."""
+
+    @property
+    def min_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def max_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def days_in_year_before_min_supported_year(self) -> int:
+        ...
+
+    @property
+    def eras(self) -> typing.List[int]:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+
+class ISOWeek(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    @overload
+    def get_week_of_year(date: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def get_week_of_year(date: System.DateOnly) -> int:
+        ...
+
+    @staticmethod
+    def get_weeks_in_year(year: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def get_year(date: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def get_year(date: System.DateOnly) -> int:
+        ...
+
+    @staticmethod
+    def get_year_end(year: int) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def get_year_start(year: int) -> datetime.datetime:
+        ...
+
+    @staticmethod
+    def to_date_only(year: int, week: int, day_of_week: System.DayOfWeek) -> System.DateOnly:
+        ...
+
+    @staticmethod
+    def to_date_time(year: int, week: int, day_of_week: System.DayOfWeek) -> datetime.datetime:
+        ...
+
+
+class TextInfo(System.Object, System.ICloneable, System.Runtime.Serialization.IDeserializationCallback):
+    """This class has no documentation."""
+
+    @property
+    def ansi_code_page(self) -> int:
+        ...
+
+    @property
+    def oem_code_page(self) -> int:
+        ...
+
+    @property
+    def mac_code_page(self) -> int:
+        ...
+
+    @property
+    def ebcdic_code_page(self) -> int:
+        ...
+
+    @property
+    def lcid(self) -> int:
+        ...
+
+    @property
+    def culture_name(self) -> str:
+        ...
+
+    @property
+    def is_read_only(self) -> bool:
+        ...
+
+    @property
+    def list_separator(self) -> str:
+        ...
+
+    @list_separator.setter
+    def list_separator(self, value: str) -> None:
+        ...
+
+    @property
+    def is_right_to_left(self) -> bool:
+        ...
+
+    def clone(self) -> System.Object:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def read_only(text_info: System.Globalization.TextInfo) -> System.Globalization.TextInfo:
+        ...
+
+    @overload
+    def to_lower(self, c: str) -> str:
+        ...
+
+    @overload
+    def to_lower(self, str: str) -> str:
+        ...
+
+    @overload
+    def to_lower(self, value: System.Text.Rune) -> System.Text.Rune:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    def to_title_case(self, str: str) -> str:
+        ...
+
+    @overload
+    def to_upper(self, c: str) -> str:
+        ...
+
+    @overload
+    def to_upper(self, str: str) -> str:
+        ...
+
+    @overload
+    def to_upper(self, value: System.Text.Rune) -> System.Text.Rune:
         ...
 
 
@@ -597,126 +1369,24 @@ class CompareInfo(System.Object, System.Runtime.Serialization.IDeserializationCa
         ...
 
 
-class TextElementEnumerator(System.Object, System.Collections.IEnumerator):
+class CultureTypes(IntEnum):
     """This class has no documentation."""
 
-    @property
-    def current(self) -> System.Object:
-        ...
+    NEUTRAL_CULTURES = ...
 
-    @property
-    def element_index(self) -> int:
-        ...
+    SPECIFIC_CULTURES = ...
 
-    def get_text_element(self) -> str:
-        ...
+    INSTALLED_WIN_32_CULTURES = ...
 
-    def move_next(self) -> bool:
-        ...
+    ALL_CULTURES = ...
 
-    def reset(self) -> None:
-        ...
+    USER_CUSTOM_CULTURE = ...
 
+    REPLACEMENT_CULTURES = ...
 
-class StringInfo(System.Object):
-    """This class has no documentation."""
+    WINDOWS_ONLY_CULTURES = ...
 
-    @property
-    def string(self) -> str:
-        ...
-
-    @string.setter
-    def string(self, value: str) -> None:
-        ...
-
-    @property
-    def length_in_text_elements(self) -> int:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: str) -> None:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_next_text_element(str: str) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def get_next_text_element(str: str, index: int) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def get_next_text_element_length(str: str) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_next_text_element_length(str: str, index: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_next_text_element_length(str: System.ReadOnlySpan[str]) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_text_element_enumerator(str: str) -> System.Globalization.TextElementEnumerator:
-        ...
-
-    @staticmethod
-    @overload
-    def get_text_element_enumerator(str: str, index: int) -> System.Globalization.TextElementEnumerator:
-        ...
-
-    @staticmethod
-    def parse_combining_characters(str: str) -> typing.List[int]:
-        ...
-
-    @overload
-    def substring_by_text_elements(self, starting_text_element: int) -> str:
-        ...
-
-    @overload
-    def substring_by_text_elements(self, starting_text_element: int, length_in_text_elements: int) -> str:
-        ...
-
-
-class DateTimeStyles(IntEnum):
-    """This class has no documentation."""
-
-    NONE = ...
-
-    ALLOW_LEADING_WHITE = ...
-
-    ALLOW_TRAILING_WHITE = ...
-
-    ALLOW_INNER_WHITE = ...
-
-    ALLOW_WHITE_SPACES = ...
-
-    NO_CURRENT_DATE_DEFAULT = ...
-
-    ADJUST_TO_UNIVERSAL = ...
-
-    ASSUME_LOCAL = ...
-
-    ASSUME_UNIVERSAL = ...
-
-    ROUNDTRIP_KIND = ...
+    FRAMEWORK_CULTURES = ...
 
 
 class DateTimeFormatInfo(System.Object, System.IFormatProvider, System.ICloneable):
@@ -967,384 +1637,6 @@ class DateTimeFormatInfo(System.Object, System.IFormatProvider, System.ICloneabl
         ...
 
 
-class GregorianCalendarTypes(IntEnum):
-    """This class has no documentation."""
-
-    LOCALIZED = ...
-
-    US_ENGLISH = ...
-
-    MIDDLE_EAST_FRENCH = ...
-
-    ARABIC = ...
-
-    TRANSLITERATED_ENGLISH = ...
-
-    TRANSLITERATED_FRENCH = ...
-
-
-class TextInfo(System.Object, System.ICloneable, System.Runtime.Serialization.IDeserializationCallback):
-    """This class has no documentation."""
-
-    @property
-    def ansi_code_page(self) -> int:
-        ...
-
-    @property
-    def oem_code_page(self) -> int:
-        ...
-
-    @property
-    def mac_code_page(self) -> int:
-        ...
-
-    @property
-    def ebcdic_code_page(self) -> int:
-        ...
-
-    @property
-    def lcid(self) -> int:
-        ...
-
-    @property
-    def culture_name(self) -> str:
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        ...
-
-    @property
-    def list_separator(self) -> str:
-        ...
-
-    @list_separator.setter
-    def list_separator(self, value: str) -> None:
-        ...
-
-    @property
-    def is_right_to_left(self) -> bool:
-        ...
-
-    def clone(self) -> System.Object:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    def read_only(text_info: System.Globalization.TextInfo) -> System.Globalization.TextInfo:
-        ...
-
-    @overload
-    def to_lower(self, c: str) -> str:
-        ...
-
-    @overload
-    def to_lower(self, str: str) -> str:
-        ...
-
-    @overload
-    def to_lower(self, value: System.Text.Rune) -> System.Text.Rune:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    def to_title_case(self, str: str) -> str:
-        ...
-
-    @overload
-    def to_upper(self, c: str) -> str:
-        ...
-
-    @overload
-    def to_upper(self, str: str) -> str:
-        ...
-
-    @overload
-    def to_upper(self, value: System.Text.Rune) -> System.Text.Rune:
-        ...
-
-
-class CultureTypes(IntEnum):
-    """This class has no documentation."""
-
-    NEUTRAL_CULTURES = ...
-
-    SPECIFIC_CULTURES = ...
-
-    INSTALLED_WIN_32_CULTURES = ...
-
-    ALL_CULTURES = ...
-
-    USER_CUSTOM_CULTURE = ...
-
-    REPLACEMENT_CULTURES = ...
-
-    WINDOWS_ONLY_CULTURES = ...
-
-    FRAMEWORK_CULTURES = ...
-
-
-class DigitShapes(IntEnum):
-    """This class has no documentation."""
-
-    CONTEXT = ...
-
-    NONE = ...
-
-    NATIVE_NATIONAL = ...
-
-
-class NumberFormatInfo(System.Object, System.IFormatProvider, System.ICloneable):
-    """This class has no documentation."""
-
-    INVARIANT_INFO: System.Globalization.NumberFormatInfo
-
-    @property
-    def currency_decimal_digits(self) -> int:
-        ...
-
-    @currency_decimal_digits.setter
-    def currency_decimal_digits(self, value: int) -> None:
-        ...
-
-    @property
-    def currency_decimal_separator(self) -> str:
-        ...
-
-    @currency_decimal_separator.setter
-    def currency_decimal_separator(self, value: str) -> None:
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        ...
-
-    @property
-    def currency_group_sizes(self) -> typing.List[int]:
-        ...
-
-    @currency_group_sizes.setter
-    def currency_group_sizes(self, value: typing.List[int]) -> None:
-        ...
-
-    @property
-    def number_group_sizes(self) -> typing.List[int]:
-        ...
-
-    @number_group_sizes.setter
-    def number_group_sizes(self, value: typing.List[int]) -> None:
-        ...
-
-    @property
-    def percent_group_sizes(self) -> typing.List[int]:
-        ...
-
-    @percent_group_sizes.setter
-    def percent_group_sizes(self, value: typing.List[int]) -> None:
-        ...
-
-    @property
-    def currency_group_separator(self) -> str:
-        ...
-
-    @currency_group_separator.setter
-    def currency_group_separator(self, value: str) -> None:
-        ...
-
-    @property
-    def currency_symbol(self) -> str:
-        ...
-
-    @currency_symbol.setter
-    def currency_symbol(self, value: str) -> None:
-        ...
-
-    CURRENT_INFO: System.Globalization.NumberFormatInfo
-
-    @property
-    def na_n_symbol(self) -> str:
-        ...
-
-    @na_n_symbol.setter
-    def na_n_symbol(self, value: str) -> None:
-        ...
-
-    @property
-    def currency_negative_pattern(self) -> int:
-        ...
-
-    @currency_negative_pattern.setter
-    def currency_negative_pattern(self, value: int) -> None:
-        ...
-
-    @property
-    def number_negative_pattern(self) -> int:
-        ...
-
-    @number_negative_pattern.setter
-    def number_negative_pattern(self, value: int) -> None:
-        ...
-
-    @property
-    def percent_positive_pattern(self) -> int:
-        ...
-
-    @percent_positive_pattern.setter
-    def percent_positive_pattern(self, value: int) -> None:
-        ...
-
-    @property
-    def percent_negative_pattern(self) -> int:
-        ...
-
-    @percent_negative_pattern.setter
-    def percent_negative_pattern(self, value: int) -> None:
-        ...
-
-    @property
-    def negative_infinity_symbol(self) -> str:
-        ...
-
-    @negative_infinity_symbol.setter
-    def negative_infinity_symbol(self, value: str) -> None:
-        ...
-
-    @property
-    def negative_sign(self) -> str:
-        ...
-
-    @negative_sign.setter
-    def negative_sign(self, value: str) -> None:
-        ...
-
-    @property
-    def number_decimal_digits(self) -> int:
-        ...
-
-    @number_decimal_digits.setter
-    def number_decimal_digits(self, value: int) -> None:
-        ...
-
-    @property
-    def number_decimal_separator(self) -> str:
-        ...
-
-    @number_decimal_separator.setter
-    def number_decimal_separator(self, value: str) -> None:
-        ...
-
-    @property
-    def number_group_separator(self) -> str:
-        ...
-
-    @number_group_separator.setter
-    def number_group_separator(self, value: str) -> None:
-        ...
-
-    @property
-    def currency_positive_pattern(self) -> int:
-        ...
-
-    @currency_positive_pattern.setter
-    def currency_positive_pattern(self, value: int) -> None:
-        ...
-
-    @property
-    def positive_infinity_symbol(self) -> str:
-        ...
-
-    @positive_infinity_symbol.setter
-    def positive_infinity_symbol(self, value: str) -> None:
-        ...
-
-    @property
-    def positive_sign(self) -> str:
-        ...
-
-    @positive_sign.setter
-    def positive_sign(self, value: str) -> None:
-        ...
-
-    @property
-    def percent_decimal_digits(self) -> int:
-        ...
-
-    @percent_decimal_digits.setter
-    def percent_decimal_digits(self, value: int) -> None:
-        ...
-
-    @property
-    def percent_decimal_separator(self) -> str:
-        ...
-
-    @percent_decimal_separator.setter
-    def percent_decimal_separator(self, value: str) -> None:
-        ...
-
-    @property
-    def percent_group_separator(self) -> str:
-        ...
-
-    @percent_group_separator.setter
-    def percent_group_separator(self, value: str) -> None:
-        ...
-
-    @property
-    def percent_symbol(self) -> str:
-        ...
-
-    @percent_symbol.setter
-    def percent_symbol(self, value: str) -> None:
-        ...
-
-    @property
-    def per_mille_symbol(self) -> str:
-        ...
-
-    @per_mille_symbol.setter
-    def per_mille_symbol(self, value: str) -> None:
-        ...
-
-    @property
-    def native_digits(self) -> typing.List[str]:
-        ...
-
-    @native_digits.setter
-    def native_digits(self, value: typing.List[str]) -> None:
-        ...
-
-    @property
-    def digit_substitution(self) -> System.Globalization.DigitShapes:
-        ...
-
-    @digit_substitution.setter
-    def digit_substitution(self, value: System.Globalization.DigitShapes) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def clone(self) -> System.Object:
-        ...
-
-    def get_format(self, format_type: typing.Type) -> System.Object:
-        ...
-
-    @staticmethod
-    def get_instance(format_provider: System.IFormatProvider) -> System.Globalization.NumberFormatInfo:
-        ...
-
-    @staticmethod
-    def read_only(nfi: System.Globalization.NumberFormatInfo) -> System.Globalization.NumberFormatInfo:
-        ...
-
-
 class CultureInfo(System.Object, System.IFormatProvider, System.ICloneable):
     """This class has no documentation."""
 
@@ -1526,313 +1818,49 @@ class CultureInfo(System.Object, System.IFormatProvider, System.ICloneable):
         ...
 
 
-class HijriCalendar(System.Globalization.Calendar):
+class TimeSpanStyles(IntEnum):
     """This class has no documentation."""
 
-    HIJRI_ERA: int = 1
+    NONE = ...
 
-    @property
-    def min_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def max_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def algorithm_type(self) -> System.Globalization.CalendarAlgorithmType:
-        ...
-
-    @property
-    def days_in_year_before_min_supported_year(self) -> int:
-        ...
-
-    @property
-    def hijri_adjustment(self) -> int:
-        ...
-
-    @hijri_adjustment.setter
-    def hijri_adjustment(self, value: int) -> None:
-        ...
-
-    @property
-    def eras(self) -> typing.List[int]:
-        ...
-
-    @property
-    def two_digit_year_max(self) -> int:
-        ...
-
-    @two_digit_year_max.setter
-    def two_digit_year_max(self, value: int) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def add_months(self, time: typing.Union[datetime.datetime, datetime.date], months: int) -> datetime.datetime:
-        ...
-
-    def add_years(self, time: typing.Union[datetime.datetime, datetime.date], years: int) -> datetime.datetime:
-        ...
-
-    def get_day_of_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_day_of_week(self, time: typing.Union[datetime.datetime, datetime.date]) -> System.DayOfWeek:
-        ...
-
-    def get_day_of_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_days_in_month(self, year: int, month: int, era: int) -> int:
-        ...
-
-    def get_days_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_leap_month(self, year: int, era: int) -> int:
-        ...
-
-    def get_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_months_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def is_leap_day(self, year: int, month: int, day: int, era: int) -> bool:
-        ...
-
-    def is_leap_month(self, year: int, month: int, era: int) -> bool:
-        ...
-
-    def is_leap_year(self, year: int, era: int) -> bool:
-        ...
-
-    def to_date_time(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, era: int) -> datetime.datetime:
-        ...
-
-    def to_four_digit_year(self, year: int) -> int:
-        ...
+    ASSUME_NEGATIVE = ...
 
 
-class CultureNotFoundException(System.ArgumentException):
+class TextElementEnumerator(System.Object, System.Collections.IEnumerator):
     """This class has no documentation."""
 
     @property
-    def invalid_culture_id(self) -> typing.Optional[int]:
+    def current(self) -> System.Object:
         ...
 
     @property
-    def invalid_culture_name(self) -> str:
+    def element_index(self) -> int:
         ...
 
-    @property
-    def message(self) -> str:
+    def get_text_element(self) -> str:
         ...
 
-    @overload
-    def __init__(self) -> None:
+    def move_next(self) -> bool:
         ...
 
-    @overload
-    def __init__(self, message: str) -> None:
+    def reset(self) -> None:
         ...
 
-    @overload
-    def __init__(self, param_name: str, message: str) -> None:
-        ...
 
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, param_name: str, invalid_culture_name: str, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, invalid_culture_name: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, invalid_culture_id: int, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, param_name: str, invalid_culture_id: int, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class EastAsianLunisolarCalendar(System.Globalization.Calendar, metaclass=abc.ABCMeta):
+class GregorianCalendarTypes(IntEnum):
     """This class has no documentation."""
 
-    @property
-    def algorithm_type(self) -> System.Globalization.CalendarAlgorithmType:
-        ...
+    LOCALIZED = ...
 
-    @property
-    def two_digit_year_max(self) -> int:
-        ...
+    US_ENGLISH = ...
 
-    @two_digit_year_max.setter
-    def two_digit_year_max(self, value: int) -> None:
-        ...
+    MIDDLE_EAST_FRENCH = ...
 
-    def add_months(self, time: typing.Union[datetime.datetime, datetime.date], months: int) -> datetime.datetime:
-        ...
+    ARABIC = ...
 
-    def add_years(self, time: typing.Union[datetime.datetime, datetime.date], years: int) -> datetime.datetime:
-        ...
+    TRANSLITERATED_ENGLISH = ...
 
-    def get_celestial_stem(self, sexagenary_year: int) -> int:
-        ...
-
-    def get_day_of_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_day_of_week(self, time: typing.Union[datetime.datetime, datetime.date]) -> System.DayOfWeek:
-        ...
-
-    def get_day_of_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_days_in_month(self, year: int, month: int, era: int) -> int:
-        ...
-
-    def get_days_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_leap_month(self, year: int, era: int) -> int:
-        ...
-
-    def get_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_months_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_sexagenary_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_terrestrial_branch(self, sexagenary_year: int) -> int:
-        ...
-
-    def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def is_leap_day(self, year: int, month: int, day: int, era: int) -> bool:
-        ...
-
-    def is_leap_month(self, year: int, month: int, era: int) -> bool:
-        ...
-
-    def is_leap_year(self, year: int, era: int) -> bool:
-        ...
-
-    def to_date_time(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, era: int) -> datetime.datetime:
-        ...
-
-    def to_four_digit_year(self, year: int) -> int:
-        ...
-
-
-class TaiwanLunisolarCalendar(System.Globalization.EastAsianLunisolarCalendar):
-    """This class has no documentation."""
-
-    @property
-    def min_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def max_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def days_in_year_before_min_supported_year(self) -> int:
-        ...
-
-    @property
-    def eras(self) -> typing.List[int]:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-
-class IdnMapping(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def allow_unassigned(self) -> bool:
-        ...
-
-    @allow_unassigned.setter
-    def allow_unassigned(self, value: bool) -> None:
-        ...
-
-    @property
-    def use_std_3_ascii_rules(self) -> bool:
-        ...
-
-    @use_std_3_ascii_rules.setter
-    def use_std_3_ascii_rules(self, value: bool) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def get_ascii(self, unicode: str) -> str:
-        ...
-
-    @overload
-    def get_ascii(self, unicode: str, index: int) -> str:
-        ...
-
-    @overload
-    def get_ascii(self, unicode: str, index: int, count: int) -> str:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @overload
-    def get_unicode(self, ascii: str) -> str:
-        ...
-
-    @overload
-    def get_unicode(self, ascii: str, index: int) -> str:
-        ...
-
-    @overload
-    def get_unicode(self, ascii: str, index: int, count: int) -> str:
-        ...
-
-    def try_get_ascii(self, unicode: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    def try_get_unicode(self, ascii: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
+    TRANSLITERATED_FRENCH = ...
 
 
 class GregorianCalendar(System.Globalization.Calendar):
@@ -1911,624 +1939,6 @@ class GregorianCalendar(System.Globalization.Calendar):
         ...
 
     def get_months_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def is_leap_day(self, year: int, month: int, day: int, era: int) -> bool:
-        ...
-
-    def is_leap_month(self, year: int, month: int, era: int) -> bool:
-        ...
-
-    def is_leap_year(self, year: int, era: int) -> bool:
-        ...
-
-    def to_date_time(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, era: int) -> datetime.datetime:
-        ...
-
-    def to_four_digit_year(self, year: int) -> int:
-        ...
-
-
-class JulianCalendar(System.Globalization.Calendar):
-    """This class has no documentation."""
-
-    JULIAN_ERA: int = 1
-
-    @property
-    def min_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def max_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def algorithm_type(self) -> System.Globalization.CalendarAlgorithmType:
-        ...
-
-    @property
-    def eras(self) -> typing.List[int]:
-        ...
-
-    @property
-    def two_digit_year_max(self) -> int:
-        ...
-
-    @two_digit_year_max.setter
-    def two_digit_year_max(self, value: int) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def add_months(self, time: typing.Union[datetime.datetime, datetime.date], months: int) -> datetime.datetime:
-        ...
-
-    def add_years(self, time: typing.Union[datetime.datetime, datetime.date], years: int) -> datetime.datetime:
-        ...
-
-    def get_day_of_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_day_of_week(self, time: typing.Union[datetime.datetime, datetime.date]) -> System.DayOfWeek:
-        ...
-
-    def get_day_of_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_days_in_month(self, year: int, month: int, era: int) -> int:
-        ...
-
-    def get_days_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_leap_month(self, year: int, era: int) -> int:
-        ...
-
-    def get_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_months_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def is_leap_day(self, year: int, month: int, day: int, era: int) -> bool:
-        ...
-
-    def is_leap_month(self, year: int, month: int, era: int) -> bool:
-        ...
-
-    def is_leap_year(self, year: int, era: int) -> bool:
-        ...
-
-    def to_date_time(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, era: int) -> datetime.datetime:
-        ...
-
-    def to_four_digit_year(self, year: int) -> int:
-        ...
-
-
-class TimeSpanStyles(IntEnum):
-    """This class has no documentation."""
-
-    NONE = ...
-
-    ASSUME_NEGATIVE = ...
-
-
-class PersianCalendar(System.Globalization.Calendar):
-    """This class has no documentation."""
-
-    PERSIAN_ERA: int = 1
-
-    @property
-    def min_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def max_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def algorithm_type(self) -> System.Globalization.CalendarAlgorithmType:
-        ...
-
-    @property
-    def eras(self) -> typing.List[int]:
-        ...
-
-    @property
-    def two_digit_year_max(self) -> int:
-        ...
-
-    @two_digit_year_max.setter
-    def two_digit_year_max(self, value: int) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def add_months(self, time: typing.Union[datetime.datetime, datetime.date], months: int) -> datetime.datetime:
-        ...
-
-    def add_years(self, time: typing.Union[datetime.datetime, datetime.date], years: int) -> datetime.datetime:
-        ...
-
-    def get_day_of_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_day_of_week(self, time: typing.Union[datetime.datetime, datetime.date]) -> System.DayOfWeek:
-        ...
-
-    def get_day_of_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_days_in_month(self, year: int, month: int, era: int) -> int:
-        ...
-
-    def get_days_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_leap_month(self, year: int, era: int) -> int:
-        ...
-
-    def get_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_months_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def is_leap_day(self, year: int, month: int, day: int, era: int) -> bool:
-        ...
-
-    def is_leap_month(self, year: int, month: int, era: int) -> bool:
-        ...
-
-    def is_leap_year(self, year: int, era: int) -> bool:
-        ...
-
-    def to_date_time(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, era: int) -> datetime.datetime:
-        ...
-
-    def to_four_digit_year(self, year: int) -> int:
-        ...
-
-
-class HebrewCalendar(System.Globalization.Calendar):
-    """This class has no documentation."""
-
-    HEBREW_ERA: int = 1
-
-    @property
-    def min_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def max_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def algorithm_type(self) -> System.Globalization.CalendarAlgorithmType:
-        ...
-
-    @property
-    def eras(self) -> typing.List[int]:
-        ...
-
-    @property
-    def two_digit_year_max(self) -> int:
-        ...
-
-    @two_digit_year_max.setter
-    def two_digit_year_max(self, value: int) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def add_months(self, time: typing.Union[datetime.datetime, datetime.date], months: int) -> datetime.datetime:
-        ...
-
-    def add_years(self, time: typing.Union[datetime.datetime, datetime.date], years: int) -> datetime.datetime:
-        ...
-
-    def get_day_of_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_day_of_week(self, time: typing.Union[datetime.datetime, datetime.date]) -> System.DayOfWeek:
-        ...
-
-    def get_day_of_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_days_in_month(self, year: int, month: int, era: int) -> int:
-        ...
-
-    def get_days_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_leap_month(self, year: int, era: int) -> int:
-        ...
-
-    def get_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_months_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def is_leap_day(self, year: int, month: int, day: int, era: int) -> bool:
-        ...
-
-    def is_leap_month(self, year: int, month: int, era: int) -> bool:
-        ...
-
-    def is_leap_year(self, year: int, era: int) -> bool:
-        ...
-
-    def to_date_time(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, era: int) -> datetime.datetime:
-        ...
-
-    def to_four_digit_year(self, year: int) -> int:
-        ...
-
-
-class UnicodeCategory(IntEnum):
-    """This class has no documentation."""
-
-    UPPERCASE_LETTER = 0
-
-    LOWERCASE_LETTER = 1
-
-    TITLECASE_LETTER = 2
-
-    MODIFIER_LETTER = 3
-
-    OTHER_LETTER = 4
-
-    NON_SPACING_MARK = 5
-
-    SPACING_COMBINING_MARK = 6
-
-    ENCLOSING_MARK = 7
-
-    DECIMAL_DIGIT_NUMBER = 8
-
-    LETTER_NUMBER = 9
-
-    OTHER_NUMBER = 10
-
-    SPACE_SEPARATOR = 11
-
-    LINE_SEPARATOR = 12
-
-    PARAGRAPH_SEPARATOR = 13
-
-    CONTROL = 14
-
-    FORMAT = 15
-
-    SURROGATE = 16
-
-    PRIVATE_USE = 17
-
-    CONNECTOR_PUNCTUATION = 18
-
-    DASH_PUNCTUATION = 19
-
-    OPEN_PUNCTUATION = 20
-
-    CLOSE_PUNCTUATION = 21
-
-    INITIAL_QUOTE_PUNCTUATION = 22
-
-    FINAL_QUOTE_PUNCTUATION = 23
-
-    OTHER_PUNCTUATION = 24
-
-    MATH_SYMBOL = 25
-
-    CURRENCY_SYMBOL = 26
-
-    MODIFIER_SYMBOL = 27
-
-    OTHER_SYMBOL = 28
-
-    OTHER_NOT_ASSIGNED = 29
-
-
-class CharUnicodeInfo(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    @overload
-    def get_decimal_digit_value(ch: str) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_decimal_digit_value(s: str, index: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_digit_value(ch: str) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_digit_value(s: str, index: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def get_numeric_value(ch: str) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def get_numeric_value(s: str, index: int) -> float:
-        ...
-
-    @staticmethod
-    @overload
-    def get_unicode_category(ch: str) -> System.Globalization.UnicodeCategory:
-        ...
-
-    @staticmethod
-    @overload
-    def get_unicode_category(code_point: int) -> System.Globalization.UnicodeCategory:
-        ...
-
-    @staticmethod
-    @overload
-    def get_unicode_category(s: str, index: int) -> System.Globalization.UnicodeCategory:
-        ...
-
-
-class KoreanLunisolarCalendar(System.Globalization.EastAsianLunisolarCalendar):
-    """This class has no documentation."""
-
-    GREGORIAN_ERA: int = 1
-
-    @property
-    def min_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def max_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def days_in_year_before_min_supported_year(self) -> int:
-        ...
-
-    @property
-    def eras(self) -> typing.List[int]:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-
-class ChineseLunisolarCalendar(System.Globalization.EastAsianLunisolarCalendar):
-    """This class has no documentation."""
-
-    CHINESE_ERA: int = 1
-
-    @property
-    def min_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def max_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def days_in_year_before_min_supported_year(self) -> int:
-        ...
-
-    @property
-    def eras(self) -> typing.List[int]:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-
-class RegionInfo(System.Object):
-    """This class has no documentation."""
-
-    CURRENT_REGION: System.Globalization.RegionInfo
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def english_name(self) -> str:
-        ...
-
-    @property
-    def display_name(self) -> str:
-        ...
-
-    @property
-    def native_name(self) -> str:
-        ...
-
-    @property
-    def two_letter_iso_region_name(self) -> str:
-        ...
-
-    @property
-    def three_letter_iso_region_name(self) -> str:
-        ...
-
-    @property
-    def three_letter_windows_region_name(self) -> str:
-        ...
-
-    @property
-    def is_metric(self) -> bool:
-        ...
-
-    @property
-    def geo_id(self) -> int:
-        ...
-
-    @property
-    def currency_english_name(self) -> str:
-        ...
-
-    @property
-    def currency_native_name(self) -> str:
-        ...
-
-    @property
-    def currency_symbol(self) -> str:
-        ...
-
-    @property
-    def iso_currency_symbol(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, culture: int) -> None:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class DaylightTime(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def start(self) -> datetime.datetime:
-        ...
-
-    @property
-    def end(self) -> datetime.datetime:
-        ...
-
-    @property
-    def delta(self) -> datetime.timedelta:
-        ...
-
-    def __init__(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], delta: datetime.timedelta) -> None:
-        ...
-
-
-class GlobalizationExtensions(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def get_string_comparer(compare_info: System.Globalization.CompareInfo, options: System.Globalization.CompareOptions) -> System.StringComparer:
-        ...
-
-
-class ThaiBuddhistCalendar(System.Globalization.Calendar):
-    """This class has no documentation."""
-
-    THAI_BUDDHIST_ERA: int = 1
-
-    @property
-    def min_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def max_supported_date_time(self) -> datetime.datetime:
-        ...
-
-    @property
-    def algorithm_type(self) -> System.Globalization.CalendarAlgorithmType:
-        ...
-
-    @property
-    def eras(self) -> typing.List[int]:
-        ...
-
-    @property
-    def two_digit_year_max(self) -> int:
-        ...
-
-    @two_digit_year_max.setter
-    def two_digit_year_max(self, value: int) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def add_months(self, time: typing.Union[datetime.datetime, datetime.date], months: int) -> datetime.datetime:
-        ...
-
-    def add_years(self, time: typing.Union[datetime.datetime, datetime.date], years: int) -> datetime.datetime:
-        ...
-
-    def get_day_of_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_day_of_week(self, time: typing.Union[datetime.datetime, datetime.date]) -> System.DayOfWeek:
-        ...
-
-    def get_day_of_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_days_in_month(self, year: int, month: int, era: int) -> int:
-        ...
-
-    def get_days_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_leap_month(self, year: int, era: int) -> int:
-        ...
-
-    def get_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
-        ...
-
-    def get_months_in_year(self, year: int, era: int) -> int:
-        ...
-
-    def get_week_of_year(self, time: typing.Union[datetime.datetime, datetime.date], rule: System.Globalization.CalendarWeekRule, first_day_of_week: System.DayOfWeek) -> int:
         ...
 
     def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
@@ -2638,10 +2048,85 @@ class UmAlQuraCalendar(System.Globalization.Calendar):
         ...
 
 
-class JapaneseLunisolarCalendar(System.Globalization.EastAsianLunisolarCalendar):
+class RegionInfo(System.Object):
     """This class has no documentation."""
 
-    JAPANESE_ERA: int = 1
+    CURRENT_REGION: System.Globalization.RegionInfo
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def english_name(self) -> str:
+        ...
+
+    @property
+    def display_name(self) -> str:
+        ...
+
+    @property
+    def native_name(self) -> str:
+        ...
+
+    @property
+    def two_letter_iso_region_name(self) -> str:
+        ...
+
+    @property
+    def three_letter_iso_region_name(self) -> str:
+        ...
+
+    @property
+    def three_letter_windows_region_name(self) -> str:
+        ...
+
+    @property
+    def is_metric(self) -> bool:
+        ...
+
+    @property
+    def geo_id(self) -> int:
+        ...
+
+    @property
+    def currency_english_name(self) -> str:
+        ...
+
+    @property
+    def currency_native_name(self) -> str:
+        ...
+
+    @property
+    def currency_symbol(self) -> str:
+        ...
+
+    @property
+    def iso_currency_symbol(self) -> str:
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, culture: int) -> None:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class HijriCalendar(System.Globalization.Calendar):
+    """This class has no documentation."""
+
+    HIJRI_ERA: int = 1
 
     @property
     def min_supported_date_time(self) -> datetime.datetime:
@@ -2652,17 +2137,188 @@ class JapaneseLunisolarCalendar(System.Globalization.EastAsianLunisolarCalendar)
         ...
 
     @property
+    def algorithm_type(self) -> System.Globalization.CalendarAlgorithmType:
+        ...
+
+    @property
     def days_in_year_before_min_supported_year(self) -> int:
+        ...
+
+    @property
+    def hijri_adjustment(self) -> int:
+        ...
+
+    @hijri_adjustment.setter
+    def hijri_adjustment(self, value: int) -> None:
         ...
 
     @property
     def eras(self) -> typing.List[int]:
         ...
 
+    @property
+    def two_digit_year_max(self) -> int:
+        ...
+
+    @two_digit_year_max.setter
+    def two_digit_year_max(self, value: int) -> None:
+        ...
+
     def __init__(self) -> None:
         ...
 
+    def add_months(self, time: typing.Union[datetime.datetime, datetime.date], months: int) -> datetime.datetime:
+        ...
+
+    def add_years(self, time: typing.Union[datetime.datetime, datetime.date], years: int) -> datetime.datetime:
+        ...
+
+    def get_day_of_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_day_of_week(self, time: typing.Union[datetime.datetime, datetime.date]) -> System.DayOfWeek:
+        ...
+
+    def get_day_of_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_days_in_month(self, year: int, month: int, era: int) -> int:
+        ...
+
+    def get_days_in_year(self, year: int, era: int) -> int:
+        ...
+
     def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_leap_month(self, year: int, era: int) -> int:
+        ...
+
+    def get_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_months_in_year(self, year: int, era: int) -> int:
+        ...
+
+    def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def is_leap_day(self, year: int, month: int, day: int, era: int) -> bool:
+        ...
+
+    def is_leap_month(self, year: int, month: int, era: int) -> bool:
+        ...
+
+    def is_leap_year(self, year: int, era: int) -> bool:
+        ...
+
+    def to_date_time(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, era: int) -> datetime.datetime:
+        ...
+
+    def to_four_digit_year(self, year: int) -> int:
+        ...
+
+
+class DaylightTime(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def start(self) -> datetime.datetime:
+        ...
+
+    @property
+    def end(self) -> datetime.datetime:
+        ...
+
+    @property
+    def delta(self) -> datetime.timedelta:
+        ...
+
+    def __init__(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], delta: datetime.timedelta) -> None:
+        ...
+
+
+class PersianCalendar(System.Globalization.Calendar):
+    """This class has no documentation."""
+
+    PERSIAN_ERA: int = 1
+
+    @property
+    def min_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def max_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def algorithm_type(self) -> System.Globalization.CalendarAlgorithmType:
+        ...
+
+    @property
+    def eras(self) -> typing.List[int]:
+        ...
+
+    @property
+    def two_digit_year_max(self) -> int:
+        ...
+
+    @two_digit_year_max.setter
+    def two_digit_year_max(self, value: int) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def add_months(self, time: typing.Union[datetime.datetime, datetime.date], months: int) -> datetime.datetime:
+        ...
+
+    def add_years(self, time: typing.Union[datetime.datetime, datetime.date], years: int) -> datetime.datetime:
+        ...
+
+    def get_day_of_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_day_of_week(self, time: typing.Union[datetime.datetime, datetime.date]) -> System.DayOfWeek:
+        ...
+
+    def get_day_of_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_days_in_month(self, year: int, month: int, era: int) -> int:
+        ...
+
+    def get_days_in_year(self, year: int, era: int) -> int:
+        ...
+
+    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_leap_month(self, year: int, era: int) -> int:
+        ...
+
+    def get_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_months_in_year(self, year: int, era: int) -> int:
+        ...
+
+    def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def is_leap_day(self, year: int, month: int, day: int, era: int) -> bool:
+        ...
+
+    def is_leap_month(self, year: int, month: int, era: int) -> bool:
+        ...
+
+    def is_leap_year(self, year: int, era: int) -> bool:
+        ...
+
+    def to_date_time(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, era: int) -> datetime.datetime:
+        ...
+
+    def to_four_digit_year(self, year: int) -> int:
         ...
 
 
@@ -2710,51 +2366,196 @@ class NumberStyles(IntEnum):
     ANY = ...
 
 
-class ISOWeek(System.Object):
+class KoreanLunisolarCalendar(System.Globalization.EastAsianLunisolarCalendar):
     """This class has no documentation."""
 
+    GREGORIAN_ERA: int = 1
+
+    @property
+    def min_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def max_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def days_in_year_before_min_supported_year(self) -> int:
+        ...
+
+    @property
+    def eras(self) -> typing.List[int]:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+
+class HebrewCalendar(System.Globalization.Calendar):
+    """This class has no documentation."""
+
+    HEBREW_ERA: int = 1
+
+    @property
+    def min_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def max_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def algorithm_type(self) -> System.Globalization.CalendarAlgorithmType:
+        ...
+
+    @property
+    def eras(self) -> typing.List[int]:
+        ...
+
+    @property
+    def two_digit_year_max(self) -> int:
+        ...
+
+    @two_digit_year_max.setter
+    def two_digit_year_max(self, value: int) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def add_months(self, time: typing.Union[datetime.datetime, datetime.date], months: int) -> datetime.datetime:
+        ...
+
+    def add_years(self, time: typing.Union[datetime.datetime, datetime.date], years: int) -> datetime.datetime:
+        ...
+
+    def get_day_of_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_day_of_week(self, time: typing.Union[datetime.datetime, datetime.date]) -> System.DayOfWeek:
+        ...
+
+    def get_day_of_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_days_in_month(self, year: int, month: int, era: int) -> int:
+        ...
+
+    def get_days_in_year(self, year: int, era: int) -> int:
+        ...
+
+    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_leap_month(self, year: int, era: int) -> int:
+        ...
+
+    def get_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_months_in_year(self, year: int, era: int) -> int:
+        ...
+
+    def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def is_leap_day(self, year: int, month: int, day: int, era: int) -> bool:
+        ...
+
+    def is_leap_month(self, year: int, month: int, era: int) -> bool:
+        ...
+
+    def is_leap_year(self, year: int, era: int) -> bool:
+        ...
+
+    def to_date_time(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, era: int) -> datetime.datetime:
+        ...
+
+    def to_four_digit_year(self, year: int) -> int:
+        ...
+
+
+class StringInfo(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def string(self) -> str:
+        ...
+
+    @string.setter
+    def string(self, value: str) -> None:
+        ...
+
+    @property
+    def length_in_text_elements(self) -> int:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: str) -> None:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
     @staticmethod
     @overload
-    def get_week_of_year(date: typing.Union[datetime.datetime, datetime.date]) -> int:
+    def get_next_text_element(str: str) -> str:
         ...
 
     @staticmethod
     @overload
-    def get_week_of_year(date: System.DateOnly) -> int:
-        ...
-
-    @staticmethod
-    def get_weeks_in_year(year: int) -> int:
+    def get_next_text_element(str: str, index: int) -> str:
         ...
 
     @staticmethod
     @overload
-    def get_year(date: typing.Union[datetime.datetime, datetime.date]) -> int:
+    def get_next_text_element_length(str: str) -> int:
         ...
 
     @staticmethod
     @overload
-    def get_year(date: System.DateOnly) -> int:
+    def get_next_text_element_length(str: str, index: int) -> int:
         ...
 
     @staticmethod
-    def get_year_end(year: int) -> datetime.datetime:
+    @overload
+    def get_next_text_element_length(str: System.ReadOnlySpan[str]) -> int:
         ...
 
     @staticmethod
-    def get_year_start(year: int) -> datetime.datetime:
+    @overload
+    def get_text_element_enumerator(str: str) -> System.Globalization.TextElementEnumerator:
         ...
 
     @staticmethod
-    def to_date_only(year: int, week: int, day_of_week: System.DayOfWeek) -> System.DateOnly:
+    @overload
+    def get_text_element_enumerator(str: str, index: int) -> System.Globalization.TextElementEnumerator:
         ...
 
     @staticmethod
-    def to_date_time(year: int, week: int, day_of_week: System.DayOfWeek) -> datetime.datetime:
+    def parse_combining_characters(str: str) -> typing.List[int]:
+        ...
+
+    @overload
+    def substring_by_text_elements(self, starting_text_element: int) -> str:
+        ...
+
+    @overload
+    def substring_by_text_elements(self, starting_text_element: int, length_in_text_elements: int) -> str:
         ...
 
 
-class TaiwanCalendar(System.Globalization.Calendar):
+class JapaneseCalendar(System.Globalization.Calendar):
     """This class has no documentation."""
 
     @property
@@ -2839,10 +2640,102 @@ class TaiwanCalendar(System.Globalization.Calendar):
         ...
 
 
-class KoreanCalendar(System.Globalization.Calendar):
+class GlobalizationExtensions(System.Object):
     """This class has no documentation."""
 
-    KOREAN_ERA: int = 1
+    @staticmethod
+    def get_string_comparer(compare_info: System.Globalization.CompareInfo, options: System.Globalization.CompareOptions) -> System.StringComparer:
+        ...
+
+
+class JulianCalendar(System.Globalization.Calendar):
+    """This class has no documentation."""
+
+    JULIAN_ERA: int = 1
+
+    @property
+    def min_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def max_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def algorithm_type(self) -> System.Globalization.CalendarAlgorithmType:
+        ...
+
+    @property
+    def eras(self) -> typing.List[int]:
+        ...
+
+    @property
+    def two_digit_year_max(self) -> int:
+        ...
+
+    @two_digit_year_max.setter
+    def two_digit_year_max(self, value: int) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def add_months(self, time: typing.Union[datetime.datetime, datetime.date], months: int) -> datetime.datetime:
+        ...
+
+    def add_years(self, time: typing.Union[datetime.datetime, datetime.date], years: int) -> datetime.datetime:
+        ...
+
+    def get_day_of_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_day_of_week(self, time: typing.Union[datetime.datetime, datetime.date]) -> System.DayOfWeek:
+        ...
+
+    def get_day_of_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_days_in_month(self, year: int, month: int, era: int) -> int:
+        ...
+
+    def get_days_in_year(self, year: int, era: int) -> int:
+        ...
+
+    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_leap_month(self, year: int, era: int) -> int:
+        ...
+
+    def get_month(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def get_months_in_year(self, year: int, era: int) -> int:
+        ...
+
+    def get_year(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+    def is_leap_day(self, year: int, month: int, day: int, era: int) -> bool:
+        ...
+
+    def is_leap_month(self, year: int, month: int, era: int) -> bool:
+        ...
+
+    def is_leap_year(self, year: int, era: int) -> bool:
+        ...
+
+    def to_date_time(self, year: int, month: int, day: int, hour: int, minute: int, second: int, millisecond: int, era: int) -> datetime.datetime:
+        ...
+
+    def to_four_digit_year(self, year: int) -> int:
+        ...
+
+
+class ThaiBuddhistCalendar(System.Globalization.Calendar):
+    """This class has no documentation."""
+
+    THAI_BUDDHIST_ERA: int = 1
 
     @property
     def min_supported_date_time(self) -> datetime.datetime:
@@ -2924,5 +2817,112 @@ class KoreanCalendar(System.Globalization.Calendar):
 
     def to_four_digit_year(self, year: int) -> int:
         ...
+
+
+class DateTimeStyles(IntEnum):
+    """This class has no documentation."""
+
+    NONE = ...
+
+    ALLOW_LEADING_WHITE = ...
+
+    ALLOW_TRAILING_WHITE = ...
+
+    ALLOW_INNER_WHITE = ...
+
+    ALLOW_WHITE_SPACES = ...
+
+    NO_CURRENT_DATE_DEFAULT = ...
+
+    ADJUST_TO_UNIVERSAL = ...
+
+    ASSUME_LOCAL = ...
+
+    ASSUME_UNIVERSAL = ...
+
+    ROUNDTRIP_KIND = ...
+
+
+class ChineseLunisolarCalendar(System.Globalization.EastAsianLunisolarCalendar):
+    """This class has no documentation."""
+
+    CHINESE_ERA: int = 1
+
+    @property
+    def min_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def max_supported_date_time(self) -> datetime.datetime:
+        ...
+
+    @property
+    def days_in_year_before_min_supported_year(self) -> int:
+        ...
+
+    @property
+    def eras(self) -> typing.List[int]:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def get_era(self, time: typing.Union[datetime.datetime, datetime.date]) -> int:
+        ...
+
+
+class CultureNotFoundException(System.ArgumentException):
+    """This class has no documentation."""
+
+    @property
+    def invalid_culture_id(self) -> typing.Optional[int]:
+        ...
+
+    @property
+    def invalid_culture_name(self) -> str:
+        ...
+
+    @property
+    def message(self) -> str:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, param_name: str, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, param_name: str, invalid_culture_name: str, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, invalid_culture_name: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, invalid_culture_id: int, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, param_name: str, invalid_culture_id: int, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 

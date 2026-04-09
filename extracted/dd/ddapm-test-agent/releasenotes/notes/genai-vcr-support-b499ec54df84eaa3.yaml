@@ -1,4 +1,0 @@
----
-features:
-  - |
-    vcr: adds support for recording requests from google genai/gemini.

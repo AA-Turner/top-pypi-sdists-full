@@ -565,6 +565,22 @@ impl KreuzbergMcp {
         embed_text_impl(params)
     }
 
+    /// Extract structured data from a document using an LLM with a JSON schema.
+    ///
+    /// Extracts content from a file, then sends it to a specified LLM with a JSON
+    /// schema constraint to produce structured output conforming to the schema.
+    /// Requires the `liter-llm` feature to be enabled.
+    #[tool(
+        description = "Extract structured data from a document using an LLM with a JSON schema. Requires 'liter-llm' feature.",
+        annotations(title = "Extract Structured", read_only_hint = true, idempotent_hint = true)
+    )]
+    async fn extract_structured(
+        &self,
+        Parameters(params): Parameters<super::params::ExtractStructuredParams>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        extract_structured_impl(self, params).await
+    }
+
     /// Split text into chunks with configurable size and overlap.
     ///
     /// Supports text and markdown chunking modes. Useful for preparing
@@ -587,12 +603,76 @@ fn resolve_cache_base() -> std::path::PathBuf {
     crate::cache_dir::resolve_cache_base()
 }
 
+/// Structured extraction implementation when liter-llm feature is enabled.
+#[cfg(feature = "liter-llm")]
+async fn extract_structured_impl(
+    mcp: &KreuzbergMcp,
+    params: super::params::ExtractStructuredParams,
+) -> Result<CallToolResult, rmcp::ErrorData> {
+    use super::errors::map_kreuzberg_error_to_mcp;
+    use super::format::build_config;
+    use tower::Service;
+
+    let config = build_config(&mcp.default_config, None).map_err(|e| rmcp::ErrorData::invalid_params(e, None))?;
+
+    let request = ExtractionRequest::file(&params.path, config.clone());
+
+    let mut svc = mcp
+        .extraction_service
+        .lock()
+        .expect("extraction service lock poisoned")
+        .clone();
+    let result = svc.call(request).await.map_err(map_kreuzberg_error_to_mcp)?;
+
+    // Build structured extraction config from params
+    let structured_config = crate::core::config::llm::StructuredExtractionConfig {
+        schema: params.schema,
+        schema_name: params.schema_name,
+        schema_description: params.schema_description,
+        strict: params.strict,
+        prompt: params.prompt,
+        llm: crate::core::config::llm::LlmConfig {
+            model: params.model,
+            api_key: params.api_key,
+            base_url: None,
+            timeout_secs: None,
+            max_retries: None,
+            temperature: None,
+            max_tokens: None,
+        },
+    };
+
+    let structured_output = crate::llm::structured::extract_structured(&result.content, &structured_config)
+        .await
+        .map_err(map_kreuzberg_error_to_mcp)?;
+
+    let response = serde_json::json!({
+        "structured_output": structured_output,
+        "content": result.content,
+        "mime_type": result.mime_type.as_ref(),
+    });
+
+    Ok(CallToolResult::success(vec![Content::text(
+        serde_json::to_string_pretty(&response).unwrap_or_default(),
+    )]))
+}
+
+/// Structured extraction implementation when liter-llm feature is disabled.
+#[cfg(not(feature = "liter-llm"))]
+async fn extract_structured_impl(
+    _mcp: &KreuzbergMcp,
+    _params: super::params::ExtractStructuredParams,
+) -> Result<CallToolResult, rmcp::ErrorData> {
+    Err(rmcp::ErrorData::invalid_params(
+        "Structured extraction requires the 'liter-llm' feature to be enabled. Rebuild with --features liter-llm"
+            .to_string(),
+        None,
+    ))
+}
+
 /// Embed text implementation when embeddings feature is enabled.
 #[cfg(feature = "embeddings")]
 fn embed_text_impl(params: super::params::EmbedTextParams) -> Result<CallToolResult, rmcp::ErrorData> {
-    use crate::embeddings::generate_embeddings_for_chunks;
-    use crate::types::{Chunk, ChunkMetadata};
-
     if params.texts.is_empty() {
         return Err(rmcp::ErrorData::invalid_params(
             "No texts provided for embedding generation",
@@ -607,64 +687,53 @@ fn embed_text_impl(params: super::params::EmbedTextParams) -> Result<CallToolRes
         ));
     }
 
-    let preset_name = params.preset.as_deref().unwrap_or("balanced");
+    // When `model` is set, use LLM-based embeddings via liter-llm
+    let (config, model_name) = if let Some(ref model) = params.model {
+        let llm_config = crate::core::config::llm::LlmConfig {
+            model: model.clone(),
+            api_key: params.api_key.clone(),
+            base_url: None,
+            timeout_secs: None,
+            max_retries: None,
+            temperature: None,
+            max_tokens: None,
+        };
+        let config = crate::core::config::EmbeddingConfig {
+            model: crate::core::config::EmbeddingModelType::Llm { llm: llm_config },
+            ..Default::default()
+        };
+        (config, model.clone())
+    } else {
+        let preset_name = params.preset.as_deref().unwrap_or("balanced");
 
-    if crate::get_preset(preset_name).is_none() {
-        let available: Vec<&str> = crate::list_presets();
-        return Err(rmcp::ErrorData::invalid_params(
-            format!(
-                "Unknown embedding preset '{}'. Available: {}",
-                preset_name,
-                available.join(", ")
-            ),
-            None,
-        ));
-    }
+        if crate::get_preset(preset_name).is_none() {
+            let available: Vec<&str> = crate::list_presets();
+            return Err(rmcp::ErrorData::invalid_params(
+                format!(
+                    "Unknown embedding preset '{}'. Available: {}",
+                    preset_name,
+                    available.join(", ")
+                ),
+                None,
+            ));
+        }
 
-    let config = crate::core::config::EmbeddingConfig {
-        model: crate::core::config::EmbeddingModelType::Preset {
-            name: preset_name.to_string(),
-        },
-        ..Default::default()
+        let config = crate::core::config::EmbeddingConfig {
+            model: crate::core::config::EmbeddingModelType::Preset {
+                name: preset_name.to_string(),
+            },
+            ..Default::default()
+        };
+        (config, preset_name.to_string())
     };
 
-    let mut chunks: Vec<Chunk> = params
-        .texts
-        .iter()
-        .enumerate()
-        .map(|(idx, text)| Chunk {
-            content: text.clone(),
-            chunk_type: Default::default(),
-            embedding: None,
-            metadata: ChunkMetadata {
-                byte_start: 0,
-                byte_end: text.len(),
-                token_count: None,
-                chunk_index: idx,
-                total_chunks: params.texts.len(),
-                first_page: None,
-                last_page: None,
-                heading_context: None,
-            },
-        })
-        .collect();
-
-    generate_embeddings_for_chunks(&mut chunks, &config).map_err(super::errors::map_kreuzberg_error_to_mcp)?;
-
-    let embeddings: Vec<Vec<f32>> = chunks
-        .into_iter()
-        .map(|chunk| {
-            chunk.embedding.ok_or_else(|| {
-                rmcp::ErrorData::internal_error("Failed to generate embedding for text".to_string(), None)
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let embeddings = crate::embed_texts(&params.texts, &config).map_err(super::errors::map_kreuzberg_error_to_mcp)?;
 
     let dimensions = embeddings.first().map(|e| e.len()).unwrap_or(0);
 
     let response = serde_json::json!({
         "embeddings": embeddings,
-        "model": preset_name,
+        "model": model_name,
         "dimensions": dimensions,
         "count": params.texts.len(),
     });
@@ -1112,7 +1181,7 @@ mod tests {
         let router = KreuzbergMcp::tool_router();
         let tools = router.list_all();
 
-        assert_eq!(tools.len(), 12, "Expected 12 tools, found {}", tools.len());
+        assert_eq!(tools.len(), 13, "Expected 13 tools, found {}", tools.len());
     }
 
     #[tokio::test]

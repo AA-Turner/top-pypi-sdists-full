@@ -23,9 +23,9 @@ import os
 import requests
 import threading
 import time
+import unittest
 import uuid
 
-from testtools.testcase import unittest
 from unittest import mock
 import urllib3
 
@@ -48,12 +48,13 @@ def _is_etcd3_running():
 
 
 class TestEtcd3Gateway(base.TestCase):
+    client: Etcd3Client
+
     @classmethod
     def setUpClass(cls):
         cls.client = Etcd3Client(port=ETCD_PORT)
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_client_status(self):
         response = self.client.status()
         self.assertIsNotNone(response)
@@ -61,20 +62,19 @@ class TestEtcd3Gateway(base.TestCase):
         self.assertIn('header', response)
         self.assertIn('cluster_id', response['header'])
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_client_members(self):
         response = self.client.members()
         self.assertTrue(len(response) > 0)
         self.assertIn('clientURLs', response[0])
         self.assertIn('peerURLs', response[0])
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_client_with_keys_and_values(self):
         self.assertTrue(self.client.put('foo0', 'bar0'))
-        self.assertTrue(self.client.put('foo1', 2001))
-        self.assertTrue(self.client.put('foo2', b'bar2'))
+        # we are intentionally testing with legacy values
+        self.assertTrue(self.client.put('foo1', 2001))  # type: ignore[arg-type]
+        self.assertTrue(self.client.put('foo2', b'bar2'))  # type: ignore[arg-type]
 
         self.assertEqual([b'bar0'], self.client.get('foo0'))
         self.assertEqual([b'2001'], self.client.get('foo1'))
@@ -86,11 +86,10 @@ class TestEtcd3Gateway(base.TestCase):
         self.assertEqual(False, self.client.delete('foo0'))
         self.assertTrue(len(self.client.get_all()) > 0)
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_get_and_delete_prefix(self):
         for i in range(20):
-            self.client.put('/doot1/range{}'.format(i), 'i am a range')
+            self.client.put(f'/doot1/range{i}', 'i am a range')
 
         values = list(self.client.get_prefix('/doot1/range'))
         assert len(values) == 20
@@ -102,93 +101,96 @@ class TestEtcd3Gateway(base.TestCase):
         values = list(self.client.get_prefix('/doot1/range'))
         assert len(values) == 0
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_get_prefix_sort_order(self):
         def remove_prefix(string, prefix):
-            return string[len(prefix):]
+            return string[len(prefix) :]
 
+        prefix = f'/sortorder/{uuid.uuid4()}'
         initial_keys = 'abcde'
         initial_values = 'qwert'
 
         for k, v in zip(initial_keys, initial_values):
-            self.client.put('/doot2/{}'.format(k), v)
+            self.client.put(f'{prefix}/{k}', v)
 
         keys = b''
-        for value, meta in self.client.get_prefix(
-                '/doot2', sort_order='ascend'):
-            keys += remove_prefix(meta['key'], '/doot2/')
+        for value, meta in self.client.get_prefix(prefix, sort_order='ascend'):
+            keys += remove_prefix(meta['key'], f'{prefix}/')
 
         assert keys == initial_keys.encode("latin-1")
 
         reverse_keys = b''
         for value, meta in self.client.get_prefix(
-                '/doot2', sort_order='descend'):
-            reverse_keys += remove_prefix(meta['key'], '/doot2/')
+            prefix, sort_order='descend'
+        ):
+            reverse_keys += remove_prefix(meta['key'], f'{prefix}/')
 
-        assert reverse_keys == ''.join(
-            reversed(initial_keys)
-        ).encode("latin-1")
+        assert reverse_keys == ''.join(reversed(initial_keys)).encode(
+            "latin-1"
+        )
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_get_prefix_sort_order_explicit_sort_target_key(self):
         def remove_prefix(string, prefix):
-            return string[len(prefix):]
+            return string[len(prefix) :]
 
+        prefix = f'/sortorderkey/{uuid.uuid4()}'
         initial_keys_ordered = 'abcde'
         initial_keys = 'aebdc'
         initial_values = 'qwert'
 
         for k, v in zip(initial_keys, initial_values):
-            self.client.put('/doot2/{}'.format(k), v)
+            self.client.put(f'{prefix}/{k}', v)
 
         keys = b''
         for value, meta in self.client.get_prefix(
-                '/doot2', sort_order='ascend', sort_target='key'):
-            keys += remove_prefix(meta['key'], '/doot2/')
+            prefix, sort_order='ascend', sort_target='key'
+        ):
+            keys += remove_prefix(meta['key'], f'{prefix}/')
 
         assert keys == initial_keys_ordered.encode("latin-1")
 
         reverse_keys = b''
         for value, meta in self.client.get_prefix(
-                '/doot2', sort_order='descend', sort_target='key'):
-            reverse_keys += remove_prefix(meta['key'], '/doot2/')
+            prefix, sort_order='descend', sort_target='key'
+        ):
+            reverse_keys += remove_prefix(meta['key'], f'{prefix}/')
 
-        assert reverse_keys == ''.join(
-            reversed(initial_keys_ordered)
-        ).encode("latin-1")
+        assert reverse_keys == ''.join(reversed(initial_keys_ordered)).encode(
+            "latin-1"
+        )
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_get_prefix_sort_order_explicit_sort_target_rev(self):
         def remove_prefix(string, prefix):
-            return string[len(prefix):]
+            return string[len(prefix) :]
 
+        prefix = f'/sortordermod/{uuid.uuid4()}'
         initial_keys = 'aebdc'
         initial_values = 'qwert'
 
         for k, v in zip(initial_keys, initial_values):
-            self.client.put('/expsortmod/{}'.format(k), v)
+            self.client.put(f'{prefix}/{k}', v)
 
         keys = b''
         for value, meta in self.client.get_prefix(
-                '/expsortmod', sort_order='ascend', sort_target='mod'):
-            keys += remove_prefix(meta['key'], '/expsortmod/')
+            prefix, sort_order='ascend', sort_target='mod'
+        ):
+            keys += remove_prefix(meta['key'], f'{prefix}/')
 
         assert keys == initial_keys.encode("latin-1")
 
         reverse_keys = b''
         for value, meta in self.client.get_prefix(
-                '/expsortmod', sort_order='descend', sort_target='mod'):
-            reverse_keys += remove_prefix(meta['key'], '/expsortmod/')
+            prefix, sort_order='descend', sort_target='mod'
+        ):
+            reverse_keys += remove_prefix(meta['key'], f'{prefix}/')
 
-        assert reverse_keys == ''.join(
-            reversed(initial_keys)
-        ).encode("latin-1")
+        assert reverse_keys == ''.join(reversed(initial_keys)).encode(
+            "latin-1"
+        )
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_replace_success(self):
         key = '/doot/thing' + str(uuid.uuid4())
         self.client.put(key, 'toot')
@@ -197,8 +199,7 @@ class TestEtcd3Gateway(base.TestCase):
         self.assertEqual([b'doot'], v)
         self.assertTrue(status)
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_replace_fail(self):
         key = '/doot/thing' + str(uuid.uuid4())
         self.client.put(key, 'boot')
@@ -207,8 +208,7 @@ class TestEtcd3Gateway(base.TestCase):
         self.assertEqual([b'boot'], v)
         self.assertFalse(status)
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_client_lease(self):
         lease = self.client.lease(ttl=60)
         self.assertIsNotNone(lease)
@@ -224,8 +224,7 @@ class TestEtcd3Gateway(base.TestCase):
 
         self.assertTrue(lease.revoke())
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_client_lease_with_keys(self):
         lease = self.client.lease(ttl=60)
         self.assertIsNotNone(lease)
@@ -243,10 +242,9 @@ class TestEtcd3Gateway(base.TestCase):
 
         self.assertTrue(lease.revoke())
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_watch_key(self):
-        key = '/%s-watch_key/watch' % str(uuid.uuid4())
+        key = f'/{str(uuid.uuid4())}-watch_key/watch'
 
         def update_etcd(v):
             self.client.put(key, v)
@@ -287,10 +285,9 @@ class TestEtcd3Gateway(base.TestCase):
 
         t.join()
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_watch_huge_payload(self):
-        key = '/%s-watch_key/watch/huge_payload' % str(uuid.uuid4())
+        key = f'/{str(uuid.uuid4())}-watch_key/watch/huge_payload'
 
         def update_etcd(v):
             print(f"put({key}, {v}")
@@ -323,7 +320,7 @@ class TestEtcd3Gateway(base.TestCase):
             )
 
             # if cancel worked, we should not receive event 3
-            assert event['kv']['value'][0] != b'3'
+            assert event['kv']['value'][:1] != b'3'
 
             change_count += 1
             if change_count > 2:
@@ -332,10 +329,9 @@ class TestEtcd3Gateway(base.TestCase):
 
         t.join()
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_watch_prefix(self):
-        key = '/%s-watch_prefix/watch/prefix/' % str(uuid.uuid4())
+        key = f'/{str(uuid.uuid4())}-watch_prefix/watch/prefix/'
 
         def update_etcd(v):
             self.client.put(key + v, v)
@@ -365,7 +361,7 @@ class TestEtcd3Gateway(base.TestCase):
 
             self.assertEqual(
                 event['kv']['key'],
-                ('{}{}'.format(key, change_count)).encode("latin-1"),
+                (f'{key}{change_count}').encode("latin-1"),
             )
             self.assertEqual(
                 event['kv']['value'],
@@ -382,8 +378,7 @@ class TestEtcd3Gateway(base.TestCase):
 
         t.join()
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_sequential_watch_prefix_once(self):
         try:
             self.client.watch_prefix_once('/doot/', 1)
@@ -398,8 +393,7 @@ class TestEtcd3Gateway(base.TestCase):
         except exceptions.WatchTimedOut:
             pass
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_client_lock_acquire_release(self):
         with self.client.lock(ttl=60) as lock:
             ttl = lock.refresh()
@@ -409,10 +403,9 @@ class TestEtcd3Gateway(base.TestCase):
         with self.client.lock(ttl=60) as lock:
             self.assertFalse(lock.acquire())
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_client_locks(self):
-        lock = self.client.lock(id='xyz-%s' % time.perf_counter(), ttl=60)
+        lock = self.client.lock(id=f'xyz-{time.perf_counter()}', ttl=60)
         self.assertIsNotNone(lock)
 
         self.assertTrue(lock.acquire())
@@ -426,8 +419,7 @@ class TestEtcd3Gateway(base.TestCase):
         self.assertFalse(lock.release())
         self.assertFalse(lock.is_acquired())
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_create_success(self):
         key = '/foo/unique' + str(uuid.uuid4())
         # Verify that key is empty
@@ -438,8 +430,7 @@ class TestEtcd3Gateway(base.TestCase):
         self.assertEqual([b'bar'], self.client.get(key))
         self.assertTrue(status)
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_create_fail(self):
         key = '/foo/' + str(uuid.uuid4())
         # Assign value to the key
@@ -451,8 +442,7 @@ class TestEtcd3Gateway(base.TestCase):
         self.assertEqual([b'bar'], self.client.get(key))
         self.assertFalse(status)
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_create_with_lease_success(self):
         key = '/foo/unique' + str(uuid.uuid4())
         # Verify that key is empty
@@ -460,24 +450,32 @@ class TestEtcd3Gateway(base.TestCase):
         lease = self.client.lease()
 
         status = self.client.create(key, 'bar', lease=lease)
+        self.assertTrue(status)
         # Verify that key is 'bar'
         self.assertEqual([b'bar'], self.client.get(key))
-        self.assertTrue(status)
         keys = lease.keys()
         self.assertEqual(1, len(keys))
         self.assertIn(key.encode('latin-1'), keys)
 
     def my_iter_content(self, *args, **kwargs):
-        payload = json.dumps({
-            'result': {
-                'events': [{
-                    'kv': {'key': base64.b64encode(b'value').decode('utf-8')},
-                }]
+        payload = json.dumps(
+            {
+                'result': {
+                    'events': [
+                        {
+                            'kv': {
+                                'key': base64.b64encode(b'value').decode(
+                                    'utf-8'
+                                )
+                            },
+                        }
+                    ]
+                }
             }
-        })
+        )
 
         if not kwargs.get('decode_unicode', False):
-            payload = payload.encode()
+            return [payload.encode()]
         return [payload]
 
     @mock.patch.object(requests.Response, 'iter_content', new=my_iter_content)
@@ -503,37 +501,33 @@ class TestEtcd3Gateway(base.TestCase):
             payload["value"] = utils._encode(key_name)
         self.client.post(self.client.get_url("/kv/put"), json=payload)
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_client_keys_with_metadata_and_value(self):
-        test_key_value = b"some_key"
+        test_key_value = f"some_key_{uuid.uuid4()}"
         self._post_key(test_key_value)
         result = self.client.get(test_key_value, metadata=True)
         self.assertTrue(
-            len(result) > 0,
-            str(test_key_value) + " key is not found in etcd"
+            len(result) > 0, test_key_value + " key is not found in etcd"
         )
         value, metadata = result[0]
         self.assertEqual(
             value,
-            test_key_value,
-            "unable to get value for " + str(test_key_value)
+            test_key_value.encode('latin-1'),
+            "unable to get value for " + test_key_value,
         )
 
-    @unittest.skipUnless(
-        _is_etcd3_running(), "etcd3 is not available")
+    @unittest.skipUnless(_is_etcd3_running(), "etcd3 is not available")
     def test_client_keys_with_metadata_and_no_value(self):
         value_is_not_set_default = b""
-        test_key = b"some_key"
+        test_key = f"some_key_{uuid.uuid4()}"
         self._post_key(test_key, provide_value=False)
         result = self.client.get(test_key, metadata=True)
         self.assertTrue(
-            len(result) > 0,
-            str(test_key) + " key is not found in etcd"
+            len(result) > 0, test_key + " key is not found in etcd"
         )
         value, metadata = result[0]
         self.assertEqual(
             value,
             value_is_not_set_default,
-            "unable to get value for " + str(test_key)
+            "unable to get value for " + test_key,
         )

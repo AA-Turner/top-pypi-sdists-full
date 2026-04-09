@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add ``-v/--version`` command line option to display the version.

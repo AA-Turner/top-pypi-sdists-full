@@ -6,8 +6,10 @@ class Cache(t.Protocol):
     Keep this in sync with the package defined in flow_services/packages/cache
     """
 
-    def get(self, key: str) -> t.Optional[str]:
-        """Get a value"""
+    def get(
+        self, key: str, *, skip_local_cache: bool = False
+    ) -> t.Optional[str]:
+        """Get a value. If skip_local_cache=True, bypass in-memory tier."""
 
     def put(
         self, key: str, value: str, time_to_live: t.Optional[int] = None

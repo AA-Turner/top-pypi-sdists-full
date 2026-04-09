@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rfc3161-client
-Version: 1.0.5
+Version: 1.0.6
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: 3
@@ -9,27 +9,13 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Typing :: Typed
-Requires-Dist: cryptography>=43,<47
-Requires-Dist: pytest ; extra == 'test'
-Requires-Dist: pytest-cov ; extra == 'test'
-Requires-Dist: pretend ; extra == 'test'
-Requires-Dist: coverage[toml] ; extra == 'test'
-Requires-Dist: ruff>=0.7,<0.14 ; extra == 'lint'
-Requires-Dist: interrogate ; extra == 'lint'
-Requires-Dist: mypy ; extra == 'lint'
-Requires-Dist: types-requests ; extra == 'lint'
-Requires-Dist: rfc3161-client[test,lint,doc] ; extra == 'dev'
-Requires-Dist: maturin>=1.7,<2.0 ; extra == 'dev'
-Provides-Extra: doc
-Provides-Extra: test
-Provides-Extra: lint
-Provides-Extra: dev
+Requires-Dist: cryptography>=43
 License-File: LICENSE
 Author-email: Trail of Bits <opensource@trailofbits.com>
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Homepage, https://pypi.org/project/rfc3161-client
 Project-URL: Documentation, https://trailofbits.github.io/rfc3161-client/
+Project-URL: Homepage, https://pypi.org/project/rfc3161-client
 Project-URL: Issues, https://github.com/trailofbits/rfc3161-client/issues
 Project-URL: Source, https://github.com/trailofbits/rfc3161-client
 

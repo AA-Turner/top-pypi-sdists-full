@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Fix sessions returning traces from all sessions.

@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add support for controlling the test agent version via the TEST_AGENT_VERSION environment variable. The version is returned in the /info endpoint response.

@@ -779,6 +779,44 @@ class SystemDatabase(ABC):
                 )
             )
 
+    def set_workflow_delay(
+        self,
+        workflow_id: str,
+        *,
+        delay_seconds: Optional[float] = None,
+        delay_until_epoch_ms: Optional[int] = None,
+    ) -> None:
+        """Set or update the delay on a workflow. Only affects DELAYED workflows."""
+        if delay_until_epoch_ms is not None and delay_seconds is not None:
+            raise DBOSException(
+                "Specify either delay_seconds or delay_until_epoch_ms, not both"
+            )
+        if delay_until_epoch_ms is not None:
+            if delay_until_epoch_ms < 0:
+                raise DBOSException("delay_until_epoch_ms must be >= 0")
+            resolved = delay_until_epoch_ms
+        elif delay_seconds is not None:
+            if delay_seconds < 0:
+                raise DBOSException("delay_seconds must be >= 0")
+            resolved = int((time.time() + delay_seconds) * 1000)
+        else:
+            raise DBOSException(
+                "Must specify either delay_seconds or delay_until_epoch_ms"
+            )
+        with self.engine.begin() as c:
+            c.execute(
+                sa.update(SystemSchema.workflow_status)
+                .where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
+                .where(
+                    SystemSchema.workflow_status.c.status
+                    == WorkflowStatusString.DELAYED.value
+                )
+                .values(
+                    delay_until_epoch_ms=resolved,
+                    updated_at=func.extract("epoch", func.now()) * 1000,
+                )
+            )
+
     def delete_workflows(self, workflow_ids: list[str]) -> None:
         """Delete workflows and all associated data from the system database."""
         with self.engine.begin() as c:
@@ -1359,6 +1397,7 @@ class SystemDatabase(ABC):
         executor_id: Optional[str | list[str]] = None,
         queues_only: bool = False,
         was_forked_from: Optional[bool] = None,
+        has_parent: Optional[bool] = None,
     ) -> List[WorkflowStatus]:
         """
         Retrieve a list of workflows based on the search criteria.
@@ -1491,6 +1530,15 @@ class SystemDatabase(ABC):
             query = query.where(
                 SystemSchema.workflow_status.c.was_forked_from == was_forked_from
             )
+        if has_parent is not None:
+            if has_parent:
+                query = query.where(
+                    SystemSchema.workflow_status.c.parent_workflow_id.isnot(None)
+                )
+            else:
+                query = query.where(
+                    SystemSchema.workflow_status.c.parent_workflow_id.is_(None)
+                )
         if limit:
             query = query.limit(limit)
         if offset:
@@ -1581,10 +1629,15 @@ class SystemDatabase(ABC):
             ]
 
     def list_workflow_steps(
-        self, workflow_id: str, *, load_output: bool = True
+        self,
+        workflow_id: str,
+        *,
+        load_output: bool = True,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
     ) -> List[StepInfo]:
         with self.engine.begin() as c:
-            rows = c.execute(
+            query = (
                 sa.select(
                     SystemSchema.operation_outputs.c.function_id,
                     SystemSchema.operation_outputs.c.function_name,
@@ -1597,7 +1650,12 @@ class SystemDatabase(ABC):
                 )
                 .where(SystemSchema.operation_outputs.c.workflow_uuid == workflow_id)
                 .order_by(SystemSchema.operation_outputs.c.function_id)
-            ).fetchall()
+            )
+            if limit is not None:
+                query = query.limit(limit)
+            if offset is not None:
+                query = query.offset(offset)
+            rows = c.execute(query).fetchall()
             steps = []
             for row in rows:
                 if load_output:

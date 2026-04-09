@@ -42,6 +42,7 @@ __all__ = (
     "FailbackReplicationErrorType",
     "FailbackStateType",
     "InitiatedByType",
+    "InternetProtocolType",
     "JobLogEventType",
     "JobStatusType",
     "JobTypeType",
@@ -183,6 +184,7 @@ InitiatedByType = Literal[
     "TERMINATE_RECOVERY_INSTANCES",
     "UPDATE_NETWORK_RECOVERY",
 ]
+InternetProtocolType = Literal["IPV4", "IPV6"]
 JobLogEventType = Literal[
     "CLEANUP_END",
     "CLEANUP_FAIL",
@@ -533,6 +535,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",

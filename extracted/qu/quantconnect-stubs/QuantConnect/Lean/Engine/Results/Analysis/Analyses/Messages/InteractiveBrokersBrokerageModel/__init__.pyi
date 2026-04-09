@@ -7,11 +7,8 @@ import QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages
 import QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.InteractiveBrokersBrokerageModel
 
 
-class UnsupportedExerciseForIndexAndCashSettledOptionsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """
-    Detects Interactive Brokers brokerage model rejections where a manual exercise was attempted
-    for index or cash-settled options, which IB handles automatically at expiry.
-    """
+class InvalidForexOrderSizeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """Detects Interactive Brokers brokerage model rejections where a Forex order is below the minimum required size."""
 
     @property
     def issue(self) -> str:
@@ -31,8 +28,11 @@ class UnsupportedExerciseForIndexAndCashSettledOptionsAnalysis(QuantConnect.Lean
         ...
 
 
-class InvalidForexOrderSizeAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
-    """Detects Interactive Brokers brokerage model rejections where a Forex order is below the minimum required size."""
+class UnsupportedExerciseForIndexAndCashSettledOptionsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages.MessageAnalysis):
+    """
+    Detects Interactive Brokers brokerage model rejections where a manual exercise was attempted
+    for index or cash-settled options, which IB handles automatically at expiry.
+    """
 
     @property
     def issue(self) -> str:

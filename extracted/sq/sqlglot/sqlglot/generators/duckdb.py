@@ -82,6 +82,13 @@ WEEK_START_DAY_TO_DOW = {
 
 MAX_BIT_POSITION = exp.Literal.number(32768)
 
+# cs/as/ps are Snowflake defaults; DuckDB already behaves the same way, so they are safe to drop.
+# Note: "as" is also a reserved keyword in DuckDB, making it impossible to pass through.
+_SNOWFLAKE_COLLATION_DEFAULTS = frozenset({"cs", "as", "ps"})
+_SNOWFLAKE_COLLATION_UNSUPPORTED = frozenset(
+    {"ci", "ai", "upper", "lower", "utf8", "bin", "pi", "fl", "fu", "trim", "ltrim", "rtrim"}
+)
+
 # Window functions that support IGNORE/RESPECT NULLS in DuckDB
 _IGNORE_RESPECT_NULLS_WINDOW_FUNCTIONS = (
     exp.FirstValue,
@@ -2997,6 +3004,30 @@ class DuckDBGenerator(generator.Generator):
         self.unsupported("COLLATION function is not supported by DuckDB")
         return self.function_fallback_sql(expression)
 
+    def collate_sql(self, expression: exp.Collate) -> str:
+        if not expression.expression.is_string:
+            return super().collate_sql(expression)
+
+        raw = expression.expression.name
+        if not raw:
+            return self.sql(expression.this)
+
+        parts = []
+        for part in raw.split("-"):
+            lower = part.lower()
+            if lower not in _SNOWFLAKE_COLLATION_DEFAULTS:
+                if lower in _SNOWFLAKE_COLLATION_UNSUPPORTED:
+                    self.unsupported(
+                        f"Snowflake collation specifier '{part}' has no DuckDB equivalent"
+                    )
+                parts.append(lower)
+
+        if not parts:
+            return self.sql(expression.this)
+        return super().collate_sql(
+            exp.Collate(this=expression.this, expression=exp.var(".".join(parts)))
+        )
+
     def _validate_regexp_flags(self, flags: exp.Expr | None, supported_flags: str) -> str | None:
         """
         Validate and filter regexp flags for DuckDB compatibility.
@@ -3361,6 +3392,9 @@ class DuckDBGenerator(generator.Generator):
 
     def right_sql(self, expression: exp.Right) -> str:
         return self._left_right_sql(expression, "RIGHT")
+
+    def rtrimmedlength_sql(self, expression: exp.RtrimmedLength) -> str:
+        return self.func("LENGTH", exp.Trim(this=expression.this, position="TRAILING"))
 
     def rand_sql(self, expression: exp.Rand) -> str:
         seed = expression.this
@@ -3732,6 +3766,21 @@ class DuckDBGenerator(generator.Generator):
             )
 
         return self.func("ARRAY_TO_STRING", expression.this, expression.expression)
+
+    def concatws_sql(self, expression: exp.ConcatWs) -> str:
+        # DuckDB-specific: handle binary types using DPipe (||) operator
+        separator = seq_get(expression.expressions, 0)
+        args = expression.expressions[1:]
+
+        if any(_is_binary(arg) for arg in [separator, *args]):
+            result = args[0]
+            for arg in args[1:]:
+                result = exp.DPipe(
+                    this=exp.DPipe(this=result, expression=separator), expression=arg
+                )
+            return self.sql(result)
+
+        return super().concatws_sql(expression)
 
     def _regexp_extract_sql(self, expression: exp.RegexpExtract | exp.RegexpExtractAll) -> str:
         this = expression.this

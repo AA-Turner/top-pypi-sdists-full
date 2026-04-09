@@ -27,6 +27,7 @@ typedef enum TemporalCoreMetricKind {
   HistogramDuration,
   GaugeInteger,
   GaugeFloat,
+  UpDownCounterInteger,
 } TemporalCoreMetricKind;
 
 typedef enum TemporalCoreForwardedLogLevel {
@@ -794,6 +795,7 @@ typedef struct TemporalCoreWorkerOptions {
   bool nondeterminism_as_workflow_fail;
   struct TemporalCoreByteArrayRefArray nondeterminism_as_workflow_fail_for_types;
   struct TemporalCoreByteArrayRefArray plugins;
+  struct TemporalCoreByteArrayRefArray storage_drivers;
 } TemporalCoreWorkerOptions;
 
 /**
@@ -935,6 +937,10 @@ void temporal_core_metric_record_integer(const struct TemporalCoreMetric *metric
 void temporal_core_metric_record_float(const struct TemporalCoreMetric *metric,
                                        double value,
                                        const struct TemporalCoreMetricAttributes *attrs);
+
+void temporal_core_metric_record_integer_signed(const struct TemporalCoreMetric *metric,
+                                                int64_t value,
+                                                const struct TemporalCoreMetricAttributes *attrs);
 
 void temporal_core_metric_record_duration(const struct TemporalCoreMetric *metric,
                                           uint64_t value_ms,

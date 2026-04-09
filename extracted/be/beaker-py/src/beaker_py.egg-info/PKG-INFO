@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: beaker-py
-Version: 2.5.8
+Version: 2.6.0
 Summary: A Python Beaker client
 Author-email: Allen Institute for Artificial Intelligence <contact@allenai.org>, Pete Walsh <petew@allenai.org>
 Project-URL: Homepage, https://github.com/allenai/beaker
@@ -165,7 +165,7 @@ with Beaker.from_env() as beaker:
         description="beaker-py test run",
         beaker_image="petew/hello-world",
         priority=BeakerJobPriority.low,
-        preemptible=True,
+        min_runtime="1h",
     )
 
     # Create experiment workload...

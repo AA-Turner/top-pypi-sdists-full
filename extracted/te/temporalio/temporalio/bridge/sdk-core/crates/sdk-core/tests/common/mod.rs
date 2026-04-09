@@ -13,7 +13,7 @@ use futures_util::{
 };
 use parking_lot::Mutex;
 use prost::Message;
-use rand::Rng;
+use rand::RngExt;
 use std::{
     cell::Cell,
     collections::VecDeque,
@@ -36,7 +36,7 @@ use temporalio_client::{
     grpc::WorkflowService,
 };
 use temporalio_common::{
-    WorkflowDefinition,
+    HasWorkflowDefinition, WorkflowDefinition,
     data_converters::{DataConverter, RawValue},
     protos::{
         coresdk::{
@@ -347,12 +347,13 @@ impl CoreWfStarter {
     pub(crate) async fn worker(&mut self) -> TestWorker {
         let worker = self.get_worker().await;
         let client = self.get_client().await;
-        let sdk = Worker::new_from_core_definitions(
+        let mut sdk = Worker::new_from_core_definitions(
             worker,
             client.data_converter().clone(),
             self.sdk_config.activities(),
             self.sdk_config.workflows(),
         );
+        sdk.set_detect_nondeterministic_futures(self.sdk_config.detect_nondeterministic_futures);
         let mut w = TestWorker::new(sdk);
         w.client = Some(client);
 
@@ -593,7 +594,7 @@ impl TestWorker {
         mut options: WorkflowStartOptions,
     ) -> Result<WorkflowHandle<Client, W>, WorkflowStartError>
     where
-        W: WorkflowDefinition,
+        W: HasWorkflowDefinition,
         W::Input: Send,
     {
         let c = self.client.as_ref().expect("client must be set");
@@ -887,7 +888,7 @@ pub(crate) trait WorkflowHandleExt {
 #[async_trait::async_trait(?Send)]
 impl<W> WorkflowHandleExt for WorkflowHandle<Client, W>
 where
-    W: WorkflowDefinition,
+    W: HasWorkflowDefinition,
 {
     async fn fetch_history_and_replay(
         &self,
@@ -955,14 +956,17 @@ pub(crate) async fn eventually<F, Fut, T, E>(
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, E>>,
+    E: std::fmt::Debug,
 {
     let start = Instant::now();
+    let mut last_err = None;
     loop {
         if start.elapsed() > timeout {
-            bail!("Eventually hit timeout");
+            bail!("Eventually hit timeout after {timeout:?}. Last error: {last_err:?}");
         }
-        if let Ok(v) = func().await {
-            return Ok(v);
+        match func().await {
+            Ok(v) => return Ok(v),
+            Err(e) => last_err = Some(format!("{e:?}")),
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
@@ -1062,8 +1066,6 @@ pub(crate) fn integ_dev_server_config(
             // TODO: Delete when temporalCLI enables it by default.
             "--dynamic-config-value".to_string(),
             "system.enableEagerWorkflowStart=true".to_string(),
-            "--dynamic-config-value".to_string(),
-            "system.enableNexus=true".to_string(),
             "--dynamic-config-value".to_owned(),
             "frontend.workerVersioningWorkflowAPIs=true".to_owned(),
             "--dynamic-config-value".to_owned(),

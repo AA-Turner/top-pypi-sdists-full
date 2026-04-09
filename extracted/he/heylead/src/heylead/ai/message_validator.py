@@ -551,4 +551,25 @@ def validate_reply(
     else:
         result.pass_stage("PushyReply")
 
+    # ── Extra Stage: Email-style sign-offs ──
+    # LinkedIn DMs should never end with "- Name" or "Best, Name" — it's a
+    # classic bot tell. We still strip them in reply_pipeline.strip_signature
+    # as a last-resort safety net, but failing here means the Fix stage gets
+    # a chance to regenerate a clean message instead.
+    _signoff_patterns = [
+        r"[-\u2013\u2014]+\s*[A-Z][a-zA-Z'\-]{0,20}\s*\.?\s*$",
+        r"\b(?:best|cheers|thanks|regards|kind regards|warm regards|sincerely)"
+        r"[,.!]?\s*(?:[A-Z][a-zA-Z'\-]{0,20})?\s*\.?\s*$",
+    ]
+    _stripped = message.strip()
+    for _pat in _signoff_patterns:
+        if re.search(_pat, _stripped, re.IGNORECASE):
+            result.fail(
+                "Signoff",
+                "Reply ends with an email-style signature — LinkedIn DMs don't sign off"
+            )
+            break
+    else:
+        result.pass_stage("Signoff")
+
     return result

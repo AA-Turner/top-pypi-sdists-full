@@ -181,6 +181,8 @@ class GenericFeatureConverter(PrimitiveFeatureConverter[_TPrim, _TRich], Generic
             # Treat these as missing defaults since they're not concrete values.
             if isinstance(rich_default, UnresolvedFeature):
                 rich_default = ...
+            elif rich_default is None:
+                primitive_default = cast(_TPrim, None)
             else:
                 # The missing value strategy doesn't really matter because rich_default is not missing
                 primitive_default = self.from_rich_to_primitive(rich_default, missing_value_strategy="allow")
@@ -201,6 +203,10 @@ class GenericFeatureConverter(PrimitiveFeatureConverter[_TPrim, _TRich], Generic
         if self._rich_default is ...:
             raise ValueError(f"Feature '{self._name}' has no default value")
         return self._rich_default
+
+    @property
+    def protobuf_dtype(self):
+        return self.convert_pa_dtype_to_proto_dtype(self.pyarrow_dtype)
 
     def is_rich_valid(self, value: _TRich) -> bool:
         """Returns true if value has a valid rich type"""

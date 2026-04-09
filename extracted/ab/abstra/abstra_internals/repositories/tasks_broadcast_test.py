@@ -1,7 +1,9 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from abstra_internals.controllers.execution.execution_conn import set_execution_conn
+from abstra_internals.controllers.execution.execution_conn import (
+    set_broadcast_publisher,
+)
 from abstra_internals.repositories.tasks import LocalTasksRepository
 
 
@@ -12,15 +14,15 @@ class TestTasksBroadcast(unittest.TestCase):
         self.repo.fs_storage = MagicMock()
 
     def tearDown(self):
-        set_execution_conn(None)
+        set_broadcast_publisher(None)
 
     @patch(
         "abstra_internals.repositories.tasks.WORKER_LOG_TO_QUEUE",
         False,
     )
     def test_send_task_without_flag_does_not_broadcast(self):
-        mock_conn = MagicMock()
-        set_execution_conn(mock_conn)
+        mock_publisher = MagicMock()
+        set_broadcast_publisher(mock_publisher)
 
         self.repo.fs_storage.save = MagicMock()
 
@@ -32,15 +34,15 @@ class TestTasksBroadcast(unittest.TestCase):
             execution_id="exec-1",
         )
 
-        mock_conn.send.assert_not_called()
+        mock_publisher.publish.assert_not_called()
 
     @patch(
         "abstra_internals.repositories.tasks.WORKER_LOG_TO_QUEUE",
         True,
     )
     def test_send_task_with_flag_broadcasts_task_dto(self):
-        mock_conn = MagicMock()
-        set_execution_conn(mock_conn)
+        mock_publisher = MagicMock()
+        set_broadcast_publisher(mock_publisher)
 
         self.repo.fs_storage.save = MagicMock()
 
@@ -52,8 +54,8 @@ class TestTasksBroadcast(unittest.TestCase):
             execution_id="exec-1",
         )
 
-        mock_conn.send.assert_called_once()
-        msg = mock_conn.send.call_args[0][0]
+        mock_publisher.publish.assert_called_once()
+        msg = mock_publisher.publish.call_args[0][0]
         self.assertEqual(msg["type"], "task")
         self.assertEqual(msg["payload"]["type"], "test-task")
         self.assertEqual(msg["payload"]["status"], "pending")
@@ -64,8 +66,8 @@ class TestTasksBroadcast(unittest.TestCase):
         True,
     )
     def test_lock_task_broadcasts_updated_task(self):
-        mock_conn = MagicMock()
-        set_execution_conn(mock_conn)
+        mock_publisher = MagicMock()
+        set_broadcast_publisher(mock_publisher)
 
         self.repo.fs_storage.save = MagicMock()
 
@@ -76,15 +78,15 @@ class TestTasksBroadcast(unittest.TestCase):
             source_stage_id=None,
             execution_id=None,
         )
-        mock_conn.reset_mock()
+        mock_publisher.reset_mock()
 
         # Mock get() to return the task we just created
         self.repo.fs_storage.load = MagicMock(return_value=task)
 
         self.repo.lock_task(task.id, execution_id="exec-2", stage_id="stage-1")
 
-        mock_conn.send.assert_called_once()
-        msg = mock_conn.send.call_args[0][0]
+        mock_publisher.publish.assert_called_once()
+        msg = mock_publisher.publish.call_args[0][0]
         self.assertEqual(msg["type"], "task")
         self.assertEqual(msg["payload"]["status"], "locked")
 
@@ -93,8 +95,8 @@ class TestTasksBroadcast(unittest.TestCase):
         True,
     )
     def test_complete_task_broadcasts_updated_task(self):
-        mock_conn = MagicMock()
-        set_execution_conn(mock_conn)
+        mock_publisher = MagicMock()
+        set_broadcast_publisher(mock_publisher)
 
         self.repo.fs_storage.save = MagicMock()
 
@@ -105,18 +107,18 @@ class TestTasksBroadcast(unittest.TestCase):
             source_stage_id=None,
             execution_id=None,
         )
-        mock_conn.reset_mock()
+        mock_publisher.reset_mock()
 
         # Lock first (required for complete)
         self.repo.fs_storage.load = MagicMock(return_value=task)
         self.repo.lock_task(task.id, execution_id="exec-2", stage_id="stage-1")
-        mock_conn.reset_mock()
+        mock_publisher.reset_mock()
 
         self.repo.fs_storage.load = MagicMock(return_value=task)
         self.repo.complete_task(task.id, execution_id="exec-2", stage_id="stage-1")
 
-        mock_conn.send.assert_called_once()
-        msg = mock_conn.send.call_args[0][0]
+        mock_publisher.publish.assert_called_once()
+        msg = mock_publisher.publish.call_args[0][0]
         self.assertEqual(msg["type"], "task")
         self.assertEqual(msg["payload"]["status"], "completed")
 
@@ -125,9 +127,9 @@ class TestTasksBroadcast(unittest.TestCase):
         True,
     )
     def test_broadcast_error_does_not_affect_persistence(self):
-        mock_conn = MagicMock()
-        mock_conn.send.side_effect = Exception("RabbitMQ down")
-        set_execution_conn(mock_conn)
+        mock_publisher = MagicMock()
+        mock_publisher.publish.side_effect = Exception("RabbitMQ down")
+        set_broadcast_publisher(mock_publisher)
 
         self.repo.fs_storage.save = MagicMock()
 

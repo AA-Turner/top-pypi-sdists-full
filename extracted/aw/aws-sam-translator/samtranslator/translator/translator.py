@@ -284,7 +284,11 @@ class Translator:
                 functions.append(data)
             elif resource["Type"] == "AWS::Serverless::StateMachine":
                 statemachines.append(data)
-            elif resource["Type"] in ("AWS::Serverless::Api", "AWS::Serverless::HttpApi"):
+            elif resource["Type"] in (
+                "AWS::Serverless::Api",
+                "AWS::Serverless::HttpApi",
+                "AWS::Serverless::WebSocketApi",
+            ):
                 apis.append(data)
             elif resource["Type"] == "AWS::Serverless::Connector":
                 connectors.append(data)

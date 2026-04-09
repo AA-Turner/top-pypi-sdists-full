@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xtgeoviz
-Version: 0.3.0
+Version: 0.3.1
 Summary: Plotting library for xtgeo objects
 Author-email: Equinor <fg_fmu-atlas@equinor.com>
 License:                    GNU LESSER GENERAL PUBLIC LICENSE
@@ -187,6 +187,7 @@ Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
 Requires-Python: >=3.11
@@ -196,7 +197,7 @@ Requires-Dist: PyYAML
 Requires-Dist: matplotlib>=3.3.2
 Requires-Dist: numpy
 Requires-Dist: scipy>=1.5.3
-Requires-Dist: xtgeo
+Requires-Dist: xtgeo>=4.19.0
 Provides-Extra: tests
 Requires-Dist: coverage>=4.1; extra == "tests"
 Requires-Dist: mypy; extra == "tests"

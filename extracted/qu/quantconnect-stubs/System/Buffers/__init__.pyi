@@ -9,87 +9,10 @@ import System.Runtime.InteropServices
 
 System_Buffers_StandardFormat = typing.Any
 
-System_Buffers_SearchValues_T = typing.TypeVar("System_Buffers_SearchValues_T")
-System_Buffers_ArrayPool_T = typing.TypeVar("System_Buffers_ArrayPool_T")
 System_Buffers_IMemoryOwner_T = typing.TypeVar("System_Buffers_IMemoryOwner_T")
+System_Buffers_ArrayPool_T = typing.TypeVar("System_Buffers_ArrayPool_T")
 System_Buffers_MemoryManager_T = typing.TypeVar("System_Buffers_MemoryManager_T")
-
-
-class SearchValues(typing.Generic[System_Buffers_SearchValues_T], System.Object):
-    """This class has no documentation."""
-
-    def contains(self, value: System_Buffers_SearchValues_T) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def create(*values: typing.Union[int, typing.Iterable[int]]) -> System.Buffers.SearchValues[int]:
-        ...
-
-    @staticmethod
-    @overload
-    def create(*values: typing.Union[str, typing.Iterable[str]]) -> System.Buffers.SearchValues[str]:
-        ...
-
-    @staticmethod
-    @overload
-    def create(values: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> System.Buffers.SearchValues[str]:
-        ...
-
-
-class MemoryHandle(System.IDisposable):
-    """This class has no documentation."""
-
-    @property
-    def pointer(self) -> typing.Any:
-        ...
-
-    def __init__(self, pointer: typing.Any, handle: System.Runtime.InteropServices.GCHandle = ..., pinnable: System.Buffers.IPinnable = ...) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-
-class IPinnable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def pin(self, element_index: int) -> System.Buffers.MemoryHandle:
-        ...
-
-    def unpin(self) -> None:
-        ...
-
-
-class ArrayPool(typing.Generic[System_Buffers_ArrayPool_T], System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    SHARED: System.Buffers.ArrayPool[System_Buffers_ArrayPool_T]
-
-    @staticmethod
-    @overload
-    def create() -> System.Buffers.ArrayPool[System_Buffers_ArrayPool_T]:
-        ...
-
-    @staticmethod
-    @overload
-    def create(max_array_length: int, max_arrays_per_bucket: int) -> System.Buffers.ArrayPool[System_Buffers_ArrayPool_T]:
-        ...
-
-    def rent(self, minimum_length: int) -> typing.List[System_Buffers_ArrayPool_T]:
-        ...
-
-    def Return(self, array: typing.List[System_Buffers_ArrayPool_T], clearArray: bool = False) -> None:
-        ...
-
-
-class IMemoryOwner(typing.Generic[System_Buffers_IMemoryOwner_T], System.IDisposable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def memory(self) -> System.Memory[System_Buffers_IMemoryOwner_T]:
-        ...
+System_Buffers_SearchValues_T = typing.TypeVar("System_Buffers_SearchValues_T")
 
 
 class StandardFormat(System.IEquatable[System_Buffers_StandardFormat]):
@@ -153,6 +76,61 @@ class StandardFormat(System.IEquatable[System_Buffers_StandardFormat]):
         ...
 
 
+class IMemoryOwner(typing.Generic[System_Buffers_IMemoryOwner_T], System.IDisposable, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def memory(self) -> System.Memory[System_Buffers_IMemoryOwner_T]:
+        ...
+
+
+class MemoryHandle(System.IDisposable):
+    """This class has no documentation."""
+
+    @property
+    def pointer(self) -> typing.Any:
+        ...
+
+    def __init__(self, pointer: typing.Any, handle: System.Runtime.InteropServices.GCHandle = ..., pinnable: System.Buffers.IPinnable = ...) -> None:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+
+class IPinnable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def pin(self, element_index: int) -> System.Buffers.MemoryHandle:
+        ...
+
+    def unpin(self) -> None:
+        ...
+
+
+class ArrayPool(typing.Generic[System_Buffers_ArrayPool_T], System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    SHARED: System.Buffers.ArrayPool[System_Buffers_ArrayPool_T]
+
+    @staticmethod
+    @overload
+    def create() -> System.Buffers.ArrayPool[System_Buffers_ArrayPool_T]:
+        ...
+
+    @staticmethod
+    @overload
+    def create(max_array_length: int, max_arrays_per_bucket: int) -> System.Buffers.ArrayPool[System_Buffers_ArrayPool_T]:
+        ...
+
+    def rent(self, minimum_length: int) -> typing.List[System_Buffers_ArrayPool_T]:
+        ...
+
+    def Return(self, array: typing.List[System_Buffers_ArrayPool_T], clearArray: bool = False) -> None:
+        ...
+
+
 class OperationStatus(IntEnum):
     """This class has no documentation."""
 
@@ -190,6 +168,28 @@ class MemoryManager(typing.Generic[System_Buffers_MemoryManager_T], System.Objec
         ...
 
     def unpin(self) -> None:
+        ...
+
+
+class SearchValues(typing.Generic[System_Buffers_SearchValues_T], System.Object):
+    """This class has no documentation."""
+
+    def contains(self, value: System_Buffers_SearchValues_T) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def create(*values: typing.Union[int, typing.Iterable[int]]) -> System.Buffers.SearchValues[int]:
+        ...
+
+    @staticmethod
+    @overload
+    def create(*values: typing.Union[str, typing.Iterable[str]]) -> System.Buffers.SearchValues[str]:
+        ...
+
+    @staticmethod
+    @overload
+    def create(values: System.ReadOnlySpan[str], comparison_type: System.StringComparison) -> System.Buffers.SearchValues[str]:
         ...
 
 

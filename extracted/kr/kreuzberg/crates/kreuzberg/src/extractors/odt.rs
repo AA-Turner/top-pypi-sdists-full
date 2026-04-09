@@ -916,7 +916,6 @@ impl DocumentExtractor for OdtExtractor {
         config: &ExtractionConfig,
     ) -> Result<InternalDocument> {
         tracing::debug!(format = "odt", size_bytes = content.len(), "extraction starting");
-        let _ = config; // conditionally used by ocr feature
         let content_owned = content.to_vec();
 
         let cursor = Cursor::new(content_owned.clone());
@@ -1066,6 +1065,18 @@ impl DocumentExtractor for OdtExtractor {
             additional: metadata_map,
             ..Default::default()
         };
+
+        // Filter headers/footers based on content_filter config.
+        // When content_filter is None, keep current behavior (headers/footers included).
+        // When content_filter is Some(...), respect include_headers/include_footers flags.
+        if let Some(ref filter) = config.content_filter {
+            use crate::types::document_structure::ContentLayer;
+            doc.elements.retain(|elem| match elem.layer {
+                ContentLayer::Header => filter.include_headers,
+                ContentLayer::Footer => filter.include_footers,
+                _ => true,
+            });
+        }
 
         tracing::debug!(
             element_count = doc.elements.len(),

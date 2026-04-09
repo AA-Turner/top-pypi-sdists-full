@@ -14,6 +14,54 @@ import System.Runtime.Serialization
 import System.Text.RegularExpressions
 
 
+class RegexMatchTimeoutException(System.TimeoutException, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    @property
+    def input(self) -> str:
+        ...
+
+    @property
+    def pattern(self) -> str:
+        ...
+
+    @property
+    def match_timeout(self) -> datetime.timedelta:
+        ...
+
+    @overload
+    def __init__(self, regex_input: str, regex_pattern: str, match_timeout: datetime.timedelta) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+
+class ValueMatch:
+    """This class has no documentation."""
+
+    @property
+    def index(self) -> int:
+        ...
+
+    @property
+    def length(self) -> int:
+        ...
+
+
 class Capture(System.Object):
     """This class has no documentation."""
 
@@ -273,33 +321,8 @@ class RegexCompilationInfo(System.Object):
         ...
 
 
-class ValueMatch:
-    """This class has no documentation."""
-
-    @property
-    def index(self) -> int:
-        ...
-
-    @property
-    def length(self) -> int:
-        ...
-
-
 class Regex(System.Object, System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
-
-    class ValueSplitEnumerator(System.Collections.Generic.IEnumerator[System.Range]):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System.Range:
-            ...
-
-        def get_enumerator(self) -> System.Text.RegularExpressions.Regex.ValueSplitEnumerator:
-            ...
-
-        def move_next(self) -> bool:
-            ...
 
     class ValueMatchEnumerator(System.Collections.Generic.IEnumerator[System.Text.RegularExpressions.ValueMatch]):
         """This class has no documentation."""
@@ -309,6 +332,19 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
             ...
 
         def get_enumerator(self) -> System.Text.RegularExpressions.Regex.ValueMatchEnumerator:
+            ...
+
+        def move_next(self) -> bool:
+            ...
+
+    class ValueSplitEnumerator(System.Collections.Generic.IEnumerator[System.Range]):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System.Range:
+            ...
+
+        def get_enumerator(self) -> System.Text.RegularExpressions.Regex.ValueSplitEnumerator:
             ...
 
         def move_next(self) -> bool:
@@ -683,46 +719,43 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
         warnings.warn("Obsoletions.RegexExtensibilityImplMessage", DeprecationWarning)
 
 
-class RegexMatchTimeoutException(System.TimeoutException, System.Runtime.Serialization.ISerializable):
+class GeneratedRegexAttribute(System.Attribute):
     """This class has no documentation."""
-
-    @property
-    def input(self) -> str:
-        ...
 
     @property
     def pattern(self) -> str:
         ...
 
     @property
-    def match_timeout(self) -> datetime.timedelta:
+    def options(self) -> System.Text.RegularExpressions.RegexOptions:
+        ...
+
+    @property
+    def match_timeout_milliseconds(self) -> int:
+        ...
+
+    @property
+    def culture_name(self) -> str:
         ...
 
     @overload
-    def __init__(self, regex_input: str, regex_pattern: str, match_timeout: datetime.timedelta) -> None:
+    def __init__(self, pattern: str) -> None:
         ...
 
     @overload
-    def __init__(self) -> None:
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions) -> None:
         ...
 
     @overload
-    def __init__(self, message: str) -> None:
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, culture_name: str) -> None:
         ...
 
     @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int) -> None:
         ...
 
     @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-
-class RegexRunnerFactory(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int, culture_name: str) -> None:
         ...
 
 
@@ -798,43 +831,10 @@ class RegexRunner(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class GeneratedRegexAttribute(System.Attribute):
+class RegexRunnerFactory(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @property
-    def pattern(self) -> str:
-        ...
-
-    @property
-    def options(self) -> System.Text.RegularExpressions.RegexOptions:
-        ...
-
-    @property
-    def match_timeout_milliseconds(self) -> int:
-        ...
-
-    @property
-    def culture_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, pattern: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, culture_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int, culture_name: str) -> None:
+    def __init__(self) -> None:
         ...
 
 

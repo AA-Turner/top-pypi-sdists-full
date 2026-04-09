@@ -26,6 +26,7 @@ from contextlib import suppress
 from typing import Any, Callable, ClassVar, Optional, overload
 
 from pymobiledevice3.exceptions import ConnectionTerminatedError
+from pymobiledevice3.service_connection import close_stream_writer
 
 from ._reader import _DTXReaderMixin
 from ._sender import _DTXSenderMixin
@@ -189,10 +190,7 @@ class DTXConnection(_DTXSenderMixin, _DTXReaderMixin):
 
         with suppress(Exception):
             self._reader.feed_eof()
-        with suppress(Exception):
-            self._writer.close()
-        with suppress(Exception):
-            await asyncio.wait_for(self._writer.wait_closed(), timeout=5.0)
+        await close_stream_writer(self._writer, timeout=5.0)
 
         close_exc = ConnectionTerminatedError("Connection closed")
         async with self._channel_lock:

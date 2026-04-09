@@ -6,6 +6,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::super::acceleration::AccelerationConfig;
+use super::super::content_filter::ContentFilterConfig;
 use super::super::formats::OutputFormat;
 use super::super::ocr::OcrConfig;
 use super::super::page::PageConfig;
@@ -73,6 +74,14 @@ pub struct ExtractionConfig {
     /// Text chunking configuration (None = chunking disabled)
     #[serde(default)]
     pub chunking: Option<ChunkingConfig>,
+
+    /// Content filtering configuration (None = use extractor defaults).
+    ///
+    /// Controls whether document "furniture" (headers, footers, watermarks,
+    /// repeating text) is included in or stripped from extraction results.
+    /// See [`ContentFilterConfig`] for per-field documentation.
+    #[serde(default)]
+    pub content_filter: Option<ContentFilterConfig>,
 
     /// Image extraction configuration (None = no image extraction)
     #[serde(default)]
@@ -231,6 +240,14 @@ pub struct ExtractionConfig {
     #[cfg(feature = "tree-sitter")]
     #[serde(default)]
     pub tree_sitter: Option<super::super::tree_sitter::TreeSitterConfig>,
+
+    /// Structured extraction via LLM (None = disabled).
+    ///
+    /// When set, the extracted document content is sent to an LLM with the
+    /// provided JSON schema. The structured response is stored in
+    /// `ExtractionResult::structured_output`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub structured_extraction: Option<super::super::llm::StructuredExtractionConfig>,
 }
 
 impl Default for ExtractionConfig {
@@ -243,6 +260,7 @@ impl Default for ExtractionConfig {
             force_ocr_pages: None,
             disable_ocr: false,
             chunking: None,
+            content_filter: None,
             images: None,
             #[cfg(feature = "pdf")]
             pdf_options: None,
@@ -271,6 +289,7 @@ impl Default for ExtractionConfig {
             max_archive_depth: default_archive_depth(),
             #[cfg(feature = "tree-sitter")]
             tree_sitter: None,
+            structured_extraction: None,
         }
     }
 }
@@ -306,6 +325,7 @@ impl ExtractionConfig {
             ref force_ocr_pages,
             ref disable_ocr,
             ref chunking,
+            ref content_filter,
             ref images,
             #[cfg(feature = "pdf")]
             ref pdf_options,
@@ -325,6 +345,7 @@ impl ExtractionConfig {
             ref timeout_secs,
             #[cfg(feature = "tree-sitter")]
             ref tree_sitter,
+            ref structured_extraction,
         } = *overrides;
 
         let mut config = self.clone();
@@ -346,6 +367,9 @@ impl ExtractionConfig {
         }
         if let Some(v) = chunking {
             config.chunking = Some(v.clone());
+        }
+        if let Some(v) = content_filter {
+            config.content_filter = Some(v.clone());
         }
         if let Some(v) = images {
             config.images = Some(v.clone());
@@ -394,6 +418,9 @@ impl ExtractionConfig {
         if let Some(v) = tree_sitter {
             config.tree_sitter = Some(v.clone());
         }
+        if let Some(v) = structured_extraction {
+            config.structured_extraction = Some(v.clone());
+        }
 
         config
     }
@@ -425,6 +452,27 @@ impl ExtractionConfig {
             return std::borrow::Cow::Owned(config);
         }
         std::borrow::Cow::Borrowed(self)
+    }
+
+    /// Validate the configuration, returning an error if any settings are invalid.
+    ///
+    /// Checks:
+    /// - OCR backend name is supported (catches typos early)
+    /// - VLM backend config is present when backend is "vlm"
+    /// - Pipeline stage backends and VLM configs are valid
+    /// - Structured extraction schema and LLM model are non-empty
+    pub fn validate(&self) -> Result<(), crate::error::KreuzbergError> {
+        // Validate OCR config if present
+        if let Some(ref ocr) = self.ocr {
+            ocr.validate()?;
+        }
+
+        // Validate structured extraction config if present
+        if let Some(ref se) = self.structured_extraction {
+            crate::core::config_validation::validate_structured_extraction_schema(&se.schema, &se.llm.model)?;
+        }
+
+        Ok(())
     }
 
     /// Check if image processing is needed by examining OCR and image extraction settings.

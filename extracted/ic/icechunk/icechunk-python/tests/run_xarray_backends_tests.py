@@ -20,6 +20,7 @@ from icechunk import (
     s3_storage,
 )
 from icechunk.xarray import to_icechunk
+from tests.conftest import Permission
 from xarray.testing import assert_identical
 
 # needed otherwise not discovered
@@ -35,11 +36,21 @@ from xarray.tests.test_backends import (
 )
 
 
+class SpecVersionMixin:
+    @pytest.fixture(
+        autouse=True,
+        params=[1, 2, None],
+        ids=["spec-v1", "spec-v2", "no-spec-version"],
+    )
+    def _spec_version(self, request: pytest.FixtureRequest) -> None:
+        self._spec_version_value = request.param
+
+
 @pytest.mark.skipif(
     not os.environ.get("ICECHUNK_XARRAY_BACKENDS_TESTS", None),
     reason="skipping Xarray backends tests",
 )
-class IcechunkStoreBase(ZarrBase):
+class IcechunkStoreBase(SpecVersionMixin, ZarrBase):
     @contextlib.contextmanager
     def create_repo(self) -> Generator[Repository]:
         raise NotImplementedError
@@ -99,14 +110,18 @@ class TestIcechunkStoreFilesystem(IcechunkStoreBase):
     @contextlib.contextmanager
     def create_repo(self) -> Generator[Repository]:
         with tempfile.TemporaryDirectory() as tmpdir:
-            yield Repository.create(local_filesystem_storage(tmpdir))
+            yield Repository.create(
+                local_filesystem_storage(tmpdir), spec_version=self._spec_version_value
+            )
 
 
 class TestIcechunkStoreMemory(IcechunkStoreBase):
     @contextlib.contextmanager
     def create_repo(self) -> Generator[Repository]:
         with tempfile.TemporaryDirectory() as tmpdir:
-            yield Repository.create(local_filesystem_storage(tmpdir))
+            yield Repository.create(
+                local_filesystem_storage(tmpdir), spec_version=self._spec_version_value
+            )
 
     def test_pickle(self) -> None:
         pytest.skip("pickling memory store is not supported")
@@ -118,34 +133,38 @@ class TestIcechunkStoreMemory(IcechunkStoreBase):
 class TestIcechunkStoreMinio(IcechunkStoreBase):
     @contextlib.contextmanager
     def create_repo(self) -> Generator[Repository]:
+        (access_key_id, secret_access_key) = Permission.MODIFY.keys()
         yield Repository.create(
             s3_storage(
-                endpoint_url="http://localhost:9000",
+                endpoint_url="http://localhost:4200",
                 allow_http=True,
                 force_path_style=True,
                 region="us-east-1",
                 bucket="testbucket",
                 prefix="python-xarray-test__" + str(time.time()),
-                access_key_id="minio123",
-                secret_access_key="minio123",
-            )
+                access_key_id=access_key_id,
+                secret_access_key=secret_access_key,
+            ),
+            spec_version=self._spec_version_value,
         )
 
 
 @pytest.mark.filterwarnings("ignore:Failed to open:RuntimeWarning")
-class TestIcechunkRegionAuto(ZarrRegionAutoTests):
+class TestIcechunkRegionAuto(SpecVersionMixin, ZarrRegionAutoTests):
     @contextlib.contextmanager
     def create_zarr_target(self) -> Generator[IcechunkStore]:
         if zarr.config.config["default_zarr_format"] == 2:
             pytest.skip("v2 not supported")
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            repo = Repository.create(local_filesystem_storage(tmpdir))
+            repo = Repository.create(
+                local_filesystem_storage(tmpdir), spec_version=self._spec_version_value
+            )
             session = repo.writable_session("main")
             yield session.store
 
     @contextlib.contextmanager
-    def create(self):
+    def create(self) -> Generator[tuple[IcechunkStore, xr.Dataset], None, None]:
         x = np.arange(0, 50, 10)
         y = np.arange(0, 20, 2)
         data = np.ones((5, 10))
@@ -153,38 +172,40 @@ class TestIcechunkRegionAuto(ZarrRegionAutoTests):
             {"test": xr.DataArray(data, dims=("x", "y"), coords={"x": x, "y": y})}
         )
         with tempfile.TemporaryDirectory() as tmpdir:
-            repo = Repository.create(local_filesystem_storage(tmpdir))
+            repo = Repository.create(
+                local_filesystem_storage(tmpdir), spec_version=self._spec_version_value
+            )
             session = repo.writable_session("main")
             self.save(session.store, ds)
             session.commit("initial commit")
             yield repo.writable_session("main").store, ds
 
-    def save(self, target, ds, **kwargs):
+    def save(self, target: IcechunkStore, ds: xr.Dataset, **kwargs: Any) -> None:
         # not really important here
         kwargs.pop("compute", None)
         to_icechunk(ds, session=target.session, **kwargs)
 
-    def test_zarr_append_chunk_partial(self):
+    def test_zarr_append_chunk_partial(self) -> None:
         pytest.skip(
             "this test requires multiple saves, and is meant to exercise Xarray logic."
         )
 
-    def test_zarr_safe_chunk_region(self, *args, **kwargs):
+    def test_zarr_safe_chunk_region(self, *args: Any, **kwargs: Any) -> None:
         pytest.skip(
             "this test requires multiple saves, and is meant to exercise Xarray logic."
         )
 
-    def test_zarr_safe_chunk_append_dim(self, *args, **kwargs):
+    def test_zarr_safe_chunk_append_dim(self, *args: Any, **kwargs: Any) -> None:
         pytest.skip(
             "this test requires multiple saves, and is meant to exercise Xarray logic."
         )
 
-    def test_zarr_region_chunk_partial_offset(self):
+    def test_zarr_region_chunk_partial_offset(self) -> None:
         pytest.skip(
             "this test requires multiple saves, and is meant to exercise Xarray logic."
         )
 
-    def test_dataset_to_zarr_align_chunks_true(self, tmp_store) -> None:  # noqa: F811
+    def test_dataset_to_zarr_align_chunks_true(self, tmp_store: IcechunkStore) -> None:  # noqa: F811
         pytest.skip(
             "this test requires multiple saves, and is meant to exercise Xarray logic."
         )

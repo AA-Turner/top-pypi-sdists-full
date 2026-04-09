@@ -256,8 +256,15 @@ def get_stage_information_dict(stage_str, method):
     # Wrap around for stages beyond the dictionary length
     n = len(stage_dict)
     if fldas_lead is not None:
-        # Single-month FLDAS label: target = end_stage + lead (mod 12).
-        target = (((int(end_stage) - 1) + fldas_lead) % n) + 1
+        # Single-month FLDAS label: target = init_month + lead (mod 12).
+        # For forward stages (e.g. monthly), numeric_parts[-1] == end_stage
+        # is the chronologically-latest month. For reverse stages (e.g.
+        # monthly_r), the window grows backward so numeric_parts[0] ==
+        # start_stage is the chronologically-latest month. We want the
+        # latest because compute_eo_indices picks max(time) within the
+        # stage window.
+        init_month = int(start_stage) if "_r" in method else int(end_stage)
+        target = (((init_month - 1) + fldas_lead) % n) + 1
         stage_info["Stage Name"] = (
             stage_dict[target] + "-" + stage_dict_end[target]
         )
@@ -345,8 +352,12 @@ def update_feature_names(df, method):
             # FLDAS features are now single-month: the runtime uses ONLY the
             # latest init-month row in the cumulative stage window (see
             # compute_eo_indices FLDAS branch). The label therefore describes
-            # a single target month = end_stage + lead (mod 12), not a range.
-            target = (((int(end_stage) - 1) + fldas_lead) % n) + 1
+            # a single target month = init_month + lead (mod 12), not a range.
+            # For forward stages the latest month is numeric_parts[-1]
+            # (end_stage); for reverse ``_r`` stages the window grows backward
+            # in time so the latest month is numeric_parts[0] (start_stage).
+            init_month = int(numeric_parts[0]) if "_r" in method else int(numeric_parts[-1])
+            target = (((init_month - 1) + fldas_lead) % n) + 1
             start_stage = stage_dict[target]
             end_stage = stage_dict_end[target]
         else:

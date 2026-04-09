@@ -67,6 +67,8 @@ RESTORED_SERVICE_TYPE = "com.apple.mobile.restored"
 DEFAULT_LABEL = "pymobiledevice3"
 SERVICE_PORT = 62078
 
+RECONNECT_RETRY_INTERVAL_SECONDS = 1
+
 
 class DeviceClass(Enum):
     IPHONE = "iPhone"
@@ -1691,7 +1693,7 @@ async def retry_create_using_usbmux(retry_timeout: Optional[float] = None, **kwa
             IncompleteReadError,
             ConnectionTerminatedError,
         ):
-            pass
+            await asyncio.sleep(RECONNECT_RETRY_INTERVAL_SECONDS)
 
 
 async def create_using_tcp(

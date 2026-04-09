@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-kiota-serialization-form
-Version: 1.10.0
+Version: 1.10.1
 Summary: Core abstractions for kiota generated libraries in Python
 License: MIT
 License-File: LICENSE
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: microsoft-kiota-abstractions (>=1.10.0,<1.11.0)
+Requires-Dist: microsoft-kiota-abstractions (>=1.10.1,<1.11.0)
 Project-URL: Documentation, https://learn.microsoft.com/openapi/kiota/
 Project-URL: Homepage, https://github.com/microsoft/kiota#readme
 Project-URL: Repository, https://github.com/microsoft/kiota-python

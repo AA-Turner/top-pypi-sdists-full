@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Add `metrics.process_id` tag to ignored tags.

@@ -1,102 +1,23 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Final, Literal
+from typing import Literal
 
 from vercel._internal.iter_coroutine import iter_coroutine
 from vercel._internal.sandbox import AsyncSandboxOpsClient, SyncSandboxOpsClient
 from vercel._internal.sandbox.models import Snapshot as SnapshotModel
 from vercel._internal.sandbox.pagination import SnapshotListParams
+from vercel._internal.sandbox.snapshot import (
+    MIN_SNAPSHOT_EXPIRATION_MS as _MIN_SNAPSHOT_EXPIRATION_MS,
+    SnapshotExpiration as _SnapshotExpiration,
+)
 
 from ..oidc import Credentials, get_credentials
-from .page import AsyncSnapshotPage, AsyncSnapshotPager, SnapshotPage
 
-MIN_SNAPSHOT_EXPIRATION_MS: Final[int] = 86_400_000
-
-
-class SnapshotExpiration(int):
-    """Snapshot expiration in milliseconds.
-
-    Valid values are ``0`` for no expiration or any value greater than or equal
-    to ``86_400_000`` (24 hours).
-    """
-
-    def __new__(cls, value: int) -> SnapshotExpiration:
-        value = int(value)
-        if value != 0 and value < MIN_SNAPSHOT_EXPIRATION_MS:
-            raise ValueError(
-                "Snapshot expiration must be 0 for no expiration or >= 86400000 milliseconds"
-            )
-        return int.__new__(cls, value)
-
-
-def normalize_snapshot_expiration(
-    expiration: int | SnapshotExpiration | None,
-) -> SnapshotExpiration | None:
-    if expiration is None:
-        return None
-    if isinstance(expiration, SnapshotExpiration):
-        return expiration
-    return SnapshotExpiration(expiration)
-
-
-async def _build_async_snapshot_page(
-    *,
-    creds: Credentials,
-    params: SnapshotListParams,
-) -> AsyncSnapshotPage:
-    client = AsyncSandboxOpsClient(team_id=creds.team_id, token=creds.token)
-    try:
-        response = await client.list_snapshots(
-            project_id=params.project_id,
-            limit=params.limit,
-            since=params.since,
-            until=params.until,
-        )
-    finally:
-        await client.aclose()
-
-    async def fetch_next_page(page_info) -> AsyncSnapshotPage:
-        return await _build_async_snapshot_page(
-            creds=creds,
-            params=params.with_until(page_info.until),
-        )
-
-    return AsyncSnapshotPage.create(
-        snapshots=response.snapshots,
-        pagination=response.pagination,
-        fetch_next_page=fetch_next_page,
-    )
-
-
-async def _build_sync_snapshot_page(
-    *,
-    creds: Credentials,
-    params: SnapshotListParams,
-) -> SnapshotPage:
-    client = SyncSandboxOpsClient(team_id=creds.team_id, token=creds.token)
-    try:
-        response = await client.list_snapshots(
-            project_id=params.project_id,
-            limit=params.limit,
-            since=params.since,
-            until=params.until,
-        )
-    finally:
-        client.close()
-
-    async def fetch_next_page(page_info) -> SnapshotPage:
-        return await _build_sync_snapshot_page(
-            creds=creds,
-            params=params.with_until(page_info.until),
-        )
-
-    return SnapshotPage.create(
-        snapshots=response.snapshots,
-        pagination=response.pagination,
-        fetch_next_page=fetch_next_page,
-    )
+MIN_SNAPSHOT_EXPIRATION_MS = _MIN_SNAPSHOT_EXPIRATION_MS
+SnapshotExpiration = _SnapshotExpiration
 
 
 @dataclass
@@ -154,23 +75,54 @@ class AsyncSnapshot:
     def list(
         *,
         limit: int | None = None,
+        _internal_page_size: int | None = None,
         since: datetime | int | None = None,
         until: datetime | int | None = None,
         token: str | None = None,
         project_id: str | None = None,
         team_id: str | None = None,
-    ) -> AsyncSnapshotPager:
-        """List snapshots and return the first page."""
+    ) -> AsyncIterator[SnapshotModel]:
+        """List snapshots as an async iterable of snapshot models.
+
+        `_internal_page_size` is a private override for the backend request
+        size used during internal pagination. It exists for internal debugging
+        and examples and is not part of the supported public contract.
+        """
         creds: Credentials = get_credentials(token=token, project_id=project_id, team_id=team_id)
         params = SnapshotListParams(
             project_id=creds.project_id,
             limit=limit,
+            internal_page_size=_internal_page_size,
             since=since,
             until=until,
         )
-        return AsyncSnapshotPager(
-            _fetch_first_page=lambda: _build_async_snapshot_page(creds=creds, params=params)
-        )
+
+        async def iter_snapshots() -> AsyncIterator[SnapshotModel]:
+            current_params = params
+            async with AsyncSandboxOpsClient(team_id=creds.team_id, token=creds.token) as client:
+                while True:
+                    response = await client.list_snapshots(
+                        project_id=current_params.project_id,
+                        limit=current_params.request_limit,
+                        since=current_params.since,
+                        until=current_params.until,
+                    )
+                    snapshots = response.snapshots[: current_params.remaining]
+                    for snapshot in snapshots:
+                        yield snapshot
+                    if response.pagination.next is None:
+                        return
+                    if (
+                        current_params.remaining is not None
+                        and len(snapshots) >= current_params.remaining
+                    ):
+                        return
+                    current_params = current_params.with_until(
+                        response.pagination.next,
+                        yielded_count=len(snapshots),
+                    )
+
+        return iter_snapshots()
 
     async def delete(self) -> None:
         """Delete this snapshot."""
@@ -233,21 +185,55 @@ class Snapshot:
     def list(
         *,
         limit: int | None = None,
+        _internal_page_size: int | None = None,
         since: datetime | int | None = None,
         until: datetime | int | None = None,
         token: str | None = None,
         project_id: str | None = None,
         team_id: str | None = None,
-    ) -> SnapshotPage:
-        """List snapshots and return the first page."""
+    ) -> Iterator[SnapshotModel]:
+        """List snapshots as an iterable of snapshot models.
+
+        `_internal_page_size` is a private override for the backend request
+        size used during internal pagination. It exists for internal debugging
+        and examples and is not part of the supported public contract.
+        """
         creds: Credentials = get_credentials(token=token, project_id=project_id, team_id=team_id)
         params = SnapshotListParams(
             project_id=creds.project_id,
             limit=limit,
+            internal_page_size=_internal_page_size,
             since=since,
             until=until,
         )
-        return iter_coroutine(_build_sync_snapshot_page(creds=creds, params=params))
+
+        def iter_snapshots() -> Iterator[SnapshotModel]:
+            current_params = params
+            with SyncSandboxOpsClient(team_id=creds.team_id, token=creds.token) as client:
+                while True:
+                    response = iter_coroutine(
+                        client.list_snapshots(
+                            project_id=current_params.project_id,
+                            limit=current_params.request_limit,
+                            since=current_params.since,
+                            until=current_params.until,
+                        )
+                    )
+                    snapshots = response.snapshots[: current_params.remaining]
+                    yield from snapshots
+                    if response.pagination.next is None:
+                        return
+                    if (
+                        current_params.remaining is not None
+                        and len(snapshots) >= current_params.remaining
+                    ):
+                        return
+                    current_params = current_params.with_until(
+                        response.pagination.next,
+                        yielded_count=len(snapshots),
+                    )
+
+        return iter_snapshots()
 
     def delete(self) -> None:
         """Delete this snapshot."""

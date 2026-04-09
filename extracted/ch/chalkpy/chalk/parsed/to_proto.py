@@ -41,7 +41,9 @@ from chalk.features import (
     ensure_feature,
     unwrap_feature,
 )
-from chalk.features._encoding.converter import PrimitiveFeatureConverter, make_primitive_converter
+from chalk.features._encoding._feature_converters._list_converter import ListFeatureConverter
+from chalk.features._encoding._feature_converters._timedelta_converter import TimedeltaFeatureConverter
+from chalk.features._encoding.converter import PrimitiveFeatureConverter, make_primitive_converter, pa_scalar_to_proto
 from chalk.features._encoding.protobuf import (
     convert_proto_message_type_to_pyarrow_type,
     serialize_message_file_descriptor,
@@ -385,11 +387,10 @@ class ToProtoConverter:
 
         if isinstance(raw_lhs, Feature) and isinstance(raw_rhs, TimeDelta):
             # This means that the filter was a before() or after()
-            duration_converter = PrimitiveFeatureConverter(
-                name="helper", is_nullable=False, pyarrow_dtype=pa.duration("us")
-            )
             converted_rhs = expr_pb.LogicalExprNode(
-                literal=duration_converter.from_primitive_to_protobuf(raw_rhs.to_std())
+                literal=TimedeltaFeatureConverter.new(default=..., is_nullable=False).from_primitive_to_protobuf(
+                    raw_rhs.to_std()
+                )
             )
             if not isinstance(converted_lhs, expr_pb.LogicalExprNode):
                 raise ValueError(f"lhs '{converted_lhs}' is of type {type(converted_lhs)}")
@@ -416,9 +417,10 @@ class ToProtoConverter:
             if f.operation in ("in", "not in"):
                 if not isinstance(raw_rhs, collections.abc.Iterable):
                     raise ValueError("rhs must be an iterable when operation is 'in'/'not in'")
-                prim_values = tuple(raw_lhs.converter.from_rich_to_primitive(x) for x in raw_rhs)
-                list_dtype = pa.large_list(raw_lhs.converter.pyarrow_dtype)
-                list_converter = PrimitiveFeatureConverter(name="helper", is_nullable=False, pyarrow_dtype=list_dtype)
+                prim_values = list(raw_lhs.converter.from_rich_to_primitive(x) for x in raw_rhs)
+                list_converter = ListFeatureConverter.new(
+                    item_converter=raw_lhs.converter, default=..., is_nullable=False
+                )
                 converted_rhs = expr_pb.LogicalExprNode(
                     literal=list_converter.from_primitive_to_protobuf(prim_values),
                 )
@@ -448,7 +450,7 @@ class ToProtoConverter:
     @staticmethod
     def convert_rich_type_to_protobuf(rich_type: type[TRich]) -> arrow_pb.ArrowType:
         converter = GenericFeatureConverter(name="helper", is_nullable=False, rich_type=rich_type)
-        return converter.convert_pa_dtype_to_proto_dtype(converter.pyarrow_dtype)
+        return converter.protobuf_dtype
 
     @staticmethod
     def create_stream_source_reference(source: StreamSource) -> sources_pb.StreamSourceReference:
@@ -673,7 +675,7 @@ class ToProtoConverter:
                     pb.ResolverInput(
                         state=pb.ResolverState(
                             initial=converter.from_rich_to_protobuf(state.initial),
-                            arrow_type=converter.convert_pa_dtype_to_proto_dtype(converter.pyarrow_dtype),
+                            arrow_type=converter.protobuf_dtype,
                         )
                     )
                 )
@@ -720,27 +722,26 @@ class ToProtoConverter:
             return None
 
         res: list[pb.FeatureValidation] = []
-        converter = PrimitiveFeatureConverter(name="validation_helper", is_nullable=True, pyarrow_dtype=pa.null())
         for val in validations:
             # For backwards compat, store both the arrow and non-arrow versions (modern servers will prefer reading the arrow-based field)
             if val.min is not None:
                 res.append(pb.FeatureValidation(min=val.min, strict=val.strict))
-                proto_scalar = converter.from_pyarrow_to_protobuf(pa.scalar(val.min))
+                proto_scalar = pa_scalar_to_proto(pa.scalar(val.min))
                 res.append(pb.FeatureValidation(min_arrow=proto_scalar, strict=val.strict))
             if val.max is not None:
                 res.append(pb.FeatureValidation(max=val.max, strict=val.strict))
-                proto_scalar = converter.from_pyarrow_to_protobuf(pa.scalar(val.max))
+                proto_scalar = pa_scalar_to_proto(pa.scalar(val.max))
                 res.append(pb.FeatureValidation(max_arrow=proto_scalar, strict=val.strict))
             if val.min_length is not None:
                 res.append(pb.FeatureValidation(min_length=val.min_length, strict=val.strict))
-                proto_scalar = converter.from_pyarrow_to_protobuf(pa.scalar(val.min_length))
+                proto_scalar = pa_scalar_to_proto(pa.scalar(val.min_length))
                 res.append(pb.FeatureValidation(min_length_arrow=proto_scalar, strict=val.strict))
             if val.max_length is not None:
                 res.append(pb.FeatureValidation(max_length=val.max_length, strict=val.strict))
-                proto_scalar = converter.from_pyarrow_to_protobuf(pa.scalar(val.max_length))
+                proto_scalar = pa_scalar_to_proto(pa.scalar(val.max_length))
                 res.append(pb.FeatureValidation(max_length_arrow=proto_scalar, strict=val.strict))
             if val.contains is not None:
-                proto_scalar = converter.from_pyarrow_to_protobuf(pa.scalar(val.contains))
+                proto_scalar = pa_scalar_to_proto(pa.scalar(val.contains))
                 res.append(pb.FeatureValidation(contains=proto_scalar, strict=val.strict))
 
         return res
@@ -877,7 +878,7 @@ class ToProtoConverter:
                 unversioned_attribute_name=(
                     f.unversioned_attribute_name if hasattr(f, "unversioned_attribute_name") else None
                 ),
-                arrow_type=converter.convert_pa_dtype_to_proto_dtype(converter.pyarrow_dtype),
+                arrow_type=converter.protobuf_dtype,
                 is_nullable=f.typ.is_nullable,
                 description=f.description,
                 owner=f.owner,
@@ -982,7 +983,7 @@ class ToProtoConverter:
             scalar=pb.ScalarFeatureType(
                 name=f.name,
                 namespace=f.namespace,
-                arrow_type=converter.convert_pa_dtype_to_proto_dtype(converter.pyarrow_dtype),
+                arrow_type=converter.protobuf_dtype,
                 is_distance_pseudofeature=f.is_distance_pseudofeature,
                 is_nullable=f.typ.is_nullable,
                 is_primary=f.primary,
@@ -1337,7 +1338,7 @@ class ToProtoConverter:
             arrow_type = None
             if converter:
                 try:
-                    arrow_type = converter.convert_pa_dtype_to_proto_dtype(converter.pyarrow_dtype)
+                    arrow_type = converter.protobuf_dtype
                 except:
                     # TODO: Stream message types are often more expressive than we can
                     #       currently serialize. But we don't want to block `chalk apply`

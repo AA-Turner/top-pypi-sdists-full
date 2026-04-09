@@ -38,6 +38,7 @@ __all__ = [
     "CodeStructureItem",
     "CodeSymbolInfo",
     "ConcurrencyConfig",
+    "ContentFilterConfig",
     "ContentLayer",
     "ContributorRole",
     "CsvMetadata",
@@ -85,6 +86,7 @@ __all__ = [
     "LanguageDetectionConfig",
     "LayoutDetectionConfig",
     "LinkMetadata",
+    "LlmConfig",
     "Metadata",
     "MissingDependencyError",
     "NodeContent",
@@ -120,6 +122,7 @@ __all__ = [
     "RakeParams",
     "ResultFormat",
     "StructuredData",
+    "StructuredExtractionConfig",
     "TableGrid",
     "TesseractConfig",
     "TextAnnotation",
@@ -149,6 +152,8 @@ __all__ = [
     "detect_mime_type_from_path",
     "download_languages",
     "downloaded_languages",
+    "embed",
+    "embed_sync",
     "error_code_name",
     "extract_bytes",
     "extract_bytes_sync",
@@ -462,6 +467,42 @@ class EmailConfig:
         msg_fallback_codepage: int | None = None,
     ) -> None: ...
 
+class ContentFilterConfig:
+    """Content filtering configuration.
+
+    Controls whether "furniture" content (headers, footers, page numbers,
+    watermarks, repeating text) is included in or stripped from extraction results.
+
+    Attributes:
+        include_headers (bool): Include running headers in extraction output.
+            Default: False
+        include_footers (bool): Include running footers in extraction output.
+            Default: False
+        strip_repeating_text (bool): Enable cross-page repeating text detection
+            and removal. Default: True
+        include_watermarks (bool): Include watermark text in extraction output.
+            Default: False
+
+    Example:
+        Include headers and footers:
+            >>> from kreuzberg import ContentFilterConfig
+            >>> config = ContentFilterConfig(include_headers=True, include_footers=True)
+    """
+
+    include_headers: bool
+    include_footers: bool
+    strip_repeating_text: bool
+    include_watermarks: bool
+
+    def __init__(
+        self,
+        *,
+        include_headers: bool | None = None,
+        include_footers: bool | None = None,
+        strip_repeating_text: bool | None = None,
+        include_watermarks: bool | None = None,
+    ) -> None: ...
+
 class ConcurrencyConfig:
     """Concurrency configuration for controlling thread usage.
 
@@ -643,6 +684,44 @@ class CodeProcessResult(TypedDict):
     diagnostics: list[CodeDiagnostic]
     chunks: list[CodeChunk]
 
+class LlmConfig:
+    model: str
+    api_key: str | None
+    base_url: str | None
+    timeout_secs: int | None
+    max_retries: int | None
+    temperature: float | None
+    max_tokens: int | None
+
+    def __init__(
+        self,
+        model: str,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        timeout_secs: int | None = None,
+        max_retries: int | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> None: ...
+
+class StructuredExtractionConfig:
+    schema: dict[str, Any]
+    llm: LlmConfig
+    schema_name: str
+    schema_description: str | None
+    strict: bool
+    prompt: str | None
+
+    def __init__(
+        self,
+        schema: dict[str, Any],
+        llm: LlmConfig,
+        schema_name: str = "extraction",
+        schema_description: str | None = None,
+        strict: bool = False,
+        prompt: str | None = None,
+    ) -> None: ...
+
 class ExtractionConfig:
     """Main extraction configuration for document processing.
 
@@ -744,6 +823,7 @@ class ExtractionConfig:
     email: EmailConfig | None
     concurrency: ConcurrencyConfig | None
     tree_sitter: TreeSitterConfig | None
+    content_filter: ContentFilterConfig | None
     cache_namespace: str | None
     cache_ttl_secs: int | None
     extraction_timeout_secs: int | None
@@ -776,6 +856,7 @@ class ExtractionConfig:
         email: EmailConfig | None = None,
         concurrency: ConcurrencyConfig | None = None,
         tree_sitter: TreeSitterConfig | None = None,
+        content_filter: ContentFilterConfig | None = None,
         cache_namespace: str | None = ...,
         cache_ttl_secs: int | None = ...,
         extraction_timeout_secs: int | None = ...,
@@ -813,6 +894,7 @@ class FileExtractionConfig:
     layout: LayoutDetectionConfig | None
     timeout_secs: int | None
     tree_sitter: TreeSitterConfig | None
+    content_filter: ContentFilterConfig | None
 
     def __init__(
         self,
@@ -836,6 +918,7 @@ class FileExtractionConfig:
         layout: LayoutDetectionConfig | None = None,
         timeout_secs: int | None = None,
         tree_sitter: TreeSitterConfig | None = None,
+        content_filter: ContentFilterConfig | None = None,
     ) -> None: ...
 
 class OcrConfig:
@@ -928,6 +1011,8 @@ class EmbeddingModelType:
     def fastembed(model: str, dimensions: int) -> EmbeddingModelType: ...
     @staticmethod
     def custom(model_id: str, dimensions: int) -> EmbeddingModelType: ...
+    @staticmethod
+    def llm(config: LlmConfig) -> EmbeddingModelType: ...
 
 class EmbeddingConfig:
     """Embedding generation configuration for text chunks.
@@ -2424,6 +2509,14 @@ def clear_validators() -> None: ...
 def unregister_validator(name: str) -> None: ...
 def list_embedding_presets() -> list[str]: ...
 def get_embedding_preset(name: str) -> EmbeddingPreset | None: ...
+def embed_sync(
+    texts: list[str],
+    config: EmbeddingConfig | None = ...,
+) -> list[list[float]]: ...
+def embed(
+    texts: list[str],
+    config: EmbeddingConfig | None = ...,
+) -> Awaitable[list[list[float]]]: ...
 def clear_document_extractors() -> None: ...
 def clear_ocr_backends() -> None: ...
 def detect_mime_type_from_bytes(data: bytes) -> str: ...

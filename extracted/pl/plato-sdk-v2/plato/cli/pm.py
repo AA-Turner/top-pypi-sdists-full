@@ -1536,9 +1536,9 @@ def review_env(
                         console.print(f"[bold red]📋 Most Recent Base Review: REJECTED[/bold red] ({timestamp})")
                     else:
                         console.print(f"[bold green]📋 Most Recent Base Review: PASSED[/bold green] ({timestamp})")
-                    comments = recent_review.get("comments")
-                    if comments:
-                        console.print(f"[yellow]Reviewer Comments:[/yellow] {comments}")
+                    comment_texts = _extract_review_comment_texts(recent_review)
+                    for comment_text in comment_texts:
+                        console.print(f"[yellow]Reviewer Comments:[/yellow] {comment_text}")
 
                 console.print()
 

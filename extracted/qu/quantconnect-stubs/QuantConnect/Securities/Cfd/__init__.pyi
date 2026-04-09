@@ -9,34 +9,16 @@ import QuantConnect.Securities
 import QuantConnect.Securities.Cfd
 
 
-class CfdExchange(QuantConnect.Securities.SecurityExchange):
-    """CFD exchange class - information and helper tools for CFD exchange properties"""
-
-    @property
-    def trading_days_per_year(self) -> int:
-        """Number of trading days per year for this security, used for performance statistics."""
-        ...
-
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
-        """
-        Initializes a new instance of the CfdExchange class using the specified
-        exchange hours to determine open/close times
-        
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
-        ...
-
-
-class CfdDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """CFD packet by packet data filtering mechanism for dynamically detecting bad ticks."""
-
-
 class Cfd(QuantConnect.Securities.Security):
     """CFD Security Object Implementation for CFD Assets"""
 
     @property
     def contract_multiplier(self) -> float:
-        """Gets the contract multiplier for this CFD security"""
+        """Gets or sets the contract multiplier for this CFD security"""
+        ...
+
+    @contract_multiplier.setter
+    def contract_multiplier(self, value: float) -> None:
         ...
 
     @property
@@ -60,7 +42,38 @@ class Cfd(QuantConnect.Securities.Security):
         ...
 
     @overload
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, config: QuantConnect.Data.SubscriptionDataConfig, symbol_properties: QuantConnect.Securities.ContractSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider) -> None:
+        """
+        Constructor for the CFD security
+        
+        :param exchange_hours: Defines the hours this exchange is open
+        :param quote_currency: The cash object that represent the quote currency
+        :param config: The subscription configuration for this security
+        :param symbol_properties: The symbol properties for this security
+        :param currency_converter: Currency converter used to convert CashAmount
+        instances into units of the account currency
+        :param registered_types: Provides all data types registered in the algorithm
+        """
+        ...
+
+    @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache) -> None:
+        """
+        Constructor for the CFD security
+        
+        :param symbol: The security's symbol
+        :param exchange_hours: Defines the hours this exchange is open
+        :param quote_currency: The cash object that represent the quote currency
+        :param symbol_properties: The symbol properties for this security
+        :param currency_converter: Currency converter used to convert CashAmount
+        instances into units of the account currency
+        :param registered_types: Provides all data types registered in the algorithm
+        :param security_cache: Cache for storing Security data
+        """
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.ContractSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache) -> None:
         """
         Constructor for the CFD security
         
@@ -97,6 +110,28 @@ class CfdHolding(QuantConnect.Securities.SecurityHolding):
         
         :param security: The CFD security being held
         :param currency_converter: A currency converter instance
+        """
+        ...
+
+
+class CfdDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """CFD packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+
+
+class CfdExchange(QuantConnect.Securities.SecurityExchange):
+    """CFD exchange class - information and helper tools for CFD exchange properties"""
+
+    @property
+    def trading_days_per_year(self) -> int:
+        """Number of trading days per year for this security, used for performance statistics."""
+        ...
+
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        """
+        Initializes a new instance of the CfdExchange class using the specified
+        exchange hours to determine open/close times
+        
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
         """
         ...
 

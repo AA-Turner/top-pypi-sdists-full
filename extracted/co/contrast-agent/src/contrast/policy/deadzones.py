@@ -169,6 +169,15 @@ deadzone_nodes = [
         "class_name": "SourceLoader",
         "method_name": "source_to_code",
     },
+    {
+        # This function performs case-insensitive key lookups in dynaconf settings
+        # dictionaries. It causes a lot of unnecessary string propagation due to
+        # repeated lower() and replace() calls over all dictionary keys. The strings
+        # produced by these calls are only used for comparison and never escape this
+        # function.
+        "module": "dynaconf.utils",
+        "method_name": "find_the_correct_casing",
+    },
 ]
 
 

@@ -218,17 +218,8 @@ def bind_ws_with_connection(ws: WsLike, conn: ConnectionProtocol, block: bool):
                             )
                     continue
 
-                # Intercept task messages — always broadcast (not a log)
+                # Task messages are now broadcast via fanout exchange
                 if isinstance(message, dict) and message.get("type") == "task":
-                    try:
-                        from abstra_internals.controllers.execution.execution_stdio import (
-                            BroadcastController,
-                        )
-                        from abstra_internals.utils import serialize
-
-                        BroadcastController.broadcast(msg=serialize(message))
-                    except Exception as e:
-                        AbstraLogger.error(f"[WS:{binding_id}] Broadcast error: {e}")
                     continue
 
                 # Intercept stdio_batch: unpack and broadcast as individual stdio msgs

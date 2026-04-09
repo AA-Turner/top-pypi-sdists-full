@@ -54,12 +54,13 @@ class _KeeperActionContext:
         *,
         collection: str,
         item_id: str | None = None,
-        item_content: str | None = None,
+        item_text: str | None = None,
     ) -> None:
         self._keeper = keeper
         self._collection = collection
         self.item_id = item_id
-        self.item_content = item_content
+        self.item_text = item_text
+        self.item_content = item_text
 
     def get(self, id: str) -> Any:
         return self._keeper.get(id)
@@ -297,6 +298,14 @@ def _apply_mutations(
             from keep.providers.base import strip_summary_preamble
             summary = strip_summary_preamble(summary)
             keeper._document_store.update_summary(collection, target, summary)
+            content_hash = str(mut.get("content_hash", ""))
+            content_hash_full = str(mut.get("content_hash_full", ""))
+            if content_hash:
+                keeper._document_store.update_content_hash(
+                    collection, target,
+                    content_hash=content_hash,
+                    content_hash_full=content_hash_full,
+                )
             if mut.get("embed"):
                 chroma_coll = keeper._resolve_chroma_collection()
                 embedding = keeper._get_embedding_provider().embed(summary)
@@ -311,30 +320,6 @@ def _apply_mutations(
             else:
                 keeper._store.update_summary(collection, target, summary)
 
-        elif op == "set_content":
-            target = str(mut["target"])
-            content = str(_resolve_ref(mut["content"], output))
-            content_hash = str(mut.get("content_hash", ""))
-            content_hash_full = str(mut.get("content_hash_full", ""))
-            summary = str(_resolve_ref(mut.get("summary", ""), output))
-            keeper._document_store.update_summary(collection, target, summary)
-            if content_hash:
-                keeper._document_store.update_content_hash(
-                    collection, target,
-                    content_hash=content_hash,
-                    content_hash_full=content_hash_full,
-                )
-            chroma_coll = keeper._resolve_chroma_collection()
-            embedding = keeper._get_embedding_provider().embed(summary)
-            existing = keeper._document_store.get(collection, target)
-            tags = {}
-            if existing:
-                tags = casefold_tags_for_index(existing.tags or {})
-            keeper._store.upsert(
-                collection=chroma_coll, id=target,
-                embedding=embedding, summary=summary, tags=tags,
-            )
-
         elif op == "put_item":
             from .types import is_part_id, parse_part_id
             item_id = mut.get("id", "")
@@ -346,7 +331,6 @@ def _apply_mutations(
                 part = PartInfo(
                     part_num=part_num,
                     summary=str(mut.get("summary", "")),
-                    content=str(mut.get("content", "")),
                     tags=dict(mut.get("tags") or {}),
                     created_at=utc_now(),
                 )
@@ -379,8 +363,8 @@ def _apply_mutations(
                 merged = dict(existing_tags)
                 merged.update(tags)
 
-                # Normalize markdown-style edge tag values into canonical
-                # id[[alias]] form before storage. Mirrors the put path.
+                # Normalize edge-tag values into canonical labeled-ref
+                # form before storage. Mirrors the put path.
                 keeper._normalize_edge_tag_values(merged, collection)
 
                 keeper._document_store.update_tags(collection, target, merged)
@@ -416,7 +400,7 @@ def run_local_task(keeper: "Keeper", req: TaskRequest) -> TaskRunResult:
         keeper,
         collection=req.collection,
         item_id=req.id,
-        item_content=req.content or None,
+        item_text=req.content or None,
     )
 
     params: dict[str, Any] = {"item_id": req.id}

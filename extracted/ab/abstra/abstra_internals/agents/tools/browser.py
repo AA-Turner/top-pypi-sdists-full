@@ -342,20 +342,13 @@ class BrowserTools(AgentTools):
 
         selenium_remote_url = os.environ.get("SELENIUM_REMOTE_URL")
         self._is_remote = bool(selenium_remote_url)
-        if selenium_remote_url:
-            cdp_url = f"{selenium_remote_url}/cdp"
-            if self.debug_mode:
-                print(
-                    f"[DEBUG][BrowserTools.__init__] Connecting to remote browser via CDP: {cdp_url}"
-                )
-            self.browser = pw.chromium.connect_over_cdp(cdp_url)
-            self._browser_context = self._build_browser_context(client_certificate)
-        else:
-            if self.debug_mode:
-                print(
-                    f"[DEBUG][BrowserTools.__init__] Playwright started, launching chromium (headless={self.headless})"
-                )
-            # Local only: auto-install Chromium if missing (web editor uses remote Selenium)
+        if self.debug_mode:
+            print(
+                f"[DEBUG][BrowserTools.__init__] Launching chromium (headless={self.headless}, remote={self._is_remote})"
+            )
+        if not self._is_remote:
+            # Local only: auto-install Chromium if missing
+            # Web editor uses remote Selenium via SELENIUM_REMOTE_URL
             if not os.path.exists(pw.chromium.executable_path):
                 if self.debug_mode:
                     print(
@@ -365,8 +358,10 @@ class BrowserTools(AgentTools):
                     [sys.executable, "-m", "playwright", "install", "chromium"],
                     check=True,
                 )
-            self.browser = pw.chromium.launch(headless=self.headless)
-            self._browser_context = self._build_browser_context(client_certificate)
+        # When SELENIUM_REMOTE_URL is set, Playwright automatically routes
+        # through Selenium Grid (supported since Playwright 1.28)
+        self.browser = pw.chromium.launch(headless=self.headless)
+        self._browser_context = self._build_browser_context(client_certificate)
         if self.debug_mode:
             print("[DEBUG][BrowserTools.__init__] Browser launched successfully")
         self.pages = {}

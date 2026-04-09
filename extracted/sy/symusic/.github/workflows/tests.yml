@@ -12,36 +12,50 @@ jobs:
     name: Tests on ${{ matrix.os }} with python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        # os: [ ubuntu-latest, macOS-latest, windows-latest ]
-        os: [ ubuntu-latest ]
-        python-version: [ "3.8", "3.x", "pypy3.9" ]
+        os: [ ubuntu-latest, macOS-latest, windows-latest ]
+        python-version: [ "3.9", "3.x", "pypy3.9" ]
         exclude:
-          - os: macos-latest
+          - os: macOS-latest
+            python-version: "pypy3.9"
+          - os: windows-latest
             python-version: "pypy3.9"
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
+      - name: Setup MSVC DevShell (Windows)
+        if: runner.os == 'Windows'
+        uses: bus1/cabuild/action/msdevshell@e22aba57d6e74891d059d66501b6b5aed8123c4d  # v1
+        with:
+          architecture: 'x64'
+
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: setup.py
+          cache-dependency-path: pyproject.toml
 
-      - name: Install dependencies
-        run: |
-          # Install local package with tests dependencies extras
-          pip install ".[test]"
+      - name: Install dependencies and capture build timings
+        run: python scripts/benchmark_install.py --output-dir build-bench --package ".[test]"
+
+      - name: Upload install benchmark artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: install-benchmark-${{ matrix.os }}-${{ matrix.python-version }}
+          path: build-bench
+          retention-days: 30
 
       - name: Test with pytest
         run: pytest -s --cov=symusic --cov-report=xml -n auto --durations=0 -v tests
 
       - name: Codecov
-        uses: codecov/codecov-action@v5.5.1
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           flags: python
@@ -53,9 +67,15 @@ jobs:
         os: [ ubuntu-latest, windows-latest, macOS-latest ]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
+
+      - name: Setup MSVC DevShell (Windows)
+        if: runner.os == 'Windows'
+        uses: bus1/cabuild/action/msdevshell@e22aba57d6e74891d059d66501b6b5aed8123c4d  # v1
+        with:
+          architecture: 'x64'
 
       - name: Install gcovr (Linux)
         if: runner.os == 'Linux'
@@ -71,7 +91,7 @@ jobs:
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
-        run: cmake -S . -Bbuild -DBUILD_SYMUSIC_TEST:BOOL=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        run: cmake -S . -Bbuild -G Ninja -DBUILD_SYMUSIC_TEST:BOOL=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       - name: Build
         run: cmake --build build --config Debug
@@ -89,7 +109,7 @@ jobs:
 
       - name: Codecov
         if: runner.os != 'Windows'
-        uses: codecov/codecov-action@v5.5.1
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: ./build/coverage.xml

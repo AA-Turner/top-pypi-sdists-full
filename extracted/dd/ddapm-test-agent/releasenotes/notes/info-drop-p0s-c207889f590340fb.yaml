@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Add ClientDropP0s setting to /info response.

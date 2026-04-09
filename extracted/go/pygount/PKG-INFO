@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygount
-Version: 3.1.1
+Version: 3.2.0
 Summary: count source lines of code (SLOC) using pygments
 Project-URL: Homepage, https://github.com/roskakori/pygount
 Project-URL: Repository, https://github.com/roskakori/pygount.git

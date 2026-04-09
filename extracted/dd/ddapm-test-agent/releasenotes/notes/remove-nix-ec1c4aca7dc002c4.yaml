@@ -1,4 +1,0 @@
----
-other:
-  - |
-    This change removes nix build support.

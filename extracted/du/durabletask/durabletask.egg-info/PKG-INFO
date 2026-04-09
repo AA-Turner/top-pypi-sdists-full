@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: durabletask
-Version: 1.3.0
+Version: 1.4.0
 Summary: A Durable Task Client SDK for Python
 License:     MIT License
         
@@ -37,6 +37,11 @@ Requires-Dist: grpcio
 Requires-Dist: protobuf
 Requires-Dist: asyncio
 Requires-Dist: packaging
+Provides-Extra: opentelemetry
+Requires-Dist: opentelemetry-api>=1.0.0; extra == "opentelemetry"
+Requires-Dist: opentelemetry-sdk>=1.0.0; extra == "opentelemetry"
+Provides-Extra: azure-blob-payloads
+Requires-Dist: azure-storage-blob[aio]>=12.0.0; extra == "azure-blob-payloads"
 Dynamic: license-file
 
 # Durable Task SDK for Python
@@ -55,6 +60,20 @@ This repo contains a Python SDK for use with the [Azure Durable Task Scheduler](
 - [Getting Started](./docs/getting-started.md)
 - [Development Guide](./docs/development.md) 
 - [Contributing Guide](./CONTRIBUTING.md)
+
+## Optional Features
+
+### Large Payload Externalization
+
+Install the `azure-blob-payloads` extra to automatically offload
+oversized orchestration payloads to Azure Blob Storage:
+
+```bash
+pip install durabletask[azure-blob-payloads]
+```
+
+See the [feature documentation](./docs/features.md#large-payload-externalization)
+and the [example](./examples/large_payload/) for usage details.
 
 ## Trademarks
 This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 

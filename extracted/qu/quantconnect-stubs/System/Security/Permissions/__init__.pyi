@@ -7,6 +7,14 @@ import System.Security
 import System.Security.Permissions
 
 
+class PermissionState(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    UNRESTRICTED = 1
+
+
 class SecurityAction(IntEnum):
     """This class has no documentation."""
 
@@ -60,14 +68,6 @@ class CodeAccessSecurityAttribute(System.Security.Permissions.SecurityAttribute,
 
     def __init__(self, action: System.Security.Permissions.SecurityAction) -> None:
         ...
-
-
-class PermissionState(IntEnum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    UNRESTRICTED = 1
 
 
 class SecurityPermissionFlag(IntEnum):

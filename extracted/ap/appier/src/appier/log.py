@@ -28,6 +28,7 @@ __copyright__ = "Copyright (c) 2008-2024 Hive Solutions Lda."
 __license__ = "Apache License, Version 2.0"
 """ The license for the module """
 
+import sys
 import json
 import socket
 import inspect
@@ -51,6 +52,16 @@ the app, these operations are going to be handled by
 multiple stream handlers, this version of the string
 includes the thread identification number and should be
 used for messages called from outside the main thread """
+
+LOGGING_FORMAT_TRACE_T = "%%(asctime)s [%%(name)s] [%%(levelname)s] | %s%%(pathname)s:%%(lineno)d | %%(message)s"
+""" The format to be used when the logging level is set to TRACE,
+includes file path and line number to allow for fine-grained debugging
+of low-level protocol operations """
+
+LOGGING_FORMAT_TRACE_TID_T = "%%(asctime)s [%%(name)s] [%%(levelname)s] %s[%%(thread)d] | %%(pathname)s:%%(lineno)d | %%(message)s"
+""" The format to be used when the logging level is set to TRACE and
+the thread is not the main one, includes file path, line number and
+thread identification number """
 
 LOGGING_EXTRA = "[%(name)s] " if config.conf("LOGGING_EXTRA", cast=bool) else ""
 """ The extra logging attributes that are going to be applied
@@ -78,12 +89,13 @@ logging of protocol-level operations, this is meant to be
 used for fine-grained debugging of low-level operations
 like raw byte transfers and frame parsing """
 
-LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+LEVELS = ("TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
 """ The sequence of levels from the least sever to the
 most sever this sequence may be used to find all the
 levels that are considered more sever that a level """
 
 LEVEL_ALIAS = {
+    "TRAC": "TRACE",
     "DEBU": "DEBUG",
     "WARN": "WARNING",
     "INF": "INFO",
@@ -97,8 +109,14 @@ SYSLOG_PORTS = dict(tcp=601, udp=514)
 """ Dictionary that maps the multiple transport protocol
 used by syslog with the appropriate default ports """
 
+LOGGERS = {}
+""" Dictionary of loggers that have already been initialized,
+used to ensure singleton-based initialization of named loggers """
+
 LOGGING_FORMAT = LOGGING_FORMAT_T % LOGGING_EXTRA
 LOGGING_FORMAT_TID = LOGGING_FORMAT_TID_T % LOGGING_EXTRA
+LOGGING_FORMAT_TRACE = LOGGING_FORMAT_TRACE_T % LOGGING_EXTRA
+LOGGING_FORMAT_TRACE_TID = LOGGING_FORMAT_TRACE_TID_T % LOGGING_EXTRA
 
 
 class MemoryHandler(logging.Handler):
@@ -320,6 +338,8 @@ class DummyLogger(object):
 def reload_format(app=None):
     global LOGGING_FORMAT
     global LOGGING_FORMAT_TID
+    global LOGGING_FORMAT_TRACE
+    global LOGGING_FORMAT_TRACE_TID
 
     app = app or common.base().get_app()
 
@@ -329,6 +349,8 @@ def reload_format(app=None):
 
     LOGGING_FORMAT = LOGGING_FORMAT_T % extra
     LOGGING_FORMAT_TID = LOGGING_FORMAT_TID_T % extra
+    LOGGING_FORMAT_TRACE = LOGGING_FORMAT_TRACE_T % extra
+    LOGGING_FORMAT_TRACE_TID = LOGGING_FORMAT_TRACE_TID_T % extra
 
 
 def rotating_handler(
@@ -376,6 +398,10 @@ def patch_logging():
     logging._appier_patched = True
 
 
+def get_logger(name=None):
+    return _ensure_logger(name)
+
+
 def in_signature(callable, name):
     has_full = hasattr(inspect, "getfullargspec")
     if has_full:
@@ -387,5 +413,73 @@ def in_signature(callable, name):
 
 
 def _trace(self, message, *args, **kwargs):
-    if self.isEnabledFor(TRACE):
-        self._log(TRACE, message, args, **kwargs)
+    if not self.isEnabledFor(TRACE):
+        return
+    if sys.version_info >= (3, 8):
+        kwargs.setdefault("stacklevel", 2)
+    self._log(TRACE, message, args, **kwargs)
+
+
+def _ensure_logger(name=None, with_tid=None):
+    # verifies if the logger already exists in the global
+    # loggers map and returns it immediately if so
+    if name in LOGGERS:
+        return LOGGERS[name]
+
+    # patches the logging infra-structure so that the
+    # TRACE level is available for the logger
+    patch_logging()
+
+    # retrieves the logging level and format from the
+    # current configuration defaulting to sane values
+    level_s = config.conf("LEVEL", None)
+    format = config.conf("LOGGING_FORMAT", None)
+
+    # resolves the logging level using the application's
+    # level method falling back to the INFO level
+    level = _level(level_s)
+    level = level or logging.INFO
+
+    # resolves the logging format taking into account if
+    # the level is TRACE to use the verbose format
+    is_trace = level <= TRACE
+    if with_tid == None:
+        with_tid = is_trace
+    format = format or (
+        (LOGGING_FORMAT_TRACE_TID if with_tid else LOGGING_FORMAT_TRACE)
+        if is_trace
+        else (LOGGING_FORMAT_TID if with_tid else LOGGING_FORMAT)
+    )
+
+    # creates the logger with the provided name and sets
+    # the resolved logging level in it
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    # creates the stream handler setting the level and the
+    # formatter using the thread aware formatter
+    handler = logging.StreamHandler()
+    handler.setLevel(level)
+    handler.setFormatter(ThreadFormatter(format))
+
+    # adds the handler to the logger and stores it in the
+    # global loggers map for later retrieval
+    logger.addHandler(handler)
+
+    LOGGERS[name] = logger
+    return logger
+
+
+def _level(level):
+    level_t = type(level)
+    if level_t == int:
+        return level
+    if level == None:
+        return level
+    if level == "SILENT":
+        return SILENT
+    if level == "TRACE":
+        return TRACE
+    if hasattr(logging, "_checkLevel"):
+        return logging._checkLevel(level)
+    return logging.getLevelName(level)

@@ -3,7 +3,6 @@
 from contrast.agent.policy.registry import register_propagation_nodes
 from contrast.agent.policy.utils import CompositeNode
 
-
 string_propagators = [
     CompositeNode(
         {
@@ -148,7 +147,7 @@ string_propagators = [
     ),
     {
         "module": "builtins",
-        "method_name": ["ascii", "format"],
+        "method_name": ["ascii", "format"],  # TODO: PYT-4064 - remove `format`
         # No keyword arguments
         "source": "ARG_0",
         "target": "RETURN",

@@ -38,6 +38,7 @@ from skyvern.constants import (
     GET_DOWNLOADED_FILES_TIMEOUT,
     MAX_FILE_PARSE_INPUT_TOKENS,
     MAX_UPLOAD_FILE_COUNT,
+    loop_iteration_key,
 )
 from skyvern.exceptions import (
     AzureConfigurationError,
@@ -81,7 +82,11 @@ from skyvern.forge.sdk.settings_manager import SettingsManager
 from skyvern.forge.sdk.trace import traced
 from skyvern.forge.sdk.utils.pdf_parser import extract_pdf_file, render_pdf_pages_as_images, validate_pdf_file
 from skyvern.forge.sdk.utils.sanitization import sanitize_postgres_text
-from skyvern.forge.sdk.workflow.context_manager import BlockMetadata, WorkflowRunContext
+from skyvern.forge.sdk.workflow.context_manager import (
+    BlockMetadata,
+    WorkflowRunContext,
+    set_iteration_workflow_run_context,
+)
 from skyvern.forge.sdk.workflow.exceptions import (
     CustomizedCodeException,
     FailedToFormatJinjaStyleParameter,
@@ -159,6 +164,9 @@ TASKV2_TO_BLOCK_STATUS: dict[TaskV2Status, BlockStatus] = {
 
 # ForLoop constants
 DEFAULT_MAX_LOOP_ITERATIONS = 100
+# Persist accumulated loop output to DB every N iterations to survive timeouts.
+# Trades up to N-1 iterations of data loss for O(N/K) writes instead of O(N).
+PERSIST_LOOP_OUTPUT_INTERVAL = 10
 DEFAULT_MAX_STEPS_PER_ITERATION = 50
 
 
@@ -207,7 +215,7 @@ class Block(BaseModel, abc.ABC):
             parameter=self.output_parameter,
             value=value,
         )
-        await app.DATABASE.create_or_update_workflow_run_output_parameter(
+        await app.DATABASE.workflow_runs.create_or_update_workflow_run_output_parameter(
             workflow_run_id=workflow_run_id,
             output_parameter_id=self.output_parameter.output_parameter_id,
             value=value,
@@ -238,7 +246,7 @@ class Block(BaseModel, abc.ABC):
             output_parameter_value = {"value": output_parameter_value}
 
         if workflow_run_block_id:
-            await app.DATABASE.update_workflow_run_block(
+            await app.DATABASE.observer.update_workflow_run_block(
                 workflow_run_block_id=workflow_run_block_id,
                 output=output_parameter_value,
                 status=status,
@@ -495,7 +503,7 @@ class Block(BaseModel, abc.ABC):
             LOG.exception("Failed to generate description for the workflow run block", error=e)
 
         if description:
-            await app.DATABASE.update_workflow_run_block(
+            await app.DATABASE.observer.update_workflow_run_block(
                 workflow_run_block_id=workflow_run_block_id,
                 description=description,
                 organization_id=organization_id,
@@ -522,7 +530,7 @@ class Block(BaseModel, abc.ABC):
             if isinstance(self, BaseTaskBlock):
                 engine = self.engine
 
-            workflow_run_block = await app.DATABASE.create_workflow_run_block(
+            workflow_run_block = await app.DATABASE.observer.create_workflow_run_block(
                 workflow_run_id=workflow_run_id,
                 organization_id=organization_id,
                 parent_workflow_run_block_id=parent_workflow_run_block_id,
@@ -536,7 +544,13 @@ class Block(BaseModel, abc.ABC):
             workflow_run_block_id = workflow_run_block.workflow_run_block_id
 
             # generate the description for the workflow run block asynchronously
-            asyncio.create_task(self._generate_workflow_run_block_description(workflow_run_block_id, organization_id))
+            # Skip for subsequent for-loop iterations (current_index > 0) — the block
+            # definition is identical across iterations and each iteration gets a fresh
+            # model_copy(deep=True), so instance-level caching doesn't survive.
+            if current_index is None or current_index == 0:
+                asyncio.create_task(
+                    self._generate_workflow_run_block_description(workflow_run_block_id, organization_id)
+                )
 
             # create a screenshot
             browser_state = app.BROWSER_MANAGER.get_for_workflow_run(workflow_run_id)
@@ -707,7 +721,9 @@ class BaseTaskBlock(Block):
         """
         Returns the order and retry for the next task in the workflow run as a tuple.
         """
-        last_task_for_workflow_run = await app.DATABASE.get_last_task_for_workflow_run(workflow_run_id=workflow_run_id)
+        last_task_for_workflow_run = await app.DATABASE.tasks.get_last_task_for_workflow_run(
+            workflow_run_id=workflow_run_id
+        )
         # If there is no previous task, the order will be 0 and the retry will be 0.
         if last_task_for_workflow_run is None:
             return 0, 0
@@ -746,7 +762,7 @@ class BaseTaskBlock(Block):
         This helper method consolidates the error detection logic that was previously
         duplicated across multiple exception handlers in the execute method.
         """
-        await app.DATABASE.update_task(
+        await app.DATABASE.tasks.update_task(
             task.task_id,
             status=TaskStatus.failed,
             organization_id=organization_id,
@@ -764,7 +780,7 @@ class BaseTaskBlock(Block):
                 if detected_errors:
                     # Only pass new errors — update_task() appends to existing errors
                     new_errors = [error.model_dump() for error in detected_errors]
-                    await app.DATABASE.update_task(
+                    await app.DATABASE.tasks.update_task(
                         task_id=task.task_id,
                         organization_id=organization_id,
                         errors=new_errors,
@@ -867,13 +883,15 @@ class BaseTaskBlock(Block):
                 task_order=task_order,
                 task_retry=task_retry,
             )
-            workflow_run_block = await app.DATABASE.update_workflow_run_block(
+            workflow_run_block = await app.DATABASE.observer.update_workflow_run_block(
                 workflow_run_block_id=workflow_run_block_id,
                 task_id=task.task_id,
                 organization_id=organization_id,
             )
             current_running_task = task
-            organization = await app.DATABASE.get_organization(organization_id=workflow_run.organization_id)
+            organization = await app.DATABASE.organizations.get_organization(
+                organization_id=workflow_run.organization_id
+            )
             if not organization:
                 raise Exception(f"Organization is missing organization_id={workflow_run.organization_id}")
 
@@ -947,6 +965,8 @@ class BaseTaskBlock(Block):
                     )
             else:
                 # if not the first task block, need to navigate manually
+                # get_for_workflow_run checks SkyvernContext for iteration-specific
+                # browser keys (__iter_N) first, falling back to bare workflow_run_id.
                 browser_state = app.BROWSER_MANAGER.get_for_workflow_run(workflow_run_id=workflow_run_id)
                 if browser_state is None:
                     raise MissingBrowserState(task_id=task.task_id, workflow_run_id=workflow_run_id)
@@ -1009,7 +1029,7 @@ class BaseTaskBlock(Block):
                 current_context.task_id = None
 
             # Check task status
-            updated_task = await app.DATABASE.get_task(
+            updated_task = await app.DATABASE.tasks.get_task(
                 task_id=task.task_id, organization_id=workflow_run.organization_id
             )
             if not updated_task:
@@ -1326,6 +1346,14 @@ class ForLoopBlock(Block):
     # Note: intentionally excludes `list` (unlike BaseTaskBlock.data_schema) because a list schema
     # does not describe the shape of individual loop items -- only dict schemas are meaningful here.
     data_schema: dict[str, Any] | str | None = None
+    # Parallel execution: None or 1 = sequential (existing behavior), 2-20 = parallel batch size.
+    max_concurrency: int | None = None
+
+    @model_validator(mode="after")
+    def _clamp_max_concurrency(self) -> ForLoopBlock:
+        if self.max_concurrency is not None:
+            self.max_concurrency = max(1, min(self.max_concurrency, 20))
+        return self
 
     def get_all_parameters(
         self,
@@ -1772,6 +1800,42 @@ class ForLoopBlock(Block):
             if isinstance(block, ForLoopBlock):
                 block.validate_loop_blocks()
 
+    async def _persist_partial_loop_output(
+        self,
+        workflow_run_id: str,
+        outputs_with_loop_values: list[list[dict[str, Any]]],
+        loop_idx: int,
+    ) -> None:
+        """Persist partial for-loop output to DB so data survives Temporal
+        activity timeouts. The timeout handler runs on a different node and
+        reads from DB — without this, accumulated iteration data is lost when
+        the loop is killed mid-execution.
+
+        Uses the DB UPSERT directly instead of record_output_parameter_value
+        to avoid re-registering context parameters and emitting spurious
+        'already has a registered value' warnings on every call.
+
+        On the normal iteration path, this is called every
+        PERSIST_LOOP_OUTPUT_INTERVAL iterations and on the final iteration
+        to balance durability vs DB load. Early-return paths (failure,
+        cancellation) always persist since they are terminal."""
+        if not self.output_parameter:
+            return
+        try:
+            await app.DATABASE.workflow_runs.create_or_update_workflow_run_output_parameter(
+                workflow_run_id=workflow_run_id,
+                output_parameter_id=self.output_parameter.output_parameter_id,
+                value=outputs_with_loop_values,
+            )
+        except Exception:
+            LOG.warning(
+                "Failed to incrementally persist for-loop output",
+                workflow_run_id=workflow_run_id,
+                output_parameter_id=self.output_parameter.output_parameter_id,
+                loop_idx=loop_idx,
+                exc_info=True,
+            )
+
     async def execute_loop_helper(
         self,
         workflow_run_id: str,
@@ -1781,6 +1845,53 @@ class ForLoopBlock(Block):
         organization_id: str | None = None,
         browser_session_id: str | None = None,
     ) -> LoopBlockExecutedResult:
+        # Dispatch to parallel path when max_concurrency > 1
+        effective_concurrency = self.max_concurrency or 1
+        if effective_concurrency > 1 and browser_session_id:
+            # Persistent browser sessions cannot be safely shared across
+            # parallel iterations — every iteration would race on the same
+            # live page. Fall back to sequential execution rather than
+            # corrupt the session.
+            LOG.info(
+                "Persistent browser session set; forcing sequential execution for for-loop",
+                workflow_run_id=workflow_run_id,
+                browser_session_id=browser_session_id,
+                requested_concurrency=self.max_concurrency,
+            )
+            effective_concurrency = 1
+        if effective_concurrency > 1:
+            # Check per-org quota — may reduce concurrency or force sequential
+            if organization_id:
+                effective_concurrency = await app.AGENT_FUNCTION.check_parallel_loop_quota(
+                    organization_id, effective_concurrency
+                )
+                if effective_concurrency <= 1:
+                    # Release whatever was granted before falling back to sequential.
+                    # A return value of 0 means no slots were acquired, so nothing
+                    # to release. A return value of 1 means one slot was incremented
+                    # in Redis and must be decremented to avoid a leak.
+                    if effective_concurrency > 0:
+                        await app.AGENT_FUNCTION.release_parallel_loop_quota(organization_id, effective_concurrency)
+                    LOG.info(
+                        "Org concurrency quota exhausted, falling back to sequential execution",
+                        workflow_run_id=workflow_run_id,
+                        organization_id=organization_id,
+                        requested_concurrency=self.max_concurrency,
+                    )
+                    # Fall through to sequential path below
+
+            if effective_concurrency > 1:
+                return await self._execute_loop_parallel(
+                    workflow_run_id=workflow_run_id,
+                    workflow_run_block_id=workflow_run_block_id,
+                    workflow_run_context=workflow_run_context,
+                    loop_over_values=loop_over_values,
+                    organization_id=organization_id,
+                    browser_session_id=browser_session_id,
+                    granted_concurrency=effective_concurrency,
+                )
+
+        # --- Sequential path (existing behavior, unchanged) ---
         outputs_with_loop_values: list[list[dict[str, Any]]] = []
         block_outputs: list[BlockResult] = []
         current_block: BlockTypeVar | None = None
@@ -1792,7 +1903,7 @@ class ForLoopBlock(Block):
             # Check max_iterations limit
             if loop_idx >= DEFAULT_MAX_LOOP_ITERATIONS:
                 LOG.info(
-                    f"ForLoopBlock: Reached max_iterations limit ({DEFAULT_MAX_LOOP_ITERATIONS}), stopping loop",
+                    f"ForLoopBlock Reached max_iterations limit ({DEFAULT_MAX_LOOP_ITERATIONS}), stopping loop",
                     workflow_run_id=workflow_run_id,
                     loop_idx=loop_idx,
                     max_iterations=DEFAULT_MAX_LOOP_ITERATIONS,
@@ -1805,6 +1916,7 @@ class ForLoopBlock(Block):
                     organization_id=organization_id,
                 )
                 block_outputs.append(failure_block_result)
+                await self._persist_partial_loop_output(workflow_run_id, outputs_with_loop_values, loop_idx)
                 return LoopBlockExecutedResult(
                     outputs_with_loop_values=outputs_with_loop_values,
                     block_outputs=block_outputs,
@@ -1848,8 +1960,8 @@ class ForLoopBlock(Block):
             each_loop_output_values: list[dict[str, Any]] = []
 
             iteration_step_count = 0
-            LOG.info(
-                f"ForLoopBlock: Starting iteration {loop_idx} with max_steps_per_iteration={DEFAULT_MAX_STEPS_PER_ITERATION}",
+            LOG.debug(
+                "ForLoopBlock starting iteration",
                 workflow_run_id=workflow_run_id,
                 loop_idx=loop_idx,
                 max_steps_per_iteration=DEFAULT_MAX_STEPS_PER_ITERATION,
@@ -1876,6 +1988,7 @@ class ForLoopBlock(Block):
                     )
                     block_outputs.append(failure_block_result)
                     outputs_with_loop_values.append(each_loop_output_values)
+                    await self._persist_partial_loop_output(workflow_run_id, outputs_with_loop_values, loop_idx)
                     return LoopBlockExecutedResult(
                         outputs_with_loop_values=outputs_with_loop_values,
                         block_outputs=block_outputs,
@@ -1939,7 +2052,7 @@ class ForLoopBlock(Block):
                 )
                 try:
                     if block_output.workflow_run_block_id:
-                        await app.DATABASE.update_workflow_run_block(
+                        await app.DATABASE.observer.update_workflow_run_block(
                             workflow_run_block_id=block_output.workflow_run_block_id,
                             organization_id=organization_id,
                             current_value=str(loop_over_value),
@@ -1959,7 +2072,7 @@ class ForLoopBlock(Block):
                 iteration_step_count += 1  # Count each block execution as a step
                 if iteration_step_count >= DEFAULT_MAX_STEPS_PER_ITERATION:
                     LOG.info(
-                        f"ForLoopBlock: Reached max_steps_per_iteration limit ({DEFAULT_MAX_STEPS_PER_ITERATION}) in iteration {loop_idx}, stopping iteration",
+                        f"ForLoopBlock Reached max_steps_per_iteration limit ({DEFAULT_MAX_STEPS_PER_ITERATION}) in iteration {loop_idx}, stopping iteration",
                         workflow_run_id=workflow_run_id,
                         loop_idx=loop_idx,
                         max_steps_per_iteration=DEFAULT_MAX_STEPS_PER_ITERATION,
@@ -1977,6 +2090,7 @@ class ForLoopBlock(Block):
                     # If next_loop_on_failure is False, stop the entire loop
                     if not self.next_loop_on_failure:
                         outputs_with_loop_values.append(each_loop_output_values)
+                        await self._persist_partial_loop_output(workflow_run_id, outputs_with_loop_values, loop_idx)
                         return LoopBlockExecutedResult(
                             outputs_with_loop_values=outputs_with_loop_values,
                             block_outputs=block_outputs,
@@ -1987,13 +2101,14 @@ class ForLoopBlock(Block):
 
                 if block_output.status == BlockStatus.canceled:
                     LOG.info(
-                        f"ForLoopBlock: Block with type {loop_block.block_type} at index {block_idx} during loop {loop_idx} was canceled for workflow run {workflow_run_id}, canceling for loop",
+                        f"ForLoopBlock Block with type {loop_block.block_type} at index {block_idx} during loop {loop_idx} was canceled for workflow run {workflow_run_id}, canceling for loop",
                         block_type=loop_block.block_type,
                         workflow_run_id=workflow_run_id,
                         block_idx=block_idx,
                         block_result=block_outputs,
                     )
                     outputs_with_loop_values.append(each_loop_output_values)
+                    await self._persist_partial_loop_output(workflow_run_id, outputs_with_loop_values, loop_idx)
                     return LoopBlockExecutedResult(
                         outputs_with_loop_values=outputs_with_loop_values,
                         block_outputs=block_outputs,
@@ -2007,7 +2122,7 @@ class ForLoopBlock(Block):
                     and not self.next_loop_on_failure
                 ):
                     LOG.info(
-                        f"ForLoopBlock: Encountered a failure processing block {block_idx} during loop {loop_idx}, terminating early",
+                        f"ForLoopBlock Encountered a failure processing block {block_idx} during loop {loop_idx}, terminating early",
                         block_outputs=block_outputs,
                         loop_idx=loop_idx,
                         block_idx=block_idx,
@@ -2017,6 +2132,7 @@ class ForLoopBlock(Block):
                         next_loop_on_failure=loop_block.next_loop_on_failure or self.next_loop_on_failure,
                     )
                     outputs_with_loop_values.append(each_loop_output_values)
+                    await self._persist_partial_loop_output(workflow_run_id, outputs_with_loop_values, loop_idx)
                     return LoopBlockExecutedResult(
                         outputs_with_loop_values=outputs_with_loop_values,
                         block_outputs=block_outputs,
@@ -2048,6 +2164,7 @@ class ForLoopBlock(Block):
                         )
                         block_outputs.append(failure_block_result)
                         outputs_with_loop_values.append(each_loop_output_values)
+                        await self._persist_partial_loop_output(workflow_run_id, outputs_with_loop_values, loop_idx)
                         return LoopBlockExecutedResult(
                             outputs_with_loop_values=outputs_with_loop_values,
                             block_outputs=block_outputs,
@@ -2060,7 +2177,7 @@ class ForLoopBlock(Block):
 
                 if loop_block.next_loop_on_failure or self.next_loop_on_failure:
                     LOG.info(
-                        f"ForLoopBlock: Block {block_idx} during loop {loop_idx} failed but will continue to next iteration",
+                        f"ForLoopBlock Block {block_idx} during loop {loop_idx} failed but will continue to next iteration",
                         block_outputs=block_outputs,
                         loop_idx=loop_idx,
                         block_idx=block_idx,
@@ -2072,11 +2189,507 @@ class ForLoopBlock(Block):
                 break
 
             outputs_with_loop_values.append(each_loop_output_values)
+            is_last_iteration = loop_idx == len(loop_over_values) - 1
+            if loop_idx % PERSIST_LOOP_OUTPUT_INTERVAL == 0 or is_last_iteration:
+                await self._persist_partial_loop_output(workflow_run_id, outputs_with_loop_values, loop_idx)
 
         return LoopBlockExecutedResult(
             outputs_with_loop_values=outputs_with_loop_values,
             block_outputs=block_outputs,
             last_block=current_block,
+        )
+
+    async def _execute_single_iteration_parallel(
+        self,
+        loop_idx: int,
+        loop_over_value: Any,
+        workflow_run_id: str,
+        workflow_run_block_id: str,
+        workflow_run_context: WorkflowRunContext,
+        start_label: str,
+        label_to_block: dict[str, BlockTypeVar],
+        default_next_map: dict[str, str | None],
+        conditional_scopes: dict[str, str],
+        organization_id: str | None = None,
+        browser_session_id: str | None = None,
+    ) -> tuple[int, list[dict[str, Any]], list[BlockResult], BlockTypeVar | None, WorkflowRunContext]:
+        """Execute a single loop iteration with its own isolated context.
+
+        Returns (loop_idx, iteration_outputs, block_results, last_block, context_snapshot).
+        """
+        each_loop_output_values: list[dict[str, Any]] = []
+        block_outputs: list[BlockResult] = []
+        current_block: BlockTypeVar | None = None
+
+        # Create isolated browser context for this iteration and register it
+        # under workflow_run_id so existing task block browser lookups find it.
+        # This is safe because each coroutine in asyncio.gather holds its own
+        # reference and the SkyvernContext iteration key provides disambiguation.
+        try:
+            await app.BROWSER_MANAGER.get_or_create_for_loop_iteration(
+                workflow_run_id=workflow_run_id,
+                loop_idx=loop_idx,
+                organization_id=organization_id,
+                browser_session_id=browser_session_id,
+            )
+            # The iteration browser is stored under the iteration key
+            # (e.g. "wr_xxx__iter_0") and resolved via SkyvernContext in
+            # get_or_create_for_workflow_run(). We intentionally do NOT
+            # alias it under the bare workflow_run_id to avoid races
+            # between concurrent iterations.
+        except Exception:
+            # Fail this iteration immediately. Falling back to the shared
+            # workflow browser would cause concurrent iterations to race on
+            # the same page, corrupting navigation/actions and producing
+            # non-deterministic data. Sequential loops can safely share a
+            # browser; parallel loops cannot.
+            LOG.error(
+                "Failed to create isolated browser for parallel iteration",
+                workflow_run_id=workflow_run_id,
+                loop_idx=loop_idx,
+                exc_info=True,
+            )
+            failure_block_result = await self.build_block_result(
+                success=False,
+                status=BlockStatus.failed,
+                failure_reason=f"Failed to create isolated browser for parallel iteration {loop_idx}",
+                workflow_run_block_id=None,
+                organization_id=organization_id,
+            )
+            return loop_idx, [], [failure_block_result], None, workflow_run_context
+
+        # Capture baseline downloaded files for per-iteration scoping (SKY-7005)
+        loop_context = skyvern_context.current()
+        if loop_context:
+            downloaded_file_sigs_before: list[tuple[str | None, str | None, str | None]] = []
+            baseline_timed_out = False
+            try:
+                async with asyncio.timeout(GET_DOWNLOADED_FILES_TIMEOUT):
+                    downloaded_file_sigs_before = [
+                        to_downloaded_file_signature(fi)
+                        for fi in await app.STORAGE.get_downloaded_files(
+                            organization_id=organization_id or "",
+                            run_id=loop_context.run_id if loop_context.run_id else workflow_run_id,
+                        )
+                    ]
+            except asyncio.TimeoutError:
+                baseline_timed_out = True
+                LOG.warning(
+                    "Timeout getting baseline downloaded files for parallel loop iteration",
+                    workflow_run_id=workflow_run_id,
+                    loop_idx=loop_idx,
+                )
+            if baseline_timed_out:
+                loop_context.loop_internal_state = None
+            else:
+                loop_context.loop_internal_state = {
+                    "downloaded_file_signatures_before_iteration": downloaded_file_sigs_before,
+                }
+
+        context_parameters_with_value = self.get_loop_block_context_parameters(workflow_run_id, loop_over_value)
+        for context_parameter in context_parameters_with_value:
+            workflow_run_context.set_value(context_parameter.key, context_parameter.value)
+
+        iteration_step_count = 0
+        LOG.info(
+            "ForLoopBlock parallel: starting iteration",
+            workflow_run_id=workflow_run_id,
+            loop_idx=loop_idx,
+            max_steps_per_iteration=DEFAULT_MAX_STEPS_PER_ITERATION,
+        )
+
+        block_idx = 0
+        current_label: str | None = start_label
+        conditional_wrb_ids: dict[str, str] = {}
+        while current_label:
+            loop_block = label_to_block.get(current_label)
+            if not loop_block:
+                LOG.error(
+                    "Unable to find loop block with label in parallel loop graph",
+                    workflow_run_id=workflow_run_id,
+                    loop_label=self.label,
+                    current_label=current_label,
+                )
+                failure_block_result = await self.build_block_result(
+                    success=False,
+                    status=BlockStatus.failed,
+                    failure_reason=f"Unable to find block with label {current_label} inside loop {self.label}",
+                    workflow_run_block_id=workflow_run_block_id,
+                    organization_id=organization_id,
+                )
+                block_outputs.append(failure_block_result)
+                return (loop_idx, each_loop_output_values, block_outputs, current_block, workflow_run_context)
+
+            metadata: BlockMetadata = {
+                "current_index": loop_idx,
+                "current_value": loop_over_value,
+                "current_item": loop_over_value,
+            }
+            workflow_run_context.update_block_metadata(self.label, metadata)
+            workflow_run_context.update_block_metadata(loop_block.label, metadata)
+
+            original_loop_block = loop_block
+            loop_block = loop_block.model_copy(deep=True)
+            current_block = loop_block
+
+            parent_wrb_id = workflow_run_block_id
+            if current_label in conditional_scopes:
+                cond_label = conditional_scopes[current_label]
+                if cond_label in conditional_wrb_ids:
+                    parent_wrb_id = conditional_wrb_ids[cond_label]
+
+            block_output = await loop_block.execute_safe(
+                workflow_run_id=workflow_run_id,
+                parent_workflow_run_block_id=parent_wrb_id,
+                organization_id=organization_id,
+                browser_session_id=browser_session_id,
+                current_value=str(loop_over_value),
+                current_index=loop_idx,
+            )
+
+            if loop_block.block_type == BlockType.CONDITIONAL and block_output.workflow_run_block_id:
+                conditional_wrb_ids[current_label] = block_output.workflow_run_block_id
+
+            output_value = (
+                workflow_run_context.get_value(block_output.output_parameter.key)
+                if workflow_run_context.has_value(block_output.output_parameter.key)
+                else None
+            )
+
+            if block_output.output_parameter.key.endswith("_output"):
+                LOG.debug("Block output (parallel)", block_type=loop_block.block_type, output_value=output_value)
+
+            each_loop_output_values.append(
+                {
+                    "loop_value": loop_over_value,
+                    "output_parameter": block_output.output_parameter,
+                    "output_value": output_value,
+                }
+            )
+            try:
+                if block_output.workflow_run_block_id:
+                    await app.DATABASE.observer.update_workflow_run_block(
+                        workflow_run_block_id=block_output.workflow_run_block_id,
+                        organization_id=organization_id,
+                        current_value=str(loop_over_value),
+                        current_index=loop_idx,
+                    )
+            except Exception:
+                LOG.warning(
+                    "Failed to update workflow run block (parallel)",
+                    workflow_run_block_id=block_output.workflow_run_block_id,
+                    loop_over_value=loop_over_value,
+                    loop_idx=loop_idx,
+                )
+            loop_block = original_loop_block
+            block_outputs.append(block_output)
+
+            iteration_step_count += 1
+            if iteration_step_count >= DEFAULT_MAX_STEPS_PER_ITERATION:
+                LOG.info(
+                    "ForLoopBlock parallel: reached max_steps_per_iteration limit",
+                    workflow_run_id=workflow_run_id,
+                    loop_idx=loop_idx,
+                )
+                failure_block_result = await self.build_block_result(
+                    success=False,
+                    status=BlockStatus.failed,
+                    failure_reason=f"Reached max_steps_per_iteration limit of {DEFAULT_MAX_STEPS_PER_ITERATION}",
+                    workflow_run_block_id=workflow_run_block_id,
+                    organization_id=organization_id,
+                )
+                block_outputs.append(failure_block_result)
+                break
+
+            if block_output.status == BlockStatus.canceled:
+                LOG.info(
+                    "ForLoopBlock parallel: iteration was canceled",
+                    workflow_run_id=workflow_run_id,
+                    loop_idx=loop_idx,
+                )
+                break
+
+            if (
+                not block_output.success
+                and not loop_block.continue_on_failure
+                and not loop_block.next_loop_on_failure
+                and not self.next_loop_on_failure
+            ):
+                LOG.info(
+                    "ForLoopBlock parallel: iteration block failed, terminating",
+                    loop_idx=loop_idx,
+                    block_idx=block_idx,
+                    failure_reason=block_output.failure_reason,
+                )
+                break
+
+            if block_output.success or loop_block.continue_on_failure:
+                next_label: str | None = None
+                if loop_block.block_type == BlockType.CONDITIONAL:
+                    branch_metadata = (
+                        block_output.output_parameter_value
+                        if isinstance(block_output.output_parameter_value, dict)
+                        else None
+                    )
+                    next_label = (branch_metadata or {}).get("next_block_label")
+                else:
+                    next_label = default_next_map.get(loop_block.label)
+
+                if not next_label:
+                    break
+
+                if next_label not in label_to_block:
+                    failure_block_result = await self.build_block_result(
+                        success=False,
+                        status=BlockStatus.failed,
+                        failure_reason=f"Next block label {next_label} not found inside loop {self.label}",
+                        workflow_run_block_id=workflow_run_block_id,
+                        organization_id=organization_id,
+                    )
+                    block_outputs.append(failure_block_result)
+                    break
+
+                current_label = next_label
+                block_idx += 1
+                continue
+
+            if loop_block.next_loop_on_failure or self.next_loop_on_failure:
+                LOG.info(
+                    "ForLoopBlock parallel: iteration block failed, continuing to next",
+                    loop_idx=loop_idx,
+                    block_idx=block_idx,
+                )
+                break
+
+            break
+
+        return (loop_idx, each_loop_output_values, block_outputs, current_block, workflow_run_context)
+
+    async def _execute_loop_parallel(
+        self,
+        workflow_run_id: str,
+        workflow_run_block_id: str,
+        workflow_run_context: WorkflowRunContext,
+        loop_over_values: list[Any],
+        organization_id: str | None = None,
+        browser_session_id: str | None = None,
+        granted_concurrency: int | None = None,
+    ) -> LoopBlockExecutedResult:
+        """Execute loop iterations in parallel batches of max_concurrency.
+
+        Slot ownership contract:
+        - The CALLER (`execute_loop_helper`) acquires `granted_concurrency`
+          slots via `check_parallel_loop_quota` before invoking this method.
+        - This method takes ownership of those slots and is responsible for
+          releasing exactly `granted_concurrency` slots in its `finally` block.
+        - Callers must NOT release the slots themselves after this method
+          returns or raises.
+        """
+        # Caller (execute_loop_helper) only invokes this method when the
+        # post-quota granted_concurrency is > 1. Use an explicit check rather
+        # than `assert` so the contract holds when running with -O.
+        if not granted_concurrency or granted_concurrency <= 1:
+            raise ValueError(f"_execute_loop_parallel requires granted_concurrency > 1, got {granted_concurrency}")
+        effective_concurrency = granted_concurrency
+        outputs_with_loop_values: list[list[dict[str, Any]]] = []
+        all_block_outputs: list[BlockResult] = []
+        last_block: BlockTypeVar | None = None
+        # Release exactly what we acquired. acquire_parallel_slots already
+        # returns min(requested, available), so effective_concurrency is the
+        # true granted count. Releasing fewer (e.g. min(granted, len(values)))
+        # would orphan the unused slots in Redis until TTL expiry.
+        slots_to_release = effective_concurrency
+
+        # Wrap the entire method body so concurrency slots are always released,
+        # even if _build_loop_graph or compute_conditional_scopes fails.
+        try:
+            start_label, label_to_block, default_next_map = self._build_loop_graph(self.loop_blocks)
+            conditional_scopes = compute_conditional_scopes(label_to_block, default_next_map)
+
+            # Enforce max iterations
+            capped_values = loop_over_values[:DEFAULT_MAX_LOOP_ITERATIONS]
+            if len(loop_over_values) > DEFAULT_MAX_LOOP_ITERATIONS:
+                LOG.info(
+                    "ForLoopBlock parallel: capping iterations",
+                    workflow_run_id=workflow_run_id,
+                    max_iterations=DEFAULT_MAX_LOOP_ITERATIONS,
+                    total_values=len(loop_over_values),
+                )
+            # Process in batches
+            for batch_start in range(0, len(capped_values), effective_concurrency):
+                batch_end = min(batch_start + effective_concurrency, len(capped_values))
+                batch = [(idx, val) for idx, val in enumerate(capped_values[batch_start:batch_end], start=batch_start)]
+
+                LOG.info(
+                    "ForLoopBlock parallel: executing batch",
+                    workflow_run_id=workflow_run_id,
+                    batch_start=batch_start,
+                    batch_end=batch_end,
+                    batch_size=len(batch),
+                    max_concurrency=effective_concurrency,
+                )
+
+                # Create context snapshots for each iteration in the batch
+                iteration_tasks = []
+                batch_loop_indices = []
+                for loop_idx, loop_over_value in batch:
+                    batch_loop_indices.append(loop_idx)
+                    ctx_snapshot = workflow_run_context.create_iteration_snapshot(loop_idx)
+
+                    # Default args freeze loop variables at definition time so each
+                    # task closes over its own loop_idx/value/snapshot rather than
+                    # the late-binding loop locals.
+                    async def _run_iteration(
+                        _loop_idx: int = loop_idx,
+                        _loop_value: Any = loop_over_value,
+                        _ctx_snapshot: WorkflowRunContext = ctx_snapshot,
+                    ) -> tuple[int, list[dict[str, Any]], list[BlockResult], BlockTypeVar | None, WorkflowRunContext]:
+                        # Install the per-iteration workflow_run_context snapshot
+                        # into the ContextVar override so child blocks that resolve
+                        # context via Block.get_workflow_run_context(workflow_run_id)
+                        # see the isolated snapshot instead of the shared global.
+                        # create_task() snapshotted ContextVars at task creation,
+                        # so this set() only mutates the current task's copy.
+                        set_iteration_workflow_run_context(_ctx_snapshot)
+
+                        # Fork SkyvernContext for this iteration with isolated mutable fields.
+                        # Uses create_iteration_copy() which shallow-copies scalars and creates
+                        # fresh dicts/lists/sets, avoiding deepcopy issues with Playwright
+                        # Frame/Page objects that are not safely copyable.
+                        parent_skyvern_ctx = skyvern_context.current()
+                        if parent_skyvern_ctx:
+                            iter_ctx = parent_skyvern_ctx.create_iteration_copy(
+                                browser_session_id=loop_iteration_key(workflow_run_id, _loop_idx),
+                            )
+                            skyvern_context.set(iter_ctx)
+                        else:
+                            LOG.warning(
+                                "No parent SkyvernContext to fork for parallel iteration — "
+                                "per-iteration file tracking skipped",
+                                workflow_run_id=workflow_run_id,
+                                loop_idx=_loop_idx,
+                            )
+
+                        return await self._execute_single_iteration_parallel(
+                            loop_idx=_loop_idx,
+                            loop_over_value=_loop_value,
+                            workflow_run_id=workflow_run_id,
+                            workflow_run_block_id=workflow_run_block_id,
+                            workflow_run_context=_ctx_snapshot,
+                            start_label=start_label,
+                            label_to_block=label_to_block,
+                            default_next_map=default_next_map,
+                            conditional_scopes=conditional_scopes,
+                            organization_id=organization_id,
+                            browser_session_id=browser_session_id,
+                        )
+
+                    # asyncio.create_task() copies the current ContextVar state at
+                    # creation time, giving each iteration its own isolated copy.
+                    # Plain coroutines in asyncio.gather() share the caller's
+                    # ContextVar scope, so skyvern_context.set() would race.
+                    iteration_tasks.append(asyncio.create_task(_run_iteration()))
+
+                # Execute batch concurrently; return_exceptions=True so one failure doesn't kill the batch
+                batch_results = await asyncio.gather(*iteration_tasks, return_exceptions=True)
+
+                # Collect snapshots for merging
+                context_snapshots: list[tuple[int, WorkflowRunContext]] = []
+
+                # Sort results by loop_idx to preserve ordering
+                indexed_results: list[tuple[int, Any]] = []
+                for i, result in enumerate(batch_results):
+                    loop_idx_for_result = batch[i][0]
+                    indexed_results.append((loop_idx_for_result, result))
+                indexed_results.sort(key=lambda t: t[0])
+
+                # Process every result in the batch before deciding whether to
+                # stop. asyncio.gather(return_exceptions=True) already ran all
+                # iterations to completion, so successful outputs from indices
+                # after a failing one must still be captured — otherwise we'd
+                # silently discard data the browser already produced.
+                batch_had_failure = False
+                for loop_idx_sorted, result in indexed_results:
+                    if isinstance(result, Exception):
+                        LOG.error(
+                            "ForLoopBlock parallel: iteration raised an exception",
+                            workflow_run_id=workflow_run_id,
+                            loop_idx=loop_idx_sorted,
+                            error=str(result),
+                            exc_info=result,
+                        )
+                        failure_block_result = await self.build_block_result(
+                            success=False,
+                            status=BlockStatus.failed,
+                            failure_reason=f"Parallel iteration {loop_idx_sorted} failed: {str(result)}",
+                            workflow_run_block_id=workflow_run_block_id,
+                            organization_id=organization_id,
+                        )
+                        all_block_outputs.append(failure_block_result)
+                        outputs_with_loop_values.append([])
+                        batch_had_failure = True
+                    else:
+                        iter_idx, iter_outputs, iter_block_results, iter_last_block, iter_ctx = result
+                        outputs_with_loop_values.append(iter_outputs)
+                        all_block_outputs.extend(iter_block_results)
+                        if iter_last_block is not None:
+                            last_block = iter_last_block
+                        context_snapshots.append((iter_idx, iter_ctx))
+
+                if batch_had_failure and not self.next_loop_on_failure:
+                    # Merge any successful snapshots before stopping so their
+                    # context mutations aren't lost.
+                    workflow_run_context.merge_iteration_results(context_snapshots)
+                    # Persist accumulated outputs before the early return so a
+                    # subsequent Temporal timeout can recover prior-batch data.
+                    await self._persist_partial_loop_output(
+                        workflow_run_id, outputs_with_loop_values, batch_loop_indices[-1]
+                    )
+                    try:
+                        await app.BROWSER_MANAGER.cleanup_loop_iterations(
+                            workflow_run_id=workflow_run_id,
+                            loop_indices=batch_loop_indices,
+                            organization_id=organization_id,
+                        )
+                    except Exception:
+                        LOG.warning("Failed to cleanup loop iteration browsers", exc_info=True)
+                    return LoopBlockExecutedResult(
+                        outputs_with_loop_values=outputs_with_loop_values,
+                        block_outputs=all_block_outputs,
+                        last_block=last_block,
+                    )
+
+                # Merge iteration context snapshots back into the main context
+                workflow_run_context.merge_iteration_results(context_snapshots)
+
+                # Persist accumulated outputs after each batch so progress
+                # survives Temporal activity timeouts mid-loop. Mirrors the
+                # sequential path's per-iteration persistence.
+                await self._persist_partial_loop_output(
+                    workflow_run_id, outputs_with_loop_values, batch_loop_indices[-1]
+                )
+
+                # Clean up iteration browser contexts for this batch
+                try:
+                    await app.BROWSER_MANAGER.cleanup_loop_iterations(
+                        workflow_run_id=workflow_run_id,
+                        loop_indices=batch_loop_indices,
+                        organization_id=organization_id,
+                    )
+                except Exception:
+                    LOG.warning("Failed to cleanup loop iteration browsers after batch", exc_info=True)
+        finally:
+            # Always release concurrency slots back to the org quota.
+            # Release the full granted count — acquire incremented Redis by
+            # this amount, so we must decrement by the same amount even if
+            # the loop had fewer iterations than granted slots.
+            if organization_id and slots_to_release > 0:
+                await app.AGENT_FUNCTION.release_parallel_loop_quota(organization_id, slots_to_release)
+
+        return LoopBlockExecutedResult(
+            outputs_with_loop_values=outputs_with_loop_values,
+            block_outputs=all_block_outputs,
+            last_block=last_block,
         )
 
     async def execute(
@@ -2104,7 +2717,7 @@ class ForLoopBlock(Block):
                 organization_id=organization_id,
             )
 
-        await app.DATABASE.update_workflow_run_block(
+        await app.DATABASE.observer.update_workflow_run_block(
             workflow_run_block_id=workflow_run_block_id,
             organization_id=organization_id,
             loop_values=loop_over_values,
@@ -2584,14 +3197,16 @@ class TextPromptBlock(Block):
         artifacts_to_persist: list[tuple[ArtifactType, bytes]] = []
         if workflow_run_block_id:
             try:
-                workflow_run_block = await app.DATABASE.get_workflow_run_block(workflow_run_block_id, organization_id)
+                workflow_run_block = await app.DATABASE.observer.get_workflow_run_block(
+                    workflow_run_block_id, organization_id
+                )
                 if workflow_run_block:
                     artifacts_to_persist.append((ArtifactType.LLM_PROMPT, prompt.encode("utf-8")))
             except Exception as e:
                 LOG.error("Failed to fetch workflow_run_block for TextPromptBlock artifacts", error=e)
 
         LOG.info(
-            "TextPromptBlock: Sending prompt to LLM",
+            "TextPromptBlock Sending prompt to LLM",
             prompt=prompt,
             llm_key=self.llm_key,
         )
@@ -2607,7 +3222,7 @@ class TextPromptBlock(Block):
             except Exception as e:
                 LOG.error("Failed to save TextPromptBlock artifacts", error=e)
 
-        LOG.info("TextPromptBlock: Received response from LLM", response=response)
+        LOG.info("TextPromptBlock Received response from LLM", response=response)
         return response
 
     async def _resolve_default_llm_handler(self, workflow_run_id: str, organization_id: str | None) -> LLMAPIHandler:
@@ -2643,7 +3258,7 @@ class TextPromptBlock(Block):
         )
         # get workflow run context
         workflow_run_context = self.get_workflow_run_context(workflow_run_id)
-        await app.DATABASE.update_workflow_run_block(
+        await app.DATABASE.observer.update_workflow_run_block(
             workflow_run_block_id=workflow_run_block_id,
             organization_id=organization_id,
             prompt=self.prompt,
@@ -2765,7 +3380,7 @@ class DownloadToS3Block(Block):
             task_url_parameter_value = workflow_run_context.get_value(self.url)
             if task_url_parameter_value:
                 LOG.info(
-                    "DownloadToS3Block: Task URL is parameterized, using parameter value",
+                    "DownloadToS3Block Task URL is parameterized, using parameter value",
                     task_url_parameter_value=task_url_parameter_value,
                     task_url_parameter_key=self.url,
                 )
@@ -2786,7 +3401,7 @@ class DownloadToS3Block(Block):
         try:
             file_path = await download_file(self.url, max_size_mb=10, organization_id=organization_id)
         except Exception as e:
-            LOG.error("DownloadToS3Block: Failed to download file", url=self.url, error=str(e))
+            LOG.error("DownloadToS3Block Failed to download file", url=self.url, error=str(e))
             raise e
 
         uri = None
@@ -2794,10 +3409,10 @@ class DownloadToS3Block(Block):
             uri = f"s3://{settings.AWS_S3_BUCKET_UPLOADS}/{settings.ENV}/{workflow_run_id}/{uuid.uuid4()}"
             await self._upload_file_to_s3(uri, file_path)
         except Exception as e:
-            LOG.error("DownloadToS3Block: Failed to upload file to S3", uri=uri, error=str(e))
+            LOG.error("DownloadToS3Block Failed to upload file to S3", uri=uri, error=str(e))
             raise e
 
-        LOG.info("DownloadToS3Block: File downloaded and uploaded to S3", uri=uri)
+        LOG.info("DownloadToS3Block File downloaded and uploaded to S3", uri=uri)
         await self.record_output_parameter_value(workflow_run_context, workflow_run_id, uri)
         return await self.build_block_result(
             success=True,
@@ -2853,7 +3468,7 @@ class UploadToS3Block(Block):
             file_path_parameter_value = workflow_run_context.get_value(self.path)
             if file_path_parameter_value:
                 LOG.info(
-                    "UploadToS3Block: File path is parameterized, using parameter value",
+                    "UploadToS3Block File path is parameterized, using parameter value",
                     file_path_parameter_value=file_path_parameter_value,
                     file_path_parameter_key=self.path,
                 )
@@ -2880,14 +3495,14 @@ class UploadToS3Block(Block):
             )
 
         if not self.path:
-            raise ValueError("UploadToS3Block: path is required")
+            raise ValueError("UploadToS3Block path is required")
 
         context = skyvern_context.current()
         run_id = context.run_id if context and context.run_id else workflow_run_id
         resolved_path = validate_local_file_path(self.path, run_id)
 
         if not os.path.exists(resolved_path):
-            raise FileNotFoundError(f"UploadToS3Block: File not found at path: {resolved_path}")
+            raise FileNotFoundError(f"UploadToS3Block File not found at path: {resolved_path}")
 
         s3_uris = []
         try:
@@ -2901,7 +3516,7 @@ class UploadToS3Block(Block):
                 for file in files:
                     # if the file is a directory, we will not upload it
                     if os.path.isdir(os.path.join(resolved_path, file)):
-                        LOG.warning("UploadToS3Block: Skipping directory", file=file)
+                        LOG.warning("UploadToS3Block Skipping directory", file=file)
                         continue
                     file_path = os.path.join(resolved_path, file)
                     s3_uri = self._get_s3_uri(workflow_run_id, file_path)
@@ -2912,10 +3527,10 @@ class UploadToS3Block(Block):
                 s3_uris.append(s3_uri)
                 await client.upload_file_from_path(uri=s3_uri, file_path=resolved_path)
         except Exception as e:
-            LOG.exception("UploadToS3Block: Failed to upload file to S3", file_path=self.path)
+            LOG.exception("UploadToS3Block Failed to upload file to S3", file_path=self.path)
             raise e
 
-        LOG.info("UploadToS3Block: File(s) uploaded to S3", file_path=self.path)
+        LOG.info("UploadToS3Block File(s) uploaded to S3", file_path=self.path)
         await self.record_output_parameter_value(workflow_run_context, workflow_run_id, s3_uris)
         return await self.build_block_result(
             success=True,
@@ -3103,7 +3718,7 @@ class FileUploadBlock(Block):
                     raise ValueError(f"Too many files in the directory, not uploading. Max: {max_file_count}")
                 for file in files:
                     if os.path.isdir(os.path.join(download_files_path, file)):
-                        LOG.warning("FileUploadBlock: Skipping directory", file=file)
+                        LOG.warning("FileUploadBlock Skipping directory", file=file)
                         continue
                     files_to_upload.append(os.path.join(download_files_path, file))
             else:
@@ -3127,7 +3742,7 @@ class FileUploadBlock(Block):
                     s3_uri = self._get_s3_uri(workflow_run_id, file_path)
                     uploaded_uris.append(s3_uri)
                     await aws_client.upload_file_from_path(uri=s3_uri, file_path=file_path, raise_exception=True)
-                LOG.info("FileUploadBlock: File(s) uploaded to S3", file_path=self.path)
+                LOG.info("FileUploadBlock File(s) uploaded to S3", file_path=self.path)
             elif self.storage_type == FileStorageType.AZURE:
                 actual_azure_storage_account_name = (
                     workflow_run_context.get_original_secret_value_or_none(self.azure_storage_account_name)
@@ -3145,19 +3760,19 @@ class FileUploadBlock(Block):
                     storage_account_key=actual_azure_storage_account_key,
                 )
                 for file_path in files_to_upload:
-                    LOG.info("FileUploadBlock: Uploading file to Azure Blob Storage", file_path=file_path)
+                    LOG.info("FileUploadBlock Uploading file to Azure Blob Storage", file_path=file_path)
                     blob_name = self._get_azure_blob_name(workflow_run_id, file_path)
                     azure_uri = self._get_azure_blob_uri(workflow_run_id, blob_name)
                     uploaded_uris.append(azure_uri)
                     uri = f"azure://{self.azure_blob_container_name or ''}/{blob_name}"
                     await azure_client.upload_file_from_path(uri, file_path)
-                LOG.info("FileUploadBlock: File(s) uploaded to Azure Blob Storage", file_path=self.path)
+                LOG.info("FileUploadBlock File(s) uploaded to Azure Blob Storage", file_path=self.path)
             else:
                 # This case should ideally be caught by the initial validation
                 raise ValueError(f"Unsupported storage type: {self.storage_type}")
 
         except Exception as e:
-            LOG.exception("FileUploadBlock: Failed to upload file", file_path=self.path, storage_type=self.storage_type)
+            LOG.exception("FileUploadBlock Failed to upload file", file_path=self.path, storage_type=self.storage_type)
             return await self.build_block_result(
                 success=False,
                 failure_reason=f"Failed to upload file to {self.storage_type}: {str(e)}",
@@ -3288,7 +3903,7 @@ class SendEmailBlock(Block):
                 # if the path is WORKFLOW_DOWNLOAD_DIRECTORY_PARAMETER_KEY, use download directory for the workflow run
                 path = str(get_path_for_workflow_download_directory(run_id).absolute())
                 LOG.info(
-                    "SendEmailBlock: Using download directory for the workflow run",
+                    "SendEmailBlock Using download directory for the workflow run",
                     workflow_run_id=workflow_run_id,
                     file_path=path,
                 )
@@ -3301,7 +3916,7 @@ class SendEmailBlock(Block):
                 if os.path.isdir(path):
                     for file in os.listdir(path):
                         if os.path.isdir(os.path.join(path, file)):
-                            LOG.warning("SendEmailBlock: Skipping directory", file=file)
+                            LOG.warning("SendEmailBlock Skipping directory", file=file)
                             continue
                         file_path = os.path.join(path, file)
                         file_paths.append(file_path)
@@ -3311,7 +3926,7 @@ class SendEmailBlock(Block):
             elif is_remote_url(path):
                 file_paths.append(path)
             else:
-                LOG.warning("SendEmailBlock: File not found", file_path=path)
+                LOG.warning("SendEmailBlock File not found", file_path=path)
 
         return file_paths
 
@@ -3331,7 +3946,7 @@ class SendEmailBlock(Block):
                 recipients.append(maybe_recipient)
             except EmailNotValidError as e:
                 LOG.warning(
-                    "SendEmailBlock: Invalid email address",
+                    "SendEmailBlock Invalid email address",
                     recipient=maybe_recipient,
                     reason=str(e),
                 )
@@ -3367,14 +3982,14 @@ class SendEmailBlock(Block):
             if filename.startswith(("s3://", "azure://", "http://", "https://")):
                 path = await download_file(filename, organization_id=organization_id)
             else:
-                LOG.info("SendEmailBlock: Looking for file locally", filename=filename)
+                LOG.info("SendEmailBlock Looking for file locally", filename=filename)
                 if not os.path.exists(filename):
                     raise FileNotFoundError(f"File not found: {filename}")
                 if not os.path.isfile(filename):
                     raise IsADirectoryError(f"Path is a directory: {filename}")
 
                 path = filename
-                LOG.info("SendEmailBlock: Found file locally", path=path)
+                LOG.info("SendEmailBlock Found file locally", path=path)
 
             if not path:
                 raise FileNotFoundError(f"File not found: {filename}")
@@ -3403,7 +4018,7 @@ class SendEmailBlock(Block):
                     attachment_filename += f".{extension}"
 
             LOG.info(
-                "SendEmailBlock: Adding attachment",
+                "SendEmailBlock Adding attachment",
                 filename=attachment_filename,
                 maintype=maintype,
                 subtype=subtype,
@@ -3424,11 +4039,11 @@ class SendEmailBlock(Block):
         duplicate_files_list = [files for files in file_names_by_hash.values() if len(files) > 1]
 
         # Log file statistics
-        LOG.info("SendEmailBlock: Total files attached", total_files=total_files)
-        LOG.info("SendEmailBlock: Unique files (based on content) attached", unique_files=unique_files)
+        LOG.info("SendEmailBlock Total files attached", total_files=total_files)
+        LOG.info("SendEmailBlock Unique files (based on content) attached", unique_files=unique_files)
         if duplicate_files_list:
             LOG.info(
-                "SendEmailBlock: Duplicate files (based on content) attached", duplicate_files_list=duplicate_files_list
+                "SendEmailBlock Duplicate files (based on content) attached", duplicate_files_list=duplicate_files_list
             )
 
         return msg
@@ -3442,7 +4057,7 @@ class SendEmailBlock(Block):
         **kwargs: dict,
     ) -> BlockResult:
         workflow_run_context = self.get_workflow_run_context(workflow_run_id)
-        await app.DATABASE.update_workflow_run_block(
+        await app.DATABASE.observer.update_workflow_run_block(
             workflow_run_block_id=workflow_run_block_id,
             organization_id=organization_id,
             recipients=self.recipients,
@@ -3468,19 +4083,19 @@ class SendEmailBlock(Block):
         smtp_host = None
         try:
             smtp_host = smtplib.SMTP(smtp_host_value, smtp_port_value)
-            LOG.info("SendEmailBlock: Connected to SMTP server")
+            LOG.info("SendEmailBlock Connected to SMTP server")
             smtp_host.starttls()
             smtp_host.login(smtp_username_value, smtp_password_value)
-            LOG.info("SendEmailBlock: Logged in to SMTP server")
+            LOG.info("SendEmailBlock Logged in to SMTP server")
             message = await self._build_email_message(
                 workflow_run_context,
                 workflow_run_id,
                 organization_id=organization_id,
             )
             smtp_host.send_message(message)
-            LOG.info("SendEmailBlock: Email sent")
+            LOG.info("SendEmailBlock Email sent")
         except Exception as e:
-            LOG.error("SendEmailBlock: Failed to send email", exc_info=True)
+            LOG.error("SendEmailBlock Failed to send email", exc_info=True)
             result_dict = {"success": False, "error": str(e)}
             await self.record_output_parameter_value(workflow_run_context, workflow_run_id, result_dict)
             return await self.build_block_result(
@@ -3561,7 +4176,7 @@ class FileParserBlock(Block):
             detected = self._detect_file_type_from_magic_bytes(file_path)
             if detected is not None:
                 LOG.info(
-                    "FileParserBlock: Detected file type from magic bytes (URL had no recognizable extension)",
+                    "FileParserBlock Detected file type from magic bytes (URL had no recognizable extension)",
                     file_url=file_url,
                     detected_file_type=detected,
                 )
@@ -3900,7 +4515,7 @@ class FileParserBlock(Block):
             file_url_parameter_value = workflow_run_context.get_value(self.file_url)
             if file_url_parameter_value:
                 LOG.info(
-                    "FileParserBlock: File URL is parameterized, using parameter value",
+                    "FileParserBlock File URL is parameterized, using parameter value",
                     file_url_parameter_value=file_url_parameter_value,
                     file_url_parameter_key=self.file_url,
                 )
@@ -3941,7 +4556,7 @@ class FileParserBlock(Block):
             )
 
         LOG.debug(
-            "FileParserBlock: After file type validation",
+            "FileParserBlock After file type validation",
             file_type=self.file_type,
             json_schema_present=self.json_schema is not None,
             json_schema_type=type(self.json_schema),
@@ -3973,7 +4588,7 @@ class FileParserBlock(Block):
         # If json_schema is provided, use AI to extract structured data
         final_data: str | list[dict[str, Any]] | dict[str, Any]
         LOG.debug(
-            "FileParserBlock: JSON schema check",
+            "FileParserBlock JSON schema check",
             has_json_schema=self.json_schema is not None,
             json_schema_type=type(self.json_schema),
             json_schema=self.json_schema,
@@ -4053,7 +4668,7 @@ class PDFParserBlock(Block):
             file_url_parameter_value = workflow_run_context.get_value(self.file_url)
             if file_url_parameter_value:
                 LOG.info(
-                    "PDFParserBlock: File URL is parameterized, using parameter value",
+                    "PDFParserBlock File URL is parameterized, using parameter value",
                     file_url_parameter_value=file_url_parameter_value,
                     file_url_parameter_key=self.file_url,
                 )
@@ -4138,7 +4753,7 @@ class WaitBlock(Block):
         **kwargs: dict,
     ) -> BlockResult:
         # TODO: we need to support to interrupt the sleep when the workflow run failed/cancelled/terminated
-        await app.DATABASE.update_workflow_run_block(
+        await app.DATABASE.observer.update_workflow_run_block(
             workflow_run_block_id=workflow_run_block_id,
             organization_id=organization_id,
             wait_sec=self.wait_sec,
@@ -4244,7 +4859,7 @@ class HumanInteractionBlock(BaseTaskBlock):
                 organization_id=organization_id,
             )
 
-        await app.DATABASE.update_workflow_run_block(
+        await app.DATABASE.observer.update_workflow_run_block(
             workflow_run_block_id=workflow_run_block_id,
             organization_id=organization_id,
             recipients=self.recipients,
@@ -4263,12 +4878,12 @@ class HumanInteractionBlock(BaseTaskBlock):
             browser_session_id=browser_session_id,
         )
 
-        await app.DATABASE.update_workflow_run(
+        await app.DATABASE.workflow_runs.update_workflow_run(
             workflow_run_id=workflow_run_id,
             status=WorkflowRunStatus.paused,
         )
 
-        workflow_run = await app.DATABASE.get_workflow_run(
+        workflow_run = await app.DATABASE.workflow_runs.get_workflow_run(
             workflow_run_id=workflow_run_id,
             organization_id=organization_id,
         )
@@ -4370,7 +4985,7 @@ class HumanInteractionBlock(BaseTaskBlock):
                     organization_id=organization_id,
                 )
 
-            workflow_run = await app.DATABASE.get_workflow_run(
+            workflow_run = await app.DATABASE.workflow_runs.get_workflow_run(
                 workflow_run_id=workflow_run_id,
                 organization_id=organization_id,
             )
@@ -4569,10 +5184,10 @@ class TaskV2Block(Block):
         if not organization_id:
             raise ValueError("Running TaskV2Block requires organization_id")
 
-        organization = await app.DATABASE.get_organization(organization_id)
+        organization = await app.DATABASE.organizations.get_organization(organization_id)
         if not organization:
             raise ValueError(f"Organization not found {organization_id}")
-        workflow_run = await app.DATABASE.get_workflow_run(workflow_run_id, organization_id)
+        workflow_run = await app.DATABASE.workflow_runs.get_workflow_run(workflow_run_id, organization_id)
         if not workflow_run:
             raise ValueError(f"WorkflowRun not found {workflow_run_id} when running TaskV2Block")
         try:
@@ -4586,15 +5201,15 @@ class TaskV2Block(Block):
                 totp_verification_url=resolved_totp_verification_url,
                 max_screenshot_scrolling_times=workflow_run.max_screenshot_scrolls,
             )
-            await app.DATABASE.update_task_v2(
+            await app.DATABASE.observer.update_task_v2(
                 task_v2.observer_cruise_id, status=TaskV2Status.queued, organization_id=organization_id
             )
             if task_v2.workflow_run_id:
-                await app.DATABASE.update_workflow_run(
+                await app.DATABASE.workflow_runs.update_workflow_run(
                     workflow_run_id=task_v2.workflow_run_id,
                     status=WorkflowRunStatus.queued,
                 )
-                await app.DATABASE.update_workflow_run_block(
+                await app.DATABASE.observer.update_workflow_run_block(
                     workflow_run_block_id=workflow_run_block_id,
                     organization_id=organization_id,
                     block_workflow_run_id=task_v2.workflow_run_id,
@@ -4640,7 +5255,9 @@ class TaskV2Block(Block):
         failure_reason: str | None = None
         task_v2_workflow_run_id = task_v2.workflow_run_id
         if task_v2_workflow_run_id:
-            task_v2_workflow_run = await app.DATABASE.get_workflow_run(task_v2_workflow_run_id, organization_id)
+            task_v2_workflow_run = await app.DATABASE.workflow_runs.get_workflow_run(
+                task_v2_workflow_run_id, organization_id
+            )
             if task_v2_workflow_run:
                 failure_reason = task_v2_workflow_run.failure_reason
 
@@ -5000,7 +5617,7 @@ class HttpRequestBlock(Block):
 
                     # Get allowed directory paths (using class method for cached result)
                     allowed_dirs = self.get_allowed_dirs()
-                    LOG.debug("HttpRequestBlock: Allowed directories", allowed_dirs=allowed_dirs)
+                    LOG.debug("HttpRequestBlock Allowed directories", allowed_dirs=allowed_dirs)
 
                     # Check if file is within any allowed directory
                     for allowed_dir in allowed_dirs:
@@ -5040,7 +5657,7 @@ class HttpRequestBlock(Block):
                         )
                     downloaded_files[field_name] = local_file_path_str
                     LOG.info(
-                        "HttpRequestBlock: Using allowed local file",
+                        "HttpRequestBlock Using allowed local file",
                         field_name=field_name,
                         file_path=local_file_path_str,
                     )
@@ -5048,7 +5665,7 @@ class HttpRequestBlock(Block):
                     # Download from remote source
                     try:
                         LOG.info(
-                            "HttpRequestBlock: Downloading file from remote source",
+                            "HttpRequestBlock Downloading file from remote source",
                             field_name=field_name,
                             file_path=file_path,
                             is_url=is_url,
@@ -5057,7 +5674,7 @@ class HttpRequestBlock(Block):
                         local_file_path = await download_file(file_path, organization_id=organization_id)
                         downloaded_files[field_name] = local_file_path
                         LOG.info(
-                            "HttpRequestBlock: File downloaded successfully",
+                            "HttpRequestBlock File downloaded successfully",
                             field_name=field_name,
                             original_path=file_path,
                             local_path=local_file_path,
@@ -5228,20 +5845,20 @@ class PrintPageBlock(Block):
         artifact_org_id = organization_id or workflow_run_context.organization_id
         if not artifact_org_id:
             LOG.warning(
-                "PrintPageBlock: Missing organization_id, skipping artifact upload",
+                "PrintPageBlock Missing organization_id, skipping artifact upload",
                 workflow_run_id=workflow_run_id,
                 workflow_run_block_id=workflow_run_block_id,
             )
             return None, None
 
         try:
-            workflow_run_block = await app.DATABASE.get_workflow_run_block(
+            workflow_run_block = await app.DATABASE.observer.get_workflow_run_block(
                 workflow_run_block_id,
                 organization_id=artifact_org_id,
             )
         except NotFoundError:
             LOG.warning(
-                "PrintPageBlock: Workflow run block not found, skipping artifact upload",
+                "PrintPageBlock Workflow run block not found, skipping artifact upload",
                 workflow_run_id=workflow_run_id,
                 workflow_run_block_id=workflow_run_block_id,
                 organization_id=artifact_org_id,
@@ -5257,7 +5874,7 @@ class PrintPageBlock(Block):
             await app.ARTIFACT_MANAGER.wait_for_upload_aiotasks([workflow_run_block.workflow_run_block_id])
         except Exception:
             LOG.warning(
-                "PrintPageBlock: Failed to upload PDF artifact",
+                "PrintPageBlock Failed to upload PDF artifact",
                 workflow_run_id=workflow_run_id,
                 workflow_run_block_id=workflow_run_block.workflow_run_block_id,
                 exc_info=True,
@@ -5267,12 +5884,12 @@ class PrintPageBlock(Block):
         # Generate a downloadable URL for the artifact
         artifact_url = None
         try:
-            artifact = await app.DATABASE.get_artifact_by_id(artifact_id, organization_id=artifact_org_id)
+            artifact = await app.DATABASE.artifacts.get_artifact_by_id(artifact_id, organization_id=artifact_org_id)
             if artifact:
                 artifact_url = await app.ARTIFACT_MANAGER.get_share_link(artifact)
         except Exception:
             LOG.warning(
-                "PrintPageBlock: Failed to generate artifact download URL",
+                "PrintPageBlock Failed to generate artifact download URL",
                 artifact_id=artifact_id,
                 exc_info=True,
             )
@@ -5321,7 +5938,7 @@ class PrintPageBlock(Block):
             error_msg = str(e)
             if "pdf" in error_msg.lower() and ("not supported" in error_msg.lower() or "chromium" in error_msg.lower()):
                 error_msg = "PDF generation requires Chromium browser. Current browser does not support page.pdf()."
-            LOG.warning("PrintPageBlock: Failed to generate PDF", error=error_msg, workflow_run_id=workflow_run_id)
+            LOG.warning("PrintPageBlock Failed to generate PDF", error=error_msg, workflow_run_id=workflow_run_id)
             return await self.build_block_result(
                 success=False,
                 failure_reason=f"Failed to generate PDF: {error_msg}",
@@ -6573,7 +7190,7 @@ class WorkflowTriggerBlock(Block):
                     f"Workflow trigger depth exceeds maximum of {self.MAX_TRIGGER_DEPTH}. "
                     "This may indicate a circular workflow trigger chain."
                 )
-            run = await app.DATABASE.get_workflow_run(current_run_id)
+            run = await app.DATABASE.workflow_runs.get_workflow_run(current_run_id)
             if not run or not run.parent_workflow_run_id:
                 break
             current_run_id = run.parent_workflow_run_id
@@ -6694,7 +7311,7 @@ class WorkflowTriggerBlock(Block):
         # 3. Get the organization
         if not organization_id:
             return await _fail("organization_id is required for WorkflowTriggerBlock")
-        organization = await app.DATABASE.get_organization(organization_id)
+        organization = await app.DATABASE.organizations.get_organization(organization_id)
         if not organization:
             return await _fail(f"Organization {organization_id} not found")
 
@@ -6719,7 +7336,7 @@ class WorkflowTriggerBlock(Block):
         elif self.wait_for_completion:
             # Sync mode: child runs inline in the same process, so it needs
             # its own persistent session to avoid sharing the parent's browser.
-            parent_workflow_run = await app.DATABASE.get_workflow_run(workflow_run_id)
+            parent_workflow_run = await app.DATABASE.workflow_runs.get_workflow_run(workflow_run_id)
             proxy_location = parent_workflow_run.proxy_location if parent_workflow_run else None
             try:
                 child_browser_session = await app.PERSISTENT_SESSIONS_MANAGER.create_session(

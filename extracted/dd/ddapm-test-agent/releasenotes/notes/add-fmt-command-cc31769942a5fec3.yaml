@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Added ``ddapm-test-agent-fmt`` to format or validate snapshot json files.

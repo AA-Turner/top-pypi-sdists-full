@@ -561,10 +561,15 @@ class BeakerStub(object):
                 request_serializer=beaker__pb2.SetChildAllocationsRequest.SerializeToString,
                 response_deserializer=beaker__pb2.SetChildAllocationsResponse.FromString,
                 _registered_method=True)
-        self.ListAllocations = channel.unary_unary(
-                '/allenai.beaker.Beaker/ListAllocations',
-                request_serializer=beaker__pb2.ListAllocationsRequest.SerializeToString,
-                response_deserializer=beaker__pb2.ListAllocationsResponse.FromString,
+        self.ListAllocationHistory = channel.unary_unary(
+                '/allenai.beaker.Beaker/ListAllocationHistory',
+                request_serializer=beaker__pb2.ListAllocationHistoryRequest.SerializeToString,
+                response_deserializer=beaker__pb2.ListAllocationHistoryResponse.FromString,
+                _registered_method=True)
+        self.GetChildAllocations = channel.unary_unary(
+                '/allenai.beaker.Beaker/GetChildAllocations',
+                request_serializer=beaker__pb2.GetChildAllocationsRequest.SerializeToString,
+                response_deserializer=beaker__pb2.GetChildAllocationsResponse.FromString,
                 _registered_method=True)
         self.CreateQueue = channel.unary_unary(
                 '/allenai.beaker.Beaker/CreateQueue',
@@ -1279,7 +1284,13 @@ class BeakerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ListAllocations(self, request, context):
+    def ListAllocationHistory(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetChildAllocations(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -1891,10 +1902,15 @@ def add_BeakerServicer_to_server(servicer, server):
                     request_deserializer=beaker__pb2.SetChildAllocationsRequest.FromString,
                     response_serializer=beaker__pb2.SetChildAllocationsResponse.SerializeToString,
             ),
-            'ListAllocations': grpc.unary_unary_rpc_method_handler(
-                    servicer.ListAllocations,
-                    request_deserializer=beaker__pb2.ListAllocationsRequest.FromString,
-                    response_serializer=beaker__pb2.ListAllocationsResponse.SerializeToString,
+            'ListAllocationHistory': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListAllocationHistory,
+                    request_deserializer=beaker__pb2.ListAllocationHistoryRequest.FromString,
+                    response_serializer=beaker__pb2.ListAllocationHistoryResponse.SerializeToString,
+            ),
+            'GetChildAllocations': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetChildAllocations,
+                    request_deserializer=beaker__pb2.GetChildAllocationsRequest.FromString,
+                    response_serializer=beaker__pb2.GetChildAllocationsResponse.SerializeToString,
             ),
             'CreateQueue': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateQueue,
@@ -4810,7 +4826,7 @@ class Beaker(object):
             _registered_method=True)
 
     @staticmethod
-    def ListAllocations(request,
+    def ListAllocationHistory(request,
             target,
             options=(),
             channel_credentials=None,
@@ -4823,9 +4839,36 @@ class Beaker(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/allenai.beaker.Beaker/ListAllocations',
-            beaker__pb2.ListAllocationsRequest.SerializeToString,
-            beaker__pb2.ListAllocationsResponse.FromString,
+            '/allenai.beaker.Beaker/ListAllocationHistory',
+            beaker__pb2.ListAllocationHistoryRequest.SerializeToString,
+            beaker__pb2.ListAllocationHistoryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetChildAllocations(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/allenai.beaker.Beaker/GetChildAllocations',
+            beaker__pb2.GetChildAllocationsRequest.SerializeToString,
+            beaker__pb2.GetChildAllocationsResponse.FromString,
             options,
             channel_credentials,
             insecure,

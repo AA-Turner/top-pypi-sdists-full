@@ -1,6 +1,8 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 import importlib
+import importlib.machinery
+import importlib.util
 import inspect
 import sys
 from types import FunctionType, ModuleType
@@ -40,6 +42,9 @@ class policy_rewriter_state(Namespace):
     enabled: bool = False
 
 
+CONTRAST_TEMP_NAMESPACE = "__contrast_temp"
+
+
 def load_and_rewrite_module(module: ModuleType) -> ModuleType:
     """
     Returns a rewritten version of the given module
@@ -56,14 +61,45 @@ def load_and_rewrite_module(module: ModuleType) -> ModuleType:
     non-frozen version of the module. We can achieve this by loading the module
     again and returning the new module object.
     """
-    temp_name = "__contrast_temp." + module.__name__
-    spec = importlib.util.spec_from_file_location(temp_name, module.__file__)
+    module_name = module.__name__
+
+    # 1. Create a pseudo namespace for the rewritten modules to live in. This allows programs to
+    # "import __contrast_temp". Later at 2, this will allow "import __contrast_temp.MODULE_NAME"
+    # to access the rewritten modules. It's unlikely that programs would do this directly, but
+    # dynamically accessing the __module__ attribute of a rewritten function or class could lead
+    # to a scenario where a program needs to access __contrast_temp. See PYT-4052 as an example.
+    if CONTRAST_TEMP_NAMESPACE not in sys.modules:
+        temp_pkg = ModuleType(CONTRAST_TEMP_NAMESPACE)
+        # Mark the temporary module as a namespace package so that
+        # imports like "__contrast_temp.MODULE_NAME" work with the
+        # standard import machinery.
+        temp_pkg.__path__ = []
+        temp_pkg.__package__ = CONTRAST_TEMP_NAMESPACE
+        temp_spec = importlib.machinery.ModuleSpec(
+            name=CONTRAST_TEMP_NAMESPACE,
+            loader=None,
+            is_package=True,
+        )
+        temp_spec.submodule_search_locations = temp_pkg.__path__
+        temp_pkg.__spec__ = temp_spec
+        sys.modules[CONTRAST_TEMP_NAMESPACE] = temp_pkg
+
+    temp_module_name = f"{CONTRAST_TEMP_NAMESPACE}.{module_name}"
+    spec = importlib.util.spec_from_file_location(temp_module_name, module.__file__)
 
     module = importlib.util.module_from_spec(spec)
-    # Add the unrewritten module to sys.modules so that relative imports
+    # 2. Add the unrewritten module to the __contrast_temp namespace so that 'import __contrast_temp.MODULE_NAME'
+    # succeeds. After the RewriteLoader exec's the module, future access will also receive rewritten members.
+    top_level_module_name, _sep, *_rest = module_name.partition(".")
+    top_level_module = sys.modules[top_level_module_name]
+    sys.modules[CONTRAST_TEMP_NAMESPACE].__dict__[top_level_module_name] = (
+        top_level_module
+    )
+
+    # 3. Add the unrewritten module to sys.modules so that relative imports
     # can be resolved when exec'ing the rewritten module.
-    sys.modules[temp_name] = module
-    ContrastRewriteLoader(temp_name, module.__file__).exec_module(module)
+    sys.modules[temp_module_name] = module
+    ContrastRewriteLoader(temp_module_name, module.__file__).exec_module(module)
 
     return module
 
@@ -101,7 +137,6 @@ def rewrite_module_functions(module_name: str):
     logger.debug("Applying rewriter policy to module: %s", module_name)
 
     rewritten_module = load_and_rewrite_module(module)
-    sys.modules[rewritten_module.__name__] = rewritten_module
 
     for name, member in inspect.getmembers(module):
         # If the unfrozen module doesn't have a function that is found in the

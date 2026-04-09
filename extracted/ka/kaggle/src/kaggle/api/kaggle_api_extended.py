@@ -25,6 +25,7 @@ import io
 import json  # Needed by mypy.
 import logging
 import os
+from pathlib import Path
 
 import re  # Needed by mypy.
 import shutil
@@ -38,6 +39,7 @@ from os.path import expanduser
 from random import random
 
 import bleach
+import mimetypes
 import requests
 import urllib3.exceptions as urllib3_exceptions
 from requests import RequestException
@@ -81,6 +83,8 @@ from kagglesdk.competitions.types.competition_enums import (
     SubmissionGroup,
     SubmissionSortBy,
 )
+
+from kagglesdk.common.types.cropped_image_upload import CroppedImageUpload, CroppedImageRectangle
 
 from kagglesdk.datasets.types.dataset_api_service import (
     ApiListDatasetsRequest,
@@ -639,7 +643,6 @@ class KaggleApi:
         retry_multiplier: float = 1.7,
         randomness_factor: float = 0.5,
     ) -> Callable[[KaggleObject], KaggleObject]:
-
         def retriable_func(*args):
             for i in range(1, max_retries + 1):
                 try:
@@ -721,7 +724,7 @@ class KaggleApi:
         return True
 
     def _authenticate_with_access_token(self):
-        (access_token, source) = get_access_token_from_env()
+        access_token, source = get_access_token_from_env()
         if not access_token:
             return False
 
@@ -1306,7 +1309,7 @@ class KaggleApi:
                 return submit_response
 
     def competition_submit(
-        self, file_name: str, message: str, competition: str, quiet: bool = False
+        self, file_name: str, message: str, competition: str, quiet: bool = False, sandbox: bool = False
     ) -> ApiCreateSubmissionResponse:
         """Submits to a competition.
 
@@ -1315,6 +1318,7 @@ class KaggleApi:
             message (str): The submission description.
             competition (str): The competition name.
             quiet (bool): Suppress verbose output (default is False).
+            sandbox (bool): Mark as a sandbox submission (default is False).
 
         Returns:
             ApiCreateSubmissionResponse:
@@ -1355,6 +1359,8 @@ class KaggleApi:
                 submit_request.blob_file_tokens = response.token
                 if message:
                     submit_request.submission_description = message
+                if sandbox:
+                    submit_request.sandbox = True
                 submit_response: ApiCreateSubmissionResponse = (
                     kaggle.competitions.competition_api_client.create_submission(submit_request)
                 )
@@ -1369,6 +1375,7 @@ class KaggleApi:
         version: Optional[str] = None,
         competition_opt: Optional[str] = None,
         quiet: bool = False,
+        sandbox: bool = False,
     ) -> str:
         """Submits a competition using the client.
 
@@ -1380,6 +1387,7 @@ class KaggleApi:
             version (Optional[str]): The version of the kernel to submit to a code competition, e.g. '1'.
             competition_opt (Optional[str]): An alternative competition option provided by cli.
             quiet (bool): Suppress verbose output (default is False).
+            sandbox (bool): Mark as a sandbox submission (default is False).
 
         Returns:
             str:
@@ -1394,7 +1402,7 @@ class KaggleApi:
                 )
             else:
                 submit_result = self.competition_submit(
-                    cast(str, file_name), cast(str, message), cast(str, competition), quiet
+                    cast(str, file_name), cast(str, message), cast(str, competition), quiet, sandbox
                 )
         except RequestException as e:
             if e.response and e.response.status_code == 404:
@@ -1896,7 +1904,7 @@ class KaggleApi:
             dataset: The dataset to update.
             path: The path to the metadata file.
         """
-        (owner_slug, dataset_slug, effective_path) = self.dataset_metadata_prep(dataset, path)
+        owner_slug, dataset_slug, effective_path = self.dataset_metadata_prep(dataset, path)
         meta_file = self.get_dataset_metadata_file(effective_path)
         with open(meta_file, "r") as f:
             metadata = json.load(f)
@@ -1916,6 +1924,20 @@ class KaggleApi:
                 else []
             )
             update_settings.data = metadata.get("data")
+            # This *should* be a list of sources, but we store them as a single string in dataset version metadata,
+            # so we treat it as a different / special property than Data Package's "sources" for now:
+            # https://specs.frictionlessdata.io//data-package/#sources
+            update_settings.user_specified_sources = metadata.get("userSpecifiedSources") or ""
+            expected_update_frequency = metadata.get("expectedUpdateFrequency")
+            if expected_update_frequency:
+                update_settings.expected_update_frequency = expected_update_frequency
+
+            effective_relative_path_to_image = metadata.get("image")
+            if effective_relative_path_to_image:
+                cropped_image_upload = self._upload_dataset_image_file(effective_path, effective_relative_path_to_image)
+                if cropped_image_upload:
+                    update_settings.image = cropped_image_upload
+
             request = ApiUpdateDatasetMetadataRequest()
             request.owner_slug = owner_slug
             request.dataset_slug = dataset_slug
@@ -1923,8 +1945,55 @@ class KaggleApi:
             with self.build_kaggle_client() as kaggle:
                 response = kaggle.datasets.dataset_api_client.update_dataset_metadata(request)
                 if len(response.errors) > 0:
-                    [print(e["message"]) for e in response.errors]
+                    [print(error_message) for error_message in response.errors]
                     exit(1)
+
+    def _upload_dataset_image_file(
+        self, metadata_file_path, relative_image_file_path, quiet=False
+    ) -> CroppedImageUpload:
+        image_full_path = os.path.join(metadata_file_path, relative_image_file_path)
+        ext = Path(image_full_path).suffix
+        if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+            raise ValueError("Image file requires an extension of .jpg, .jpeg, .png, or .webp: %s" % image_full_path)
+
+        if not os.path.isfile(image_full_path):
+            raise ValueError("Image file was not found: %s" % image_full_path)
+
+        file_name = os.path.basename(image_full_path)
+        # Best guess for MIME type based on filename is ok, given we don't trust MIME type in the backend.
+        content_type, _ = mimetypes.guess_type(file_name)
+        with ResumableUploadContext() as upload_context:
+            upload_file = self._upload_file(
+                file_name,
+                image_full_path,
+                ApiBlobType.INBOX,
+                upload_context,
+                quiet,
+                resources=None,
+                content_type=content_type,
+            )
+            if not upload_file:
+                raise ValueError("Error uploading image file: %s" % image_full_path)
+
+            header_image_rect = CroppedImageRectangle()
+            header_image_rect.title = "cover image"
+            header_image_rect.top = 0
+            header_image_rect.left = 0
+            header_image_rect.width = 560
+            header_image_rect.height = 280
+
+            thumbnail_rect = CroppedImageRectangle()
+            thumbnail_rect.title = "thumbnail"
+            thumbnail_rect.top = 0
+            thumbnail_rect.left = 140
+            thumbnail_rect.width = 280
+            thumbnail_rect.height = 280
+
+            cropped_image_upload = CroppedImageUpload()
+            cropped_image_upload.token = upload_file.token
+            cropped_image_upload.crop_rectangles = [header_image_rect, thumbnail_rect]
+
+            return cropped_image_upload
 
     @staticmethod
     def _new_license(name):
@@ -1949,7 +2018,7 @@ class KaggleApi:
         Returns:
             The path to the downloaded metadata file.
         """
-        (owner_slug, dataset_slug, effective_path) = self.dataset_metadata_prep(dataset, path)
+        owner_slug, dataset_slug, effective_path = self.dataset_metadata_prep(dataset, path)
 
         if not os.path.exists(effective_path):
             os.makedirs(effective_path)
@@ -2232,7 +2301,12 @@ class KaggleApi:
             self.dataset_download_file(dataset, file_name, path=path, force=force, quiet=quiet, licenses=licenses)
 
     def _upload_blob(
-        self, path: str, quiet: bool, blob_type: ApiBlobType, upload_context: ResumableUploadContext
+        self,
+        path: str,
+        quiet: bool,
+        blob_type: ApiBlobType,
+        upload_context: ResumableUploadContext,
+        content_type: Optional[str] = None,
     ) -> ResumableFileUpload | str | None:
         """Uploads a file.
 
@@ -2241,6 +2315,7 @@ class KaggleApi:
             quiet (bool): Suppress verbose output (default is False).
             blob_type (ApiBlobType): The entity to which the file/blob refers.
             upload_context (ResumableUploadContext): The context for resumable uploads.
+            content_type (str): Optional MIME content type, e.g. "text/plain", "image/png"
 
         Returns:
             Union[ResumableFileUpload, str, None]: A ResumableFileUpload object, a string, or None.
@@ -2254,9 +2329,10 @@ class KaggleApi:
         start_blob_upload_request.name = file_name
         start_blob_upload_request.content_length = content_length
         start_blob_upload_request.last_modified_epoch_seconds = last_modified_epoch_seconds
+        if content_type:
+            start_blob_upload_request.content_type = content_type
 
         file_upload = upload_context.new_resumable_file_upload(path, start_blob_upload_request)
-
         for i in range(0, self.MAX_UPLOAD_RESUME_ATTEMPTS):
             if file_upload.upload_complete:
                 return file_upload
@@ -2730,7 +2806,6 @@ class KaggleApi:
                                     break
                                 out.write(data)
                                 out.flush()  # Ensure data is written to disk
-                                os.utime(outfile, times=(remote_date_timestamp - 1, remote_date_timestamp - 1))
                                 size_read += len(data)
                                 pbar.update(len(data))
                         else:
@@ -2739,7 +2814,6 @@ class KaggleApi:
                                     break
                                 out.write(data)
                                 out.flush()  # Ensure data is written to disk
-                                os.utime(outfile, times=(remote_date_timestamp - 1, remote_date_timestamp - 1))
                                 size_read += len(data)
                                 pbar.update(len(data))
 
@@ -3415,11 +3489,22 @@ class KaggleApi:
             request = ApiListKernelSessionOutputRequest()
             request.user_name = owner_slug
             request.kernel_slug = kernel_slug
-            response = kaggle.kernels.kernels_api_client.list_kernel_session_output(request)
+            try:
+                response = kaggle.kernels.kernels_api_client.list_kernel_session_output(request)
+            except HTTPError as e:
+                if e.response.status_code in (401, 403):
+                    raise ValueError(
+                        f"Cannot access kernel '{kernel}' (Permission 'kernels.get' was denied). "
+                        "The most likely cause is a wrong kernel slug. "
+                        "The benchmark_task_slug returned by get_benchmark_leaderboard differs from the actual kernel slug — "
+                        "use the slug from the notebook URL (kaggle.com/code/owner/KERNEL-SLUG), not from the leaderboard. "
+                        "It can also occur if the notebook is private."
+                    )
+                raise
             token = response.next_page_token
 
         outfiles = []
-        for item in response.files:
+        for item in response.files or []:
             if compiled_pattern and not compiled_pattern.search(item.file_name):
                 continue
 
@@ -3459,7 +3544,7 @@ class KaggleApi:
             file_pattern: Regex pattern to match against filenames. Only files matching the pattern will be downloaded.
         """
         kernel = kernel or kernel_opt
-        (_, token) = self.kernels_output(kernel, path, file_pattern, force, quiet)
+        _, token = self.kernels_output(kernel, path, file_pattern, force, quiet)
         if token:
             print(f"Next page token: {token}")
 
@@ -3486,7 +3571,18 @@ class KaggleApi:
             request = ApiGetKernelSessionStatusRequest()
             request.user_name = owner_slug
             request.kernel_slug = kernel_slug
-            return kaggle.kernels.kernels_api_client.get_kernel_session_status(request)
+            try:
+                return kaggle.kernels.kernels_api_client.get_kernel_session_status(request)
+            except HTTPError as e:
+                if e.response.status_code in (401, 403):
+                    raise ValueError(
+                        f"Cannot access kernel '{kernel}' (Permission 'kernels.get' was denied). "
+                        "The most likely cause is a wrong kernel slug. "
+                        "The benchmark_task_slug returned by get_benchmark_leaderboard differs from the actual kernel slug — "
+                        "use the slug from the notebook URL (kaggle.com/code/owner/KERNEL-SLUG), not from the leaderboard. "
+                        "It can also occur if the notebook is private."
+                    )
+                raise
 
     def kernels_status_cli(self, kernel, kernel_opt=None):
         """A client wrapper for kernel_status.
@@ -4584,7 +4680,7 @@ class KaggleApi:
         files_to_create = []
         with ResumableUploadContext(no_resume) as upload_context:
             for local_path in local_paths:
-                (upload_file, file_name) = self.file_upload_cli(local_path, inbox_path, no_compress, upload_context)
+                upload_file, file_name = self.file_upload_cli(local_path, inbox_path, no_compress, upload_context)
                 if upload_file is None:
                     continue
 
@@ -4870,6 +4966,7 @@ class KaggleApi:
         upload_context: ResumableUploadContext,
         quiet: bool,
         resources: Optional[List[Dict[str, Union[str, Dict[str, List[Dict[str, str]]]]]]],
+        content_type: Optional[str] = None,
     ) -> Union[UploadFile, None]:
         """A helper function to upload a single file.
 
@@ -4880,6 +4977,7 @@ class KaggleApi:
             upload_context (ResumableUploadContext): The context for resumable uploads.
             quiet (bool): Suppress verbose output.
             resources (Optional[List[Dict[str, Union[str, Dict[str, List[Dict[str, str]]]]]]]): Optional file metadata.
+            content_type (str): Optional MIME content type, e.g. "text/plain", "image/png"
 
         Returns:
             Union[UploadFile, None]: An UploadFile object if the upload was successful, otherwise None.
@@ -4889,7 +4987,7 @@ class KaggleApi:
             print("Starting upload for file " + file_name)
 
         content_length = os.path.getsize(full_path)
-        token = self._upload_blob(full_path, quiet, blob_type, upload_context)
+        token = self._upload_blob(full_path, quiet, blob_type, upload_context, content_type)
         if token is None:
             if not quiet:
                 print("Upload unsuccessful: " + file_name)

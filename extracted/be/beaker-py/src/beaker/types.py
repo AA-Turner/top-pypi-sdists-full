@@ -4,6 +4,7 @@ import dataclasses
 import os
 from copy import deepcopy
 from dataclasses import dataclass
+from datetime import timedelta
 from enum import Enum
 from typing import Any, Type, TypeVar
 
@@ -348,11 +349,14 @@ class _BeakerSpecBase:
     @classmethod
     def jsonify(cls, x: Any) -> Any:
         if dataclasses.is_dataclass(x):
-            return {
+            d = {
                 to_lower_camel(field.name): cls.jsonify(getattr(x, field.name))
                 for field in dataclasses.fields(x)
                 if getattr(x, field.name) is not None
             }
+            if hasattr(x, "_patch_json"):
+                x._patch_json(d)
+            return d
         elif isinstance(x, Enum):
             return cls.jsonify(x.name)
         elif isinstance(x, dict):
@@ -468,10 +472,21 @@ class BeakerTaskContext(_BeakerSpecBase):
     cluster: str | None = None
     priority: BeakerJobPriority | None = None
     preemptible: bool | None = None
+    min_runtime: int | None = None
+    auto_resume: bool | None = None
 
     def __post_init__(self):
         if self.priority is not None:
             self.priority = BeakerJobPriority.from_any(self.priority)
+        if self.min_runtime is not None:
+            self.min_runtime = to_nanoseconds(self.min_runtime)
+
+    @staticmethod
+    def _patch_json(d: dict[str, Any]) -> None:
+        # Remove the legacy "preemptible" field during serialization in favor of "minRuntime" and "autoResume".
+        # The API will reject requests to create specs with both old and new fields present.
+        if "minRuntime" in d or "autoResume" in d:
+            d.pop("preemptible", None)
 
 
 @dataclass
@@ -552,6 +567,8 @@ class BeakerTaskSpec(_BeakerSpecBase):
         result_path: str | None = None,
         priority: BeakerJobPriority | str | None = None,
         preemptible: bool | None = None,
+        min_runtime: str | int | float | timedelta | None = None,
+        auto_resume: bool | None = None,
         **kwargs,
     ) -> BeakerTaskSpec:
         constraints = kwargs.pop("constraints", None)
@@ -579,6 +596,8 @@ class BeakerTaskSpec(_BeakerSpecBase):
             context=BeakerTaskContext(
                 priority=None if priority is None else BeakerJobPriority.from_any(priority),
                 preemptible=preemptible,
+                min_runtime=None if min_runtime is None else to_nanoseconds(min_runtime),
+                auto_resume=auto_resume,
             ),
             constraints=constraints,
             **kwargs,

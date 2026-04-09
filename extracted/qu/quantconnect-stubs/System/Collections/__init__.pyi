@@ -10,33 +10,6 @@ import System.Globalization
 import System.Runtime.Serialization
 
 
-class IHashCodeProvider(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_hash_code(self, obj: typing.Any) -> int:
-        ...
-
-
-class IEqualityComparer(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def equals(self, x: typing.Any, y: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self, obj: typing.Any) -> int:
-        ...
-
-
-class IStructuralEquatable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def equals(self, other: typing.Any, comparer: System.Collections.IEqualityComparer) -> bool:
-        ...
-
-    def get_hash_code(self, comparer: System.Collections.IEqualityComparer) -> int:
-        ...
-
-
 class IEnumerator(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -123,6 +96,240 @@ class IDictionary(System.Collections.ICollection, metaclass=abc.ABCMeta):
         ...
 
 
+class IComparer(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def compare(self, x: typing.Any, y: typing.Any) -> int:
+        ...
+
+
+class Comparer(System.Object, System.Collections.IComparer, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    DEFAULT: System.Collections.Comparer = ...
+
+    DEFAULT_INVARIANT: System.Collections.Comparer = ...
+
+    def __init__(self, culture: System.Globalization.CultureInfo) -> None:
+        ...
+
+    def compare(self, a: typing.Any, b: typing.Any) -> int:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+
+class BitArray(System.Object, System.Collections.ICollection, System.ICloneable, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    @property
+    def length(self) -> int:
+        ...
+
+    @length.setter
+    def length(self, value: int) -> None:
+        ...
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @property
+    def sync_root(self) -> System.Object:
+        ...
+
+    @property
+    def is_synchronized(self) -> bool:
+        ...
+
+    @property
+    def is_read_only(self) -> bool:
+        ...
+
+    def __getitem__(self, index: int) -> bool:
+        ...
+
+    @overload
+    def __init__(self, length: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, length: int, default_value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, bytes: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def __init__(self, values: typing.List[bool]) -> None:
+        ...
+
+    @overload
+    def __init__(self, values: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def __init__(self, bits: System.Collections.BitArray) -> None:
+        ...
+
+    def __setitem__(self, index: int, value: bool) -> None:
+        ...
+
+    def And(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
+        ...
+
+    def clone(self) -> System.Object:
+        ...
+
+    def copy_to(self, array: System.Array, index: int) -> None:
+        ...
+
+    def get(self, index: int) -> bool:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IEnumerator:
+        ...
+
+    def has_all_set(self) -> bool:
+        ...
+
+    def has_any_set(self) -> bool:
+        ...
+
+    def left_shift(self, count: int) -> System.Collections.BitArray:
+        ...
+
+    def Not(self) -> System.Collections.BitArray:
+        ...
+
+    def Or(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
+        ...
+
+    def pop_count(self) -> int:
+        ...
+
+    def right_shift(self, count: int) -> System.Collections.BitArray:
+        ...
+
+    def set(self, index: int, value: bool) -> None:
+        ...
+
+    def set_all(self, value: bool) -> None:
+        ...
+
+    def xor(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
+        ...
+
+
+class DictionaryEntry:
+    """This class has no documentation."""
+
+    @property
+    def key(self) -> System.Object:
+        ...
+
+    @key.setter
+    def key(self, value: System.Object) -> None:
+        ...
+
+    @property
+    def value(self) -> System.Object:
+        ...
+
+    @value.setter
+    def value(self, value: System.Object) -> None:
+        ...
+
+    def __init__(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def deconstruct(self, key: typing.Optional[typing.Any], value: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any, typing.Any]:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class IDictionaryEnumerator(System.Collections.IEnumerator, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def key(self) -> System.Object:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def value(self) -> System.Object:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def entry(self) -> System.Collections.DictionaryEntry:
+        ...
+
+
+class ListDictionaryInternal(System.Object, System.Collections.IDictionary):
+    """This class has no documentation."""
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @property
+    def keys(self) -> System.Collections.ICollection:
+        ...
+
+    @property
+    def is_read_only(self) -> bool:
+        ...
+
+    @property
+    def is_fixed_size(self) -> bool:
+        ...
+
+    @property
+    def is_synchronized(self) -> bool:
+        ...
+
+    @property
+    def sync_root(self) -> System.Object:
+        ...
+
+    @property
+    def values(self) -> System.Collections.ICollection:
+        ...
+
+    def __getitem__(self, key: typing.Any) -> typing.Any:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def __setitem__(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def add(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def contains(self, key: typing.Any) -> bool:
+        ...
+
+    def copy_to(self, array: System.Array, index: int) -> None:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
+        ...
+
+    def remove(self, key: typing.Any) -> None:
+        ...
+
+
 class IList(System.Collections.ICollection, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -161,13 +368,6 @@ class IList(System.Collections.ICollection, metaclass=abc.ABCMeta):
         ...
 
     def remove_at(self, index: int) -> None:
-        ...
-
-
-class IComparer(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def compare(self, x: typing.Any, y: typing.Any) -> int:
         ...
 
 
@@ -382,130 +582,6 @@ class ArrayList(System.Object, System.Collections.IList, System.ICloneable):
         ...
 
 
-class DictionaryEntry:
-    """This class has no documentation."""
-
-    @property
-    def key(self) -> System.Object:
-        ...
-
-    @key.setter
-    def key(self, value: System.Object) -> None:
-        ...
-
-    @property
-    def value(self) -> System.Object:
-        ...
-
-    @value.setter
-    def value(self, value: System.Object) -> None:
-        ...
-
-    def __init__(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def deconstruct(self, key: typing.Optional[typing.Any], value: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any, typing.Any]:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class IDictionaryEnumerator(System.Collections.IEnumerator, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def key(self) -> System.Object:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def value(self) -> System.Object:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def entry(self) -> System.Collections.DictionaryEntry:
-        ...
-
-
-class Comparer(System.Object, System.Collections.IComparer, System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
-
-    DEFAULT: System.Collections.Comparer = ...
-
-    DEFAULT_INVARIANT: System.Collections.Comparer = ...
-
-    def __init__(self, culture: System.Globalization.CultureInfo) -> None:
-        ...
-
-    def compare(self, a: typing.Any, b: typing.Any) -> int:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class ListDictionaryInternal(System.Object, System.Collections.IDictionary):
-    """This class has no documentation."""
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def keys(self) -> System.Collections.ICollection:
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        ...
-
-    @property
-    def is_fixed_size(self) -> bool:
-        ...
-
-    @property
-    def is_synchronized(self) -> bool:
-        ...
-
-    @property
-    def sync_root(self) -> System.Object:
-        ...
-
-    @property
-    def values(self) -> System.Collections.ICollection:
-        ...
-
-    def __getitem__(self, key: typing.Any) -> typing.Any:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def __setitem__(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def add(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def contains(self, key: typing.Any) -> bool:
-        ...
-
-    def copy_to(self, array: System.Array, index: int) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
-        ...
-
-    def remove(self, key: typing.Any) -> None:
-        ...
-
-
 class IStructuralComparable(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -513,106 +589,20 @@ class IStructuralComparable(metaclass=abc.ABCMeta):
         ...
 
 
-class BitArray(System.Object, System.Collections.ICollection, System.ICloneable, System.Runtime.Serialization.ISerializable):
+class IHashCodeProvider(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @property
-    def length(self) -> int:
+    def get_hash_code(self, obj: typing.Any) -> int:
         ...
 
-    @length.setter
-    def length(self, value: int) -> None:
+
+class IEqualityComparer(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def equals(self, x: typing.Any, y: typing.Any) -> bool:
         ...
 
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def sync_root(self) -> System.Object:
-        ...
-
-    @property
-    def is_synchronized(self) -> bool:
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        ...
-
-    def __getitem__(self, index: int) -> bool:
-        ...
-
-    @overload
-    def __init__(self, length: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, length: int, default_value: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, bytes: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def __init__(self, values: typing.List[bool]) -> None:
-        ...
-
-    @overload
-    def __init__(self, values: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def __init__(self, bits: System.Collections.BitArray) -> None:
-        ...
-
-    def __setitem__(self, index: int, value: bool) -> None:
-        ...
-
-    def And(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
-        ...
-
-    def clone(self) -> System.Object:
-        ...
-
-    def copy_to(self, array: System.Array, index: int) -> None:
-        ...
-
-    def get(self, index: int) -> bool:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IEnumerator:
-        ...
-
-    def has_all_set(self) -> bool:
-        ...
-
-    def has_any_set(self) -> bool:
-        ...
-
-    def left_shift(self, count: int) -> System.Collections.BitArray:
-        ...
-
-    def Not(self) -> System.Collections.BitArray:
-        ...
-
-    def Or(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
-        ...
-
-    def pop_count(self) -> int:
-        ...
-
-    def right_shift(self, count: int) -> System.Collections.BitArray:
-        ...
-
-    def set(self, index: int, value: bool) -> None:
-        ...
-
-    def set_all(self, value: bool) -> None:
-        ...
-
-    def xor(self, value: System.Collections.BitArray) -> System.Collections.BitArray:
+    def get_hash_code(self, obj: typing.Any) -> int:
         ...
 
 
@@ -784,6 +774,16 @@ class Hashtable(System.Object, System.Collections.IDictionary, System.Runtime.Se
 
     @staticmethod
     def synchronized(table: System.Collections.Hashtable) -> System.Collections.Hashtable:
+        ...
+
+
+class IStructuralEquatable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def equals(self, other: typing.Any, comparer: System.Collections.IEqualityComparer) -> bool:
+        ...
+
+    def get_hash_code(self, comparer: System.Collections.IEqualityComparer) -> int:
         ...
 
 

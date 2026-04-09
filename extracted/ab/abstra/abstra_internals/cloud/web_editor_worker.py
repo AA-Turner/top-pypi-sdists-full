@@ -1,3 +1,5 @@
+import os
+
 from abstra_internals.controllers.execution.consumer import ConsumerController
 from abstra_internals.controllers.main import MainController
 from abstra_internals.environment import (
@@ -26,6 +28,15 @@ def run():
         AbstraLogger.warning(
             "[web-editor-worker] ABSTRA_WORKER_LOG_TO_QUEUE=true, execution logs will be sent via RabbitMQ"
         )
+
+    _pythonuserbase = os.environ.get("PYTHONUSERBASE")
+    if _pythonuserbase and os.path.isfile(
+        os.path.join(_pythonuserbase, ".keep-abstra")
+    ):
+        AbstraLogger.warning(
+            "[web-editor-worker] .keep-abstra marker detected — abstra package cleanup was skipped"
+        )
+
     SettingsController.set_root_path(".")
     SettingsController.set_server_port(DEFAULT_PORT)
 

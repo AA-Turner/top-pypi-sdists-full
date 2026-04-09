@@ -10,6 +10,7 @@ import shlex
 import logging
 import time
 import threading
+import os
 from typing import List, Optional, Set, Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -176,6 +177,19 @@ def safe_execute(
     """
     start_time = time.time()
     
+    # Block dangerous shell injection characters
+    banned_chars = [';', '&', '|', '$', '`']
+    if any(char in command for char in banned_chars):
+        return ExecutionResult(
+            success=False,
+            exit_code=-1,
+            stdout="",
+            stderr="",
+            duration_ms=0,
+            command=command,
+            error="Command contains blocked shell characters"
+        )
+    
     # Check if command is banned
     if is_command_banned(command):
         return ExecutionResult(
@@ -190,9 +204,32 @@ def safe_execute(
     
     try:
         # Execute command
+        # Use shell=False with shlex.split for safer execution
+        try:
+            args = shlex.split(command, posix=(os.name == 'posix'))
+            if not args:
+                return ExecutionResult(
+                    success=False,
+                    exit_code=-1,
+                    stdout="",
+                    stderr="",
+                    duration_ms=0.0,
+                    command=command,
+                    error="Empty command after parsing"
+                )
+        except ValueError as e:
+            return ExecutionResult(
+                success=False,
+                exit_code=-1,
+                stdout="",
+                stderr="",
+                duration_ms=0.0,
+                command=command,
+                error=f"Invalid command syntax: {str(e)}"
+            )
         process = subprocess.Popen(
-            command,
-            shell=True,
+            args,
+            shell=False,  # Use shell=False for security
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=cwd,
@@ -259,6 +296,19 @@ async def safe_execute_async(
     
     start_time = time.time()
     
+    # Block dangerous shell injection characters
+    banned_chars = [';', '&', '|', '$', '`']
+    if any(char in command for char in banned_chars):
+        return ExecutionResult(
+            success=False,
+            exit_code=-1,
+            stdout="",
+            stderr="",
+            duration_ms=0,
+            command=command,
+            error="Command contains blocked shell characters"
+        )
+    
     if is_command_banned(command):
         return ExecutionResult(
             success=False,
@@ -271,8 +321,31 @@ async def safe_execute_async(
         )
     
     try:
-        process = await asyncio.create_subprocess_shell(
-            command,
+        # Use create_subprocess_exec instead of create_subprocess_shell for security
+        try:
+            args = shlex.split(command, posix=(os.name == 'posix'))
+            if not args:
+                return ExecutionResult(
+                    success=False,
+                    exit_code=-1,
+                    stdout="",
+                    stderr="",
+                    duration_ms=0,
+                    command=command,
+                    error="Empty command after parsing"
+                )
+        except ValueError as e:
+            return ExecutionResult(
+                success=False,
+                exit_code=-1,
+                stdout="",
+                stderr="",
+                duration_ms=0,
+                command=command,
+                error=f"Invalid command syntax: {str(e)}"
+            )
+        process = await asyncio.create_subprocess_exec(
+            *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,

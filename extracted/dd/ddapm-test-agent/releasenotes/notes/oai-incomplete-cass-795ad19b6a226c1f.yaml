@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Support a vcr cassette for openai responses api streams that end with an incomplete chunk.

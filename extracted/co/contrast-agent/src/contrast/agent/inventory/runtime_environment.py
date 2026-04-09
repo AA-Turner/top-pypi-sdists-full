@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import resource
 import subprocess
 import sys
 from socket import gethostname
@@ -96,10 +95,18 @@ def _detect_cloud_resource_id():
         try:
             resource_id = extract_id_func()
         except ResourceIdError as e:
-            logger.debug(
-                "did not extract resource ID",
+            logger.warning(
+                "Error while attempting to discover cloud resource ID",
                 provider=provider,
                 exc_info=e,
+            )
+            continue
+
+        if resource_id is None:
+            # Not running in this cloud environment
+            logger.debug(
+                "No cloud resource ID found",
+                provider=provider,
             )
             continue
 
@@ -123,9 +130,12 @@ class ResourceIdError(Exception):
     pass
 
 
-def extract_azure_resource_id() -> str:
+def extract_azure_resource_id() -> str | None:
     """
     Extract the resource ID from the Azure Instance Metadata Service.
+
+    Returns None if not running in Azure (connection failures, 404s).
+    Raises ResourceIdError for actual errors (bad status codes that indicate a problem).
     """
     import requests
     from requests.adapters import HTTPAdapter
@@ -154,14 +164,27 @@ def extract_azure_resource_id() -> str:
                 timeout=TIMEOUT_SECONDS,
             )
             response.raise_for_status()
-        except (MaxRetryError, requests.RequestException) as e:
-            raise ResourceIdError("Failed to get Azure resource ID") from e
+        except MaxRetryError:
+            # Connection failed - not running in Azure
+            return None
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                # 404 means not in Azure
+                return None
+            # Other HTTP errors are actual problems
+            raise ResourceIdError("Error retrieving Azure resource ID") from e
+        except requests.RequestException:
+            # Other connection issues - not running in Azure
+            return None
         return response.text
 
 
-def extract_aws_resource_id() -> str:
+def extract_aws_resource_id() -> str | None:
     """
     Generate an AWS ARN for the EC2 instance using its Identity Document.
+
+    Returns None if not running in AWS (connection failures, 404s).
+    Raises ResourceIdError for actual errors (malformed identity document).
 
     See:
     https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-identity-documents.html
@@ -198,11 +221,21 @@ def extract_aws_resource_id() -> str:
             )
             response.raise_for_status()
             identity_doc = response.json()
-        except (
-            urllib3.exceptions.MaxRetryError,
-            requests.RequestException,
-        ) as e:
-            raise ResourceIdError("Failed to get AWS resource ID") from e
+        except urllib3.exceptions.MaxRetryError:
+            # Connection failed - not running in AWS
+            return None
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                # 404 means not in AWS
+                return None
+            # Other HTTP errors are actual problems
+            raise ResourceIdError("Error retrieving AWS resource ID") from e
+        except requests.JSONDecodeError as e:
+            # Got a response but it's not valid JSON - this is an error
+            raise ResourceIdError("Invalid AWS identity document (not JSON)") from e
+        except requests.RequestException:
+            # Other connection issues - not running in AWS
+            return None
 
     logger.debug("Retrieved AWS identity document", aws_identity_doc=identity_doc)
     try:
@@ -211,8 +244,7 @@ def extract_aws_resource_id() -> str:
         instance_id = identity_doc["instanceId"]
     except KeyError as e:
         raise ResourceIdError(
-            "Failed to get AWS resource ID. "
-            "Missing a required field in identity document."
+            "Invalid AWS identity document - missing required field"
         ) from e
 
     arn = ":".join(
@@ -248,11 +280,8 @@ def _get_aws_token(session) -> str | None:
     except (
         urllib3.exceptions.MaxRetryError,
         requests.RequestException,
-    ) as e:
-        logger.debug(
-            "Unable to retrieve token for AWS IMDSv2 - proceeding without it",
-            error=str(e),
-        )
+    ):
+        logger.debug("Unable to retrieve token for AWS IMDSv2 - proceeding without it")
     return None
 
 
@@ -343,6 +372,8 @@ def _process_rlimits_bytes() -> tuple[int | None, int | None]:
     Get the current memory limits for this process in bytes, according to getrlimit.
     Values that cannot be found or are unlimited are reported as None.
     """
+    import resource
+
     soft_limit, hard_limit = resource.getrlimit(resource.RLIMIT_AS)
     return (
         soft_limit if soft_limit != resource.RLIM_INFINITY else None,

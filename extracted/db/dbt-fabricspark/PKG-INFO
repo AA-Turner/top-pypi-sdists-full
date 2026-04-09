@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-fabricspark
-Version: 1.9.0
+Version: 1.9.3
 Summary: A Microsoft Fabric Spark adapter plugin for dbt
 Project-URL: homepage, https://github.com/microsoft/dbt-fabricspark
 Project-URL: Setup & configuration, https://docs.getdbt.com/reference/warehouse-profiles/fabricspark-profile
@@ -15,18 +15,18 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <3.14,>=3.9
-Requires-Dist: azure-cli>=2.60.0
-Requires-Dist: azure-core>=1.26.4
-Requires-Dist: azure-identity>=1.13.0
+Requires-Python: <3.14,>=3.10
+Requires-Dist: azure-cli>=2.84.0
+Requires-Dist: azure-core>=1.33.0
+Requires-Dist: azure-identity>=1.21.0
 Requires-Dist: dbt-adapters<2.0,>=1.7
 Requires-Dist: dbt-common<2.0,>=1.10
 Requires-Dist: dbt-core>=1.8.0
+Requires-Dist: requests>=2.32.0
 Description-Content-Type: text/markdown
 
 <a href="https://github.com/microsoft/dbt-fabricspark/actions/workflows/integration.yml">
@@ -70,6 +70,34 @@ fabric-spark-test:
         type: fabricspark
         retry_all: true
 ```
+
+### Session Reuse
+
+By default, the adapter reuses Livy sessions across dbt runs to avoid the overhead of creating new sessions each time. Session IDs are persisted to a file so they can be reused in subsequent runs.
+
+**Configuration options:**
+
+- `session_id_file` (optional): Path to the file storing the Livy session ID. Defaults to `./livy-session-id.txt` in the current working directory.
+
+Example with custom session file:
+
+```yaml
+fabric-spark-test:
+  target: fabricspark-dev
+  outputs:
+    fabricspark-dev:
+        # ... other settings ...
+        session_id_file: /path/to/my-session-id.txt
+```
+
+**Session reuse behavior:**
+
+1. On first run: Creates a new Livy session and saves the session ID to the file
+2. On subsequent runs: Reads the session ID from file and attempts to reuse it
+3. If the session is invalid (dead, stopped, or doesn't exist): Creates a new session and updates the file
+4. Sessions are intentionally kept alive after dbt exits for reuse
+
+To force a new session, simply delete the session ID file before running dbt.
 
 ### Reporting bugs and contributing code
 

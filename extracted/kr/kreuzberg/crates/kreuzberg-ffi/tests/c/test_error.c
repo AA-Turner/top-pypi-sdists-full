@@ -13,15 +13,17 @@ int main(void) {
     assert(strcmp(kreuzberg_error_code_name(5), "plugin") == 0);
     assert(strcmp(kreuzberg_error_code_name(6), "unsupported_format") == 0);
     assert(strcmp(kreuzberg_error_code_name(7), "internal") == 0);
+    assert(strcmp(kreuzberg_error_code_name(8), "embedding") == 0);
     assert(strcmp(kreuzberg_error_code_name(99), "unknown") == 0);
 
     /* Test error code description */
     assert(strcmp(kreuzberg_error_code_description(0), "Input validation error") == 0);
     assert(strcmp(kreuzberg_error_code_description(7), "Internal library error") == 0);
+    assert(strcmp(kreuzberg_error_code_description(8), "Embedding generation error") == 0);
     assert(strcmp(kreuzberg_error_code_description(99), "Unknown error code") == 0);
 
     /* Test error code count */
-    assert(kreuzberg_error_code_count() == 8);
+    assert(kreuzberg_error_code_count() == 9);
 
     /* Test individual error code accessors */
     assert(kreuzberg_error_code_validation() == 0);
@@ -32,6 +34,7 @@ int main(void) {
     assert(kreuzberg_error_code_plugin() == 5);
     assert(kreuzberg_error_code_unsupported_format() == 6);
     assert(kreuzberg_error_code_internal() == 7);
+    assert(kreuzberg_error_code_embedding() == 8);
 
     printf("test_error: all tests passed\n");
     return 0;

@@ -2047,6 +2047,49 @@ fn test_sentence_per_line_abbreviations() {
 }
 
 #[test]
+fn test_sentence_per_line_st_abbreviation() {
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePerLine,
+        line_length: crate::types::LineLength::from_const(0),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // Hyphenated form: "Wrangell-St." must not split at the period
+    let content = "Wrangell-St. Elias National Park and Preserve breaks sentence-per-line.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Wrangell-St. should not be treated as a sentence boundary; got: {result:?}"
+    );
+
+    // Plain form: "St. Name" also must not split
+    let content = "St. Elias is the name of a mountain range.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "St. should not be treated as a sentence boundary; got: {result:?}"
+    );
+
+    // Two actual sentences must still be detected even when one contains "St."
+    let content = "Visit Wrangell-St. Elias. It is the largest national park.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        !result.is_empty(),
+        "Two sentences separated by a real period after 'Elias' should still be detected"
+    );
+    let fix = result[0].fix.as_ref().unwrap();
+    let lines: Vec<&str> = fix.replacement.trim_end_matches('\n').lines().collect();
+    assert_eq!(lines.len(), 2, "Expected fix to split into 2 lines: {lines:?}");
+    assert_eq!(lines[0], "Visit Wrangell-St. Elias.");
+    assert_eq!(lines[1], "It is the largest national park.");
+}
+
+#[test]
 fn test_sentence_per_line_with_markdown() {
     let config = MD013Config {
         reflow: true,
@@ -2084,6 +2127,255 @@ fn test_sentence_per_line_questions_exclamations() {
     assert_eq!(lines[0], "Is this a question?");
     assert_eq!(lines[1], "Yes it is!");
     assert_eq!(lines[2], "And a statement.");
+}
+
+#[test]
+fn test_sentence_per_line_nested_list_continuation_indentation() {
+    // Continuation lines of an outer list item that follow a nested list must
+    // keep their indentation when sentence-per-line reflow runs a fix.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePerLine,
+        line_length: crate::types::LineLength::from_const(0),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // The exact reproduction from issue #563
+    let content = "- Start long list item.\n  Continuation line.\n\n  - Nested list.\n\n  More lines.\n  Even more.\n";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // The two continuation lines after the nested list are each a single sentence:
+    // no reflow fix should be produced that strips their 2-space indent.
+    for warning in &result {
+        if let Some(fix) = &warning.fix {
+            // If a fix touches "More lines." / "Even more.", it must preserve their indent
+            if fix.replacement.contains("More lines.") || fix.replacement.contains("Even more.") {
+                assert!(
+                    !fix.replacement.contains("\nMore lines."),
+                    "Fix must not strip indent from 'More lines.': {:?}",
+                    fix.replacement
+                );
+                assert!(
+                    !fix.replacement.contains("\nEven more."),
+                    "Fix must not strip indent from 'Even more.': {:?}",
+                    fix.replacement
+                );
+            }
+        }
+    }
+
+    // Stronger: applying the fix must produce output that still places the
+    // continuation lines at 2-space indent (inside the outer list item).
+    let all_fixes_preserve_indent = result.iter().all(|w| {
+        w.fix.as_ref().is_none_or(|f| {
+            // Any replacement touching the continuation lines must keep them indented
+            !f.replacement.contains("More lines.") || f.replacement.contains("  More lines.")
+        })
+    });
+    assert!(
+        all_fixes_preserve_indent,
+        "All fixes must preserve 2-space indent on continuation lines after nested list"
+    );
+}
+
+#[test]
+fn test_sentence_per_line_nested_list_continuation_two_sentences() {
+    // When the continuation lines after a nested list contain two sentences on
+    // one line, the fix must split them AND preserve the indent.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePerLine,
+        line_length: crate::types::LineLength::from_const(0),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "- Item.\n\n  - Nested.\n\n  First sentence. Second sentence.\n";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Should detect the two sentences on one line
+    assert!(
+        !result.is_empty(),
+        "Should detect two sentences on the continuation line"
+    );
+
+    let fix = result
+        .iter()
+        .find(|w| {
+            w.fix
+                .as_ref()
+                .is_some_and(|f| f.replacement.contains("First sentence."))
+        })
+        .expect("should have a fix for the two-sentence line");
+
+    let replacement = fix.fix.as_ref().unwrap().replacement.as_str();
+    // Both output lines must carry the 2-space indent
+    assert!(
+        replacement.contains("  First sentence."),
+        "First sentence must be indented: {replacement:?}"
+    );
+    assert!(
+        replacement.contains("  Second sentence."),
+        "Second sentence must be indented: {replacement:?}"
+    );
+}
+
+#[test]
+fn test_normalize_mode_nested_list_continuation_indentation() {
+    // Same structural bug in normalize mode: continuation lines after a nested
+    // list must keep their indent when the fixer runs.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(0),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // Two continuation lines after a nested list that normalize mode would want
+    // to join. If a fix is produced, it must stay at 2-space indent.
+    let content = "- Item.\n\n  - Nested.\n\n  First continuation.\n  Second continuation.\n";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    for warning in &result {
+        if let Some(fix) = &warning.fix
+            && fix.replacement.contains("continuation")
+        {
+            assert!(
+                !fix.replacement.contains("\nFirst continuation.")
+                    && !fix.replacement.contains("\nSecond continuation."),
+                "Normalize fix must not strip indent from continuation lines: {:?}",
+                fix.replacement
+            );
+        }
+    }
+}
+
+#[test]
+fn test_indented_top_level_paragraph_not_affected() {
+    // Top-level paragraphs with incidental leading spaces are NOT inside a list
+    // block. The fixer must not inject or preserve those leading spaces —
+    // leading spaces on top-level paragraph lines are insignificant in Markdown.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePerLine,
+        line_length: crate::types::LineLength::from_const(0),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "  First sentence. Second sentence.\n";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert!(
+        !result.is_empty(),
+        "Should detect two sentences on indented top-level line"
+    );
+
+    let fix = result[0].fix.as_ref().unwrap();
+    let lines: Vec<&str> = fix.replacement.trim_end_matches('\n').lines().collect();
+    assert_eq!(lines.len(), 2, "Fix should split into 2 lines: {lines:?}");
+    // Spurious top-level indent must not be injected into the output
+    assert_eq!(lines[0], "First sentence.");
+    assert_eq!(lines[1], "Second sentence.");
+}
+
+#[test]
+fn test_sentence_per_line_nested_list_continuation_line_length_boundary() {
+    // When a single sentence spanning multiple indented continuation lines would
+    // fit within line_length only if the indent is NOT counted, the fixer must
+    // not join them. The effective_length check must include the common indent.
+    //
+    // Concretely: "one two three four five six." = 28 chars stripped.
+    // With 2-space indent the output would be 30 chars.
+    // line_length = 29: stripped fits (28 ≤ 29) but indented does not (30 > 29).
+    // Without the indent correction the fixer would incorrectly join the lines.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePerLine,
+        line_length: crate::types::LineLength::from_const(29),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // Two continuation lines after a nested list forming ONE sentence (28 stripped chars).
+    // Joined + re-indented = "  one two three four five six." = 30 chars > line_length.
+    let content = "- Item.\n\n  - Nested.\n\n  one two three\n  four five six.\n";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // No fix should join these lines: the indented output would exceed line_length.
+    for warning in &result {
+        if let Some(fix) = &warning.fix {
+            assert!(
+                !fix.replacement.contains("one two three four five six"),
+                "Fixer must not join continuation lines when the indented output exceeds line_length: {:?}",
+                fix.replacement
+            );
+        }
+    }
+}
+
+#[test]
+fn test_semantic_line_breaks_nested_list_continuation_indentation() {
+    // In semantic-line-breaks mode, continuation lines after a nested list must
+    // keep their 2-space indent both when they are already correctly formatted
+    // and when a fix is applied.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::SemanticLineBreaks,
+        line_length: crate::types::LineLength::from_const(0),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // Already-correct: one sentence per line, each indented. No fix should strip indent.
+    let content = "- Item.\n\n  - Nested.\n\n  More lines.\n  Even more.\n";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    for warning in &result {
+        if let Some(fix) = &warning.fix
+            && (fix.replacement.contains("More lines.") || fix.replacement.contains("Even more."))
+        {
+            assert!(
+                fix.replacement.contains("  More lines."),
+                "SemanticLineBreaks fix must preserve 2-space indent: {:?}",
+                fix.replacement
+            );
+        }
+    }
+
+    // Two sentences on one indented line: fix must split AND preserve indent.
+    let content = "- Item.\n\n  - Nested.\n\n  First sentence. Second sentence.\n";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    let fix = result
+        .iter()
+        .find(|w| {
+            w.fix
+                .as_ref()
+                .is_some_and(|f| f.replacement.contains("First sentence."))
+        })
+        .and_then(|w| w.fix.as_ref())
+        .expect("Should produce a fix for two sentences on one line");
+
+    assert!(
+        fix.replacement.contains("  First sentence."),
+        "SemanticLineBreaks fix must indent first sentence: {:?}",
+        fix.replacement
+    );
+    assert!(
+        fix.replacement.contains("  Second sentence."),
+        "SemanticLineBreaks fix must indent second sentence: {:?}",
+        fix.replacement
+    );
 }
 
 #[test]

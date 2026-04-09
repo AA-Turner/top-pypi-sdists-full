@@ -9,8 +9,9 @@ use crate::{
     grpc::WorkflowService,
 };
 use std::{fmt::Debug, marker::PhantomData};
+pub use temporalio_common::UntypedWorkflow;
 use temporalio_common::{
-    QueryDefinition, SignalDefinition, UpdateDefinition, WorkflowDefinition,
+    HasWorkflowDefinition, QueryDefinition, SignalDefinition, UpdateDefinition, WorkflowDefinition,
     data_converters::{RawValue, SerializationContextData},
     protos::{
         coresdk::FromPayloadsExt,
@@ -148,24 +149,6 @@ impl WorkflowExecutionInfo {
 /// and output.
 pub type UntypedWorkflowHandle<CT> = WorkflowHandle<CT, UntypedWorkflow>;
 
-/// Marker type for untyped workflow handles. Stores the workflow type name.
-pub struct UntypedWorkflow {
-    name: String,
-}
-impl UntypedWorkflow {
-    /// Create a new `UntypedWorkflow` with the given workflow type name.
-    pub fn new(name: impl Into<String>) -> Self {
-        Self { name: name.into() }
-    }
-}
-impl WorkflowDefinition for UntypedWorkflow {
-    type Input = RawValue;
-    type Output = RawValue;
-    fn name(&self) -> &str {
-        &self.name
-    }
-}
-
 /// Marker type for sending untyped signals. Stores the signal name for runtime lookup.
 ///
 /// Use with `handle.signal(UntypedSignal::new("signal_name"), raw_payload)`.
@@ -252,7 +235,7 @@ impl<W: WorkflowDefinition> UpdateDefinition for UntypedUpdate<W> {
 impl<CT, W> WorkflowHandle<CT, W>
 where
     CT: WorkflowService + Clone,
-    W: WorkflowDefinition,
+    W: HasWorkflowDefinition,
 {
     /// Create a workflow handle from a client and identifying information.
     pub fn new(client: CT, info: WorkflowExecutionInfo) -> Self {
@@ -401,7 +384,7 @@ where
     ) -> Result<(), WorkflowInteractionError>
     where
         CT: WorkflowService + NamespacedClient + Clone,
-        S: SignalDefinition<Workflow = W>,
+        S: SignalDefinition<Workflow = W::Run>,
         S::Input: Send,
     {
         let payloads = self
@@ -442,7 +425,7 @@ where
     ) -> Result<Q::Output, WorkflowQueryError>
     where
         CT: WorkflowService + NamespacedClient + Clone,
-        Q: QueryDefinition<Workflow = W>,
+        Q: QueryDefinition<Workflow = W::Run>,
         Q::Input: Send,
     {
         let dc = self.client.data_converter();
@@ -496,7 +479,7 @@ where
     ) -> Result<U::Output, WorkflowUpdateError>
     where
         CT: WorkflowService + NamespacedClient + Clone,
-        U: UpdateDefinition<Workflow = W>,
+        U: UpdateDefinition<Workflow = W::Run>,
         U::Input: Send,
         U::Output: 'static,
     {
@@ -524,7 +507,7 @@ where
     ) -> Result<WorkflowUpdateHandle<CT, U::Output>, WorkflowUpdateError>
     where
         CT: WorkflowService + NamespacedClient + Clone,
-        U: UpdateDefinition<Workflow = W>,
+        U: UpdateDefinition<Workflow = W::Run>,
         U::Input: Send,
     {
         let dc = self.client.data_converter();
@@ -781,31 +764,37 @@ where
         let outcome = if let Some(known) = &self.known_outcome {
             known.clone()
         } else {
-            let response = WorkflowService::poll_workflow_execution_update(
-                &mut self.client.clone(),
-                PollWorkflowExecutionUpdateRequest {
-                    namespace: self.client.namespace(),
-                    update_ref: Some(update::v1::UpdateRef {
-                        workflow_execution: Some(ProtoWorkflowExecution {
-                            workflow_id: self.workflow_id.clone(),
-                            run_id: self.run_id.clone().unwrap_or_default(),
+            // The server's internal long-poll timeout (~60s) may expire before the update
+            // completes, returning a response with outcome: None. Keep polling until we
+            // get an actual outcome.
+            loop {
+                let response = WorkflowService::poll_workflow_execution_update(
+                    &mut self.client.clone(),
+                    PollWorkflowExecutionUpdateRequest {
+                        namespace: self.client.namespace(),
+                        update_ref: Some(update::v1::UpdateRef {
+                            workflow_execution: Some(ProtoWorkflowExecution {
+                                workflow_id: self.workflow_id.clone(),
+                                run_id: self.run_id.clone().unwrap_or_default(),
+                            }),
+                            update_id: self.update_id.clone(),
                         }),
-                        update_id: self.update_id.clone(),
-                    }),
-                    identity: self.client.identity(),
-                    wait_policy: Some(WaitPolicy {
-                        lifecycle_stage: UpdateWorkflowExecutionLifecycleStage::Completed.into(),
-                    }),
-                }
-                .into_request(),
-            )
-            .await
-            .map_err(WorkflowUpdateError::from_status)?
-            .into_inner();
+                        identity: self.client.identity(),
+                        wait_policy: Some(WaitPolicy {
+                            lifecycle_stage: UpdateWorkflowExecutionLifecycleStage::Completed
+                                .into(),
+                        }),
+                    }
+                    .into_request(),
+                )
+                .await
+                .map_err(WorkflowUpdateError::from_status)?
+                .into_inner();
 
-            response.outcome.ok_or_else(|| {
-                WorkflowUpdateError::Other("Update poll returned no outcome".into())
-            })?
+                if let Some(outcome) = response.outcome {
+                    break outcome;
+                }
+            }
         };
 
         match outcome.value {

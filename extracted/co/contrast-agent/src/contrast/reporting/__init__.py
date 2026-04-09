@@ -10,6 +10,7 @@ import contrast_fireball
 
 from contrast.agent.request import Request
 from contrast.configuration.agent_config import AgentConfig
+from contrast.reporting import fireball
 
 
 class Reporter(Protocol):
@@ -61,14 +62,24 @@ class Reporter(Protocol):
         attributes: contrast_fireball.OtelAttributes | None = None,
     ) -> Generator: ...
 
+    def new_log_record_event(
+        self,
+        event: fireball.LogRecordEvent,
+        trace: fireball.ObservabilityTrace | None,
+    ) -> None: ...
+
 
 def get_reporting_client(config: Mapping) -> Reporter:
     client_type = config.get("api.reporting_client")
     if client_type == "fireball":
         from contrast.reporting.fireball import Client
+
+        return Client()
     elif client_type == "direct":
         from contrast.reporting.reporting_client import ReportingClient as Client
+
+        client = Client()
+        client.start()
+        return client
     else:
         raise ValueError(f"Invalid reporting client: {client_type}")
-
-    return Client()

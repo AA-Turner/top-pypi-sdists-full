@@ -226,7 +226,7 @@ pub(crate) async fn tree(
             )
             .index_locations(index_locations.clone())
             .keyring(*keyring_provider)
-            .build();
+            .build()?;
             let download_concurrency = concurrency.downloads_semaphore.clone();
 
             // Recompute the exclude-newer timestamps from relative spans so that
@@ -240,6 +240,7 @@ pub(crate) async fn tree(
                 capabilities: &capabilities,
                 prerelease: lock.prerelease_mode(),
                 exclude_newer: &exclude_newer,
+                index_locations,
                 requires_python: Some(lock.requires_python()),
                 tags: None,
             };

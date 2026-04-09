@@ -1,0 +1,1 @@
+import{aJ as r}from"./@ui-core-DKdciH1Z.js";import{F as a}from"./Wizard-BeL0T92A.js";import{a as s}from"./ProviderRadio-Cd6MKIV0.js";function n({children:o,displayCancel:t=!0}){return r.jsxs(a,{children:[t&&r.jsx(s,{}),o]})}export{n as S};

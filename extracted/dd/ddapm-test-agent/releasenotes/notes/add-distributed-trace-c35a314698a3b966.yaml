@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add support for distributed traces where an instrumented service sends a trace chunk where the root span has a parent not in the trace chunk.

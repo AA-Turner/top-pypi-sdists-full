@@ -18,62 +18,6 @@ import System
 import System.Threading
 
 
-class LeanEngineSystemHandlers(System.Object, System.IDisposable):
-    """Provides a container for the system level handlers"""
-
-    @property
-    def api(self) -> QuantConnect.Interfaces.IApi:
-        """Gets the api instance used for communicating algorithm limits, status, and storing of log data"""
-        ...
-
-    @property
-    def notify(self) -> QuantConnect.Interfaces.IMessagingHandler:
-        """
-        Gets the messaging handler instance used for communicating various packets to listeners, including
-        debug/log messages, email/sms/web messages, as well as results and run time errors
-        """
-        ...
-
-    @property
-    def job_queue(self) -> QuantConnect.Interfaces.IJobQueueHandler:
-        """Gets the job queue responsible for acquiring and acknowledging an algorithm job"""
-        ...
-
-    @property
-    def lean_manager(self) -> QuantConnect.Lean.Engine.Server.ILeanManager:
-        """Gets the ILeanManager implementation using to enhance the hosting environment"""
-        ...
-
-    def __init__(self, job_queue: QuantConnect.Interfaces.IJobQueueHandler, api: QuantConnect.Interfaces.IApi, notify: QuantConnect.Interfaces.IMessagingHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager) -> None:
-        """
-        Initializes a new instance of the LeanEngineSystemHandlers class with the specified handles
-        
-        :param job_queue: The job queue used to acquire algorithm jobs
-        :param api: The api instance used for communicating limits and status
-        :param notify: The messaging handler user for passing messages from the algorithm to listeners
-        :param lean_manager: 
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    @staticmethod
-    def from_configuration(composer: QuantConnect.Util.Composer) -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
-        """
-        Creates a new instance of the LeanEngineSystemHandlers class from the specified composer using type names from configuration
-        
-        :param composer: The composer instance to obtain implementations from
-        :returns: A fully hydrates LeanEngineSystemHandlers instance.
-        """
-        ...
-
-    def initialize(self) -> None:
-        """Initializes the Api, Messaging, and JobQueue components"""
-        ...
-
-
 class AlgorithmTimeLimitManager(System.Object, QuantConnect.IIsolatorLimitResultProvider):
     """
     Provides an implementation of IIsolatorLimitResultProvider that tracks the algorithm
@@ -137,6 +81,149 @@ class AlgorithmTimeLimitManager(System.Object, QuantConnect.IIsolatorLimitResult
         Each time this method is invoked, this time limit manager will increase the allowable
         execution time by the specified number of whole minutes
         """
+        ...
+
+
+class AlgorithmManager(System.Object):
+    """Algorithm manager class executes the algorithm and generates and passes through the algorithm events."""
+
+    @property
+    def state(self) -> QuantConnect.AlgorithmStatus:
+        """Publicly accessible algorithm status"""
+        ...
+
+    @property
+    def algorithm_id(self) -> str:
+        """Public access to the currently running algorithm id."""
+        ...
+
+    @property
+    def time_limit(self) -> QuantConnect.Lean.Engine.AlgorithmTimeLimitManager:
+        """
+        Provides the isolator with a function for verifying that we're not spending too much time in each
+        algorithm manager time loop
+        """
+        ...
+
+    @property
+    def quit_state(self) -> bool:
+        """Quit state flag for the running algorithm. When true the user has requested the backtest stops through a Quit() method."""
+        ...
+
+    @property
+    def data_points(self) -> int:
+        """Gets the number of data points processed per second"""
+        ...
+
+    @property
+    def algorithm_history_data_points(self) -> int:
+        """Gets the number of data points of algorithm history provider"""
+        ...
+
+    def __init__(self, live_mode: bool, job: QuantConnect.Packets.AlgorithmNodePacket = None) -> None:
+        """
+        Initializes a new instance of the AlgorithmManager class
+        
+        :param live_mode: True if we're running in live mode, false for backtest mode
+        :param job: Provided by LEAN when creating a new algo manager. This is the job
+        that the algo manager is about to execute. Research and other consumers can provide the
+        default value of null
+        """
+        ...
+
+    @staticmethod
+    def handle_dividends(time_slice: QuantConnect.Lean.Engine.DataFeeds.TimeSlice, algorithm: QuantConnect.Interfaces.IAlgorithm, live_mode: bool) -> None:
+        """Helper method to apply a dividend to an algorithm instance"""
+        ...
+
+    @staticmethod
+    def handle_splits(time_slice: QuantConnect.Lean.Engine.DataFeeds.TimeSlice, algorithm: QuantConnect.Interfaces.IAlgorithm, live_mode: bool) -> None:
+        """Helper method to apply a split to an algorithm instance"""
+        ...
+
+    @staticmethod
+    def process_volatility_history_requirements(algorithm: QuantConnect.Interfaces.IAlgorithm, live_mode: bool) -> None:
+        """
+        Helper method used to process securities volatility history requirements
+        
+        :param algorithm: The algorithm instance
+        :param live_mode: Whether the algorithm is in live mode
+        """
+        ...
+
+    def run(self, job: QuantConnect.Packets.AlgorithmNodePacket, algorithm: QuantConnect.Interfaces.IAlgorithm, synchronizer: QuantConnect.Lean.Engine.DataFeeds.ISynchronizer, transactions: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, results: QuantConnect.Lean.Engine.Results.IResultHandler, realtime: QuantConnect.Lean.Engine.RealTime.IRealTimeHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager, cancellation_token_source: System.Threading.CancellationTokenSource, performance_tracking_tool: QuantConnect.Util.PerformanceTrackingTool) -> None:
+        """
+        Launch the algorithm manager to run this strategy
+        
+        :param job: Algorithm job
+        :param algorithm: Algorithm instance
+        :param synchronizer: Instance which implements ISynchronizer. Used to stream the data
+        :param transactions: Transaction manager object
+        :param results: Result handler object
+        :param realtime: Realtime processing object
+        :param lean_manager: ILeanManager implementation that is updated periodically with the IAlgorithm instance
+        :param cancellation_token_source: Cancellation token source to monitor
+        """
+        ...
+
+    def set_status(self, state: QuantConnect.AlgorithmStatus) -> None:
+        """Set the quit state."""
+        ...
+
+
+class LeanEngineSystemHandlers(System.Object, System.IDisposable):
+    """Provides a container for the system level handlers"""
+
+    @property
+    def api(self) -> QuantConnect.Interfaces.IApi:
+        """Gets the api instance used for communicating algorithm limits, status, and storing of log data"""
+        ...
+
+    @property
+    def notify(self) -> QuantConnect.Interfaces.IMessagingHandler:
+        """
+        Gets the messaging handler instance used for communicating various packets to listeners, including
+        debug/log messages, email/sms/web messages, as well as results and run time errors
+        """
+        ...
+
+    @property
+    def job_queue(self) -> QuantConnect.Interfaces.IJobQueueHandler:
+        """Gets the job queue responsible for acquiring and acknowledging an algorithm job"""
+        ...
+
+    @property
+    def lean_manager(self) -> QuantConnect.Lean.Engine.Server.ILeanManager:
+        """Gets the ILeanManager implementation using to enhance the hosting environment"""
+        ...
+
+    def __init__(self, job_queue: QuantConnect.Interfaces.IJobQueueHandler, api: QuantConnect.Interfaces.IApi, notify: QuantConnect.Interfaces.IMessagingHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager) -> None:
+        """
+        Initializes a new instance of the LeanEngineSystemHandlers class with the specified handles
+        
+        :param job_queue: The job queue used to acquire algorithm jobs
+        :param api: The api instance used for communicating limits and status
+        :param notify: The messaging handler user for passing messages from the algorithm to listeners
+        :param lean_manager: 
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    @staticmethod
+    def from_configuration(composer: QuantConnect.Util.Composer) -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
+        """
+        Creates a new instance of the LeanEngineSystemHandlers class from the specified composer using type names from configuration
+        
+        :param composer: The composer instance to obtain implementations from
+        :returns: A fully hydrates LeanEngineSystemHandlers instance.
+        """
+        ...
+
+    def initialize(self) -> None:
+        """Initializes the Api, Messaging, and JobQueue components"""
         ...
 
 
@@ -255,93 +342,6 @@ class Initializer(System.Object):
     @staticmethod
     def start() -> None:
         """Basic common Lean initialization"""
-        ...
-
-
-class AlgorithmManager(System.Object):
-    """Algorithm manager class executes the algorithm and generates and passes through the algorithm events."""
-
-    @property
-    def state(self) -> QuantConnect.AlgorithmStatus:
-        """Publicly accessible algorithm status"""
-        ...
-
-    @property
-    def algorithm_id(self) -> str:
-        """Public access to the currently running algorithm id."""
-        ...
-
-    @property
-    def time_limit(self) -> QuantConnect.Lean.Engine.AlgorithmTimeLimitManager:
-        """
-        Provides the isolator with a function for verifying that we're not spending too much time in each
-        algorithm manager time loop
-        """
-        ...
-
-    @property
-    def quit_state(self) -> bool:
-        """Quit state flag for the running algorithm. When true the user has requested the backtest stops through a Quit() method."""
-        ...
-
-    @property
-    def data_points(self) -> int:
-        """Gets the number of data points processed per second"""
-        ...
-
-    @property
-    def algorithm_history_data_points(self) -> int:
-        """Gets the number of data points of algorithm history provider"""
-        ...
-
-    def __init__(self, live_mode: bool, job: QuantConnect.Packets.AlgorithmNodePacket = None) -> None:
-        """
-        Initializes a new instance of the AlgorithmManager class
-        
-        :param live_mode: True if we're running in live mode, false for backtest mode
-        :param job: Provided by LEAN when creating a new algo manager. This is the job
-        that the algo manager is about to execute. Research and other consumers can provide the
-        default value of null
-        """
-        ...
-
-    @staticmethod
-    def handle_dividends(time_slice: QuantConnect.Lean.Engine.DataFeeds.TimeSlice, algorithm: QuantConnect.Interfaces.IAlgorithm, live_mode: bool) -> None:
-        """Helper method to apply a dividend to an algorithm instance"""
-        ...
-
-    @staticmethod
-    def handle_splits(time_slice: QuantConnect.Lean.Engine.DataFeeds.TimeSlice, algorithm: QuantConnect.Interfaces.IAlgorithm, live_mode: bool) -> None:
-        """Helper method to apply a split to an algorithm instance"""
-        ...
-
-    @staticmethod
-    def process_volatility_history_requirements(algorithm: QuantConnect.Interfaces.IAlgorithm, live_mode: bool) -> None:
-        """
-        Helper method used to process securities volatility history requirements
-        
-        :param algorithm: The algorithm instance
-        :param live_mode: Whether the algorithm is in live mode
-        """
-        ...
-
-    def run(self, job: QuantConnect.Packets.AlgorithmNodePacket, algorithm: QuantConnect.Interfaces.IAlgorithm, synchronizer: QuantConnect.Lean.Engine.DataFeeds.ISynchronizer, transactions: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, results: QuantConnect.Lean.Engine.Results.IResultHandler, realtime: QuantConnect.Lean.Engine.RealTime.IRealTimeHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager, cancellation_token_source: System.Threading.CancellationTokenSource, performance_tracking_tool: QuantConnect.Util.PerformanceTrackingTool) -> None:
-        """
-        Launch the algorithm manager to run this strategy
-        
-        :param job: Algorithm job
-        :param algorithm: Algorithm instance
-        :param synchronizer: Instance which implements ISynchronizer. Used to stream the data
-        :param transactions: Transaction manager object
-        :param results: Result handler object
-        :param realtime: Realtime processing object
-        :param lean_manager: ILeanManager implementation that is updated periodically with the IAlgorithm instance
-        :param cancellation_token_source: Cancellation token source to monitor
-        """
-        ...
-
-    def set_status(self, state: QuantConnect.AlgorithmStatus) -> None:
-        """Set the quit state."""
         ...
 
 

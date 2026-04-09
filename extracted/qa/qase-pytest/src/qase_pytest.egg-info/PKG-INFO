@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qase-pytest
-Version: 8.0.2
+Version: 8.1.0
 Summary: Qase Pytest Plugin for Qase TestOps and Qase Report
 Author-email: Qase Team <support@qase.io>
 Project-URL: Homepage, https://qase.io
@@ -24,7 +24,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: qase-python-commons~=5.0.0
+Requires-Dist: qase-python-commons~=5.1.1
 Requires-Dist: pytest>=7.4.4
 Requires-Dist: filelock>=3.12.2
 Requires-Dist: more_itertools

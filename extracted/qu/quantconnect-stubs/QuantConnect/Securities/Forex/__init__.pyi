@@ -9,6 +9,33 @@ import QuantConnect.Securities
 import QuantConnect.Securities.Forex
 
 
+class ForexExchange(QuantConnect.Securities.SecurityExchange):
+    """Forex exchange class - information and helper tools for forex exchange properties"""
+
+    @property
+    def trading_days_per_year(self) -> int:
+        """Number of trading days per year for this security, used for performance statistics."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the ForexExchange class using market hours
+        derived from the market-hours-database for the FXCM Forex market
+        """
+        ...
+
+    @overload
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        """
+        Initializes a new instance of the ForexExchange class using the specified
+        exchange hours to determine open/close times
+        
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
+        """
+        ...
+
+
 class Forex(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurrencySymbol):
     """FOREX Security Object Implementation for FOREX Assets"""
 
@@ -66,6 +93,23 @@ class Forex(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurre
         ...
 
 
+class ForexDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """Forex packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+
+    def __init__(self) -> None:
+        """Initialize forex data filter class:"""
+        ...
+
+    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
+        """
+        Forex data filter: a true value means accept the packet, a false means fail.
+        
+        :param data: Data object we're scanning to filter
+        :param vehicle: Security asset
+        """
+        ...
+
+
 class ForexCache(QuantConnect.Securities.SecurityCache):
     """Forex specific caching support"""
 
@@ -88,50 +132,6 @@ class ForexHolding(QuantConnect.Securities.SecurityHolding):
 
     def total_close_profit_pips(self) -> float:
         """Profit in pips if we closed the holdings right now including the approximate fees"""
-        ...
-
-
-class ForexExchange(QuantConnect.Securities.SecurityExchange):
-    """Forex exchange class - information and helper tools for forex exchange properties"""
-
-    @property
-    def trading_days_per_year(self) -> int:
-        """Number of trading days per year for this security, used for performance statistics."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the ForexExchange class using market hours
-        derived from the market-hours-database for the FXCM Forex market
-        """
-        ...
-
-    @overload
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
-        """
-        Initializes a new instance of the ForexExchange class using the specified
-        exchange hours to determine open/close times
-        
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
-        ...
-
-
-class ForexDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """Forex packet by packet data filtering mechanism for dynamically detecting bad ticks."""
-
-    def __init__(self) -> None:
-        """Initialize forex data filter class:"""
-        ...
-
-    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
-        """
-        Forex data filter: a true value means accept the packet, a false means fail.
-        
-        :param data: Data object we're scanning to filter
-        :param vehicle: Security asset
-        """
         ...
 
 

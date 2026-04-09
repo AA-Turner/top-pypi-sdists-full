@@ -36,11 +36,9 @@ from chalk.features._encoding._feature_converters import (  # noqa: F401
     _build_to_rich_converter,
     _decode_json,
     _encode_json,
-    _FeatureConverterArrowProtoHelpers,
     _identity,
     _logger,
     _raise_unsupported_missing_value_strategy,
-    _recursively_unwrap,
     _to_old_style_type,
     _TPrim,
     _TPrimCo,
@@ -53,6 +51,8 @@ from chalk.features._encoding._feature_converters import (  # noqa: F401
     canonicalize_typ,
     make_feature_converter,
     make_primitive_converter,
+    pa_scalar_to_proto,
+    proto_to_pa_scalar,
 )
 
 # Also re-export items that were previously transitively importable from this module.
@@ -72,7 +72,6 @@ __all__ = [
     "pyarrow_to_polars",
     "_DEFAULT_FEATURE_ENCODING_OPTIONS",
     "_FROM_NEW",
-    "_FeatureConverterArrowProtoHelpers",
     "_TPrim",
     "_TPrimCo",
     "_TPrimCon",
@@ -115,7 +114,8 @@ __all__ = [
     "Int64FeatureConverter",
     "ListFeatureConverter",
     "PrimitiveFeatureConverter",
-    "_recursively_unwrap",
+    "pa_scalar_to_proto",
+    "proto_to_pa_scalar",
     "StringFeatureConverter",
     "Time32sFeatureConverter",
     "Time32msFeatureConverter",

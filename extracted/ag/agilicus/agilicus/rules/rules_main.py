@@ -88,6 +88,19 @@ def cli_command_replace_host_prefix_rule(ctx, action, **kwargs):
     )
 
 
+@click.command(name="update-standalone-rule")
+@click.option("--rule-id", required=True)
+@click.option("--name", default=None)
+@click.option("--action", default=None, multiple=True, type=click.Choice(rules.ACTIONS))
+@click.option("--org-id", default=None)
+@click.pass_context
+def cli_command_replace_standalone_rule(ctx, rule_id, action, **kwargs):
+    output_entry(
+        ctx,
+        rules.replace_standalone_rule(ctx, rule_id, actions=action, **kwargs).to_dict(),
+    )
+
+
 @click.command(name="add-standalone-rule-tree")
 @click.option("--name", required=True)
 @click.option("--rule-name", default=None, multiple=True)

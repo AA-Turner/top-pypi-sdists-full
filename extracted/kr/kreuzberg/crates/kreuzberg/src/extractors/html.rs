@@ -228,6 +228,42 @@ fn push_link_uris_from_annotations(annotations: &[TextAnnotation], text: &str, b
     }
 }
 
+/// Merge content filter settings into HTML conversion options.
+///
+/// When `content_filter` is `Some(...)`, adds `"header"` and/or `"footer"` to
+/// `strip_tags` so `html-to-markdown-rs` removes those elements during conversion.
+/// When `content_filter` is `None`, returns the options unchanged (preserving
+/// current default behavior).
+pub(crate) fn apply_content_filter_to_html_options(
+    options: Option<html_to_markdown_rs::ConversionOptions>,
+    content_filter: Option<&crate::core::config::ContentFilterConfig>,
+) -> Option<html_to_markdown_rs::ConversionOptions> {
+    let Some(filter) = content_filter else {
+        return options;
+    };
+
+    let mut tags_to_strip: Vec<String> = Vec::new();
+    if !filter.include_headers {
+        tags_to_strip.push("header".to_string());
+    }
+    if !filter.include_footers {
+        tags_to_strip.push("footer".to_string());
+    }
+
+    if tags_to_strip.is_empty() {
+        return options;
+    }
+
+    let mut opts = options.unwrap_or_default();
+    // Merge with any existing strip_tags rather than replacing them.
+    for tag in tags_to_strip {
+        if !opts.strip_tags.contains(&tag) {
+            opts.strip_tags.push(tag);
+        }
+    }
+    Some(opts)
+}
+
 impl Plugin for HtmlExtractor {
     fn name(&self) -> &str {
         "html-extractor"
@@ -254,10 +290,15 @@ impl SyncExtractor for HtmlExtractor {
             .map(|s| s.to_string())
             .unwrap_or_else(|_| String::from_utf8_lossy(content).into_owned());
 
+        // Apply content filter to HTML conversion options: strip <header>/<footer>
+        // elements when the corresponding flags are false.
+        let html_options =
+            apply_content_filter_to_html_options(config.html_options.clone(), config.content_filter.as_ref());
+
         let (content_text, html_metadata, table_data, doc_structure) =
             crate::extraction::html::convert_html_to_markdown_with_tables(
                 &html,
-                config.html_options.clone(),
+                html_options,
                 Some(config.output_format.clone()),
             )?;
 
@@ -350,8 +391,9 @@ impl SyncExtractor for HtmlExtractor {
         let should_extract_images = config.images.as_ref().map(|i| i.extract_images).unwrap_or(false);
 
         if should_extract_images {
-            let inline_images =
-                crate::extraction::html::extract_html_inline_images(&html, config.html_options.clone())?;
+            let image_html_options =
+                apply_content_filter_to_html_options(config.html_options.clone(), config.content_filter.as_ref());
+            let inline_images = crate::extraction::html::extract_html_inline_images(&html, image_html_options)?;
 
             for (i, img) in inline_images.into_iter().enumerate() {
                 let (width, height) = img.dimensions.map_or((None, None), |(w, h)| (Some(w), Some(h)));

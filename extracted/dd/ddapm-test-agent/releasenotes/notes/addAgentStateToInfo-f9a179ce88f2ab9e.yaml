@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add `Datadog-Agent-State` header to `/info` endpoint.

@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Adds support for plain/text response content-types when forwarding requests.

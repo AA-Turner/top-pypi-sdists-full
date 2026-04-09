@@ -35,6 +35,7 @@ ConditionTypes = Enum(
     "ConditionType",
     [
         "host_prefix_rule_condition",
+        "http_rule_condition",
         "mfa_rule_condition",
         "scope_condition",
         "network_protocol_condition",
@@ -45,6 +46,23 @@ ConditionTypes = Enum(
         "has_resource_permission_condition",
     ],
 )
+
+
+def make_http_condition(path_regex=None, methods=None, roles=None, scopes=None):
+    cond = agilicus.HttpRuleCondition(
+        condition_type=ConditionTypes.http_rule_condition.name,
+        rule_type="HttpRule",
+    )
+
+    if path_regex is not None:
+        cond.path_regex = path_regex
+    if methods is not None:
+        cond.methods = methods
+    if roles is not None:
+        cond.roles = roles
+    if scopes is not None:
+        cond.scopes = scopes
+    return cond
 
 
 def add_hostprefix_rule(
@@ -247,7 +265,7 @@ def add_rules(ctx, rules, **kwargs):
 
 
 def replace_hostprefix_rule(
-    ctx, rule_id, org_id, name=None, hostname=None, prefix=None, actions=None, **kwargs
+    ctx, rule_id, name=None, hostname=None, prefix=None, actions=None, **kwargs
 ):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
@@ -271,6 +289,28 @@ def replace_hostprefix_rule(
     rule.extended_condition.condition = build_updated_model_validate(
         agilicus.StandaloneRulesetPrefixRuleCondition, cond, new_values
     )
+
+    if name is not None:
+        rule.name = name
+
+    return apiclient.rules_api.replace_standalone_rule(
+        base.metadata.id, standalone_rule=base
+    )
+
+
+def replace_standalone_rule(ctx, rule_id, name=None, actions=None, **kwargs):
+    token = context.get_token(ctx)
+    apiclient = context.get_apiclient(ctx, token)
+    org_id = get_org_from_input_or_ctx(ctx, **kwargs)
+    base = apiclient.rules_api.get_standalone_rule(rule_id=rule_id, org_id=org_id)
+    spec = base.spec
+    rule = spec.rule
+
+    if actions is not None and len(actions) > 0:
+        actions = list(actions)
+
+    if actions is not None:
+        rule.actions = [agilicus.RuleAction(action=action) for action in actions]
 
     if name is not None:
         rule.name = name
@@ -934,6 +974,13 @@ def add_scope_condition_rule(
     return result
 
 
+def make_network_protocol_condition(protocol: str | None):
+    return agilicus.NetworkProtocolCondition(
+        condition_type=ConditionTypes.network_protocol_condition.name,
+        protocol=protocol,
+    )
+
+
 def add_network_protocol_condition_rule(
     ctx,
     name,
@@ -943,10 +990,7 @@ def add_network_protocol_condition_rule(
     standalone_rule_policy_id=None,
     **kwargs,
 ):
-    cond = agilicus.NetworkProtocolCondition(
-        condition_type=ConditionTypes.network_protocol_condition.name,
-        protocol=protocol,
-    )
+    cond = make_network_protocol_condition(protocol)
     return add_rule(
         ctx,
         name,

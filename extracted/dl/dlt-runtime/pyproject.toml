@@ -1,6 +1,6 @@
 [project]
 name = "dlt-runtime"
-version = "0.24.0"
+version = "0.24.1"
 description = "CLI tool for accessing dltHub runtime"
 authors = [{ name = "dltHub Inc.", email = "services@dlthub.com" }]
 requires-python = ">=3.9.2, <3.15"

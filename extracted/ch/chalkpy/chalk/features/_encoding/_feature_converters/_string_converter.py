@@ -17,7 +17,6 @@ from ._base import (
     _unwrap_scalar_value,
     FeatureConverter,
 )
-from ._primitive_converter import _FeatureConverterArrowProtoHelpers, PrimitiveFeatureConverter
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false
 
@@ -25,10 +24,6 @@ try:
     import polars as pl
 except ImportError:
     pl = None
-
-
-_STR_PRIMITIVE_CONVERTER_UTF8 = PrimitiveFeatureConverter(name="", is_nullable=True, pyarrow_dtype=pa.utf8())
-_STR_PRIMITIVE_CONVERTER_LARGE = PrimitiveFeatureConverter(name="", is_nullable=True, pyarrow_dtype=pa.large_string())
 
 
 def _coerce_str(x: Any) -> str:
@@ -40,14 +35,15 @@ def _coerce_str(x: Any) -> str:
     return str(x)
 
 
-class _StringFeatureConverterBase(
+class StringFeatureConverter(
     _ScalarConverterBase[str, str],
-    _FeatureConverterArrowProtoHelpers,
     FeatureConverter[str, str],
 ):
     _rich_type_value: ClassVar[Type[str]] = str
     _primitive_type_value: ClassVar[Type[str]] = str
-    _primitive_converter: ClassVar[PrimitiveFeatureConverter]
+    _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.utf8()
+    _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(utf8=pb.EmptyMessage())
+    _polars_dtype_value: ClassVar[Any] = pl.Utf8() if pl is not None else None
 
     _coerce_fn = staticmethod(_coerce_str)
 
@@ -57,41 +53,71 @@ class _StringFeatureConverterBase(
         return str(value)
 
     def from_primitive_to_protobuf(self, value: str | pa.Scalar) -> pb.ScalarValue:
-        pa_type = type(self)._pyarrow_dtype_value
         scalar_value = _unwrap_scalar_value(value)
         if scalar_value is None or scalar_value is ...:
-            return pb.ScalarValue(null_value=self.convert_pa_dtype_to_proto_dtype(pa_type))
-        return type(self)._primitive_converter.from_pyarrow_to_protobuf(
-            pa.scalar(cast(str, scalar_value), type=pa_type)
-        )
+            return pb.ScalarValue(null_value=pb.ArrowType(utf8=pb.EmptyMessage()))
+        return self.from_pyarrow_to_protobuf(pa.scalar(cast(str, scalar_value), type=pa.utf8()))
 
     def from_rich_to_protobuf(
         self,
         value: str | ellipsis | None,
         missing_value_strategy: MissingValueStrategy = "default_or_allow",
     ) -> pb.ScalarValue:
-        pa_type = type(self)._pyarrow_dtype_value
         prim = cast(str | None, self.from_rich_to_primitive(value, missing_value_strategy))
         if prim is None or prim is ...:
-            return pb.ScalarValue(null_value=self.convert_pa_dtype_to_proto_dtype(pa_type))
-        return type(self)._primitive_converter.from_pyarrow_to_protobuf(
-            pa.scalar(prim, type=pa_type)
-        )
-
-    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
-        return type(self)._primitive_converter.from_protobuf_to_pyarrow(pb_value)
+            return pb.ScalarValue(null_value=pb.ArrowType(utf8=pb.EmptyMessage()))
+        return self.from_pyarrow_to_protobuf(pa.scalar(prim, type=pa.utf8()))
 
     def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
-        return type(self)._primitive_converter.from_pyarrow_to_protobuf(value)
+        if value.as_py() is None:
+            return pb.ScalarValue(null_value=pb.ArrowType(utf8=pb.EmptyMessage()))
+        return pb.ScalarValue(utf8_value=value.as_py())
+
+    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
+        if pb_value.HasField("null_value"):
+            return pa.nulls(1, type=pa.utf8())[0]
+        return pa.scalar(pb_value.utf8_value, pa.utf8())
 
 
-class StringFeatureConverter(_StringFeatureConverterBase):
-    _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.utf8()
-    _polars_dtype_value: ClassVar[Any] = pl.Utf8() if pl is not None else None
-    _primitive_converter: ClassVar[PrimitiveFeatureConverter] = _STR_PRIMITIVE_CONVERTER_UTF8
-
-
-class LargeStringFeatureConverter(_StringFeatureConverterBase):
+class LargeStringFeatureConverter(
+    _ScalarConverterBase[str, str],
+    FeatureConverter[str, str],
+):
+    _rich_type_value: ClassVar[Type[str]] = str
+    _primitive_type_value: ClassVar[Type[str]] = str
     _pyarrow_dtype_value: ClassVar[pa.DataType] = pa.large_string()
+    _proto_arrow_type: ClassVar[pb.ArrowType] = pb.ArrowType(large_utf8=pb.EmptyMessage())
     _polars_dtype_value: ClassVar[Any] = pl.Utf8() if pl is not None else None
-    _primitive_converter: ClassVar[PrimitiveFeatureConverter] = _STR_PRIMITIVE_CONVERTER_LARGE
+
+    _coerce_fn = staticmethod(_coerce_str)
+
+    def from_primitive_to_rich(self, value: str | None) -> str:
+        if value is None:
+            return cast(str, None)
+        return str(value)
+
+    def from_primitive_to_protobuf(self, value: str | pa.Scalar) -> pb.ScalarValue:
+        scalar_value = _unwrap_scalar_value(value)
+        if scalar_value is None or scalar_value is ...:
+            return pb.ScalarValue(null_value=pb.ArrowType(large_utf8=pb.EmptyMessage()))
+        return self.from_pyarrow_to_protobuf(pa.scalar(cast(str, scalar_value), type=pa.large_string()))
+
+    def from_rich_to_protobuf(
+        self,
+        value: str | ellipsis | None,
+        missing_value_strategy: MissingValueStrategy = "default_or_allow",
+    ) -> pb.ScalarValue:
+        prim = cast(str | None, self.from_rich_to_primitive(value, missing_value_strategy))
+        if prim is None or prim is ...:
+            return pb.ScalarValue(null_value=pb.ArrowType(large_utf8=pb.EmptyMessage()))
+        return self.from_pyarrow_to_protobuf(pa.scalar(prim, type=pa.large_string()))
+
+    def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
+        if value.as_py() is None:
+            return pb.ScalarValue(null_value=pb.ArrowType(large_utf8=pb.EmptyMessage()))
+        return pb.ScalarValue(large_utf8_value=value.as_py())
+
+    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
+        if pb_value.HasField("null_value"):
+            return pa.nulls(1, type=pa.large_string())[0]
+        return pa.scalar(pb_value.large_utf8_value, pa.large_string())

@@ -308,6 +308,7 @@ __all__ = (
     "M3u8Scte35BehaviorType",
     "M3u8TimedMetadataBehaviorType",
     "MaintenanceDayType",
+    "MediaConnectRouterOutputEncryptionTypeType",
     "MediaLiveServiceName",
     "MotionGraphicsInsertionType",
     "Mp2CodingModeType",
@@ -930,6 +931,7 @@ M3u8TimedMetadataBehaviorType = Literal["NO_PASSTHROUGH", "PASSTHROUGH"]
 MaintenanceDayType = Literal[
     "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]
+MediaConnectRouterOutputEncryptionTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
 MotionGraphicsInsertionType = Literal["DISABLED", "ENABLED"]
 Mp2CodingModeType = Literal["CODING_MODE_1_0", "CODING_MODE_2_0"]
 Mpeg2AdaptiveQuantizationType = Literal["AUTO", "HIGH", "LOW", "MEDIUM", "OFF"]
@@ -1374,6 +1376,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",

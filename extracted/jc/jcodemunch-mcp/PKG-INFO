@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.23.3
+Version: 1.24.1
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -152,7 +152,7 @@ That means:
 
 It indexes your codebase once using tree-sitter, stores structured symbol metadata plus byte offsets into the original source, and retrieves exact implementations on demand instead of re-reading entire files over and over.
 
-Recent releases have made that retrieval workflow sharper and more useful in real engineering work, with BM25-based symbol search, fuzzy matching, semantic/hybrid search (opt-in, zero mandatory dependencies), query-driven token-budgeted context assembly (`get_ranked_context`), dead code detection (`find_dead_code`), git-diff-to-symbol mapping (`get_changed_symbols`), architectural centrality ranking (`get_symbol_importance`, PageRank), blast-radius depth scoring, context bundles with token budgets, dependency graphs, class hierarchy traversal, multi-symbol bundles, live watch-based reindexing, automatic Claude Code worktree discovery (`watch-claude`), and trusted-folder access controls.
+Recent releases have made that retrieval workflow sharper and more useful in real engineering work, with BM25-based symbol search, fuzzy matching, semantic/hybrid search (opt-in, zero mandatory dependencies), query-driven token-budgeted context assembly (`get_ranked_context`), dead code detection (`find_dead_code`), git-diff-to-symbol mapping (`get_changed_symbols`), architectural centrality ranking (`get_symbol_importance`, PageRank), blast-radius depth scoring with source snippets, context bundles with token budgets, AST-derived call graphs and call hierarchy traversal, decorator-aware search and filtering, hotspot detection (complexity x churn), dependency cycles and coupling metrics, session-aware routing (`plan_turn`, turn budgets, negative evidence), agent config auditing, complexity-based model routing (Agent Selector), enforcement hooks (PreToolUse/PostToolUse/PreCompact), dependency graphs, class hierarchy traversal, multi-symbol bundles, live watch-based reindexing, automatic Claude Code worktree discovery (`watch-claude`), and trusted-folder access controls.
 
 ---
 
@@ -205,6 +205,8 @@ jCodeMunch fixes that by giving them a structured way to:
 * grab a token-budgeted context bundle or ranked context pack for a task
 * fall back to text search when structure alone is not enough
 * detect dead code, trace impact, rank by centrality, and map git diffs to symbols
+* plan the next turn with `plan_turn` — confidence-guided routing before the first read
+* track session state and avoid re-reading files the agent already explored
 
 Agents do not need bigger and bigger context windows.
 
@@ -228,7 +230,7 @@ Send the model the code it needs, not 1,500 lines of collateral damage.
 
 ### Structural queries native tools can't answer
 
-`find_importers` tells you what imports a file. `get_blast_radius` tells you what breaks if you change a symbol, with depth-weighted risk scores. `get_class_hierarchy` traverses inheritance chains. `find_dead_code` finds symbols and files unreachable from any entry point. `get_changed_symbols` maps a git diff to the exact symbols that were added, modified, or removed. `get_symbol_importance` ranks your codebase by architectural centrality using PageRank on the import graph. These are not "faster grep" — they are questions grep cannot answer at all.
+`find_importers` tells you what imports a file. `get_blast_radius` tells you what breaks if you change a symbol, with depth-weighted risk scores and optional source snippets. `get_class_hierarchy` traverses inheritance chains. `get_call_hierarchy` traces callers and callees N levels deep using AST-derived call graphs. `find_dead_code` finds symbols and files unreachable from any entry point. `get_changed_symbols` maps a git diff to the exact symbols that were added, modified, or removed. `get_symbol_importance` ranks your codebase by architectural centrality using PageRank on the import graph. `get_hotspots` surfaces the riskiest code by combining complexity with git churn. `get_dependency_cycles` detects circular imports. `get_coupling_metrics` measures module coupling and instability. These are not "faster grep" — they are questions grep cannot answer at all.
 
 ### Agent config hygiene
 
@@ -269,12 +271,12 @@ pip install jcodemunch-mcp
 jcodemunch-mcp init
 ```
 
-`init` auto-detects your MCP clients (Claude Code, Claude Desktop, Cursor, Windsurf, Continue), writes their config entries, installs the CLAUDE.md prompt policy so your agent actually uses jCodeMunch, optionally indexes your project, and audits your agent config files for token waste. Run `jcodemunch-mcp init --help` for all flags.
+`init` auto-detects your MCP clients (Claude Code, Claude Desktop, Cursor, Windsurf, Continue), writes their config entries, installs the CLAUDE.md prompt policy so your agent actually uses jCodeMunch, optionally installs enforcement hooks (PreToolUse read guard + PostToolUse auto-reindex + PreCompact session snapshot), optionally indexes your project, and audits your agent config files for token waste. Run `jcodemunch-mcp init --help` for all flags.
 
 For non-interactive CI or scripting:
 
 ```bash
-jcodemunch-mcp init --yes --claude-md global --index --audit
+jcodemunch-mcp init --yes --claude-md global --hooks --index --audit
 ```
 
 ### Option B: Manual setup

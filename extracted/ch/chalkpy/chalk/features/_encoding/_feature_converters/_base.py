@@ -92,6 +92,9 @@ class FeatureConverter(Protocol[_TPrim, _TRich]):
     def pyarrow_dtype(self) -> pa.DataType: ...
 
     @property
+    def protobuf_dtype(self) -> pb.ArrowType: ...
+
+    @property
     def polars_dtype(self) -> Any: ...
 
     @property
@@ -219,6 +222,7 @@ class _ScalarConverterBase(Generic[_TPrim, _TRich]):
     _rich_type_value: ClassVar[Type[Any]]
     _primitive_type_value: ClassVar[Type[Any]]
     _pyarrow_dtype_value: ClassVar[pa.DataType]
+    _proto_arrow_type: ClassVar[pb.ArrowType]
     _polars_dtype_value: ClassVar[Any]
     _cache: ClassVar[dict]  # populated per-subclass by __init_subclass__
 
@@ -286,6 +290,10 @@ class _ScalarConverterBase(Generic[_TPrim, _TRich]):
     @property
     def pyarrow_dtype(self) -> pa.DataType:
         return type(self)._pyarrow_dtype_value
+
+    @property
+    def protobuf_dtype(self) -> "pb.ArrowType":
+        return type(self)._proto_arrow_type
 
     @property
     def polars_dtype(self) -> Any:

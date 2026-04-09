@@ -3766,6 +3766,8 @@ def parse_and_register_stream_resolver(
         _validate_timestamp(stream_fn=fn, timestamp=timestamp, params=params, error_builder=error_builder, name=name)
     for resolver in RESOLVER_REGISTRY.get_stream_resolvers():
         if resolver.source == source:
+            if resolver.feature_expressions is not None:
+                continue
             if resolver.timestamp != timestamp:
                 error_builder.add_diagnostic(
                     message=(
@@ -4692,6 +4694,7 @@ def make_model_resolver(
     feature_class: Optional[type[Features]] = None,
     resource_group: Optional[str] = None,
     resource_hint: Optional[ResourceHint] = None,
+    venv: Optional[str] = None,
 ) -> OnlineResolver:
     """
     Create an online resolver that runs inference on a model.
@@ -4860,6 +4863,7 @@ def make_model_resolver(
         owner=None,
         resource_hint=resource_hint or model.resource_hint,
         resource_group=resource_group or model.resource_group,
+        venv=venv or model.venv,
         data_sources=None,
         is_sql_file_resolver=False,
         source_line=None,

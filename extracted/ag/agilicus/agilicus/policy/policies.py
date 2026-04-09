@@ -2,6 +2,7 @@ import copy
 import datetime
 import json
 import os
+import time
 from ..input_helpers import (
     get_org_from_input_or_ctx,
     model_from_dict,
@@ -23,8 +24,10 @@ from agilicus import (
     StandaloneRuleName,
     RuleAction,
     ResourceConfig,
+    RuleConfig,
     RulesConfig,
     RuleCondition,
+    RuleScopeEnum,
     HttpRuleCondition,
     EmptiableObjectType,
     TimeperiodPolicyTemplate,
@@ -38,8 +41,11 @@ from ..output.table import (
     subtable,
     column,
 )
+from ..output import json as out_json
 from ..resources import query_resources
 from ..resources import reconcile_default_policy
+from .. import orgs
+from ..rules.rules import make_http_condition
 
 
 class InstanceAddInfo:
@@ -114,9 +120,10 @@ def format_multifactor_policies(ctx, templates):
     return format_table(ctx, templates, columns)
 
 
-def list_policy_templates(ctx, **kwargs):
-    token = context.get_token(ctx)
-    apiclient = context.get_apiclient(ctx, token)
+def list_policy_templates(ctx, apiclient=None, **kwargs):
+    if not apiclient:
+        token = context.get_token(ctx)
+        apiclient = context.get_apiclient(ctx, token)
     kwargs["org_id"] = get_org_from_input_or_ctx(ctx, **kwargs)
     kwargs = strip_none(kwargs)
     result = apiclient.policy_templates_api.list_policy_template_instances(**kwargs)
@@ -216,6 +223,94 @@ def migrate_policy_rules(ctx, org_id=None, dump_dir=None, **kwargs):
         migrate_resource(ctx, res, dump_dir=dump_dir)
 
 
+def add_default_to_resource_policies(
+    ctx,
+    org_id=None,
+    start_org=None,
+    dump_dir=None,
+    dry_run=False,
+    delay=None,
+    replace=False,
+):
+    org_objs = []
+    if start_org is not None:
+        org_objs = orgs.query(ctx, page_at_id=start_org, enabled=True, page_size=150)
+    else:
+        org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
+        org_objs = [orgs.get_raw(ctx, org_id)]
+
+    token = context.get_token(ctx)
+    apiclient = context.get_apiclient(ctx, token)
+
+    for org in org_objs:
+        print(f"Adding default to {org.organisation}, {org.id}")
+        _add_default_to_resource_policies(
+            ctx,
+            org_id,
+            apiclient=apiclient,
+            dump_dir=dump_dir,
+            dry_run=dry_run,
+            delay=delay,
+            replace=replace,
+        )
+
+
+def _dump_policy_template(ctx, policy, dump_dir):
+    now = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    file_name = (
+        f"{policy.spec.org_id}-{policy.spec.object_type}-{policy.metadata.id}"
+        f"-{policy.spec.object_id}-{now}.json"
+    )
+    out_json.output_json_to_file(
+        ctx, policy.to_dict(), os.path.join(dump_dir, file_name)
+    )
+
+
+def _add_default_to_resource_policies(
+    ctx, org_id, apiclient, dump_dir=None, dry_run=False, delay=None, replace=False
+):
+    """
+    Walks through all resource policies for an organisation, ensuring that they have
+    a default rule. Can optionally back up the existing policies in case something
+    goes wrong in the migration so that they may be reapplied. If replace is True, the
+    default rule be rewritten if present.
+    """
+    templates = list_policy_templates(
+        ctx, org_id=org_id, template_type="simple_resource", apiclient=apiclient
+    )
+
+    for orig_template in templates:
+        template = copy.deepcopy(orig_template)
+        spec = template.spec
+        print(
+            f"\t - {template.metadata.id}, res={spec.object_id}, name={spec.name}...",
+            end="",
+        )
+        should_migrate = add_default_rule(
+            spec.template.policy_structure, spec.template.rules, replace=replace
+        )
+        if not should_migrate:
+            print(" [SKIPPED]")
+            continue
+
+        if dump_dir:
+            _dump_policy_template(ctx, orig_template, dump_dir)
+
+        try:
+            if not dry_run:
+                apiclient.policy_templates_api.replace_policy_template_instance(
+                    template.metadata.id,
+                    policy_template_instance=template,
+                )
+                if delay:
+                    time.sleep(delay)
+        except Exception as exc:
+            print(f" [FAILED] {exc}")
+            continue
+
+        print(" [DONE]")
+
+
 def fetch_resource_rules(ctx, org_id=None, dump_dir=None, **kwargs):
     org_id = get_org_from_input_or_ctx(ctx, org_id=org_id)
     kwargs = strip_none(kwargs)
@@ -225,6 +320,64 @@ def fetch_resource_rules(ctx, org_id=None, dump_dir=None, **kwargs):
         ctx, resource_type="application", org_id=org_id, **kwargs
     ):
         fetch_resource(ctx, res, dump_dir=dump_dir)
+
+
+def add_default_rule(policy_structures: list, rules: list, replace=False):
+    """
+    Builds a default rule for the resource template. The rule matches only if the
+    request is http (so we don't hit the network layer policy), and we insert it
+    at the lowest priority for the policy. The default rule applies the 'no permission'
+    action. Users may override the behaviour, since it is just a normal rule under
+    their control.
+    """
+    min_priority = min(
+        [structure.root_node.priority for structure in policy_structures], default=0
+    )
+    min_priority = min_priority - 1
+
+    default_rule = RuleConfig(
+        name="ag-default-rule",
+        scope=RuleScopeEnum("anyone"),
+        roles=[],
+        extended_condition=RuleCondition(
+            negated=False, condition=make_http_condition(path_regex="/", methods=["all"])
+        ),
+        comments="default fallthrough action",
+        actions=[RuleAction(action="no_permissions")],
+        priority=min_priority,
+    )
+
+    node = SimpleResourcePolicyTemplateStructureNode(
+        priority=min_priority,
+        rule_name=StandaloneRuleName(default_rule.name),
+        children=[],
+    )
+    default_struct = SimpleResourcePolicyTemplateStructure(
+        root_node=node,
+        name=StandaloneRuleName(default_rule.name),
+        children=[],
+    )
+
+    existing_rule_idx = -1
+    for idx, rule in enumerate(rules):
+        if rule.name == default_rule.name:
+            existing_rule_idx = idx
+            break
+
+    existing_node = list(
+        filter(lambda structure: structure.name == node.rule_name, policy_structures)
+    )
+    result = False
+    if existing_rule_idx < 0:
+        rules.append(default_rule)
+        result = True
+    elif replace:
+        rules[existing_rule_idx] = default_rule
+        result = True
+    if not existing_node:
+        policy_structures.append(default_struct)
+        result = True
+    return result
 
 
 def migrate_resource(ctx, resource, dump_dir=None):
@@ -248,8 +401,11 @@ def migrate_resource(ctx, resource, dump_dir=None):
                 root_node=node,
             )
         )
+    new_rules = [_migrate_http_rule(rule) for rule in rules]
+    add_default_rule(policy_structures, new_rules)
+
     template = SimpleResourcePolicyTemplate(
-        rules=[_migrate_http_rule(rule) for rule in rules],
+        rules=new_rules,
         policy_structure=policy_structures,
         template_type="simple_resource",
     )

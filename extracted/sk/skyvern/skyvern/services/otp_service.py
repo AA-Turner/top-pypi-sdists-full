@@ -18,6 +18,9 @@ from skyvern.forge.sdk.schemas.totp_codes import OTPType
 LOG = structlog.get_logger()
 
 _MFA_PARAMETER_KEY_HINTS = ("mfa", "otp", "verification")
+# Keys that contain an MFA hint but are TOTP *metadata*, not actual OTP codes.
+# "totpidentifier" matches "otp" but carries a lookup key, not a 6-digit code.
+_MFA_METADATA_KEY_HINTS = ("identifier", "url", "secret", "seed", "key")
 _NON_ALNUM_PATTERN = re.compile(r"[^a-z0-9]")
 
 MFANavigationPayload = dict | list | str | None
@@ -64,8 +67,14 @@ async def parse_otp_login(
 
 
 def _is_mfa_like_parameter_key(key: object) -> bool:
-    """Return True when a payload key appears to represent an MFA/OTP parameter."""
+    """Return True when a payload key appears to represent an MFA/OTP code value.
+
+    Excludes TOTP metadata keys (identifier, url, secret, etc.) that contain an
+    MFA hint but carry lookup/config data rather than an actual verification code.
+    """
     normalized_key = _NON_ALNUM_PATTERN.sub("", str(key).lower())
+    if any(meta in normalized_key for meta in _MFA_METADATA_KEY_HINTS):
+        return False
     return any(hint in normalized_key for hint in _MFA_PARAMETER_KEY_HINTS)
 
 
@@ -164,7 +173,9 @@ async def poll_otp_value(
     timeout = timedelta(minutes=settings.VERIFICATION_CODE_POLLING_TIMEOUT_MINS)
     start_datetime = datetime.utcnow()
     timeout_datetime = start_datetime + timeout
-    org_token = await app.DATABASE.get_valid_org_auth_token(organization_id, OrganizationAuthTokenType.api.value)
+    org_token = await app.DATABASE.organizations.get_valid_org_auth_token(
+        organization_id, OrganizationAuthTokenType.api.value
+    )
     if not org_token:
         LOG.error("Failed to get organization token when trying to get otp value")
         return None
@@ -278,7 +289,7 @@ async def _get_otp_value_from_db(
     workflow_id: str | None = None,
     workflow_run_id: str | None = None,
 ) -> OTPValue | None:
-    totp_codes = await app.DATABASE.get_otp_codes(organization_id=organization_id, totp_identifier=totp_identifier)
+    totp_codes = await app.DATABASE.otp.get_otp_codes(organization_id=organization_id, totp_identifier=totp_identifier)
     for totp_code in totp_codes:
         if totp_code.workflow_run_id and workflow_run_id and totp_code.workflow_run_id != workflow_run_id:
             continue

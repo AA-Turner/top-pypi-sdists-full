@@ -279,6 +279,7 @@ fn extract_text_from_piece_table(word_doc: &[u8], plc_pcd: &[u8], ccp_text: usiz
             }
         } else {
             // Unicode (UTF-16LE) text
+            let result_len_before = result.len();
             let byte_offset = (fc_raw & 0x3FFF_FFFF) as usize;
             let end = byte_offset + chars_to_read * 2;
             if end <= word_doc.len() {
@@ -287,6 +288,28 @@ fn extract_text_from_piece_table(word_doc: &[u8], plc_pcd: &[u8], ccp_text: usiz
                     let code_unit = u16::from_le_bytes([chunk[0], chunk[1]]);
                     if let Some(c) = char::from_u32(code_unit as u32) {
                         result.push(c);
+                    }
+                }
+            }
+
+            // Heuristic: if the UTF-16LE decode produced a suspicious number of
+            // CJK Unified Ideographs, the encoding bit was likely wrong and the
+            // data is actually CP1252. Re-decode as CP1252 in that case.
+            let piece: Vec<char> = result[result_len_before..].chars().collect();
+            let suspicious = piece
+                .iter()
+                .filter(|c| {
+                    let cp = **c as u32;
+                    (0x4E00..=0x9FFF).contains(&cp)
+                })
+                .count();
+            if piece.len() > 4 && suspicious > piece.len() / 4 {
+                result.truncate(result_len_before);
+                let byte_offset = (fc_raw & 0x3FFF_FFFF) as usize;
+                let end = byte_offset + chars_to_read;
+                if end <= word_doc.len() {
+                    for &b in &word_doc[byte_offset..end] {
+                        result.push(cp1252_to_char(b));
                     }
                 }
             }

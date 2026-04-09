@@ -79,7 +79,11 @@ def build_inference_function(
 
 
 def generate_inference_resolver(
-    inputs: list[Underscore] | Underscore, model_version: ModelVersion, resource_hint: Optional[ResourceHint] = None
+    inputs: list[Underscore] | Underscore,
+    model_version: ModelVersion,
+    resource_hint: Optional[ResourceHint] = None,
+    resource_group: Optional[str] = None,
+    venv: Optional[str] = None,
 ) -> Feature:
     output_feature = Feature()
     previous_hook = output_feature.hook
@@ -127,6 +131,8 @@ def generate_inference_resolver(
                 tags=None,
                 owner=None,
                 resource_hint=resource_hint or model_version.resource_hint,
+                resource_group=resource_group or model_version.resource_group,
+                venv=venv or model_version.venv,
                 data_sources=None,
                 is_sql_file_resolver=False,
                 source_line=None,

@@ -522,7 +522,6 @@ def initialize():
         initialize_rewriter_logger(logger)
 
         module.reporting_client = get_reporting_client(module.settings.config)
-        module.reporting_client.start()
         if module.settings.config[
             "reporting.contrast.enable"
         ] and not initialize_application(module.reporting_client, module.settings):
@@ -566,6 +565,10 @@ def initialize():
         module.event_handlers = registry_v2.generate_policy_event_handlers(
             assess=module.assess_enabled,
             observe=module.observe_enabled,
+            ai_usage=(
+                module.observe_enabled
+                and module.settings.config.get("observe.ai_usage.enable", False)
+            ),
             protect=module.protect_enabled,
         )
 

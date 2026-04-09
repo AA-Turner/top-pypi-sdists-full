@@ -39,6 +39,33 @@ SOURCES_DIR = ProjectDir / "sbuild" / "native"
 PDFIUM_DIR = SOURCES_DIR / "pdfium"
 PDFIUM_DIR_build = PDFIUM_DIR / "build"
 PDFIUM_3RDPARTY = PDFIUM_DIR / "third_party"
+CUSTOM_TOOLCHAIN_DIR = PDFIUM_DIR_build/"toolchain"/"linux"/"custom"
+# for docs / available options, see the comments in //build/toolchain/gcc_toolchain.gni - they're really helpful
+# further options e.g. enable_linker_map, extra_asmflags, shlib_extension
+CUSTOM_TOOLCHAIN_TEMPL = """\
+import("//build/toolchain/gcc_toolchain.gni")
+
+gcc_toolchain("default") {
+  cc = "%(CC)s"
+  cxx = "%(CXX)s"
+  ld = cxx
+  
+  _toolprefix = "%(TOOLPREFIX)s"
+  readelf = _toolprefix + "readelf"
+  nm = _toolprefix + "nm"
+  ar = _toolprefix + "ar"
+  
+  extra_cflags = getenv("CFLAGS")
+  extra_cppflags = getenv("CPPFLAGS")
+  extra_cxxflags = getenv("CXXFLAGS")
+  extra_ldflags = getenv("LDFLAGS")
+  
+  toolchain_args = {
+    current_cpu = current_cpu
+    current_os = current_os
+  }
+}
+"""
 
 Compiler = Enum("Compiler", "gcc clang")
 
@@ -64,22 +91,14 @@ if IS_ANDROID:
         "current_os": "android",
         "target_os": "android",
     })
-    del DefaultConfig["use_sysroot"]
+    del DefaultConfig["use_sysroot"]  # implies use_sysroot = true
     # On Android, it seems that the build system's CPU type statically defaults to "arm", but we want this script to be host-adaptive (plus, "arm64" is the more likely candidate).
     # TODO(future) refactor platform constants from base.py so we can access abstracted OS/CPU separately through sub-attributes
-    AndroidCPUMap = {
-        "aarch64": "arm64",
-        "armv7l":  "arm",
-        "x86_64":  "x64",
-        "i686":    "x86",
-    }
+    AndroidCPUMap = {"aarch64": "arm64", "armv7l": "arm", "x86_64": "x64", "i686": "x86"}
     raw_cpu = Host._raw_machine
     if raw_cpu in AndroidCPUMap:
         cpu = AndroidCPUMap[raw_cpu]
-        DefaultConfig.update({
-            "current_cpu": cpu,
-            "target_cpu": cpu,
-        })
+        DefaultConfig.update(current_cpu=cpu, target_cpu=cpu)
     else:
         log(f"Warning: Unknown Android CPU {raw_cpu}")
 
@@ -205,6 +224,16 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
     
     df = DepsFetcher(deps_info)
     do_patches = df.fetch("build", PDFIUM_DIR_build, reset=reset)
+    if compiler is Compiler.gcc:  # regardless of do_patches
+        # declare custom GCC toolchain
+        mkdir(CUSTOM_TOOLCHAIN_DIR)
+        (CUSTOM_TOOLCHAIN_DIR/"BUILD.gn").write_text(
+            CUSTOM_TOOLCHAIN_TEMPL % query_envs(CC="gcc", CXX="g++", TOOLPREFIX="")
+        )
+        # https://crbug.com/402282789
+        # gcc_toolchain.gni says on extra_cppflags:
+        # > Extra flags to be appended when compiling both C and C++ files. "CPP" stands for "C PreProcessor" in this context, although it can be used for non-preprocessor flags as well. Not to be confused with "CXX" (which follows).
+        env_append("CPPFLAGS", "-ffp-contract=off", " ")
     if do_patches:
         # legacy_gn.patch: Work around error about path_exists() being undefined. This happens with older versions of GN.
         # Recent GN binaries can be obtained from https://chrome-infra-packages.appspot.com/p/gn/gn
@@ -213,10 +242,7 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
         if IS_ANDROID:
             # fix linkage step
             git_apply_patch(PatchDir/"android_build.patch", cwd=PDFIUM_DIR_build)
-        if compiler is Compiler.gcc:
-            # https://crbug.com/402282789
-            git_apply_patch(PatchDir/"ffp_contract.patch", cwd=PDFIUM_DIR_build)
-        elif compiler is Compiler.clang:
+        if compiler is Compiler.clang:
             # https://crbug.com/410883044
             if "libc++" not in vendor_deps:
                 git_apply_patch(PatchDir/"system_libcxx_with_clang.patch", cwd=PDFIUM_DIR_build)
@@ -289,40 +315,12 @@ def _get_clang_ver(clang_path):
     log(f"Determined clang version {version!r}")
     return version
 
-def _clang_as_gcc(clang_path):
-    symlinks_dir = SOURCES_DIR / "clang_as_gcc"
-    mkdir(symlinks_dir)
-    # pdfium is inconsistent as to where it uses a toolprefix and where it doesn't
-    # this map is based on //build/toolchain/linux/BUILD.gn
-    # TODO use complete map (merge with utils/get_gcc_prefix.py) and create both sets of symlinks (with and without prefix)
-    toolprefix = {
-        "aarch64": "aarch64-linux-gnu-",
-        "riscv64": "riscv64-linux-gnu-",
-        "armv7l": "arm-linux-gnueabihf-",
-        "armv8l": "arm-linux-gnueabihf-",
-        "loong64": "loongarch64-unknown-linux-gnu-",
-        "loongarch64": "loongarch64-unknown-linux-gnu-",
-    }.get(Host._raw_machine, "")
-    nmap = (
-        ("clang", "gcc"),
-        ("clang++", "g++"),
-        ("llvm-ar", "ar"),
-        ("llvm-nm", "nm"),
-        ("llvm-readelf", "readelf"),
-        ("lld", "ld"),
-    )
-    for src_name, dst_name in nmap:
-        src = clang_path/"bin"/src_name
-        dst = symlinks_dir/(toolprefix+dst_name)
-        if dst.is_symlink():
-            dst.unlink()
-        dst.symlink_to(src)
-    os.environ["PATH"] = f"{symlinks_dir}:" + os.environ["PATH"]
-
-
 def setup_compiler(config, compiler, clang_ver, clang_path):
     if compiler is Compiler.gcc:
         config["is_clang"] = False
+        # this ought to match CUSTOM_TOOLCHAIN_DIR
+        config["custom_toolchain"] = "//build/toolchain/linux/custom:default"
+        config["host_toolchain"] = "//build/toolchain/linux/custom:default"
     elif compiler is Compiler.clang:
         assert clang_path, "Clang path must be set"
         config.update({
@@ -396,7 +394,8 @@ def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_pat
         if clang_path is None:
             clang_path = Host.usr
         if clang_as_gcc:
-            _clang_as_gcc(clang_path)
+            env_prepend("PATH", str(clang_path/"bin"), os.pathsep)
+            set_envs(CC="clang", CXX="clang++", TOOLPREFIX="llvm-")
             compiler = Compiler.gcc
         else:
             clang_ver = _get_clang_ver(clang_path)
@@ -422,9 +421,12 @@ def parse_args(argv):
         formatter_class = argparse.RawTextHelpFormatter,
         description = """\
 Build PDFium from source natively with a self-managed checkout and system tools/libraries (depending on config).
+
 This does not use Google's binary toolchain, so it should be portable across different Linux architectures.
 Whether this might also work on other OSes depends on PDFium's build system and the availability of a Linux-like system library environment.
-For instance, it should also work on Android (Termux) natively. See the notes in pypdfium2's README.md for more information.\
+For instance, it should also work on Android (Termux) natively. See the notes in pypdfium2's README.md for more information.
+
+In GCC build mode, the usual environment variables are respected: CC, CXX, CFLAGS, CPPFLAGS, CXXFLAGS, LDFLAGS. Also, a TOOLPREFIX can be set for ar/nm/readelf (with trailing dash).\
 """,
     )
     if ExtendAction is not None:  # from base.py
@@ -473,10 +475,9 @@ For instance, it should also work on Android (Termux) natively. See the notes in
     parser.add_argument(
         "--clang-as-gcc",
         action = "store_true",
-        help = "Use clang, but pretend to pdfium's build system that it were gcc. Passing --compiler clang is a prerequisite. This is implemented by creating symlinks and prepending them to $PATH.",
+        help = "Use clang, but pretend to pdfium's build system that it were gcc. Passing `--compiler clang` is a prerequisite.",
     )
-    # - libicudata pulled in from the system via `auditwheel repair` is quite big. Using vendored ICU reduces wheel size by about 10 MB (compressed).
-    # - With clang, using the vendored libc++ may be desirable. Also, there is some uncertainty whether using system libc++ might be ABI-unsafe. Actually, options to use system libc++ appear to be deprecated upstream.
+    # nb: libicudata pulled in from the system via `auditwheel repair` is quite big. Using vendored ICU reduces wheel size by about 10 MB (compressed).
     parser.add_argument(
         "--vendor",
         dest = "vendor_deps",

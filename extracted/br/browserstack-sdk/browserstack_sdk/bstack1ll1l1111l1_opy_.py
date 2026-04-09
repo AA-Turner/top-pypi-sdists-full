@@ -1,0 +1,106 @@
+# coding: UTF-8
+import sys
+bstack11ll_opy_ = sys.version_info [0] == 2
+bstack11lllll_opy_ = 2048
+bstack1llll_opy_ = 7
+def bstack11ll11_opy_ (bstack111l1l_opy_):
+    global bstack11111ll_opy_
+    bstack1llll11_opy_ = ord (bstack111l1l_opy_ [-1])
+    bstack1111l11_opy_ = bstack111l1l_opy_ [:-1]
+    bstack111l1ll_opy_ = bstack1llll11_opy_ % len (bstack1111l11_opy_)
+    bstack11111l_opy_ = bstack1111l11_opy_ [:bstack111l1ll_opy_] + bstack1111l11_opy_ [bstack111l1ll_opy_:]
+    if bstack11ll_opy_:
+        bstack1l11lll_opy_ = unicode () .join ([unichr (ord (char) - bstack11lllll_opy_ - (bstack1l11ll_opy_ + bstack1llll11_opy_) % bstack1llll_opy_) for bstack1l11ll_opy_, char in enumerate (bstack11111l_opy_)])
+    else:
+        bstack1l11lll_opy_ = str () .join ([chr (ord (char) - bstack11lllll_opy_ - (bstack1l11ll_opy_ + bstack1llll11_opy_) % bstack1llll_opy_) for bstack1l11ll_opy_, char in enumerate (bstack11111l_opy_)])
+    return eval (bstack1l11lll_opy_)
+bstack11ll11_opy_ (u"ࠤࠥࠦࠏࡖࡹࡵࡧࡶࡸࠥࡺࡥࡴࡶࠣࡧࡴࡲ࡬ࡦࡥࡷ࡭ࡴࡴࠠࡩࡧ࡯ࡴࡪࡸࠠࡶࡵ࡬ࡲ࡬ࠦࡤࡪࡴࡨࡧࡹࠦࡰࡺࡶࡨࡷࡹࠦࡨࡰࡱ࡮ࡷ࠳ࠐࠢࠣࠤጟ")
+import pytest
+import io
+import os
+from contextlib import redirect_stdout, redirect_stderr
+import subprocess
+import sys
+def bstack1ll1l111l1l_opy_(bstack1ll11llllll_opy_=None, bstack1ll11llll11_opy_=None):
+    bstack11ll11_opy_ (u"ࠥࠦࠧࠐࠠࠡࠢࠣࡇࡴࡲ࡬ࡦࡥࡷࠤࡵࡿࡴࡦࡵࡷࠤࡹ࡫ࡳࡵࡵࠣࡹࡸ࡯࡮ࡨࠢࡳࡽࡹ࡫ࡳࡵࠩࡶࠤ࡮ࡴࡴࡦࡴࡱࡥࡱࠦࡁࡑࡋࡶ࠲ࠏࠦࠠࠡࠢࡄࡶ࡬ࡹ࠺ࠋࠢࠣࠤࠥࠦࠠࠡࠢࡷࡩࡸࡺ࡟ࡢࡴࡪࡷࠥ࠮࡬ࡪࡵࡷ࠰ࠥࡵࡰࡵ࡫ࡲࡲࡦࡲࠩ࠻ࠢࡆࡳࡲࡶ࡬ࡦࡶࡨࠤࡱ࡯ࡳࡵࠢࡲࡪࠥࡶࡹࡵࡧࡶࡸࠥࡧࡲࡨࡷࡰࡩࡳࡺࡳࠡ࡫ࡱࡧࡱࡻࡤࡪࡰࡪࠤࡵࡧࡴࡩࡵࠣࡥࡳࡪࠠࡧ࡮ࡤ࡫ࡸ࠴ࠊࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࡕࡣ࡮ࡩࡸࠦࡰࡳࡧࡦࡩࡩ࡫࡮ࡤࡧࠣࡳࡻ࡫ࡲࠡࡶࡨࡷࡹࡥࡰࡢࡶ࡫ࡷࠥ࡯ࡦࠡࡤࡲࡸ࡭ࠦࡡࡳࡧࠣࡴࡷࡵࡶࡪࡦࡨࡨ࠳ࠐࠠࠡࠢࠣࠤࠥࠦࠠࡵࡧࡶࡸࡤࡶࡡࡵࡪࡶࠤ࠭ࡲࡩࡴࡶࠣࡳࡷࠦࡳࡵࡴ࠯ࠤࡴࡶࡴࡪࡱࡱࡥࡱ࠯࠺ࠡࡖࡨࡷࡹࠦࡦࡪ࡮ࡨࠬࡸ࠯࠯ࡥ࡫ࡵࡩࡨࡺ࡯ࡳࡻࠫ࡭ࡪࡹࠩࠡࡶࡲࠤࡨࡵ࡬࡭ࡧࡦࡸࠥ࡬ࡲࡰ࡯࠱ࠎࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࡉࡡ࡯ࠢࡥࡩࠥࡧࠠࡴ࡫ࡱ࡫ࡱ࡫ࠠࡱࡣࡷ࡬ࠥࡹࡴࡳ࡫ࡱ࡫ࠥࡵࡲࠡ࡮࡬ࡷࡹࠦ࡯ࡧࠢࡳࡥࡹ࡮ࡳ࠯ࠌࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࡍ࡬ࡴ࡯ࡳࡧࡧࠤ࡮࡬ࠠࡵࡧࡶࡸࡤࡧࡲࡨࡵࠣ࡭ࡸࠦࡰࡳࡱࡹ࡭ࡩ࡫ࡤ࠯ࠌࠣࠤࠥࠦࡒࡦࡶࡸࡶࡳࡹ࠺ࠋࠢࠣࠤࠥࠦࠠࠡࠢࡧ࡭ࡨࡺ࠺ࠡࡅࡲࡰࡱ࡫ࡣࡵ࡫ࡲࡲࠥࡸࡥࡴࡷ࡯ࡸࡸࠦࡷࡪࡶ࡫ࠤࡰ࡫ࡹࡴ࠼ࠍࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡ࠯ࠣࡷࡺࡩࡣࡦࡵࡶࠤ࠭ࡨ࡯ࡰ࡮ࠬࠎࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡࠢ࠰ࠤࡨࡵࡵ࡯ࡶࠣࠬ࡮ࡴࡴࠪࠌࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠ࠮ࠢࡱࡳࡩ࡫ࡩࡥࡵࠣࠬࡱ࡯ࡳࡵࠫࠍࠤࠥࠦࠠࠡࠢࠣࠤࠥࠦࠠࠡ࠯ࠣࡸࡪࡹࡴࡠࡨ࡬ࡰࡪࡹࠠࠩ࡮࡬ࡷࡹ࠯ࠊࠡࠢࠣࠤࠥࠦࠠࠡࠢࠣࠤࠥ࠳ࠠࡦࡴࡵࡳࡷࠦࠨࡴࡶࡵ࠭ࠏࠦࠠࠡࠢࠥࠦࠧጠ")
+    try:
+        bstack1ll11lllll1_opy_ = os.getenv(bstack11ll11_opy_ (u"ࠦࡕ࡟ࡔࡆࡕࡗࡣࡈ࡛ࡒࡓࡇࡑࡘࡤ࡚ࡅࡔࡖࠥጡ")) is not None
+        if bstack1ll11llllll_opy_ is not None:
+            args = list(bstack1ll11llllll_opy_)
+        elif bstack1ll11llll11_opy_ is not None:
+            if isinstance(bstack1ll11llll11_opy_, str):
+                args = [bstack1ll11llll11_opy_]
+            elif isinstance(bstack1ll11llll11_opy_, list):
+                args = list(bstack1ll11llll11_opy_)
+            else:
+                args = [bstack11ll11_opy_ (u"ࠧ࠴ࠢጢ")]
+        else:
+            args = [bstack11ll11_opy_ (u"ࠨ࠮ࠣጣ")]
+        if bstack1ll11lllll1_opy_:
+            return _1ll1l111l11_opy_(args)
+        bstack1ll1l111ll1_opy_ = args + [
+            bstack11ll11_opy_ (u"ࠢ࠮࠯ࡦࡳࡱࡲࡥࡤࡶ࠰ࡳࡳࡲࡹࠣጤ"),
+            bstack11ll11_opy_ (u"ࠣ࠯࠰ࡵࡺ࡯ࡥࡵࠤጥ")
+        ]
+        class bstack1ll11lll1ll_opy_:
+            bstack11ll11_opy_ (u"ࠤࠥࠦࡕࡿࡴࡦࡵࡷࠤࡵࡲࡵࡨ࡫ࡱࠤࡹ࡮ࡡࡵࠢࡦࡥࡵࡺࡵࡳࡧࡶࠤࡨࡵ࡬࡭ࡧࡦࡸࡪࡪࠠࡵࡧࡶࡸࠥ࡯ࡴࡦ࡯ࡶ࠲ࠧࠨࠢጦ")
+            def __init__(self):
+                self.bstack1ll1l111111_opy_ = []
+                self.test_files = set()
+                self.bstack1ll1l1111ll_opy_ = None
+            def pytest_collection_finish(self, session):
+                bstack11ll11_opy_ (u"ࠥࠦࠧࡎ࡯ࡰ࡭ࠣࡧࡦࡲ࡬ࡦࡦࠣࡥ࡫ࡺࡥࡳࠢࡦࡳࡱࡲࡥࡤࡶ࡬ࡳࡳࠦࡩࡴࠢࡩ࡭ࡳ࡯ࡳࡩࡧࡧ࠲ࠧࠨࠢጧ")
+                try:
+                    for item in session.items:
+                        nodeid = item.nodeid
+                        self.bstack1ll1l111111_opy_.append(nodeid)
+                        if bstack11ll11_opy_ (u"ࠦ࠿ࡀࠢጨ") in nodeid:
+                            file_path = nodeid.split(bstack11ll11_opy_ (u"ࠧࡀ࠺ࠣጩ"), 1)[0]
+                            if file_path.endswith(bstack11ll11_opy_ (u"࠭࠮ࡱࡻࠪጪ")):
+                                self.test_files.add(file_path)
+                except Exception as e:
+                    self.bstack1ll1l1111ll_opy_ = str(e)
+        collector = bstack1ll11lll1ll_opy_()
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            exit_code = pytest.main(bstack1ll1l111ll1_opy_, plugins=[collector])
+        if collector.bstack1ll1l1111ll_opy_:
+            return {bstack11ll11_opy_ (u"ࠢࡴࡷࡦࡧࡪࡹࡳࠣጫ"): False, bstack11ll11_opy_ (u"ࠣࡥࡲࡹࡳࡺࠢጬ"): 0, bstack11ll11_opy_ (u"ࠤࡱࡳࡩ࡫ࡩࡥࡵࠥጭ"): [], bstack11ll11_opy_ (u"ࠥࡸࡪࡹࡴࡠࡨ࡬ࡰࡪࡹࠢጮ"): [], bstack11ll11_opy_ (u"ࠦࡪࡸࡲࡰࡴࠥጯ"): bstack11ll11_opy_ (u"ࠧࡉ࡯࡭࡮ࡨࡧࡹ࡯࡯࡯ࠢࡨࡶࡷࡵࡲ࠻ࠢࡾࢁࠧጰ").format(collector.bstack1ll1l1111ll_opy_)}
+        return {
+            bstack11ll11_opy_ (u"ࠨࡳࡶࡥࡦࡩࡸࡹࠢጱ"): True,
+            bstack11ll11_opy_ (u"ࠢࡤࡱࡸࡲࡹࠨጲ"): len(collector.bstack1ll1l111111_opy_),
+            bstack11ll11_opy_ (u"ࠣࡰࡲࡨࡪ࡯ࡤࡴࠤጳ"): collector.bstack1ll1l111111_opy_,
+            bstack11ll11_opy_ (u"ࠤࡷࡩࡸࡺ࡟ࡧ࡫࡯ࡩࡸࠨጴ"): sorted(collector.test_files),
+            bstack11ll11_opy_ (u"ࠥࡩࡽ࡯ࡴࡠࡥࡲࡨࡪࠨጵ"): exit_code
+        }
+    except Exception as e:
+        return {bstack11ll11_opy_ (u"ࠦࡸࡻࡣࡤࡧࡶࡷࠧጶ"): False, bstack11ll11_opy_ (u"ࠧࡩ࡯ࡶࡰࡷࠦጷ"): 0, bstack11ll11_opy_ (u"ࠨ࡮ࡰࡦࡨ࡭ࡩࡹࠢጸ"): [], bstack11ll11_opy_ (u"ࠢࡵࡧࡶࡸࡤ࡬ࡩ࡭ࡧࡶࠦጹ"): [], bstack11ll11_opy_ (u"ࠣࡧࡵࡶࡴࡸࠢጺ"): bstack11ll11_opy_ (u"ࠤࡘࡲࡪࡾࡰࡦࡥࡷࡩࡩࠦࡥࡳࡴࡲࡶࠥ࡯࡮ࠡࡶࡨࡷࡹࠦࡣࡰ࡮࡯ࡩࡨࡺࡩࡰࡰ࠽ࠤࢀࢃࠢጻ").format(e)}
+def _1ll1l111l11_opy_(args):
+    bstack11ll11_opy_ (u"ࠥࠦࠧࡏࡳࡰ࡮ࡤࡸࡪࡪࠠࡤࡱ࡯ࡰࡪࡩࡴࡪࡱࡱࠤࡪࡾࡥࡤࡷࡷࡩࡩࠦࡩ࡯ࠢࡤࠤࡸ࡫ࡰࡢࡴࡤࡸࡪࠦࡐࡺࡶ࡫ࡳࡳࠦࡰࡳࡱࡦࡩࡸࡹࠠࡵࡱࠣࡥࡻࡵࡩࡥࠢࡱࡩࡸࡺࡥࡥࠢࡳࡽࡹ࡫ࡳࡵࠢ࡬ࡷࡸࡻࡥࡴ࠰ࠥࠦࠧጼ")
+    bstack1ll1l11111l_opy_ = [sys.executable, bstack11ll11_opy_ (u"ࠦ࠲ࡳࠢጽ"), bstack11ll11_opy_ (u"ࠧࡶࡹࡵࡧࡶࡸࠧጾ"), bstack11ll11_opy_ (u"ࠨ࠭࠮ࡥࡲࡰࡱ࡫ࡣࡵ࠯ࡲࡲࡱࡿࠢጿ"), bstack11ll11_opy_ (u"ࠢ࠮࠯ࡴࡹ࡮࡫ࡴࠣፀ")]
+    bstack1ll11llll1l_opy_ = [a for a in args if a not in (bstack11ll11_opy_ (u"ࠣ࠯࠰ࡧࡴࡲ࡬ࡦࡥࡷ࠱ࡴࡴ࡬ࡺࠤፁ"), bstack11ll11_opy_ (u"ࠤ࠰࠱ࡶࡻࡩࡦࡶࠥፂ"), bstack11ll11_opy_ (u"ࠥ࠱ࡶࠨፃ"))]
+    cmd = bstack1ll1l11111l_opy_ + bstack1ll11llll1l_opy_
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, env=os.environ.copy())
+        stdout = proc.stdout.splitlines()
+        bstack1ll1l111111_opy_ = []
+        test_files = set()
+        for line in stdout:
+            line = line.strip()
+            if not line or bstack11ll11_opy_ (u"ࠦࠥࡩ࡯࡭࡮ࡨࡧࡹ࡫ࡤࠣፄ") in line.lower():
+                continue
+            if bstack11ll11_opy_ (u"ࠧࡀ࠺ࠣፅ") in line:
+                bstack1ll1l111111_opy_.append(line)
+                file_path = line.split(bstack11ll11_opy_ (u"ࠨ࠺࠻ࠤፆ"), 1)[0]
+                if file_path.endswith(bstack11ll11_opy_ (u"ࠧ࠯ࡲࡼࠫፇ")):
+                    test_files.add(file_path)
+        success = proc.returncode in (0, 5)
+        return {
+            bstack11ll11_opy_ (u"ࠣࡵࡸࡧࡨ࡫ࡳࡴࠤፈ"): success,
+            bstack11ll11_opy_ (u"ࠤࡦࡳࡺࡴࡴࠣፉ"): len(bstack1ll1l111111_opy_),
+            bstack11ll11_opy_ (u"ࠥࡲࡴࡪࡥࡪࡦࡶࠦፊ"): bstack1ll1l111111_opy_,
+            bstack11ll11_opy_ (u"ࠦࡹ࡫ࡳࡵࡡࡩ࡭ࡱ࡫ࡳࠣፋ"): sorted(test_files),
+            bstack11ll11_opy_ (u"ࠧ࡫ࡸࡪࡶࡢࡧࡴࡪࡥࠣፌ"): proc.returncode,
+            bstack11ll11_opy_ (u"ࠨࡥࡳࡴࡲࡶࠧፍ"): None if success else bstack11ll11_opy_ (u"ࠢࡔࡷࡥࡴࡷࡵࡣࡦࡵࡶࠤࡨࡵ࡬࡭ࡧࡦࡸ࡮ࡵ࡮ࠡࡨࡤ࡭ࡱ࡫ࡤࠡࠪࡨࡼ࡮ࡺࠠࡼࡿࠬࠦፎ").format(proc.returncode)
+        }
+    except Exception as e:
+        return {bstack11ll11_opy_ (u"ࠣࡵࡸࡧࡨ࡫ࡳࡴࠤፏ"): False, bstack11ll11_opy_ (u"ࠤࡦࡳࡺࡴࡴࠣፐ"): 0, bstack11ll11_opy_ (u"ࠥࡲࡴࡪࡥࡪࡦࡶࠦፑ"): [], bstack11ll11_opy_ (u"ࠦࡹ࡫ࡳࡵࡡࡩ࡭ࡱ࡫ࡳࠣፒ"): [], bstack11ll11_opy_ (u"ࠧ࡫ࡲࡳࡱࡵࠦፓ"): bstack11ll11_opy_ (u"ࠨࡓࡶࡤࡳࡶࡴࡩࡥࡴࡵࠣࡧࡴࡲ࡬ࡦࡥࡷ࡭ࡴࡴࠠࡦࡴࡵࡳࡷࡀࠠࡼࡿࠥፔ").format(e)}

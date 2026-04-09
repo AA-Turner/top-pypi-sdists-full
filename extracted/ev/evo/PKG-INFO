@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: evo
-Version: 1.35.1
+Version: 1.35.2
 Summary: Python package for the evaluation of odometry and SLAM
 Project-URL: Homepage, https://github.com/MichaelGrupp/evo
 Project-URL: Wiki, https://github.com/MichaelGrupp/evo/wiki

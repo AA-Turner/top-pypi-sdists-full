@@ -503,7 +503,62 @@ pub(super) fn parse_presentation_rels(rels_data: &[u8]) -> Result<Vec<String>> {
     // PowerPoint doesn't guarantee relationship order in the rels file.
     // GitHub Issue #329: Without sorting, slides can be processed in wrong order,
     // causing images to have incorrect page numbers.
-    slide_paths.sort();
+    slide_paths.sort_by(|a, b| {
+        fn slide_num(s: &str) -> u32 {
+            s.rsplit('/')
+                .next()
+                .unwrap_or("")
+                .strip_prefix("slide")
+                .unwrap_or("")
+                .strip_suffix(".xml")
+                .unwrap_or("")
+                .parse()
+                .unwrap_or(u32::MAX)
+        }
+        slide_num(a).cmp(&slide_num(b))
+    });
 
     Ok(slide_paths)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_slide_paths_sorted_numerically() {
+        let mut paths = vec![
+            "ppt/slides/slide1.xml".to_string(),
+            "ppt/slides/slide10.xml".to_string(),
+            "ppt/slides/slide2.xml".to_string(),
+            "ppt/slides/slide20.xml".to_string(),
+            "ppt/slides/slide3.xml".to_string(),
+            "ppt/slides/slide11.xml".to_string(),
+        ];
+
+        paths.sort_by(|a, b| {
+            fn slide_num(s: &str) -> u32 {
+                s.rsplit('/')
+                    .next()
+                    .unwrap_or("")
+                    .strip_prefix("slide")
+                    .unwrap_or("")
+                    .strip_suffix(".xml")
+                    .unwrap_or("")
+                    .parse()
+                    .unwrap_or(u32::MAX)
+            }
+            slide_num(a).cmp(&slide_num(b))
+        });
+
+        assert_eq!(
+            paths,
+            vec![
+                "ppt/slides/slide1.xml",
+                "ppt/slides/slide2.xml",
+                "ppt/slides/slide3.xml",
+                "ppt/slides/slide10.xml",
+                "ppt/slides/slide11.xml",
+                "ppt/slides/slide20.xml",
+            ]
+        );
+    }
 }

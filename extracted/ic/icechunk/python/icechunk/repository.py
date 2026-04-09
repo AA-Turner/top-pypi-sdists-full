@@ -1,22 +1,26 @@
 import datetime
+import json
 import warnings
 from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
 from typing import Any, Self, cast
 
-from icechunk import ConflictSolver
 from icechunk._icechunk_python import (
+    AncestryGraph,
     ChunkStorageStats,
-    Diff,
-    GCSummary,
     PyRepository,
-    RepositoryConfig,
-    SnapshotInfo,
-    Storage,
+    RepoStatus,
+    SpecVersion,
 )
+from icechunk.config import FeatureFlag, RepositoryConfig
+from icechunk.conflicts import ConflictSolver
 from icechunk.credentials import AnyCredential
+from icechunk.ops import GCSummary, Update
 from icechunk.session import Session
+from icechunk.snapshots import Diff, ManifestFileInfo, SnapshotInfo
+from icechunk.storage import Storage, StorageSettings
 from icechunk.store import IcechunkStore
+from icechunk.types import CommitMethod
 
 
 class Repository:
@@ -27,12 +31,23 @@ class Repository:
     def __init__(self, repository: PyRepository):
         self._repository = repository
 
+    def __repr__(self) -> str:
+        return repr(self._repository)
+
+    def __str__(self) -> str:
+        return str(self._repository)
+
+    def _repr_html_(self) -> str:
+        return self._repository._repr_html_()
+
     @classmethod
     def create(
         cls,
         storage: Storage,
         config: RepositoryConfig | None = None,
         authorize_virtual_chunk_access: dict[str, AnyCredential | None] | None = None,
+        spec_version: SpecVersion | int | None = None,
+        check_clean_root: bool = True,
     ) -> Self:
         """
         Create a new Icechunk repository.
@@ -55,6 +70,9 @@ class Repository:
             environment, or anonymous credentials will be used if the container allows it.
             As a security measure, Icechunk will block access to virtual chunks if the
             container is not authorized using this argument.
+        spec_version : SpecVersion, optional
+            Use this version of the spec for the new repository. If not passed, the latest version
+            of the spec that was available before the library version release will be used.
 
         Returns
         -------
@@ -66,6 +84,8 @@ class Repository:
                 storage,
                 config=config,
                 authorize_virtual_chunk_access=authorize_virtual_chunk_access,
+                spec_version=spec_version,
+                check_clean_root=check_clean_root,
             )
         )
 
@@ -75,6 +95,8 @@ class Repository:
         storage: Storage,
         config: RepositoryConfig | None = None,
         authorize_virtual_chunk_access: dict[str, AnyCredential | None] | None = None,
+        spec_version: SpecVersion | int | None = None,
+        check_clean_root: bool = True,
     ) -> Self:
         """
         Create a new Icechunk repository asynchronously.
@@ -97,6 +119,9 @@ class Repository:
             environment, or anonymous credentials will be used if the container allows it.
             As a security measure, Icechunk will block access to virtual chunks if the
             container is not authorized using this argument.
+        spec_version : SpecVersion, optional
+            Use this version of the spec for the new repository. If not passed, the latest version
+            of the spec that was available before the library version release will be used.
 
         Returns
         -------
@@ -108,6 +133,8 @@ class Repository:
                 storage,
                 config=config,
                 authorize_virtual_chunk_access=authorize_virtual_chunk_access,
+                spec_version=spec_version,
+                check_clean_root=check_clean_root,
             )
         )
 
@@ -125,7 +152,7 @@ class Repository:
 
         !!! warning
             This method must be used with care in a multiprocessing context.
-            Read more in our [Parallel Write Guide](./parallel.md#uncooperative-distributed-writes).
+            Read more in our [Parallel Write Guide](../understanding/parallel.md#uncooperative-distributed-writes).
 
         Parameters
         ----------
@@ -169,7 +196,7 @@ class Repository:
 
         !!! warning
             This method must be used with care in a multiprocessing context.
-            Read more in our [Parallel Write Guide](./parallel.md#uncooperative-distributed-writes).
+            Read more in our [Parallel Write Guide](../understanding/parallel.md#uncooperative-distributed-writes).
 
         Parameters
         ----------
@@ -205,13 +232,15 @@ class Repository:
         storage: Storage,
         config: RepositoryConfig | None = None,
         authorize_virtual_chunk_access: dict[str, AnyCredential | None] | None = None,
+        create_version: SpecVersion | int | None = None,
+        check_clean_root: bool = True,
     ) -> Self:
         """
         Open an existing Icechunk repository or create a new one if it does not exist.
 
         !!! warning
             This method must be used with care in a multiprocessing context.
-            Read more in our [Parallel Write Guide](./parallel.md#uncooperative-distributed-writes).
+            Read more in our [Parallel Write Guide](../understanding/parallel.md#uncooperative-distributed-writes).
 
             Attempting to create a Repo concurrently in the same location from multiple processes is not safe.
             Instead, create a Repo once and then open it concurrently.
@@ -230,6 +259,11 @@ class Repository:
             environment, or anonymous credentials will be used if the container allows it.
             As a security measure, Icechunk will block access to virtual chunks if the
             container is not authorized using this argument.
+        create_version : SpecVersion, optional
+            Use this version of the spec for the new repository, if it needs to be created.
+            If not passed, the latest version of the spec that was available before the
+            library version release will be used.
+
 
         Returns
         -------
@@ -241,6 +275,8 @@ class Repository:
                 storage,
                 config=config,
                 authorize_virtual_chunk_access=authorize_virtual_chunk_access,
+                create_version=create_version,
+                check_clean_root=check_clean_root,
             )
         )
 
@@ -250,13 +286,15 @@ class Repository:
         storage: Storage,
         config: RepositoryConfig | None = None,
         authorize_virtual_chunk_access: dict[str, AnyCredential | None] | None = None,
+        create_version: SpecVersion | int | None = None,
+        check_clean_root: bool = True,
     ) -> Self:
         """
         Open an existing Icechunk repository or create a new one if it does not exist (async version).
 
         !!! warning
             This method must be used with care in a multiprocessing context.
-            Read more in our [Parallel Write Guide](./parallel.md#uncooperative-distributed-writes).
+            Read more in our [Parallel Write Guide](../understanding/parallel.md#uncooperative-distributed-writes).
 
             Attempting to create a Repo concurrently in the same location from multiple processes is not safe.
             Instead, create a Repo once and then open it concurrently.
@@ -275,6 +313,10 @@ class Repository:
             environment, or anonymous credentials will be used if the container allows it.
             As a security measure, Icechunk will block access to virtual chunks if the
             container is not authorized using this argument.
+        create_version : SpecVersion, optional
+            Use this version of the spec for the new repository, if it needs to be created.
+            If not passed, the latest version of the spec that was available before the
+            library version release will be used.
 
         Returns
         -------
@@ -286,11 +328,16 @@ class Repository:
                 storage,
                 config=config,
                 authorize_virtual_chunk_access=authorize_virtual_chunk_access,
+                create_version=create_version,
+                check_clean_root=check_clean_root,
             )
         )
 
     @staticmethod
-    def exists(storage: Storage) -> bool:
+    def exists(
+        storage: Storage,
+        storage_settings: StorageSettings | None = None,
+    ) -> bool:
         """
         Check if a repository exists at the given storage location.
 
@@ -298,16 +345,21 @@ class Repository:
         ----------
         storage : Storage
             The storage configuration for the repository.
+        storage_settings : StorageSettings | None
+            Optional storage settings to use for the initial storage call.
 
         Returns
         -------
         bool
             True if the repository exists, False otherwise.
         """
-        return PyRepository.exists(storage)
+        return PyRepository.exists(storage, storage_settings)
 
     @staticmethod
-    async def exists_async(storage: Storage) -> bool:
+    async def exists_async(
+        storage: Storage,
+        storage_settings: StorageSettings | None = None,
+    ) -> bool:
         """
         Check if a repository exists at the given storage location (async version).
 
@@ -315,13 +367,67 @@ class Repository:
         ----------
         storage : Storage
             The storage configuration for the repository.
+        storage_settings : StorageSettings | None
+            Optional storage settings to use for the initial storage call.
 
         Returns
         -------
         bool
             True if the repository exists, False otherwise.
         """
-        return await PyRepository.exists_async(storage)
+        return await PyRepository.exists_async(storage, storage_settings)
+
+    @staticmethod
+    def fetch_spec_version(
+        storage: Storage,
+        storage_settings: StorageSettings | None = None,
+    ) -> SpecVersion | None:
+        """
+        Fetch the spec version of a repository without fully opening it.
+
+        This is useful for checking the repository format version before opening,
+        for example to know what version of the library is needed to open it.
+
+        Parameters
+        ----------
+        storage : Storage
+            The storage configuration for the repository.
+        storage_settings : StorageSettings | None
+            Optional storage settings to use for the initial storage call.
+
+        Returns
+        -------
+        SpecVersion | None
+            The spec version of the repository if it exists, None if no repository
+            exists at the given location.
+        """
+        return PyRepository.fetch_spec_version(storage, storage_settings)
+
+    @staticmethod
+    async def fetch_spec_version_async(
+        storage: Storage,
+        storage_settings: StorageSettings | None = None,
+    ) -> SpecVersion | None:
+        """
+        Fetch the spec version of a repository without fully opening it (async version).
+
+        This is useful for checking the repository format version before opening,
+        for example to know what version of the library is needed to open it.
+
+        Parameters
+        ----------
+        storage : Storage
+            The storage configuration for the repository.
+        storage_settings : StorageSettings | None
+            Optional storage settings to use for the initial storage call.
+
+        Returns
+        -------
+        SpecVersion | None
+            The spec version of the repository if it exists, None if no repository
+            exists at the given location.
+        """
+        return await PyRepository.fetch_spec_version_async(storage, storage_settings)
 
     def __getstate__(self) -> object:
         return {
@@ -507,6 +613,240 @@ class Repository:
         """
         return self._repository.default_commit_metadata()
 
+    def get_metadata(self) -> dict[str, Any]:
+        """
+        Get the current configured repository metadata.
+
+        Returns
+        -------
+        dict[str, Any]
+            The repository level metadata.
+        """
+        return self._repository.get_metadata()
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        """
+        Get the current configured repository metadata.
+
+        Returns
+        -------
+        dict[str, Any]
+            The repository level metadata.
+        """
+        return self._repository.get_metadata()
+
+    async def get_metadata_async(self) -> dict[str, Any]:
+        """
+        Get the current configured repository metadata.
+
+        Returns
+        -------
+        dict[str, Any]
+            The repository level metadata.
+        """
+        return await self._repository.get_metadata_async()
+
+    def set_metadata(self, metadata: dict[str, Any]) -> None:
+        """
+        Set the repository metadata, the passed dict will replace the complete metadata.
+
+        If you prefer to only update some metadata values, use Repository.update_metadata
+
+        Parameters
+        ----------
+        metadata : dict[str, Any]
+            The value to use as repository metadata.
+        """
+        self._repository.set_metadata(metadata)
+
+    async def set_metadata_async(self, metadata: dict[str, Any]) -> None:
+        """
+        Set the repository metadata, the passed dict will replace the complete metadata.
+
+        If you prefer to only update some metadata values, use Repository.update_metadata
+
+        Parameters
+        ----------
+        metadata : dict[str, Any]
+            The value to use as repository metadata.
+        """
+        await self._repository.set_metadata_async(metadata)
+
+    def update_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
+        """
+        Update the repository metadata.
+
+        The passed dict will be merged with the current metadata, overriding existing keys.
+
+        Parameters
+        ----------
+        metadata : dict[str, Any]
+            The dict to merge into the repository metadata.
+        """
+        return self._repository.update_metadata(metadata)
+
+    async def update_metadata_async(self, metadata: dict[str, Any]) -> dict[str, Any]:
+        """
+        Update the repository metadata.
+
+        The passed dict will be merged with the current metadata, overriding existing keys.
+
+        Parameters
+        ----------
+        metadata : dict[str, Any]
+            The dict to merge into the repository metadata.
+        """
+        return await self._repository.update_metadata_async(metadata)
+
+    def get_status(self) -> RepoStatus:
+        """
+        Get the current repository status.
+
+        Returns
+        -------
+        RepoStatus
+            The current status of the repository.
+        """
+        return self._repository.get_status()
+
+    @property
+    def status(self) -> RepoStatus:
+        """
+        Get the current repository status.
+
+        Returns
+        -------
+        RepoStatus
+            The current status of the repository.
+        """
+        return self._repository.get_status()
+
+    async def get_status_async(self) -> RepoStatus:
+        """
+        Get the current repository status (async version).
+
+        Returns
+        -------
+        RepoStatus
+            The current status of the repository.
+        """
+        return await self._repository.get_status_async()
+
+    def set_status(self, status: RepoStatus) -> None:
+        """
+        Set the repository status.
+
+        Parameters
+        ----------
+        status : RepoStatus
+            The new status for the repository.
+        """
+        self._repository.set_status(status)
+
+    async def set_status_async(self, status: RepoStatus) -> None:
+        """
+        Set the repository status (async version).
+
+        Parameters
+        ----------
+        status : RepoStatus
+            The new status for the repository.
+        """
+        await self._repository.set_status_async(status)
+
+    def feature_flags(self) -> list[FeatureFlag]:
+        """
+        Get all feature flags and their current state.
+
+        Returns
+        -------
+        list[FeatureFlag]
+            All feature flags with their id, name, default, setting, and effective state.
+        """
+        return self._repository.feature_flags()
+
+    async def feature_flags_async(self) -> list[FeatureFlag]:
+        """
+        Get all feature flags and their current state (async version).
+
+        Returns
+        -------
+        list[FeatureFlag]
+            All feature flags with their id, name, default, setting, and effective state.
+        """
+        return await self._repository.feature_flags_async()
+
+    def enabled_feature_flags(self) -> list[FeatureFlag]:
+        """
+        Get feature flags that are currently enabled.
+
+        Returns
+        -------
+        list[FeatureFlag]
+            Feature flags whose effective state is enabled.
+        """
+        return self._repository.enabled_feature_flags()
+
+    async def enabled_feature_flags_async(self) -> list[FeatureFlag]:
+        """
+        Get feature flags that are currently enabled (async version).
+
+        Returns
+        -------
+        list[FeatureFlag]
+            Feature flags whose effective state is enabled.
+        """
+        return await self._repository.enabled_feature_flags_async()
+
+    def disabled_feature_flags(self) -> list[FeatureFlag]:
+        """
+        Get feature flags that are currently disabled.
+
+        Returns
+        -------
+        list[FeatureFlag]
+            Feature flags whose effective state is disabled.
+        """
+        return self._repository.disabled_feature_flags()
+
+    async def disabled_feature_flags_async(self) -> list[FeatureFlag]:
+        """
+        Get feature flags that are currently disabled (async version).
+
+        Returns
+        -------
+        list[FeatureFlag]
+            Feature flags whose effective state is disabled.
+        """
+        return await self._repository.disabled_feature_flags_async()
+
+    def set_feature_flag(self, name: str, setting: bool | None) -> None:
+        """
+        Set a feature flag.
+
+        Parameters
+        ----------
+        name : str
+            The name of the feature flag.
+        setting : bool | None
+            True to enable, False to disable, None to reset to default.
+        """
+        self._repository.set_feature_flag(name, setting)
+
+    async def set_feature_flag_async(self, name: str, setting: bool | None) -> None:
+        """
+        Set a feature flag (async version).
+
+        Parameters
+        ----------
+        name : str
+            The name of the feature flag.
+        setting : bool | None
+            True to enable, False to disable, None to reset to default.
+        """
+        await self._repository.set_feature_flag_async(name, setting)
+
     def ancestry(
         self,
         *,
@@ -576,6 +916,77 @@ class Repository:
         return self._repository.async_ancestry(
             branch=branch, tag=tag, snapshot_id=snapshot_id
         )
+
+    def ancestry_graph(
+        self,
+        *,
+        branch: str | None = None,
+        tag: str | None = None,
+        snapshot_id: str | None = None,
+        plain: bool = False,
+    ) -> AncestryGraph:
+        """
+        Build a visual representation of the commit history.
+
+        When called with no arguments, shows all branches as a tree.
+        When called with one of branch/tag/snapshot_id, shows that ref's linear history.
+
+        Parameters
+        ----------
+        branch : str, optional
+            Show history for this branch.
+        tag : str, optional
+            Show history from this tag.
+        snapshot_id : str, optional
+            Show history from this snapshot.
+        plain : bool, optional
+            If True, render without colors (no ANSI codes in text, no fill colors
+            in SVG). Useful for CI logs, piping to files, or LLM agents.
+
+        Returns
+        -------
+        AncestryGraph
+            A displayable object. Use print() for colored terminal output,
+            or display in Jupyter for an SVG diagram.
+        """
+        return self._repository.ancestry_graph(
+            branch=branch, tag=tag, snapshot_id=snapshot_id, plain=plain
+        )
+
+    async def ancestry_graph_async(
+        self,
+        *,
+        branch: str | None = None,
+        tag: str | None = None,
+        snapshot_id: str | None = None,
+        plain: bool = False,
+    ) -> AncestryGraph:
+        """
+        Async version of :meth:`ancestry_graph`.
+        """
+        return await self._repository.ancestry_graph_async(
+            branch=branch, tag=tag, snapshot_id=snapshot_id, plain=plain
+        )
+
+    def ops_log(self) -> Iterator[Update]:
+        """
+        Get a summary of changes to the repository
+        """
+
+        # the returned object is both an Async and Sync iterator
+        res = cast(
+            Iterator[Update],
+            self._repository.async_ops_log(),
+        )
+        return res
+
+    def ops_log_async(self) -> AsyncIterator[Update]:
+        """
+        Get a summary of changes to the repository
+        """
+
+        # the returned object is both an Async and Sync iterator
+        return self._repository.async_ops_log()
 
     def create_branch(self, branch: str, snapshot_id: str) -> None:
         """
@@ -694,6 +1105,36 @@ class Repository:
         SnapshotInfo
         """
         return await self._repository.lookup_snapshot_async(snapshot_id)
+
+    def list_manifest_files(self, snapshot_id: str) -> list[ManifestFileInfo]:
+        """
+        Get the manifest files used by the given snapshot ID
+
+        Parameters
+        ----------
+        snapshot_id : str
+            The id of the snapshot to get information for
+
+        Returns
+        -------
+        list[ManifestFileInfo]
+        """
+        return self._repository.list_manifest_files(snapshot_id)
+
+    async def list_manifest_files_async(self, snapshot_id: str) -> list[ManifestFileInfo]:
+        """
+        Get the manifest files used by the given snapshot ID
+
+        Parameters
+        ----------
+        snapshot_id : str
+            The id of the snapshot to get information for
+
+        Returns
+        -------
+        list[ManifestFileInfo]
+        """
+        return await self._repository.list_manifest_files_async(snapshot_id)
 
     def reset_branch(
         self, branch: str, snapshot_id: str, *, from_snapshot_id: str | None = None
@@ -1083,6 +1524,54 @@ class Repository:
         """
         return Session(await self._repository.writable_session_async(branch))
 
+    def rearrange_session(self, branch: str) -> Session:
+        """
+        Create a session to move/rename nodes in the Zarr hierarchy.
+
+        Like the read-only session, this can be thought of as a checkout of the repository at the
+        tip of the branch. However, this session is writable and can be used to make changes to the
+        repository. When ready, the changes can be committed to the branch, after which the session will
+        become a read-only session on the new snapshot.
+
+        This session only allows to make changes through `Session.move`. If you want to modify data, and
+        not only move nodes, use `Session.writable_session` instead.
+
+        Parameters
+        ----------
+        branch : str
+            The branch to create the session on.
+
+        Returns
+        -------
+        Session
+            The writable session on the branch.
+        """
+        return Session(self._repository.rearrange_session(branch))
+
+    async def rearrange_session_async(self, branch: str) -> Session:
+        """
+        Create a session to move/rename nodes in the Zarr hierarchy.
+
+        Like the read-only session, this can be thought of as a checkout of the repository at the
+        tip of the branch. However, this session is writable and can be used to make changes to the
+        repository. When ready, the changes can be committed to the branch, after which the session will
+        become a read-only session on the new snapshot.
+
+        This session only allows to make changes through `Session.move`. If you want to modify data, and
+        not only move nodes, use `Session.writable_session` instead.
+
+        Parameters
+        ----------
+        branch : str
+            The branch to create the session on.
+
+        Returns
+        -------
+        Session
+            The writable session on the branch.
+        """
+        return Session(await self._repository.rearrange_session_async(branch))
+
     @contextmanager
     def transaction(
         self,
@@ -1222,7 +1711,12 @@ class Repository:
         )
 
     def rewrite_manifests(
-        self, message: str, *, branch: str, metadata: dict[str, Any] | None = None
+        self,
+        message: str,
+        *,
+        branch: str,
+        metadata: dict[str, Any] | None = None,
+        commit_method: CommitMethod = "new_commit",
     ) -> str:
         """
         Rewrite manifests for all arrays.
@@ -1242,6 +1736,11 @@ class Repository:
             The branch to commit to.
         metadata : dict[str, Any] | None, optional
             Additional metadata to store with the commit snapshot.
+        commit_method : CommitMethod, optional
+            The commit method to use. Defaults to ``"new_commit"``.
+            Use ``"amend"`` to replace the previous commit.
+            Note that ``"amend"`` is only supported for spec version 2
+            repositories.
 
         Returns
         -------
@@ -1250,11 +1749,16 @@ class Repository:
 
         """
         return self._repository.rewrite_manifests(
-            message, branch=branch, metadata=metadata
+            message, branch=branch, metadata=metadata, commit_method=commit_method
         )
 
     async def rewrite_manifests_async(
-        self, message: str, *, branch: str, metadata: dict[str, Any] | None = None
+        self,
+        message: str,
+        *,
+        branch: str,
+        metadata: dict[str, Any] | None = None,
+        commit_method: CommitMethod = "new_commit",
     ) -> str:
         """
         Rewrite manifests for all arrays (async version).
@@ -1274,6 +1778,11 @@ class Repository:
             The branch to commit to.
         metadata : dict[str, Any] | None, optional
             Additional metadata to store with the commit snapshot.
+        commit_method : CommitMethod, optional
+            The commit method to use. Defaults to ``"new_commit"``.
+            Use ``"amend"`` to replace the previous commit.
+            Note that ``"amend"`` is only supported for spec version 2
+            repositories.
 
         Returns
         -------
@@ -1282,7 +1791,7 @@ class Repository:
 
         """
         return await self._repository.rewrite_manifests_async(
-            message, branch=branch, metadata=metadata
+            message, branch=branch, metadata=metadata, commit_method=commit_method
         )
 
     def garbage_collect(
@@ -1527,10 +2036,215 @@ class Repository:
         )
         return stats.native_bytes
 
-    def inspect_snapshot(self, snapshot_id: str, *, pretty: bool = True) -> str:
-        return self._repository.inspect_snapshot(snapshot_id, pretty=pretty)
+    def inspect_snapshot(self, snapshot_id: str) -> dict[str, Any]:
+        """
+        Return the node tree stored in a snapshot.
 
-    async def inspect_snapshot_async(
-        self, snapshot_id: str, *, pretty: bool = True
-    ) -> str:
-        return await self._repository.inspect_snapshot_async(snapshot_id, pretty=pretty)
+        The result contains every node's path, node ID, type (array or group),
+        and manifest references. Useful for verifying node identity across
+        commits or inspecting what a snapshot contains.
+
+        This is a testing/debugging utility. The return type and structure
+        may change in future versions.
+
+        Parameters
+        ----------
+        snapshot_id : str
+            The snapshot to inspect.
+
+        Returns
+        -------
+        dict[str, Any]
+            Keys: ``id``, ``flushed_at``, ``commit_message``, ``metadata``,
+            ``manifests``, ``nodes``.
+        """
+        result: dict[str, Any] = json.loads(
+            self._repository.inspect_snapshot(snapshot_id, pretty=False)
+        )
+        return result
+
+    async def inspect_snapshot_async(self, snapshot_id: str) -> dict[str, Any]:
+        """
+        Return the node tree stored in a snapshot.
+
+        The result contains every node's path, node ID, type (array or group),
+        and manifest references. Useful for verifying node identity across
+        commits or inspecting what a snapshot contains.
+
+        This is a testing/debugging utility. The return type and structure
+        may change in future versions.
+
+        Parameters
+        ----------
+        snapshot_id : str
+            The snapshot to inspect.
+
+        Returns
+        -------
+        dict[str, Any]
+            Keys: ``id``, ``flushed_at``, ``commit_message``, ``metadata``,
+            ``manifests``, ``nodes``.
+        """
+        result: dict[str, Any] = json.loads(
+            await self._repository.inspect_snapshot_async(snapshot_id, pretty=False)
+        )
+        return result
+
+    def inspect_repo_info(self) -> dict[str, Any]:
+        """
+        Return the top-level repository metadata.
+
+        Includes the branch-to-snapshot mapping, tags, snapshot ancestry,
+        and the recent update log.
+
+        This is a testing/debugging utility. The return type and structure
+        may change in future versions.
+
+        Returns
+        -------
+        dict[str, Any]
+            Keys: ``spec_version``, ``branches``, ``tags``, ``deleted_tags``,
+            ``snapshots``, ``metadata``, ``latest_updates``.
+        """
+        result: dict[str, Any] = json.loads(
+            self._repository.inspect_repo_info(pretty=False)
+        )
+        return result
+
+    async def inspect_repo_info_async(self) -> dict[str, Any]:
+        """
+        Return the top-level repository metadata.
+
+        Includes the branch-to-snapshot mapping, tags, snapshot ancestry,
+        and the recent update log.
+
+        This is a testing/debugging utility. The return type and structure
+        may change in future versions.
+
+        Returns
+        -------
+        dict[str, Any]
+            Keys: ``spec_version``, ``branches``, ``tags``, ``deleted_tags``,
+            ``snapshots``, ``metadata``, ``latest_updates``.
+        """
+        result: dict[str, Any] = json.loads(
+            await self._repository.inspect_repo_info_async(pretty=False)
+        )
+        return result
+
+    def inspect_manifest(self, manifest_id: str) -> dict[str, Any]:
+        """
+        Return chunk storage statistics for a manifest.
+
+        Shows per-array chunk counts broken down by storage type
+        (inline, native, virtual) and compression details.
+
+        This is a testing/debugging utility. The return type and structure
+        may change in future versions.
+
+        Parameters
+        ----------
+        manifest_id : str
+            The manifest to inspect. Manifest IDs can be found in the
+            ``manifest_refs`` of array nodes returned by
+            :meth:`inspect_snapshot`.
+
+        Returns
+        -------
+        dict[str, Any]
+            Keys: ``id``, ``size_bytes``, ``num_arrays``,
+            ``total_chunk_refs``, ``total_inline``, ``total_native``,
+            ``total_virtual``, ``arrays``, ``compression``.
+        """
+        result: dict[str, Any] = json.loads(
+            self._repository.inspect_manifest(manifest_id, pretty=False)
+        )
+        return result
+
+    async def inspect_manifest_async(self, manifest_id: str) -> dict[str, Any]:
+        """
+        Return chunk storage statistics for a manifest.
+
+        Shows per-array chunk counts broken down by storage type
+        (inline, native, virtual) and compression details.
+
+        This is a testing/debugging utility. The return type and structure
+        may change in future versions.
+
+        Parameters
+        ----------
+        manifest_id : str
+            The manifest to inspect. Manifest IDs can be found in the
+            ``manifest_refs`` of array nodes returned by
+            :meth:`inspect_snapshot_async`.
+
+        Returns
+        -------
+        dict[str, Any]
+            Keys: ``id``, ``size_bytes``, ``num_arrays``,
+            ``total_chunk_refs``, ``total_inline``, ``total_native``,
+            ``total_virtual``, ``arrays``, ``compression``.
+        """
+        result: dict[str, Any] = json.loads(
+            await self._repository.inspect_manifest_async(manifest_id, pretty=False)
+        )
+        return result
+
+    def inspect_transaction_log(self, snapshot_id: str) -> dict[str, Any]:
+        """
+        Return the record of what changed in a single commit.
+
+        Lists the node IDs of every created, deleted, and updated node,
+        the chunk coordinates that were written, and any move operations.
+
+        This is a testing/debugging utility. The return type and structure
+        may change in future versions.
+
+        Parameters
+        ----------
+        snapshot_id : str
+            The snapshot whose transaction log to inspect.
+
+        Returns
+        -------
+        dict[str, Any]
+            Keys: ``new_groups``, ``new_arrays``, ``deleted_groups``,
+            ``deleted_arrays``, ``updated_groups``, ``updated_arrays``,
+            ``updated_chunks``, ``moved_nodes``.
+        """
+        result: dict[str, Any] = json.loads(
+            self._repository.inspect_transaction_log(snapshot_id, pretty=False)
+        )
+        return result
+
+    async def inspect_transaction_log_async(self, snapshot_id: str) -> dict[str, Any]:
+        """
+        Return the record of what changed in a single commit.
+
+        Lists the node IDs of every created, deleted, and updated node,
+        the chunk coordinates that were written, and any move operations.
+
+        This is a testing/debugging utility. The return type and structure
+        may change in future versions.
+
+        Parameters
+        ----------
+        snapshot_id : str
+            The snapshot whose transaction log to inspect.
+
+        Returns
+        -------
+        dict[str, Any]
+            Keys: ``new_groups``, ``new_arrays``, ``deleted_groups``,
+            ``deleted_arrays``, ``updated_groups``, ``updated_arrays``,
+            ``updated_chunks``, ``moved_nodes``.
+        """
+        raw = await self._repository.inspect_transaction_log_async(
+            snapshot_id, pretty=False
+        )
+        result: dict[str, Any] = json.loads(raw)
+        return result
+
+    @property
+    def spec_version(self) -> SpecVersion:
+        return self._repository.spec_version

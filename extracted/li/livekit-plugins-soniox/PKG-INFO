@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-soniox
-Version: 1.5.1
+Version: 1.5.2
 Summary: Agent Framework plugin for services using Soniox's API.
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
-Requires-Dist: livekit-agents>=1.5.1
+Requires-Dist: livekit-agents>=1.5.2
 Description-Content-Type: text/markdown
 
 # Soniox plugin for LiveKit Agents

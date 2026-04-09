@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qase-python-commons
-Version: 5.0.7
+Version: 5.1.1
 Summary: A library for Qase TestOps and Qase Report
 Author-email: Qase Team <support@qase.io>
 Project-URL: Homepage, https://github.com/qase-tms/qase-python/tree/main/qase-python-commons
@@ -21,8 +21,8 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: certifi>=2024.2.2
 Requires-Dist: attrs>=23.2.0
-Requires-Dist: qase-api-client~=2.0.3
-Requires-Dist: qase-api-v2-client~=2.0.3
+Requires-Dist: qase-api-client~=2.0.6
+Requires-Dist: qase-api-v2-client~=2.0.6
 Requires-Dist: more_itertools
 Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt-runtime
-Version: 0.24.0
+Version: 0.24.1
 Summary: CLI tool for accessing dltHub runtime
 Author-email: "dltHub Inc." <services@dlthub.com>
 Maintainer-email: Ivan Chebotar <ivan@dlthub.com>

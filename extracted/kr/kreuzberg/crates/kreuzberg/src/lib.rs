@@ -63,6 +63,9 @@ pub mod mcp;
 #[cfg(feature = "chunking")]
 pub mod chunking;
 
+#[cfg(feature = "liter-llm")]
+pub mod llm;
+
 #[cfg(feature = "embeddings")]
 pub mod embeddings;
 
@@ -121,9 +124,10 @@ pub use core::extractor::{batch_extract_bytes_sync, extract_bytes_sync};
 pub use core::extractor::{batch_extract_file_sync, extract_file_sync};
 
 pub use core::config::{
-    AccelerationConfig, ChunkSizing, ChunkerType, ChunkingConfig, EmailConfig, EmbeddingConfig, EmbeddingModelType,
-    ExecutionProviderType, ExtractionConfig, FileExtractionConfig, ImageExtractionConfig, LanguageDetectionConfig,
-    OcrConfig, OutputFormat, PageConfig, PostProcessorConfig, TokenReductionConfig,
+    AccelerationConfig, ChunkSizing, ChunkerType, ChunkingConfig, ContentFilterConfig, EmailConfig, EmbeddingConfig,
+    EmbeddingModelType, ExecutionProviderType, ExtractionConfig, FileExtractionConfig, ImageExtractionConfig,
+    LanguageDetectionConfig, LlmConfig, OcrConfig, OutputFormat, PageConfig, PostProcessorConfig,
+    StructuredExtractionConfig, TokenReductionConfig,
 };
 
 #[cfg(feature = "api")]
@@ -162,7 +166,12 @@ pub use plugins::registry::{
 };
 
 #[cfg(feature = "embeddings")]
-pub use embeddings::{EMBEDDING_PRESETS, EmbeddingPreset, download_model, get_preset, list_presets, warm_model};
+pub use embeddings::{
+    EMBEDDING_PRESETS, EmbeddingPreset, download_model, embed_texts, get_preset, list_presets, warm_model,
+};
+
+#[cfg(all(feature = "embeddings", feature = "tokio-runtime"))]
+pub use embeddings::embed_texts_async;
 
 /// Serialize an [`ExtractionResult`] to TOON (Token-Oriented Object Notation).
 ///

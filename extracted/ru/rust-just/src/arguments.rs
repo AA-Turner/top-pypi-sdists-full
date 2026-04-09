@@ -88,6 +88,12 @@ pub struct Arguments {
   )]
   pub(crate) command_color: Option<CommandColor>,
   #[arg(
+    env = "JUST_COMPLETE_ALIASES",
+    help = "Auto-complete recipe aliases",
+    long
+  )]
+  pub(crate) complete_aliases: bool,
+  #[arg(
     add = ArgValueCompleter::new(PathCompleter::file()),
     default_value = "cygpath",
     env = "JUST_CYGPATH",
@@ -129,6 +135,15 @@ pub struct Arguments {
   )]
   pub(crate) dump_format: DumpFormat,
   #[arg(
+    default_value = "just",
+    env = "JUST_EVALUATE_FORMAT",
+    help = "Print evaluated variables in <FORMAT>",
+    long,
+    value_enum,
+    value_name = "FORMAT"
+  )]
+  pub(crate) evaluate_format: EvaluateFormat,
+  #[arg(
     env = "JUST_EXPLAIN",
     help = "Print recipe doc comment before running it",
     long
@@ -158,6 +173,13 @@ pub struct Arguments {
   )]
   pub(crate) highlight: bool,
   #[arg(
+    default_value = "    ",
+    env = "JUST_INDENTATION",
+    help = "Indent recipes bodies with <INDENTATION>",
+    long
+  )]
+  pub(crate) indentation: Indentation,
+  #[arg(
     add = ArgValueCompleter::new(PathCompleter::file()),
     env = "JUST_JUSTFILE",
     help = "Use <JUSTFILE> as justfile",
@@ -166,6 +188,13 @@ pub struct Arguments {
     value_name = "JUSTFILE"
   )]
   pub(crate) justfile: Option<PathBuf>,
+  #[arg(
+    env = "JUST_JUSTFILE_NAME",
+    help = "Search for justfile named <NAME>",
+    long = "justfile-name",
+    value_name = "NAME"
+  )]
+  pub(crate) justfile_names: Option<Vec<String>>,
   #[arg(
     default_value = "Available recipes:\n",
     env = "JUST_LIST_HEADING",
@@ -254,6 +283,8 @@ pub struct Arguments {
     value_name = "TEMPDIR"
   )]
   pub(crate) tempdir: Option<PathBuf>,
+  #[arg(env = "JUST_TIME", help = "Print recipe execution time", long)]
+  pub(crate) time: bool,
   #[arg(env = "JUST_TIMESTAMP", help = "Print recipe command timestamps", long)]
   pub(crate) timestamp: bool,
   #[arg(

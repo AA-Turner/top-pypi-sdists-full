@@ -734,6 +734,12 @@ class HTTPProtocol(netius.StreamProtocol):
         parsed = self.parsed
         safe = self.safe
 
+        # in case the parsed URL is not available (connection was closed
+        # before the request could be sent) closes the protocol to avoid
+        # errors in the request sending process
+        if parsed == None:
+            return
+
         if parsed.query:
             path += "?" + parsed.query
 
@@ -1269,7 +1275,12 @@ class HTTPClient(netius.ClientAgent):
         # notice that the event loop is also re-used accordingly
         key = cls.protocol.key_g(url)
         protocol = self.available.pop(key, None)
-        if protocol and (not protocol.is_open() or protocol.transport().is_closing()):
+        if protocol and (
+            not protocol.is_open()
+            or not protocol.transport()
+            or protocol.transport().is_closing()
+            or (hasattr(protocol, "is_closing") and protocol.is_closing())
+        ):
             protocol.traced("Discarding stale protocol")
             protocol = None
         if protocol:
@@ -1394,6 +1405,8 @@ class HTTPClient(netius.ClientAgent):
             # successful runs the stop operation on the loop
             netius.compat_loop(loop).stop()
 
+        protocol.traced("registering handlers")
+
         # binds the protocol message and finish events to the associated
         # function for proper handling of the synchronous request details
         protocol.bind("message", on_message)
@@ -1406,6 +1419,8 @@ class HTTPClient(netius.ClientAgent):
         loop.run_forever()
         if not loop == self._loop and not user_loop:
             loop.close()
+
+        protocol.traced("exited loop")
 
         # returns the final request object (that should be populated by this
         # time) to the called method, so that a simple interface is provided

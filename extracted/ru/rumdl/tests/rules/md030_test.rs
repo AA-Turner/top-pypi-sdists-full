@@ -36,6 +36,7 @@ mod tests {
                 warning.message
             );
         }
+        crate::utils::assert_fix_resolves_all_violations(&rule, content, rumdl_lib::config::MarkdownFlavor::Standard);
     }
 
     #[test]
@@ -175,6 +176,7 @@ mod tests {
             "Warning message should include expected and actual values, got: '{}'",
             result[0].message
         );
+        crate::utils::assert_fix_resolves_all_violations(&rule, content, rumdl_lib::config::MarkdownFlavor::Standard);
     }
 
     #[test]
@@ -203,6 +205,7 @@ mod tests {
             "Warning message should include expected and actual values, got: '{}'",
             result[0].message
         );
+        crate::utils::assert_fix_resolves_all_violations(&rule, content, rumdl_lib::config::MarkdownFlavor::Standard);
     }
 
     #[test]
@@ -295,11 +298,15 @@ mod tests {
 
     #[test]
     fn test_fix_preserves_indentation() {
+        // The parser only recognizes items 1 and 3 as list items (lines with 2- and 6-space
+        // indentation). Item 2 (`    -   Deeply indented`) is at 4-space indent without a
+        // blank-line separator, so the parser treats it as list continuation rather than a
+        // new list item. MD030 applies only to parser-recognized list items.
         let rule = MD030ListMarkerSpace::default();
         let content = "  *  Indented item\n    -   Deeply indented\n      +    Very deep";
         let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
-        let expected = "  * Indented item\n    - Deeply indented\n      + Very deep";
+        let expected = "  * Indented item\n    -   Deeply indented\n      + Very deep";
         assert_eq!(fixed, expected);
     }
 
@@ -324,15 +331,18 @@ mod tests {
     }
 
     #[test]
-    fn test_fix_preserves_indented_code_blocks() {
+    fn test_fix_corrects_loose_nested_list_items() {
+        // Items indented with 4 spaces after a blank line inside a list are nested list
+        // items (not indented code blocks) — the parser confirms this. They must be fixed
+        // for marker spacing just like any other list item.
         let rule = MD030ListMarkerSpace::default();
         let content =
-            "*  Normal item\n\n    *  Indented code block\n    1.   Should not be fixed\n\n-   Another normal item";
+            "*  Normal item\n\n    *  Loose nested item\n    1.   Loose nested ordered\n\n-   Another normal item";
         let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
-        let expected =
-            "* Normal item\n\n    *  Indented code block\n    1.   Should not be fixed\n\n- Another normal item";
+        let expected = "* Normal item\n\n    * Loose nested item\n    1. Loose nested ordered\n\n- Another normal item";
         assert_eq!(fixed, expected);
+        crate::utils::assert_fix_resolves_all_violations(&rule, content, rumdl_lib::config::MarkdownFlavor::Standard);
     }
 
     #[test]
@@ -344,6 +354,7 @@ mod tests {
         // Blockquoted list items should also be fixed to correct spacing
         let expected = "* Normal item\n> * Blockquote item\n> 1. Blockquote ordered\n- Another normal item";
         assert_eq!(fixed, expected);
+        crate::utils::assert_fix_resolves_all_violations(&rule, content, rumdl_lib::config::MarkdownFlavor::Standard);
     }
 
     #[test]
@@ -416,12 +427,15 @@ mod tests {
 
     #[test]
     fn test_fix_complex_nested_structure() {
+        // The parser recognizes lines 1, 2, 4, 5 as list items. Line 3 (`    *   Deep nested`)
+        // is at 4-space indent without a blank-line separator; the parser treats it as list
+        // continuation rather than a new list item. MD030 does not touch it.
         let rule = MD030ListMarkerSpace::default();
         let content = "*  Top level\n  *  Nested level\n    *   Deep nested\n      1.  Ordered nested\n        2.   Very deep ordered";
         let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         let expected =
-            "* Top level\n  * Nested level\n    * Deep nested\n      1. Ordered nested\n        2. Very deep ordered";
+            "* Top level\n  * Nested level\n    *   Deep nested\n      1. Ordered nested\n        2. Very deep ordered";
         assert_eq!(fixed, expected);
     }
 
@@ -458,6 +472,7 @@ mod tests {
         // Single space should be expanded to match configuration
         let expected = "*   Item with one space\n1.  Ordered with one space";
         assert_eq!(fixed, expected);
+        crate::utils::assert_fix_resolves_all_violations(&rule, content, rumdl_lib::config::MarkdownFlavor::Standard);
     }
 
     #[test]

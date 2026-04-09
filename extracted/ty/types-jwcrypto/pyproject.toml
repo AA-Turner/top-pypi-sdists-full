@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-jwcrypto"
-version = "1.5.0.20260408"
+version = "1.5.7.20260409"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for jwcrypto"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`jwcrypto`](https://github.com/latchset/jwcrypto) package. It can be used by type checkers
 to check code that uses `jwcrypto`. This version of
 `types-jwcrypto` aims to provide accurate annotations for
-`jwcrypto==1.5.*`.
+`jwcrypto==1.5.7`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -29,7 +29,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`563213272e5db2a858e37bdf6938b0c8742ec192`](https://github.com/python/typeshed/commit/563213272e5db2a858e37bdf6938b0c8742ec192).
+[`aaefc85a95431045b0726b297d0ad1f4786ba1e2`](https://github.com/python/typeshed/commit/aaefc85a95431045b0726b297d0ad1f4786ba1e2).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -50,4 +50,4 @@ packages = ['jwcrypto-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'jwcrypto-stubs' = ['__init__.pyi', 'common.pyi', 'jwa.pyi', 'jwe.pyi', 'jwk.pyi', 'jws.pyi', 'jwt.pyi', 'METADATA.toml', 'py.typed']
+'jwcrypto-stubs' = ['__init__.pyi', 'common.pyi', 'jwa.pyi', 'jwe.pyi', 'jwk.pyi', 'jws.pyi', 'jwt.pyi', 'version.pyi', 'METADATA.toml', 'py.typed']

@@ -22,6 +22,10 @@ from chalk.features import FeatureSetBase
 from chalk.features.resolver import RESOLVER_REGISTRY
 from chalk.importer import CHALK_IMPORTER, import_all_files
 from chalk.ml.model_reference import MODEL_REFERENCE_REGISTRY
+from chalk.parsed._proto.global_variables import (
+    get_function_capture_global_variable_values,
+    get_global_variables_info_from_export,
+)
 from chalk.parsed._proto.lsp import convert_lsp_gql_to_proto
 from chalk.parsed._proto.utils import (
     build_failed_import,
@@ -40,6 +44,15 @@ from chalk.sql._internal.sql_source_group import SQLSourceGroup
 from chalk.stores.online_store_config import ONLINE_STORE_CONFIG_REGISTRY
 from chalk.streams import StreamSource
 from chalk.utils.duration import timedelta_to_duration
+
+__all__ = [
+    "export_from_registry",
+    "get_function_capture_global_variable_values",
+    "get_global_variables_info_from_export",
+    "get_lsp_proto",
+    "get_lsp_proto_or_error",
+    "import_files_then_export_from_registry",
+]
 
 
 def project_settings_to_proto(config: ProjectSettings) -> export_pb.ProjectSettings:

@@ -1,7 +1,9 @@
+//! CLI command definitions and handlers.
+
 use crate::repository::VersionInfo;
 use clap::{Args, Parser, Subcommand};
 use dialoguer::{Input, Select};
-use futures::stream::StreamExt;
+use futures::stream::StreamExt as _;
 use serde_yaml_ng;
 use std::collections::HashMap;
 use std::fs::{File, create_dir_all};
@@ -9,7 +11,7 @@ use std::io::stdout;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::{Context, Ok, Result};
+use anyhow::{Context as _, Ok, Result};
 
 use crate::storage::{
     new_azure_blob_storage, new_gcs_storage, new_local_filesystem_storage,
@@ -180,7 +182,6 @@ async fn get_storage(
                 Some(credentials.clone()),
                 Some(object_store_config.clone()),
             )
-            .await
             .context("Failed to create GCS storage")?;
             Ok(storage)
         }
@@ -211,7 +212,7 @@ async fn repo_create(init_cmd: &CreateCommand, config: &CliConfig) -> Result<()>
 
     let config = Some(repo.get_config().clone());
 
-    Repository::create(config, Arc::clone(&storage), HashMap::new())
+    Repository::create(config, Arc::clone(&storage), HashMap::new(), None, true)
         .await
         .context(format!("Failed to create repository {:?}", init_cmd.repo))?;
 
@@ -440,7 +441,6 @@ pub async fn run_cli(args: IcechunkCLI) -> Result<()> {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
 mod tests {
     use std::fs::read_dir;
 
@@ -468,14 +468,11 @@ mod tests {
 
         repo_create(&init_cmd, &config).await.unwrap();
 
-        let refs = path.join("refs");
+        let repo = path.join("repo");
         let snapshots = path.join("snapshots");
 
-        assert!(refs.is_dir());
+        assert!(repo.is_file());
         assert!(snapshots.is_dir());
-
-        let mut refs_contents = read_dir(refs).unwrap();
-        assert!(refs_contents.next().is_some());
 
         let mut snapshots_contents = read_dir(snapshots).unwrap();
         assert!(snapshots_contents.next().is_some());

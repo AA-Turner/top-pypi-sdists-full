@@ -239,6 +239,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         mounts: list[AgentWorkspaceMount] | None = None,
         warm_pool: WarmPool | None = None,
         agent_code_path: Path | None = None,
+        total_agents: int | None = None,
     ) -> AgentTask:
         """Get an agent runner for the given config.
 
@@ -249,6 +250,9 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                 The first workspace becomes the primary workspace.
                 Each workspace's mount_path (from WorkspaceMarker) determines
                 where it appears on the agent VM.
+            total_agents: Total number of agents that will run through the pool.
+                Scales the VM sandbox timeout to ``runtime.timeout * total_agents``
+                so pooled VMs stay alive long enough for all sequential reuse.
         """
         from plato.agents.execution import AgentExecutionManager
         from plato.agents.mounts import AgentWorkspaceMount
@@ -309,8 +313,11 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                     checkpoint=self.checkpoint,
                     primary_workspace=primary_workspace,
                     primary_mount=primary_mount,
+                    total_agents=total_agents,
                 )
                 self._agent_execution_managers[manager_key] = manager
+            elif total_agents is not None:
+                manager.update_vm_timeout(total_agents)
             runner._execution_manager = manager
 
         return runner

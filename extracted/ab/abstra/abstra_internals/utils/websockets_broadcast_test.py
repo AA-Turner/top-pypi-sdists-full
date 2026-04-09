@@ -101,7 +101,8 @@ class TestWebSocketBroadcastInterception(unittest.TestCase):
     @patch(
         "abstra_internals.controllers.execution.execution_stdio.BroadcastController",
     )
-    def test_task_message_forwarded_to_broadcast(self, MockBroadcast):
+    def test_task_message_skipped_in_client_loop(self, MockBroadcast):
+        """Task dict messages are skipped by client_loop (fanout consumer handles them)."""
         task_msg = {"type": "task", "payload": {"id": "t1", "status": "pending"}}
         mock_conn = _make_mock_conn([task_msg])
         mock_ws = _make_mock_ws()
@@ -109,9 +110,8 @@ class TestWebSocketBroadcastInterception(unittest.TestCase):
         bind_ws_with_connection(mock_ws, mock_conn, block=False)
         time.sleep(0.5)
 
-        MockBroadcast.broadcast.assert_called_once()
-        broadcast_msg = json.loads(MockBroadcast.broadcast.call_args[1]["msg"])
-        self.assertEqual(broadcast_msg["type"], "task")
+        MockBroadcast.broadcast.assert_not_called()
+        mock_ws.send.assert_not_called()
 
     @patch(
         "abstra_internals.controllers.execution.execution_stdio.BroadcastController",
@@ -128,8 +128,8 @@ class TestWebSocketBroadcastInterception(unittest.TestCase):
         bind_ws_with_connection(mock_ws, mock_conn, block=False)
         time.sleep(1.0)
 
-        # BroadcastController should have been called twice (stdio + task)
-        self.assertEqual(MockBroadcast.broadcast.call_count, 2)
+        # BroadcastController should have been called once (stdio only; task uses fanout)
+        self.assertEqual(MockBroadcast.broadcast.call_count, 1)
 
         # ws.send should have been called twice (form messages)
         ws_send_calls = [c[0][0] for c in mock_ws.send.call_args_list]
@@ -346,8 +346,9 @@ class TestWebSocketBroadcastGating(unittest.TestCase):
     @patch(
         "abstra_internals.controllers.execution.execution_stdio.BroadcastController",
     )
-    def test_task_broadcast_even_when_flag_on(self, MockBroadcast):
-        """With WORKER_LOG_TO_QUEUE=true, task messages should STILL be broadcast (task is not a log)."""
+    def test_task_not_broadcast_from_client_loop(self, MockBroadcast):
+        """With WORKER_LOG_TO_QUEUE=true, task messages should NOT be broadcast from client_loop
+        (fanout consumer handles it instead)."""
         task_msg = {"type": "task", "payload": {"id": "t1", "status": "pending"}}
         mock_conn = _make_mock_conn([task_msg])
         mock_ws = _make_mock_ws()
@@ -355,9 +356,8 @@ class TestWebSocketBroadcastGating(unittest.TestCase):
         bind_ws_with_connection(mock_ws, mock_conn, block=False)
         time.sleep(0.5)
 
-        MockBroadcast.broadcast.assert_called_once()
-        broadcast_msg = json.loads(MockBroadcast.broadcast.call_args[1]["msg"])
-        self.assertEqual(broadcast_msg["type"], "task")
+        MockBroadcast.broadcast.assert_not_called()
+        mock_ws.send.assert_not_called()
 
 
 if __name__ == "__main__":

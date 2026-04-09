@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: okta
-Version: 3.3.0
+Version: 3.4.0
 Summary: Python SDK for the Okta Management API
 Home-page: https://github.com/okta/okta-sdk-python
 Author: Okta, Inc.
@@ -32,6 +32,8 @@ Requires-Dist: python-dateutil>=2.9.0.post0
 Requires-Dist: PyYAML>=6.0.2
 Requires-Dist: requests>=2.32.3
 Requires-Dist: xmltodict>=0.14.2
+Provides-Extra: images
+Requires-Dist: pillow<12,>=9.0.0; extra == "images"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -41,6 +43,7 @@ Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

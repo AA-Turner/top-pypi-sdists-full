@@ -9,8 +9,8 @@ import System.IO
 import System.IO.Enumeration
 import System.Runtime.ConstrainedExecution
 
-System_IO_Enumeration_FileSystemEnumerable_TResult = typing.TypeVar("System_IO_Enumeration_FileSystemEnumerable_TResult")
 System_IO_Enumeration_FileSystemEnumerator_TResult = typing.TypeVar("System_IO_Enumeration_FileSystemEnumerator_TResult")
+System_IO_Enumeration_FileSystemEnumerable_TResult = typing.TypeVar("System_IO_Enumeration_FileSystemEnumerable_TResult")
 
 
 class FileSystemEntry:
@@ -70,41 +70,6 @@ class FileSystemEntry:
         ...
 
 
-class FileSystemEnumerable(typing.Generic[System_IO_Enumeration_FileSystemEnumerable_TResult], System.Object, System.Collections.Generic.IEnumerable[System_IO_Enumeration_FileSystemEnumerable_TResult], typing.Iterable[System_IO_Enumeration_FileSystemEnumerable_TResult]):
-    """This class has no documentation."""
-
-    @property
-    def should_include_predicate(self) -> typing.Callable[[System.IO.Enumeration.FileSystemEntry], bool]:
-        ...
-
-    @should_include_predicate.setter
-    def should_include_predicate(self, value: typing.Callable[[System.IO.Enumeration.FileSystemEntry], bool]) -> None:
-        ...
-
-    @property
-    def should_recurse_predicate(self) -> typing.Callable[[System.IO.Enumeration.FileSystemEntry], bool]:
-        ...
-
-    @should_recurse_predicate.setter
-    def should_recurse_predicate(self, value: typing.Callable[[System.IO.Enumeration.FileSystemEntry], bool]) -> None:
-        ...
-
-    def __init__(self, directory: str, transform: typing.Callable[[System.IO.Enumeration.FileSystemEntry], System_IO_Enumeration_FileSystemEnumerable_TResult], options: System.IO.EnumerationOptions = None) -> None:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_IO_Enumeration_FileSystemEnumerable_TResult]:
-        ...
-
-    def find_predicate(self, entry: System.IO.Enumeration.FileSystemEntry) -> bool:
-        ...
-
-    def find_transform(self, entry: System.IO.Enumeration.FileSystemEntry) -> System_IO_Enumeration_FileSystemEnumerable_TResult:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_IO_Enumeration_FileSystemEnumerable_TResult]:
-        ...
-
-
 class FileSystemEnumerator(typing.Generic[System_IO_Enumeration_FileSystemEnumerator_TResult], System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.Collections.Generic.IEnumerator[System_IO_Enumeration_FileSystemEnumerator_TResult], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -142,6 +107,41 @@ class FileSystemEnumerator(typing.Generic[System_IO_Enumeration_FileSystemEnumer
         ...
 
     def transform_entry(self, entry: System.IO.Enumeration.FileSystemEntry) -> System_IO_Enumeration_FileSystemEnumerator_TResult:
+        ...
+
+
+class FileSystemEnumerable(typing.Generic[System_IO_Enumeration_FileSystemEnumerable_TResult], System.Object, System.Collections.Generic.IEnumerable[System_IO_Enumeration_FileSystemEnumerable_TResult], typing.Iterable[System_IO_Enumeration_FileSystemEnumerable_TResult]):
+    """This class has no documentation."""
+
+    @property
+    def should_include_predicate(self) -> typing.Callable[[System.IO.Enumeration.FileSystemEntry], bool]:
+        ...
+
+    @should_include_predicate.setter
+    def should_include_predicate(self, value: typing.Callable[[System.IO.Enumeration.FileSystemEntry], bool]) -> None:
+        ...
+
+    @property
+    def should_recurse_predicate(self) -> typing.Callable[[System.IO.Enumeration.FileSystemEntry], bool]:
+        ...
+
+    @should_recurse_predicate.setter
+    def should_recurse_predicate(self, value: typing.Callable[[System.IO.Enumeration.FileSystemEntry], bool]) -> None:
+        ...
+
+    def __init__(self, directory: str, transform: typing.Callable[[System.IO.Enumeration.FileSystemEntry], System_IO_Enumeration_FileSystemEnumerable_TResult], options: System.IO.EnumerationOptions = None) -> None:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_IO_Enumeration_FileSystemEnumerable_TResult]:
+        ...
+
+    def find_predicate(self, entry: System.IO.Enumeration.FileSystemEntry) -> bool:
+        ...
+
+    def find_transform(self, entry: System.IO.Enumeration.FileSystemEntry) -> System_IO_Enumeration_FileSystemEnumerable_TResult:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_IO_Enumeration_FileSystemEnumerable_TResult]:
         ...
 
 

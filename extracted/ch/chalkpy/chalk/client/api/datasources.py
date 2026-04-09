@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from chalk._gen.chalk.server.v1.integrations_pb2 import (
     DeleteIntegrationRequest,
@@ -95,8 +95,41 @@ class DatasourceTestResult:
     latency_seconds: float
 
 
-def _build_config_map(config: Dict[str, str]) -> Dict[str, IntegrationConfigValue]:
-    return {k: IntegrationConfigValue(literal=v) for k, v in config.items()}
+@dataclasses.dataclass(frozen=True)
+class LinkedSecretRef:
+    """Reference to an existing secret in the environment's secret store.
+
+    Use in place of a literal string in a datasource ``config`` dict to
+    point at a secret managed outside of the SDK (e.g. one created via
+    the dashboard or an external secret manager).
+
+    Example
+    -------
+    >>> client.api.datasources.create(
+    ...     kind=IntegrationKind.SNOWFLAKE,
+    ...     name="my_snowflake_source",
+    ...     config={
+    ...         "SNOWFLAKE_USER": "admin",
+    ...         "SNOWFLAKE_PRIVATE_KEY_B64": LinkedSecretRef("snowflake-prod-key"),
+    ...         ...
+    ...     },
+    ... )
+    """
+
+    secret_id: str
+
+
+ConfigValue = Union[str, LinkedSecretRef]
+
+
+def _build_config_map(config: Dict[str, ConfigValue]) -> Dict[str, IntegrationConfigValue]:
+    out: Dict[str, IntegrationConfigValue] = {}
+    for k, v in config.items():
+        if isinstance(v, LinkedSecretRef):
+            out[k] = IntegrationConfigValue(secret_id=v.secret_id)
+        else:
+            out[k] = IntegrationConfigValue(literal=v)
+    return out
 
 
 class DatasourceAPI:
@@ -128,7 +161,7 @@ class DatasourceAPI:
         self,
         kind: str | IntegrationKind,
         name: str,
-        config: Dict[str, str],
+        config: Dict[str, ConfigValue],
     ) -> Datasource:
         """Create a new data source.
 
@@ -141,9 +174,11 @@ class DatasourceAPI:
             A name for this data source integration. Must only contain letters,
             numbers, and underscores.
         config
-            A dictionary of configuration values. Keys and values are strings.
-            For example, for BigQuery: ``{"BQ_PROJECT": "my-project",
-            "BQ_DATASET": "my_dataset", "BQ_CREDENTIALS_BASE64": "..."}``.
+            A dictionary of configuration values. Each value can be either a literal
+            string or a :class:`LinkedSecretRef` pointing at an existing secret in the
+            environment's secret store. For example, for BigQuery:
+            ``{"BQ_PROJECT": "my-project", "BQ_DATASET": "my_dataset",
+            "BQ_CREDENTIALS_BASE64": LinkedSecretRef("bq-sa-key")}``.
         """
         req = InsertIntegrationRequest(
             name=name,
@@ -156,7 +191,7 @@ class DatasourceAPI:
     def update(
         self,
         id: str,
-        config: Optional[Dict[str, str]] = None,
+        config: Optional[Dict[str, ConfigValue]] = None,
         name: Optional[str] = None,
     ) -> Datasource:
         """Update an existing data source.
@@ -166,7 +201,9 @@ class DatasourceAPI:
         id
             The integration ID to update.
         config
-            Updated configuration values. Only provided keys are updated.
+            Updated configuration values. Only provided keys are updated. Values
+            may be literal strings or :class:`LinkedSecretRef` references to existing
+            secrets.
         name
             Optionally update the integration name.
         """

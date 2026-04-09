@@ -532,15 +532,6 @@ class ProjectTests(TestCase):
         project = self.project_repository.load()
 
         # Create stages with the same ID but different types
-        script = ScriptStage(
-            file="script.py",
-            id="duplicate-id",
-            is_initial=True,
-            title="Script",
-            workflow_position=(0, 0),
-            workflow_transitions=[],
-        )
-
         form = FormStage(
             id="duplicate-id",  # SAME ID
             path="form",
@@ -553,9 +544,18 @@ class ProjectTests(TestCase):
             ),
         )
 
-        # Add both (script added first, form second)
-        project.scripts.append(script)
+        script = ScriptStage(
+            file="script.py",
+            id="duplicate-id",
+            is_initial=True,
+            title="Script",
+            workflow_position=(0, 0),
+            workflow_transitions=[],
+        )
+
+        # Add both (form added first, script second)
         project.forms.append(form)
+        project.scripts.append(script)
 
         # Save should deduplicate
         self.project_repository.save(project)
@@ -563,12 +563,12 @@ class ProjectTests(TestCase):
         # Load and verify only one stage with that ID exists
         loaded_project = self.project_repository.load()
 
-        script_matches = [s for s in loaded_project.scripts if s.id == "duplicate-id"]
         form_matches = [f for f in loaded_project.forms if f.id == "duplicate-id"]
+        script_matches = [s for s in loaded_project.scripts if s.id == "duplicate-id"]
 
-        # Only the first occurrence (script) should remain
-        self.assertEqual(len(script_matches), 1)
-        self.assertEqual(len(form_matches), 0)
+        # Only the first occurrence (form) should remain
+        self.assertEqual(len(form_matches), 1)
+        self.assertEqual(len(script_matches), 0)
 
     def test_save_removes_duplicate_transitions(self):
         """Test that duplicate transition IDs are removed when saving a project"""

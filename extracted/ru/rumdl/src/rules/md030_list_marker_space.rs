@@ -86,11 +86,6 @@ impl Rule for MD030ListMarkerSpace {
 
                 let line = lines[line_num];
 
-                // Skip indented code blocks (4+ columns accounting for tab expansion)
-                if calculate_indentation_width_default(line) >= 4 {
-                    continue;
-                }
-
                 if let Some(list_info) = &line_info.list_item {
                     let list_type = if list_info.is_ordered {
                         ListType::Ordered
@@ -227,62 +222,23 @@ impl Rule for MD030ListMarkerSpace {
     }
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, crate::rule::LintError> {
-        let content = ctx.content;
-
-        // Early return if no fixes needed
         if self.should_skip(ctx) {
-            return Ok(content.to_string());
+            return Ok(ctx.content.to_string());
         }
 
-        let lines = ctx.raw_lines();
-        let mut result_lines = Vec::with_capacity(lines.len());
-
-        for (line_idx, line) in lines.iter().enumerate() {
-            let line_num = line_idx + 1;
-
-            // Skip lines where this rule is disabled by inline config
-            if ctx.inline_config().is_rule_disabled(self.name(), line_num) {
-                result_lines.push(line.to_string());
-                continue;
-            }
-
-            // Skip lines in code blocks, front matter, HTML comments, or footnote definitions
-            if let Some(line_info) = ctx.lines.get(line_idx)
-                && (line_info.in_code_block
-                    || line_info.in_front_matter
-                    || line_info.in_html_comment
-                    || line_info.in_mdx_comment
-                    || line_info.in_footnote_definition)
-            {
-                result_lines.push(line.to_string());
-                continue;
-            }
-
-            // Skip if this is an indented code block (4+ spaces with blank line before)
-            if self.is_indented_code_block(line, line_idx, lines) {
-                result_lines.push(line.to_string());
-                continue;
-            }
-
-            // Use regex-based detection to find list markers, not parser detection.
-            // This ensures we fix spacing on ALL lines that look like list items,
-            // even if the parser doesn't recognize them due to strict nesting rules.
-            // User intention matters: if it looks like a list item, fix it.
-            let is_multi_line = self.is_multi_line_list_item(ctx, line_num, lines);
-            if let Some(fixed_line) = self.try_fix_list_marker_spacing_with_context(line, is_multi_line) {
-                result_lines.push(fixed_line);
-            } else {
-                result_lines.push(line.to_string());
-            }
+        // Derive fixes directly from check() so detection and fixing share one code path.
+        // This guarantees that every violation check() reports is also fixed, with no
+        // possibility of the two paths diverging due to mismatched skip conditions.
+        let warnings = self.check(ctx)?;
+        if warnings.is_empty() {
+            return Ok(ctx.content.to_string());
         }
 
-        // Preserve trailing newline if original content had one
-        let result = result_lines.join("\n");
-        if content.ends_with('\n') && !result.ends_with('\n') {
-            Ok(result + "\n")
-        } else {
-            Ok(result)
-        }
+        let warnings =
+            crate::utils::fix_utils::filter_warnings_by_inline_config(warnings, ctx.inline_config(), self.name());
+
+        crate::utils::fix_utils::apply_warning_fixes(ctx.content, &warnings)
+            .map_err(crate::rule::LintError::InvalidInput)
     }
 }
 
@@ -366,141 +322,6 @@ impl MD030ListMarkerSpace {
         }
 
         false
-    }
-
-    /// Helper to fix marker spacing for both ordered and unordered lists
-    fn fix_marker_spacing(
-        &self,
-        marker: &str,
-        after_marker: &str,
-        indent: &str,
-        is_multi_line: bool,
-        is_ordered: bool,
-    ) -> Option<String> {
-        // MD030 only fixes multiple spaces, not tabs
-        // Tabs are handled by MD010 (no-hard-tabs), matching markdownlint behavior
-        // Skip if the spacing starts with a tab
-        if after_marker.starts_with('\t') {
-            return None;
-        }
-
-        // Calculate expected spacing based on list type and context
-        let expected_spaces = if is_ordered {
-            if is_multi_line {
-                self.config.ol_multi.get()
-            } else {
-                self.config.ol_single.get()
-            }
-        } else if is_multi_line {
-            self.config.ul_multi.get()
-        } else {
-            self.config.ul_single.get()
-        };
-
-        // Case 1: No space after marker (content directly follows marker)
-        // User intention: they meant to write a list item but forgot the space
-        if !after_marker.is_empty() && !after_marker.starts_with(' ') {
-            let spaces = " ".repeat(expected_spaces);
-            return Some(format!("{indent}{marker}{spaces}{after_marker}"));
-        }
-
-        // Case 2: Multiple spaces after marker
-        if after_marker.starts_with("  ") {
-            let content = after_marker.trim_start_matches(' ');
-            if !content.is_empty() {
-                let spaces = " ".repeat(expected_spaces);
-                return Some(format!("{indent}{marker}{spaces}{content}"));
-            }
-        }
-
-        // Case 3: Single space after marker but expected spacing differs
-        // This handles custom configurations like ul_single = 3
-        if after_marker.starts_with(' ') && !after_marker.starts_with("  ") && expected_spaces != 1 {
-            let content = &after_marker[1..]; // Skip the single space
-            if !content.is_empty() {
-                let spaces = " ".repeat(expected_spaces);
-                return Some(format!("{indent}{marker}{spaces}{content}"));
-            }
-        }
-
-        None
-    }
-
-    /// Fix list marker spacing with context - handles tabs, multiple spaces, and mixed whitespace
-    fn try_fix_list_marker_spacing_with_context(&self, line: &str, is_multi_line: bool) -> Option<String> {
-        // Extract blockquote prefix if present
-        let (blockquote_prefix, content) = match parse_blockquote_prefix(line) {
-            Some(parsed) => (parsed.prefix, parsed.content),
-            None => ("", line),
-        };
-
-        let trimmed = content.trim_start();
-        let indent = &content[..content.len() - trimmed.len()];
-
-        // Check for unordered list markers - only fix multiple-space issues, not missing-space
-        // Unordered markers (*, -, +) have too many non-list uses to apply heuristic fixing
-        for marker in &["*", "-", "+"] {
-            if let Some(after_marker) = trimmed.strip_prefix(marker) {
-                // Skip emphasis patterns (**, --, ++)
-                if after_marker.starts_with(*marker) {
-                    break;
-                }
-
-                // Skip if this looks like emphasis: *text* or _text_
-                if *marker == "*" && after_marker.contains('*') {
-                    break;
-                }
-
-                // Fix if there's a space (handling both multiple spaces and single space with non-default config)
-                // Don't add spaces where there are none - too ambiguous for unordered markers
-                if after_marker.starts_with(' ')
-                    && let Some(fixed) = self.fix_marker_spacing(marker, after_marker, indent, is_multi_line, false)
-                {
-                    return Some(format!("{blockquote_prefix}{fixed}"));
-                }
-                break; // Found a marker, don't check others
-            }
-        }
-
-        // Check for ordered list markers
-        if let Some(dot_pos) = trimmed.find('.') {
-            let before_dot = &trimmed[..dot_pos];
-            if before_dot.chars().all(|c| c.is_ascii_digit()) && !before_dot.is_empty() {
-                let after_dot = &trimmed[dot_pos + 1..];
-
-                // Skip empty items
-                if after_dot.is_empty() {
-                    return None;
-                }
-
-                // For NO-SPACE case (content directly after dot), apply "clear user intent" filter
-                if !after_dot.starts_with(' ') && !after_dot.starts_with('\t') {
-                    let first_char = after_dot.chars().next().unwrap_or(' ');
-
-                    // Skip decimal numbers: 3.14, 2.5, etc.
-                    if first_char.is_ascii_digit() {
-                        return None;
-                    }
-
-                    // For CLEAR user intent, only fix if:
-                    // 1. Starts with uppercase letter (strong list indicator), OR
-                    // 2. Starts with [ or ( (link/paren content)
-                    let is_clear_intent = first_char.is_ascii_uppercase() || first_char == '[' || first_char == '(';
-
-                    if !is_clear_intent {
-                        return None;
-                    }
-                }
-                // For items with spaces (including multiple spaces), always let fix_marker_spacing handle it
-
-                let marker = format!("{before_dot}.");
-                if let Some(fixed) = self.fix_marker_spacing(&marker, after_dot, indent, is_multi_line, true) {
-                    return Some(format!("{blockquote_prefix}{fixed}"));
-                }
-            }
-        }
-
-        None
     }
 
     /// Detect list-like patterns that the parser didn't recognize (e.g., "1.Text" with no space)
@@ -646,6 +467,27 @@ impl MD030ListMarkerSpace {
 mod tests {
     use super::*;
     use crate::lint_context::LintContext;
+
+    /// Assert that running `fix()` on content with violations produces output that
+    /// passes `check()` with zero remaining violations.
+    fn assert_fix_resolves_all_violations(rule: &MD030ListMarkerSpace, content: &str) {
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let before = rule.check(&ctx).unwrap();
+        assert!(
+            !before.is_empty(),
+            "Expected violations but check() found none in:\n{content}"
+        );
+
+        let fixed = rule.fix(&ctx).unwrap();
+        let ctx_fixed = LintContext::new(&fixed, crate::config::MarkdownFlavor::Standard, None);
+        let after = rule.check(&ctx_fixed).unwrap();
+        assert!(
+            after.is_empty(),
+            "fix() left {} violation(s) unresolved:\n{:?}\nOriginal:\n{content}\nFixed:\n{fixed}",
+            after.len(),
+            after
+        );
+    }
 
     #[test]
     fn test_basic_functionality() {
@@ -812,6 +654,109 @@ mod tests {
             result.is_empty(),
             "Normal list item should not trigger MD030, got: {result:?}"
         );
+    }
+
+    #[test]
+    fn test_nested_items_with_4space_indent_are_detected() {
+        // Nested list items indented with 4 spaces should be checked for marker spacing.
+        // Previously, the check skipped any line with >= 4 columns of indentation,
+        // treating them as indented code blocks even when the parser identified them as
+        // list items.
+        let rule = MD030ListMarkerSpace::new(3, 3, 1, 1);
+
+        // Tight nested list (no blank line): the exact scenario from issue #565.
+        // ul_single=3: the nested item "    - Nested wrong" has 1 space → violation.
+        let content = "-   Top-level correct\n    - Nested wrong spacing\n    -   Nested correct\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(
+            result.len(),
+            1,
+            "Nested item with 1 space (ul_single=3) should be flagged; got: {result:?}"
+        );
+        assert_eq!(result[0].line, 2, "Violation should be on line 2");
+        assert!(
+            result[0].message.contains("Expected: 3") && result[0].message.contains("Actual: 1"),
+            "Message should state expected/actual spaces; got: {}",
+            result[0].message
+        );
+
+        // fix() must produce correct output for the tight nested case.
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(
+            fixed, "-   Top-level correct\n    -   Nested wrong spacing\n    -   Nested correct\n",
+            "fix() should expand 1 space to ul_single=3 on the nested item"
+        );
+
+        // Nested unordered item with correct spacing should not be flagged
+        let content_ok = "-   Top-level\n    -   Nested correct\n";
+        let ctx_ok = LintContext::new(content_ok, crate::config::MarkdownFlavor::Standard, None);
+        let result_ok = rule.check(&ctx_ok).unwrap();
+        assert!(
+            result_ok.is_empty(),
+            "Nested item with correct spacing should not be flagged; got: {result_ok:?}"
+        );
+
+        // Nested ordered item: 4 spaces indent, 1 space after marker → violation (ol_single=2)
+        let rule_ol = MD030ListMarkerSpace::new(1, 1, 2, 2);
+        let content_ol = "1.  Top-level multi\n    1. Nested wrong\n";
+        let ctx_ol = LintContext::new(content_ol, crate::config::MarkdownFlavor::Standard, None);
+        let result_ol = rule_ol.check(&ctx_ol).unwrap();
+        assert_eq!(
+            result_ol.len(),
+            1,
+            "Nested ordered item with 1 space (ol_single=2) should be flagged; got: {result_ol:?}"
+        );
+        let fixed_ol = rule_ol.fix(&ctx_ol).unwrap();
+        assert_eq!(
+            fixed_ol, "1.  Top-level multi\n    1.  Nested wrong\n",
+            "fix() should expand 1 space to ol_single=2 on the nested ordered item"
+        );
+
+        // Deeply nested (8+ spaces) items are also checked.
+        // Only the 8-space-indented item has wrong spacing; outer levels are correct.
+        let content_deep = "-   Level 1\n    -   Level 2\n        - Level 3 wrong\n        -   Level 3 correct\n";
+        let ctx_deep = LintContext::new(content_deep, crate::config::MarkdownFlavor::Standard, None);
+        let result_deep = rule.check(&ctx_deep).unwrap();
+        assert_eq!(
+            result_deep.len(),
+            1,
+            "Deeply nested (8-space) item with 1 space should be flagged; got: {result_deep:?}"
+        );
+        assert_eq!(result_deep[0].line, 3, "Violation should be on the deeply nested line");
+
+        // Verify the full roundtrip: fix() must resolve everything check() found.
+        assert_fix_resolves_all_violations(&rule, content);
+        assert_fix_resolves_all_violations(&rule_ol, content_ol);
+        assert_fix_resolves_all_violations(&rule, content_deep);
+    }
+
+    #[test]
+    fn test_loose_nested_item_fix_matches_check() {
+        // A loose nested list item (blank line between parent and child) with 4-space
+        // indentation must be both detected AND fixed. check() and fix() must agree.
+        let rule = MD030ListMarkerSpace::new(1, 1, 1, 1);
+
+        let content = "- parent\n\n    -  nested wrong\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+        // check() must detect it
+        let warnings = rule.check(&ctx).unwrap();
+        assert_eq!(
+            warnings.len(),
+            1,
+            "Loose nested item with 2 spaces should be detected; got: {warnings:?}"
+        );
+
+        // fix() must fix it
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(
+            fixed, "- parent\n\n    - nested wrong\n",
+            "fix() should reduce 2 spaces to 1 for loose nested item"
+        );
+
+        // Verify the full roundtrip: fix() must resolve everything check() found.
+        assert_fix_resolves_all_violations(&rule, content);
     }
 
     #[test]

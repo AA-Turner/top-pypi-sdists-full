@@ -20,7 +20,7 @@ import sys
 
 import contrast_rewriter
 
-MIN_SUPPORTED_VERSION = (3, 9)
+MIN_SUPPORTED_VERSION = (3, 10)
 MAX_SUPPORTED_VERSION = (3, 14)
 # We need to check the version_info because certain installation tools bypass
 # pip and setuptools, so the version check in setup.py is skipped. For example,

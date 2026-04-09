@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pypdfium2
-Version: 5.6.0
+Version: 5.7.0
 Summary: Python bindings to PDFium
 Home-page: https://github.com/pypdfium2-team/pypdfium2
 Author: pypdfium2-team
@@ -40,7 +40,8 @@ Dynamic: summary
 pypdfium2 is an ABI-level Python 3 binding to [PDFium](https://pdfium.googlesource.com/pdfium/+/refs/heads/main), a powerful and liberal-licensed library for PDF rendering, inspection, manipulation and creation.
 
 It is built with [ctypesgen](https://github.com/pypdfium2-team/ctypesgen) and external [PDFium binaries](https://github.com/bblanchon/pdfium-binaries/).
-The custom setup infrastructure provides a seamless packaging and installation process. A wide range of platforms is supported with pre-built packages.
+The custom setup infrastructure provides a seamless packaging and installation process.
+A wide range of platforms is supported with pre-built packages.
 
 pypdfium2 includes [helpers](#support-model) to simplify common use cases, while the [raw PDFium API](#raw-pdfium-api) (ctypes) remains accessible as well.
 
@@ -69,9 +70,13 @@ This will bypass wheels and run setup, while requesting use of V8 builds through
 As of this writing, pypdfium2 does not require any mandatory runtime dependencies, apart from Python and PDFium itself (which is commonly bundled).
 
 However, some optional support model / CLI features need additional packages:
-* [`Pillow`](https://pillow.readthedocs.io/en/stable/) (module `PIL`) is a pouplar imaging library for Python. pypdfium2 provides convenience adapters to translate between raw bitmap buffers and PIL images. It also uses PIL for some command-line functionality (e.g. image saving).
-* [`NumPy`](https://numpy.org/doc/stable/index.html) is a library for scientific computing. As with `Pillow`, pypdfium2 provides helpers to get a numpy array view of a raw bitmap.
-* [`opencv-python`](https://github.com/opencv/opencv-python) (module `cv2`) is an imaging library built around numpy arrays. It can be used in the rendering CLI to save with pypdfium2's numpy adapter.
+* [`Pillow`](https://pillow.readthedocs.io/en/stable/) (module `PIL`) is a pouplar imaging library for Python.
+  pypdfium2 provides convenience adapters to translate between raw bitmap buffers and PIL images.
+  It also uses PIL for some command-line functionality (e.g. image saving).
+* [`NumPy`](https://numpy.org/doc/stable/index.html) is a library for scientific computing.
+  As with `Pillow`, pypdfium2 provides helpers to get a numpy array view of a raw bitmap.
+* [`opencv-python`](https://github.com/opencv/opencv-python) (module `cv2`) is an imaging library built around numpy arrays.
+  It can be used in the rendering CLI to save with pypdfium2's numpy adapter.
 
 pypdfium2 tries to defer imports of optional dependencies until they are actually needed, so there should be no startup overhead if you don't use them.
 
@@ -92,7 +97,7 @@ _Note, unlike helpers, pypdfium2's setup is not bound by API stability promises,
 + `setuptools`
 + `wheel`, if setuptools is `< v70.1.0`
 
-Python dependencies should be installed automatically, unless `--no-build-isolation` is passed to pip.
+Python dependencies should be automatically installed, unless `--no-build-isolation` is passed to pip.
 
 > [!NOTE]
 > pypdfium2 and its ctypesgen fork are developed in sync, i.e. each pypdfium2 commit ought to be coupled with the then `HEAD` of pypdfium2-ctypesgen.<br>
@@ -219,17 +224,6 @@ python ./setupsrc/build_native.py --compiler clang
 PDFIUM_PLATFORM="sourcebuild" python -m pip install -v .
 ```
 
-Note, on *some* platforms, you might also need symlinks for GCC, e.g.:
-```bash
-PREFIX=$(python ./utils/get_gcc_prefix.py)  # in pypdfium2 dir
-GCC_DIR="/usr"  # or e.g. /opt/rh/gcc-toolset-14/root
-sudo ln -s $GCC_DIR/bin/gcc $GCC_DIR/bin/$PREFIX-gcc
-sudo ln -s $GCC_DIR/bin/g++ $GCC_DIR/bin/$PREFIX-g++
-sudo ln -s $GCC_DIR/bin/nm $GCC_DIR/bin/$PREFIX-nm
-sudo ln -s $GCC_DIR/bin/readelf $GCC_DIR/bin/$PREFIX-readelf
-sudo ln -s $GCC_DIR/bin/ar $GCC_DIR/bin/$PREFIX-ar
-```
-
 > [!NOTE]
 > The native sourcebuild currently supports Linux (or similar).
 > macOS and Windows are not handled, as we do not have access to these systems, and working over CI did not turn out feasible – use the toolchain-based build for now.
@@ -301,7 +295,8 @@ For more options, see the [upstream documentation](https://cibuildwheel.pypa.io/
 On Linux, this will use the native sourcebuild with vendored dependency libraries.
 On Windows and macOS, the toolchained sourcebuild is used.
 
-Note, for Linux, cibuildwheel requires Docker. On the author's version of Fedora, it can be installed as follows:
+Note, for Linux, cibuildwheel requires Docker, or Podman.
+On the author's version of Fedora, Docker can be installed as follows:
 ```bash
 sudo dnf in moby-engine  # this provides the docker command
 sudo systemctl start docker
@@ -706,7 +701,7 @@ Nonetheless, the following guide may be helpful to get started with the raw API,
   # Second call with the actual buffer
   pdfium_c.FPDFBookmark_GetTitle(bookmark, buffer, n_bytes)
   # Decode to string, cutting off the NUL terminator (encoding: UTF-16LE)
-  title = buffer.raw[:n_bytes-2].decode("utf-16-le")
+  title = buffer[:n_bytes-2].decode("utf-16-le")
   ```
   
   Example B: Extracting text in given boundaries.
@@ -943,6 +938,7 @@ The primary motivation behind this is to have a nice testing interface, but it m
 Usage should be largely self-explanatory, assuming some familiarity with the command-line.
 See `pypdfium2 --help` or `pypdfium2 $SUBCOMMAND --help` for available commands and options.
 
+If you wish to call pypdfium2's CLI through `python -m`, note that the module name is `pypdfium2_cli` (not just `pypdfium2`), unlike the entrypoint script.
 
 ## Licensing
 
@@ -1064,9 +1060,9 @@ pypdfium2 contains a small test suite to verify the library's functionality. It 
 python -m pytest tests/  # or `just test`
 ```
 
-Note that ...
-* you can pass `-sv` to get more detailed output.
-* `$DEBUG_AUTOCLOSE=1` may be set to get debugging information on automatic object finalization.
+Pass `-sv` to get more detailed output.
+Environment variables used by the CLI are also honored in the test suite: `PYPDFIUM_LOGLEVEL`, `DEBUG_AUTOCLOSE`, `DEBUG_SYSFONTS`, `DEBUG_UNSUPPORTED`.
+See [`pypdfium2 --help`](https://pypdfium2.readthedocs.io/en/stable/shell_api.html#main-help) for description.
 
 To get code coverage statistics, you may call
 ```bash
@@ -1171,7 +1167,7 @@ This results in pypdfium2 being part of a large dependency tree.
 * [Adam Huganir](https://github.com/adam-huganir): Help with maintenance and development decisions since the beginning of the project.
 * [Christian Heimes](https://github.com/tiran): RPM packaging for pdfium. Showing how to build pdfium natively without Google's toolchain.
 * [Marvin Gießing](https://github.com/mgiessing): Investigation on building PDFium for a then unhandled Linux architecture (ppc64le).
-* [wojiushixiaobai](https://github.com/wojiushixiaobai): Helpful pointers and draft workflow for cibuildwheel. Supporting exotic architectures via emulation (pulling in dependencies with auditwheel).
+* [wojiushixiaobai](https://github.com/wojiushixiaobai): Helpful pointers and draft workflow for cibuildwheel. Supporting extra Linux architectures via emulated containers.
 * [kobaltcore](https://github.com/kobaltcore): Bug fix for `PdfDocument.save()`.
 * [Anderson Bravalheri](https://github.com/abravalheri): Help with PEP 517/518 compliance. Hint to use an environment variable rather than separate setup files.
 * [Bastian Germann](https://github.com/bgermann): Help with inclusion of licenses for third-party components of PDFium.

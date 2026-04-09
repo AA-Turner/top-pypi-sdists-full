@@ -189,6 +189,13 @@ class StoreConfig:
     # (e.g. nomic search_document:/search_query:, Voyage input_type, Gemini task_type).
     embed_task_reindex_done: bool = False
 
+    # True once startup cleanup for legacy @P{0} overview parts has run.
+    legacy_overview_parts_cleaned: bool = False
+
+    # True once stored labeled refs have been canonicalized to MediaWiki-style
+    # ``[[target|label]]`` syntax.
+    labeled_ref_format_verified: bool = False
+
     # Tool integrations tracking (presence of key = handled, value = installed or skipped)
     integrations: dict[str, Any] = field(default_factory=dict)
 
@@ -725,6 +732,12 @@ def load_config(config_dir: Path) -> StoreConfig:
     embed_task_reindex_done = bool(
         data.get("store", {}).get("embed_task_reindex_done", False)
     )
+    legacy_overview_parts_cleaned = bool(
+        data.get("store", {}).get("legacy_overview_parts_cleaned", False)
+    )
+    labeled_ref_format_verified = bool(
+        data.get("store", {}).get("labeled_ref_format_verified", False)
+    )
 
     # Parse integrations section (presence = handled)
     integrations = data.get("integrations", {})
@@ -826,6 +839,8 @@ def load_config(config_dir: Path) -> StoreConfig:
         system_docs_hash=system_docs_hash,
         chroma_tag_markers_verified=chroma_tag_markers_verified,
         embed_task_reindex_done=embed_task_reindex_done,
+        legacy_overview_parts_cleaned=legacy_overview_parts_cleaned,
+        labeled_ref_format_verified=labeled_ref_format_verified,
         integrations=integrations,
         remote=remote,
         backend=backend,
@@ -888,6 +903,10 @@ def save_config(config: StoreConfig) -> None:
         store_section["chroma_tag_markers_verified"] = True
     if config.embed_task_reindex_done:
         store_section["embed_task_reindex_done"] = True
+    if config.legacy_overview_parts_cleaned:
+        store_section["legacy_overview_parts_cleaned"] = True
+    if config.labeled_ref_format_verified:
+        store_section["labeled_ref_format_verified"] = True
     # Only write backend if not default
     if config.backend != "local":
         store_section["backend"] = config.backend

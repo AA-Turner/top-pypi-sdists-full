@@ -1281,16 +1281,33 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
             and conn.conn_info is not None
             and conn.conn_info.http_version is not None
         ):
-            extension_headers = extension.headers(conn.conn_info.http_version)
+            extension_headers = HTTPHeaderDict(
+                extension.headers(conn.conn_info.http_version)
+            )
 
             if extension_headers:
+                # allow overriding "Accept"
+                # see https://github.com/jawah/urllib3.future/pull/333
+                if (
+                    headers is not None
+                    and "Accept" in headers
+                    and "Accept" in extension_headers
+                ):
+                    extension_headers["Accept"] = headers["Accept"]
+
                 if headers is None:
                     headers = extension_headers
+                elif hasattr(headers, "copy"):
+                    headers = headers.copy()
+                    headers.update(extension_headers)  # type: ignore[union-attr]
                 else:
-                    # User-provided headers take precedence over
-                    # extension defaults (case-insensitive merge).
-                    merged_headers = HTTPHeaderDict(extension_headers)
-                    merged_headers.update(headers)
+                    merged_headers = HTTPHeaderDict()
+
+                    for k, v in headers.items():
+                        merged_headers.add(k, v)
+                    for k, v in extension_headers.items():
+                        merged_headers.add(k, v)
+
                     headers = merged_headers
         else:
             extension = None

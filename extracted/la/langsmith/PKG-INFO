@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langsmith
-Version: 0.7.26
+Version: 0.7.29
 Summary: Client library to connect to the LangSmith Observability and Evaluation Platform.
 Project-URL: Homepage, https://smith.langchain.com/
 Project-URL: Documentation, https://docs.smith.langchain.com/
@@ -44,7 +44,7 @@ Description-Content-Type: text/markdown
 # LangSmith Client SDK
 
 [![Release Notes](https://img.shields.io/github/release/langchain-ai/langsmith-sdk?logo=python)](https://github.com/langchain-ai/langsmith-sdk/releases)
-[![Python Downloads](https://static.pepy.tech/badge/langsmith/month)](https://pepy.tech/project/langsmith)
+[![Python Downloads](https://img.shields.io/pypi/dm/langsmith)](https://pypi.org/project/langsmith/)
 
 This package contains the Python client for interacting with the [LangSmith platform](https://smith.langchain.com/).
 

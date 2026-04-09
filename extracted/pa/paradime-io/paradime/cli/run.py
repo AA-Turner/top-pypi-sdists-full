@@ -5,6 +5,7 @@ import click
 from paradime.cli.integrations.adf import adf_list_pipelines, adf_pipelines
 from paradime.cli.integrations.airbyte import airbyte_list_connections, airbyte_sync
 from paradime.cli.integrations.airflow import airflow_list_dags, airflow_trigger
+from paradime.cli.integrations.aws_ecs import aws_ecs_list, aws_ecs_trigger
 from paradime.cli.integrations.aws_glue import (
     aws_glue_list_jobs,
     aws_glue_list_workflows,
@@ -19,6 +20,19 @@ from paradime.cli.integrations.aws_stepfunctions import (
 )
 from paradime.cli.integrations.census import census_list_syncs, census_sync
 from paradime.cli.integrations.fivetran import fivetran_list_connectors, fivetran_sync
+from paradime.cli.integrations.gcp_bigquery_transfer import (
+    gcp_bigquery_transfer_list,
+    gcp_bigquery_transfer_trigger,
+)
+from paradime.cli.integrations.gcp_cloud_function import (
+    gcp_cloud_function_list,
+    gcp_cloud_function_trigger,
+)
+from paradime.cli.integrations.gcp_cloud_run import gcp_cloud_run_list, gcp_cloud_run_trigger
+from paradime.cli.integrations.gcp_dataflow import gcp_dataflow_trigger
+from paradime.cli.integrations.gcp_dataproc import gcp_dataproc_list_clusters, gcp_dataproc_trigger
+from paradime.cli.integrations.gcp_datastream import gcp_datastream_list, gcp_datastream_trigger
+from paradime.cli.integrations.github_actions import github_actions_list, github_actions_trigger
 from paradime.cli.integrations.hex import hex_list_projects, hex_trigger
 from paradime.cli.integrations.hightouch import (
     hightouch_list_sync_sequences,
@@ -38,6 +52,7 @@ from paradime.cli.integrations.tableau import (
     tableau_list_workbooks,
     tableau_refresh,
 )
+from paradime.cli.integrations.zapier import zapier_trigger
 
 help_string: Final = (
     "\nTo set environment variables please go to https://app.paradime.io/settings/env-variables"
@@ -84,6 +99,22 @@ run.add_command(hightouch_sync)
 run.add_command(hightouch_sync_sequence)
 run.add_command(hightouch_list_syncs)
 run.add_command(hightouch_list_sync_sequences)
+run.add_command(gcp_cloud_function_trigger)
+run.add_command(gcp_cloud_function_list)
+run.add_command(gcp_cloud_run_list)
+run.add_command(gcp_cloud_run_trigger)
+run.add_command(gcp_dataflow_trigger)
+run.add_command(gcp_dataproc_list_clusters)
+run.add_command(gcp_dataproc_trigger)
+run.add_command(gcp_bigquery_transfer_list)
+run.add_command(gcp_bigquery_transfer_trigger)
+run.add_command(gcp_datastream_list)
+run.add_command(gcp_datastream_trigger)
 run.add_command(matillion_pipeline)
 run.add_command(matillion_list_pipelines)
 run.add_command(matillion_list_projects)
+run.add_command(aws_ecs_trigger)
+run.add_command(aws_ecs_list)
+run.add_command(github_actions_trigger)
+run.add_command(github_actions_list)
+run.add_command(zapier_trigger)

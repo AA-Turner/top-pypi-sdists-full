@@ -29,18 +29,14 @@ class AlphaStreamsSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISli
         ...
 
 
-class VolumeShareSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
-    """
-    Represents a slippage model that is calculated by multiplying the price impact constant
-    by the square of the ratio of the order to the total volume.
-    """
+class ConstantSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
+    """Represents a slippage model that uses a constant percentage of slip"""
 
-    def __init__(self, volume_limit: float = 0.025, price_impact: float = 0.1) -> None:
+    def __init__(self, slippage_percent: float) -> None:
         """
-        Initializes a new instance of the VolumeShareSlippageModel class
+        Initializes a new instance of the ConstantSlippageModel class
         
-        :param volume_limit: 
-        :param price_impact: Defines how large of an impact the order will have on the price calculation
+        :param slippage_percent: The slippage percent for each order. Percent is ranged 0 to 1.
         """
         ...
 
@@ -88,14 +84,18 @@ class NullSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageMod
         ...
 
 
-class ConstantSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
-    """Represents a slippage model that uses a constant percentage of slip"""
+class VolumeShareSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
+    """
+    Represents a slippage model that is calculated by multiplying the price impact constant
+    by the square of the ratio of the order to the total volume.
+    """
 
-    def __init__(self, slippage_percent: float) -> None:
+    def __init__(self, volume_limit: float = 0.025, price_impact: float = 0.1) -> None:
         """
-        Initializes a new instance of the ConstantSlippageModel class
+        Initializes a new instance of the VolumeShareSlippageModel class
         
-        :param slippage_percent: The slippage percent for each order. Percent is ranged 0 to 1.
+        :param volume_limit: 
+        :param price_impact: Defines how large of an impact the order will have on the price calculation
         """
         ...
 

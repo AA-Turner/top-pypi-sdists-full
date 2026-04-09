@@ -2,7 +2,6 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from contrast.agent.policy.registry import register_propagation_nodes
 
-
 serialize_propagators = [
     {
         "module": ["json", "simplejson"],
@@ -36,6 +35,13 @@ serialize_propagators = [
         "module": "yaml",
         "method_name": "dump_all",
         "source": "ARG_0,KWARG:documents",
+        "target": "RETURN",
+        "action": "SPLAT",
+    },
+    {
+        "module": "yaml",
+        "method_name": "load",
+        "source": "ARG_0,KWARG:stream",
         "target": "RETURN",
         "action": "SPLAT",
     },

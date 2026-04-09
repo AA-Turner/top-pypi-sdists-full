@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
@@ -71,7 +72,7 @@ def _get_sys_pdfium_ver(pdfium_lib):
 
 def _yield_lo_candidates(system):
     lo_paths_iter = itertools.product(
-        (Host.usr/"lib", Host.usr/"local"/"lib"), ("", "64")
+        (Host.usr/"lib", Host.usr/"local"/"lib"), ("64", "")
     )
     libname = libname_for_system(system, name="pdfiumlo")
     yield from (
@@ -140,6 +141,7 @@ def main(given_fullver=None, flags=(), target_dir=DataDir/ExtPlats.system):
         # assuming libreoffice does not change the original pdfium ABI
         build_pdfium_bindings(full_ver.build, **kwargs)
         bindings_path = BindingsFile
+        log("!!! Warning: Libreoffice pdfium may be incomplete. XObject and ImportPages APIs (among others) may be missing. If this is an issue, re-install with PDFIUM_PLATFORM=sourcebuild-native or use pre-compiled binaries if available.")
     else:
         pdfium_headers = _find_pdfium_headers()
         full_ver = given_fullver or _get_sys_pdfium_ver(pdfium_lib)

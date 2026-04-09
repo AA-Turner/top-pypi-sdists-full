@@ -31,8 +31,8 @@ mod sections;
 // Re-export all validation functions for backward compatibility
 pub use sections::{
     validate_binarization_method, validate_chunking_params, validate_confidence, validate_dpi, validate_language_code,
-    validate_ocr_backend, validate_output_format, validate_tesseract_oem, validate_tesseract_psm,
-    validate_token_reduction_level,
+    validate_llm_config_model, validate_ocr_backend, validate_output_format, validate_structured_extraction_schema,
+    validate_tesseract_oem, validate_tesseract_psm, validate_token_reduction_level, validate_vlm_backend_config,
 };
 
 pub use dependencies::{validate_cors_origin, validate_host, validate_port, validate_upload_size};

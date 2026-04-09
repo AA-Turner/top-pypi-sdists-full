@@ -32,6 +32,16 @@ pub fn set_last_error(err: String) {
     set_structured_error(structured_err);
 }
 
+/// Set the last error message as an embedding error
+pub fn set_embedding_error(err: String) {
+    if let Ok(c_str) = CString::new(err.clone()) {
+        LAST_ERROR_C_STRING.with(|last| *last.borrow_mut() = Some(c_str));
+    }
+
+    let structured_err = StructuredError::from_message(err, ErrorCode::EmbeddingError);
+    set_structured_error(structured_err);
+}
+
 /// Clear the last error message
 pub fn clear_last_error() {
     LAST_ERROR_C_STRING.with(|last| *last.borrow_mut() = None);
@@ -100,11 +110,10 @@ pub fn to_c_extraction_result(result: ExtractionResult) -> std::result::Result<*
         quality_score,
         processing_warnings,
         annotations,
-        formatted_content: _,
         children,
         uris,
-        code_intelligence: _,
-        ocr_internal_document: _,
+        structured_output,
+        ..
     } = result;
 
     let sanitized_content = if content.contains('\0') {
@@ -325,6 +334,17 @@ pub fn to_c_extraction_result(result: ExtractionResult) -> std::result::Result<*
         _ => None,
     };
 
+    let structured_output_json_guard = match &structured_output {
+        Some(val) => {
+            let json =
+                serde_json::to_string(val).map_err(|e| format!("Failed to serialize structured_output: {}", e))?;
+            Some(CStringGuard::new(CString::new(json).map_err(|e| {
+                format!("Failed to convert structured_output JSON to C string: {}", e)
+            })?))
+        }
+        _ => None,
+    };
+
     Ok(Box::into_raw(Box::new(CExtractionResult {
         annotations_json: annotations_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
         chunks_json: chunks_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
@@ -351,6 +371,7 @@ pub fn to_c_extraction_result(result: ExtractionResult) -> std::result::Result<*
         // code_intelligence will be populated once the core ExtractionResult
         // adds the field; for now, always null.
         code_intelligence_json: ptr::null_mut(),
+        structured_output_json: structured_output_json_guard.map_or(ptr::null_mut(), |g| g.into_raw()),
         success: true,
         _padding1: [0u8; 7],
     })))
@@ -501,25 +522,7 @@ mod tests {
         let result = ExtractionResult {
             content: "Test content".to_string(),
             mime_type: Cow::Borrowed("text/plain"),
-            metadata: Metadata::default(),
-            tables: vec![],
-            detected_languages: None,
-            chunks: None,
-            images: None,
-            pages: None,
-            djot_content: None,
-            elements: None,
-            ocr_elements: None,
-            document: None,
-            extracted_keywords: None,
-            quality_score: None,
-            processing_warnings: vec![],
-            annotations: None,
-            children: None,
-            uris: None,
-            formatted_content: None,
-            code_intelligence: None,
-            ocr_internal_document: None,
+            ..Default::default()
         };
 
         let c_result = to_c_extraction_result(result);
@@ -551,25 +554,7 @@ mod tests {
         let result = ExtractionResult {
             content: "Test\0content with null".to_string(),
             mime_type: Cow::Borrowed("text/plain"),
-            metadata: Metadata::default(),
-            tables: vec![],
-            detected_languages: None,
-            chunks: None,
-            images: None,
-            pages: None,
-            djot_content: None,
-            elements: None,
-            ocr_elements: None,
-            document: None,
-            extracted_keywords: None,
-            quality_score: None,
-            processing_warnings: vec![],
-            annotations: None,
-            children: None,
-            uris: None,
-            formatted_content: None,
-            code_intelligence: None,
-            ocr_internal_document: None,
+            ..Default::default()
         };
 
         let c_result = to_c_extraction_result(result);
@@ -612,24 +597,8 @@ mod tests {
             content: "Test content".to_string(),
             mime_type: Cow::Borrowed("text/plain"),
             metadata,
-            tables: vec![],
             detected_languages: Some(vec!["en".to_string(), "de".to_string()]),
-            chunks: None,
-            images: None,
-            pages: None,
-            djot_content: None,
-            elements: None,
-            ocr_elements: None,
-            document: None,
-            extracted_keywords: None,
-            quality_score: None,
-            processing_warnings: vec![],
-            annotations: None,
-            children: None,
-            uris: None,
-            formatted_content: None,
-            code_intelligence: None,
-            ocr_internal_document: None,
+            ..Default::default()
         };
 
         let c_result = to_c_extraction_result(result);
@@ -707,25 +676,9 @@ mod tests {
         let result = ExtractionResult {
             content: "Test content".to_string(),
             mime_type: Cow::Borrowed("text/plain"),
-            metadata: Metadata::default(),
             tables: vec![table],
-            detected_languages: None,
             chunks: Some(vec![chunk]),
-            images: None,
-            pages: None,
-            djot_content: None,
-            elements: None,
-            ocr_elements: None,
-            document: None,
-            extracted_keywords: None,
-            quality_score: None,
-            processing_warnings: vec![],
-            annotations: None,
-            children: None,
-            uris: None,
-            formatted_content: None,
-            code_intelligence: None,
-            ocr_internal_document: None,
+            ..Default::default()
         };
 
         let c_result = to_c_extraction_result(result);

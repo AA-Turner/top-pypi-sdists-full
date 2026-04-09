@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Add `metrics.process_id` to default ignored attributes

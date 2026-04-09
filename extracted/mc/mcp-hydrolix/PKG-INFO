@@ -1,30 +1,31 @@
 Metadata-Version: 2.4
 Name: mcp-hydrolix
-Version: 0.2.1
+Version: 0.2.3
 Summary: An MCP server for Hydrolix.
 Project-URL: Home, https://github.com/hydrolix/mcp-hydrolix
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: >=3.13
 Requires-Dist: certifi>=2026.1.4
-Requires-Dist: clickhouse-connect<0.11,>=0.10
-Requires-Dist: fastmcp<2.15,>=2.14
+Requires-Dist: clickhouse-connect<0.16,>=0.15
+Requires-Dist: fastmcp<3.3,>=3.0.2
 Requires-Dist: gunicorn<24.0,>=23.0
 Requires-Dist: pip-system-certs<5.0,>=4.0
-Requires-Dist: pyjwt<2.11,>=2.10
+Requires-Dist: prometheus-client<1.0,>=0.21
+Requires-Dist: pyjwt<2.13,>=2.10
 Requires-Dist: python-dotenv<1.2,>=1.1
+Requires-Dist: sqlglot<27.0,>=26.0
 Provides-Extra: dev
-Requires-Dist: fastapi>=0.124; extra == 'dev'
 Requires-Dist: mcp-clickhouse==0.1.13; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-asyncio; extra == 'dev'
-Requires-Dist: pytest-repeat; extra == 'dev'
-Requires-Dist: pytest-xdist; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # Hydrolix MCP Server
+
+<!-- mcp-name: io.github.hydrolix/mcp-hydrolix -->
 
 [![PyPI - Version](https://img.shields.io/pypi/v/mcp-hydrolix)](https://pypi.org/project/mcp-hydrolix)
 
@@ -35,7 +36,6 @@ An MCP server for Hydrolix.
 * `run_select_query`
   * Execute SQL queries on your Hydrolix cluster.
   * Input: `sql` (string): The SQL query to execute.
-  * All Hydrolix queries are run with `readonly = 1` to ensure they are safe.
 
 * `list_databases`
   * List all databases on your Hydrolix cluster.
@@ -43,6 +43,11 @@ An MCP server for Hydrolix.
 * `list_tables`
   * List all tables in a database.
   * Input: `database` (string): The name of the database.
+
+* `get_table_info`
+  * Get table metadata such as schema
+  * Input: `database` (string): The name of the database.
+  * Input: `table` (string): The name of the table.
 
 ## Effective Usage
 
@@ -82,6 +87,8 @@ The server supports multiple authentication methods with the following precedenc
    - Username and password (`HYDROLIX_USER` and `HYDROLIX_PASSWORD`)
 
 When multiple authentication methods are configured, the server will use the first available method in the precedence order above. Per-request authentication is only available when using HTTP or SSE transport modes.
+
+**Note: Using a service account token with a readonly role is recommended.**
 
 MCP Server definition using username and password (JSON):
 
@@ -270,6 +277,9 @@ If no credentials are provided via the environment or the request, the request w
 * `HYDROLIX_MCP_BIND_PORT`: Port to bind the MCP server to when using HTTP or SSE transport
   * Default: `"8000"`
   * Only used when transport is `"http"` or `"sse"`
+* `HYDROLIX_MAX_RAW_TIMERANGE`: Maximum time range in seconds allowed for queries against non-summary tables
+  * Default: `21600` (6 hours)
+  * Queries targeting summary tables are not affected by this limit
 
 
 For MCP Inspector or remote access with HTTP transport:

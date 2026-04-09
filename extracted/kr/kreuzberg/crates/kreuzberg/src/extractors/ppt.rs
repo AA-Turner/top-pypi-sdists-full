@@ -5,7 +5,6 @@
 use crate::Result;
 use crate::core::config::ExtractionConfig;
 use crate::core::mime::LEGACY_POWERPOINT_MIME_TYPE;
-use crate::extraction::ppt::extract_ppt_text;
 use crate::plugins::{DocumentExtractor, Plugin};
 use crate::types::internal::InternalDocument;
 use crate::types::internal_builder::InternalDocumentBuilder;
@@ -111,8 +110,13 @@ impl DocumentExtractor for PptExtractor {
         &self,
         content: &[u8],
         mime_type: &str,
-        _config: &ExtractionConfig,
+        config: &ExtractionConfig,
     ) -> Result<InternalDocument> {
+        // When content_filter is set and include_headers is true, include master
+        // slide content instead of skipping it. When content_filter is None,
+        // preserve the default behavior (skip master slides).
+        let include_master_slides = config.content_filter.as_ref().is_some_and(|f| f.include_headers);
+
         let result = {
             #[cfg(feature = "tokio-runtime")]
             if crate::core::batch_mode::is_batch_mode() {
@@ -120,16 +124,16 @@ impl DocumentExtractor for PptExtractor {
                 let span = tracing::Span::current();
                 tokio::task::spawn_blocking(move || -> crate::error::Result<_> {
                     let _guard = span.entered();
-                    extract_ppt_text(&content_owned)
+                    crate::extraction::ppt::extract_ppt_text_with_options(&content_owned, include_master_slides)
                 })
                 .await
                 .map_err(|e| crate::error::KreuzbergError::parsing(format!("PPT extraction task failed: {e}")))?
             } else {
-                extract_ppt_text(content)
+                crate::extraction::ppt::extract_ppt_text_with_options(content, include_master_slides)
             }
 
             #[cfg(not(feature = "tokio-runtime"))]
-            extract_ppt_text(content)
+            crate::extraction::ppt::extract_ppt_text_with_options(content, include_master_slides)
         }?;
 
         let mut metadata_map = AHashMap::new();

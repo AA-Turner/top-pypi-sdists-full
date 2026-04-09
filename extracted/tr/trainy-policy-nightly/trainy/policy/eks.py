@@ -25,6 +25,8 @@ def set_efa_config(user_request: sky.UserRequest) -> sky.MutatedUserRequest:
     task = user_request.task
     config = user_request.skypilot_config
     for resource in task.resources:
+        if not resource.accelerators:
+            continue
         for accelerator, count in resource.accelerators.items():
             if accelerator == "H100":
                 k8s_override_config = load_config("eks.yaml")
@@ -65,7 +67,7 @@ class EKSPolicy(sky.AdminPolicy):
         """
         if not user_request.task.is_controller_task():
             new_request: sky.MutatedUserRequest = set_efa_config(user_request)
-            new_request = validate_request(user_request)
+            new_request = validate_request(new_request)
             return sky.MutatedUserRequest(
                 task=new_request.task, skypilot_config=new_request.skypilot_config
             )

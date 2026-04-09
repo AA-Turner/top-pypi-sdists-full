@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: msgspec
-Version: 0.20.0
+Version: 0.21.0
 Summary: A fast serialization and validation library, with builtin support for JSON, MessagePack, YAML, and TOML.
 Maintainer-email: Jim Crist-Harif <jcristharif@gmail.com>, Ofek Lev <oss@ofek.dev>
 License-Expression: BSD-3-Clause
@@ -9,13 +9,12 @@ Project-URL: Issue Tracker, https://github.com/jcrist/msgspec/issues
 Project-URL: Source, https://github.com/jcrist/msgspec
 Keywords: JSON,MessagePack,TOML,YAML,msgpack,schema,serialization,validation
 Classifier: Development Status :: 4 - Beta
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: toml

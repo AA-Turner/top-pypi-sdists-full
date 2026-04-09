@@ -15,9 +15,9 @@ import System.Runtime.Serialization
 import System.Security
 import System.Security.Authentication.ExtendedProtection
 
-System_Net_IPAddress = typing.Any
-System_Net_IPEndPoint = typing.Any
 System_Net_IPNetwork = typing.Any
+System_Net_IPEndPoint = typing.Any
+System_Net_IPAddress = typing.Any
 
 
 class WebUtility(System.Object):
@@ -60,34 +60,241 @@ class WebUtility(System.Object):
         ...
 
 
-class DecompressionMethods(IntEnum):
+class IPAddress(System.Object, System.ISpanFormattable, System.ISpanParsable[System_Net_IPAddress], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPAddress]):
     """This class has no documentation."""
 
-    NONE = 0
+    ANY: System.Net.IPAddress = ...
 
-    G_ZIP = ...
+    LOOPBACK: System.Net.IPAddress = ...
 
-    DEFLATE = ...
+    BROADCAST: System.Net.IPAddress = ...
 
-    BROTLI = ...
+    NONE: System.Net.IPAddress = ...
 
-    ZSTANDARD = ...
+    I_PV_6_ANY: System.Net.IPAddress = ...
 
-    ALL = ...
+    I_PV_6_LOOPBACK: System.Net.IPAddress = ...
+
+    I_PV_6_NONE: System.Net.IPAddress = ...
+
+    @property
+    def address_family(self) -> System.Net.Sockets.AddressFamily:
+        ...
+
+    @property
+    def scope_id(self) -> int:
+        ...
+
+    @scope_id.setter
+    def scope_id(self, value: int) -> None:
+        ...
+
+    @property
+    def is_i_pv_6_multicast(self) -> bool:
+        ...
+
+    @property
+    def is_i_pv_6_link_local(self) -> bool:
+        ...
+
+    @property
+    def is_i_pv_6_site_local(self) -> bool:
+        ...
+
+    @property
+    def is_i_pv_6_teredo(self) -> bool:
+        ...
+
+    @property
+    def is_i_pv_6_unique_local(self) -> bool:
+        ...
+
+    @property
+    def is_i_pv_4_mapped_to_i_pv_6(self) -> bool:
+        ...
+
+    @property
+    def address(self) -> int:
+        warnings.warn("IPAddress.Address is address family dependent and has been deprecated. Use IPAddress.Equals to perform comparisons instead.", DeprecationWarning)
+
+    @address.setter
+    def address(self, value: int) -> None:
+        warnings.warn("IPAddress.Address is address family dependent and has been deprecated. Use IPAddress.Equals to perform comparisons instead.", DeprecationWarning)
+
+    @overload
+    def __init__(self, new_address: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, address: typing.List[int], scopeid: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, address: System.ReadOnlySpan[int], scopeid: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, address: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def __init__(self, address: System.ReadOnlySpan[int]) -> None:
+        ...
+
+    def equals(self, comparand: typing.Any) -> bool:
+        ...
+
+    def get_address_bytes(self) -> typing.List[int]:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def host_to_network_order(host: int) -> int:
+        ...
+
+    @staticmethod
+    def is_loopback(address: System.Net.IPAddress) -> bool:
+        ...
+
+    @staticmethod
+    def is_valid(ip_span: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @staticmethod
+    def is_valid_utf_8(utf_8_text: System.ReadOnlySpan[int]) -> bool:
+        ...
+
+    def map_to_i_pv_4(self) -> System.Net.IPAddress:
+        ...
+
+    def map_to_i_pv_6(self) -> System.Net.IPAddress:
+        ...
+
+    @staticmethod
+    def network_to_host_order(network: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(ip_string: str) -> System.Net.IPAddress:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Net.IPAddress:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(ip_span: System.ReadOnlySpan[str]) -> System.Net.IPAddress:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(ip_string: str, address: typing.Optional[System.Net.IPAddress]) -> typing.Tuple[bool, System.Net.IPAddress]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Net.IPAddress]) -> typing.Tuple[bool, System.Net.IPAddress]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(ip_span: System.ReadOnlySpan[str], address: typing.Optional[System.Net.IPAddress]) -> typing.Tuple[bool, System.Net.IPAddress]:
+        ...
+
+    def try_write_bytes(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
 
 
-class HttpVersion(System.Object):
+class IPNetwork(System.IEquatable[System_Net_IPNetwork], System.ISpanFormattable, System.ISpanParsable[System_Net_IPNetwork], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPNetwork]):
     """This class has no documentation."""
 
-    UNKNOWN: System.Version = ...
+    @property
+    def base_address(self) -> System.Net.IPAddress:
+        ...
 
-    VERSION_10: System.Version = ...
+    @property
+    def prefix_length(self) -> int:
+        ...
 
-    VERSION_11: System.Version = ...
+    def __eq__(self, right: System.Net.IPNetwork) -> bool:
+        ...
 
-    VERSION_20: System.Version = ...
+    def __init__(self, base_address: System.Net.IPAddress, prefix_length: int) -> None:
+        ...
 
-    VERSION_30: System.Version = ...
+    def __ne__(self, right: System.Net.IPNetwork) -> bool:
+        ...
+
+    def contains(self, address: System.Net.IPAddress) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Net.IPNetwork) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: str) -> System.Net.IPNetwork:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPNetwork:
+        ...
+
+    @staticmethod
+    @overload
+    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Net.IPNetwork:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+        ...
 
 
 class NetworkCredential(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost):
@@ -158,51 +365,6 @@ class ICredentials(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
     def get_credential(self, uri: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
-        ...
-
-
-class ICredentialsByHost(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-
-class CredentialCache(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost, System.Collections.IEnumerable):
-    """This class has no documentation."""
-
-    DEFAULT_CREDENTIALS: System.Net.ICredentials
-
-    DEFAULT_NETWORK_CREDENTIALS: System.Net.NetworkCredential
-
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def add(self, uri_prefix: System.Uri, auth_type: str, cred: System.Net.NetworkCredential) -> None:
-        ...
-
-    @overload
-    def add(self, host: str, port: int, authentication_type: str, credential: System.Net.NetworkCredential) -> None:
-        ...
-
-    @overload
-    def get_credential(self, uri_prefix: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
-        ...
-
-    @overload
-    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IEnumerator:
-        ...
-
-    @overload
-    def remove(self, uri_prefix: System.Uri, auth_type: str) -> None:
-        ...
-
-    @overload
-    def remove(self, host: str, port: int, authentication_type: str) -> None:
         ...
 
 
@@ -487,165 +649,57 @@ class PathList(System.Object):
     """This class has no documentation."""
 
 
-class IPAddress(System.Object, System.ISpanFormattable, System.ISpanParsable[System_Net_IPAddress], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPAddress]):
+class CookieVariant(IntEnum):
     """This class has no documentation."""
 
-    ANY: System.Net.IPAddress = ...
+    UNKNOWN = 0
 
-    LOOPBACK: System.Net.IPAddress = ...
+    PLAIN = 1
 
-    BROADCAST: System.Net.IPAddress = ...
+    RFC_2109 = 2
 
-    NONE: System.Net.IPAddress = ...
+    RFC_2965 = 3
 
-    I_PV_6_ANY: System.Net.IPAddress = ...
+    DEFAULT = ...
 
-    I_PV_6_LOOPBACK: System.Net.IPAddress = ...
 
-    I_PV_6_NONE: System.Net.IPAddress = ...
-
-    @property
-    def address_family(self) -> System.Net.Sockets.AddressFamily:
-        ...
-
-    @property
-    def scope_id(self) -> int:
-        ...
-
-    @scope_id.setter
-    def scope_id(self, value: int) -> None:
-        ...
-
-    @property
-    def is_i_pv_6_multicast(self) -> bool:
-        ...
-
-    @property
-    def is_i_pv_6_link_local(self) -> bool:
-        ...
-
-    @property
-    def is_i_pv_6_site_local(self) -> bool:
-        ...
-
-    @property
-    def is_i_pv_6_teredo(self) -> bool:
-        ...
-
-    @property
-    def is_i_pv_6_unique_local(self) -> bool:
-        ...
-
-    @property
-    def is_i_pv_4_mapped_to_i_pv_6(self) -> bool:
-        ...
-
-    @property
-    def address(self) -> int:
-        warnings.warn("IPAddress.Address is address family dependent and has been deprecated. Use IPAddress.Equals to perform comparisons instead.", DeprecationWarning)
-
-    @address.setter
-    def address(self, value: int) -> None:
-        warnings.warn("IPAddress.Address is address family dependent and has been deprecated. Use IPAddress.Equals to perform comparisons instead.", DeprecationWarning)
+class CookieException(System.FormatException, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
 
     @overload
-    def __init__(self, new_address: int) -> None:
+    def __init__(self) -> None:
         ...
 
     @overload
-    def __init__(self, address: typing.List[int], scopeid: int) -> None:
+    def __init__(self, message: str) -> None:
         ...
 
     @overload
-    def __init__(self, address: System.ReadOnlySpan[int], scopeid: int) -> None:
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
     @overload
-    def __init__(self, address: typing.List[int]) -> None:
+    def __init__(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
         ...
 
-    @overload
-    def __init__(self, address: System.ReadOnlySpan[int]) -> None:
-        ...
+    def get_object_data(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
-    def equals(self, comparand: typing.Any) -> bool:
-        ...
 
-    def get_address_bytes(self) -> typing.List[int]:
-        ...
+class DecompressionMethods(IntEnum):
+    """This class has no documentation."""
 
-    def get_hash_code(self) -> int:
-        ...
+    NONE = 0
 
-    @staticmethod
-    def host_to_network_order(host: int) -> int:
-        ...
+    G_ZIP = ...
 
-    @staticmethod
-    def is_loopback(address: System.Net.IPAddress) -> bool:
-        ...
+    DEFLATE = ...
 
-    @staticmethod
-    def is_valid(ip_span: System.ReadOnlySpan[str]) -> bool:
-        ...
+    BROTLI = ...
 
-    @staticmethod
-    def is_valid_utf_8(utf_8_text: System.ReadOnlySpan[int]) -> bool:
-        ...
+    ZSTANDARD = ...
 
-    def map_to_i_pv_4(self) -> System.Net.IPAddress:
-        ...
-
-    def map_to_i_pv_6(self) -> System.Net.IPAddress:
-        ...
-
-    @staticmethod
-    def network_to_host_order(network: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(ip_string: str) -> System.Net.IPAddress:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Net.IPAddress:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(ip_span: System.ReadOnlySpan[str]) -> System.Net.IPAddress:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(ip_string: str, address: typing.Optional[System.Net.IPAddress]) -> typing.Tuple[bool, System.Net.IPAddress]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Net.IPAddress]) -> typing.Tuple[bool, System.Net.IPAddress]:
-        ...
-
-    @staticmethod
-    @overload
-    def try_parse(ip_span: System.ReadOnlySpan[str], address: typing.Optional[System.Net.IPAddress]) -> typing.Tuple[bool, System.Net.IPAddress]:
-        ...
-
-    def try_write_bytes(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
+    ALL = ...
 
 
 class EndPoint(System.Object, metaclass=abc.ABCMeta):
@@ -748,6 +802,39 @@ class IPEndPoint(System.Net.EndPoint, System.ISpanFormattable, System.ISpanParsa
     @staticmethod
     @overload
     def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Net.IPEndPoint]) -> typing.Tuple[bool, System.Net.IPEndPoint]:
+        ...
+
+
+class IWebProxy(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def credentials(self) -> System.Net.ICredentials:
+        ...
+
+    @credentials.setter
+    def credentials(self, value: System.Net.ICredentials) -> None:
+        ...
+
+    def get_proxy(self, destination: System.Uri) -> System.Uri:
+        ...
+
+    def is_bypassed(self, host: System.Uri) -> bool:
+        ...
+
+
+class ICredentialsByHost(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
+        ...
+
+
+class TransportContext(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_channel_binding(self, kind: System.Security.Authentication.ExtendedProtection.ChannelBindingKind) -> System.Security.Authentication.ExtendedProtection.ChannelBinding:
         ...
 
 
@@ -889,80 +976,74 @@ class HttpStatusCode(IntEnum):
     NETWORK_AUTHENTICATION_REQUIRED = 511
 
 
-class IPNetwork(System.IEquatable[System_Net_IPNetwork], System.ISpanFormattable, System.ISpanParsable[System_Net_IPNetwork], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Net_IPNetwork]):
+class CredentialCache(System.Object, System.Net.ICredentials, System.Net.ICredentialsByHost, System.Collections.IEnumerable):
     """This class has no documentation."""
 
-    @property
-    def base_address(self) -> System.Net.IPAddress:
-        ...
+    DEFAULT_CREDENTIALS: System.Net.ICredentials
 
-    @property
-    def prefix_length(self) -> int:
-        ...
+    DEFAULT_NETWORK_CREDENTIALS: System.Net.NetworkCredential
 
-    def __eq__(self, right: System.Net.IPNetwork) -> bool:
-        ...
-
-    def __init__(self, base_address: System.Net.IPAddress, prefix_length: int) -> None:
-        ...
-
-    def __ne__(self, right: System.Net.IPNetwork) -> bool:
-        ...
-
-    def contains(self, address: System.Net.IPAddress) -> bool:
+    def __init__(self) -> None:
         ...
 
     @overload
-    def equals(self, obj: typing.Any) -> bool:
+    def add(self, uri_prefix: System.Uri, auth_type: str, cred: System.Net.NetworkCredential) -> None:
         ...
 
     @overload
-    def equals(self, other: System.Net.IPNetwork) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: str) -> System.Net.IPNetwork:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(s: System.ReadOnlySpan[str]) -> System.Net.IPNetwork:
-        ...
-
-    @staticmethod
-    @overload
-    def parse(utf_8_text: System.ReadOnlySpan[int]) -> System.Net.IPNetwork:
-        ...
-
-    def to_string(self) -> str:
+    def add(self, host: str, port: int, authentication_type: str, credential: System.Net.NetworkCredential) -> None:
         ...
 
     @overload
-    def try_format(self, destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+    def get_credential(self, uri_prefix: System.Uri, auth_type: str) -> System.Net.NetworkCredential:
         ...
 
     @overload
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+    def get_credential(self, host: str, port: int, authentication_type: str) -> System.Net.NetworkCredential:
         ...
 
-    @staticmethod
-    @overload
-    def try_parse(s: str, result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+    def get_enumerator(self) -> System.Collections.IEnumerator:
         ...
 
-    @staticmethod
     @overload
-    def try_parse(s: System.ReadOnlySpan[str], result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+    def remove(self, uri_prefix: System.Uri, auth_type: str) -> None:
         ...
 
-    @staticmethod
     @overload
-    def try_parse(utf_8_text: System.ReadOnlySpan[int], result: typing.Optional[System.Net.IPNetwork]) -> typing.Tuple[bool, System.Net.IPNetwork]:
+    def remove(self, host: str, port: int, authentication_type: str) -> None:
         ...
+
+
+class AuthenticationSchemes(IntEnum):
+    """This class has no documentation."""
+
+    NONE = ...
+
+    DIGEST = ...
+
+    NEGOTIATE = ...
+
+    NTLM = ...
+
+    BASIC = ...
+
+    ANONYMOUS = ...
+
+    INTEGRATED_WINDOWS_AUTHENTICATION = ...
+
+
+class HttpVersion(System.Object):
+    """This class has no documentation."""
+
+    UNKNOWN: System.Version = ...
+
+    VERSION_10: System.Version = ...
+
+    VERSION_11: System.Version = ...
+
+    VERSION_20: System.Version = ...
+
+    VERSION_30: System.Version = ...
 
 
 class DnsEndPoint(System.Net.EndPoint):
@@ -995,87 +1076,6 @@ class DnsEndPoint(System.Net.EndPoint):
         ...
 
     def to_string(self) -> str:
-        ...
-
-
-class CookieVariant(IntEnum):
-    """This class has no documentation."""
-
-    UNKNOWN = 0
-
-    PLAIN = 1
-
-    RFC_2109 = 2
-
-    RFC_2965 = 3
-
-    DEFAULT = ...
-
-
-class CookieException(System.FormatException, System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
-        ...
-
-    def get_object_data(self, serialization_info: System.Runtime.Serialization.SerializationInfo, streaming_context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class AuthenticationSchemes(IntEnum):
-    """This class has no documentation."""
-
-    NONE = ...
-
-    DIGEST = ...
-
-    NEGOTIATE = ...
-
-    NTLM = ...
-
-    BASIC = ...
-
-    ANONYMOUS = ...
-
-    INTEGRATED_WINDOWS_AUTHENTICATION = ...
-
-
-class IWebProxy(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def credentials(self) -> System.Net.ICredentials:
-        ...
-
-    @credentials.setter
-    def credentials(self, value: System.Net.ICredentials) -> None:
-        ...
-
-    def get_proxy(self, destination: System.Uri) -> System.Uri:
-        ...
-
-    def is_bypassed(self, host: System.Uri) -> bool:
-        ...
-
-
-class TransportContext(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_channel_binding(self, kind: System.Security.Authentication.ExtendedProtection.ChannelBindingKind) -> System.Security.Authentication.ExtendedProtection.ChannelBinding:
         ...
 
 

@@ -227,6 +227,54 @@ async def run_reply_to_prospect(
             "Try check_replies() to update conversation data."
         )
 
+    # ── Step 3b: Chat-scoped dedup (cross-campaign) ──
+    # The outreach-scoped dedup below only sees messages inside THIS outreach.
+    # When the same prospect is in multiple campaigns, each campaign's outreach
+    # can independently auto-reply to the same LinkedIn chat — e.g. prospect asks
+    # "are you a bot?" and gets two bot-sounding replies from two campaigns.
+    # Here we query the actual LinkedIn chat and skip if any of our own messages
+    # has a timestamp newer than the prospect's latest message in that chat.
+    if mode == "autopilot":
+        try:
+            _our_provider_id = (await run_db(get_setting, "profile", {})).get("provider_id", "")
+            if _our_provider_id:
+                _recent_chat_msgs = await client.get_chat_messages(
+                    account_id, chat_id, limit=10,
+                )
+                if _recent_chat_msgs:
+                    # Last prospect-side message timestamp from the actual chat
+                    _last_prospect_ts_chat = 0
+                    for _rm in _recent_chat_msgs:
+                        if _rm.get("sender_id") and _rm.get("sender_id") != _our_provider_id:
+                            _ts = _rm.get("timestamp") or 0
+                            if _ts > _last_prospect_ts_chat:
+                                _last_prospect_ts_chat = _ts
+                    # Any SDR message (from us) newer than that = already replied
+                    if _last_prospect_ts_chat:
+                        _already_replied = any(
+                            _rm.get("sender_id") == _our_provider_id
+                            and (_rm.get("timestamp") or 0) > _last_prospect_ts_chat
+                            for _rm in _recent_chat_msgs
+                        )
+                        if _already_replied:
+                            await client.close()
+                            await run_db(
+                                log_action, "reply_dedup_blocked_chat_scoped",
+                                outreach_id=outreach_id,
+                                result="skipped",
+                                details={
+                                    "reason": "already_replied_in_linkedin_chat",
+                                    "chat_id": chat_id,
+                                    "prospect": candidate.get("name", "Unknown"),
+                                },
+                            )
+                            return (
+                                f"Already replied to {candidate.get('name', 'Unknown')} "
+                                f"in this LinkedIn chat (possibly from another campaign) — skipping."
+                            )
+        except Exception as e:
+            logger.debug("Chat-scoped dedup check failed: %s (continuing)", e)
+
     # ── Step 4: Load conversation history (enriched with LinkedIn) ──
     sender_provider_id = (await run_db(get_setting, "profile", {})).get("provider_id", "")
     if chat_id and sender_provider_id:

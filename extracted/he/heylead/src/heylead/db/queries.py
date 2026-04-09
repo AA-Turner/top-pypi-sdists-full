@@ -831,6 +831,26 @@ def get_reply_candidates(campaign_id: str | None = None) -> list[dict]:
                  WHERE m2.outreach_id = o.id
                  ORDER BY m2.timestamp DESC LIMIT 1
              )
+             -- Cross-outreach dedup: when the same person is in multiple
+             -- campaigns, skip this outreach if any sibling outreach has
+             -- already replied (SDR message) after the prospect's latest
+             -- message here. Without this, every campaign's auto-reply job
+             -- independently fires into the same LinkedIn chat.
+             AND NOT EXISTS (
+                 SELECT 1
+                 FROM outreaches o2
+                 JOIN contacts c2 ON o2.contact_id = c2.id
+                 JOIN messages m2 ON m2.outreach_id = o2.id
+                 WHERE o2.id != o.id
+                   AND m2.role = 'sdr'
+                   AND m2.timestamp >= m.timestamp
+                   AND (
+                        (c.global_contact_id IS NOT NULL
+                         AND c2.global_contact_id = c.global_contact_id)
+                     OR (c.linkedin_id IS NOT NULL AND c.linkedin_id != ''
+                         AND c2.linkedin_id = c.linkedin_id)
+                   )
+             )
            ORDER BY
              CASE m.sentiment
                WHEN 'positive' THEN 1

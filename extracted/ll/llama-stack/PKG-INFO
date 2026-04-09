@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama_stack
-Version: 0.7.0
+Version: 0.7.1
 Summary: Open-source, OpenAI-compatible API server with pluggable providers for any model and any infrastructure
 Author-email: Meta Llama <llama-oss@meta.com>
 License: MIT
@@ -51,7 +51,59 @@ Requires-Dist: oci>=2.165.0
 Requires-Dist: numpy>=2.3.2
 Requires-Dist: mcp>=1.23.0
 Provides-Extra: client
-Requires-Dist: llama-stack-client==0.7.0; extra == "client"
+Requires-Dist: llama-stack-client==0.7.1; extra == "client"
+Provides-Extra: starter
+Requires-Dist: aiohttp; extra == "starter"
+Requires-Dist: aiosqlite; extra == "starter"
+Requires-Dist: anthropic; extra == "starter"
+Requires-Dist: asyncpg; extra == "starter"
+Requires-Dist: autoevals; extra == "starter"
+Requires-Dist: chardet; extra == "starter"
+Requires-Dist: chromadb-client; extra == "starter"
+Requires-Dist: codeshield; extra == "starter"
+Requires-Dist: datasets>=4.0.0; extra == "starter"
+Requires-Dist: einops; extra == "starter"
+Requires-Dist: elasticsearch<9.0.0,>=8.16.0; extra == "starter"
+Requires-Dist: emoji; extra == "starter"
+Requires-Dist: faiss-cpu; extra == "starter"
+Requires-Dist: fastapi; extra == "starter"
+Requires-Dist: fire; extra == "starter"
+Requires-Dist: fireworks-ai<=0.17.16; extra == "starter"
+Requires-Dist: fonttools>=4.60.2; extra == "starter"
+Requires-Dist: google-genai; extra == "starter"
+Requires-Dist: h11>=0.16.0; extra == "starter"
+Requires-Dist: httpx; extra == "starter"
+Requires-Dist: langdetect; extra == "starter"
+Requires-Dist: matplotlib; extra == "starter"
+Requires-Dist: mcp>=1.23.0; extra == "starter"
+Requires-Dist: nltk>=3.9.4; extra == "starter"
+Requires-Dist: numpy; extra == "starter"
+Requires-Dist: ollama; extra == "starter"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "starter"
+Requires-Dist: opentelemetry-sdk; extra == "starter"
+Requires-Dist: pandas; extra == "starter"
+Requires-Dist: pillow; extra == "starter"
+Requires-Dist: psycopg2-binary; extra == "starter"
+Requires-Dist: pymilvus[milvus-lite]>=2.4.10; extra == "starter"
+Requires-Dist: pymongo; extra == "starter"
+Requires-Dist: pypdf>=6.7.2; extra == "starter"
+Requires-Dist: pythainlp; extra == "starter"
+Requires-Dist: qdrant-client; extra == "starter"
+Requires-Dist: redis; extra == "starter"
+Requires-Dist: requests; extra == "starter"
+Requires-Dist: safetensors; extra == "starter"
+Requires-Dist: scikit-learn; extra == "starter"
+Requires-Dist: scipy; extra == "starter"
+Requires-Dist: sentencepiece; extra == "starter"
+Requires-Dist: sqlite-vec; extra == "starter"
+Requires-Dist: together>=2; extra == "starter"
+Requires-Dist: tokenizers; extra == "starter"
+Requires-Dist: tqdm; extra == "starter"
+Requires-Dist: tree_sitter; extra == "starter"
+Requires-Dist: uvicorn; extra == "starter"
+Requires-Dist: weaviate-client>=4.16.5; extra == "starter"
+Requires-Dist: torch; extra == "starter"
+Requires-Dist: sentence-transformers; extra == "starter"
 Dynamic: license-file
 
 <h1 align="center">Llama Stack</h1>

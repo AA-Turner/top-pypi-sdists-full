@@ -16,15 +16,16 @@ from etcd3gw.client import client
 from etcd3gw.client import Etcd3Client
 from etcd3gw.lease import Lease
 from etcd3gw.lock import Lock
+from etcd3gw import types
 from etcd3gw import utils
 
-__version__ = pbr.version.VersionInfo(
-    'etcd3gw').version_string()
+__version__ = pbr.version.VersionInfo('etcd3gw').version_string()
 
 __all__ = (
     'Etcd3Client',
     'Lease',
     'Lock',
     'client',
+    'types',
     'utils',
 )

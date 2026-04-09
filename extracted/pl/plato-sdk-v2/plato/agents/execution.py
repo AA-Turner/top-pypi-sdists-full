@@ -19,6 +19,7 @@ from plato.agents.mounts import AgentWorkspaceMount, GitCheckoutPolicy, GitSyncP
 from plato.agents.warmpool import WarmPool
 from plato.git_ops.repo import trust_git_directory
 from plato.runtimes.base import Runtime, RuntimeInfo
+from plato.runtimes.config import VMRuntimeConfig
 from plato.transports.git import GitPublishedRef, GitTransport
 from plato.worlds.workspace import Workspace
 
@@ -41,6 +42,7 @@ class AgentExecutionManager:
         checkpoint: Callable[[str], Awaitable[None]] | None = None,
         primary_workspace: Workspace | None = None,
         primary_mount: AgentWorkspaceMount | None = None,
+        total_agents: int | None = None,
     ) -> None:
         if agent_config.max_parallel is None:
             raise ValueError("AgentExecutionManager requires agent_config.max_parallel")
@@ -50,13 +52,27 @@ class AgentExecutionManager:
         self._checkpoint = checkpoint
         self._primary_workspace = primary_workspace
         self._primary_mount = primary_mount
+
+        vm_timeout: int | None = None
+        if total_agents is not None and isinstance(agent_config.runtime, VMRuntimeConfig):
+            vm_timeout = agent_config.runtime.timeout * total_agents
+
         self._warm_pool = WarmPool(
             runtime_factory=runtime_factory,
             image=agent_config.image,
             max_size=agent_config.max_parallel,
             pre_warm=0,
+            vm_timeout=vm_timeout,
         )
         self._integration_lock = asyncio.Lock()
+
+    def update_vm_timeout(self, total_agents: int) -> None:
+        """Recompute the pool's VM sandbox timeout for a (possibly larger) agent count."""
+        if not isinstance(self._agent_config.runtime, VMRuntimeConfig):
+            return
+        new_timeout = self._agent_config.runtime.timeout * total_agents
+        if self._warm_pool._vm_timeout is None or new_timeout > self._warm_pool._vm_timeout:
+            self._warm_pool._vm_timeout = new_timeout
 
     async def shutdown(self) -> None:
         await self._warm_pool.shutdown()

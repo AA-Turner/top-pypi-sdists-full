@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Adds a new web ui that provides a dashboard for inspecting agent
-    configuration, viewing received requests, exploring traces and snapshots,
-    and managing tracer-flare and remote configuration.

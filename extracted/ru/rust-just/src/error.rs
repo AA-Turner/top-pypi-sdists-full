@@ -95,8 +95,12 @@ pub(crate) enum Error<'src> {
     editor: OsString,
     status: ExitStatus,
   },
-  EvalUnknownVariable {
-    variable: String,
+  EvalUnknownSubmodule {
+    component: String,
+    suggestion: Option<Suggestion<'src>>,
+  },
+  EvalUnknownSubmoduleOrVariable {
+    component: String,
     suggestion: Option<Suggestion<'src>>,
   },
   ExcessInvocations {
@@ -106,7 +110,7 @@ pub(crate) enum Error<'src> {
     path: String,
   },
   FilesystemIo {
-    io_error: io::Error,
+    source: io::Error,
     path: PathBuf,
   },
   FlagWithValue {
@@ -135,10 +139,6 @@ pub(crate) enum Error<'src> {
   },
   Interrupted {
     signal: Signal,
-  },
-  Io {
-    recipe: &'src str,
-    io_error: io::Error,
   },
   Load {
     path: PathBuf,
@@ -194,9 +194,15 @@ pub(crate) enum Error<'src> {
     io_error: io::Error,
     recipe: &'src str,
   },
-  Signal {
+  ShellIo {
+    io_error: io::Error,
     recipe: &'src str,
+    shell: String,
+  },
+  Signal {
     line_number: Option<usize>,
+    print_message: bool,
+    recipe: &'src str,
     signal: i32,
   },
   #[cfg(windows)]
@@ -228,8 +234,9 @@ pub(crate) enum Error<'src> {
     io_error: io::Error,
   },
   Unknown {
-    recipe: &'src str,
     line_number: Option<usize>,
+    print_message: bool,
+    recipe: &'src str,
   },
   UnknownGroup {
     group: String,
@@ -296,6 +303,29 @@ impl<'src> Error<'src> {
     }
   }
 
+  /// `Self::Signal` if process was terminated by a signal otherwise
+  /// `Self::UnknownFailure`.
+  pub(crate) fn from_signal(
+    exit_status: ExitStatus,
+    line_number: Option<usize>,
+    print_message: bool,
+    recipe: &'src str,
+  ) -> Self {
+    match Platform::signal_from_exit_status(exit_status) {
+      Some(signal) => Self::Signal {
+        line_number,
+        print_message,
+        recipe,
+        signal,
+      },
+      None => Self::Unknown {
+        line_number,
+        print_message,
+        recipe,
+      },
+    }
+  }
+
   pub(crate) fn internal(message: impl Into<String>) -> Self {
     Self::Internal {
       message: message.into(),
@@ -303,18 +333,26 @@ impl<'src> Error<'src> {
   }
 
   pub(crate) fn print_message(&self) -> bool {
-    !matches!(
-      self,
-      Error::Code {
-        print_message: false,
-        ..
-      }
-    )
+    match self {
+      Self::Code { print_message, .. }
+      | Self::Signal { print_message, .. }
+      | Self::Unknown { print_message, .. } => *print_message,
+      _ => true,
+    }
   }
 
   fn source(&self) -> Option<&dyn std::error::Error> {
     match self {
       Self::Compile { compile_error } => compile_error.source(),
+      _ => None,
+    }
+  }
+
+  fn suggestion(&self) -> Option<&Suggestion> {
+    match self {
+      Self::EvalUnknownSubmodule { suggestion, .. }
+      | Self::EvalUnknownSubmoduleOrVariable { suggestion, .. }
+      | Self::UnknownRecipe { suggestion, .. } => suggestion.as_ref(),
       _ => None,
     }
   }
@@ -541,14 +579,14 @@ impl ColorDisplay for Error<'_> {
         let editor = editor.to_string_lossy();
         write!(f, "Editor `{editor}` failed: {status}")?;
       }
-      EvalUnknownVariable {
-        variable,
-        suggestion,
-      } => {
-        write!(f, "Justfile does not contain variable `{variable}`.")?;
-        if let Some(suggestion) = suggestion {
-          write!(f, "\n{suggestion}")?;
-        }
+      EvalUnknownSubmodule { component, .. } => {
+        write!(f, "Justfile does not contain submodule `{component}`.")?;
+      }
+      EvalUnknownSubmoduleOrVariable { component, .. } => {
+        write!(
+          f,
+          "Justfile does not contain variable or submodule `{component}`."
+        )?;
       }
       ExcessInvocations { invocations } => {
         write!(
@@ -559,8 +597,8 @@ impl ColorDisplay for Error<'_> {
       ExpectedSubmoduleButFoundRecipe { path } => {
         write!(f, "Expected submodule at `{path}` but found recipe.")?;
       }
-      FilesystemIo { io_error, path } => {
-        write!(f, "I/O error at `{}`: {io_error}", path.display())?;
+      FilesystemIo { source, path } => {
+        write!(f, "I/O error at `{}`: {source}", path.display())?;
       }
       FlagWithValue { recipe, option } => {
         write!(f, "Recipe `{recipe}` flag `{option}` does not take value",)?;
@@ -601,19 +639,26 @@ impl ColorDisplay for Error<'_> {
       Interrupted { signal } => {
         write!(f, "Interrupted by {signal}")?;
       }
-      Io { recipe, io_error } => {
+      ShellIo {
+        recipe,
+        io_error,
+        shell,
+      } => {
         match io_error.kind() {
           io::ErrorKind::NotFound => write!(
             f,
-            "Recipe `{recipe}` could not be run because just could not find the shell: {io_error}",
+            "Recipe `{recipe}` could not be run because just could not find the shell `{shell}`: \
+            {io_error}",
           ),
           io::ErrorKind::PermissionDenied => write!(
             f,
-            "Recipe `{recipe}` could not be run because just could not run the shell: {io_error}",
+            "Recipe `{recipe}` could not be run because just could not run the shell `{shell}`: \
+            {io_error}",
           ),
           _ => write!(
             f,
-            "Recipe `{recipe}` could not be run because of an IO error while launching the shell: {io_error}",
+            "Recipe `{recipe}` could not be run because of an IO error while launching the shell \
+            `{shell}`: {io_error}",
           ),
         }?;
       }
@@ -717,6 +762,7 @@ impl ColorDisplay for Error<'_> {
         recipe,
         line_number,
         signal,
+        ..
       } => {
         if let Some(n) = line_number {
           write!(
@@ -766,6 +812,7 @@ impl ColorDisplay for Error<'_> {
       Unknown {
         recipe,
         line_number,
+        ..
       } => {
         if let Some(n) = line_number {
           write!(
@@ -790,11 +837,8 @@ impl ColorDisplay for Error<'_> {
       UnknownGroup { group } => {
         write!(f, "Justfile does not contain group `{group}`")?;
       }
-      UnknownRecipe { recipe, suggestion } => {
+      UnknownRecipe { recipe, .. } => {
         write!(f, "Justfile does not contain recipe `{recipe}`")?;
-        if let Some(suggestion) = suggestion {
-          write!(f, "\n{suggestion}")?;
-        }
       }
       UnknownSubmodule { path } => {
         write!(f, "Justfile does not contain submodule `{path}`")?;
@@ -809,6 +853,10 @@ impl ColorDisplay for Error<'_> {
         let justfile = justfile.display();
         write!(f, "Failed to write justfile to `{justfile}`: {io_error}")?;
       }
+    }
+
+    if let Some(suggestion) = self.suggestion() {
+      write!(f, "\n{suggestion}")?;
     }
 
     write!(f, "{}", color.message().suffix())?;

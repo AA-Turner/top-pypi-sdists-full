@@ -11,6 +11,7 @@ use common_metrics::{
     ops::{NodeCategory, NodeInfo, NodeType},
 };
 use common_runtime::{OrderingAwareJoinSet, get_compute_pool_num_threads, get_compute_runtime};
+use daft_checkpoint::{CheckpointId, CheckpointStoreRef};
 use daft_local_plan::LocalNodeContext;
 use daft_logical_plan::stats::StatsState;
 use daft_micropartition::MicroPartition;
@@ -25,11 +26,16 @@ use crate::{
     },
     resource_manager::MemoryManager,
     runtime_stats::{DefaultRuntimeStats, RuntimeStats, RuntimeStatsManagerHandle},
+    shuffle_metadata::ShuffleMetadata,
 };
 
 pub(crate) type BlockingSinkSinkResult<Op> =
     OperatorOutput<DaftResult<<Op as BlockingSink>::State>>;
-pub(crate) type BlockingSinkFinalizeResult = OperatorOutput<DaftResult<Vec<MicroPartition>>>;
+pub(crate) enum BlockingSinkOutput {
+    Partitions(Vec<MicroPartition>),
+    ShuffleMetadata(ShuffleMetadata),
+}
+pub(crate) type BlockingSinkFinalizeResult = OperatorOutput<DaftResult<BlockingSinkOutput>>;
 
 pub(crate) trait BlockingSink: Send + Sync {
     type State: Send + Sync + Unpin;
@@ -144,6 +150,7 @@ pub struct BlockingSinkNode<Op: BlockingSink> {
     meter: Meter,
     plan_stats: StatsState,
     node_info: Arc<NodeInfo>,
+    checkpoint_store: Option<CheckpointStoreRef>,
 }
 
 impl<Op: BlockingSink + 'static> BlockingSinkNode<Op> {
@@ -162,7 +169,16 @@ impl<Op: BlockingSink + 'static> BlockingSinkNode<Op> {
             meter: ctx.meter.clone(),
             plan_stats,
             node_info: Arc::new(node_info),
+            checkpoint_store: None,
         }
+    }
+
+    /// Set the checkpoint context for this sink node. When present, the store's
+    /// `checkpoint()` method is called after finalize completes.
+    #[allow(dead_code)]
+    pub(crate) fn with_checkpoint_store(mut self, store: CheckpointStoreRef) -> Self {
+        self.checkpoint_store = Some(store);
+        self
     }
 
     pub(crate) fn boxed(self) -> Box<dyn PipelineNode> {
@@ -176,17 +192,30 @@ impl<Op: BlockingSink + 'static> BlockingSinkNode<Op> {
         finalize_spawner: ExecutionTaskSpawner,
         output_tx: Sender<PipelineMessage>,
         tasks: &mut OrderingAwareJoinSet<DaftResult<TaskResult<Op>>>,
+        checkpoint: Option<(CheckpointStoreRef, CheckpointId)>,
     ) {
         tasks.spawn(async move {
             let output = op.finalize(per_input.states, &finalize_spawner).await??;
-            for partition in output {
-                per_input.runtime_stats.add_rows_out(partition.len() as u64);
-                let _ = output_tx
-                    .send(PipelineMessage::Morsel {
-                        input_id,
-                        partition,
-                    })
-                    .await;
+            match output {
+                BlockingSinkOutput::Partitions(partitions) => {
+                    for partition in partitions {
+                        per_input.runtime_stats.add_rows_out(partition.len() as u64);
+                        let _ = output_tx
+                            .send(PipelineMessage::Morsel {
+                                input_id,
+                                partition,
+                            })
+                            .await;
+                    }
+                }
+                BlockingSinkOutput::ShuffleMetadata(metadata) => {
+                    let _ = output_tx
+                        .send(PipelineMessage::ShuffleMetadata { input_id, metadata })
+                        .await;
+                }
+            }
+            if let Some((store, id)) = &checkpoint {
+                store.checkpoint(id).await?;
             }
             let _ = output_tx.send(PipelineMessage::Flush(input_id)).await;
             Ok(TaskResult::Finalized)
@@ -202,8 +231,16 @@ impl<Op: BlockingSink + 'static> BlockingSinkNode<Op> {
         stats_manager: RuntimeStatsManagerHandle,
         meter: Meter,
         node_info: Arc<NodeInfo>,
+        checkpoint_store: Option<CheckpointStoreRef>,
     ) -> DaftResult<()> {
         let node_id = node_info.id;
+        let checkpoint = checkpoint_store.and_then(|store| {
+            let id = node_info
+                .context
+                .get("checkpoint_id")
+                .map(|s| CheckpointId::from_string(s.clone()))?;
+            Some((store, id))
+        });
         let max_concurrency = op.max_concurrency();
         let compute_runtime = get_compute_runtime();
         let task_spawner = ExecutionTaskSpawner::new(
@@ -247,6 +284,7 @@ impl<Op: BlockingSink + 'static> BlockingSinkNode<Op> {
                             finalize_spawner.clone(),
                             output_tx.clone(),
                             &mut tasks,
+                            checkpoint.clone(),
                         );
                     }
                 }
@@ -281,6 +319,9 @@ impl<Op: BlockingSink + 'static> BlockingSinkNode<Op> {
                     per_input.pending.push_back(partition);
                     per_input.flush_pending(&mut tasks, &op, &task_spawner, input_id)?;
                 }
+                PipelineEvent::ShuffleMetadata => {
+                    unreachable!("BlockingSinkNode should not receive shuffle metadata from child")
+                }
                 PipelineEvent::Flush(input_id) => {
                     if let Some(p) = inputs.get_mut(&input_id) {
                         p.flushed = true;
@@ -293,6 +334,7 @@ impl<Op: BlockingSink + 'static> BlockingSinkNode<Op> {
                             finalize_spawner.clone(),
                             output_tx.clone(),
                             &mut tasks,
+                            checkpoint.clone(),
                         );
                     }
                 }
@@ -313,6 +355,7 @@ impl<Op: BlockingSink + 'static> BlockingSinkNode<Op> {
                             finalize_spawner.clone(),
                             output_tx.clone(),
                             &mut tasks,
+                            checkpoint.clone(),
                         );
                     }
                 }
@@ -408,6 +451,7 @@ impl<Op: BlockingSink + 'static> PipelineNode for BlockingSinkNode<Op> {
             child,
             meter,
             node_info,
+            checkpoint_store,
             ..
         } = *self;
         let name: Arc<str> = node_info.name.clone();
@@ -426,6 +470,7 @@ impl<Op: BlockingSink + 'static> PipelineNode for BlockingSinkNode<Op> {
                     stats_manager,
                     meter,
                     node_info,
+                    checkpoint_store,
                 )
                 .await
             },

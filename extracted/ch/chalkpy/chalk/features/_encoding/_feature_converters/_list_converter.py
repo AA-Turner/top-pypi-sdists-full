@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing
+from io import BytesIO
 
 from typing import (
     Any,
@@ -14,6 +15,7 @@ from typing import (
 )
 
 import pyarrow as pa
+import pyarrow.feather as pf
 
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as pb
 from chalk.features._encoding.json import (
@@ -40,13 +42,11 @@ from ._base import (
     _raise_unsupported_missing_value_strategy,
 )
 from ._dataclass_converter import DataclassFeatureConverter
-from ._primitive_converter import _FeatureConverterArrowProtoHelpers, PrimitiveFeatureConverter
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportMissingSuperCall=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false, reportImplicitStringConcatenation=false
 
 
 class ListFeatureConverter(
-    _FeatureConverterArrowProtoHelpers,
     FeatureConverter[list, list],
 ):
     """List-level feature converter parameterized by an item :class:`FeatureConverter`.
@@ -117,6 +117,23 @@ class ListFeatureConverter(
             self._elem_to_rich = item_converter.from_primitive_to_rich
         self._primitive_type = pyarrow_to_primitive(self._pa_list_type, "")
 
+        # Precompute protobuf schema/null values from the item converter so that
+        # from_pyarrow_to_protobuf / from_protobuf_to_pyarrow need no imports from
+        # _primitive_converter.  The item converter's null scalar encodes its pb.ArrowType
+        # in the null_value field, which we reuse to build the list-level schema.
+        _item_null_pb = item_converter.from_pyarrow_to_protobuf(pa.nulls(1, item_converter.pyarrow_dtype)[0])
+        self._item_arrow_proto_type: pb.ArrowType = _item_null_pb.null_value
+        self._null_proto: pb.ArrowType = pb.ArrowType(
+            large_list=pb.List(field_type=pb.Field(
+                name=self._pa_list_type.value_field.name,
+                nullable=self._pa_list_type.value_field.nullable,
+                arrow_type=self._item_arrow_proto_type,
+            ))
+        )
+        self._pb_schema: pb.Schema = pb.Schema(
+            columns=[pb.Field(nullable=False, arrow_type=self._item_arrow_proto_type)]
+        )
+
         if is_nullable and default is ...:
             default = None
         if default is not ...:
@@ -179,6 +196,10 @@ class ListFeatureConverter(
     @property
     def pyarrow_dtype(self) -> pa.DataType:
         return self._pa_list_type
+
+    @property
+    def protobuf_dtype(self) -> pb.ArrowType:
+        return self._null_proto
 
     @property
     def polars_dtype(self) -> Any:
@@ -435,10 +456,18 @@ class ListFeatureConverter(
 
     def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
         if value.as_py() is None:
-            return pb.ScalarValue(null_value=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(value.type))
-        return PrimitiveFeatureConverter._serialize_pa_list_to_pb(value)  # pyright: ignore[reportPrivateUsage]
+            return pb.ScalarValue(null_value=self._null_proto)
+        values = value.values
+        table = pa.Table.from_arrays([values], names=["values"])
+        buf = BytesIO()
+        pf.write_feather(table, dest=buf, compression=None)
+        return pb.ScalarValue(
+            large_list_value=pb.ScalarListValue(arrow_data=buf.getvalue(), schema=self._pb_schema)
+        )
 
     def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
         if pb_value.HasField("null_value"):
             return pa.nulls(1, type=self._pa_list_type)[0]
-        return PrimitiveFeatureConverter._deserialize_pb_list_to_pa(pb_value)  # pyright: ignore[reportPrivateUsage]
+        value = pb_value.large_list_value
+        arr = pf.read_table(BytesIO(value.arrow_data)).column(0).combine_chunks()
+        return pa.scalar(arr.to_pylist(), self._pa_list_type)

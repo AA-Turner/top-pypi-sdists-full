@@ -74,7 +74,10 @@ from samtranslator.model.apigateway import (
     ApiGatewayUsagePlan,
     ApiGatewayUsagePlanKey,
 )
-from samtranslator.model.apigatewayv2 import ApiGatewayV2DomainName, ApiGatewayV2Stage
+from samtranslator.model.apigatewayv2 import (
+    ApiGatewayV2DomainName,
+    ApiGatewayV2Stage,
+)
 from samtranslator.model.architecture import ARM64, X86_64
 from samtranslator.model.capacity_provider.generators import CapacityProviderGenerator
 from samtranslator.model.cfn_attributes.deletion_policy import DeletionPolicy
@@ -146,6 +149,7 @@ from samtranslator.validator.value_validator import sam_expect
 
 from .api.api_generator import ApiGenerator
 from .api.http_api_generator import HttpApiGenerator
+from .api.websocket_api_generator import WebSocketApiGenerator
 from .packagetype import IMAGE, ZIP
 from .s3_utils.uri_parser import construct_image_code_object, construct_s3_location_object
 from .tags.resource_tagging import get_tag_list
@@ -1868,6 +1872,106 @@ class SamHttpApi(SamResourceMacro):
         # Stage is now optional. Only add it if one is created.
         if stage:
             resources.append(stage)
+
+        self.propagate_tags(resources, self.Tags, self.DefinitionBody is not None)
+        """
+        HttpApi says in the documentation that tags supplied by the user via the Tags field will always be
+        added to DomainName and Stage resources as long as DefinitionBody is used over DefinitionUri.
+        Because there are the only two types of resources that HttpApi generates that have a tags field, PropagateTags
+        is functionally always true for DefinitionBody and always false for DefinitionUri. Adding these tags was originally
+        done in the constructors for these resources, but needed to be changed to accomodate WebSockets, which does not
+        add tags to these resources by default.
+        """
+
+        return resources
+
+
+class SamWebSocketApi(SamResourceMacro):
+    """SAM WebSocket API Macro"""
+
+    resource_type = "AWS::Serverless::WebSocketApi"
+    property_types = {
+        "ApiKeySelectionExpression": PropertyType(False, IS_STR),
+        "AccessLogSettings": PropertyType(False, IS_DICT),
+        "Auth": PropertyType(False, IS_DICT),
+        "DefaultRouteSettings": PropertyType(False, IS_DICT),
+        "Description": PropertyType(False, IS_STR),
+        "DisableExecuteApiEndpoint": PropertyType(False, IS_BOOL),
+        "Domain": PropertyType(False, IS_DICT),
+        "DisableSchemaValidation": PropertyType(False, IS_BOOL),
+        "FailOnWarnings": PropertyType(False, IS_BOOL),
+        "IpAddressType": PropertyType(False, IS_STR),
+        "Name": PropertyType(False, IS_STR),
+        "PropagateTags": PropertyType(False, IS_BOOL),
+        "Routes": PropertyType(True, IS_DICT),
+        "RouteSettings": PropertyType(False, IS_DICT),
+        "RouteSelectionExpression": PropertyType(True, IS_STR),
+        "StageName": PropertyType(False, IS_STR),
+        "StageVariables": PropertyType(False, IS_DICT),
+        "Tags": PropertyType(False, IS_DICT),
+    }
+
+    ApiKeySelectionExpression: Optional[Intrinsicable[str]]
+    AccessLogSettings: Optional[Dict[str, Any]]
+    Auth: Optional[Dict[str, Any]]
+    DefaultRouteSettings: Optional[Dict[str, Any]]
+    Description: Optional[Intrinsicable[str]]
+    DisableExecuteApiEndpoint: Optional[Intrinsicable[bool]]
+    DisableSchemaValidation: Optional[Intrinsicable[bool]]
+    Domain: Optional[Dict[str, Any]]
+    FailOnWarnings: Optional[Intrinsicable[bool]]
+    IpAddressType: Optional[Intrinsicable[str]]
+    Name: Optional[str]
+    PropagateTags: Optional[bool]
+    Routes: Dict[str, Dict[str, Any]]
+    RouteSettings: Optional[Dict[str, Any]]
+    RouteSelectionExpression: str
+    StageName: Optional[str]
+    StageVariables: Optional[Dict[str, Intrinsicable[str]]]
+    Tags: Optional[Dict[str, Any]]
+
+    referable_properties = {
+        "Stage": ApiGatewayV2Stage.resource_type,
+        "DomainName": ApiGatewayV2DomainName.resource_type,
+    }
+
+    @cw_timer
+    def to_cloudformation(self, **kwargs):  # type: ignore[no-untyped-def]
+        """Returns the API GatewayV2 Api, Deployment, Stage, Routes, Integrations, and Permissions to which this SAM Api corresponds.
+
+        :param dict kwargs: already-converted resources that may need to be modified when converting this \
+        macro to pure CloudFormation
+        :returns: a list of vanilla CloudFormation Resources, to which this function expands
+        :rtype: list
+        """
+        self.validate_properties()
+        intrinsics_resolver = kwargs["intrinsics_resolver"]
+        self.Auth = intrinsics_resolver.resolve_parameter_refs(self.Auth)
+        self.Domain = intrinsics_resolver.resolve_parameter_refs(self.Domain)
+        self.Routes = intrinsics_resolver.resolve_parameter_refs(self.Routes)
+
+        api_generator = WebSocketApiGenerator(
+            logical_id=self.logical_id,
+            stage_variables=self.StageVariables,
+            depends_on=self.depends_on,
+            name=self.Name,
+            stage_name=self.StageName,
+            api_key_selection_expression=self.ApiKeySelectionExpression,
+            access_log_settings=self.AccessLogSettings,
+            auth_config=self.Auth,
+            default_route_settings=self.DefaultRouteSettings,
+            description=self.Description,
+            disable_execute_api_endpoint=self.DisableExecuteApiEndpoint,
+            disable_schema_validation=self.DisableSchemaValidation,
+            domain=self.Domain,
+            ip_address_type=self.IpAddressType,
+            routes=self.Routes,
+            route_settings=self.RouteSettings,
+            route_selection_expression=self.RouteSelectionExpression,
+            tags=self.Tags,
+        )
+
+        resources: List[Resource] = api_generator._to_cloudformation(kwargs.get("route53setrecordgroups", {}))
 
         self.propagate_tags(resources, self.Tags, self.PropagateTags)
 

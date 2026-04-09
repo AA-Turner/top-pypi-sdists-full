@@ -14,10 +14,11 @@ from icechunk import (
     s3_refreshable_credentials,
     s3_storage,
 )
+from tests.conftest import Permission
 
 
 def get_good_credentials() -> S3StaticCredentials:
-    return S3StaticCredentials(access_key_id="minio123", secret_access_key="minio123")
+    return S3StaticCredentials(*Permission.MODIFY.keys())
 
 
 def get_bad_credentials() -> S3StaticCredentials:
@@ -31,7 +32,7 @@ def get_bad_credentials() -> S3StaticCredentials:
 def test_refreshable_credentials_grant_access(scatter_initial_credentials: bool) -> None:
     good_storage = s3_storage(
         region="us-east-1",
-        endpoint_url="http://localhost:9000",
+        endpoint_url="http://localhost:4200",
         allow_http=True,
         force_path_style=True,
         bucket="testbucket",
@@ -41,7 +42,7 @@ def test_refreshable_credentials_grant_access(scatter_initial_credentials: bool)
     )
     bad_storage = s3_storage(
         region="us-east-1",
-        endpoint_url="http://localhost:9000",
+        endpoint_url="http://localhost:4200",
         allow_http=True,
         force_path_style=True,
         bucket="testbucket",
@@ -73,7 +74,7 @@ def test_refreshable_credentials_errors(scatter_initial_credentials: bool) -> No
         with pytest.raises(IcechunkError, match="bad creds"):
             st = s3_storage(
                 region="us-east-1",
-                endpoint_url="http://localhost:9000",
+                endpoint_url="http://localhost:4200",
                 allow_http=True,
                 bucket="testbucket",
                 prefix="this-repo-does-not-exist",
@@ -83,7 +84,7 @@ def test_refreshable_credentials_errors(scatter_initial_credentials: bool) -> No
     else:
         st = s3_storage(
             region="us-east-1",
-            endpoint_url="http://localhost:9000",
+            endpoint_url="http://localhost:4200",
             allow_http=True,
             bucket="testbucket",
             prefix="this-repo-does-not-exist",
@@ -97,7 +98,7 @@ def test_refreshable_credentials_errors(scatter_initial_credentials: bool) -> No
     st = Storage.new_s3(
         config=S3Options(
             region="us-east-1",
-            endpoint_url="http://localhost:9000",
+            endpoint_url="http://localhost:4200",
             allow_http=True,
             force_path_style=True,
         ),
@@ -112,7 +113,7 @@ def test_refreshable_credentials_errors(scatter_initial_credentials: bool) -> No
     st = Storage.new_s3(
         config=S3Options(
             region="us-east-1",
-            endpoint_url="http://localhost:9000",
+            endpoint_url="http://localhost:4200",
             allow_http=True,
             force_path_style=True,
         ),
@@ -143,9 +144,7 @@ class ExpirableCredentials:
 
         # The return an expired credential for 3 times, then we return credentials with no expiration
         expires = None if len(s) >= self.expired_times else datetime.now(UTC)
-        return S3StaticCredentials(
-            access_key_id="minio123", secret_access_key="minio123", expires_after=expires
-        )
+        return S3StaticCredentials(*Permission.MODIFY.keys(), expires_after=expires)
 
 
 @pytest.mark.parametrize(
@@ -160,7 +159,7 @@ def test_s3_refreshable_credentials_refresh(
 
     st = s3_storage(
         region="us-east-1",
-        endpoint_url="http://localhost:9000",
+        endpoint_url="http://localhost:4200",
         allow_http=True,
         force_path_style=True,
         bucket="testbucket",
@@ -191,6 +190,7 @@ def test_s3_refreshable_credentials_refresh(
 def test_s3_refreshable_credentials_pickle_with_optimization(
     tmp_path: Path,
     scatter_initial_credentials: bool,
+    any_spec_version: int | None,
 ) -> None:
     """Verifies pickled repos don't need to call get_credentials again if scatter_initial_credentials=True"""
     path = tmp_path / "calls.txt"
@@ -198,7 +198,7 @@ def test_s3_refreshable_credentials_pickle_with_optimization(
 
     st = s3_storage(
         region="us-east-1",
-        endpoint_url="http://localhost:9000",
+        endpoint_url="http://localhost:4200",
         allow_http=True,
         force_path_style=True,
         bucket="testbucket",
@@ -208,7 +208,10 @@ def test_s3_refreshable_credentials_pickle_with_optimization(
         scatter_initial_credentials=scatter_initial_credentials,
     )
     # let's create and use a repo
-    repo = Repository.create(storage=st)
+    repo = Repository.create(
+        storage=st,
+        spec_version=any_spec_version,
+    )
     assert Repository.exists(st)
     assert Repository.exists(st)
 

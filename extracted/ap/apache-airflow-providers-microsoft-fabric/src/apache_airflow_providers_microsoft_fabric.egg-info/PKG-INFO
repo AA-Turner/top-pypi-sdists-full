@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-microsoft-fabric
-Version: 0.0.9
+Version: 0.1.0
 Summary: A plugin for Apache Airflow to interact with Microsoft Fabric items
 Author-email: Vinicius Fontes <vfontes@microsot.com>
 Project-URL: Homepage, https://github.com/microsoft/apache-airflow-microsoft-fabric-plugin.git
@@ -13,6 +13,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
+Requires-Dist: azure-identity
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-mock; extra == "test"

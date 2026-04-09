@@ -1342,6 +1342,18 @@ impl DocumentExtractor for DocxExtractor {
             ..Default::default()
         };
 
+        // Filter headers/footers based on content_filter config.
+        // When content_filter is None, keep current behavior (headers/footers included).
+        // When content_filter is Some(...), respect include_headers/include_footers flags.
+        if let Some(ref filter) = config.content_filter {
+            use crate::types::document_structure::ContentLayer;
+            internal_doc.elements.retain(|elem| match elem.layer {
+                ContentLayer::Header => filter.include_headers,
+                ContentLayer::Footer => filter.include_footers,
+                _ => true,
+            });
+        }
+
         // Transfer images to InternalDocument
         internal_doc.images = extracted_images;
         internal_doc.mime_type = std::borrow::Cow::Owned(mime_type.to_string());

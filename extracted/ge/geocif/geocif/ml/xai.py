@@ -11,6 +11,23 @@ from geocif import utils
 
 logger = logging.getLogger(__name__)
 
+# Models that need a model-agnostic SHAP explainer (no TreeExplainer support).
+_MODEL_AGNOSTIC_XAI = {"tabpfn", "tabicl"}
+
+
+def _model_feature_names(model, fallback_df):
+    """Resolve a model's training feature names compatibly.
+
+    CatBoost exposes ``feature_names_``; sklearn-style models (TabPFN, TabICL)
+    expose ``feature_names_in_``. Fall back to the dataframe columns if neither
+    attribute is set.
+    """
+    for attr in ("feature_names_", "feature_names_in_"):
+        names = getattr(model, attr, None)
+        if names is not None:
+            return list(names)
+    return list(fallback_df.columns)
+
 
 def explain(df_train, df_test, **kwargs):
     cluster_strategy = kwargs.get("cluster_strategy", "auto_detect")
@@ -38,11 +55,24 @@ def explain(df_train, df_test, **kwargs):
     ############################
     # Model specific feature importance
     ############################
-    explainer = shap.TreeExplainer(model)
-    # shap.KernelExplainer(model.predict, df_train[selected_features])
-    # Ensure that train and test dataframes have the same columns by using feature_names_
+    features = _model_feature_names(model, df_train)
+    X_train_feat = df_train[features]
+    X_test_feat = df_test[features]
 
-    shap_values = explainer(df_train[model.feature_names_])
+    if model_name in _MODEL_AGNOSTIC_XAI:
+        # PermutationExplainer is model-agnostic and CPU-friendly. Background
+        # must be small because TabPFN/TabICL inference is expensive on CPU,
+        # and max_evals caps the per-row perturbation budget (the SHAP default
+        # ~500*(n_features+1) is far too high here).
+        n_bg = min(50, len(X_train_feat))
+        background = shap.sample(X_train_feat, n_bg, random_state=0)
+        explainer = shap.PermutationExplainer(model.predict, background)
+        shap_values = explainer(X_train_feat, max_evals=500)
+        shap_values_test = explainer(X_test_feat, max_evals=500)
+    else:
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer(X_train_feat)
+        shap_values_test = explainer(X_test_feat)
 
     ############################
     # SHAP beeswarm plot
@@ -65,7 +95,6 @@ def explain(df_train, df_test, **kwargs):
     ############################
     # SHAP waterfall plot
     ############################
-    shap_values_test = explainer(df_test[model.feature_names_])
     for idx, row in tqdm(df_test.iterrows(), desc="SHAP waterfall", leave=False):
         region_name = row["Region"]
 
@@ -87,18 +116,16 @@ def explain(df_train, df_test, **kwargs):
     ############################
     if db_path is not None:
         _store_shap_to_db(
-            db_path, shap_values_test, df_test, model,
+            db_path, shap_values_test, df_test, features,
             country, crop, model_name, forecast_season,
         )
 
 
 def _store_shap_to_db(
-    db_path, shap_values, df_test, model,
+    db_path, shap_values, df_test, features,
     country, crop, model_name, forecast_season,
 ):
     """Store SHAP values and feature importance to the SQLite database."""
-    features = model.feature_names_
-
     # ── shap_values table: one row per test observation ──
     shap_cols = {f"SHAP_{feat}": shap_values.values[:, i]
                  for i, feat in enumerate(features)}

@@ -22,14 +22,9 @@ _ANTHROPIC_USAGE_METRIC_FIELDS = (
     ("cache_creation_input_tokens", "prompt_cache_creation_tokens"),
 )
 
-_ANTHROPIC_CACHE_CREATION_METRIC_FIELDS = (
-    ("ephemeral_5m_input_tokens", "prompt_cache_creation_ephemeral_5m_tokens"),
-    ("ephemeral_1h_input_tokens", "prompt_cache_creation_ephemeral_1h_tokens"),
-)
-
-_ANTHROPIC_SERVER_TOOL_USE_METRIC_FIELDS = (
-    ("web_search_requests", "server_tool_use_web_search_requests"),
-    ("web_fetch_requests", "server_tool_use_web_fetch_requests"),
+_ANTHROPIC_CACHE_CREATION_METADATA_FIELDS = (
+    ("ephemeral_5m_input_tokens", "cache_creation_ephemeral_5m_input_tokens"),
+    ("ephemeral_1h_input_tokens", "cache_creation_ephemeral_1h_input_tokens"),
 )
 
 _ANTHROPIC_USAGE_METADATA_FIELDS = frozenset(
@@ -81,22 +76,23 @@ def extract_anthropic_usage(usage: Any) -> tuple[dict[str, float], dict[str, Any
         return {}, {}
 
     metrics: dict[str, float] = {}
+    metadata: dict[str, Any] = {}
     for source_name, metric_name in _ANTHROPIC_USAGE_METRIC_FIELDS:
         _set_numeric_metric(metrics, metric_name, usage.get(source_name))
 
     cache_creation = _try_to_dict(usage.get("cache_creation"))
     cache_creation_breakdown: list[float] = []
     if cache_creation is not None:
-        for source_name, metric_name in _ANTHROPIC_CACHE_CREATION_METRIC_FIELDS:
+        for source_name, metadata_key in _ANTHROPIC_CACHE_CREATION_METADATA_FIELDS:
             value = cache_creation.get(source_name)
-            _set_numeric_metric(metrics, metric_name, value)
             if is_numeric(value):
+                metadata[metadata_key] = int(value)
                 cache_creation_breakdown.append(float(value))
 
     server_tool_use = _try_to_dict(usage.get("server_tool_use"))
     if server_tool_use is not None:
-        for source_name, metric_name in _ANTHROPIC_SERVER_TOOL_USE_METRIC_FIELDS:
-            _set_numeric_metric(metrics, metric_name, server_tool_use.get(source_name))
+        for source_name, value in server_tool_use.items():
+            _set_numeric_metric(metrics, f"server_tool_use_{source_name}", value)
 
     if "prompt_cache_creation_tokens" not in metrics and cache_creation_breakdown:
         metrics["prompt_cache_creation_tokens"] = sum(cache_creation_breakdown)
@@ -110,9 +106,7 @@ def extract_anthropic_usage(usage: Any) -> tuple[dict[str, float], dict[str, Any
         metrics["prompt_tokens"] = total_prompt_tokens
         metrics["tokens"] = total_prompt_tokens + metrics.get("completion_tokens", 0)
 
-    metadata = {
-        f"usage_{name}": value
-        for name, value in usage.items()
-        if name in _ANTHROPIC_USAGE_METADATA_FIELDS and value is not None
-    }
+    for name, value in usage.items():
+        if name in _ANTHROPIC_USAGE_METADATA_FIELDS and value is not None:
+            metadata[f"usage_{name}"] = value
     return metrics, metadata

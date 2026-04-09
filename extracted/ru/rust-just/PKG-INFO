@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rust-just
-Version: 1.48.1
+Version: 1.49.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -109,6 +109,10 @@ always welcome!
 
 Installation
 ------------
+
+Just can be installed using your favorite [package manager](#packages), by
+downloading [pre-built binaries](#pre-built-binaries), or building from source
+with `cargo install just`.
 
 ### Prerequisites
 
@@ -469,7 +473,8 @@ RUN just
 
 ### Release RSS Feed
 
-An [RSS feed](https://en.wikipedia.org/wiki/RSS) of `just` releases is available [here](https://github.com/casey/just/releases.atom).
+An [RSS feed](https://en.wikipedia.org/wiki/RSS) of `just` releases is
+available [here](https://github.com/casey/just/releases.atom).
 
 ### Node.js Installation
 
@@ -486,6 +491,24 @@ who want to make the set up process for their project as easy as possible.
 
 For more information, see the
 [just-install README file](https://github.com/brombal/just-install#readme).
+
+### Nix Flake
+
+The `just` repository includes a
+[`flake.nix`](https://github.com/casey/just/tree/master/flake.nix) that defines
+a [nix flake](https://nix.dev/concepts/flakes.html), allowing you to use `just`
+as an input to another flake:
+
+```nix
+{
+  inputs = {
+    just.url = "github:casey/just";
+  }
+
+  outputs = {self, nixpkgs, just}: {
+  }
+}
+```
 
 Backwards Compatibility
 -----------------------
@@ -551,28 +574,6 @@ git clone https://github.com/NoahTheDuke/vim-just.git
 [tree-sitter-just](https://github.com/IndianBoy42/tree-sitter-just) is an
 [Nvim Treesitter](https://github.com/nvim-treesitter/nvim-treesitter) plugin
 for Neovim.
-
-#### Makefile Syntax Highlighting
-
-Vim's built-in makefile syntax highlighting isn't perfect for `justfile`s, but
-it's better than nothing. You can put the following in `~/.vim/filetype.vim`:
-
-```vimscript
-if exists("did_load_filetypes")
-  finish
-endif
-
-augroup filetypedetect
-  au BufNewFile,BufRead justfile setf make
-augroup END
-```
-
-Or add the following to an individual `justfile` to enable `make` mode on a
-per-file basis:
-
-```text
-# vim: set ft=make :
-```
 
 ### Emacs
 
@@ -1063,6 +1064,7 @@ foo:
 | `export` | boolean | `false` | Export all variables as environment variables. |
 | `fallback` | boolean | `false` | Search `justfile` in parent directory if the first recipe on the command line is not found. |
 | `ignore-comments` | boolean | `false` | Ignore recipe lines beginning with `#`. |
+| `no-exit-message`<sup>1.39.0</sup> | boolean | `false` | Don't print exit messages if recipes fail. |
 | `lazy`<sup>1.47.0</sup> | boolean | `false` | Don't evaluate unused variables. |
 | `positional-arguments` | boolean | `false` | Pass positional arguments. |
 | `quiet` | boolean | `false` | Disable echoing recipe lines before executing. |
@@ -1087,7 +1089,7 @@ set NAME := true
 ```
 
 Non-boolean settings can be set to both strings and
-expressions.<sup>1.46.0</sup>
+expressions<sup>1.46.0</sup>.
 
 However, because settings affect the behavior of backticks and many functions,
 those expressions may not contain backticks or function calls, directly or
@@ -1192,6 +1194,12 @@ $ just serve
 Starting server with database localhost:6379 on port 1337…
 ./server --database $DATABASE_ADDRESS --port $SERVER_PORT
 ```
+
+Variables in environment files loaded in parent modules are inherited by
+submodules.
+
+Environment files are loaded in submodules<sup>1.49.0<sup> and may override
+variable defined in parent module environment files.
 
 #### Export
 
@@ -1442,6 +1450,61 @@ $ just --list
 Available recipes:
     build # Build stuff
     test
+```
+
+### Variables and Assignments
+
+Module-level variables may be created by assigning them a value with `:=`:
+
+```just
+foo := "hello"
+bar := "world"
+
+baz:
+  echo {{ foo + " " + bar }}
+```
+
+All variables in a module may be printed:
+
+```console
+$ just --evaluate
+bar := "world"
+foo := "hello"
+```
+
+Or the value of a single variable:
+
+```console
+$ just --evalaute foo
+hello
+```
+
+All variables in a submodule or a single variable in a submodule may be printed
+with a path to the submodule or variable<sup>1.49.0</sup>:
+
+```console
+$ just --evaluate bob::bar
+x := "world"
+y := "hello"
+$ just --evaluate bob::bar::y
+hello
+```
+
+The format of exported variables may be controlled with
+`--evaluate-format`<sup>1.49.0</sup>:
+
+```console
+$ just --evaluate --evaluate-format shell
+bar="world"
+foo="hello"
+```
+
+The default format is `--evaluate-format just`:
+
+```console
+$ just --evaluate --evaluate-format just
+bar := "world"
+foo := "hello"
 ```
 
 ### Expressions and Substitutions
@@ -1746,7 +1809,7 @@ BAR
 FOO
 ```
 
-### Functions
+### Built-in Functions
 
 `just` provides many built-in functions for use in expressions, including
 recipe body `{{…}}` substitutions, assignments, and default parameter values.
@@ -1957,6 +2020,18 @@ script:
 directory, respectively, of the current `import` or `mod` source file when
 called from within an import or submodule.
 
+#### Module and Module Directory
+
+- `module_file()` - Retrieves the path of the current module file.
+
+- `module_directory()` - Retrieves the path of the parent directory of the
+  current module file.
+
+`module_file()` and `module_directory()` behave the same as `justfile()` and
+`justfile_directory()` in the root `justfile`, but will return the path and
+directory, respectively, of the current `mod` source file when called from
+within submodule.
+
 #### Just Executable
 
 - `just_executable()` - Absolute path to the `just` executable.
@@ -2113,8 +2188,8 @@ for details.
 
 - `semver_matches(version, requirement)`<sup>1.16.0</sup> - Check whether a
   [semantic `version`](https://semver.org), e.g., `"0.1.0"` matches a
-  `requirement`, e.g., `">=0.1.0"`, returning `"true"` if so and `"false"`
-  otherwise.
+  `requirement`, e.g., `">=0.1.0"`, returning the string `"true"` if so and the
+  string `"false"` otherwise.
 
 #### Style
 
@@ -2157,6 +2232,8 @@ details.
 - `data_local_directory()` - The local user-specific data directory.
 - `executable_directory()` - The user-specific executable directory.
 - `home_directory()` - The user's home directory.
+- `runtime_directory()` - The user-specific runtime directory. Only defined on
+  Linux.
 
 If you would like to use XDG base directories on all platforms you can use the
 `env(…)` function with the appropriate environment variable and fallback,
@@ -2170,6 +2247,36 @@ xdg_config_dir := if env('XDG_CONFIG_HOME', '') =~ '^/' {
 } else {
   home_directory() / '.config'
 }
+```
+
+### User-defined functions
+
+New functions may be defined<sup>1.49.0</sup>:
+
+```just
+set unstable
+
+hello(name) := f"Hello, {{ name }}!"
+
+foo:
+  echo '{{ hello("World") }}'
+```
+
+User defined functions are currently unstable.
+
+Functions may reference assignments in the same module:
+
+```just
+set unstable
+
+base := "foo"
+
+join(extension) := base + "." + extension
+
+create:
+  touch {{ join("c") }}
+  touch {{ join("html") }}
+  touch {{ join("txt") }}
 ```
 
 ### Constants
@@ -2256,6 +2363,7 @@ change their behavior.
 | `[dragonfly]`<sup>1.47.0</sup> | recipe | Enable recipe on DragonFly BSD. |
 | `[env(ENV_VAR, VALUE)]` <sup>1.47.0</sup> | recipe | Set environment variables for recipe. |
 | `[extension(EXT)]`<sup>1.32.0</sup> | recipe | Set shebang recipe script's file extension to `EXT`. `EXT` should include a period if one is desired. |
+| `[exit-message]`<sup>1.39.0</sup> | recipe | Print error message if recipe fails regardless of `set no-exit-message`. |
 | `[freebsd]`<sup>1.47.0</sup> | recipe | Enable recipe on FreeBSD. |
 | `[group(NAME)]`<sup>1.27.0</sup> | module, recipe | Put recipe or module in [group](#groups) `NAME`. |
 | `[linux]`<sup>1.8.0</sup> | recipe | Enable recipe on Linux. |
@@ -2370,6 +2478,15 @@ The default confirmation prompt can be overridden with
 [confirm("Are you sure you want to delete everything?")]
 delete-everything:
   rm -rf *
+```
+
+The confirmation prompt may also be an expression<sup>1.49.0</sup> which may
+reference assignments or recipe arguments:
+
+```just
+[confirm("Deploy to " + env + "?")]
+deploy env:
+  echo 'Deploying to {{env}}...'
 ```
 
 #### Metadata
@@ -3831,7 +3948,9 @@ Bar!
 
 `just` normally prints error messages when a recipe line fails. These error
 messages can be suppressed using the `[no-exit-message]`<sup>1.7.0</sup>
-attribute. You may find this especially useful with a recipe that wraps a tool:
+attribute on individual recipes, or module-wide with
+`set no-exit-message`<sup>1.39.0</sup>. You may find this especially useful
+with a recipe that wraps a tool:
 
 ```just
 git *args:
@@ -4770,6 +4889,12 @@ export FOO := '''
 bar:
   printf %s "$FOO"
 ```
+
+### Skill for Agents
+
+A skill for agents is available in
+[skills/just](https://github.com/casey/just/blob/master/skills/just/) and may
+be installed manually or with `npx skills add casey/just --global`.
 
 ### Alternatives and Prior Art
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: respx
-Version: 0.23.0
+Version: 0.23.1
 Summary: A utility for mocking out the Python HTTPX and HTTP Core libraries.
 Home-page: https://lundberg.github.io/respx/
 Author: Jonas Lundberg

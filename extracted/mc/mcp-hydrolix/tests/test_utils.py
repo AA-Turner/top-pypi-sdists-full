@@ -1,12 +1,12 @@
 import json
 import ipaddress
 import pytest
-from datetime import datetime, time
+from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 
 from mcp.types import TextContent
 
-from mcp_hydrolix.utils import ExtendedEncoder, with_serializer
+from mcp_hydrolix.utils import ExtendedEncoder, with_serializer, inject_limit
 from fastmcp.tools.tool import ToolResult
 
 
@@ -19,12 +19,32 @@ class TestExtendedEncoder:
         result = json.dumps({"ip": ip}, cls=ExtendedEncoder)
         assert result == '{"ip": "192.168.1.1"}'
 
-    def test_datetime_serialization(self):
-        """Test that datetime objects are converted to time objects."""
-        dt = datetime(2024, 1, 15, 14, 30, 45, 123456)
-        result = json.dumps({"timestamp": dt}, cls=ExtendedEncoder)
-        expected_time = dt.timestamp()
-        assert result == f'{{"timestamp": {expected_time}}}'
+    def test_datetime_serialization_utc_aware(self):
+        """UTC-aware datetimes (as returned by clickhouse-connect with tz_mode='aware')
+        serialize to the correct UTC epoch regardless of local timezone."""
+        known_utc_epoch = 1705314645  # 2024-01-15 10:30:45 UTC
+        dt = datetime(2024, 1, 15, 10, 30, 45, tzinfo=timezone.utc)
+        result = json.dumps({"ts": dt}, cls=ExtendedEncoder)
+        parsed = json.loads(result)
+        assert parsed["ts"] == known_utc_epoch
+
+    def test_datetime_serialization_non_utc_aware(self):
+        """Non-UTC tz-aware datetimes (e.g. server returning EDT) serialize to the
+        correct epoch.  clickhouse-connect with tz_mode='aware' attaches the server
+        timezone, so 21:00 EDT must produce the same epoch as 01:00 UTC next day."""
+        edt = timezone(timedelta(hours=-4))
+        dt = datetime(2024, 1, 15, 21, 0, 0, tzinfo=edt)
+        result = json.dumps({"ts": dt}, cls=ExtendedEncoder)
+        parsed = json.loads(result)
+        expected_epoch = datetime(2024, 1, 16, 1, 0, 0, tzinfo=timezone.utc).timestamp()
+        assert parsed["ts"] == expected_epoch
+
+    def test_datetime_serialization_naive_uses_local_tz(self):
+        """Naive datetimes are interpreted as local time (Python default behavior)."""
+        dt = datetime(2024, 1, 15, 14, 30, 45)
+        result = json.dumps({"ts": dt}, cls=ExtendedEncoder)
+        parsed = json.loads(result)
+        assert parsed["ts"] == dt.timestamp()
 
     def test_time_serialization(self):
         """Test that time objects are converted to seconds."""
@@ -101,6 +121,14 @@ class TestExtendedEncoder:
         assert parsed["users"][1]["ip"] == "192.168.1.101"
         assert parsed["users"][1]["balance"] == "2000.75"
 
+    def test_date_serialization(self):
+        """Test that date objects (not datetime) are serialized via isoformat."""
+        from datetime import date
+
+        d = date(2024, 1, 15)
+        result = json.dumps({"d": d}, cls=ExtendedEncoder)
+        assert result == '{"d": "2024-01-15"}'
+
     def test_standard_types_unchanged(self):
         """Test that standard JSON types are serialized normally."""
         data = {
@@ -157,7 +185,6 @@ class TestWithSerializerDecorator:
         assert isinstance(result, ToolResult)
         assert result.structured_content == {"name": "Alice", "age": 30}
 
-    @pytest.mark.asyncio
     async def test_async_function_basic(self):
         """Test decorator works with async functions."""
 
@@ -171,7 +198,6 @@ class TestWithSerializerDecorator:
         assert result.content == [TextContent(type="text", text='{"result": "async success"}')]
         assert result.structured_content == {"result": "async success"}
 
-    @pytest.mark.asyncio
     async def test_async_function_with_args(self):
         """Test decorator works with async function arguments."""
 
@@ -203,7 +229,6 @@ class TestWithSerializerDecorator:
         assert parsed["amount"] == "500.00"
         assert parsed["data"] == "encoded"
 
-    @pytest.mark.asyncio
     async def test_async_custom_types_serialization(self):
         """Test decorator serializes custom types in async functions."""
 
@@ -286,6 +311,119 @@ class TestWithSerializerDecorator:
         assert isinstance(result, ToolResult)
         assert result.content == [TextContent(type="text", text='{"result": [1, 2, 3, 4, 5]}')]
         assert result.structured_content == {"result": [1, 2, 3, 4, 5]}
+
+
+class TestClientTimezoneConfig:
+    """Verify clickhouse-connect is configured to return tz-aware UTC datetimes."""
+
+    def test_client_config_uses_aware_tz_mode(self):
+        """get_client_config must include tz_mode='aware' so clickhouse-connect
+        returns tz-aware UTC datetimes instead of naive ones."""
+        from mcp_hydrolix.mcp_env import get_config
+
+        config = get_config().get_client_config(request_credential=None)
+        assert config.get("tz_mode") == "aware", (
+            "tz_mode must be 'aware' to avoid naive datetimes being misinterpreted "
+            "as local time by Python's datetime.timestamp()"
+        )
+
+
+class TestClickhouseConnectTzBehavior:
+    """Contract tests: verify clickhouse-connect honours tz_mode when
+    deserialising DateTime columns, so our tz_mode='aware' config actually
+    produces tz-aware datetimes."""
+
+    def test_aware_mode_preserves_utc(self):
+        """With tz_mode='aware' and a UTC server, active_tz must return UTC
+        (not None), so datetimes carry tzinfo."""
+        from clickhouse_connect.driver.query import QueryContext
+        import pytz
+
+        ctx = QueryContext(
+            query="",
+            server_tz=pytz.UTC,
+            tz_mode="aware",
+            apply_server_tz=True,
+        )
+        assert ctx.active_tz(None) is not None
+
+    def test_naive_utc_mode_strips_utc(self):
+        """With the old default ('naive_utc') and a UTC server, active_tz
+        returns None — the behaviour we are fixing."""
+        from clickhouse_connect.driver.query import QueryContext
+        import pytz
+
+        ctx = QueryContext(
+            query="",
+            server_tz=pytz.UTC,
+            tz_mode="naive_utc",
+            apply_server_tz=True,
+        )
+        assert ctx.active_tz(None) is None
+
+    def test_aware_mode_preserves_non_utc_server_tz(self):
+        """With tz_mode='aware' and a non-UTC server, active_tz returns the
+        server timezone so datetimes are tz-aware in that zone."""
+        from clickhouse_connect.driver.query import QueryContext
+        import pytz
+
+        eastern = pytz.timezone("US/Eastern")
+        ctx = QueryContext(
+            query="",
+            server_tz=eastern,
+            tz_mode="aware",
+            apply_server_tz=True,
+        )
+        result = ctx.active_tz(None)
+        assert result is not None
+        assert result == eastern
+
+
+class TestInjectLimit:
+    def test_adds_limit_when_none_present(self):
+        result = inject_limit("SELECT * FROM t", 10)
+        assert "LIMIT 10" in result
+
+    def test_takes_min_when_existing_limit_is_larger(self):
+        result = inject_limit("SELECT * FROM t LIMIT 100", 10)
+        assert "LIMIT 10" in result
+        assert "LIMIT 100" not in result
+
+    def test_preserves_smaller_existing_limit(self):
+        result = inject_limit("SELECT * FROM t LIMIT 5", 10)
+        assert "LIMIT 5" in result
+        assert "LIMIT 10" not in result
+
+    def test_only_affects_outermost_limit(self):
+        query = "SELECT * FROM (SELECT * FROM t LIMIT 1000) AS sub"
+        result = inject_limit(query, 10)
+        assert "LIMIT 1000" in result  # inner limit preserved
+        assert result.strip().endswith("LIMIT 10")  # outer limit added, not inner
+
+    def test_preserves_offset_when_capping_limit(self):
+        result = inject_limit("SELECT * FROM t LIMIT 100 OFFSET 50", 10)
+        assert "LIMIT 10" in result
+        assert "50" in result  # offset preserved
+
+    def test_equal_limit_is_unchanged(self):
+        result = inject_limit("SELECT * FROM t LIMIT 10", 10)
+        assert "LIMIT 10" in result
+
+    def test_non_literal_existing_limit_is_left_unchanged(self):
+        # A LIMIT with a parenthesized or non-literal expression should not crash,
+        # and the original LIMIT expression must be preserved (not dropped or mangled).
+        result = inject_limit("SELECT * FROM t LIMIT (100)", 10)
+        assert result is not None  # must not raise
+        assert "LIMIT" in result  # LIMIT clause must still be present
+        assert "100" in result  # original value must be preserved
+        assert "LIMIT 10" not in result  # cap must NOT have been applied
+
+    def test_unparseable_query_returned_unchanged(self):
+        # A query sqlglot cannot parse must be returned as-is without raising, so the
+        # caller can still execute it (limit injection is best-effort).
+        bad_sql = "THIS IS NOT VALID SQL @@@@"
+        result = inject_limit(bad_sql, 10)
+        assert result == bad_sql
 
 
 if __name__ == "__main__":

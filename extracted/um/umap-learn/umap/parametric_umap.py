@@ -12,16 +12,14 @@ try:
     # Used for tf.data.
     import tensorflow as tf
 except ImportError:
-    warn(
-        """The umap.parametric_umap package requires Tensorflow > 2.0 to be installed.
+    warn("""The umap.parametric_umap package requires Tensorflow > 2.0 to be installed.
     You can install Tensorflow at https://www.tensorflow.org/install
     
     or you can install the CPU version of Tensorflow using 
 
     pip install umap-learn[parametric_umap]
 
-    """
-    )
+    """)
     raise ImportError("umap.parametric_umap requires Tensorflow >= 2.0") from None
 
 try:
@@ -178,8 +176,10 @@ class ParametricUMAP(UMAP):
         """
         if (self.prev_epoch_X is not None) & (landmark_positions is None):
             # Add the landmark points for training, then make a landmark vector.
+            nan_array = np.empty(self.n_components)
+            nan_array.fill(np.nan)
             landmark_positions = np.stack(
-                [np.array([np.nan, np.nan])] * X.shape[0]
+                [nan_array] * X.shape[0]
                 + list(self.transform(self.prev_epoch_X))
             )
             X = np.concatenate((X, self.prev_epoch_X))
@@ -188,17 +188,13 @@ class ParametricUMAP(UMAP):
             len_X = len(X)
             len_land = len(landmark_positions)
             if len_X != len_land:
-                raise ValueError(
-                    f"Length of x = {len_X}, length of landmark_positions \
-                    = {len_land}, while it must be equal."
-                )
+                raise ValueError(f"Length of x = {len_X}, length of landmark_positions \
+                    = {len_land}, while it must be equal.")
 
         if self.metric == "precomputed":
             if precomputed_distances is None:
-                raise ValueError(
-                    "Precomputed distances must be supplied if metric \
-                    is precomputed."
-                )
+                raise ValueError("Precomputed distances must be supplied if metric \
+                    is precomputed.")
             # prepare X for training the network
             self._X = X
             # geneate the graph on precomputed distances
@@ -241,8 +237,10 @@ class ParametricUMAP(UMAP):
         """
         if (self.prev_epoch_X is not None) & (landmark_positions is None):
             # Add the landmark points for training, then make a landmark vector.
+            nan_array = np.empty(self.n_components)
+            nan_array.fill(np.nan)
             landmark_positions = np.stack(
-                [np.array([np.nan, np.nan])] * X.shape[0]
+                [nan_array] * X.shape[0]
                 + list(self.transform(self.prev_epoch_X))
             )
             X = np.concatenate((X, self.prev_epoch_X))
@@ -251,17 +249,13 @@ class ParametricUMAP(UMAP):
             len_X = len(X)
             len_land = len(landmark_positions)
             if len_X != len_land:
-                raise ValueError(
-                    f"Length of x = {len_X}, length of landmark_positions \
-                    = {len_land}, while it must be equal."
-                )
+                raise ValueError(f"Length of x = {len_X}, length of landmark_positions \
+                    = {len_land}, while it must be equal.")
 
         if self.metric == "precomputed":
             if precomputed_distances is None:
-                raise ValueError(
-                    "Precomputed distances must be supplied if metric \
-                    is precomputed."
-                )
+                raise ValueError("Precomputed distances must be supplied if metric \
+                    is precomputed.")
             # prepare X for training the network
             self._X = X
             # generate the graph on precomputed distances
@@ -426,6 +420,12 @@ class ParametricUMAP(UMAP):
         else:
             validation_data = None
 
+        # Make sure landmmark params are propagated correctly to the parametric model
+        if self.parametric_model is not None:
+            self.parametric_model.landmark_loss_weight = self.landmark_loss_weight
+            if self.landmark_loss_fn is not None:
+                self.parametric_model.landmark_loss_fn = self.landmark_loss_fn
+
         # create embedding
         history = self.parametric_model.fit(
             edge_dataset,
@@ -516,6 +516,7 @@ class ParametricUMAP(UMAP):
         sample_mode="uniform",
         landmark_loss_weight=0.01,
         idx=None,
+        reset_optimizer=True,
     ):
         """Add some points from a dataset X as "landmarks."
 
@@ -529,11 +530,14 @@ class ParametricUMAP(UMAP):
             Method for sampling points. Allows "uniform" and "predefined."
         landmark_loss_weight : float, optional
             Multiplier for landmark loss function.
+        reset_optimizer : bool, optional
+            Whether to reset optimizer to default state. Can prevent gradient issues when re-training.
 
         """
         self.sample_pct = sample_pct
         self.sample_mode = sample_mode
         self.landmark_loss_weight = landmark_loss_weight
+        self.parametric_model.landmark_loss_weight = landmark_loss_weight
 
         if self.sample_mode == "uniform":
             self.prev_epoch_idx = list(
@@ -551,6 +555,19 @@ class ParametricUMAP(UMAP):
 
         else:
             raise ValueError("Choice of sample_mode is not supported.")
+
+        # Adding landmarks causes a sharp discontinuity in the loss function.
+        # This can raise issues with the internal momentum of the optimizer.
+        # It is good practice to re-initialise the optimizer when adding landmarks.
+        #
+        if reset_optimizer:
+            if (
+                self.parametric_model is not None
+                and self.parametric_model.optimizer is not None
+            ):
+                self.parametric_model.optimizer.build(
+                    self.parametric_model.trainable_variables
+                )
 
     def remove_landmarks(self):
         self.prev_epoch_X = None
@@ -993,13 +1010,13 @@ def load_ParametricUMAP(save_location, verbose=True):
         if verbose:
             print("Keras encoder model loaded from {}".format(encoder_output))
 
-    # save decoder
+    # load decoder
     decoder_output = os.path.join(save_location, "decoder.keras")
     if os.path.exists(decoder_output):
         model.decoder = keras.models.load_model(decoder_output)
         print("Keras decoder model loaded from {}".format(decoder_output))
 
-    # save parametric_model
+    # load parametric_model
     parametric_model_output = os.path.join(save_location, "parametric_model")
     if os.path.exists(parametric_model_output):
         model.parametric_model = keras.models.load_model(parametric_model_output)
@@ -1084,8 +1101,11 @@ class StopGradient(keras.layers.Layer):
 
 def _default_landmark_loss(y, y_pred):
     # Euclidean distance between points.
+    # Use sqrt(sum_sq + eps) instead of norm to avoid NaN gradient at zero.
     # Relu activation smooths gradients.
-    return keras.activations.relu(ops.mean(ops.norm(y_pred - y, axis=1)))
+    sq_diff = ops.sum((y_pred - y) ** 2, axis=1)
+    safe_dist = ops.sqrt(sq_diff + 1e-10)
+    return keras.activations.relu(ops.mean(safe_dist))
 
 
 class UMAPModel(keras.Model):
@@ -1225,7 +1245,7 @@ class UMAPModel(keras.Model):
         )
 
         # compute cross entropy
-        (attraction_loss, repellant_loss, ce_loss) = compute_cross_entropy(
+        attraction_loss, repellant_loss, ce_loss = compute_cross_entropy(
             probabilities_graph,
             log_probabilities_distance,
             repulsion_strength=repulsion_strength,
@@ -1270,20 +1290,23 @@ class UMAPModel(keras.Model):
     def _landmark_loss(self, y, y_pred):
         y_to = y["landmark_to"]
 
-        # Euclidean distance between y and y_pred, ignoring nans.
-        # Before computing difference, replace all predicted and
-        # landmark embeddings with 0 if there isn't a landmark.
-        clean_y_pred_to = ops.where(
-            ops.isnan(y_to),
-            x1=ops.zeros_like(y_pred["embedding_to"]),
-            x2=y_pred["embedding_to"],
-        )
-        clean_y_to = ops.where(ops.isnan(y_to), x1=ops.zeros_like(y_to), x2=y_to)
+        # make a mask for landmark points
+        is_landmark = ~ops.any(ops.isnan(y_to), axis=1)
 
-        return (
-            self.landmark_loss_fn(clean_y_to, clean_y_pred_to)
-            * self.landmark_loss_weight
+        # Boolean-index to select only landmark entries
+        landmark_pred = y_pred["embedding_to"][is_landmark]
+        landmark_target = y_to[is_landmark]
+
+        # Make sure there are landmarks in this batch -
+        # otherwise we get nans from the mean of an empty tensor.
+        n_landmarks = ops.sum(ops.cast(is_landmark, "int32"))
+        loss = tf.cond(
+            n_landmarks > 0,
+            lambda: self.landmark_loss_fn(landmark_target, landmark_pred),
+            lambda: 0.0,
         )
+
+        return loss * self.landmark_loss_weight
 
 
 ##################################################

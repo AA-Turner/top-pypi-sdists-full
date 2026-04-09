@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured_inference
-Version: 1.6.4
+Version: 1.6.5
 Summary: A library for performing inference using trained models.
 Project-URL: Homepage, https://github.com/Unstructured-IO/unstructured-inference
 Author-email: Unstructured Technologies <devops@unstructuredai.io>

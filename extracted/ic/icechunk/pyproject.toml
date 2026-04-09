@@ -5,44 +5,49 @@ build-backend = "maturin"
 [project]
 name = "icechunk"
 description = "Icechunk Python"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
   "Programming Language :: Rust",
   "Programming Language :: Python :: Implementation :: CPython",
-  "Programming Language :: Python :: Implementation :: PyPy",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
 ]
-readme = "../README.md"
+readme = "README.md"
 license = { file = "LICENSE" }
 dynamic = ["version"]
 authors = [{ name = "Earthmover", email = "info@earthmover.io" }]
 
-dependencies = ["zarr>=3,!=3.0.3"]
+dependencies = ["zarr>=3.1.0"]
 
 [dependency-groups]
+dev = [
+  { include-group = "test" },
+  "mypy",
+  "ruff==0.15.3",
+  "maturin>=1.7,<2.0",
+  "maturin-import-hook>=0.3.0",
+  "third-wheel",
+]
 test = [
   "boto3",
   "coverage",
-  "mypy",
-  "object-store-python",
   "pytest",
   "pytest-cov",
   "pytest-asyncio",
   "pytest-xdist",
-  "ruff",
-  "dask>=2024.11.0",
-  "distributed>=2024.11.0",
-  "xarray>=2025.01.2",
-  "hypothesis",
+  "pytest-reportlog",
+  "dask>=2025.2.0",
+  "distributed>=2025.2.0",
+  "xarray>=2025.07.1",
+  "hypothesis @ git+https://github.com/ianhi/hypothesis.git@flaky-feedback#subdirectory=hypothesis-python",
   "pandas-stubs",
   "boto3-stubs[s3]",
   "termcolor",
-  "pooch",
-  "netcdf4",
+  "rich",
+  "flatbuffers",
+  "zstandard",
 ]
 benchmark = [
   "pytest-benchmark[histogram]",
@@ -54,16 +59,16 @@ benchmark = [
   "tqdm",
   "humanize",
   "platformdirs",
-  "ipdb",
   "coiled",
+  "toolz",
 ]
 docs = [
   "scipy",
   "cftime",
   "pooch",
-  "dask>=2024.11.0",
-  "distributed>=2024.11.0",
-  "xarray>=2025.01.2",
+  "dask>=2025.2.0",
+  "distributed>=2025.2.0",
+  "xarray>=2025.07.1",
   "myst_nb",
   "pydata_sphinx_theme",
   "mkdocs-awesome-pages-plugin",
@@ -72,7 +77,7 @@ docs = [
   "mkdocs-breadcrumbs-plugin",
   "mkdocs-minify-plugin",
   "mkdocs-open-in-new-tab",
-  "mkdocs",
+  "mkdocs<2",
   "mkdocs-material[imaging]",
   "mkdocstrings[python]",
   "mkdocs-jupyter",
@@ -87,48 +92,24 @@ docs = [
   "sphinx_design",
   "sphinx_togglebutton",
   "sphinx-autodoc-typehints",
-]
-
-upstream = [
-  "boto3",
-  "coverage",
-  "mypy",
-  "pytest",
-  "pytest-cov",
-  "pytest-asyncio",
-  "pytest-xdist",
-  "pytest-reportlog",
-  "ruff",
-  "hypothesis",
-  "pandas-stubs",
-  "boto3-stubs[s3]",
-  "termcolor",
-  # "object-store-python @ git+https://github.com/roeap/object-store-python.git", # doesn't work with uv
-  "object-store-python",
-  "distributed==2025.11.0",
-  "dask==2025.11.0",
-  "xarray @ git+https://github.com/pydata/xarray.git",
-  "zarr @ git+https://github.com/zarr-developers/zarr.git",
-]
-dev = [
-  { include-group = "upstream" }
+  "rich",
 ]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
 module-name = "icechunk._icechunk_python"
-exclude = ["README.md"]
+editable-profile = "dev"
+cargo-extra-args = ["--workspace"]
 manifest-path = "icechunk-python/Cargo.toml"
 python-source = "python"
 
 [tool.uv]
-# Rebuild package when any Rust files change
-cache-keys = [
-  {file = "pyproject.toml"},
-  {file = "Cargo.toml"},
-  {file = "src/**/*.rs"},
-  {file = "../icechunk/Cargo.toml"},
-  {file = "../icechunk/src/**/*.rs"},
+# Disable automatic package building - we use maturin-import-hook for faster dev cycles
+package = false
+
+[tool.third-wheel]
+renames = [
+  { original = "icechunk", new-name = "icechunk_v1", version = ">=1,<2" },
 ]
 
 [tool.pytest.ini_options]
@@ -138,9 +119,10 @@ minversion = "7"
 testpaths = ["tests", "integration_tests"]
 log_cli_level = "INFO"
 xfail_strict = true
-addopts = ["-ra", "--strict-config", "--strict-markers"]
+addopts = ["-ra", "--strict-config", "--strict-markers", "-n", "auto"]
 markers = [
-  "gpu", # need this to run the zarr tests
+  "gpu",        # need this to run the zarr tests
+  "hypothesis", # auto-applied by hypothesis to @given tests
 ]
 filterwarnings = [
   "error",
@@ -158,16 +140,13 @@ filterwarnings = [
 ]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
-[[tool.mypy.overrides]]
-ignore_missing_imports = true
-module = ["toolz.*"]
-
 [tool.ruff]
+target-version = "py312"
 line-length = 90
 extend-exclude = ["*.ipynb", "doc", "_typed_ops.pyi"]
 
@@ -214,3 +193,32 @@ ban-relative-imports = "all"
 
 [project.scripts]
 icechunk = "icechunk._icechunk_python:cli_entrypoint"
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "linux-64", "linux-aarch64", "win-64"]
+
+[tool.pixi.feature.docs.dependencies]
+cairo = ">=1.18.4,<2"
+
+[tool.pixi.feature.build.dependencies]
+python = ">=3.11,<3.14"
+rust = "~=1.94.0"
+just = ">=1.46.0,<2"
+compilers = ">=1.11.0,<2"
+uv = ">=0.10.4,<0.11"
+openssl = ">=3.6.1,<4"
+pkgconfig = ">=1.5.5,<2"
+cargo-deny = ">=0.19.0,<0.20"
+prek = ">=0.3.3,<0.4"
+netcdf4 = ">=1.7.4,<2"
+cargo-nextest = ">=0.9.106,<0.10"
+
+[tool.pixi.environments]
+default = { features = [
+  "build",
+  "dev",
+  "docs",
+  "test",
+], solve-group = "default" }
+benchmark = { features = ["benchmark"], solve-group = "default" }

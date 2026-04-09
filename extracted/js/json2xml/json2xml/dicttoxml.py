@@ -12,6 +12,7 @@ from typing import Any, Union, cast
 from defusedxml.minidom import parseString
 
 # Create a safe random number generator
+_SAFE_RANDOM = SystemRandom()
 
 # Set up logging
 LOG = logging.getLogger("dicttoxml")
@@ -29,8 +30,7 @@ def make_id(element: str, start: int = 100000, end: int = 999999) -> str:
     Returns:
         str: The generated ID.
     """
-    safe_random = SystemRandom()
-    return f"{element}_{safe_random.randint(start, end)}"
+    return f"{element}_{_SAFE_RANDOM.randint(start, end)}"
 
 
 def get_unique_id(element: str) -> str:
@@ -72,7 +72,7 @@ ELEMENT = Union[
 ]
 
 
-def get_xml_type(val: ELEMENT) -> str:
+def get_xml_type(val: Any) -> str:
     """
     Get the XML type of a given value.
 
@@ -227,6 +227,7 @@ def get_xpath31_tag_name(val: Any) -> str:
     return "string"
 
 
+# @lat: [[behavior#XPath 3.1 format]]
 def convert_to_xpath31(obj: Any, parent_key: str | None = None) -> str:
     """
     Convert a Python object to XPath 3.1 json-to-xml format.
@@ -267,7 +268,7 @@ def convert_to_xpath31(obj: Any, parent_key: str | None = None) -> str:
 
 
 def convert(
-    obj: ELEMENT,
+    obj: Any,
     ids: Any,
     attr_type: bool,
     item_func: Callable[[str], str],
@@ -340,7 +341,6 @@ def dict2xml_str(
     parse dict2xml
     """
     ids: list[str] = []  # initialize list of unique ids
-    ", ".join(str(key) for key in item)
     subtree = ""  # Initialize subtree with default empty string
 
     if attr_type:
@@ -631,6 +631,7 @@ def convert_none(
     return f"<{key}{attr_string}></{key}>"
 
 
+# @lat: [[architecture#Conversion engine]]
 def dicttoxml(
     obj: ELEMENT,
     root: bool = True,
@@ -640,7 +641,7 @@ def dicttoxml(
     item_wrap: bool = True,
     item_func: Callable[[str], str] = default_item_func,
     cdata: bool = False,
-    xml_namespaces: dict[str, Any] = {},
+    xml_namespaces: dict[str, Any] | None = None,
     list_headers: bool = False,
     xpath_format: bool = False,
 ) -> bytes:
@@ -796,6 +797,8 @@ def dicttoxml(
 
     output = []
     namespace_str = ""
+    if xml_namespaces is None:
+        xml_namespaces = {}
     for prefix in xml_namespaces:
         if prefix == 'xsi':
             for schema_att in xml_namespaces[prefix]:

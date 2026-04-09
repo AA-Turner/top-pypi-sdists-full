@@ -539,6 +539,7 @@ Rules:
 - Keep it under 400 characters
 - Never use salesy language, emojis, or exclamation marks
 - Never hard-pitch — be genuinely helpful and curious
+- NEVER sign off with "- YourName", "Best, YourName", "Cheers", "Regards", or any email-style signature. LinkedIn DMs don't sign off — it's a bot tell.
 
 Output a JSON object with "message" and "reasoning" fields. No markdown or code fences."""
 
@@ -572,6 +573,7 @@ Rules:
 - Never use salesy language, emojis, or exclamation marks
 - Never hard-pitch — be genuinely curious about their situation
 - The tone should feel like a peer-to-peer exchange, not a rejection or counter-attack
+- NEVER sign off with "- YourName", "Best, YourName", "Cheers", "Regards", or any email-style signature. LinkedIn DMs don't sign off — it's a bot tell.
 
 Output a JSON object with "message" and "reasoning" fields. No markdown or code fences."""
 

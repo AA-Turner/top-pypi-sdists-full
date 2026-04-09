@@ -26,15 +26,19 @@ def new_orchestrator_completed_event() -> pb.HistoryEvent:
 
 
 def new_execution_started_event(name: str, instance_id: str, encoded_input: Optional[str] = None,
-                                tags: Optional[dict[str, str]] = None) -> pb.HistoryEvent:
+                                tags: Optional[dict[str, str]] = None,
+                                version: Optional[str] = None,
+                                parent_trace_context: Optional[pb.TraceContext] = None) -> pb.HistoryEvent:
     return pb.HistoryEvent(
         eventId=-1,
         timestamp=timestamp_pb2.Timestamp(),
         executionStarted=pb.ExecutionStartedEvent(
             name=name,
+            version=get_string_value(version),
             input=get_string_value(encoded_input),
             orchestrationInstance=pb.OrchestrationInstance(instanceId=instance_id),
-            tags=tags))
+            tags=tags,
+            parentTraceContext=parent_trace_context))
 
 
 def new_timer_created_event(timer_id: int, fire_at: datetime) -> pb.HistoryEvent:
@@ -85,12 +89,14 @@ def new_sub_orchestration_created_event(
         event_id: int,
         name: str,
         instance_id: str,
-        encoded_input: Optional[str] = None) -> pb.HistoryEvent:
+        encoded_input: Optional[str] = None,
+        version: Optional[str] = None) -> pb.HistoryEvent:
     return pb.HistoryEvent(
         eventId=event_id,
         timestamp=timestamp_pb2.Timestamp(),
         subOrchestrationInstanceCreated=pb.SubOrchestrationInstanceCreatedEvent(
             name=name,
+            version=get_string_value(version),
             input=get_string_value(encoded_input),
             instanceId=instance_id)
     )
@@ -184,6 +190,13 @@ def get_string_value(val: Optional[str]) -> Optional[wrappers_pb2.StringValue]:
         return wrappers_pb2.StringValue(value=val)
 
 
+def get_int_value(val: Optional[int]) -> Optional[wrappers_pb2.Int32Value]:
+    if val is None:
+        return None
+    else:
+        return wrappers_pb2.Int32Value(value=val)
+
+
 def get_string_value_or_empty(val: Optional[str]) -> wrappers_pb2.StringValue:
     if val is None:
         return wrappers_pb2.StringValue(value="")
@@ -212,11 +225,13 @@ def new_create_timer_action(id: int, fire_at: datetime) -> pb.OrchestratorAction
 
 
 def new_schedule_task_action(id: int, name: str, encoded_input: Optional[str],
-                             tags: Optional[dict[str, str]]) -> pb.OrchestratorAction:
+                             tags: Optional[dict[str, str]],
+                             parent_trace_context: Optional[pb.TraceContext] = None) -> pb.OrchestratorAction:
     return pb.OrchestratorAction(id=id, scheduleTask=pb.ScheduleTaskAction(
         name=name,
         input=get_string_value(encoded_input),
-        tags=tags
+        tags=tags,
+        parentTraceContext=parent_trace_context,
     ))
 
 
@@ -291,12 +306,14 @@ def new_create_sub_orchestration_action(
         name: str,
         instance_id: Optional[str],
         encoded_input: Optional[str],
-        version: Optional[str]) -> pb.OrchestratorAction:
+        version: Optional[str],
+        parent_trace_context: Optional[pb.TraceContext] = None) -> pb.OrchestratorAction:
     return pb.OrchestratorAction(id=id, createSubOrchestration=pb.CreateSubOrchestrationAction(
         name=name,
         instanceId=instance_id,
         input=get_string_value(encoded_input),
-        version=get_string_value(version)
+        version=get_string_value(version),
+        parentTraceContext=parent_trace_context,
     ))
 
 

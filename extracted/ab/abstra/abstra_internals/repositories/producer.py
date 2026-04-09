@@ -306,11 +306,8 @@ class RabbitMQProducerRepository(ProducerRepository):
 
                         if isinstance(msg, dict):
                             msg_type = msg.get("type")
-                            if msg_type in ("stdio", "stdio_batch"):
-                                # Fanout consumer handles stdio broadcast
-                                continue
-                            if msg_type == "task":
-                                BroadcastController.broadcast(msg=serialize(msg))
+                            if msg_type in ("stdio", "stdio_batch", "task"):
+                                # Fanout consumer handles broadcast
                                 continue
 
                         if isinstance(msg, str):

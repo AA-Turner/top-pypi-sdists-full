@@ -16,55 +16,42 @@ from etcd3gw.client import Etcd3Client
 from etcd3gw.lock import Lock
 
 
-def main():
+def main() -> None:
     client = Etcd3Client()
 
     print('>>>> Status')
-    result = client.status()
-    print("cluster id : %r" % result['header']['cluster_id'])
+    status = client.status()
+    print("cluster id : {!r}".format(status['header']['cluster_id']))
 
-    result = client.members()
-    print("first member info : %r" % result[0])
+    members = client.members()
+    print(f"first member info : {members[0]!r}")
 
     print('>>>> Lease')
     lease = client.lease()
-    print("Lease id : %r" % lease.id)
-    print("Lease ttl : %r" % lease.ttl())
-    print("Lease refresh : %r" % lease.refresh())
+    print(f"Lease id : {lease.id!r}")
+    print(f"Lease ttl : {lease.ttl()!r}")
+    print(f"Lease refresh : {lease.refresh()!r}")
 
-    result = client.put('foo2', 'bar2', lease)
-    print("Key put foo2 : %r" % result)
-    result = client.put('foo3', 'bar3', lease)
-    print("Key put foo3 : %r" % result)
-    print("Lease Keys : %r" % lease.keys())
+    print(f"Key put foo2 : {client.put('foo2', 'bar2', lease)!r}")
+    print(f"Key put foo3 : {client.put('foo3', 'bar3', lease)!r}")
+    print(f"Lease Keys : {lease.keys()!r}")
 
-    result = lease.revoke()
-    print("Lease Revoke : %r" % result)
+    print(f"Lease Revoke : {lease.revoke()!r}")
 
-    result = client.get('foox')
-    print("Key get foox : %r" % result)
+    print(f"Key get foox : {client.get('foox')!r}")
 
-    result = client.put('foo', 'bar')
-    print("Key put foo : %r" % result)
-    result = client.get('foo')
-    print("Key get foo : %r" % result)
-    result = client.delete('foo')
-    print("Key delete foo : %r" % result)
-    result = client.delete('foo-unknown')
-    print("Key delete foo-unknown : %r" % result)
+    print(f"Key put foo : {client.put('foo', 'bar')!r}")
+    print(f"Key get foo : {client.get('foo')!r}")
+    print(f"Key delete foo : {client.delete('foo')!r}")
+    print(f"Key delete foo-unknown : {client.delete('foo-unknown')!r}")
 
     print('>>>> Lock')
-    lock = Lock('xyz-%s' % time.perf_counter(), ttl=10000, client=client)
-    result = lock.acquire()
-    print("acquire : %r" % result)
-    result = lock.refresh()
-    print("refresh : %r" % result)
-    result = lock.is_acquired()
-    print("is_acquired : %r" % result)
-    result = lock.release()
-    print("release : %r" % result)
-    result = lock.is_acquired()
-    print("is_acquired : %r" % result)
+    lock = Lock(f'xyz-{time.perf_counter()}', ttl=10000, client=client)
+    print(f"acquire : {lock.acquire()!r}")
+    print(f"refresh : {lock.refresh()!r}")
+    print(f"is_acquired : {lock.is_acquired()!r}")
+    print(f"release : {lock.release()!r}")
+    print(f"is_acquired : {lock.is_acquired()!r}")
 
 
 if __name__ == "__main__":

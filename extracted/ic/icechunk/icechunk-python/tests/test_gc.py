@@ -1,36 +1,38 @@
 import time
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
 import icechunk as ic
 import zarr
-from tests.conftest import get_minio_client
+from tests.conftest import Permission, get_minio_client
 
 
-def mk_repo() -> tuple[str, ic.Repository]:
+def mk_repo(spec_version: int | None) -> tuple[str, ic.Repository]:
     prefix = "test-repo__" + str(time.time())
+    access_key_id, secret_access_key = Permission.MODIFY.keys()
     repo = ic.Repository.create(
         storage=ic.s3_storage(
-            endpoint_url="http://localhost:9000",
+            endpoint_url="http://localhost:4200",
             allow_http=True,
             force_path_style=True,
             region="us-east-1",
             bucket="testbucket",
             prefix=prefix,
-            access_key_id="minio123",
-            secret_access_key="minio123",
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
         ),
         config=ic.RepositoryConfig(inline_chunk_threshold_bytes=0),
+        spec_version=spec_version,
     )
     return (prefix, repo)
 
 
 @pytest.mark.filterwarnings("ignore:datetime.datetime.utcnow")
 @pytest.mark.parametrize("use_async", [True, False])
-async def test_expire_and_gc(use_async: bool) -> None:
-    prefix, repo = mk_repo()
+async def test_expire_and_gc(use_async: bool, any_spec_version: int | None) -> None:
+    prefix, repo = mk_repo(any_spec_version)
 
     session = repo.writable_session("main")
     store = session.store
@@ -38,8 +40,8 @@ async def test_expire_and_gc(use_async: bool) -> None:
     group = zarr.group(store=store, overwrite=True)
     array = group.create_array(
         "array",
-        shape=(1000),
-        chunks=(10),
+        shape=(1000,),
+        chunks=(10,),
         dtype="i4",
         fill_value=-1,
     )
@@ -49,7 +51,7 @@ async def test_expire_and_gc(use_async: bool) -> None:
         session = repo.writable_session("main")
         store = session.store
         group = zarr.open_group(store=store)
-        array = cast(zarr.core.array.Array, group["array"])
+        array = cast("zarr.core.array.Array[Any]", group["array"])
         array[i] = i
         session.commit(f"written coord {i}")
 
@@ -58,7 +60,7 @@ async def test_expire_and_gc(use_async: bool) -> None:
     session = repo.writable_session("main")
     store = session.store
     group = zarr.open_group(store=store)
-    array = cast(zarr.core.array.Array, group["array"])
+    array = cast("zarr.core.array.Array[Any]", group["array"])
     array[999] = 0
     session.commit("written coord 999")
 
@@ -91,14 +93,15 @@ async def test_expire_and_gc(use_async: bool) -> None:
         )
         == 21
     )
-    # 22 commits total
+    # V2 repos have a transaction log for the initial snapshot
+    expected_tx_logs = 23 if any_spec_version != 1 else 22
     assert (
         len(
             client.list_objects(Bucket="testbucket", Prefix=f"{prefix}/transactions")[
                 "Contents"
             ]
         )
-        == 22
+        == expected_tx_logs
     )
 
     if use_async:
@@ -108,18 +111,34 @@ async def test_expire_and_gc(use_async: bool) -> None:
     # empty array + 20 old versions
     assert len(expired_snapshots) == 21
 
-    space_before = 0
-    for obj in client.list_objects(Bucket="testbucket", Prefix=f"{prefix}")["Contents"]:
-        space_before += obj["Size"]
+    def space_used() -> int:
+        space = 0
+        for obj in client.list_objects(Bucket="testbucket", Prefix=f"{prefix}/snapshots")[
+            "Contents"
+        ]:
+            space += obj["Size"]
+        for obj in client.list_objects(Bucket="testbucket", Prefix=f"{prefix}/chunks")[
+            "Contents"
+        ]:
+            space += obj["Size"]
+        for obj in client.list_objects(Bucket="testbucket", Prefix=f"{prefix}/manifests")[
+            "Contents"
+        ]:
+            space += obj["Size"]
+        for obj in client.list_objects(
+            Bucket="testbucket", Prefix=f"{prefix}/transactions"
+        )["Contents"]:
+            space += obj["Size"]
+        return space
+
+    space_before = space_used()
 
     # let's run GC using dry_run = True
     if use_async:
         gc_result = await repo.garbage_collect_async(old, dry_run=True)
     else:
         gc_result = repo.garbage_collect(old, dry_run=True)
-    space_after = 0
-    for obj in client.list_objects(Bucket="testbucket", Prefix=f"{prefix}")["Contents"]:
-        space_after += obj["Size"]
+    space_after = space_used()
 
     assert space_before == space_after
     # there were 21 chunks, and we need 3 alive (for indexes 0..20 and 999)
@@ -139,9 +158,7 @@ async def test_expire_and_gc(use_async: bool) -> None:
     else:
         gc_result = repo.garbage_collect(old)
 
-    space_after = 0
-    for obj in client.list_objects(Bucket="testbucket", Prefix=f"{prefix}")["Contents"]:
-        space_after += obj["Size"]
+    space_after = space_used()
 
     assert space_before - gc_result.bytes_deleted == space_after
     # there were 21 chunks, and we need 3 alive (for indexes 0..20 and 999)
@@ -179,20 +196,22 @@ async def test_expire_and_gc(use_async: bool) -> None:
         )
         == 1
     )
+    # V2 repos keep the initial snapshot's transaction log
+    expected_remaining_tx_logs = 2 if any_spec_version != 1 else 1
     assert (
         len(
             client.list_objects(Bucket="testbucket", Prefix=f"{prefix}/transactions")[
                 "Contents"
             ]
         )
-        == 1
+        == expected_remaining_tx_logs
     )
 
     # we can still read the array
     session = repo.readonly_session(branch="main")
     store = session.store
     group = zarr.open_group(store=store, mode="r")
-    array = cast(zarr.core.array.Array, group["array"])
+    array = cast("zarr.core.array.Array[Any]", group["array"])
     assert array[999] == 0
     for i in range(20):
         assert array[i] == i

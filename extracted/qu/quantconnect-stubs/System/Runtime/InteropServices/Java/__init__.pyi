@@ -7,66 +7,6 @@ import System.Runtime.InteropServices
 import System.Runtime.InteropServices.Java
 
 
-class StronglyConnectedComponent:
-    """This class has no documentation."""
-
-    @property
-    def count(self) -> System.UIntPtr:
-        ...
-
-    @count.setter
-    def count(self, value: System.UIntPtr) -> None:
-        ...
-
-    @property
-    def contexts(self) -> typing.Any:
-        ...
-
-    @contexts.setter
-    def contexts(self, value: typing.Any) -> None:
-        ...
-
-
-class ComponentCrossReference:
-    """This class has no documentation."""
-
-    @property
-    def source_group_index(self) -> System.UIntPtr:
-        ...
-
-    @source_group_index.setter
-    def source_group_index(self, value: System.UIntPtr) -> None:
-        ...
-
-    @property
-    def destination_group_index(self) -> System.UIntPtr:
-        ...
-
-    @destination_group_index.setter
-    def destination_group_index(self, value: System.UIntPtr) -> None:
-        ...
-
-
-class JavaMarshal(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def create_reference_tracking_handle(obj: typing.Any, context: typing.Any) -> System.Runtime.InteropServices.GCHandle:
-        ...
-
-    @staticmethod
-    def finish_cross_reference_processing(cross_references: typing.Any, unreachable_object_handles: System.ReadOnlySpan[System.Runtime.InteropServices.GCHandle]) -> None:
-        ...
-
-    @staticmethod
-    def get_context(obj: System.Runtime.InteropServices.GCHandle) -> typing.Any:
-        ...
-
-    @staticmethod
-    def initialize(mark_cross_references: typing.Any) -> None:
-        ...
-
-
 class MarkCrossReferencesArgs:
     """This class has no documentation."""
 
@@ -100,6 +40,66 @@ class MarkCrossReferencesArgs:
 
     @cross_references.setter
     def cross_references(self, value: typing.Any) -> None:
+        ...
+
+
+class StronglyConnectedComponent:
+    """This class has no documentation."""
+
+    @property
+    def count(self) -> System.UIntPtr:
+        ...
+
+    @count.setter
+    def count(self, value: System.UIntPtr) -> None:
+        ...
+
+    @property
+    def contexts(self) -> typing.Any:
+        ...
+
+    @contexts.setter
+    def contexts(self, value: typing.Any) -> None:
+        ...
+
+
+class JavaMarshal(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def create_reference_tracking_handle(obj: typing.Any, context: typing.Any) -> System.Runtime.InteropServices.GCHandle:
+        ...
+
+    @staticmethod
+    def finish_cross_reference_processing(cross_references: typing.Any, unreachable_object_handles: System.ReadOnlySpan[System.Runtime.InteropServices.GCHandle]) -> None:
+        ...
+
+    @staticmethod
+    def get_context(obj: System.Runtime.InteropServices.GCHandle) -> typing.Any:
+        ...
+
+    @staticmethod
+    def initialize(mark_cross_references: typing.Any) -> None:
+        ...
+
+
+class ComponentCrossReference:
+    """This class has no documentation."""
+
+    @property
+    def source_group_index(self) -> System.UIntPtr:
+        ...
+
+    @source_group_index.setter
+    def source_group_index(self, value: System.UIntPtr) -> None:
+        ...
+
+    @property
+    def destination_group_index(self) -> System.UIntPtr:
+        ...
+
+    @destination_group_index.setter
+    def destination_group_index(self, value: System.UIntPtr) -> None:
         ...
 
 

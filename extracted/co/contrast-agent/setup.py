@@ -1,5 +1,7 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
+from __future__ import annotations
+
 import platform
 import sys
 import time
@@ -24,6 +26,8 @@ def is_arm():
     return "arm" in machine or "aarch" in machine
 
 
+is_windows = sys.platform == "win32"
+
 version_specifier = sys.version_info[:2]
 if not version_specifier < UNSUPPORTED_PYTHON:
     raise RuntimeError(
@@ -31,26 +35,41 @@ if not version_specifier < UNSUPPORTED_PYTHON:
         f"({platform.python_version()})"
     )
 
-extension_path = path.join("contrast", "extensions")
-extension_source_dir = path.join("src", extension_path)
-common_dir = path.join(extension_source_dir, "common")
+if is_windows and not environ.get("CONTRAST_ALLOW_WINDOWS"):
+    raise RuntimeError(
+        f"Fatal: Cannot install contrast-agent: Unsupported platform {sys.platform}"
+    )
 
-if sys.platform.startswith("darwin"):
-    link_args = ["-rpath", "@loader_path"]
-    platform_args = []
-else:
-    platform_args = ["-Wno-cast-function-type"]
-    link_args = []
+extensions_dir = path.join("src", "contrast", "extensions")
 
 debug = environ.get("ASSESS_DEBUG")
-debug_args = ["-g", "-O1"] if debug else []
-macros = [("ASSESS_DEBUG", "1")] if debug else []
+macros: list[tuple[str, str | None]] = [("ASSESS_DEBUG", "1")] if debug else []
 macros.append(("EXTENSION_BUILD_TIME", f'"{time.ctime()}"'))
 
-strict_build_args = ["-Werror"] if environ.get("CONTRAST_STRICT_BUILD") else []
+if is_windows:
+    # https://learn.microsoft.com/en-us/cpp/build/reference/compiler-options-listed-by-category
+    extra_link_args = []
+    platform_args = []
+    compile_args = ["/W3"]
+    debug_args = ["/Z7", "/Od"] if debug else []
+    strict_build_args = ["/WX"] if environ.get("CONTRAST_STRICT_BUILD") else []
+    runtime_lib_dirs = []
+else:
+    is_darwin = sys.platform.startswith("darwin")
+    extra_link_args = ["-rpath", "@loader_path"] if is_darwin else []
+    platform_args = [] if is_darwin else ["-Wno-cast-function-type"]
+    compile_args = [
+        "-Wall",
+        "-Wextra",
+        "-Wno-unused-parameter",
+        "-Wmissing-field-initializers",
+    ]
+    debug_args = ["-g", "-O1"] if debug else []
+    strict_build_args = ["-Werror"] if environ.get("CONTRAST_STRICT_BUILD") else []
+    runtime_lib_dirs = ["$ORIGIN"]
 
 c_sources = [
-    path.join(common_dir, name)
+    path.join(extensions_dir, "common", name)
     for name in [
         "patches.c",
         "scope.c",
@@ -65,31 +84,22 @@ c_sources = [
         "_c_ext.c",
     ]
 ]
-libraries = []
-
 
 extensions = [
     Extension(
         "contrast.extensions._c_ext",
         c_sources,
-        libraries=libraries,
         include_dirs=[
-            extension_source_dir,
-            path.join(extension_source_dir, "include"),
+            extensions_dir,
+            path.join(extensions_dir, "include"),
         ],
-        library_dirs=[extension_source_dir],
-        # Path relative to the .so itself (works for gnu-ld)
-        runtime_library_dirs=["$ORIGIN"],
-        extra_compile_args=[
-            "-Wall",
-            "-Wextra",
-            "-Wno-unused-parameter",
-            "-Wmissing-field-initializers",
-        ]
+        library_dirs=[extensions_dir],
+        runtime_library_dirs=runtime_lib_dirs,
+        extra_compile_args=compile_args
         + strict_build_args
         + debug_args
         + platform_args,
-        extra_link_args=link_args,
+        extra_link_args=extra_link_args,
         define_macros=macros,
     )
 ]

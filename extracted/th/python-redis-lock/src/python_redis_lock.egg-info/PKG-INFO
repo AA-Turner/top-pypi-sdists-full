@@ -1,21 +1,18 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-redis-lock
-Version: 4.0.0
+Version: 4.0.1
 Summary: Lock context manager implemented via redis SETNX/BLPOP.
-Home-page: https://github.com/ionelmc/python-redis-lock
-Author: Ionel Cristian Mărieș
-Author-email: contact@ionelmc.ro
-License: BSD-2-Clause
-Project-URL: Documentation, https://python-redis-lock.readthedocs.io/
+Author-email: Ionel Cristian Mărieș <contact@ionelmc.ro>
+License-Expression: BSD-2-Clause
 Project-URL: Changelog, https://python-redis-lock.readthedocs.io/en/latest/changelog.html
+Project-URL: Documentation, https://python-redis-lock.readthedocs.io/
 Project-URL: Issue Tracker, https://github.com/ionelmc/python-redis-lock/issues
-Platform: UNKNOWN
+Project-URL: Sources, https://github.com/ionelmc/python-redis-lock
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
-Classifier: Operating System :: Unix
-Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -23,18 +20,62 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Utilities
 Requires-Python: >=3.7
-Provides-Extra: django
+Description-Content-Type: text/x-rst
 License-File: LICENSE
-License-File: AUTHORS.rst
+Requires-Dist: redis>=2.10.0
+Provides-Extra: django
+Requires-Dist: django-redis>=3.8.0; extra == "django"
+Dynamic: license-file
 
 ========
 Overview
 ========
 
+
+.. list-table::
+    :stub-columns: 1
+
+    * - docs
+      - |docs|
+    * - tests
+      - |github-actions| |coveralls| |codecov|
+    * - package
+      - |version| |wheel| |supported-versions| |supported-implementations| |commits-since|
+.. |docs| image:: https://readthedocs.org/projects/python-redis-lock/badge/?style=flat
+    :target: https://readthedocs.org/projects/python-redis-lock/
+    :alt: Documentation Status
+.. |github-actions| image:: https://github.com/ionelmc/python-redis-lock/actions/workflows/github-actions.yml/badge.svg
+    :alt: GitHub Actions Build Status
+    :target: https://github.com/ionelmc/python-redis-lock/actions
+.. |coveralls| image:: https://coveralls.io/repos/github/ionelmc/python-redis-lock/badge.svg?branch=master
+    :alt: Coverage Status
+    :target: https://coveralls.io/github/ionelmc/python-redis-lock?branch=master
+.. |codecov| image:: https://codecov.io/gh/ionelmc/python-redis-lock/branch/master/graphs/badge.svg?branch=master
+    :alt: Coverage Status
+    :target: https://app.codecov.io/github/ionelmc/python-redis-lock
+.. |version| image:: https://img.shields.io/pypi/v/python-redis-lock.svg
+    :alt: PyPI Package latest release
+    :target: https://pypi.org/project/python-redis-lock
+.. |wheel| image:: https://img.shields.io/pypi/wheel/python-redis-lock.svg
+    :alt: PyPI Wheel
+    :target: https://pypi.org/project/python-redis-lock
+.. |supported-versions| image:: https://img.shields.io/pypi/pyversions/python-redis-lock.svg
+    :alt: Supported versions
+    :target: https://pypi.org/project/python-redis-lock
+.. |supported-implementations| image:: https://img.shields.io/pypi/implementation/python-redis-lock.svg
+    :alt: Supported implementations
+    :target: https://pypi.org/project/python-redis-lock
+.. |commits-since| image:: https://img.shields.io/github/commits-since/ionelmc/python-redis-lock/v4.0.1.svg
+    :alt: Commits since latest release
+    :target: https://github.com/ionelmc/python-redis-lock/compare/v4.0.1...master
 
 
 Lock context manager implemented via redis SETNX/BLPOP.
@@ -228,8 +269,19 @@ Similar projects
 Changelog
 =========
 
-4.0.0 (2022-10-17)
-------------------
+v4.0.1 (2026-04-08)
+-------------------
+
+* Fixed typo when setting daemon mode for the renewal thread.
+  Contributed by Eeo Jun in `#94 <https://github.com/ionelmc/python-redis-lock/pull/94>`_.
+* Fixed syntax in some examples in documentation.
+  Contributed by Lee Bush in `#110 <https://github.com/ionelmc/python-redis-lock/pull/110>`_.
+* Added the ``blocking`` argument to ``Lock.__init__`` to allow this behavior when using it as
+  a context manager.
+  Contributed by Andrew Petriv in `#102 <https://github.com/ionelmc/python-redis-lock/pull/102>`_.
+
+v4.0.0 (2022-10-17)
+-------------------
 
 * Dropped support for Python 2.7 and 3.6.
 * Switched from Travis to GitHub Actions.
@@ -237,8 +289,8 @@ Changelog
 * Replaced the ``redis_lock.refresh.thread.*`` loggers with a single ``redis_lock.refresh.thread`` logger.
 * Various testing cleanup (mainly removal of hardcoded tmp paths).
 
-3.7.0 (2020-11-20)
-------------------
+v3.7.0 (2020-11-20)
+-------------------
 
 * Made logger names more specific. Now can have granular filtering on these new logger names:
 
@@ -252,12 +304,12 @@ Changelog
   * ``redis_lock.refresh.exit`` (emits `DEBUG` messages)
   * ``redis_lock.release`` (emits `DEBUG` messages)
 
-  Contributed by Salomon Smeke Cohen in ``80``.
+  Contributed by Salomon Smeke Cohen in `#80 <https://github.com/ionelmc/python-redis-lock/pull/80>`_..
 * Fixed few CI issues regarding doc checks.
-  Contributed by Salomon Smeke Cohen in ``81``.
+  Contributed by Salomon Smeke Cohen in `#81 <https://github.com/ionelmc/python-redis-lock/pull/81>`_..
 
-3.6.0 (2020-07-23)
-------------------
+v3.6.0 (2020-07-23)
+-------------------
 
 * Improved ``timeout``/``expire`` validation so that:
 
@@ -265,125 +317,123 @@ Changelog
     values created buggy situations.
   - Using ``timeout`` greater than ``expire`` is now allowed, if ``auto_renewal`` is set to ``True``. Previously a ``TimeoutTooLarge`` error
     was raised.
-    See ``74``.
+    See `#74 <https://github.com/ionelmc/python-redis-lock/issues/74>`_..
   - Negative ``timeout`` or ``expire`` are disallowed. Previously such values were allowed, and created buggy situations.
-    See ``73``.
+    See `#73 <https://github.com/ionelmc/python-redis-lock/issues/73>`_..
 * Updated benchmark and examples.
 * Removed the custom script caching code. Now the ``register_script`` method from the redis client is used.
   This will fix possible issue with redis clusters in theory, as the redis client has some specific handling for that.
 
-3.5.0 (2020-01-13)
-------------------
+v3.5.0 (2020-01-13)
+-------------------
 
-* Added a ``locked`` method. Contributed by Artem Slobodkin in ``72``.
+* Added a ``locked`` method. Contributed by Artem Slobodkin in `#72 <https://github.com/ionelmc/python-redis-lock/pull/72>`_..
 
-3.4.0 (2019-12-06)
-------------------
+v3.4.0 (2019-12-06)
+-------------------
 
 * Fixed regression that can cause deadlocks or slowdowns in certain configurations.
-  See: ``71``.
+  See: `#71 <https://github.com/ionelmc/python-redis-lock/issues/71>`_..
 
-3.3.1 (2019-01-19)
-------------------
+v3.3.1 (2019-01-19)
+-------------------
 
 * Fixed failures when running python-redis-lock 3.3 alongside 3.2.
-  See: ``64``.
+  See: `#64 <https://github.com/ionelmc/python-redis-lock/issues/64>`_..
 
-3.3.0 (2019-01-17)
-------------------
+v3.3.0 (2019-01-17)
+-------------------
 
 * Fixed deprecated use of ``warnings`` API. Contributed by Julie MacDonell in
-  ``54``.
+  `#54 <https://github.com/ionelmc/python-redis-lock/pull/54>`_..
 * Added ``auto_renewal`` option in ``RedisCache.lock`` (the Django cache backend wrapper). Contributed by c
-  in ``55``.
+  in `#55 <https://github.com/ionelmc/python-redis-lock/pull/55>`_..
 * Changed log level for "%(script)s not cached" from WARNING to INFO.
 * Added support for using ``decode_responses=True``. Lock keys are pure ascii now.
 
-3.2.0 (2016-10-29)
-------------------
+v3.2.0 (2016-10-29)
+-------------------
 
 * Changed the signal key cleanup operation do be done without any expires. This prevents lingering keys around for some time.
-  Contributed by Andrew Pashkin in ``38``.
+  Contributed by Andrew Pashkin in `#38 <https://github.com/ionelmc/python-redis-lock/pull/38>`_..
 * Allow locks with given `id` to acquire. Previously it assumed that if you specify the `id` then the lock was already
-  acquired. See ``44`` and
-  ``39``.
+  acquired. See `#44 <https://github.com/ionelmc/python-redis-lock/issues/44>`_. and
+  `#39 <https://github.com/ionelmc/python-redis-lock/issues/39>`_..
 * Allow using other redis clients with a ``strict=False``. Normally you're expected to pass in an instance
   of ``redis.StrictRedis``.
 * Added convenience method `locked_get_or_set` to Django cache backend.
 
-3.1.0 (2016-04-16)
-------------------
+v3.1.0 (2016-04-16)
+-------------------
 
 * Changed the auto renewal to automatically stop the renewal thread if lock gets garbage collected. Contributed by
-  Andrew Pashkin in ``33``.
+  Andrew Pashkin in `#33 <https://github.com/ionelmc/python-redis-lock/pull/33>`_..
 
-3.0.0 (2016-01-16)
-------------------
+v3.0.0 (2016-01-16)
+-------------------
 
-* Changed ``release`` so that it expires signal-keys immediately. Contributed by Andrew Pashkin in ``28``.
+* Changed ``release`` so that it expires signal-keys immediately. Contributed by Andrew Pashkin in `#28 <https://github.com/ionelmc/python-redis-lock/pull/28>`_..
 * Resetting locks (``reset`` or ``reset_all``) will release the lock. If there's someone waiting on the reset lock now it will
-  acquire it. Contributed by Andrew Pashkin in ``29``.
-* Added the ``extend`` method on ``Lock`` objects. Contributed by Andrew Pashkin in ``24``.
-* Documentation improvements on ``release`` method. Contributed by Andrew Pashkin in ``22``.
+  acquire it. Contributed by Andrew Pashkin in `#29 <https://github.com/ionelmc/python-redis-lock/pull/29>`_..
+* Added the ``extend`` method on ``Lock`` objects. Contributed by Andrew Pashkin in `#24 <https://github.com/ionelmc/python-redis-lock/pull/24>`_..
+* Documentation improvements on ``release`` method. Contributed by Andrew Pashkin in `#22 <https://github.com/ionelmc/python-redis-lock/pull/22>`_..
 * Fixed ``acquire(block=True)`` handling when ``expire`` option was used (it wasn't blocking indefinitely). Contributed by
-  Tero Vuotila in ``35``.
+  Tero Vuotila in `#35 <https://github.com/ionelmc/python-redis-lock/pull/35>`_..
 * Changed ``release`` to check if lock was acquired with he same id. If not, ``NotAcquired`` will be raised.
   Previously there was just a check if it was acquired with the same instance (self._held).
   **BACKWARDS INCOMPATIBLE**
 * Removed the ``force`` option from ``release`` - it wasn't really necessary and it only encourages sloppy programming. See
-  ``25``.
+  `#25 <https://github.com/ionelmc/python-redis-lock/issues/25>`_..
   **BACKWARDS INCOMPATIBLE**
 * Dropped tests for Python 2.6. It may work but it is unsupported.
 
-2.3.0 (2015-09-27)
-------------------
+v2.3.0 (2015-09-27)
+-------------------
 
-* Added the ``timeout`` option. Contributed by Victor Torres in ``20``.
+* Added the ``timeout`` option. Contributed by Victor Torres in `#20 <https://github.com/ionelmc/python-redis-lock/pull/20>`_..
 
-2.2.0 (2015-08-19)
-------------------
+v2.2.0 (2015-08-19)
+-------------------
 
-* Added the ``auto_renewal`` option. Contributed by Nick Groenen in ``18``.
+* Added the ``auto_renewal`` option. Contributed by Nick Groenen in `#18 <https://github.com/ionelmc/python-redis-lock/pull/18>`_..
 
-2.1.0 (2015-03-12)
-------------------
+v2.1.0 (2015-03-12)
+-------------------
 
 * New specific exception classes: ``AlreadyAcquired`` and ``NotAcquired``.
 * Slightly improved efficiency when non-waiting acquires are used.
 
-2.0.0 (2014-12-29)
-------------------
+v2.0.0 (2014-12-29)
+-------------------
 
-* Rename ``Lock.token`` to ``Lock.id``. Now only allowed to be set via constructor. Contributed by Jardel Weyrich in ``11``.
+* Rename ``Lock.token`` to ``Lock.id``. Now only allowed to be set via constructor. Contributed by Jardel Weyrich in `#11 <https://github.com/ionelmc/python-redis-lock/pull/11>`_..
 
-1.0.0 (2014-12-23)
-------------------
+v1.0.0 (2014-12-23)
+-------------------
 
 * Fix Django integration. (reported by Jardel Weyrich)
 * Reorganize tests to use py.test.
 * Add test for Django integration.
-* Add ``reset_all`` functionality. Contributed by Yokotoka in ``7``.
+* Add ``reset_all`` functionality. Contributed by Yokotoka in `#7 <https://github.com/ionelmc/python-redis-lock/pull/7>`_..
 * Add ``Lock.reset`` functionality.
 * Expose the ``Lock.token`` attribute.
 
-0.1.2 (2013-11-05)
-------------------
+v0.1.2 (2013-11-05)
+-------------------
 
 * `?`
 
-0.1.1 (2013-10-26)
-------------------
+v0.1.1 (2013-10-26)
+-------------------
 
 * `?`
 
-0.1.0 (2013-10-26)
-------------------
+v0.1.0 (2013-10-26)
+-------------------
 
 * `?`
 
-0.0.1 (2013-10-25)
-------------------
+v0.0.1 (2013-10-25)
+-------------------
 
 * First release on PyPI.
-
-

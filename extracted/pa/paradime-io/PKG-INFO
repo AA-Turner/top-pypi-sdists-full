@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: paradime-io
-Version: 4.19.0
+Version: 5.0.0
 Summary: Paradime - Python SDK
 License-File: LICENSE
 Author: Bhuvan Singla
@@ -14,13 +14,26 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: boto3 (>=1.35.0,<2.0.0)
 Requires-Dist: click (>=8.1.7,<9.0.0)
 Requires-Dist: croniter (>=6.0.0,<7.0.0)
+Requires-Dist: dbt-artifacts-parser (>=0.12.0,<0.13.0)
+Requires-Dist: duckdb (>=1.0.0,<2.0.0)
+Requires-Dist: google-auth (>=2.29.0,<3.0.0)
+Requires-Dist: google-cloud-bigquery-datatransfer (>=3.15.0,<4.0.0)
+Requires-Dist: google-cloud-dataflow-client (>=0.8.0,<0.9.0)
+Requires-Dist: google-cloud-dataproc (>=5.9.0,<6.0.0)
+Requires-Dist: google-cloud-datastream (>=1.9.0,<2.0.0)
+Requires-Dist: google-cloud-functions (>=1.16.0,<2.0.0)
+Requires-Dist: google-cloud-run (>=0.10.0,<0.11.0)
 Requires-Dist: msal (>=1.31.0,<2.0.0)
+Requires-Dist: numpy (>=1.26.0)
 Requires-Dist: packaging (>=22.0)
+Requires-Dist: polars (>=0.20.0,<0.21.0)
+Requires-Dist: pyarrow (>=18.0.0,<19.0.0)
 Requires-Dist: pydantic (>=1.10.14,<3.0.0)
 Requires-Dist: python-dotenv (>=1.0.1,<2.0.0)
 Requires-Dist: pyyaml (>=6.0.1,<7.0.0)
 Requires-Dist: requests (>=2.31.0,<3.0.0)
 Requires-Dist: rich (>=14.0.0,<15.0.0)
+Requires-Dist: tenacity (>=9.0.0,<10.0.0)
 Description-Content-Type: text/markdown
 
 <p align="center">

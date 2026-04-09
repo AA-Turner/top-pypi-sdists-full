@@ -44,7 +44,6 @@ from ._base import (
     MissingValueError,
     _raise_unsupported_missing_value_strategy,
 )
-from ._primitive_converter import _FeatureConverterArrowProtoHelpers, PrimitiveFeatureConverter
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportMissingSuperCall=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false, reportImplicitStringConcatenation=false
 
@@ -185,7 +184,6 @@ def _build_dict_to_dc(dc_class: type) -> "Callable[[Any], Any]":
 
 
 class DataclassFeatureConverter(
-    _FeatureConverterArrowProtoHelpers,
     FeatureConverter["dict[str, Any]", Any],
 ):
     """Full :class:`FeatureConverter` for a single dataclass (struct) element.
@@ -214,6 +212,7 @@ class DataclassFeatureConverter(
         dc_class: type,
         default: "Any | ellipsis",
         is_nullable: bool,
+        field_converters: "Dict[str, FeatureConverter] | None" = None,
     ) -> "DataclassFeatureConverter":
         """Factory with caching for simple defaults (``None`` / ``...``)."""
         if default is None or default is ...:
@@ -221,10 +220,16 @@ class DataclassFeatureConverter(
             cached = cls._cache.get(key)
             if cached is not None:
                 return cached
-            inst = cls(dc_class, default, is_nullable, _from_new=_FROM_NEW)
+            if field_converters is None:
+                from ._factory import make_field_converters as _make_field_converters
+                field_converters = _make_field_converters(dc_class)
+            inst = cls(dc_class, default, is_nullable, field_converters=field_converters, _from_new=_FROM_NEW)
             cls._cache[key] = inst
             return inst
-        return cls(dc_class, default, is_nullable, _from_new=_FROM_NEW)
+        if field_converters is None:
+            from ._factory import make_field_converters as _make_field_converters
+            field_converters = _make_field_converters(dc_class)
+        return cls(dc_class, default, is_nullable, field_converters=field_converters, _from_new=_FROM_NEW)
 
     def __init__(
         self,
@@ -232,6 +237,7 @@ class DataclassFeatureConverter(
         default: "Any | ellipsis",
         is_nullable: bool,
         *,
+        field_converters: "Dict[str, FeatureConverter]",
         _from_new: object = None,
     ) -> None:
         super().__init__()
@@ -258,20 +264,39 @@ class DataclassFeatureConverter(
         # _from_pyarrow_flat to avoid building intermediate Python dicts per element.
         self._field_names = field_names
         self._struct_fields_list = struct_fields  # list[pa.Field] in field order
-        self._sub_dc_converters: Dict[str, "DataclassFeatureConverter"] = {}
+        self._field_converters: Dict[str, FeatureConverter] = field_converters
+        self._sub_dc_converters: Dict[str, "DataclassFeatureConverter"] = {
+            k: v for k, v in field_converters.items() if isinstance(v, DataclassFeatureConverter)
+        }
         self._field_prim_convs: Dict[str, Callable[[Any], Any]] = {}
         self._field_rich_convs: Dict[str, Callable[[Any], Any]] = {}
         for _fname in field_names:
             _inner_t = unwrap_optional_and_annotated_if_needed(hints[_fname])
-            if _dataclasses.is_dataclass(_inner_t) and isinstance(_inner_t, type):
-                self._sub_dc_converters[_fname] = DataclassFeatureConverter.for_class(_inner_t)
-            else:
+            if not (_dataclasses.is_dataclass(_inner_t) and isinstance(_inner_t, type)):
                 _to_prim = _build_to_primitive_converter(hints[_fname])
                 _to_rich = _build_to_rich_converter(hints[_fname])
                 if _to_prim is not None:
                     self._field_prim_convs[_fname] = _to_prim
                 if _to_rich is not None:
                     self._field_rich_convs[_fname] = _to_rich
+
+        # Precompute proto arrow types for each field by serializing a null scalar.
+        # Used by from_pyarrow_to_protobuf to build pb.Field descriptors without
+        # importing _primitive_converter.py.
+        self._proto_field_arrow_types: Dict[str, pb.ArrowType] = {
+            fname: fconv.from_pyarrow_to_protobuf(pa.nulls(1, fconv.pyarrow_dtype)[0]).null_value
+            for fname, fconv in field_converters.items()
+        }
+        self._null_proto: pb.ArrowType = pb.ArrowType(
+            struct=pb.Struct(sub_field_types=[
+                pb.Field(
+                    name=pa_field.name,
+                    nullable=pa_field.nullable,
+                    arrow_type=self._proto_field_arrow_types[pa_field.name],
+                )
+                for pa_field in struct_fields
+            ])
+        )
 
         if is_nullable and default is ...:
             default = None
@@ -409,6 +434,10 @@ class DataclassFeatureConverter(
     @property
     def pyarrow_dtype(self) -> pa.DataType:
         return self._pa_struct_type
+
+    @property
+    def protobuf_dtype(self) -> pb.ArrowType:
+        return self._null_proto
 
     @property
     def polars_dtype(self) -> Any:
@@ -589,11 +618,21 @@ class DataclassFeatureConverter(
 
     def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
         if value.as_py() is None:
-            return pb.ScalarValue(null_value=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(value.type))
-        # PrimitiveFeatureConverter handles all scalar types (including nested structs) recursively
-        return PrimitiveFeatureConverter("", True, self._pa_struct_type).from_pyarrow_to_protobuf(value)
+            return pb.ScalarValue(null_value=self._null_proto)
+        fields: List[pb.Field] = []
+        field_values: List[pb.ScalarValue] = []
+        for name, pa_scalar in value.items():
+            fields.append(pb.Field(name=name, nullable=True, arrow_type=self._proto_field_arrow_types[name]))
+            field_values.append(self._field_converters[name].from_pyarrow_to_protobuf(pa_scalar))
+        return pb.ScalarValue(struct_value=pb.StructValue(fields=fields, field_values=field_values))
 
     def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
         if pb_value.HasField("null_value"):
             return pa.nulls(1, type=self._pa_struct_type)[0]
-        return PrimitiveFeatureConverter("", True, self._pa_struct_type).from_protobuf_to_pyarrow(pb_value)
+        name_to_pa_scalar = {
+            field.name: self._field_converters[field.name].from_protobuf_to_pyarrow(fv)
+            for field, fv in zip(pb_value.struct_value.fields, pb_value.struct_value.field_values)
+        }
+        name_to_py_not_none = {k: o for k, v in name_to_pa_scalar.items() if (o := v.as_py()) is not None}
+        pa_fields = [pa.field(k, v.type) for k, v in name_to_pa_scalar.items()]
+        return pa.scalar(name_to_py_not_none, pa.struct(pa_fields))

@@ -1,5 +1,10 @@
+import tempfile
+import urllib.request
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from trilogy.constants import REMOTE_PREFIXES
 
 if TYPE_CHECKING:
     try:
@@ -47,6 +52,9 @@ class DialectConfig:
         raise NotImplementedError
 
     def create_connect_args(self) -> dict:
+        return {}
+
+    def create_engine_args(self) -> dict:
         return {}
 
     def merge_config(self, other: "DialectConfig") -> "DialectConfig":
@@ -127,14 +135,41 @@ class SQLiteConfig(DialectConfig):
         self,
         path: str | None = None,
         retry_config: RetryConfig | None = None,
+        staging_path: str | None = None,
     ):
         super().__init__(retry_config=retry_config)
-        self.path = path
+        self._remote = bool(path and path.startswith(REMOTE_PREFIXES))
+        self.path: str | None
+        if self._remote:
+            self.path = self._download_remote(path, staging_path)  # type: ignore
+        else:
+            self.path = path
+
+    @staticmethod
+    def _download_remote(url: str, staging_path: str | None = None) -> str:
+        tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False, dir=staging_path)
+        urllib.request.urlretrieve(url, tmp.name)
+        return tmp.name
 
     def connection_string(self) -> str:
         if not self.path:
             return "sqlite:///:memory:"
+        if self._remote:
+            return "sqlite://"
         return f"sqlite:///{self.path}"
+
+    def create_engine_args(self) -> dict:
+        if self._remote:
+            import sqlite3
+
+            assert self.path is not None
+            posix_path = Path(self.path).as_posix()
+            return {
+                "creator": lambda: sqlite3.connect(
+                    f"file:{posix_path}?mode=ro", uri=True
+                )
+            }
+        return {}
 
 
 class PostgresConfig(DialectConfig):

@@ -1,6 +1,7 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 
+import contextlib
 from functools import wraps
 
 from contrast.agent import scope
@@ -21,12 +22,21 @@ def build_assess_method_legacy(original_method, patch_policy):
     :param patch_policy: PatchLocationPolicy containing all policy nodes for this patch
     :return: Newly created patch function
     """
+    propagation_scope_or_nullcontext = (
+        scope.propagation_scope
+        if patch_policy.propagator_nodes
+        else contextlib.nullcontext
+    )
+    trigger_scope_or_nullcontext = (
+        scope.trigger_scope if patch_policy.trigger_nodes else contextlib.nullcontext
+    )
 
     def assess_method(*args, **kwargs):
         result = None
 
         try:
-            result = original_method(*args, **kwargs)
+            with propagation_scope_or_nullcontext(), trigger_scope_or_nullcontext():
+                result = original_method(*args, **kwargs)
         finally:
             analyze(patch_policy, result, args, kwargs)
 
@@ -44,13 +54,22 @@ def build_assess_method(original_method, patch_policy):
         in the same way, with args and kwargs being passed. The instance argument
         doesn't need to be used in calling the wrapped function.
     """
+    propagation_scope_or_nullcontext = (
+        scope.propagation_scope
+        if patch_policy.propagator_nodes
+        else contextlib.nullcontext
+    )
+    trigger_scope_or_nullcontext = (
+        scope.trigger_scope if patch_policy.trigger_nodes else contextlib.nullcontext
+    )
 
     @wrapt.function_wrapper
     def assess_method_wrapper(wrapped, instance, args, kwargs):
         result = None
 
         try:
-            result = wrapped(*args, **kwargs)
+            with propagation_scope_or_nullcontext(), trigger_scope_or_nullcontext():
+                result = wrapped(*args, **kwargs)
         finally:
             if instance is not None:
                 args = (instance, *args)
@@ -70,12 +89,21 @@ def build_assess_async_method(original_method, patch_policy):
     :param patch_policy: PatchLocationPolicy containing all policy nodes for this patch
     :return: Newly created async patch function
     """
+    propagation_scope_or_nullcontext = (
+        scope.propagation_scope
+        if patch_policy.propagator_nodes
+        else contextlib.nullcontext
+    )
+    trigger_scope_or_nullcontext = (
+        scope.trigger_scope if patch_policy.trigger_nodes else contextlib.nullcontext
+    )
 
     async def assess_method(*args, **kwargs):
         result = None
 
         try:
-            result = await original_method(*args, **kwargs)
+            with propagation_scope_or_nullcontext(), trigger_scope_or_nullcontext():
+                result = await original_method(*args, **kwargs)
         finally:
             analyze(patch_policy, result, args, kwargs)
 
@@ -96,13 +124,22 @@ def build_assess_classmethod(original_method, patch_policy):
     argument 1. arg 1 is the class. This is something that is automatically passed to
     the function so passing it again will cause a TypeError.
     """
+    propagation_scope_or_nullcontext = (
+        scope.propagation_scope
+        if patch_policy.propagator_nodes
+        else contextlib.nullcontext
+    )
+    trigger_scope_or_nullcontext = (
+        scope.trigger_scope if patch_policy.trigger_nodes else contextlib.nullcontext
+    )
     original_method = patch_manager.as_func(original_method)
 
     def assess_classmethod(*args, **kwargs):
         result = None
 
         try:
-            result = original_method(*args, **kwargs)
+            with propagation_scope_or_nullcontext(), trigger_scope_or_nullcontext():
+                result = original_method(*args, **kwargs)
         finally:
             analyze(patch_policy, result, args, kwargs)
 

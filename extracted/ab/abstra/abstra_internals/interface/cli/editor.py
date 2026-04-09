@@ -35,7 +35,7 @@ from abstra_internals.server.apps import get_local_app
 from abstra_internals.services.file_watcher import FileWatcher
 from abstra_internals.settings import Settings
 from abstra_internals.stdio_patcher import StdioPatcher
-from abstra_internals.tasks_watcher import TasksWatcher, on_tasks_update
+from abstra_internals.tasks_watcher import TasksWatcher
 from abstra_internals.utils.browser import background_open_editor
 from abstra_internals.utils.multiprocessing import safe_multiprocessing_queue
 from abstra_internals.utils.stdio_broadcast import start_stdio_broadcast_consumer
@@ -105,6 +105,14 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
     check_latest_version()
     AbstraLogger.init("local" if EDITOR_MODE == "local" else "cloud")
 
+    _pythonuserbase = os.environ.get("PYTHONUSERBASE")
+    if _pythonuserbase and os.path.isfile(
+        os.path.join(_pythonuserbase, ".keep-abstra")
+    ):
+        AbstraLogger.warning(
+            "[Editor] .keep-abstra marker detected — abstra package cleanup was skipped"
+        )
+
     # Determine if we should use RabbitMQ based on EDITOR_MODE and RABBITMQ_CONNECTION_URI
     # Web editor with workers: EDITOR_MODE=web + RABBITMQ_CONNECTION_URI set
     # Web editor without workers: EDITOR_MODE=web + no RABBITMQ_CONNECTION_URI (legacy mode)
@@ -166,7 +174,7 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
         logs_watcher = LogsWatcher([on_logs_update])
         logs_watcher.start()
 
-    tasks_watcher = TasksWatcher([on_tasks_update])
+    tasks_watcher = TasksWatcher()
     tasks_watcher.start()
 
     if not is_web_editor:

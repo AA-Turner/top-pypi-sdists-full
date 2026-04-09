@@ -328,7 +328,7 @@ class Geocif:
 
     def _setup_tabular_flags(self):
         """Flags for tabular models."""
-        self.do_xai = False
+        self.do_xai = self.parser.getboolean("ML", "do_xai", fallback=False)
         self.alpha = self.parser.getfloat("ML", "alpha")
         self.estimate_ci = self.parser.getboolean("ML", "estimate_ci")
         self.estimate_ci_for_all = self.parser.getboolean("ML", "estimate_ci_for_all")
@@ -2093,8 +2093,11 @@ class Geocif:
         """Run XAI (explainable AI) analysis if configured."""
         if not self.do_xai:
             return
-        
-        if self.estimate_ci:
+
+        # TabPFN/TabICL use native quantile prediction (no conformal wrapper),
+        # so SHAP can still introspect the underlying model when estimate_ci
+        # is True. The guard only matters for tree models wrapped by crepes/MAPIE.
+        if self.estimate_ci and self.model_name not in ("tabpfn", "tabicl"):
             self.logger.warning("Cannot perform XAI if estimate_ci is True")
             return
         

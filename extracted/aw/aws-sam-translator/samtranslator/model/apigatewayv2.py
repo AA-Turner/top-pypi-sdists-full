@@ -11,8 +11,13 @@ from samtranslator.validator.value_validator import sam_expect
 APIGATEWAY_AUTHORIZER_KEY = "x-amazon-apigateway-authorizer"
 
 
-class ApiGatewayV2HttpApi(Resource):
+class ApiGatewayV2Api(Resource):
     resource_type = "AWS::ApiGatewayV2::Api"
+    property_types = {}
+    runtime_attrs = {}
+
+
+class ApiGatewayV2HttpApi(ApiGatewayV2Api):
     property_types = {
         "Body": GeneratedProperty(),
         "BodyS3Location": GeneratedProperty(),
@@ -37,6 +42,33 @@ class ApiGatewayV2HttpApi(Resource):
         return
 
 
+class ApiGatewayV2WebSocketApi(ApiGatewayV2Api):
+    property_types = {
+        "ApiKeySelectionExpression": GeneratedProperty(),
+        "Description": GeneratedProperty(),
+        "DisableExecuteApiEndpoint": GeneratedProperty(),
+        "DisableSchemaValidation": GeneratedProperty(),
+        "FailOnWarnings": GeneratedProperty(),
+        "IpAddressType": GeneratedProperty(),
+        "Name": GeneratedProperty(),
+        "ProtocolType": GeneratedProperty(),
+        "RouteSelectionExpression": GeneratedProperty(),
+        "Tags": GeneratedProperty(),
+    }
+
+    runtime_attrs = {"websocket_api_id": lambda self: ref(self.logical_id)}
+
+    def assign_tags(self, tags: Dict[str, Any]) -> None:
+        """Overriding default 'assign_tags' function in Resource class
+
+        Function to assign tags to the resource
+        :param tags: Tags to be assigned to the resource
+
+        """
+        if tags is not None and "Tags" in self.property_types:
+            self.Tags = tags
+
+
 class ApiGatewayV2Stage(Resource):
     resource_type = "AWS::ApiGatewayV2::Stage"
     property_types = {
@@ -49,7 +81,7 @@ class ApiGatewayV2Stage(Resource):
         "StageName": GeneratedProperty(),
         "Tags": GeneratedProperty(),
         "StageVariables": GeneratedProperty(),
-        "AutoDeploy": GeneratedProperty(),
+        "AutoDeploy": GeneratedProperty(),  # SAM sets this to true, which is why DeploymentId isn't here
     }
 
     runtime_attrs = {"stage_name": lambda self: ref(self.logical_id)}
@@ -101,9 +133,54 @@ class ApiGatewayV2ApiMapping(Resource):
     }
 
 
+class ApiGatewayV2Route(Resource):
+    resource_type = "AWS::ApiGatewayV2::Route"
+    property_types = {
+        "ApiId": GeneratedProperty(),
+        "ApiKeyRequired": GeneratedProperty(),  # AuthorizationScopes not present because JWT not supported by WebSockets
+        "AuthorizationType": GeneratedProperty(),
+        "AuthorizerId": GeneratedProperty(),
+        "ModelSelectionExpression": GeneratedProperty(),
+        "OperationName": GeneratedProperty(),
+        "RequestModels": GeneratedProperty(),
+        "RequestParameters": GeneratedProperty(),
+        "RouteKey": GeneratedProperty(),
+        "RouteResponseSelectionExpression": GeneratedProperty(),
+        "Target": GeneratedProperty(),
+    }
+
+
 # https://docs.aws.amazon.com/apigatewayv2/latest/api-reference/apis-apiid-authorizers-authorizerid.html#apis-apiid-authorizers-authorizerid-model-jwtconfiguration
 # Change to TypedDict when we don't have to support Python 3.7
 JwtConfiguration = Dict[str, Union[str, List[str]]]
+
+
+class ApiGatewayV2Integration(Resource):
+    resource_type = "AWS::ApiGatewayV2::Integration"
+    property_types = {
+        "ApiId": GeneratedProperty(),
+        "IntegrationType": GeneratedProperty(),
+        "IntegrationUri": GeneratedProperty(),
+        "TimeoutInMillis": GeneratedProperty(),
+    }
+
+
+class ApiGatewayV2WSAuthorizer(Resource):
+    """
+    The ApiGatewayV2Authorizer was created for HTTP APIs and as a result turns the auth to part of the OpenAPI
+    definition, which WebSockets don't have. As a result, separate classes.
+    """
+
+    resource_type = "AWS::ApiGatewayV2::Authorizer"
+    property_types = {
+        "ApiId": GeneratedProperty(),
+        "AuthorizerCredentialsArn": GeneratedProperty(),
+        "AuthorizerPayloadFormatVersion": GeneratedProperty(),
+        "AuthorizerType": GeneratedProperty(),
+        "AuthorizerUri": GeneratedProperty(),
+        "IdentitySource": GeneratedProperty(),
+        "Name": GeneratedProperty(),
+    }
 
 
 class ApiGatewayV2Authorizer:
@@ -123,7 +200,7 @@ class ApiGatewayV2Authorizer:
         enable_function_default_permissions=None,
     ):
         """
-        Creates an authorizer for use in V2 Http Apis
+        Creates an authorizer for use in V2 Http Apis and WebSocket Apis
         """
         self.api_logical_id = api_logical_id
         self.name = name

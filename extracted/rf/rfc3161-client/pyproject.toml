@@ -13,17 +13,17 @@ classifiers = [
 ]
 # Maturin does not support dynamic fields
 # So we keep the version number here instead of __init__
-version = "1.0.5"
+version = "1.0.6"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Trail of Bits", email = "opensource@trailofbits.com" }]
-dependencies = ["cryptography>=43,<47"]
+dependencies = ["cryptography>=43"]
 
-[project.optional-dependencies]
+[dependency-groups]
 doc = []
 test = ["pytest", "pytest-cov", "pretend", "coverage[toml]"]
-lint = ["ruff >= 0.7,< 0.14", "interrogate", "mypy", "types-requests"]
-dev = ["rfc3161-client[test,lint,doc]", "maturin>=1.7,<2.0"]
+lint = ["ruff >= 0.7,< 0.16", "interrogate", "ty>=0.0.14", { include-group = "test" }]
+dev = [{ include-group = "lint" }, { include-group = "doc" }, "maturin>=1.7,<2.0"]
 
 [project.urls]
 Homepage = "https://pypi.org/project/rfc3161-client"
@@ -53,23 +53,12 @@ select = ["E", "F", "I", "W", "UP", "TCH"]
 [tool.coverage.report]
 exclude_also = ["if TYPE_CHECKING:"]
 
+[tool.ty.src]
+include = ["src", "test"]
+
 [tool.interrogate]
 # don't enforce documentation coverage for testing, the virtual
 # environment, or the scripts.
 exclude = [".venv", "test", "scripts"]
 ignore-semiprivate = true
 fail-under = 100
-
-[tool.mypy]
-mypy_path = "src"
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_return_any = true
-warn_unreachable = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-disallow_untyped_decorators = false
-check_untyped_defs = true
-disallow_any_unimported = false
-ignore_missing_imports = true

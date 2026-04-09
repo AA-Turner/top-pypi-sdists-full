@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: decorative-secrets
-Version: 0.12.12
+Version: 0.12.13
 Summary: Decorators for Multi-Source Secret Retrieval
 Project-URL: Documentation, https://decorative-secrets.enorganic.org
 Project-URL: Repository, https://github.com/enorganic/decorative-secrets
@@ -8,7 +8,7 @@ Author-email: david@belais.me
 License-Expression: MIT
 Keywords: decorators,secrets
 Requires-Python: ~=3.10
-Requires-Dist: async-lru~=2.2
+Requires-Dist: async-lru~=2.3
 Requires-Dist: nest-asyncio~=1.6
 Provides-Extra: all
 Requires-Dist: azure-keyvault-secrets~=4.10; extra == 'all'

@@ -27,6 +27,7 @@ DEFAULT_INTERVAL_SEC = 3
 DEFAULT_MAX_FAILS = 3
 DEFAULT_TIMEOUT = 1
 DEFAULT_SSL_HANDSHAKE_TIMEOUT = 10
+CLOSE_STREAM_WRITER_DEFAULT_TIMEOUT_SECONDS = 1.0
 OSUTIL = get_os_utils()
 SHELL_USAGE = """
 # This shell allows you to communicate directly with every service layer behind the lockdownd daemon.
@@ -78,6 +79,21 @@ def parse_plist(payload: bytes) -> dict:
             raise PyMobileDevice3Exception(f"parse_plist invalid data: {payload[:100].hex()}") from e
     except plistlib.InvalidFileException as e:
         raise PyMobileDevice3Exception(f"parse_plist invalid data: {payload[:100].hex()}") from e
+
+
+async def close_stream_writer(
+    writer: asyncio.StreamWriter, timeout: float = CLOSE_STREAM_WRITER_DEFAULT_TIMEOUT_SECONDS
+) -> None:
+    """Close a stream writer gracefully, aborting its transport if its close hangs"""
+    with contextlib.suppress(Exception):
+        writer.close()
+    with contextlib.suppress(Exception):
+        try:
+            await asyncio.wait_for(writer.wait_closed(), timeout=timeout)
+        except asyncio.TimeoutError:
+            with contextlib.suppress(Exception):
+                if writer.transport is not None:
+                    writer.transport.abort()
 
 
 class ServiceConnection:
@@ -133,9 +149,7 @@ class ServiceConnection:
         )
         sock = writer.get_extra_info("socket")
         if sock is None:
-            writer.close()
-            with contextlib.suppress(Exception):
-                await writer.wait_closed()
+            await close_stream_writer(writer)
             raise ConnectionError(f"failed to get socket from connection to {hostname}:{port}")
         if keep_alive:
             OSUTIL.set_keepalive(sock)
@@ -199,21 +213,17 @@ class ServiceConnection:
 
     async def close(self) -> None:
         """Asynchronously close the connection."""
-        if self.writer is not None:
-            with contextlib.suppress(Exception):
-                self.writer.close()
-            with contextlib.suppress(Exception):
-                await self.writer.wait_closed()
+        try:
+            if self.writer is not None:
+                await close_stream_writer(self.writer)
             if self.socket is not None and self.socket.fileno() != -1:
                 with contextlib.suppress(Exception):
                     self.socket.close()
-        elif self.socket is not None:
-            with contextlib.suppress(Exception):
-                self.socket.close()
-        self.socket = None
-        self.writer = None
-        self.reader = None
-        self._start_future = None
+        finally:
+            self.socket = None
+            self.writer = None
+            self.reader = None
+            self._start_future = None
 
     def recv_sync(self, length: int = 4096) -> bytes:
         """

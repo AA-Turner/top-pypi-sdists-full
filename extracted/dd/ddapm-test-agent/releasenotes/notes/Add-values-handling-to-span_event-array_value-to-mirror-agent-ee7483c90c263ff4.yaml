@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    The agent requires any span_event array_value to be wrapped in a {values: [...]} object.
-    This reflects this requirement from the SpanEvent prototype here.

@@ -8,7 +8,7 @@ do_not_verify = {
     "AWS::Lambda::LayerVersion": "AWS::Serverless::LayerVersion",
     "AWS::Lambda::CapacityProvider": "AWS::Serverless::CapacityProvider",
     "AWS::ApiGateway::RestApi": "AWS::Serverless::Api",
-    "AWS::ApiGatewayV2::Api": "AWS::Serverless::HttpApi",
+    "AWS::ApiGatewayV2::Api": ["AWS::Serverless::HttpApi", "AWS::Serverless::WebSocketApi"],
     "AWS::S3::Bucket": "AWS::S3::Bucket",
     "AWS::SNS::Topic": "AWS::SNS::Topic",
     "AWS::DynamoDB::Table": "AWS::Serverless::SimpleTable",

@@ -1593,6 +1593,31 @@ def map_get(mapping: Mapping[KeyType, ValueType], key: Any):
     return UnderscoreFunction("map_get", pa.scalar(mapping, type=map_type), key)
 
 
+def map_from_arrays(keys: Underscore | Any, values: Underscore | Any):
+    """
+    Create a map from separate arrays of keys and values.
+
+    Parameters
+    ----------
+    keys
+        The array of keys.
+    values
+        The array of values.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Transaction:
+    ...    id: int
+    ...    key_list: list[str]
+    ...    value_list: list[str]
+    ...    metadata: dict[str, str] = F.map_from_arrays(_.key_list, _.value_list)
+    """
+    return UnderscoreFunction("map_from_arrays", keys, values)
+
+
 def map_keys(mapping: Underscore):
     """
     Get the keys of a map as a list.
@@ -5108,7 +5133,11 @@ def nth_bucket_end(value: Underscore, bucket_duration: str, n: int, initial_buck
 
 
 def inference(
-    model: ModelVersion, inputs: list[Underscore | Any] | Underscore, resource_hint: ResourceHint | None = None
+    model: ModelVersion,
+    inputs: list[Underscore | Any] | Underscore,
+    resource_hint: ResourceHint | None = None,
+    resource_group: str | None = None,
+    venv: str | None = None,
 ) -> Underscore | Feature:
     """
     Run inference on a deployed ML model.
@@ -5143,7 +5172,9 @@ def inference(
     if not isinstance(model, ModelVersion):  #  type: ignore[unreachable]
         raise ValueError(f"First input to F.inference must be a `ModelVersion`, but got {type(model)}.")
 
-    return generate_inference_resolver(model_version=model, inputs=inputs, resource_hint=resource_hint)
+    return generate_inference_resolver(
+        model_version=model, inputs=inputs, resource_hint=resource_hint, resource_group=resource_group, venv=venv
+    )
 
 
 def ordinal_encode(feature: Underscore, options: list[Any], default: int | None = None) -> Underscore:

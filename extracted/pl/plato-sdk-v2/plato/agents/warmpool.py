@@ -15,6 +15,7 @@ import tenacity
 
 from plato.agents import vm_setup
 from plato.runtimes.base import Runtime, RuntimeInfo
+from plato.runtimes.vm import VMRuntime
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -53,6 +54,7 @@ class WarmPool:
         pre_warm: int = 0,
         health_check_timeout: int = 10,
         reset_timeout: int = 30,
+        vm_timeout: int | None = None,
     ) -> None:
         if max_size < 1:
             raise ValueError("max_size must be at least 1")
@@ -65,6 +67,7 @@ class WarmPool:
         self._pre_warm_target = min(pre_warm, max_size)
         self.health_check_timeout = health_check_timeout
         self.reset_timeout = reset_timeout
+        self._vm_timeout = vm_timeout
 
         self._available: deque[PooledVM] = deque()
         self._in_use: dict[str, PooledVM] = {}
@@ -77,7 +80,10 @@ class WarmPool:
 
     def _make_runtime(self) -> Runtime:
         """Create a fresh runtime for one agent environment."""
-        return self._runtime_factory()
+        rt = self._runtime_factory()
+        if self._vm_timeout is not None and isinstance(rt, VMRuntime):
+            rt._timeout = self._vm_timeout
+        return rt
 
     async def acquire(self) -> PooledVM:
         """Acquire a healthy pooled VM, provisioning one when capacity allows."""

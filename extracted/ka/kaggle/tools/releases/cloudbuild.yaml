@@ -78,7 +78,7 @@ steps:
             echo "Deployment to pypitest disabled, set substitution _TO_TEST to true if you want otherwise."
             exit 0
         fi
-        twine upload /root/dist/* -r pypitest
+        twine upload --verbose /root/dist/* -r pypitest
     volumes:
       - name: "root"
         path: /root

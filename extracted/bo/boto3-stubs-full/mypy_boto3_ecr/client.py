@@ -200,6 +200,7 @@ class Exceptions(BaseClientExceptions):
     UnableToDecryptSecretValueException: type[BotocoreClientError]
     UnableToGetUpstreamImageException: type[BotocoreClientError]
     UnableToGetUpstreamLayerException: type[BotocoreClientError]
+    UnableToListUpstreamImageReferrersException: type[BotocoreClientError]
     UnsupportedImageTypeException: type[BotocoreClientError]
     UnsupportedUpstreamRegistryException: type[BotocoreClientError]
     UploadNotFoundException: type[BotocoreClientError]

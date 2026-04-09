@@ -1,4 +1,4 @@
-from typing import TypedDict, Union, Required, Any, List, Dict
+from typing import TypedDict, Required, Dict, Union, Any, List
 
 
 class FeedbackEvent(TypedDict, total=False):

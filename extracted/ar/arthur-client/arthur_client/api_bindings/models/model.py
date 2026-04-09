@@ -49,7 +49,8 @@ class Model(BaseModel):
     data_plane: DataPlane = Field(description="Data plane backing this model.")
     agent_id: Optional[StrictStr] = None
     project_name: StrictStr = Field(description="Name of the parent project.")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "project_id", "name", "description", "onboarding_identifier", "last_updated_by_user", "metric_config", "schedule", "model_problem_types", "datasets", "data_plane_id", "data_plane", "agent_id", "project_name"]
+    compliance_schedule_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "project_id", "name", "description", "onboarding_identifier", "last_updated_by_user", "metric_config", "schedule", "model_problem_types", "datasets", "data_plane_id", "data_plane", "agent_id", "project_name", "compliance_schedule_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -134,6 +135,11 @@ class Model(BaseModel):
         if self.agent_id is None and "agent_id" in self.model_fields_set:
             _dict['agent_id'] = None
 
+        # set to None if compliance_schedule_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.compliance_schedule_id is None and "compliance_schedule_id" in self.model_fields_set:
+            _dict['compliance_schedule_id'] = None
+
         return _dict
 
     @classmethod
@@ -161,7 +167,8 @@ class Model(BaseModel):
             "data_plane_id": obj.get("data_plane_id"),
             "data_plane": DataPlane.from_dict(obj["data_plane"]) if obj.get("data_plane") is not None else None,
             "agent_id": obj.get("agent_id"),
-            "project_name": obj.get("project_name")
+            "project_name": obj.get("project_name"),
+            "compliance_schedule_id": obj.get("compliance_schedule_id")
         })
         return _obj
 

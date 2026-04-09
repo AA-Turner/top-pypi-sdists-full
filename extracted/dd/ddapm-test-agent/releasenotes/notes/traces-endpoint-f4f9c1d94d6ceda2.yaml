@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Fix /test/traces endpoint attempting to decode non-trace requests.

@@ -51,33 +51,6 @@ QuantConnect_Algorithm__EventContainer_Callable = typing.TypeVar("QuantConnect_A
 QuantConnect_Algorithm__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Algorithm__EventContainer_ReturnType")
 
 
-class DollarVolumeUniverseDefinitions(System.Object):
-    """Provides helpers for defining universes based on the daily dollar volume"""
-
-    def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> None:
-        """
-        Initializes a new instance of the DollarVolumeUniverseDefinitions class
-        
-        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
-        """
-        ...
-
-    def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new coarse Universe that contains the top count of stocks
-        by daily dollar volume
-        
-        
-        This method is deprecated. Use method `Universe.Top(...)` instead
-        
-        :param count: The number of stock to select
-        :param universe_settings: The settings for stocks added by this universe.
-        Defaults to QCAlgorithm.universe_settings
-        :returns: A new coarse universe for the top count of stocks by dollar volume.
-        """
-        warnings.warn("This method is deprecated. Use method `Universe.Top(...)` instead", DeprecationWarning)
-
-
 class UniverseDefinitions(System.Object):
     """Provides helpers for defining universes in algorithms"""
 
@@ -1221,12 +1194,79 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
             ...
 
     @property
-    def transactions(self) -> QuantConnect.Securities.SecurityTransactionManager:
-        """Transaction Manager - Process transaction fills and order management."""
+    def enable_automatic_indicator_warm_up(self) -> bool:
+        """
+        Gets whether or not WarmUpIndicator is allowed to warm up indicators
+        
+        
+        Please use Settings.AutomaticIndicatorWarmUp
+        """
+        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
+
+    @enable_automatic_indicator_warm_up.setter
+    def enable_automatic_indicator_warm_up(self, value: bool) -> None:
+        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
+
+    @property
+    def debug_mode(self) -> bool:
+        """
+        Enables additional logging of framework models including:
+        All insights, portfolio targets, order events, and any risk management altered targets
+        """
         ...
 
-    @transactions.setter
-    def transactions(self, value: QuantConnect.Securities.SecurityTransactionManager) -> None:
+    @debug_mode.setter
+    def debug_mode(self, value: bool) -> None:
+        ...
+
+    @property
+    def universe_selection(self) -> QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel:
+        """Gets or sets the universe selection model."""
+        ...
+
+    @universe_selection.setter
+    def universe_selection(self, value: QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel) -> None:
+        ...
+
+    @property
+    def alpha(self) -> QuantConnect.Algorithm.Framework.Alphas.IAlphaModel:
+        """Gets or sets the alpha model"""
+        ...
+
+    @alpha.setter
+    def alpha(self, value: QuantConnect.Algorithm.Framework.Alphas.IAlphaModel) -> None:
+        ...
+
+    @property
+    def insights(self) -> QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager:
+        """Gets the insight manager"""
+        ...
+
+    @property
+    def portfolio_construction(self) -> QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel:
+        """Gets or sets the portfolio construction model"""
+        ...
+
+    @portfolio_construction.setter
+    def portfolio_construction(self, value: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel) -> None:
+        ...
+
+    @property
+    def execution(self) -> QuantConnect.Algorithm.Framework.Execution.IExecutionModel:
+        """Gets or sets the execution model"""
+        ...
+
+    @execution.setter
+    def execution(self, value: QuantConnect.Algorithm.Framework.Execution.IExecutionModel) -> None:
+        ...
+
+    @property
+    def risk_management(self) -> QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel:
+        """Gets or sets the risk management model"""
+        ...
+
+    @risk_management.setter
+    def risk_management(self, value: QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel) -> None:
         ...
 
     @property
@@ -1244,27 +1284,12 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def pandas_converter(self) -> QuantConnect.Python.PandasConverter:
-        """PandasConverter for this Algorithm"""
+    def transactions(self) -> QuantConnect.Securities.SecurityTransactionManager:
+        """Transaction Manager - Process transaction fills and order management."""
         ...
 
-    @property
-    def enable_automatic_indicator_warm_up(self) -> bool:
-        """
-        Gets whether or not WarmUpIndicator is allowed to warm up indicators
-        
-        
-        Please use Settings.AutomaticIndicatorWarmUp
-        """
-        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
-
-    @enable_automatic_indicator_warm_up.setter
-    def enable_automatic_indicator_warm_up(self, value: bool) -> None:
-        warnings.warn("Please use Settings.AutomaticIndicatorWarmUp", DeprecationWarning)
-
-    @property
-    def runtime_statistics(self) -> System.Collections.Concurrent.ConcurrentDictionary[str, str]:
-        """Access to the runtime statistics property. User provided statistics."""
+    @transactions.setter
+    def transactions(self, value: QuantConnect.Securities.SecurityTransactionManager) -> None:
         ...
 
     @property
@@ -1280,6 +1305,16 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @property
     def universe(self) -> QuantConnect.Algorithm.UniverseDefinitions:
         """Gets a helper that provides pre-defined universe definitions, such as top dollar volume"""
+        ...
+
+    @property
+    def pandas_converter(self) -> QuantConnect.Python.PandasConverter:
+        """PandasConverter for this Algorithm"""
+        ...
+
+    @property
+    def runtime_statistics(self) -> System.Collections.Concurrent.ConcurrentDictionary[str, str]:
+        """Access to the runtime statistics property. User provided statistics."""
         ...
 
     MAX_NAME_AND_TAGS_LENGTH: int = 200
@@ -1653,68 +1688,6 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @property
     def benchmark(self) -> QuantConnect.Benchmarks.IBenchmark:
         """The IBenchmark for the algorithm"""
-        ...
-
-    @property
-    def debug_mode(self) -> bool:
-        """
-        Enables additional logging of framework models including:
-        All insights, portfolio targets, order events, and any risk management altered targets
-        """
-        ...
-
-    @debug_mode.setter
-    def debug_mode(self, value: bool) -> None:
-        ...
-
-    @property
-    def universe_selection(self) -> QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel:
-        """Gets or sets the universe selection model."""
-        ...
-
-    @universe_selection.setter
-    def universe_selection(self, value: QuantConnect.Algorithm.Framework.Selection.IUniverseSelectionModel) -> None:
-        ...
-
-    @property
-    def alpha(self) -> QuantConnect.Algorithm.Framework.Alphas.IAlphaModel:
-        """Gets or sets the alpha model"""
-        ...
-
-    @alpha.setter
-    def alpha(self, value: QuantConnect.Algorithm.Framework.Alphas.IAlphaModel) -> None:
-        ...
-
-    @property
-    def insights(self) -> QuantConnect.Algorithm.Framework.Alphas.Analysis.InsightManager:
-        """Gets the insight manager"""
-        ...
-
-    @property
-    def portfolio_construction(self) -> QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel:
-        """Gets or sets the portfolio construction model"""
-        ...
-
-    @portfolio_construction.setter
-    def portfolio_construction(self, value: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioConstructionModel) -> None:
-        ...
-
-    @property
-    def execution(self) -> QuantConnect.Algorithm.Framework.Execution.IExecutionModel:
-        """Gets or sets the execution model"""
-        ...
-
-    @execution.setter
-    def execution(self, value: QuantConnect.Algorithm.Framework.Execution.IExecutionModel) -> None:
-        ...
-
-    @property
-    def risk_management(self) -> QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel:
-        """Gets or sets the risk management model"""
-        ...
-
-    @risk_management.setter
-    def risk_management(self, value: QuantConnect.Algorithm.Framework.Risk.IRiskManagementModel) -> None:
         ...
 
     @property
@@ -6998,6 +6971,33 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :returns: A new Rho indicator for the specified symbol.
         """
         ...
+
+
+class DollarVolumeUniverseDefinitions(System.Object):
+    """Provides helpers for defining universes based on the daily dollar volume"""
+
+    def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> None:
+        """
+        Initializes a new instance of the DollarVolumeUniverseDefinitions class
+        
+        :param algorithm: The algorithm instance, used for obtaining the default UniverseSettings
+        """
+        ...
+
+    def top(self, count: int, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new coarse Universe that contains the top count of stocks
+        by daily dollar volume
+        
+        
+        This method is deprecated. Use method `Universe.Top(...)` instead
+        
+        :param count: The number of stock to select
+        :param universe_settings: The settings for stocks added by this universe.
+        Defaults to QCAlgorithm.universe_settings
+        :returns: A new coarse universe for the top count of stocks by dollar volume.
+        """
+        warnings.warn("This method is deprecated. Use method `Universe.Top(...)` instead", DeprecationWarning)
 
 
 class ConstituentUniverseDefinitions(System.Object):

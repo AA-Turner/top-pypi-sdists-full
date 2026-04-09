@@ -59,6 +59,11 @@ int main(void) {
     rc = kreuzberg_config_builder_set_language_detection(builder, "{}");
     assert(rc == 0);
 
+    /* set_content_filter takes a JSON string */
+    rc = kreuzberg_config_builder_set_content_filter(
+        builder, "{\"include_headers\":true,\"strip_repeating_text\":false}");
+    assert(rc == 0);
+
     /* Build the config with all fields set */
     config = kreuzberg_config_builder_build(builder);
     assert(config != NULL);

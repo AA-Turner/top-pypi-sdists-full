@@ -3,7 +3,7 @@ from typing import Union, cast
 import pyarrow as pa
 
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
-from chalk.features._encoding.converter import PrimitiveFeatureConverter, make_primitive_converter
+from chalk.features._encoding.converter import make_primitive_converter, proto_to_pa_scalar
 from chalk.features._encoding.primitive import TPrimitive
 
 
@@ -53,10 +53,7 @@ def convert_literal_to_proto_expr(value: Union[TPrimitive, pa.DataType]) -> expr
 def convert_proto_expr_to_literal(node: expr_pb.LogicalExprNode) -> TPrimitive:
     if not node.HasField("literal_value"):
         raise ValueError("Expected a literal expression")
-    converter = PrimitiveFeatureConverter(
-        name="convert_proto_expr_to_literal", is_nullable=True, pyarrow_dtype=pa.null()
-    )
-    scalar_val = converter.from_protobuf_to_pyarrow(node.literal_value.value)
+    scalar_val = proto_to_pa_scalar(node.literal_value.value)
     if node.literal_value.is_arrow_scalar_object:
         return scalar_val
     else:

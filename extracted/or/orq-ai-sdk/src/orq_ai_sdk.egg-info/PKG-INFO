@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: orq-ai-sdk
-Version: 4.6.13
+Version: 4.7.0
 Summary: Python Client SDK for the Orq API.
 Author: Orq
 Project-URL: repository, https://github.com/orq-ai/orq-python.git
@@ -695,7 +695,7 @@ with Orq(
 **Primary error:**
 * [`OrqError`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/orqerror.py): The base class for HTTP error responses.
 
-<details><summary>Less common errors (43)</summary>
+<details><summary>Less common errors (44)</summary>
 
 <br />
 
@@ -744,6 +744,7 @@ with Orq(
 * [`CreateTranscriptionRouterAudioTranscriptionsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createtranscriptionrouteraudiotranscriptionsresponsebody.py): Returns validation error. Status code `422`. Applicable to 1 of 127 methods.*
 * [`CreateTranslationRouterAudioTranslationsResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/createtranslationrouteraudiotranslationsresponsebody.py): Returns validation error. Status code `422`. Applicable to 1 of 127 methods.*
 * [`InvokeEvalEvalsResponse500ResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/invokeevalevalsresponse500responsebody.py): Error running the evaluator. Status code `500`. Applicable to 1 of 127 methods.*
+* [`RetrieveIdentityIdentitiesResponseResponseBody`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/retrieveidentityidentitiesresponseresponsebody.py): Failed to fetch metrics. Status code `500`. Applicable to 1 of 127 methods.*
 * [`ResponseValidationError`](https://github.com/orq-ai/orq-python/blob/master/./src/orq_ai_sdk/models/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>

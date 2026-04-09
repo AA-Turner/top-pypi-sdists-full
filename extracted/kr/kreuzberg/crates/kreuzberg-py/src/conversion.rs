@@ -260,6 +260,34 @@ impl From<kreuzberg::core::config::TreeSitterConfig> for TreeSitterConfig {
     }
 }
 
+/// Convert PyLlmConfig to its inner Rust type
+impl From<PyLlmConfig> for kreuzberg::LlmConfig {
+    fn from(config: PyLlmConfig) -> Self {
+        config.inner
+    }
+}
+
+/// Convert Rust LlmConfig to Python wrapper
+impl From<kreuzberg::LlmConfig> for PyLlmConfig {
+    fn from(config: kreuzberg::LlmConfig) -> Self {
+        Self { inner: config }
+    }
+}
+
+/// Convert PyStructuredExtractionConfig to its inner Rust type
+impl From<PyStructuredExtractionConfig> for kreuzberg::StructuredExtractionConfig {
+    fn from(config: PyStructuredExtractionConfig) -> Self {
+        config.inner
+    }
+}
+
+/// Convert Rust StructuredExtractionConfig to Python wrapper
+impl From<kreuzberg::StructuredExtractionConfig> for PyStructuredExtractionConfig {
+    fn from(config: kreuzberg::StructuredExtractionConfig) -> Self {
+        Self { inner: config }
+    }
+}
+
 /// Convert FileExtractionConfig to its inner Rust type
 impl From<FileExtractionConfig> for kreuzberg::FileExtractionConfig {
     fn from(config: FileExtractionConfig) -> Self {

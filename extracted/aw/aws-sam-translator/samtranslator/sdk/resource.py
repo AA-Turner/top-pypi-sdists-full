@@ -68,6 +68,7 @@ class SamResourceType(Enum):
     Application = "AWS::Serverless::Application"
     LambdaLayerVersion = "AWS::Serverless::LayerVersion"
     HttpApi = "AWS::Serverless::HttpApi"
+    WebSocketApi = "AWS::Serverless::WebSocketApi"
     StateMachine = "AWS::Serverless::StateMachine"
     CapacityProvider = "AWS::Serverless::CapacityProvider"
 

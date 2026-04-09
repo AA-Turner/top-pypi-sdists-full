@@ -58,6 +58,8 @@ __all__ = (
     "PowerDrawKvaType",
     "PowerFeedDropType",
     "PowerPhaseType",
+    "PricingResultType",
+    "QuotePricingTypeType",
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
@@ -167,8 +169,10 @@ PowerConnectorType = Literal["AH530P7W", "AH532P6W", "CS8365C", "IEC309", "L6_30
 PowerDrawKvaType = Literal["POWER_10_KVA", "POWER_15_KVA", "POWER_30_KVA", "POWER_5_KVA"]
 PowerFeedDropType = Literal["ABOVE_RACK", "BELOW_RACK"]
 PowerPhaseType = Literal["SINGLE_PHASE", "THREE_PHASE"]
+PricingResultType = Literal["PRICED", "UNABLE_TO_PRICE"]
+QuotePricingTypeType = Literal["SUBSCRIPTION"]
 ShipmentCarrierType = Literal["DBS", "DHL", "EXPEDITORS", "FEDEX", "UPS"]
-SubscriptionStatusType = Literal["ACTIVE", "CANCELLED", "INACTIVE"]
+SubscriptionStatusType = Literal["ACTIVE", "CANCELLED", "INACTIVE", "PENDING"]
 SubscriptionTypeType = Literal["CAPACITY_INCREASE", "ORIGINAL", "RENEWAL"]
 SupportedHardwareTypeType = Literal["RACK", "SERVER"]
 SupportedStorageEnumType = Literal["EBS", "S3"]
@@ -428,6 +432,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",

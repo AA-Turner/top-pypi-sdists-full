@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict, Union, Required, Any, List
+from typing import Literal, TypedDict, Required, Union, Any, List
 
 
 class Assertion(TypedDict, total=False):

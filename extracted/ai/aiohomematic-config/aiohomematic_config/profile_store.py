@@ -12,6 +12,20 @@ from aiohomematic_config.const import DEFAULT_LOCALE
 from aiohomematic_config.profile_data import ChannelProfileSet, ProfileDef, ProfileParamConstraint, ResolvedProfile
 
 
+def _load_receiver_type_aliases() -> dict[str, str]:
+    """Load receiver type aliases from extracted JSON data."""
+    try:
+        data_file = files("aiohomematic_config.profiles").joinpath("_receiver_type_aliases.json")
+        result: dict[str, str] = json.loads(data_file.read_text(encoding="utf-8"))
+    except FileNotFoundError, ModuleNotFoundError, json.JSONDecodeError:
+        return {}
+    else:
+        return result
+
+
+_RECEIVER_TYPE_ALIASES: dict[str, str] = _load_receiver_type_aliases()
+
+
 class ProfileStore:
     """Load and query easymode profile definitions."""
 
@@ -80,12 +94,13 @@ class ProfileStore:
         sender_channel_type: str,
     ) -> ChannelProfileSet | None:
         """Load profile set from JSON, with caching."""
-        if receiver_channel_type not in self._cache:
-            self._cache[receiver_channel_type] = await asyncio.to_thread(
+        effective_type = _RECEIVER_TYPE_ALIASES.get(receiver_channel_type, receiver_channel_type)
+        if effective_type not in self._cache:
+            self._cache[effective_type] = await asyncio.to_thread(
                 _load_receiver_profiles,
-                receiver_channel_type=receiver_channel_type,
+                receiver_channel_type=effective_type,
             )
-        return self._cache[receiver_channel_type].get(sender_channel_type)
+        return self._cache[effective_type].get(sender_channel_type)
 
 
 def _load_receiver_profiles(

@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Move span attributes ``type``, ``meta`` and ``metrics`` up in the JSON
-    snapshot output to help with readability.

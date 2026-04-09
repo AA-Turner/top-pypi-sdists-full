@@ -2,16 +2,18 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from contrast.agent.policy.registry import register_propagation_nodes
 
-
+# NOTE: os.path is an alias for posixpath on posix systems
 path_propagators = [
     {
-        # os.path is just an alias for posixpath
         "module": "posixpath",
         "method_name": "basename",
         "source": "ARG_0,KWARG:p",
         "target": "RETURN",
-        # We rely on rewrites to perform the actual propagation
-        "action": "TAGGER",
+        # NOTE: this used to use TAGGER, but that implementation relied on propagation
+        # occuring within the original `basename` call itself to handle other tags.
+        # Using SPLAT instead means we no longer need to rely on propagation within a
+        # propagator, which is better for performance.
+        "action": "SPLAT",
         "tags": ["SAFE_PATH"],
     },
     {

@@ -1,4 +1,0 @@
----
-features:
-  - |
-    vcr: adds two new ``/vcr/test/start`` and ``/vcr/test/stop``, which capture all proxy requests made in between these two requests with a test name specified in ``/vcr/test/start``.

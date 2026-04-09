@@ -15,6 +15,8 @@ class DigitalOutput(Phidget):
 		self.handle = ctypes.c_void_p()
 		self._setDutyCycle_async = None
 		self._onsetDutyCycle_async = None
+		self._setFrequency_async = None
+		self._onsetFrequency_async = None
 		self._setLEDCurrentLimit_async = None
 		self._onsetLEDCurrentLimit_async = None
 		self._setState_async = None
@@ -193,6 +195,18 @@ class DigitalOutput(Phidget):
 			raise PhidgetException(result)
 
 		return _MaxFrequency.value
+
+	def setFrequency_async(self, Frequency, asyncHandler):
+		_Frequency = ctypes.c_double(Frequency)
+
+		_ctx = ctypes.c_void_p()
+		if asyncHandler != None:
+			_ctx = ctypes.c_void_p(AsyncSupport.add(asyncHandler, self))
+		_asyncHandler = AsyncSupport.getCallback()
+
+		__func = PhidgetSupport.getDll().PhidgetDigitalOutput_setFrequency_async
+		__func(self.handle, _Frequency, _asyncHandler, _ctx)
+
 
 	def getLEDCurrentLimit(self):
 		_LEDCurrentLimit = ctypes.c_double()

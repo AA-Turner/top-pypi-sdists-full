@@ -3,7 +3,6 @@
 from contrast.agent.policy.registry import register_propagation_nodes
 from contrast.agent.policy.utils import CompositeNode
 
-
 framework_propagators = [
     {
         "module": "starlette.staticfiles",
@@ -171,6 +170,18 @@ framework_propagators = [
         "target": "RETURN",
         "action": "SAFE_JOIN",
         "tags": ["SAFE_PATH"],
+    },
+    {
+        # MapAdapter.make_redirect_url constructs a URL using the server's scheme and host,
+        # preventing redirects to external domains even if path_info is user-controlled.
+        # This makes automatic trailing slash redirects and similar internal redirects safe.
+        "module": "werkzeug.routing",
+        "class_name": "MapAdapter",
+        "method_name": "make_redirect_url",
+        "source": "ARG_0,KWARG:path_info",
+        "target": "RETURN",
+        "action": "SPLAT",
+        "tags": ["SAFE_REDIRECT"],
     },
     CompositeNode(
         {

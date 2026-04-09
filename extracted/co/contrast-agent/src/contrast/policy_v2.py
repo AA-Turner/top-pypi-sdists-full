@@ -29,7 +29,15 @@ def definitions() -> list[PolicyDefinition]:
     """
     Returns a list of all v2 policy definitions.
     """
-    return cmd_exec + file_open + authn + authz + outbound_request + graphql_request
+    return (
+        cmd_exec
+        + file_open
+        + authn
+        + authz
+        + outbound_request
+        + ai_usage
+        + graphql_request
+    )
 
 
 cmd_exec: list[PolicyDefinition] = [
@@ -238,6 +246,44 @@ outbound_request: list[PolicyDefinition] = [
             "url": "url",
         },
     },
+]
+
+
+ai_usage: list[PolicyDefinition] = [
+    {
+        "module": module,
+        "method_names": (
+            sync_methods + [f"Async{method_name}" for method_name in sync_methods]
+        ),
+        "event": {
+            "name": "ai-usage-stainless",
+            "client_type_to_api_provider": {
+                "anthropic.Anthropic": "anthropic",
+                "anthropic.AsyncAnthropic": "anthropic",
+                "anthropic.lib.bedrock._client.AnthropicBedrock": "bedrock",
+                "anthropic.lib.bedrock._client.AsyncAnthropicBedrock": "bedrock",
+                "anthropic.lib.vertex._client.AnthropicVertex": "vertex",
+                "anthropic.lib.vertex._client.AsyncAnthropicVertex": "vertex",
+            },
+        },
+    }
+    for module, sync_methods in [
+        ("anthropic.resources.completions", ["Completions.create"]),
+        (
+            "anthropic.resources.messages.batches",
+            ["Batches.create"],
+        ),
+        (
+            "anthropic.resources.messages.messages",
+            ["Messages.create", "Messages.stream"],
+        ),
+    ]
+] + [
+    {
+        "module": "botocore.client",
+        "method_names": ["BaseClient._make_api_call"],
+        "event": {"name": "aws-api-call"},
+    }
 ]
 
 graphql_request: list[PolicyDefinition] = [

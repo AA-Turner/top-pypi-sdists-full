@@ -63,6 +63,7 @@ Install with: ``pip install 'strawberry-graphql[apollo-federation]'``
 from __future__ import annotations
 
 import contextlib
+import json
 import time
 from base64 import b64encode
 from inspect import isawaitable
@@ -114,6 +115,14 @@ def _encode_varint(value: int) -> bytes:
     return bytes(parts)
 
 
+# The classes below implement minimal protobuf serialization for Apollo's FTV1 trace format.
+# Field numbers and wire types match the Trace schema defined at:
+# https://github.com/apollographql/apollo-server/blob/main/packages/usage-reporting-protobuf/src/reports.proto
+#
+# Protobuf tag encoding: (field_number << 3) | wire_type
+# Wire type 0 = varint, wire type 2 = length-delimited (strings, bytes, embedded messages)
+
+
 class _SimpleTrace:
     """Minimal Trace message for FTV1."""
 
@@ -156,6 +165,57 @@ class _SimpleTrace:
         return b"".join(parts)
 
 
+class _SimpleError:
+    """Minimal Error message for FTV1."""
+
+    def __init__(
+        self,
+        message: str,
+        location_line: int = 0,
+        location_column: int = 0,
+        json_error: str = "",
+    ) -> None:
+        self.message = message
+        self.location_line = location_line
+        self.location_column = location_column
+        self.json_error = json_error
+
+    def SerializeToString(self) -> bytes:  # noqa: N802
+        """Serialize to protobuf binary format."""
+        parts = []
+
+        # Field 1: message (string)
+        if self.message:
+            msg_bytes = self.message.encode("utf-8")
+            parts.append(b"\x0a")  # field 1, wire type 2
+            parts.append(_encode_varint(len(msg_bytes)))
+            parts.append(msg_bytes)
+
+        # Field 2: location (repeated Location message)
+        # Location has: line (field 1), column (field 2)
+        if self.location_line or self.location_column:
+            loc_parts = []
+            if self.location_line:
+                loc_parts.append(b"\x08")  # field 1, wire type 0
+                loc_parts.append(_encode_varint(self.location_line))
+            if self.location_column:
+                loc_parts.append(b"\x10")  # field 2, wire type 0
+                loc_parts.append(_encode_varint(self.location_column))
+            loc_bytes = b"".join(loc_parts)
+            parts.append(b"\x12")  # field 2, wire type 2
+            parts.append(_encode_varint(len(loc_bytes)))
+            parts.append(loc_bytes)
+
+        # Field 4: json (string)
+        if self.json_error:
+            json_bytes = self.json_error.encode("utf-8")
+            parts.append(b"\x22")  # field 4, wire type 2
+            parts.append(_encode_varint(len(json_bytes)))
+            parts.append(json_bytes)
+
+        return b"".join(parts)
+
+
 class _SimpleNode:
     """Minimal Node message for FTV1."""
 
@@ -167,6 +227,7 @@ class _SimpleNode:
         self.start_time: int = 0
         self.end_time: int = 0
         self.children: list[_SimpleNode] = []
+        self.errors: list[_SimpleError] = []
 
     def SerializeToString(self) -> bytes:  # noqa: N802
         """Serialize to protobuf binary format."""
@@ -206,6 +267,13 @@ class _SimpleNode:
         if self.end_time:
             parts.append(b"\x48")  # field 9, wire type 0
             parts.append(_encode_varint(self.end_time))
+
+        # Field 11: error (repeated Error)
+        for error in self.errors:
+            error_bytes = error.SerializeToString()
+            parts.append(b"\x5a")  # field 11, wire type 2
+            parts.append(_encode_varint(len(error_bytes)))
+            parts.append(error_bytes)
 
         # Field 12: child (repeated Node)
         for child in self.children:
@@ -306,6 +374,10 @@ class ApolloFederationTracingExtension(SchemaExtension):
             result = _next(root, info, *args, **kwargs)
             if isawaitable(result):
                 result = await result
+        except Exception as e:
+            node.errors.append(self._make_error(e, info))
+            raise
+        else:
             return result
         finally:
             node.end_time = time.perf_counter_ns() - self._start_time_ns
@@ -379,6 +451,38 @@ class ApolloFederationTracingExtension(SchemaExtension):
 
         return ".".join(reversed(parts))
 
+    def _make_error(self, e: Exception, info: GraphQLResolveInfo) -> _SimpleError:
+        """Create an error object for FTV1 trace from an exception."""
+        location_line = 0
+        location_column = 0
+        if info.field_nodes:
+            loc = info.field_nodes[0].loc
+            if loc:
+                location_line = loc.start_token.line
+                location_column = loc.start_token.column
+
+        # Build JSON representation of the error
+        error_dict: dict[str, Any] = {"message": str(e)}
+        if location_line or location_column:
+            error_dict["locations"] = [
+                {"line": location_line, "column": location_column}
+            ]
+        # Include path if available
+        if info.path:
+            path_parts = []
+            current = info.path
+            while current is not None:
+                path_parts.append(current.key)
+                current = current.prev
+            error_dict["path"] = list(reversed(path_parts))
+
+        return _SimpleError(
+            message=str(e),
+            location_line=location_line,
+            location_column=location_column,
+            json_error=json.dumps(error_dict),
+        )
+
     def get_results(self) -> dict[str, Any]:
         if not self._should_trace or not self._trace:
             return {}
@@ -409,6 +513,9 @@ class ApolloFederationTracingExtensionSync(ApolloFederationTracingExtension):
 
         try:
             return _next(root, info, *args, **kwargs)
+        except Exception as e:
+            node.errors.append(self._make_error(e, info))
+            raise
         finally:
             node.end_time = time.perf_counter_ns() - self._start_time_ns
 

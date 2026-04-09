@@ -1,4 +1,0 @@
----
-other:
-  - |
-    This change gives the repository Nix build support. You can now build, test and run the code using nix as a build and dependency provider

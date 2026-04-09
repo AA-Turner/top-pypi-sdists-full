@@ -301,6 +301,7 @@ class QasePytestPlugin:
             signature='',
         )
         self._set_fields(item)
+        self._set_tags(item)
         self._set_author(item)
         self._set_muted(item)
         self._set_testops_ids(item)
@@ -376,7 +377,7 @@ class QasePytestPlugin:
 
     def _set_fields(self, item) -> None:
         # Legacy fields support
-        for name in ["description", "preconditions", "postconditions", "layer", "severity", "priority", "suite"]:
+        for name in ["description", "preconditions", "postconditions", "layer", "severity", "priority"]:
             try:
                 self.runtime.result.add_field(
                     Field(name, item.get_closest_marker("qase_" + name).kwargs.get(name)))
@@ -407,6 +408,14 @@ class QasePytestPlugin:
                 self.runtime.result.add_field(Field("muted", "true"))
         except (AttributeError, TypeError):
             pass
+
+    def _set_tags(self, item) -> None:
+        tags = []
+        for marker in item.iter_markers("qase_tags"):
+            marker_tags = marker.kwargs.get("tags", ())
+            tags.extend(marker_tags)
+        if tags:
+            self.runtime.result.add_tags(tags)
 
     def _set_testops_ids(self, item) -> None:
         try:

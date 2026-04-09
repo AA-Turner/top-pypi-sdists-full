@@ -264,3 +264,29 @@ class TestStdioBroadcastConsumer(unittest.TestCase):
         thread.join(timeout=2.0)
 
         self.assertEqual(mock_bc.broadcast.call_count, 1)
+
+    @patch("abstra_internals.utils.stdio_broadcast.pika.BlockingConnection")
+    @patch("abstra_internals.controllers.execution.execution_stdio.BroadcastController")
+    def test_consumer_broadcasts_task_messages(self, mock_bc, mock_pika_conn_cls):
+        """task messages should be broadcast directly via fanout consumer."""
+        task_msg = {"type": "task", "payload": {"id": "t1", "status": "completed"}}
+        mock_conn, mock_channel = _make_consumer_channel([task_msg])
+        mock_pika_conn_cls.return_value = mock_conn
+
+        stop_event = threading.Event()
+
+        def consume_then_stop(*args, **kwargs):
+            yield from _make_consumer_channel([task_msg])[1].consume.return_value
+            stop_event.set()
+
+        mock_channel.consume.side_effect = consume_then_stop
+
+        thread, _ = start_stdio_broadcast_consumer(
+            "amqp://localhost", stop_event=stop_event
+        )
+        thread.join(timeout=2.0)
+
+        mock_bc.broadcast.assert_called_once()
+        broadcast_msg = json.loads(mock_bc.broadcast.call_args[1]["msg"])
+        self.assertEqual(broadcast_msg["type"], "task")
+        self.assertEqual(broadcast_msg["payload"]["id"], "t1")

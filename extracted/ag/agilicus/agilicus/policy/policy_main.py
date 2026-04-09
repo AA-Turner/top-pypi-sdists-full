@@ -113,6 +113,25 @@ def cli_command_migrate_policy_rules(ctx, **kwargs):
     policies.migrate_policy_rules(ctx, **kwargs)
 
 
+@click.command(name="add-default-to-resource-policies")
+@click.option("--org-id", default=None)
+@click.option("--start-org", default=None)
+@click.option("--dry-run", is_flag=True, default=False)
+@click.option(
+    "--replace",
+    is_flag=True,
+    default=False,
+    help="Whether to rewrite any exiting defaults",
+)
+@click.option("--dump-dir", default=None, help="A directory to cache migrated rules")
+@click.option(
+    "--delay", type=float, default=None, help="fractional seconds between applies"
+)
+@click.pass_context
+def cli_command_add_default_to_resource_policies(ctx, **kwargs):
+    policies.add_default_to_resource_policies(ctx, **kwargs)
+
+
 @click.command(name="fetch-resource-rules")
 @click.option("--org-id", default=None)
 @click.option("--resource-id", default=None)

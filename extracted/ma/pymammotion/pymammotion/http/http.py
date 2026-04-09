@@ -121,6 +121,8 @@ def create_oauth_signature(login_req: dict, client_id: str, client_secret: str, 
 
 
 class MammotionHTTP:
+    """HTTP client for the Mammotion cloud API (login, device list, MQTT credentials, OTA)."""
+
     def __init__(
         self, account: str | None = None, password: str | None = None, session: ClientSession | None = None
     ) -> None:
@@ -167,6 +169,10 @@ class MammotionHTTP:
         decoded_token = jwt.decode(response.data.access_token, options={"verify_signature": False})
         if isinstance(decoded_token, dict):
             self.jwt_info = JWTTokenInfo(iot=decoded_token.get("iot", ""), robot=decoded_token.get("robot", ""))
+            # Initialise expires_in from the JWT exp claim so the refresh_token_decorator
+            # does not fire on every request after a cache restore (exp is an absolute
+            # Unix timestamp, matching the semantics of self.expires_in).
+            self.expires_in = float(decoded_token.get("exp", 0))
 
     @staticmethod
     def generate_headers(token: str) -> dict:
@@ -483,7 +489,6 @@ class MammotionHTTP:
         self.mqtt_credentials = response.data
         return response
 
-    @refresh_token_decorator
     async def mqtt_invoke(self, content: str, device_name: str, iot_id: str) -> Response[dict]:
         """Send mqtt commands to devices."""
         _LOGGER.debug(f"mqtt invoke content: {content}, {self.jwt_info.iot}")

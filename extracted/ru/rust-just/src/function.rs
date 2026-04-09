@@ -87,6 +87,7 @@ pub(crate) fn get(name: &str) -> Option<Function> {
     "replace" => Ternary(replace),
     "replace_regex" => Ternary(replace_regex),
     "require" => Unary(require),
+    "runtime_directory" => Nullary(|_| dir("runtime", dirs::runtime_dir)),
     "semver_matches" => Binary(semver_matches),
     "sha256" => Unary(sha256),
     "sha256_file" => Unary(sha256_file),
@@ -116,7 +117,7 @@ pub(crate) fn get(name: &str) -> Option<Function> {
 }
 
 impl Function {
-  pub(crate) fn argc(&self) -> RangeInclusive<usize> {
+  pub(crate) fn expected_arguments(&self) -> RangeInclusive<usize> {
     match *self {
       Nullary(_) => 0..=0,
       Unary(_) => 1..=1,
@@ -540,16 +541,12 @@ fn sha256_file(context: Context, path: &str) -> FunctionResult {
 }
 
 fn shell(context: Context, command: &str, args: &[String]) -> FunctionResult {
-  let args = iter::once(command)
-    .chain(args.iter().map(String::as_str))
-    .collect::<Vec<&str>>();
-
   Evaluator::run_command(
     context.execution_context,
     &BTreeMap::new(),
     context.scope,
     command,
-    &args,
+    Some(args),
   )
   .map_err(|output_error| output_error.to_string())
 }

@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Support a vcr cassette for OpenAI from Vercel AI SDK requests.

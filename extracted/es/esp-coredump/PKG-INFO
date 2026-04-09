@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esp-coredump
-Version: 1.15.0
+Version: 1.16.0
 Summary: Generate core dumps on unrecoverable software errors
 Author: Espressif Systems
 License: Apache 2.0

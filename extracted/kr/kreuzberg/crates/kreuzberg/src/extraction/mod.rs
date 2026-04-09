@@ -97,7 +97,7 @@ pub use html::convert_html_to_markdown;
 pub use doc::extract_doc_text;
 
 #[cfg(feature = "office")]
-pub use ppt::extract_ppt_text;
+pub use ppt::{extract_ppt_text, extract_ppt_text_with_options};
 
 #[cfg(feature = "office")]
 pub use office_metadata::{

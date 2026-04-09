@@ -26,32 +26,6 @@ class JitInfo(System.Object):
         ...
 
 
-class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable):
-    """This class has no documentation."""
-
-    def __init__(self, size_in_megabytes: int) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-
-class AmbiguousImplementationException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
 class GCLargeObjectHeapCompactionMode(IntEnum):
     """This class has no documentation."""
 
@@ -103,6 +77,32 @@ class TargetedPatchingOptOutAttribute(System.Attribute):
         ...
 
     def __init__(self, reason: str) -> None:
+        ...
+
+
+class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable):
+    """This class has no documentation."""
+
+    def __init__(self, size_in_megabytes: int) -> None:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+
+class AmbiguousImplementationException(System.Exception):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
         ...
 
 

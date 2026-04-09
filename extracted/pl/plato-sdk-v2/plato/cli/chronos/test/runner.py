@@ -300,7 +300,7 @@ class TestRunner:
                 self.config = self.config.model_copy(
                     update={
                         "world": self.config.world.model_copy(
-                            update={"world_name": world_schema.resolved_world_name or world_schema.name}
+                            update={"world_name": world_schema.name or world_schema.resolved_world_name}
                         )
                     }
                 )
@@ -410,7 +410,7 @@ class TestRunner:
             self.config = self.config.model_copy(
                 update={
                     "world": self.config.world.model_copy(
-                        update={"world_name": world_schema.resolved_world_name or world_schema.name}
+                        update={"world_name": world_schema.name or world_schema.resolved_world_name}
                     )
                 }
             )

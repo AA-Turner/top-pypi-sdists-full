@@ -75,6 +75,38 @@ class ResultHandlerInitializeParameters(System.Object):
         ...
 
 
+class BacktestProgressMonitor(System.Object):
+    """Monitors and reports the progress of a backtest"""
+
+    @property
+    def total_days(self) -> int:
+        """Gets the total days the algorithm will run"""
+        ...
+
+    @property
+    def processed_days(self) -> int:
+        """Gets the current days the algorithm has been running for"""
+        ...
+
+    @property
+    def progress(self) -> float:
+        """Gets the current progress of the backtest"""
+        ...
+
+    def __init__(self, time_keeper: QuantConnect.Interfaces.ITimeKeeper, end_utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Creates a new instance
+        
+        :param time_keeper: The time keeper to use
+        :param end_utc_time: The end UTC time
+        """
+        ...
+
+    def invalidate_processed_days(self) -> None:
+        """Invalidates the processed days count value so it gets recalculated next time it is needed"""
+        ...
+
+
 class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
     """Provides base functionality to the implementations of IResultHandler"""
 
@@ -1498,38 +1530,6 @@ class RegressionResultHandler(QuantConnect.Lean.Engine.Results.BacktestingResult
         
         :param message: Message we'd like shown in console.
         """
-        ...
-
-
-class BacktestProgressMonitor(System.Object):
-    """Monitors and reports the progress of a backtest"""
-
-    @property
-    def total_days(self) -> int:
-        """Gets the total days the algorithm will run"""
-        ...
-
-    @property
-    def processed_days(self) -> int:
-        """Gets the current days the algorithm has been running for"""
-        ...
-
-    @property
-    def progress(self) -> float:
-        """Gets the current progress of the backtest"""
-        ...
-
-    def __init__(self, time_keeper: QuantConnect.Interfaces.ITimeKeeper, end_utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Creates a new instance
-        
-        :param time_keeper: The time keeper to use
-        :param end_utc_time: The end UTC time
-        """
-        ...
-
-    def invalidate_processed_days(self) -> None:
-        """Invalidates the processed days count value so it gets recalculated next time it is needed"""
         ...
 
 

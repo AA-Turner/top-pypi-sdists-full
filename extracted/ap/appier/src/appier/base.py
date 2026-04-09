@@ -4180,18 +4180,7 @@ class App(
         current running interpreter.
         """
 
-        level_t = type(level)
-        if level_t == int:
-            return level
-        if level == None:
-            return level
-        if level == "SILENT":
-            return log.SILENT
-        if level == "TRACE":
-            return log.TRACE
-        if hasattr(logging, "_checkLevel"):
-            return logging._checkLevel(level)
-        return logging.getLevelName(level)
+        return log._level(level)
 
     @classmethod
     def _simplify(cls, value):
@@ -4524,15 +4513,21 @@ class App(
         # is idempotent and safe to be called multiple times
         log.patch_logging()
 
-        format_base = format_base or log.LOGGING_FORMAT
-        format_tid = format_tid or log.LOGGING_FORMAT_TID
-
         level_s = config.conf("LEVEL", None)
         format = config.conf("LOGGING_FORMAT", None)
 
         self.level = level
         self.level = self.level or self._level(level_s)
         self.level = self.level or logging.INFO
+
+        is_trace = self.level <= log.TRACE
+        format_base = format_base or (
+            log.LOGGING_FORMAT_TRACE if is_trace else log.LOGGING_FORMAT
+        )
+        format_tid = format_tid or (
+            log.LOGGING_FORMAT_TRACE_TID if is_trace else log.LOGGING_FORMAT_TID
+        )
+
         self.formatter = log.ThreadFormatter(format or format_base)
         self.formatter.set_base(format or format_base)
         self.formatter.set_tid(format or format_tid)
@@ -4574,8 +4569,14 @@ class App(
         self, level=None, set_default=True, format_base=None, format_tid=None
     ):
         level = level or self.level
-        format_base = format_base or log.LOGGING_FORMAT
-        format_tid = format_tid or log.LOGGING_FORMAT_TID
+
+        is_trace = level <= log.TRACE
+        format_base = format_base or (
+            log.LOGGING_FORMAT_TRACE if is_trace else log.LOGGING_FORMAT
+        )
+        format_tid = format_tid or (
+            log.LOGGING_FORMAT_TRACE_TID if is_trace else log.LOGGING_FORMAT_TID
+        )
 
         format = config.conf("LOGGING_FORMAT", None)
 

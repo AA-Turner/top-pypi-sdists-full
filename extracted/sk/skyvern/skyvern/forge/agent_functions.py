@@ -4,6 +4,7 @@ import hashlib
 from datetime import timedelta
 from typing import Any, Dict, List
 
+import httpx
 import structlog
 from playwright.async_api import Frame, Page
 
@@ -430,6 +431,13 @@ async def _convert_css_shape_to_string(
 
 
 class AgentFunction:
+    workflow_schedules_enabled: bool = False
+    """Whether the workflow scheduler routes should serve traffic on this build.
+
+    OSS Skyvern has no scheduling backend wired up by default, so the routes return 501.
+    Cloud overrides this to True and provides the Temporal-backed implementations below.
+    """
+
     async def validate_step_execution(
         self,
         task: Task,
@@ -452,7 +460,7 @@ class AgentFunction:
         if not has_valid_step_status:
             reasons.append(f"invalid_step_status:{step.status}")
         # can't execute if the task has another step that is running
-        steps = await app.DATABASE.get_task_steps(task_id=task.task_id, organization_id=task.organization_id)
+        steps = await app.DATABASE.tasks.get_task_steps(task_id=task.task_id, organization_id=task.organization_id)
         has_no_running_steps = not any(step.status == StepStatus.running for step in steps)
         if not has_no_running_steps:
             reasons.append(f"another_step_is_running_for_task:{task.task_id}")
@@ -491,6 +499,45 @@ class AgentFunction:
 
     async def post_cache_step_execution(self, task: Task, step: Step) -> None:
         return
+
+    def build_workflow_schedule_id(self, workflow_schedule_id: str) -> str | None:
+        """Return the backend-specific schedule id used by the execution engine.
+
+        OSS has no execution backend, so this returns None and the schedule simply
+        lives in the database. Cloud overrides this to derive a Temporal schedule id.
+        """
+        return None
+
+    async def upsert_workflow_schedule(
+        self,
+        backend_schedule_id: str,
+        organization_id: str,
+        workflow_permanent_id: str,
+        workflow_schedule_id: str,
+        cron_expression: str,
+        timezone: str,
+        enabled: bool,
+        parameters: dict[str, Any] | None = None,
+    ) -> None:
+        """Upsert a recurring schedule with the execution backend (e.g. Temporal).
+
+        OSS base is a no-op so the route layer can stay backend-agnostic.
+        Cloud overrides this to register the schedule with Temporal.
+        Implementations must be idempotent.
+        """
+        return None
+
+    async def set_workflow_schedule_enabled(self, backend_schedule_id: str, enabled: bool) -> None:
+        """Pause or resume a schedule on the execution backend. OSS no-op."""
+        return None
+
+    async def delete_workflow_schedule(self, backend_schedule_id: str) -> None:
+        """Delete a schedule from the execution backend. OSS no-op.
+
+        Implementations must be idempotent — deleting an already-absent schedule
+        should succeed silently rather than raising.
+        """
+        return None
 
     async def auto_solve_captchas(self, page: Page) -> bool:
         """Proactively detect and solve captchas on the current page.
@@ -604,6 +651,19 @@ class AgentFunction:
 
         return cleanup_element_tree_func
 
+    async def check_parallel_loop_quota(self, organization_id: str, requested_concurrency: int) -> int:
+        """Check per-org quota for parallel loop iterations.
+
+        Returns the number of parallel iterations allowed. OSS base returns
+        requested_concurrency unchanged (no enforcement). Cloud override
+        enforces org-level caps via Redis.
+        """
+        return requested_concurrency
+
+    async def release_parallel_loop_quota(self, organization_id: str, count: int) -> None:
+        """Release parallel loop iteration slots. OSS base is a no-op."""
+        return
+
     async def validate_code_block(self, organization_id: str | None = None) -> None:
         if not settings.ENABLE_CODE_BLOCK:
             raise DisabledBlockExecutionError("CodeBlock is disabled")
@@ -617,6 +677,28 @@ class AgentFunction:
 
     async def post_action_execution(self, action: Action) -> None:
         pass
+
+    async def deliver_webhook(
+        self,
+        url: str,
+        payload: str,
+        headers: dict[str, str],
+        timeout_seconds: float = 30.0,
+        organization_id: str | None = None,
+        run_id: str | None = None,
+    ) -> httpx.Response:
+        """Deliver a webhook POST request to *url*.
+
+        Returns the upstream ``httpx.Response``.  Cloud override routes NAT-org
+        traffic through the egress proxy so it egresses from a static IP.
+        """
+        async with httpx.AsyncClient() as client:
+            return await client.post(
+                url,
+                content=payload,
+                headers=headers,
+                timeout=httpx.Timeout(timeout_seconds),
+            )
 
     def get_copilot_security_rules(self) -> str:
         """Return security guardrails for the workflow copilot system prompt.

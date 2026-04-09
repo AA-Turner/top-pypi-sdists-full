@@ -1010,6 +1010,27 @@ class FillMatchingMethod(IntEnum):
     """Last In Last Out fill matching method (1)"""
 
 
+class IStatisticsService(metaclass=abc.ABCMeta):
+    """This interface exposes methods for accessing algorithm statistics results at runtime."""
+
+    def set_summary_statistic(self, name: str, value: str) -> None:
+        """
+        Sets or updates a custom summary statistic
+        
+        :param name: The statistic name
+        :param value: The statistic value
+        """
+        ...
+
+    def statistics_results(self) -> QuantConnect.Statistics.StatisticsResults:
+        """
+        Calculates and gets the current statistics for the algorithm
+        
+        :returns: The current statistics.
+        """
+        ...
+
+
 class TradeBuilder(System.Object, QuantConnect.Interfaces.ITradeBuilder):
     """The TradeBuilder class generates trades from executions and market price updates"""
 
@@ -1074,115 +1095,6 @@ class TradeBuilder(System.Object, QuantConnect.Interfaces.ITradeBuilder):
         Sets the security manager instance
         
         :param securities: The security manager
-        """
-        ...
-
-
-class PerformanceMetrics(System.Object):
-    """PerformanceMetrics contains the names of the various performance metrics used for evaluation purposes."""
-
-    ALPHA: str = "Alpha"
-    """Algorithm "Alpha" statistic - abnormal returns over the risk free rate and the relationshio (beta) with the benchmark returns."""
-
-    ANNUAL_STANDARD_DEVIATION: str = "Annual Standard Deviation"
-    """Annualized standard deviation"""
-
-    ANNUAL_VARIANCE: str = "Annual Variance"
-    """Annualized variance statistic calculation using the daily performance variance and trading days per year."""
-
-    AVERAGE_LOSS: str = "Average Loss"
-    """The average rate of return for losing trades"""
-
-    AVERAGE_WIN: str = "Average Win"
-    """The average rate of return for winning trades"""
-
-    BETA: str = "Beta"
-    """Algorithm "beta" statistic - the covariance between the algorithm and benchmark performance, divided by benchmark's variance"""
-
-    COMPOUNDING_ANNUAL_RETURN: str = "Compounding Annual Return"
-    """Annual compounded returns statistic based on the final-starting capital and years."""
-
-    DRAWDOWN: str = "Drawdown"
-    """Drawdown maximum percentage."""
-
-    ESTIMATED_STRATEGY_CAPACITY: str = "Estimated Strategy Capacity"
-    """Total capacity of the algorithm"""
-
-    EXPECTANCY: str = "Expectancy"
-    """The expected value of the rate of return"""
-
-    START_EQUITY: str = "Start Equity"
-    """Initial Equity Total Value"""
-
-    END_EQUITY: str = "End Equity"
-    """Final Equity Total Value"""
-
-    INFORMATION_RATIO: str = "Information Ratio"
-    """Information ratio - risk adjusted return"""
-
-    LOSS_RATE: str = "Loss Rate"
-    """The ratio of the number of losing trades to the total number of trades"""
-
-    NET_PROFIT: str = "Net Profit"
-    """Total net profit percentage"""
-
-    PROBABILISTIC_SHARPE_RATIO: str = "Probabilistic Sharpe Ratio"
-    """
-    Probabilistic Sharpe Ratio is a probability measure associated with the Sharpe ratio.
-    It informs us of the probability that the estimated Sharpe ratio is greater than a chosen benchmark
-    """
-
-    PROFIT_LOSS_RATIO: str = "Profit-Loss Ratio"
-    """The ratio of the average win rate to the average loss rate"""
-
-    SHARPE_RATIO: str = "Sharpe Ratio"
-    """Sharpe ratio with respect to risk free rate: measures excess of return per unit of risk."""
-
-    SORTINO_RATIO: str = "Sortino Ratio"
-    """Sortino ratio with respect to risk free rate: measures excess of return per unit of downside risk."""
-
-    TOTAL_FEES: str = "Total Fees"
-    """Total amount of fees in the account currency"""
-
-    TOTAL_ORDERS: str = "Total Orders"
-    """Total amount of orders in the algorithm"""
-
-    TRACKING_ERROR: str = "Tracking Error"
-    """Tracking error volatility (TEV) statistic - a measure of how closely a portfolio follows the index to which it is benchmarked"""
-
-    TREYNOR_RATIO: str = "Treynor Ratio"
-    """Treynor ratio statistic is a measurement of the returns earned in excess of that which could have been earned on an investment that has no diversifiable risk"""
-
-    WIN_RATE: str = "Win Rate"
-    """The ratio of the number of winning trades to the total number of trades"""
-
-    LOWEST_CAPACITY_ASSET: str = "Lowest Capacity Asset"
-    """Provide a reference to the lowest capacity symbol used in scaling down the capacity for debugging."""
-
-    PORTFOLIO_TURNOVER: str = "Portfolio Turnover"
-    """The average Portfolio Turnover"""
-
-    DRAWDOWN_RECOVERY: str = "Drawdown Recovery"
-    """The recovery time of the maximum drawdown."""
-
-
-class IStatisticsService(metaclass=abc.ABCMeta):
-    """This interface exposes methods for accessing algorithm statistics results at runtime."""
-
-    def set_summary_statistic(self, name: str, value: str) -> None:
-        """
-        Sets or updates a custom summary statistic
-        
-        :param name: The statistic name
-        :param value: The statistic value
-        """
-        ...
-
-    def statistics_results(self) -> QuantConnect.Statistics.StatisticsResults:
-        """
-        Calculates and gets the current statistics for the algorithm
-        
-        :returns: The current statistics.
         """
         ...
 
@@ -1381,5 +1293,93 @@ class Statistics(System.Object):
         :returns: Value for tracking error.
         """
         ...
+
+
+class PerformanceMetrics(System.Object):
+    """PerformanceMetrics contains the names of the various performance metrics used for evaluation purposes."""
+
+    ALPHA: str = "Alpha"
+    """Algorithm "Alpha" statistic - abnormal returns over the risk free rate and the relationshio (beta) with the benchmark returns."""
+
+    ANNUAL_STANDARD_DEVIATION: str = "Annual Standard Deviation"
+    """Annualized standard deviation"""
+
+    ANNUAL_VARIANCE: str = "Annual Variance"
+    """Annualized variance statistic calculation using the daily performance variance and trading days per year."""
+
+    AVERAGE_LOSS: str = "Average Loss"
+    """The average rate of return for losing trades"""
+
+    AVERAGE_WIN: str = "Average Win"
+    """The average rate of return for winning trades"""
+
+    BETA: str = "Beta"
+    """Algorithm "beta" statistic - the covariance between the algorithm and benchmark performance, divided by benchmark's variance"""
+
+    COMPOUNDING_ANNUAL_RETURN: str = "Compounding Annual Return"
+    """Annual compounded returns statistic based on the final-starting capital and years."""
+
+    DRAWDOWN: str = "Drawdown"
+    """Drawdown maximum percentage."""
+
+    ESTIMATED_STRATEGY_CAPACITY: str = "Estimated Strategy Capacity"
+    """Total capacity of the algorithm"""
+
+    EXPECTANCY: str = "Expectancy"
+    """The expected value of the rate of return"""
+
+    START_EQUITY: str = "Start Equity"
+    """Initial Equity Total Value"""
+
+    END_EQUITY: str = "End Equity"
+    """Final Equity Total Value"""
+
+    INFORMATION_RATIO: str = "Information Ratio"
+    """Information ratio - risk adjusted return"""
+
+    LOSS_RATE: str = "Loss Rate"
+    """The ratio of the number of losing trades to the total number of trades"""
+
+    NET_PROFIT: str = "Net Profit"
+    """Total net profit percentage"""
+
+    PROBABILISTIC_SHARPE_RATIO: str = "Probabilistic Sharpe Ratio"
+    """
+    Probabilistic Sharpe Ratio is a probability measure associated with the Sharpe ratio.
+    It informs us of the probability that the estimated Sharpe ratio is greater than a chosen benchmark
+    """
+
+    PROFIT_LOSS_RATIO: str = "Profit-Loss Ratio"
+    """The ratio of the average win rate to the average loss rate"""
+
+    SHARPE_RATIO: str = "Sharpe Ratio"
+    """Sharpe ratio with respect to risk free rate: measures excess of return per unit of risk."""
+
+    SORTINO_RATIO: str = "Sortino Ratio"
+    """Sortino ratio with respect to risk free rate: measures excess of return per unit of downside risk."""
+
+    TOTAL_FEES: str = "Total Fees"
+    """Total amount of fees in the account currency"""
+
+    TOTAL_ORDERS: str = "Total Orders"
+    """Total amount of orders in the algorithm"""
+
+    TRACKING_ERROR: str = "Tracking Error"
+    """Tracking error volatility (TEV) statistic - a measure of how closely a portfolio follows the index to which it is benchmarked"""
+
+    TREYNOR_RATIO: str = "Treynor Ratio"
+    """Treynor ratio statistic is a measurement of the returns earned in excess of that which could have been earned on an investment that has no diversifiable risk"""
+
+    WIN_RATE: str = "Win Rate"
+    """The ratio of the number of winning trades to the total number of trades"""
+
+    LOWEST_CAPACITY_ASSET: str = "Lowest Capacity Asset"
+    """Provide a reference to the lowest capacity symbol used in scaling down the capacity for debugging."""
+
+    PORTFOLIO_TURNOVER: str = "Portfolio Turnover"
+    """The average Portfolio Turnover"""
+
+    DRAWDOWN_RECOVERY: str = "Drawdown Recovery"
+    """The recovery time of the maximum drawdown."""
 
 

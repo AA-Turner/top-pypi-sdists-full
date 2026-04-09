@@ -113,7 +113,7 @@ from crewai.flow.utils import (
 )
 from crewai.memory.memory_scope import MemoryScope, MemorySlice
 from crewai.memory.unified_memory import Memory
-from crewai.state.checkpoint_config import CheckpointConfig
+from crewai.state.checkpoint_config import CheckpointConfig, _coerce_checkpoint
 
 
 if TYPE_CHECKING:
@@ -132,6 +132,7 @@ from crewai.utilities.streaming import (
     create_async_chunk_generator,
     create_chunk_generator,
     create_streaming_state,
+    register_cleanup,
     signal_end,
     signal_error,
 )
@@ -921,7 +922,10 @@ class Flow(BaseModel, Generic[T], metaclass=FlowMeta):
     max_method_calls: int = Field(default=100)
 
     execution_context: ExecutionContext | None = Field(default=None)
-    checkpoint: CheckpointConfig | bool | None = Field(default=None)
+    checkpoint: Annotated[
+        CheckpointConfig | bool | None,
+        BeforeValidator(_coerce_checkpoint),
+    ] = Field(default=None)
 
     @classmethod
     def from_checkpoint(
@@ -1959,6 +1963,7 @@ class Flow(BaseModel, Generic[T], metaclass=FlowMeta):
             streaming_output = FlowStreamingOutput(
                 sync_iterator=create_chunk_generator(state, run_flow, output_holder)
             )
+            register_cleanup(streaming_output, state)
             output_holder.append(streaming_output)
 
             return streaming_output
@@ -2032,6 +2037,7 @@ class Flow(BaseModel, Generic[T], metaclass=FlowMeta):
                     state, run_flow, output_holder
                 )
             )
+            register_cleanup(streaming_output, state)
             output_holder.append(streaming_output)
 
             return streaming_output

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import collections
 import itertools
+import os
 import sys
 import traceback
 from functools import lru_cache
@@ -12,6 +13,7 @@ from types import FrameType
 from contrast_fireball import AssessStackFrame, ProtectEventStackFrame
 
 from contrast import AGENT_CURR_WORKING_DIR
+from contrast.reporting import fireball
 from contrast.utils.decorators import fail_quietly
 from contrast_vendor import structlog as logging
 
@@ -41,6 +43,24 @@ STACK_LIMIT = 20
 @fail_quietly("Failed to build stacktrace for event", return_value=[])
 def build_stack(limit=STACK_LIMIT) -> StackSummary:
     return extract_stack(limit=limit)
+
+
+@fail_quietly(
+    "Failed to convert StackSummary to OpenTelemetry code attributes", return_value={}
+)
+def to_otel_code_attrs(frames: StackSummary) -> fireball.CodeAttrs:
+    most_recent_frame = frames[-1]
+    return {
+        "code.filepath": filename_formatter(
+            most_recent_frame.filename, replace_slash=False
+        ),
+        "code.function": most_recent_frame.name,
+        "code.lineno": most_recent_frame.lineno or -1,
+        "code.stacktrace": [
+            f"{filename_formatter(frame.filename, replace_slash=False)}, line {frame.lineno}, in {frame.name}"
+            for frame in reversed(frames)
+        ],
+    }
 
 
 @fail_quietly("Failed to clean protect stacktrace", return_value=[])
@@ -123,7 +143,7 @@ def acceptable_frame(frame: FrameType):
     )
 
 
-class StackSummary(list[traceback.FrameSummary]):
+class StackSummary(traceback.StackSummary):
     """A stack of frames."""
 
     @classmethod
@@ -188,7 +208,7 @@ SORTED_FILENAME_SEARCH_PATH = sorted(
 
 @fail_quietly("Unable to create file_name")
 @lru_cache(maxsize=512)
-def filename_formatter(file_name: str):
+def filename_formatter(file_name: str, replace_slash=True):
     # PERF: This method is called hundreds of times, so be mindful
     # of what additional computations are added.
 
@@ -200,4 +220,9 @@ def filename_formatter(file_name: str):
             file_name = file_name.removeprefix(sys_path)
             break
 
-    return file_name.replace("/", ".").lstrip(".")
+    sep = os.sep
+    if replace_slash:
+        file_name = file_name.replace(sep, ".")
+        sep = "."
+
+    return file_name.lstrip(sep)

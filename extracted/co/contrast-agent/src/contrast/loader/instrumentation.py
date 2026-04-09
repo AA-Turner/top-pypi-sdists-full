@@ -9,10 +9,10 @@ from contrast.agent.patch_controller import (
 from contrast.agent.policy.rewriter import apply_rewrite_policy
 from contrast.configuration.agent_config import AgentConfig
 from contrast.patches import (
-    register_chaining_monkeypatches,
+    chaining_patches,
     register_automatic_middleware_monkeypatches,
+    threading_patch,
 )
-
 from contrast_vendor import structlog as logging
 
 logger = logging.getLogger("contrast")
@@ -52,5 +52,12 @@ def apply_early_instrumentation():
 
         enable_assess_patches()
 
+    # Apply threading patches early to avoid interfering with OpenTelemetry's own threading instrumentation.
+    # See PYT-4051 for details.
+    threading_patch.register_patches()
+
     logger.info("Registering instrumentation chaining patches")
-    register_chaining_monkeypatches()
+
+    # Currently supports runners that use os.execl and PYTHONOPATH manipulation for
+    # sitecustomize loading.
+    chaining_patches.register_patches()

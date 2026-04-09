@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aa-memberaudit-dc
-Version: 0.3.3
+Version: 0.3.4
 Summary: Doctrine Checker Addon module for Memberaudit
 Project-URL: Changelog, https://github.com/Geuthur/aa-memberaudit-dc/blob/master/CHANGELOG.md
 Project-URL: Homepage, https://github.com/Geuthur/aa-memberaudit-dc
@@ -700,14 +700,17 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Requires-Python: >=3.10
 Requires-Dist: aa-memberaudit>=3.16
 Requires-Dist: allianceauth-app-utils>=1.3
-Requires-Dist: allianceauth<5,>=4.10
-Requires-Dist: django-esi<9,>=8
+Requires-Dist: allianceauth>=4.12
+Requires-Dist: django-esi>=8
 Requires-Dist: django-eveuniverse>=1.6
-Requires-Dist: django-ninja
+Requires-Dist: django-ninja<2,>=1.5
+Provides-Extra: tests-allianceauth-development
+Requires-Dist: allianceauth==5.0.0b2; extra == 'tests-allianceauth-development'
+Requires-Dist: coverage; extra == 'tests-allianceauth-development'
+Requires-Dist: factory-boy; extra == 'tests-allianceauth-development'
 Provides-Extra: tests-allianceauth-latest
 Requires-Dist: coverage; extra == 'tests-allianceauth-latest'
 Requires-Dist: factory-boy; extra == 'tests-allianceauth-latest'
-Requires-Dist: fittings; extra == 'tests-allianceauth-latest'
 Description-Content-Type: text/markdown
 
 # Memberaudit Doctrine Checker for AllianceAuth.<a name="aa-memberaudit-dc"></a>
@@ -775,7 +778,7 @@ ______________________________________________________________________
 ## Installation<a name="installation"></a>
 
 > [!NOTE]
-> AA Memberaudit Doctrine Checker needs at least Alliance Auth v4.6.0
+> AA Memberaudit Doctrine Checker needs at least Alliance Auth v4.12.0
 > Please make sure to update your Alliance Auth before you install this APP
 
 ### Step 1 - Install the Package<a name="step1"></a>
@@ -790,9 +793,14 @@ pip install aa-memberaudit-dc
 
 Configure your Alliance Auth settings (`local.py`) as follows:
 
-- Add `'eveuniverse',` to `INSTALLED_APPS`
-- Add `'memberaudit',` to `INSTALLED_APPS`
-- Add `'madc',` to `INSTALLED_APPS`
+```python
+INSTALLED_APPS = [
+    # other apps
+    "eveuniverse",  # only if it not already existing
+    "madc",
+    # other apps?
+]
+```
 
 ### Step 3 - (Optional) Add own Logger File<a name="step3"></a>
 
@@ -800,18 +808,19 @@ To set up the Logger add following code to your `local.py`
 Ensure that you have writing permission in logs folder.
 
 ```python
-LOGGING["handlers"]["madc_file"] = {
-    "level": "INFO",
-    "class": "logging.handlers.RotatingFileHandler",
-    "filename": os.path.join(BASE_DIR, "log/madc.log"),
-    "formatter": "verbose",
-    "maxBytes": 1024 * 1024 * 5,
-    "backupCount": 5,
-}
-LOGGING["loggers"]["extensions.madc"] = {
-    "handlers": ["madc_file", "console", "extension_file"],
-    "level": "DEBUG",
-}
+if "madc" in INSTALLED_APPS:
+    LOGGING["handlers"]["madc_file"] = {
+        "level": "INFO",
+        "class": "logging.handlers.RotatingFileHandler",
+        "filename": os.path.join(BASE_DIR, "log/madc.log"),
+        "formatter": "verbose",
+        "maxBytes": 1024 * 1024 * 5,
+        "backupCount": 5,
+    }
+    LOGGING["loggers"]["extensions.madc"] = {
+        "handlers": ["madc_file", "console", "extension_file"],
+        "level": "DEBUG",
+    }
 ```
 
 ### Step 4 - Migration to AA<a name="step4"></a>

@@ -63,6 +63,8 @@ pub struct ExtractionResult {
 
     djot_content: Option<Py<PyAny>>,
 
+    structured_output: Option<Py<PyAny>>,
+
     ocr_elements: Option<Py<PyList>>,
 
     extracted_keywords: Option<Py<PyList>>,
@@ -130,6 +132,11 @@ impl ExtractionResult {
     #[getter]
     fn djot_content<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyAny>> {
         self.djot_content.as_ref().map(|d| d.bind(py).clone())
+    }
+
+    #[getter]
+    fn structured_output<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyAny>> {
+        self.structured_output.as_ref().map(|s| s.bind(py).clone())
     }
 
     #[getter]
@@ -753,6 +760,11 @@ impl ExtractionResult {
             output_format: output_format.map(str::to_string),
             result_format: result_format.map(str::to_string),
             djot_content,
+            structured_output: result
+                .structured_output
+                .as_ref()
+                .and_then(|v| json_value_to_py(py, v).ok())
+                .map(|b| b.unbind()),
             ocr_elements,
             extracted_keywords,
             quality_score: result.quality_score,
@@ -793,28 +805,13 @@ mod tests {
             let rust_result = kreuzberg::ExtractionResult {
                 content: "hello".to_string(),
                 mime_type: Cow::Borrowed("text/plain"),
-                metadata: kreuzberg::Metadata::default(),
-                tables: Vec::new(),
                 detected_languages: Some(vec!["en".to_string()]),
-                chunks: None,
-                images: None,
-                pages: None,
-                elements: None,
-                document: None,
-                djot_content: None,
-                ocr_elements: None,
-                extracted_keywords: None,
                 quality_score: Some(0.85),
                 processing_warnings: vec![kreuzberg::ProcessingWarning {
                     source: std::borrow::Cow::Borrowed("test"),
                     message: std::borrow::Cow::Borrowed("test warning"),
                 }],
-                annotations: None,
-                children: None,
-                uris: None,
-                formatted_content: None,
-                code_intelligence: None,
-                ocr_internal_document: None,
+                ..Default::default()
             };
 
             let py_result =

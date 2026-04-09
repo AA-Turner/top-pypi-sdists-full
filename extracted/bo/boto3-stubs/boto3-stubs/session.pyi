@@ -272,6 +272,7 @@ from mypy_boto3_managedblockchain_query.client import ManagedBlockchainQueryClie
 from mypy_boto3_marketplace_agreement.client import AgreementServiceClient
 from mypy_boto3_marketplace_catalog.client import MarketplaceCatalogClient
 from mypy_boto3_marketplace_deployment.client import MarketplaceDeploymentServiceClient
+from mypy_boto3_marketplace_discovery.client import MarketplaceDiscoveryClient
 from mypy_boto3_marketplace_entitlement.client import MarketplaceEntitlementServiceClient
 from mypy_boto3_marketplace_reporting.client import MarketplaceReportingServiceClient
 from mypy_boto3_marketplacecommerceanalytics.client import MarketplaceCommerceAnalyticsClient
@@ -5056,6 +5057,25 @@ class Session:
     ) -> MarketplaceDeploymentServiceClient:
         """
         Create client for MarketplaceDeploymentService service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["marketplace-discovery"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> MarketplaceDiscoveryClient:
+        """
+        Create client for MarketplaceDiscovery service.
         """
 
     @overload

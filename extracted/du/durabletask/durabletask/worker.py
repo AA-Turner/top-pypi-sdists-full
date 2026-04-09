@@ -7,22 +7,26 @@ import json
 import logging
 import os
 import random
+import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from threading import Event, Thread
 from types import GeneratorType
 from enum import Enum
-from typing import Any, Generator, Optional, Sequence, Tuple, TypeVar, Union
+from typing import Any, Generator, Optional, Sequence, Tuple, TypeVar, Union, overload
 import uuid
 from packaging.version import InvalidVersion, parse
 
 import grpc
 from google.protobuf import empty_pb2
 
+from durabletask.entities.entity_operation_failed_exception import EntityOperationFailedException
 from durabletask.internal import helpers
 from durabletask.internal.entity_state_shim import StateShim
 from durabletask.internal.helpers import new_timestamp
 from durabletask.entities import DurableEntity, EntityLock, EntityInstanceId, EntityContext
+from durabletask.internal.json_encode_output_exception import JsonEncodeOutputException
 from durabletask.internal.orchestration_entity_context import OrchestrationEntityContext
 from durabletask.internal.proto_task_hub_sidecar_service_stub import ProtoTaskHubSidecarServiceStub
 import durabletask.internal.helpers as ph
@@ -30,12 +34,16 @@ import durabletask.internal.exceptions as pe
 import durabletask.internal.orchestrator_service_pb2 as pb
 import durabletask.internal.orchestrator_service_pb2_grpc as stubs
 import durabletask.internal.shared as shared
+import durabletask.internal.tracing as tracing
+from durabletask.payload import helpers as payload_helpers
 from durabletask import task
 from durabletask.internal.grpc_interceptor import DefaultClientInterceptorImpl
+from durabletask.payload.store import PayloadStore
 
 TInput = TypeVar("TInput")
 TOutput = TypeVar("TOutput")
 DATETIME_STRING_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
+DEFAULT_MAXIMUM_TIMER_INTERVAL = timedelta(days=3)
 
 
 class ConcurrencyOptions:
@@ -137,18 +145,119 @@ class VersioningOptions:
         self.failure_strategy = failure_strategy
 
 
+# Sentinel object used to distinguish "auto-generate filters" from "clear filters (None)".
+_AUTO_GENERATE_FILTERS = object()
+
+
+@dataclass(frozen=True)
+class OrchestrationWorkItemFilter:
+    """Specifies a filter for orchestration work items."""
+
+    name: str
+    """The name of the orchestration to filter."""
+    versions: list[str] = field(default_factory=list)
+    """Optional list of versions to filter."""
+
+
+@dataclass(frozen=True)
+class ActivityWorkItemFilter:
+    """Specifies a filter for activity work items."""
+
+    name: str
+    """The name of the activity to filter."""
+    versions: list[str] = field(default_factory=list)
+    """Optional list of versions to filter."""
+
+
+@dataclass(frozen=True)
+class EntityWorkItemFilter:
+    """Specifies a filter for entity work items.
+
+    The name is normalized to lowercase to match entity registration
+    and instance ID conventions.
+    """
+
+    name: str
+    """The name of the entity to filter."""
+
+    def __post_init__(self):
+        EntityInstanceId.validate_entity_name(self.name)
+        object.__setattr__(self, 'name', self.name.lower())
+
+
+@dataclass(frozen=True)
+class WorkItemFilters:
+    """Work item filters for a Durable Task Worker.
+
+    These filters are passed to the backend and only work items matching the
+    filters will be processed by the worker. If no filters are provided, the
+    worker will process all work items.
+
+    By default, no filters are applied. Call
+    :meth:`TaskHubGrpcWorker.use_work_item_filters` to enable filtering.
+    """
+
+    orchestrations: list[OrchestrationWorkItemFilter] = field(default_factory=list)
+    """List of orchestration filters."""
+    activities: list[ActivityWorkItemFilter] = field(default_factory=list)
+    """List of activity filters."""
+    entities: list[EntityWorkItemFilter] = field(default_factory=list)
+    """List of entity filters."""
+
+    @classmethod
+    def _from_registry(cls, registry: '_Registry') -> 'WorkItemFilters':
+        """Auto-generate work item filters from the task registry."""
+        versions: list[str] = []
+        v = registry.versioning
+        if v and v.match_strategy == VersionMatchStrategy.STRICT and v.version:
+            versions = [registry.versioning.version]
+
+        orchestrations = [
+            OrchestrationWorkItemFilter(name=name, versions=list(versions))
+            for name in registry.orchestrators
+        ]
+        activities = [
+            ActivityWorkItemFilter(name=name, versions=list(versions))
+            for name in registry.activities
+        ]
+        entities = [
+            EntityWorkItemFilter(name=name)
+            for name in registry.entities
+        ]
+        return cls(
+            orchestrations=orchestrations,
+            activities=activities,
+            entities=entities,
+        )
+
+    def _to_grpc(self) -> pb.WorkItemFilters:
+        """Convert to a gRPC WorkItemFilters message."""
+        grpc_filters = pb.WorkItemFilters()
+        for f in self.orchestrations:
+            grpc_filters.orchestrations.append(
+                pb.OrchestrationFilter(name=f.name, versions=f.versions)
+            )
+        for f in self.activities:
+            grpc_filters.activities.append(
+                pb.ActivityFilter(name=f.name, versions=f.versions)
+            )
+        for f in self.entities:
+            grpc_filters.entities.append(
+                pb.EntityFilter(name=f.name)
+            )
+        return grpc_filters
+
+
 class _Registry:
     orchestrators: dict[str, task.Orchestrator]
     activities: dict[str, task.Activity]
     entities: dict[str, task.Entity]
-    entity_instances: dict[str, DurableEntity]
     versioning: Optional[VersioningOptions] = None
 
     def __init__(self):
         self.orchestrators = {}
         self.activities = {}
         self.entities = {}
-        self.entity_instances = {}
 
     def add_orchestrator(self, fn: task.Orchestrator[TInput, TOutput]) -> str:
         if fn is None:
@@ -199,8 +308,8 @@ class _Registry:
         return name
 
     def add_named_entity(self, name: str, fn: task.Entity) -> None:
-        if not name:
-            raise ValueError("A non-empty entity name is required.")
+        name = name.lower()
+        EntityInstanceId.validate_entity_name(name)
         if name in self.entities:
             raise ValueError(f"A '{name}' entity already exists.")
 
@@ -307,7 +416,7 @@ class TaskHubGrpcWorker:
             activity function.
     """
 
-    _response_stream: Optional[grpc.Future] = None
+    _response_stream: Optional[Any] = None
     _interceptors: Optional[list[shared.ClientInterceptor]] = None
 
     def __init__(
@@ -320,6 +429,8 @@ class TaskHubGrpcWorker:
             secure_channel: bool = False,
             interceptors: Optional[Sequence[shared.ClientInterceptor]] = None,
             concurrency_options: Optional[ConcurrencyOptions] = None,
+            maximum_timer_interval: Optional[timedelta] = DEFAULT_MAXIMUM_TIMER_INTERVAL,
+            payload_store: Optional[PayloadStore] = None,
     ):
         self._registry = _Registry()
         self._host_address = (
@@ -329,6 +440,7 @@ class TaskHubGrpcWorker:
         self._shutdown = Event()
         self._is_running = False
         self._secure_channel = secure_channel
+        self._payload_store = payload_store
 
         # Use provided concurrency options or create default ones
         self._concurrency_options = (
@@ -348,11 +460,19 @@ class TaskHubGrpcWorker:
             self._interceptors = None
 
         self._async_worker_manager = _AsyncWorkerManager(self._concurrency_options, self._logger)
+        self._maximum_timer_interval = maximum_timer_interval
+        self._work_item_filters: Optional[WorkItemFilters] = None
+        self._auto_generate_work_item_filters: bool = False
 
     @property
     def concurrency_options(self) -> ConcurrencyOptions:
         """Get the current concurrency options for this worker."""
         return self._concurrency_options
+
+    @property
+    def maximum_timer_interval(self) -> Optional[timedelta]:
+        """Get the configured maximum timer interval for long timer chunking."""
+        return self._maximum_timer_interval
 
     def __enter__(self):
         return self
@@ -390,10 +510,64 @@ class TaskHubGrpcWorker:
             raise RuntimeError("Cannot set default version while the worker is running.")
         self._registry.versioning = version
 
+    @overload
+    def use_work_item_filters(self) -> None:
+        ...
+
+    @overload
+    def use_work_item_filters(self, filters: WorkItemFilters) -> None:
+        ...
+
+    @overload
+    def use_work_item_filters(self, filters: None) -> None:
+        ...
+
+    def use_work_item_filters(
+        self,
+        filters: Union[WorkItemFilters, None, object] = _AUTO_GENERATE_FILTERS,
+    ) -> None:
+        """Configures work item filters for the worker.
+
+        Work item filters tell the backend which orchestrations, activities,
+        and entities this worker can handle. When enabled, only matching work
+        items are dispatched to this worker.
+
+        By default no filters are applied and the worker processes all work
+        items. Calling this method enables filtering.
+
+        Args:
+            filters: The filters to apply. If omitted (default), filters are
+                auto-generated from registered orchestrations, activities, and
+                entities at :meth:`start` time. Pass a :class:`WorkItemFilters`
+                instance to provide explicit filters. Pass ``None`` to clear
+                any previously configured filters.
+        """
+        if self._is_running:
+            raise RuntimeError(
+                "Work item filters cannot be changed while the worker is running."
+            )
+        if filters is _AUTO_GENERATE_FILTERS:
+            self._auto_generate_work_item_filters = True
+            self._work_item_filters = None
+        elif filters is None:
+            self._auto_generate_work_item_filters = False
+            self._work_item_filters = None
+        elif isinstance(filters, WorkItemFilters):
+            self._auto_generate_work_item_filters = False
+            self._work_item_filters = filters
+        else:
+            raise TypeError(
+                "filters must be a WorkItemFilters instance, None, or omitted."
+            )
+
     def start(self):
         """Starts the worker on a background thread and begins listening for work items."""
         if self._is_running:
             raise RuntimeError("The worker is already running.")
+
+        # Auto-generate work item filters from registry if opted in
+        if self._auto_generate_work_item_filters:
+            self._work_item_filters = WorkItemFilters._from_registry(self._registry)
 
         def run_loop():
             loop = asyncio.new_event_loop()
@@ -496,10 +670,18 @@ class TaskHubGrpcWorker:
             try:
                 assert current_stub is not None
                 stub = current_stub
+                capabilities = []
+                if self._payload_store is not None:
+                    capabilities.append(pb.WORKER_CAPABILITY_LARGE_PAYLOADS)
                 get_work_items_request = pb.GetWorkItemsRequest(
                     maxConcurrentOrchestrationWorkItems=self._concurrency_options.maximum_concurrent_orchestration_work_items,
                     maxConcurrentActivityWorkItems=self._concurrency_options.maximum_concurrent_activity_work_items,
+                    capabilities=capabilities,
                 )
+                if self._work_item_filters is not None:
+                    get_work_items_request.workItemFilters.CopyFrom(
+                        self._work_item_filters._to_grpc()
+                    )
                 self._response_stream = stub.GetWorkItems(get_work_items_request)
                 self._logger.info(
                     f"Successfully connected to {self._host_address}. Waiting for work items..."
@@ -512,7 +694,11 @@ class TaskHubGrpcWorker:
 
                 def stream_reader():
                     try:
-                        for work_item in self._response_stream:
+                        response_stream = self._response_stream
+                        if response_stream is None:
+                            return
+
+                        for work_item in response_stream:
                             work_item_queue.put(work_item)
                     except Exception as e:
                         work_item_queue.put(e)
@@ -633,18 +819,87 @@ class TaskHubGrpcWorker:
             stub: Union[stubs.TaskHubSidecarServiceStub, ProtoTaskHubSidecarServiceStub],
             completionToken,
     ):
+        instance_id = req.instanceId
+
+        # De-externalize any large-payload tokens in the incoming request
+        if self._payload_store is not None:
+            payload_helpers.deexternalize_payloads(req, self._payload_store)
+
+        # Extract parent trace context from executionStarted event
+        parent_trace_ctx = None
+        orchestration_name = "<unknown>"
+        for e in list(req.pastEvents) + list(req.newEvents):
+            if e.HasField("executionStarted"):
+                orchestration_name = e.executionStarted.name
+                if e.executionStarted.HasField("parentTraceContext"):
+                    parent_trace_ctx = e.executionStarted.parentTraceContext
+                break
+
+        # Determine the orchestration start time: reuse persisted value
+        # from a prior dispatch, or capture a new one.
+        if (req.HasField("orchestrationTraceContext") and req.orchestrationTraceContext.HasField("spanStartTime")):
+            start_time_ns = req.orchestrationTraceContext.spanStartTime.ToNanoseconds()
+        else:
+            start_time_ns = time.time_ns()
+
+        # Extract persisted orchestration span ID from a prior dispatch
+        persisted_orch_span_id = None
+        if (req.HasField("orchestrationTraceContext") and req.orchestrationTraceContext.HasField("spanID") and req.orchestrationTraceContext.spanID.value):
+            persisted_orch_span_id = req.orchestrationTraceContext.spanID.value
+
         try:
-            executor = _OrchestrationExecutor(self._registry, self._logger)
-            result = executor.execute(req.instanceId, req.pastEvents, req.newEvents)
+            executor = _OrchestrationExecutor(
+                self._registry, self._logger,
+                persisted_orch_span_id=persisted_orch_span_id,
+                maximum_timer_interval=self.maximum_timer_interval)
+            result = executor.execute(instance_id, req.pastEvents, req.newEvents)
+
+            # Determine completion status for span
+            is_complete = False
+            is_failed = False
+            failure_details = None
+            for action in result.actions:
+                if action.HasField("completeOrchestration"):
+                    is_complete = True
+                    orch_status = action.completeOrchestration.orchestrationStatus
+                    if orch_status == pb.ORCHESTRATION_STATUS_FAILED:
+                        is_failed = True
+                        failure_details = action.completeOrchestration.failureDetails
+
+            if is_complete:
+                # Orchestration finished — emit a single span covering its lifetime
+                tracing.emit_orchestration_span(
+                    orchestration_name,
+                    instance_id,
+                    start_time_ns,
+                    is_failed,
+                    failure_details=failure_details,
+                    parent_trace_context=parent_trace_ctx,
+                    orchestration_trace_context=result._orchestration_trace_context,
+                )
+
+            # Include the span ID in the orchestration trace context
+            # so it persists across dispatches.
+            orch_span_id = None
+            if result._orchestration_trace_context:
+                orch_span_id = result._orchestration_trace_context.spanID
+            orch_trace_ctx = tracing.build_orchestration_trace_context(
+                start_time_ns, span_id=orch_span_id)
+
             res = pb.OrchestratorResponse(
-                instanceId=req.instanceId,
+                instanceId=instance_id,
                 actions=result.actions,
                 customStatus=ph.get_string_value(result.encoded_custom_status),
                 completionToken=completionToken,
+                orchestrationTraceContext=(
+                    orch_trace_ctx if orch_trace_ctx
+                    else req.orchestrationTraceContext
+                ),
             )
         except pe.AbandonOrchestrationError:
+            # Abandoned — no span needed
             self._logger.info(
-                f"Abandoning orchestration. InstanceId = '{req.instanceId}'. Completion token = '{completionToken}'"
+                f"Abandoning orchestration. InstanceId = '{instance_id}'. Completion token = '{completionToken}'"
             )
             stub.AbandonTaskOrchestratorWorkItem(
                 pb.AbandonOrchestrationTaskRequest(
@@ -653,8 +908,17 @@ class TaskHubGrpcWorker:
             )
             return
         except Exception as ex:
+            # Unhandled error — emit a failed span
+            tracing.emit_orchestration_span(
+                orchestration_name,
+                instance_id,
+                start_time_ns,
+                is_failed=True,
+                failure_details=ex,
+                parent_trace_context=parent_trace_ctx,
+            )
             self._logger.exception(
-                f"An error occurred while trying to execute instance '{req.instanceId}': {ex}"
+                f"An error occurred while trying to execute instance '{instance_id}': {ex}"
             )
             failure_details = ph.new_failure_details(ex)
             actions = [
@@ -663,12 +927,17 @@ class TaskHubGrpcWorker:
                 )
             ]
             res = pb.OrchestratorResponse(
-                instanceId=req.instanceId,
+                instanceId=instance_id,
                 actions=actions,
                 completionToken=completionToken,
             )
 
         try:
+            # Externalize any large payloads in the response
+            if self._payload_store is not None:
+                payload_helpers.externalize_payloads(
+                    res, self._payload_store, instance_id=instance_id,
+                )
             stub.CompleteOrchestratorTask(res)
         except Exception as ex:
             self._logger.exception(
@@ -695,11 +964,30 @@ class TaskHubGrpcWorker:
             completionToken,
     ):
         instance_id = req.orchestrationInstance.instanceId
+
+        # De-externalize any large-payload tokens in the incoming request
+        if self._payload_store is not None:
+            payload_helpers.deexternalize_payloads(req, self._payload_store)
         try:
             executor = _ActivityExecutor(self._registry, self._logger)
-            result = executor.execute(
-                instance_id, req.name, req.taskId, req.input.value
-            )
+            with tracing.start_span(
+                tracing.create_span_name("activity", req.name),
+                trace_context=req.parentTraceContext,
+                kind=tracing.SpanKind.SERVER,
+                attributes={
+                    tracing.ATTR_TASK_TYPE: "activity",
+                    tracing.ATTR_TASK_INSTANCE_ID: instance_id,
+                    tracing.ATTR_TASK_NAME: req.name,
+                    tracing.ATTR_TASK_TASK_ID: str(req.taskId),
+                },
+            ) as span:
+                try:
+                    result = executor.execute(
+                        instance_id, req.name, req.taskId, req.input.value
+                    )
+                except Exception as ex:
+                    tracing.set_span_error(span, ex)
+                    raise
             res = pb.ActivityResponse(
                 instanceId=instance_id,
                 taskId=req.taskId,
@@ -715,6 +1003,11 @@ class TaskHubGrpcWorker:
             )
 
         try:
+            # Externalize any large payloads in the response
+            if self._payload_store is not None:
+                payload_helpers.externalize_payloads(
+                    res, self._payload_store, instance_id=instance_id,
+                )
             stub.CompleteActivityTask(res)
         except Exception as ex:
             self._logger.exception(
@@ -740,48 +1033,68 @@ class TaskHubGrpcWorker:
             stub: Union[stubs.TaskHubSidecarServiceStub, ProtoTaskHubSidecarServiceStub],
             completionToken,
     ):
+        operation_infos: list[pb.OperationInfo] = []
         if isinstance(req, pb.EntityRequest):
             req, operation_infos = helpers.convert_to_entity_batch_request(req)
+
+        # De-externalize any large-payload tokens in the incoming request
+        if self._payload_store is not None:
+            payload_helpers.deexternalize_payloads(req, self._payload_store)
 
         entity_state = StateShim(shared.from_json(req.entityState.value) if req.entityState.value else None)
 
         instance_id = req.instanceId
+        try:
+            entity_instance_id = EntityInstanceId.parse(instance_id)
+        except ValueError:
+            raise RuntimeError(f"Invalid entity instance ID '{instance_id}' in entity operation request.")
 
         results: list[pb.OperationResult] = []
         for operation in req.operations:
             start_time = datetime.now(timezone.utc)
             executor = _EntityExecutor(self._registry, self._logger)
-            try:
-                entity_instance_id = EntityInstanceId.parse(instance_id)
-            except ValueError:
-                raise RuntimeError(f"Invalid entity instance ID '{instance_id}' in entity operation request.")
 
             operation_result = None
 
-            try:
-                entity_result = executor.execute(
-                    instance_id, entity_instance_id, operation.operation, entity_state, operation.input.value
-                )
+            # Get the trace context for this operation, if available
+            op_trace_ctx = operation.traceContext if operation.HasField("traceContext") else None
 
-                entity_result = ph.get_string_value_or_empty(entity_result)
-                operation_result = pb.OperationResult(success=pb.OperationResultSuccess(
-                    result=entity_result,
-                    startTimeUtc=new_timestamp(start_time),
-                    endTimeUtc=new_timestamp(datetime.now(timezone.utc))
-                ))
-                results.append(operation_result)
+            with tracing.start_span(
+                tracing.create_span_name("entity", f"{entity_instance_id.entity}:{operation.operation}"),
+                trace_context=op_trace_ctx,
+                kind=tracing.SpanKind.SERVER,
+                attributes={
+                    tracing.ATTR_TASK_TYPE: "entity",
+                    tracing.ATTR_TASK_INSTANCE_ID: instance_id,
+                    tracing.ATTR_TASK_NAME: entity_instance_id.entity,
+                    "durabletask.entity.operation": operation.operation,
+                },
+            ) as span:
+                try:
+                    entity_result = executor.execute(
+                        instance_id, entity_instance_id, operation.operation, entity_state, operation.input.value
+                    )
 
-                entity_state.commit()
-            except Exception as ex:
-                self._logger.exception(ex)
-                operation_result = pb.OperationResult(failure=pb.OperationResultFailure(
-                    failureDetails=ph.new_failure_details(ex),
-                    startTimeUtc=new_timestamp(start_time),
-                    endTimeUtc=new_timestamp(datetime.now(timezone.utc))
-                ))
-                results.append(operation_result)
+                    entity_result = ph.get_string_value_or_empty(entity_result)
+                    operation_result = pb.OperationResult(success=pb.OperationResultSuccess(
+                        result=entity_result,
+                        startTimeUtc=new_timestamp(start_time),
+                        endTimeUtc=new_timestamp(datetime.now(timezone.utc))
+                    ))
+                    results.append(operation_result)
 
-                entity_state.rollback()
+                    entity_state.commit()
+                except Exception as ex:
+                    tracing.set_span_error(span, ex)
+                    self._logger.exception(ex)
+                    operation_result = pb.OperationResult(failure=pb.OperationResultFailure(
+                        failureDetails=ph.new_failure_details(ex),
+                        startTimeUtc=new_timestamp(start_time),
+                        endTimeUtc=new_timestamp(datetime.now(timezone.utc))
+                    ))
+                    results.append(operation_result)
+
+                    entity_state.rollback()
 
         batch_result = pb.EntityBatchResult(
             results=results,
@@ -793,6 +1106,11 @@ class TaskHubGrpcWorker:
         )
 
         try:
+            # Externalize any large payloads in the response
+            if self._payload_store is not None:
+                payload_helpers.externalize_payloads(
+                    batch_result, self._payload_store, instance_id=instance_id,
+                )
             stub.CompleteEntityTask(batch_result)
         except Exception as ex:
             self._logger.exception(
@@ -821,7 +1139,11 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
     _generator: Optional[Generator[task.Task, Any, Any]]
     _previous_task: Optional[task.Task]
 
-    def __init__(self, instance_id: str, registry: _Registry):
+    def __init__(self,
+                 instance_id: str,
+                 registry: _Registry,
+                 maximum_timer_interval: Optional[timedelta] = DEFAULT_MAXIMUM_TIMER_INTERVAL,
+                 ):
         self._generator = None
         self._is_replaying = True
         self._is_complete = False
@@ -829,7 +1151,7 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
         self._pending_actions: dict[int, pb.OrchestratorAction] = {}
         self._pending_tasks: dict[int, task.CompletableTask] = {}
         # Maps entity ID to task ID
-        self._entity_task_id_map: dict[str, tuple[EntityInstanceId, int]] = {}
+        self._entity_task_id_map: dict[str, tuple[EntityInstanceId, str, int]] = {}
         self._entity_lock_task_id_map: dict[str, tuple[EntityInstanceId, int]] = {}
         # Maps criticalSectionId to task ID
         self._entity_lock_id_map: dict[str, int] = {}
@@ -842,10 +1164,13 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
         self._version: Optional[str] = None
         self._completion_status: Optional[pb.OrchestrationStatus] = None
         self._received_events: dict[str, list[Any]] = {}
-        self._pending_events: dict[str, list[task.CompletableTask]] = {}
+        self._pending_events: dict[str, list[task.CancellableTask]] = {}
         self._new_input: Optional[Any] = None
         self._save_events = False
         self._encoded_custom_status: Optional[str] = None
+        self._parent_trace_context: Optional[pb.TraceContext] = None
+        self._orchestration_trace_context: Optional[pb.TraceContext] = None
+        self._maximum_timer_interval = maximum_timer_interval
 
     def run(self, generator: Generator[task.Task, Any, Any]):
         self._generator = generator
@@ -902,7 +1227,13 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
         self._result = result
         result_json: Optional[str] = None
         if result is not None:
-            result_json = result if is_result_encoded else shared.to_json(result)
+            try:
+                result_json = result if is_result_encoded else shared.to_json(result)
+            except (ValueError, TypeError):
+                self._is_complete = False
+                self._result = None
+                self.set_failed(JsonEncodeOutputException(result))
+                return
         action = ph.new_complete_orchestration_action(
             self.next_sequence_number(), status, result_json
         )
@@ -1005,7 +1336,7 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
             shared.to_json(custom_status) if custom_status is not None else None
         )
 
-    def create_timer(self, fire_at: Union[datetime, timedelta]) -> task.Task:
+    def create_timer(self, fire_at: Union[datetime, timedelta]) -> task.CancellableTask:
         return self.create_timer_internal(fire_at)
 
     def create_timer_internal(
@@ -1015,11 +1346,30 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
     ) -> task.TimerTask:
         id = self.next_sequence_number()
         if isinstance(fire_at, timedelta):
-            fire_at = self.current_utc_datetime + fire_at
-        action = ph.new_create_timer_action(id, fire_at)
+            final_fire_at = self.current_utc_datetime + fire_at
+        else:
+            final_fire_at = fire_at
+
+        next_fire_at: datetime = final_fire_at
+
+        if (
+            self._maximum_timer_interval is not None
+            and self._maximum_timer_interval > timedelta(0)
+            and self.current_utc_datetime + self._maximum_timer_interval < final_fire_at
+        ):
+            timer_task = task.TimerTask(final_fire_at, self._maximum_timer_interval)
+            next_fire_at = timer_task._get_next_fire_at(self.current_utc_datetime)
+        else:
+            timer_task = task.TimerTask()
+
+        action = ph.new_create_timer_action(id, next_fire_at)
         self._pending_actions[id] = action
 
-        timer_task: task.TimerTask = task.TimerTask()
+        def _cancel_timer() -> None:
+            self._pending_actions.pop(id, None)
+            self._pending_tasks.pop(id, None)
+
+        timer_task.set_cancel_handler(_cancel_timer)
         if retryable_task is not None:
             timer_task.set_retryable_parent(retryable_task)
         self._pending_tasks[id] = timer_task
@@ -1129,15 +1479,38 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
                 if isinstance(activity_function, str)
                 else task.get_name(activity_function)
             )
-            action = ph.new_schedule_task_action(id, name, encoded_input, tags)
+            # Generate a trace context for the deferred CLIENT span.
+            # The actual span is emitted later with proper timestamps
+            # when the taskCompleted/taskFailed event arrives.
+            orch_ctx = self._orchestration_trace_context or self._parent_trace_context
+            parent_ctx = orch_ctx
+            if not self._is_replaying:
+                client_ctx = tracing.generate_client_trace_context(
+                    parent_trace_context=orch_ctx)
+                if client_ctx is not None:
+                    parent_ctx = client_ctx
+            action = ph.new_schedule_task_action(
+                id, name, encoded_input, tags,
+                parent_trace_context=parent_ctx)
         else:
             if instance_id is None:
                 # Create a deteministic instance ID based on the parent instance ID
                 instance_id = f"{self.instance_id}:{id:04x}"
             if not isinstance(activity_function, str):
                 raise ValueError("Orchestrator function name must be a string")
+            # Generate a trace context for the deferred CLIENT span.
+            # The actual span is emitted later with proper timestamps
+            # when the sub-orchestration completes or fails.
+            orch_ctx = self._orchestration_trace_context or self._parent_trace_context
+            parent_ctx = orch_ctx
+            if not self._is_replaying:
+                client_ctx = tracing.generate_client_trace_context(
+                    parent_trace_context=orch_ctx)
+                if client_ctx is not None:
+                    parent_ctx = client_ctx
             action = ph.new_create_sub_orchestration_action(
-                id, activity_function, instance_id, encoded_input, version
+                id, activity_function, instance_id, encoded_input, version,
+                parent_trace_context=parent_ctx
             )
         self._pending_actions[id] = action
 
@@ -1227,13 +1600,13 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
             action = pb.OrchestratorAction(id=task_id, sendEntityMessage=entity_unlock_message)
             self._pending_actions[task_id] = action
 
-    def wait_for_external_event(self, name: str) -> task.CompletableTask:
+    def wait_for_external_event(self, name: str) -> task.CancellableTask:
         # Check to see if this event has already been received, in which case we
         # can return it immediately. Otherwise, record out intent to receive an
         # event with the given name so that we can resume the generator when it
         # arrives. If there are multiple events with the same name, we return
         # them in the order they were received.
-        external_event_task: task.CompletableTask = task.CompletableTask()
+        external_event_task: task.CancellableTask = task.CancellableTask()
         event_name = name.casefold()
         event_list = self._received_events.get(event_name, None)
         if event_list:
@@ -1247,6 +1620,19 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
                 task_list = []
                 self._pending_events[event_name] = task_list
             task_list.append(external_event_task)
+
+            def _cancel_wait() -> None:
+                waiting_tasks = self._pending_events.get(event_name)
+                if waiting_tasks is None:
+                    return
+                try:
+                    waiting_tasks.remove(external_event_task)
+                except ValueError:
+                    return
+                if not waiting_tasks:
+                    del self._pending_events[event_name]
+
+            external_event_task.set_cancel_handler(_cancel_wait)
         return external_event_task
 
     def continue_as_new(self, new_input, *, save_events: bool = False) -> None:
@@ -1270,22 +1656,41 @@ class _RuntimeOrchestrationContext(task.OrchestrationContext):
 class ExecutionResults:
     actions: list[pb.OrchestratorAction]
     encoded_custom_status: Optional[str]
+    _orchestration_trace_context: Optional[pb.TraceContext]
 
     def __init__(
-            self, actions: list[pb.OrchestratorAction], encoded_custom_status: Optional[str]
+            self, actions: list[pb.OrchestratorAction], encoded_custom_status: Optional[str],
+            orchestration_trace_context: Optional[pb.TraceContext] = None,
     ):
         self.actions = actions
         self.encoded_custom_status = encoded_custom_status
+        self._orchestration_trace_context = orchestration_trace_context
 
 
 class _OrchestrationExecutor:
     _generator: Optional[task.Orchestrator] = None
 
-    def __init__(self, registry: _Registry, logger: logging.Logger):
+    def __init__(
+        self,
+        registry: _Registry,
+        logger: logging.Logger,
+        persisted_orch_span_id: Optional[str] = None,
+        maximum_timer_interval: Optional[timedelta] = DEFAULT_MAXIMUM_TIMER_INTERVAL,
+    ):
         self._registry = registry
         self._logger = logger
+        self._maximum_timer_interval = maximum_timer_interval
         self._is_suspended = False
         self._suspended_events: list[pb.HistoryEvent] = []
+        self._persisted_orch_span_id = persisted_orch_span_id
+        # Maps timer_id -> (fire_at, created_time_ns)
+        self._timer_fire_at: dict[int, tuple[datetime, Optional[int]]] = {}
+        # Maps task_id -> (task_type, name, instance_id, scheduled_ns,
+        #                  client_trace_ctx, version)
+        # Used to reconstruct CLIENT spans with proper timestamps.
+        self._task_scheduled_info: dict[
+            int, tuple[str, str, str, Optional[int], pb.TraceContext, Optional[str]]
+        ] = {}
 
     def execute(
             self,
@@ -1297,6 +1702,7 @@ class _OrchestrationExecutor:
         orchestration_started_events = [e for e in old_events if e.HasField("executionStarted")]
         if len(orchestration_started_events) >= 1:
             orchestration_name = orchestration_started_events[0].executionStarted.name
+        self._orchestration_name = orchestration_name
 
         self._logger.debug(
             f"{instance_id}: Beginning replay for orchestrator {orchestration_name}..."
@@ -1307,7 +1713,11 @@ class _OrchestrationExecutor:
                 "The new history event list must have at least one event in it."
             )
 
-        ctx = _RuntimeOrchestrationContext(instance_id, self._registry)
+        ctx = _RuntimeOrchestrationContext(
+            instance_id,
+            self._registry,
+            maximum_timer_interval=self._maximum_timer_interval,
+        )
         try:
             # Rebuild local state by replaying old history into the orchestrator function
             self._logger.debug(
@@ -1364,7 +1774,8 @@ class _OrchestrationExecutor:
                 f"{instance_id}: Returning {len(actions)} action(s): {_get_action_summary(actions)}"
             )
         return ExecutionResults(
-            actions=actions, encoded_custom_status=ctx._encoded_custom_status
+            actions=actions, encoded_custom_status=ctx._encoded_custom_status,
+            orchestration_trace_context=ctx._orchestration_trace_context,
         )
 
     def process_event(
@@ -1375,12 +1786,10 @@ class _OrchestrationExecutor:
             self._suspended_events.append(event)
             return
 
-        # CONSIDER: change to a switch statement with event.WhichOneof("eventType")
         try:
             if event.HasField("orchestratorStarted"):
                 ctx.current_utc_datetime = event.timestamp.ToDatetime()
             elif event.HasField("executionStarted"):
-                # TODO: Check if we already started the orchestration
                 fn = self._registry.get_orchestrator(event.executionStarted.name)
                 if fn is None:
                     raise OrchestratorNotRegisteredError(
@@ -1389,6 +1798,21 @@ class _OrchestrationExecutor:
 
                 if event.executionStarted.version:
                     ctx._version = event.executionStarted.version.value
+
+                # Store the parent trace context for propagation to child tasks
+                if event.executionStarted.HasField("parentTraceContext"):
+                    ctx._parent_trace_context = event.executionStarted.parentTraceContext
+                    # Reuse a persisted span ID from a prior dispatch so
+                    # activities/timers/sub-orchestrations across all
+                    # dispatches share the same parent.  On the first
+                    # dispatch, generate a new random span ID.
+                    if self._persisted_orch_span_id:
+                        ctx._orchestration_trace_context = tracing.reconstruct_trace_context(
+                            ctx._parent_trace_context,
+                            self._persisted_orch_span_id)
+                    else:
+                        ctx._orchestration_trace_context = tracing.generate_client_trace_context(
+                            parent_trace_context=ctx._parent_trace_context)
 
                 if self._registry.versioning:
                     version_failure = self.evaluate_orchestration_versioning(
@@ -1433,37 +1857,73 @@ class _OrchestrationExecutor:
                     raise _get_wrong_action_type_error(
                         timer_id, expected_method_name, action
                     )
+                # Track timer fire_at and creation timestamp for span emission
+                if action.createTimer.HasField("fireAt"):
+                    created_ns = (event.timestamp.ToNanoseconds()
+                                  if event.HasField("timestamp") else None)
+                    self._timer_fire_at[timer_id] = (
+                        action.createTimer.fireAt.ToDatetime(), created_ns,
+                    )
             elif event.HasField("timerFired"):
                 timer_id = event.timerFired.timerId
                 timer_task = ctx._pending_tasks.pop(timer_id, None)
                 if not timer_task:
-                    # TODO: Should this be an error? When would it ever happen?
-                    if not ctx._is_replaying:
+                    # Unexpected event for unknown timer; log and skip.
+                    if not ctx.is_replaying:
                         self._logger.warning(
                             f"{ctx.instance_id}: Ignoring unexpected timerFired event with ID = {timer_id}."
                         )
                     return
-                timer_task.complete(None)
-                if timer_task._retryable_parent is not None:
-                    activity_action = timer_task._retryable_parent._action
+                if not isinstance(timer_task, task.TimerTask):
+                    if not ctx._is_replaying:
+                        self._logger.warning(
+                            f"{ctx.instance_id}: Ignoring timerFired event with non-timer task ID = {timer_id}."
+                        )
+                    return
+                # Emit timer span with backdated start time (skip during replay)
+                if not ctx.is_replaying:
+                    timer_info = self._timer_fire_at.get(timer_id)
+                    if timer_info is not None:
+                        fire_at, created_ns = timer_info
+                        tracing.emit_timer_span(
+                            self._orchestration_name, ctx.instance_id,
+                            timer_id, fire_at,
+                            scheduled_time_ns=created_ns,
+                            parent_trace_context=ctx._orchestration_trace_context or ctx._parent_trace_context,
+                        )
+                next_fire_at = timer_task._handle_timer_fired(event.timerFired.fireAt.ToDatetime())
+                if next_fire_at is not None:
+                    id = ctx.next_sequence_number()
+                    new_action = ph.new_create_timer_action(id, next_fire_at)
+                    ctx._pending_tasks[id] = timer_task
+                    ctx._pending_actions[id] = new_action
 
-                    if not timer_task._retryable_parent._is_sub_orch:
-                        cur_task = activity_action.scheduleTask
-                        instance_id = None
-                    else:
-                        cur_task = activity_action.createSubOrchestration
-                        instance_id = cur_task.instanceId
-                    ctx.call_activity_function_helper(
-                        id=activity_action.id,
-                        activity_function=cur_task.name,
-                        input=cur_task.input.value,
-                        retry_policy=timer_task._retryable_parent._retry_policy,
-                        is_sub_orch=timer_task._retryable_parent._is_sub_orch,
-                        instance_id=instance_id,
-                        fn_task=timer_task._retryable_parent,
-                    )
+                    def _cancel_timer() -> None:
+                        ctx._pending_actions.pop(id, None)
+                        ctx._pending_tasks.pop(id, None)
+
+                    timer_task.set_cancel_handler(_cancel_timer)
                 else:
-                    ctx.resume()
+                    if timer_task._retryable_parent is not None:
+                        activity_action = timer_task._retryable_parent._action
+
+                        if not timer_task._retryable_parent._is_sub_orch:
+                            cur_task = activity_action.scheduleTask
+                            instance_id = None
+                        else:
+                            cur_task = activity_action.createSubOrchestration
+                            instance_id = cur_task.instanceId
+                        ctx.call_activity_function_helper(
+                            id=activity_action.id,
+                            activity_function=cur_task.name,
+                            input=cur_task.input.value,
+                            retry_policy=timer_task._retryable_parent._retry_policy,
+                            is_sub_orch=timer_task._retryable_parent._is_sub_orch,
+                            instance_id=instance_id,
+                            fn_task=timer_task._retryable_parent,
+                        )
+                    else:
+                        ctx.resume()
             elif event.HasField("taskScheduled"):
                 # This history event confirms that the activity execution was successfully scheduled.
                 # Remove the taskScheduled event from the pending action list so we don't schedule it again.
@@ -1486,17 +1946,39 @@ class _OrchestrationExecutor:
                         expected_task_name=event.taskScheduled.name,
                         actual_task_name=action.scheduleTask.name,
                     )
+                # Store info for deferred CLIENT span reconstruction
+                ts_evt = event.taskScheduled
+                if ts_evt.HasField("parentTraceContext") and ts_evt.parentTraceContext.traceParent:
+                    sched_ns = event.timestamp.ToNanoseconds() if event.HasField("timestamp") else None
+                    ver_str = ts_evt.version.value if ts_evt.HasField("version") else None
+                    self._task_scheduled_info[task_id] = (
+                        "activity", ts_evt.name, ctx.instance_id,
+                        sched_ns, ts_evt.parentTraceContext, ver_str,
+                    )
             elif event.HasField("taskCompleted"):
                 # This history event contains the result of a completed activity task.
                 task_id = event.taskCompleted.taskScheduledId
                 activity_task = ctx._pending_tasks.pop(task_id, None)
                 if not activity_task:
-                    # TODO: Should this be an error? When would it ever happen?
+                    # Unexpected completion for unknown task; log and skip.
                     if not ctx.is_replaying:
                         self._logger.warning(
                             f"{ctx.instance_id}: Ignoring unexpected taskCompleted event with ID = {task_id}."
                         )
                     return
+                # Emit deferred CLIENT span with proper timestamps
+                if not ctx.is_replaying:
+                    info = self._task_scheduled_info.pop(task_id, None)
+                    if info is not None:
+                        t_type, t_name, t_iid, s_ns, c_ctx, t_ver = info
+                        e_ns = event.timestamp.ToNanoseconds() if event.HasField("timestamp") else None
+                        tracing.emit_client_span(
+                            t_type, t_name, t_iid, task_id,
+                            client_trace_context=c_ctx,
+                            parent_trace_context=ctx._orchestration_trace_context or ctx._parent_trace_context,
+                            start_time_ns=s_ns, end_time_ns=e_ns,
+                            version=t_ver,
+                        )
                 result = None
                 if not ph.is_empty(event.taskCompleted.result):
                     result = shared.from_json(event.taskCompleted.result.value)
@@ -1506,12 +1988,28 @@ class _OrchestrationExecutor:
                 task_id = event.taskFailed.taskScheduledId
                 activity_task = ctx._pending_tasks.pop(task_id, None)
                 if not activity_task:
-                    # TODO: Should this be an error? When would it ever happen?
+                    # Unexpected failure for unknown task; log and skip.
                     if not ctx.is_replaying:
                         self._logger.warning(
                             f"{ctx.instance_id}: Ignoring unexpected taskFailed event with ID = {task_id}."
                         )
                     return
+
+                # Emit deferred CLIENT span with error status
+                if not ctx.is_replaying:
+                    info = self._task_scheduled_info.pop(task_id, None)
+                    if info is not None:
+                        t_type, t_name, t_iid, s_ns, c_ctx, t_ver = info
+                        e_ns = event.timestamp.ToNanoseconds() if event.HasField("timestamp") else None
+                        tracing.emit_client_span(
+                            t_type, t_name, t_iid, task_id,
+                            client_trace_context=c_ctx,
+                            parent_trace_context=ctx._orchestration_trace_context or ctx._parent_trace_context,
+                            start_time_ns=s_ns, end_time_ns=e_ns,
+                            is_error=True,
+                            error_message=str(event.taskFailed.failureDetails.errorMessage),
+                            version=t_ver,
+                        )
 
                 if isinstance(activity_task, task.RetryableTask):
                     if activity_task._retry_policy is not None:
@@ -1556,16 +2054,38 @@ class _OrchestrationExecutor:
                         expected_task_name=event.subOrchestrationInstanceCreated.name,
                         actual_task_name=action.createSubOrchestration.name,
                     )
+                # Store info for deferred CLIENT span reconstruction
+                sub_evt = event.subOrchestrationInstanceCreated
+                if sub_evt.HasField("parentTraceContext") and sub_evt.parentTraceContext.traceParent:
+                    sched_ns = event.timestamp.ToNanoseconds() if event.HasField("timestamp") else None
+                    ver_str = sub_evt.version.value if sub_evt.HasField("version") else None
+                    self._task_scheduled_info[task_id] = (
+                        "orchestration", sub_evt.name, sub_evt.instanceId,
+                        sched_ns, sub_evt.parentTraceContext, ver_str,
+                    )
             elif event.HasField("subOrchestrationInstanceCompleted"):
                 task_id = event.subOrchestrationInstanceCompleted.taskScheduledId
                 sub_orch_task = ctx._pending_tasks.pop(task_id, None)
                 if not sub_orch_task:
-                    # TODO: Should this be an error? When would it ever happen?
+                    # Unexpected completion for unknown sub-orchestration; log and skip.
                     if not ctx.is_replaying:
                         self._logger.warning(
                             f"{ctx.instance_id}: Ignoring unexpected subOrchestrationInstanceCompleted event with ID = {task_id}."
                         )
                     return
+                # Emit deferred CLIENT span with proper timestamps
+                if not ctx.is_replaying:
+                    info = self._task_scheduled_info.pop(task_id, None)
+                    if info is not None:
+                        t_type, t_name, t_iid, s_ns, c_ctx, t_ver = info
+                        e_ns = event.timestamp.ToNanoseconds() if event.HasField("timestamp") else None
+                        tracing.emit_client_span(
+                            t_type, t_name, t_iid, task_id,
+                            client_trace_context=c_ctx,
+                            parent_trace_context=ctx._orchestration_trace_context or ctx._parent_trace_context,
+                            start_time_ns=s_ns, end_time_ns=e_ns,
+                            version=t_ver,
+                        )
                 result = None
                 if not ph.is_empty(event.subOrchestrationInstanceCompleted.result):
                     result = shared.from_json(
@@ -1578,12 +2098,27 @@ class _OrchestrationExecutor:
                 task_id = failedEvent.taskScheduledId
                 sub_orch_task = ctx._pending_tasks.pop(task_id, None)
                 if not sub_orch_task:
-                    # TODO: Should this be an error? When would it ever happen?
+                    # Unexpected failure for unknown sub-orchestration; log and skip.
                     if not ctx.is_replaying:
                         self._logger.warning(
                             f"{ctx.instance_id}: Ignoring unexpected subOrchestrationInstanceFailed event with ID = {task_id}."
                         )
                     return
+                # Emit deferred CLIENT span with error status
+                if not ctx.is_replaying:
+                    info = self._task_scheduled_info.pop(task_id, None)
+                    if info is not None:
+                        t_type, t_name, t_iid, s_ns, c_ctx, t_ver = info
+                        e_ns = event.timestamp.ToNanoseconds() if event.HasField("timestamp") else None
+                        tracing.emit_client_span(
+                            t_type, t_name, t_iid, task_id,
+                            client_trace_context=c_ctx,
+                            parent_trace_context=ctx._orchestration_trace_context or ctx._parent_trace_context,
+                            start_time_ns=s_ns, end_time_ns=e_ns,
+                            is_error=True,
+                            error_message=str(failedEvent.failureDetails.errorMessage),
+                            version=t_ver,
+                        )
                 if isinstance(sub_orch_task, task.RetryableTask):
                     if sub_orch_task._retry_policy is not None:
                         next_delay = sub_orch_task.compute_next_delay()
@@ -1606,7 +2141,7 @@ class _OrchestrationExecutor:
                     raise TypeError("Unexpected sub-orchestration task type")
             elif event.HasField("eventRaised"):
                 if event.eventRaised.name in ctx._entity_task_id_map:
-                    entity_id, task_id = ctx._entity_task_id_map.get(event.eventRaised.name, (None, None))
+                    entity_id, operation, task_id = ctx._entity_task_id_map.get(event.eventRaised.name, (None, None, None))
                     self._handle_entity_event_raised(ctx, event, entity_id, task_id, False)
                 elif event.eventRaised.name in ctx._entity_lock_task_id_map:
                     entity_id, task_id = ctx._entity_lock_task_id_map.get(event.eventRaised.name, (None, None))
@@ -1680,9 +2215,10 @@ class _OrchestrationExecutor:
                     )
                 try:
                     entity_id = EntityInstanceId.parse(event.entityOperationCalled.targetInstanceId.value)
+                    operation = event.entityOperationCalled.operation
                 except ValueError:
                     raise RuntimeError(f"Could not parse entity ID from targetInstanceId '{event.entityOperationCalled.targetInstanceId.value}'")
-                ctx._entity_task_id_map[event.entityOperationCalled.requestId] = (entity_id, entity_call_id)
+                ctx._entity_task_id_map[event.entityOperationCalled.requestId] = (entity_id, operation, entity_call_id)
             elif event.HasField("entityOperationSignaled"):
                 # This history event confirms that the entity signal was successfully scheduled.
                 # Remove the entityOperationSignaled event from the pending action list so we don't schedule it
@@ -1725,7 +2261,7 @@ class _OrchestrationExecutor:
                 section_id = event.entityLockGranted.criticalSectionId
                 task_id = ctx._entity_lock_id_map.pop(section_id, None)
                 if not task_id:
-                    # TODO: Should this be an error? When would it ever happen?
+                    # Unexpected lock grant for unknown section; log and skip.
                     if not ctx.is_replaying:
                         self._logger.warning(
                             f"{ctx.instance_id}: Ignoring unexpected entityLockGranted event for criticalSectionId '{section_id}'."
@@ -1743,7 +2279,7 @@ class _OrchestrationExecutor:
                 ctx.resume()
             elif event.HasField("entityOperationCompleted"):
                 request_id = event.entityOperationCompleted.requestId
-                entity_id, task_id = ctx._entity_task_id_map.pop(request_id, (None, None))
+                entity_id, operation, task_id = ctx._entity_task_id_map.pop(request_id, (None, None, None))
                 if not entity_id:
                     raise RuntimeError(f"Could not parse entity ID from request ID '{request_id}'")
                 if not task_id:
@@ -1762,10 +2298,29 @@ class _OrchestrationExecutor:
                 entity_task.complete(result)
                 ctx.resume()
             elif event.HasField("entityOperationFailed"):
-                if not ctx.is_replaying:
-                    self._logger.info(f"{ctx.instance_id}: Entity operation failed.")
-                    self._logger.info(f"Data: {json.dumps(event.entityOperationFailed)}")
-                pass
+                request_id = event.entityOperationFailed.requestId
+                entity_id, operation, task_id = ctx._entity_task_id_map.pop(request_id, (None, None, None))
+                if not entity_id:
+                    raise RuntimeError(f"Could not parse entity ID from request ID '{request_id}'")
+                if operation is None:
+                    raise RuntimeError(f"Could not parse operation name from request ID '{request_id}'")
+                if not task_id:
+                    raise RuntimeError(f"Could not find matching task ID for entity operation with request ID '{request_id}'")
+                entity_task = ctx._pending_tasks.pop(task_id, None)
+                if not entity_task:
+                    if not ctx.is_replaying:
+                        self._logger.warning(
+                            f"{ctx.instance_id}: Ignoring unexpected entityOperationFailed event with request ID = {request_id}."
+                        )
+                    return
+                failure = EntityOperationFailedException(
+                    entity_id,
+                    operation,
+                    event.entityOperationFailed.failureDetails
+                )
+                ctx._entity_context.recover_lock_after_call(entity_id)
+                entity_task.fail(str(failure), failure)
+                ctx.resume()
             elif event.HasField("orchestratorCompleted"):
                 # Added in Functions only (for some reason) and does not affect orchestrator flow
                 pass
@@ -1777,7 +2332,7 @@ class _OrchestrationExecutor:
                 if action and action.HasField("sendEntityMessage"):
                     if action.sendEntityMessage.HasField("entityOperationCalled"):
                         entity_id, event_id = self._parse_entity_event_sent_input(event)
-                        ctx._entity_task_id_map[event_id] = (entity_id, event.eventId)
+                        ctx._entity_task_id_map[event_id] = (entity_id, action.sendEntityMessage.entityOperationCalled.operation, event.eventId)
                     elif action.sendEntityMessage.HasField("entityLockRequested"):
                         entity_id, event_id = self._parse_entity_event_sent_input(event)
                         ctx._entity_lock_task_id_map[event_id] = (entity_id, event.eventId)
@@ -1913,6 +2468,7 @@ class _EntityExecutor:
     def __init__(self, registry: _Registry, logger: logging.Logger):
         self._registry = registry
         self._logger = logger
+        self._entity_method_cache: dict[tuple[type, str], bool] = {}
 
     def execute(
             self,
@@ -1936,11 +2492,7 @@ class _EntityExecutor:
         ctx = EntityContext(orchestration_id, operation, state, entity_id)
 
         if isinstance(fn, type) and issubclass(fn, DurableEntity):
-            if self._registry.entity_instances.get(str(entity_id), None):
-                entity_instance = self._registry.entity_instances[str(entity_id)]
-            else:
-                entity_instance = fn()
-                self._registry.entity_instances[str(entity_id)] = entity_instance
+            entity_instance = fn()
             if not hasattr(entity_instance, operation):
                 raise AttributeError(f"Entity '{entity_id}' does not have operation '{operation}'")
             method = getattr(entity_instance, operation)
@@ -1948,7 +2500,21 @@ class _EntityExecutor:
                 raise TypeError(f"Entity operation '{operation}' is not callable")
             # Execute the entity method
             entity_instance._initialize_entity_context(ctx)
-            entity_output = method(entity_input)
+            cache_key = (type(entity_instance), operation)
+            has_required_param = self._entity_method_cache.get(cache_key)
+            if has_required_param is None:
+                sig = inspect.signature(method)
+                has_required_param = any(
+                    p.default == inspect.Parameter.empty
+                    for p in sig.parameters.values()
+                    if p.kind not in (inspect.Parameter.VAR_POSITIONAL,
+                                      inspect.Parameter.VAR_KEYWORD)
+                )
+                self._entity_method_cache[cache_key] = has_required_param
+            if has_required_param or entity_input is not None:
+                entity_output = method(entity_input)
+            else:
+                entity_output = method()
         else:
             # Execute the entity function
             entity_output = fn(ctx, entity_input)

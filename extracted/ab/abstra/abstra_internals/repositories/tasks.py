@@ -120,14 +120,14 @@ class LocalTasksRepository(TasksRepository):
             return
 
         from abstra_internals.controllers.execution.execution_conn import (
-            get_execution_conn,
+            get_broadcast_publisher,
         )
 
-        conn = get_execution_conn()
-        if conn is not None:
+        publisher = get_broadcast_publisher()
+        if publisher is not None:
             try:
                 task_msg = {"type": "task", "payload": task.dump()}
-                conn.send(task_msg)
+                publisher.publish(task_msg)
             except Exception:
                 pass
 

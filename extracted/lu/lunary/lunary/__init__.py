@@ -14,7 +14,7 @@ if os.getenv("LUNARY_VERBOSE") == "True" or os.getenv("LUNARY_VERBOSE") == "true
     logger.setLevel(logging.DEBUG)
     logger.propagate = False # Avoid the global logging config to prevent verbose logs to be logged
 
-from inspect import signature
+from inspect import signature, isawaitable
 import traceback, copy, time, chevron, aiohttp, copy
 from functools import wraps
 
@@ -440,40 +440,256 @@ def _anthropic_consume_stream_event(event, content_blocks, token_usage, state):
         return
 
 
-def anthropic_stream_handler(fn, run_id, name, type, *args, **kwargs):
-    stream = fn(*args, **kwargs)
-    content_blocks = []
-    token_usage = {"prompt": None, "completion": None}
-    state = {
-        "role": "assistant",
-        "message_id": None,
-        "model": None,
-        "stop_reason": None,
-        "stop_sequence": None,
-        "service_tier": None,
-        "inference_geo": None,
-        "cache_creation_input_tokens": None,
-        "cache_read_input_tokens": None,
-    }
+class _TrackedAnthropicEventStream:
+    def __init__(self, stream, run_id, name, type, app_id=None):
+        self._stream = stream
+        self._iterator = iter(stream)
+        self._run_id = run_id
+        self._name = name
+        self._type = type
+        self._app_id = app_id
+        self._finished = False
+        self._content_blocks = []
+        self._token_usage = {"prompt": None, "completion": None}
+        self._state = {
+            "role": "assistant",
+            "message_id": None,
+            "model": None,
+            "stop_reason": None,
+            "stop_sequence": None,
+            "service_tier": None,
+            "inference_geo": None,
+            "cache_creation_input_tokens": None,
+            "cache_read_input_tokens": None,
+        }
 
-    try:
-        for event in stream:
-            _anthropic_consume_stream_event(event, content_blocks, token_usage, state)
-            yield event
-    finally:
-        close = getattr(stream, "close", None)
+    def _close_stream(self):
+        close = getattr(self._stream, "close", None)
         if callable(close):
             close()
 
-    parsed_output = _anthropic_build_stream_result(content_blocks, token_usage, state)
-    track_event(
-        type,
-        "end",
-        run_id,
-        name=name,
-        output=parsed_output["output"],
-        token_usage=parsed_output["tokensUsage"],
-        metadata=parsed_output["metadata"],
+    def _finalize(self):
+        if self._finished:
+            return
+
+        parsed_output = _anthropic_build_stream_result(
+            self._content_blocks, self._token_usage, self._state
+        )
+        track_event(
+            self._type,
+            "end",
+            self._run_id,
+            name=self._name,
+            output=parsed_output["output"],
+            token_usage=parsed_output["tokensUsage"],
+            metadata=parsed_output["metadata"],
+            app_id=self._app_id,
+        )
+        self._finished = True
+        run_manager.end_run(self._run_id)
+
+    def _track_error(self, error):
+        if self._finished:
+            return
+
+        track_event(
+            self._type,
+            "error",
+            self._run_id,
+            error={"message": str(error), "stack": traceback.format_exc()},
+            app_id=self._app_id,
+        )
+        self._finished = True
+        run_manager.end_run(self._run_id)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            event = next(self._iterator)
+        except StopIteration:
+            try:
+                self._close_stream()
+            finally:
+                self._finalize()
+            raise
+        except Exception as exc:
+            try:
+                self._close_stream()
+            except Exception:
+                logger.exception("Error closing Anthropic stream after failure")
+            self._track_error(exc)
+            raise
+
+        _anthropic_consume_stream_event(
+            event, self._content_blocks, self._token_usage, self._state
+        )
+        return event
+
+    def __enter__(self):
+        enter = getattr(self._stream, "__enter__", None)
+        if callable(enter):
+            entered = enter()
+            if entered is not None:
+                self._stream = entered
+                self._iterator = iter(entered)
+        return self
+
+    def __exit__(self, exc_type, exc, exc_tb):
+        try:
+            exit_method = getattr(self._stream, "__exit__", None)
+            if callable(exit_method):
+                return exit_method(exc_type, exc, exc_tb)
+        except Exception as exit_error:
+            self._track_error(exit_error)
+            raise
+        finally:
+            self._finalize()
+
+    def close(self):
+        try:
+            return self._close_stream()
+        except Exception as exc:
+            self._track_error(exc)
+            raise
+        finally:
+            self._finalize()
+
+    def __getattr__(self, key):
+        return getattr(self._stream, key)
+
+
+class _TrackedAsyncAnthropicEventStream:
+    def __init__(self, stream, run_id, name, type, app_id=None):
+        self._stream = stream
+        self._iterator = None
+        self._run_id = run_id
+        self._name = name
+        self._type = type
+        self._app_id = app_id
+        self._finished = False
+        self._content_blocks = []
+        self._token_usage = {"prompt": None, "completion": None}
+        self._state = {
+            "role": "assistant",
+            "message_id": None,
+            "model": None,
+            "stop_reason": None,
+            "stop_sequence": None,
+            "service_tier": None,
+            "inference_geo": None,
+            "cache_creation_input_tokens": None,
+            "cache_read_input_tokens": None,
+        }
+
+    def _ensure_iterator(self):
+        if self._iterator is None:
+            self._iterator = self._stream.__aiter__()
+        return self._iterator
+
+    async def _close_stream(self):
+        close = getattr(self._stream, "close", None)
+        if callable(close):
+            result = close()
+            if isawaitable(result):
+                await result
+
+    def _finalize(self):
+        if self._finished:
+            return
+
+        parsed_output = _anthropic_build_stream_result(
+            self._content_blocks, self._token_usage, self._state
+        )
+        track_event(
+            self._type,
+            "end",
+            self._run_id,
+            name=self._name,
+            output=parsed_output["output"],
+            token_usage=parsed_output["tokensUsage"],
+            metadata=parsed_output["metadata"],
+            app_id=self._app_id,
+        )
+        self._finished = True
+        run_manager.end_run(self._run_id)
+
+    def _track_error(self, error):
+        if self._finished:
+            return
+
+        track_event(
+            self._type,
+            "error",
+            self._run_id,
+            error={"message": str(error), "stack": traceback.format_exc()},
+            app_id=self._app_id,
+        )
+        self._finished = True
+        run_manager.end_run(self._run_id)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            event = await self._ensure_iterator().__anext__()
+        except StopAsyncIteration:
+            try:
+                await self._close_stream()
+            finally:
+                self._finalize()
+            raise
+        except Exception as exc:
+            try:
+                await self._close_stream()
+            except Exception:
+                logger.exception("Error closing Anthropic async stream after failure")
+            self._track_error(exc)
+            raise
+
+        _anthropic_consume_stream_event(
+            event, self._content_blocks, self._token_usage, self._state
+        )
+        return event
+
+    async def __aenter__(self):
+        enter = getattr(self._stream, "__aenter__", None)
+        if callable(enter):
+            entered = await enter()
+            if entered is not None:
+                self._stream = entered
+                self._iterator = entered.__aiter__()
+        return self
+
+    async def __aexit__(self, exc_type, exc, exc_tb):
+        try:
+            exit_method = getattr(self._stream, "__aexit__", None)
+            if callable(exit_method):
+                return await exit_method(exc_type, exc, exc_tb)
+        except Exception as exit_error:
+            self._track_error(exit_error)
+            raise
+        finally:
+            self._finalize()
+
+    async def close(self):
+        try:
+            return await self._close_stream()
+        except Exception as exc:
+            self._track_error(exc)
+            raise
+        finally:
+            self._finalize()
+
+    def __getattr__(self, key):
+        return getattr(self._stream, key)
+
+
+def anthropic_stream_handler(fn, run_id, name, type, *args, **kwargs):
+    return _TrackedAnthropicEventStream(
+        fn(*args, **kwargs), run_id, name, type
     )
 
 
@@ -555,41 +771,637 @@ async def async_stream_handler(fn, run_id, name, type, *args, **kwargs):
 
 async def async_anthropic_stream_handler(fn, run_id, name, type, *args, **kwargs):
     stream = await fn(*args, **kwargs)
-    content_blocks = []
-    token_usage = {"prompt": None, "completion": None}
-    state = {
-        "role": "assistant",
-        "message_id": None,
-        "model": None,
-        "stop_reason": None,
-        "stop_sequence": None,
-        "service_tier": None,
-        "inference_geo": None,
-        "cache_creation_input_tokens": None,
-        "cache_read_input_tokens": None,
+    return _TrackedAsyncAnthropicEventStream(stream, run_id, name, type)
+
+
+def _prepare_tracked_helper_context(
+    args,
+    kwargs,
+    *,
+    name=None,
+    user_id=None,
+    user_props=None,
+    tags=None,
+    input_parser=default_input_parser,
+    preserve_metadata: bool = False,
+):
+    tracked_kwargs = copy.copy(kwargs)
+    parent_run_id = tracked_kwargs.pop("parent", run_manager.current_run_id)
+    metadata = (
+        tracked_kwargs.get("metadata")
+        if preserve_metadata
+        else tracked_kwargs.pop("metadata", None)
+    )
+    parsed_input = input_parser(*args, **tracked_kwargs)
+
+    return tracked_kwargs, {
+        "finished": False,
+        "name": name or parsed_input["name"],
+        "input": parsed_input["input"],
+        "metadata": metadata,
+        "params": filter_params(tracked_kwargs),
+        "parent_run_id": parent_run_id,
+        "template_id": tracked_kwargs.get("extra_headers", {}).get("Template-Id", None),
+        "user_id": tracked_kwargs.pop("user_id", None) or user_ctx.get() or user_id,
+        "user_props": tracked_kwargs.pop("user_props", None)
+        or user_props
+        or user_props_ctx.get(),
+        "tags": tracked_kwargs.pop("tags", None) or tags or tags_ctx.get(),
     }
 
-    try:
-        async for event in stream:
-            _anthropic_consume_stream_event(event, content_blocks, token_usage, state)
-            yield event
-    finally:
-        close = getattr(stream, "close", None)
-        if callable(close):
-            result = close()
-            if hasattr(result, "__await__"):
-                await result
 
-    parsed_output = _anthropic_build_stream_result(content_blocks, token_usage, state)
+def _start_tracked_helper_run(context, type, app_id=None):
+    if context.get("run") is not None:
+        return context["run"]
+
+    run = run_manager.start_run(parent_run_id=context["parent_run_id"])
+    context["run"] = run
+
+    track_event(
+        type,
+        "start",
+        run_id=run.id,
+        parent_run_id=context["parent_run_id"],
+        input=context["input"],
+        name=context["name"],
+        user_id=context["user_id"],
+        user_props=context["user_props"],
+        params=context["params"],
+        metadata=context["metadata"],
+        tags=context["tags"],
+        template_id=context["template_id"],
+        app_id=app_id,
+    )
+
+    return run
+
+
+def _get_anthropic_stream_snapshot(stream):
+    try:
+        for key, value in vars(stream).items():
+            if key.endswith("__final_message_snapshot"):
+                return value
+    except Exception:
+        logger.exception("Error reading Anthropic stream snapshot")
+
+    return None
+
+
+def _parse_tracked_helper_output(output_parser, output):
+    if output is None:
+        return {"output": None, "tokensUsage": None, "metadata": None}
+
+    try:
+        return output_parser(output, True)
+    except Exception:
+        logger.exception("Error parsing Anthropic helper output")
+        return {"output": AnthropicUtils.serialize_value(output), "tokensUsage": None, "metadata": None}
+
+
+def _track_tracked_helper_end(context, type, output_parser, output, app_id=None):
+    if context.get("finished") or context.get("run") is None:
+        return
+
+    parsed_output = _parse_tracked_helper_output(output_parser, output)
+
     track_event(
         type,
         "end",
-        run_id,
-        name=name,
+        context["run"].id,
+        name=context["name"],
         output=parsed_output["output"],
         token_usage=parsed_output["tokensUsage"],
-        metadata=parsed_output["metadata"],
+        metadata=parsed_output.get("metadata"),
+        app_id=app_id,
     )
+
+    context["finished"] = True
+    run_manager.end_run(context["run"].id)
+
+
+def _track_tracked_helper_error(context, type, error, app_id=None):
+    if context.get("finished") or context.get("run") is None:
+        return
+
+    track_event(
+        type,
+        "error",
+        context["run"].id,
+        error={"message": str(error), "stack": traceback.format_exc()},
+        app_id=app_id,
+    )
+
+    context["finished"] = True
+    run_manager.end_run(context["run"].id)
+
+
+class _TrackedAnthropicStream:
+    def __init__(self, stream, context, type, output_parser, app_id=None):
+        self._stream = stream
+        self._context = context
+        self._type = type
+        self._output_parser = output_parser
+        self._app_id = app_id
+        self.text_stream = self._text_stream()
+
+    def _finalize_from_snapshot(self):
+        _track_tracked_helper_end(
+            self._context,
+            self._type,
+            self._output_parser,
+            _get_anthropic_stream_snapshot(self._stream),
+            app_id=self._app_id,
+        )
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return next(self._stream)
+        except StopIteration:
+            self._finalize_from_snapshot()
+            raise
+        except Exception as exc:
+            _track_tracked_helper_error(
+                self._context, self._type, exc, app_id=self._app_id
+            )
+            raise
+
+    def _text_stream(self):
+        try:
+            for text in self._stream.text_stream:
+                yield text
+            self._finalize_from_snapshot()
+        except Exception as exc:
+            _track_tracked_helper_error(
+                self._context, self._type, exc, app_id=self._app_id
+            )
+            raise
+
+    def close(self):
+        try:
+            return self._stream.close()
+        finally:
+            self._finalize_from_snapshot()
+
+    def get_final_message(self):
+        try:
+            message = self._stream.get_final_message()
+        except Exception as exc:
+            _track_tracked_helper_error(
+                self._context, self._type, exc, app_id=self._app_id
+            )
+            raise
+
+        _track_tracked_helper_end(
+            self._context,
+            self._type,
+            self._output_parser,
+            message,
+            app_id=self._app_id,
+        )
+        return message
+
+    def get_final_text(self):
+        try:
+            text = self._stream.get_final_text()
+        except Exception as exc:
+            _track_tracked_helper_error(
+                self._context, self._type, exc, app_id=self._app_id
+            )
+            raise
+
+        self._finalize_from_snapshot()
+        return text
+
+    def until_done(self):
+        try:
+            return self._stream.until_done()
+        except Exception as exc:
+            _track_tracked_helper_error(
+                self._context, self._type, exc, app_id=self._app_id
+            )
+            raise
+        finally:
+            self._finalize_from_snapshot()
+
+    def __getattr__(self, key):
+        return getattr(self._stream, key)
+
+
+class _TrackedAnthropicStreamManager:
+    def __init__(self, manager, context, type, output_parser, app_id=None):
+        self._manager = manager
+        self._context = context
+        self._type = type
+        self._output_parser = output_parser
+        self._app_id = app_id
+        self._stream = None
+
+    def __enter__(self):
+        _start_tracked_helper_run(self._context, self._type, app_id=self._app_id)
+
+        try:
+            stream = self._manager.__enter__()
+        except Exception as exc:
+            _track_tracked_helper_error(
+                self._context, self._type, exc, app_id=self._app_id
+            )
+            raise
+
+        self._stream = _TrackedAnthropicStream(
+            stream,
+            self._context,
+            self._type,
+            self._output_parser,
+            app_id=self._app_id,
+        )
+        return self._stream
+
+    def __exit__(self, exc_type, exc, exc_tb):
+        try:
+            return self._manager.__exit__(exc_type, exc, exc_tb)
+        except Exception as exit_error:
+            _track_tracked_helper_error(
+                self._context, self._type, exit_error, app_id=self._app_id
+            )
+            raise
+        finally:
+            if self._stream is not None:
+                self._stream._finalize_from_snapshot()
+
+    def __getattr__(self, key):
+        return getattr(self._manager, key)
+
+
+class _TrackedAsyncAnthropicStream:
+    def __init__(self, stream, context, type, output_parser, app_id=None):
+        self._stream = stream
+        self._context = context
+        self._type = type
+        self._output_parser = output_parser
+        self._app_id = app_id
+        self.text_stream = self._text_stream()
+
+    def _finalize_from_snapshot(self):
+        _track_tracked_helper_end(
+            self._context,
+            self._type,
+            self._output_parser,
+            _get_anthropic_stream_snapshot(self._stream),
+            app_id=self._app_id,
+        )
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return await self._stream.__anext__()
+        except StopAsyncIteration:
+            self._finalize_from_snapshot()
+            raise
+        except Exception as exc:
+            _track_tracked_helper_error(
+                self._context, self._type, exc, app_id=self._app_id
+            )
+            raise
+
+    async def _text_stream(self):
+        try:
+            async for text in self._stream.text_stream:
+                yield text
+            self._finalize_from_snapshot()
+        except Exception as exc:
+            _track_tracked_helper_error(
+                self._context, self._type, exc, app_id=self._app_id
+            )
+            raise
+
+    async def close(self):
+        try:
+            return await self._stream.close()
+        finally:
+            self._finalize_from_snapshot()
+
+    async def get_final_message(self):
+        try:
+            message = await self._stream.get_final_message()
+        except Exception as exc:
+            _track_tracked_helper_error(
+                self._context, self._type, exc, app_id=self._app_id
+            )
+            raise
+
+        _track_tracked_helper_end(
+            self._context,
+            self._type,
+            self._output_parser,
+            message,
+            app_id=self._app_id,
+        )
+        return message
+
+    async def get_final_text(self):
+        try:
+            text = await self._stream.get_final_text()
+        except Exception as exc:
+            _track_tracked_helper_error(
+                self._context, self._type, exc, app_id=self._app_id
+            )
+            raise
+
+        self._finalize_from_snapshot()
+        return text
+
+    async def until_done(self):
+        try:
+            return await self._stream.until_done()
+        except Exception as exc:
+            _track_tracked_helper_error(
+                self._context, self._type, exc, app_id=self._app_id
+            )
+            raise
+        finally:
+            self._finalize_from_snapshot()
+
+    def __getattr__(self, key):
+        return getattr(self._stream, key)
+
+
+class _TrackedAsyncAnthropicStreamManager:
+    def __init__(self, manager, context, type, output_parser, app_id=None):
+        self._manager = manager
+        self._context = context
+        self._type = type
+        self._output_parser = output_parser
+        self._app_id = app_id
+        self._stream = None
+
+    async def __aenter__(self):
+        _start_tracked_helper_run(self._context, self._type, app_id=self._app_id)
+
+        try:
+            stream = await self._manager.__aenter__()
+        except Exception as exc:
+            _track_tracked_helper_error(
+                self._context, self._type, exc, app_id=self._app_id
+            )
+            raise
+
+        self._stream = _TrackedAsyncAnthropicStream(
+            stream,
+            self._context,
+            self._type,
+            self._output_parser,
+            app_id=self._app_id,
+        )
+        return self._stream
+
+    async def __aexit__(self, exc_type, exc, exc_tb):
+        try:
+            return await self._manager.__aexit__(exc_type, exc, exc_tb)
+        except Exception as exit_error:
+            _track_tracked_helper_error(
+                self._context, self._type, exit_error, app_id=self._app_id
+            )
+            raise
+        finally:
+            if self._stream is not None:
+                self._stream._finalize_from_snapshot()
+
+    def __getattr__(self, key):
+        return getattr(self._manager, key)
+
+
+def _set_anthropic_helper_context(user_id=None, user_props=None, tags=None):
+    tokens = []
+
+    if user_id is not None:
+        tokens.append((user_ctx, user_ctx.set(user_id)))
+
+    if user_props is not None:
+        tokens.append((user_props_ctx, user_props_ctx.set(user_props)))
+
+    if tags is not None:
+        tokens.append((tags_ctx, tags_ctx.set(tags)))
+
+    return tokens
+
+
+def _reset_anthropic_helper_context(tokens):
+    for ctx_var, token in reversed(tokens):
+        ctx_var.reset(token)
+
+
+def _call_with_anthropic_helper_context(context, fn, *args, **kwargs):
+    tokens = _set_anthropic_helper_context(
+        context.get("user_id"),
+        context.get("user_props"),
+        context.get("tags"),
+    )
+    try:
+        return fn(*args, **kwargs)
+    finally:
+        _reset_anthropic_helper_context(tokens)
+
+
+async def _acall_with_anthropic_helper_context(context, fn, *args, **kwargs):
+    tokens = _set_anthropic_helper_context(
+        context.get("user_id"),
+        context.get("user_props"),
+        context.get("tags"),
+    )
+    try:
+        return await fn(*args, **kwargs)
+    finally:
+        _reset_anthropic_helper_context(tokens)
+
+
+class _TrackedAnthropicToolRunner:
+    def __init__(self, runner, context):
+        self._runner = runner
+        self._context = context
+        self._iterator = None
+
+    def __iter__(self):
+        if self._iterator is None:
+            self._iterator = _call_with_anthropic_helper_context(
+                self._context, iter, self._runner
+            )
+        return self
+
+    def __next__(self):
+        if self._iterator is None:
+            self._iterator = _call_with_anthropic_helper_context(
+                self._context, iter, self._runner
+            )
+        return _call_with_anthropic_helper_context(
+            self._context, next, self._iterator
+        )
+
+    def __getattr__(self, key):
+        attr = getattr(self._runner, key)
+
+        if callable(attr):
+            def wrapped(*args, **kwargs):
+                return _call_with_anthropic_helper_context(
+                    self._context, attr, *args, **kwargs
+                )
+
+            return wrapped
+
+        return attr
+
+
+class _TrackedAsyncAnthropicToolRunner:
+    def __init__(self, runner, context):
+        self._runner = runner
+        self._context = context
+        self._iterator = None
+
+    def __aiter__(self):
+        if self._iterator is None:
+            self._iterator = self._runner.__aiter__()
+        return self
+
+    async def __anext__(self):
+        if self._iterator is None:
+            self._iterator = self._runner.__aiter__()
+        return await _acall_with_anthropic_helper_context(
+            self._context, self._iterator.__anext__
+        )
+
+    def __getattr__(self, key):
+        attr = getattr(self._runner, key)
+
+        if callable(attr):
+            async def wrapped(*args, **kwargs):
+                async def invoke():
+                    result = attr(*args, **kwargs)
+                    if isawaitable(result):
+                        return await result
+                    return result
+
+                return await _acall_with_anthropic_helper_context(
+                    self._context, invoke
+                )
+
+            return wrapped
+
+        return attr
+
+
+def wrap_anthropic_tool_runner(fn, user_id=None, user_props=None, tags=None):
+    @wraps(fn)
+    def sync_wrapper(*args, **kwargs):
+        context = {
+            "user_id": kwargs.pop("user_id", None) or user_ctx.get() or user_id,
+            "user_props": kwargs.pop("user_props", None)
+            or user_props
+            or user_props_ctx.get(),
+            "tags": kwargs.pop("tags", None) or tags or tags_ctx.get(),
+        }
+        kwargs.pop("parent", None)
+
+        runner = _call_with_anthropic_helper_context(context, fn, *args, **kwargs)
+        return _TrackedAnthropicToolRunner(runner, context)
+
+    return sync_wrapper
+
+
+def wrap_async_anthropic_tool_runner(fn, user_id=None, user_props=None, tags=None):
+    @wraps(fn)
+    async def async_wrapper(*args, **kwargs):
+        context = {
+            "user_id": kwargs.pop("user_id", None) or user_ctx.get() or user_id,
+            "user_props": kwargs.pop("user_props", None)
+            or user_props
+            or user_props_ctx.get(),
+            "tags": kwargs.pop("tags", None) or tags or tags_ctx.get(),
+        }
+        kwargs.pop("parent", None)
+
+        runner = await _acall_with_anthropic_helper_context(
+            context, fn, *args, **kwargs
+        )
+        return _TrackedAsyncAnthropicToolRunner(runner, context)
+
+    return async_wrapper
+
+
+def wrap_anthropic_stream_manager(
+    fn,
+    type=None,
+    name=None,
+    user_id=None,
+    user_props=None,
+    tags=None,
+    input_parser=default_input_parser,
+    output_parser=default_output_parser,
+    app_id=None,
+    preserve_metadata: bool = False,
+):
+    @wraps(fn)
+    def sync_wrapper(*args, **kwargs):
+        tracked_kwargs, context = _prepare_tracked_helper_context(
+            args,
+            kwargs,
+            name=name,
+            user_id=user_id,
+            user_props=user_props,
+            tags=tags,
+            input_parser=input_parser,
+            preserve_metadata=preserve_metadata,
+        )
+        manager = fn(*args, **tracked_kwargs)
+        return _TrackedAnthropicStreamManager(
+            manager,
+            context,
+            type,
+            output_parser,
+            app_id=app_id,
+        )
+
+    return sync_wrapper
+
+
+def wrap_async_anthropic_stream_manager(
+    fn,
+    type=None,
+    name=None,
+    user_id=None,
+    user_props=None,
+    tags=None,
+    input_parser=default_input_parser,
+    output_parser=default_output_parser,
+    app_id=None,
+    preserve_metadata: bool = False,
+):
+    @wraps(fn)
+    def async_wrapper(*args, **kwargs):
+        tracked_kwargs, context = _prepare_tracked_helper_context(
+            args,
+            kwargs,
+            name=name,
+            user_id=user_id,
+            user_props=user_props,
+            tags=tags,
+            input_parser=input_parser,
+            preserve_metadata=preserve_metadata,
+        )
+        manager = fn(*args, **tracked_kwargs)
+        return _TrackedAsyncAnthropicStreamManager(
+            manager,
+            context,
+            type,
+            output_parser,
+            app_id=app_id,
+        )
+
+    return async_wrapper
+
 
 def ibm_stream_handler(fn, run_id, name, type, *args, **kwargs):
     try:
@@ -657,6 +1469,8 @@ def wrap(
     output_parser=default_output_parser,
     app_id=None,
     stream: bool = False,
+    preserve_metadata: bool = False,
+    stream_passthrough: bool = False,
     stream_handler=default_stream_handler, # TODO: this is not the default, it's only used for OpenAI, so pass it directly in monitor()
 ):
     def sync_wrapper(*args, **kwargs):
@@ -671,7 +1485,11 @@ def wrap(
         try:
             try:
                 params = filter_params(kwargs)
-                metadata = kwargs.pop("metadata", None)
+                metadata = (
+                    kwargs.get("metadata")
+                    if preserve_metadata
+                    else kwargs.pop("metadata", None)
+                )
                 parsed_input = input_parser(*args, **kwargs)
 
                 track_event(
@@ -699,10 +1517,23 @@ def wrap(
                 logger.exception(e)
 
             if should_stream == True:
-                stream_obj = stream_handler(
-                    fn, run.id, name or parsed_input["name"], type, *args, **kwargs
-                )
-                stream_run_managed = True
+                try:
+                    stream_obj = stream_handler(
+                        fn, run.id, name or parsed_input["name"], type, *args, **kwargs
+                    )
+                    stream_run_managed = True
+                except Exception as e:
+                    track_event(
+                        type,
+                        "error",
+                        run.id,
+                        error={"message": str(e), "stack": traceback.format_exc()},
+                        app_id=app_id,
+                    )
+                    raise e
+
+                if stream_passthrough:
+                    return stream_obj
 
                 def tracked_stream():
                     try:
@@ -776,6 +1607,8 @@ def async_wrap(
     output_parser=default_output_parser,
     app_id=None,
     stream: bool = False,
+    preserve_metadata: bool = False,
+    stream_passthrough: bool = False,
     stream_handler=async_stream_handler,
 ):
     async def wrapper(*args, **kwargs):
@@ -790,7 +1623,11 @@ def async_wrap(
             try:
                 try:
                     params = filter_params(kwargs)
-                    metadata = kwargs.pop("metadata", None)
+                    metadata = (
+                        kwargs.get("metadata")
+                        if preserve_metadata
+                        else kwargs.pop("metadata", None)
+                    )
                     parsed_input = input_parser(*args, **kwargs)
 
                     track_event(
@@ -856,7 +1693,7 @@ def async_wrap(
             finally:
                 run_manager.end_run(run.id)
 
-        def async_stream_wrapper(*args, **kwargs):
+        async def async_stream_wrapper(*args, **kwargs):
             parent_run_id = kwargs.pop("parent", run_manager.current_run_id) 
             run = run_manager.start_run(parent_run_id=parent_run_id)
             parsed_input = {"name": name, "input": None}
@@ -865,7 +1702,11 @@ def async_wrap(
             try:
                 try:
                     params = filter_params(kwargs)
-                    metadata = kwargs.pop("metadata", None)
+                    metadata = (
+                        kwargs.get("metadata")
+                        if preserve_metadata
+                        else kwargs.pop("metadata", None)
+                    )
                     parsed_input = input_parser(*args, **kwargs)
 
                     track_event(
@@ -892,10 +1733,25 @@ def async_wrap(
                 except Exception as e:
                     logger.exception(e)
 
-                stream_obj = stream_handler(
-                    fn, run.id, name or parsed_input["name"], type, *args, **kwargs
-                )
-                stream_run_managed = True
+                try:
+                    stream_obj = stream_handler(
+                        fn, run.id, name or parsed_input["name"], type, *args, **kwargs
+                    )
+                    if isawaitable(stream_obj):
+                        stream_obj = await stream_obj
+                    stream_run_managed = True
+                except Exception as e:
+                    track_event(
+                        type,
+                        "error",
+                        run.id,
+                        error={"message": str(e), "stack": traceback.format_exc()},
+                        app_id=app_id,
+                    )
+                    raise e
+
+                if stream_passthrough:
+                    return stream_obj
 
                 async def tracked_stream():
                     try:
@@ -920,7 +1776,7 @@ def async_wrap(
 
         should_stream = stream or kwargs.get("stream", False)
         if should_stream == True:
-            return async_stream_wrapper(*args, **kwargs)
+            return await async_stream_wrapper(*args, **kwargs)
         else:
             return await async_wrapper(*args, **kwargs)
 
@@ -989,7 +1845,8 @@ def monitor(object):
 
         if package_name == "anthropic":
             client_name = getattr(type(object), "__name__", None)
-            create_fn = getattr(getattr(object, "messages", None), "create", None)
+            messages_api = getattr(object, "messages", None)
+            create_fn = getattr(messages_api, "create", None)
 
             if not callable(create_fn):
                 return
@@ -1000,16 +1857,117 @@ def monitor(object):
                     "llm",
                     input_parser=AnthropicUtils.parse_input,
                     output_parser=AnthropicUtils.parse_output,
+                    preserve_metadata=True,
+                    stream_passthrough=True,
                     stream_handler=async_anthropic_stream_handler,
                 )
+                if callable(getattr(messages_api, "parse", None)):
+                    object.messages.parse = async_wrap(
+                        object.messages.parse,
+                        "llm",
+                        input_parser=AnthropicUtils.parse_input,
+                        output_parser=AnthropicUtils.parse_output,
+                        preserve_metadata=True,
+                    )
+                if callable(getattr(messages_api, "stream", None)):
+                    object.messages.stream = wrap_async_anthropic_stream_manager(
+                        object.messages.stream,
+                        "llm",
+                        input_parser=AnthropicUtils.parse_input,
+                        output_parser=AnthropicUtils.parse_output,
+                        preserve_metadata=True,
+                    )
             else:
                 object.messages.create = wrap(
                     object.messages.create,
                     "llm",
                     input_parser=AnthropicUtils.parse_input,
                     output_parser=AnthropicUtils.parse_output,
+                    preserve_metadata=True,
+                    stream_passthrough=True,
                     stream_handler=anthropic_stream_handler,
                 )
+                if callable(getattr(messages_api, "parse", None)):
+                    object.messages.parse = wrap(
+                        object.messages.parse,
+                        "llm",
+                        input_parser=AnthropicUtils.parse_input,
+                        output_parser=AnthropicUtils.parse_output,
+                        preserve_metadata=True,
+                    )
+                if callable(getattr(messages_api, "stream", None)):
+                    object.messages.stream = wrap_anthropic_stream_manager(
+                        object.messages.stream,
+                        "llm",
+                        input_parser=AnthropicUtils.parse_input,
+                        output_parser=AnthropicUtils.parse_output,
+                        preserve_metadata=True,
+                    )
+
+            beta_messages_api = getattr(getattr(object, "beta", None), "messages", None)
+            if beta_messages_api is not None:
+                if client_name and client_name.startswith("Async"):
+                    if callable(getattr(beta_messages_api, "create", None)):
+                        object.beta.messages.create = async_wrap(
+                            object.beta.messages.create,
+                            "llm",
+                            input_parser=AnthropicUtils.parse_input,
+                            output_parser=AnthropicUtils.parse_output,
+                            preserve_metadata=True,
+                            stream_passthrough=True,
+                            stream_handler=async_anthropic_stream_handler,
+                        )
+                    if callable(getattr(beta_messages_api, "parse", None)):
+                        object.beta.messages.parse = async_wrap(
+                            object.beta.messages.parse,
+                            "llm",
+                            input_parser=AnthropicUtils.parse_input,
+                            output_parser=AnthropicUtils.parse_output,
+                            preserve_metadata=True,
+                        )
+                    if callable(getattr(beta_messages_api, "stream", None)):
+                        object.beta.messages.stream = wrap_async_anthropic_stream_manager(
+                            object.beta.messages.stream,
+                            "llm",
+                            input_parser=AnthropicUtils.parse_input,
+                            output_parser=AnthropicUtils.parse_output,
+                            preserve_metadata=True,
+                        )
+                    if callable(getattr(beta_messages_api, "tool_runner", None)):
+                        object.beta.messages.tool_runner = wrap_async_anthropic_tool_runner(
+                            object.beta.messages.tool_runner
+                        )
+                else:
+                    if callable(getattr(beta_messages_api, "create", None)):
+                        object.beta.messages.create = wrap(
+                            object.beta.messages.create,
+                            "llm",
+                            input_parser=AnthropicUtils.parse_input,
+                            output_parser=AnthropicUtils.parse_output,
+                            preserve_metadata=True,
+                            stream_passthrough=True,
+                            stream_handler=anthropic_stream_handler,
+                        )
+                    if callable(getattr(beta_messages_api, "parse", None)):
+                        object.beta.messages.parse = wrap(
+                            object.beta.messages.parse,
+                            "llm",
+                            input_parser=AnthropicUtils.parse_input,
+                            output_parser=AnthropicUtils.parse_output,
+                            preserve_metadata=True,
+                        )
+                    if callable(getattr(beta_messages_api, "stream", None)):
+                        object.beta.messages.stream = wrap_anthropic_stream_manager(
+                            object.beta.messages.stream,
+                            "llm",
+                            input_parser=AnthropicUtils.parse_input,
+                            output_parser=AnthropicUtils.parse_output,
+                            preserve_metadata=True,
+                        )
+                    if callable(getattr(beta_messages_api, "tool_runner", None)):
+                        object.beta.messages.tool_runner = wrap_anthropic_tool_runner(
+                            object.beta.messages.tool_runner
+                        )
             return
     except PackageNotFoundError:
         logger.warning(

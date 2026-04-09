@@ -30,6 +30,7 @@ class ModelReference:
         as_of_date: datetime | None = None,
         resource_hint: "ResourceHint | None" = None,
         resource_group: str | None = None,
+        venv: str | None = None,
     ):
         """Specifies the model version that should be loaded into the deployment.
 
@@ -82,6 +83,7 @@ class ModelReference:
         self.identifier = identifier
         self.resource_hint = resource_hint
         self.resource_group = resource_group
+        self.venv = venv
 
         self.filename = filename
         self.source_line_start = source_line_start
@@ -124,6 +126,7 @@ class ModelReference:
                 ),
                 resource_hint=resource_hint,
                 resource_group=resource_group,
+                venv=venv,
             )
 
             from chalk.features.hooks import before_all
@@ -131,12 +134,12 @@ class ModelReference:
             def hook():
                 mv.load_model()
 
-            before_all(hook, resource_hint=resource_hint, resource_group=resource_group)
+            before_all(hook, resource_hint=resource_hint, resource_group=resource_group, venv=venv)
 
             self.model_version = mv
         else:
             self.model_version = ModelVersion(
-                name=name, identifier=identifier, resource_hint=resource_hint, resource_group=resource_group
+                name=name, identifier=identifier, resource_hint=resource_hint, resource_group=resource_group, venv=venv
             )
 
     @classmethod
@@ -146,6 +149,7 @@ class ModelReference:
         when: datetime,
         resource_hint: "ResourceHint | None" = None,
         resource_group: str | None = None,
+        venv: str | None = None,
     ) -> ModelVersion:
         """Creates a ModelReference for a specific point in time.
 
@@ -160,6 +164,10 @@ class ModelReference:
         resource_group
             The resource group for the model: this is used to isolate execution
             onto a separate pod (or set of nodes), such as on a GPU-enabled node.
+        venv
+            A virtual environment to use for the model. This is used to isolate
+            the model from the default requirements, allowing different versions
+            of packages to be used.
 
         Returns
         -------
@@ -174,7 +182,9 @@ class ModelReference:
         >>> model = ModelReference.as_of("fraud_model", timestamp, resource_hint="gpu", resource_group="gpu-group")
         """
 
-        mr = ModelReference(name=name, as_of_date=when, resource_hint=resource_hint, resource_group=resource_group)
+        mr = ModelReference(
+            name=name, as_of_date=when, resource_hint=resource_hint, resource_group=resource_group, venv=venv
+        )
         return mr.model_version
 
     @classmethod
@@ -184,6 +194,7 @@ class ModelReference:
         version: int,
         resource_hint: "ResourceHint | None" = None,
         resource_group: str | None = None,
+        venv: str | None = None,
     ) -> ModelVersion:
         """Creates a ModelReference using a numeric version identifier.
 
@@ -198,6 +209,10 @@ class ModelReference:
         resource_group
             The resource group for the model: this is used to isolate execution
             onto a separate pod (or set of nodes), such as on a GPU-enabled node.
+        venv
+            A virtual environment to use for the model. This is used to isolate
+            the model from the default requirements, allowing different versions
+            of packages to be used.
 
         Returns
         -------
@@ -217,7 +232,9 @@ class ModelReference:
         if version < 0:
             raise ValueError("Version number must be a non-negative integer.")
 
-        mr = ModelReference(name=name, version=version, resource_hint=resource_hint, resource_group=resource_group)
+        mr = ModelReference(
+            name=name, version=version, resource_hint=resource_hint, resource_group=resource_group, venv=venv
+        )
         return mr.model_version
 
     @classmethod
@@ -227,6 +244,7 @@ class ModelReference:
         alias: str,
         resource_hint: "ResourceHint | None" = None,
         resource_group: str | None = None,
+        venv: str | None = None,
     ) -> ModelVersion:
         """Creates a ModelReference using an alias identifier.
 
@@ -241,6 +259,10 @@ class ModelReference:
         resource_group
             The resource group for the model: this is used to isolate execution
             onto a separate pod (or set of nodes), such as on a GPU-enabled node.
+        venv
+            A virtual environment to use for the model. This is used to isolate
+            the model from the default requirements, allowing different versions
+            of packages to be used.
 
         Returns
         -------
@@ -260,7 +282,9 @@ class ModelReference:
         if not alias:
             raise ValueError("Alias must be a non-empty string.")
 
-        mr = ModelReference(name=name, alias=alias, resource_hint=resource_hint, resource_group=resource_group)
+        mr = ModelReference(
+            name=name, alias=alias, resource_hint=resource_hint, resource_group=resource_group, venv=venv
+        )
         return mr.model_version
 
 

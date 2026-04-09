@@ -24,7 +24,6 @@ from ._base import (
     _unwrap_scalar_value,
     FeatureConverter,
 )
-from ._primitive_converter import _FeatureConverterArrowProtoHelpers, PrimitiveFeatureConverter
 
 # pyright: reportPrivateUsage=false, reportIncompatibleMethodOverride=false, reportReturnType=false, reportUnnecessaryCast=false, reportUnnecessaryComparison=false
 
@@ -34,11 +33,7 @@ except ImportError:
     pl = None
 
 _TIMEDELTA_PA_TYPE = pa.duration("us")
-
-# Used to delegate proto conversion.
-_TIMEDELTA_PRIMITIVE_CONVERTER = PrimitiveFeatureConverter(
-    name="", is_nullable=True, pyarrow_dtype=_TIMEDELTA_PA_TYPE
-)
+_TIMEDELTA_NULL_PROTO = pb.ArrowType(duration=pb.TIME_UNIT_MICROSECOND)
 
 
 def _coerce_timedelta(x: Any) -> timedelta:
@@ -65,12 +60,12 @@ def _coerce_timedelta(x: Any) -> timedelta:
 
 class TimedeltaFeatureConverter(
     _ScalarConverterBase[timedelta, timedelta],
-    _FeatureConverterArrowProtoHelpers,
     FeatureConverter[timedelta, timedelta],
 ):
     _rich_type_value: ClassVar[Type[timedelta]] = timedelta
     _primitive_type_value: ClassVar[Type[timedelta]] = timedelta
     _pyarrow_dtype_value: ClassVar[pa.DataType] = _TIMEDELTA_PA_TYPE
+    _proto_arrow_type: ClassVar[pb.ArrowType] = _TIMEDELTA_NULL_PROTO
     _polars_dtype_value: ClassVar[Any] = pl.Duration("us") if pl is not None else None
 
     _coerce_fn = staticmethod(_coerce_timedelta)
@@ -97,13 +92,16 @@ class TimedeltaFeatureConverter(
             return None
         return isodate.duration_isoformat(cast(timedelta, value))
 
+    def from_primitive_to_rich(self, value: timedelta | None) -> timedelta:
+        if value is None:
+            return cast(timedelta, None)
+        return cast(timedelta, value)
+
     def from_primitive_to_protobuf(self, value: timedelta | pa.Scalar) -> pb.ScalarValue:
         scalar_value = _unwrap_scalar_value(value)
         if scalar_value is None or scalar_value is ...:
-            return pb.ScalarValue(null_value=self.convert_pa_dtype_to_proto_dtype(_TIMEDELTA_PA_TYPE))
-        return _TIMEDELTA_PRIMITIVE_CONVERTER.from_pyarrow_to_protobuf(
-            pa.scalar(cast(timedelta, scalar_value), type=_TIMEDELTA_PA_TYPE)
-        )
+            return pb.ScalarValue(null_value=_TIMEDELTA_NULL_PROTO)
+        return self.from_pyarrow_to_protobuf(pa.scalar(cast(timedelta, scalar_value), type=_TIMEDELTA_PA_TYPE))
 
     def from_rich_to_protobuf(
         self,
@@ -112,18 +110,20 @@ class TimedeltaFeatureConverter(
     ) -> pb.ScalarValue:
         prim = cast(timedelta | None, self.from_rich_to_primitive(value, missing_value_strategy))
         if prim is None or prim is ...:
-            return pb.ScalarValue(null_value=self.convert_pa_dtype_to_proto_dtype(_TIMEDELTA_PA_TYPE))
-        return _TIMEDELTA_PRIMITIVE_CONVERTER.from_pyarrow_to_protobuf(
-            pa.scalar(prim, type=_TIMEDELTA_PA_TYPE)
-        )
-
-    def from_primitive_to_rich(self, value: timedelta | None) -> timedelta:
-        if value is None:
-            return cast(timedelta, None)
-        return cast(timedelta, value)
-
-    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
-        return _TIMEDELTA_PRIMITIVE_CONVERTER.from_protobuf_to_pyarrow(pb_value)
+            return pb.ScalarValue(null_value=_TIMEDELTA_NULL_PROTO)
+        return self.from_pyarrow_to_protobuf(pa.scalar(prim, type=_TIMEDELTA_PA_TYPE))
 
     def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
-        return _TIMEDELTA_PRIMITIVE_CONVERTER.from_pyarrow_to_protobuf(value)
+        duration_val = value.as_py()
+        if duration_val is None:
+            return pb.ScalarValue(null_value=_TIMEDELTA_NULL_PROTO)
+        if not isinstance(duration_val, timedelta):
+            raise TypeError(
+                f"Expected a `timedelta` as the Python equivalent of a PyArrow Duration, but got: {type(duration_val).__name__}"
+            )
+        return pb.ScalarValue(duration_microsecond_value=int(duration_val.total_seconds() * 1_000_000))
+
+    def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
+        if pb_value.HasField("null_value"):
+            return pa.nulls(1, type=_TIMEDELTA_PA_TYPE)[0]
+        return pa.scalar(timedelta(microseconds=pb_value.duration_microsecond_value), _TIMEDELTA_PA_TYPE)

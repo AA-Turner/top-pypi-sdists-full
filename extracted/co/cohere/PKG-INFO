@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: cohere
-Version: 5.21.1
+Version: 6.0.0
 Summary: 
 License: MIT
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
@@ -13,7 +13,6 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -22,10 +21,13 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
+Provides-Extra: aiohttp
+Requires-Dist: aiohttp (>=3.10.0,<4) ; extra == "aiohttp"
 Requires-Dist: fastavro (>=1.9.4,<2.0.0)
 Requires-Dist: httpx (>=0.21.2)
+Requires-Dist: httpx-aiohttp (==0.1.8) ; extra == "aiohttp"
 Requires-Dist: pydantic (>=1.9.2)
-Requires-Dist: pydantic-core (>=2.18.2)
+Requires-Dist: pydantic-core (>=2.18.2,<2.44.0)
 Requires-Dist: requests (>=2.0.0,<3.0.0)
 Requires-Dist: tokenizers (>=0.15,<1)
 Requires-Dist: types-requests (>=2.0.0,<3.0.0)

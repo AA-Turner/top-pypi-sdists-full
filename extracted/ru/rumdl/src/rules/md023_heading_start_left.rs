@@ -85,12 +85,12 @@ impl Rule for MD023HeadingStartLeft {
                             severity: Severity::Warning,
                             message: format!("Setext heading should not be indented by {indentation} spaces"),
                             fix: Some(Fix {
-                                range: ctx.line_index.line_col_to_byte_range_with_length(
-                                    line_num + 1,
-                                    start_col,
-                                    indentation,
-                                ),
-                                replacement: String::new(), // Remove the indentation
+                                range: {
+                                    // indent is in bytes, so use byte offset directly
+                                    let line_start = ctx.line_index.get_line_start_byte(line_num + 1).unwrap_or(0);
+                                    line_start..line_start + indentation
+                                },
+                                replacement: String::new(),
                             }),
                         });
 
@@ -98,13 +98,8 @@ impl Rule for MD023HeadingStartLeft {
                         if underline_line < ctx.lines.len() {
                             let underline_indentation = ctx.lines[underline_line].indent;
                             if underline_indentation > 0 {
-                                // Calculate precise character range for the underline indentation
                                 let (underline_start_line, underline_start_col, underline_end_line, underline_end_col) =
-                                    calculate_single_line_range(
-                                        underline_line + 1, // Convert to 1-indexed
-                                        1,
-                                        underline_indentation,
-                                    );
+                                    calculate_single_line_range(underline_line + 1, 1, underline_indentation);
 
                                 warnings.push(LintWarning {
                                     rule_name: Some(self.name().to_string()),
@@ -115,12 +110,12 @@ impl Rule for MD023HeadingStartLeft {
                                     severity: Severity::Warning,
                                     message: "Setext heading underline should not be indented".to_string(),
                                     fix: Some(Fix {
-                                        range: ctx.line_index.line_col_to_byte_range_with_length(
-                                            underline_line + 1,
-                                            underline_start_col,
-                                            underline_indentation,
-                                        ),
-                                        replacement: String::new(), // Remove the indentation
+                                        range: {
+                                            let line_start =
+                                                ctx.line_index.get_line_start_byte(underline_line + 1).unwrap_or(0);
+                                            line_start..line_start + underline_indentation
+                                        },
+                                        replacement: String::new(),
                                     }),
                                 });
                             }
@@ -144,12 +139,11 @@ impl Rule for MD023HeadingStartLeft {
                             severity: Severity::Warning,
                             message: format!("Heading should not be indented by {indentation} spaces"),
                             fix: Some(Fix {
-                                range: ctx.line_index.line_col_to_byte_range_with_length(
-                                    line_num + 1,
-                                    atx_start_col,
-                                    indentation,
-                                ),
-                                replacement: String::new(), // Remove the indentation
+                                range: {
+                                    let line_start = ctx.line_index.get_line_start_byte(line_num + 1).unwrap_or(0);
+                                    line_start..line_start + indentation
+                                },
+                                replacement: String::new(),
                             }),
                         });
                     }
@@ -161,81 +155,17 @@ impl Rule for MD023HeadingStartLeft {
     }
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
-        let mut fixed_lines = Vec::new();
-        let mut skip_next = false;
-
-        for (i, line_info) in ctx.lines.iter().enumerate() {
-            let line_num = i + 1;
-            if skip_next {
-                skip_next = false;
-                continue;
-            }
-
-            // If rule is disabled for this line, keep original
-            if ctx.inline_config().is_rule_disabled(self.name(), line_num) {
-                fixed_lines.push(line_info.content(ctx.content).to_string());
-                // For setext headings, also skip the underline
-                if let Some(heading) = &line_info.heading
-                    && matches!(
-                        heading.style,
-                        crate::lint_context::HeadingStyle::Setext1 | crate::lint_context::HeadingStyle::Setext2
-                    )
-                    && i + 1 < ctx.lines.len()
-                {
-                    fixed_lines.push(ctx.lines[i + 1].content(ctx.content).to_string());
-                    skip_next = true;
-                }
-                continue;
-            }
-
-            // Check if this line is a heading
-            if let Some(heading) = &line_info.heading {
-                // Skip invalid headings (e.g., `#NoSpace` which lacks required space after #)
-                if !heading.is_valid {
-                    fixed_lines.push(line_info.content(ctx.content).to_string());
-                    continue;
-                }
-
-                let indentation = line_info.indent;
-                let is_setext = matches!(
-                    heading.style,
-                    crate::lint_context::HeadingStyle::Setext1 | crate::lint_context::HeadingStyle::Setext2
-                );
-
-                if indentation > 0 {
-                    // This heading needs to be fixed
-                    if is_setext {
-                        // For Setext headings, add the heading text without indentation
-                        fixed_lines.push(line_info.content(ctx.content).trim().to_string());
-                        // Then add the underline without indentation
-                        if i + 1 < ctx.lines.len() {
-                            fixed_lines.push(ctx.lines[i + 1].content(ctx.content).trim().to_string());
-                            skip_next = true;
-                        }
-                    } else {
-                        // For ATX headings, simply trim the indentation
-                        fixed_lines.push(line_info.content(ctx.content).trim_start().to_string());
-                    }
-                } else {
-                    // This heading is already at the beginning of the line
-                    fixed_lines.push(line_info.content(ctx.content).to_string());
-                    if is_setext && i + 1 < ctx.lines.len() {
-                        fixed_lines.push(ctx.lines[i + 1].content(ctx.content).to_string());
-                        skip_next = true;
-                    }
-                }
-            } else {
-                // Not a heading, copy as-is
-                fixed_lines.push(line_info.content(ctx.content).to_string());
-            }
+        if self.should_skip(ctx) {
+            return Ok(ctx.content.to_string());
         }
-
-        let result = fixed_lines.join("\n");
-        if ctx.content.ends_with('\n') {
-            Ok(result + "\n")
-        } else {
-            Ok(result)
+        let warnings = self.check(ctx)?;
+        if warnings.is_empty() {
+            return Ok(ctx.content.to_string());
         }
+        let warnings =
+            crate::utils::fix_utils::filter_warnings_by_inline_config(warnings, ctx.inline_config(), self.name());
+        crate::utils::fix_utils::apply_warning_fixes(ctx.content, &warnings)
+            .map_err(crate::rule::LintError::InvalidInput)
     }
 
     /// Get the category of this rule for selective processing

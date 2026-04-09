@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from chalk.client.api.datasources import Datasource, DatasourceAPI, DatasourceTestResult, IntegrationKind
+from chalk.client.api.datasources import (
+    Datasource,
+    DatasourceAPI,
+    DatasourceTestResult,
+    IntegrationKind,
+    LinkedSecretRef,
+)
 
 if TYPE_CHECKING:
     from chalk.client.client_grpc import StubRefresher
@@ -13,6 +19,7 @@ __all__ = [
     "DatasourceAPI",
     "DatasourceTestResult",
     "IntegrationKind",
+    "LinkedSecretRef",
 ]
 
 

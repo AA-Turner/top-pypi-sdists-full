@@ -7,6 +7,7 @@ to avoid duplicating the 4-stage reply generation logic.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from .message_fixer import fix_message
@@ -15,6 +16,70 @@ from .message_validator import validate_reply
 from .reply_generator import NEGATIVE_MAX_CHARS, REPLY_MAX_CHARS, generate_reply
 
 logger = logging.getLogger(__name__)
+
+
+# Formal sign-off openers we should always strip from LinkedIn DMs.
+_SIGNOFF_OPENERS = (
+    "best",
+    "cheers",
+    "thanks",
+    "thank you",
+    "regards",
+    "kind regards",
+    "warm regards",
+    "sincerely",
+    "cordially",
+    "yours",
+)
+
+
+def strip_signature(message: str, sender_profile: dict[str, Any] | None = None) -> str:
+    """Strip trailing email-style signatures from a LinkedIn DM.
+
+    Real people don't sign LinkedIn DMs with "- Name" or "Best, Name".
+    When the LLM adds one (picked up from voice_signature.signature_pattern
+    or just sounding "human"), it's an instant bot tell — especially when
+    the prospect just asked "are you a bot?".
+
+    Stripped patterns (in order):
+      1. "Best,/Cheers,/Regards," + optional name at end
+      2. Trailing " - FirstName" / " — FirstName" (uses the sender's own name)
+      3. Leftover lone dash/em-dash at the very end
+    """
+    if not message:
+        return message
+
+    # 1) Formal sign-off phrase at end: "Best, Denys" / "Cheers" / "Kind regards,"
+    signoff_alt = "|".join(re.escape(s) for s in _SIGNOFF_OPENERS)
+    message = re.sub(
+        rf"(?:\n|\s)*(?:{signoff_alt})\s*[,.!]?\s*\S*\s*$",
+        "",
+        message,
+        flags=re.IGNORECASE,
+    ).strip()
+
+    # 2) Dash/em-dash + the sender's first name at the end
+    first_name = ""
+    if sender_profile:
+        full_name = (
+            sender_profile.get("name")
+            or sender_profile.get("full_name")
+            or sender_profile.get("first_name")
+            or ""
+        )
+        first_name = full_name.split()[0] if full_name else ""
+    if first_name:
+        message = re.sub(
+            r"(?:\n|\s)*[-\u2013\u2014]+\s*" + re.escape(first_name) + r"\s*\.?\s*$",
+            "",
+            message,
+            flags=re.IGNORECASE,
+        ).strip()
+
+    # 3) Any leftover trailing dash/em-dash (e.g., "... what do you think? -")
+    message = re.sub(r"[\s\-\u2013\u2014]+$", "", message).strip()
+
+    return message
 
 
 async def run_reply_pipeline(
@@ -156,4 +221,7 @@ async def run_reply_pipeline(
 
     # Clean up
     message = message.strip().strip('"').strip("'").strip()
+    # Strip trailing email-style signatures ("- Denys", "Best, Denys", etc.)
+    # These are a classic bot tell in LinkedIn DMs where nobody signs messages.
+    message = strip_signature(message, sender_profile)
     return message, reasoning, validation

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: kreuzberg
-Version: 4.7.4
+Version: 4.8.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: Other/Proprietary License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
@@ -32,7 +32,7 @@ Keywords: document-extraction,document-intelligence,document-parsing,document-pr
 Home-Page: https://kreuzberg-dev.github.io/kreuzberg/
 Author-email: Na'aman Hirschfeld <naaman@kreuzberg.dev>
 Maintainer-email: Na'aman Hirschfeld <naaman@kreuzberg.dev>
-License: MIT
+License: Elastic-2.0
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://kreuzberg.dev/CHANGELOG/
@@ -66,7 +66,7 @@ Project-URL: Source, https://github.com/kreuzberg-dev/kreuzberg
     <img src="https://img.shields.io/maven-central/v/dev.kreuzberg/kreuzberg?label=Java&color=007ec6" alt="Java">
   </a>
   <a href="https://github.com/kreuzberg-dev/kreuzberg/releases">
-    <img src="https://img.shields.io/github/v/tag/kreuzberg-dev/kreuzberg?label=Go&color=007ec6&filter=v4.7.4" alt="Go">
+    <img src="https://img.shields.io/github/v/tag/kreuzberg-dev/kreuzberg?label=Go&color=007ec6&filter=v4.8.0" alt="Go">
   </a>
   <a href="https://www.nuget.org/packages/Kreuzberg/">
     <img src="https://img.shields.io/nuget/v/Kreuzberg?label=C%23&color=007ec6" alt="C#">
@@ -86,7 +86,7 @@ Project-URL: Source, https://github.com/kreuzberg-dev/kreuzberg
 
   <!-- Project Info -->
   <a href="https://github.com/kreuzberg-dev/kreuzberg/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/License-MIT-007ec6" alt="License">
+    <img src="https://img.shields.io/badge/License-Elastic--2.0-blue.svg" alt="License">
   </a>
   <a href="https://docs.kreuzberg.dev">
     <img src="https://img.shields.io/badge/docs-kreuzberg.dev-007ec6" alt="Documentation">
@@ -486,7 +486,7 @@ Contributions are welcome! See [Contributing Guide](https://github.com/kreuzberg
 
 ## License
 
-MIT License - see LICENSE file for details.
+Elastic License 2.0 (ELv2) - see [LICENSE](../../LICENSE) for details.
 
 ## Support
 

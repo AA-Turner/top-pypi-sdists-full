@@ -4,6 +4,7 @@
 import contrast
 from contrast.agent import scope
 from contrast.agent.assess.contrast_event import ContrastEvent
+from contrast.agent.assess.policy.preshift import Preshift
 from contrast.agent.assess.policy.propagation_node import PropagationNode
 from contrast.agent.assess.policy.propagators import (
     PROPAGATOR_ACTIONS,
@@ -13,18 +14,16 @@ from contrast.agent.assess.policy.propagators import (
 )
 from contrast.agent.assess.policy.source_policy import SourceNode, apply_stream_source
 from contrast.agent.assess.properties import Properties
-from contrast.agent.assess.policy.preshift import Preshift
 from contrast.agent.assess.utils import (
-    copy_tags_to_offset,
     copy_events,
     copy_from,
-    is_tracked,
+    copy_tags_to_offset,
     get_properties,
+    is_tracked,
     set_properties,
     track_string,
 )
 from contrast.utils.assess.duck_utils import safe_getattr
-
 from contrast_vendor import structlog as logging
 
 logger = logging.getLogger("contrast")
@@ -179,6 +178,9 @@ def apply_propagator(propagator_node, preshift, target, ret):
         for key, value in target.items():
             apply_propagator(propagator_node, preshift, key, ret)
             apply_propagator(propagator_node, preshift, value, ret)
+    # TODO: PYT-4065 we should also be considering lists here, at least for SPLAT.
+    # However, simply adding a `list` case here causes problems for other propagators
+    # that are actually expecting a list (eg some regex propagators)
     else:
         propagate_string(propagator_node, preshift, target, ret)
 

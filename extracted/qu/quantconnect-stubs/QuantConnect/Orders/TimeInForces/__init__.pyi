@@ -33,8 +33,21 @@ class GoodTilCanceledTimeInForce(QuantConnect.Orders.TimeInForce):
         ...
 
 
-class DayTimeInForce(QuantConnect.Orders.TimeInForce):
-    """Day Time In Force - order expires at market close"""
+class GoodTilDateTimeInForce(QuantConnect.Orders.TimeInForce):
+    """Good Til Date Time In Force - order expires and will be cancelled on a fixed date/time"""
+
+    @property
+    def expiry(self) -> datetime.datetime:
+        """The date/time on which the order will expire and will be cancelled"""
+        ...
+
+    def __init__(self, expiry: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """Initializes a new instance of the GoodTilDateTimeInForce class"""
+        ...
+
+    def get_forex_order_expiry_date_time(self, order: QuantConnect.Orders.Order) -> datetime.datetime:
+        """Returns the expiry date and time (UTC) for a Forex order"""
+        ...
 
     def is_fill_valid(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, fill: QuantConnect.Orders.OrderEvent) -> bool:
         """
@@ -58,21 +71,8 @@ class DayTimeInForce(QuantConnect.Orders.TimeInForce):
         ...
 
 
-class GoodTilDateTimeInForce(QuantConnect.Orders.TimeInForce):
-    """Good Til Date Time In Force - order expires and will be cancelled on a fixed date/time"""
-
-    @property
-    def expiry(self) -> datetime.datetime:
-        """The date/time on which the order will expire and will be cancelled"""
-        ...
-
-    def __init__(self, expiry: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """Initializes a new instance of the GoodTilDateTimeInForce class"""
-        ...
-
-    def get_forex_order_expiry_date_time(self, order: QuantConnect.Orders.Order) -> datetime.datetime:
-        """Returns the expiry date and time (UTC) for a Forex order"""
-        ...
+class DayTimeInForce(QuantConnect.Orders.TimeInForce):
+    """Day Time In Force - order expires at market close"""
 
     def is_fill_valid(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, fill: QuantConnect.Orders.OrderEvent) -> bool:
         """

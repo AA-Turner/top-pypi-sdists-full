@@ -4743,7 +4743,7 @@ class NodePackage(
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
-        :param pnpm_version: (experimental) The version of PNPM to use if using PNPM as a package manager. Default: "9"
+        :param pnpm_version: (experimental) The version of PNPM to use if using PNPM as a package manager. Default: "10.33.0"
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
@@ -5062,6 +5062,15 @@ class NodePackage(
         return typing.cast(builtins.str, jsii.get(self, "entrypoint"))
 
     @builtins.property
+    @jsii.member(jsii_name="execCommand")
+    def exec_command(self) -> builtins.str:
+        '''(experimental) The command prefix to use when executing binary commands for this package manager (e.g. ``npx``, ``pnpm exec``, ``yarn``, ``bunx``).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "execCommand"))
+
+    @builtins.property
     @jsii.member(jsii_name="file")
     def file(self) -> "_JsonFile_fa8164db":
         '''(experimental) The package.json file.
@@ -5195,6 +5204,8 @@ class NodePackage(
     def bun_version(self) -> typing.Optional[builtins.str]:
         '''(experimental) The version of Bun to use if using Bun as a package manager.
 
+        :return: ``undefined`` if the package manager is not Bun.
+
         :stability: experimental
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "bunVersion"))
@@ -5259,6 +5270,8 @@ class NodePackage(
     def pnpm_version(self) -> typing.Optional[builtins.str]:
         '''(experimental) The version of PNPM to use if using PNPM as a package manager.
 
+        :return: ``undefined`` if the package manager is not PNPM.
+
         :stability: experimental
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pnpmVersion"))
@@ -5275,6 +5288,17 @@ class NodePackage(
         :stability: experimental
         '''
         return typing.cast(typing.Optional[typing.List["ScopedPackagesOptions"]], jsii.get(self, "scopedPackagesOptions"))
+
+    @builtins.property
+    @jsii.member(jsii_name="yarnVersion")
+    def yarn_version(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The version of Yarn to use if using Yarn as a package manager.
+
+        :return: ``undefined`` if the package manager is not Yarn.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "yarnVersion"))
 
 
 @jsii.enum(jsii_type="projen.javascript.NodePackageManager")
@@ -5456,7 +5480,7 @@ class NodePackageOptions:
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
-        :param pnpm_version: (experimental) The version of PNPM to use if using PNPM as a package manager. Default: "9"
+        :param pnpm_version: (experimental) The version of PNPM to use if using PNPM as a package manager. Default: "10.33.0"
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
@@ -6081,7 +6105,7 @@ class NodePackageOptions:
     def pnpm_version(self) -> typing.Optional[builtins.str]:
         '''(experimental) The version of PNPM to use if using PNPM as a package manager.
 
-        :default: "9"
+        :default: "10.33.0"
 
         :stability: experimental
         '''
@@ -6422,7 +6446,7 @@ class NodeProject(
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
-        :param pnpm_version: (experimental) The version of PNPM to use if using PNPM as a package manager. Default: "9"
+        :param pnpm_version: (experimental) The version of PNPM to use if using PNPM as a package manager. Default: "10.33.0"
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
@@ -7459,7 +7483,7 @@ class NodeProjectOptions(
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
-        :param pnpm_version: (experimental) The version of PNPM to use if using PNPM as a package manager. Default: "9"
+        :param pnpm_version: (experimental) The version of PNPM to use if using PNPM as a package manager. Default: "10.33.0"
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
         :param scoped_packages_options: (experimental) Options for privately hosted scoped packages. Default: - fetch all scoped packages from the public npm registry
@@ -8862,7 +8886,7 @@ class NodeProjectOptions(
     def pnpm_version(self) -> typing.Optional[builtins.str]:
         '''(experimental) The version of PNPM to use if using PNPM as a package manager.
 
-        :default: "9"
+        :default: "10.33.0"
 
         :stability: experimental
         '''

@@ -2,6 +2,7 @@
 import abc
 import hashlib
 import json
+import logging
 import os.path
 import pathlib
 import random
@@ -104,6 +105,8 @@ class RTDCBase(abc.ABC):
 
         # Basins are initialized in the "basins" property function
         self._enable_basins = enable_basins
+
+        self._logger = None
 
     def __contains__(self, feat):
         ct = False
@@ -215,6 +218,12 @@ class RTDCBase(abc.ABC):
         self._assert_filter()
         return self._ds_filter
 
+    @property
+    def logger(self):
+        if self._logger is None:
+            self._logger = logging.getLogger(__name__).getChild(self.hash)
+        return self._logger
+
     def _assert_filter(self):
         if self._ds_filter is None:
             self._ds_filter = Filter(self)
@@ -305,6 +314,7 @@ class RTDCBase(abc.ABC):
                     #  especially when considering networking issues.
                     if feat in bn.features:
                         data = bn.get_feature_data(feat)
+                        self.logger.info(f"Feature '{feat}' found in '{bn}'")
                         # The data are available, we may abort the search.
                         break
                 except feat_basin.BasinIdentifierMismatchError:
@@ -444,8 +454,16 @@ class RTDCBase(abc.ABC):
 
     @property
     def features_innate(self):
-        """All features excluding ancillary, basin, or temporary features"""
+        """All features excluding ancillary, basin, or temporary features
+
+        Internal basin features are included since version 0.71.4.
+        """
         innate = [ft for ft in self.features if ft in self._events]
+        for bn_dict in self.basins_get_dicts():
+            if bn_dict.get("type") == "internal":
+                for feat in bn_dict.get("features", []):
+                    if feat in self.features_basin:
+                        innate.append(feat)
         return innate
 
     @property
@@ -507,7 +525,7 @@ class RTDCBase(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def hash(self):
+    def hash(self) -> str:
         """Reproducible dataset hash (defined by derived classes)"""
 
     def ignore_basins(self, basin_identifiers):

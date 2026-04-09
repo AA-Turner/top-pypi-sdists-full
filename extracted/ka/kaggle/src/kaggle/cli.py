@@ -210,6 +210,9 @@ def parse_competitions(subparsers) -> None:
     parser_competitions_submit_optional.add_argument(
         "-q", "--quiet", dest="quiet", action="store_true", help=Help.param_quiet
     )
+    parser_competitions_submit_optional.add_argument(
+        "--sandbox", dest="sandbox", action="store_true", help=Help.param_sandbox
+    )
     parser_competitions_submit._action_groups.append(parser_competitions_submit_optional)
     parser_competitions_submit.set_defaults(func=api.competition_submit_cli)
 
@@ -1167,6 +1170,7 @@ class Help(object):
     param_wp = "Download files to current working path"
     param_proxy = "Proxy for HTTP requests"
     param_quiet = "Suppress printing information about the upload/download progress"
+    param_sandbox = "Mark submission as a sandbox submission (competition hosts/admins only)"
     param_public = "Create publicly (default is private)"
     param_keep_tabular = "Do not convert tabular files to CSV (default is to convert)"
     param_dir_mode = (
@@ -1340,9 +1344,7 @@ class Help(object):
     command_model_instances_update = "Update a model variation"
 
     # Model Instance Versions params
-    param_model_instance_version = (
-        "Model variation version URL suffix in format <owner>/<model-name>/<framework>/<variation-slug>/<version-number>"
-    )
+    param_model_instance_version = "Model variation version URL suffix in format <owner>/<model-name>/<framework>/<variation-slug>/<version-number>"
 
     # Model Instance Versions params
     command_model_instance_versions_new = "Create a new model variation version"

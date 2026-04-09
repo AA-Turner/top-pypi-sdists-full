@@ -30,12 +30,14 @@ from contrast.agent.policy.handlers import (
     EventDict,
     EventHandler,
     EventHandlerBuilder,
+    ai_usage,
     authn,
     authz,
     cmd_exec,
     file_open,
     graphql_request,
-    observe_handler_builder,
+    observe_log_handler_builder,
+    observe_span_handler_builder,
     outbound_request,
 )
 from contrast.agent.request_context import RequestContext
@@ -54,40 +56,52 @@ value (most likely, it raised an exception instead).
 EVENT_HANDLER_BUILDERS: dict[str, dict[str, EventHandlerBuilder]] = {
     "cmd-exec": {
         "observe": partial(
-            observe_handler_builder, cmd_exec.observe_span_attrs_builder
+            observe_span_handler_builder, cmd_exec.observe_span_attrs_builder
         ),
     },
     "file-open": {
         "observe": partial(
-            observe_handler_builder, file_open.observe_span_attrs_builder
+            observe_span_handler_builder, file_open.observe_span_attrs_builder
         ),
     },
     "django-authn": {
         "observe": partial(
-            observe_handler_builder, authn.django_authn_span_attrs_builder
+            observe_span_handler_builder, authn.django_authn_span_attrs_builder
         ),
     },
     "django-session-authn": {
         "observe": partial(
-            observe_handler_builder, authn.django_session_authn_span_attrs_builder
+            observe_span_handler_builder, authn.django_session_authn_span_attrs_builder
         ),
     },
     "starlette-authn": {
         "observe": partial(
-            observe_handler_builder, authn.starlette_authn_span_attrs_builder
+            observe_span_handler_builder, authn.starlette_authn_span_attrs_builder
         ),
     },
     "authz": {
-        "observe": partial(observe_handler_builder, authz.authz_span_attrs_builder),
+        "observe": partial(
+            observe_span_handler_builder, authz.authz_span_attrs_builder
+        ),
     },
     "outbound-request": {
         "observe": partial(
-            observe_handler_builder, outbound_request.observe_span_attrs_builder
+            observe_span_handler_builder, outbound_request.observe_span_attrs_builder
         )
     },
     "outbound-request-http.client": {
         "observe": partial(
-            observe_handler_builder, outbound_request.http_client_attrs_builder
+            observe_span_handler_builder, outbound_request.http_client_attrs_builder
+        )
+    },
+    "ai-usage-stainless": {
+        "ai-usage": partial(
+            observe_log_handler_builder, ai_usage.stainless_log_event_builder
+        )
+    },
+    "aws-api-call": {
+        "ai-usage": partial(
+            observe_log_handler_builder, ai_usage.botocore_log_event_builder
         )
     },
     "graphql-request": {},  # populated conditionally below
@@ -188,6 +202,7 @@ def generate_policy_event_handlers(
     *,
     assess: bool,
     observe: bool,
+    ai_usage: bool,
     protect: bool,
 ) -> dict[str, list[EventHandler]]:
     """
@@ -198,6 +213,8 @@ def generate_policy_event_handlers(
     for location_name, event_dict in _policy_v2.items():
         handler_builders = EVENT_HANDLER_BUILDERS[event_dict["name"]]
         handlers = []
+        if ai_usage and (build_ai_usage_handler := handler_builders.get("ai-usage")):
+            handlers.append(build_ai_usage_handler(event_dict))
         if observe and (build_observe_handler := handler_builders.get("observe")):
             handlers.append(build_observe_handler(event_dict))
         if assess and (build_assess_handler := handler_builders.get("assess")):

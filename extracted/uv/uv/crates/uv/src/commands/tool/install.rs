@@ -270,7 +270,7 @@ pub(crate) async fn install(
         .index_strategy(settings.resolver.index_strategy)
         .markers(interpreter.markers())
         .platform(interpreter.platform())
-        .build();
+        .build()?;
 
         // Initialize the capabilities.
         let capabilities = IndexCapabilities::default();
@@ -282,6 +282,7 @@ pub(crate) async fn install(
             capabilities: &capabilities,
             prerelease: settings.resolver.prerelease,
             exclude_newer: &settings.resolver.exclude_newer,
+            index_locations: &settings.resolver.index_locations,
             tags: None,
             requires_python: None,
         };

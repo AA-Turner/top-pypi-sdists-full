@@ -1110,13 +1110,13 @@ fn set_true_explicit() {
     .arg("--dump")
     .justfile(
       "
-    set export := true
-  ",
+        set export := true
+      ",
     )
     .stdout(
       "
-    set export := true
-  ",
+        set export
+      ",
     )
     .success();
 }
@@ -1127,13 +1127,13 @@ fn set_true_implicit() {
     .arg("--dump")
     .justfile(
       "
-    set export
-  ",
+        set export
+      ",
     )
     .stdout(
       "
-    set export := true
-  ",
+        set export
+      ",
     )
     .success();
 }
@@ -1379,15 +1379,15 @@ fn group_sets() {
     .arg("--dump")
     .justfile(
       "
-    set export := true
-    set positional-arguments := true
-  ",
+        set export := true
+        set positional-arguments := true
+      ",
     )
     .stdout(
       "
-    set export := true
-    set positional-arguments := true
-  ",
+        set export
+        set positional-arguments
+      ",
     )
     .success();
 }
@@ -1496,7 +1496,7 @@ fn multi_argument_attribute() {
     .arg("--dump")
     .stdout(
       "
-        set unstable := true
+        set unstable
 
         [script('a', 'b', 'c')]
         foo:
@@ -1520,7 +1520,7 @@ fn doc_attribute_suppresses_comment() {
     .arg("--dump")
     .stdout(
       "
-        set unstable := true
+        set unstable
 
         [doc('ATTRIBUTE')]
         foo:
@@ -1730,5 +1730,84 @@ fn undefined_variable() {
       ",
     )
     .test_round_trip(false)
+    .success();
+}
+
+#[test]
+fn indentation_two_spaces() {
+  Test::new()
+    .args(["--unstable", "--fmt", "--check", "--indentation", "  "])
+    .justfile("foo:\n  echo bar\n")
+    .test_round_trip(false)
+    .success();
+}
+
+#[test]
+fn indentation_tab() {
+  Test::new()
+    .args(["--unstable", "--fmt", "--check", "--indentation", "\t"])
+    .justfile("foo:\n\techo bar\n")
+    .test_round_trip(false)
+    .success();
+}
+
+#[test]
+fn indentation_check_with_custom() {
+  Test::new()
+    .args(["--unstable", "--fmt", "--check", "--indentation", "  "])
+    .justfile("foo:\n    echo bar\n")
+    .test_round_trip(false)
+    .stdout(" foo:\n-    echo bar\n+  echo bar\n")
+    .stderr(
+      "
+      error: Formatted justfile differs from original.
+    ",
+    )
+    .failure();
+}
+
+#[test]
+fn dump_indentation_two_spaces() {
+  Test::new()
+    .args(["--dump", "--indentation", "  "])
+    .justfile(
+      "
+      foo:
+          echo bar
+      ",
+    )
+    .test_round_trip(false)
+    .stdout("foo:\n  echo bar\n")
+    .success();
+}
+
+#[test]
+fn dump_indentation_tab() {
+  Test::new()
+    .args(["--dump", "--indentation", "\t"])
+    .justfile(
+      "
+      foo:
+          echo bar
+      ",
+    )
+    .test_round_trip(false)
+    .stdout("foo:\n\techo bar\n")
+    .success();
+}
+
+#[test]
+fn indentation_env() {
+  Test::new()
+    .arg("--dump")
+    .env("JUST_INDENTATION", "  ")
+    .justfile(
+      "
+      foo:
+          echo bar
+      ",
+    )
+    .test_round_trip(false)
+    .stdout("foo:\n  echo bar\n")
     .success();
 }

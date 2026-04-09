@@ -35,7 +35,7 @@ class TestJobSpec(unittest.TestCase):
         model = JobSpec()
         if include_optional:
             return JobSpec(
-                job_type = 'compliance_policy_check',
+                job_type = 'schedule_compliance_jobs',
                 dataset_id = '',
                 available_dataset_id = '',
                 start_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),

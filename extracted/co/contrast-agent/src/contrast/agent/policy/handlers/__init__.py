@@ -2,17 +2,16 @@
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from __future__ import annotations
 
+from collections.abc import Generator, Mapping
 from typing import Callable
-from collections.abc import Mapping
-from collections.abc import Generator
 
 from contrast_fireball import OtelAttributes, SpanType
-from contrast_vendor import structlog as logging
 
 from contrast.agent import scope
 from contrast.agent.request_context import RequestContext
 from contrast.policy_v2 import EventDict
-
+from contrast.reporting import fireball
+from contrast_vendor import structlog as logging
 
 EventHandler = Callable[..., Generator]
 """
@@ -33,7 +32,7 @@ EventHandlerBuilder = Callable[[EventDict], EventHandler]
 Builder function for a v2 policy event handler.
 """
 
-AttrUpdateBuilder = Callable[
+SpanAttrUpdateBuilder = Callable[
     [EventDict],
     tuple[
         SpanType,
@@ -42,11 +41,20 @@ AttrUpdateBuilder = Callable[
     ],
 ]
 
+
+LogRecordEventBuilder = Callable[
+    [EventDict],
+    Callable[
+        [Mapping[str, object], object],
+        "fireball.LogRecordEvent | None",
+    ],
+]
+
 logger = logging.getLogger("contrast")
 
 
-def observe_handler_builder(
-    attr_updater: AttrUpdateBuilder,
+def observe_span_handler_builder(
+    attr_updater: SpanAttrUpdateBuilder,
     event_dict: EventDict,
 ) -> EventHandler:
     """
@@ -106,3 +114,31 @@ def observe_handler_builder(
                 )
 
     return observe_handler
+
+
+def observe_log_handler_builder(
+    event_builder: LogRecordEventBuilder,
+    event_dict: EventDict,
+) -> EventHandler:
+    from contrast.agent import agent_state
+
+    reporter = agent_state.module.reporting_client
+    assert reporter is not None
+
+    build_event = event_builder(event_dict)
+
+    def observe_log_handler(
+        context: RequestContext | None, args: Mapping[str, object]
+    ) -> Generator:
+        if scope.in_observe_scope():
+            yield
+            return
+        with scope.observe_scope():
+            trace = context.observability_trace if context is not None else None
+
+            result = yield
+
+            if event := build_event(args, result):
+                reporter.new_log_record_event(event, trace)
+
+    return observe_log_handler

@@ -17,6 +17,9 @@ from braintrust.integrations import (
     GoogleGenAIIntegration,
     LangChainIntegration,
     LiteLLMIntegration,
+    MistralIntegration,
+    OpenAIAgentsIntegration,
+    OpenAIIntegration,
     OpenRouterIntegration,
     PydanticAIIntegration,
 )
@@ -46,12 +49,14 @@ def auto_instrument(
     pydantic_ai: bool = True,
     google_genai: bool = True,
     openrouter: bool = True,
+    mistral: bool = True,
     agno: bool = True,
     agentscope: bool = True,
     claude_agent_sdk: bool = True,
     dspy: bool = True,
     adk: bool = True,
     langchain: bool = True,
+    openai_agents: bool = True,
 ) -> dict[str, bool]:
     """
     Auto-instrument supported AI/ML libraries for Braintrust tracing.
@@ -69,12 +74,14 @@ def auto_instrument(
         pydantic_ai: Enable Pydantic AI instrumentation (default: True)
         google_genai: Enable Google GenAI instrumentation (default: True)
         openrouter: Enable OpenRouter instrumentation (default: True)
+        mistral: Enable Mistral instrumentation (default: True)
         agno: Enable Agno instrumentation (default: True)
         agentscope: Enable AgentScope instrumentation (default: True)
         claude_agent_sdk: Enable Claude Agent SDK instrumentation (default: True)
         dspy: Enable DSPy instrumentation (default: True)
         adk: Enable Google ADK instrumentation (default: True)
         langchain: Enable LangChain instrumentation (default: True)
+        openai_agents: Enable OpenAI Agents SDK instrumentation (default: True)
 
     Returns:
         Dict mapping integration name to whether it was successfully instrumented.
@@ -123,7 +130,7 @@ def auto_instrument(
     results = {}
 
     if openai:
-        results["openai"] = _instrument_openai()
+        results["openai"] = _instrument_integration(OpenAIIntegration)
     if anthropic:
         results["anthropic"] = _instrument_integration(AnthropicIntegration)
     if litellm:
@@ -134,6 +141,8 @@ def auto_instrument(
         results["google_genai"] = _instrument_integration(GoogleGenAIIntegration)
     if openrouter:
         results["openrouter"] = _instrument_integration(OpenRouterIntegration)
+    if mistral:
+        results["mistral"] = _instrument_integration(MistralIntegration)
     if agno:
         results["agno"] = _instrument_integration(AgnoIntegration)
     if agentscope:
@@ -146,16 +155,10 @@ def auto_instrument(
         results["adk"] = _instrument_integration(ADKIntegration)
     if langchain:
         results["langchain"] = _instrument_integration(LangChainIntegration)
+    if openai_agents:
+        results["openai_agents"] = _instrument_integration(OpenAIAgentsIntegration)
 
     return results
-
-
-def _instrument_openai() -> bool:
-    with _try_patch():
-        from braintrust.oai import patch_openai
-
-        return patch_openai()
-    return False
 
 
 def _instrument_integration(integration) -> bool:

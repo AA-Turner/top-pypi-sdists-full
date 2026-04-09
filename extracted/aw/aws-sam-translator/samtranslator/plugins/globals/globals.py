@@ -114,12 +114,28 @@ class Globals:
             "KmsKeyArn",
             "PropagateTags",
         ],
+        SamResourceType.WebSocketApi.value: [
+            "AccessLogSettings",
+            "ApiKeySelectionExpression",
+            "DefaultRouteSettings",
+            "DisableExecuteApiEndpoint",
+            "DisableSchemaValidation",
+            "Domain",
+            "FailOnWarnings",
+            "IpAddressType",
+            "PropagateTags",
+            "RouteSelectionExpression",
+            "RouteSettings",
+            "StageVariables",
+            "Tags",
+        ],
     }
     # unreleased_properties *must be* part of supported_properties too
     unreleased_properties: Dict[str, List[str]] = {
         SamResourceType.Function.value: [],
     }
-    unreleased_resource_types: List[str] = []
+
+    unreleased_resource_types: List[str] = [SamResourceType.WebSocketApi.value]
 
     def __init__(self, template: Dict[str, Any]) -> None:
         """

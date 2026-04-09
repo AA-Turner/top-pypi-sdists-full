@@ -349,6 +349,7 @@ from arthur_client.api_bindings.models.rule_response import RuleResponse
 from arthur_client.api_bindings.models.rule_scope import RuleScope
 from arthur_client.api_bindings.models.rule_type import RuleType
 from arthur_client.api_bindings.models.scalar_type import ScalarType
+from arthur_client.api_bindings.models.schedule_compliance_jobs_job_spec import ScheduleComplianceJobsJobSpec
 from arthur_client.api_bindings.models.schedule_jobs_job_spec import ScheduleJobsJobSpec
 from arthur_client.api_bindings.models.schema_inspection_job_spec import SchemaInspectionJobSpec
 from arthur_client.api_bindings.models.scope_schema_tag import ScopeSchemaTag

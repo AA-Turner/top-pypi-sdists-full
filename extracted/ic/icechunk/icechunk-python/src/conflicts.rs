@@ -1,5 +1,7 @@
 use std::{fmt::Display, sync::Arc};
 
+use crate::display::{PyRepr, ReprMode};
+
 use icechunk::conflicts::{
     Conflict, ConflictSolver,
     basic_solver::{BasicConflictSolver, VersionSelection},
@@ -10,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::impl_pickle;
 
-#[pyclass(name = "ConflictType", eq)]
+#[pyclass(name = "ConflictType", module = "icechunk", eq)]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) enum PyConflictType {
     NewNodeConflictsWithExistingNode = 1,
@@ -23,6 +25,7 @@ pub(crate) enum PyConflictType {
     ChunksUpdatedInUpdatedArray = 8,
     DeleteOfUpdatedArray = 9,
     DeleteOfUpdatedGroup = 10,
+    MoveOperationCannotBeRebased = 11,
 }
 
 impl Display for PyConflictType {
@@ -48,6 +51,9 @@ impl Display for PyConflictType {
             }
             PyConflictType::DeleteOfUpdatedArray => "Delete of updated array",
             PyConflictType::DeleteOfUpdatedGroup => "Delete of updated group",
+            PyConflictType::MoveOperationCannotBeRebased => {
+                "Move operation cannot be rebased"
+            }
         };
         write!(f, "{variant_str}")
     }
@@ -55,6 +61,26 @@ impl Display for PyConflictType {
 
 #[pymethods]
 impl PyConflictType {
+    #[new]
+    fn new(value: i32) -> PyResult<Self> {
+        match value {
+            1 => Ok(PyConflictType::NewNodeConflictsWithExistingNode),
+            2 => Ok(PyConflictType::NewNodeInInvalidGroup),
+            3 => Ok(PyConflictType::ZarrMetadataDoubleUpdate),
+            4 => Ok(PyConflictType::ZarrMetadataUpdateOfDeletedArray),
+            5 => Ok(PyConflictType::ZarrMetadataUpdateOfDeletedGroup),
+            6 => Ok(PyConflictType::ChunkDoubleUpdate),
+            7 => Ok(PyConflictType::ChunksUpdatedInDeletedArray),
+            8 => Ok(PyConflictType::ChunksUpdatedInUpdatedArray),
+            9 => Ok(PyConflictType::DeleteOfUpdatedArray),
+            10 => Ok(PyConflictType::DeleteOfUpdatedGroup),
+            11 => Ok(PyConflictType::MoveOperationCannotBeRebased),
+            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Invalid ConflictType value: {value}"
+            ))),
+        }
+    }
+
     fn __repr__(&self) -> String {
         format!("{self:?}")
     }
@@ -62,11 +88,31 @@ impl PyConflictType {
     fn __str__(&self) -> String {
         format!("{self}")
     }
+
+    fn __reduce__(&self, py: Python<'_>) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
+        use pyo3::IntoPyObjectExt as _;
+        let cls = py.get_type::<PyConflictType>().into_py_any(py)?;
+        let value: i32 = match self {
+            PyConflictType::NewNodeConflictsWithExistingNode => 1,
+            PyConflictType::NewNodeInInvalidGroup => 2,
+            PyConflictType::ZarrMetadataDoubleUpdate => 3,
+            PyConflictType::ZarrMetadataUpdateOfDeletedArray => 4,
+            PyConflictType::ZarrMetadataUpdateOfDeletedGroup => 5,
+            PyConflictType::ChunkDoubleUpdate => 6,
+            PyConflictType::ChunksUpdatedInDeletedArray => 7,
+            PyConflictType::ChunksUpdatedInUpdatedArray => 8,
+            PyConflictType::DeleteOfUpdatedArray => 9,
+            PyConflictType::DeleteOfUpdatedGroup => 10,
+            PyConflictType::MoveOperationCannotBeRebased => 11,
+        };
+        let args = (value,).into_py_any(py)?;
+        Ok((cls, args))
+    }
 }
 
 impl_pickle!(PyConflictType);
 
-#[pyclass(name = "Conflict")]
+#[pyclass(name = "Conflict", module = "icechunk")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct PyConflict {
     #[pyo3(get)]
@@ -77,14 +123,60 @@ pub(crate) struct PyConflict {
     conflicted_chunks: Option<Vec<Vec<u32>>>,
 }
 
+impl PyRepr for PyConflict {
+    const EXECUTABLE: bool = false;
+    fn cls_name() -> &'static str {
+        "icechunk.conflicts.Conflict"
+    }
+    fn fields(&self, _mode: ReprMode) -> Vec<(&str, String)> {
+        vec![
+            ("conflict_type", format!("{:?}", self.conflict_type)),
+            ("path", self.path.clone()),
+            (
+                "conflicted_chunks",
+                self.conflicted_chunks
+                    .as_ref()
+                    .map(|c| format!("{c:?}"))
+                    .unwrap_or_else(|| "None".to_string()),
+            ),
+        ]
+    }
+}
+
 #[pymethods]
 impl PyConflict {
+    #[new]
+    #[pyo3(signature = (conflict_type, path, conflicted_chunks=None))]
+    fn new(
+        conflict_type: PyConflictType,
+        path: String,
+        conflicted_chunks: Option<Vec<Vec<u32>>>,
+    ) -> Self {
+        Self { conflict_type, path, conflicted_chunks }
+    }
+
     fn __repr__(&self) -> String {
-        format!("Conflict({:?}, path={})", self.conflict_type, self.path)
+        <Self as PyRepr>::__repr__(self)
     }
 
     fn __str__(&self) -> String {
-        format!("{}: {}", self.path, self.conflict_type)
+        <Self as PyRepr>::__str__(self)
+    }
+
+    fn _repr_html_(&self) -> String {
+        <Self as PyRepr>::_repr_html_(self)
+    }
+
+    fn __reduce__(&self, py: Python<'_>) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
+        use pyo3::IntoPyObjectExt as _;
+        let cls = py.get_type::<PyConflict>().into_py_any(py)?;
+        let args = (
+            self.conflict_type.clone(),
+            self.path.clone(),
+            self.conflicted_chunks.clone(),
+        )
+            .into_py_any(py)?;
+        Ok((cls, args))
     }
 }
 
@@ -149,6 +241,11 @@ impl From<&Conflict> for PyConflict {
                 path: path.to_string(),
                 conflicted_chunks: None,
             },
+            Conflict::MoveOperationCannotBeRebased => PyConflict {
+                conflict_type: PyConflictType::MoveOperationCannotBeRebased,
+                path: String::new(),
+                conflicted_chunks: None,
+            },
         }
     }
 }
@@ -176,6 +273,12 @@ impl_pickle!(PyVersionSelection);
 #[pyclass(subclass, name = "ConflictSolver")]
 #[derive(Clone)]
 pub struct PyConflictSolver(Arc<dyn ConflictSolver + Send + Sync>);
+
+impl std::fmt::Debug for PyConflictSolver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PyConflictSolver").finish_non_exhaustive()
+    }
+}
 
 impl<'a> AsRef<dyn ConflictSolver + 'a + Send + Sync> for PyConflictSolver {
     fn as_ref(&self) -> &(dyn ConflictSolver + 'a + Send + Sync) {

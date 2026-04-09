@@ -25,6 +25,7 @@ class ModelVersion:
         filename: str | None = None,
         resource_hint: "ResourceHint | None" = None,
         resource_group: str | None = None,
+        venv: str | None = None,
     ):
         """Specifies the model version that should be loaded into the deployment.
 
@@ -48,6 +49,7 @@ class ModelVersion:
         self.filename = filename
         self.resource_hint: "ResourceHint | None" = resource_hint
         self.resource_group = resource_group
+        self.venv = venv
 
         self._model = None
         self._predictor = None

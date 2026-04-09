@@ -115,6 +115,12 @@ pub(crate) fn extract_all_from_document(
             .map(|opts| (opts.top_margin_fraction, opts.bottom_margin_fraction))
             .unwrap_or((None, None));
 
+        let (strip_repeating_text, include_headers, include_footers) = config
+            .content_filter
+            .as_ref()
+            .map(|cf| (cf.strip_repeating_text, cf.include_headers, cf.include_footers))
+            .unwrap_or((true, false, false)); // defaults match current behavior
+
         tracing::debug!(k_clusters = k, "PDF structure path: calling extract_document_structure");
         match crate::pdf::structure::extract_document_structure(
             document,
@@ -136,6 +142,9 @@ pub(crate) fn extract_all_from_document(
             config.layout.as_ref().map(|l| l.table_model).unwrap_or_default(),
             #[cfg(not(feature = "layout-detection"))]
             None,
+            strip_repeating_text,
+            include_headers,
+            include_footers,
         ) {
             Ok((doc, has_encoding_issues)) if !doc.elements.is_empty() => {
                 tracing::debug!(

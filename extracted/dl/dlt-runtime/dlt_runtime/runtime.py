@@ -130,9 +130,7 @@ class RuntimeAuthService:
     def login(
         self, token: str, refresh_token: Optional[str] = None
     ) -> tuple[AuthInfo, UserInfo]:
-        auth_info = self._save_token(token)
-        if refresh_token:
-            self._save_refresh_token(refresh_token)
+        auth_info = self._save_token_and_refresh_token(token, refresh_token)
         user_info = self.fetch_user_info()
         return auth_info, user_info
 
@@ -157,9 +155,14 @@ class RuntimeAuthService:
         if not isinstance(response.parsed, RefreshResponse):
             return False
 
-        # Persist the new JWT and rotate the refresh token
-        self._save_token(response.parsed.jwt)
-        self._save_refresh_token(response.parsed.refresh_token)
+        # Persist the new JWT and refresh token in a single file write so
+        # a crash or concurrent process can never observe a state where the
+        # JWT was updated but the refresh token still holds the old (now
+        # server-side revoked) value — that stale token would trigger theft
+        # detection on the next refresh attempt.
+        self._save_token_and_refresh_token(
+            response.parsed.jwt, response.parsed.refresh_token
+        )
         return True
 
     def overwrite_local_workspace_id(self, selected_workspace_id: str) -> None:
@@ -180,18 +183,38 @@ class RuntimeAuthService:
         self.auth_info = self._validate_and_decode_jwt(config.auth_token)
         return self.auth_info
 
-    def _save_token(self, token: str) -> AuthInfo:
+    def _save_token_and_refresh_token(
+        self, token: str, refresh_token: Optional[str] = None
+    ) -> AuthInfo:
+        """Persist the JWT (and optionally the refresh token) in a single
+        atomic file write.
+
+        Writing both values in one shot prevents a crash or concurrent
+        process from observing a state where the JWT was updated but the
+        refresh token still holds the old (server-side revoked) value.
+        That stale refresh token would trigger theft detection on the next
+        refresh attempt, revoking *all* user tokens.
+        """
         self.auth_info = self._validate_and_decode_jwt(token)
-        value = [
+        values = [
             WritableConfigValue(
                 "auth_token", str, token, (RuntimeConfiguration.__section__,)
             )
         ]
-        # write global secrets
+        if refresh_token is not None:
+            values.append(
+                WritableConfigValue(
+                    "refresh_token",
+                    str,
+                    refresh_token,
+                    (RuntimeConfiguration.__section__,),
+                )
+            )
+        # write global secrets — single read-modify-write cycle
         global_path = self.run_context.global_dir
         os.makedirs(global_path, exist_ok=True)
         secrets = SecretsTomlProvider(settings_dir=global_path)
-        write_values(secrets._config_toml, value, overwrite_existing=True)
+        write_values(secrets._config_toml, values, overwrite_existing=True)
         secrets.write_toml()
         return self.auth_info
 
@@ -277,19 +300,6 @@ class RuntimeAuthService:
             RuntimeConfiguration.__section__,
         )
         local_toml_config.write_toml()
-
-    def _save_refresh_token(self, refresh_token: str) -> None:
-        """Persist the refresh token to the global secrets.toml."""
-        value = [
-            WritableConfigValue(
-                "refresh_token", str, refresh_token, (RuntimeConfiguration.__section__,)
-            )
-        ]
-        global_path = self.run_context.global_dir
-        os.makedirs(global_path, exist_ok=True)
-        secrets = SecretsTomlProvider(settings_dir=global_path)
-        write_values(secrets._config_toml, value, overwrite_existing=True)
-        secrets.write_toml()
 
     def _read_refresh_token(self) -> Optional[str]:
         """Read the refresh token from the global secrets.toml, or None if absent."""

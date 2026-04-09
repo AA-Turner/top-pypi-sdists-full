@@ -345,6 +345,32 @@ class UnknownErrorWhileCreatingBrowserContext(SkyvernException):
     @staticmethod
     def _get_detail(exception: Exception) -> str:
         raw_message = str(exception).strip()
+        raw_lower = raw_message.lower()
+
+        # Browser launch environment errors: worker cannot initialize the
+        # headed browser display/graphics stack (X display or EGL/SwiftShader).
+        if any(
+            indicator in raw_lower
+            for indicator in (
+                "missing x server",
+                "xserver running",
+                "no display",
+                "$display",
+                "the platform failed to initialize",
+                "no suitable egl configs found",
+                "failed to get config for surface",
+                "collectgraphicsinfo failed",
+                "glcontext::createoffscreenglsurface failed",
+                "exiting gpu process due to errors during initialization",
+            )
+        ):
+            return (
+                "Browser launch failed: worker node could not initialize the browser display/graphics stack "
+                "(X display/EGL). This is an infrastructure or browser-environment issue on the worker node, "
+                "not a browser profile problem. "
+                f"{UnknownErrorWhileCreatingBrowserContext.SUPPORT_GUIDANCE}"
+            )
+
         # Patchright timeout errors include a verbose "Call log" section with launch args.
         trimmed_message = raw_message.split("Call log:")[0].strip()
         normalized_message = " ".join(trimmed_message.split())
@@ -924,6 +950,14 @@ class BrowserSessionNotRenewable(SkyvernException):
 class MissingBrowserAddressError(SkyvernException):
     def __init__(self, browser_session_id: str) -> None:
         super().__init__(f"Browser session {browser_session_id} does not have an address.")
+
+
+class BrowserSessionClosed(SkyvernHTTPException):
+    def __init__(self, browser_session_id: str) -> None:
+        super().__init__(
+            f"Browser session {browser_session_id} is closed.",
+            status_code=status.HTTP_410_GONE,
+        )
 
 
 class BrowserSessionNotFound(SkyvernHTTPException):

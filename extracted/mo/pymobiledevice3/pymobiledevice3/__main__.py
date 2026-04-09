@@ -439,8 +439,9 @@ def main() -> None:
             # If not invoked with the `--reconnect` option, break here
             break
         try:
-            # Wait for the device to be available again
-            lockdown = asyncio.run(retry_create_using_usbmux(None))
+            logger.info("Waiting for the device to be available again")
+            lockdown = asyncio.run(retry_create_using_usbmux())
+            logger.info("Device connected")
             asyncio.run(lockdown.close())
         except KeyboardInterrupt:
             print("Aborted.")

@@ -1,9 +1,12 @@
+use std::error::Error;
 use std::io::Write;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use anyhow::Result;
+use insta::{assert_snapshot, with_settings};
+use rcgen::CustomExtension;
 use temp_env::async_with_vars;
 use tempfile::{NamedTempFile, TempDir};
 use url::Url;
@@ -11,11 +14,13 @@ use url::Url;
 use uv_cache::Cache;
 use uv_client::BaseClientBuilder;
 use uv_client::RegistryClientBuilder;
+use uv_fs::Simplified;
 use uv_redacted::DisplaySafeUrl;
 use uv_static::EnvVars;
 
 use crate::http_util::{
-    SelfSigned, generate_self_signed_certs_with_ca, start_https_mtls_user_agent_server,
+    SelfSigned, generate_self_signed_certs_with_ca,
+    generate_self_signed_certs_with_ca_custom_extensions, start_https_mtls_user_agent_server,
     start_https_user_agent_server, test_cert_dir,
 };
 
@@ -35,15 +40,52 @@ struct TestCertificate {
     client_cert_path: PathBuf,
 }
 
+fn temp_dir_filter(path: &Path) -> String {
+    format!(
+        r"{}\\?/?",
+        regex::escape(&path.simplified_display().to_string()).replace(r"\\", r"(\\|/)")
+    )
+}
+
 impl TestCertificate {
     /// Generate a fresh CA, server cert, and client cert, persisting the
     /// relevant PEM files to a temporary directory.
     fn new() -> Result<Self> {
+        let (ca, server, client) = generate_self_signed_certs_with_ca()?;
+        Self::persist(ca, server, &client)
+    }
+
+    /// Generate a fresh certificate set whose CA contains an unsupported
+    /// critical extension.
+    fn new_with_unsupported_critical_ca_extension() -> Result<Self> {
+        let mut unsupported_extension = CustomExtension::from_oid_content(
+            &[1, 2, 3, 4],
+            [vec![0x0c, 0x0b], b"unsupported".to_vec()].concat(),
+        );
+        unsupported_extension.set_criticality(true);
+
+        let (ca, server, client) =
+            generate_self_signed_certs_with_ca_custom_extensions(vec![unsupported_extension])?;
+        Self::persist(ca, server, &client)
+    }
+
+    /// Generate a fresh certificate set whose CA contains a duplicate
+    /// `basicConstraints` extension, which webpki rejects as an invalid trust
+    /// anchor.
+    fn new_with_duplicate_basic_constraints_ca_extension() -> Result<Self> {
+        let duplicate_basic_constraints =
+            CustomExtension::from_oid_content(&[2, 5, 29, 19], vec![0x30, 0x00]);
+
+        let (ca, server, client) = generate_self_signed_certs_with_ca_custom_extensions(vec![
+            duplicate_basic_constraints,
+        ])?;
+        Self::persist(ca, server, &client)
+    }
+
+    fn persist(ca: SelfSigned, server: SelfSigned, client: &SelfSigned) -> Result<Self> {
         let cert_dir = test_cert_dir();
         fs_err::create_dir_all(&cert_dir)?;
         let temp_dir = TempDir::new_in(cert_dir)?;
-
-        let (ca, server, client) = generate_self_signed_certs_with_ca()?;
 
         let trust_path = temp_dir.path().join("ca.pem");
         fs_err::write(&trust_path, ca.public.pem())?;
@@ -342,7 +384,9 @@ async fn send_request_to(
     let base = BaseClientBuilder::default()
         .no_retry_delay(true)
         .with_system_certs(system_certs);
-    let client = RegistryClientBuilder::new(base, cache).build();
+    let client = RegistryClientBuilder::new(base, cache)
+        .build()
+        .expect("failed to build registry client");
     client
         .cached_client()
         .uncached()
@@ -429,6 +473,72 @@ async fn test_ssl_cert_file_valid() -> Result<()> {
         .ssl_cert_file(&cert.trust_path)
         .expect_https_connect_succeeds(&cert)
         .await;
+    Ok(())
+}
+
+/// An unsupported critical extension in `SSL_CERT_FILE` returns a builder
+/// error instead of panicking.
+#[tokio::test]
+async fn test_ssl_cert_file_unsupported_critical_extension_returns_error() -> Result<()> {
+    let cert = TestCertificate::new_with_unsupported_critical_ca_extension()?;
+    let test_client = client().ssl_cert_file(&cert.trust_path);
+    let vars = test_client.ssl_vars();
+
+    let temp_dir_filter = temp_dir_filter(cert._temp_dir.path());
+
+    async_with_vars(vars, async move {
+        let err = BaseClientBuilder::default()
+            .build()
+            .expect_err("expected client build to fail");
+
+        let source = err.source().expect("expected client build error source");
+        let display = format!("{err}\nCaused by: {source}");
+
+        with_settings!({
+            filters => vec![(temp_dir_filter.as_str(), "[TMP]/")]
+        }, {
+            assert_snapshot!(display, @r#"
+failed to build HTTP client
+Caused by: certificate in `[TMP]/ca.pem` (from `SSL_CERT_FILE`) uses an unsupported critical extension on certificate `CN=uv-test-ca, O=Astral Software Inc.`; critical extensions: `2.5.29.15`, `2.5.29.19`, `1.2.3.4`
+"#);
+        });
+    })
+    .await;
+
+    Ok(())
+}
+
+/// An invalid trust anchor in `SSL_CERT_FILE` returns a builder error with a
+/// generic trust-anchor message.
+#[tokio::test]
+async fn test_ssl_cert_file_invalid_trust_anchor_returns_error() -> Result<()> {
+    let cert = TestCertificate::new_with_duplicate_basic_constraints_ca_extension()?;
+    let test_client = client().ssl_cert_file(&cert.trust_path);
+    let vars = test_client.ssl_vars();
+
+    let temp_dir_filter = temp_dir_filter(cert._temp_dir.path());
+
+    async_with_vars(vars, async move {
+        let err = BaseClientBuilder::default()
+            .build()
+            .expect_err("expected client build to fail");
+
+        let source = err.source().expect("expected client build error source");
+        let next_source = source.source().expect("expected trust anchor validation cause");
+        let display = format!("{err}\nCaused by: {source}\nCaused by: {next_source}");
+
+        with_settings!({
+            filters => vec![(temp_dir_filter.as_str(), "[TMP]/")]
+        }, {
+            assert_snapshot!(display, @r#"
+failed to build HTTP client
+Caused by: certificate in `[TMP]/ca.pem` (from `SSL_CERT_FILE`) could not be used as a trust anchor on certificate `CN=uv-test-ca, O=Astral Software Inc.`
+Caused by: ExtensionValueInvalid
+"#);
+        });
+    })
+    .await;
+
     Ok(())
 }
 

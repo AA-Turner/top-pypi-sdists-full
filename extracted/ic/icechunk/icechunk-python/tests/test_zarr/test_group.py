@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import operator
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import numpy as np
 import pytest
@@ -23,8 +23,8 @@ from zarr.storage._common import make_store_path
 
 
 @pytest.fixture(params=["memory"])
-def store(request: pytest.FixtureRequest) -> IcechunkStore:
-    repo = parse_repo(request.param, "test")
+def store(request: pytest.FixtureRequest, any_spec_version: int | None) -> IcechunkStore:
+    repo = parse_repo(request.param, "test", any_spec_version)
     session = repo.writable_session("main")
     return session.store
 
@@ -110,7 +110,7 @@ def test_group_members(store: IcechunkStore, zarr_format: ZarrFormat) -> None:
 
     path = "group"
     group = Group.from_store(store=store, zarr_format=zarr_format)
-    members_expected: dict[str, Array | Group] = {}
+    members_expected: dict[str, Array[Any] | Group] = {}
 
     members_expected["subgroup"] = group.create_group("subgroup")
     # make a sub-sub-subgroup, to ensure that the children calculation doesn't go
@@ -221,7 +221,7 @@ def test_group_create(
 
     assert group.attrs == attributes
 
-    if not overwrite:
+    if not overwrite:  # type: ignore[unreachable]
         with pytest.raises(ContainsGroupError):
             _ = Group.from_store(store, overwrite=overwrite, zarr_format=zarr_format)
 
@@ -243,7 +243,7 @@ def test_group_open(
         store, attributes=attrs, zarr_format=zarr_format, overwrite=overwrite
     )
     assert group_created.attrs == attrs
-    assert group_created.metadata.zarr_format == zarr_format
+    assert group_created.metadata.zarr_format == zarr_format  # type: ignore[unreachable]
     assert group_created.store_path == spath
 
     # attempt to create a new group in place, to test overwrite
@@ -332,7 +332,7 @@ def test_group_setitem(store: IcechunkStore, zarr_format: ZarrFormat) -> None:
         a = group[key]
         assert isinstance(a, Array)
         assert a.shape == (3, 5)
-        np.testing.assert_array_equal(a, arr)  # type: ignore [arg-type]
+        np.testing.assert_array_equal(a, arr)
 
 
 def test_group_contains(store: IcechunkStore, zarr_format: ZarrFormat) -> None:
@@ -384,7 +384,7 @@ def test_group_update_attributes(store: IcechunkStore, zarr_format: ZarrFormat) 
     attrs = {"foo": 100}
     group = Group.from_store(store, zarr_format=zarr_format, attributes=attrs)
     assert group.attrs == attrs
-    new_attrs = {"bar": 100}
+    new_attrs = {"bar": 100}  # type: ignore[unreachable]
     new_group = group.update_attributes(new_attrs)
     updated_attrs = attrs.copy()
     updated_attrs.update(new_attrs)
@@ -400,7 +400,7 @@ async def test_group_update_attributes_async(
     attrs = {"foo": 100}
     group = Group.from_store(store, zarr_format=zarr_format, attributes=attrs)
     assert group.attrs == attrs
-    new_attrs = {"bar": 100}
+    new_attrs = {"bar": 100}  # type: ignore[unreachable]
     new_group = await group.update_attributes_async(new_attrs)
     assert new_group.attrs == new_attrs
 

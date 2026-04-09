@@ -280,19 +280,15 @@ Natural language processing enables computers to understand human language.
 
     let processed = run_pipeline(doc, &config).await.unwrap();
 
-    assert!(processed.metadata.additional.contains_key("keywords"));
-
-    let keywords_value = processed.metadata.additional.get("keywords").unwrap();
-    assert!(keywords_value.is_array());
-
-    let keywords = keywords_value.as_array().unwrap();
+    let keywords = processed
+        .extracted_keywords
+        .as_ref()
+        .expect("Should have extracted keywords");
     assert!(!keywords.is_empty(), "Should have extracted keywords");
 
     let first_keyword = &keywords[0];
-    assert!(first_keyword.is_object());
-    assert!(first_keyword.get("text").is_some());
-    assert!(first_keyword.get("score").is_some());
-    assert!(first_keyword.get("algorithm").is_some());
+    assert!(!first_keyword.text.is_empty());
+    assert!(first_keyword.score > 0.0);
 }
 
 #[tokio::test]

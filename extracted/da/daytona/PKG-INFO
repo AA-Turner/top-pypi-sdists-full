@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: daytona
-Version: 0.161.0
+Version: 0.162.0
 Summary: Python SDK for Daytona
 License: Apache-2.0
 Keywords: daytona,sdk
@@ -18,10 +18,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: Deprecated (>=1.2.18,<2.0.0)
 Requires-Dist: aiofiles (>=24.1.0,<24.2.0)
-Requires-Dist: daytona-api-client (==0.161.0)
-Requires-Dist: daytona-api-client-async (==0.161.0)
-Requires-Dist: daytona-toolbox-api-client (==0.161.0)
-Requires-Dist: daytona-toolbox-api-client-async (==0.161.0)
+Requires-Dist: daytona-api-client (==0.162.0)
+Requires-Dist: daytona-api-client-async (==0.162.0)
+Requires-Dist: daytona-toolbox-api-client (==0.162.0)
+Requires-Dist: daytona-toolbox-api-client-async (==0.162.0)
 Requires-Dist: httpx (>=0.28.0,<0.29.0)
 Requires-Dist: obstore (>=0.8.0,<0.9.0)
 Requires-Dist: opentelemetry-api (>=1.27.0,<2.0.0)
@@ -208,7 +208,7 @@ completions = lsp.completions('path/to/file.py', {"line": 10, "character": 15})
 
 ## Contributing
 
-Daytona is Open Source under the [Apache License 2.0](/libs/sdk-python/LICENSE), and is the [copyright of its contributors](/NOTICE). If you would like to contribute to the software, read the Developer Certificate of Origin Version 1.1 (https://developercertificate.org/). Afterwards, navigate to the [contributing guide](/CONTRIBUTING.md) to get started.
+Daytona is Open Source under the [Apache License 2.0](./LICENSE), and is the [copyright of its contributors](../../NOTICE). If you would like to contribute to the software, read the Developer Certificate of Origin Version 1.1 (https://developercertificate.org/). Afterwards, navigate to the [contributing guide](../../CONTRIBUTING.md) to get started.
 
-Code in [\_sync](/libs/sdk-python/src/daytona/_sync/) directory shouldn't be edited directly. It should be generated from the corresponding async code in the [\_async](/libs/sdk-python/src/daytona/_async/) directory using the [sync_generator.py](/libs/sdk-python/scripts/sync_generator.py) script.
+Code in [\_sync](./src/daytona/_sync/) directory shouldn't be edited directly. It should be generated from the corresponding async code in the [\_async](./src/daytona/_async/) directory using the SDK generation scripts in the [scripts](./scripts/) directory.
 

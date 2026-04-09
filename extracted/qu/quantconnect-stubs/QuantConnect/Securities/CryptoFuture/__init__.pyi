@@ -22,6 +22,97 @@ class BinanceFutureMarginInterestRateModel(System.Object, QuantConnect.Securitie
         ...
 
 
+class dYdXFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
+    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
+
+
+class CryptoFutureHolding(QuantConnect.Securities.SecurityHolding):
+    """Crypto Future holdings implementation of the base securities class"""
+
+    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        Crypto Future Holding Class constructor
+        
+        :param security: The crypto future security being held
+        :param currency_converter: A currency converter instance
+        """
+        ...
+
+    def get_quantity_value(self, quantity: float, price: float) -> QuantConnect.Securities.ConvertibleCashAmount:
+        """
+        Gets the total value of the specified quantity of shares of this security
+        in the account currency
+        
+        :param quantity: The quantity of shares
+        :param price: The current price
+        :returns: The value of the quantity of shares in the account currency.
+        """
+        ...
+
+
+class CryptoFutureExchange(QuantConnect.Securities.SecurityExchange):
+    """Crypto future exchange class - information and helper tools for Crypto future exchange properties"""
+
+    @overload
+    def __init__(self, market: str) -> None:
+        """
+        Initializes a new instance of the CryptoFutureExchange class using market hours
+        derived from the market-hours-database for the Crypto future market
+        """
+        ...
+
+    @overload
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        """
+        Initializes a new instance of the CryptoFutureExchange class using the specified
+        exchange hours to determine open/close times
+        
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
+        """
+        ...
+
+
+class CryptoFuture(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurrencySymbol):
+    """Crypto Future Security Object Implementation for Crypto Future Assets"""
+
+    @property
+    def base_currency(self) -> QuantConnect.Securities.Cash:
+        """Gets the currency acquired by going long this currency pair"""
+        ...
+
+    @base_currency.setter
+    def base_currency(self, value: QuantConnect.Securities.Cash) -> None:
+        ...
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, base_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, cache: QuantConnect.Securities.SecurityCache) -> None:
+        """
+        Constructor for the Crypto Future security
+        
+        :param symbol: The symbol
+        :param exchange_hours: Defines the hours this exchange is open
+        :param quote_currency: The cash object that represent the quote currency
+        :param base_currency: The cash object that represent the base currency
+        :param symbol_properties: The symbol properties for this security
+        :param currency_converter: Currency converter used to convert CashAmount
+        instances into units of the account currency
+        :param registered_types: Provides all data types registered in the algorithm
+        :param cache: The security cache
+        """
+        ...
+
+    def is_crypto_coin_future(self) -> bool:
+        """
+        Checks whether the security is a crypto coin future
+        
+        :returns: True if the security is a crypto coin future.
+        """
+        ...
+
+
+class BybitFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
+    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
+
+
 class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
     """The crypto future margin model which supports both Coin and USDT futures"""
 
@@ -79,96 +170,5 @@ class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
         :returns: The margin available for the trade.
         """
         ...
-
-
-class dYdXFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
-    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
-
-
-class CryptoFutureHolding(QuantConnect.Securities.SecurityHolding):
-    """Crypto Future holdings implementation of the base securities class"""
-
-    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
-        """
-        Crypto Future Holding Class constructor
-        
-        :param security: The crypto future security being held
-        :param currency_converter: A currency converter instance
-        """
-        ...
-
-    def get_quantity_value(self, quantity: float, price: float) -> QuantConnect.Securities.ConvertibleCashAmount:
-        """
-        Gets the total value of the specified quantity of shares of this security
-        in the account currency
-        
-        :param quantity: The quantity of shares
-        :param price: The current price
-        :returns: The value of the quantity of shares in the account currency.
-        """
-        ...
-
-
-class CryptoFuture(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurrencySymbol):
-    """Crypto Future Security Object Implementation for Crypto Future Assets"""
-
-    @property
-    def base_currency(self) -> QuantConnect.Securities.Cash:
-        """Gets the currency acquired by going long this currency pair"""
-        ...
-
-    @base_currency.setter
-    def base_currency(self, value: QuantConnect.Securities.Cash) -> None:
-        ...
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, base_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.SymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, cache: QuantConnect.Securities.SecurityCache) -> None:
-        """
-        Constructor for the Crypto Future security
-        
-        :param symbol: The symbol
-        :param exchange_hours: Defines the hours this exchange is open
-        :param quote_currency: The cash object that represent the quote currency
-        :param base_currency: The cash object that represent the base currency
-        :param symbol_properties: The symbol properties for this security
-        :param currency_converter: Currency converter used to convert CashAmount
-        instances into units of the account currency
-        :param registered_types: Provides all data types registered in the algorithm
-        :param cache: The security cache
-        """
-        ...
-
-    def is_crypto_coin_future(self) -> bool:
-        """
-        Checks whether the security is a crypto coin future
-        
-        :returns: True if the security is a crypto coin future.
-        """
-        ...
-
-
-class CryptoFutureExchange(QuantConnect.Securities.SecurityExchange):
-    """Crypto future exchange class - information and helper tools for Crypto future exchange properties"""
-
-    @overload
-    def __init__(self, market: str) -> None:
-        """
-        Initializes a new instance of the CryptoFutureExchange class using market hours
-        derived from the market-hours-database for the Crypto future market
-        """
-        ...
-
-    @overload
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
-        """
-        Initializes a new instance of the CryptoFutureExchange class using the specified
-        exchange hours to determine open/close times
-        
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
-        ...
-
-
-class BybitFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
-    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
 
 

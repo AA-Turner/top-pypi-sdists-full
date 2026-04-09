@@ -250,6 +250,10 @@ class PrimitiveFeatureConverter(FeatureConverter[_TPrim, _TRich], Generic[_TPrim
         return self._pyarrow_dtype
 
     @property
+    def protobuf_dtype(self) -> pb.ArrowType:
+        return type(self).convert_pa_dtype_to_proto_dtype(self._pyarrow_dtype)
+
+    @property
     def pyarrow_default(self) -> ellipsis | pa.Array | pa.ChunkedArray:
         return self._pyarrow_default
 
@@ -383,331 +387,10 @@ class PrimitiveFeatureConverter(FeatureConverter[_TPrim, _TRich], Generic[_TPrim
         return False
 
     def from_protobuf_to_pyarrow(self, pb_value: pb.ScalarValue) -> pa.Scalar:
-        if pb_value.HasField("extension_value"):
-            storage_val = self.from_protobuf_to_pyarrow(pb_value.extension_value.storage_value)
-            logical_type = type(self).convert_proto_dtype_to_pa_dtype(
-                pb.ArrowType(extension=pb_value.extension_value.extension_type)
-            )
-            return pa.ExtensionScalar.from_storage(logical_type, storage_val)
-        if pb_value.HasField("null_value"):
-            return pa.nulls(1, type=type(self).convert_proto_dtype_to_pa_dtype(pb_value.null_value))[0]
-        if pb_value.HasField("bool_value"):
-            return pa.scalar(pb_value.bool_value, pa.bool_())
-        if pb_value.HasField("int8_value"):
-            return pa.scalar(pb_value.int8_value, pa.int8())
-        if pb_value.HasField("int16_value"):
-            return pa.scalar(pb_value.int16_value, pa.int16())
-        if pb_value.HasField("int32_value"):
-            return pa.scalar(pb_value.int32_value, pa.int32())
-        if pb_value.HasField("int64_value"):
-            return pa.scalar(pb_value.int64_value, pa.int64())
-        if pb_value.HasField("uint8_value"):
-            return pa.scalar(pb_value.uint8_value, pa.uint8())
-        if pb_value.HasField("uint16_value"):
-            return pa.scalar(pb_value.uint16_value, pa.uint16())
-        if pb_value.HasField("uint32_value"):
-            return pa.scalar(pb_value.uint32_value, pa.uint32())
-        if pb_value.HasField("uint64_value"):
-            return pa.scalar(pb_value.uint64_value, pa.uint64())
-        if pb_value.HasField("float16_value"):
-            return pa.scalar(np.float16(pb_value.float16_value), pa.float16())
-        if pb_value.HasField("float32_value"):
-            return pa.scalar(pb_value.float32_value, pa.float32())
-        if pb_value.HasField("float64_value"):
-            return pa.scalar(pb_value.float64_value, pa.float64())
-        if pb_value.HasField("utf8_value"):
-            return pa.scalar(pb_value.utf8_value, pa.utf8())
-        if pb_value.HasField("large_utf8_value"):
-            return pa.scalar(pb_value.large_utf8_value, pa.large_utf8())
-        if pb_value.HasField("binary_value"):
-            return pa.scalar(pb_value.binary_value, pa.binary())
-        if pb_value.HasField("large_binary_value"):
-            return pa.scalar(pb_value.large_binary_value, pa.large_binary())
-        if pb_value.HasField("fixed_size_binary_value"):
-            return pa.scalar(
-                pb_value.fixed_size_binary_value.values, pa.binary(pb_value.fixed_size_binary_value.length)
-            )
-        if pb_value.HasField("date_32_value"):
-            return pa.scalar(date(1970, 1, 1) + timedelta(days=pb_value.date_32_value), pa.date32())
-        if pb_value.HasField("date_64_value"):
-            return pa.scalar(date(1970, 1, 1) + timedelta(days=pb_value.date_64_value), pa.date64())
-        if pb_value.HasField("time32_value"):
-            if pb_value.time32_value.HasField("time32_second_value"):
-                seconds = pb_value.time32_value.time32_second_value
-                return pa.scalar(
-                    time(
-                        hour=seconds // 3600,
-                        minute=(seconds % 3600) // 60,
-                        second=seconds % 60,
-                    ),
-                    pa.time32("s"),
-                )
-            if pb_value.time32_value.HasField("time32_millisecond_value"):
-                milliseconds = pb_value.time32_value.time32_millisecond_value
-                return pa.scalar(
-                    time(
-                        hour=milliseconds // 3600000,
-                        minute=(milliseconds % 3600000) // 60000,
-                        second=(milliseconds % 60000) // 1000,
-                        microsecond=(milliseconds % 1000) * 1000,
-                    ),
-                    pa.time32("ms"),
-                )
-            raise ValueError(
-                "Unsupported time32 value - missing fields `time32_second_value` and `time32_millisecond_value`"
-            )
-        if pb_value.HasField("time64_value"):
-            if pb_value.time64_value.HasField("time64_microsecond_value"):
-                microseconds = pb_value.time64_value.time64_microsecond_value
-                return pa.scalar(
-                    time(
-                        hour=microseconds // 3600000000,
-                        minute=(microseconds % 3600000000) // 60000000,
-                        second=(microseconds % 60000000) // 1000000,
-                        microsecond=microseconds % 1000000,
-                    ),
-                    pa.time64("us"),
-                )
-            if pb_value.time64_value.HasField("time64_nanosecond_value"):
-                nanoseconds = pb_value.time64_value.time64_nanosecond_value
-                # Python's datetime.time does not support nanoseconds, so we round to the nearest microsecond
-                microseconds = nanoseconds // 1000
-                return pa.scalar(
-                    time(
-                        hour=microseconds // 3600000000,
-                        minute=(microseconds % 3600000000) // 60000000,
-                        second=(microseconds % 60000000) // 1000000,
-                        microsecond=microseconds % 1000000,
-                    ),
-                    pa.time64("ns"),
-                )
-            raise ValueError(
-                "Unsupported time64 value - missing fields `time64_microsecond_value` and `time64_nanosecond_value`"
-            )
-        if pb_value.HasField("timestamp_value"):
-            import dateutil.tz
-            tz_str = pb_value.timestamp_value.timezone
-            tz = dateutil.tz.gettz(tz_str) if tz_str else None
-            if pb_value.timestamp_value.HasField("time_second_value"):
-                seconds = pb_value.timestamp_value.time_second_value
-                return pa.scalar(datetime.fromtimestamp(seconds, tz=tz), pa.timestamp("s", tz=tz_str))
-            if pb_value.timestamp_value.HasField("time_millisecond_value"):
-                milliseconds = pb_value.timestamp_value.time_millisecond_value
-                return pa.scalar(datetime.fromtimestamp(milliseconds / 1000, tz=tz), pa.timestamp("ms", tz=tz_str))
-            if pb_value.timestamp_value.HasField("time_microsecond_value"):
-                microseconds = pb_value.timestamp_value.time_microsecond_value
-                return pa.scalar(datetime.fromtimestamp(microseconds / 1_000_000, tz=tz), pa.timestamp("us", tz=tz_str))
-            if pb_value.timestamp_value.HasField("time_nanosecond_value"):
-                nanoseconds = pb_value.timestamp_value.time_nanosecond_value
-                return pa.scalar(
-                    datetime.fromtimestamp(nanoseconds / 1_000_000_000, tz=tz), pa.timestamp("ns", tz=tz_str)
-                )
-            raise ValueError(
-                (
-                    "Unsupported protobuf timestamp value - missing fields `time_second_value`, "
-                    "`time_millisecond_value`, `time_microsecond_value`, and `time_nanosecond_value`"
-                )
-            )
-        if pb_value.HasField("struct_value"):
-            name_to_pa_scalar = {
-                field.name: self.from_protobuf_to_pyarrow(field_value)
-                for field, field_value in zip(pb_value.struct_value.fields, pb_value.struct_value.field_values)
-            }
-            # TODO: Add test using `v.as_py()` values that evaluate to 0 for testing `if (o := v.as_py()) is not None`
-            name_to_py_values_not_none = {k: o for k, v in name_to_pa_scalar.items() if (o := v.as_py()) is not None}
-            fields = [pa.field(k, v.type) for k, v in name_to_pa_scalar.items()]
-            return pa.scalar(name_to_py_values_not_none, pa.struct(fields))
-        if (
-            pb_value.HasField("list_value")
-            or pb_value.HasField("large_list_value")
-            or pb_value.HasField("fixed_size_list_value")
-            or pb_value.HasField("map_value")
-        ):
-            return type(self)._deserialize_pb_list_to_pa(pb_value)
-        if pb_value.HasField("duration_second_value"):
-            return pa.scalar(timedelta(seconds=pb_value.duration_second_value), pa.duration("s"))
-        if pb_value.HasField("duration_millisecond_value"):
-            return pa.scalar(timedelta(milliseconds=pb_value.duration_millisecond_value), pa.duration("ms"))
-        if pb_value.HasField("duration_microsecond_value"):
-            return pa.scalar(timedelta(microseconds=pb_value.duration_microsecond_value), pa.duration("us"))
-        if pb_value.HasField("duration_nanosecond_value"):
-            return pa.scalar(timedelta(microseconds=pb_value.duration_nanosecond_value / 1000), pa.duration("ns"))
-        if pb_value.HasField("decimal128_value"):
-            return type(self)._deserialize_pb_to_pa_decimal(pb_value)
-        if pb_value.HasField("decimal256_value"):
-            return type(self)._deserialize_pb_to_pa_decimal(pb_value)
-        raise ValueError(f"Unsupported Protobuf type: {pb_value}")
+        return proto_to_pa_scalar(pb_value)
 
     def from_pyarrow_to_protobuf(self, value: pa.Scalar) -> pb.ScalarValue:
-        if value.as_py() is None:
-            return pb.ScalarValue(null_value=type(self).convert_pa_dtype_to_proto_dtype(value.type))
-        if pa.types.is_null(value.type):
-            return pb.ScalarValue(null_value=type(self).convert_pa_dtype_to_proto_dtype(value.type))
-        if pa.types.is_boolean(value.type):
-            return pb.ScalarValue(bool_value=value.as_py())
-        if pa.types.is_int8(value.type):
-            return pb.ScalarValue(int8_value=value.as_py())
-        if pa.types.is_int16(value.type):
-            return pb.ScalarValue(int16_value=value.as_py())
-        if pa.types.is_int32(value.type):
-            return pb.ScalarValue(int32_value=value.as_py())
-        if pa.types.is_int64(value.type):
-            return pb.ScalarValue(int64_value=value.as_py())
-        if pa.types.is_uint8(value.type):
-            return pb.ScalarValue(uint8_value=value.as_py())
-        if pa.types.is_uint16(value.type):
-            return pb.ScalarValue(uint16_value=value.as_py())
-        if pa.types.is_uint32(value.type):
-            return pb.ScalarValue(uint32_value=value.as_py())
-        if pa.types.is_uint64(value.type):
-            return pb.ScalarValue(uint64_value=value.as_py())
-        if pa.types.is_float16(value.type):
-            return pb.ScalarValue(float16_value=value.as_py())
-        if pa.types.is_float32(value.type):
-            return pb.ScalarValue(float32_value=value.as_py())
-        if pa.types.is_float64(value.type):
-            return pb.ScalarValue(float64_value=value.as_py())
-        if pa.types.is_string(value.type):
-            return pb.ScalarValue(utf8_value=value.as_py())
-        if pa.types.is_large_string(value.type):
-            return pb.ScalarValue(large_utf8_value=value.as_py())
-        if pa.types.is_binary(value.type):
-            return pb.ScalarValue(binary_value=value.as_py())
-        if pa.types.is_large_binary(value.type):
-            return pb.ScalarValue(large_binary_value=value.as_py())
-        if pa.types.is_date32(value.type):
-            date_value = value.as_py()
-            if not isinstance(date_value, date):
-                raise TypeError(f"Expected Python `date` but got `{type(date_value).__name__}`")
-            epoch_days = date_value - date(1970, 1, 1)
-            return pb.ScalarValue(date_32_value=epoch_days.days)
-        if pa.types.is_date64(value.type):
-            date_value = value.as_py()
-            if not isinstance(date_value, date):
-                raise TypeError(f"Expected Python `date` but got `{type(date_value).__name__}`")
-            epoch_days = date_value - date(1970, 1, 1)
-            return pb.ScalarValue(date_64_value=epoch_days.days)
-        if pa.types.is_time32(value.type):
-            time_val = value.as_py()
-            if not isinstance(time_val, time):
-                raise TypeError(f"Expected Python `time`, but got `{type(time_val).__name__}`")
-            ms_since_midnight = (
-                time_val.hour * 3_600_000
-                + time_val.minute * 60_000
-                + time_val.second * 1000
-                + time_val.microsecond // 1000
-            )
-
-            # Failing assertion, because dtype is a `DataType` instead of a `Time32Type`
-            # assert isinstance(dtype, pa.Time32Type)
-            if value.type == pa.time32("s"):
-                return pb.ScalarValue(time32_value=pb.ScalarTime32Value(time32_second_value=ms_since_midnight // 1000))
-            assert value.type == pa.time32("ms")
-            return pb.ScalarValue(time32_value=pb.ScalarTime32Value(time32_millisecond_value=ms_since_midnight))
-        if pa.types.is_time64(value.type):
-            time_val = value.as_py()
-            if not isinstance(time_val, time):
-                raise TypeError(f"Expected Python `time`, but got `{type(time_val).__name__}`")
-            ns_since_midnight = (
-                time_val.hour * 3_600_000_000_000
-                + time_val.minute * 60_000_000_000
-                + time_val.second * 1_000_000_000
-                + time_val.microsecond * 1000
-            )
-
-            # Failing assertion, because dtype is a `DataType` instead of a `Time64Type`
-            # assert isinstance(dtype, pa.Time64Type)
-            if value.type == pa.time64("us"):
-                return pb.ScalarValue(
-                    time64_value=pb.ScalarTime64Value(time64_microsecond_value=ns_since_midnight // 1000)
-                )
-            assert value.type == pa.time64("ns")
-            return pb.ScalarValue(time64_value=pb.ScalarTime64Value(time64_nanosecond_value=ns_since_midnight))
-        if isinstance(value.type, pa.TimestampType):
-            dt_val = value.as_py()
-            float_s = dt_val.timestamp()
-            if not isinstance(dt_val, datetime):
-                raise TypeError(f"Expected Python `datetime`, but got `{type(dt_val).__name__}`")
-            timezone = None if dt_val.tzinfo is None else dt_val.tzinfo.tzname(dt_val)
-
-            if value.type.unit == "ms":
-                return pb.ScalarValue(
-                    timestamp_value=pb.ScalarTimestampValue(
-                        time_millisecond_value=int(float_s * 1000),
-                        timezone=timezone,
-                    )
-                )
-            elif value.type.unit == "us":
-                return pb.ScalarValue(
-                    timestamp_value=pb.ScalarTimestampValue(
-                        time_microsecond_value=int(float_s * 1_000_000),
-                        timezone=timezone,
-                    )
-                )
-            elif value.type.unit == "ns":
-                return pb.ScalarValue(
-                    timestamp_value=pb.ScalarTimestampValue(
-                        time_nanosecond_value=int(float_s * 1_000_000_000),
-                        timezone=timezone,
-                    )
-                )
-            return pb.ScalarValue(
-                timestamp_value=pb.ScalarTimestampValue(
-                    time_second_value=int(float_s),
-                    timezone=timezone,
-                )
-            )
-        if pa.types.is_duration(value.type):
-            duration_val = value.as_py()
-            if not isinstance(duration_val, timedelta):
-                raise TypeError(
-                    f"Expected a `timedelta` as the Python equivalent of a PyArrow Duration, but got: {type(duration_val).__name__}"
-                )
-            dtype = value.type
-            if not isinstance(dtype, pa.DurationType):
-                raise TypeError(
-                    f"Expected a `pa.DurationType` as the PyArrow type of a PyArrow Duration, but got: {type(dtype).__name__}"
-                )
-            if dtype.unit == "s":
-                return pb.ScalarValue(duration_second_value=int(duration_val.total_seconds()))
-            if dtype.unit == "ms":
-                return pb.ScalarValue(duration_millisecond_value=int(duration_val.total_seconds() * 1000))
-            if dtype.unit == "us":
-                return pb.ScalarValue(duration_microsecond_value=int(duration_val.total_seconds() * 1_000_000))
-            if dtype.unit == "ns":
-                return pb.ScalarValue(duration_nanosecond_value=int(duration_val.total_seconds() * 1_000_000_000))
-            raise ValueError(f"Unsupported duration unit: {dtype.unit}")
-        if pa.types.is_fixed_size_binary(value.type):
-            bytes_obj = value.as_py()
-            if not isinstance(bytes_obj, bytes):
-                raise TypeError(f"Expected Python `bytes` but got `{type(bytes_obj).__name__}`")
-            return pb.ScalarValue(
-                fixed_size_binary_value=pb.ScalarFixedSizeBinary(values=bytes_obj, length=len(bytes_obj))
-            )
-        if isinstance(value, pa.StructScalar):
-            fields: list[pb.Field] = []
-            field_values: list[pb.ScalarValue] = []
-            for name, pa_scalar in value.items():
-                pb_scalar = self.from_pyarrow_to_protobuf(pa_scalar)
-                fields.append(
-                    pb.Field(
-                        name=name,
-                        arrow_type=type(self).convert_pa_dtype_to_proto_dtype(pa_scalar.type),
-                        nullable=True,
-                    )
-                )
-                field_values.append(pb_scalar)
-            return pb.ScalarValue(struct_value=pb.StructValue(fields=fields, field_values=field_values))
-        if isinstance(value, pa.MapScalar):
-            return type(self)._serialize_pa_list_to_pb(value)
-        if isinstance(value, pa.ListScalar):
-            return type(self)._serialize_pa_list_to_pb(value)
-        if isinstance(value, pa.Decimal128Scalar):
-            return type(self)._serialize_pa_decimal_to_pb(value)
-        if isinstance(value, pa.Decimal256Scalar):
-            return type(self)._serialize_pa_decimal_to_pb(value)
-
-        raise ValueError(f"Unsupported type: {value.type}")
+        return pa_scalar_to_proto(value)
 
     @classmethod
     def convert_proto_dtype_to_pa_dtype(cls, dtype: pb.ArrowType) -> pa.DataType:
@@ -1192,21 +875,298 @@ class PrimitiveFeatureConverter(FeatureConverter[_TPrim, _TRich], Generic[_TPrim
         return self.from_pyarrow_to_protobuf(as_scalar)
 
 
-class _FeatureConverterArrowProtoHelpers:
-    def convert_pa_dtype_to_proto_dtype(self, dtype: pa.DataType) -> pb.ArrowType:
-        return PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(dtype)
+def pa_scalar_to_proto(value: pa.Scalar) -> pb.ScalarValue:
+    """Convert a PyArrow scalar to a protobuf ScalarValue. Pure dispatch on value.type; no instance state needed."""
+    if value.as_py() is None:
+        return pb.ScalarValue(null_value=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(value.type))
+    if pa.types.is_null(value.type):
+        return pb.ScalarValue(null_value=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(value.type))
+    if pa.types.is_boolean(value.type):
+        return pb.ScalarValue(bool_value=value.as_py())
+    if pa.types.is_int8(value.type):
+        return pb.ScalarValue(int8_value=value.as_py())
+    if pa.types.is_int16(value.type):
+        return pb.ScalarValue(int16_value=value.as_py())
+    if pa.types.is_int32(value.type):
+        return pb.ScalarValue(int32_value=value.as_py())
+    if pa.types.is_int64(value.type):
+        return pb.ScalarValue(int64_value=value.as_py())
+    if pa.types.is_uint8(value.type):
+        return pb.ScalarValue(uint8_value=value.as_py())
+    if pa.types.is_uint16(value.type):
+        return pb.ScalarValue(uint16_value=value.as_py())
+    if pa.types.is_uint32(value.type):
+        return pb.ScalarValue(uint32_value=value.as_py())
+    if pa.types.is_uint64(value.type):
+        return pb.ScalarValue(uint64_value=value.as_py())
+    if pa.types.is_float16(value.type):
+        return pb.ScalarValue(float16_value=value.as_py())
+    if pa.types.is_float32(value.type):
+        return pb.ScalarValue(float32_value=value.as_py())
+    if pa.types.is_float64(value.type):
+        return pb.ScalarValue(float64_value=value.as_py())
+    if pa.types.is_string(value.type):
+        return pb.ScalarValue(utf8_value=value.as_py())
+    if pa.types.is_large_string(value.type):
+        return pb.ScalarValue(large_utf8_value=value.as_py())
+    if pa.types.is_binary(value.type):
+        return pb.ScalarValue(binary_value=value.as_py())
+    if pa.types.is_large_binary(value.type):
+        return pb.ScalarValue(large_binary_value=value.as_py())
+    if pa.types.is_date32(value.type):
+        date_value = value.as_py()
+        if not isinstance(date_value, date):
+            raise TypeError(f"Expected Python `date` but got `{type(date_value).__name__}`")
+        epoch_days = date_value - date(1970, 1, 1)
+        return pb.ScalarValue(date_32_value=epoch_days.days)
+    if pa.types.is_date64(value.type):
+        date_value = value.as_py()
+        if not isinstance(date_value, date):
+            raise TypeError(f"Expected Python `date` but got `{type(date_value).__name__}`")
+        epoch_days = date_value - date(1970, 1, 1)
+        return pb.ScalarValue(date_64_value=epoch_days.days)
+    if pa.types.is_time32(value.type):
+        time_val = value.as_py()
+        if not isinstance(time_val, time):
+            raise TypeError(f"Expected Python `time`, but got `{type(time_val).__name__}`")
+        ms_since_midnight = (
+            time_val.hour * 3_600_000
+            + time_val.minute * 60_000
+            + time_val.second * 1000
+            + time_val.microsecond // 1000
+        )
+        if value.type == pa.time32("s"):
+            return pb.ScalarValue(time32_value=pb.ScalarTime32Value(time32_second_value=ms_since_midnight // 1000))
+        assert value.type == pa.time32("ms")
+        return pb.ScalarValue(time32_value=pb.ScalarTime32Value(time32_millisecond_value=ms_since_midnight))
+    if pa.types.is_time64(value.type):
+        time_val = value.as_py()
+        if not isinstance(time_val, time):
+            raise TypeError(f"Expected Python `time`, but got `{type(time_val).__name__}`")
+        ns_since_midnight = (
+            time_val.hour * 3_600_000_000_000
+            + time_val.minute * 60_000_000_000
+            + time_val.second * 1_000_000_000
+            + time_val.microsecond * 1000
+        )
+        if value.type == pa.time64("us"):
+            return pb.ScalarValue(
+                time64_value=pb.ScalarTime64Value(time64_microsecond_value=ns_since_midnight // 1000)
+            )
+        assert value.type == pa.time64("ns")
+        return pb.ScalarValue(time64_value=pb.ScalarTime64Value(time64_nanosecond_value=ns_since_midnight))
+    if isinstance(value.type, pa.TimestampType):
+        dt_val = value.as_py()
+        float_s = dt_val.timestamp()
+        if not isinstance(dt_val, datetime):
+            raise TypeError(f"Expected Python `datetime`, but got `{type(dt_val).__name__}`")
+        timezone = None if dt_val.tzinfo is None else dt_val.tzinfo.tzname(dt_val)
+        if value.type.unit == "ms":
+            return pb.ScalarValue(
+                timestamp_value=pb.ScalarTimestampValue(time_millisecond_value=int(float_s * 1000), timezone=timezone)
+            )
+        elif value.type.unit == "us":
+            return pb.ScalarValue(
+                timestamp_value=pb.ScalarTimestampValue(time_microsecond_value=int(float_s * 1_000_000), timezone=timezone)
+            )
+        elif value.type.unit == "ns":
+            return pb.ScalarValue(
+                timestamp_value=pb.ScalarTimestampValue(time_nanosecond_value=int(float_s * 1_000_000_000), timezone=timezone)
+            )
+        return pb.ScalarValue(
+            timestamp_value=pb.ScalarTimestampValue(time_second_value=int(float_s), timezone=timezone)
+        )
+    if pa.types.is_duration(value.type):
+        duration_val = value.as_py()
+        if not isinstance(duration_val, timedelta):
+            raise TypeError(
+                f"Expected a `timedelta` as the Python equivalent of a PyArrow Duration, but got: {type(duration_val).__name__}"
+            )
+        dtype = value.type
+        if not isinstance(dtype, pa.DurationType):
+            raise TypeError(
+                f"Expected a `pa.DurationType` as the PyArrow type of a PyArrow Duration, but got: {type(dtype).__name__}"
+            )
+        if dtype.unit == "s":
+            return pb.ScalarValue(duration_second_value=int(duration_val.total_seconds()))
+        if dtype.unit == "ms":
+            return pb.ScalarValue(duration_millisecond_value=int(duration_val.total_seconds() * 1000))
+        if dtype.unit == "us":
+            return pb.ScalarValue(duration_microsecond_value=int(duration_val.total_seconds() * 1_000_000))
+        if dtype.unit == "ns":
+            return pb.ScalarValue(duration_nanosecond_value=int(duration_val.total_seconds() * 1_000_000_000))
+        raise ValueError(f"Unsupported duration unit: {dtype.unit}")
+    if pa.types.is_fixed_size_binary(value.type):
+        bytes_obj = value.as_py()
+        if not isinstance(bytes_obj, bytes):
+            raise TypeError(f"Expected Python `bytes` but got `{type(bytes_obj).__name__}`")
+        return pb.ScalarValue(
+            fixed_size_binary_value=pb.ScalarFixedSizeBinary(values=bytes_obj, length=len(bytes_obj))
+        )
+    if isinstance(value, pa.StructScalar):
+        fields: list[pb.Field] = []
+        field_values: list[pb.ScalarValue] = []
+        for name, pa_scalar in value.items():
+            pb_scalar = pa_scalar_to_proto(pa_scalar)
+            fields.append(
+                pb.Field(
+                    name=name,
+                    arrow_type=PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(pa_scalar.type),
+                    nullable=True,
+                )
+            )
+            field_values.append(pb_scalar)
+        return pb.ScalarValue(struct_value=pb.StructValue(fields=fields, field_values=field_values))
+    if isinstance(value, pa.MapScalar):
+        return PrimitiveFeatureConverter._serialize_pa_list_to_pb(value)
+    if isinstance(value, pa.ListScalar):
+        return PrimitiveFeatureConverter._serialize_pa_list_to_pb(value)
+    if isinstance(value, pa.Decimal128Scalar):
+        return PrimitiveFeatureConverter._serialize_pa_decimal_to_pb(value)
+    if isinstance(value, pa.Decimal256Scalar):
+        return PrimitiveFeatureConverter._serialize_pa_decimal_to_pb(value)
+    raise ValueError(f"Unsupported type: {value.type}")
 
-    def convert_proto_dtype_to_pa_dtype(self, dtype: pb.ArrowType) -> pa.DataType:
-        return PrimitiveFeatureConverter.convert_proto_dtype_to_pa_dtype(dtype)
 
-    def convert_pa_field_to_proto_field(self, field: pa.Field) -> pb.Field:
-        return PrimitiveFeatureConverter.convert_pa_field_to_proto_field(field)
-
-    def convert_proto_field_to_pa_field(self, proto_field: pb.Field) -> pa.Field:
-        return PrimitiveFeatureConverter.convert_proto_field_to_pa_field(proto_field)
-
-    def convert_pa_schema_to_proto_schema(self, schema: pa.Schema) -> pb.Schema:
-        return PrimitiveFeatureConverter.convert_pa_schema_to_proto_schema(schema)
-
-    def convert_proto_schema_to_pa_schema(self, proto_schema: pb.Schema) -> pa.Schema:
-        return PrimitiveFeatureConverter.convert_proto_schema_to_pa_schema(proto_schema)
+def proto_to_pa_scalar(pb_value: pb.ScalarValue) -> pa.Scalar:
+    """Convert a protobuf ScalarValue to a PyArrow scalar. Pure dispatch on pb_value fields; no instance state needed."""
+    if pb_value.HasField("extension_value"):
+        storage_val = proto_to_pa_scalar(pb_value.extension_value.storage_value)
+        logical_type = PrimitiveFeatureConverter.convert_proto_dtype_to_pa_dtype(
+            pb.ArrowType(extension=pb_value.extension_value.extension_type)
+        )
+        return pa.ExtensionScalar.from_storage(logical_type, storage_val)
+    if pb_value.HasField("null_value"):
+        return pa.nulls(1, type=PrimitiveFeatureConverter.convert_proto_dtype_to_pa_dtype(pb_value.null_value))[0]
+    if pb_value.HasField("bool_value"):
+        return pa.scalar(pb_value.bool_value, pa.bool_())
+    if pb_value.HasField("int8_value"):
+        return pa.scalar(pb_value.int8_value, pa.int8())
+    if pb_value.HasField("int16_value"):
+        return pa.scalar(pb_value.int16_value, pa.int16())
+    if pb_value.HasField("int32_value"):
+        return pa.scalar(pb_value.int32_value, pa.int32())
+    if pb_value.HasField("int64_value"):
+        return pa.scalar(pb_value.int64_value, pa.int64())
+    if pb_value.HasField("uint8_value"):
+        return pa.scalar(pb_value.uint8_value, pa.uint8())
+    if pb_value.HasField("uint16_value"):
+        return pa.scalar(pb_value.uint16_value, pa.uint16())
+    if pb_value.HasField("uint32_value"):
+        return pa.scalar(pb_value.uint32_value, pa.uint32())
+    if pb_value.HasField("uint64_value"):
+        return pa.scalar(pb_value.uint64_value, pa.uint64())
+    if pb_value.HasField("float16_value"):
+        return pa.scalar(np.float16(pb_value.float16_value), pa.float16())
+    if pb_value.HasField("float32_value"):
+        return pa.scalar(pb_value.float32_value, pa.float32())
+    if pb_value.HasField("float64_value"):
+        return pa.scalar(pb_value.float64_value, pa.float64())
+    if pb_value.HasField("utf8_value"):
+        return pa.scalar(pb_value.utf8_value, pa.utf8())
+    if pb_value.HasField("large_utf8_value"):
+        return pa.scalar(pb_value.large_utf8_value, pa.large_utf8())
+    if pb_value.HasField("binary_value"):
+        return pa.scalar(pb_value.binary_value, pa.binary())
+    if pb_value.HasField("large_binary_value"):
+        return pa.scalar(pb_value.large_binary_value, pa.large_binary())
+    if pb_value.HasField("fixed_size_binary_value"):
+        return pa.scalar(
+            pb_value.fixed_size_binary_value.values, pa.binary(pb_value.fixed_size_binary_value.length)
+        )
+    if pb_value.HasField("date_32_value"):
+        return pa.scalar(date(1970, 1, 1) + timedelta(days=pb_value.date_32_value), pa.date32())
+    if pb_value.HasField("date_64_value"):
+        return pa.scalar(date(1970, 1, 1) + timedelta(days=pb_value.date_64_value), pa.date64())
+    if pb_value.HasField("time32_value"):
+        if pb_value.time32_value.HasField("time32_second_value"):
+            seconds = pb_value.time32_value.time32_second_value
+            return pa.scalar(
+                time(hour=seconds // 3600, minute=(seconds % 3600) // 60, second=seconds % 60),
+                pa.time32("s"),
+            )
+        if pb_value.time32_value.HasField("time32_millisecond_value"):
+            milliseconds = pb_value.time32_value.time32_millisecond_value
+            return pa.scalar(
+                time(
+                    hour=milliseconds // 3600000,
+                    minute=(milliseconds % 3600000) // 60000,
+                    second=(milliseconds % 60000) // 1000,
+                    microsecond=(milliseconds % 1000) * 1000,
+                ),
+                pa.time32("ms"),
+            )
+        raise ValueError(
+            "Unsupported time32 value - missing fields `time32_second_value` and `time32_millisecond_value`"
+        )
+    if pb_value.HasField("time64_value"):
+        if pb_value.time64_value.HasField("time64_microsecond_value"):
+            microseconds = pb_value.time64_value.time64_microsecond_value
+            return pa.scalar(
+                time(
+                    hour=microseconds // 3600000000,
+                    minute=(microseconds % 3600000000) // 60000000,
+                    second=(microseconds % 60000000) // 1000000,
+                    microsecond=microseconds % 1000000,
+                ),
+                pa.time64("us"),
+            )
+        if pb_value.time64_value.HasField("time64_nanosecond_value"):
+            nanoseconds = pb_value.time64_value.time64_nanosecond_value
+            microseconds = nanoseconds // 1000
+            return pa.scalar(
+                time(
+                    hour=microseconds // 3600000000,
+                    minute=(microseconds % 3600000000) // 60000000,
+                    second=(microseconds % 60000000) // 1000000,
+                    microsecond=microseconds % 1000000,
+                ),
+                pa.time64("ns"),
+            )
+        raise ValueError(
+            "Unsupported time64 value - missing fields `time64_microsecond_value` and `time64_nanosecond_value`"
+        )
+    if pb_value.HasField("timestamp_value"):
+        import dateutil.tz
+        tz_str = pb_value.timestamp_value.timezone
+        tz = dateutil.tz.gettz(tz_str) if tz_str else None
+        if pb_value.timestamp_value.HasField("time_second_value"):
+            return pa.scalar(datetime.fromtimestamp(pb_value.timestamp_value.time_second_value, tz=tz), pa.timestamp("s", tz=tz_str))
+        if pb_value.timestamp_value.HasField("time_millisecond_value"):
+            return pa.scalar(datetime.fromtimestamp(pb_value.timestamp_value.time_millisecond_value / 1000, tz=tz), pa.timestamp("ms", tz=tz_str))
+        if pb_value.timestamp_value.HasField("time_microsecond_value"):
+            return pa.scalar(datetime.fromtimestamp(pb_value.timestamp_value.time_microsecond_value / 1_000_000, tz=tz), pa.timestamp("us", tz=tz_str))
+        if pb_value.timestamp_value.HasField("time_nanosecond_value"):
+            return pa.scalar(datetime.fromtimestamp(pb_value.timestamp_value.time_nanosecond_value / 1_000_000_000, tz=tz), pa.timestamp("ns", tz=tz_str))
+        raise ValueError(
+            "Unsupported protobuf timestamp value - missing fields `time_second_value`, "
+            + "`time_millisecond_value`, `time_microsecond_value`, and `time_nanosecond_value`"
+        )
+    if pb_value.HasField("struct_value"):
+        name_to_pa_scalar = {
+            field.name: proto_to_pa_scalar(field_value)
+            for field, field_value in zip(pb_value.struct_value.fields, pb_value.struct_value.field_values)
+        }
+        name_to_py_values_not_none = {k: o for k, v in name_to_pa_scalar.items() if (o := v.as_py()) is not None}
+        fields = [pa.field(k, v.type) for k, v in name_to_pa_scalar.items()]
+        return pa.scalar(name_to_py_values_not_none, pa.struct(fields))
+    if (
+        pb_value.HasField("list_value")
+        or pb_value.HasField("large_list_value")
+        or pb_value.HasField("fixed_size_list_value")
+        or pb_value.HasField("map_value")
+    ):
+        return PrimitiveFeatureConverter._deserialize_pb_list_to_pa(pb_value)
+    if pb_value.HasField("duration_second_value"):
+        return pa.scalar(timedelta(seconds=pb_value.duration_second_value), pa.duration("s"))
+    if pb_value.HasField("duration_millisecond_value"):
+        return pa.scalar(timedelta(milliseconds=pb_value.duration_millisecond_value), pa.duration("ms"))
+    if pb_value.HasField("duration_microsecond_value"):
+        return pa.scalar(timedelta(microseconds=pb_value.duration_microsecond_value), pa.duration("us"))
+    if pb_value.HasField("duration_nanosecond_value"):
+        return pa.scalar(timedelta(microseconds=pb_value.duration_nanosecond_value / 1000), pa.duration("ns"))
+    if pb_value.HasField("decimal128_value"):
+        return PrimitiveFeatureConverter._deserialize_pb_to_pa_decimal(pb_value)
+    if pb_value.HasField("decimal256_value"):
+        return PrimitiveFeatureConverter._deserialize_pb_to_pa_decimal(pb_value)
+    raise ValueError(f"Unsupported Protobuf type: {pb_value}")

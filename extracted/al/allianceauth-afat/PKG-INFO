@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth-afat
-Version: 5.0.2
+Version: 5.0.3
 Summary: Another Fleet Activity Tracking tool for Alliance Auth
 Project-URL: Changelog, https://github.com/ppfeufer/allianceauth-afat/blob/master/CHANGELOG.md
 Project-URL: Codecov, https://codecov.io/gh/ppfeufer/allianceauth-afat
@@ -690,6 +690,7 @@ Keywords: allianceauth,eveonline,fleet,fleet-activity,fleet-tracking,tracking
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Operating System :: OS Independent
@@ -704,7 +705,7 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Requires-Python: <3.14,>=3.10
 Requires-Dist: allianceauth>=4.12
 Requires-Dist: django-esi>=8.3.1
-Requires-Dist: django-eveonline-sde>=0.0.1b1
+Requires-Dist: django-eveonline-sde>=0.0.1b9
 Requires-Dist: unidecode>=1.3.4
 Provides-Extra: tests-allianceauth-latest
 Requires-Dist: allianceauth-securegroups; extra == 'tests-allianceauth-latest'
@@ -725,8 +726,9 @@ Description-Content-Type: text/markdown
 [![Automated Checks](https://github.com/ppfeufer/allianceauth-afat/actions/workflows/automated-checks.yml/badge.svg)](https://github.com/ppfeufer/allianceauth-afat/actions/workflows/automated-checks.yml)
 [![codecov](https://codecov.io/gh/ppfeufer/allianceauth-afat/branch/master/graph/badge.svg?token=GNE88NUAKK)](https://codecov.io/gh/ppfeufer/allianceauth-afat)
 [![Translation status](https://weblate.ppfeufer.de/widget/alliance-auth-apps/allianceauth-afat/svg-badge.svg)](https://weblate.ppfeufer.de/engage/alliance-auth-apps/)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](https://github.com/ppfeufer/aa-forum/blob/master/CODE_OF_CONDUCT.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](https://github.com/ppfeufer/allianceauth-afat/blob/master/CODE_OF_CONDUCT.md)
 [![Discord](https://img.shields.io/discord/399006117012832262?label=discord)](https://discord.gg/fjnHAmk)
+[![Alliance Auth Compatibility](https://img.shields.io/badge/Alliance_Auth-v4_%7C_v5-brightgreen)](https://gitlab.com/allianceauth/allianceauth)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/N4N8CL1BY)
 
@@ -848,7 +850,7 @@ Make sure you're in the virtual environment (venv) of your Alliance Auth install
 Then install the latest version:
 
 ```shell
-pip install allianceauth-afat==5.0.2
+pip install allianceauth-afat==5.0.3
 ```
 
 #### Step 2: Update Your AA Settings<a name="step-2-update-your-aa-settings"></a>
@@ -885,11 +887,15 @@ Configure your AA settings in your `local.py` as follows:
       }
 
   if "eve_sde" in INSTALLED_APPS:
-      # Run at 12:00 UTC each day
+      # Run at 12:00 each day
       CELERYBEAT_SCHEDULE["EVE SDE :: Check for SDE Updates"] = {
           "task": "eve_sde.tasks.check_for_sde_updates",
           "schedule": crontab(minute="0", hour="12"),
       }
+
+      # Set the following when you have a bare metal installation, or Docker with a
+      # non-standard storage for `myauth`
+      ESDE_TASK_SPLIT = True
   ```
 
 #### Step 3: Finalizing the Installation<a name="step-3-finalizing-the-installation"></a>
@@ -909,7 +915,7 @@ python manage.py esde_load_sde
 Add the app to your `conf/requirements.txt`:
 
 ```text
-allianceauth-afat==5.0.2
+allianceauth-afat==5.0.3
 ```
 
 #### Step 2: Update Your AA Settings<a name="step-2-update-your-aa-settings-1"></a>
@@ -946,11 +952,15 @@ Configure your AA settings (`conf/local.py`) as follows:
       }
 
   if "eve_sde" in INSTALLED_APPS:
-      # Run at 12:00 UTC each day
+      # Run at 12:00 each day
       CELERYBEAT_SCHEDULE["EVE SDE :: Check for SDE Updates"] = {
           "task": "eve_sde.tasks.check_for_sde_updates",
           "schedule": crontab(minute="0", hour="12"),
       }
+
+      # Set the following when you have a bare metal installation, or Docker with a
+      # non-standard storage for `myauth`
+      ESDE_TASK_SPLIT = True
   ```
 
 #### Step 3: Build Auth and Restart Your Containers<a name="step-3-build-auth-and-restart-your-containers"></a>
@@ -980,7 +990,7 @@ To update your existing installation of AFAT, first enable your
 virtual environment (venv) of your Alliance Auth installation.
 
 ```shell
-pip install allianceauth-afat==5.0.2
+pip install allianceauth-afat==5.0.3
 
 python manage.py collectstatic
 python manage.py migrate
@@ -996,7 +1006,7 @@ To update your existing installation of AFAT, all you need to do is to update th
 respective line in your `conf/requirements.txt` file to the latest version.
 
 ```text
-allianceauth-afat==5.0.2
+allianceauth-afat==5.0.3
 ```
 
 Now rebuild your containers:

@@ -7,7 +7,7 @@ from contrast.agent.heartbeat_thread import HEARTBEAT_THREAD_NAME
 from contrast.agent.settings import Settings
 from contrast.agent.settings_threads import SETTINGS_THREAD_NAME
 from contrast.agent.telemetry import TELEMETRY_THREAD_NAME, Telemetry
-from contrast.reporting import get_reporting_client
+from contrast.reporting import fireball, get_reporting_client
 from contrast.reporting.reporting_client import (
     REPORTING_CLIENT_THREAD_NAME,
 )
@@ -85,6 +85,9 @@ def _check_settings(threads_by_name, reporting_client):
 
 def _check_reporting_client(threads_by_name, agent_state_module):
     # PERF: this is a critical section (inside of a lock). Be mindful!
+    if isinstance(agent_state_module.reporting_client, fireball.Client):
+        # Fireball spawns threads in Rust, not Python.
+        return None
     thread = threads_by_name.get(REPORTING_CLIENT_THREAD_NAME)
     if thread is not None:
         return
@@ -93,4 +96,3 @@ def _check_reporting_client(threads_by_name, agent_state_module):
 
     logger.debug(LOG_MSG, REPORTING_CLIENT_THREAD_NAME)
     agent_state_module.reporting_client = get_reporting_client(Settings().config)
-    agent_state_module.reporting_client.start()

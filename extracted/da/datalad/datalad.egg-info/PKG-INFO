@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datalad
-Version: 1.4.0
+Version: 1.4.1
 Summary: Distributed system for joint management of code, data, and their relationship
 Author-email: The DataLad Team and Contributors <team@datalad.org>
 License-Expression: MIT

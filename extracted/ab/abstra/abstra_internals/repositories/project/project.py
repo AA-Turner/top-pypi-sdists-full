@@ -50,6 +50,7 @@ from abstra_internals.utils.string import to_kebab_case
 
 ServedStage = Union["FormStage", "HookStage", "PageStage"]
 StageType = Literal["form", "hook", "job", "script", "component", "page"]
+STAGE_JSON_KEYS = ["forms", "hooks", "scripts", "jobs", "pages", "components"]
 
 
 class Stage(ABC):
@@ -229,7 +230,7 @@ class HookStage(StageWithFile):
             enabled=dto.get("enabled", False),
             workflow_position=(x, y),
             workflow_transitions=[
-                WorkflowTransition.from_dict(t) for t in dto["transitions"]
+                WorkflowTransition.from_dict(t) for t in dto.get("transitions", [])
             ],
             is_initial=dto["is_initial"],
             input=dto.get("input", False),
@@ -351,7 +352,7 @@ class ScriptStage(StageWithFile):
             workflow_position=(x, y),
             is_initial=data["is_initial"],
             workflow_transitions=[
-                WorkflowTransition.from_dict(t) for t in data["transitions"]
+                WorkflowTransition.from_dict(t) for t in data.get("transitions", [])
             ],
             input=data.get("input", False),
             output=data.get("output", False),
@@ -439,7 +440,7 @@ class ComponentStage(Stage):
             workflow_position=(x, y),
             is_initial=data["is_initial"],
             workflow_transitions=[
-                WorkflowTransition.from_dict(t) for t in data["transitions"]
+                WorkflowTransition.from_dict(t) for t in data.get("transitions", [])
             ],
             package_name=data.get("package_name"),
         )
@@ -622,7 +623,7 @@ class JobStage(StageWithFile):
             schedule=data["schedule"],
             workflow_position=(x, y),
             workflow_transitions=[
-                WorkflowTransition.from_dict(t) for t in data["transitions"]
+                WorkflowTransition.from_dict(t) for t in data.get("transitions", [])
             ],
             input=data.get("input", False),
             output=data.get("output", False),
@@ -737,9 +738,11 @@ class FormStage(StageWithFile):
             raw_var_name = raw_notification.get("variable_name")
             raw_enabled = raw_notification.get("enabled", False)
             notification_trigger = NotificationTrigger(
-                variable_name=raw_var_name
-                if isinstance(raw_var_name, str) and raw_var_name
-                else "assignee_emails",
+                variable_name=(
+                    raw_var_name
+                    if isinstance(raw_var_name, str) and raw_var_name
+                    else "assignee_emails"
+                ),
                 enabled=raw_enabled if isinstance(raw_enabled, bool) else False,
             )
         else:
@@ -766,7 +769,7 @@ class FormStage(StageWithFile):
             workflow_position=(x, y),
             is_initial=data["is_initial"],
             workflow_transitions=[
-                WorkflowTransition.from_dict(t) for t in data["transitions"]
+                WorkflowTransition.from_dict(t) for t in data.get("transitions", [])
             ],
             notification_trigger=notification_trigger,
             access_control=access_control,
@@ -942,7 +945,7 @@ class PageStage(StageWithFile):
             enabled=data.get("enabled", False),
             workflow_position=(x, y),
             workflow_transitions=[
-                WorkflowTransition.from_dict(t) for t in data["transitions"]
+                WorkflowTransition.from_dict(t) for t in data.get("transitions", [])
             ],
             is_initial=data["is_initial"],
             access_control=access_control,
@@ -1836,7 +1839,7 @@ class Project:
         Returns:
             The project dictionary with deduplicated and cleaned transitions
         """
-        stage_keys = ["forms", "hooks", "scripts", "jobs", "pages", "components"]
+        stage_keys = STAGE_JSON_KEYS
 
         # First, collect all valid stage IDs
         valid_stage_ids = set()
@@ -1914,7 +1917,7 @@ class Project:
             The project dictionary with deduplicated stages
         """
         seen_ids = set()
-        stage_keys = ["scripts", "forms", "hooks", "jobs", "pages", "components"]
+        stage_keys = STAGE_JSON_KEYS
 
         for key in stage_keys:
             stages = data.get(key, [])
@@ -1941,7 +1944,7 @@ class Project:
         nodes = []
         edges = []
 
-        stage_keys = ["forms", "hooks", "scripts", "jobs", "pages", "components"]
+        stage_keys = STAGE_JSON_KEYS
 
         data = Project._deduplicate_stages(data)
         data = Project._deduplicate_transitions(data)
@@ -2098,21 +2101,29 @@ class ProjectRepository:
                 continue
         raise RuntimeError("abstra.json is corrupted and no valid backup was found")
 
-    def save(self, project: Project):
+    def _write_json_file(self, data: dict, file_path: Path):
+        """Atomically writes data to a JSON file with backup.
+
+        Assumes the caller already holds self.lock if needed.
+        """
         temp_dir = Settings.root_path / ABSTRA_JSON_TEMP_DIR_PATH
         temp_dir.mkdir(parents=True, exist_ok=True)
-
-        project_dto = project.to_abstra_json_dto()
-        data = project_dto.to_dict()
-
-        data = Project._deduplicate_stages(data)
-        data = Project._deduplicate_transitions(data)
 
         serialized = json.dumps(data, indent=2, sort_keys=True)
         json.loads(serialized)
 
         temp_file = temp_dir / f"abstra.json.{uuid.uuid4().hex}.tmp"
         temp_file.write_text(serialized, encoding="utf-8")
+
+        self._backup(file_path)
+        os.replace(str(temp_file), str(file_path))
+
+    def save(self, project: Project):
+        project_dto = project.to_abstra_json_dto()
+        data = project_dto.to_dict()
+
+        data = Project._deduplicate_stages(data)
+        data = Project._deduplicate_transitions(data)
 
         abstra_json_path = (
             project.abstra_json_path
@@ -2121,8 +2132,7 @@ class ProjectRepository:
         )
 
         with self.lock:
-            self._backup(abstra_json_path)
-            os.replace(str(temp_file), abstra_json_path)
+            self._write_json_file(data, abstra_json_path)
 
     @contextmanager
     def atomic(self) -> Generator["Project", None, None]:
@@ -2132,14 +2142,13 @@ class ProjectRepository:
         if no exception was raised — corrupted state is never persisted.
         """
         abstra_json_path = self.get_file_path()
-        temp_dir = Settings.root_path / ABSTRA_JSON_TEMP_DIR_PATH
-        temp_dir.mkdir(parents=True, exist_ok=True)
 
         with self.lock:
             try:
                 data = json.loads(abstra_json_path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, ValueError):
                 data = self._restore_from_backup(abstra_json_path)
+
             project = Project.from_dict(data)
 
             yield project
@@ -2149,13 +2158,7 @@ class ProjectRepository:
             new_data = Project._deduplicate_stages(new_data)
             new_data = Project._deduplicate_transitions(new_data)
 
-            serialized = json.dumps(new_data, indent=2, sort_keys=True)
-            json.loads(serialized)
-
-            self._backup(abstra_json_path)
-            temp_file = temp_dir / f"abstra.json.{uuid.uuid4().hex}.tmp"
-            temp_file.write_text(serialized, encoding="utf-8")
-            os.replace(str(temp_file), abstra_json_path)
+            self._write_json_file(new_data, abstra_json_path)
 
     def migrate_config_file(self, verbose=True):
         if not self.exists():
@@ -2183,6 +2186,7 @@ class ProjectRepository:
                 data = self._restore_from_backup(file_path)
             if data["version"] == "v13.0":
                 CommonAbstraJsonV18.from_dict(data)
+
             return Project.from_dict(data)
 
     def initialize_or_migrate(self, verbose=True):
@@ -2224,7 +2228,7 @@ def filter_stages_from_data(data: dict, disabled_stages_ids: list[str] | None = 
     if disabled_stages_ids is None or len(disabled_stages_ids) == 0:
         return data
 
-    stage_keys = ["forms", "hooks", "scripts", "jobs", "pages", "components"]
+    stage_keys = STAGE_JSON_KEYS
 
     copy_data = data.copy()
 

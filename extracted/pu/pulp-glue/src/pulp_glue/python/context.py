@@ -11,6 +11,7 @@ from pulp_glue.common.context import (
     PulpRepositoryVersionContext,
     api_spec_quirk,
 )
+from pulp_glue.common.exceptions import PulpException
 from pulp_glue.common.i18n import get_translation
 
 translation = get_translation(__package__)
@@ -67,11 +68,33 @@ class PulpPythonDistributionContext(PulpDistributionContext):
             self.pulp_ctx.needs_plugin(PluginRequirement("python", specifier=">=3.4.0"))
         if "remote" in body:
             self.pulp_ctx.needs_plugin(PluginRequirement("python", specifier=">=3.6.0"))
+        if "version" in body:
+            self.pulp_ctx.needs_plugin(PluginRequirement("python", specifier=">=3.21.0"))
         if self.pulp_ctx.has_plugin(PluginRequirement("core", specifier=">=3.16.0")):
             if "repository" in body and "publication" not in body:
                 body["publication"] = None
             if "repository" not in body and "publication" in body:
                 body["repository"] = None
+
+        version = body.pop("version", None)
+        if version is not None:
+            repository_href = body.pop("repository", None)
+            if not repository_href and partial:
+                current_entity = self.entity
+                repository_href = current_entity.get("repository")
+                if not repository_href and (
+                    repository_version_href := current_entity.get("repository_version")
+                ):
+                    repository_href = f"{repository_version_href.rsplit('/', 3)[0]}/"
+            if not repository_href:
+                raise PulpException(_("--repository must be provided"))
+            body["repository_version"] = f"{repository_href}versions/{version}/"
+            body["repository"] = None
+        elif "repository" in body and self.pulp_ctx.has_plugin(
+            PluginRequirement("python", specifier=">=3.21.0")
+        ):
+            body["repository_version"] = None
+
         return body
 
 
@@ -127,6 +150,7 @@ class PulpPythonRepositoryContext(PulpRepositoryContext):
     CAPABILITIES = {
         "sync": [PluginRequirement("python")],
         "pulpexport": [PluginRequirement("python", specifier=">=3.11.0")],
+        "repair_metadata": [PluginRequirement("python", specifier=">=3.26.0")],
     }
     NEEDS_PLUGINS = [PluginRequirement("python", specifier=">=3.1.0")]
 
@@ -135,3 +159,7 @@ class PulpPythonRepositoryContext(PulpRepositoryContext):
         if "autopublish" in body:
             self.pulp_ctx.needs_plugin(PluginRequirement("python", specifier=">=3.3.0"))
         return body
+
+    def repair_metadata(self) -> t.Any:
+        self.needs_capability("repair_metadata")
+        return self.call("repair_metadata", parameters={self.HREF: self.pulp_href})

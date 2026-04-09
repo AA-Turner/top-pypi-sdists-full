@@ -1,7 +1,9 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
-from contextvars import Context
 import sys
+from contextlib import nullcontext
+from contextvars import Context
+
 import contrast
 from contrast.agent import scope
 from contrast.agent.policy import patch_manager
@@ -11,7 +13,6 @@ from contrast.utils.patch_utils import (
     unregister_module_patcher,
     wrap_and_watermark,
 )
-
 from contrast_vendor import structlog as logging
 
 logger = logging.getLogger("contrast")
@@ -46,17 +47,29 @@ def build_start_patch(orig_func, _):
 
 def build_bootstrap_inner_patch(orig_func, _):
     """
-    Only used in pythno 3.13 and earlier. See build_start_patch.
+    Only used in python 3.13 and earlier. See build_start_patch.
     """
 
     def _bootstrap_inner(wrapped, instance, args, kwargs):  # pragma: no cover
+        # The try and except blocks are here to ensure that we don't break the thread's execution
+        # even if we fail to properly set up the scope or request context in the child thread.
+        # Failures could happen if there were errors in the start patch, or the start patch didn't
+        # run. If we didn't catch exceptions here, the thread would fail to start and we could
+        # break application behavior.
+
         # The new thread inherits the scope from the thread that created it
         try:
             scope.set_scope(*instance.cs__parent_scope)
         except Exception:
             logger.exception("Failed to initialize thread scope")
 
-        with contrast.lifespan(instance.cs__parent_context):
+        try:
+            lifespan = contrast.lifespan(instance.cs__parent_context)
+        except Exception:
+            logger.exception("Failed to initialize thread request context lifespan")
+            lifespan = nullcontext()
+
+        with lifespan:
             # Ensure child thread still runs with the same parent request context
             # even if the parent thread has already exited as long as
             # the parent thread is in request context.

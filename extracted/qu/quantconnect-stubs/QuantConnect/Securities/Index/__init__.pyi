@@ -79,6 +79,10 @@ class IndexExchange(QuantConnect.Securities.SecurityExchange):
         ...
 
 
+class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
+
+
 class IndexSymbol(System.Object):
     """Helper methods for Index Symbols"""
 
@@ -99,10 +103,6 @@ class IndexSymbol(System.Object):
         :returns: The market of the index.
         """
         ...
-
-
-class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
 
 
 class IndexHolding(QuantConnect.Securities.SecurityHolding):

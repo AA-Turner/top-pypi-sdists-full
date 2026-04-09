@@ -163,7 +163,7 @@ fn extract_structure_tree_pages(
 /// Stage 1: Extract segments from heuristic pages via pdfium text/object APIs.
 ///
 /// Returns (all_page_segments indexed by page, image_positions, paragraph_gap_ys per page, page_heights).
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn extract_heuristic_segments(
     pages: &PdfPages,
     page_count: PdfPageIndex,
@@ -171,6 +171,8 @@ fn extract_heuristic_segments(
     top_margin: Option<f32>,
     bottom_margin: Option<f32>,
     has_layout_hints: bool,
+    include_headers: bool,
+    include_footers: bool,
 ) -> (Vec<Vec<SegmentData>>, Vec<ImagePosition>, Vec<Vec<f32>>, Vec<f32>) {
     let stage1_start = crate::utils::timing::Instant::now();
     let mut all_page_segments: Vec<Vec<SegmentData>> = vec![Vec::new(); page_count as usize];
@@ -220,14 +222,26 @@ fn extract_heuristic_segments(
             let top_cutoff = page_height * (1.0 - top_frac);
             let bottom_cutoff = page_height * bottom_frac;
 
-            // Check if margin filtering would leave content before applying
-            let would_survive = segments.iter().any(|s| {
-                !s.text.trim().is_empty()
-                    && (s.baseline_y == 0.0 || (s.baseline_y <= top_cutoff && s.baseline_y >= bottom_cutoff))
-            });
-            if would_survive {
-                segments
-                    .retain(|s| s.baseline_y == 0.0 || (s.baseline_y <= top_cutoff && s.baseline_y >= bottom_cutoff));
+            // When include_headers or include_footers is set, relax margin
+            // filtering so those regions are preserved.
+            let skip_top = include_headers;
+            let skip_bottom = include_footers;
+
+            if !skip_top || !skip_bottom {
+                // Check if margin filtering would leave content before applying
+                let would_survive = segments.iter().any(|s| {
+                    !s.text.trim().is_empty()
+                        && (s.baseline_y == 0.0
+                            || ((skip_top || s.baseline_y <= top_cutoff)
+                                && (skip_bottom || s.baseline_y >= bottom_cutoff)))
+                });
+                if would_survive {
+                    segments.retain(|s| {
+                        s.baseline_y == 0.0
+                            || ((skip_top || s.baseline_y <= top_cutoff)
+                                && (skip_bottom || s.baseline_y >= bottom_cutoff))
+                    });
+                }
             }
 
             filter_standalone_page_numbers(&mut segments);
@@ -449,6 +463,9 @@ pub fn extract_document_structure(
     allow_single_column: bool,
     #[cfg(feature = "layout-detection")] table_model: crate::core::config::layout::TableModel,
     #[cfg(not(feature = "layout-detection"))] _table_model: Option<()>,
+    strip_repeating_text: bool,
+    include_headers: bool,
+    include_footers: bool,
 ) -> Result<(crate::types::internal::InternalDocument, bool)> {
     let pages = document.pages();
     let page_count = pages.len();
@@ -517,6 +534,8 @@ pub fn extract_document_structure(
                 top_margin,
                 bottom_margin,
                 has_hints,
+                include_headers,
+                include_footers,
             );
             (
                 all_segs,
@@ -533,6 +552,8 @@ pub fn extract_document_structure(
                 top_margin,
                 bottom_margin,
                 has_hints,
+                include_headers,
+                include_footers,
             )
         };
 
@@ -1186,9 +1207,12 @@ pub fn extract_document_structure(
     demote_heading_runs(&mut all_page_paragraphs);
 
     // Mark short text that repeats across many pages as furniture (headers/footers/watermarks).
-    mark_cross_page_repeating_text(&mut all_page_paragraphs, &page_heights);
-    // Tier 2: catch short repeating text outside margin zones (e.g. conference headers).
-    mark_cross_page_repeating_short_text(&mut all_page_paragraphs);
+    // When strip_repeating_text is disabled, skip cross-page repeating text detection entirely.
+    if strip_repeating_text {
+        mark_cross_page_repeating_text(&mut all_page_paragraphs, &page_heights);
+        // Tier 2: catch short repeating text outside margin zones (e.g. conference headers).
+        mark_cross_page_repeating_short_text(&mut all_page_paragraphs);
+    }
     // Mark arXiv watermark identifiers on first pages.
     mark_arxiv_noise(&mut all_page_paragraphs);
     for page in &mut all_page_paragraphs {

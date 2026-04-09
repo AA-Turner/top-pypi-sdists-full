@@ -105,9 +105,14 @@ impl EpubExtractor {
         let mut warnings = Vec::new();
 
         let (content_fragment, content_fully_converted) = if wants_markup {
+            // Apply content filter to HTML options for EPUB chapter conversion.
+            let html_options = super::html::apply_content_filter_to_html_options(
+                config.html_options.clone(),
+                config.content_filter.as_ref(),
+            );
             match crate::extraction::html::convert_html_to_markdown_with_metadata(
                 &document.xhtml,
-                config.html_options.clone(),
+                html_options,
                 Some(config.output_format.clone()),
             ) {
                 Ok((converted, _)) => (trim_trailing_newlines(&converted).to_string(), true),

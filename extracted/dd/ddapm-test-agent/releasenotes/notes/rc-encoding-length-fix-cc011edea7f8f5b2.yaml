@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Fix message length for remote config requests.

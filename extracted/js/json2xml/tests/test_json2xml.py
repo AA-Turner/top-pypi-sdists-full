@@ -21,12 +21,6 @@ from json2xml.utils import (
 class TestJson2xml:
     """Tests for `json2xml` package."""
 
-    def setUp(self) -> None:
-        """Set up test fixtures, if any."""
-
-    def tearDown(self) -> None:
-        """Tear down test fixtures, if any."""
-
     def test_read_from_json(self) -> None:
         """Test something."""
         data = readfromjson("examples/bigexample.json")
@@ -229,6 +223,7 @@ class TestJson2xml:
         if xmldata:
             assert b'encoding="UTF-8"' in xmldata
 
+    # @lat: [[tests#Conversion behavior#XPath format adds functions namespace]]
     def test_xpath_format_basic(self) -> None:
         """Test XPath 3.1 json-to-xml format with basic types."""
         data = {"name": "John", "age": 30, "active": True}

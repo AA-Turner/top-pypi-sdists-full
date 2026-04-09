@@ -45,12 +45,34 @@ import base64
 import hashlib
 import logging
 
+from . import log
 from . import base
 from . import http
 from . import legacy
 from . import observer
 from . import exceptions
 from . import structures
+
+RESERVED_KWARGS = (
+    "uuid",
+    "retry",
+    "reuse",
+    "level",
+    "async",
+    "asynchronous",
+    "use_file",
+    "callback",
+    "callback_init",
+    "callback_open",
+    "callback_headers",
+    "callback_data",
+    "callback_result",
+    "connections",
+)
+""" The set of reserved keyword arguments that are used by the
+API client for the handling of specific features, these should
+not be used as part of the parameters sent to the server side and
+are reserved for the internal handling of the API client """
 
 
 class API(observer.Observable):
@@ -96,7 +118,9 @@ class API(observer.Observable):
     ):
         headers = headers or dict()
         extra = extra or dict()
-        params = structures.OrderedDict(params or kwargs)
+        extra.update(dict(uuid=str(uuid.uuid4())))
+        extra.update(self._desanitize_kwargs(kwargs))
+        params = structures.OrderedDict(params or self._sanitize_kwargs(kwargs))
         auth_callback = self.auth_callback if callback else None
         self.build("GET", url, headers=headers, params=params, kwargs=kwargs)
         return self.request(
@@ -131,7 +155,9 @@ class API(observer.Observable):
     ):
         headers = headers or dict()
         extra = extra or dict()
-        params = structures.OrderedDict(params or kwargs)
+        extra.update(dict(uuid=str(uuid.uuid4())))
+        extra.update(self._desanitize_kwargs(kwargs))
+        params = structures.OrderedDict(params or self._sanitize_kwargs(kwargs))
         auth_callback = self.auth_callback if callback else None
         self.build(
             "POST",
@@ -180,7 +206,9 @@ class API(observer.Observable):
     ):
         headers = headers or dict()
         extra = extra or dict()
-        params = structures.OrderedDict(params or kwargs)
+        extra.update(dict(uuid=str(uuid.uuid4())))
+        extra.update(self._desanitize_kwargs(kwargs))
+        params = structures.OrderedDict(params or self._sanitize_kwargs(kwargs))
         auth_callback = self.auth_callback if callback else None
         self.build(
             "PUT",
@@ -225,7 +253,9 @@ class API(observer.Observable):
     ):
         headers = headers or dict()
         extra = extra or dict()
-        params = structures.OrderedDict(params or kwargs)
+        extra.update(dict(uuid=str(uuid.uuid4())))
+        extra.update(self._desanitize_kwargs(kwargs))
+        params = structures.OrderedDict(params or self._sanitize_kwargs(kwargs))
         auth_callback = self.auth_callback if callback else None
         self.build("DELETE", url, headers=headers, params=params, kwargs=kwargs)
         return self.request(
@@ -260,7 +290,9 @@ class API(observer.Observable):
     ):
         headers = headers or dict()
         extra = extra or dict()
-        params = structures.OrderedDict(params or kwargs)
+        extra.update(dict(uuid=str(uuid.uuid4())))
+        extra.update(self._desanitize_kwargs(kwargs))
+        params = structures.OrderedDict(params or self._sanitize_kwargs(kwargs))
         auth_callback = self.auth_callback if callback else None
         self.build(
             "PATCH",
@@ -315,10 +347,28 @@ class API(observer.Observable):
     def handle_error(self, error):
         raise
 
+    def _sanitize_kwargs(self, kwargs):
+        params = dict()
+        for key, value in kwargs.items():
+            if key in RESERVED_KWARGS:
+                continue
+            params[key] = value
+        return params
+
+    def _desanitize_kwargs(self, kwargs):
+        params = dict()
+        for key, value in kwargs.items():
+            if not key in RESERVED_KWARGS:
+                continue
+            params[key] = value
+        return params
+
     @property
     def logger(self):
         if self.owner:
             return self.owner.logger
+        elif hasattr(self, "_log_name") and self._log_name:
+            return log._ensure_logger(self._log_name)
         else:
             return logging.getLogger()
 

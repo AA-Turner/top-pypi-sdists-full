@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Adds middleware to forward all received requests to the Agent URL, if set. Requests are 
-    only forwarded for the `/traces`, `/stats`, and `/telemetry` paths. 

@@ -173,7 +173,10 @@ class ParameterGrouper:
         sender_type: str,
     ) -> tuple[ParameterGroup, ...] | None:
         """Build groups from easymode metadata if available."""
-        if not (metadata := get_channel_metadata(channel_type=channel_type)):
+        from aiohomematic_config.profile_store import _RECEIVER_TYPE_ALIASES  # noqa: PLC0415
+
+        effective_type = _RECEIVER_TYPE_ALIASES.get(channel_type, channel_type)
+        if not (metadata := get_channel_metadata(channel_type=effective_type)):
             return None
         st_meta = metadata.sender_types.get(sender_type)
         if not st_meta or not st_meta.parameter_order:

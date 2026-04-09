@@ -1,18 +1,17 @@
 # Copyright © 2026 Contrast Security, Inc.
 # See https://www.contrastsecurity.com/enduser-terms-0317a for more details.
 from contrast.agent.assess.policy.propagators.base_propagator import (
-    BasePropagator,
     SUPPORTED_TYPES,
+    BasePropagator,
 )
 from contrast.agent.assess.utils import (
     copy_from,
-    is_tracked,
     get_properties,
+    is_tracked,
     track_string,
 )
 from contrast.utils.assess.duck_utils import is_iterable, safe_iterator
 from contrast.utils.decorators import fail_quietly
-
 from contrast.utils.string_utils import ensure_binary
 
 
@@ -82,8 +81,8 @@ class SplatPropagator(BasePropagator):
                 tracked_inputs.append(val)
 
         for source in self.sources:
-            if isinstance(source, SUPPORTED_TYPES):
-                _append_if_tracked(source)
+            if get_properties(source) is not None:
+                tracked_inputs.append(source)
             elif isinstance(source, dict):
                 for key, value in source.items():
                     _append_if_tracked(key)

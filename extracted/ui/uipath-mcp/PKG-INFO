@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uipath-mcp
-Version: 0.2.1
+Version: 0.2.2
 Summary: UiPath MCP SDK
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-mcp-python
@@ -16,7 +16,7 @@ Requires-Python: >=3.11
 Requires-Dist: mcp==1.26.0
 Requires-Dist: pysignalr==1.3.0
 Requires-Dist: uipath-runtime<0.11.0,>=0.10.0
-Requires-Dist: uipath<2.11.0,>=2.10.42
+Requires-Dist: uipath<2.11.0,>=2.10.40
 Description-Content-Type: text/markdown
 
 # UiPath MCP Python SDK

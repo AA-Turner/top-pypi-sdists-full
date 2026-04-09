@@ -6,6 +6,7 @@ pub(crate) enum Item<'src> {
   Alias(Alias<'src, Namepath<'src>>),
   Assignment(Assignment<'src>),
   Comment(&'src str),
+  Function(FunctionDefinition<'src>),
   Import {
     absolute: Option<PathBuf>,
     optional: bool,
@@ -27,12 +28,22 @@ pub(crate) enum Item<'src> {
   },
 }
 
-impl Display for Item<'_> {
-  fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl ColorDisplay for Item<'_> {
+  fn fmt(&self, f: &mut Formatter, color: Color) -> fmt::Result {
     match self {
       Self::Alias(alias) => write!(f, "{alias}"),
       Self::Assignment(assignment) => write!(f, "{assignment}"),
       Self::Comment(comment) => write!(f, "{comment}"),
+      Self::Function(function) => {
+        write!(f, "{}(", function.name)?;
+        for (i, (parameter, _number)) in function.parameters.iter().enumerate() {
+          if i > 0 {
+            write!(f, ", ")?;
+          }
+          write!(f, "{parameter}")?;
+        }
+        write!(f, ") := {}", function.body)
+      }
       Self::Import {
         relative, optional, ..
       } => {
@@ -74,7 +85,7 @@ impl Display for Item<'_> {
 
         Ok(())
       }
-      Self::Recipe(recipe) => write!(f, "{}", recipe.color_display(Color::never())),
+      Self::Recipe(recipe) => write!(f, "{}", recipe.color_display(color)),
       Self::Set(set) => write!(f, "{set}"),
       Self::Unexport { name } => write!(f, "unexport {name}"),
     }

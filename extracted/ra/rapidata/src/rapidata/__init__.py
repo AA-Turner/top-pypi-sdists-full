@@ -1,4 +1,4 @@
-__version__ = "3.6.1"
+__version__ = "3.7.0"
 
 from .rapidata_client import (
     RapidataClient,
@@ -31,8 +31,7 @@ from .rapidata_client import (
     FreeTextMinimumCharacters,
     NoShuffleSetting,
     NoShuffle,
-    PlayVideoUntilTheEndSetting,
-    PlayVideoUntilTheEnd,
+    PlayPercentageVideoSetting,
     MuteVideoSetting,
     MuteVideo,
     MarkdownSetting,

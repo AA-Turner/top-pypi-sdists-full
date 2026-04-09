@@ -25,7 +25,6 @@ from .states.ny.wftc import create_ny_working_families_tax_credit_reform
 from .states.ny.a04038 import create_ny_a04038_enhanced_escc_infants_reform
 from .states.ny.s9110 import create_ny_s9110_reform
 from .states.sc.h3492 import create_sc_h3492_eitc_refundable_reform
-from .states.sc.h4216 import create_sc_h4216_reform
 from .states.ny.a06774 import create_ny_a06774_enhanced_cdcc_reform
 from .states.ny.s04487 import create_ny_s04487_newborn_credit_reform
 from .harris.lift.middle_class_tax_credit import (
@@ -292,7 +291,6 @@ def create_structural_reforms_from_parameters(parameters, period):
     sc_h3492_eitc_refundable = create_sc_h3492_eitc_refundable_reform(
         parameters, period
     )
-    sc_h4216 = create_sc_h4216_reform(parameters, period)
     ny_a06774_enhanced_cdcc = create_ny_a06774_enhanced_cdcc_reform(parameters, period)
     ny_s04487_newborn_credit = create_ny_s04487_newborn_credit_reform(
         parameters, period
@@ -463,7 +461,6 @@ def create_structural_reforms_from_parameters(parameters, period):
         ny_a04038_enhanced_escc_infants,
         ny_s9110,
         sc_h3492_eitc_refundable,
-        sc_h4216,
         ny_a06774_enhanced_cdcc,
         ny_s04487_newborn_credit,
         middle_class_tax_credit,

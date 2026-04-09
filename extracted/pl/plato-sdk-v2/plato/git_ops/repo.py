@@ -44,6 +44,7 @@ def checkout_main_from_bare(*, bare_repo_path: str, worktree_path: str) -> None:
     git_dir = Path(worktree_path) / ".git"
     if git_dir.is_dir():
         repo = Repo(worktree_path)
+        repo.git.config("core.logAllRefUpdates", "false")
         repo.git.fetch("origin", "main")
         repo.git.reset("--hard", "origin/main")
         repo.git.clean(
@@ -83,7 +84,13 @@ def auto_commit(repo_path: str, commit_message: str) -> GitOpResult:
     repo = _repo(repo_path)
     repo.git.add(A=True)
     if repo.is_dirty(index=True, working_tree=False, untracked_files=True):
-        repo.index.commit(commit_message, author=AGENT_ACTOR, committer=AGENT_ACTOR)
+        # Build a descriptive commit message from the staged diff
+        stat = repo.git.diff("--cached", "--stat")
+        if stat:
+            message = f"auto-sync: {stat.strip().splitlines()[-1].strip()}"
+        else:
+            message = commit_message
+        repo.index.commit(message, author=AGENT_ACTOR, committer=AGENT_ACTOR)
     return GitOpResult(ok=True, git_status=repo.git.status("--short"))
 
 

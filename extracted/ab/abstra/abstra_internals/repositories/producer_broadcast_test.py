@@ -124,9 +124,10 @@ class TestFireAndForgetBroadcast(unittest.TestCase):
     @patch(
         "abstra_internals.controllers.execution.execution_stdio.BroadcastController",
     )
-    def test_fire_and_forget_forwards_task_to_broadcast(
+    def test_fire_and_forget_skips_task_in_consume_and_forward(
         self, MockBroadcast, MockBlockingConn, MockRabbitConn
     ):
+        """consume_and_forward should NOT broadcast task (fanout consumer handles it)."""
         mock_pika = MagicMock()
         mock_pika.__enter__ = MagicMock(return_value=mock_pika)
         mock_pika.__exit__ = MagicMock(return_value=False)
@@ -135,7 +136,13 @@ class TestFireAndForgetBroadcast(unittest.TestCase):
         mock_pika.channel.return_value.__exit__ = MagicMock(return_value=False)
 
         task_msg = {"type": "task", "payload": {"id": "t1", "status": "pending"}}
-        ended_msg = json.dumps({"type": "execution:ended", "exitStatus": "SUCCESS"})
+        ended_msg = json.dumps(
+            {
+                "type": "execution:ended",
+                "exitStatus": "SUCCESS",
+                "execution_id": "exec1",
+            }
+        )
         mock_conn = _make_mock_conn([task_msg, ended_msg])
         MockRabbitConn.return_value = mock_conn
 
@@ -154,9 +161,10 @@ class TestFireAndForgetBroadcast(unittest.TestCase):
         repo.enqueue_fire_and_forget("stage1", ctx)
         time.sleep(0.5)
 
-        MockBroadcast.broadcast.assert_called_once()
+        # Only execution:update from execution:ended should be broadcast, not the task
+        self.assertEqual(MockBroadcast.broadcast.call_count, 1)
         broadcast_msg = json.loads(MockBroadcast.broadcast.call_args[1]["msg"])
-        self.assertEqual(broadcast_msg["type"], "task")
+        self.assertEqual(broadcast_msg["type"], "execution:update")
 
     @patch("abstra_internals.repositories.producer.WORKER_LOG_TO_QUEUE", True)
     @patch("abstra_internals.repositories.producer.RabbitMQConnection")

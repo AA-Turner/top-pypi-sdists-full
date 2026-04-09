@@ -108,7 +108,7 @@ pub fn render_markdown(doc: &InternalDocument) -> String {
 /// "Title N arXiv:NNNN.NNNNNvN [cat.SC] DD Mon YYYY" from the first pages.
 fn strip_arxiv_watermark_noise(mut text: String) -> String {
     // Only search the first portion of the text (roughly first 2 pages)
-    let search_limit = text.len().min(6000);
+    let search_limit = text.floor_char_boundary(text.len().min(6000));
     let search_area = &text[..search_limit];
 
     // Match: optional preceding short fragment + arXiv ID + optional version + category + date

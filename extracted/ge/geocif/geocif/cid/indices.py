@@ -683,6 +683,13 @@ class CEIs:
             for end_index in range(1, len(stages) + 1):
                 extended_stages_list.append(stages[:end_index])
 
+        # Dedup set scoped to this (region, harvest_year) group: tracks
+        # (fldas_col, lead, init_month) tuples already emitted so the FLDAS
+        # branch in compute_eo_indices can skip bit-identical duplicates that
+        # arise when the cumulative stage window grows without advancing
+        # max(time) — common for ``monthly_r``/``dekad_r``/``biweekly_r``.
+        emitted_fldas_inits: set = set()
+
         # For each stage combination, compute climate indices and EO stats
         for extended_stage in extended_stages_list:
             df_time_period, df_base_period = self.filter_data_for_stage(
@@ -715,7 +722,14 @@ class CEIs:
             if any(c.startswith("fldas_") for c in df_group.columns):
                 eo_vars.append("FLDAS")
             for eo_var in eo_vars:
-                df_eo = self.compute_eo_indices(df_time_period, df_harvest_year_region, eo_var, key, extended_stage)
+                df_eo = self.compute_eo_indices(
+                    df_time_period,
+                    df_harvest_year_region,
+                    eo_var,
+                    key,
+                    extended_stage,
+                    emitted_fldas_inits=emitted_fldas_inits,
+                )
                 if not df_eo.empty:
                     frames_group.append(df_eo)
 
@@ -791,7 +805,8 @@ class CEIs:
         df_harvest_year_region: pd.DataFrame,
         var: str,
         key: tuple[str, str],
-        stage: list
+        stage: list,
+        emitted_fldas_inits: set = None,
     ) -> pd.DataFrame:
         """
         Compute "environmental observation" indices (NDVI, GCVI, ESI, H-INDEX, etc.).
@@ -802,6 +817,11 @@ class CEIs:
             var (str): Which EO variable to compute indices from.
             key (tuple[str, str]): (country, region).
             stage (list): The list of stage values used.
+            emitted_fldas_inits (set): Per-(region, harvest_year) set of
+                ``(var, lead, init_month)`` tuples already written for FLDAS.
+                Used to dedupe duplicate cumulative-stage rows when the latest
+                init-month row is unchanged (common for ``monthly_r``-style
+                reverse stage chains). When None, no dedup is performed.
 
         Returns:
             pd.DataFrame: DataFrame with aggregated stats for that variable.
@@ -895,6 +915,18 @@ class CEIs:
                 target_month = ((init_month - 1 + lead) % 12) + 1
                 if target_month not in season_months:
                     continue  # forecast target outside crop season
+
+                # Dedup across cumulative stages: if an earlier (smaller) stage
+                # already emitted a row with the same (var, lead, init_month),
+                # this stage's extraction is bit-identical. Common for the
+                # ``monthly_r``/``dekad_r``/``biweekly_r`` reverse stage chains
+                # where growing the window backward in time does not advance
+                # max(time). Skip writing to keep feature columns unique.
+                if emitted_fldas_inits is not None:
+                    init_key = (col_name, lead, init_month)
+                    if init_key in emitted_fldas_inits:
+                        continue
+                    emitted_fldas_inits.add(init_key)
 
                 eo_vals = np.array([latest_row[col_name]], dtype=float)
 

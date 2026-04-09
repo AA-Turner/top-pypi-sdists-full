@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import logging
 import socket as _socket
-from contextlib import suppress
 from typing import Any, ClassVar, Optional
 
 from packaging.version import Version
@@ -40,6 +39,7 @@ from typing_extensions import Self
 from pymobiledevice3.dtx import DTXConnection, DTXService
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
+from pymobiledevice3.service_connection import close_stream_writer
 
 
 class DtxServiceProvider:
@@ -221,10 +221,7 @@ class DtxServiceProvider:
             else:
                 svc.socket._sslobj = None
             if old_writer is not None:
-                with suppress(Exception):
-                    old_writer.close()
-                with suppress(Exception):
-                    await old_writer.wait_closed()
+                await close_stream_writer(old_writer)
             svc.socket = raw_socket
             svc.reader = None
             svc.writer = None

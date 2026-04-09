@@ -45,7 +45,11 @@ from ._generic_converter import (
 )
 from ._int_converter import Int32FeatureConverter, Int64FeatureConverter
 from ._list_converter import ListFeatureConverter
-from ._primitive_converter import _FeatureConverterArrowProtoHelpers, PrimitiveFeatureConverter, _recursively_unwrap
+from ._primitive_converter import (
+    PrimitiveFeatureConverter,
+    pa_scalar_to_proto,
+    proto_to_pa_scalar,
+)
 from ._string_converter import LargeStringFeatureConverter, StringFeatureConverter
 from ._time_converter import Time32sFeatureConverter, Time32msFeatureConverter, Time64usFeatureConverter, Time64nsFeatureConverter
 from ._timedelta_converter import TimedeltaFeatureConverter
@@ -54,7 +58,6 @@ __all__ = [
     # _base
     "_DEFAULT_FEATURE_ENCODING_OPTIONS",
     "_FROM_NEW",
-    "_FeatureConverterArrowProtoHelpers",
     "_TPrim",
     "_TPrimCo",
     "_TPrimCon",
@@ -107,7 +110,9 @@ __all__ = [
     "ListFeatureConverter",
     # primitive_converter
     "PrimitiveFeatureConverter",
-    "_recursively_unwrap",
+    "pa_scalar_to_proto",
+    "proto_to_pa_scalar",
+
     # string_converter
     "LargeStringFeatureConverter",
     "StringFeatureConverter",

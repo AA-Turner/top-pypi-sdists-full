@@ -269,6 +269,7 @@ from .literals import (
     M3u8Scte35BehaviorType,
     M3u8TimedMetadataBehaviorType,
     MaintenanceDayType,
+    MediaConnectRouterOutputEncryptionTypeType,
     MotionGraphicsInsertionType,
     Mp2CodingModeType,
     Mpeg2AdaptiveQuantizationType,
@@ -787,6 +788,12 @@ __all__ = (
     "MaintenanceUpdateSettingsTypeDef",
     "MediaConnectFlowRequestTypeDef",
     "MediaConnectFlowTypeDef",
+    "MediaConnectRouterContainerSettingsTypeDef",
+    "MediaConnectRouterGroupSettingsOutputTypeDef",
+    "MediaConnectRouterGroupSettingsTypeDef",
+    "MediaConnectRouterOutputConnectionMapTypeDef",
+    "MediaConnectRouterOutputDestinationSettingsTypeDef",
+    "MediaConnectRouterOutputSettingsTypeDef",
     "MediaPackageAdditionalDestinationsTypeDef",
     "MediaPackageGroupSettingsOutputTypeDef",
     "MediaPackageGroupSettingsTypeDef",
@@ -2163,6 +2170,20 @@ class MaintenanceUpdateSettingsTypeDef(TypedDict):
     MaintenanceDay: NotRequired[MaintenanceDayType]
     MaintenanceScheduledDate: NotRequired[str]
     MaintenanceStartTime: NotRequired[str]
+
+class MediaConnectRouterGroupSettingsOutputTypeDef(TypedDict):
+    AvailabilityZones: NotRequired[list[str]]
+
+class MediaConnectRouterGroupSettingsTypeDef(TypedDict):
+    AvailabilityZones: NotRequired[Sequence[str]]
+
+class MediaConnectRouterOutputConnectionMapTypeDef(TypedDict):
+    Pipeline0: NotRequired[str]
+    Pipeline1: NotRequired[str]
+
+class MediaConnectRouterOutputDestinationSettingsTypeDef(TypedDict):
+    EncryptionType: NotRequired[MediaConnectRouterOutputEncryptionTypeType]
+    SecretArn: NotRequired[str]
 
 class MediaPackageOutputDestinationSettingsTypeDef(TypedDict):
     ChannelId: NotRequired[str]
@@ -3815,6 +3836,9 @@ class OutputDestinationOutputTypeDef(TypedDict):
     Settings: NotRequired[list[OutputDestinationSettingsTypeDef]]
     SrtSettings: NotRequired[list[SrtOutputDestinationSettingsTypeDef]]
     LogicalInterfaceNames: NotRequired[list[str]]
+    MediaConnectRouterSettings: NotRequired[
+        list[MediaConnectRouterOutputDestinationSettingsTypeDef]
+    ]
 
 class OutputDestinationTypeDef(TypedDict):
     Id: NotRequired[str]
@@ -3823,6 +3847,9 @@ class OutputDestinationTypeDef(TypedDict):
     Settings: NotRequired[Sequence[OutputDestinationSettingsTypeDef]]
     SrtSettings: NotRequired[Sequence[SrtOutputDestinationSettingsTypeDef]]
     LogicalInterfaceNames: NotRequired[Sequence[str]]
+    MediaConnectRouterSettings: NotRequired[
+        Sequence[MediaConnectRouterOutputDestinationSettingsTypeDef]
+    ]
 
 class OutputLockingSettingsTypeDef(TypedDict):
     EpochLockingSettings: NotRequired[EpochLockingSettingsTypeDef]
@@ -4223,6 +4250,9 @@ class ArchiveContainerSettingsOutputTypeDef(TypedDict):
 class ArchiveContainerSettingsTypeDef(TypedDict):
     M2tsSettings: NotRequired[M2tsSettingsTypeDef]
     RawSettings: NotRequired[Mapping[str, Any]]
+
+class MediaConnectRouterContainerSettingsTypeDef(TypedDict):
+    M2tsSettings: NotRequired[M2tsSettingsTypeDef]
 
 class UdpContainerSettingsTypeDef(TypedDict):
     M2tsSettings: NotRequired[M2tsSettingsTypeDef]
@@ -4939,6 +4969,11 @@ class ArchiveOutputSettingsTypeDef(TypedDict):
     Extension: NotRequired[str]
     NameModifier: NotRequired[str]
 
+class MediaConnectRouterOutputSettingsTypeDef(TypedDict):
+    ContainerSettings: MediaConnectRouterContainerSettingsTypeDef
+    Destination: OutputLocationRefTypeDef
+    ConnectedRouterInputs: NotRequired[MediaConnectRouterOutputConnectionMapTypeDef]
+
 class SrtOutputSettingsTypeDef(TypedDict):
     ContainerSettings: UdpContainerSettingsTypeDef
     Destination: OutputLocationRefTypeDef
@@ -5099,6 +5134,7 @@ class OutputGroupSettingsOutputTypeDef(TypedDict):
     UdpGroupSettings: NotRequired[UdpGroupSettingsTypeDef]
     CmafIngestGroupSettings: NotRequired[CmafIngestGroupSettingsOutputTypeDef]
     SrtGroupSettings: NotRequired[SrtGroupSettingsTypeDef]
+    MediaConnectRouterGroupSettings: NotRequired[MediaConnectRouterGroupSettingsOutputTypeDef]
 
 class OutputGroupSettingsTypeDef(TypedDict):
     ArchiveGroupSettings: NotRequired[ArchiveGroupSettingsTypeDef]
@@ -5111,6 +5147,7 @@ class OutputGroupSettingsTypeDef(TypedDict):
     UdpGroupSettings: NotRequired[UdpGroupSettingsTypeDef]
     CmafIngestGroupSettings: NotRequired[CmafIngestGroupSettingsTypeDef]
     SrtGroupSettings: NotRequired[SrtGroupSettingsTypeDef]
+    MediaConnectRouterGroupSettings: NotRequired[MediaConnectRouterGroupSettingsTypeDef]
 
 AudioSelectorSettingsUnionTypeDef = Union[
     AudioSelectorSettingsTypeDef, AudioSelectorSettingsOutputTypeDef
@@ -5226,6 +5263,7 @@ class OutputSettingsOutputTypeDef(TypedDict):
     UdpOutputSettings: NotRequired[UdpOutputSettingsTypeDef]
     CmafIngestOutputSettings: NotRequired[CmafIngestOutputSettingsTypeDef]
     SrtOutputSettings: NotRequired[SrtOutputSettingsTypeDef]
+    MediaConnectRouterOutputSettings: NotRequired[MediaConnectRouterOutputSettingsTypeDef]
 
 class OutputSettingsTypeDef(TypedDict):
     ArchiveOutputSettings: NotRequired[ArchiveOutputSettingsTypeDef]
@@ -5238,6 +5276,7 @@ class OutputSettingsTypeDef(TypedDict):
     UdpOutputSettings: NotRequired[UdpOutputSettingsTypeDef]
     CmafIngestOutputSettings: NotRequired[CmafIngestOutputSettingsTypeDef]
     SrtOutputSettings: NotRequired[SrtOutputSettingsTypeDef]
+    MediaConnectRouterOutputSettings: NotRequired[MediaConnectRouterOutputSettingsTypeDef]
 
 class CreateMultiplexProgramResponseTypeDef(TypedDict):
     MultiplexProgram: MultiplexProgramTypeDef
@@ -5728,6 +5767,7 @@ class UpdateChannelRequestTypeDef(TypedDict):
     LinkedChannelSettings: NotRequired[LinkedChannelSettingsTypeDef]
     ChannelSecurityGroups: NotRequired[Sequence[str]]
     InferenceSettings: NotRequired[InferenceSettingsTypeDef]
+    SpecialRouterSettings: NotRequired[SpecialRouterSettingsTypeDef]
 
 class BatchUpdateScheduleRequestTypeDef(TypedDict):
     ChannelId: str

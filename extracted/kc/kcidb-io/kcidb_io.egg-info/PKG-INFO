@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kcidb-io
-Version: 140
+Version: 141
 Summary: KCIDB = Linux Kernel CI reporting - I/O data library
 Author-email: "kernelci.org" <kernelci@lists.linux.dev>
 License-Expression: GPL-2.0-or-later

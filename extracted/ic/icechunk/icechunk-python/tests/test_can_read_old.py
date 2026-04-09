@@ -11,14 +11,22 @@ intentionally changed, the repository files must be regenerated. For that, run t
 file as a python script: `python ./tests/test_can_read_old.py`.
 """
 
+import shutil
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from numpy.testing import assert_array_equal
 
 import icechunk as ic
 import zarr
+
+# This file can be run as a script to regenerate test data (see module docstring).
+# When run as a script, `tests` is not a package, so we fall back to a direct import.
+try:
+    from tests.conftest import Permission
+except ImportError:
+    from conftest import Permission  # type: ignore[import-not-found,no-redef]
 
 UPDATED_SPLITTING_CONFIG = ic.ManifestSplittingConfig.from_dict(
     {
@@ -41,17 +49,19 @@ def mk_repo(
 
         virtual_store_config = ic.s3_store(
             region="us-east-1",
-            endpoint_url="http://localhost:9000",
+            endpoint_url="http://localhost:4200",
             allow_http=True,
             s3_compatible=True,
             force_path_style=True,
         )
         container = ic.VirtualChunkContainer("s3://testbucket/", virtual_store_config)
         config.set_virtual_chunk_container(container)
+    access_key_id, secret_access_key = Permission.READONLY.keys()
     credentials = ic.containers_credentials(
         {
             "s3://testbucket": ic.s3_credentials(
-                access_key_id="minio123", secret_access_key="minio123"
+                access_key_id=access_key_id,
+                secret_access_key=secret_access_key,
             )
         }
     )
@@ -66,10 +76,10 @@ def mk_repo(
     return repo
 
 
-async def write_a_split_repo() -> None:
+async def write_a_split_repo(path: str) -> None:
     """Write the test repository with manifest splitting."""
 
-    store_path = "./tests/data/split-repo"
+    store_path = path
     config = ic.RepositoryConfig.default()
     config.inline_chunk_threshold_bytes = 12
     config.manifest = ic.ManifestConfig(
@@ -144,31 +154,31 @@ async def write_a_split_repo() -> None:
     session.commit("write data again with more splits")
 
 
-async def test_icechunk_can_read_old_repo_with_manifest_splitting() -> None:
-    repo = mk_repo(create=False, store_path="./tests/data/split-repo")
+async def do_icechunk_can_read_old_repo_with_manifest_splitting(path: str) -> None:
+    repo = mk_repo(create=False, store_path=path)
     ancestry = list(repo.ancestry(branch="main"))[::-1]
 
     init_snapshot = ancestry[1]
     assert init_snapshot.message == "empty structure"
-    assert len(init_snapshot.manifests) == 0
+    assert len(repo.list_manifest_files(init_snapshot.id)) == 0
 
     snapshot = ancestry[2]
     assert snapshot.message == "write data"
-    assert len(snapshot.manifests) == 9
+    assert len(repo.list_manifest_files(snapshot.id)) == 9
 
     snapshot = ancestry[3]
     assert snapshot.message == "write data again"
-    assert len(snapshot.manifests) == 9
+    assert len(await repo.list_manifest_files_async(snapshot.id)) == 9
 
     snapshot = ancestry[4]
     assert snapshot.message == "write data again with more splits"
-    assert len(snapshot.manifests) == 17
+    assert len(await repo.list_manifest_files_async(snapshot.id)) == 17
 
     assert repo.config.manifest
     assert repo.config.manifest.splitting == UPDATED_SPLITTING_CONFIG
 
 
-async def write_a_test_repo() -> None:
+async def write_a_test_repo(path: str) -> None:
     """Write the test repository.
 
     This function tries to explore as many icechunk features as possible, to generate
@@ -178,8 +188,8 @@ async def write_a_test_repo() -> None:
     PLEASE: keep addign more actions to this function as we add more features to Icechunk.
     """
 
-    print("Writing repository to ./tests/data/test-repo")
-    repo = mk_repo(create=True, store_path="./tests/data/test-repo")
+    print(f"Writing repository to {path}")
+    repo = mk_repo(create=True, store_path=path)
     session = repo.writable_session("main")
     store = session.store
 
@@ -212,8 +222,8 @@ async def write_a_test_repo() -> None:
     session = repo.writable_session("main")
     store = session.store
     root = zarr.group(store=store)
-    big_chunks = cast(zarr.Array, root["group1/big_chunks"])
-    small_chunks = cast(zarr.Array, root["group1/small_chunks"])
+    big_chunks = cast("zarr.Array[Any]", root["group1/big_chunks"])
+    small_chunks = cast("zarr.Array[Any]", root["group1/small_chunks"])
 
     big_chunks[:] = 42.0
     small_chunks[:] = 84
@@ -281,12 +291,13 @@ async def write_a_test_repo() -> None:
     store.close()
 
 
-@pytest.mark.filterwarnings("ignore:datetime.datetime.utcnow")
-async def test_icechunk_can_read_old_repo() -> None:
-    # we import here so it works when the script is ran by pytest
-    from tests.conftest import write_chunks_to_minio
+async def do_icechunk_can_read_old_repo(path: str) -> None:
+    try:
+        from tests.conftest import write_chunks_to_minio
+    except ImportError:
+        from conftest import write_chunks_to_minio  # type: ignore[no-redef]
 
-    repo = mk_repo(create=False, store_path="./tests/data/test-repo")
+    repo = mk_repo(create=False, store_path=path)
     main_snapshot = repo.lookup_branch("main")
 
     expected_main_history = [
@@ -350,10 +361,10 @@ async def test_icechunk_can_read_old_repo() -> None:
 
     root = zarr.group(store=store)
     # inner is not initialized, so it's all fill values
-    inner = root["group2/group3/group4/group5/inner"]
+    inner = cast("zarr.Array[Any]", root["group2/group3/group4/group5/inner"])
     assert_array_equal(inner[:], float("nan"))
 
-    small_chunks = root["group1/small_chunks"]
+    small_chunks = cast("zarr.Array[Any]", root["group1/small_chunks"])
     # has 5 elements, we deleted the last chunk (of size 1), and the fill value is 8
     assert_array_equal(small_chunks[:], [84, 84, 84, 84, 8])
 
@@ -371,7 +382,7 @@ async def test_icechunk_can_read_old_repo() -> None:
         ]
     )
 
-    big_chunks = root["group1/big_chunks"]
+    big_chunks = cast("zarr.Array[Any]", root["group1/big_chunks"])
     assert_array_equal(big_chunks[:], 42.0)
 
     parents = list(repo.ancestry(branch="main"))
@@ -394,10 +405,56 @@ async def test_icechunk_can_read_old_repo() -> None:
     assert diff.updated_arrays == set()
 
 
+def migrate_repo_v1_to_v2(from_dir: str, to_dir: str) -> None:
+    shutil.copytree(from_dir, to_dir, dirs_exist_ok=True)
+    repo = mk_repo(create=False, store_path=to_dir)
+    ic.upgrade_icechunk_repository(repo, dry_run=False)
+
+
+@pytest.mark.filterwarnings("ignore:datetime.datetime.utcnow")
+async def test_icechunk_can_read_old_repo_v1() -> None:
+    await do_icechunk_can_read_old_repo("./tests/data/test-repo-v1")
+
+
+@pytest.mark.filterwarnings("ignore:datetime.datetime.utcnow")
+async def test_icechunk_can_read_old_repo_v2() -> None:
+    await do_icechunk_can_read_old_repo("./tests/data/test-repo-v2")
+
+
+@pytest.mark.filterwarnings("ignore:datetime.datetime.utcnow")
+async def test_icechunk_can_read_old_repo_v2_migrated() -> None:
+    await do_icechunk_can_read_old_repo("./tests/data/test-repo-v2-migrated")
+
+
+async def test_icechunk_can_read_old_repo_with_manifest_splitting_v1() -> None:
+    await do_icechunk_can_read_old_repo_with_manifest_splitting(
+        "./tests/data/split-repo-v1"
+    )
+
+
+async def test_icechunk_can_read_old_repo_with_manifest_splitting_v2() -> None:
+    await do_icechunk_can_read_old_repo_with_manifest_splitting(
+        "./tests/data/split-repo-v2"
+    )
+
+
+async def test_icechunk_can_read_old_repo_with_manifest_splitting_v2_migrated() -> None:
+    await do_icechunk_can_read_old_repo_with_manifest_splitting(
+        "./tests/data/split-repo-v2-migrated"
+    )
+
+
 if __name__ == "__main__":
     import asyncio
 
     # we import here so it works when the script is ran by pytest
 
-    # asyncio.run(write_a_test_repo())
-    asyncio.run(write_a_split_repo())
+    asyncio.run(write_a_test_repo("./tests/data/test-repo-v2"))
+    asyncio.run(write_a_split_repo("./tests/data/split-repo-v2"))
+
+    migrate_repo_v1_to_v2(
+        "./tests/data/test-repo-v1", "./tests/data/test-repo-v2-migrated"
+    )
+    migrate_repo_v1_to_v2(
+        "./tests/data/split-repo-v1", "./tests/data/split-repo-v2-migrated"
+    )

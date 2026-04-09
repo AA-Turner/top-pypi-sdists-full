@@ -40,7 +40,18 @@ const RT_NOTES: u16 = 0x03F0; // Notes container
 ///
 /// Parses the OLE/CFB compound document, reads the "PowerPoint Document" stream,
 /// and extracts text from TextCharsAtom and TextBytesAtom records.
+///
+/// When `include_master_slides` is `true`, master slide content (placeholder text
+/// like "Click to edit Master title style") is included instead of being skipped.
 pub fn extract_ppt_text(content: &[u8]) -> Result<PptExtractionResult> {
+    extract_ppt_text_with_options(content, false)
+}
+
+/// Extract text from PPT bytes with configurable master slide inclusion.
+///
+/// When `include_master_slides` is `true`, `RT_MAIN_MASTER` containers are not
+/// skipped, so master slide placeholder text is included in the output.
+pub fn extract_ppt_text_with_options(content: &[u8], include_master_slides: bool) -> Result<PptExtractionResult> {
     let cursor = Cursor::new(content);
     let mut comp = cfb::CompoundFile::open(cursor)
         .map_err(|e| KreuzbergError::parsing(format!("Failed to open PPT as OLE container: {e}")))?;
@@ -55,7 +66,7 @@ pub fn extract_ppt_text(content: &[u8]) -> Result<PptExtractionResult> {
     }
 
     // Extract text from the stream
-    let (texts, slide_count, speaker_notes) = extract_texts_from_records(&ppt_stream)?;
+    let (texts, slide_count, speaker_notes) = extract_texts_from_records(&ppt_stream, include_master_slides)?;
 
     let text = texts
         .into_iter()
@@ -74,7 +85,10 @@ pub fn extract_ppt_text(content: &[u8]) -> Result<PptExtractionResult> {
 /// Parse PowerPoint record headers and extract text atoms.
 ///
 /// Returns `(slide_texts, slide_count, speaker_notes)`.
-fn extract_texts_from_records(data: &[u8]) -> Result<(Vec<String>, usize, Vec<String>)> {
+///
+/// When `include_master_slides` is `true`, master slide containers are not
+/// skipped, allowing their placeholder text to appear in the output.
+fn extract_texts_from_records(data: &[u8], include_master_slides: bool) -> Result<(Vec<String>, usize, Vec<String>)> {
     let mut texts = Vec::new();
     let mut slide_count = 0;
     let mut pos = 0;
@@ -130,7 +144,7 @@ fn extract_texts_from_records(data: &[u8]) -> Result<(Vec<String>, usize, Vec<St
                 pos += 8;
                 continue;
             }
-            RT_MAIN_MASTER => {
+            RT_MAIN_MASTER if !include_master_slides => {
                 // Skip entire master slide container to avoid extracting
                 // placeholder text like "Click to edit Master title style"
                 pos = content_end;

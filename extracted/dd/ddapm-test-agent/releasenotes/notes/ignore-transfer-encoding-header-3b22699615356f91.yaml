@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Ignores the Transfer-Encoding header in proxied vcr requests, forwarding this header can lead to failures in 
-    downstream services. 

@@ -12,8 +12,8 @@ classifiers=[
 dynamic = ["version"]
 dependencies = [
     "requests>=2.4.2,<3",
-    "contrast-agent-lib~=0.12.0",
-    "contrast-fireball==0.1.23"
+    "contrast-agent-lib==0.13.0",
+    "contrast-fireball==0.1.24"
 ]
 description = "Contrast Security's agent for Python web frameworks"
 keywords = ["security development"]
@@ -24,7 +24,7 @@ license-files = [ "LICENSE.txt" ]
 # At the time of writing, this is 5.18.9 (Mar 2023), which is obviously not desirable.
 # Instead, use the machinery in setup.py.
 # See https://discuss.python.org/t/requires-python-upper-limits/12663
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.md"
 
 [project.optional-dependencies]
@@ -153,6 +153,8 @@ timeout = 300 # in seconds => 5m
 xfail_strict = true
 asyncio_mode = "auto"
 addopts = [
+    "--disable-socket",
+    "--allow-hosts=127.0.0.1,::1",
     "--ignore=tests/performance",
     "-m not framework",
 ]

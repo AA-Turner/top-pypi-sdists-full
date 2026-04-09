@@ -38,6 +38,8 @@ logger = logging.getLogger(__name__)
 
 
 class MessageNavigation(AbstractMessage, ABC):
+    """Mixin that builds and serialises navigation protobuf command messages (maps, routes, tasks)."""
+
     def send_order_msg_nav(self, build: MctlNav) -> bytes:
         """Wrap a navigation command in a LubaMsg envelope and serialise it to bytes."""
         luba_msg = LubaMsg(
@@ -277,7 +279,7 @@ class MessageNavigation(AbstractMessage, ABC):
         logger.debug(f"Send command--Read plan time {sub_cmd}")
         return self.send_order_msg_nav(build2)
 
-    def read_job_not_not_disturb(self) -> bytes:
+    def read_job_do_not_disturb(self) -> bytes:
         """Read the do-not-disturb schedule currently configured on the device."""
         build = NavUnableTimeSet(sub_cmd=2)
         build2 = MctlNav(todev_unable_time_set=build)

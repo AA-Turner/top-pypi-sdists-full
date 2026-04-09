@@ -8505,6 +8505,16 @@ class DeleteAgentTraceTableInput(sgqlc.types.Input):
     """UUID of the agent trace table to delete"""
 
 
+class EvalSchemaFieldInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("name", "type")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Field name"""
+
+    type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="type")
+    """Field type (e.g. STRING, NUMBER, BOOLEAN)"""
+
+
 class ExceptionAttributeInput(sgqlc.types.Input):
     """Input type for a single exception attribute update."""
 
@@ -14854,6 +14864,15 @@ class AddDatabricksConnectionMutation(sgqlc.types.Type):
     connection = sgqlc.types.Field("Connection", graphql_name="connection")
 
 
+class AddDomainAssignments(sgqlc.types.Type):
+    """Incrementally add MCON assignments to a domain"""
+
+    __schema__ = schema
+    __field_names__ = ("domain",)
+    domain = sgqlc.types.Field("DomainOutput", graphql_name="domain")
+    """Updated domain"""
+
+
 class AddEtlConnectionMutation(sgqlc.types.Type):
     """Add an etl connection and setup any associated jobs"""
 
@@ -15278,6 +15297,63 @@ class AgentMetadataV2(sgqlc.types.Type):
     """Source type: TRACE_TABLE for user-managed trace tables,
     PLATFORM_AGENT for platform agents
     """
+
+
+class AgentObservabilityBillingAgent(sgqlc.types.Type):
+    """An active agent counted for billing purposes."""
+
+    __schema__ = schema
+    __field_names__ = ("agent_name", "trace_table_mcon", "source_type")
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Name of the agent"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table or platform agent"""
+
+    source_type = sgqlc.types.Field(
+        sgqlc.types.non_null(AgentSourceType), graphql_name="sourceType"
+    )
+    """TRACE_TABLE or PLATFORM_AGENT"""
+
+
+class AgentObservabilityBillingInfo(sgqlc.types.Type):
+    """Billing breakdown for agent observability — active agents,
+    monitors, and tier.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "num_agents",
+        "num_monitors",
+        "size_tier",
+        "total_scale",
+        "daily_credits",
+        "agents",
+    )
+    num_agents = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="numAgents")
+    """Number of active agents"""
+
+    num_monitors = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="numMonitors")
+    """Number of monitors for active agents"""
+
+    size_tier = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sizeTier")
+    """Billing size tier"""
+
+    total_scale = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalScale")
+    """Scale factor for the tier"""
+
+    daily_credits = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="dailyCredits")
+    """Daily credits for the tier"""
+
+    agents = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(AgentObservabilityBillingAgent))
+        ),
+        graphql_name="agents",
+    )
+    """List of active agents counted for billing"""
 
 
 class AgentSegmentsResult(sgqlc.types.Type):
@@ -17849,6 +17925,7 @@ class BillingMonitorUsage(sgqlc.types.Type):
         "volume_rule_monitor_credits",
         "metric_comparison_monitor_credits",
         "troubleshooting_agent_monitor_credits",
+        "agent_observability_monitor_credits",
     )
     date = sgqlc.types.Field(Date, graphql_name="date")
     """The date for this data point"""
@@ -17896,6 +17973,11 @@ class BillingMonitorUsage(sgqlc.types.Type):
         Float, graphql_name="troubleshootingAgentMonitorCredits"
     )
     """Credits used by troubleshooting agent monitors"""
+
+    agent_observability_monitor_credits = sgqlc.types.Field(
+        Float, graphql_name="agentObservabilityMonitorCredits"
+    )
+    """Credits used by agent observability"""
 
 
 class BillingMonitorUsageResults(sgqlc.types.Type):
@@ -24492,6 +24574,26 @@ class DomainTableCounts(sgqlc.types.Type):
 
     total = sgqlc.types.Field(Int, graphql_name="total")
     """Total number of tables"""
+
+
+class DomainsForMconsResponse(sgqlc.types.Type):
+    """Response for getDomainsForMcons query."""
+
+    __schema__ = schema
+    __field_names__ = ("pairs", "unassigned_mcons")
+    pairs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("WarehouseDomain"))),
+        graphql_name="pairs",
+    )
+    """Warehouse × domain pairs with table counts"""
+
+    unassigned_mcons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="unassignedMcons",
+    )
+    """Input MCONs that resolved to a table but are not assigned to any
+    domain
+    """
 
 
 class DownstreamBI(sgqlc.types.Type):
@@ -32115,6 +32217,8 @@ class Mutation(sgqlc.types.Type):
         "send_alert_invite",
         "create_or_update_domain",
         "delete_domain",
+        "add_domain_assignments",
+        "remove_domain_assignments",
         "create_or_update_authorization_group",
         "delete_authorization_group",
         "update_user_authorization_group_membership",
@@ -46811,6 +46915,69 @@ class Mutation(sgqlc.types.Type):
     * `uuid` (`UUID!`): UUID of domain to delete
     """
 
+    add_domain_assignments = sgqlc.types.Field(
+        AddDomainAssignments,
+        graphql_name="addDomainAssignments",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Incrementally add MCON assignments to a domain
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the domain to add assignments
+      to
+    * `mcons` (`[String!]!`): MCONs to assign to the domain (max 250)
+    """
+
+    remove_domain_assignments = sgqlc.types.Field(
+        "RemoveDomainAssignments",
+        graphql_name="removeDomainAssignments",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Incrementally remove MCON assignments from a domain
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`): UUID of the domain to remove
+      assignments from
+    * `mcons` (`[String!]!`): MCONs to remove from the domain (max
+      250)
+    """
+
     create_or_update_authorization_group = sgqlc.types.Field(
         CreateOrUpdateAuthorizationGroup,
         graphql_name="createOrUpdateAuthorizationGroup",
@@ -54548,6 +54715,7 @@ class Query(sgqlc.types.Type):
         "get_open_telemetry_data_stores",
         "get_agent_metadata",
         "get_agent_metadata_v2",
+        "get_agent_observability_billing_info",
         "get_agent_trace_tables",
         "get_platform_agents",
         "get_available_platform_agents",
@@ -54656,6 +54824,7 @@ class Query(sgqlc.types.Type):
         "get_data_product_upstream_counts",
         "get_data_product_audiences",
         "get_top_warehouse_for_data_product_mcons",
+        "get_domains_for_mcons",
         "get_data_product_dry_run_counts",
         "parse_query",
         "ping_data_collector",
@@ -55630,6 +55799,13 @@ class Query(sgqlc.types.Type):
       value
     * `domain_uuid` (`UUID`): Filter results to only include MCONs
       assigned to this domain UUID
+    """
+
+    get_agent_observability_billing_info = sgqlc.types.Field(
+        AgentObservabilityBillingInfo, graphql_name="getAgentObservabilityBillingInfo"
+    )
+    """(experimental) Get agent observability billing breakdown: active
+    agents, monitors targeting those agents, and the resulting tier
     """
 
     get_agent_trace_tables = sgqlc.types.Field(
@@ -58572,6 +58748,32 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `mcons` (`[String]!`): List of MCONs to analyze
+    """
+
+    get_domains_for_mcons = sgqlc.types.Field(
+        DomainsForMconsResponse,
+        graphql_name="getDomainsForMcons",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get (warehouse, domain) pairs with table counts for
+    a set of MCONs. Resolves all domain assignment types (explicit,
+    database/schema inheritance, tags).
+
+    Arguments:
+
+    * `mcons` (`[String!]!`): List of MCONs to look up domain
+      assignments for (max 250)
     """
 
     get_data_product_dry_run_counts = sgqlc.types.Field(
@@ -74549,6 +74751,14 @@ class Query(sgqlc.types.Type):
                     "connection_uuid",
                     sgqlc.types.Arg(UUID, graphql_name="connectionUuid", default=None),
                 ),
+                (
+                    "schema_fields",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(EvalSchemaFieldInput)),
+                        graphql_name="schemaFields",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -74564,9 +74774,12 @@ class Query(sgqlc.types.Type):
       include in the prompt
     * `strictness` (`Strictness!`): Strictness tone for evaluation
     * `mcon` (`String`): MCON of the data source table (required for
-      CUSTOM_FIELDS context_usage)
+      CUSTOM_FIELDS when schemaFields is not provided)
     * `connection_uuid` (`UUID`): Connection UUID for schema lookup
       (used with CUSTOM_FIELDS)
+    * `schema_fields` (`[EvalSchemaFieldInput!]`): Schema fields to
+      use for CUSTOM_FIELDS context usage. When provided, skips
+      internal schema resolution from mcon/connection_uuid.
     """
 
     generate_sql_eval = sgqlc.types.Field(
@@ -75632,6 +75845,15 @@ class RemoveDataSamplingRestrictions(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
     """Whether the operation was successful."""
+
+
+class RemoveDomainAssignments(sgqlc.types.Type):
+    """Incrementally remove MCON assignments from a domain"""
+
+    __schema__ = schema
+    __field_names__ = ("domain",)
+    domain = sgqlc.types.Field(DomainOutput, graphql_name="domain")
+    """Updated domain"""
 
 
 class RemoveFavoriteAsset(sgqlc.types.Type):
@@ -83938,6 +84160,39 @@ class Warehouse(sgqlc.types.Type):
         sgqlc.types.list_of("WarehouseRelation"), graphql_name="warehouseRelations"
     )
     """List of relations this warehouse has to other warehouses"""
+
+
+class WarehouseDomain(sgqlc.types.Type):
+    """A (warehouse, domain) pair with the count of tables in that
+    intersection.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "warehouse_uuid",
+        "warehouse_name",
+        "domain_uuid",
+        "domain_name",
+        "domain_tag",
+        "table_count",
+    )
+    warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
+    """Warehouse UUID"""
+
+    warehouse_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="warehouseName")
+    """Warehouse name"""
+
+    domain_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainUuid")
+    """Domain UUID"""
+
+    domain_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="domainName")
+    """Domain name"""
+
+    domain_tag = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="domainTag")
+    """Domain's unique tag slug (e.g. 'domain-marketing-42')"""
+
+    table_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="tableCount")
+    """Number of input MCONs in this pair"""
 
 
 class WarehouseRelation(sgqlc.types.Type):

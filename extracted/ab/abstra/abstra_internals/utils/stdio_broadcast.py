@@ -20,8 +20,9 @@ class StdioBroadcastPublisher:
     if RabbitMQ is down, messages are silently dropped (logs are already
     persisted to DB via insert_stdio).
 
-    Note: task/execution:ended messages are forwarded via consume_and_forward
-    in producer.py, not through this publisher.
+    Task messages are also published through this exchange so that any
+    execution (including auto-triggered tasklets) can broadcast task state
+    changes to the editor frontend.
     """
 
     _instance: Optional["StdioBroadcastPublisher"] = None
@@ -297,6 +298,9 @@ def start_stdio_broadcast_consumer(
                                 BroadcastController.broadcast(msg=serialize(individual))
 
                         elif msg_type == "stdio":
+                            BroadcastController.broadcast(msg=serialize(message))
+
+                        elif msg_type == "task":
                             BroadcastController.broadcast(msg=serialize(message))
                     except Exception as e:
                         AbstraLogger.error(

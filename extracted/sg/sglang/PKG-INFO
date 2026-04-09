@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sglang
-Version: 0.5.10
+Version: 0.5.10.post1
 Summary: SGLang is a fast serving framework for large language models and vision language models.
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -223,8 +223,8 @@ Requires-Dist: decord2; sys_platform == "linux" and (platform_machine == "aarch6
 Requires-Dist: datasets
 Requires-Dist: einops
 Requires-Dist: fastapi
-Requires-Dist: flashinfer_python==0.6.7.post2
-Requires-Dist: flashinfer_cubin==0.6.7.post2
+Requires-Dist: flashinfer_python==0.6.7.post3
+Requires-Dist: flashinfer_cubin==0.6.7.post3
 Requires-Dist: gguf
 Requires-Dist: interegular
 Requires-Dist: llguidance<0.8.0,>=0.7.11

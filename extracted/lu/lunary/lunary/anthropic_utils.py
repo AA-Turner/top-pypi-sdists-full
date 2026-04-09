@@ -5,12 +5,17 @@ logger = logging.getLogger(__name__)
 
 KWARGS_TO_CAPTURE = [
     "cache_control",
+    "betas",
     "container",
+    "context_management",
     "inference_geo",
     "max_tokens",
+    "mcp_servers",
     "metadata",
     "output_config",
+    "output_format",
     "service_tier",
+    "speed",
     "stop_sequences",
     "stream",
     "system",
@@ -54,6 +59,33 @@ class AnthropicUtils:
                 for key, item in value.items()
                 if item is not None
             }
+
+        if isinstance(value, type):
+            if hasattr(value, "model_json_schema"):
+                try:
+                    return {
+                        "type": "pydantic_model",
+                        "class_name": value.__name__,
+                        "schema": AnthropicUtils.serialize_value(
+                            value.model_json_schema()
+                        ),
+                    }
+                except Exception:
+                    logger.exception(
+                        "Error serializing Anthropic value via model_json_schema()"
+                    )
+
+            if hasattr(value, "schema"):
+                try:
+                    return {
+                        "type": "pydantic_model",
+                        "class_name": value.__name__,
+                        "schema": AnthropicUtils.serialize_value(value.schema()),
+                    }
+                except Exception:
+                    logger.exception("Error serializing Anthropic value via schema()")
+
+            return value.__name__
 
         if hasattr(value, "model_dump"):
             try:
@@ -186,6 +218,12 @@ class AnthropicUtils:
         stop_sequence = AnthropicUtils.get_property(message, "stop_sequence")
         if stop_sequence is not None:
             parsed_message["stop_sequence"] = stop_sequence
+
+        parsed_output = AnthropicUtils.get_property(message, "parsed_output")
+        if parsed_output is not None:
+            parsed_message["parsed_output"] = AnthropicUtils.serialize_value(
+                parsed_output
+            )
 
         return parsed_message
 

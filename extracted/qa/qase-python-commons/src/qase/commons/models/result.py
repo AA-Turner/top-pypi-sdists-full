@@ -86,9 +86,29 @@ class Result(BaseModel):
         self.relations: Type[Relation] = None
         self.muted: bool = False
         self.message: Optional[str] = None
+        self.tags: List[str] = []
 
     def add_message(self, message: str) -> None:
         self.message = message
+
+    def add_tag(self, tag: str) -> None:
+        if tag and tag not in self.tags:
+            self.tags.append(tag)
+
+    def add_tags(self, tags: List[str]) -> None:
+        for tag in tags:
+            self.add_tag(tag)
+        self._sync_tags_to_fields()
+
+    def _sync_tags_to_fields(self) -> None:
+        if self.tags:
+            existing_str = self.fields.get("tags", "")
+            existing = [t.strip() for t in existing_str.split(",") if t.strip()] if existing_str else []
+            all_tags = list(dict.fromkeys(existing + self.tags))
+            self.fields["tags"] = ",".join(all_tags)
+
+    def get_tags(self) -> List[str]:
+        return self.tags
 
     def add_field(self, field: Type[Field]) -> None:
         self.fields[field.name] = field.value

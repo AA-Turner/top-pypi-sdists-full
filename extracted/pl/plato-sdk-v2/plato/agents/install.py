@@ -59,7 +59,7 @@ def build_editable_install_commands(editable_paths: list[str]) -> list[str]:
     """
     sdk_paths = [p for p in editable_paths if "sdk" in p]
     other_paths = [p for p in editable_paths if "sdk" not in p]
-    base = f"uv pip install --python {VENV_PYTHON} --no-deps --no-build-isolation"
+    base = f"UV_NO_SOURCES=1 uv pip install --python {VENV_PYTHON} --no-deps --no-build-isolation"
     cmds = []
     if sdk_paths:
         editables = " ".join(f"-e {p}" for p in sdk_paths)

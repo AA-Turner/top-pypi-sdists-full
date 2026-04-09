@@ -225,6 +225,25 @@ def write_json(fp, data, indent=2):
     with open(fp, "w") as buf:
         return json.dump(data, buf, indent=indent)
 
+def env_prepend(key, value, sep):
+    orig = os.environ.get(key, "")
+    if orig:
+        orig = sep + orig
+    os.environ[key] = value + orig
+
+def env_append(key, value, sep):
+    orig = os.environ.get(key, "")
+    if orig:
+        orig += sep
+    os.environ[key] = orig + value
+
+def set_envs(**kwargs):
+    for key, value in kwargs.items():
+        os.environ[key] = value
+
+def query_envs(**kwargs):
+    return {k: os.environ.get(k, d) for k, d in kwargs.items()}
+
 
 def libname_for_system(system, name="pdfium", prefix=None):
     # Map system to pdfium shared library name
@@ -243,7 +262,7 @@ def libname_for_system(system, name="pdfium", prefix=None):
             return pattern.format(name)
         # NOTE alternatively, we could do this only for BSD/POSIX
         # as a downstream fallback, we could also list the dir in question and pick the file that contains the libname
-        log(f"Unhandled system {sys.platform!r}" + " - assuming 'lib{}.so' pattern. Set $LIBNAME_PATTERN if this is not right.")
+        log(f"Unhandled system {Host._raw_system!r} ({sys.platform!r})" + " - assuming 'lib{}.so' pattern. Set $LIBNAME_PATTERN if this is not right.")
         return f"lib{name}.so"
 
 
@@ -693,14 +712,14 @@ def run_ctypesgen(
     args = ["-l", "pdfium"]
     if rt_paths:
         args += ["--rt-libpaths", *rt_paths]
-    if univ_paths:
-        args += ["--univ-libpaths", *univ_paths]
-    if (rt_paths or univ_paths) and not search_sys_despite_libpaths:
-        args += ["--no-system-libsearch"]
     if ct_paths:
         args += ["--ct-libpaths", *ct_paths]
-    else:
+    if univ_paths:
+        args += ["--univ-libpaths", *univ_paths]
+    if not (ct_paths or univ_paths):
         args += ["--no-load-library"]
+    if (rt_paths or univ_paths) and not search_sys_despite_libpaths:
+        args += ["--no-system-libsearch"]
     
     # style
     args += ["--no-macro-guards"]
@@ -873,6 +892,7 @@ def git_apply_patch(patch, cwd, git_args=()):
 
 def git_clone_rev(url, rev, target_dir, depth=1):
     # https://stackoverflow.com/questions/31278902/how-to-shallow-clone-a-specific-commit-with-depth-1
+    # NOTE Once we can require git >= 2.49.0, `git clone --depth <n> --revision <sha>` will do. (The author currently uses git 2.42.0.)
     mkdir(target_dir)
     depth_param = ["--depth", str(depth)] if depth else []
     run_cmd(["git", "-c", "advice.defaultBranchName=false", "init"], cwd=target_dir)

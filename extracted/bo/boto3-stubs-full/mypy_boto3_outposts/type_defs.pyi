@@ -45,6 +45,7 @@ from .literals import (
     PowerDrawKvaType,
     PowerFeedDropType,
     PowerPhaseType,
+    PricingResultType,
     ShipmentCarrierType,
     SubscriptionStatusType,
     SubscriptionTypeType,
@@ -56,9 +57,9 @@ from .literals import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "AddressTypeDef",
@@ -78,6 +79,8 @@ __all__ = (
     "CreateOrderOutputTypeDef",
     "CreateOutpostInputTypeDef",
     "CreateOutpostOutputTypeDef",
+    "CreateRenewalInputTypeDef",
+    "CreateRenewalOutputTypeDef",
     "CreateSiteInputTypeDef",
     "CreateSiteOutputTypeDef",
     "DeleteOutpostInputTypeDef",
@@ -102,6 +105,8 @@ __all__ = (
     "GetOutpostSupportedInstanceTypesInputPaginateTypeDef",
     "GetOutpostSupportedInstanceTypesInputTypeDef",
     "GetOutpostSupportedInstanceTypesOutputTypeDef",
+    "GetRenewalPricingInputTypeDef",
+    "GetRenewalPricingOutputTypeDef",
     "GetSiteAddressInputTypeDef",
     "GetSiteAddressOutputTypeDef",
     "GetSiteInputTypeDef",
@@ -144,6 +149,7 @@ __all__ = (
     "OrderTypeDef",
     "OutpostTypeDef",
     "PaginatorConfigTypeDef",
+    "PricingOptionTypeDef",
     "RackPhysicalPropertiesTypeDef",
     "ResponseMetadataTypeDef",
     "ShipmentInformationTypeDef",
@@ -154,6 +160,7 @@ __all__ = (
     "StartConnectionResponseTypeDef",
     "StartOutpostDecommissionInputTypeDef",
     "StartOutpostDecommissionOutputTypeDef",
+    "SubscriptionPricingDetailsTypeDef",
     "SubscriptionTypeDef",
     "TagResourceRequestTypeDef",
     "UntagResourceRequestTypeDef",
@@ -271,6 +278,12 @@ class OutpostTypeDef(TypedDict):
     SiteArn: NotRequired[str]
     SupportedHardwareType: NotRequired[SupportedHardwareTypeType]
 
+class CreateRenewalInputTypeDef(TypedDict):
+    PaymentOption: PaymentOptionType
+    PaymentTerm: PaymentTermType
+    OutpostIdentifier: str
+    ClientToken: NotRequired[str]
+
 class RackPhysicalPropertiesTypeDef(TypedDict):
     PowerDrawKva: NotRequired[PowerDrawKvaType]
     PowerPhase: NotRequired[PowerPhaseType]
@@ -348,6 +361,9 @@ class GetOutpostSupportedInstanceTypesInputTypeDef(TypedDict):
     AssetId: NotRequired[str]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+class GetRenewalPricingInputTypeDef(TypedDict):
+    OutpostIdentifier: str
 
 class GetSiteAddressInputTypeDef(TypedDict):
     SiteId: str
@@ -436,6 +452,12 @@ class ListSitesInputTypeDef(TypedDict):
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
 
+class SubscriptionPricingDetailsTypeDef(TypedDict):
+    PaymentOption: NotRequired[PaymentOptionType]
+    PaymentTerm: NotRequired[PaymentTermType]
+    UpfrontPrice: NotRequired[float]
+    MonthlyRecurringPrice: NotRequired[float]
+
 class StartConnectionRequestTypeDef(TypedDict):
     AssetId: str
     ClientPublicKey: str
@@ -504,6 +526,14 @@ class CreateOrderInputTypeDef(TypedDict):
     PaymentOption: PaymentOptionType
     LineItems: NotRequired[Sequence[LineItemRequestTypeDef]]
     PaymentTerm: NotRequired[PaymentTermType]
+
+class CreateRenewalOutputTypeDef(TypedDict):
+    PaymentOption: PaymentOptionType
+    PaymentTerm: PaymentTermType
+    OutpostId: str
+    UpfrontPrice: float
+    MonthlyRecurringPrice: float
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetConnectionResponseTypeDef(TypedDict):
     ConnectionId: str
@@ -685,6 +715,8 @@ class ListSitesInputPaginateTypeDef(TypedDict):
 class GetOutpostBillingInformationOutputTypeDef(TypedDict):
     Subscriptions: list[SubscriptionTypeDef]
     ContractEndDate: str
+    PaymentTerm: PaymentTermType
+    PaymentOption: PaymentOptionType
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -716,6 +748,10 @@ class ListOrdersOutputTypeDef(TypedDict):
     Orders: list[OrderSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class PricingOptionTypeDef(TypedDict):
+    PricingType: NotRequired[Literal["SUBSCRIPTION"]]
+    SubscriptionPricingDetails: NotRequired[SubscriptionPricingDetailsTypeDef]
 
 class AssetInfoTypeDef(TypedDict):
     AssetId: NotRequired[str]
@@ -773,6 +809,11 @@ class OrderTypeDef(TypedDict):
     OrderFulfilledDate: NotRequired[datetime]
     PaymentTerm: NotRequired[PaymentTermType]
     OrderType: NotRequired[OrderTypeType]
+
+class GetRenewalPricingOutputTypeDef(TypedDict):
+    PricingResult: PricingResultType
+    PricingOptions: list[PricingOptionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAssetsOutputTypeDef(TypedDict):
     Assets: list[AssetInfoTypeDef]

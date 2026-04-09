@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: migrate-to-uv
-Version: 0.11.1
+Version: 0.12.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -23,10 +23,10 @@ Author-email: Mathieu Kniewallner <mathieu.kniewallner@gmail.com>
 License-Expression: MIT
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Changelog, https://github.com/mkniewallner/migrate-to-uv/blob/main/CHANGELOG.md
-Project-URL: Documentation, https://mkniewallner.github.io/migrate-to-uv/
+Project-URL: Changelog, https://github.com/osprey-oss/migrate-to-uv/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://osprey-oss.github.io/migrate-to-uv/
 Project-URL: Funding, https://github.com/sponsors/mkniewallner
-Project-URL: Repository, https://github.com/mkniewallner/migrate-to-uv
+Project-URL: Repository, https://github.com/osprey-oss/migrate-to-uv
 
 # migrate-to-uv
 

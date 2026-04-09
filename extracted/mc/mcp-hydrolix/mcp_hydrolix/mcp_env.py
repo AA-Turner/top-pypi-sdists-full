@@ -50,11 +50,17 @@ class HydrolixConfig:
         HYDROLIX_MCP_BIND_PORT: Port to bind the MCP server to when using HTTP or SSE transport (default: 8000)
         HYDROLIX_QUERIES_POOL_SIZE 100
         HYDROLIX_MCP_REQUEST_TIMEOUT 120
-        HYDROLIX_MCP_WORKERS 3
+        HYDROLIX_MCP_WORKERS 1
         HYDROLIX_MCP_WORKER_CONNECTIONS 200
         HYDROLIX_MCP_MAX_REQUESTS 10000
         HYDROLIX_MCP_MAX_REQUESTS_JITTER 1000
         HYDROLIX_MCP_MAX_KEEPALIVE 10
+        HYDROLIX_MAX_RESULT_CELLS: Maximum number of cells (rows × columns) to return in a
+            query result before truncating (default: 50000)
+        HYDROLIX_MAX_RESULT_CELLS_LIMIT: Hard upper bound on max_cells that callers may request.
+            0 means no limit is enforced (default: 0). Set this in multi-tenant HTTP/SSE
+            deployments to prevent a single session from materialising very large result sets.
+        HYDROLIX_MAX_RAW_TIMERANGE: Max timerange in seconds for non-summary queries (default: 21600 = 6 hours)
     """
 
     def __init__(self) -> None:
@@ -98,9 +104,29 @@ class HydrolixConfig:
         Defaults to 8088.
         Can be overridden by HYDROLIX_PORT environment variable.
         """
-        if "HYDROLIX_PORT" in os.environ:
-            return int(os.environ["HYDROLIX_PORT"])
-        return 8088
+        return int(os.getenv("HYDROLIX_PORT", "8088"))
+
+    @property
+    def api_host(self) -> str:
+        """Get the Hydrolix REST API hostname.
+
+        Defaults to HYDROLIX_HOST.
+        Override with HYDROLIX_API_HOST when the MCP server runs inside a Hydrolix cluster,
+        where the version service is reachable at the internal hostname 'version'.
+        """
+        return os.getenv("HYDROLIX_API_HOST") or self.host
+
+    @property
+    def api_port(self) -> int:
+        """Get the Hydrolix REST API port.
+
+        Defaults to 443 for secure connections, 80 otherwise.
+        Override with HYDROLIX_API_PORT when the MCP server runs inside a Hydrolix cluster,
+        where the version service is reachable on port 23925.
+        """
+        if raw := os.getenv("HYDROLIX_API_PORT"):
+            return int(raw)
+        return 443 if self.secure else 80
 
     @property
     def database(self) -> Optional[str]:
@@ -141,19 +167,39 @@ class HydrolixConfig:
 
     @property
     def query_pool_size(self) -> int:
-        """Get the send/receive timeout in seconds.
+        """Get the query executor thread pool size.
 
-        Default: 300 (Hydrolix default)
+        Default: 100
         """
         return int(os.getenv("HYDROLIX_QUERIES_POOL_SIZE", 100))
 
     @property
     def query_timeout_sec(self) -> int:
-        """Get the send/receive timeout in seconds.
+        """Get the per-query execution timeout in seconds.
 
-        Default: 300 (Hydrolix default)
+        Default: 30
         """
         return int(os.getenv("HYDROLIX_QUERY_TIMEOUT_SECS", 30))
+
+    @property
+    def max_result_cells(self) -> int:
+        """Get the default cell budget (rows × columns) for query result truncation.
+
+        Configured via HYDROLIX_MAX_RESULT_CELLS (default: 50000).
+        """
+        return int(os.getenv("HYDROLIX_MAX_RESULT_CELLS", "50000"))
+
+    @property
+    def max_result_cells_limit(self) -> int:
+        """Get the hard upper bound on the max_cells value callers may request.
+
+        When > 0, any per-call max_cells value above this limit is capped to this
+        value, preventing callers from requesting unbounded result sets.
+
+        Configured via HYDROLIX_MAX_RESULT_CELLS_LIMIT (default: 0, no cap enforced).
+        Set to a positive integer to enforce a cap in multi-tenant HTTP/SSE deployments.
+        """
+        return int(os.getenv("HYDROLIX_MAX_RESULT_CELLS_LIMIT", "0"))
 
     @property
     def proxy_path(self) -> Optional[str]:
@@ -194,7 +240,7 @@ class HydrolixConfig:
 
     @property
     def mcp_timeout(self) -> int:
-        """Get the request timeout secunds.
+        """Get the request timeout seconds.
 
         Only used when transport is "http" or "sse".
         Default: 120
@@ -215,7 +261,7 @@ class HydrolixConfig:
         """Get the max number of concurrent requests per worker.
 
         Only used when transport is "http" or "sse".
-        Default: 200
+        Default: 100
         """
         return int(os.getenv("HYDROLIX_MCP_WORKER_CONNECTIONS", 100))
 
@@ -224,7 +270,7 @@ class HydrolixConfig:
         """Get the random parameter to randomize time process is reloaded after max_requests.
 
         Only used when transport is "http" or "sse".
-        Default: 10000
+        Default: 1000
         """
         return int(os.getenv("HYDROLIX_MCP_MAX_REQUESTS_JITTER", 1000))
 
@@ -233,9 +279,17 @@ class HydrolixConfig:
         """Get the max number of requests handled by worker before it is restarted.
 
         Only used when transport is "http" or "sse".
-        Default: 1000
+        Default: 10000
         """
         return int(os.getenv("HYDROLIX_MCP_MAX_REQUESTS", 10000))
+
+    @property
+    def max_raw_timerange(self) -> int:
+        """Get the max timerange in seconds for non-summary queries.
+
+        Default: 21600 (6 hours)
+        """
+        return int(os.getenv("HYDROLIX_MAX_RAW_TIMERANGE", "21600"))
 
     @property
     def mcp_keepalive(self) -> int:
@@ -245,6 +299,14 @@ class HydrolixConfig:
         Default: 10
         """
         return int(os.getenv("HYDROLIX_MCP_MAX_KEEPALIVE", 10))
+
+    @property
+    def metrics_enabled(self) -> bool:
+        """Get whether Prometheus metrics are enabled.
+
+        Default: False
+        """
+        return os.getenv("HYDROLIX_METRICS_ENABLED", "false").lower() == "true"
 
     def get_client_config(self, request_credential: Optional[HydrolixCredential]) -> dict:
         """
@@ -270,6 +332,14 @@ class HydrolixConfig:
             "send_receive_timeout": self.send_receive_timeout,
             "executor_threads": self.query_pool_size,
             "client_name": "mcp_hydrolix",
+            # clickhouse-connect's default tz_mode ("naive_utc") is broken
+            # for zoneless DateTime columns: it strips tzinfo when the server
+            # is UTC, and silently falls back to the *client's* local timezone
+            # when it can't detect the server's. "aware" forces every
+            # datetime to carry explicit tzinfo (column tz if set, else the
+            # server's), eliminating the ambiguity and matching the behavior of
+            # the `clickhouse client` CLI
+            "tz_mode": "aware",
         }
 
         # Add optional database if set
@@ -304,6 +374,32 @@ class HydrolixConfig:
 
         if missing_vars:
             raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
+        # Validate HYDROLIX_MAX_RESULT_CELLS: must be a positive integer if set.
+        raw_cells = os.getenv("HYDROLIX_MAX_RESULT_CELLS")
+        if raw_cells is not None:
+            try:
+                val = int(raw_cells)
+                if val <= 0:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                raise ValueError(
+                    f"Invalid HYDROLIX_MAX_RESULT_CELLS={raw_cells!r}: "
+                    "must be a positive integer (e.g. 50000)."
+                )
+
+        # Validate HYDROLIX_MAX_RESULT_CELLS_LIMIT: must be a non-negative integer if set.
+        raw_limit = os.getenv("HYDROLIX_MAX_RESULT_CELLS_LIMIT")
+        if raw_limit is not None:
+            try:
+                val = int(raw_limit)
+                if val < 0:
+                    raise ValueError()
+            except (ValueError, TypeError):
+                raise ValueError(
+                    f"Invalid HYDROLIX_MAX_RESULT_CELLS_LIMIT={raw_limit!r}: "
+                    "must be a non-negative integer (0 means no cap)."
+                )
 
 
 # Global instance placeholder for the singleton pattern

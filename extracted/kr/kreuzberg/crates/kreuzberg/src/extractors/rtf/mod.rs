@@ -298,7 +298,7 @@ impl Plugin for RtfExtractor {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl DocumentExtractor for RtfExtractor {
     #[cfg_attr(feature = "otel", tracing::instrument(
-        skip(self, content, _config),
+        skip(self, content, config),
         fields(
             extractor.name = self.name(),
             content.size_bytes = content.len(),
@@ -308,7 +308,7 @@ impl DocumentExtractor for RtfExtractor {
         &self,
         content: &[u8],
         mime_type: &str,
-        _config: &ExtractionConfig,
+        config: &ExtractionConfig,
     ) -> Result<InternalDocument> {
         tracing::debug!(format = "rtf", size_bytes = content.len(), "extraction starting");
         let rtf_content = String::from_utf8_lossy(content);
@@ -343,6 +343,19 @@ impl DocumentExtractor for RtfExtractor {
             .and_then(|v| v.as_str().map(|s| s.to_string()));
 
         let mut doc = Self::build_internal_document(&rtf_content, plain);
+
+        // Filter headers/footers based on content_filter config.
+        // When content_filter is None, keep current behavior (headers/footers included).
+        // When content_filter is Some(...), respect include_headers/include_footers flags.
+        if let Some(ref filter) = config.content_filter {
+            use crate::types::document_structure::ContentLayer;
+            doc.elements.retain(|elem| match elem.layer {
+                ContentLayer::Header => filter.include_headers,
+                ContentLayer::Footer => filter.include_footers,
+                _ => true,
+            });
+        }
+
         doc.mime_type = Cow::Owned(mime_type.to_string());
         doc.metadata = Metadata {
             title,

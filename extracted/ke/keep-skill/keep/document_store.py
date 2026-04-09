@@ -23,13 +23,20 @@ from typing import Any, Optional
 from .const import SQLITE_BUSY_TIMEOUT_MS
 from .recovery import is_malformed_db_error
 from .tracing import get_tracer
-from .types import normalize_tag_map, repair_surrogate_text, tag_values, utc_now
+from .types import (
+    normalize_id,
+    normalize_tag_map,
+    parse_ref,
+    repair_surrogate_text,
+    tag_values,
+    utc_now,
+)
 
 logger = logging.getLogger(__name__)
 
 
 # Schema version for migrations
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 
 @dataclass
@@ -56,7 +63,6 @@ class PartInfo:
     part_num: int           # 1-indexed
     summary: str
     tags: dict[str, Any]
-    content: str            # extracted section text
     created_at: str
 
 
@@ -97,6 +103,7 @@ class DocumentStore:
         self._lock = threading.RLock()
         self._fts_available = False
         self._stopwords: Optional[frozenset[str]] = None
+        self.migrated_parts_for_reindex: list[dict[str, Any]] = []
         try:
             self._init_db()
         except sqlite3.DatabaseError as e:
@@ -245,7 +252,7 @@ class DocumentStore:
             self._execute("""
                 CREATE VIRTUAL TABLE IF NOT EXISTS parts_fts
                 USING fts5(
-                    summary, content,
+                    summary,
                     content='document_parts',
                     content_rowid='rowid',
                     tokenize='porter unicode61'
@@ -254,24 +261,24 @@ class DocumentStore:
             self._execute("""
                 CREATE TRIGGER IF NOT EXISTS parts_fts_ai
                 AFTER INSERT ON document_parts BEGIN
-                    INSERT INTO parts_fts(rowid, summary, content)
-                    VALUES (new.rowid, new.summary, new.content);
+                    INSERT INTO parts_fts(rowid, summary)
+                    VALUES (new.rowid, new.summary);
                 END
             """)
             self._execute("""
                 CREATE TRIGGER IF NOT EXISTS parts_fts_ad
                 AFTER DELETE ON document_parts BEGIN
-                    INSERT INTO parts_fts(parts_fts, rowid, summary, content)
-                    VALUES('delete', old.rowid, old.summary, old.content);
+                    INSERT INTO parts_fts(parts_fts, rowid, summary)
+                    VALUES('delete', old.rowid, old.summary);
                 END
             """)
             self._execute("""
                 CREATE TRIGGER IF NOT EXISTS parts_fts_au
-                AFTER UPDATE OF summary, content ON document_parts BEGIN
-                    INSERT INTO parts_fts(parts_fts, rowid, summary, content)
-                    VALUES('delete', old.rowid, old.summary, old.content);
-                    INSERT INTO parts_fts(rowid, summary, content)
-                    VALUES (new.rowid, new.summary, new.content);
+                AFTER UPDATE OF summary ON document_parts BEGIN
+                    INSERT INTO parts_fts(parts_fts, rowid, summary)
+                    VALUES('delete', old.rowid, old.summary);
+                    INSERT INTO parts_fts(rowid, summary)
+                    VALUES (new.rowid, new.summary);
                 END
             """)
             self._execute("""
@@ -330,6 +337,7 @@ class DocumentStore:
         - Version 6 → 7: FTS5 index + triggers (documents)
         - Version 7 → 8: FTS5 indexes + triggers (parts, versions)
         - Version 10 → 11: edge primary keys include target_id (multivalue)
+        - Version 13 → 14: Collapse part summary/content into summary-only storage
         """
         current_version = self._execute(
             "PRAGMA user_version"
@@ -451,7 +459,6 @@ class DocumentStore:
                         part_num INTEGER NOT NULL,
                         summary TEXT NOT NULL,
                         tags_json TEXT NOT NULL DEFAULT '{}',
-                        content TEXT NOT NULL DEFAULT '',
                         created_at TEXT NOT NULL,
                         PRIMARY KEY (id, collection, part_num)
                     )
@@ -527,13 +534,13 @@ class DocumentStore:
                     logger.info("FTS5 not available, full-text search disabled")
 
             if current_version < 8:
-                # FTS5 indexes for parts (summary + content) and versions
+                # FTS5 indexes for parts and versions
                 try:
                     # --- Parts FTS ---
                     self._execute("""
                         CREATE VIRTUAL TABLE IF NOT EXISTS parts_fts
                         USING fts5(
-                            summary, content,
+                            summary,
                             content='document_parts',
                             content_rowid='rowid',
                             tokenize='porter unicode61'
@@ -542,24 +549,24 @@ class DocumentStore:
                     self._execute("""
                         CREATE TRIGGER IF NOT EXISTS parts_fts_ai
                         AFTER INSERT ON document_parts BEGIN
-                            INSERT INTO parts_fts(rowid, summary, content)
-                            VALUES (new.rowid, new.summary, new.content);
+                            INSERT INTO parts_fts(rowid, summary)
+                            VALUES (new.rowid, new.summary);
                         END
                     """)
                     self._execute("""
                         CREATE TRIGGER IF NOT EXISTS parts_fts_ad
                         AFTER DELETE ON document_parts BEGIN
-                            INSERT INTO parts_fts(parts_fts, rowid, summary, content)
-                            VALUES('delete', old.rowid, old.summary, old.content);
+                            INSERT INTO parts_fts(parts_fts, rowid, summary)
+                            VALUES('delete', old.rowid, old.summary);
                         END
                     """)
                     self._execute("""
                         CREATE TRIGGER IF NOT EXISTS parts_fts_au
-                        AFTER UPDATE OF summary, content ON document_parts BEGIN
-                            INSERT INTO parts_fts(parts_fts, rowid, summary, content)
-                            VALUES('delete', old.rowid, old.summary, old.content);
-                            INSERT INTO parts_fts(rowid, summary, content)
-                            VALUES (new.rowid, new.summary, new.content);
+                        AFTER UPDATE OF summary ON document_parts BEGIN
+                            INSERT INTO parts_fts(parts_fts, rowid, summary)
+                            VALUES('delete', old.rowid, old.summary);
+                            INSERT INTO parts_fts(rowid, summary)
+                            VALUES (new.rowid, new.summary);
                         END
                     """)
                     self._execute(
@@ -823,6 +830,77 @@ class DocumentStore:
                                             'old_target_id', old.target_id));
                     END
                 """)
+
+            if current_version < 14:
+                columns = {
+                    row[1]
+                    for row in self._execute(
+                        "PRAGMA table_info(document_parts)"
+                    ).fetchall()
+                }
+                if "content" in columns:
+                    changed_rows = self._execute("""
+                        SELECT id, collection, part_num, summary, tags_json,
+                               CASE
+                                   WHEN COALESCE(content, '') != '' THEN content
+                                   ELSE summary
+                               END AS migrated_summary
+                        FROM document_parts
+                        WHERE CASE
+                                  WHEN COALESCE(content, '') != '' THEN content
+                                  ELSE summary
+                              END != summary
+                    """).fetchall()
+                    self.migrated_parts_for_reindex = [
+                        {
+                            "id": row["id"],
+                            "collection": row["collection"],
+                            "part_num": row["part_num"],
+                            "summary": row["migrated_summary"],
+                            "tags": json.loads(row["tags_json"]),
+                        }
+                        for row in changed_rows
+                    ]
+
+                    self._execute("DROP TRIGGER IF EXISTS parts_fts_ai")
+                    self._execute("DROP TRIGGER IF EXISTS parts_fts_ad")
+                    self._execute("DROP TRIGGER IF EXISTS parts_fts_au")
+                    self._execute("DROP TABLE IF EXISTS parts_fts")
+
+                    self._execute("""
+                        CREATE TABLE document_parts_new (
+                            id TEXT NOT NULL,
+                            collection TEXT NOT NULL,
+                            part_num INTEGER NOT NULL,
+                            summary TEXT NOT NULL,
+                            tags_json TEXT NOT NULL DEFAULT '{}',
+                            created_at TEXT NOT NULL,
+                            PRIMARY KEY (id, collection, part_num)
+                        )
+                    """)
+                    self._execute("""
+                        INSERT INTO document_parts_new
+                            (id, collection, part_num, summary, tags_json, created_at)
+                        SELECT
+                            id,
+                            collection,
+                            part_num,
+                            CASE
+                                WHEN COALESCE(content, '') != '' THEN content
+                                ELSE summary
+                            END,
+                            tags_json,
+                            created_at
+                        FROM document_parts
+                    """)
+                    self._execute("DROP TABLE document_parts")
+                    self._execute(
+                        "ALTER TABLE document_parts_new RENAME TO document_parts"
+                    )
+                    self._execute("""
+                        CREATE INDEX IF NOT EXISTS idx_parts_doc
+                        ON document_parts(id, collection, part_num)
+                    """)
 
             self._execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             self._conn.commit()
@@ -1163,6 +1241,19 @@ class DocumentStore:
 
         return mapping
 
+    def _version_edge_target_id(self, value: Any) -> str | None:
+        """Resolve one version-edge tag value to its canonical target ID."""
+        raw = str(value).strip()
+        if not raw:
+            return None
+        target_id = parse_ref(raw)[0]
+        if not target_id or target_id.startswith("."):
+            return None
+        try:
+            return normalize_id(target_id)
+        except ValueError:
+            return None
+
     def _materialize_version_edges_for_version_unlocked(
         self,
         *,
@@ -1191,8 +1282,8 @@ class DocumentStore:
             if not inverse:
                 continue
             for value in tag_values(tags, key):
-                target_id = str(value).strip()
-                if not target_id or target_id.startswith("."):
+                target_id = self._version_edge_target_id(value)
+                if not target_id:
                     continue
                 self._execute(
                     """
@@ -1223,6 +1314,9 @@ class DocumentStore:
             """,
             (collection, source_id),
         ).fetchall()
+        # This used to be a pure-SQL INSERT...SELECT path, but version-edge
+        # targets can now be labeled refs. We have to parse_ref() each value in
+        # Python before storing the canonical target_id.
         for row in rows:
             tags = json.loads(row["tags_json"]) if row["tags_json"] else {}
             for key in tags:
@@ -1232,8 +1326,8 @@ class DocumentStore:
                 if not inverse:
                     continue
                 for value in tag_values(tags, key):
-                    target_id = str(value).strip()
-                    if not target_id or target_id.startswith("."):
+                    target_id = self._version_edge_target_id(value)
+                    if not target_id:
                         continue
                     self._execute(
                         """
@@ -1911,6 +2005,31 @@ class DocumentStore:
             content_hash=row["content_hash"],
         )
 
+    def get_version_by_number(
+        self,
+        collection: str,
+        id: str,
+        version: int,
+    ) -> Optional[VersionInfo]:
+        """Get a specific archived version by version number."""
+        cursor = self._execute("""
+            SELECT version, summary, tags_json, content_hash, created_at
+            FROM document_versions
+            WHERE id = ? AND collection = ? AND version = ?
+        """, (id, collection, version))
+
+        row = cursor.fetchone()
+        if row is None:
+            return None
+
+        return VersionInfo(
+            version=row["version"],
+            summary=row["summary"],
+            tags=json.loads(row["tags_json"]),
+            created_at=row["created_at"],
+            content_hash=row["content_hash"],
+        )
+
     def list_versions(
         self,
         collection: str,
@@ -1948,6 +2067,39 @@ class DocumentStore:
             ))
 
         return versions
+
+    def list_versions_many(
+        self,
+        collection: str,
+        ids: list[str],
+    ) -> dict[str, list[VersionInfo]]:
+        """List all archived versions for multiple documents.
+
+        Returns versions grouped by document ID, newest archived first within
+        each document.
+        """
+        if not ids:
+            return {}
+
+        placeholders = ",".join("?" * len(ids))
+        cursor = self._execute(f"""
+            SELECT id, version, summary, tags_json, content_hash, created_at
+            FROM document_versions
+            WHERE collection = ? AND id IN ({placeholders})
+            ORDER BY id, version DESC
+        """, (collection, *ids))
+
+        versions_by_id: dict[str, list[VersionInfo]] = {}
+        for row in cursor:
+            versions_by_id.setdefault(row["id"], []).append(VersionInfo(
+                version=row["version"],
+                summary=row["summary"],
+                tags=json.loads(row["tags_json"]),
+                created_at=row["created_at"],
+                content_hash=row["content_hash"],
+            ))
+
+        return versions_by_id
 
     def list_versions_around(
         self,
@@ -2506,7 +2658,7 @@ class DocumentStore:
     ) -> list[tuple[str, str, float]]:
         """Full-text search using FTS5 indexes (documents + parts).
 
-        Searches both document summaries and part summaries/content.
+        Searches document summaries and part summaries.
         Part results are returned with ``id@p{N}`` IDs so the caller's
         part-to-parent uplift logic can merge them.
 
@@ -2567,7 +2719,7 @@ class DocumentStore:
             doc_params.append(limit)
             doc_rows = self._execute(doc_sql, doc_params).fetchall()
 
-            # --- Search parts (summary + content) ---
+            # --- Search parts (summary only) ---
             part_sql = """
                 SELECT p.id || '@p' || p.part_num, p.summary, f.rank
                 FROM parts_fts f
@@ -2927,12 +3079,12 @@ class DocumentStore:
                 for part in parts:
                     self._execute("""
                         INSERT INTO document_parts
-                        (id, collection, part_num, summary, tags_json, content, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        (id, collection, part_num, summary, tags_json, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
                     """, (
                         id, collection, part.part_num, part.summary,
                         json.dumps(normalize_tag_map(part.tags), ensure_ascii=False),
-                        part.content, part.created_at,
+                        part.created_at,
                     ))
 
                 self._conn.commit()
@@ -2950,8 +3102,6 @@ class DocumentStore:
     ) -> None:
         """Insert or replace a single part without affecting other parts.
 
-        Used for adding @P{0} overview after bulk parts are already stored.
-
         Args:
             collection: Collection name
             id: Document identifier
@@ -2960,14 +3110,24 @@ class DocumentStore:
         with self._lock:
             self._execute("""
                 INSERT OR REPLACE INTO document_parts
-                (id, collection, part_num, summary, tags_json, content, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                (id, collection, part_num, summary, tags_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
             """, (
                 id, collection, part.part_num, part.summary,
                 json.dumps(normalize_tag_map(part.tags), ensure_ascii=False),
-                part.content, part.created_at,
+                part.created_at,
             ))
             self._conn.commit()
+
+    def list_part_doc_ids(self, collection: str, part_num: int) -> list[str]:
+        """List document IDs that have a part with the given part number."""
+        cursor = self._execute("""
+            SELECT id
+            FROM document_parts
+            WHERE collection = ? AND part_num = ?
+            ORDER BY id
+        """, (collection, part_num))
+        return [row["id"] for row in cursor]
 
     def get_part(
         self,
@@ -2986,7 +3146,7 @@ class DocumentStore:
             PartInfo if found, None otherwise
         """
         cursor = self._execute("""
-            SELECT part_num, summary, tags_json, content, created_at
+            SELECT part_num, summary, tags_json, created_at
             FROM document_parts
             WHERE id = ? AND collection = ? AND part_num = ?
         """, (id, collection, part_num))
@@ -2999,7 +3159,6 @@ class DocumentStore:
             part_num=row["part_num"],
             summary=row["summary"],
             tags=json.loads(row["tags_json"]),
-            content=row["content"],
             created_at=row["created_at"],
         )
 
@@ -3018,7 +3177,7 @@ class DocumentStore:
             List of PartInfo, ordered by part_num
         """
         cursor = self._execute("""
-            SELECT part_num, summary, tags_json, content, created_at
+            SELECT part_num, summary, tags_json, created_at
             FROM document_parts
             WHERE id = ? AND collection = ?
             ORDER BY part_num
@@ -3029,11 +3188,38 @@ class DocumentStore:
                 part_num=row["part_num"],
                 summary=row["summary"],
                 tags=json.loads(row["tags_json"]),
-                content=row["content"],
                 created_at=row["created_at"],
             )
             for row in cursor
         ]
+
+    def list_parts_many(
+        self,
+        collection: str,
+        ids: list[str],
+    ) -> dict[str, list[PartInfo]]:
+        """List all parts for multiple documents, ordered by part number."""
+        if not ids:
+            return {}
+
+        placeholders = ",".join("?" * len(ids))
+        cursor = self._execute(f"""
+            SELECT id, part_num, summary, tags_json, created_at
+            FROM document_parts
+            WHERE collection = ? AND id IN ({placeholders})
+            ORDER BY id, part_num
+        """, (collection, *ids))
+
+        parts_by_id: dict[str, list[PartInfo]] = {}
+        for row in cursor:
+            parts_by_id.setdefault(row["id"], []).append(PartInfo(
+                part_num=row["part_num"],
+                summary=row["summary"],
+                tags=json.loads(row["tags_json"]),
+                created_at=row["created_at"],
+            ))
+
+        return parts_by_id
 
     def part_count(self, collection: str, id: str) -> int:
         """Count parts for a document."""
@@ -3067,7 +3253,17 @@ class DocumentStore:
                 WHERE id = ? AND collection = ?
             """, (id, collection))
             self._conn.commit()
-        return cursor.rowcount
+            return cursor.rowcount
+
+    def delete_part(self, collection: str, id: str, part_num: int) -> int:
+        """Delete a single part row."""
+        with self._lock:
+            cursor = self._execute("""
+                DELETE FROM document_parts
+                WHERE id = ? AND collection = ? AND part_num = ?
+            """, (id, collection, part_num))
+            self._conn.commit()
+            return cursor.rowcount
 
     def update_part_tags(
         self,
@@ -3366,7 +3562,7 @@ class DocumentStore:
             versions (list of version dicts), parts (list of part dicts).
 
         Version dicts: version, summary, tags, content_hash, created_at.
-        Part dicts: part_num, summary, tags, content, created_at.
+        Part dicts: part_num, summary, tags, created_at.
 
         Args:
             collection: Target collection name
@@ -3426,13 +3622,12 @@ class DocumentStore:
                         )
                         self._execute("""
                             INSERT OR REPLACE INTO document_parts
-                            (id, collection, part_num, summary, tags_json,
-                             content, created_at)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            (id, collection, part_num, summary, tags_json, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?)
                         """, (
                             doc["id"], collection, part["part_num"],
                             part.get("summary", ""), part_tags_json,
-                            part.get("content", ""), part["created_at"],
+                            part["created_at"],
                         ))
                         part_count += 1
 
@@ -3607,6 +3802,17 @@ class DocumentStore:
         self._conn.commit()
         return cur.rowcount
 
+    def rebuild_version_edges_for_source(self, collection: str, source_id: str) -> None:
+        """Rebuild all materialized archived-version edges for one source."""
+        with self._lock:
+            self._execute("BEGIN IMMEDIATE")
+            try:
+                self._rebuild_version_edges_for_source_unlocked(collection, source_id)
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                raise
+
     def delete_version_edges_for_target(self, collection: str, target_id: str) -> int:
         """Delete all materialized version edges pointing at *target_id*."""
         cur = self._execute(
@@ -3647,36 +3853,40 @@ class DocumentStore:
                     """,
                     (collection, predicate),
                 )
-                cur = self._execute(
+                rows = self._execute(
                     """
-                    INSERT OR REPLACE INTO version_edges
-                        (collection, source_id, version, predicate, target_id, inverse, created)
-                    SELECT
-                        v.collection,
-                        v.id,
-                        v.version,
-                        ?,
-                        CAST(vv.value AS TEXT),
-                        ?,
-                        v.created_at
-                    FROM document_versions v
-                    JOIN json_each(v.tags_json) j
-                      ON j.key = ?
-                    JOIN json_each(
-                        CASE
-                            WHEN j.type = 'array' THEN j.value
-                            ELSE json_array(j.value)
-                        END
-                    ) vv
-                    WHERE v.collection = ?
-                      AND vv.value IS NOT NULL
-                      AND TRIM(CAST(vv.value AS TEXT)) != ''
-                      AND SUBSTR(CAST(vv.value AS TEXT), 1, 1) != '.'
+                    SELECT id, version, tags_json, created_at
+                    FROM document_versions
+                    WHERE collection = ?
                     """,
-                    (predicate, inverse, predicate, collection),
-                )
+                    (collection,),
+                ).fetchall()
+                inserted = 0
+                for row in rows:
+                    tags = json.loads(row["tags_json"]) if row["tags_json"] else {}
+                    for value in tag_values(tags, predicate):
+                        target_id = self._version_edge_target_id(value)
+                        if not target_id:
+                            continue
+                        self._execute(
+                            """
+                            INSERT OR REPLACE INTO version_edges
+                                (collection, source_id, version, predicate, target_id, inverse, created)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                collection,
+                                row["id"],
+                                row["version"],
+                                predicate,
+                                target_id,
+                                inverse,
+                                row["created_at"],
+                            ),
+                        )
+                        inserted += 1
                 self._conn.commit()
-                return cur.rowcount
+                return inserted
             except Exception:
                 self._conn.rollback()
                 raise

@@ -15,6 +15,8 @@ readme = "README.md"
 
 [package.metadata.cargo-machete]
 ignored = [
+    "liter-llm",
+    "minijinja",
     "opentelemetry",
     "opentelemetry_sdk",
     "tracing-opentelemetry",
@@ -64,6 +66,8 @@ html = ["dep:html-to-markdown-rs"]
 xml = ["dep:quick-xml", "dep:roxmltree"]
 archives = ["dep:zip", "dep:tar", "dep:sevenz-rust2", "dep:flate2"]
 mdx = []
+
+liter-llm = ["dep:liter-llm", "dep:minijinja", "tokio-runtime"]
 
 tree-sitter = ["dep:tree-sitter-language-pack"]
 tree-sitter-wasm = ["tree-sitter"]
@@ -206,6 +210,7 @@ full = [
     "mcp",
     "otel",
     "tree-sitter",
+    "liter-llm",
 ]
 server = [
     "pdf",
@@ -285,14 +290,16 @@ infer = "0.19.0"
 jotdown = "0.9"
 kamadak-exif = { version = "0.6.1", optional = true }
 
-kreuzberg-tesseract = { path = "../kreuzberg-tesseract", version = "4.7.4", optional = true }
+kreuzberg-tesseract = { path = "../kreuzberg-tesseract", version = "4.8.0", optional = true }
 libc = { workspace = true }
+liter-llm = { workspace = true, optional = true }
 log = { workspace = true }
 lopdf = { version = "0.40.0", optional = true }
 mail-parser = { version = "0.11.2", optional = true }
 memchr = "2.8.0"
 memmap2 = { workspace = true }
 mime_guess = "2.0"
+minijinja = { workspace = true, optional = true }
 ndarray = { version = "0.17", optional = true }
 num_cpus = { workspace = true }
 once_cell = { workspace = true }
@@ -360,7 +367,7 @@ zip = { version = ">=7.0.0", optional = true, default-features = false, features
 [target.'cfg(all(not(target_os = "windows"), not(target_arch = "wasm32")))'.dependencies]
 hf-hub = { version = "0.5", default-features = false, features = ["ureq"], optional = true }
 # PaddleOCR via ONNX Runtime - not available on WASM (vendored from paddle-ocr-rs)
-kreuzberg-paddle-ocr = { path = "../kreuzberg-paddle-ocr", version = "4.7.4", optional = true }
+kreuzberg-paddle-ocr = { path = "../kreuzberg-paddle-ocr", version = "4.8.0", optional = true }
 pprof = { version = "0.15.0", features = ["flamegraph"], optional = true }
 # Force ureq (transitive dep via hf-hub) to use rustls on non-Windows
 ureq = { version = "3.3", default-features = false, features = ["rustls", "json"], optional = true }
@@ -369,7 +376,7 @@ ureq = { version = "3.3", default-features = false, features = ["rustls", "json"
 [target.'cfg(all(target_os = "windows", not(target_arch = "wasm32")))'.dependencies]
 hf-hub = { version = "0.5", default-features = false, features = ["ureq"], optional = true }
 # PaddleOCR via ONNX Runtime - not available on WASM (vendored from paddle-ocr-rs)
-kreuzberg-paddle-ocr = { path = "../kreuzberg-paddle-ocr", version = "4.7.4", optional = true }
+kreuzberg-paddle-ocr = { path = "../kreuzberg-paddle-ocr", version = "4.8.0", optional = true }
 # Force ureq (transitive dep via hf-hub) to use native-tls on Windows
 ureq = { version = "3.3", default-features = false, features = [
     "native-tls",
@@ -395,6 +402,7 @@ tracing = { workspace = true }
 [dev-dependencies]
 anyhow = { workspace = true }
 criterion = { workspace = true }
+dotenvy = "0.15"
 filetime = "0.2"
 image = { workspace = true, default-features = false, features = ["png"] }
 jsonschema = "0.45"

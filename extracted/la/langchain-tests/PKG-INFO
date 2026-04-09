@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-tests
-Version: 1.1.5
+Version: 1.1.6
 Summary: Standard tests for LangChain implementations
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://docs.langchain.com/
@@ -24,7 +24,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
 Requires-Python: <4.0.0,>=3.10.0
 Requires-Dist: httpx<1.0.0,>=0.28.1
-Requires-Dist: langchain-core<2.0.0,>=1.2.7
+Requires-Dist: langchain-core<2.0.0,>=1.2.27
 Requires-Dist: numpy>=1.26.2; python_version < '3.13'
 Requires-Dist: numpy>=2.1.0; python_version >= '3.13'
 Requires-Dist: pytest-asyncio<2.0.0,>=0.20.0

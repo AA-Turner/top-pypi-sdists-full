@@ -70,7 +70,6 @@ class ClusterSchedulingPolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper)
     CLUSTER_SCHEDULING_POLICY_UNSPECIFIED: _ClassVar[ClusterSchedulingPolicy]
     CLUSTER_SCHEDULING_POLICY_EAGER: _ClassVar[ClusterSchedulingPolicy]
     CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_PREEMPTIBLE_ONLY: _ClassVar[ClusterSchedulingPolicy]
-    CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_ALL: _ClassVar[ClusterSchedulingPolicy]
     CLUSTER_SCHEDULING_POLICY_EAGER_MIN_RUNTIMES: _ClassVar[ClusterSchedulingPolicy]
     CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_PREEMPTIBLE_ONLY_MIN_RUNTIMES: _ClassVar[ClusterSchedulingPolicy]
 
@@ -219,7 +218,6 @@ CLUSTER_TYPE_CLOUD: ClusterType
 CLUSTER_SCHEDULING_POLICY_UNSPECIFIED: ClusterSchedulingPolicy
 CLUSTER_SCHEDULING_POLICY_EAGER: ClusterSchedulingPolicy
 CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_PREEMPTIBLE_ONLY: ClusterSchedulingPolicy
-CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_ALL: ClusterSchedulingPolicy
 CLUSTER_SCHEDULING_POLICY_EAGER_MIN_RUNTIMES: ClusterSchedulingPolicy
 CLUSTER_SCHEDULING_POLICY_STRICT_PRIORITY_BACKFILL_PREEMPTIBLE_ONLY_MIN_RUNTIMES: ClusterSchedulingPolicy
 NODE_EVENT_STATUS_UNSPECIFIED: NodeEventStatus
@@ -1418,20 +1416,22 @@ class WorkspaceGroup(_message.Message):
     def __init__(self, id: _Optional[str] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., modified: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., name: _Optional[str] = ..., full_name: _Optional[str] = ..., organization: _Optional[_Union[Reference, _Mapping]] = ..., author: _Optional[_Union[Reference, _Mapping]] = ..., budget: _Optional[_Union[Reference, _Mapping]] = ..., managers: _Optional[_Iterable[_Union[Reference, _Mapping]]] = ...) -> None: ...
 
 class AllocationChangeset(_message.Message):
-    __slots__ = ("id", "cluster", "created", "author", "reason", "allocations")
+    __slots__ = ("id", "cluster", "created", "author", "reason", "created_allocations", "deleted_allocations")
     ID_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_FIELD_NUMBER: _ClassVar[int]
     CREATED_FIELD_NUMBER: _ClassVar[int]
     AUTHOR_FIELD_NUMBER: _ClassVar[int]
     REASON_FIELD_NUMBER: _ClassVar[int]
-    ALLOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_ALLOCATIONS_FIELD_NUMBER: _ClassVar[int]
+    DELETED_ALLOCATIONS_FIELD_NUMBER: _ClassVar[int]
     id: str
     cluster: Reference
     created: _timestamp_pb2.Timestamp
     author: Reference
     reason: str
-    allocations: _containers.RepeatedCompositeFieldContainer[Allocation]
-    def __init__(self, id: _Optional[str] = ..., cluster: _Optional[_Union[Reference, _Mapping]] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., author: _Optional[_Union[Reference, _Mapping]] = ..., reason: _Optional[str] = ..., allocations: _Optional[_Iterable[_Union[Allocation, _Mapping]]] = ...) -> None: ...
+    created_allocations: _containers.RepeatedCompositeFieldContainer[Allocation]
+    deleted_allocations: _containers.RepeatedCompositeFieldContainer[Allocation]
+    def __init__(self, id: _Optional[str] = ..., cluster: _Optional[_Union[Reference, _Mapping]] = ..., created: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., author: _Optional[_Union[Reference, _Mapping]] = ..., reason: _Optional[str] = ..., created_allocations: _Optional[_Iterable[_Union[Allocation, _Mapping]]] = ..., deleted_allocations: _Optional[_Iterable[_Union[Allocation, _Mapping]]] = ...) -> None: ...
 
 class Allocation(_message.Message):
     __slots__ = ("id", "cluster", "created", "deleted", "budget", "workspace_group", "workspace", "runtime_quota_percent", "slot_limit")
@@ -3716,7 +3716,44 @@ class SetChildAllocationsResponse(_message.Message):
     changeset: AllocationChangeset
     def __init__(self, changeset: _Optional[_Union[AllocationChangeset, _Mapping]] = ...) -> None: ...
 
-class ListAllocationsRequest(_message.Message):
+class ListAllocationHistoryRequest(_message.Message):
+    __slots__ = ("next_page_token", "options")
+    class Opts(_message.Message):
+        __slots__ = ("cluster_id", "org_id", "budget_id", "workspace_group_id", "child_budget_id", "child_workspace_group_id", "child_workspace_id", "page_size", "since")
+        CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+        ORG_ID_FIELD_NUMBER: _ClassVar[int]
+        BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+        WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+        CHILD_BUDGET_ID_FIELD_NUMBER: _ClassVar[int]
+        CHILD_WORKSPACE_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+        CHILD_WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
+        PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+        SINCE_FIELD_NUMBER: _ClassVar[int]
+        cluster_id: str
+        org_id: str
+        budget_id: str
+        workspace_group_id: str
+        child_budget_id: str
+        child_workspace_group_id: str
+        child_workspace_id: str
+        page_size: int
+        since: _timestamp_pb2.Timestamp
+        def __init__(self, cluster_id: _Optional[str] = ..., org_id: _Optional[str] = ..., budget_id: _Optional[str] = ..., workspace_group_id: _Optional[str] = ..., child_budget_id: _Optional[str] = ..., child_workspace_group_id: _Optional[str] = ..., child_workspace_id: _Optional[str] = ..., page_size: _Optional[int] = ..., since: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    next_page_token: str
+    options: ListAllocationHistoryRequest.Opts
+    def __init__(self, next_page_token: _Optional[str] = ..., options: _Optional[_Union[ListAllocationHistoryRequest.Opts, _Mapping]] = ...) -> None: ...
+
+class ListAllocationHistoryResponse(_message.Message):
+    __slots__ = ("changesets", "next_page_token")
+    CHANGESETS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    changesets: _containers.RepeatedCompositeFieldContainer[AllocationChangeset]
+    next_page_token: str
+    def __init__(self, changesets: _Optional[_Iterable[_Union[AllocationChangeset, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+
+class GetChildAllocationsRequest(_message.Message):
     __slots__ = ("cluster_id", "org_id", "budget_id", "workspace_group_id")
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     ORG_ID_FIELD_NUMBER: _ClassVar[int]
@@ -3728,13 +3765,21 @@ class ListAllocationsRequest(_message.Message):
     workspace_group_id: str
     def __init__(self, cluster_id: _Optional[str] = ..., org_id: _Optional[str] = ..., budget_id: _Optional[str] = ..., workspace_group_id: _Optional[str] = ...) -> None: ...
 
-class ListAllocationsResponse(_message.Message):
-    __slots__ = ("allocations", "current_changeset_id")
+class GetChildAllocationsResponse(_message.Message):
+    __slots__ = ("allocations", "current_changeset_id", "cluster", "org", "budget", "workspace_group")
     ALLOCATIONS_FIELD_NUMBER: _ClassVar[int]
     CURRENT_CHANGESET_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_FIELD_NUMBER: _ClassVar[int]
+    ORG_FIELD_NUMBER: _ClassVar[int]
+    BUDGET_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_GROUP_FIELD_NUMBER: _ClassVar[int]
     allocations: _containers.RepeatedCompositeFieldContainer[Allocation]
     current_changeset_id: str
-    def __init__(self, allocations: _Optional[_Iterable[_Union[Allocation, _Mapping]]] = ..., current_changeset_id: _Optional[str] = ...) -> None: ...
+    cluster: Reference
+    org: Reference
+    budget: Reference
+    workspace_group: Reference
+    def __init__(self, allocations: _Optional[_Iterable[_Union[Allocation, _Mapping]]] = ..., current_changeset_id: _Optional[str] = ..., cluster: _Optional[_Union[Reference, _Mapping]] = ..., org: _Optional[_Union[Reference, _Mapping]] = ..., budget: _Optional[_Union[Reference, _Mapping]] = ..., workspace_group: _Optional[_Union[Reference, _Mapping]] = ...) -> None: ...
 
 class GetGPUUsageReportRequest(_message.Message):
     __slots__ = ("next_page_token", "options")

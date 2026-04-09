@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lunary
-Version: 1.4.39
+Version: 1.4.41
 Summary: Python SDK for Lunary, the open-source platform where GenAI teams manage and improve LLM chatbots.
 Keywords: Lunary,lunary.ai,Langchain,AI,Analytics,Monitoring,LLM,GenAI,SDK
 Author: lunary
@@ -16,7 +16,7 @@ Requires-Dist: aiohttp (>=3.13.3,<4.0.0)
 Requires-Dist: chevron (>=0.14.0,<0.15.0)
 Requires-Dist: jsonpickle (>=3.0.4,<4.0.0)
 Requires-Dist: langchain-community (>=0.4.1,<0.5.0)
-Requires-Dist: packaging (>=23.2,<24.0)
+Requires-Dist: packaging (>=23.2)
 Requires-Dist: pydantic (>=2.12.5,<3.0.0)
 Requires-Dist: pyhumps (>=3.8.0,<4.0.0)
 Requires-Dist: requests (>=2.31.0,<3.0.0)
@@ -48,6 +48,31 @@ To get started, get a project ID by registering [here](https://lunary.ai).
 
 ```bash
 pip install lunary
+```
+
+## 🤖 Anthropic Integration
+
+```python
+from anthropic import Anthropic
+import lunary
+
+client = Anthropic()
+lunary.monitor(client)
+
+parsed = client.messages.parse(
+    model="claude-sonnet-4-5-20250929",
+    max_tokens=256,
+    messages=[{"role": "user", "content": "Return JSON with an answer field for 2 + 2."}],
+    output_format=dict,
+)
+
+with client.messages.stream(
+    model="claude-sonnet-4-5-20250929",
+    max_tokens=256,
+    messages=[{"role": "user", "content": "Stream one sentence about Lunary."}],
+) as stream:
+    for event in stream:
+        pass
 ```
 
 ## 📖 Documentation

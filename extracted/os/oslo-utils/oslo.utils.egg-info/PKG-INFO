@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oslo.utils
-Version: 10.0.0
+Version: 10.0.1
 Summary: Oslo Utility library
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0

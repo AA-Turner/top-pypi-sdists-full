@@ -20,7 +20,7 @@ from contrast.agent.request import Request
 from contrast.agent.settings import Settings
 from contrast.configuration.agent_config import AgentConfig
 from contrast.configuration.config_option import DEFAULT_VALUE_SRC
-from contrast.reporting import teamserver_messages
+from contrast.reporting import fireball, teamserver_messages
 from contrast.reporting.request_audit import RequestAudit
 from contrast.reporting.teamserver_messages.application_settings import (
     ApplicationSettings,
@@ -194,6 +194,19 @@ class ReportingClient(threading.Thread):
 
         agent_state.set_observe_enabled({"observe.enable": False})
         yield None
+
+    def new_log_record_event(
+        self,
+        event: fireball.LogRecordEvent,
+        trace: fireball.ObservabilityTrace | None,
+    ) -> None:
+        logger.error(
+            "Observe mode requires `api.reporting_client = fireball`, but direct"
+            " reporting is in use. Disabling observe mode."
+        )
+        from contrast.agent import agent_state
+
+        agent_state.set_observe_enabled({"observe.enable": False})
 
     def init_certs(self, settings: Settings) -> None:
         self.verify = True

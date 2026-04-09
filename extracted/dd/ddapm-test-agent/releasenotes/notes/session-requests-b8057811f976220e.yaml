@@ -1,5 +1,0 @@
----
-features:
-  - |
-    Add ``/test/session/requests`` endpoint to return all requests made to the
-    test agent for a given session token.

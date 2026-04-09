@@ -146,8 +146,13 @@ def is_contrast_module(module_name: str) -> bool:
 THIRD_PARTY_SUPPORTED_VERSIONS = {
     "aiohttp": ((3, 7), (3, 10)),
     "aiohttp_session": ((2, 0), (2, 12)),
+    "anthropic": (
+        (0, 4),
+        (0, 87),
+    ),  # anthropic 0.4.0 is the first minor release with Stainless.
     "ariadne": ((0, 26), (0, 26)),
     "beaker": ((1, 0), (1, 13)),
+    "botocore": ((1, 0), (1, 42)),
     "bottle": ((0, 13), (0, 13)),
     "bottle_session": ((1, 0), (1, 0)),
     "cgi": ((2, 6), (2, 6)),
@@ -157,10 +162,11 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
         (2, 2),
         (5, 2),
     ),  # official Django minimum support is 3.2, but the official DRF minimum version uses Django 2.2
+    "dynaconf": ((3, 0), (3, 2)),
     "enumfields": ((2, 0), (2, 1)),  # django-enumfields
     "falcon": ((3, 0), (4, 0)),
     "falcon_multipart": ((0, 1), (0, 2)),
-    "fastapi": ((0, 71), (0, 133)),
+    "fastapi": ((0, 71), (0, 135)),
     "flask": ((1, 1), (3, 1)),
     "genshi": ((0, 7), (0, 7)),
     "graphene": ((3, 4), (3, 4)),
@@ -181,7 +187,7 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
         (100,),
     ),  # this is only used for our own unit tests, so we can make it broad.
     "quart": ((0, 15), (0, 20)),
-    "requests": ((2, 4), (2, 32)),
+    "requests": ((2, 4), (2, 33)),
     "rest_framework": ((3, 12), (3, 16)),  # drf
     "simplejson": ((3, 17), (3, 20)),
     "sqlalchemy": ((1,), (2,)),
@@ -194,6 +200,20 @@ THIRD_PARTY_SUPPORTED_VERSIONS = {
     "werkzeug": ((1, 0), (3, 1)),  # flask==1.1.* resolved to Werkzeug==1.0.1
     "yaml": ((5, 1), (6, 0)),  # PyYAML
 }
+_IMPORTANT_PACKAGES = frozenset(
+    {
+        # aiohttp purposely omitted
+        "bottle",
+        "django",
+        "falcon",
+        "fastapi",
+        "flask",
+        "pyramid",
+        "quart",
+        "rest_framework",
+        "starlette",
+    }
+)
 
 ModulePatcher = Callable[[ModuleType], None]
 
@@ -236,28 +256,45 @@ def is_versioned_patch(patch: object) -> bool:
 
 
 class UnsupportedVersion(Exception):
-    def __init__(self, module: ModuleType, version: str) -> None:
-        package_or_name = getattr(module, "__package__", "") or module.__name__
-        super().__init__(
-            f"{package_or_name}=={version} is outside of Contrast's supported range."
-        )
+    pass
 
 
-def _raise_if_testing(module: ModuleType, version: str) -> None:
+def _warn_unsupported_version(
+    module: ModuleType, version: str, min: tuple, max: tuple
+) -> None:
+    """
+    Log a detailed warning if we detect an unsupported version of an important
+    patched package.
+
+    In a testing environment, raise an exception for any unsupported package
+    versions.
+    """
+    package_or_name = getattr(module, "__package__", "") or module.__name__
+
+    supported_range = (
+        f"{'.'.join(str(v) for v in min)} to {'.'.join(str(v) for v in max)}, inclusive"
+    )
+    message = (
+        f"The application is using {package_or_name}=={version} which is not"
+        f" supported by this version of the Contrast Python agent (supported"
+        f" range: {supported_range}). Consider upgrading to the latest version of"
+        f" the Contrast Python agent. If the latest version still does not support"
+        f" this version of {package_or_name}, please contact Contrast Support."
+    )
     if os.environ.get("CONTRAST_TESTING"):
-        raise UnsupportedVersion(module, version)
+        raise UnsupportedVersion(message)
+    if package_or_name.lower() in _IMPORTANT_PACKAGES:
+        logger.warning(message)
 
 
-def versioned_patch(
-    min: tuple | None = None, max: tuple | None = None
-) -> Callable[[ModulePatcher], ModulePatcher]:
+def versioned_patch(min: tuple, max: tuple) -> Callable[[ModulePatcher], ModulePatcher]:
     """
     Decorator to restrict patch application to a specific version range.
     """
-    if min is None and max is None:
-        raise ValueError("Version range must be specified")
+    assert len(min) > 0
+    assert len(max) > 0
 
-    if min and max and len(min) != len(max):
+    if len(min) != len(max):
         raise ValueError("Version ranges must be the same length")
 
     def _versioned_patch_builder(patcher: ModulePatcher):
@@ -266,13 +303,13 @@ def versioned_patch(
             if dist_meta := get_module_distribution_metadata(module):
                 version = dist_meta["Version"]
                 version_info = tuple(int(v) for v in version.split(".")[:3])
-                if min and version_info[: len(min)] < min:
+                if version_info[: len(min)] < min:
                     # version is too low
-                    _raise_if_testing(module, version)
+                    _warn_unsupported_version(module, version, min, max)
                     return
-                if max and version_info[: len(max)] > max:
+                if version_info[: len(max)] > max:
                     # version is too high
-                    _raise_if_testing(module, version)
+                    _warn_unsupported_version(module, version, min, max)
                     return
                 # version is just right
                 patcher(module)

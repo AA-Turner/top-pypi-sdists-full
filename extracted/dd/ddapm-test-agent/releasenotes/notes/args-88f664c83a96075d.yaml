@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Fix command line arguments not being parsed.

@@ -65,7 +65,7 @@ class Dump:
         """
 
         # Should be a lazy generator of page info
-        self.items = items or range(0)
+        self.items = iter(items) if items is not None else iter(())
         """
         An iterator of :class:`mwxml.Page` and/or
         :class:`mwxml.LogItem` elements
@@ -119,7 +119,11 @@ class Dump:
             # this long comment to warn whoever ends up maintaining this.
             else:
                 raise MalformedXML("Unexpected tag found when processing " +
-                                   "a <mediawiki>: '{0}'".format(tag))
+                                   "a <mediawiki>: '{0}'".format(sub_element.tag))
+
+        if site_info is None:
+            raise MalformedXML("<siteinfo> tag not found when processing " +
+                               "a <mediawiki>")
 
         namespace_map = None
         if site_info.namespaces is not None:

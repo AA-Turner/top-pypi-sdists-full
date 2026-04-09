@@ -980,6 +980,15 @@ async def _send_discovery_dm(
         if not dm_text:
             return "skipped"
 
+        # Strip any trailing email-style signatures ("- Denys", "Best, Denys").
+        # Real people don't sign LinkedIn DMs — and counter-pitch / fallback
+        # discovery don't go through run_reply_pipeline, so the strip wouldn't
+        # otherwise be applied on those paths.
+        from ..ai.reply_pipeline import strip_signature
+        dm_text = strip_signature(dm_text, sender_profile)
+        if not dm_text:
+            return "skipped"
+
         # ── Step 3: Send the reply (with pre-send dedup) ──
         chat_id = await client.find_chat_for_user(account_id, sender_id)
         if chat_id:

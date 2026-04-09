@@ -74,23 +74,23 @@ static inline bool in_scope(PyContextVarT *scope) {
     return get_scope_as_long(scope) > 0;
 }
 
-inline void enter_contrast_scope(void) {
+void enter_contrast_scope(void) {
     return enter_scope(cvar_contrast_scope);
 }
 
-inline void exit_contrast_scope(void) {
+void exit_contrast_scope(void) {
     exit_scope(cvar_contrast_scope);
 }
 
-inline void enter_propagation_scope(void) {
+void enter_propagation_scope(void) {
     return enter_scope(cvar_propagation_scope);
 }
 
-inline void exit_propagation_scope(void) {
+void exit_propagation_scope(void) {
     exit_scope(cvar_propagation_scope);
 }
 
-inline int should_propagate(void) {
+int should_propagate(void) {
     return !(
         in_scope(cvar_contrast_scope) || in_scope(cvar_propagation_scope) ||
         // TODO: PYT-2925 This behavior is not consistent with the pure Python hooks

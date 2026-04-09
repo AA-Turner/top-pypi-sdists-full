@@ -1,4 +1,0 @@
----
-fixes:
-  - |
-    Provider VCR: Fixes normalization support for a different form data boundary format used by the Node.js runtime.

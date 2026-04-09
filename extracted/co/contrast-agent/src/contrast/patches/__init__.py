@@ -5,7 +5,6 @@ from contrast_vendor import structlog as logging
 
 from . import (
     cgi_patch,
-    chaining_patches,
     concurrent_futures_thread_patch,
     cs_io,
     encodings_patch,
@@ -144,13 +143,3 @@ def register_assess_monkeypatches():
 def register_automatic_middleware_monkeypatches():
     for module in MIDDLEWARE_PATCH_MODULES:
         _register_module_patches(module, "middleware")
-
-
-def register_chaining_monkeypatches():
-    """
-    Register patches to support chaining with other runners.
-
-    Currently supports runners that use os.execl and PYTHONOPATH manipulation for
-    sitecustomize loading.
-    """
-    chaining_patches.register_patches()

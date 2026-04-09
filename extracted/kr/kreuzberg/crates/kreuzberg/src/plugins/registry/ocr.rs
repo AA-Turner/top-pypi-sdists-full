@@ -40,12 +40,12 @@ impl OcrBackendRegistry {
     /// indicates a broken build or environment that must be fixed, not silently ignored.
     #[tracing::instrument(name = "ocr_backend_registry_init")]
     pub fn new() -> Self {
-        #[cfg(any(feature = "ocr", feature = "paddle-ocr"))]
+        #[cfg(any(feature = "ocr", feature = "paddle-ocr", feature = "liter-llm"))]
         let mut registry = Self {
             backends: AHashMap::new(),
         };
 
-        #[cfg(not(any(feature = "ocr", feature = "paddle-ocr")))]
+        #[cfg(not(any(feature = "ocr", feature = "paddle-ocr", feature = "liter-llm")))]
         let registry = Self {
             backends: AHashMap::new(),
         };
@@ -86,6 +86,15 @@ impl OcrBackendRegistry {
                 panic!("Failed to register PaddleOCR backend: {e}.");
             });
             tracing::info!("PaddleOCR backend registered successfully");
+        }
+
+        #[cfg(feature = "liter-llm")]
+        {
+            use crate::llm::vlm_ocr::VlmOcrBackend;
+            tracing::info!("Registering VLM OCR backend");
+            registry.register(Arc::new(VlmOcrBackend)).unwrap_or_else(|e| {
+                tracing::warn!("Failed to register VLM OCR backend: {e}");
+            });
         }
 
         registry
@@ -266,27 +275,7 @@ mod tests {
             Ok(ExtractionResult {
                 content: "test".to_string(),
                 mime_type: Cow::Borrowed("text/plain"),
-                metadata: crate::types::Metadata::default(),
-                tables: vec![],
-                detected_languages: None,
-                chunks: None,
-                images: None,
-                djot_content: None,
-                pages: None,
-                elements: None,
-                ocr_elements: None,
-                document: None,
-                #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
-                extracted_keywords: None,
-                quality_score: None,
-                processing_warnings: Vec::new(),
-                annotations: None,
-                children: None,
-                uris: None,
-                #[cfg(feature = "tree-sitter")]
-                code_intelligence: None,
-                formatted_content: None,
-                ocr_internal_document: None,
+                ..Default::default()
             })
         }
 
@@ -406,27 +395,7 @@ mod tests {
             Ok(ExtractionResult {
                 content: "test".to_string(),
                 mime_type: Cow::Borrowed("text/plain"),
-                metadata: crate::types::Metadata::default(),
-                tables: vec![],
-                detected_languages: None,
-                chunks: None,
-                images: None,
-                djot_content: None,
-                pages: None,
-                elements: None,
-                ocr_elements: None,
-                document: None,
-                #[cfg(any(feature = "keywords-yake", feature = "keywords-rake"))]
-                extracted_keywords: None,
-                quality_score: None,
-                processing_warnings: Vec::new(),
-                annotations: None,
-                children: None,
-                uris: None,
-                #[cfg(feature = "tree-sitter")]
-                code_intelligence: None,
-                formatted_content: None,
-                ocr_internal_document: None,
+                ..Default::default()
             })
         }
 

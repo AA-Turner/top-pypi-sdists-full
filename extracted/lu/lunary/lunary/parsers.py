@@ -50,6 +50,8 @@ class PydanticHandler(jsonpickle.handlers.BaseHandler):
 PARAMS_TO_CAPTURE = [
   "cache_control",
   "container",
+  "context_management",
+  "betas",
   "frequency_penalty",
   "function_call", 
   "functions",
@@ -58,12 +60,15 @@ PARAMS_TO_CAPTURE = [
   "logprobs",
   "max_tokens",
   "max_completion_tokens",
+  "mcp_servers",
   "n",
   "output_config",
+  "output_format",
   "presence_penalty", 
   "response_format",
   "seed",
   "service_tier",
+  "speed",
   "stop",
   "stop_sequences",
   "stream",
@@ -88,5 +93,70 @@ PARAMS_TO_CAPTURE = [
 ]
 
 def filter_params(params: Dict[str, Any]) -> Dict[str, Any]:
-    filtered_params = {key: value for key, value in params.items() if key in PARAMS_TO_CAPTURE}
+    filtered_params = {
+        key: serialize_param_value(value)
+        for key, value in params.items()
+        if key in PARAMS_TO_CAPTURE
+    }
     return filtered_params
+
+
+def serialize_param_value(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+
+    if isinstance(value, list):
+        return [serialize_param_value(item) for item in value]
+
+    if isinstance(value, tuple):
+        return [serialize_param_value(item) for item in value]
+
+    if isinstance(value, dict):
+        return {
+            key: serialize_param_value(item)
+            for key, item in value.items()
+            if item is not None
+        }
+
+    if isinstance(value, type):
+        if issubclass(value, BaseModel):
+            return {
+                "type": "pydantic_model",
+                "class_name": value.__name__,
+                "schema": serialize_param_value(value.model_json_schema()),
+            }
+
+        return value.__name__
+
+    if isinstance(value, BaseModel):
+        return serialize_param_value(jsonpickle.loads(value.model_dump_json(), safe=True))
+
+    if hasattr(value, "model_dump"):
+        try:
+            return serialize_param_value(value.model_dump(exclude_none=True))
+        except TypeError:
+            return serialize_param_value(value.model_dump())
+
+    if hasattr(value, "model_dump_json"):
+        try:
+            return serialize_param_value(
+                jsonpickle.loads(value.model_dump_json(exclude_none=True), safe=True)
+            )
+        except TypeError:
+            return serialize_param_value(
+                jsonpickle.loads(value.model_dump_json(), safe=True)
+            )
+
+    if hasattr(value, "dict"):
+        return serialize_param_value(value.dict())
+
+    if hasattr(value, "__dict__"):
+        return serialize_param_value(
+            {
+                key: item
+                for key, item in vars(value).items()
+                if not key.startswith("_") and item is not None
+            }
+        )
+
+    return value
