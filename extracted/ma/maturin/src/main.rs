@@ -3,30 +3,30 @@
 //!
 //! Run with --help for usage information
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use cargo_options::heading;
 #[cfg(feature = "zig")]
 use cargo_zigbuild::Zig;
 #[cfg(feature = "cli-completion")]
 use clap::CommandFactory;
-use clap::{Parser, Subcommand};
-use ignore::overrides::Override;
-use maturin::{
-    BridgeModel, BuildOptions, CargoOptions, DevelopOptions, PathWriter, PythonInterpreter, Target,
-    TargetTriple, VirtualWriter, develop, find_path_deps, unpack_sdist, write_dist_info,
-};
+use clap::Parser;
 #[cfg(feature = "schemars")]
-use maturin::{GenerateJsonSchemaOptions, generate_json_schema};
-#[cfg(feature = "scaffolding")]
-use maturin::{GenerateProjectOptions, ci::GenerateCI, init_project, new_project};
+use maturin::GenerateJsonSchemaOptions;
 #[cfg(feature = "upload")]
-use maturin::{PublishOpt, upload_ui};
+use maturin::PublishOpt;
+use maturin::{BuildOptions, CargoOptions, DevelopOptions, PythonOptions, TargetTriple};
+#[cfg(feature = "scaffolding")]
+use maturin::{GenerateProjectOptions, ci::GenerateCI};
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
-use tracing::{debug, instrument};
+use tracing::instrument;
 use tracing_subscriber::filter::Directive;
 use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
+
+mod commands;
+use crate::commands::StripOption;
+use crate::commands::pep517::Pep517Command;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -64,23 +64,21 @@ enum Command {
         /// Build artifacts in release mode, with optimizations
         #[arg(short = 'r', long, help_heading = heading::COMPILATION_OPTIONS, conflicts_with = "profile")]
         release: bool,
-        /// Strip the library for minimum file size.
-        /// Can be set to `true` or `false`, or used as a flag (`--strip` implies `true`).
-        #[arg(
-            long,
-            env = "MATURIN_STRIP",
-            // `--strip` without a value is treated as `--strip true`
-            default_missing_value = "true",
-            num_args = 0..=1,
-            require_equals = false
-        )]
-        strip: Option<bool>,
+        #[command(flatten)]
+        strip_opt: StripOption,
         /// Build a source distribution and build wheels from it.
         ///
         /// This verifies that the source distribution is complete and can be
         /// used to build the project from source.
         #[arg(long)]
         sdist: bool,
+        /// Build with Profile-Guided Optimization (PGO).
+        ///
+        /// Requires `pgo-command` to be set in `[tool.maturin]` in pyproject.toml.
+        /// This performs a three-phase build: instrumented build, profile training,
+        /// and optimized rebuild.
+        #[arg(long)]
+        pgo: bool,
         #[command(flatten)]
         build: BuildOptions,
     },
@@ -97,6 +95,11 @@ enum Command {
         /// Don't build a source distribution
         #[arg(long = "no-sdist")]
         no_sdist: bool,
+        /// Build with Profile-Guided Optimization (PGO).
+        ///
+        /// Requires `pgo-command` to be set in `[tool.maturin]` in pyproject.toml.
+        #[arg(long)]
+        pgo: bool,
         #[command(flatten)]
         publish: PublishOpt,
         #[command(flatten)]
@@ -160,6 +163,19 @@ enum Command {
         #[arg(value_name = "FILE")]
         files: Vec<PathBuf>,
     },
+    /// Autogenerate type stubs
+    #[command(name = "generate-stubs")]
+    GenerateStub {
+        /// The directory to store the type stubs in
+        #[arg(short, long)]
+        out: PathBuf,
+        /// Python and bindings options
+        #[command(flatten)]
+        python: PythonOptions,
+        /// Cargo build options
+        #[command(flatten)]
+        cargo: CargoOptions,
+    },
     /// Backend for the PEP 517 integration. Not for human consumption
     ///
     /// The commands are meant to be called from the python PEP 517
@@ -180,192 +196,6 @@ enum Command {
     #[cfg(feature = "schemars")]
     #[command(name = "generate-json-schema", hide = true)]
     GenerateJsonSchema(GenerateJsonSchemaOptions),
-}
-
-/// Backend for the PEP 517 integration. Not for human consumption
-///
-/// The commands are meant to be called from the python PEP 517
-#[derive(Debug, Subcommand)]
-#[command(name = "pep517", hide = true)]
-enum Pep517Command {
-    /// The implementation of prepare_metadata_for_build_wheel
-    #[command(name = "write-dist-info")]
-    WriteDistInfo {
-        #[command(flatten)]
-        build_options: BuildOptions,
-        /// The metadata_directory argument to prepare_metadata_for_build_wheel
-        #[arg(long = "metadata-directory")]
-        metadata_directory: PathBuf,
-        /// Strip the library for minimum file size.
-        /// Can be set to `true` or `false`, or used as a flag (`--strip` implies `true`).
-        #[arg(
-            long,
-            env = "MATURIN_STRIP",
-            // `--strip` without a value is treated as `--strip true`
-            default_missing_value = "true",
-            num_args = 0..=1,
-            require_equals = false
-        )]
-        strip: Option<bool>,
-    },
-    #[command(name = "build-wheel")]
-    /// Implementation of build_wheel
-    BuildWheel {
-        #[command(flatten)]
-        build_options: BuildOptions,
-        /// Strip the library for minimum file size.
-        /// Can be set to `true` or `false`, or used as a flag (`--strip` implies `true`).
-        #[arg(
-            long,
-            env = "MATURIN_STRIP",
-            // `--strip` without a value is treated as `--strip true`
-            default_missing_value = "true",
-            num_args = 0..=1,
-            require_equals = false
-        )]
-        strip: Option<bool>,
-        /// Build editable wheels
-        #[arg(long)]
-        editable: bool,
-    },
-    /// The implementation of build_sdist
-    #[command(name = "write-sdist")]
-    WriteSDist {
-        /// The sdist_directory argument to build_sdist
-        #[arg(long = "sdist-directory")]
-        sdist_directory: PathBuf,
-        #[arg(short = 'm', long = "manifest-path", value_name = "PATH")]
-        /// The path to the Cargo.toml
-        manifest_path: Option<PathBuf>,
-    },
-}
-
-fn detect_venv(target: &Target) -> Result<PathBuf> {
-    match (env::var_os("VIRTUAL_ENV"), env::var_os("CONDA_PREFIX")) {
-        (Some(dir), None) => return Ok(PathBuf::from(dir)),
-        (None, Some(dir)) => return Ok(PathBuf::from(dir)),
-        (Some(venv), Some(conda)) if venv == conda => return Ok(PathBuf::from(venv)),
-        (Some(_), Some(_)) => {
-            bail!("Both VIRTUAL_ENV and CONDA_PREFIX are set. Please unset one of them")
-        }
-        (None, None) => {
-            // No env var, try finding .venv
-        }
-    };
-
-    let current_dir = env::current_dir().context("Failed to detect current directory ಠ_ಠ")?;
-    // .venv in the current or any parent directory
-    for dir in current_dir.ancestors() {
-        let dot_venv = dir.join(".venv");
-        if dot_venv.is_dir() {
-            if !dot_venv.join("pyvenv.cfg").is_file() {
-                bail!(
-                    "Expected {} to be a virtual environment, but pyvenv.cfg is missing",
-                    dot_venv.display()
-                );
-            }
-            let python = target.get_venv_python(&dot_venv);
-            if !python.is_file() {
-                bail!(
-                    "Your virtualenv at {} is broken. It contains a pyvenv.cfg but no python at {}",
-                    dot_venv.display(),
-                    python.display()
-                );
-            }
-            debug!("Found a virtualenv named .venv at {}", dot_venv.display());
-            return Ok(dot_venv);
-        }
-    }
-
-    bail!(
-        "Couldn't find a virtualenv or conda environment, but you need one to use this command. \
-        For maturin to find your virtualenv you need to either set VIRTUAL_ENV (through activate), \
-        set CONDA_PREFIX (through conda activate) or have a virtualenv called .venv in the current \
-        or any parent folder. \
-        See https://virtualenv.pypa.io/en/latest/index.html on how to use virtualenv or \
-        use `maturin build` and `pip install <path/to/wheel>` instead."
-    )
-}
-
-/// Dispatches into the native implementations of the PEP 517 functions
-///
-/// The last line of stdout is used as return value from the python part of the implementation
-fn pep517(subcommand: Pep517Command) -> Result<()> {
-    match subcommand {
-        Pep517Command::WriteDistInfo {
-            build_options,
-            metadata_directory,
-            strip,
-        } => {
-            assert_eq!(build_options.interpreter.len(), 1);
-            let mut context = build_options
-                .into_build_context()
-                .strip(strip)
-                .editable(false)
-                .build()?;
-
-            // TBD: does `--profile release` do anything here?
-            if context.cargo_options.profile.is_none() {
-                context.cargo_options.profile = Some("release".to_string());
-            }
-
-            let mut writer =
-                VirtualWriter::new(PathWriter::from_path(metadata_directory), Override::empty());
-            let dist_info_dir = write_dist_info(
-                &mut writer,
-                &context.project_layout.project_root,
-                &context.metadata24,
-                &context.tags_from_bridge()?,
-            )?;
-            writer.finish()?;
-            println!("{}", dist_info_dir.display());
-        }
-        Pep517Command::BuildWheel {
-            build_options,
-            strip,
-            editable,
-        } => {
-            let mut build_context = build_options
-                .into_build_context()
-                .strip(strip)
-                .editable(editable)
-                .build()?;
-            if build_context.cargo_options.profile.is_none() {
-                build_context.cargo_options.profile = Some("release".to_string());
-            }
-            let wheels = build_context.build_wheels()?;
-            assert_eq!(wheels.len(), 1);
-            println!("{}", wheels[0].0.to_str().unwrap());
-        }
-        Pep517Command::WriteSDist {
-            sdist_directory,
-            manifest_path,
-        } => {
-            let build_options = BuildOptions {
-                out: Some(sdist_directory),
-                cargo: CargoOptions {
-                    manifest_path,
-                    // Enable all features to ensure all optional path dependencies are packaged
-                    // into source distribution
-                    all_features: true,
-                    ..Default::default()
-                },
-                ..Default::default()
-            };
-            let build_context = build_options
-                .into_build_context()
-                .strip(Some(false))
-                .editable(false)
-                .sdist_only(true)
-                .build()?;
-            let (path, _) = build_context
-                .build_source_distribution()?
-                .context("Failed to build source distribution, pyproject.toml not found")?;
-            println!("{}", path.file_name().unwrap().to_str().unwrap());
-        }
-    };
-
-    Ok(())
 }
 
 #[instrument]
@@ -410,224 +240,47 @@ fn run() -> Result<()> {
 
     match opt.command {
         Command::Build {
-            mut build,
+            build,
             release,
-            strip,
+            strip_opt,
             sdist,
-        } => {
-            // set profile to release if specified; `--release` and `--profile` are mutually exclusive
-            if release {
-                build.profile = Some("release".to_string());
-            }
-            // Keep tempdir alive for the duration of the build
-            let _sdist_tmp;
-            let sdist_pyproject_path;
-            if sdist {
-                // Build sdist first, then build wheels from the unpacked sdist
-                // to verify that the source distribution is complete.
-                let sdist_path = build_sdist(&build, strip)?;
-                // Preserve the original output directory so that wheels built
-                // from the unpacked sdist still land in the user-visible
-                // `target/wheels` (or the explicit `--out` directory) instead
-                // of the temporary directory's target.
-                if build.out.is_none() {
-                    build.out = sdist_path.parent().map(PathBuf::from);
-                }
-                let (tmp, cargo_toml, pyproject_toml) = unpack_sdist(&sdist_path)?;
-                _sdist_tmp = Some(tmp);
-                eprintln!(
-                    "📦 Building wheels from source distribution at {}",
-                    cargo_toml.parent().unwrap().display()
-                );
-                build.cargo.manifest_path = Some(cargo_toml);
-                sdist_pyproject_path = Some(pyproject_toml);
-            } else {
-                _sdist_tmp = None;
-                sdist_pyproject_path = None;
-            }
-            let build_context = build
-                .into_build_context()
-                .strip(strip)
-                .editable(false)
-                .pyproject_toml_path(sdist_pyproject_path)
-                .build()?;
-            let wheels = build_context.build_wheels()?;
-            assert!(!wheels.is_empty());
-        }
+            pgo,
+        } => commands::build::build(build, release, strip_opt, sdist, pgo)?,
         #[cfg(feature = "upload")]
         Command::Publish {
-            mut build,
-            mut publish,
+            build,
+            publish,
             debug,
             no_strip,
             no_sdist,
-        } => {
-            // set profile to dev if specified; `--debug` and `--profile` are mutually exclusive
-            //
-            // do it here to take precedence over pyproject.toml profile setting
-            if debug {
-                build.profile = Some("dev".to_string());
-            }
-
-            // Keep tempdir alive for the duration of the build
-            let _sdist_tmp;
-            let mut sdist_path = None;
-            let sdist_pyproject_path;
-            if !no_sdist {
-                // Build sdist first, then build wheels from the unpacked sdist
-                let path = build_sdist(&build, Some(!no_strip))?;
-                // Preserve the original output directory so that wheels built
-                // from the unpacked sdist still land in the user-visible
-                // `target/wheels` (or the explicit `--out` directory) instead
-                // of the temporary directory's target.
-                if build.out.is_none() {
-                    build.out = path.parent().map(PathBuf::from);
-                }
-                let (tmp, cargo_toml, pyproject_toml) = unpack_sdist(&path)?;
-                _sdist_tmp = Some(tmp);
-                eprintln!(
-                    "📦 Building wheels from source distribution at {}",
-                    cargo_toml.parent().unwrap().display()
-                );
-                build.cargo.manifest_path = Some(cargo_toml);
-                sdist_pyproject_path = Some(pyproject_toml);
-                sdist_path = Some(path);
-            } else {
-                _sdist_tmp = None;
-                sdist_pyproject_path = None;
-            }
-
-            let mut build_context = build
-                .into_build_context()
-                .strip(Some(!no_strip))
-                .editable(false)
-                .pyproject_toml_path(sdist_pyproject_path)
-                .build()?;
-
-            // ensure profile always set when publishing
-            // (respect pyproject.toml if set)
-            // don't need to check `debug` here, set above to take precedence if set
-            let profile = build_context
-                .cargo_options
-                .profile
-                .get_or_insert_with(|| "release".to_string());
-            if profile == "dev" {
-                eprintln!("⚠️  Warning: You're publishing debug wheels");
-            }
-
-            let mut wheels = build_context.build_wheels()?;
-            if let Some(sdist_path) = sdist_path {
-                wheels.push((sdist_path, "source".to_string()));
-            }
-
-            let items = wheels.into_iter().map(|wheel| wheel.0).collect::<Vec<_>>();
-            publish.non_interactive_on_ci();
-            upload_ui(&items, &publish)?
-        }
-        Command::ListPython { target } => {
-            let found = if target.is_some() {
-                let target = Target::from_target_triple(target.as_ref())?;
-                PythonInterpreter::find_by_target(&target, None, None)
-            } else {
-                let target = Target::from_target_triple(None)?;
-                // We don't know the targeted bindings yet, so we use the most lenient
-                PythonInterpreter::find_all(&target, &BridgeModel::Cffi, None)?
-            };
-            eprintln!("🐍 {} python interpreter found:", found.len());
-            for interpreter in found {
-                eprintln!(" - {interpreter}");
-            }
-        }
-        Command::Develop(develop_options) => {
-            let target = Target::from_target_triple(develop_options.cargo_options.target.as_ref())?;
-            let venv_dir = detect_venv(&target)?;
-            develop(develop_options, &venv_dir)?;
-        }
-        Command::SDist { manifest_path, out } => {
-            // Get cargo metadata to check for path dependencies
-            let cargo_metadata_result = cargo_metadata::MetadataCommand::new()
-                .cargo_path("cargo")
-                .manifest_path(
-                    manifest_path
-                        .as_deref()
-                        .unwrap_or_else(|| std::path::Path::new("Cargo.toml")),
-                )
-                .verbose(true)
-                .exec();
-
-            let has_path_deps = cargo_metadata_result
-                .ok()
-                .and_then(|metadata| find_path_deps(&metadata).ok())
-                .map(|path_deps| !path_deps.is_empty())
-                .unwrap_or(false); // If we can't get metadata, don't force all features
-            let build_options = BuildOptions {
-                out,
-                cargo: CargoOptions {
-                    manifest_path,
-                    // Only enable all features when we have local path dependencies
-                    // to ensure they are packaged into source distribution
-                    all_features: has_path_deps,
-                    ..Default::default()
-                },
-                ..Default::default()
-            };
-            let build_context = build_options
-                .into_build_context()
-                .strip(Some(false))
-                .editable(false)
-                .sdist_only(true)
-                .build()?;
-            build_context
-                .build_source_distribution()?
-                .context("Failed to build source distribution, pyproject.toml not found")?;
-        }
-        Command::Pep517(subcommand) => pep517(subcommand)?,
+            pgo,
+        } => commands::publish::publish(build, publish, debug, no_strip, no_sdist, pgo)?,
+        Command::ListPython { target } => commands::list_python(target)?,
+        Command::Develop(develop_options) => commands::develop::develop_cmd(develop_options)?,
+        Command::SDist { manifest_path, out } => commands::sdist::sdist(manifest_path, out)?,
+        Command::Pep517(subcommand) => commands::pep517::pep517(subcommand)?,
         #[cfg(feature = "scaffolding")]
-        Command::InitProject { path, options } => init_project(path, options)?,
+        Command::InitProject { path, options } => commands::init_project(path, options)?,
         #[cfg(feature = "scaffolding")]
-        Command::NewProject { path, options } => new_project(path, options)?,
+        Command::NewProject { path, options } => commands::new_project(path, options)?,
         #[cfg(feature = "scaffolding")]
-        Command::GenerateCI(generate_ci) => generate_ci.execute()?,
+        Command::GenerateCI(generate_ci) => commands::generate_ci(generate_ci)?,
         #[cfg(feature = "upload")]
-        Command::Upload { mut publish, files } => {
-            if files.is_empty() {
-                eprintln!("⚠️  Warning: No files given, exiting.");
-                return Ok(());
-            }
-            publish.non_interactive_on_ci();
-
-            upload_ui(&files, &publish)?
+        Command::Upload { publish, files } => commands::upload(publish, files)?,
+        Command::GenerateStub { out, python, cargo } => {
+            commands::generate_stubs::generate_stubs(out, python, cargo)?
         }
         #[cfg(feature = "cli-completion")]
         Command::Completions { shell } => {
-            shell.generate(&mut Opt::command(), &mut std::io::stdout());
+            commands::completions(shell, &mut Opt::command());
         }
         #[cfg(feature = "zig")]
-        Command::Zig(subcommand) => {
-            subcommand
-                .execute()
-                .context("Failed to run zig linker wrapper")?;
-        }
+        Command::Zig(subcommand) => commands::zig(subcommand)?,
         #[cfg(feature = "schemars")]
-        Command::GenerateJsonSchema(args) => generate_json_schema(args)?,
+        Command::GenerateJsonSchema(args) => commands::generate_json_schema(args)?,
     }
 
     Ok(())
-}
-
-/// Build a source distribution from the given build options, returning the sdist path.
-fn build_sdist(build: &BuildOptions, strip: Option<bool>) -> Result<PathBuf> {
-    let sdist_context = build
-        .clone()
-        .into_build_context()
-        .strip(strip)
-        .editable(false)
-        .sdist_only(true)
-        .build()?;
-    let (sdist_path, _) = sdist_context
-        .build_source_distribution()?
-        .context("Failed to build source distribution, pyproject.toml not found")?;
-    Ok(sdist_path)
 }
 
 #[cfg(not(debug_assertions))]

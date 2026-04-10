@@ -46,6 +46,7 @@ from snowflake.snowpark_connect.config import (
     emulate_partition_overwrite_for_fdn_tables,
     get_boolean_session_config_param,
     get_cte_optimization_enabled,
+    get_return_dml_metadata_enabled,
     global_config,
     is_dynamic_partition_overwrite_enabled,
     record_table_metadata,
@@ -429,7 +430,45 @@ def _create_table_as_select(logical_plan, mode: str) -> None:
     )
 
 
-def _insert_into_table(logical_plan, session: Session) -> None:
+def _spark_dml_metadata_dataframe(
+    shape: str, inserted: int, updated: int, deleted: int
+) -> pandas.DataFrame:
+    affected = inserted + updated + deleted
+    if shape == "insert":
+        return pandas.DataFrame(
+            [{"num_affected_rows": affected, "num_inserted_rows": inserted}]
+        )
+    if shape == "delete":
+        return pandas.DataFrame([{"num_affected_rows": deleted}])
+    if shape == "update":
+        return pandas.DataFrame([{"num_affected_rows": updated}])
+    if shape == "merge":
+        return pandas.DataFrame(
+            [
+                {
+                    "num_affected_rows": affected,
+                    "num_updated_rows": updated,
+                    "num_deleted_rows": deleted,
+                    "num_inserted_rows": inserted,
+                }
+            ]
+        )
+    return pandas.DataFrame()
+
+
+def _insert_into_table(logical_plan, session: Session) -> int | None:
+    def _inserted_row_count_from_collect(raw_rows: list) -> int:
+        if not raw_rows:
+            return 0
+        row = raw_rows[0]
+        d = row.asDict(recursive=True) if hasattr(row, "asDict") else {}
+        total = 0
+        for k, v in d.items():
+            lk = str(k).lower()
+            if "inserted" in lk:
+                total += int(v) if v is not None else 0
+        return total
+
     df_container = execute_logical_plan(logical_plan.query())
     df = df_container.dataframe
     queries = df.queries["queries"]
@@ -634,10 +673,14 @@ def _insert_into_table(logical_plan, session: Session) -> None:
     if not logical_plan.overwrite():
         queries = df.queries["queries"]
         final_query = queries[0]
-        session.sql(
+        collected = session.sql(
             f"INSERT INTO {name} {cols_str} {final_query}",
         ).collect()
-        return
+        return (
+            _inserted_row_count_from_collect(collected)
+            if get_return_dml_metadata_enabled()
+            else None
+        )
 
     # for FDN, we can optionally support partition overwrites if any partition_columns are given
     is_allowed_fdn_overwrite = (
@@ -721,14 +764,21 @@ def _insert_into_table(logical_plan, session: Session) -> None:
             mode="overwrite",
             overwrite_condition=overwrite_condition,
         )
-        return
+        if get_return_dml_metadata_enabled():
+            return session.table(name).count()
+        return None
 
     # full overwrite
     queries = df.queries["queries"]
     final_query = queries[0]
-    session.sql(
+    collected = session.sql(
         f"INSERT OVERWRITE INTO {name} {cols_str} {final_query}",
     ).collect()
+    return (
+        _inserted_row_count_from_collect(collected)
+        if get_return_dml_metadata_enabled()
+        else None
+    )
 
 
 def _confirm_partition_columns_are_in_spec(
@@ -1475,7 +1525,14 @@ def map_sql_to_pandas_df(
                     )
                     raise exception
             case "InsertIntoStatement":
-                _insert_into_table(logical_plan, session)
+                num_inserted = _insert_into_table(logical_plan, session)
+                if get_return_dml_metadata_enabled():
+                    return (
+                        _spark_dml_metadata_dataframe(
+                            "insert", num_inserted or 0, 0, 0
+                        ),
+                        "",
+                    )
             case "MergeIntoTable":
                 source_df_container = map_relation(
                     map_logical_plan_relation(logical_plan.sourceTable())
@@ -1589,7 +1646,19 @@ def map_sql_to_pandas_df(
                     )
                     raise exception
 
-                target_table.merge(source_df, merge_condition_typed_col.col, clauses)
+                merge_res = target_table.merge(
+                    source_df, merge_condition_typed_col.col, clauses
+                )
+                if get_return_dml_metadata_enabled():
+                    return (
+                        _spark_dml_metadata_dataframe(
+                            "merge",
+                            merge_res.rows_inserted,
+                            merge_res.rows_updated,
+                            merge_res.rows_deleted,
+                        ),
+                        "",
+                    )
             case "DeleteFromTable":
                 df_container = map_relation(
                     map_logical_plan_relation(logical_plan.table())
@@ -1621,16 +1690,69 @@ def map_sql_to_pandas_df(
                     df_container.column_map,
                     ExpressionTyper(df),
                 )
-                table.delete(condition_typed_col.col)
+                del_res = table.delete(condition_typed_col.col)
+                if get_return_dml_metadata_enabled():
+                    return (
+                        _spark_dml_metadata_dataframe(
+                            "delete", 0, 0, del_res.rows_deleted
+                        ),
+                        "",
+                    )
             case "UpdateTable":
-                # Databricks/Delta-specific extension not supported by SAS.
-                # Provide an actionable, clear error.
-                exception = UnsupportedOperationException(
-                    "[UNSUPPORTED_SQL_EXTENSION] The UPDATE TABLE command failed.\n"
-                    + "Reason: This command is a platform-specific SQL extension and is not part of the standard Apache Spark specification that this interface uses."
+                df_container = map_relation(
+                    map_logical_plan_relation(logical_plan.table())
                 )
-                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-                raise exception
+                name = get_relation_identifier_name(logical_plan.table(), True)
+                tbl = session.table(name)
+                table_columns = tbl.columns
+                df = df_container.dataframe
+                spark_names = []
+                for table_col, df_col in zip(
+                    table_columns, df_container.column_map.columns
+                ):
+                    df = df.with_column_renamed(
+                        df_col.snowpark_name,
+                        table_col,
+                    )
+                    spark_names.append(df_col.spark_name)
+                df_container = DataFrameContainer.create_with_column_mapping(
+                    dataframe=df,
+                    spark_column_names=spark_names,
+                    snowpark_column_names=table_columns,
+                )
+                df = df_container.dataframe
+                typer = ExpressionTyper(df)
+                assignments = {}
+                for assignment in as_java_list(logical_plan.assignments()):
+                    _, key_typ_col = map_single_column_expression(
+                        map_logical_plan_expression(assignment.key()),
+                        column_mapping=df_container.column_map,
+                        typer=typer,
+                    )
+                    key_name = key_typ_col.col.get_name()
+                    (_, val_typ_col) = map_single_column_expression(
+                        map_logical_plan_expression(assignment.value()),
+                        column_mapping=df_container.column_map,
+                        typer=typer,
+                    )
+                    assignments[key_name] = val_typ_col.col
+                cond_opt = logical_plan.condition()
+                if cond_opt.isDefined():
+                    (_, condition_typed_col) = map_single_column_expression(
+                        map_logical_plan_expression(cond_opt.get()),
+                        df_container.column_map,
+                        typer,
+                    )
+                    upd_res = tbl.update(assignments, condition_typed_col.col)
+                else:
+                    upd_res = tbl.update(assignments)
+                if get_return_dml_metadata_enabled():
+                    return (
+                        _spark_dml_metadata_dataframe(
+                            "update", 0, upd_res.rows_updated, 0
+                        ),
+                        "",
+                    )
             case "RenameColumn":
                 full_table_identifier = get_relation_identifier_name(
                     logical_plan.table(), True
@@ -1947,7 +2069,16 @@ def map_sql_to_pandas_df(
                 match child_class:
                     case "InsertIntoStatement":
                         with _with_cte_scope(logical_plan.cteRelations()):
-                            _insert_into_table(child, get_or_create_snowpark_session())
+                            num_inserted = _insert_into_table(
+                                child, get_or_create_snowpark_session()
+                            )
+                        if get_return_dml_metadata_enabled():
+                            return (
+                                _spark_dml_metadata_dataframe(
+                                    "insert", num_inserted or 0, 0, 0
+                                ),
+                                "",
+                            )
                     case _:
                         # TODO: SNOW-3007195, we can optimize by skipping execution using finer-grained child_class checks.
                         execute_logical_plan(logical_plan)

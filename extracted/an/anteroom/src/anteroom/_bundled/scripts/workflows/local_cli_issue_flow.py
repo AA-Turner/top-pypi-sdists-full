@@ -693,6 +693,28 @@ def latest_main_ref(root: Path) -> str:
     return "main"
 
 
+def branch_exists(root: Path, branch: str) -> bool:
+    return run(["git", "show-ref", "--verify", f"refs/heads/{branch}"], cwd=root, check=False).returncode == 0
+
+
+def branch_head(root: Path, branch: str) -> str:
+    return run_stdout(["git", "rev-parse", branch], cwd=root)
+
+
+def merge_base(root: Path, left: str, right: str) -> str:
+    return run_stdout(["git", "merge-base", left, right], cwd=root)
+
+
+def reset_worktree_branch(root: Path, worktree: Path, branch: str, base_ref: str) -> None:
+    current_branch = run_stdout(["git", "branch", "--show-current"], cwd=worktree)
+    if current_branch != branch:
+        fail(
+            f"Issue branch {branch} is attached to worktree {worktree}, but that worktree currently has branch "
+            f"{current_branch or '<detached>'} checked out. Repair the worktree manually before rerunning prepare."
+        )
+    run(["git", "reset", "--hard", base_ref], cwd=worktree)
+
+
 def list_worktrees(root: Path) -> list[dict[str, str]]:
     output = run_stdout(["git", "worktree", "list", "--porcelain"], cwd=root)
     entries: list[dict[str, str]] = []
@@ -806,14 +828,53 @@ def ensure_worktree(root: Path, issue_number: int) -> dict[str, Any]:
 
     repo = repo_name()
     branch = issue_branch(issue_number, issue["title"])
-    worktree = issue_worktree(root, repo, issue_number, issue["title"])
+    requested_worktree = issue_worktree(root, repo, issue_number, issue["title"])
+    base_ref = latest_main_ref(root)
+    worktree = requested_worktree
     reused_existing = False
 
     run(["git", "fetch", "origin", "main"], cwd=root, check=False)
+    base_head = branch_head(root, base_ref)
+    existing_worktree = worktree_for_branch(root, branch)
+    if existing_worktree is not None:
+        worktree = existing_worktree
 
-    if run(["git", "show-ref", "--verify", f"refs/heads/{branch}"], cwd=root, check=False).returncode != 0:
-        run(["git", "branch", branch, latest_main_ref(root)], cwd=root)
+    if not branch_exists(root, branch):
+        run(["git", "branch", branch, base_ref], cwd=root)
+    else:
+        branch_tip = branch_head(root, branch)
+        base_ancestor = merge_base(root, branch, base_ref)
+        if branch_tip == base_ancestor and branch_tip != base_head:
+            # Branch is at a prior base_ref (no divergent work) — refresh it
+            # to the current merged default so the worktree is not stale (#1197).
+            if existing_worktree is not None:
+                reset_worktree_branch(root, existing_worktree, branch, base_ref)
+            else:
+                # If there is a stale worktree registration pointing at a
+                # missing directory, `git branch -f` will fail with
+                # "branch used by worktree". Prune first so the refresh
+                # can proceed, then re-check whether a live worktree is
+                # now attached (pruning can resurface a valid entry if
+                # multiple registrations existed).
+                stale_entry = worktree_entry_for_branch(root, branch)
+                if stale_entry is not None:
+                    run(["git", "worktree", "prune"], cwd=root)
+                    recovered_worktree = worktree_for_branch(root, branch)
+                    if recovered_worktree is not None:
+                        existing_worktree = recovered_worktree
+                        worktree = recovered_worktree
+                        reset_worktree_branch(root, recovered_worktree, branch, base_ref)
+                    else:
+                        run(["git", "branch", "-f", branch, base_ref], cwd=root)
+                else:
+                    run(["git", "branch", "-f", branch, base_ref], cwd=root)
+        elif branch_tip != base_head and base_ancestor != base_head:
+            fail(
+                f"Issue branch {branch} has diverged from {base_ref}. Prepare will not rewrite existing issue work; "
+                "resolve the branch manually before rerunning prepare."
+            )
 
+    # Attach or create the worktree for the branch.
     attached_worktree = worktree_for_branch(root, branch)
     if attached_worktree is not None:
         worktree = attached_worktree
@@ -937,6 +998,320 @@ def format_bullets(items: list[str], *, empty: str = "- none") -> str:
     return "\n".join(f"- {item}" for item in items)
 
 
+# ---------------------------------------------------------------------------
+# Real-behavior validation guardrail (#1200)
+#
+# Workflow-control and Git-integration changes cannot be senior-approved on
+# the basis of mocked unit tests alone. When a plan or PR touches any path
+# in SENSITIVE_PATH_PATTERNS below, the review commands force changes_requested
+# unless the author has documented a real-behavior validation step (a real
+# temp git repo, a real subprocess run, or a manual repro script — anything
+# that exercises the external system semantics mocks cannot verify).
+#
+# The author-side prompts tell Claude to emit a `Real validation:` line in
+# its implement/fix summary. cmd_open_pr extracts that line and persists it
+# as a `## Real-behavior validation` section on the PR body so the artifact
+# is operator-visible after merge.
+#
+# To extend the scope of the guardrail, add a new fnmatch glob to
+# SENSITIVE_PATH_PATTERNS. Keep the list narrow — every pattern is a
+# declaration that real-behavior validation is mandatory for changes in
+# that area.
+# ---------------------------------------------------------------------------
+
+SENSITIVE_PATH_PATTERNS: tuple[str, ...] = (
+    "scripts/workflows/*",
+    "src/anteroom/services/workflow_*.py",
+    "src/anteroom/services/mission_scheduler.py",
+    "src/anteroom/services/external_checks.py",
+    "src/anteroom/cli/workflow_cli.py",
+    "src/anteroom/services/git_*.py",
+    "src/anteroom/services/*worktree*.py",
+    "examples/workflows/*.yaml",
+)
+
+
+def sensitive_paths_touched(paths: list[str]) -> list[str]:
+    """Return the subset of *paths* that match any SENSITIVE_PATH_PATTERNS glob.
+
+    Order-preserving and deduplicated. Empty list means no sensitive paths
+    are touched and the real-validation guardrail does not fire.
+    """
+    import fnmatch
+
+    seen: set[str] = set()
+    hits: list[str] = []
+    for path in paths:
+        if path in seen:
+            continue
+        if any(fnmatch.fnmatchcase(path, pattern) for pattern in SENSITIVE_PATH_PATTERNS):
+            seen.add(path)
+            hits.append(path)
+    return hits
+
+
+_PLAN_FILES_HEADING_RE = re.compile(
+    r"^#{2,4}\s*Files to (Create|Modify)\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+_PLAN_BACKTICK_PATH_RE = re.compile(
+    r"`([^`\s]+\.(?:py|yaml|yml|md|json|toml))`",
+)
+
+
+def extract_plan_file_paths(plan_markdown: str) -> list[str]:
+    """Extract file paths declared in the plan's Files to Modify/Create sections.
+
+    Scans the plan markdown for ``## Files to Modify`` / ``## Files to Create``
+    headings (H2-H4, case-insensitive) and extracts all backtick-quoted file
+    paths within each section until the next heading. Paths are validated
+    against the repo-root-relative shape (no absolute paths, no ``..``).
+
+    Returns a deterministic, deduplicated list preserving the order paths
+    appear in the plan.
+    """
+    if not plan_markdown:
+        return []
+
+    # Find section spans: each heading's line plus everything up to the next
+    # heading (or end of document).
+    lines = plan_markdown.splitlines()
+    heading_indices: list[int] = []
+    for idx, line in enumerate(lines):
+        if re.match(r"^#{1,6}\s", line):
+            heading_indices.append(idx)
+    heading_indices.append(len(lines))
+
+    seen: set[str] = set()
+    found: list[str] = []
+    for start, end in zip(heading_indices, heading_indices[1:]):
+        if start >= len(lines):
+            continue
+        heading = lines[start]
+        if not _PLAN_FILES_HEADING_RE.match(heading):
+            continue
+        section = "\n".join(lines[start + 1 : end])
+        for match in _PLAN_BACKTICK_PATH_RE.finditer(section):
+            path = match.group(1)
+            # Reject absolute paths and parent-directory traversal — we only
+            # accept repo-root-relative paths so the fnmatch globs in
+            # SENSITIVE_PATH_PATTERNS match correctly.
+            if path.startswith("/") or ".." in path.split("/"):
+                continue
+            if path in seen:
+                continue
+            seen.add(path)
+            found.append(path)
+    return found
+
+
+_VALIDATION_NOTE_RE = re.compile(
+    r"^Real validation:\s*(.+?)(?:\n{2,}|\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+
+
+def extract_validation_note(summary_text: str) -> str | None:
+    """Extract the ``Real validation:`` line block from a Claude summary.
+
+    Returns the trimmed note text, or None if the summary does not contain
+    a Real validation line. The block continues until a blank line or the
+    end of the summary.
+    """
+    if not summary_text:
+        return None
+    match = _VALIDATION_NOTE_RE.search(summary_text)
+    if not match:
+        return None
+    note = match.group(1).strip()
+    return note or None
+
+
+def pr_changed_file_paths(pr_number: int) -> list[str] | None:
+    """Fetch the list of file paths changed by a PR via ``gh``.
+
+    Returns ``None`` on parse errors or ``gh`` failures — **not** an empty
+    list. This distinction is critical: ``None`` means "could not determine
+    the paths" and the caller MUST treat it as fail-closed (assume
+    sensitive). An empty list ``[]`` means "determined, zero paths touched"
+    (non-sensitive).
+
+    This is the fail-closed contract for the real-validation guardrail
+    (#1200). A transient ``gh`` failure must never silently bypass the
+    guardrail by returning ``[]``.
+    """
+    try:
+        output = run_stdout(["gh", "pr", "view", str(pr_number), "--json", "files", "-q", ".files[].path"])
+    except SystemExit:
+        return None
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
+def git_diff_names(worktree: Path, base_ref: str) -> list[str] | None:
+    """Return ``git diff --name-only base_ref..HEAD`` in the worktree.
+
+    Returns ``None`` on error — **not** an empty list. Same fail-closed
+    contract as ``pr_changed_file_paths``: callers MUST treat ``None`` as
+    "could not determine paths, assume sensitive".
+    """
+    try:
+        output = run_stdout(["git", "diff", "--name-only", f"{base_ref}..HEAD"], cwd=worktree)
+    except SystemExit:
+        return None
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
+_PR_VALIDATION_SECTION_HEADING = "## Real-behavior validation"
+_PR_VALIDATION_SECTION_RE = re.compile(
+    r"\n*## Real-behavior validation\s*\n.*?(?=\n##\s|\Z)",
+    re.DOTALL,
+)
+
+
+def _render_pr_validation_section(sensitive_paths: list[str], note: str) -> str:
+    paths_block = "\n".join(f"- {path}" for path in sensitive_paths) if sensitive_paths else "- (unknown)"
+    return (
+        f"\n\n{_PR_VALIDATION_SECTION_HEADING}\n\n"
+        "Touched sensitive paths:\n"
+        f"{paths_block}\n\n"
+        "Validation step run by the author agent:\n\n"
+        f"{note.rstrip()}\n"
+    )
+
+
+def build_pr_body_with_validation(
+    base_body: str,
+    *,
+    sensitive_paths: list[str],
+    note: str,
+) -> str:
+    """Return *base_body* with a Real-behavior validation section appended
+    or upserted. Idempotent: running this on an already-augmented body
+    replaces the existing section cleanly.
+    """
+    body = base_body or ""
+    stripped = _PR_VALIDATION_SECTION_RE.sub("", body).rstrip()
+    section = _render_pr_validation_section(sensitive_paths, note)
+    return (stripped + section).strip() + "\n"
+
+
+def upsert_pr_validation_section(
+    pr_number: int,
+    *,
+    sensitive_paths: list[str],
+    note: str,
+) -> None:
+    """Fetch the PR body, upsert the Real-behavior validation section,
+    and write it back via ``gh pr edit --body-file -``. Idempotent.
+    """
+    current = run_json(["gh", "pr", "view", str(pr_number), "--json", "body"])
+    base_body = str(current.get("body") or "")
+    new_body = build_pr_body_with_validation(base_body, sensitive_paths=sensitive_paths, note=note)
+    # `gh pr edit` reads the body from a file path; use a temp file so we
+    # don't rely on stdin plumbing through run().
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as tmp:
+        tmp.write(new_body)
+        tmp_path = tmp.name
+    try:
+        run(["gh", "pr", "edit", str(pr_number), "--body-file", tmp_path])
+    finally:
+        try:
+            Path(tmp_path).unlink()
+        except OSError:
+            pass
+
+
+def _real_validation_required_block(sensitive_paths: list[str]) -> str:
+    """Prompt fragment injected into review prompts when the scope is
+    sensitive. Explains the rule, the expected JSON shape, and what
+    qualifies as real-behavior validation."""
+    paths_block = "\n".join(f"- {path}" for path in sensitive_paths)
+    return f"""
+
+<sensitive_scope>
+This change touches workflow-control or Git-integration code:
+{paths_block}
+</sensitive_scope>
+
+Mocked unit tests alone are NOT sufficient evidence for approval in this scope.
+The plan/PR MUST describe at least one real-behavior validation step:
+- a real temp git repo + subprocess run, or
+- a real worktree exercise, or
+- a manual repro script with output pasted into the PR body or fix summary.
+
+If the plan/PR does not explicitly include such a step, you MUST return
+`changes_requested` and set `real_validation_present: false`.
+
+The JSON response MUST also include these fields:
+- `real_validation_required`: true
+- `real_validation_present`: true or false
+- `real_validation_details`: <short description of the real-behavior step, or empty>
+""".rstrip()
+
+
+def _real_validation_author_block(sensitive_paths: list[str]) -> str:
+    """Prompt fragment injected into author prompts (implement/fix) when
+    the scope is sensitive. Tells the agent to run and document a real
+    validation step so the reviewer can approve."""
+    paths_block = "\n".join(f"- {path}" for path in sensitive_paths)
+    return f"""
+
+<sensitive_scope>
+You are touching sensitive workflow-control/Git-integration paths:
+{paths_block}
+</sensitive_scope>
+
+Before returning, run at least one real-behavior validation step for the
+change — a real temp git repo exercise, a real subprocess execution, or a
+manual repro script. Mocked unit tests alone do NOT qualify.
+
+Include the exact command and a short result summary in your return text
+under a `Real validation:` line, for example:
+
+    Real validation: ran `python3 -c "..."` against a fresh temp repo;
+    confirmed stale-branch fast-forward path now fires the prune+reset
+    sequence. Output: `prune+reset OK`.
+
+Without this line the reviewer is contractually required to request
+changes, so please include it even if the validation was brief.
+""".rstrip()
+
+
+def apply_validation_gate(
+    review: dict[str, Any],
+    *,
+    sensitive_paths: list[str],
+    context_label: str,
+) -> tuple[str, str]:
+    """Enforce the real-validation guardrail on a Codex review JSON result.
+
+    Returns a ``(decision, comment_markdown)`` tuple. If the scope is
+    sensitive and the review does not prove real-behavior validation, the
+    decision is forced to ``changes_requested`` and a structured block is
+    appended to the comment explaining the block reason.
+
+    Non-sensitive scopes pass through unchanged.
+    """
+    decision = str(review.get("decision", "")).strip()
+    comment = str(review.get("comment_markdown", "")).strip()
+    if not sensitive_paths:
+        return decision, comment
+
+    present = bool(review.get("real_validation_present", False))
+    if present:
+        return decision, comment
+
+    forced = (
+        "\n\n**Blocked: sensitive scope requires a documented real-behavior "
+        "validation step.** Touched sensitive paths: "
+        + ", ".join(sensitive_paths)
+        + f". Context: {context_label}. See `docs/workflows/local-cli-issue-flow.md` "
+        f"for what qualifies as real-behavior validation."
+    )
+    new_comment = (comment + forced).strip()
+    return "changes_requested", new_comment
+
+
 def assess_existing_work(root: Path, state: dict[str, Any]) -> dict[str, Any]:
     worktree = Path(state["worktree_path"])
     branch = str(state.get("branch", "")).strip()
@@ -1044,7 +1419,14 @@ Required sections:
 """.strip()
 
 
-def build_codex_plan_review_prompt(issue_number: int, *, issue_context: str, plan_markdown: str) -> str:
+def build_codex_plan_review_prompt(
+    issue_number: int,
+    *,
+    issue_context: str,
+    plan_markdown: str,
+    sensitive_paths: list[str] | None = None,
+) -> str:
+    sensitive_block = _real_validation_required_block(sensitive_paths) if sensitive_paths else ""
     return f"""
 Review GitHub issue #{issue_number} as the senior reviewer for this repository.
 
@@ -1059,6 +1441,7 @@ Inspect repository code only if you need to sanity-check a file path or behavior
 named in the plan. Do not wander through unrelated code.
 
 Approve only if the plan is implementation-ready with zero blockers.
+{sensitive_block}
 
 <issue_context>
 {issue_context}
@@ -1072,7 +1455,10 @@ Return JSON only with this shape:
 {{
   "decision": "approve" | "changes_requested",
   "summary": "<one sentence>",
-  "comment_markdown": "<markdown comment to post on the issue>"
+  "comment_markdown": "<markdown comment to post on the issue>",
+  "real_validation_required": true | false,
+  "real_validation_present": true | false,
+  "real_validation_details": "<short description or empty>"
 }}
 """.strip()
 
@@ -1083,9 +1469,11 @@ def build_codex_existing_work_review_prompt(
     issue_context: str,
     plan_markdown: str,
     assessment: dict[str, Any],
+    sensitive_paths: list[str] | None = None,
 ) -> str:
     changed_files = "\n".join(f"- {path}" for path in assessment.get("changed_files") or []) or "- none"
     commit_subjects = "\n".join(f"- {subject}" for subject in assessment.get("commit_subjects") or []) or "- none"
+    sensitive_block = _real_validation_required_block(sensitive_paths) if sensitive_paths else ""
     return f"""
 You are an existing-work validator for GitHub issue #{issue_number}. The issue
 branch already contains committed implementation work.
@@ -1107,6 +1495,7 @@ You MAY:
 - Read VISION.md and CLAUDE.md for policy alignment (read-only, do not enforce
   their full checklist — just check for obvious misalignment)
 - Use git log/diff to understand the branch changes
+{sensitive_block}
 
 <issue_context>
 {issue_context}
@@ -1133,12 +1522,20 @@ Return JSON only with this shape:
 {{
   "decision": "approve" | "changes_requested",
   "summary": "<one sentence>",
-  "comment_markdown": "<markdown comment to post on the issue>"
+  "comment_markdown": "<markdown comment to post on the issue>",
+  "real_validation_required": true | false,
+  "real_validation_present": true | false,
+  "real_validation_details": "<short description or empty>"
 }}
 """.strip()
 
 
-def build_claude_implement_prompt(issue_number: int) -> str:
+def build_claude_implement_prompt(
+    issue_number: int,
+    *,
+    sensitive_paths: list[str] | None = None,
+) -> str:
+    sensitive_block = _real_validation_author_block(sensitive_paths) if sensitive_paths else ""
     return f"""
 Implement GitHub issue #{issue_number} in the prepared worktree from context.
 
@@ -1150,28 +1547,43 @@ Match `/submit-pr` expectations while implementing:
 - keep tests and docs aligned with any user-visible behavior change
 - leave the branch in a state that should pass lint, tests, and other repo checks
 - do not create the PR yourself; the workflow handles sync and PR creation
+{sensitive_block}
 
 Return a short change summary.
 """.strip()
 
 
-def build_codex_pr_review_prompt(pr_number: int) -> str:
+def build_codex_pr_review_prompt(
+    pr_number: int,
+    *,
+    sensitive_paths: list[str] | None = None,
+) -> str:
+    sensitive_block = _real_validation_required_block(sensitive_paths) if sensitive_paths else ""
     return f"""
 Review GitHub PR #{pr_number} as the senior reviewer for this repository.
 
 Use the PR, linked issue, PR review history, VISION.md, CLAUDE.md, and relevant
 code. Approve only if there are zero blockers.
+{sensitive_block}
 
 Return JSON only with this shape:
 {{
   "decision": "approve" | "changes_requested",
   "summary": "<one sentence>",
-  "comment_markdown": "<markdown review body>"
+  "comment_markdown": "<markdown review body>",
+  "real_validation_required": true | false,
+  "real_validation_present": true | false,
+  "real_validation_details": "<short description or empty>"
 }}
 """.strip()
 
 
-def build_claude_pr_fix_prompt(pr_number: int, *, review_context: str = "") -> str:
+def build_claude_pr_fix_prompt(
+    pr_number: int,
+    *,
+    review_context: str = "",
+    sensitive_paths: list[str] | None = None,
+) -> str:
     context_block = ""
     if review_context.strip():
         trimmed = review_context.strip()[-8000:]
@@ -1181,6 +1593,8 @@ def build_claude_pr_fix_prompt(pr_number: int, *, review_context: str = "") -> s
 {trimmed}
 </senior_review_feedback>
 """
+
+    sensitive_block = _real_validation_author_block(sensitive_paths) if sensitive_paths else ""
 
     return f"""
 Address the latest requested changes for the PR tied to GitHub PR #{pr_number}.
@@ -1199,6 +1613,7 @@ Focus on the senior-review feedback below. Keep the fix scoped to
 actual blockers. Before returning, run the smallest targeted validation
 needed to prove the blockers are fixed.
 {context_block}
+{sensitive_block}
 Keep this run in PR-repair scope only:
 - fix only unresolved review blockers or failing-check fallout
 - do not reopen issue planning
@@ -1879,9 +2294,19 @@ def cmd_review_plan(args: argparse.Namespace) -> int:
         return 2
 
     issue_context = strip_issue_plan(issue.get("body") or "")
+    # Per-stage sensitive-path derivation (#1200): the plan's own Files to
+    # Modify / Files to Create sections are the deterministic source at
+    # plan-review time.
+    declared_paths = extract_plan_file_paths(plan_markdown)
+    sensitive_paths = sensitive_paths_touched(declared_paths)
     timeout = plan_review_timeout_seconds()
     codex_result = codex_once(
-        build_codex_plan_review_prompt(args.issue, issue_context=issue_context, plan_markdown=plan_markdown),
+        build_codex_plan_review_prompt(
+            args.issue,
+            issue_context=issue_context,
+            plan_markdown=plan_markdown,
+            sensitive_paths=sensitive_paths,
+        ),
         cwd=worktree,
         timeout_seconds=timeout,
     )
@@ -1925,7 +2350,6 @@ def cmd_review_plan(args: argparse.Namespace) -> int:
 
     decision = str(review.get("decision", "")).strip()
     summary = str(review.get("summary", "")).strip() or "Plan review completed."
-    comment = str(review.get("comment_markdown", "")).strip() or summary
     if decision not in {"approve", "changes_requested"}:
         edit_issue_labels(args.issue, add=["needs-senior-review"], remove=["senior-approved"])
         update_state(
@@ -1938,6 +2362,10 @@ def cmd_review_plan(args: argparse.Namespace) -> int:
         print(f"review_failed: Unexpected plan review decision: {decision!r}")
         return 2
 
+    # Real-behavior validation guardrail override (#1200).
+    decision, comment = apply_validation_gate(review, sensitive_paths=sensitive_paths, context_label="plan review")
+    if not comment.strip():
+        comment = summary
     post_issue_comment(args.issue, comment)
     if decision == "approve":
         edit_issue_labels(args.issue, add=["senior-approved"], remove=["needs-senior-review"])
@@ -1946,7 +2374,13 @@ def cmd_review_plan(args: argparse.Namespace) -> int:
         return 0
 
     edit_issue_labels(args.issue, add=["needs-senior-review"], remove=["senior-approved"])
-    update_state(root, args.issue, last_plan_review_decision="changes_requested", last_plan_review_failure="")
+    failure_reason = "missing_real_validation" if sensitive_paths else ""
+    update_state(
+        root,
+        args.issue,
+        last_plan_review_decision="changes_requested",
+        last_plan_review_failure=failure_reason,
+    )
     print("needs_changes")
     return 1
 
@@ -1972,6 +2406,9 @@ def cmd_review_existing_work(args: argparse.Namespace) -> int:
         print("review_failed: No plan markers found in issue body")
         return 2
 
+    # Per-stage sensitive-path derivation (#1200): at existing-work review
+    # time the authoritative source is the branch's actual changed files.
+    sensitive_paths = sensitive_paths_touched(list(assessment.get("changed_files") or []))
     timeout = plan_review_timeout_seconds()
     codex_result = codex_once(
         build_codex_existing_work_review_prompt(
@@ -1979,6 +2416,7 @@ def cmd_review_existing_work(args: argparse.Namespace) -> int:
             issue_context=strip_issue_plan(issue.get("body") or ""),
             plan_markdown=plan_markdown,
             assessment=assessment,
+            sensitive_paths=sensitive_paths,
         ),
         cwd=worktree,
         timeout_seconds=timeout,
@@ -2024,7 +2462,6 @@ def cmd_review_existing_work(args: argparse.Namespace) -> int:
 
     decision = str(review.get("decision", "")).strip()
     summary = str(review.get("summary", "")).strip() or "Existing branch review completed."
-    comment = str(review.get("comment_markdown", "")).strip() or summary
     if decision not in {"approve", "changes_requested"}:
         edit_issue_labels(args.issue, add=["needs-senior-review"], remove=["senior-approved"])
         update_state(
@@ -2037,6 +2474,12 @@ def cmd_review_existing_work(args: argparse.Namespace) -> int:
         print(f"review_failed: Unexpected existing-work review decision: {decision!r}")
         return 2
 
+    # Real-behavior validation guardrail override (#1200).
+    decision, comment = apply_validation_gate(
+        review, sensitive_paths=sensitive_paths, context_label="existing-work review"
+    )
+    if not comment.strip():
+        comment = summary
     post_issue_comment(args.issue, comment)
     if decision == "approve":
         edit_issue_labels(args.issue, add=["senior-approved"], remove=["needs-senior-review"])
@@ -2045,7 +2488,13 @@ def cmd_review_existing_work(args: argparse.Namespace) -> int:
         return 0
 
     edit_issue_labels(args.issue, add=["needs-senior-review"], remove=["senior-approved"])
-    update_state(root, args.issue, last_plan_review_decision="changes_requested", last_plan_review_failure="")
+    failure_reason = "missing_real_validation" if sensitive_paths else ""
+    update_state(
+        root,
+        args.issue,
+        last_plan_review_decision="changes_requested",
+        last_plan_review_failure=failure_reason,
+    )
     print("needs_changes")
     return 1
 
@@ -2054,8 +2503,27 @@ def cmd_implement(args: argparse.Namespace) -> int:
     root = git_root()
     state = ensure_worktree(root, args.issue)
     worktree = Path(state["worktree_path"])
-    summary = strip_fences(claude_once(build_claude_implement_prompt(args.issue), cwd=worktree))
-    update_state(root, args.issue, implementation_summary=summary)
+    # Pass sensitive-path context to the implementer (#1200) so the agent
+    # knows to produce a `Real validation:` line in its summary.
+    assessment = state.get("existing_work_assessment") or {}
+    existing_changed = list(assessment.get("changed_files") or [])
+    issue = issue_data(args.issue)
+    plan_markdown = extract_issue_plan(issue.get("body") or "")
+    declared_paths = extract_plan_file_paths(plan_markdown)
+    sensitive_paths = sensitive_paths_touched(existing_changed + declared_paths)
+    summary = strip_fences(
+        claude_once(
+            build_claude_implement_prompt(args.issue, sensitive_paths=sensitive_paths),
+            cwd=worktree,
+        )
+    )
+    update_state(
+        root,
+        args.issue,
+        implementation_summary=summary,
+        sensitive_paths=sensitive_paths,
+        real_validation_note=extract_validation_note(summary) or "",
+    )
     print(summary or "implementation_done")
     return 0
 
@@ -2100,25 +2568,82 @@ def cmd_open_pr(args: argparse.Namespace) -> int:
         print(existing)
         return 0
 
+    # Real-behavior validation guardrail (#1200): if the branch diff touches
+    # any sensitive path, the author agent was instructed to emit a
+    # `Real validation:` line in its implementation summary. Extract that
+    # note and inject it into the PR body as a `## Real-behavior validation`
+    # section so the artifact is operator-visible after merge. If the scope
+    # is sensitive but the note is missing, fail closed so the workflow
+    # re-runs cmd_fix_pr against the gap.
+    worktree = Path(state["worktree_path"])
+    base_ref = latest_main_ref(root)
+    diff_paths = git_diff_names(worktree, base_ref)
+    # Fail-closed (#1200): if git_diff_names returns None (transient error),
+    # treat the scope as sensitive rather than silently bypassing the guardrail.
+    if diff_paths is None:
+        print("git diff --name-only failed; assuming sensitive scope for guardrail", file=sys.stderr)
+        sensitive_paths = list(SENSITIVE_PATH_PATTERNS)  # conservative: every pattern
+    else:
+        sensitive_paths = sensitive_paths_touched(diff_paths)
+    note: str | None = None
+    if sensitive_paths:
+        implementation_summary = str(state.get("implementation_summary") or "")
+        note = (
+            extract_validation_note(implementation_summary)
+            or str(state.get("real_validation_note") or "").strip()
+            or None
+        )
+        if not note:
+            update_state(
+                root,
+                args.issue,
+                last_open_pr_failure="missing_real_validation",
+                last_open_pr_error=(
+                    "Implementation summary did not include a `Real validation:` "
+                    "line. Run `fix-pr` or rerun `implement` to produce one "
+                    "before opening the PR. Touched sensitive paths: " + ", ".join(sensitive_paths)
+                ),
+            )
+            print("open_pr_failed: missing real-behavior validation note")
+            return 2
+
     title = f"feat: implement #{args.issue} {state['issue_title']}"
     body = f"Implements #{args.issue}\n\nGenerated by the local Claude/Codex workflow."
-    output = run_stdout(
-        [
-            "gh",
-            "pr",
-            "create",
-            "--head",
-            branch,
-            "--title",
-            title,
-            "--body",
-            body,
-        ]
-    )
+    if sensitive_paths and note:
+        body = build_pr_body_with_validation(body, sensitive_paths=sensitive_paths, note=note)
+
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as tmp:
+        tmp.write(body)
+        body_file = tmp.name
+    try:
+        output = run_stdout(
+            [
+                "gh",
+                "pr",
+                "create",
+                "--head",
+                branch,
+                "--title",
+                title,
+                "--body-file",
+                body_file,
+            ]
+        )
+    finally:
+        try:
+            Path(body_file).unlink()
+        except OSError:
+            pass
     pr_number = current_pr_number(branch)
     if not pr_number:
         fail(f"PR create returned output but no PR number was found:\n{output}")
-    update_state(root, args.issue, pr_number=pr_number)
+    update_state(
+        root,
+        args.issue,
+        pr_number=pr_number,
+        last_open_pr_failure="",
+        last_open_pr_error="",
+    )
     print(pr_number)
     return 0
 
@@ -2140,7 +2665,19 @@ def cmd_review_pr(args: argparse.Namespace) -> int:
     state = ensure_worktree(root, args.issue)
     worktree = Path(state["worktree_path"])
     pr_number = ensure_pr_number(root, args.issue)
-    codex_result = codex_once(build_codex_pr_review_prompt(pr_number), cwd=worktree)
+    # Per-stage sensitive-path derivation (#1200): at PR review time the
+    # authoritative source is the PR's file list from gh.
+    pr_paths = pr_changed_file_paths(pr_number)
+    # Fail-closed (#1200): if gh fails, assume sensitive.
+    if pr_paths is None:
+        print("gh pr view --json files failed; assuming sensitive scope for guardrail", file=sys.stderr)
+        sensitive_paths = list(SENSITIVE_PATH_PATTERNS)
+    else:
+        sensitive_paths = sensitive_paths_touched(pr_paths)
+    codex_result = codex_once(
+        build_codex_pr_review_prompt(pr_number, sensitive_paths=sensitive_paths),
+        cwd=worktree,
+    )
     if codex_result.timed_out:
         edit_pr_labels(pr_number, add=["needs-senior-review"], remove=["senior-approved"])
         update_state(
@@ -2180,7 +2717,6 @@ def cmd_review_pr(args: argparse.Namespace) -> int:
 
     decision = str(review.get("decision", "")).strip()
     summary = str(review.get("summary", "")).strip() or "PR review completed."
-    comment = str(review.get("comment_markdown", "")).strip() or summary
     if decision not in {"approve", "changes_requested"}:
         edit_pr_labels(pr_number, add=["needs-senior-review"], remove=["senior-approved"])
         update_state(
@@ -2193,6 +2729,26 @@ def cmd_review_pr(args: argparse.Namespace) -> int:
         print(f"review_failed: Unexpected PR review decision: {decision!r}")
         return 2
 
+    # Real-behavior validation guardrail override (#1200).
+    decision, comment = apply_validation_gate(review, sensitive_paths=sensitive_paths, context_label="PR review")
+    # Defense in depth: assert the PR body carries the validation section
+    # when the scope is sensitive, even if Codex claimed the note is present.
+    if sensitive_paths and decision == "approve":
+        try:
+            current_body_json = run_json(["gh", "pr", "view", str(pr_number), "--json", "body"])
+            body_text = str(current_body_json.get("body") or "")
+        except SystemExit:
+            body_text = ""
+        if _PR_VALIDATION_SECTION_HEADING not in body_text:
+            decision = "changes_requested"
+            comment = ((comment + "\n\n") if comment else "") + (
+                "**Blocked: PR body is missing the "
+                f"`{_PR_VALIDATION_SECTION_HEADING}` section.** "
+                "Run `open-pr` or `fix-pr` to upsert the real-validation note."
+            )
+    if not comment.strip():
+        comment = summary
+
     post_pr_review(pr_number, decision, comment)
     if decision == "approve":
         edit_pr_labels(pr_number, add=["senior-approved"], remove=["needs-senior-review"])
@@ -2201,11 +2757,12 @@ def cmd_review_pr(args: argparse.Namespace) -> int:
         return 0
 
     edit_pr_labels(pr_number, add=["needs-senior-review"], remove=["senior-approved"])
+    failure_reason = "missing_real_validation" if sensitive_paths else ""
     update_state(
         root,
         args.issue,
         last_pr_review_decision="changes_requested",
-        last_pr_review_failure="",
+        last_pr_review_failure=failure_reason,
         last_pr_review_comment=comment[:8000],
     )
     print("needs_changes")
@@ -2222,13 +2779,40 @@ def cmd_fix_pr(args: argparse.Namespace) -> int:
     worktree = Path(state["worktree_path"])
     pr_number = ensure_pr_number(root, args.issue)
     review_context = str(state.get("last_pr_review_comment", ""))
+    # Real-behavior validation guardrail (#1200): pass sensitive paths to
+    # the fix agent so it produces a `Real validation:` line when needed.
+    pr_paths = pr_changed_file_paths(pr_number)
+    # Fail-closed (#1200): if gh fails, assume sensitive.
+    if pr_paths is None:
+        print("gh pr view --json files failed; assuming sensitive scope for guardrail", file=sys.stderr)
+        sensitive_paths = list(SENSITIVE_PATH_PATTERNS)
+    else:
+        sensitive_paths = sensitive_paths_touched(pr_paths)
     summary = strip_fences(
         claude_once(
-            build_claude_pr_fix_prompt(pr_number, review_context=review_context),
+            build_claude_pr_fix_prompt(
+                pr_number,
+                review_context=review_context,
+                sensitive_paths=sensitive_paths,
+            ),
             cwd=worktree,
         )
     )
     update_state(root, args.issue, last_pr_fix_summary=summary)
+
+    # If the fix summary produced a new Real validation note, upsert it into
+    # the PR body so the operator-visible artifact stays current.
+    if sensitive_paths:
+        note = extract_validation_note(summary)
+        if note:
+            try:
+                upsert_pr_validation_section(pr_number, sensitive_paths=sensitive_paths, note=note)
+                update_state(root, args.issue, real_validation_note=note)
+            except SystemExit:
+                # gh invocation failed -- non-fatal; the review command will
+                # re-check PR body presence and surface the gap.
+                pass
+
     print(summary or "fixes_applied")
     return 0
 

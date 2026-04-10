@@ -27,6 +27,7 @@ def _get_kwargs(
     offerings_provider_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[CallStates]] = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
@@ -68,6 +69,8 @@ def _get_kwargs(
     params["page"] = page
 
     params["page_size"] = page_size
+
+    params["slug"] = slug
 
     json_state: Union[Unset, list[str]] = UNSET
     if not isinstance(state, Unset):
@@ -137,6 +140,7 @@ def sync_detailed(
     offerings_provider_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[CallStates]] = UNSET,
 ) -> Response[list["CallReviewerPool"]]:
     """Invite reviewers to join the call's reviewer pool.
@@ -153,6 +157,7 @@ def sync_detailed(
         offerings_provider_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[CallStates]]):
         body (ReviewerInvitationRequest):
 
@@ -177,6 +182,7 @@ def sync_detailed(
         offerings_provider_uuid=offerings_provider_uuid,
         page=page,
         page_size=page_size,
+        slug=slug,
         state=state,
     )
 
@@ -202,6 +208,7 @@ def sync(
     offerings_provider_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[CallStates]] = UNSET,
 ) -> list["CallReviewerPool"]:
     """Invite reviewers to join the call's reviewer pool.
@@ -218,6 +225,7 @@ def sync(
         offerings_provider_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[CallStates]]):
         body (ReviewerInvitationRequest):
 
@@ -243,6 +251,7 @@ def sync(
         offerings_provider_uuid=offerings_provider_uuid,
         page=page,
         page_size=page_size,
+        slug=slug,
         state=state,
     ).parsed
 
@@ -262,6 +271,7 @@ async def asyncio_detailed(
     offerings_provider_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[CallStates]] = UNSET,
 ) -> Response[list["CallReviewerPool"]]:
     """Invite reviewers to join the call's reviewer pool.
@@ -278,6 +288,7 @@ async def asyncio_detailed(
         offerings_provider_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[CallStates]]):
         body (ReviewerInvitationRequest):
 
@@ -302,6 +313,7 @@ async def asyncio_detailed(
         offerings_provider_uuid=offerings_provider_uuid,
         page=page,
         page_size=page_size,
+        slug=slug,
         state=state,
     )
 
@@ -325,6 +337,7 @@ async def asyncio(
     offerings_provider_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[CallStates]] = UNSET,
 ) -> list["CallReviewerPool"]:
     """Invite reviewers to join the call's reviewer pool.
@@ -341,6 +354,7 @@ async def asyncio(
         offerings_provider_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[CallStates]]):
         body (ReviewerInvitationRequest):
 
@@ -367,6 +381,7 @@ async def asyncio(
             offerings_provider_uuid=offerings_provider_uuid,
             page=page,
             page_size=page_size,
+            slug=slug,
             state=state,
         )
     ).parsed

@@ -23,7 +23,7 @@ from plato.git_ops import (
     trust_git_directory,
 )
 from plato.markers import WorkspaceMarker
-from plato.transports.base import Transport
+from plato.transports.base import Transport, build_auditctl_commands
 from plato.utils.subprocess import run_local, run_ssh
 
 if TYPE_CHECKING:
@@ -386,6 +386,17 @@ class GitTransport(Transport):
             timeout=120,
             error_context="Failed to clone git repo on agent VM",
         )
+
+        audit_key = mount.audit_key
+        tracked = mount.tracked
+        if tracked and audit_key:
+            audit_cmd = " && ".join(build_auditctl_commands(remote, audit_key))
+            exit_code, _, stderr = await run_ssh(self.ssh_key_path, hostname, audit_cmd, timeout=30)
+            if exit_code != 0:
+                raise RuntimeError(
+                    f"Failed to enable filesystem audit on agent VM for {remote} (key={audit_key}): {stderr}"
+                )
+            logger.info("Filesystem audit enabled on agent VM for %s (key=%s)", remote, audit_key)
 
         logger.info(
             "GitTransport.setup_agent: done on %s (clone=%.1fs, total=%.1fs): %s -> %s",

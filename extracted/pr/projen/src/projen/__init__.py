@@ -8501,6 +8501,22 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
             check_type(argname="argument condition", value=condition, expected_type=typing.Tuple[type_hints["condition"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addCondition", [*condition]))
 
+    @jsii.member(jsii_name="addSteps")
+    def add_steps(self, *steps: "TaskStep") -> None:
+        '''(experimental) Adds steps to this task.
+
+        This is a generic method that accepts any
+        task step (exec, spawn, say, builtin).
+
+        :param steps: The steps to add.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47c5d60780a8a42ac2a893e5679cd390fa2c0a227fae9400bc2daf7fa90cd33d)
+            check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "addSteps", [*steps]))
+
     @jsii.member(jsii_name="builtin")
     def builtin(self, name: builtins.str) -> None:
         '''(experimental) Execute a builtin task.
@@ -8748,6 +8764,19 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         )
 
         return typing.cast(None, jsii.invoke(self, "prependSpawn", [subtask, options]))
+
+    @jsii.member(jsii_name="prependSteps")
+    def prepend_steps(self, *steps: "TaskStep") -> None:
+        '''(experimental) Adds steps at the beginning of this task.
+
+        :param steps: The steps to add.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2dbdd5fed2c667efe70f380a9ae60195cec494439a2aef8fbd7a7bc1a5c3d33b)
+            check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "prependSteps", [*steps]))
 
     @jsii.member(jsii_name="removeStep")
     def remove_step(self, index: jsii.Number) -> None:
@@ -14281,6 +14310,12 @@ def _typecheckingstub__248e4e99078602a3b8e376c73fa93425e082239549a245989641e2097
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__47c5d60780a8a42ac2a893e5679cd390fa2c0a227fae9400bc2daf7fa90cd33d(
+    *steps: TaskStep,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__de9dd10fb1b2c8242826790d7b14e14f641c34ec35695d12b425f283a93b972f(
     name: builtins.str,
 ) -> None:
@@ -14362,6 +14397,12 @@ def _typecheckingstub__80be0ec2af5c5b034b9ad26a372663b2dede8547b402f7501bd174f17
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     name: typing.Optional[builtins.str] = None,
     receive_args: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2dbdd5fed2c667efe70f380a9ae60195cec494439a2aef8fbd7a7bc1a5c3d33b(
+    *steps: TaskStep,
 ) -> None:
     """Type checking stubs"""
     pass

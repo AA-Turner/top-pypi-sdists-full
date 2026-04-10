@@ -143,6 +143,8 @@ class DataFrameRun(_message.Message):
         "resource_group",
         "meta_data",
         "compressed_plan_uri_prefix",
+        "created_at",
+        "deployment_id",
     )
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
@@ -156,6 +158,8 @@ class DataFrameRun(_message.Message):
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     META_DATA_FIELD_NUMBER: _ClassVar[int]
     COMPRESSED_PLAN_URI_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     operation_id: str
     status: DataFrameRunStatus
     output_uri_prefix: str
@@ -168,6 +172,8 @@ class DataFrameRun(_message.Message):
     resource_group: str
     meta_data: _struct_pb2.Struct
     compressed_plan_uri_prefix: str
+    created_at: _timestamp_pb2.Timestamp
+    deployment_id: str
     def __init__(
         self,
         operation_id: _Optional[str] = ...,
@@ -182,6 +188,65 @@ class DataFrameRun(_message.Message):
         resource_group: _Optional[str] = ...,
         meta_data: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...,
         compressed_plan_uri_prefix: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        deployment_id: _Optional[str] = ...,
+    ) -> None: ...
+
+class ListDataFrameRunsRequest(_message.Message):
+    __slots__ = (
+        "limit",
+        "cursor",
+        "agent_id",
+        "deployment_id",
+        "status",
+        "branch_name",
+        "external_id",
+        "correlation_id",
+        "start",
+        "end",
+    )
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
+    EXTERNAL_ID_FIELD_NUMBER: _ClassVar[int]
+    CORRELATION_ID_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    limit: int
+    cursor: str
+    agent_id: str
+    deployment_id: str
+    status: int
+    branch_name: str
+    external_id: str
+    correlation_id: str
+    start: _timestamp_pb2.Timestamp
+    end: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        limit: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
+        agent_id: _Optional[str] = ...,
+        deployment_id: _Optional[str] = ...,
+        status: _Optional[int] = ...,
+        branch_name: _Optional[str] = ...,
+        external_id: _Optional[str] = ...,
+        correlation_id: _Optional[str] = ...,
+        start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListDataFrameRunsResponse(_message.Message):
+    __slots__ = ("runs", "next_cursor")
+    RUNS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    runs: _containers.RepeatedCompositeFieldContainer[DataFrameRun]
+    next_cursor: str
+    def __init__(
+        self, runs: _Optional[_Iterable[_Union[DataFrameRun, _Mapping]]] = ..., next_cursor: _Optional[str] = ...
     ) -> None: ...
 
 class GetDataFrameRunResponse(_message.Message):

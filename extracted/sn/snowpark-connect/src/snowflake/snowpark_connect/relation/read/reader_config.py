@@ -243,6 +243,15 @@ def csv_convert_to_snowpark_args(snowpark_config: dict[str, Any]) -> dict[str, A
             snowpark_config["encoding"] = snowpark_config["charset"]
         del snowpark_config["charset"]
 
+    # SNOW-3245108: Logical '\' field delimiter must be represented as two
+    # backslash characters for Snowflake's CREATE FILE FORMAT (SQL string encoding).
+    # Clients may send one '\' (sep="\\" in Python) or two (PySpark: "pass two
+    # backslashes in the option string" for a single '\' delimiter).
+    sep_val = snowpark_config.get("sep")
+    sep_is_backslash = sep_val in ("\\", "\\\\")
+    if sep_is_backslash:
+        snowpark_config["sep"] = "\\\\"
+
     # Empty quote means no quoting — remove so Snowflake uses its default (NONE)
     if "quote" in snowpark_config and snowpark_config["quote"] == "":
         del snowpark_config["quote"]
@@ -254,8 +263,20 @@ def csv_convert_to_snowpark_args(snowpark_config: dict[str, Any]) -> dict[str, A
 
     # Fix the escape character if it is provided.
     # TODO SNOW-2081726: This seems to be a Snowpark bug
-    if snowpark_config.get("escape") and snowpark_config["escape"] == "\\":
+    # SNOW-3245108: Do not double a one-char escape when FIELD_DELIMITER is also '\'
+    # (see sep_is_backslash / FIELD_DELIMITER SQL encoding above).
+    if (
+        snowpark_config.get("escape")
+        and snowpark_config["escape"] == "\\"
+        and not sep_is_backslash
+    ):
         snowpark_config["escape"] = "\\\\"
+
+    # Snowflake rejects ESCAPE when FIELD_DELIMITER is backslash (001019 conflict).
+    # We always drop ESCAPE in this case since backslash is the default escape character
+    # and Snowflake cannot have ESCAPE match FIELD_DELIMITER.
+    if sep_is_backslash and "escape" in snowpark_config:
+        del snowpark_config["escape"]
 
     # If quote and escape are the same character, drop the escape.
     # Snowflake already handles escaping of FIELD_OPTIONALLY_ENCLOSED_BY by
@@ -550,9 +571,20 @@ class ParquetReaderConfig(ReaderWriterConfig):
 
         # Set USE_LOGICAL_TYPE from global config to properly handle Parquet logical types like TIMESTAMP.
         # Without this, Parquet TIMESTAMP (INT64 physical) is incorrectly read as NUMBER(38,0).
-        snowpark_args["USE_LOGICAL_TYPE"] = global_config._get_config_setting(
+        use_logical_type = global_config._get_config_setting(
             "snowpark.connect.parquet.useLogicalType"
         )
+        snowpark_args["USE_LOGICAL_TYPE"] = use_logical_type
+
+        if not use_logical_type:
+            logger.warning(
+                "The default value of 'snowpark.connect.parquet.useLogicalType' is currently 'false'. "
+                "Starting in version 1.22.0, the default will change to 'true', which enables proper "
+                "handling of Parquet logical types (TIMESTAMP, DATE, DECIMAL). "
+                "To adopt the new behavior now, set: "
+                "spark.conf.set('snowpark.connect.parquet.useLogicalType', 'true'). "
+                "To suppress this warning, set it to 'true'."
+            )
 
         return snowpark_args
 

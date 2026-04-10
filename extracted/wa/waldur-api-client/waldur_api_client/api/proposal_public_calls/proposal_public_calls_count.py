@@ -23,6 +23,7 @@ def _get_kwargs(
     offerings_provider_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[CallStates]] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
@@ -62,6 +63,8 @@ def _get_kwargs(
     params["page"] = page
 
     params["page_size"] = page_size
+
+    params["slug"] = slug
 
     json_state: Union[Unset, list[str]] = UNSET
     if not isinstance(state, Unset):
@@ -122,6 +125,7 @@ def sync_detailed(
     offerings_provider_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[CallStates]] = UNSET,
 ) -> Response[int]:
     """Get number of items in the collection matching the request parameters.
@@ -137,6 +141,7 @@ def sync_detailed(
         offerings_provider_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[CallStates]]):
 
     Raises:
@@ -158,6 +163,7 @@ def sync_detailed(
         offerings_provider_uuid=offerings_provider_uuid,
         page=page,
         page_size=page_size,
+        slug=slug,
         state=state,
     )
 
@@ -181,6 +187,7 @@ def sync(
     offerings_provider_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[CallStates]] = UNSET,
 ) -> int:
     """Get number of items in the collection matching the request parameters.
@@ -196,6 +203,7 @@ def sync(
         offerings_provider_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[CallStates]]):
 
     Raises:
@@ -218,6 +226,7 @@ def sync(
         offerings_provider_uuid=offerings_provider_uuid,
         page=page,
         page_size=page_size,
+        slug=slug,
         state=state,
     ).parsed
 
@@ -235,6 +244,7 @@ async def asyncio_detailed(
     offerings_provider_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[CallStates]] = UNSET,
 ) -> Response[int]:
     """Get number of items in the collection matching the request parameters.
@@ -250,6 +260,7 @@ async def asyncio_detailed(
         offerings_provider_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[CallStates]]):
 
     Raises:
@@ -271,6 +282,7 @@ async def asyncio_detailed(
         offerings_provider_uuid=offerings_provider_uuid,
         page=page,
         page_size=page_size,
+        slug=slug,
         state=state,
     )
 
@@ -292,6 +304,7 @@ async def asyncio(
     offerings_provider_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[CallStates]] = UNSET,
 ) -> int:
     """Get number of items in the collection matching the request parameters.
@@ -307,6 +320,7 @@ async def asyncio(
         offerings_provider_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[CallStates]]):
 
     Raises:
@@ -330,6 +344,7 @@ async def asyncio(
             offerings_provider_uuid=offerings_provider_uuid,
             page=page,
             page_size=page_size,
+            slug=slug,
             state=state,
         )
     ).parsed

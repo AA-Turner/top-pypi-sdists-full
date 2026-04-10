@@ -457,7 +457,7 @@ def launch_chrome_process(
         "--no-default-browser-check",
         "--disable-extensions",
         f"--user-data-dir={profile_dir}",
-        "--remote-allow-origins=http://localhost,http://127.0.0.1",
+        f"--remote-allow-origins=http://127.0.0.1:{port}",
     ]
 
     if headless:

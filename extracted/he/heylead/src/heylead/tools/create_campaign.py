@@ -1059,7 +1059,7 @@ async def run_create_campaign(
     # ── Flag brand re-analysis with new ICP context ──
     try:
         from ..services.brand_service import load_brand_analysis
-        if load_brand_analysis():
+        if await run_db(load_brand_analysis):
             await run_db(save_setting, "brand_reanalyze_needed", True)
             logger.info("Flagged brand for ICP-driven re-analysis after campaign creation")
     except Exception as e:

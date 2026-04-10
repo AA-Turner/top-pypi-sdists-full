@@ -7,7 +7,7 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.comment import Comment
-from ...models.thread_session_o_enum import ThreadSessionOEnum
+from ...models.comment_o_enum import CommentOEnum
 from ...types import UNSET, Response, Unset
 from ...utils import parse_link_header
 
@@ -20,7 +20,7 @@ def _get_kwargs(
     is_public: Union[Unset, bool] = UNSET,
     issue: Union[Unset, str] = UNSET,
     issue_uuid: Union[Unset, UUID] = UNSET,
-    o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    o: Union[Unset, list[CommentOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     remote_id_is_set: Union[Unset, bool] = UNSET,
@@ -106,7 +106,7 @@ def sync_detailed(
     is_public: Union[Unset, bool] = UNSET,
     issue: Union[Unset, str] = UNSET,
     issue_uuid: Union[Unset, UUID] = UNSET,
-    o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    o: Union[Unset, list[CommentOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     remote_id_is_set: Union[Unset, bool] = UNSET,
@@ -120,7 +120,7 @@ def sync_detailed(
         is_public (Union[Unset, bool]):
         issue (Union[Unset, str]):
         issue_uuid (Union[Unset, UUID]):
-        o (Union[Unset, list[ThreadSessionOEnum]]):
+        o (Union[Unset, list[CommentOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         remote_id_is_set (Union[Unset, bool]):
@@ -164,7 +164,7 @@ def sync(
     is_public: Union[Unset, bool] = UNSET,
     issue: Union[Unset, str] = UNSET,
     issue_uuid: Union[Unset, UUID] = UNSET,
-    o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    o: Union[Unset, list[CommentOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     remote_id_is_set: Union[Unset, bool] = UNSET,
@@ -178,7 +178,7 @@ def sync(
         is_public (Union[Unset, bool]):
         issue (Union[Unset, str]):
         issue_uuid (Union[Unset, UUID]):
-        o (Union[Unset, list[ThreadSessionOEnum]]):
+        o (Union[Unset, list[CommentOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         remote_id_is_set (Union[Unset, bool]):
@@ -217,7 +217,7 @@ async def asyncio_detailed(
     is_public: Union[Unset, bool] = UNSET,
     issue: Union[Unset, str] = UNSET,
     issue_uuid: Union[Unset, UUID] = UNSET,
-    o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    o: Union[Unset, list[CommentOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     remote_id_is_set: Union[Unset, bool] = UNSET,
@@ -231,7 +231,7 @@ async def asyncio_detailed(
         is_public (Union[Unset, bool]):
         issue (Union[Unset, str]):
         issue_uuid (Union[Unset, UUID]):
-        o (Union[Unset, list[ThreadSessionOEnum]]):
+        o (Union[Unset, list[CommentOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         remote_id_is_set (Union[Unset, bool]):
@@ -273,7 +273,7 @@ async def asyncio(
     is_public: Union[Unset, bool] = UNSET,
     issue: Union[Unset, str] = UNSET,
     issue_uuid: Union[Unset, UUID] = UNSET,
-    o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    o: Union[Unset, list[CommentOEnum]] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     remote_id_is_set: Union[Unset, bool] = UNSET,
@@ -287,7 +287,7 @@ async def asyncio(
         is_public (Union[Unset, bool]):
         issue (Union[Unset, str]):
         issue_uuid (Union[Unset, UUID]):
-        o (Union[Unset, list[ThreadSessionOEnum]]):
+        o (Union[Unset, list[CommentOEnum]]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         remote_id_is_set (Union[Unset, bool]):
@@ -328,7 +328,7 @@ def sync_all(
     is_public: Union[Unset, bool] = UNSET,
     issue: Union[Unset, str] = UNSET,
     issue_uuid: Union[Unset, UUID] = UNSET,
-    o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    o: Union[Unset, list[CommentOEnum]] = UNSET,
     remote_id_is_set: Union[Unset, bool] = UNSET,
     resource: Union[Unset, str] = UNSET,
 ) -> list["Comment"]:
@@ -346,7 +346,7 @@ def sync_all(
         is_public (Union[Unset, bool]):
         issue (Union[Unset, str]):
         issue_uuid (Union[Unset, UUID]):
-        o (Union[Unset, list[ThreadSessionOEnum]]):
+        o (Union[Unset, list[CommentOEnum]]):
         remote_id_is_set (Union[Unset, bool]):
         resource (Union[Unset, str]):
 
@@ -425,7 +425,7 @@ async def asyncio_all(
     is_public: Union[Unset, bool] = UNSET,
     issue: Union[Unset, str] = UNSET,
     issue_uuid: Union[Unset, UUID] = UNSET,
-    o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    o: Union[Unset, list[CommentOEnum]] = UNSET,
     remote_id_is_set: Union[Unset, bool] = UNSET,
     resource: Union[Unset, str] = UNSET,
 ) -> list["Comment"]:
@@ -443,7 +443,7 @@ async def asyncio_all(
         is_public (Union[Unset, bool]):
         issue (Union[Unset, str]):
         issue_uuid (Union[Unset, UUID]):
-        o (Union[Unset, list[ThreadSessionOEnum]]):
+        o (Union[Unset, list[CommentOEnum]]):
         remote_id_is_set (Union[Unset, bool]):
         resource (Union[Unset, str]):
 

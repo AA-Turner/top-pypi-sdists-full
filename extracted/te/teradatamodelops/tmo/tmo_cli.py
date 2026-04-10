@@ -179,7 +179,7 @@ def add_model(args, repo_manager, **kwargs):  # noqa
     print("")
     models = {f"{v[0]} ({k})": k for k, v in templates[model_lang].items()}
     model_template = input_select(
-        "model template", list(models.keys()), "Available models:"
+        "model template", sorted(models.keys()), "Available models:"
     )
     model_template_dir = templates[model_lang][models[model_template]][1]
 
@@ -223,7 +223,7 @@ def run_model(args, repo_manager, tmo_client, **kwargs):  # noqa
     def _select_model_id(catalog):
         catalog_values = [catalog[i]["name"] for i in catalog]
         selected_model_value = input_select(
-            "model", catalog_values, "Available models:"
+            "model", sorted(catalog_values), "Available models:"
         )
         selected_model = next(
             (catalog[i] for i in catalog if catalog[i]["name"] == selected_model_value),
@@ -1411,10 +1411,12 @@ def get_current_project(repo_manager, tmo_client, check_repo_conf=False):
 
     repo_conf = repo_manager.read_repo_config()
     current_project_id = (
-        repo_conf["project_id"] if repo_conf and "project_id" in repo_conf else ""
+        repo_conf["project_id"] if repo_conf and "project_id" in repo_conf else None
     )
     project_api = ProjectApi(tmo_client=tmo_client, show_archived=False)
-    current_project = project_api.find_by_id(current_project_id)
+    current_project = None
+    if current_project_id:
+        current_project = project_api.find_by_id(current_project_id)
 
     if current_project:
         return current_project

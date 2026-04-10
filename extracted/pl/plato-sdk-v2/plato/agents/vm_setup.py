@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING
 
 import tomllib
 from opentelemetry import trace
-from opentelemetry.util.types import AttributeValue
 
 from plato.agents.context import AgentContext, OTelContext
 from plato.agents.dev import sync_dev_code
@@ -287,40 +286,7 @@ async def execute_agent(
     logger.info("Agent config keys: %s", list(ctx.config.keys()))
     logger.info("Executing agent command on VM via SSH as root...")
 
-    tracer = trace.get_tracer(__name__)
     last_execution_span_id = ""
-
-    with tracer.start_as_current_span("agent.execution.output") as span:
-        span_ctx = span.get_span_context()
-        if span_ctx.is_valid:
-            last_execution_span_id = format(span_ctx.span_id, "016x")
-
-        if ctx.display_name:
-            span.set_attribute("atif.agent.name", ctx.display_name)
-            span.set_attribute("plato.agent.display_name", ctx.display_name)
-        span.set_attribute("plato.agent.alias", info.metadata.alias)
-        span.set_attribute("agent.user", "root")
-        span.set_attribute("agent.hostname", hostname)
-
-    # Create marker span for agent VM spans to reference as parent
-    agent_attrs: dict[str, AttributeValue] = {
-        "plato.agent.alias": info.metadata.alias,
-        "agent.user": "root",
-        "agent.hostname": hostname,
-    }
-    if ctx.display_name:
-        agent_attrs["atif.agent.name"] = ctx.display_name
-        agent_attrs["plato.agent.display_name"] = ctx.display_name
-
-    with tracer.start_as_current_span("agent.execution.output") as marker:
-        for k, v in agent_attrs.items():
-            marker.set_attribute(k, v)
-        otel = OTelContext.from_env()
-        env_vars.extend(otel.to_env_vars())
-
-    logger.info("OTEL URL: %s", otel.otel_url)
-
-    env_exports = " ".join(f'export {k}="{v}";' for var in env_vars for k, v in [var.split("=", 1)])
 
     # Pipe instruction via stdin to avoid E2BIG
     instruction_file = "/tmp/.plato_instruction_b64"
@@ -342,14 +308,30 @@ async def execute_agent(
     # Pass only the package name (without version) to the agent runner
     agent_name = parse_package_string(ctx.package)[0] if ctx.package else ""
     package_arg = f" --agent-package {shlex.quote(agent_name)}" if agent_name else ""
-    agent_cmd = (
-        f"{env_exports} {VM_PATH_EXPORT}; "
-        f'cd {workdir} && {shlex.quote(runner_path)} run{package_arg} --instruction-b64 "$(cat {instruction_file})"'
-    )
 
+    tracer = trace.get_tracer(__name__)
     with tracer.start_as_current_span("agent.execution.ssh") as ssh_span:
-        for k, v in agent_attrs.items():
-            ssh_span.set_attribute(k, v)
+        span_ctx = ssh_span.get_span_context()
+        if span_ctx.is_valid:
+            last_execution_span_id = format(span_ctx.span_id, "016x")
+        ssh_span.set_attribute("plato.agent.alias", info.metadata.alias)
+        ssh_span.set_attribute("agent.hostname", hostname)
+        if ctx.display_name:
+            ssh_span.set_attribute("plato.agent.display_name", ctx.display_name)
+
+        # Capture OTel context INSIDE the ssh span so the remote agent's
+        # spans nest under agent.execution.ssh, not agent.task.
+        otel = OTelContext.from_env()
+        otel_env_vars = otel.to_env_vars()
+        logger.info("OTEL URL: %s", otel.otel_url)
+
+        all_env_vars = env_vars + otel_env_vars
+        env_exports = " ".join(f'export {k}="{v}";' for var in all_env_vars for k, v in [var.split("=", 1)])
+        agent_cmd = (
+            f"{env_exports} {VM_PATH_EXPORT}; "
+            f'cd {workdir} && {shlex.quote(runner_path)} run{package_arg} --instruction-b64 "$(cat {instruction_file})"'
+        )
+
         exit_code = await run_ssh_streaming(
             ssh_key,
             hostname,

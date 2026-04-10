@@ -6,6 +6,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.load_balancer_async_operation_response import LoadBalancerAsyncOperationResponse
 from ...types import Response
 
 
@@ -20,15 +21,21 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Any:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> LoadBalancerAsyncOperationResponse:
     if response.status_code == 404:
         raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
-    if response.status_code == 200:
-        return None
+    if response.status_code == 202:
+        response_202 = LoadBalancerAsyncOperationResponse.from_dict(response.json())
+
+        return response_202
     raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Any]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[LoadBalancerAsyncOperationResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -41,7 +48,7 @@ def sync_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[Any]:
+) -> Response[LoadBalancerAsyncOperationResponse]:
     """Detach floating IP from VIP
 
      Detach floating IP from the load balancer VIP port.
@@ -54,7 +61,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any]
+        Response[LoadBalancerAsyncOperationResponse]
     """
 
     kwargs = _get_kwargs(
@@ -68,11 +75,11 @@ def sync_detailed(
     return _build_response(client=client, response=response)
 
 
-async def asyncio_detailed(
+def sync(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-) -> Response[Any]:
+) -> LoadBalancerAsyncOperationResponse:
     """Detach floating IP from VIP
 
      Detach floating IP from the load balancer VIP port.
@@ -85,7 +92,33 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any]
+        LoadBalancerAsyncOperationResponse
+    """
+
+    return sync_detailed(
+        uuid=uuid,
+        client=client,
+    ).parsed
+
+
+async def asyncio_detailed(
+    uuid: UUID,
+    *,
+    client: AuthenticatedClient,
+) -> Response[LoadBalancerAsyncOperationResponse]:
+    """Detach floating IP from VIP
+
+     Detach floating IP from the load balancer VIP port.
+
+    Args:
+        uuid (UUID):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[LoadBalancerAsyncOperationResponse]
     """
 
     kwargs = _get_kwargs(
@@ -95,3 +128,31 @@ async def asyncio_detailed(
     response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
+
+async def asyncio(
+    uuid: UUID,
+    *,
+    client: AuthenticatedClient,
+) -> LoadBalancerAsyncOperationResponse:
+    """Detach floating IP from VIP
+
+     Detach floating IP from the load balancer VIP port.
+
+    Args:
+        uuid (UUID):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        LoadBalancerAsyncOperationResponse
+    """
+
+    return (
+        await asyncio_detailed(
+            uuid=uuid,
+            client=client,
+        )
+    ).parsed

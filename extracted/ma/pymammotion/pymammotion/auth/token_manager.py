@@ -309,6 +309,41 @@ class TokenManager:
         await cloud_client.session_by_auth_code()
         await cloud_client.list_binding_by_account()
 
+    async def refresh_invoke_token(self) -> None:
+        """Proactively refresh the HTTP bearer token used for mqtt_invoke.
+
+        Delegates to the decorated refresh_authorization_token() which checks
+        whether the OAuth access token is close to expiry and calls
+        refresh_login() first only when necessary.  Suitable for scheduled
+        background refreshes; do NOT call this after a 401 — use
+        force_refresh_invoke_token() instead.
+        """
+        async with self._lock:
+            try:
+                await self._http.refresh_authorization_token()
+            except UnauthorizedException as exc:
+                raise ReLoginRequiredError(self._account_id, str(exc)) from exc
+            except Exception as exc:
+                raise AuthError(exc)
+
+    async def force_refresh_invoke_token(self) -> None:
+        """Reactive refresh of the HTTP bearer token after a 401 from mqtt_invoke.
+
+        Unconditionally force-refreshes the OAuth access token first (bypassing
+        the time-based decorator check), then fetches a fresh authorization code
+        via POST /authorization/code.  Use this whenever an actual 401 has
+        already been received so that a potentially server-revoked token is
+        replaced regardless of what the local expiry clock says.
+        """
+        async with self._lock:
+            await self.refresh_http()  # force: uses refresh_token or full re-login
+            try:
+                await self._http.fetch_authorization_token()
+            except UnauthorizedException as exc:
+                raise ReLoginRequiredError(self._account_id, str(exc)) from exc
+            except Exception as exc:
+                raise AuthError(exc)
+
     async def refresh_mqtt_creds(self) -> MQTTCredentials:
         """Fetch fresh MQTT credentials from the Mammotion API.
 
@@ -340,8 +375,7 @@ class TokenManager:
             # JWT endpoint failed — refresh the authorization code first (which
             # internally calls get_mqtt_credentials() and stores the result on self._http).
             try:
-                await self._http.refresh_token_v2()
-                await self._http.refresh_authorization_code()
+                await self._http.refresh_authorization_token()
                 creds = self._http.mqtt_credentials
                 if creds is None:
                     raise AuthError("refresh_authorization_code returned no MQTT credentials")
@@ -350,7 +384,7 @@ class TokenManager:
                 # Authorization code refresh also failed — fall back to a full HTTP re-login.
                 try:
                     await self._http.refresh_login()
-                    await self._http.refresh_authorization_code()
+                    await self._http.refresh_authorization_token()
                 except ReLoginRequiredError:
                     raise
                 except Exception as exc:

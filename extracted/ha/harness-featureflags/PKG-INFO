@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: harness-featureflags
-Version: 1.7.4
+Version: 1.7.5
 Summary: Feature flag server SDK for python
 Home-page: https://github.com/harness/ff-python-server-sdk
 Author: Harness

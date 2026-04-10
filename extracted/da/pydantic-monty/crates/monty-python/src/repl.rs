@@ -1,25 +1,33 @@
-use std::sync::{Mutex, PoisonError};
+use std::{
+    ffi::CString,
+    sync::{Arc, Mutex, PoisonError, atomic::AtomicBool},
+};
 
 // Use `::monty` to refer to the external crate (not the pymodule)
 use ::monty::{
-    ExtFunctionResult, LimitedTracker, MontyException, MontyObject, MontyRepl as CoreMontyRepl, NameLookupResult,
-    NoLimitTracker, PrintWriter, ReplProgress, ReplStartError, ResourceTracker,
+    ExtFunctionResult, LimitedTracker, MontyObject, MontyRepl as CoreMontyRepl, NameLookupResult, NoLimitTracker,
+    PrintWriter, ReplProgress, ReplStartError, ResourceTracker,
 };
-use monty::ExcType;
+use monty::fs::MountTable;
 use pyo3::{
-    exceptions::{PyRuntimeError, PyValueError},
+    IntoPyObjectExt,
+    exceptions::{PyRuntimeError, PyTypeError, PyValueError},
     prelude::*,
-    types::{PyBytes, PyDict, PyList, PyTuple, PyType},
+    sync::PyOnceLock,
+    types::{PyBytes, PyDict, PyList, PyModule, PyTuple, PyType},
 };
+use pyo3_async_runtimes::tokio::future_into_py;
 use send_wrapper::SendWrapper;
 
 use crate::{
+    async_dispatch::{ReplCleanupNotifier, await_repl_transition, dispatch_loop_repl, with_print_writer},
     convert::{get_docstring, monty_to_py, py_to_monty},
     dataclass::DcRegistry,
     exceptions::{MontyError, exc_py_to_monty},
     external::{ExternalFunctionRegistry, dispatch_method_call},
-    limits::{PySignalTracker, extract_limits},
+    limits::{CancellationFlag, FutureCancellationGuard, PySignalTracker, extract_limits},
     monty_cls::{CallbackStringPrint, EitherProgress},
+    mount::OsHandler,
 };
 
 /// Runtime REPL session holder for pyclass interoperability.
@@ -30,6 +38,16 @@ use crate::{
 pub(crate) enum EitherRepl {
     NoLimit(CoreMontyRepl<PySignalTracker<NoLimitTracker>>),
     Limited(CoreMontyRepl<PySignalTracker<LimitedTracker>>),
+}
+
+impl EitherRepl {
+    /// Installs or clears the async cancellation flag on the underlying tracker.
+    fn set_cancellation_flag(&mut self, cancel_flag: Option<CancellationFlag>) {
+        match self {
+            Self::NoLimit(repl) => repl.tracker_mut().set_cancellation_flag(cancel_flag),
+            Self::Limited(repl) => repl.tracker_mut().set_cancellation_flag(cancel_flag),
+        }
+    }
 }
 
 /// Stateful no-replay REPL session.
@@ -96,7 +114,8 @@ impl PyMontyRepl {
     /// When `external_functions` is provided, external function calls and name
     /// lookups are dispatched to the provided callables — matching the behavior
     /// of `Monty.run(external_functions=...)`.
-    #[pyo3(signature = (code, *, inputs=None, external_functions=None, print_callback=None, os=None))]
+    #[expect(clippy::too_many_arguments)]
+    #[pyo3(signature = (code, *, inputs=None, external_functions=None, print_callback=None, mount=None, os=None))]
     fn feed_run<'py>(
         &self,
         py: Python<'py>,
@@ -104,6 +123,7 @@ impl PyMontyRepl {
         inputs: Option<&Bound<'_, PyDict>>,
         external_functions: Option<&Bound<'_, PyDict>>,
         print_callback: Option<Py<PyAny>>,
+        mount: Option<&Bound<'_, PyAny>>,
         os: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let input_values = extract_repl_inputs(inputs, &self.dc_registry)?;
@@ -117,8 +137,17 @@ impl PyMontyRepl {
             None => PrintWriter::Stdout,
         };
 
-        if external_functions.is_some() || os.is_some() {
-            return self.feed_run_with_externals(py, code, input_values, external_functions, os, print_writer);
+        let os_handler = OsHandler::from_run_args(py, mount, os)?;
+
+        if external_functions.is_some() || os_handler.is_some() {
+            return self.feed_run_with_externals(
+                py,
+                code,
+                input_values,
+                external_functions,
+                os_handler.as_ref(),
+                print_writer,
+            );
         }
 
         let mut guard = self
@@ -194,6 +223,61 @@ impl PyMontyRepl {
         }
     }
 
+    /// Feeds and executes a snippet asynchronously, supporting async external functions.
+    ///
+    /// Returns a Python awaitable that drives the async dispatch loop.
+    /// Unlike `feed_run()`, this handles external functions that return coroutines
+    /// by awaiting them on the Python event loop. VM resume calls are offloaded
+    /// to a thread pool via `spawn_blocking` to avoid blocking the event loop.
+    ///
+    /// The REPL is taken lazily when the returned awaitable first starts running,
+    /// not when the awaitable is created. This prevents abandoned awaitables from
+    /// stealing REPL state before any async work begins.
+    ///
+    /// # Returns
+    /// A Python coroutine that resolves to the result of the snippet.
+    ///
+    /// # Raises
+    /// Various Python exceptions matching what the code would raise.
+    #[pyo3(signature = (code, *, inputs=None, external_functions=None, print_callback=None, os=None))]
+    fn feed_run_async<'py>(
+        slf: &Bound<'py, Self>,
+        py: Python<'py>,
+        code: &str,
+        inputs: Option<&Bound<'_, PyDict>>,
+        external_functions: Option<&Bound<'_, PyDict>>,
+        print_callback: Option<Py<PyAny>>,
+        os: Option<Py<PyAny>>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        if let Some(ref os_cb) = os
+            && !os_cb.bind(py).is_callable()
+        {
+            let t = os_cb.bind(py).get_type().name()?;
+            let msg = format!("TypeError: '{t}' object is not callable");
+            return Err(PyTypeError::new_err(msg));
+        }
+
+        let this = slf.get();
+        let input_values = extract_repl_inputs(inputs, &this.dc_registry)?;
+        let dc_registry = this.dc_registry.clone_ref(py);
+        let ext_fns = external_functions.map(|d| d.clone().unbind());
+        let repl_owner: Py<Self> = slf.clone().unbind();
+        let code_owned = code.to_owned();
+
+        PyReplAsyncAwaitable::new_py_any(
+            py,
+            ReplAsyncStart {
+                repl_owner,
+                code: code_owned,
+                input_values,
+                external_functions: ext_fns,
+                os,
+                dc_registry,
+                print_callback,
+            },
+        )
+    }
+
     /// Serializes this REPL session to bytes.
     fn dump<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
         #[derive(serde::Serialize)]
@@ -244,6 +328,262 @@ impl PyMontyRepl {
     }
 }
 
+/// Internal awaitable wrapper for `MontyRepl.feed_run_async()`.
+///
+/// `future_into_py()` eagerly schedules the Rust future it wraps. For REPL
+/// execution that is too early because simply creating the awaitable would take
+/// ownership of the REPL. This wrapper defers future creation until Python
+/// actually awaits the object, preventing discarded awaitables from stealing
+/// REPL state.
+#[pyclass(name = "MontyReplAsyncAwaitable", module = "pydantic_monty")]
+struct PyReplAsyncAwaitable {
+    start: Mutex<Option<ReplAsyncStart>>,
+    future: Mutex<Option<Py<PyAny>>>,
+    cleanup_waiter: Mutex<Option<Py<PyAny>>>,
+}
+
+/// Captures everything needed to lazily start an async REPL snippet.
+struct ReplAsyncStart {
+    repl_owner: Py<PyMontyRepl>,
+    code: String,
+    input_values: Vec<(String, MontyObject)>,
+    external_functions: Option<Py<PyDict>>,
+    os: Option<Py<PyAny>>,
+    dc_registry: DcRegistry,
+    print_callback: Option<Py<PyAny>>,
+}
+
+/// Signals the per-await cleanup future unless normal REPL restoration takes over.
+///
+/// If the Python task is cancelled before the async snippet successfully takes
+/// REPL ownership, no restore path runs and the cancellation wrapper would hang
+/// forever waiting for cleanup. This guard resolves that wait future on drop
+/// for those early-exit paths only.
+struct CleanupStartGuard {
+    cleanup_notifier: ReplCleanupNotifier,
+    armed: bool,
+}
+
+impl CleanupStartGuard {
+    /// Creates a new armed cleanup guard.
+    fn new(cleanup_notifier: ReplCleanupNotifier) -> Self {
+        Self {
+            cleanup_notifier,
+            armed: true,
+        }
+    }
+
+    /// Disables drop-time signalling once the REPL has been taken.
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for CleanupStartGuard {
+    fn drop(&mut self) {
+        if self.armed {
+            self.cleanup_notifier.finish();
+        }
+    }
+}
+
+impl ReplAsyncStart {
+    /// Builds the real Python future for this REPL snippet the first time it is awaited.
+    fn into_future(self, py: Python<'_>) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
+        let Self {
+            repl_owner,
+            code,
+            input_values,
+            external_functions,
+            os,
+            dc_registry,
+            print_callback,
+        } = self;
+
+        let (event_loop, cleanup_waiter) = create_cleanup_waiter(py)?;
+        let cleanup_notifier = ReplCleanupNotifier::new(event_loop, cleanup_waiter.clone_ref(py));
+        let start_guard = CleanupStartGuard::new(cleanup_notifier.clone());
+        let start_print_callback = print_callback.as_ref().map(|cb| cb.clone_ref(py));
+        let future = future_into_py(py, async move {
+            let mut start_guard = start_guard;
+            let cancellation_flag = Arc::new(AtomicBool::new(false));
+            let mut cancellation_guard = FutureCancellationGuard::new(cancellation_flag.clone());
+            let mut repl = Python::attach(|py| repl_owner.bind(py).get().take_repl())?;
+            start_guard.disarm();
+            repl.set_cancellation_flag(Some(cancellation_flag));
+
+            let result = match repl {
+                EitherRepl::NoLimit(repl) => {
+                    let progress = await_repl_transition(
+                        &repl_owner,
+                        cleanup_notifier.clone(),
+                        start_print_callback,
+                        move |print_callback| {
+                            with_print_writer(print_callback, |writer| repl.feed_start(&code, input_values, writer))
+                        },
+                    )
+                    .await?;
+                    dispatch_loop_repl(
+                        progress,
+                        repl_owner,
+                        cleanup_notifier,
+                        external_functions,
+                        os,
+                        dc_registry,
+                        print_callback,
+                    )
+                    .await
+                }
+                EitherRepl::Limited(repl) => {
+                    let progress = await_repl_transition(
+                        &repl_owner,
+                        cleanup_notifier.clone(),
+                        start_print_callback,
+                        move |print_callback| {
+                            with_print_writer(print_callback, |writer| repl.feed_start(&code, input_values, writer))
+                        },
+                    )
+                    .await?;
+                    dispatch_loop_repl(
+                        progress,
+                        repl_owner,
+                        cleanup_notifier,
+                        external_functions,
+                        os,
+                        dc_registry,
+                        print_callback,
+                    )
+                    .await
+                }
+            };
+            cancellation_guard.disarm();
+            result
+        })?;
+        Ok((future.unbind(), cleanup_waiter))
+    }
+}
+
+impl PyReplAsyncAwaitable {
+    /// Creates a lazy awaitable for a pending REPL async snippet.
+    fn new_py_any(py: Python<'_>, start: ReplAsyncStart) -> PyResult<Bound<'_, PyAny>> {
+        let slf = Self {
+            start: Mutex::new(Some(start)),
+            future: Mutex::new(None),
+            cleanup_waiter: Mutex::new(None),
+        };
+        slf.into_bound_py_any(py)
+    }
+
+    /// Returns the inner Python future and its cleanup waiter, creating them on first use.
+    fn get_or_start_future(&self, py: Python<'_>) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
+        if let Some(future) = self
+            .future
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_ref()
+            .map(|future| future.clone_ref(py))
+        {
+            let cleanup_waiter = self
+                .cleanup_waiter
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .as_ref()
+                .map(|cleanup_waiter| cleanup_waiter.clone_ref(py))
+                .ok_or_else(|| PyRuntimeError::new_err("Awaitable cleanup waiter is missing"))?;
+            return Ok((future, cleanup_waiter));
+        }
+
+        let start = {
+            let mut start_guard = self.start.lock().unwrap_or_else(PoisonError::into_inner);
+            start_guard.take()
+        };
+
+        let Some(start) = start else {
+            return self
+                .future
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .as_ref()
+                .map(|future| future.clone_ref(py))
+                .zip(
+                    self.cleanup_waiter
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .as_ref()
+                        .map(|cleanup_waiter| cleanup_waiter.clone_ref(py)),
+                )
+                .ok_or_else(|| PyRuntimeError::new_err("Awaitable is currently starting"));
+        };
+
+        let (future, cleanup_waiter) = start.into_future(py)?;
+        let mut future_guard = self.future.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(existing) = future_guard.as_ref() {
+            let cleanup_waiter = self
+                .cleanup_waiter
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .as_ref()
+                .map(|cleanup_waiter| cleanup_waiter.clone_ref(py))
+                .ok_or_else(|| PyRuntimeError::new_err("Awaitable cleanup waiter is missing"))?;
+            Ok((existing.clone_ref(py), cleanup_waiter))
+        } else {
+            *future_guard = Some(future.clone_ref(py));
+            let mut cleanup_guard = self.cleanup_waiter.lock().unwrap_or_else(PoisonError::into_inner);
+            *cleanup_guard = Some(cleanup_waiter.clone_ref(py));
+            Ok((future, cleanup_waiter))
+        }
+    }
+}
+
+#[pymethods]
+impl PyReplAsyncAwaitable {
+    /// Returns the iterator used by Python's await protocol.
+    fn __await__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let (future, cleanup_waiter) = self.get_or_start_future(py)?;
+        let wrapped = wrap_future_with_cleanup(py, future, cleanup_waiter)?;
+        wrapped.bind(py).call_method0("__await__")
+    }
+}
+
+/// Creates an event-loop future that becomes ready once REPL cleanup finishes.
+fn create_cleanup_waiter(py: Python<'_>) -> PyResult<(Py<PyAny>, Py<PyAny>)> {
+    let event_loop = py.import("asyncio")?.call_method0("get_running_loop")?;
+    let cleanup_waiter = event_loop.call_method0("create_future")?.unbind();
+    Ok((event_loop.unbind(), cleanup_waiter))
+}
+
+/// Wraps the inner Rust future so Python cancellation waits for REPL restoration.
+fn wrap_future_with_cleanup(py: Python<'_>, future: Py<PyAny>, cleanup_waiter: Py<PyAny>) -> PyResult<Py<PyAny>> {
+    get_repl_cancel_wrapper(py)?
+        .call1((future, cleanup_waiter))
+        .map(Bound::unbind)
+}
+
+/// Returns the cached Python helper used to await REPL cleanup on cancellation.
+fn get_repl_cancel_wrapper(py: Python<'_>) -> PyResult<&Bound<'_, PyAny>> {
+    static REPL_CANCEL_WRAPPER: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+
+    REPL_CANCEL_WRAPPER
+        .get_or_try_init(py, || {
+            let code = CString::new(
+                r"import asyncio
+
+async def await_repl_with_cleanup(future, cleanup_waiter):
+    try:
+        return await future
+    except asyncio.CancelledError:
+        future.cancel()
+        await asyncio.shield(cleanup_waiter)
+        raise
+",
+            )
+            .expect("helper module source must not contain NUL bytes");
+            let module = PyModule::from_code(py, code.as_c_str(), c"monty_repl_async.py", c"monty_repl_async")?;
+            Ok(module.getattr("await_repl_with_cleanup")?.unbind())
+        })
+        .map(|wrapper| wrapper.bind(py))
+}
+
 impl PyMontyRepl {
     /// Executes a REPL snippet with external function and OS call support.
     ///
@@ -258,7 +598,7 @@ impl PyMontyRepl {
         code: &str,
         input_values: Vec<(String, MontyObject)>,
         external_functions: Option<&Bound<'_, PyDict>>,
-        os: Option<&Bound<'_, PyAny>>,
+        os_handler: Option<&OsHandler>,
         mut print_writer: PrintWriter<'_>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let mut print_output = SendWrapper::new(&mut print_writer);
@@ -266,12 +606,24 @@ impl PyMontyRepl {
         let repl = self.take_repl()?;
 
         let result = match repl {
-            EitherRepl::NoLimit(repl) => {
-                self.feed_start_loop(py, repl, code, input_values, external_functions, os, &mut print_output)
-            }
-            EitherRepl::Limited(repl) => {
-                self.feed_start_loop(py, repl, code, input_values, external_functions, os, &mut print_output)
-            }
+            EitherRepl::NoLimit(repl) => self.feed_start_loop(
+                py,
+                repl,
+                code,
+                input_values,
+                external_functions,
+                os_handler,
+                &mut print_output,
+            ),
+            EitherRepl::Limited(repl) => self.feed_start_loop(
+                py,
+                repl,
+                code,
+                input_values,
+                external_functions,
+                os_handler,
+                &mut print_output,
+            ),
         };
 
         // On error, the REPL is already restored inside `restore_repl_from_start_error`.
@@ -286,6 +638,9 @@ impl PyMontyRepl {
 
     /// Runs the feed_start / resume loop for a specific resource tracker type.
     ///
+    /// Handles filesystem mounts via the [`OsHandler`] take/put_back lifecycle:
+    /// mounts are taken at the start and put back on all exit paths.
+    ///
     /// Returns the output value and the restored REPL enum variant, or a Python error.
     #[expect(clippy::too_many_arguments)]
     fn feed_start_loop<T: ResourceTracker + Send>(
@@ -295,20 +650,36 @@ impl PyMontyRepl {
         code: &str,
         input_values: Vec<(String, MontyObject)>,
         external_functions: Option<&Bound<'_, PyDict>>,
-        os: Option<&Bound<'_, PyAny>>,
+        os_handler: Option<&OsHandler>,
         print_output: &mut SendWrapper<&mut PrintWriter<'_>>,
     ) -> PyResult<(MontyObject, EitherRepl)>
     where
         EitherRepl: FromCoreRepl<T>,
     {
+        // Take mounts out of shared slots for zero-overhead execution.
+        let mut mount_table: Option<MountTable> = os_handler.map(OsHandler::take).transpose()?;
+        let fallback = os_handler.and_then(|h| h.fallback.as_ref());
+
+        // Helper: put mounts back into shared slots.
+        let put_back = |table: Option<MountTable>| {
+            if let (Some(h), Some(table)) = (os_handler, table) {
+                h.put_back(table);
+            }
+        };
+
         let code_owned = code.to_owned();
-        let mut progress = py
-            .detach(|| repl.feed_start(&code_owned, input_values, print_output.reborrow()))
-            .map_err(|e| self.restore_repl_from_start_error(py, *e))?;
+        let mut progress = match py.detach(|| repl.feed_start(&code_owned, input_values, print_output.reborrow())) {
+            Ok(p) => p,
+            Err(e) => {
+                put_back(mount_table);
+                return Err(self.restore_repl_from_start_error(py, *e));
+            }
+        };
 
         loop {
             match progress {
                 ReplProgress::Complete { repl, value } => {
+                    put_back(mount_table);
                     return Ok((value, EitherRepl::from_core(repl)));
                 }
                 ReplProgress::FunctionCall(call) => {
@@ -323,12 +694,17 @@ impl PyMontyRepl {
                             call.function_name
                         );
                         self.put_repl(EitherRepl::from_core(call.into_repl()));
+                        put_back(mount_table);
                         return Err(PyRuntimeError::new_err(msg));
                     };
 
-                    progress = py
-                        .detach(|| call.resume(return_value, print_output.reborrow()))
-                        .map_err(|e| self.restore_repl_from_start_error(py, *e))?;
+                    progress = match py.detach(|| call.resume(return_value, print_output.reborrow())) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            put_back(mount_table);
+                            return Err(self.restore_repl_from_start_error(py, *e));
+                        }
+                    };
                 }
                 ReplProgress::NameLookup(lookup) => {
                     let result = if let Some(ext_fns) = external_functions
@@ -342,45 +718,29 @@ impl PyMontyRepl {
                         NameLookupResult::Undefined
                     };
 
-                    progress = py
-                        .detach(|| lookup.resume(result, print_output.reborrow()))
-                        .map_err(|e| self.restore_repl_from_start_error(py, *e))?;
+                    progress = match py.detach(|| lookup.resume(result, print_output.reborrow())) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            put_back(mount_table);
+                            return Err(self.restore_repl_from_start_error(py, *e));
+                        }
+                    };
                 }
                 ReplProgress::OsCall(call) => {
-                    let result: ExtFunctionResult = if let Some(os_callback) = os {
-                        let py_args: Vec<Py<PyAny>> = call
-                            .args
-                            .iter()
-                            .map(|arg| monty_to_py(py, arg, &self.dc_registry))
-                            .collect::<PyResult<_>>()?;
-                        let py_args_tuple = PyTuple::new(py, py_args)?;
+                    let result: ExtFunctionResult =
+                        handle_repl_os_call(py, &call, &mut mount_table, fallback, &self.dc_registry)?;
 
-                        let py_kwargs = PyDict::new(py);
-                        for (k, v) in &call.kwargs {
-                            py_kwargs.set_item(
-                                monty_to_py(py, k, &self.dc_registry)?,
-                                monty_to_py(py, v, &self.dc_registry)?,
-                            )?;
+                    progress = match py.detach(|| call.resume(result, print_output.reborrow())) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            put_back(mount_table);
+                            return Err(self.restore_repl_from_start_error(py, *e));
                         }
-
-                        match os_callback.call1((call.function.to_string(), py_args_tuple, py_kwargs)) {
-                            Ok(result) => py_to_monty(&result, &self.dc_registry)?.into(),
-                            Err(err) => exc_py_to_monty(py, &err).into(),
-                        }
-                    } else {
-                        MontyException::new(
-                            ExcType::NotImplementedError,
-                            Some(format!("OS function '{}' not implemented", call.function)),
-                        )
-                        .into()
                     };
-
-                    progress = py
-                        .detach(|| call.resume(result, print_output.reborrow()))
-                        .map_err(|e| self.restore_repl_from_start_error(py, *e))?;
                 }
                 ReplProgress::ResolveFutures(state) => {
                     self.put_repl(EitherRepl::from_core(state.into_repl()));
+                    put_back(mount_table);
                     return Err(PyRuntimeError::new_err(
                         "async futures not supported with `MontyRepl.feed_run`",
                     ));
@@ -416,6 +776,8 @@ impl PyMontyRepl {
 
     /// Restores a REPL into the mutex after `feed_start` completes successfully.
     pub(crate) fn put_repl(&self, repl: EitherRepl) {
+        let mut repl = repl;
+        repl.set_cancellation_flag(None);
         let mut guard = self.repl.lock().unwrap_or_else(PoisonError::into_inner);
         *guard = Some(repl);
     }
@@ -448,6 +810,48 @@ fn extract_repl_inputs(
             Ok((name, obj))
         })
         .collect::<PyResult<_>>()
+}
+
+/// Handles an OS call from the REPL, dispatching to the mount table if available,
+/// then to the fallback callback, and finally to [`OsFunction::on_no_handler`].
+fn handle_repl_os_call<T: ResourceTracker>(
+    py: Python<'_>,
+    call: &monty::ReplOsCall<T>,
+    mount_table: &mut Option<MountTable>,
+    fallback: Option<&Py<PyAny>>,
+    dc_registry: &DcRegistry,
+) -> PyResult<ExtFunctionResult> {
+    if let Some(table) = mount_table.as_mut() {
+        match table.handle_os_call(call.function, &call.args, &call.kwargs) {
+            Some(Ok(obj)) => return Ok(obj.into()),
+            Some(Err(mount_err)) => return Ok(mount_err.into_exception().into()),
+            None => {} // Intentional: unmounted paths fall through to `os=`.
+        }
+    }
+
+    if let Some(fb) = fallback {
+        // Construct a temporary OsCall-like struct for call_os_callback.
+        // call_os_callback expects an OsCall<T> but we have ReplOsCall<T>.
+        // Inline the callback logic instead.
+        let py_args: Vec<Py<PyAny>> = call
+            .args
+            .iter()
+            .map(|arg| monty_to_py(py, arg, dc_registry))
+            .collect::<PyResult<_>>()?;
+        let py_args_tuple = PyTuple::new(py, py_args)?;
+
+        let py_kwargs = PyDict::new(py);
+        for (k, v) in &call.kwargs {
+            py_kwargs.set_item(monty_to_py(py, k, dc_registry)?, monty_to_py(py, v, dc_registry)?)?;
+        }
+
+        return match fb.bind(py).call1((call.function.to_string(), py_args_tuple, py_kwargs)) {
+            Ok(result) => Ok(py_to_monty(&result, dc_registry)?.into()),
+            Err(err) => Ok(exc_py_to_monty(py, &err).into()),
+        };
+    }
+
+    Ok(call.function.on_no_handler(&call.args).into())
 }
 
 /// Helper trait to convert a typed `CoreMontyRepl<T>` back into the

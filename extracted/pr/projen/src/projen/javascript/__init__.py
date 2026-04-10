@@ -599,6 +599,7 @@ class BiomeOptions:
         "pre_build_steps": "preBuildSteps",
         "workflow_triggers": "workflowTriggers",
         "mutable_build": "mutableBuild",
+        "mutable_install": "mutableInstall",
     },
 )
 class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
@@ -611,6 +612,7 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
+        mutable_install: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Build workflow options for NodeProject.
 
@@ -620,6 +622,7 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         :param pre_build_steps: (experimental) Steps to execute before the build. Default: []
         :param workflow_triggers: (experimental) Build workflow triggers. Default: "{ pullRequest: {}, workflowDispatch: {} }"
         :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. Default: true
+        :param mutable_install: (experimental) Perform a mutable (non-frozen) install during builds. This will update the package lockfile during installs, which is useful when build steps modify dependencies. Set to ``false`` to use frozen lockfile installs even when ``mutableBuild`` is enabled. Default: - value of ``mutableBuild``
 
         :stability: experimental
         '''
@@ -635,6 +638,7 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
             check_type(argname="argument pre_build_steps", value=pre_build_steps, expected_type=type_hints["pre_build_steps"])
             check_type(argname="argument workflow_triggers", value=workflow_triggers, expected_type=type_hints["workflow_triggers"])
             check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
+            check_type(argname="argument mutable_install", value=mutable_install, expected_type=type_hints["mutable_install"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if env is not None:
             self._values["env"] = env
@@ -648,6 +652,8 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
             self._values["workflow_triggers"] = workflow_triggers
         if mutable_build is not None:
             self._values["mutable_build"] = mutable_build
+        if mutable_install is not None:
+            self._values["mutable_install"] = mutable_install
 
     @builtins.property
     def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -718,6 +724,22 @@ class BuildWorkflowOptions(_BuildWorkflowCommonOptions_7e3d5c39):
         :stability: experimental
         '''
         result = self._values.get("mutable_build")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def mutable_install(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Perform a mutable (non-frozen) install during builds.
+
+        This will update the
+        package lockfile during installs, which is useful when build steps modify
+        dependencies. Set to ``false`` to use frozen lockfile installs even when
+        ``mutableBuild`` is enabled.
+
+        :default: - value of ``mutableBuild``
+
+        :stability: experimental
+        '''
+        result = self._values.get("mutable_install")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -17007,6 +17029,7 @@ def _typecheckingstub__12c3595783c38c358dfa0cc66282771c2ed2020f0770e8379920bb573
     pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_build: typing.Optional[builtins.bool] = None,
+    mutable_install: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -18,22 +18,18 @@ class CreateListener:
         url (str):
         uuid (UUID):
         load_balancer (str): Load balancer this listener belongs to
-        name (str):
         protocol (LoadBalancerProtocolEnum):
         protocol_port (int): Port on which the listener listens
-        project (str):
-        service_settings (str):
+        name (Union[Unset, str]):
         default_pool (Union[None, Unset, str]):
     """
 
     url: str
     uuid: UUID
     load_balancer: str
-    name: str
     protocol: LoadBalancerProtocolEnum
     protocol_port: int
-    project: str
-    service_settings: str
+    name: Union[Unset, str] = UNSET
     default_pool: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -44,15 +40,11 @@ class CreateListener:
 
         load_balancer = self.load_balancer
 
-        name = self.name
-
         protocol = self.protocol.value
 
         protocol_port = self.protocol_port
 
-        project = self.project
-
-        service_settings = self.service_settings
+        name = self.name
 
         default_pool: Union[None, Unset, str]
         if isinstance(self.default_pool, Unset):
@@ -67,13 +59,12 @@ class CreateListener:
                 "url": url,
                 "uuid": uuid,
                 "load_balancer": load_balancer,
-                "name": name,
                 "protocol": protocol,
                 "protocol_port": protocol_port,
-                "project": project,
-                "service_settings": service_settings,
             }
         )
+        if name is not UNSET:
+            field_dict["name"] = name
         if default_pool is not UNSET:
             field_dict["default_pool"] = default_pool
 
@@ -88,15 +79,11 @@ class CreateListener:
 
         load_balancer = d.pop("load_balancer")
 
-        name = d.pop("name")
-
         protocol = LoadBalancerProtocolEnum(d.pop("protocol"))
 
         protocol_port = d.pop("protocol_port")
 
-        project = d.pop("project")
-
-        service_settings = d.pop("service_settings")
+        name = d.pop("name", UNSET)
 
         def _parse_default_pool(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -111,11 +98,9 @@ class CreateListener:
             url=url,
             uuid=uuid,
             load_balancer=load_balancer,
-            name=name,
             protocol=protocol,
             protocol_port=protocol_port,
-            project=project,
-            service_settings=service_settings,
+            name=name,
             default_pool=default_pool,
         )
 

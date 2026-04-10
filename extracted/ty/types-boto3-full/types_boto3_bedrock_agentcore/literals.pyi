@@ -30,6 +30,7 @@ __all__ = (
     "CodeInterpreterSessionStatusType",
     "CommandExecutionStatusType",
     "ContentBlockTypeType",
+    "DescriptorTypeType",
     "EventFilterConditionType",
     "ExtractionJobStatusType",
     "LanguageRuntimeType",
@@ -44,6 +45,7 @@ __all__ = (
     "OperatorTypeType",
     "PaginatorName",
     "ProgrammingLanguageType",
+    "RegistryRecordStatusType",
     "ResourceContentTypeType",
     "ResourceServiceName",
     "RetrieveMemoryRecordsPaginatorName",
@@ -63,6 +65,7 @@ BrowserSessionStatusType = Literal["READY", "TERMINATED"]
 CodeInterpreterSessionStatusType = Literal["READY", "TERMINATED"]
 CommandExecutionStatusType = Literal["COMPLETED", "TIMED_OUT"]
 ContentBlockTypeType = Literal["image", "resource", "resource_link", "text"]
+DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
 EventFilterConditionType = Literal["HAS_EVENTS"]
 ExtractionJobStatusType = Literal["FAILED"]
 LanguageRuntimeType = Literal["deno", "nodejs", "python"]
@@ -76,6 +79,9 @@ MouseButtonType = Literal["LEFT", "MIDDLE", "RIGHT"]
 Oauth2FlowTypeType = Literal["M2M", "USER_FEDERATION"]
 OperatorTypeType = Literal["EQUALS_TO", "EXISTS", "NOT_EXISTS"]
 ProgrammingLanguageType = Literal["javascript", "python", "typescript"]
+RegistryRecordStatusType = Literal[
+    "APPROVED", "DEPRECATED", "DRAFT", "PENDING_APPROVAL", "REJECTED"
+]
 ResourceContentTypeType = Literal["blob", "text"]
 RetrieveMemoryRecordsPaginatorName = Literal["retrieve_memory_records"]
 RoleType = Literal["ASSISTANT", "OTHER", "TOOL", "USER"]

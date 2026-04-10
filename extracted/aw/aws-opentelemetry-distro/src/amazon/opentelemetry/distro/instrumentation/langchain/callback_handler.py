@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import logging
 from contextvars import Token
-from threading import Lock
 from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
@@ -13,6 +12,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 
 from amazon.opentelemetry.distro.instrumentation.common.instrumentation_utils import (
     PROVIDER_MAP,
+    DictWithLock,
     serialize_to_json_string,
     skip_instrumentation_if_suppressed,
     try_detach,
@@ -23,12 +23,16 @@ from opentelemetry.semconv._incubating.attributes.gen_ai_attributes import (
     GEN_AI_INPUT_MESSAGES,
     GEN_AI_OPERATION_NAME,
     GEN_AI_OUTPUT_MESSAGES,
-    GEN_AI_PROMPT,
     GEN_AI_PROVIDER_NAME,
+    GEN_AI_REQUEST_FREQUENCY_PENALTY,
     GEN_AI_REQUEST_MAX_TOKENS,
     GEN_AI_REQUEST_MODEL,
+    GEN_AI_REQUEST_PRESENCE_PENALTY,
+    GEN_AI_REQUEST_STOP_SEQUENCES,
     GEN_AI_REQUEST_TEMPERATURE,
+    GEN_AI_REQUEST_TOP_K,
     GEN_AI_REQUEST_TOP_P,
+    GEN_AI_RESPONSE_FINISH_REASONS,
     GEN_AI_RESPONSE_ID,
     GEN_AI_RESPONSE_MODEL,
     GEN_AI_SYSTEM_INSTRUCTIONS,
@@ -49,7 +53,6 @@ from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util.types import AttributeValue
 
 if TYPE_CHECKING:
-    from langchain_core.agents import AgentAction, AgentFinish
     from langchain_core.messages import BaseMessage
     from langchain_core.outputs import LLMResult
 
@@ -57,12 +60,6 @@ _logger = logging.getLogger(__name__)
 
 LANGGRAPH_STEP_SPAN_ATTR = "langgraph.step"
 LANGGRAPH_NODE_SPAN_ATTR = "langgraph.node"
-
-# We use "invoke_model" instead of the OTel semconv "chat" for span names because "chat" is
-# a bit ambiguous it could refer to the user's chat session or the agent's conversation. We feel
-# that "invoke_model" makes it clear the span represents the agent calling
-# the underlying model. The gen_ai.operation.name attribute still uses the semconv value.
-INVOKE_MODEL = "invoke_model"
 
 
 class _BaseCallbackManagerInitWrapper:
@@ -96,8 +93,7 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
         super().__init__()
         self.tracer = tracer
         self.should_suppress_internal_chains = should_suppress_internal_chains
-        self._lock = Lock()
-        self.run_id_to_span_map: dict[UUID, tuple[Span, Token]] = {}
+        self.run_id_to_span_map: DictWithLock = DictWithLock()
 
     @skip_instrumentation_if_suppressed
     def on_chat_model_start(
@@ -111,13 +107,17 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
 
-        model_id: str | None = kwargs.get("invocation_params", {}).get("model_id")
-        model_name: str | None = model_id or self._get_name_from_callback(serialized, **kwargs)
+        serialized_kwargs = serialized.get("kwargs", {})
+        model_name: str | None = self._extract_llm_model_id(kwargs, serialized_kwargs) or self._get_name_from_callback(
+            serialized, **kwargs
+        )
         provider: str | None = self._extract_llm_provider(serialized, kwargs)
         system_instructions, conversation = self._format_lc_messages(messages)
-        span_name: str = f"{INVOKE_MODEL} {model_name}" if model_name else INVOKE_MODEL
+        span_name: str = (
+            f"{GenAiOperationNameValues.CHAT.value} {model_name}" if model_name else GenAiOperationNameValues.CHAT.value
+        )
 
-        span: Span = self._start_span(run_id, parent_run_id, span_name)
+        span: Span = self._start_span(run_id, parent_run_id, span_name, kind=SpanKind.CLIENT)
 
         self._set_langgraph_span_attributes(span, metadata)
         self._set_span_attribute(span, GEN_AI_PROVIDER_NAME, provider)
@@ -126,9 +126,7 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
 
         if system_instructions:
             self._set_span_attribute(span, GEN_AI_SYSTEM_INSTRUCTIONS, serialize_to_json_string(system_instructions))
-        self._set_llm_request_span_attributes(
-            span, kwargs, serialized=serialized.get("kwargs", {}), model_name=model_name
-        )
+        self._set_llm_request_span_attributes(span, kwargs, serialized=serialized_kwargs, model_name=model_name)
 
     @skip_instrumentation_if_suppressed
     def on_llm_start(
@@ -142,23 +140,27 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
 
-        model_id: str | None = kwargs.get("invocation_params", {}).get("model_id")
-        model_name: str | None = model_id or self._get_name_from_callback(serialized, **kwargs)
+        serialized_kwargs = serialized.get("kwargs", {})
+        model_name: str | None = self._extract_llm_model_id(kwargs, serialized_kwargs) or self._get_name_from_callback(
+            serialized, **kwargs
+        )
         provider: str | None = self._extract_llm_provider(serialized, kwargs)
         span_name: str = (
             f"{GenAiOperationNameValues.TEXT_COMPLETION.value} {model_name}"
             if model_name
             else GenAiOperationNameValues.TEXT_COMPLETION.value
         )
-        span: Span = self._start_span(run_id, parent_run_id, span_name)
+        span: Span = self._start_span(run_id, parent_run_id, span_name, kind=SpanKind.CLIENT)
 
         self._set_langgraph_span_attributes(span, metadata)
         self._set_span_attribute(span, GEN_AI_PROVIDER_NAME, provider)
         self._set_span_attribute(span, GEN_AI_OPERATION_NAME, GenAiOperationNameValues.TEXT_COMPLETION.value)
-        self._set_span_attribute(span, GEN_AI_PROMPT, serialize_to_json_string(prompts))
-        self._set_llm_request_span_attributes(
-            span, kwargs, serialized=serialized.get("kwargs", {}), model_name=model_name
+        self._set_span_attribute(
+            span,
+            GEN_AI_INPUT_MESSAGES,
+            serialize_to_json_string([{"role": "user", "parts": [{"type": "text", "content": p}]} for p in prompts]),
         )
+        self._set_llm_request_span_attributes(span, kwargs, serialized=serialized_kwargs, model_name=model_name)
 
     @skip_instrumentation_if_suppressed
     def on_llm_end(self, response: LLMResult, *, run_id: UUID, **kwargs: Any) -> None:
@@ -179,9 +181,11 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
         )
 
         if response.generations:
-            self._set_span_attribute(
-                span, GEN_AI_OUTPUT_MESSAGES, serialize_to_json_string(self._format_lc_llm_output(response.generations))
-            )
+            output_messages = self._format_lc_llm_output(response.generations)
+            self._set_span_attribute(span, GEN_AI_OUTPUT_MESSAGES, serialize_to_json_string(output_messages))
+            finish_reasons = self._extract_finish_reasons(response.generations)
+            if finish_reasons is not None:
+                self._set_span_attribute(span, GEN_AI_RESPONSE_FINISH_REASONS, finish_reasons)
 
         self._set_span_attribute(span, GEN_AI_RESPONSE_MODEL, model)
         self._set_span_attribute(span, GEN_AI_RESPONSE_ID, response_id)
@@ -249,6 +253,7 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
         run_id: UUID,
         parent_run_id: UUID | None = None,
         metadata: dict[str, Any] | None = None,
+        inputs: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
 
@@ -270,7 +275,9 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
         self._set_span_attribute(span, GEN_AI_TOOL_TYPE, "function")
         self._set_span_attribute(span, GEN_AI_TOOL_DESCRIPTION, description)
         self._set_span_attribute(span, GEN_AI_TOOL_CALL_ID, tool_call_id)
-        self._set_span_attribute(span, GEN_AI_TOOL_CALL_ARGUMENTS, serialize_to_json_string(input_str))
+        self._set_span_attribute(
+            span, GEN_AI_TOOL_CALL_ARGUMENTS, serialize_to_json_string(inputs if inputs is not None else input_str)
+        )
 
     @skip_instrumentation_if_suppressed
     def on_tool_end(self, output: Any, *, run_id: UUID, **kwargs: Any) -> None:
@@ -284,32 +291,6 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
 
     def on_tool_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
         self._handle_error(error, run_id, **kwargs)
-
-    @skip_instrumentation_if_suppressed
-    def on_agent_action(self, action: AgentAction, *, run_id: UUID, **kwargs: Any) -> None:
-
-        entry = self._safe_get_span(run_id)
-        if not entry:
-            return
-        span, _ = entry
-        self._set_span_attribute(
-            span, GEN_AI_TOOL_CALL_ARGUMENTS, serialize_to_json_string(getattr(action, "tool_input", None))
-        )
-        self._set_span_attribute(span, GEN_AI_TOOL_NAME, getattr(action, "tool", None))
-        self._set_span_attribute(span, GEN_AI_OPERATION_NAME, GenAiOperationNameValues.INVOKE_AGENT.value)
-
-    @skip_instrumentation_if_suppressed
-    def on_agent_finish(self, finish: AgentFinish, *, run_id: UUID, **kwargs: Any) -> None:
-
-        entry = self._safe_get_span(run_id)
-        if not entry:
-            return
-        span, _ = entry
-        self._set_span_attribute(
-            span,
-            GEN_AI_TOOL_CALL_RESULT,
-            serialize_to_json_string(finish.return_values.get("output")),
-        )
 
     def on_agent_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
         self._handle_error(error, run_id, **kwargs)
@@ -455,16 +436,7 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
         self, span: Span, kwargs: dict, serialized: Optional[dict] = None, model_name: Optional[str] = None
     ):
         config = serialized or {}
-        model = None
-        for model_tag in ("model", "model_name", "model_id", "base_model_id"):
-            if (model := kwargs.get(model_tag)) is not None:
-                break
-            if (model := (kwargs.get("invocation_params") or {}).get(model_tag)) is not None:
-                break
-            if (model := config.get(model_tag)) is not None:
-                break
-
-        model = model or model_name
+        model = self._extract_llm_model_id(kwargs, config) or model_name
         if model:
             self._set_span_attribute(span, GEN_AI_REQUEST_MODEL, model)
             self._set_span_attribute(span, GEN_AI_RESPONSE_MODEL, model)
@@ -481,6 +453,18 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
             span, GEN_AI_REQUEST_TEMPERATURE, params.get("temperature") or config.get("temperature")
         )
         self._set_span_attribute(span, GEN_AI_REQUEST_TOP_P, params.get("top_p") or config.get("top_p"))
+        self._set_span_attribute(span, GEN_AI_REQUEST_TOP_K, params.get("top_k") or config.get("top_k"))
+        self._set_span_attribute(
+            span,
+            GEN_AI_REQUEST_FREQUENCY_PENALTY,
+            params.get("frequency_penalty") or config.get("frequency_penalty"),
+        )
+        self._set_span_attribute(
+            span, GEN_AI_REQUEST_PRESENCE_PENALTY, params.get("presence_penalty") or config.get("presence_penalty")
+        )
+        stop = params.get("stop") or config.get("stop")
+        if stop:
+            self._set_span_attribute(span, GEN_AI_REQUEST_STOP_SEQUENCES, stop)
 
     def _should_skip_chain(
         self, serialized: dict[str, Any], name: Optional[str], metadata: Optional[dict] = None
@@ -523,6 +507,7 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
         if not entry:
             return
         span, _ = entry
+        span.record_exception(error)
         span.set_status(Status(StatusCode.ERROR, str(error)))
         span.set_attribute(ERROR_TYPE, type(error).__qualname__)
         self._end_span(run_id)
@@ -534,20 +519,19 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
         span_name: str,
         kind: SpanKind = SpanKind.INTERNAL,
     ) -> Span:
-        with self._lock:
-            if parent_run_id and parent_run_id in self.run_id_to_span_map:
-                parent_span, _ = self.run_id_to_span_map[parent_run_id]
-                span = self.tracer.start_span(span_name, context=set_span_in_context(parent_span), kind=kind)
-            else:
-                span = self.tracer.start_span(span_name, kind=kind)
+        parent_entry = self.run_id_to_span_map.get(parent_run_id) if parent_run_id else None
+        if parent_entry:
+            parent_span, _ = parent_entry
+            span = self.tracer.start_span(span_name, context=set_span_in_context(parent_span), kind=kind)
+        else:
+            span = self.tracer.start_span(span_name, kind=kind)
 
-            token = context.attach(set_span_in_context(span))
-            self.run_id_to_span_map[run_id] = (span, token)
+        token = context.attach(set_span_in_context(span))
+        self.run_id_to_span_map.put(run_id, (span, token))
         return span
 
     def _end_span(self, run_id: UUID) -> None:
-        with self._lock:
-            entry = self.run_id_to_span_map.pop(run_id, None)
+        entry = self.run_id_to_span_map.pop(run_id)
         if not entry:
             return
         span, token = entry
@@ -566,7 +550,36 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
         return kwargs.get("name")
 
     @staticmethod
+    def _extract_finish_reasons(generations: list) -> list[str] | None:
+        reasons: list[str] = []
+        for batch in generations:
+            for gen in batch:
+                raw = (getattr(gen, "generation_info", None) or {}).get("finish_reason")
+                if not raw and (msg := getattr(gen, "message", None)):
+                    raw = (getattr(msg, "response_metadata", None) or {}).get("stop_reason")
+                if raw:
+                    reasons.append(raw)
+        return reasons or None
+
+    @staticmethod
+    def _extract_llm_model_id(kwargs: dict, serialized: Optional[dict] = None) -> Optional[str]:
+        config = serialized or {}
+        for model_tag in ("model", "model_name", "model_id", "base_model_id"):
+            if (model := kwargs.get(model_tag)) is not None:
+                return model
+            if (model := (kwargs.get("invocation_params") or {}).get(model_tag)) is not None:
+                return model
+            if (model := config.get(model_tag)) is not None:
+                return model
+        return None
+
+    @staticmethod
     def _extract_llm_provider(serialized: dict[str, Any], kwargs: dict[str, Any]) -> Optional[str]:
+        if ids := (serialized or {}).get("id", []):
+            for part in ids:
+                if provider := PROVIDER_MAP.get(part.lower()):
+                    return provider
+
         inv_type = kwargs.get("invocation_params", {}).get("_type", "")
         if inv_type:
             prefix = inv_type.split("-")[0].lower()
@@ -579,16 +592,10 @@ class OpenTelemetryCallbackHandler(BaseCallbackHandler):
             if provider := PROVIDER_MAP.get(prefix):
                 return provider
 
-        if ids := (serialized or {}).get("id", []):
-            for part in ids:
-                if provider := PROVIDER_MAP.get(part.lower()):
-                    return provider
-
         return None
 
     def _safe_get_span(self, run_id: UUID) -> Optional[tuple[Span, Token]]:
-        with self._lock:
-            return self.run_id_to_span_map.get(run_id)
+        return self.run_id_to_span_map.get(run_id)
 
     @staticmethod
     def _set_span_attribute(span: Span, name: str, value: Optional[AttributeValue]):

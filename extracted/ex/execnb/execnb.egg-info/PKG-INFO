@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: execnb
-Version: 0.1.18
+Version: 0.2.0
 Summary: A description of your project
-Home-page: https://github.com/AnswerDotAI/execnb/
-Author: Jeremy Howard
-Author-email: j@fast.ai
-License: Apache Software License 2.0
-Keywords: some keywords
-Classifier: Development Status :: 3 - Alpha
-Classifier: Intended Audience :: Developers
+Author-email: Jeremy Howard <j@fast.ai>
+License: Apache-2.0
+Project-URL: Repository, https://github.com/AnswerDotAI/execnb/
+Project-URL: Documentation, https://AnswerDotAI.github.io/execnb/
+Keywords: some,keywords
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Intended Audience :: Developers
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -22,19 +21,7 @@ Provides-Extra: dev
 Requires-Dist: matplotlib; extra == "dev"
 Requires-Dist: Pillow; extra == "dev"
 Requires-Dist: mistletoe; extra == "dev"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # execnb
 

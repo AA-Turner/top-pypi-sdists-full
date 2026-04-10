@@ -22,6 +22,12 @@ class TestShellCommand:
         _, out, _ = proc("shell", "-c", "item")
         assert "{}" in out
 
+    def test_empty_no_reactor(self) -> None:
+        _, out, _ = proc(
+            "shell", "-c", "item", "--set", "TWISTED_REACTOR_ENABLED=False"
+        )
+        assert "{}" in out
+
     def test_response_body(self, mockserver: MockServer) -> None:
         _, out, _ = proc("shell", mockserver.url("/text"), "-c", "response.body")
         assert "Works" in out
@@ -114,7 +120,7 @@ class TestShellCommand:
         url = "www.somedomainthatdoesntexi.st"
         ret, out, err = proc("shell", url, "-c", "item")
         assert ret == 1, out or err
-        assert "DNS lookup failed" in err
+        assert "CannotResolveHostError" in err
 
     def test_shell_fetch_async(self, mockserver: MockServer) -> None:
         url = mockserver.url("/html")
@@ -124,6 +130,14 @@ class TestShellCommand:
         )
         assert ret == 0, err
         assert "RuntimeError: There is no current event loop in thread" not in err
+
+    def test_shell_fetch_no_reactor(self, mockserver: MockServer) -> None:
+        url = mockserver.url("/html")
+        code = f"fetch('{url}')"
+        ret, _, err = proc(
+            "shell", "-c", code, "--set", "TWISTED_REACTOR_ENABLED=False"
+        )
+        assert ret == 0, err
 
 
 class TestInteractiveShell:
@@ -145,6 +159,6 @@ class TestInteractiveShell:
         p.sendline("type(response)")
         p.expect_exact("HtmlResponse")
         p.sendeof()
-        p.wait()
+        p.wait()  # type: ignore[no-untyped-call]
         logfile.seek(0)
         assert "Traceback" not in logfile.read().decode()

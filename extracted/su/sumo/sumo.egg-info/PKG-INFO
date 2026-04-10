@@ -1,26 +1,42 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sumo
-Version: 2.3.12
+Version: 2.4.0.post1
 Summary: Heavy weight plotting tools for ab initio solid-state calculations
-Home-page: https://github.com/smtg-ucl/sumo
 Author: Alex Ganose, Adam J. Jackson
-Author-email: d.scanlon@ucl.ac.uk
-License: MIT
-Keywords: chemistry pymatgen dft vasp dos band
-Platform: UNKNOWN
+Author-email: David Scanlon <d.o.scanlon@bham.ac.uk>
+License-Expression: MIT
+Project-URL: Repository, https://github.com/SMTG-Bham/sumo
+Project-URL: Bug Tracker, https://github.com/SMTG-Bham/sumo/issues
+Project-URL: Documentation, https://smtg-bham.github.io/sumo/
+Keywords: chemistry,pymatgen,dft,vasp,dos,band
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.10
 Classifier: Topic :: Scientific/Engineering :: Chemistry
 Classifier: Topic :: Scientific/Engineering :: Physics
-Requires-Python: >=3.8
-Provides-Extra: docs
-Provides-Extra: tests
-Provides-Extra: dev
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
+Requires-Dist: spglib
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: h5py
+Requires-Dist: pymatgen>=2020.10.20
+Requires-Dist: phonopy>=2.7.0
+Requires-Dist: matplotlib>=3.2.0
+Requires-Dist: seekpath
+Requires-Dist: castepxbin<1.0
+Requires-Dist: colormath
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-argparse; extra == "docs"
+Provides-Extra: tests
+Requires-Dist: pytest; extra == "tests"
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == "dev"
+Dynamic: license-file
 
 Sumo
 ====
@@ -228,10 +244,10 @@ Sumo is made available under the MIT License.
 Detailed requirements
 ---------------------
 
-Sumo is currently compatible with Python 3.5+ and relies on a number of
+Sumo is currently compatible with Python 3.10+ and relies on a number of
 open-source python packages, specifically:
 
-- Pymatgen_ (version >= 2017.12.30)
+- Pymatgen_
 - Numpy_
 - Scipy_
 - Matplotlib_
@@ -280,5 +296,3 @@ workflow while core developers use branches in the main repository:
    3. Open a pull request to merge the changes into the main
       project. A more detailed discussion can take place there before
       the changes are accepted.
-
-

@@ -1742,14 +1742,6 @@ def tryLoadDataOnBackgroundThread():
     loadDatabaseOrFetch(downloadOnly=True,listStockCodes=listStockCodes,menuOption="X",indexOption=int(configManager.defaultIndex))            
 
 def loadDatabaseOrFetch(downloadOnly, listStockCodes, menuOption, indexOption): 
-    # #region agent log
-    # import json
-    # log_path = os.path.join(Archiver.get_user_data_dir(), "pkscreener-logs.txt")
-    # try:
-    #     with open(log_path, 'a') as f:
-    #         f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"ALL","location":"globals.py:loadDatabaseOrFetch:1712","message":"loadDatabaseOrFetch entry","data":{"menuOption":menuOption,"listStockCodes_len":len(listStockCodes) if listStockCodes else 0},"timestamp":int(__import__('time').time()*1000)}) + '\n')
-    # except: pass
-    # #endregion
     global stockDictPrimary,stockDictSecondary, configManager, defaultAnswer, userPassedArgs, loadedStockData
     if menuOption not in ["C"]:
         stockDictPrimary = AssetsManager.PKAssetsManager.loadStockData(
@@ -1796,14 +1788,6 @@ def loadDatabaseOrFetch(downloadOnly, listStockCodes, menuOption, indexOption):
         configManager.period = prevPeriod
         configManager.setConfig(ConfigManager.parser,default=True,showFileCreatedText=False)
     loadedStockData = True
-    # #region agent log
-    # try:
-    #     sample_stock = list(stockDictPrimary.keys())[0] if stockDictPrimary else None
-    #     sample_index = stockDictPrimary[sample_stock]['index'][-1] if sample_stock and stockDictPrimary.get(sample_stock, {}).get('index') else None
-    #     with open(log_path, 'a') as f:
-    #         f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"ALL","location":"globals.py:loadDatabaseOrFetch:1758","message":"loadDatabaseOrFetch exit","data":{"stockDictPrimary_len":len(stockDictPrimary) if stockDictPrimary else 0,"sample_stock":sample_stock,"sample_index_last":str(sample_index) if sample_index else None},"timestamp":int(__import__('time').time()*1000)}) + '\n')
-    # except: pass
-    # #endregion
     Utility.tools.loadLargeDeals()
     return stockDictPrimary, stockDictSecondary
 
@@ -2136,7 +2120,7 @@ def updateMenuChoiceHierarchy():
     
     # Add count if we have results for single scan
     if hasattr(userPassedArgs, 'last_result_count') and userPassedArgs.last_result_count:
-        menuChoiceHierarchy = f"{menuChoiceHierarchy}[{userPassedArgs.last_result_count}]"
+        menuChoiceHierarchy = f"{menuChoiceHierarchy.strip()}[{userPassedArgs.last_result_count}]"
     
     # Check if this is a piped scan (contains "|")
     if userPassedArgs and userPassedArgs.options and "|" in userPassedArgs.options:
@@ -2184,23 +2168,23 @@ def updateMenuChoiceHierarchy():
             for scan_key, scan_name in unique_scans:
                 if scan_name in final_counts:
                     count = final_counts[scan_name]
-                    hierarchy_parts.append(f"{scan_name}[{count}]")
+                    hierarchy_parts.append(f"{scan_name.strip()}[{count}]")
                 else:
-                    hierarchy_parts.append(scan_name)
+                    hierarchy_parts.append(scan_name.strip())
             
             menuChoiceHierarchy = "|".join(hierarchy_parts)
         else:
             # No counts yet, just show the scan names
-            menuChoiceHierarchy = part_info[0][1]
+            menuChoiceHierarchy = str(part_info[0][1]).strip()
 
         # Add the index/sector info if present
         if selectedChoice.get("1") and selectedChoice["1"] not in ["", "0"]:
             level1_key = str(selectedChoice["1"])
             if level1_key in INDICES_MAP and len(part_info) == len(userPassedArgs.all_scans):
-                menuChoiceHierarchy = f"{INDICES_MAP[level1_key].strip()}: {menuChoiceHierarchy}"
+                menuChoiceHierarchy = f"{INDICES_MAP[level1_key].strip()}: {menuChoiceHierarchy.strip()}"
             elif level1_key in level1_X_MenuDict:
                 level1_text = level1_X_MenuDict[level1_key] #.split('(')[0].strip()
-                menuChoiceHierarchy = f"{menuChoiceHierarchy} for {level1_text}"
+                menuChoiceHierarchy = f"{menuChoiceHierarchy.strip()} for {level1_text}"
         
     else:
         # Original single-scan hierarchy building (keep as is)
@@ -2209,7 +2193,7 @@ def updateMenuChoiceHierarchy():
         # Level 0 - Top level menu
         if selectedChoice.get("0") and selectedChoice["0"] not in ["", "0"]:
             level0_text = level0MenuDict.get(selectedChoice["0"], selectedChoice["0"])
-            level0_text = level0_text #.split('(')[0].strip()
+            level0_text = level0_text.strip() #.split('(')[0].strip()
             hierarchy_parts.append(level0_text)
         
         # Level 1 - Index/Sector selection
@@ -2221,7 +2205,7 @@ def updateMenuChoiceHierarchy():
                 level1_text = INDICES_MAP[level1_key]
             else:
                 level1_text = level1_X_MenuDict.get(level1_key, level1_key)
-            level1_text = level1_text #.split('(')[0].strip()
+            level1_text = level1_text.strip() #.split('(')[0].strip()
             hierarchy_parts.append(level1_text)
         
         # Level 2 - Scan type
@@ -2229,11 +2213,11 @@ def updateMenuChoiceHierarchy():
             level2_key = str(selectedChoice["2"])
             if level2_key in level2_X_MenuDict:
                 level2_text = level2_X_MenuDict[level2_key]
-                level2_text = level2_text #.split('(')[0].strip()
+                level2_text = level2_text.strip() #.split('(')[0].strip()
                 hierarchy_parts.append(level2_text)
             elif hasattr(m2, 'menuDict') and level2_key in m2.menuDict:
                 level2_text = m2.menuDict[level2_key].menuText
-                level2_text = level2_text #.split('(')[0].strip()
+                level2_text = level2_text.strip() #.split('(')[0].strip()
                 hierarchy_parts.append(level2_text)
         
         # Level 3 - Sub-option (if exists)
@@ -2269,7 +2253,7 @@ def updateMenuChoiceHierarchy():
                         level3_text = level4_X_Lorenzian_MenuDict[level3_key]
             
             if level3_text:
-                level3_text = level3_text #.split('(')[0].strip()
+                level3_text = level3_text.strip() #.split('(')[0].strip()
                 hierarchy_parts.append(level3_text)
         
         # Level 4 - Further sub-option (if exists)
@@ -2301,7 +2285,7 @@ def updateMenuChoiceHierarchy():
                         level4_text = level4_X_Lorenzian_MenuDict[level4_key]
             
             if level4_text:
-                level4_text = level4_text #.split('(')[0].strip()
+                level4_text = level4_text.strip() #.split('(')[0].strip()
                 hierarchy_parts.append(level4_text)
         
         # Join with " > " separator
@@ -2312,7 +2296,7 @@ def updateMenuChoiceHierarchy():
         unique_parts = []
         for part in parts:
             if not unique_parts or part != unique_parts[-1]:
-                unique_parts.append(part)
+                unique_parts.append(part.strip())
         menuChoiceHierarchy = " > ".join(unique_parts)
     
     # If nValueForMenu is set, append it
@@ -2588,7 +2572,7 @@ def printNotifySaveScreenedResults(
     reportTitle = f"{userPassedArgs.pipedtitle}|" if userPassedArgs is not None and userPassedArgs.pipedtitle is not None else reportTitle
     last_scan_name = f"{(str(menuChoiceHierarchy.split(' > ')[-1]).strip()+'['+str(final_count)+']') if menuChoiceHierarchy is not None and len(menuChoiceHierarchy.split(' > ')) > 1 else ''}"
     reportTitle = reportTitle.replace(last_scan_name,'')
-    reportTitle = f"{runOptionName} {'|' if len(str(runOptionName)) > 0 else ''}{reportTitle}{last_scan_name}"
+    reportTitle = f"{runOptionName} {'|' if len(str(runOptionName)) > 0 else ''}{reportTitle.strip()}{last_scan_name.strip()}"
     ConsoleUtility.PKConsoleTools.clearScreen(forceTop=True)
     OutputControls().printOutput(
         colorText.FAIL

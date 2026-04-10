@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import datetime, timedelta
 
@@ -519,7 +520,7 @@ async def test_kv_keys_iterator_next_with_timeout(js: JetStream) -> None:
     try:
         await kv.put("k1", b"v1")
         keys_iter = await kv.keys()
-        key = await keys_iter.next(timeout=5.0)
+        key = await asyncio.wait_for(anext(keys_iter), timeout=0.5)
         assert isinstance(key, str)
         assert key == "k1"
     finally:
@@ -533,7 +534,7 @@ async def test_kv_keys_iterator_next_timeout_timedelta(js: JetStream) -> None:
     try:
         await kv.put("k1", b"v1")
         keys_iter = await kv.keys()
-        key = await keys_iter.next(timeout=timedelta(seconds=5))
+        key = await asyncio.wait_for(anext(keys_iter), timeout=0.5)
         assert isinstance(key, str)
         assert key == "k1"
     finally:
@@ -579,7 +580,7 @@ async def test_kv_history_iterator_next_with_timeout(js: JetStream) -> None:
     try:
         await kv.put("key1", b"value")
         history_iter = await kv.history("key1")
-        entry = await history_iter.next(timeout=5.0)
+        entry = await asyncio.wait_for(anext(history_iter), timeout=0.5)
         assert isinstance(entry, KVEntry)
         assert bytes(entry.value) == b"value"
     finally:
@@ -593,7 +594,7 @@ async def test_kv_history_iterator_next_with_timedelta(js: JetStream) -> None:
     try:
         await kv.put("key1", b"value")
         history_iter = await kv.history("key1")
-        entry = await history_iter.next(timeout=timedelta(seconds=5))
+        entry = await asyncio.wait_for(anext(history_iter), timeout=0.5)
         assert isinstance(entry, KVEntry)
         assert bytes(entry.value) == b"value"
     finally:
@@ -615,7 +616,7 @@ async def test_kv_watch_all(js: JetStream) -> None:
 
         await kv.put("w1", b"val1")
 
-        entry = await watcher.next(timeout=5.0)
+        entry = await asyncio.wait_for(anext(watcher), timeout=0.5)
         assert isinstance(entry, KVEntry)
         assert entry.key == "w1"
         assert bytes(entry.value) == b"val1"
@@ -634,7 +635,7 @@ async def test_kv_watch_all_from_revision(js: JetStream) -> None:
         watcher = await kv.watch_all(from_revision=rev1)
         assert isinstance(watcher, KVEntryIterator)
 
-        entry1 = await watcher.next(timeout=5.0)
+        entry1 = await asyncio.wait_for(anext(watcher), timeout=0.5)
         assert isinstance(entry1, KVEntry)
     finally:
         await js.kv.delete(bucket)
@@ -647,7 +648,7 @@ async def test_kv_watch_all_timeout(js: JetStream) -> None:
     try:
         watcher = await kv.watch_all()
         with pytest.raises(TimeoutError):
-            await watcher.next(timeout=0.1)
+            await asyncio.wait_for(anext(watcher), timeout=0.1)
     finally:
         await js.kv.delete(bucket)
 
@@ -667,7 +668,7 @@ async def test_kv_watch(js: JetStream) -> None:
 
         await kv.put("watched-key", b"watch-val")
 
-        entry = await watcher.next(timeout=5.0)
+        entry = await asyncio.wait_for(anext(watcher), timeout=0.5)
         assert isinstance(entry, KVEntry)
         assert entry.key == "watched-key"
         assert bytes(entry.value) == b"watch-val"
@@ -686,7 +687,7 @@ async def test_kv_watch_from_revision(js: JetStream) -> None:
         watcher = await kv.watch("wkey", from_revision=rev1)
         assert isinstance(watcher, KVEntryIterator)
 
-        entry = await watcher.next(timeout=5.0)
+        entry = await asyncio.wait_for(anext(watcher), timeout=5.0)
         assert isinstance(entry, KVEntry)
     finally:
         await js.kv.delete(bucket)
@@ -699,7 +700,7 @@ async def test_kv_watch_timeout(js: JetStream) -> None:
     try:
         watcher = await kv.watch("nonexistent")
         with pytest.raises(TimeoutError):
-            await watcher.next(timeout=0.1)
+            await asyncio.wait_for(anext(watcher), timeout=0.1)
     finally:
         await js.kv.delete(bucket)
 
@@ -722,12 +723,12 @@ async def test_kv_watch_with_history(js: JetStream) -> None:
         watcher = await kv.watch_with_history("hkey")
         assert isinstance(watcher, KVEntryIterator)
 
-        entry = await watcher.next(timeout=5.0)
+        entry = await asyncio.wait_for(anext(watcher), timeout=5.0)
         assert bytes(entry.value) == b"h2"
 
         # Further puts are also received
         await kv.put("hkey", b"h3")
-        entry_new = await watcher.next(timeout=5.0)
+        entry_new = await asyncio.wait_for(anext(watcher), timeout=5.0)
         assert bytes(entry_new.value) == b"h3"
     finally:
         await js.kv.delete(bucket)
@@ -748,7 +749,7 @@ async def test_kv_watch_many(js: JetStream) -> None:
 
         await kv.put("mk1", b"val1")
 
-        entry = await watcher.next(timeout=5.0)
+        entry = await asyncio.wait_for(anext(watcher), timeout=5.0)
         assert isinstance(entry, KVEntry)
         assert entry.key == "mk1"
         assert bytes(entry.value) == b"val1"
@@ -767,8 +768,8 @@ async def test_kv_watch_many_with_history(js: JetStream) -> None:
         watcher = await kv.watch_many_with_history(["mk1", "mk2"])
         assert isinstance(watcher, KVEntryIterator)
 
-        entry1 = await watcher.next(timeout=5.0)
-        entry2 = await watcher.next(timeout=5.0)
+        entry1 = await asyncio.wait_for(anext(watcher), timeout=5.0)
+        entry2 = await asyncio.wait_for(anext(watcher), timeout=5.0)
         assert isinstance(entry1, KVEntry)
         assert isinstance(entry2, KVEntry)
         collected_keys = {entry1.key, entry2.key}
@@ -830,3 +831,41 @@ async def test_kv_operation_equality() -> None:
     assert KVOperation.Put != KVOperation.Delete
     assert KVOperation.Put != KVOperation.Purge
     assert KVOperation.Delete != KVOperation.Purge
+
+
+async def test_kv_entry_seen_current(js: JetStream) -> None:
+    bucket = f"test-kv-seen-{uuid.uuid4().hex[:8]}"
+    config = KVConfig(bucket=bucket)
+    kv = await js.kv.create(config)
+    try:
+        # Create watcher on empty bucket, then put — the received entry is a live update
+        watcher = await kv.watch_all()
+        await kv.put("mykey", b"value1")
+        entry = await asyncio.wait_for(anext(watcher), timeout=5.0)
+        assert isinstance(entry.seen_current, bool)
+        # First live update on an empty bucket is marked as seen_current
+        assert entry.seen_current is True
+    finally:
+        await js.kv.delete(bucket)
+
+
+async def test_kv_config_max_age_timedelta(js: JetStream) -> None:
+    bucket = f"test-kv-maxage-{uuid.uuid4().hex[:8]}"
+    max_age = timedelta(hours=1)
+    config = KVConfig(bucket=bucket, max_age=max_age)
+    assert config.max_age == max_age
+    kv = await js.kv.create(config)
+    try:
+        assert kv is not None
+    finally:
+        await js.kv.delete(bucket)
+
+
+async def test_kv_config_description_none() -> None:
+    config = KVConfig(bucket="test-desc-none")
+    assert config.description is None
+
+
+async def test_kv_config_description_set() -> None:
+    config = KVConfig(bucket="test-desc-set", description="my description")
+    assert config.description == "my description"

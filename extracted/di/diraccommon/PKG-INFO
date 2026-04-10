@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: DIRACCommon
-Version: 9.1.5
+Version: 9.1.6
 Summary: Stateless utilities extracted from DIRAC for use by DiracX and other projects
 Project-URL: Homepage, https://github.com/DIRACGrid/DIRAC
 Project-URL: Documentation, https://dirac.readthedocs.io/

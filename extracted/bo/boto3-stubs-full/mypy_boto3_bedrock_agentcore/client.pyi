@@ -96,6 +96,8 @@ from .type_defs import (
     RetrieveMemoryRecordsOutputTypeDef,
     SaveBrowserSessionProfileRequestTypeDef,
     SaveBrowserSessionProfileResponseTypeDef,
+    SearchRegistryRecordsRequestTypeDef,
+    SearchRegistryRecordsResponseTypeDef,
     StartBrowserSessionRequestTypeDef,
     StartBrowserSessionResponseTypeDef,
     StartCodeInterpreterSessionRequestTypeDef,
@@ -486,6 +488,16 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/save_browser_session_profile.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#save_browser_session_profile)
+        """
+
+    def search_registry_records(
+        self, **kwargs: Unpack[SearchRegistryRecordsRequestTypeDef]
+    ) -> SearchRegistryRecordsResponseTypeDef:
+        """
+        Searches for registry records using semantic, lexical, or hybrid queries.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/search_registry_records.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/client/#search_registry_records)
         """
 
     def start_browser_session(

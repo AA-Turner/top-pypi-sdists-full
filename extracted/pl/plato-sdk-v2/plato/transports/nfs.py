@@ -8,7 +8,7 @@ import time as _time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from plato.transports.base import Transport
+from plato.transports.base import Transport, build_auditctl_commands
 from plato.utils.subprocess import run_local, run_ssh
 
 if TYPE_CHECKING:
@@ -167,7 +167,6 @@ class NFSTransport(Transport):
 
         del agent_env
         remote = mount.agent_path
-        remote_quoted = shlex.quote(remote)
         nfs_src = f"{self.world_vm_ip}:{self.path}"
 
         parts = [
@@ -180,17 +179,7 @@ class NFSTransport(Transport):
         audit_key = mount.audit_key
         tracked = mount.tracked
         if tracked and audit_key:
-            audit_key_quoted = shlex.quote(audit_key)
-            parts.extend(
-                [
-                    "(which auditctl > /dev/null 2>&1 || "
-                    "(apt-get update -qq && apt-get install -y -qq auditd > /dev/null 2>&1))",
-                    "(service auditd start 2>/dev/null || true)",
-                    f"auditctl -a always,exit -F arch=b64 -F dir={remote_quoted} -F perm=rwa -k {audit_key_quoted}",
-                    f"auditctl -a always,exit -F arch=b64 -S mkdir,mkdirat "
-                    f"-F dir={remote_quoted} -k {audit_key_quoted}",
-                ]
-            )
+            parts.extend(build_auditctl_commands(remote, audit_key))
 
         combined_cmd = " && ".join(parts)
         t0 = _time.monotonic()

@@ -38,6 +38,7 @@ def _get_kwargs(
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
     service_provider_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
@@ -99,6 +100,8 @@ def _get_kwargs(
     if not isinstance(service_provider_uuid, Unset):
         json_service_provider_uuid = str(service_provider_uuid)
     params["service_provider_uuid"] = json_service_provider_uuid
+
+    params["slug"] = slug
 
     json_user_uuid: Union[Unset, str] = UNSET
     if not isinstance(user_uuid, Unset):
@@ -170,6 +173,7 @@ def sync_detailed(
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
     service_provider_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[list["VersionHistory"]]:
     """Get version history
@@ -202,6 +206,7 @@ def sync_detailed(
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
         service_provider_uuid (Union[Unset, UUID]):
+        slug (Union[Unset, str]):
         user_uuid (Union[Unset, UUID]):
 
     Raises:
@@ -238,6 +243,7 @@ def sync_detailed(
         query=query,
         registration_code=registration_code,
         service_provider_uuid=service_provider_uuid,
+        slug=slug,
         user_uuid=user_uuid,
     )
 
@@ -276,6 +282,7 @@ def sync(
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
     service_provider_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["VersionHistory"]:
     """Get version history
@@ -308,6 +315,7 @@ def sync(
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
         service_provider_uuid (Union[Unset, UUID]):
+        slug (Union[Unset, str]):
         user_uuid (Union[Unset, UUID]):
 
     Raises:
@@ -345,6 +353,7 @@ def sync(
         query=query,
         registration_code=registration_code,
         service_provider_uuid=service_provider_uuid,
+        slug=slug,
         user_uuid=user_uuid,
     ).parsed
 
@@ -377,6 +386,7 @@ async def asyncio_detailed(
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
     service_provider_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
 ) -> Response[list["VersionHistory"]]:
     """Get version history
@@ -409,6 +419,7 @@ async def asyncio_detailed(
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
         service_provider_uuid (Union[Unset, UUID]):
+        slug (Union[Unset, str]):
         user_uuid (Union[Unset, UUID]):
 
     Raises:
@@ -445,6 +456,7 @@ async def asyncio_detailed(
         query=query,
         registration_code=registration_code,
         service_provider_uuid=service_provider_uuid,
+        slug=slug,
         user_uuid=user_uuid,
     )
 
@@ -481,6 +493,7 @@ async def asyncio(
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
     service_provider_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["VersionHistory"]:
     """Get version history
@@ -513,6 +526,7 @@ async def asyncio(
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
         service_provider_uuid (Union[Unset, UUID]):
+        slug (Union[Unset, str]):
         user_uuid (Union[Unset, UUID]):
 
     Raises:
@@ -551,6 +565,7 @@ async def asyncio(
             query=query,
             registration_code=registration_code,
             service_provider_uuid=service_provider_uuid,
+            slug=slug,
             user_uuid=user_uuid,
         )
     ).parsed
@@ -582,6 +597,7 @@ def sync_all(
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
     service_provider_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["VersionHistory"]:
     """Get All Pages
@@ -615,6 +631,7 @@ def sync_all(
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
         service_provider_uuid (Union[Unset, UUID]):
+        slug (Union[Unset, str]):
         user_uuid (Union[Unset, UUID]):
 
     Raises:
@@ -653,6 +670,7 @@ def sync_all(
         query=query,
         registration_code=registration_code,
         service_provider_uuid=service_provider_uuid,
+        slug=slug,
         user_uuid=user_uuid,
     )
 
@@ -724,6 +742,7 @@ async def asyncio_all(
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
     service_provider_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: Union[Unset, UUID] = UNSET,
 ) -> list["VersionHistory"]:
     """Get All Pages (Async)
@@ -757,6 +776,7 @@ async def asyncio_all(
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
         service_provider_uuid (Union[Unset, UUID]):
+        slug (Union[Unset, str]):
         user_uuid (Union[Unset, UUID]):
 
     Raises:
@@ -795,6 +815,7 @@ async def asyncio_all(
         query=query,
         registration_code=registration_code,
         service_provider_uuid=service_provider_uuid,
+        slug=slug,
         user_uuid=user_uuid,
     )
 

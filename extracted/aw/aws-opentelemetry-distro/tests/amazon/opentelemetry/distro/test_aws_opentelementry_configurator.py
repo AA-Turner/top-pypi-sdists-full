@@ -61,6 +61,7 @@ from amazon.opentelemetry.distro.exporter.otlp.aws.logs._aws_cw_otlp_batch_log_r
 )
 from amazon.opentelemetry.distro.exporter.otlp.aws.logs.otlp_aws_log_record_exporter import OTLPAwsLogRecordExporter
 from amazon.opentelemetry.distro.exporter.otlp.aws.traces.otlp_aws_span_exporter import OTLPAwsSpanExporter
+from amazon.opentelemetry.distro.gen_ai_nested_client_span_processor import GenAiNestedClientSpanProcessor
 from amazon.opentelemetry.distro.otlp_udp_exporter import OTLPUdpSpanExporter
 from amazon.opentelemetry.distro.sampler._aws_xray_sampling_client import _AwsXRaySamplingClient
 from amazon.opentelemetry.distro.sampler.aws_xray_remote_sampler import AwsXRayRemoteSampler
@@ -486,19 +487,22 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
 
         os.environ.pop("AGENT_OBSERVABILITY_ENABLED", None)
         _customize_span_processors(mock_tracer_provider, Resource.get_empty(), mock_sampler)
-        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 0)
+        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 1)
+        self.assertIsInstance(mock_tracer_provider.add_span_processor.call_args_list[0].args[0], BaggageSpanProcessor)
 
         mock_tracer_provider.reset_mock()
 
         os.environ["AGENT_OBSERVABILITY_ENABLED"] = "true"
         os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "https://xray.us-east-1.amazonaws.com/v1/traces"
         _customize_span_processors(mock_tracer_provider, Resource.get_empty(), mock_sampler)
-        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 2)
+        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 3)
 
         first_processor = mock_tracer_provider.add_span_processor.call_args_list[0].args[0]
         self.assertIsInstance(first_processor, BatchUnsampledSpanProcessor)
         second_processor = mock_tracer_provider.add_span_processor.call_args_list[1].args[0]
-        self.assertIsInstance(second_processor, BaggageSpanProcessor)
+        self.assertIsInstance(second_processor, GenAiNestedClientSpanProcessor)
+        third_processor = mock_tracer_provider.add_span_processor.call_args_list[2].args[0]
+        self.assertIsInstance(third_processor, BaggageSpanProcessor)
 
         os.environ.pop("AGENT_OBSERVABILITY_ENABLED", None)
         os.environ.pop("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", None)
@@ -562,7 +566,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         regardless of whether OTEL_BAGGAGE_SPAN_ATTRIBUTE_KEYS is set."""
         os.environ["AGENT_OBSERVABILITY_ENABLED"] = "true"
 
-        # Without any custom baggage keys, session.id should still be present
+        # Without any custom baggage keys, session.id should be present
         os.environ.pop("OTEL_BAGGAGE_SPAN_ATTRIBUTE_KEYS", None)
         tracer_provider = TracerProvider()
         _customize_span_processors(tracer_provider, Resource.get_empty(), MagicMock())
@@ -880,31 +884,35 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         os.environ.pop("OTEL_AWS_APPLICATION_SIGNALS_RUNTIME_ENABLED", None)
 
         _customize_span_processors(mock_tracer_provider, Resource.get_empty(), mock_sampler)
-        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 0)
+        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 1)
+        self.assertIsInstance(mock_tracer_provider.add_span_processor.call_args_list[0].args[0], BaggageSpanProcessor)
 
         mock_tracer_provider.reset_mock()
 
         os.environ.setdefault("OTEL_AWS_APPLICATION_SIGNALS_ENABLED", "True")
         os.environ.setdefault("OTEL_AWS_APPLICATION_SIGNALS_RUNTIME_ENABLED", "False")
         _customize_span_processors(mock_tracer_provider, Resource.get_empty(), mock_sampler)
-        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 2)
+        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 3)
         first_processor: SpanProcessor = mock_tracer_provider.add_span_processor.call_args_list[0].args[0]
-        self.assertIsInstance(first_processor, AttributePropagatingSpanProcessor)
+        self.assertIsInstance(first_processor, BaggageSpanProcessor)
         second_processor: SpanProcessor = mock_tracer_provider.add_span_processor.call_args_list[1].args[0]
-        self.assertIsInstance(second_processor, AwsSpanMetricsProcessor)
+        self.assertIsInstance(second_processor, AttributePropagatingSpanProcessor)
+        third_processor: SpanProcessor = mock_tracer_provider.add_span_processor.call_args_list[2].args[0]
+        self.assertIsInstance(third_processor, AwsSpanMetricsProcessor)
 
         mock_tracer_provider.reset_mock()
 
         os.environ.setdefault("AGENT_OBSERVABILITY_ENABLED", "true")
         os.environ.setdefault("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "https://xray.us-east-1.amazonaws.com/v1/traces")
         _customize_span_processors(mock_tracer_provider, Resource.get_empty(), mock_sampler)
-        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 4)
+        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 5)
 
         processors = [call.args[0] for call in mock_tracer_provider.add_span_processor.call_args_list]
         self.assertIsInstance(processors[0], BatchUnsampledSpanProcessor)
-        self.assertIsInstance(processors[1], BaggageSpanProcessor)
-        self.assertIsInstance(processors[2], AttributePropagatingSpanProcessor)
-        self.assertIsInstance(processors[3], AwsSpanMetricsProcessor)
+        self.assertIsInstance(processors[1], GenAiNestedClientSpanProcessor)
+        self.assertIsInstance(processors[2], BaggageSpanProcessor)
+        self.assertIsInstance(processors[3], AttributePropagatingSpanProcessor)
+        self.assertIsInstance(processors[4], AwsSpanMetricsProcessor)
 
         os.environ.pop("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
 
@@ -918,9 +926,10 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         os.environ.pop("OTEL_AWS_APPLICATION_SIGNALS_ENABLED", None)
         os.environ.pop(OTEL_AWS_ENHANCED_CODE_ATTRIBUTES, None)
 
-        # Test without code correlation enabled - should not add CodeAttributesSpanProcessor
+        # Test without code correlation enabled - should only add BaggageSpanProcessor
         _customize_span_processors(mock_tracer_provider, Resource.get_empty(), mock_sampler)
-        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 0)
+        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 1)
+        self.assertIsInstance(mock_tracer_provider.add_span_processor.call_args_list[0].args[0], BaggageSpanProcessor)
 
         mock_tracer_provider.reset_mock()
 
@@ -937,7 +946,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
 
             # Verify CodeAttributesSpanProcessor was created and added
             mock_code_processor_class.assert_called_once()
-            mock_tracer_provider.add_span_processor.assert_called_once_with(mock_code_processor_instance)
+            mock_tracer_provider.add_span_processor.assert_any_call(mock_code_processor_instance)
 
         mock_tracer_provider.reset_mock()
 
@@ -954,21 +963,13 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
 
             _customize_span_processors(mock_tracer_provider, Resource.get_empty(), mock_sampler)
 
-            # Should have 3 processors: CodeAttributesSpanProcessor, AttributePropagatingSpanProcessor,
-            # and AwsSpanMetricsProcessor
-            self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 3)
+            self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 4)
 
-            # First should be CodeAttributesSpanProcessor
-            first_call_args = mock_tracer_provider.add_span_processor.call_args_list[0].args[0]
-            self.assertEqual(first_call_args, mock_code_processor_instance)
-
-            # Second should be AttributePropagatingSpanProcessor
-            second_call_args = mock_tracer_provider.add_span_processor.call_args_list[1].args[0]
-            self.assertIsInstance(second_call_args, AttributePropagatingSpanProcessor)
-
-            # Third should be AwsSpanMetricsProcessor
-            third_call_args = mock_tracer_provider.add_span_processor.call_args_list[2].args[0]
-            self.assertIsInstance(third_call_args, AwsSpanMetricsProcessor)
+            processors = [c.args[0] for c in mock_tracer_provider.add_span_processor.call_args_list]
+            self.assertEqual(processors[0], mock_code_processor_instance)
+            self.assertIsInstance(processors[1], BaggageSpanProcessor)
+            self.assertIsInstance(processors[2], AttributePropagatingSpanProcessor)
+            self.assertIsInstance(processors[3], AwsSpanMetricsProcessor)
 
         # Clean up
         os.environ.pop(OTEL_AWS_ENHANCED_CODE_ATTRIBUTES, None)
@@ -984,19 +985,24 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         os.environ.pop("AWS_LAMBDA_FUNCTION_NAME", None)
 
         _customize_span_processors(mock_tracer_provider, Resource.get_empty(), mock_sampler)
-        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 0)
+        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 1)
+        self.assertIsInstance(mock_tracer_provider.add_span_processor.call_args_list[0].args[0], BaggageSpanProcessor)
+
+        mock_tracer_provider.reset_mock()
 
         os.environ.setdefault("OTEL_AWS_APPLICATION_SIGNALS_ENABLED", "True")
         os.environ.setdefault("AWS_LAMBDA_FUNCTION_NAME", "myLambdaFunc")
         _customize_span_processors(mock_tracer_provider, Resource.get_empty(), mock_sampler)
-        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 3)
+        self.assertEqual(mock_tracer_provider.add_span_processor.call_count, 4)
         first_processor: SpanProcessor = mock_tracer_provider.add_span_processor.call_args_list[0].args[0]
         self.assertIsInstance(first_processor, AwsLambdaSpanProcessor)
         second_processor: SpanProcessor = mock_tracer_provider.add_span_processor.call_args_list[1].args[0]
-        self.assertIsInstance(second_processor, AttributePropagatingSpanProcessor)
+        self.assertIsInstance(second_processor, BaggageSpanProcessor)
         third_processor: SpanProcessor = mock_tracer_provider.add_span_processor.call_args_list[2].args[0]
-        self.assertIsInstance(third_processor, BatchUnsampledSpanProcessor)
-        self.assertEqual(third_processor._batch_processor._max_export_batch_size, LAMBDA_SPAN_EXPORT_BATCH_SIZE)
+        self.assertIsInstance(third_processor, AttributePropagatingSpanProcessor)
+        fourth_processor: SpanProcessor = mock_tracer_provider.add_span_processor.call_args_list[3].args[0]
+        self.assertIsInstance(fourth_processor, BatchUnsampledSpanProcessor)
+        self.assertEqual(fourth_processor._batch_processor._max_export_batch_size, LAMBDA_SPAN_EXPORT_BATCH_SIZE)
         os.environ.pop("OTEL_AWS_APPLICATION_SIGNALS_ENABLED", None)
         os.environ.pop("AWS_LAMBDA_FUNCTION_NAME", None)
 
@@ -1298,7 +1304,8 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         _clear_logs_header_cache()
 
     @patch(
-        "amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agent_observability_enabled", return_value=False
+        "amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agentic_observability_enabled",
+        return_value=False,
     )
     def test_customize_log_record_processor_without_agent_observability(self, _):
         """Test that BatchLogRecordProcessor is used when agent observability is not enabled"""
@@ -1312,7 +1319,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         self.assertIsInstance(added_processor, BatchLogRecordProcessor)
 
     @patch(
-        "amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agent_observability_enabled", return_value=True
+        "amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agentic_observability_enabled", return_value=True
     )
     def test_customize_log_record_processor_with_agent_observability(self, _):
         """Test that AwsCloudWatchOtlpBatchLogRecordProcessor is used when agent observability is enabled"""
@@ -1326,7 +1333,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         self.assertIsInstance(added_processor, AwsCloudWatchOtlpBatchLogRecordProcessor)
 
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.get_logger_provider")
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agent_observability_enabled")
+    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agentic_observability_enabled")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.get_aws_session")
     def test_create_aws_otlp_exporter(self, mock_get_session, mock_is_agent_enabled, mock_get_logger_provider):
         # Test when botocore is not installed
@@ -1391,7 +1398,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         result = _create_aws_otlp_exporter("https://xray.us-east-1.amazonaws.com/v1/traces", "xray", "us-east-1")
         self.assertIsNone(result)
 
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agent_observability_enabled")
+    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agentic_observability_enabled")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.get_service_attribute")
     def test_customize_resource_without_agent_observability(self, mock_get_service_attribute, mock_is_agent_enabled):
         """Test _customize_resource when agent observability is disabled"""
@@ -1405,7 +1412,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         self.assertEqual(result.attributes[AWS_LOCAL_SERVICE], "test-service")
         self.assertNotIn(AWS_SERVICE_TYPE, result.attributes)
 
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agent_observability_enabled")
+    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agentic_observability_enabled")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.get_service_attribute")
     def test_customize_resource_with_agent_observability_default(
         self, mock_get_service_attribute, mock_is_agent_enabled
@@ -1421,7 +1428,7 @@ class TestAwsOpenTelemetryConfigurator(TestCase):
         self.assertEqual(result.attributes[AWS_LOCAL_SERVICE], "test-service")
         self.assertEqual(result.attributes[AWS_SERVICE_TYPE], "gen_ai_agent")
 
-    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agent_observability_enabled")
+    @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.is_agentic_observability_enabled")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_configurator.get_service_attribute")
     def test_customize_resource_with_existing_agent_type(self, mock_get_service_attribute, mock_is_agent_enabled):
         """Test _customize_resource when agent type already exists in resource"""

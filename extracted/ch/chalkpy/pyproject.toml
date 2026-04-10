@@ -106,7 +106,7 @@ vertexai = [
 ]
 
 sentence-transformers = [
-    "sentence-transformers"
+    "sentence-transformers==5.3.0"
 ]
 
 # SQL-specific

@@ -21,7 +21,11 @@ from typing import Never
 
 from lxml import etree
 
-from translate.misc.xml_helpers import normalize_xml_space
+from translate.misc.xml_helpers import (
+    get_safe_xml_parser,
+    getXMLspace,
+    normalize_xml_space,
+)
 from translate.storage.placeables import StringElem, base, xliff
 from translate.storage.xml_extract import misc
 
@@ -97,8 +101,9 @@ def xml_to_strelem(dom_node, xml_space="preserve"):
     if dom_node is None:
         return StringElem()
     if isinstance(dom_node, str):
-        parser = etree.XMLParser(resolve_entities=False)
+        parser = get_safe_xml_parser()
         dom_node = etree.fromstring(dom_node, parser)
+    xml_space = getXMLspace(dom_node) or xml_space
     normalize_xml_space(dom_node, xml_space, remove_start=True)
     result = StringElem()
     sub = result.sub  # just an optimisation
@@ -209,7 +214,7 @@ def strelem_to_xml(parent_node, elem):
 
 
 def parse_xliff(pstr):
-    parser = etree.XMLParser(resolve_entities=False)
+    parser = get_safe_xml_parser()
     return xml_to_strelem(etree.fromstring(f"<source>{pstr}</source>", parser))
 
 

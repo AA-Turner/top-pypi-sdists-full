@@ -8,6 +8,7 @@ import asyncio
 import inspect
 import warnings
 from asyncio import Future
+from collections import deque
 from collections.abc import Awaitable, Coroutine, Iterable, Iterator
 from functools import wraps
 from typing import (
@@ -21,7 +22,7 @@ from typing import (
     overload,
 )
 
-from twisted.internet.defer import Deferred, DeferredList, fail, succeed
+from twisted.internet.defer import Deferred, DeferredList, FirstError, fail, succeed
 from twisted.internet.task import Cooperator
 from twisted.python import failure
 
@@ -43,7 +44,7 @@ _P = ParamSpec("_P")
 _DEFER_DELAY = 0.1
 
 
-def defer_fail(_failure: Failure) -> Deferred[Any]:
+def defer_fail(_failure: Failure) -> Deferred[Any]:  # pragma: no cover
     """Same as twisted.internet.defer.fail but delay calling errback until
     next reactor loop
 
@@ -64,7 +65,7 @@ def defer_fail(_failure: Failure) -> Deferred[Any]:
     return d
 
 
-def defer_succeed(result: _T) -> Deferred[_T]:
+def defer_succeed(result: _T) -> Deferred[_T]:  # pragma: no cover
     """Same as twisted.internet.defer.succeed but delay calling callback until
     next reactor loop
 
@@ -99,7 +100,7 @@ async def _defer_sleep_async() -> None:
         await d
 
 
-def defer_result(result: Any) -> Deferred[Any]:
+def defer_result(result: Any) -> Deferred[Any]:  # pragma: no cover
     warnings.warn(
         "scrapy.utils.defer.defer_result() is deprecated, use"
         " twisted.internet.defer.success() and twisted.internet.defer.fail(),"
@@ -137,7 +138,7 @@ def mustbe_deferred(
     f: Callable[_P, Deferred[_T] | _T],
     *args: _P.args,
     **kw: _P.kwargs,
-) -> Deferred[_T]:
+) -> Deferred[_T]:  # pragma: no cover
     """Same as twisted.internet.defer.maybeDeferred, but delay calling
     callback/errback to next reactor loop
     """
@@ -230,7 +231,7 @@ class _AsyncCooperatorAdapter(Iterator, Generic[_T]):
         self.callable_args: tuple[Any, ...] = callable_args
         self.callable_kwargs: dict[str, Any] = callable_kwargs
         self.finished: bool = False
-        self.waiting_deferreds: list[Deferred[Any]] = []
+        self.waiting_deferreds: deque[Deferred[Any]] = deque()
         self.anext_deferred: Deferred[_T] | None = None
 
     def _callback(self, result: _T) -> None:
@@ -241,7 +242,7 @@ class _AsyncCooperatorAdapter(Iterator, Generic[_T]):
         callable_result = self.callable(
             result, *self.callable_args, **self.callable_kwargs
         )
-        d = self.waiting_deferreds.pop(0)
+        d = self.waiting_deferreds.popleft()
         if isinstance(callable_result, Deferred):
             callable_result.chainDeferred(d)
         else:
@@ -299,7 +300,7 @@ def process_chain(
     input: _T,  # noqa: A002
     *a: _P.args,
     **kw: _P.kwargs,
-) -> Deferred[_T]:
+) -> Deferred[_T]:  # pragma: no cover
     """Return a Deferred built by chaining the given callbacks"""
     warnings.warn(
         "process_chain() is deprecated.",
@@ -334,6 +335,7 @@ def process_parallel(
     d2: Deferred[list[_T2]] = d.addCallback(lambda r: [x[1] for x in r])
 
     def eb(failure: Failure) -> Failure:
+        assert isinstance(failure.value, FirstError)
         return failure.value.subFailure
 
     d2.addErrback(eb)
@@ -435,7 +437,7 @@ def _maybeDeferred_coro(
     """Copy of defer.maybeDeferred that also converts coroutines to Deferreds."""
     try:
         result = f(*args, **kw)
-    except:  # noqa: E722  # pylint: disable=bare-except
+    except:  # noqa: E722
         return fail(failure.Failure(captureVars=Deferred.debug))
 
     # when the deprecation period has ended we need to make sure the behavior
@@ -452,7 +454,7 @@ def _maybeDeferred_coro(
         return result
     if asyncio.isfuture(result) or inspect.isawaitable(result):
         return deferred_from_coro(result)
-    if isinstance(result, failure.Failure):
+    if isinstance(result, failure.Failure):  # pragma: no cover
         if warn:
             warnings.warn(
                 f"{global_object_name(f)} returned a Failure, this is deprecated."

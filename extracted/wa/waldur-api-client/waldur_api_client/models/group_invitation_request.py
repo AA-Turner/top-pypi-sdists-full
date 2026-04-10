@@ -29,6 +29,10 @@ class GroupInvitationRequest:
         user_email_patterns (Union[Unset, Any]):
         user_identity_sources (Union[Unset, Any]): List of allowed identity sources (identity providers).
         custom_text (Union[Unset, str]): Custom description text displayed to users viewing this invitation.
+        allow_multiple_requests (Union[Unset, bool]): Allow users to submit multiple permission requests for this
+            invitation.
+        allow_custom_project_details (Union[Unset, bool]): Allow users to provide custom project name and description
+            when accepting the invitation. If disabled, the project name is auto-generated from the template.
     """
 
     role: UUID
@@ -42,6 +46,8 @@ class GroupInvitationRequest:
     user_email_patterns: Union[Unset, Any] = UNSET
     user_identity_sources: Union[Unset, Any] = UNSET
     custom_text: Union[Unset, str] = UNSET
+    allow_multiple_requests: Union[Unset, bool] = UNSET
+    allow_custom_project_details: Union[Unset, bool] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -77,6 +83,10 @@ class GroupInvitationRequest:
 
         custom_text = self.custom_text
 
+        allow_multiple_requests = self.allow_multiple_requests
+
+        allow_custom_project_details = self.allow_custom_project_details
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -103,6 +113,10 @@ class GroupInvitationRequest:
             field_dict["user_identity_sources"] = user_identity_sources
         if custom_text is not UNSET:
             field_dict["custom_text"] = custom_text
+        if allow_multiple_requests is not UNSET:
+            field_dict["allow_multiple_requests"] = allow_multiple_requests
+        if allow_custom_project_details is not UNSET:
+            field_dict["allow_custom_project_details"] = allow_custom_project_details
 
         return field_dict
 
@@ -153,6 +167,10 @@ class GroupInvitationRequest:
 
         custom_text = d.pop("custom_text", UNSET)
 
+        allow_multiple_requests = d.pop("allow_multiple_requests", UNSET)
+
+        allow_custom_project_details = d.pop("allow_custom_project_details", UNSET)
+
         group_invitation_request = cls(
             role=role,
             scope=scope,
@@ -165,6 +183,8 @@ class GroupInvitationRequest:
             user_email_patterns=user_email_patterns,
             user_identity_sources=user_identity_sources,
             custom_text=custom_text,
+            allow_multiple_requests=allow_multiple_requests,
+            allow_custom_project_details=allow_custom_project_details,
         )
 
         group_invitation_request.additional_properties = d

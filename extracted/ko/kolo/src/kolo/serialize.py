@@ -10,11 +10,6 @@ from email.message import Message
 from email.utils import collapse_rfc2231_value
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple, TypedDict, TypeVar
 
-try:
-    from django.db.models import QuerySet
-except ImportError:
-    QuerySet = None  # type: ignore
-
 import msgpack
 
 logger = logging.getLogger("kolo")
@@ -60,6 +55,25 @@ SERIALIZE_PATH = os.path.normpath("kolo/serialize.py")
 # TODO: Make these threadlocals when we support multithreading
 QUERYSET_PATCHED = False
 IN_KOLO_PROFILER = False
+
+# Lazy-loaded Django QuerySet (to avoid importing Django at module load time)
+# This dramatically speeds up subprocess startup for emit --auto
+_QuerySet = None
+_QuerySet_checked = False
+
+
+def _get_queryset_class():
+    """Lazily import Django QuerySet, caching the result."""
+    global _QuerySet, _QuerySet_checked
+    if not _QuerySet_checked:
+        try:
+            from django.db.models import QuerySet
+
+            _QuerySet = QuerySet
+        except ImportError:
+            _QuerySet = None
+        _QuerySet_checked = True
+    return _QuerySet
 
 
 def monkeypatch_queryset_repr():
@@ -114,13 +128,12 @@ def msgpack_encode_hook(obj):
         if isinstance(obj, Decimal):
             return msgpack.ExtType(5, str(obj).encode("utf-8"))
 
-        if (
-            QuerySet is not None
-            and isinstance(obj, QuerySet)
-            and obj._result_cache is None
-        ):
-            data = f"Unevaluated queryset for: {obj.model}".encode("utf-8")
-            return msgpack.ExtType(0, data)
+        # Check for Django QuerySet (lazy import to avoid loading Django at module load)
+        QuerySet = _get_queryset_class()
+        if QuerySet is not None and isinstance(obj, QuerySet):
+            if obj._result_cache is None:
+                data = f"Unevaluated queryset for: {obj.model}".encode("utf-8")
+                return msgpack.ExtType(0, data)
 
         return msgpack.ExtType(0, repr(obj).encode("utf-8"))
     except Exception:
@@ -228,7 +241,7 @@ def frame_path(frame: types.FrameType) -> str:
     path = frame.f_code.co_filename
     try:
         relative_path = os.path.relpath(path)
-    except ValueError:
+    except ValueError:  # pragma: no cover
         relative_path = path
     return f"{relative_path}:{frame.f_lineno}"
 

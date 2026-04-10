@@ -4,11 +4,15 @@ from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.aiassistantenabledroles_enum import AIASSISTANTENABLEDROLESEnum
 from ..models.blank_enum import BlankEnum
 from ..models.defaultidp_enum import DEFAULTIDPEnum
+from ..models.enabledreportingscreens_enum import ENABLEDREPORTINGSCREENSEnum
 from ..models.federatedidentitydeactivationpolicy_enum import FEDERATEDIDENTITYDEACTIVATIONPOLICYEnum
 from ..models.fontfamily_enum import FONTFAMILYEnum
 from ..models.loginpagelayout_enum import LOGINPAGELAYOUTEnum
+from ..models.marketplacecardstyle_enum import MARKETPLACECARDSTYLEEnum
+from ..models.marketplacelayoutmode_enum import MARKETPLACELAYOUTMODEEnum
 from ..models.notify_system_enum import NotifySystemEnum
 from ..models.offering_type_enum import OfferingTypeEnum
 from ..models.onboarding_validation_enum import OnboardingValidationEnum
@@ -50,6 +54,8 @@ class ConstanceSettings:
         notify_about_resource_change (Union[Unset, bool]):
         disable_sending_notifications_about_resource_update (Union[Unset, bool]):
         marketplace_landing_page (Union[Unset, str]):
+        marketplace_layout_mode (Union[Unset, MARKETPLACELAYOUTMODEEnum]):
+        marketplace_card_style (Union[Unset, MARKETPLACECARDSTYLEEnum]):
         enable_stale_resource_notifications (Union[Unset, bool]):
         enable_issues_for_user_ssh_key_changes (Union[Unset, bool]):
         telemetry_url (Union[Unset, str]):
@@ -196,6 +202,7 @@ class ConstanceSettings:
         oidc_cache_timeout (Union[Unset, int]):
         oidc_access_token_enabled (Union[Unset, bool]):
         oidc_block_creation_of_uninvited_users (Union[Unset, bool]):
+        oidc_block_creation_of_uninvited_users_response_message (Union[Unset, str]):
         oidc_matchmaking_by_email (Union[Unset, bool]):
         oidc_default_logout_url (Union[Unset, str]):
         deactivate_user_if_no_roles (Union[Unset, bool]):
@@ -224,17 +231,20 @@ class ConstanceSettings:
         onboarding_bolagsverket_client_id (Union[Unset, str]):
         onboarding_bolagsverket_client_secret (Union[Unset, str]):
         onboarding_breg_api_url (Union[Unset, str]):
-        llm_chat_enabled (Union[Unset, bool]):
-        llm_inferences_backend_type (Union[Unset, str]):
-        llm_inferences_api_url (Union[Unset, str]):
-        llm_inferences_api_token (Union[Unset, str]):
-        llm_inferences_model (Union[Unset, str]):
-        llm_token_limit_daily (Union[Unset, int]):
-        llm_token_limit_weekly (Union[Unset, int]):
-        llm_token_limit_monthly (Union[Unset, int]):
-        llm_chat_session_retention_days (Union[Unset, int]):
-        llm_chat_history_limit (Union[Unset, int]):
-        llm_injection_allowlist (Union[Unset, str]):
+        ai_assistant_enabled (Union[Unset, bool]):
+        ai_assistant_enabled_roles (Union[Unset, AIASSISTANTENABLEDROLESEnum]):
+        ai_assistant_backend_type (Union[Unset, str]):
+        ai_assistant_api_url (Union[Unset, str]):
+        ai_assistant_api_token (Union[Unset, str]):
+        ai_assistant_model (Union[Unset, str]):
+        ai_assistant_completion_kwargs (Union[Unset, str]):
+        ai_assistant_token_limit_daily (Union[Unset, int]):
+        ai_assistant_token_limit_weekly (Union[Unset, int]):
+        ai_assistant_token_limit_monthly (Union[Unset, int]):
+        ai_assistant_session_retention_days (Union[Unset, int]):
+        ai_assistant_history_limit (Union[Unset, int]):
+        ai_assistant_injection_allowlist (Union[Unset, str]):
+        ai_assistant_name (Union[Unset, str]):
         software_catalog_eessi_update_enabled (Union[Unset, bool]):
         software_catalog_eessi_version (Union[Unset, str]):
         software_catalog_eessi_api_url (Union[Unset, str]):
@@ -273,6 +283,10 @@ class ConstanceSettings:
         enable_project_digest (Union[Unset, bool]):
         ssh_key_allowed_types (Union[Unset, list[Union[BlankEnum, SSHKEYALLOWEDTYPESEnum]]]):
         ssh_key_min_rsa_key_size (Union[Unset, int]):
+        enabled_reporting_screens (Union[Unset, list[Union[BlankEnum, ENABLEDREPORTINGSCREENSEnum]]]):
+        pat_enabled (Union[Unset, bool]):
+        pat_max_lifetime_days (Union[Unset, int]):
+        pat_max_tokens_per_user (Union[Unset, int]):
     """
 
     site_name: Union[Unset, str] = UNSET
@@ -293,6 +307,8 @@ class ConstanceSettings:
     notify_about_resource_change: Union[Unset, bool] = UNSET
     disable_sending_notifications_about_resource_update: Union[Unset, bool] = UNSET
     marketplace_landing_page: Union[Unset, str] = UNSET
+    marketplace_layout_mode: Union[Unset, MARKETPLACELAYOUTMODEEnum] = UNSET
+    marketplace_card_style: Union[Unset, MARKETPLACECARDSTYLEEnum] = UNSET
     enable_stale_resource_notifications: Union[Unset, bool] = UNSET
     enable_issues_for_user_ssh_key_changes: Union[Unset, bool] = UNSET
     telemetry_url: Union[Unset, str] = UNSET
@@ -439,6 +455,7 @@ class ConstanceSettings:
     oidc_cache_timeout: Union[Unset, int] = UNSET
     oidc_access_token_enabled: Union[Unset, bool] = UNSET
     oidc_block_creation_of_uninvited_users: Union[Unset, bool] = UNSET
+    oidc_block_creation_of_uninvited_users_response_message: Union[Unset, str] = UNSET
     oidc_matchmaking_by_email: Union[Unset, bool] = UNSET
     oidc_default_logout_url: Union[Unset, str] = UNSET
     deactivate_user_if_no_roles: Union[Unset, bool] = UNSET
@@ -467,17 +484,20 @@ class ConstanceSettings:
     onboarding_bolagsverket_client_id: Union[Unset, str] = UNSET
     onboarding_bolagsverket_client_secret: Union[Unset, str] = UNSET
     onboarding_breg_api_url: Union[Unset, str] = UNSET
-    llm_chat_enabled: Union[Unset, bool] = UNSET
-    llm_inferences_backend_type: Union[Unset, str] = UNSET
-    llm_inferences_api_url: Union[Unset, str] = UNSET
-    llm_inferences_api_token: Union[Unset, str] = UNSET
-    llm_inferences_model: Union[Unset, str] = UNSET
-    llm_token_limit_daily: Union[Unset, int] = UNSET
-    llm_token_limit_weekly: Union[Unset, int] = UNSET
-    llm_token_limit_monthly: Union[Unset, int] = UNSET
-    llm_chat_session_retention_days: Union[Unset, int] = UNSET
-    llm_chat_history_limit: Union[Unset, int] = UNSET
-    llm_injection_allowlist: Union[Unset, str] = UNSET
+    ai_assistant_enabled: Union[Unset, bool] = UNSET
+    ai_assistant_enabled_roles: Union[Unset, AIASSISTANTENABLEDROLESEnum] = UNSET
+    ai_assistant_backend_type: Union[Unset, str] = UNSET
+    ai_assistant_api_url: Union[Unset, str] = UNSET
+    ai_assistant_api_token: Union[Unset, str] = UNSET
+    ai_assistant_model: Union[Unset, str] = UNSET
+    ai_assistant_completion_kwargs: Union[Unset, str] = UNSET
+    ai_assistant_token_limit_daily: Union[Unset, int] = UNSET
+    ai_assistant_token_limit_weekly: Union[Unset, int] = UNSET
+    ai_assistant_token_limit_monthly: Union[Unset, int] = UNSET
+    ai_assistant_session_retention_days: Union[Unset, int] = UNSET
+    ai_assistant_history_limit: Union[Unset, int] = UNSET
+    ai_assistant_injection_allowlist: Union[Unset, str] = UNSET
+    ai_assistant_name: Union[Unset, str] = UNSET
     software_catalog_eessi_update_enabled: Union[Unset, bool] = UNSET
     software_catalog_eessi_version: Union[Unset, str] = UNSET
     software_catalog_eessi_api_url: Union[Unset, str] = UNSET
@@ -516,6 +536,10 @@ class ConstanceSettings:
     enable_project_digest: Union[Unset, bool] = UNSET
     ssh_key_allowed_types: Union[Unset, list[Union[BlankEnum, SSHKEYALLOWEDTYPESEnum]]] = UNSET
     ssh_key_min_rsa_key_size: Union[Unset, int] = UNSET
+    enabled_reporting_screens: Union[Unset, list[Union[BlankEnum, ENABLEDREPORTINGSCREENSEnum]]] = UNSET
+    pat_enabled: Union[Unset, bool] = UNSET
+    pat_max_lifetime_days: Union[Unset, int] = UNSET
+    pat_max_tokens_per_user: Union[Unset, int] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -556,6 +580,14 @@ class ConstanceSettings:
         disable_sending_notifications_about_resource_update = self.disable_sending_notifications_about_resource_update
 
         marketplace_landing_page = self.marketplace_landing_page
+
+        marketplace_layout_mode: Union[Unset, str] = UNSET
+        if not isinstance(self.marketplace_layout_mode, Unset):
+            marketplace_layout_mode = self.marketplace_layout_mode.value
+
+        marketplace_card_style: Union[Unset, str] = UNSET
+        if not isinstance(self.marketplace_card_style, Unset):
+            marketplace_card_style = self.marketplace_card_style.value
 
         enable_stale_resource_notifications = self.enable_stale_resource_notifications
 
@@ -927,6 +959,10 @@ class ConstanceSettings:
 
         oidc_block_creation_of_uninvited_users = self.oidc_block_creation_of_uninvited_users
 
+        oidc_block_creation_of_uninvited_users_response_message = (
+            self.oidc_block_creation_of_uninvited_users_response_message
+        )
+
         oidc_matchmaking_by_email = self.oidc_matchmaking_by_email
 
         oidc_default_logout_url = self.oidc_default_logout_url
@@ -1053,27 +1089,35 @@ class ConstanceSettings:
 
         onboarding_breg_api_url = self.onboarding_breg_api_url
 
-        llm_chat_enabled = self.llm_chat_enabled
+        ai_assistant_enabled = self.ai_assistant_enabled
 
-        llm_inferences_backend_type = self.llm_inferences_backend_type
+        ai_assistant_enabled_roles: Union[Unset, str] = UNSET
+        if not isinstance(self.ai_assistant_enabled_roles, Unset):
+            ai_assistant_enabled_roles = self.ai_assistant_enabled_roles.value
 
-        llm_inferences_api_url = self.llm_inferences_api_url
+        ai_assistant_backend_type = self.ai_assistant_backend_type
 
-        llm_inferences_api_token = self.llm_inferences_api_token
+        ai_assistant_api_url = self.ai_assistant_api_url
 
-        llm_inferences_model = self.llm_inferences_model
+        ai_assistant_api_token = self.ai_assistant_api_token
 
-        llm_token_limit_daily = self.llm_token_limit_daily
+        ai_assistant_model = self.ai_assistant_model
 
-        llm_token_limit_weekly = self.llm_token_limit_weekly
+        ai_assistant_completion_kwargs = self.ai_assistant_completion_kwargs
 
-        llm_token_limit_monthly = self.llm_token_limit_monthly
+        ai_assistant_token_limit_daily = self.ai_assistant_token_limit_daily
 
-        llm_chat_session_retention_days = self.llm_chat_session_retention_days
+        ai_assistant_token_limit_weekly = self.ai_assistant_token_limit_weekly
 
-        llm_chat_history_limit = self.llm_chat_history_limit
+        ai_assistant_token_limit_monthly = self.ai_assistant_token_limit_monthly
 
-        llm_injection_allowlist = self.llm_injection_allowlist
+        ai_assistant_session_retention_days = self.ai_assistant_session_retention_days
+
+        ai_assistant_history_limit = self.ai_assistant_history_limit
+
+        ai_assistant_injection_allowlist = self.ai_assistant_injection_allowlist
+
+        ai_assistant_name = self.ai_assistant_name
 
         software_catalog_eessi_update_enabled = self.software_catalog_eessi_update_enabled
 
@@ -1179,6 +1223,24 @@ class ConstanceSettings:
 
         ssh_key_min_rsa_key_size = self.ssh_key_min_rsa_key_size
 
+        enabled_reporting_screens: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.enabled_reporting_screens, Unset):
+            enabled_reporting_screens = []
+            for enabled_reporting_screens_item_data in self.enabled_reporting_screens:
+                enabled_reporting_screens_item: str
+                if isinstance(enabled_reporting_screens_item_data, ENABLEDREPORTINGSCREENSEnum):
+                    enabled_reporting_screens_item = enabled_reporting_screens_item_data.value
+                else:
+                    enabled_reporting_screens_item = enabled_reporting_screens_item_data.value
+
+                enabled_reporting_screens.append(enabled_reporting_screens_item)
+
+        pat_enabled = self.pat_enabled
+
+        pat_max_lifetime_days = self.pat_max_lifetime_days
+
+        pat_max_tokens_per_user = self.pat_max_tokens_per_user
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -1220,6 +1282,10 @@ class ConstanceSettings:
             )
         if marketplace_landing_page is not UNSET:
             field_dict["MARKETPLACE_LANDING_PAGE"] = marketplace_landing_page
+        if marketplace_layout_mode is not UNSET:
+            field_dict["MARKETPLACE_LAYOUT_MODE"] = marketplace_layout_mode
+        if marketplace_card_style is not UNSET:
+            field_dict["MARKETPLACE_CARD_STYLE"] = marketplace_card_style
         if enable_stale_resource_notifications is not UNSET:
             field_dict["ENABLE_STALE_RESOURCE_NOTIFICATIONS"] = enable_stale_resource_notifications
         if enable_issues_for_user_ssh_key_changes is not UNSET:
@@ -1514,6 +1580,10 @@ class ConstanceSettings:
             field_dict["OIDC_ACCESS_TOKEN_ENABLED"] = oidc_access_token_enabled
         if oidc_block_creation_of_uninvited_users is not UNSET:
             field_dict["OIDC_BLOCK_CREATION_OF_UNINVITED_USERS"] = oidc_block_creation_of_uninvited_users
+        if oidc_block_creation_of_uninvited_users_response_message is not UNSET:
+            field_dict["OIDC_BLOCK_CREATION_OF_UNINVITED_USERS_RESPONSE_MESSAGE"] = (
+                oidc_block_creation_of_uninvited_users_response_message
+            )
         if oidc_matchmaking_by_email is not UNSET:
             field_dict["OIDC_MATCHMAKING_BY_EMAIL"] = oidc_matchmaking_by_email
         if oidc_default_logout_url is not UNSET:
@@ -1572,28 +1642,34 @@ class ConstanceSettings:
             field_dict["ONBOARDING_BOLAGSVERKET_CLIENT_SECRET"] = onboarding_bolagsverket_client_secret
         if onboarding_breg_api_url is not UNSET:
             field_dict["ONBOARDING_BREG_API_URL"] = onboarding_breg_api_url
-        if llm_chat_enabled is not UNSET:
-            field_dict["LLM_CHAT_ENABLED"] = llm_chat_enabled
-        if llm_inferences_backend_type is not UNSET:
-            field_dict["LLM_INFERENCES_BACKEND_TYPE"] = llm_inferences_backend_type
-        if llm_inferences_api_url is not UNSET:
-            field_dict["LLM_INFERENCES_API_URL"] = llm_inferences_api_url
-        if llm_inferences_api_token is not UNSET:
-            field_dict["LLM_INFERENCES_API_TOKEN"] = llm_inferences_api_token
-        if llm_inferences_model is not UNSET:
-            field_dict["LLM_INFERENCES_MODEL"] = llm_inferences_model
-        if llm_token_limit_daily is not UNSET:
-            field_dict["LLM_TOKEN_LIMIT_DAILY"] = llm_token_limit_daily
-        if llm_token_limit_weekly is not UNSET:
-            field_dict["LLM_TOKEN_LIMIT_WEEKLY"] = llm_token_limit_weekly
-        if llm_token_limit_monthly is not UNSET:
-            field_dict["LLM_TOKEN_LIMIT_MONTHLY"] = llm_token_limit_monthly
-        if llm_chat_session_retention_days is not UNSET:
-            field_dict["LLM_CHAT_SESSION_RETENTION_DAYS"] = llm_chat_session_retention_days
-        if llm_chat_history_limit is not UNSET:
-            field_dict["LLM_CHAT_HISTORY_LIMIT"] = llm_chat_history_limit
-        if llm_injection_allowlist is not UNSET:
-            field_dict["LLM_INJECTION_ALLOWLIST"] = llm_injection_allowlist
+        if ai_assistant_enabled is not UNSET:
+            field_dict["AI_ASSISTANT_ENABLED"] = ai_assistant_enabled
+        if ai_assistant_enabled_roles is not UNSET:
+            field_dict["AI_ASSISTANT_ENABLED_ROLES"] = ai_assistant_enabled_roles
+        if ai_assistant_backend_type is not UNSET:
+            field_dict["AI_ASSISTANT_BACKEND_TYPE"] = ai_assistant_backend_type
+        if ai_assistant_api_url is not UNSET:
+            field_dict["AI_ASSISTANT_API_URL"] = ai_assistant_api_url
+        if ai_assistant_api_token is not UNSET:
+            field_dict["AI_ASSISTANT_API_TOKEN"] = ai_assistant_api_token
+        if ai_assistant_model is not UNSET:
+            field_dict["AI_ASSISTANT_MODEL"] = ai_assistant_model
+        if ai_assistant_completion_kwargs is not UNSET:
+            field_dict["AI_ASSISTANT_COMPLETION_KWARGS"] = ai_assistant_completion_kwargs
+        if ai_assistant_token_limit_daily is not UNSET:
+            field_dict["AI_ASSISTANT_TOKEN_LIMIT_DAILY"] = ai_assistant_token_limit_daily
+        if ai_assistant_token_limit_weekly is not UNSET:
+            field_dict["AI_ASSISTANT_TOKEN_LIMIT_WEEKLY"] = ai_assistant_token_limit_weekly
+        if ai_assistant_token_limit_monthly is not UNSET:
+            field_dict["AI_ASSISTANT_TOKEN_LIMIT_MONTHLY"] = ai_assistant_token_limit_monthly
+        if ai_assistant_session_retention_days is not UNSET:
+            field_dict["AI_ASSISTANT_SESSION_RETENTION_DAYS"] = ai_assistant_session_retention_days
+        if ai_assistant_history_limit is not UNSET:
+            field_dict["AI_ASSISTANT_HISTORY_LIMIT"] = ai_assistant_history_limit
+        if ai_assistant_injection_allowlist is not UNSET:
+            field_dict["AI_ASSISTANT_INJECTION_ALLOWLIST"] = ai_assistant_injection_allowlist
+        if ai_assistant_name is not UNSET:
+            field_dict["AI_ASSISTANT_NAME"] = ai_assistant_name
         if software_catalog_eessi_update_enabled is not UNSET:
             field_dict["SOFTWARE_CATALOG_EESSI_UPDATE_ENABLED"] = software_catalog_eessi_update_enabled
         if software_catalog_eessi_version is not UNSET:
@@ -1670,6 +1746,14 @@ class ConstanceSettings:
             field_dict["SSH_KEY_ALLOWED_TYPES"] = ssh_key_allowed_types
         if ssh_key_min_rsa_key_size is not UNSET:
             field_dict["SSH_KEY_MIN_RSA_KEY_SIZE"] = ssh_key_min_rsa_key_size
+        if enabled_reporting_screens is not UNSET:
+            field_dict["ENABLED_REPORTING_SCREENS"] = enabled_reporting_screens
+        if pat_enabled is not UNSET:
+            field_dict["PAT_ENABLED"] = pat_enabled
+        if pat_max_lifetime_days is not UNSET:
+            field_dict["PAT_MAX_LIFETIME_DAYS"] = pat_max_lifetime_days
+        if pat_max_tokens_per_user is not UNSET:
+            field_dict["PAT_MAX_TOKENS_PER_USER"] = pat_max_tokens_per_user
 
         return field_dict
 
@@ -1722,6 +1806,20 @@ class ConstanceSettings:
         )
 
         marketplace_landing_page = d.pop("MARKETPLACE_LANDING_PAGE", UNSET)
+
+        _marketplace_layout_mode = d.pop("MARKETPLACE_LAYOUT_MODE", UNSET)
+        marketplace_layout_mode: Union[Unset, MARKETPLACELAYOUTMODEEnum]
+        if isinstance(_marketplace_layout_mode, Unset):
+            marketplace_layout_mode = UNSET
+        else:
+            marketplace_layout_mode = MARKETPLACELAYOUTMODEEnum(_marketplace_layout_mode)
+
+        _marketplace_card_style = d.pop("MARKETPLACE_CARD_STYLE", UNSET)
+        marketplace_card_style: Union[Unset, MARKETPLACECARDSTYLEEnum]
+        if isinstance(_marketplace_card_style, Unset):
+            marketplace_card_style = UNSET
+        else:
+            marketplace_card_style = MARKETPLACECARDSTYLEEnum(_marketplace_card_style)
 
         enable_stale_resource_notifications = d.pop("ENABLE_STALE_RESOURCE_NOTIFICATIONS", UNSET)
 
@@ -2153,6 +2251,10 @@ class ConstanceSettings:
 
         oidc_block_creation_of_uninvited_users = d.pop("OIDC_BLOCK_CREATION_OF_UNINVITED_USERS", UNSET)
 
+        oidc_block_creation_of_uninvited_users_response_message = d.pop(
+            "OIDC_BLOCK_CREATION_OF_UNINVITED_USERS_RESPONSE_MESSAGE", UNSET
+        )
+
         oidc_matchmaking_by_email = d.pop("OIDC_MATCHMAKING_BY_EMAIL", UNSET)
 
         oidc_default_logout_url = d.pop("OIDC_DEFAULT_LOGOUT_URL", UNSET)
@@ -2364,27 +2466,38 @@ class ConstanceSettings:
 
         onboarding_breg_api_url = d.pop("ONBOARDING_BREG_API_URL", UNSET)
 
-        llm_chat_enabled = d.pop("LLM_CHAT_ENABLED", UNSET)
+        ai_assistant_enabled = d.pop("AI_ASSISTANT_ENABLED", UNSET)
 
-        llm_inferences_backend_type = d.pop("LLM_INFERENCES_BACKEND_TYPE", UNSET)
+        _ai_assistant_enabled_roles = d.pop("AI_ASSISTANT_ENABLED_ROLES", UNSET)
+        ai_assistant_enabled_roles: Union[Unset, AIASSISTANTENABLEDROLESEnum]
+        if isinstance(_ai_assistant_enabled_roles, Unset):
+            ai_assistant_enabled_roles = UNSET
+        else:
+            ai_assistant_enabled_roles = AIASSISTANTENABLEDROLESEnum(_ai_assistant_enabled_roles)
 
-        llm_inferences_api_url = d.pop("LLM_INFERENCES_API_URL", UNSET)
+        ai_assistant_backend_type = d.pop("AI_ASSISTANT_BACKEND_TYPE", UNSET)
 
-        llm_inferences_api_token = d.pop("LLM_INFERENCES_API_TOKEN", UNSET)
+        ai_assistant_api_url = d.pop("AI_ASSISTANT_API_URL", UNSET)
 
-        llm_inferences_model = d.pop("LLM_INFERENCES_MODEL", UNSET)
+        ai_assistant_api_token = d.pop("AI_ASSISTANT_API_TOKEN", UNSET)
 
-        llm_token_limit_daily = d.pop("LLM_TOKEN_LIMIT_DAILY", UNSET)
+        ai_assistant_model = d.pop("AI_ASSISTANT_MODEL", UNSET)
 
-        llm_token_limit_weekly = d.pop("LLM_TOKEN_LIMIT_WEEKLY", UNSET)
+        ai_assistant_completion_kwargs = d.pop("AI_ASSISTANT_COMPLETION_KWARGS", UNSET)
 
-        llm_token_limit_monthly = d.pop("LLM_TOKEN_LIMIT_MONTHLY", UNSET)
+        ai_assistant_token_limit_daily = d.pop("AI_ASSISTANT_TOKEN_LIMIT_DAILY", UNSET)
 
-        llm_chat_session_retention_days = d.pop("LLM_CHAT_SESSION_RETENTION_DAYS", UNSET)
+        ai_assistant_token_limit_weekly = d.pop("AI_ASSISTANT_TOKEN_LIMIT_WEEKLY", UNSET)
 
-        llm_chat_history_limit = d.pop("LLM_CHAT_HISTORY_LIMIT", UNSET)
+        ai_assistant_token_limit_monthly = d.pop("AI_ASSISTANT_TOKEN_LIMIT_MONTHLY", UNSET)
 
-        llm_injection_allowlist = d.pop("LLM_INJECTION_ALLOWLIST", UNSET)
+        ai_assistant_session_retention_days = d.pop("AI_ASSISTANT_SESSION_RETENTION_DAYS", UNSET)
+
+        ai_assistant_history_limit = d.pop("AI_ASSISTANT_HISTORY_LIMIT", UNSET)
+
+        ai_assistant_injection_allowlist = d.pop("AI_ASSISTANT_INJECTION_ALLOWLIST", UNSET)
+
+        ai_assistant_name = d.pop("AI_ASSISTANT_NAME", UNSET)
 
         software_catalog_eessi_update_enabled = d.pop("SOFTWARE_CATALOG_EESSI_UPDATE_ENABLED", UNSET)
 
@@ -2517,6 +2630,35 @@ class ConstanceSettings:
 
         ssh_key_min_rsa_key_size = d.pop("SSH_KEY_MIN_RSA_KEY_SIZE", UNSET)
 
+        enabled_reporting_screens = []
+        _enabled_reporting_screens = d.pop("ENABLED_REPORTING_SCREENS", UNSET)
+        for enabled_reporting_screens_item_data in _enabled_reporting_screens or []:
+
+            def _parse_enabled_reporting_screens_item(data: object) -> Union[BlankEnum, ENABLEDREPORTINGSCREENSEnum]:
+                try:
+                    if not isinstance(data, str):
+                        raise TypeError()
+                    enabled_reporting_screens_item_type_0 = ENABLEDREPORTINGSCREENSEnum(data)
+
+                    return enabled_reporting_screens_item_type_0
+                except:  # noqa: E722
+                    pass
+                if not isinstance(data, str):
+                    raise TypeError()
+                enabled_reporting_screens_item_type_1 = BlankEnum(data)
+
+                return enabled_reporting_screens_item_type_1
+
+            enabled_reporting_screens_item = _parse_enabled_reporting_screens_item(enabled_reporting_screens_item_data)
+
+            enabled_reporting_screens.append(enabled_reporting_screens_item)
+
+        pat_enabled = d.pop("PAT_ENABLED", UNSET)
+
+        pat_max_lifetime_days = d.pop("PAT_MAX_LIFETIME_DAYS", UNSET)
+
+        pat_max_tokens_per_user = d.pop("PAT_MAX_TOKENS_PER_USER", UNSET)
+
         constance_settings = cls(
             site_name=site_name,
             site_description=site_description,
@@ -2536,6 +2678,8 @@ class ConstanceSettings:
             notify_about_resource_change=notify_about_resource_change,
             disable_sending_notifications_about_resource_update=disable_sending_notifications_about_resource_update,
             marketplace_landing_page=marketplace_landing_page,
+            marketplace_layout_mode=marketplace_layout_mode,
+            marketplace_card_style=marketplace_card_style,
             enable_stale_resource_notifications=enable_stale_resource_notifications,
             enable_issues_for_user_ssh_key_changes=enable_issues_for_user_ssh_key_changes,
             telemetry_url=telemetry_url,
@@ -2682,6 +2826,7 @@ class ConstanceSettings:
             oidc_cache_timeout=oidc_cache_timeout,
             oidc_access_token_enabled=oidc_access_token_enabled,
             oidc_block_creation_of_uninvited_users=oidc_block_creation_of_uninvited_users,
+            oidc_block_creation_of_uninvited_users_response_message=oidc_block_creation_of_uninvited_users_response_message,
             oidc_matchmaking_by_email=oidc_matchmaking_by_email,
             oidc_default_logout_url=oidc_default_logout_url,
             deactivate_user_if_no_roles=deactivate_user_if_no_roles,
@@ -2710,17 +2855,20 @@ class ConstanceSettings:
             onboarding_bolagsverket_client_id=onboarding_bolagsverket_client_id,
             onboarding_bolagsverket_client_secret=onboarding_bolagsverket_client_secret,
             onboarding_breg_api_url=onboarding_breg_api_url,
-            llm_chat_enabled=llm_chat_enabled,
-            llm_inferences_backend_type=llm_inferences_backend_type,
-            llm_inferences_api_url=llm_inferences_api_url,
-            llm_inferences_api_token=llm_inferences_api_token,
-            llm_inferences_model=llm_inferences_model,
-            llm_token_limit_daily=llm_token_limit_daily,
-            llm_token_limit_weekly=llm_token_limit_weekly,
-            llm_token_limit_monthly=llm_token_limit_monthly,
-            llm_chat_session_retention_days=llm_chat_session_retention_days,
-            llm_chat_history_limit=llm_chat_history_limit,
-            llm_injection_allowlist=llm_injection_allowlist,
+            ai_assistant_enabled=ai_assistant_enabled,
+            ai_assistant_enabled_roles=ai_assistant_enabled_roles,
+            ai_assistant_backend_type=ai_assistant_backend_type,
+            ai_assistant_api_url=ai_assistant_api_url,
+            ai_assistant_api_token=ai_assistant_api_token,
+            ai_assistant_model=ai_assistant_model,
+            ai_assistant_completion_kwargs=ai_assistant_completion_kwargs,
+            ai_assistant_token_limit_daily=ai_assistant_token_limit_daily,
+            ai_assistant_token_limit_weekly=ai_assistant_token_limit_weekly,
+            ai_assistant_token_limit_monthly=ai_assistant_token_limit_monthly,
+            ai_assistant_session_retention_days=ai_assistant_session_retention_days,
+            ai_assistant_history_limit=ai_assistant_history_limit,
+            ai_assistant_injection_allowlist=ai_assistant_injection_allowlist,
+            ai_assistant_name=ai_assistant_name,
             software_catalog_eessi_update_enabled=software_catalog_eessi_update_enabled,
             software_catalog_eessi_version=software_catalog_eessi_version,
             software_catalog_eessi_api_url=software_catalog_eessi_api_url,
@@ -2759,6 +2907,10 @@ class ConstanceSettings:
             enable_project_digest=enable_project_digest,
             ssh_key_allowed_types=ssh_key_allowed_types,
             ssh_key_min_rsa_key_size=ssh_key_min_rsa_key_size,
+            enabled_reporting_screens=enabled_reporting_screens,
+            pat_enabled=pat_enabled,
+            pat_max_lifetime_days=pat_max_lifetime_days,
+            pat_max_tokens_per_user=pat_max_tokens_per_user,
         )
 
         constance_settings.additional_properties = d

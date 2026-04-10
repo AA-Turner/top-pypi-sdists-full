@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING, Any, List, Optional
 
 from customer_retention.analysis.auto_explorer.run_namespace import RunNamespace
 from customer_retention.core.compat import (
+    _is_native_spark_df,
     as_spark_df,
+    native_pd,
     normalize_timestamps,
     release_stage_memory,
 )
@@ -24,12 +26,6 @@ logger = logging.getLogger(__name__)
 
 def _local_delta() -> Any:
     return get_delta(force_local=True)
-
-
-def _to_native_pandas(df: Any) -> Any:
-    result = _compat_to_pandas(df)
-    result.attrs.clear()
-    return normalize_timestamps(result)
 
 
 def optimize_delta(path: str, z_order_columns: Optional[List[str]] = None) -> None:
@@ -127,13 +123,21 @@ def print_write_report(
 
 
 def _write_delta(df: Any, path: str, z_order_columns: Optional[List[str]] = None) -> None:
-    if hasattr(df, "to_spark"):
+    if _is_native_spark_df(df) or hasattr(df, "to_spark"):
         get_delta().write(as_spark_df(df), path, mode="overwrite", z_order_columns=z_order_columns)
         return
     _local_delta().write(
         normalize_timestamps(_compat_to_pandas(df)), path, mode="overwrite",
         z_order_columns=z_order_columns,
     )
+
+
+def _read_delta(path: str) -> Any:
+    df = get_delta().read(path)
+    if isinstance(df, native_pd.DataFrame):
+        df.attrs.clear()
+        return normalize_timestamps(df)
+    return df
 
 
 def save_active_dataset(
@@ -147,11 +151,42 @@ def save_active_dataset(
     return dlt_path
 
 
+def assert_landing_schema_matches_registry(
+    namespace: RunNamespace,
+    dataset_name: str,
+    expected_columns: List[str],
+) -> None:
+    """Raise if the landing Delta's columns differ from ``expected_columns``.
+
+    Catches the bouncing failure mode where NB00 patches the in-memory
+    registry but the landing Delta on disk is stale (or vice versa). The
+    helper is schema-only — it reads ``columns`` from the persisted Delta
+    plan, never iterates rows — so it stays distributed-safe even on
+    multi-million-row datasets.
+    """
+    landing_path = namespace.landing_table_dir(dataset_name)
+    if not landing_path.is_dir():
+        raise FileNotFoundError(
+            f"Landing Delta missing for dataset {dataset_name!r}: {landing_path}",
+        )
+    actual = {str(c).lower() for c in get_delta().read(str(landing_path)).columns}
+    expected = {str(c).lower() for c in expected_columns}
+    if actual == expected:
+        return
+    only_actual = sorted(actual - expected)
+    only_expected = sorted(expected - actual)
+    raise ValueError(
+        f"Schema drift for dataset {dataset_name!r}: landing Delta has "
+        f"columns not in registry={only_actual}, registry has columns not "
+        f"in landing Delta={only_expected}",
+    )
+
+
 def load_active_dataset(namespace: RunNamespace, dataset_name: str) -> Any:
     dlt_path = namespace.landing_table_dir(dataset_name)
     if not dlt_path.is_dir():
         raise FileNotFoundError(f"Active dataset not found: {dlt_path}")
-    return _to_native_pandas(_local_delta().read(str(dlt_path)))
+    return _read_delta(str(dlt_path))
 
 
 def save_aggregated_dataset(
@@ -173,7 +208,7 @@ def load_merge_dataset(
     if granularity == DatasetGranularity.EVENT_LEVEL:
         dlt_path = namespace.bronze_table_dir(dataset_name)
         if dlt_path.is_dir():
-            return _to_native_pandas(_local_delta().read(str(dlt_path)))
+            return _read_delta(str(dlt_path))
     return load_active_dataset(namespace, dataset_name)
 
 
@@ -199,7 +234,7 @@ def require_silver_merged(namespace: RunNamespace) -> Any:
         raise FileNotFoundError(
             f"Silver merged dataset not found: {silver}. Run notebook 03 (dataset_merge) first."
         )
-    return _to_native_pandas(_local_delta().read(str(silver)))
+    return _read_delta(str(silver))
 
 
 def require_silver_merged_distributed(namespace: RunNamespace) -> Any:
@@ -218,7 +253,7 @@ def load_silver_merged(
 ) -> Any:
     silver = namespace.silver_merged_path
     if silver.is_dir():
-        return _to_native_pandas(_local_delta().read(str(silver)))
+        return _read_delta(str(silver))
     return load_merge_dataset(namespace, dataset_name, granularity)
 
 
@@ -233,7 +268,7 @@ def load_gold_features(namespace: RunNamespace, composite_name: str) -> Any:
     dlt_path = namespace.gold_table_dir(composite_name)
     if not dlt_path.is_dir():
         raise FileNotFoundError(f"Gold features not found: {dlt_path}")
-    return _to_native_pandas(_local_delta().read(str(dlt_path)))
+    return _read_delta(str(dlt_path))
 
 
 def load_active_dataset_distributed(namespace: RunNamespace, dataset_name: str) -> Any:

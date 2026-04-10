@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright 2010 Stefano Mazzucco
-# Copyright 2011-2025 The HyperSpy developers
+# Copyright 2011-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO. It is a fork of the original PIL dm3 plugin
 # written by Stefano Mazzucco.
@@ -824,7 +824,7 @@ class ImageObject(object):
             "Microscope Info.Microscope",
         )
         for loc in locations:
-            # Currentl rsciio uses Box while HyperSpy uses its own
+            # Currently rsciio uses Box while HyperSpy uses its own
             # DictionaryTreeBrowser. ImageTags can be one or the
             # other due to the `mapping` feature.
             if hasattr(ImageTags, "get"):

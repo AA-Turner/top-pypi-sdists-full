@@ -32,6 +32,7 @@ def _get_kwargs(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: UUID,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
@@ -83,6 +84,8 @@ def _get_kwargs(
     params["query"] = query
 
     params["registration_code"] = registration_code
+
+    params["slug"] = slug
 
     json_user_uuid = str(user_uuid)
     params["user_uuid"] = json_user_uuid
@@ -147,6 +150,7 @@ def sync_detailed(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: UUID,
 ) -> Response[list["MarketplaceProviderCustomer"]]:
     """List customers of a specific user within a service provider's scope
@@ -179,6 +183,7 @@ def sync_detailed(
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
+        slug (Union[Unset, str]):
         user_uuid (UUID):
 
     Raises:
@@ -208,6 +213,7 @@ def sync_detailed(
         page_size=page_size,
         query=query,
         registration_code=registration_code,
+        slug=slug,
         user_uuid=user_uuid,
     )
 
@@ -239,6 +245,7 @@ def sync(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: UUID,
 ) -> list["MarketplaceProviderCustomer"]:
     """List customers of a specific user within a service provider's scope
@@ -271,6 +278,7 @@ def sync(
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
+        slug (Union[Unset, str]):
         user_uuid (UUID):
 
     Raises:
@@ -301,6 +309,7 @@ def sync(
         page_size=page_size,
         query=query,
         registration_code=registration_code,
+        slug=slug,
         user_uuid=user_uuid,
     ).parsed
 
@@ -326,6 +335,7 @@ async def asyncio_detailed(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: UUID,
 ) -> Response[list["MarketplaceProviderCustomer"]]:
     """List customers of a specific user within a service provider's scope
@@ -358,6 +368,7 @@ async def asyncio_detailed(
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
+        slug (Union[Unset, str]):
         user_uuid (UUID):
 
     Raises:
@@ -387,6 +398,7 @@ async def asyncio_detailed(
         page_size=page_size,
         query=query,
         registration_code=registration_code,
+        slug=slug,
         user_uuid=user_uuid,
     )
 
@@ -416,6 +428,7 @@ async def asyncio(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: UUID,
 ) -> list["MarketplaceProviderCustomer"]:
     """List customers of a specific user within a service provider's scope
@@ -448,6 +461,7 @@ async def asyncio(
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
+        slug (Union[Unset, str]):
         user_uuid (UUID):
 
     Raises:
@@ -479,6 +493,7 @@ async def asyncio(
             page_size=page_size,
             query=query,
             registration_code=registration_code,
+            slug=slug,
             user_uuid=user_uuid,
         )
     ).parsed
@@ -503,6 +518,7 @@ def sync_all(
     owned_by_current_user: Union[Unset, bool] = UNSET,
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: UUID,
 ) -> list["MarketplaceProviderCustomer"]:
     """Get All Pages
@@ -529,6 +545,7 @@ def sync_all(
         owned_by_current_user (Union[Unset, bool]):
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
+        slug (Union[Unset, str]):
         user_uuid (UUID):
 
     Raises:
@@ -560,6 +577,7 @@ def sync_all(
         owned_by_current_user=owned_by_current_user,
         query=query,
         registration_code=registration_code,
+        slug=slug,
         user_uuid=user_uuid,
     )
 
@@ -624,6 +642,7 @@ async def asyncio_all(
     owned_by_current_user: Union[Unset, bool] = UNSET,
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     user_uuid: UUID,
 ) -> list["MarketplaceProviderCustomer"]:
     """Get All Pages (Async)
@@ -650,6 +669,7 @@ async def asyncio_all(
         owned_by_current_user (Union[Unset, bool]):
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
+        slug (Union[Unset, str]):
         user_uuid (UUID):
 
     Raises:
@@ -681,6 +701,7 @@ async def asyncio_all(
         owned_by_current_user=owned_by_current_user,
         query=query,
         registration_code=registration_code,
+        slug=slug,
         user_uuid=user_uuid,
     )
 

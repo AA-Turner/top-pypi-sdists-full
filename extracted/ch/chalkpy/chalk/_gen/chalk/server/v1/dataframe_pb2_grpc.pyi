@@ -16,6 +16,8 @@ from chalk._gen.chalk.server.v1.dataframe_pb2 import (
     GetDataFrameRunResponse,
     GetDataFrameRunStatusRequest,
     GetDataFrameRunStatusResponse,
+    ListDataFrameRunsRequest,
+    ListDataFrameRunsResponse,
 )
 from grpc import (
     Channel,
@@ -43,6 +45,11 @@ class DataFrameServiceStub:
         GetDataFrameRunStatusResponse,
     ]
     """Returns the current status derived from shard statuses. Poll this endpoint to track progress."""
+    ListDataFrameRuns: UnaryUnaryMultiCallable[
+        ListDataFrameRunsRequest,
+        ListDataFrameRunsResponse,
+    ]
+    """List dataframe runs with pagination and filtering."""
 
 class DataFrameServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -70,5 +77,12 @@ class DataFrameServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetDataFrameRunStatusResponse:
         """Returns the current status derived from shard statuses. Poll this endpoint to track progress."""
+    @abstractmethod
+    def ListDataFrameRuns(
+        self,
+        request: ListDataFrameRunsRequest,
+        context: ServicerContext,
+    ) -> ListDataFrameRunsResponse:
+        """List dataframe runs with pagination and filtering."""
 
 def add_DataFrameServiceServicer_to_server(servicer: DataFrameServiceServicer, server: Server) -> None: ...

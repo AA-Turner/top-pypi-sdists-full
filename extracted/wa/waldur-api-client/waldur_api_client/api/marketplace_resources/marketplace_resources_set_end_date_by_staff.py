@@ -55,8 +55,8 @@ def sync_detailed(
 ) -> Response[Any]:
     """Set end date of the resource by staff
 
-     Allows a staff user to set or update the end date for a resource, which will schedule it for
-    termination.
+     Deprecated: Use set_end_date instead. Allows a staff user to set or update the end date for a
+    resource.
 
     Args:
         uuid (UUID):
@@ -90,8 +90,8 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Set end date of the resource by staff
 
-     Allows a staff user to set or update the end date for a resource, which will schedule it for
-    termination.
+     Deprecated: Use set_end_date instead. Allows a staff user to set or update the end date for a
+    resource.
 
     Args:
         uuid (UUID):

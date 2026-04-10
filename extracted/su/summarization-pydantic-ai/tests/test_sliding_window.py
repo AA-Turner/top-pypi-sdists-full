@@ -392,3 +392,251 @@ class TestSlidingWindowProcessor:
         processor = SlidingWindowProcessor()
         result = processor._validate_context_size(("tokens", 500), "test")
         assert result == ("tokens", 500)
+
+
+class TestKeepHead:
+    """Tests for the keep_head parameter."""
+
+    def test_keep_head_default_is_none(self):
+        """Test that keep_head defaults to None."""
+        processor = SlidingWindowProcessor()
+        assert processor.keep_head is None
+
+    def test_keep_head_messages_config(self):
+        """Test configuring keep_head with message count."""
+        processor = SlidingWindowProcessor(keep_head=("messages", 2))
+        assert processor.keep_head == ("messages", 2)
+
+    def test_keep_head_tokens_config(self):
+        """Test configuring keep_head with token count."""
+        processor = SlidingWindowProcessor(keep_head=("tokens", 500))
+        assert processor.keep_head == ("tokens", 500)
+
+    def test_keep_head_fraction_requires_max_tokens(self):
+        """Test that fraction-based keep_head requires max_input_tokens."""
+        with pytest.raises(ValueError, match="max_input_tokens is required"):
+            SlidingWindowProcessor(keep_head=("fraction", 0.1))
+
+    def test_keep_head_fraction_with_max_tokens(self):
+        """Test fraction-based keep_head with max_input_tokens provided."""
+        processor = SlidingWindowProcessor(
+            keep_head=("fraction", 0.1),
+            max_input_tokens=100000,
+        )
+        assert processor.keep_head == ("fraction", 0.1)
+
+    def test_keep_head_invalid_negative(self):
+        """Test that negative keep_head is rejected."""
+        with pytest.raises(ValueError, match="non-negative"):
+            SlidingWindowProcessor(keep_head=("messages", -1))
+
+    def test_keep_head_invalid_fraction(self):
+        """Test that invalid fraction for keep_head is rejected."""
+        with pytest.raises(ValueError, match="between 0 and 1"):
+            SlidingWindowProcessor(
+                keep_head=("fraction", 1.5),
+                max_input_tokens=100000,
+            )
+
+    @pytest.mark.anyio
+    async def test_keep_head_preserves_system_prompt(self):
+        """Test that keep_head=1 preserves the first message (system prompt)."""
+        from pydantic_ai.messages import SystemPromptPart
+
+        processor = SlidingWindowProcessor(
+            trigger=("messages", 5),
+            keep=("messages", 2),
+            keep_head=("messages", 1),
+        )
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[SystemPromptPart(content="You are a helpful assistant")]),
+            *[ModelRequest(parts=[UserPromptPart(content=f"Message {i}")]) for i in range(9)],
+        ]
+        result = await processor(messages)
+        # Should have: 1 head + 2 tail = 3 messages
+        assert len(result) == 3
+        # First message should be the system prompt
+        assert isinstance(result[0], ModelRequest)
+        assert any(
+            isinstance(p, SystemPromptPart) and "helpful assistant" in p.content
+            for p in result[0].parts
+        )
+        # Last 2 should be the tail messages
+        assert result[1:] == messages[-2:]
+
+    @pytest.mark.anyio
+    async def test_keep_head_multiple_messages(self):
+        """Test keeping multiple head messages."""
+        processor = SlidingWindowProcessor(
+            trigger=("messages", 5),
+            keep=("messages", 2),
+            keep_head=("messages", 3),
+        )
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[UserPromptPart(content=f"Message {i}")]) for i in range(10)
+        ]
+        result = await processor(messages)
+        # Should have: 3 head + 2 tail = 5 messages
+        assert len(result) == 5
+        assert result[:3] == messages[:3]
+        assert result[3:] == messages[-2:]
+
+    @pytest.mark.anyio
+    async def test_keep_head_no_trimming_needed(self):
+        """Test that keep_head doesn't affect behavior when no trimming is needed."""
+        processor = SlidingWindowProcessor(
+            trigger=("messages", 100),
+            keep=("messages", 50),
+            keep_head=("messages", 1),
+        )
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[UserPromptPart(content=f"Message {i}")]) for i in range(5)
+        ]
+        result = await processor(messages)
+        assert result == messages
+
+    @pytest.mark.anyio
+    async def test_keep_head_overlap_with_tail(self):
+        """Test behavior when head and tail regions overlap (too few messages to discard)."""
+        processor = SlidingWindowProcessor(
+            trigger=("messages", 5),
+            keep=("messages", 4),
+            keep_head=("messages", 3),
+        )
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[UserPromptPart(content=f"Message {i}")]) for i in range(6)
+        ]
+        result = await processor(messages)
+        # head=3 + tail covers most messages, effective_cutoff = max(cutoff, 3)
+        # cutoff for keep=4 from 6 messages = 2, so effective_cutoff = 3
+        # Result: messages[:3] + messages[3:] = all messages
+        assert result == messages
+
+    @pytest.mark.anyio
+    async def test_keep_head_with_token_based(self):
+        """Test keep_head with token-based configuration."""
+        processor = SlidingWindowProcessor(
+            trigger=("messages", 5),
+            keep=("messages", 2),
+            keep_head=("tokens", 100),  # ~400 chars = 100 tokens
+        )
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[UserPromptPart(content="x" * 200)]),  # 50 tokens
+            ModelRequest(parts=[UserPromptPart(content="y" * 200)]),  # 50 tokens
+            ModelRequest(parts=[UserPromptPart(content="z" * 200)]),  # 50 tokens - would exceed
+            *[ModelRequest(parts=[UserPromptPart(content=f"msg {i}")]) for i in range(7)],
+        ]
+        result = await processor(messages)
+        # Should keep first 2 messages (100 tokens) and last 2
+        assert len(result) == 4
+        assert result[:2] == messages[:2]
+        assert result[2:] == messages[-2:]
+
+    @pytest.mark.anyio
+    async def test_keep_head_preserves_tool_pairs_at_boundary(self):
+        """Test that keep_head adjusts upward to avoid splitting tool pairs."""
+        processor = SlidingWindowProcessor(
+            trigger=("messages", 5),
+            keep=("messages", 1),
+            keep_head=("messages", 2),  # Would cut at index 2, splitting call_1
+        )
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[UserPromptPart(content="Initial question")]),
+            ModelResponse(parts=[ToolCallPart(tool_name="search", args={}, tool_call_id="call_1")]),
+            # keep_head=2 would cut here — but call_1 (index 1) is before, return (index 2) after
+            ModelRequest(
+                parts=[ToolReturnPart(tool_name="search", content="Result", tool_call_id="call_1")]
+            ),
+            ModelResponse(parts=[TextPart(content="Answer based on search")]),
+            ModelRequest(parts=[UserPromptPart(content="Follow up 1")]),
+            ModelResponse(parts=[TextPart(content="Response 1")]),
+            ModelRequest(parts=[UserPromptPart(content="Follow up 2")]),
+        ]
+        result = await processor(messages)
+        # Cutting at index 2 is unsafe (splits call_1 pair), so head expands to 3
+        # Result: head (3 messages) + tail (1 message) = 4
+        assert len(result) == 4
+        assert result[:3] == messages[:3]
+        assert result[3] == messages[-1]
+
+    @pytest.mark.anyio
+    async def test_keep_head_zero_messages(self):
+        """Test keep_head with zero messages (same as None)."""
+        processor = SlidingWindowProcessor(
+            trigger=("messages", 5),
+            keep=("messages", 3),
+            keep_head=("messages", 0),
+        )
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[UserPromptPart(content=f"Message {i}")]) for i in range(10)
+        ]
+        result = await processor(messages)
+        # keep_head=0 means no head preserved, should behave like keep_head=None
+        assert len(result) == 3
+        assert result == messages[-3:]
+
+    def test_factory_with_keep_head(self):
+        """Test create_sliding_window_processor with keep_head."""
+        processor = create_sliding_window_processor(
+            trigger=("messages", 60),
+            keep=("messages", 30),
+            keep_head=("messages", 1),
+        )
+        assert processor.keep_head == ("messages", 1)
+
+    def test_factory_without_keep_head(self):
+        """Test create_sliding_window_processor without keep_head (default None)."""
+        processor = create_sliding_window_processor()
+        assert processor.keep_head is None
+
+    @pytest.mark.anyio
+    async def test_keep_head_fraction_based(self):
+        """Test keep_head with fraction-based configuration."""
+        processor = SlidingWindowProcessor(
+            trigger=("messages", 5),
+            keep=("messages", 2),
+            keep_head=("fraction", 0.5),
+            max_input_tokens=200,  # 50% = 100 tokens budget for head
+        )
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[UserPromptPart(content="x" * 200)]),  # 50 tokens
+            ModelRequest(parts=[UserPromptPart(content="y" * 200)]),  # 50 tokens -> 100 total
+            ModelRequest(parts=[UserPromptPart(content="z" * 200)]),  # would exceed 100
+            *[ModelRequest(parts=[UserPromptPart(content=f"msg {i}")]) for i in range(7)],
+        ]
+        result = await processor(messages)
+        # Should keep first 2 messages (~100 tokens) + last 2
+        assert len(result) == 4
+        assert result[:2] == messages[:2]
+        assert result[2:] == messages[-2:]
+
+    @pytest.mark.anyio
+    async def test_keep_head_token_all_fit(self):
+        """Test keep_head with token budget larger than all messages."""
+        processor = SlidingWindowProcessor(
+            trigger=("messages", 5),
+            keep=("messages", 2),
+            keep_head=("tokens", 999999),  # Huge budget — all messages fit
+        )
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[UserPromptPart(content=f"Message {i}")]) for i in range(6)
+        ]
+        result = await processor(messages)
+        # head covers all messages, effective_cutoff >= len(messages) → return as-is
+        assert result == messages
+
+    @pytest.mark.anyio
+    async def test_keep_head_covers_everything(self):
+        """Test when keep_head messages + tail overlap covers entire history."""
+        processor = SlidingWindowProcessor(
+            trigger=("messages", 5),
+            keep=("messages", 2),
+            keep_head=("messages", 5),  # Keep 5 from head of 6 total
+        )
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[UserPromptPart(content=f"Message {i}")]) for i in range(6)
+        ]
+        result = await processor(messages)
+        # head=5, cutoff for keep=2 from 6 = 4, effective_cutoff = max(4, 5) = 5
+        # tail = messages[5:] = 1 message, head = 5 messages → 6 total = all messages
+        assert result == messages

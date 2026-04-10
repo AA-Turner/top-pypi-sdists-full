@@ -229,7 +229,9 @@ class DatasetTemplateApi(BaseEntityApiMixin):
                             "dataType": col.data_type.value,
                             "type": col.type.value,
                         }
-                        for col in dataset_template.metadata.entity_and_targets.variables
+                        for col in (
+                            dataset_template.metadata.entity_and_targets.variables
+                        )
                     ],
                 },
                 "predictions": {

@@ -3,11 +3,12 @@ use anyhow::{Context, Result, bail, format_err};
 use fs_err as fs;
 use indexmap::IndexMap;
 use normpath::PathExt;
+use once_cell::sync::Lazy;
 use pep440_rs::{Version, VersionSpecifiers};
 use pep508_rs::{
     ExtraName, ExtraOperator, MarkerExpression, MarkerTree, MarkerValueExtra, Requirement,
 };
-use pyproject_toml::{License, check_pep639_glob};
+use pyproject_toml::{Contact, License, check_pep639_glob};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -81,8 +82,8 @@ impl Metadata24 {
             metadata_version: "2.4".to_string(),
             name,
             version,
-            platform: vec![],
-            supported_platform: vec![],
+            platform: Vec::new(),
+            supported_platform: Vec::new(),
             summary: None,
             description: None,
             description_content_type: None,
@@ -95,19 +96,19 @@ impl Metadata24 {
             maintainer_email: None,
             license: None,
             license_expression: None,
-            license_files: vec![],
+            license_files: Vec::new(),
             license_file_sources: HashMap::new(),
-            classifiers: vec![],
-            requires_dist: vec![],
-            provides_dist: vec![],
-            obsoletes_dist: vec![],
+            classifiers: Vec::new(),
+            requires_dist: Vec::new(),
+            provides_dist: Vec::new(),
+            obsoletes_dist: Vec::new(),
             requires_python: None,
-            requires_external: vec![],
-            project_url: Default::default(),
-            provides_extra: vec![],
-            scripts: Default::default(),
-            gui_scripts: Default::default(),
-            entry_points: Default::default(),
+            requires_external: Vec::new(),
+            project_url: IndexMap::new(),
+            provides_extra: Vec::new(),
+            scripts: IndexMap::new(),
+            gui_scripts: IndexMap::new(),
+            entry_points: IndexMap::new(),
         }
     }
 }
@@ -189,284 +190,280 @@ impl Metadata24 {
                 bail!("`project.dynamic` must not specify `name` in pyproject.toml");
             }
 
-            // According to PEP 621, build backends must not add metadata fields
-            // that are not declared in the dynamic list. Clear fields from Cargo.toml
-            // that are not in the dynamic list.
-            if !dynamic.contains("description") {
-                self.summary = None;
-            }
-            if !dynamic.contains("authors") {
-                self.author = None;
-                self.author_email = None;
-            }
-            if !dynamic.contains("maintainers") {
-                self.maintainer = None;
-                self.maintainer_email = None;
-            }
-            if !dynamic.contains("keywords") {
-                self.keywords = None;
-            }
-            if !dynamic.contains("urls") {
-                self.project_url.clear();
-            }
-            if !dynamic.contains("license") {
-                self.license = None;
-                // Don't clear license_files as they may come from auto-discovery
-            }
-            if !dynamic.contains("classifiers") {
-                self.classifiers.clear();
-            }
-            if !dynamic.contains("readme") {
-                self.description = None;
-                self.description_content_type = None;
-            }
-            if !dynamic.contains("requires-python") {
-                self.requires_python = None;
-            }
-
+            self.clear_non_dynamic_fields(&dynamic);
             self.name.clone_from(&project.name);
 
-            let version_ok = pyproject_toml.warn_invalid_version_info();
-            if !version_ok {
-                // This is a hard error for maturin>=2.0, see https://github.com/PyO3/maturin/issues/2416.
-                let current_major = env!("CARGO_PKG_VERSION_MAJOR").parse::<usize>().unwrap();
-                if current_major > 1 {
-                    bail!("Invalid version information in pyproject.toml.");
-                }
-            }
-
-            if let Some(version) = &project.version {
-                self.version = version.clone();
-            }
+            self.merge_version(pyproject_toml, project)?;
+            self.merge_readme(pyproject_dir, project)?;
+            self.merge_license(pyproject_dir, project)?;
+            self.merge_people(project);
 
             if let Some(description) = &project.description {
                 self.summary = Some(description.clone());
             }
+            if let Some(requires_python) = &project.requires_python {
+                self.requires_python = Some(requires_python.clone());
+            }
+            if let Some(keywords) = &project.keywords {
+                self.keywords = Some(keywords.join(","));
+            }
+            if let Some(classifiers) = &project.classifiers {
+                self.classifiers.clone_from(classifiers);
+            }
+            if let Some(urls) = &project.urls {
+                self.project_url.clone_from(urls);
+            }
+            if let Some(dependencies) = &project.dependencies {
+                self.requires_dist.clone_from(dependencies);
+            }
 
-            match &project.readme {
-                Some(pyproject_toml::ReadMe::RelativePath(readme_path)) => {
+            self.merge_optional_dependencies(project)?;
+            self.merge_entry_points(project)?;
+        }
+
+        self.normalize_license_paths(pyproject_dir)?;
+        Ok(())
+    }
+
+    /// Clear metadata fields that are not listed in `[project.dynamic]`.
+    fn clear_non_dynamic_fields(&mut self, dynamic: &HashSet<&str>) {
+        if !dynamic.contains("description") {
+            self.summary = None;
+        }
+        if !dynamic.contains("authors") {
+            self.author = None;
+            self.author_email = None;
+        }
+        if !dynamic.contains("maintainers") {
+            self.maintainer = None;
+            self.maintainer_email = None;
+        }
+        if !dynamic.contains("keywords") {
+            self.keywords = None;
+        }
+        if !dynamic.contains("urls") {
+            self.project_url.clear();
+        }
+        if !dynamic.contains("license") {
+            self.license = None;
+            self.license_expression = None;
+        }
+        if !dynamic.contains("classifiers") {
+            self.classifiers.clear();
+        }
+        if !dynamic.contains("readme") {
+            self.description = None;
+            self.description_content_type = None;
+        }
+        if !dynamic.contains("requires-python") {
+            self.requires_python = None;
+        }
+    }
+
+    /// Merge version information from pyproject.toml.
+    fn merge_version(
+        &mut self,
+        pyproject_toml: &PyProjectToml,
+        project: &pyproject_toml::Project,
+    ) -> Result<()> {
+        let version_ok = pyproject_toml.warn_invalid_version_info();
+        if !version_ok {
+            let current_major = env!("CARGO_PKG_VERSION_MAJOR").parse::<usize>().unwrap();
+            if current_major > 1 {
+                bail!("Invalid version information in pyproject.toml.");
+            }
+        }
+        if let Some(version) = &project.version {
+            self.version = version.clone();
+        }
+        Ok(())
+    }
+
+    /// Merge readme from pyproject.toml.
+    fn merge_readme(
+        &mut self,
+        pyproject_dir: &Path,
+        project: &pyproject_toml::Project,
+    ) -> Result<()> {
+        match &project.readme {
+            Some(pyproject_toml::ReadMe::RelativePath(readme_path)) => {
+                let readme_path = pyproject_dir.join(readme_path);
+                let description = Some(fs::read_to_string(&readme_path).context(format!(
+                    "Failed to read readme specified in pyproject.toml, which should be at {}",
+                    readme_path.display()
+                ))?);
+                self.description = description;
+                self.description_content_type = Some(path_to_content_type(&readme_path));
+            }
+            Some(pyproject_toml::ReadMe::Table {
+                file,
+                text,
+                content_type,
+            }) => {
+                if file.is_some() && text.is_some() {
+                    bail!(
+                        "file and text fields of 'project.readme' are mutually-exclusive, only one of them should be specified"
+                    );
+                }
+                if let Some(readme_path) = file {
                     let readme_path = pyproject_dir.join(readme_path);
                     let description = Some(fs::read_to_string(&readme_path).context(format!(
                         "Failed to read readme specified in pyproject.toml, which should be at {}",
                         readme_path.display()
                     ))?);
                     self.description = description;
-                    self.description_content_type = Some(path_to_content_type(&readme_path));
                 }
-                Some(pyproject_toml::ReadMe::Table {
-                    file,
-                    text,
-                    content_type,
-                }) => {
-                    if file.is_some() && text.is_some() {
-                        bail!(
-                            "file and text fields of 'project.readme' are mutually-exclusive, only one of them should be specified"
-                        );
-                    }
-                    if let Some(readme_path) = file {
-                        let readme_path = pyproject_dir.join(readme_path);
-                        let description = Some(fs::read_to_string(&readme_path).context(format!(
-                            "Failed to read readme specified in pyproject.toml, which should be at {}",
-                            readme_path.display()
-                        ))?);
-                        self.description = description;
-                    }
-                    if let Some(description) = text {
-                        self.description = Some(description.clone());
-                    }
-                    self.description_content_type.clone_from(content_type);
+                if let Some(description) = text {
+                    self.description = Some(description.clone());
                 }
-                None => {}
+                self.description_content_type.clone_from(content_type);
             }
+            None => {}
+        }
+        Ok(())
+    }
 
-            if let Some(requires_python) = &project.requires_python {
-                self.requires_python = Some(requires_python.clone());
-            }
-
-            if let Some(license) = &project.license {
-                match license {
-                    // PEP 639
-                    License::Spdx(license_expr) => {
-                        self.license_expression = Some(license_expr.clone())
-                    }
-                    // Deprecated by PEP 639
-                    License::File { file } => {
-                        let file = file.to_path_buf();
-                        validate_safe_relative_license_path(&file, "`project.license.file`")?;
-                        // pyproject.toml takes precedence over Cargo metadata for the same
-                        // `License-File` path.
-                        self.license_file_sources.remove(&file);
-                        if !self.license_files.contains(&file) {
-                            self.license_files.push(file);
-                        }
-                    }
-                    License::Text { text } => self.license = Some(text.clone()),
-                }
-            }
-
-            // Handle PEP 639 license-files field
-            if let Some(license_files) = &project.license_files {
-                // Safe on Windows and Unix as neither forward nor backwards slashes are escaped.
-                let escaped_pyproject_dir =
-                    PathBuf::from(glob::Pattern::escape(pyproject_dir.to_str().unwrap()));
-                for license_glob in license_files {
-                    check_pep639_glob(license_glob)?;
-                    for license_path in
-                        glob::glob(&escaped_pyproject_dir.join(license_glob).to_string_lossy())?
-                    {
-                        let license_path = license_path?;
-                        if !license_path.is_file() {
-                            continue;
-                        }
-                        let license_path = license_path
-                            .strip_prefix(pyproject_dir)
-                            .expect("matched path starts with glob root")
-                            .to_path_buf();
-                        // pyproject.toml-originating license paths take precedence over
-                        // Cargo-derived source overrides for the same relative wheel path.
-                        self.license_file_sources.remove(&license_path);
-                        if !self.license_files.contains(&license_path) {
-                            debug!("Including license file `{}`", license_path.display());
-                            self.license_files.push(license_path);
-                        }
+    /// Merge license and license-files from pyproject.toml.
+    fn merge_license(
+        &mut self,
+        pyproject_dir: &Path,
+        project: &pyproject_toml::Project,
+    ) -> Result<()> {
+        if let Some(license) = &project.license {
+            match license {
+                // PEP 639
+                License::Spdx(license_expr) => self.license_expression = Some(license_expr.clone()),
+                // Deprecated by PEP 639
+                License::File { file } => {
+                    let file = file.to_path_buf();
+                    validate_safe_relative_license_path(&file, "`project.license.file`")?;
+                    self.license_file_sources.remove(&file);
+                    if !self.license_files.contains(&file) {
+                        self.license_files.push(file);
                     }
                 }
-            } else {
-                // Auto-discovery of license files for backwards compatibility
-                // license-files.globs = ["LICEN[CS]E*", "COPYING*", "NOTICE*", "AUTHORS*"]
-                let license_include_targets = ["LICEN[CS]E*", "COPYING*", "NOTICE*", "AUTHORS*"];
-                let escaped_manifest_string =
-                    glob::Pattern::escape(pyproject_dir.to_str().unwrap());
-                let escaped_manifest_path = Path::new(&escaped_manifest_string);
-                for pattern in license_include_targets.iter() {
-                    for license_path in
-                        glob::glob(&escaped_manifest_path.join(pattern).to_string_lossy())?
-                            .filter_map(Result::ok)
-                    {
-                        if !license_path.is_file() {
-                            continue;
-                        }
-                        let license_path = license_path
-                            .strip_prefix(pyproject_dir)
-                            .expect("matched path starts with glob root")
-                            .to_path_buf();
-                        // if the pyproject.toml specified the license file,
-                        // then we won't list it as automatically included
-                        if !self.license_files.contains(&license_path) {
-                            eprintln!("📦 Including license file `{}`", license_path.display());
-                            self.license_files.push(license_path);
-                        }
-                    }
-                }
-            }
-
-            if let Some(authors) = &project.authors {
-                let mut names = Vec::with_capacity(authors.len());
-                let mut emails = Vec::with_capacity(authors.len());
-                for author in authors {
-                    match (author.name(), author.email()) {
-                        (Some(name), Some(email)) => {
-                            emails.push(escape_email_with_display_name(name, email));
-                        }
-                        (Some(name), None) => {
-                            names.push(name);
-                        }
-                        (None, Some(email)) => {
-                            emails.push(email.to_string());
-                        }
-                        (None, None) => {}
-                    }
-                }
-                if !names.is_empty() {
-                    self.author = Some(names.join(", "));
-                }
-                if !emails.is_empty() {
-                    self.author_email = Some(emails.join(", "));
-                }
-            }
-
-            if let Some(maintainers) = &project.maintainers {
-                let mut names = Vec::with_capacity(maintainers.len());
-                let mut emails = Vec::with_capacity(maintainers.len());
-                for maintainer in maintainers {
-                    match (maintainer.name(), maintainer.email()) {
-                        (Some(name), Some(email)) => {
-                            emails.push(escape_email_with_display_name(name, email));
-                        }
-                        (Some(name), None) => {
-                            names.push(name);
-                        }
-                        (None, Some(email)) => {
-                            emails.push(email.to_string());
-                        }
-                        (None, None) => {}
-                    }
-                }
-                if !names.is_empty() {
-                    self.maintainer = Some(names.join(", "));
-                }
-                if !emails.is_empty() {
-                    self.maintainer_email = Some(emails.join(", "));
-                }
-            }
-
-            if let Some(keywords) = &project.keywords {
-                self.keywords = Some(keywords.join(","));
-            }
-
-            if let Some(classifiers) = &project.classifiers {
-                self.classifiers.clone_from(classifiers);
-            }
-
-            if let Some(urls) = &project.urls {
-                self.project_url.clone_from(urls);
-            }
-
-            if let Some(dependencies) = &project.dependencies {
-                self.requires_dist.clone_from(dependencies);
-            }
-
-            if let Some(dependencies) = &project.optional_dependencies {
-                // Transform the extra -> deps map into the PEP 508 style `dep ; extras = ...` style
-                for (extra, deps) in dependencies {
-                    self.provides_extra.push(extra.clone());
-                    for dep in deps {
-                        let mut dep = dep.clone();
-                        // Keep in sync with `develop()`!
-                        let new_extra = MarkerExpression::Extra {
-                            operator: ExtraOperator::Equal,
-                            name: MarkerValueExtra::Extra(
-                                ExtraName::new(extra.clone())
-                                    .with_context(|| format!("invalid extra name: {extra}"))?,
-                            ),
-                        };
-                        dep.marker.and(MarkerTree::expression(new_extra));
-                        self.requires_dist.push(dep);
-                    }
-                }
-            }
-
-            if let Some(scripts) = &project.scripts {
-                self.scripts.clone_from(scripts);
-            }
-            if let Some(gui_scripts) = &project.gui_scripts {
-                self.gui_scripts.clone_from(gui_scripts);
-            }
-            if let Some(entry_points) = &project.entry_points {
-                // Raise error on ambiguous entry points: https://www.python.org/dev/peps/pep-0621/#entry-points
-                if entry_points.contains_key("console_scripts") {
-                    bail!("console_scripts is not allowed in project.entry-points table");
-                }
-                if entry_points.contains_key("gui_scripts") {
-                    bail!("gui_scripts is not allowed in project.entry-points table");
-                }
-                self.entry_points.clone_from(entry_points);
+                License::Text { text } => self.license = Some(text.clone()),
             }
         }
 
-        // Make sure existing license files from Cargo metadata are relative to
-        // the project root. This runs unconditionally (not just when [project]
-        // is present) so `license-file.workspace = true` works without [project].
+        if let Some(license_files) = &project.license_files {
+            let escaped_pyproject_dir =
+                PathBuf::from(glob::Pattern::escape(pyproject_dir.to_str().unwrap()));
+            for license_glob in license_files {
+                check_pep639_glob(license_glob)?;
+                for license_path in
+                    glob::glob(&escaped_pyproject_dir.join(license_glob).to_string_lossy())?
+                {
+                    let license_path = license_path?;
+                    if !license_path.is_file() {
+                        continue;
+                    }
+                    let license_path = license_path
+                        .strip_prefix(pyproject_dir)
+                        .expect("matched path starts with glob root")
+                        .to_path_buf();
+                    self.license_file_sources.remove(&license_path);
+                    if !self.license_files.contains(&license_path) {
+                        debug!("Including license file `{}`", license_path.display());
+                        self.license_files.push(license_path);
+                    }
+                }
+            }
+        } else {
+            // Auto-discovery of license files for backwards compatibility
+            let license_include_targets = ["LICEN[CS]E*", "COPYING*", "NOTICE*", "AUTHORS*"];
+            let escaped_manifest_string = glob::Pattern::escape(pyproject_dir.to_str().unwrap());
+            let escaped_manifest_path = Path::new(&escaped_manifest_string);
+            for pattern in license_include_targets.iter() {
+                for license_path in
+                    glob::glob(&escaped_manifest_path.join(pattern).to_string_lossy())?
+                        .filter_map(Result::ok)
+                {
+                    if !license_path.is_file() {
+                        continue;
+                    }
+                    let license_path = license_path
+                        .strip_prefix(pyproject_dir)
+                        .expect("matched path starts with glob root")
+                        .to_path_buf();
+                    if !self.license_files.contains(&license_path) {
+                        eprintln!("📦 Including license file `{}`", license_path.display());
+                        self.license_files.push(license_path);
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Merge author and maintainer contacts from pyproject.toml.
+    fn merge_people(&mut self, project: &pyproject_toml::Project) {
+        if let Some(authors) = &project.authors {
+            let (names, emails) = split_contacts(authors);
+            if names.is_some() {
+                self.author = names;
+            }
+            if emails.is_some() {
+                self.author_email = emails;
+            }
+        }
+
+        if let Some(maintainers) = &project.maintainers {
+            let (names, emails) = split_contacts(maintainers);
+            if names.is_some() {
+                self.maintainer = names;
+            }
+            if emails.is_some() {
+                self.maintainer_email = emails;
+            }
+        }
+    }
+
+    /// Merge optional dependencies into requires_dist with extra markers.
+    fn merge_optional_dependencies(&mut self, project: &pyproject_toml::Project) -> Result<()> {
+        if let Some(dependencies) = &project.optional_dependencies {
+            for (extra, deps) in dependencies {
+                self.provides_extra.push(extra.clone());
+                for dep in deps {
+                    let mut dep = dep.clone();
+                    let new_extra = MarkerExpression::Extra {
+                        operator: ExtraOperator::Equal,
+                        name: MarkerValueExtra::Extra(
+                            ExtraName::new(extra.clone())
+                                .with_context(|| format!("invalid extra name: {extra}"))?,
+                        ),
+                    };
+                    dep.marker.and(MarkerTree::expression(new_extra));
+                    self.requires_dist.push(dep);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Merge scripts, gui-scripts, and entry-points from pyproject.toml.
+    fn merge_entry_points(&mut self, project: &pyproject_toml::Project) -> Result<()> {
+        if let Some(scripts) = &project.scripts {
+            self.scripts.clone_from(scripts);
+        }
+        if let Some(gui_scripts) = &project.gui_scripts {
+            self.gui_scripts.clone_from(gui_scripts);
+        }
+        if let Some(entry_points) = &project.entry_points {
+            if entry_points.contains_key("console_scripts") {
+                bail!("console_scripts is not allowed in project.entry-points table");
+            }
+            if entry_points.contains_key("gui_scripts") {
+                bail!("gui_scripts is not allowed in project.entry-points table");
+            }
+            self.entry_points.clone_from(entry_points);
+        }
+        Ok(())
+    }
+
+    /// Normalize absolute license file paths to be relative to pyproject_dir.
+    fn normalize_license_paths(&mut self, pyproject_dir: &Path) -> Result<()> {
         let absolute_license_files = self
             .license_files
             .iter()
@@ -485,7 +482,6 @@ impl Metadata24 {
                 }
             }
         }
-
         Ok(())
     }
 
@@ -742,8 +738,8 @@ impl Metadata24 {
     ///
     /// See https://packaging.python.org/en/latest/specifications/binary-distribution-format/#escaping-and-unicode
     pub fn get_distribution_escaped(&self) -> String {
-        let re = Regex::new(r"[-_.]+").unwrap();
-        re.replace_all(&self.name, "_").to_lowercase()
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"[-_.]+").unwrap());
+        RE.replace_all(&self.name, "_").to_lowercase()
     }
 
     /// Returns the version encoded according to PEP 427, Section "Escaping
@@ -769,6 +765,38 @@ impl Metadata24 {
             &self.get_version_escaped()
         ))
     }
+}
+
+/// Split a list of contacts (authors or maintainers) into separate
+/// name and email strings, following PEP 621 conventions.
+fn split_contacts(contacts: &[Contact]) -> (Option<String>, Option<String>) {
+    let mut names = Vec::with_capacity(contacts.len());
+    let mut emails = Vec::with_capacity(contacts.len());
+    for contact in contacts {
+        match (contact.name(), contact.email()) {
+            (Some(name), Some(email)) => {
+                emails.push(escape_email_with_display_name(name, email));
+            }
+            (Some(name), None) => {
+                names.push(name.to_string());
+            }
+            (None, Some(email)) => {
+                emails.push(email.to_string());
+            }
+            (None, None) => {}
+        }
+    }
+    let names = if names.is_empty() {
+        None
+    } else {
+        Some(names.join(", "))
+    };
+    let emails = if emails.is_empty() {
+        None
+    } else {
+        Some(emails.join(", "))
+    };
+    (names, emails)
 }
 
 /// Escape email addresses with display name if necessary
@@ -814,6 +842,7 @@ fn fold_header(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::test_crate_path;
     use cargo_metadata::MetadataCommand;
     use expect_test::{Expect, expect};
     use indoc::indoc;
@@ -938,7 +967,7 @@ A test project
 
     #[test]
     fn test_merge_metadata_from_pyproject_toml() {
-        let manifest_dir = PathBuf::from("test-crates").join("pyo3-pure");
+        let manifest_dir = test_crate_path("pyo3-pure");
         let cargo_metadata = MetadataCommand::new()
             .manifest_path(manifest_dir.join("Cargo.toml"))
             .exec()
@@ -954,7 +983,7 @@ A test project
         );
         assert_eq!(
             metadata.description,
-            Some(fs_err::read_to_string("test-crates/pyo3-pure/README.md").unwrap())
+            Some(fs_err::read_to_string(manifest_dir.join("README.md")).unwrap())
         );
         assert_eq!(metadata.classifiers, &["Programming Language :: Rust"]);
         assert_eq!(
@@ -987,7 +1016,7 @@ A test project
 
     #[test]
     fn test_merge_metadata_from_pyproject_toml_with_customized_python_source_dir() {
-        let manifest_dir = PathBuf::from("test-crates").join("pyo3-mixed-py-subdir");
+        let manifest_dir = test_crate_path("pyo3-mixed-py-subdir");
         let cargo_metadata = MetadataCommand::new()
             .manifest_path(manifest_dir.join("Cargo.toml"))
             .exec()
@@ -1008,7 +1037,7 @@ A test project
 
     #[test]
     fn test_implicit_readme() {
-        let manifest_dir = PathBuf::from("test-crates").join("pyo3-mixed");
+        let manifest_dir = test_crate_path("pyo3-mixed");
         let cargo_metadata = MetadataCommand::new()
             .manifest_path(manifest_dir.join("Cargo.toml"))
             .exec()
@@ -1023,7 +1052,7 @@ A test project
 
     #[test]
     fn test_pep639() {
-        let manifest_dir = PathBuf::from("test-crates").join("pyo3-mixed");
+        let manifest_dir = test_crate_path("pyo3-mixed");
         let cargo_metadata = MetadataCommand::new()
             .manifest_path(manifest_dir.join("Cargo.toml"))
             .exec()
@@ -1040,7 +1069,7 @@ A test project
 
     #[test]
     fn test_merge_metadata_from_pyproject_dynamic_license_test() {
-        let manifest_dir = PathBuf::from("test-crates").join("license-test");
+        let manifest_dir = test_crate_path("license-test");
         let cargo_metadata = MetadataCommand::new()
             .manifest_path(manifest_dir.join("Cargo.toml"))
             .exec()

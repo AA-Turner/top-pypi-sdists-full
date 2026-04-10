@@ -431,7 +431,15 @@ class TestReviewCommands:
                 helper,
                 "codex_once",
                 return_value=helper.CodexRunResult(
-                    text='{"decision":"approve","summary":"OK","comment_markdown":"Approved"}',
+                    text=(
+                        # (#1200) real_validation_present must be true when
+                        # the fixture's changed_files touches a
+                        # SENSITIVE_PATH_PATTERNS glob (here,
+                        # scripts/workflows/local_cli_issue_flow.py).
+                        '{"decision":"approve","summary":"OK","comment_markdown":"Approved",'
+                        '"real_validation_required":true,"real_validation_present":true,'
+                        '"real_validation_details":"ran temp-repo probe"}'
+                    ),
                     exit_code=0,
                 ),
             ) as mock_codex,
@@ -839,7 +847,23 @@ class TestWorktreeHelpers:
         branch = "issue-1199-example"
         issue = {"state": "open", "title": "Example", "url": "https://example.com/issues/1199"}
 
-        run_results = [MagicMock(returncode=0), MagicMock(returncode=0)]
+        def fake_run(command: list[str], *, cwd: Path | None = None, check: bool = True, capture_output: bool = True):
+            if command == ["git", "fetch", "origin", "main"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command == ["git", "rev-parse", "--verify", "origin/main"]:
+                return SimpleNamespace(returncode=0, stdout="origin/main\n", stderr="")
+            if command == ["git", "show-ref", "--verify", f"refs/heads/{branch}"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {command}")
+
+        def fake_run_stdout(command: list[str], *, cwd: Path | None = None) -> str:
+            if command == ["git", "rev-parse", "origin/main"]:
+                return "base-head"
+            if command == ["git", "rev-parse", branch]:
+                return "base-head"
+            if command == ["git", "merge-base", branch, "origin/main"]:
+                return "base-head"
+            raise AssertionError(f"Unexpected stdout command: {command}")
 
         with (
             patch.object(helper, "issue_data", return_value=issue),
@@ -852,16 +876,16 @@ class TestWorktreeHelpers:
                 "sanitize_reused_worktree",
                 return_value={"removed_junk": [], "tracked_dirty": [], "unexpected_untracked": []},
             ),
-            patch.object(helper, "run", side_effect=run_results) as mock_run,
+            patch.object(helper, "run", side_effect=fake_run) as mock_run,
+            patch.object(helper, "run_stdout", side_effect=fake_run_stdout),
             patch.object(helper, "update_state", return_value={"worktree_path": str(attached)}) as mock_update_state,
         ):
             state = helper.ensure_worktree(root, 1199)
 
         assert state == {"worktree_path": str(attached)}
-        assert mock_run.call_args_list == [
-            ((["git", "fetch", "origin", "main"],), {"cwd": root, "check": False}),
-            ((["git", "show-ref", "--verify", f"refs/heads/{branch}"],), {"cwd": root, "check": False}),
-        ]
+        issued = [call.args[0] for call in mock_run.call_args_list]
+        assert ["git", "fetch", "origin", "main"] in issued
+        assert ["git", "show-ref", "--verify", f"refs/heads/{branch}"] in issued
         mock_update_state.assert_called_once_with(
             root,
             1199,
@@ -887,36 +911,51 @@ class TestWorktreeHelpers:
         branch = "issue-1199-example"
         issue = {"state": "open", "title": "Example", "url": "https://example.com/issues/1199"}
 
-        run_results = [
-            MagicMock(returncode=0),
-            MagicMock(returncode=0),
-            MagicMock(returncode=0),
-            MagicMock(returncode=0),
-        ]
+        def fake_run(command: list[str], *, cwd: Path | None = None, check: bool = True, capture_output: bool = True):
+            if command == ["git", "fetch", "origin", "main"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command == ["git", "rev-parse", "--verify", "origin/main"]:
+                return SimpleNamespace(returncode=0, stdout="origin/main\n", stderr="")
+            if command == ["git", "show-ref", "--verify", f"refs/heads/{branch}"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command == ["git", "worktree", "prune"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command == ["git", "worktree", "add", str(preferred), branch]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {command}")
+
+        def fake_run_stdout(command: list[str], *, cwd: Path | None = None) -> str:
+            if command == ["git", "rev-parse", "origin/main"]:
+                return "base-head"
+            if command == ["git", "rev-parse", branch]:
+                return "base-head"
+            if command == ["git", "merge-base", branch, "origin/main"]:
+                return "base-head"
+            raise AssertionError(f"Unexpected stdout command: {command}")
 
         with (
             patch.object(helper, "issue_data", return_value=issue),
             patch.object(helper, "repo_name", return_value="owner/repo"),
             patch.object(helper, "issue_branch", return_value=branch),
             patch.object(helper, "issue_worktree", return_value=preferred),
-            patch.object(helper, "worktree_for_branch", side_effect=[None, None]),
+            patch.object(helper, "worktree_for_branch", side_effect=[None, None, None]),
             patch.object(
                 helper,
                 "worktree_entry_for_branch",
                 return_value={"worktree": str(preferred), "branch": f"refs/heads/{branch}"},
             ),
-            patch.object(helper, "run", side_effect=run_results) as mock_run,
+            patch.object(helper, "run", side_effect=fake_run) as mock_run,
+            patch.object(helper, "run_stdout", side_effect=fake_run_stdout),
             patch.object(helper, "update_state", return_value={"worktree_path": str(preferred)}) as mock_update_state,
         ):
             state = helper.ensure_worktree(root, 1199)
 
         assert state == {"worktree_path": str(preferred)}
-        assert mock_run.call_args_list == [
-            ((["git", "fetch", "origin", "main"],), {"cwd": root, "check": False}),
-            ((["git", "show-ref", "--verify", f"refs/heads/{branch}"],), {"cwd": root, "check": False}),
-            ((["git", "worktree", "prune"],), {"cwd": root}),
-            ((["git", "worktree", "add", str(preferred), branch],), {"cwd": root}),
-        ]
+        issued = [call.args[0] for call in mock_run.call_args_list]
+        assert ["git", "fetch", "origin", "main"] in issued
+        assert ["git", "show-ref", "--verify", f"refs/heads/{branch}"] in issued
+        assert ["git", "worktree", "prune"] in issued
+        assert ["git", "worktree", "add", str(preferred), branch] in issued
         mock_update_state.assert_called_once_with(
             root,
             1199,
@@ -1089,7 +1128,23 @@ class TestPrepareWorktreeSanitation:
         branch = "issue-1223-example"
         issue = {"state": "open", "title": "Example", "url": "https://example.com/issues/1223"}
 
-        run_results = [MagicMock(returncode=0), MagicMock(returncode=0)]
+        def fake_run(command: list[str], *, cwd: Path | None = None, check: bool = True, capture_output: bool = True):
+            if command == ["git", "fetch", "origin", "main"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command == ["git", "rev-parse", "--verify", "origin/main"]:
+                return SimpleNamespace(returncode=0, stdout="origin/main\n", stderr="")
+            if command == ["git", "show-ref", "--verify", f"refs/heads/{branch}"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {command}")
+
+        def fake_run_stdout(command: list[str], *, cwd: Path | None = None) -> str:
+            if command == ["git", "rev-parse", "origin/main"]:
+                return "base-head"
+            if command == ["git", "rev-parse", branch]:
+                return "base-head"
+            if command == ["git", "merge-base", branch, "origin/main"]:
+                return "base-head"
+            raise AssertionError(f"Unexpected stdout command: {command}")
 
         with (
             patch.object(helper, "issue_data", return_value=issue),
@@ -1102,7 +1157,8 @@ class TestPrepareWorktreeSanitation:
                 "sanitize_reused_worktree",
                 return_value={"removed_junk": [], "tracked_dirty": [], "unexpected_untracked": []},
             ) as mock_sanitize,
-            patch.object(helper, "run", side_effect=run_results),
+            patch.object(helper, "run", side_effect=fake_run),
+            patch.object(helper, "run_stdout", side_effect=fake_run_stdout),
             patch.object(helper, "update_state", return_value={"worktree_path": str(attached)}) as mock_update_state,
         ):
             helper.ensure_worktree(root, 1223)
@@ -1135,6 +1191,439 @@ class TestPrepareWorktreeSanitation:
             (("/tmp/worktree",), {}),
             (("prepare_worktree: reused_junk_cleaned (removed_junk: <MagicMock junk>)",), {"file": helper.sys.stderr}),
         ]
+
+
+class TestEnsureWorktree:
+    def test_creates_new_branch_from_latest_default_branch(self, tmp_path: Path) -> None:
+        root = tmp_path / "repo"
+        root.mkdir()
+        expected_worktree = tmp_path / "anteroom-1197-ensure-issue-delivery"
+        state_updates: dict[str, object] = {}
+
+        def fake_run(command: list[str], *, cwd: Path | None = None, check: bool = True, capture_output: bool = True):
+            if command[:3] == ["git", "fetch", "origin"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "rev-parse", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="origin/main\n", stderr="")
+            if command[:3] == ["git", "show-ref", "--verify"]:
+                return SimpleNamespace(returncode=1, stdout="", stderr="")
+            if command[:3] == ["git", "branch", "issue-1197-ensure-worktrees-start-fresh"]:
+                assert command[3] == "origin/main"
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "worktree", "add"]:
+                assert command[3] == str(expected_worktree)
+                assert command[4] == "issue-1197-ensure-worktrees-start-fresh"
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {command}")
+
+        def fake_run_stdout(command: list[str], *, cwd: Path | None = None) -> str:
+            if command == ["git", "rev-parse", "--verify", "origin/main"]:
+                return "origin/main"
+            if command == ["git", "rev-parse", "origin/main"]:
+                return "abc123"
+            if command == ["git", "worktree", "list", "--porcelain"]:
+                return ""
+            raise AssertionError(f"Unexpected stdout command: {command}")
+
+        issue = {"state": "open", "title": "Ensure worktrees start fresh", "url": "https://example.test/issues/1197"}
+
+        def update(*args, **updates):
+            state_updates.update(updates)
+            return state_updates
+
+        with (
+            patch.object(helper, "issue_data", return_value=issue),
+            patch.object(helper, "repo_name", return_value="anteroom"),
+            patch.object(helper, "issue_worktree", return_value=expected_worktree),
+            patch.object(helper, "run", side_effect=fake_run),
+            patch.object(helper, "run_stdout", side_effect=fake_run_stdout),
+            patch.object(helper, "update_state", side_effect=update),
+        ):
+            state = helper.ensure_worktree(root, 1197)
+
+        assert state["branch"] == "issue-1197-ensure-worktrees-start-fresh"
+        assert state["worktree_path"] == str(expected_worktree)
+
+    def test_fast_forwards_untouched_stale_branch_by_resetting_attached_worktree(self, tmp_path: Path) -> None:
+        root = tmp_path / "repo"
+        root.mkdir()
+        expected_worktree = tmp_path / "anteroom-1197-refresh"
+        expected_worktree.mkdir()
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], *, cwd: Path | None = None, check: bool = True, capture_output: bool = True):
+            commands.append(command)
+            if command[:3] == ["git", "fetch", "origin"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "rev-parse", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="origin/main\n", stderr="")
+            if command[:3] == ["git", "show-ref", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "reset", "--hard"]:
+                assert cwd == expected_worktree
+                assert command[3] == "origin/main"
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {command}")
+
+        def fake_run_stdout(command: list[str], *, cwd: Path | None = None) -> str:
+            if command == ["git", "rev-parse", "--verify", "origin/main"]:
+                return "origin/main"
+            if command == ["git", "rev-parse", "origin/main"]:
+                return "new-main"
+            if command == ["git", "worktree", "list", "--porcelain"]:
+                return f"worktree {expected_worktree}\nHEAD old-base\nbranch refs/heads/issue-1197-refresh-me\n"
+            if command == ["git", "rev-parse", "issue-1197-refresh-me"]:
+                return "old-base"
+            if command == ["git", "merge-base", "issue-1197-refresh-me", "origin/main"]:
+                return "old-base"
+            if command == ["git", "branch", "--show-current"]:
+                assert cwd == expected_worktree
+                return "issue-1197-refresh-me"
+            raise AssertionError(f"Unexpected stdout command: {command}")
+
+        with (
+            patch.object(
+                helper,
+                "issue_data",
+                return_value={"state": "open", "title": "Refresh me", "url": "https://example.test/issues/1197"},
+            ),
+            patch.object(helper, "repo_name", return_value="anteroom"),
+            patch.object(helper, "issue_worktree", return_value=expected_worktree),
+            patch.object(helper, "run", side_effect=fake_run),
+            patch.object(helper, "run_stdout", side_effect=fake_run_stdout),
+            patch.object(
+                helper,
+                "sanitize_reused_worktree",
+                return_value={"removed_junk": [], "tracked_dirty": [], "unexpected_untracked": []},
+            ),
+            patch.object(helper, "update_state", side_effect=lambda root, issue, **updates: updates),
+        ):
+            state = helper.ensure_worktree(root, 1197)
+
+        assert ["git", "reset", "--hard", "origin/main"] in commands
+        assert not any(command[:3] == ["git", "branch", "-f"] for command in commands)
+        assert state["worktree_path"] == str(expected_worktree)
+
+    def test_prunes_stale_worktree_metadata_before_fast_forwarding_stale_branch(self, tmp_path: Path) -> None:
+        """Regression for the review blocker on PR #1198:
+
+        When a linked worktree directory was deleted WITHOUT running
+        ``git worktree prune``, git still treats the branch as
+        "used by worktree". A naive ``git branch -f`` then fails with
+        ``fatal: cannot force update the branch ... checked out at``.
+
+        ``ensure_worktree`` must see the stale registration via
+        ``worktree_entry_for_branch`` (which does not filter by
+        ``.exists()``), prune it, and only then run the fast-forward.
+        """
+        root = tmp_path / "repo"
+        root.mkdir()
+        missing_worktree = tmp_path / "deleted-worktree"  # NOT created
+        requested_worktree = tmp_path / "requested-worktree"
+        # requested_worktree also intentionally does not exist -- ensure_worktree
+        # should create a fresh one after the stale metadata is pruned.
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], *, cwd: Path | None = None, check: bool = True, capture_output: bool = True):
+            commands.append(command)
+            if command[:3] == ["git", "fetch", "origin"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "rev-parse", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="origin/main\n", stderr="")
+            if command[:3] == ["git", "show-ref", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "worktree", "prune"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "branch", "-f"]:
+                assert command[3] == "issue-1197-stale-meta"
+                assert command[4] == "origin/main"
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "worktree", "add"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {command}")
+
+        def fake_run_stdout(command: list[str], *, cwd: Path | None = None) -> str:
+            if command == ["git", "rev-parse", "--verify", "origin/main"]:
+                return "origin/main"
+            if command == ["git", "rev-parse", "origin/main"]:
+                return "new-main"
+            if command == ["git", "rev-parse", "issue-1197-stale-meta"]:
+                return "old-base"
+            if command == ["git", "merge-base", "issue-1197-stale-meta", "origin/main"]:
+                return "old-base"
+            raise AssertionError(f"Unexpected stdout command: {command}")
+
+        stale_entry = {
+            "worktree": str(missing_worktree),
+            "HEAD": "old-base",
+            "branch": "refs/heads/issue-1197-stale-meta",
+        }
+
+        with (
+            patch.object(
+                helper,
+                "issue_data",
+                return_value={"state": "open", "title": "Stale meta", "url": "https://example.test/issues/1197"},
+            ),
+            patch.object(helper, "repo_name", return_value="anteroom"),
+            patch.object(helper, "issue_branch", return_value="issue-1197-stale-meta"),
+            patch.object(helper, "issue_worktree", return_value=requested_worktree),
+            patch.object(helper, "run", side_effect=fake_run),
+            patch.object(helper, "run_stdout", side_effect=fake_run_stdout),
+            # Main's worktree_for_branch filters by .exists(); the missing
+            # directory means it returns None throughout.
+            patch.object(helper, "worktree_for_branch", return_value=None),
+            # worktree_entry_for_branch does NOT filter -- it sees the stale
+            # registration on the first call. After prune clears it (and
+            # before `git worktree add` creates a fresh one), subsequent
+            # lookups return None.
+            patch.object(
+                helper,
+                "worktree_entry_for_branch",
+                side_effect=[stale_entry, None, None],
+            ),
+            patch.object(helper, "update_state", side_effect=lambda root, issue, **updates: updates),
+        ):
+            state = helper.ensure_worktree(root, 1197)
+
+        # The critical ordering: prune MUST come before branch -f, otherwise
+        # the force update fails with "branch used by worktree".
+        prune_idx = commands.index(["git", "worktree", "prune"])
+        branch_force_idx = next(i for i, cmd in enumerate(commands) if cmd[:3] == ["git", "branch", "-f"])
+        assert prune_idx < branch_force_idx, (
+            f"git worktree prune (idx {prune_idx}) must run BEFORE git branch -f (idx {branch_force_idx})"
+        )
+        # A fresh worktree should be created at the requested path after prune.
+        assert any(cmd[:3] == ["git", "worktree", "add"] and cmd[3] == str(requested_worktree) for cmd in commands)
+        assert state["worktree_path"] == str(requested_worktree)
+
+    def test_fails_when_attached_worktree_is_not_on_issue_branch(self, tmp_path: Path) -> None:
+        root = tmp_path / "repo"
+        root.mkdir()
+        expected_worktree = tmp_path / "anteroom-1197-refresh"
+        expected_worktree.mkdir()
+
+        def fake_run(command: list[str], *, cwd: Path | None = None, check: bool = True, capture_output: bool = True):
+            if command[:3] == ["git", "fetch", "origin"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "rev-parse", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="origin/main\n", stderr="")
+            if command[:3] == ["git", "show-ref", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {command}")
+
+        def fake_run_stdout(command: list[str], *, cwd: Path | None = None) -> str:
+            if command == ["git", "rev-parse", "--verify", "origin/main"]:
+                return "origin/main"
+            if command == ["git", "rev-parse", "origin/main"]:
+                return "new-main"
+            if command == ["git", "worktree", "list", "--porcelain"]:
+                return f"worktree {expected_worktree}\nHEAD old-base\nbranch refs/heads/issue-1197-refresh-me\n"
+            if command == ["git", "rev-parse", "issue-1197-refresh-me"]:
+                return "old-base"
+            if command == ["git", "merge-base", "issue-1197-refresh-me", "origin/main"]:
+                return "old-base"
+            if command == ["git", "branch", "--show-current"]:
+                assert cwd == expected_worktree
+                return "main"
+            raise AssertionError(f"Unexpected stdout command: {command}")
+
+        with pytest.raises(SystemExit) as exc_info:
+            with (
+                patch.object(
+                    helper,
+                    "issue_data",
+                    return_value={"state": "open", "title": "Refresh me", "url": "https://example.test/issues/1197"},
+                ),
+                patch.object(helper, "repo_name", return_value="anteroom"),
+                patch.object(helper, "issue_worktree", return_value=expected_worktree),
+                patch.object(helper, "run", side_effect=fake_run),
+                patch.object(helper, "run_stdout", side_effect=fake_run_stdout),
+            ):
+                helper.ensure_worktree(root, 1197)
+
+        assert exc_info.value.code == 1
+
+    def test_refuses_to_rewrite_diverged_branch(self, tmp_path: Path) -> None:
+        root = tmp_path / "repo"
+        root.mkdir()
+        expected_worktree = tmp_path / "anteroom-1197-diverged"
+
+        def fake_run(command: list[str], *, cwd: Path | None = None, check: bool = True, capture_output: bool = True):
+            if command[:3] == ["git", "fetch", "origin"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "rev-parse", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="origin/main\n", stderr="")
+            if command[:3] == ["git", "show-ref", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {command}")
+
+        def fake_run_stdout(command: list[str], *, cwd: Path | None = None) -> str:
+            if command == ["git", "rev-parse", "--verify", "origin/main"]:
+                return "origin/main"
+            if command == ["git", "rev-parse", "origin/main"]:
+                return "new-main"
+            if command == ["git", "worktree", "list", "--porcelain"]:
+                return f"worktree {expected_worktree}\nHEAD feature-tip\nbranch refs/heads/issue-1197-diverged-work\n"
+            if command == ["git", "rev-parse", "issue-1197-diverged-work"]:
+                return "feature-tip"
+            if command == ["git", "merge-base", "issue-1197-diverged-work", "origin/main"]:
+                return "shared-base"
+            raise AssertionError(f"Unexpected stdout command: {command}")
+
+        with pytest.raises(SystemExit) as exc_info:
+            with (
+                patch.object(
+                    helper,
+                    "issue_data",
+                    return_value={"state": "open", "title": "Diverged work", "url": "https://example.test/issues/1197"},
+                ),
+                patch.object(helper, "repo_name", return_value="anteroom"),
+                patch.object(helper, "issue_worktree", return_value=expected_worktree),
+                patch.object(helper, "run", side_effect=fake_run),
+                patch.object(helper, "run_stdout", side_effect=fake_run_stdout),
+            ):
+                helper.ensure_worktree(root, 1197)
+
+        assert exc_info.value.code == 1
+
+    def test_prunes_stale_missing_worktree_and_recreates_requested_path(self, tmp_path: Path) -> None:
+        root = tmp_path / "repo"
+        root.mkdir()
+        missing_worktree = tmp_path / "missing-worktree"
+        requested_worktree = tmp_path / "requested-worktree"
+        # requested_worktree intentionally does NOT exist: we want the merged
+        # ensure_worktree path to hit the "path missing + attached stale entry
+        # -> prune + recreate" branch that this test is meant to exercise.
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], *, cwd: Path | None = None, check: bool = True, capture_output: bool = True):
+            commands.append(command)
+            if command[:3] == ["git", "fetch", "origin"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "rev-parse", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="origin/main\n", stderr="")
+            if command[:3] == ["git", "show-ref", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "worktree", "prune"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "worktree", "add"]:
+                assert command[3] == str(requested_worktree)
+                assert command[4] == "issue-1197-missing-worktree"
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {command}")
+
+        def fake_run_stdout(command: list[str], *, cwd: Path | None = None) -> str:
+            if command == ["git", "rev-parse", "--verify", "origin/main"]:
+                return "origin/main"
+            if command == ["git", "rev-parse", "origin/main"]:
+                return "new-main"
+            if command == ["git", "rev-parse", "issue-1197-missing-worktree"]:
+                return "new-main"
+            if command == ["git", "merge-base", "issue-1197-missing-worktree", "origin/main"]:
+                return "new-main"
+            raise AssertionError(f"Unexpected stdout command: {command}")
+
+        stale_entry = {
+            "worktree": str(missing_worktree),
+            "HEAD": "new-main",
+            "branch": "refs/heads/issue-1197-missing-worktree",
+        }
+
+        with (
+            patch.object(
+                helper,
+                "issue_data",
+                return_value={"state": "open", "title": "Missing worktree", "url": "https://example.test/issues/1197"},
+            ),
+            patch.object(helper, "repo_name", return_value="anteroom"),
+            patch.object(helper, "issue_worktree", return_value=requested_worktree),
+            patch.object(helper, "run", side_effect=fake_run),
+            patch.object(helper, "run_stdout", side_effect=fake_run_stdout),
+            # Main's worktree_for_branch filters by .exists(), so a stale entry
+            # pointing at a missing path is invisible through that helper.
+            # Simulate: first and second calls (initial discovery + attached
+            # check) return None; after prune the entry is gone, so the final
+            # post-prune lookup also returns None.
+            patch.object(helper, "worktree_for_branch", return_value=None),
+            # worktree_entry_for_branch does NOT filter by .exists() -- the
+            # stale entry is still visible to it until prune clears it. After
+            # prune the next lookup returns None.
+            patch.object(
+                helper,
+                "worktree_entry_for_branch",
+                side_effect=[stale_entry, None],
+            ),
+            patch.object(
+                helper,
+                "sanitize_reused_worktree",
+                return_value={"removed_junk": [], "tracked_dirty": [], "unexpected_untracked": []},
+            ),
+            patch.object(helper, "update_state", side_effect=lambda root, issue, **updates: updates),
+        ):
+            state = helper.ensure_worktree(root, 1197)
+
+        assert ["git", "worktree", "prune"] in commands
+        assert ["git", "worktree", "add", str(requested_worktree), "issue-1197-missing-worktree"] in commands
+        assert state["worktree_path"] == str(requested_worktree)
+
+    def test_reuses_existing_valid_worktree_when_branch_is_attached_elsewhere(self, tmp_path: Path) -> None:
+        root = tmp_path / "repo"
+        root.mkdir()
+        attached_worktree = tmp_path / "attached-worktree"
+        attached_worktree.mkdir()
+        requested_worktree = tmp_path / "requested-worktree"
+
+        def fake_run(command: list[str], *, cwd: Path | None = None, check: bool = True, capture_output: bool = True):
+            if command[:3] == ["git", "fetch", "origin"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            if command[:3] == ["git", "rev-parse", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="origin/main\n", stderr="")
+            if command[:3] == ["git", "show-ref", "--verify"]:
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            raise AssertionError(f"Unexpected command: {command}")
+
+        def fake_run_stdout(command: list[str], *, cwd: Path | None = None) -> str:
+            if command == ["git", "rev-parse", "--verify", "origin/main"]:
+                return "origin/main"
+            if command == ["git", "rev-parse", "origin/main"]:
+                return "current-main"
+            if command == ["git", "worktree", "list", "--porcelain"]:
+                return (
+                    f"worktree {attached_worktree}\n"
+                    "HEAD current-main\n"
+                    "branch refs/heads/issue-1197-reuse-existing-worktree\n"
+                )
+            if command == ["git", "rev-parse", "issue-1197-reuse-existing-worktree"]:
+                return "current-main"
+            if command == ["git", "merge-base", "issue-1197-reuse-existing-worktree", "origin/main"]:
+                return "current-main"
+            raise AssertionError(f"Unexpected stdout command: {command}")
+
+        with (
+            patch.object(
+                helper,
+                "issue_data",
+                return_value={
+                    "state": "open",
+                    "title": "Reuse existing worktree",
+                    "url": "https://example.test/issues/1197",
+                },
+            ),
+            patch.object(helper, "repo_name", return_value="anteroom"),
+            patch.object(helper, "issue_worktree", return_value=requested_worktree),
+            patch.object(helper, "run", side_effect=fake_run),
+            patch.object(helper, "run_stdout", side_effect=fake_run_stdout),
+            patch.object(
+                helper,
+                "sanitize_reused_worktree",
+                return_value={"removed_junk": [], "tracked_dirty": [], "unexpected_untracked": []},
+            ),
+            patch.object(helper, "update_state", side_effect=lambda root, issue, **updates: updates),
+        ):
+            state = helper.ensure_worktree(root, 1197)
+
+        assert state["worktree_path"] == str(attached_worktree)
 
 
 class TestAssertPrApproved:
@@ -2041,7 +2530,15 @@ class TestStdinClosedInSubprocesses:
                 helper,
                 "codex_once",
                 return_value=helper.CodexRunResult(
-                    text='{"decision":"approve","summary":"OK","comment_markdown":"Approved"}',
+                    text=(
+                        # (#1200) changed_files touches
+                        # src/anteroom/services/workflow_*.py which matches
+                        # SENSITIVE_PATH_PATTERNS -- assert real validation
+                        # present to pass the guardrail.
+                        '{"decision":"approve","summary":"OK","comment_markdown":"Approved",'
+                        '"real_validation_required":true,"real_validation_present":true,'
+                        '"real_validation_details":"ran real subprocess probe"}'
+                    ),
                     exit_code=0,
                 ),
             ),

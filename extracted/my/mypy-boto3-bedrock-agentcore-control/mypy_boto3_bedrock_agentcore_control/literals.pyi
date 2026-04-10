@@ -39,6 +39,7 @@ __all__ = (
     "ContentTypeType",
     "CredentialProviderTypeType",
     "CredentialProviderVendorTypeType",
+    "DescriptorTypeType",
     "EndpointIpAddressTypeType",
     "EvaluatorLevelType",
     "EvaluatorStatusType",
@@ -69,6 +70,8 @@ __all__ = (
     "ListPolicyEnginesPaginatorName",
     "ListPolicyGenerationAssetsPaginatorName",
     "ListPolicyGenerationsPaginatorName",
+    "ListRegistriesPaginatorName",
+    "ListRegistryRecordsPaginatorName",
     "ListWorkloadIdentitiesPaginatorName",
     "MemoryCreatedWaiterName",
     "MemoryStatusType",
@@ -90,6 +93,11 @@ __all__ = (
     "PolicyGenerationStatusType",
     "PolicyStatusType",
     "PolicyValidationModeType",
+    "RegistryAuthorizerTypeType",
+    "RegistryRecordCredentialProviderTypeType",
+    "RegistryRecordOAuthGrantTypeType",
+    "RegistryRecordStatusType",
+    "RegistryStatusType",
     "ResourceServiceName",
     "ResourceTypeType",
     "RestApiMethodType",
@@ -97,6 +105,7 @@ __all__ = (
     "SearchTypeType",
     "ServerProtocolType",
     "ServiceName",
+    "SynchronizationTypeType",
     "TargetStatusType",
     "WaiterName",
 )
@@ -153,6 +162,7 @@ CredentialProviderVendorTypeType = Literal[
     "YandexOauth2",
     "ZoomOauth2",
 ]
+DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
 EndpointIpAddressTypeType = Literal["IPV4", "IPV6"]
 EvaluatorLevelType = Literal["SESSION", "TOOL_CALL", "TRACE"]
 EvaluatorStatusType = Literal[
@@ -198,6 +208,8 @@ ListPoliciesPaginatorName = Literal["list_policies"]
 ListPolicyEnginesPaginatorName = Literal["list_policy_engines"]
 ListPolicyGenerationAssetsPaginatorName = Literal["list_policy_generation_assets"]
 ListPolicyGenerationsPaginatorName = Literal["list_policy_generations"]
+ListRegistriesPaginatorName = Literal["list_registries"]
+ListRegistryRecordsPaginatorName = Literal["list_registry_records"]
 ListWorkloadIdentitiesPaginatorName = Literal["list_workload_identities"]
 MemoryCreatedWaiterName = Literal["memory_created"]
 MemoryStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
@@ -232,11 +244,29 @@ PolicyStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
 PolicyValidationModeType = Literal["FAIL_ON_ANY_FINDINGS", "IGNORE_ALL_FINDINGS"]
+RegistryAuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT"]
+RegistryRecordCredentialProviderTypeType = Literal["IAM", "OAUTH"]
+RegistryRecordOAuthGrantTypeType = Literal["CLIENT_CREDENTIALS"]
+RegistryRecordStatusType = Literal[
+    "APPROVED",
+    "CREATE_FAILED",
+    "CREATING",
+    "DEPRECATED",
+    "DRAFT",
+    "PENDING_APPROVAL",
+    "REJECTED",
+    "UPDATE_FAILED",
+    "UPDATING",
+]
+RegistryStatusType = Literal[
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+]
 ResourceTypeType = Literal["CUSTOM", "SYSTEM"]
 RestApiMethodType = Literal["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
 SchemaTypeType = Literal["array", "boolean", "integer", "number", "object", "string"]
 SearchTypeType = Literal["SEMANTIC"]
 ServerProtocolType = Literal["A2A", "AGUI", "HTTP", "MCP"]
+SynchronizationTypeType = Literal["URL"]
 TargetStatusType = Literal[
     "CREATE_PENDING_AUTH",
     "CREATING",
@@ -492,6 +522,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -589,6 +620,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",
@@ -694,6 +726,8 @@ PaginatorName = Literal[
     "list_policy_engines",
     "list_policy_generation_assets",
     "list_policy_generations",
+    "list_registries",
+    "list_registry_records",
     "list_workload_identities",
 ]
 WaiterName = Literal[

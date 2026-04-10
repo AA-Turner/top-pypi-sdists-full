@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rosettasciio
-Version: 0.12.0
+Version: 0.13.0
 Summary: Reading and writing scientific file formats
 License-Expression: GPL-3.0-or-later
 Project-URL: Homepage, https://hyperspy.org/rosettasciio
@@ -51,7 +51,7 @@ Requires-Dist: matplotlib>=3.6; extra == "scalebar-export"
 Provides-Extra: speed
 Requires-Dist: numba>=0.56; extra == "speed"
 Provides-Extra: tiff
-Requires-Dist: tifffile>=2022.7.28; extra == "tiff"
+Requires-Dist: tifffile!=2026.2.24,>=2022.7.28; extra == "tiff"
 Requires-Dist: imagecodecs; extra == "tiff"
 Provides-Extra: usid
 Requires-Dist: pyUSID>=0.0.11; extra == "usid"

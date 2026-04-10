@@ -4,12 +4,14 @@
 //! sandboxed Python code with configurable resource limits and external
 //! function callbacks.
 
+mod async_dispatch;
 mod convert;
 mod dataclass;
 mod exceptions;
 mod external;
 mod limits;
 mod monty_cls;
+mod mount;
 mod repl;
 mod serialization;
 
@@ -18,6 +20,7 @@ use std::sync::OnceLock;
 // Use `::monty` to refer to the external crate (not the pymodule)
 pub use exceptions::{MontyError, MontyRuntimeError, MontySyntaxError, MontyTypingError, PyFrame};
 pub use monty_cls::{PyFunctionSnapshot, PyFutureSnapshot, PyMonty, PyMontyComplete, PyNameLookupSnapshot};
+pub use mount::PyMountDirectory;
 use pyo3::prelude::*;
 pub use repl::PyMontyRepl;
 
@@ -61,6 +64,8 @@ mod _monty {
     use super::PyMontyComplete as MontyComplete;
     #[pymodule_export]
     use super::PyMontyRepl as MontyRepl;
+    #[pymodule_export]
+    use super::PyMountDirectory as MountDirectory;
     #[pymodule_export]
     use super::PyNameLookupSnapshot as NameLookupSnapshot;
     use super::get_version;

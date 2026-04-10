@@ -4,14 +4,11 @@
 __all__ = ['lovely']
 
 # %% ../nbs/00_repr_str.ipynb #e49ca1e0
-from typing import Union, Optional as O
-from collections import defaultdict
-from fastcore.foundation import store_attr
-import warnings
+from typing import Optional as O
 import numpy as np
 
 from .utils import pretty_str, sparse_join, np_to_str_common, in_debugger, bytes_to_human, InputType
-from .utils.config import get_config, set_config, config
+from .utils.config import get_config, config
 
 # %% ../nbs/00_repr_str.ipynb #9ac1106c
 dtnames =   {   "float16": "f16",
@@ -72,7 +69,7 @@ def lovely( x       :InputType, # The data you want to explore
         if get_config().show_mem_above <= x.nbytes:
             numel = sparse_join([numel, f"({bytes_to_human(x.nbytes)})"])
     elif get_config().show_mem_above <= x.nbytes:
-        numel = bytes_to_human(x.nbytes)
+        numel = f"({bytes_to_human(x.nbytes)})"
 
     common = np_to_str_common(x, color=color, show_histogram=show_histogram)
     dtype = short_dtype(x)

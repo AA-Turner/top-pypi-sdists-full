@@ -14,6 +14,8 @@ import json
 import logging
 import os
 import shutil
+import time
+from collections.abc import Callable
 from pathlib import Path
 
 from plato.worlds.dvc_models import (
@@ -90,6 +92,8 @@ async def mount_lazy(
     manifest: DVCManifest,
     s3_config: S3Config,
     cache_dir: Path,
+    *,
+    phase_reporter: Callable[[str, float], None] | None = None,
 ) -> LazyDVCMount:
     """Mount a lazy FUSE filesystem at *mountpoint*.
 
@@ -97,6 +101,7 @@ async def mount_lazy(
     loop is never blocked by filesystem operations on the mount.
     """
     # Write config for the worker process
+    started_at = time.monotonic()
     config_path = cache_dir / "config.json"
     for transient_path in (
         cache_dir / "live-meta.json",
@@ -113,12 +118,22 @@ async def mount_lazy(
             }
         )
     )
+    if phase_reporter is not None:
+        phase_reporter("fuse_write_config", time.monotonic() - started_at)
 
+    started_at = time.monotonic()
     (cache_dir / "overlay").mkdir(parents=True, exist_ok=True)
     (cache_dir / "cache").mkdir(parents=True, exist_ok=True)
+    if phase_reporter is not None:
+        phase_reporter("fuse_prepare_cache_dirs", time.monotonic() - started_at)
 
     # Start worker subprocess
+    started_at = time.monotonic()
     rust_binary = await _ensure_plato_fuse()
+    if phase_reporter is not None:
+        phase_reporter("fuse_resolve_binary", time.monotonic() - started_at)
+
+    started_at = time.monotonic()
     logger.debug("Using Rust FUSE binary: %s", rust_binary)
     proc = await asyncio.create_subprocess_exec(
         rust_binary,
@@ -126,6 +141,8 @@ async def mount_lazy(
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
+    if phase_reporter is not None:
+        phase_reporter("fuse_spawn_worker", time.monotonic() - started_at)
     worker_log_tasks: tuple[asyncio.Task[None], ...] | None = None
     if _env_flag_enabled("PLATO_FUSE_DEBUG"):
         worker_log_tasks = (
@@ -134,6 +151,7 @@ async def mount_lazy(
         )
 
     # Wait for the mount to appear (up to ~10 s)
+    started_at = time.monotonic()
     for _ in range(100):
         if proc.returncode is not None:
             _, stderr = await proc.communicate()
@@ -150,6 +168,8 @@ async def mount_lazy(
         except Exception:
             err = "unknown"
         raise RuntimeError(f"FUSE mount at {mountpoint} did not appear: {err}")
+    if phase_reporter is not None:
+        phase_reporter("fuse_wait_for_mount", time.monotonic() - started_at)
 
     logger.debug("Lazy DVC mounted at %s (%d files)", mountpoint, len(manifest.entries_list))
     return LazyDVCMount(

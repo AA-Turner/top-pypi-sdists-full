@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -26,18 +26,26 @@ import os
 import numpy as np
 
 from rsciio._docstrings import (
+    CHUNKS_DOC,
     ENDIANESS_DOC,
     FILENAME_DOC,
     LAZY_DOC,
     RETURNS_DOC,
 )
 from rsciio.utils._array import sarray2dict
+from rsciio.utils._deprecated import endianess_keyword_deprecation
 from rsciio.utils._elements import atomic_number2name
+from rsciio.utils.file import memmap_distributed
 
 _logger = logging.getLogger(__name__)
 
 
-def get_spd_dtype_list(endianess="<"):
+KWARGS_DOC = """**kwargs : dict, optional
+        Additional keyword arguments passed to :func:`rsciio.utils.file.memmap_distributed`
+        when ``lazy=True``."""
+
+
+def get_spd_dtype_list(endianness="<"):
     """
     Get the data type list for an SPD map.
     Further information about the file format is available `here
@@ -58,7 +66,7 @@ def get_spd_dtype_list(endianess="<"):
 
     Parameters
     ----------
-    endianess : char
+    endianness : char
         Byte-order used to read the data.
 
     Returns
@@ -67,7 +75,7 @@ def get_spd_dtype_list(endianess="<"):
         List of the data tags and data types that will be used by numpy to
         read an SPD file header.
     """
-    end = endianess
+    end = endianness
     dtype_list = [
         ("tag", "16i1"),
         ("version", end + "i4"),
@@ -84,7 +92,7 @@ def get_spd_dtype_list(endianess="<"):
     return dtype_list
 
 
-def __get_spc_header(f, endianess, load_all_spc):
+def __get_spc_header(f, endianness, load_all_spc):
     """
     Get the header of an spc file, checking for the file version as necessary
 
@@ -93,7 +101,7 @@ def __get_spc_header(f, endianess, load_all_spc):
     f : file
         A file object for the .spc file to be read (i.e. file should be
         already opened with ``open()``)
-    endianess : char
+    endianness : char
         Byte-order of data to read
     load_all_spc : bool, Default=False
         Switch to control whether the complete .spc header is read, or just the
@@ -104,14 +112,14 @@ def __get_spc_header(f, endianess, load_all_spc):
     spc_header : np.ndarray
         Array containing the binary information read from the .spc file
     """
-    version = np.fromfile(f, dtype=[("version", "{}f4".format(endianess))], count=1)
+    version = np.fromfile(f, dtype=[("version", "{}f4".format(endianness))], count=1)
     version = round(float(version.item()[0]), 2)  # convert to scalar
     f.seek(0)
 
     spc_header = np.fromfile(
         f,
         dtype=get_spc_dtype_list(
-            load_all=load_all_spc, endianess=endianess, version=version
+            load_all=load_all_spc, endianness=endianness, version=version
         ),
         count=1,
     )
@@ -121,7 +129,7 @@ def __get_spc_header(f, endianess, load_all_spc):
     return spc_header
 
 
-def get_spc_dtype_list(load_all=False, endianess="<", version=0.61):
+def get_spc_dtype_list(load_all=False, endianness="<", version=0.61):
     """
     Get the data type list for an SPC spectrum.
     Further information about the file format is available `here
@@ -132,7 +140,7 @@ def get_spc_dtype_list(load_all=False, endianess="<", version=0.61):
     load_all : bool
         Switch to control if all the data is loaded, or if just the
         important pieces of the signal will be read (speeds up loading time)
-    endianess : char
+    endianness : char
         byte-order used to read the data
     version : float
         version of spc file to read (only 0.61 and 0.70 have been tested)
@@ -314,7 +322,7 @@ def get_spc_dtype_list(load_all=False, endianess="<", version=0.61):
         List of the data tags and data types that will be used by numpy to
         read an SPC file header.
     """
-    end = endianess
+    end = endianness
     # important parameters are marked by "**" in comment
     if load_all:
         dtype_list = [  # data offset (bytes)
@@ -493,7 +501,7 @@ def get_spc_dtype_list(load_all=False, endianess="<", version=0.61):
     return dtype_list
 
 
-def __get_ipr_header(f, endianess):
+def __get_ipr_header(f, endianness):
     """
     Get the header of an spc file, checking for the file version as necessary
 
@@ -502,7 +510,7 @@ def __get_ipr_header(f, endianess):
     f : file
         A file object for the .spc file to be read (i.e. file should be
         already opened with ``open()``)
-    endianess : char
+    endianness : char
         Byte-order of data to read
 
     Returns
@@ -510,19 +518,19 @@ def __get_ipr_header(f, endianess):
     ipr_header : np.ndarray
         Array containing the binary information read from the .ipr file
     """
-    version = np.fromfile(f, dtype=[("version", "{}i2".format(endianess))], count=1)
+    version = np.fromfile(f, dtype=[("version", "{}i2".format(endianness))], count=1)
     version = version.item()[0]  # convert to scalar
     f.seek(0)
     _logger.debug(" .ipr version is {}".format(version))
 
     ipr_header = np.fromfile(
-        f, dtype=get_ipr_dtype_list(endianess=endianess, version=version), count=1
+        f, dtype=get_ipr_dtype_list(endianness=endianness, version=version), count=1
     )
 
     return ipr_header
 
 
-def get_ipr_dtype_list(endianess="<", version=333):
+def get_ipr_dtype_list(endianness="<", version=333):
     """
     Get the data type list for an IPR image description file.
     Further information about the file format is available `here
@@ -573,7 +581,7 @@ def get_ipr_dtype_list(endianess="<", version=333):
 
     Parameters
     ----------
-    endianess : char
+    endianness : char
         byte-order used to read the data
     version : float
         version of .ipr file to read (only 333 and 334 have been tested)
@@ -587,7 +595,7 @@ def get_ipr_dtype_list(endianess="<", version=333):
         List of the data tags and data types that will be used by numpy to
         read an IPR file.
     """
-    end = endianess
+    end = endianness
     dtype_list = [
         ("version", end + "u2"),
         ("imageType", end + "u2"),
@@ -684,7 +692,7 @@ def _add_spc_metadata(metadata, spc_header):
     return metadata
 
 
-def spc_reader(filename, lazy=False, endianess="<", load_all_spc=False, **kwds):
+def spc_reader(filename, lazy=False, endianness="<", load_all_spc=False, **kwargs):
     """
     Read data from an SPC spectrum specified by filename.
 
@@ -696,29 +704,34 @@ def spc_reader(filename, lazy=False, endianess="<", load_all_spc=False, **kwds):
     load_all_spc : bool, Default=False
         Switch to control whether the complete .spc header is read, or just the
         important parts for import into RosettaSciIO.
-    **kwds
-        Remaining arguments are passed to the Numpy ``memmap`` function
+    %s
 
     %s
     """
     with open(filename, "rb") as f:
         _logger.debug(" Reading {}".format(filename))
-        spc_header = __get_spc_header(f, endianess, load_all_spc)
+        spc_header = __get_spc_header(f, endianness, load_all_spc)
 
         spc_dict = sarray2dict(spc_header)
         original_metadata = {"spc_header": spc_dict}
 
         nz = original_metadata["spc_header"]["numPts"]
-        data_offset = original_metadata["spc_header"]["dataStart"]
+        # need to convert from np.uint32 to int to avoid type error when passing to memmap
+        data_offset = int(original_metadata["spc_header"]["dataStart"])
 
-        mode = kwds.pop("mode", "c")
-        if lazy:
-            mode = "r"
-
-        # Read data from file into a numpy memmap object
-        data = np.memmap(
-            f, mode=mode, offset=data_offset, dtype="u4", shape=(1, nz), **kwds
-        ).squeeze()
+    if lazy:
+        data = memmap_distributed(
+            filename,
+            dtype=np.dtype(f"{endianness}u4"),
+            offset=data_offset,
+            shape=nz,
+            **kwargs,
+        )
+    else:
+        with open(filename, "rb") as f:
+            data = np.fromfile(
+                f, dtype=np.dtype(f"{endianness}u4"), offset=data_offset, count=nz
+            )
 
     # create the energy axis dictionary:
     energy_axis = {
@@ -755,17 +768,18 @@ def spc_reader(filename, lazy=False, endianess="<", load_all_spc=False, **kwds):
     ]
 
 
-spc_reader.__doc__ %= (FILENAME_DOC, LAZY_DOC, ENDIANESS_DOC, RETURNS_DOC)
+spc_reader.__doc__ %= (FILENAME_DOC, LAZY_DOC, ENDIANESS_DOC, KWARGS_DOC, RETURNS_DOC)
 
 
 def spd_reader(
     filename,
     lazy=False,
-    endianess="<",
+    chunks="auto",
+    endianness="<",
     spc_fname=None,
     ipr_fname=None,
     load_all_spc=False,
-    **kwds,
+    **kwargs,
 ):
     """
     Read data from an SPD spectral map specified by filename.
@@ -792,13 +806,12 @@ def spd_reader(
     load_all_spc : bool, Default=False
         Switch to control whether the complete .spc header is read, or just the
         important parts for import into HyperSpy.
-    **kwds
-        Remaining arguments are passed to the Numpy ``memmap`` function.
+    %s
 
     %s
     """
     with open(filename, "rb") as f:
-        spd_header = np.fromfile(f, dtype=get_spd_dtype_list(endianess), count=1)
+        spd_header = np.fromfile(f, dtype=get_spd_dtype_list(endianness), count=1)
 
         original_metadata = {"spd_header": sarray2dict(spd_header)}
 
@@ -806,21 +819,27 @@ def spd_reader(
         nx = original_metadata["spd_header"]["nPoints"]
         ny = original_metadata["spd_header"]["nLines"]
         nz = original_metadata["spd_header"]["nChannels"]
-        data_offset = original_metadata["spd_header"]["dataOffset"]
+        # need to convert from np.uint32 to int to avoid type error when passing to memmap
+        data_offset = int(original_metadata["spd_header"]["dataOffset"])
         data_type = {"1": "u1", "2": "u2", "4": "u4"}[
             str(original_metadata["spd_header"]["countBytes"])
         ]
-        mode = kwds.pop("mode", "c")
-        if lazy:
-            mode = "r"
 
-        # Read data from file into a numpy memmap object
-        data = (
-            np.memmap(f, mode=mode, offset=data_offset, dtype=data_type, **kwds)
-            .squeeze()
-            .reshape((nz, nx, ny), order="F")
-            .T
+    if lazy:
+        data = memmap_distributed(
+            filename,
+            dtype=np.dtype(f"{endianness}{data_type}"),
+            offset=data_offset,
+            shape=tuple((ny, nx, nz)),
+            chunks=chunks,
+            **kwargs,
         )
+    else:
+        with open(filename, "rb") as f:
+            data = np.fromfile(
+                f, dtype=data_type, offset=data_offset, count=nx * ny * nz
+            )
+            data = data.reshape((ny, nx, nz))
 
     # Convert char arrays to strings:
     original_metadata["spd_header"]["tag"] = spd_header["tag"][0].view("S16")[0]
@@ -852,7 +871,7 @@ def spd_reader(
     if read_ipr:
         with open(ipr_fname, "rb") as f:
             _logger.debug(" From .spd reader - reading .ipr {}".format(ipr_fname))
-            ipr_header = __get_ipr_header(f, endianess)
+            ipr_header = __get_ipr_header(f, endianness)
             original_metadata["ipr_header"] = sarray2dict(ipr_header)
 
             # Workaround for type error when saving hdf5:
@@ -873,7 +892,7 @@ def spd_reader(
     if read_spc:
         with open(spc_fname, "rb") as f:
             _logger.debug(" From .spd reader - reading .spc {}".format(spc_fname))
-            spc_header = __get_spc_header(f, endianess, load_all_spc)
+            spc_header = __get_spc_header(f, endianness, load_all_spc)
             spc_dict = sarray2dict(spc_header)
             original_metadata["spc_header"] = spc_dict
     else:
@@ -948,17 +967,19 @@ def spd_reader(
     ]
 
 
-spd_reader.__doc__ %= (FILENAME_DOC, LAZY_DOC, ENDIANESS_DOC, RETURNS_DOC)
+spd_reader.__doc__ %= (FILENAME_DOC, LAZY_DOC, ENDIANESS_DOC, KWARGS_DOC, RETURNS_DOC)
 
 
+@endianess_keyword_deprecation
 def file_reader(
     filename,
     lazy=False,
+    chunks="auto",
     load_all_spc=False,
     spc_fname=None,
     ipr_fname=None,
-    endianess="<",
-    **kwds,
+    endianness="<",
+    **kwargs,
 ):
     """
     Read ``.spc`` (spectrum) or ``.spd`` (spectrum image) files from EDAX
@@ -966,6 +987,7 @@ def file_reader(
 
     Parameters
     ----------
+    %s
     %s
     %s
     load_all_spc : bool, default=False
@@ -988,8 +1010,7 @@ def file_reader(
         Otherwise, the name of the .ipr file to use for spatial calibration
         can be explicitly given as a string.
     %s
-    **kwds : dict, optional
-        Remaining arguments are passed to :py:class:`numpy.memmap`.
+    %s
 
     %s
 
@@ -1002,17 +1023,32 @@ def file_reader(
     if ext == "spd":
         return spd_reader(
             filename,
-            lazy,
-            endianess,
+            lazy=lazy,
+            chunks=chunks,
+            endianness=endianness,
             spc_fname=spc_fname,
             ipr_fname=ipr_fname,
             load_all_spc=load_all_spc,
-            **kwds,
+            **kwargs,
         )
     elif ext == "spc":
-        return spc_reader(filename, lazy, endianess, load_all_spc=load_all_spc, **kwds)
+        return spc_reader(
+            filename,
+            lazy=lazy,
+            chunks=chunks,
+            endianness=endianness,
+            load_all_spc=load_all_spc,
+            **kwargs,
+        )
     else:
         raise ValueError(f"'{ext}' is not a supported extension for the edax reader.")
 
 
-file_reader.__doc__ %= (FILENAME_DOC, LAZY_DOC, ENDIANESS_DOC, RETURNS_DOC)
+file_reader.__doc__ %= (
+    FILENAME_DOC,
+    LAZY_DOC,
+    CHUNKS_DOC,
+    ENDIANESS_DOC,
+    KWARGS_DOC,
+    RETURNS_DOC,
+)

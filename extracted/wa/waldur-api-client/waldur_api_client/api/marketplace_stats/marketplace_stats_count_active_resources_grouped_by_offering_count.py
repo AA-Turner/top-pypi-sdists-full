@@ -10,10 +10,13 @@ from ...types import UNSET, Response, Unset
 
 def _get_kwargs(
     *,
+    limit: Union[Unset, int] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
+
+    params["limit"] = limit
 
     params["page"] = page
 
@@ -59,12 +62,14 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     *,
     client: AuthenticatedClient,
+    limit: Union[Unset, int] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
 ) -> Response[int]:
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        limit (Union[Unset, int]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
 
@@ -77,6 +82,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        limit=limit,
         page=page,
         page_size=page_size,
     )
@@ -91,12 +97,14 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
+    limit: Union[Unset, int] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
 ) -> int:
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        limit (Union[Unset, int]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
 
@@ -110,6 +118,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+        limit=limit,
         page=page,
         page_size=page_size,
     ).parsed
@@ -118,12 +127,14 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
+    limit: Union[Unset, int] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
 ) -> Response[int]:
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        limit (Union[Unset, int]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
 
@@ -136,6 +147,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        limit=limit,
         page=page,
         page_size=page_size,
     )
@@ -148,12 +160,14 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
+    limit: Union[Unset, int] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
 ) -> int:
     """Get number of items in the collection matching the request parameters.
 
     Args:
+        limit (Union[Unset, int]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
 
@@ -168,6 +182,7 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
+            limit=limit,
             page=page,
             page_size=page_size,
         )

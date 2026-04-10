@@ -46,6 +46,8 @@ class Offering:
         description (Union[Unset, str]):
         full_description (Union[Unset, str]):
         privacy_policy_link (Union[Unset, str]):
+        helpdesk_url (Union[Unset, str]):
+        documentation_url (Union[Unset, str]):
         access_url (Union[Unset, str]): Publicly accessible offering access URL
         endpoints (Union[Unset, list['NestedEndpoint']]):
         software_catalogs (Union[Unset, list['NestedSoftwareCatalog']]):
@@ -103,6 +105,7 @@ class Offering:
         has_compliance_requirements (Union[Unset, bool]):
         billing_type_classification (Union[Unset, str]): Classify offering components by billing type.
             Returns 'limit_only', 'usage_only', or 'mixed'.
+        effective_available_limits (Union[Unset, list[str]]):
         compliance_checklist (Union[None, Unset, str]):
         user_has_consent (Union[Unset, bool]):
         is_accessible (Union[Unset, bool]):
@@ -117,6 +120,8 @@ class Offering:
     description: Union[Unset, str] = UNSET
     full_description: Union[Unset, str] = UNSET
     privacy_policy_link: Union[Unset, str] = UNSET
+    helpdesk_url: Union[Unset, str] = UNSET
+    documentation_url: Union[Unset, str] = UNSET
     access_url: Union[Unset, str] = UNSET
     endpoints: Union[Unset, list["NestedEndpoint"]] = UNSET
     software_catalogs: Union[Unset, list["NestedSoftwareCatalog"]] = UNSET
@@ -173,6 +178,7 @@ class Offering:
     backend_metadata: Union[Unset, Any] = UNSET
     has_compliance_requirements: Union[Unset, bool] = UNSET
     billing_type_classification: Union[Unset, str] = UNSET
+    effective_available_limits: Union[Unset, list[str]] = UNSET
     compliance_checklist: Union[None, Unset, str] = UNSET
     user_has_consent: Union[Unset, bool] = UNSET
     is_accessible: Union[Unset, bool] = UNSET
@@ -199,6 +205,10 @@ class Offering:
         full_description = self.full_description
 
         privacy_policy_link = self.privacy_policy_link
+
+        helpdesk_url = self.helpdesk_url
+
+        documentation_url = self.documentation_url
 
         access_url = self.access_url
 
@@ -477,6 +487,10 @@ class Offering:
 
         billing_type_classification = self.billing_type_classification
 
+        effective_available_limits: Union[Unset, list[str]] = UNSET
+        if not isinstance(self.effective_available_limits, Unset):
+            effective_available_limits = self.effective_available_limits
+
         compliance_checklist: Union[None, Unset, str]
         if isinstance(self.compliance_checklist, Unset):
             compliance_checklist = UNSET
@@ -510,6 +524,10 @@ class Offering:
             field_dict["full_description"] = full_description
         if privacy_policy_link is not UNSET:
             field_dict["privacy_policy_link"] = privacy_policy_link
+        if helpdesk_url is not UNSET:
+            field_dict["helpdesk_url"] = helpdesk_url
+        if documentation_url is not UNSET:
+            field_dict["documentation_url"] = documentation_url
         if access_url is not UNSET:
             field_dict["access_url"] = access_url
         if endpoints is not UNSET:
@@ -622,6 +640,8 @@ class Offering:
             field_dict["has_compliance_requirements"] = has_compliance_requirements
         if billing_type_classification is not UNSET:
             field_dict["billing_type_classification"] = billing_type_classification
+        if effective_available_limits is not UNSET:
+            field_dict["effective_available_limits"] = effective_available_limits
         if compliance_checklist is not UNSET:
             field_dict["compliance_checklist"] = compliance_checklist
         if user_has_consent is not UNSET:
@@ -677,6 +697,10 @@ class Offering:
         full_description = d.pop("full_description", UNSET)
 
         privacy_policy_link = d.pop("privacy_policy_link", UNSET)
+
+        helpdesk_url = d.pop("helpdesk_url", UNSET)
+
+        documentation_url = d.pop("documentation_url", UNSET)
 
         access_url = d.pop("access_url", UNSET)
 
@@ -1080,6 +1104,8 @@ class Offering:
 
         billing_type_classification = d.pop("billing_type_classification", UNSET)
 
+        effective_available_limits = cast(list[str], d.pop("effective_available_limits", UNSET))
+
         def _parse_compliance_checklist(data: object) -> Union[None, Unset, str]:
             if data is None:
                 return data
@@ -1109,6 +1135,8 @@ class Offering:
             description=description,
             full_description=full_description,
             privacy_policy_link=privacy_policy_link,
+            helpdesk_url=helpdesk_url,
+            documentation_url=documentation_url,
             access_url=access_url,
             endpoints=endpoints,
             software_catalogs=software_catalogs,
@@ -1165,6 +1193,7 @@ class Offering:
             backend_metadata=backend_metadata,
             has_compliance_requirements=has_compliance_requirements,
             billing_type_classification=billing_type_classification,
+            effective_available_limits=effective_available_limits,
             compliance_checklist=compliance_checklist,
             user_has_consent=user_has_consent,
             is_accessible=is_accessible,

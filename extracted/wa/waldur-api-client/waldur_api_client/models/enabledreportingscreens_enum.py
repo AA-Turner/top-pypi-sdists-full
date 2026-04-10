@@ -1,0 +1,42 @@
+from enum import Enum
+
+
+class ENABLEDREPORTINGSCREENSEnum(str, Enum):
+    CALL_PERFORMANCE = "call-performance"
+    CAPACITY = "capacity"
+    GROWTH = "growth"
+    MAINTENANCE_OVERVIEW = "maintenance-overview"
+    OFFERING_COSTS = "offering-costs"
+    OPENSTACK_INSTANCES = "openstack-instances"
+    ORDERS = "orders"
+    ORGANIZATION_SUMMARY = "organization-summary"
+    PRICELIST = "pricelist"
+    PROJECT_CLASSIFICATION = "project-classification"
+    PROJECT_DETAIL = "project-detail"
+    PROVIDER_CUSTOMERS = "provider-customers"
+    PROVIDER_OFFERINGS = "provider-offerings"
+    PROVIDER_ORDERS = "provider-orders"
+    PROVIDER_OVERVIEW = "provider-overview"
+    PROVIDER_RESOURCES = "provider-resources"
+    PROVIDER_REVENUE = "provider-revenue"
+    PROVISIONING_STATS = "provisioning-stats"
+    QUOTAS = "quotas"
+    RESOURCES_GEOGRAPHY = "resources-geography"
+    RESOURCE_DEMAND = "resource-demand"
+    RESOURCE_USAGE = "resource-usage"
+    REVENUE = "revenue"
+    REVIEW_PROGRESS = "review-progress"
+    USAGE_BY_CREATOR = "usage-by-creator"
+    USAGE_BY_CUSTOMER = "usage-by-customer"
+    USAGE_BY_ORG_TYPE = "usage-by-org-type"
+    USAGE_MONITORING = "usage-monitoring"
+    USAGE_TRENDS = "usage-trends"
+    USER_AFFILIATIONS = "user-affiliations"
+    USER_ANALYTICS = "user-analytics"
+    USER_DEMOGRAPHICS = "user-demographics"
+    USER_ORGANIZATIONS = "user-organizations"
+    USER_ROLES = "user-roles"
+    USER_USAGE = "user-usage"
+
+    def __str__(self) -> str:
+        return str(self.value)

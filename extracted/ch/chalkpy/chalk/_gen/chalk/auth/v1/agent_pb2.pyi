@@ -162,8 +162,16 @@ class MetadataServiceAgent(_message.Message):
     def __init__(self) -> None: ...
 
 class TenantAgent(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("team_id", "permissions")
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
+    def __init__(
+        self,
+        team_id: _Optional[str] = ...,
+        permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
+    ) -> None: ...
 
 class Agent(_message.Message):
     __slots__ = ("user_agent", "service_token_agent", "engine_agent", "tenant_agent", "metadata_service_agent")

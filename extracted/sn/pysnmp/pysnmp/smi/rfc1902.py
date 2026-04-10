@@ -216,7 +216,7 @@ class ObjectIdentity:
         else:
             raise SmiError("%s object not fully initialized" % self.__class__.__name__)
 
-    def is_fully_resolved(self):
+    def is_fully_resolved(self) -> bool:
         """Returns `True` if MIB variable conversion has been performed.
 
         Returns
@@ -235,7 +235,7 @@ class ObjectIdentity:
         >>>
 
         """
-        return self.__state & self.ST_CLEAN
+        return bool(self.__state & self.ST_CLEAN)
 
     #
     # A gateway to MIBs manipulation routines
@@ -397,9 +397,9 @@ class ObjectIdentity:
             debug.logger & debug.FLAG_MIB and debug.logger(
                 "adding MIB sources %s" % ", ".join(self.__mibSourcesToAdd)
             )
-            mibViewController.mibBuilder.add_mib_sources(
-                *[ZipMibSource(x) for x in self.__mibSourcesToAdd]
-            )
+            mibViewController.mibBuilder.add_mib_sources(*[
+                ZipMibSource(x) for x in self.__mibSourcesToAdd
+            ])
             self.__mibSourcesToAdd = None
 
         if self.__asn1SourcesToAdd is None:
@@ -605,14 +605,12 @@ class ObjectIdentity:
                 self.__modName,
                 self.__symName,
                 self.__indices and "." or "",
-                ".".join(
-                    [
-                        x.isSuperTypeOf(s, matchConstraints=False)
-                        and '"%s"' % x.prettyPrint()
-                        or x.prettyPrint()
-                        for x in self.__indices
-                    ]
-                ),
+                ".".join([
+                    x.isSuperTypeOf(s, matchConstraints=False)
+                    and '"%s"' % x.prettyPrint()
+                    or x.prettyPrint()
+                    for x in self.__indices
+                ]),
             )
         else:
             raise SmiError("%s object not fully initialized" % self.__class__.__name__)
@@ -889,7 +887,7 @@ class ObjectType:
             self.__class__.__name__, ", ".join([repr(x) for x in self.__args])
         )
 
-    def is_fully_resolved(self):
+    def is_fully_resolved(self) -> bool:
         """Returns `True` if MIB variable conversion has been performed.
 
         Returns
@@ -897,7 +895,7 @@ class ObjectType:
         bool
             `True` if MIB variable conversion has been performed.
         """
-        return self.__state & self.ST_CLEAN
+        return bool(self.__state & self.ST_CLEAN)
 
     def add_asn1_mib_source(self, *asn1Sources, **kwargs):
         """Adds path to a repository to search ASN.1 MIB files.
@@ -1076,7 +1074,7 @@ class ObjectType:
                     object_identity.get_mib_node().getSyntax().clone(self.__args[1])
                 )
         except PyAsn1Error:
-            err = "MIB object %r having type %r failed to cast value " "%r: %s" % (
+            err = "MIB object %r having type %r failed to cast value %r: %s" % (
                 object_identity.prettyPrint(),
                 object_identity.get_mib_node().getSyntax().__class__.__name__,
                 self.__args[1],
@@ -1356,9 +1354,9 @@ class NotificationType:
         self.__objectIdentity.load_mibs(*modNames)
         return self
 
-    def is_fully_resolved(self):
+    def is_fully_resolved(self) -> bool:
         """Return if the object is fully resolved."""
-        return self.__state & self.ST_CLEAN
+        return bool(self.__state & self.ST_CLEAN)
 
     def resolve_with_mib(
         self, mibViewController: MibViewController, ignoreErrors=True
@@ -1464,12 +1462,9 @@ class NotificationType:
     def prettyPrint(self):  # noqa: N802
         """Return a human-friendly representation of the object."""
         if self.__state & self.ST_CLEAN:
-            return " ".join(
-                [
-                    f"{x[0].prettyPrint()} = {x[1].prettyPrint()}"
-                    for x in self.__varBinds
-                ]
-            )
+            return " ".join([
+                f"{x[0].prettyPrint()} = {x[1].prettyPrint()}" for x in self.__varBinds
+            ])
         else:
             raise SmiError("%s object not fully initialized" % self.__class__.__name__)
 

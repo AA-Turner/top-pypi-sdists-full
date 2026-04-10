@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -19,7 +19,7 @@ class PatchedCustomerServiceAccountRequest:
         error_traceback (Union[Unset, str]):
         email (Union[Unset, str]):
         preferred_identifier (Union[Unset, str]):
-        customer (Union[Unset, UUID]):
+        customer (Union[None, UUID, Unset]):
     """
 
     username: Union[Unset, str] = UNSET
@@ -27,7 +27,7 @@ class PatchedCustomerServiceAccountRequest:
     error_traceback: Union[Unset, str] = UNSET
     email: Union[Unset, str] = UNSET
     preferred_identifier: Union[Unset, str] = UNSET
-    customer: Union[Unset, UUID] = UNSET
+    customer: Union[None, UUID, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -41,9 +41,13 @@ class PatchedCustomerServiceAccountRequest:
 
         preferred_identifier = self.preferred_identifier
 
-        customer: Union[Unset, str] = UNSET
-        if not isinstance(self.customer, Unset):
+        customer: Union[None, Unset, str]
+        if isinstance(self.customer, Unset):
+            customer = UNSET
+        elif isinstance(self.customer, UUID):
             customer = str(self.customer)
+        else:
+            customer = self.customer
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -76,12 +80,22 @@ class PatchedCustomerServiceAccountRequest:
 
         preferred_identifier = d.pop("preferred_identifier", UNSET)
 
-        _customer = d.pop("customer", UNSET)
-        customer: Union[Unset, UUID]
-        if isinstance(_customer, Unset):
-            customer = UNSET
-        else:
-            customer = UUID(_customer)
+        def _parse_customer(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                customer_type_0 = UUID(data)
+
+                return customer_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        customer = _parse_customer(d.pop("customer", UNSET))
 
         patched_customer_service_account_request = cls(
             username=username,

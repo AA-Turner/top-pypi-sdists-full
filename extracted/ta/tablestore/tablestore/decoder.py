@@ -896,9 +896,8 @@ class OTSProtoBufferDecoder(object):
     def _decode_group_by_results(self, proto_result, group_by_results):
         if proto_result is not None:
             for group_result in proto_result.group_by_results:
-                name = group_result.name
-                items = self._decode_group_by(group_result.type, group_result.group_by_result)
-                group_by_results.append(GroupByResult(name, items))
+                result = self._decode_group_by(group_result.name, group_result.type, group_result.group_by_result)
+                group_by_results.append(result)
 
     def _decode_agg(self, agg_type, body):
         if search_pb.AGG_AVG == agg_type:
@@ -945,7 +944,7 @@ class OTSProtoBufferDecoder(object):
         else:
             raise OTSClientError('unsupport aggregation type:%s' % str(agg_type))
 
-    def _decode_group_by(self, groupby_type, body):
+    def _decode_group_by(self, name, groupby_type, body):
         if search_pb.GROUP_BY_FIELD == groupby_type:
             proto = search_pb.GroupByFieldResult()
             proto.ParseFromString(body)
@@ -960,7 +959,7 @@ class OTSProtoBufferDecoder(object):
                 result_item = GroupByFieldResultItem(item.key, item.row_count,
                                                      sub_agg_results, sub_group_by_results)
                 result_items.append(result_item)
-            return result_items
+            return GroupByResult(name, result_items)
 
         elif search_pb.GROUP_BY_RANGE == groupby_type:
             proto = search_pb.GroupByRangeResult()
@@ -976,7 +975,7 @@ class OTSProtoBufferDecoder(object):
                 result_item = GroupByRangeResultItem(item.range_from, item.range_to, item.row_count,
                                                      sub_agg_results, sub_group_by_results)
                 result_items.append(result_item)
-            return result_items
+            return GroupByResult(name, result_items)
         elif search_pb.GROUP_BY_FILTER == groupby_type:
             proto = search_pb.GroupByFilterResult()
             proto.ParseFromString(body)
@@ -991,7 +990,7 @@ class OTSProtoBufferDecoder(object):
                 result_item = GroupByFilterResultItem(item.row_count,
                                                       sub_agg_results, sub_group_by_results)
                 result_items.append(result_item)
-            return result_items
+            return GroupByResult(name, result_items)
         elif search_pb.GROUP_BY_GEO_DISTANCE == groupby_type:
             proto = search_pb.GroupByGeoDistanceResult()
             proto.ParseFromString(body)
@@ -1006,7 +1005,7 @@ class OTSProtoBufferDecoder(object):
                 result_item = GroupByGeoDistanceResultItem(item.range_from, item.range_to, item.row_count,
                                                            sub_agg_results, sub_group_by_results)
                 result_items.append(result_item)
-            return result_items
+            return GroupByResult(name, result_items)
         elif search_pb.GROUP_BY_HISTOGRAM == groupby_type:
             proto = search_pb.GroupByHistogramResult()
             proto.ParseFromString(body)
@@ -1021,7 +1020,70 @@ class OTSProtoBufferDecoder(object):
                 result_item = GroupByHistogramResultItem(self._decode_column_value(item.key), item.value,
                                                          sub_agg_results, sub_group_by_results)
                 result_items.append(result_item)
-            return result_items
+            return GroupByResult(name, result_items)
+        elif search_pb.GROUP_BY_DATE_HISTOGRAM == groupby_type:
+            proto = search_pb.GroupByDateHistogramResult()
+            proto.ParseFromString(body)
+
+            result_items = []
+            for item in proto.group_by_date_histogram_items:
+                sub_group_by_results = []
+                sub_agg_results = []
+                self._decode_group_by_results(item.sub_group_bys_result, sub_group_by_results)
+                self._decode_agg_results(item.sub_aggs_result, sub_agg_results)
+
+                result_item = GroupByDateHistogramResultItem(item.timestamp, item.row_count,
+                                                             sub_agg_results, sub_group_by_results)
+                result_items.append(result_item)
+            return GroupByResult(name, result_items)
+        elif search_pb.GROUP_BY_GEO_GRID == groupby_type:
+            proto = search_pb.GroupByGeoGridResult()
+            proto.ParseFromString(body)
+
+            result_items = []
+            for item in proto.group_by_geo_grid_result_items:
+                sub_group_by_results = []
+                sub_agg_results = []
+                self._decode_group_by_results(item.sub_group_bys_result, sub_group_by_results)
+                self._decode_agg_results(item.sub_aggs_result, sub_agg_results)
+
+                geo_grid = None
+                if item.HasField('geo_grid'):
+                    top_left = GeoPoint(item.geo_grid.top_left.lat, item.geo_grid.top_left.lon)
+                    bottom_right = GeoPoint(item.geo_grid.bottom_right.lat, item.geo_grid.bottom_right.lon)
+                    geo_grid = GeoGrid(top_left, bottom_right)
+
+                result_item = GroupByGeoGridResultItem(item.key, geo_grid, item.row_count,
+                                                       sub_agg_results, sub_group_by_results)
+                result_items.append(result_item)
+            return GroupByResult(name, result_items)
+        elif search_pb.GROUP_BY_COMPOSITE == groupby_type:
+            proto = search_pb.GroupByCompositeResult()
+            proto.ParseFromString(body)
+
+            result_items = []
+            for item in proto.group_by_composite_result_items:
+                sub_group_by_results = []
+                sub_agg_results = []
+                self._decode_group_by_results(item.sub_group_bys_result, sub_group_by_results)
+                self._decode_agg_results(item.sub_aggs_result, sub_agg_results)
+
+                raw_keys = list(item.keys)
+                is_null_keys = list(item.is_null_keys)
+
+                if len(is_null_keys) != len(raw_keys):
+                    keys = raw_keys
+                else:
+                    keys = [None if is_null else key for key, is_null in zip(raw_keys, is_null_keys)]
+
+                result_item = GroupByCompositeResultItem(keys, item.row_count,
+                                                         sub_agg_results, sub_group_by_results)
+                result_items.append(result_item)
+
+            source_group_by_names = list(proto.source_group_by_names)
+            next_token = proto.next_token if proto.HasField('next_token') else None
+
+            return GroupByResult(name, result_items, source_group_by_names, next_token)
         else:
             raise OTSClientError('unsupport group by type:%s' % str(groupby_type))
 

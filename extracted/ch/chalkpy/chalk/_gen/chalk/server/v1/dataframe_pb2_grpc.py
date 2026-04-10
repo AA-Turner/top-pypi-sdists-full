@@ -35,6 +35,11 @@ class DataFrameServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_dataframe__pb2.GetDataFrameRunStatusRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_dataframe__pb2.GetDataFrameRunStatusResponse.FromString,
         )
+        self.ListDataFrameRuns = channel.unary_unary(
+            "/chalk.server.v1.DataFrameService/ListDataFrameRuns",
+            request_serializer=chalk_dot_server_dot_v1_dot_dataframe__pb2.ListDataFrameRunsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_dataframe__pb2.ListDataFrameRunsResponse.FromString,
+        )
 
 
 class DataFrameServiceServicer(object):
@@ -64,6 +69,12 @@ class DataFrameServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListDataFrameRuns(self, request, context):
+        """List dataframe runs with pagination and filtering."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_DataFrameServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -86,6 +97,11 @@ def add_DataFrameServiceServicer_to_server(servicer, server):
             servicer.GetDataFrameRunStatus,
             request_deserializer=chalk_dot_server_dot_v1_dot_dataframe__pb2.GetDataFrameRunStatusRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_dataframe__pb2.GetDataFrameRunStatusResponse.SerializeToString,
+        ),
+        "ListDataFrameRuns": grpc.unary_unary_rpc_method_handler(
+            servicer.ListDataFrameRuns,
+            request_deserializer=chalk_dot_server_dot_v1_dot_dataframe__pb2.ListDataFrameRunsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_dataframe__pb2.ListDataFrameRunsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.DataFrameService", rpc_method_handlers)
@@ -202,6 +218,35 @@ class DataFrameService(object):
             "/chalk.server.v1.DataFrameService/GetDataFrameRunStatus",
             chalk_dot_server_dot_v1_dot_dataframe__pb2.GetDataFrameRunStatusRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_dataframe__pb2.GetDataFrameRunStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListDataFrameRuns(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DataFrameService/ListDataFrameRuns",
+            chalk_dot_server_dot_v1_dot_dataframe__pb2.ListDataFrameRunsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_dataframe__pb2.ListDataFrameRunsResponse.FromString,
             options,
             channel_credentials,
             insecure,

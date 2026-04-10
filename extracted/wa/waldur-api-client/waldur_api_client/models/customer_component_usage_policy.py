@@ -31,6 +31,7 @@ class CustomerComponentUsagePolicy:
         created_by_username (str):
         has_fired (bool):
         fired_datetime (datetime.datetime):
+        affected_resources_count (int):
         component_limits_set (list['NestedCustomerUsagePolicyComponent']):
         options (Union[Unset, Any]): Fields for saving actions extra data. Keys are name of actions.
     """
@@ -46,6 +47,7 @@ class CustomerComponentUsagePolicy:
     created_by_username: str
     has_fired: bool
     fired_datetime: datetime.datetime
+    affected_resources_count: int
     component_limits_set: list["NestedCustomerUsagePolicyComponent"]
     options: Union[Unset, Any] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -73,6 +75,8 @@ class CustomerComponentUsagePolicy:
 
         fired_datetime = self.fired_datetime.isoformat()
 
+        affected_resources_count = self.affected_resources_count
+
         component_limits_set = []
         for component_limits_set_item_data in self.component_limits_set:
             component_limits_set_item = component_limits_set_item_data.to_dict()
@@ -95,6 +99,7 @@ class CustomerComponentUsagePolicy:
                 "created_by_username": created_by_username,
                 "has_fired": has_fired,
                 "fired_datetime": fired_datetime,
+                "affected_resources_count": affected_resources_count,
                 "component_limits_set": component_limits_set,
             }
         )
@@ -130,6 +135,8 @@ class CustomerComponentUsagePolicy:
 
         fired_datetime = isoparse(d.pop("fired_datetime"))
 
+        affected_resources_count = d.pop("affected_resources_count")
+
         component_limits_set = []
         _component_limits_set = d.pop("component_limits_set")
         for component_limits_set_item_data in _component_limits_set:
@@ -151,6 +158,7 @@ class CustomerComponentUsagePolicy:
             created_by_username=created_by_username,
             has_fired=has_fired,
             fired_datetime=fired_datetime,
+            affected_resources_count=affected_resources_count,
             component_limits_set=component_limits_set,
             options=options,
         )

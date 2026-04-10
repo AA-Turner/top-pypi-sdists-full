@@ -87,7 +87,7 @@ def k8s_instance(user_code_launcher_overrides=None):
                     "agent_token": "FAKE_TOKEN",
                 },
                 "compute_logs": {
-                    "module": "dagster.core.storage.noop_compute_log_manager",
+                    "module": "dagster._core.storage.noop_compute_log_manager",
                     "class": "NoOpComputeLogManager",
                 },
             }

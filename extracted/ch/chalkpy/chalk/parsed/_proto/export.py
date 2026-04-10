@@ -107,7 +107,10 @@ def project_settings_to_proto(config: ProjectSettings) -> export_pb.ProjectSetti
 
 
 def import_files_then_export_from_registry(
-    directory: Optional[str], file_allowlist: Optional[List[str]]
+    directory: Optional[str],
+    file_allowlist: Optional[List[str]],
+    *,
+    include_captured_global_values: bool = False,
 ) -> export_pb.Export:
     """
     Packaged into a function just so that the caller can try-except this.
@@ -118,7 +121,7 @@ def import_files_then_export_from_registry(
         file_allowlist=file_allowlist,
         project_root=None if directory is None else Path(directory),
     )
-    export = export_from_registry()
+    export = export_from_registry(include_captured_global_values=include_captured_global_values)
     export.failed.extend([convert_failed_import_to_proto(f) for f in failed_imports_gql])
 
     return export
@@ -160,7 +163,7 @@ def get_lsp_proto(
     return lsp
 
 
-def export_from_registry() -> export_pb.Export:
+def export_from_registry(*, include_captured_global_values: bool = False) -> export_pb.Export:
     """
     This is separate from trying to `import_all_files` so that
     we can use this function in places where import is already
@@ -301,7 +304,7 @@ def export_from_registry() -> export_pb.Export:
         )
         errors.append(ChalkErrorConverter.chalk_error_encode(err))
 
-    return export_pb.Export(
+    export = export_pb.Export(
         graph=graph_res,
         crons=crons,
         charts=charts,
@@ -313,3 +316,6 @@ def export_from_registry() -> export_pb.Export:
         failed=failed_protos,
         conversion_errors=errors,
     )
+    if include_captured_global_values:
+        export.captured_global_variables.CopyFrom(get_global_variables_info_from_export(export))
+    return export

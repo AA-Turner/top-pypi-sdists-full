@@ -3,21 +3,63 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, List, Optional, Tuple, Union
 
-import httpx
-
 from .db import (
     get_pinned_traces,
     list_traces_with_data_from_db,
     load_trace_with_size_from_db,
 )
-from .local_node_bridge import (
-    process_node_data_with_local_node,
-    process_trace_with_local_node,
-    process_tree_with_local_node,
-)
 from .serialize import load_msgpack
 from .trace import Trace
 from .utils import pretty_byte_size, relative_time
+
+TRACE_TIMESTAMP_FORMATS = (
+    "%Y-%m-%d %H:%M:%S.%f",
+    "%Y-%m-%d %H:%M:%S",
+)
+
+
+def parse_trace_timestamp(timestamp_str: str) -> datetime:
+    for timestamp_format in TRACE_TIMESTAMP_FORMATS:
+        try:
+            return datetime.strptime(timestamp_str, timestamp_format).replace(
+                tzinfo=timezone.utc
+            )
+        except ValueError:
+            continue
+    raise ValueError(f"Unsupported trace timestamp format: {timestamp_str!r}")
+
+
+def make_json_serializable(obj):
+    """Convert Python objects to JSON-serializable types.
+
+    Handles:
+    - Sets/frozensets -> lists
+    - Dict with non-string keys -> string keys
+    - Other non-serializable types -> string representation (Python repr)
+    """
+    if isinstance(obj, (set, frozenset)):
+        return list(obj)
+    elif isinstance(obj, dict):
+        # Convert dict keys to strings if they're not JSON-compatible
+        result = {}
+        for k, v in obj.items():
+            if isinstance(k, (str, int, float, bool, type(None))):
+                result[k] = make_json_serializable(v)
+            else:
+                # Convert non-JSON-compatible keys to string
+                result[str(k)] = make_json_serializable(v)
+        return result
+    elif isinstance(obj, (list, tuple)):
+        return [make_json_serializable(item) for item in obj]
+    else:
+        # Handle any other non-serializable types
+        try:
+            # Try to serialize it (will work for primitives)
+            json.dumps(obj)
+            return obj
+        except (TypeError, ValueError):
+            # If it can't be serialized, convert to string (Python repr)
+            return str(obj)
 
 
 def format_trace_for_display(
@@ -49,9 +91,7 @@ def get_formatted_traces(
     traces = list_traces_with_data_from_db(db_path, count=count, reverse=reverse)
 
     for trace_id, timestamp_str, size, msgpack_data, auto_generated_name in traces:
-        timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S.%f").replace(
-            tzinfo=timezone.utc
-        )
+        timestamp = parse_trace_timestamp(timestamp_str)
 
         trace_name = Trace.resolve_display_name(
             msgpack_data, auto_generated_name, db_path, trace_id
@@ -60,210 +100,45 @@ def get_formatted_traces(
         yield format_trace_for_display(trace_id, timestamp, size, trace_name, now)
 
 
-local_cf_worker_endpoint = "http://localhost:8787"
-prod_cf_worker_endpoint = "https://worker.kolo.app"
-worker_endpoint = prod_cf_worker_endpoint
-
-
-async def get_compact_trace(
-    trace_id: str,
+def get_compact_trace(
     trace_data: bytes,
-    timestamp_str: str,
     size: int,
     include_returns: bool = False,
-    use_js: bool = False,
 ) -> str:
     """Get compact representation of a trace."""
-
-    timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S.%f").replace(
-        tzinfo=timezone.utc
-    )
-
-    prefix = f"=== Kolo Trace {trace_id} ===\n{relative_time(timestamp)}, {pretty_byte_size(size)}"
-
-    if use_js:
-        compact_trace_text = process_trace_with_local_node(trace_data, include_returns)
-
-        if compact_trace_text is None:
-            # Fall back to remote worker if local processing failed
-            compact_trace_text = await fetch_compact_trace(
-                trace_id, trace_data, include_returns
-            )
-        return prefix + "\n\n" + compact_trace_text
-    else:
-        return get_compact_trace_sync(trace_data, size, include_returns)
-
-
-def get_compact_trace_sync(
-    trace_data: bytes,
-    size: int,
-    include_returns: bool = False,
-) -> str:
-    """Get compact representation of a trace (synchronous, Python-only)."""
-
     data = load_msgpack(trace_data)
     trace = Trace(unprocessed_data=data, size=size)
     return trace.compact(include_returns)
 
 
-async def fetch_compact_trace(
-    trace_id: str, trace_data: bytes, include_returns: bool = False
-) -> str:
-    """Get compact representation of a trace from the worker."""
-
-    async with httpx.AsyncClient() as client:
-        url = f"{worker_endpoint}/traces/{trace_id}/compact"
-        if include_returns:
-            url += "?returns=1"
-
-        response = await client.post(
-            url, headers={"Content-Type": "application/msgpack"}, content=trace_data
-        )
-        response.raise_for_status()
-        return response.text
-
-
-async def get_node_data(
-    trace_id: str, node_index: int, trace_data: bytes, use_js: bool = False
-) -> dict:
+def get_node_data(trace_id: str, node_index: int, trace_data: bytes) -> dict:
     """Get node data for a specific node index."""
+    data = load_msgpack(trace_data)
+    trace = Trace(unprocessed_data=data, size=len(trace_data))
 
-    if use_js:
-        node_data = process_node_data_with_local_node(trace_data, node_index)
+    node = trace.main_tree.find_node_by_index(node_index)
+    if node is None:
+        raise ValueError(f"Node {node_index} not found in trace {trace_id}")
 
-        if node_data is None:
-            # Fall back to remote worker if local processing failed
-            node_data = await fetch_node_data(trace_id, node_index, trace_data)
-
-        return node_data
-    else:
-        data = load_msgpack(trace_data)
-        trace = Trace(unprocessed_data=data, size=len(trace_data))
-
-        node = trace.main_tree.find_node_by_index(node_index)
-        if node is None:
-            raise ValueError(f"Node {node_index} not found in trace {trace_id}")
-
-        return {
-            "index": node.index,
-            "type": node.type,
-            "name": node.name,
-            "frame_id": node.frame_id,
-            "data": node.data,
-            "ancestor_count": node.ancestor_count,
-            "all_children_count": node.all_children_count,
-            "duration_ms": node.duration_ms,
-        }
+    return {
+        "index": node.index,
+        "type": node.type,
+        "name": node.name,
+        "frame_id": node.frame_id,
+        "data": make_json_serializable(node.data),
+        "ancestor_count": node.ancestor_count,
+        "all_children_count": node.all_children_count,
+        "duration_ms": node.duration_ms,
+    }
 
 
-async def fetch_node_data(trace_id: str, node_index: int, trace_data: bytes) -> dict:
-    """Get node data from the remote worker for a specific node index."""
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{worker_endpoint}/traces/{trace_id}/tree/{node_index}",
-            headers={"Content-Type": "application/msgpack"},
-            content=trace_data,
-        )
-        response.raise_for_status()
-        return response.json()
-
-
-async def get_execution_tree(
-    trace_id: str, trace_data: bytes, use_js: bool = False
-) -> dict:
-    """Get execution tree for a trace."""
-
-    # TODO: Do we still need this now that we're not having to serilize to json anymore?
-
-    if use_js:
-        tree_data = process_tree_with_local_node(trace_data)
-
-        if tree_data is None:
-            # Fall back to remote worker if local processing failed
-            tree_data = await fetch_execution_tree(trace_id, trace_data)
-
-        return tree_data
-    else:
-        data = load_msgpack(trace_data)
-        trace = Trace(unprocessed_data=data, size=len(trace_data))
-
-        # Get the basic execution tree
-        tree_info = trace.main_tree.basic_execution_tree
-
-        # Convert to dict format for JSON serialization
-        def make_json_serializable(obj):
-            """Convert Python objects to JSON-serializable types."""
-            if isinstance(obj, (set, frozenset)):
-                return list(obj)
-            elif isinstance(obj, dict):
-                # Convert dict keys to strings if they're not JSON-compatible
-                result = {}
-                for k, v in obj.items():
-                    if isinstance(k, (str, int, float, bool, type(None))):
-                        result[k] = make_json_serializable(v)
-                    else:
-                        # Convert non-JSON-compatible keys to string
-                        result[str(k)] = make_json_serializable(v)
-                return result
-            elif isinstance(obj, (list, tuple)):
-                return [make_json_serializable(item) for item in obj]
-            else:
-                # Handle any other non-serializable types
-                try:
-                    # Try to serialize it (will work for primitives)
-                    json.dumps(obj)
-                    return obj
-                except (TypeError, ValueError):
-                    # If it can't be serialized, convert to string
-                    return str(obj)
-
-        def node_to_dict(node):
-            return {
-                "index": node.index,
-                "type": node.type,
-                "name": node.name,
-                "frame_id": node.frame_id,
-                "data": make_json_serializable(node.data),
-                "all_children_count": node.all_children_count,
-                "children": [node_to_dict(child) for child in node.children],
-            }
-
-        return {
-            "execution_tree_nodes": [
-                node_to_dict(node) for node in tree_info.execution_tree_nodes
-            ],
-            "total_execution_tree_node_count": tree_info.total_execution_tree_node_count,
-            "sql_queries": [node_to_dict(node) for node in tree_info.sql_queries],
-            "outbound_http_requests": [
-                node_to_dict(node) for node in tree_info.outbound_http_requests
-            ],
-            "background_jobs": [
-                node_to_dict(node) for node in tree_info.background_jobs
-            ],
-            "log_messages": [node_to_dict(node) for node in tree_info.log_messages],
-        }
-
-
-async def fetch_execution_tree(trace_id: str, trace_data: bytes) -> dict:
-    """Get execution tree from the remote worker."""
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{worker_endpoint}/traces/{trace_id}/tree",
-            headers={"Content-Type": "application/msgpack"},
-            content=trace_data,
-        )
-        response.raise_for_status()
-        return response.json()
-
-
-async def get_compact_traces(
+def get_compact_traces(
     db_path: Path,
     trace_id: Union[str, None] = None,
     *,
     pinned: bool = False,
     returns: bool = False,
     recent: int = 0,
-    use_js: bool = False,
 ) -> List[Tuple[str, str]]:
     """Get compact representation of traces.
 
@@ -273,7 +148,6 @@ async def get_compact_traces(
         pinned: If True, get all pinned traces
         returns: Include return values in compact representation
         recent: If > 0, get the N most recent traces
-        use_js: If True, use Node.js implementation; if False, use Python
 
     Returns:
         List of tuples (trace_id, compact_representation)
@@ -289,9 +163,7 @@ async def get_compact_traces(
     if pinned:
         for trace_id, timestamp_str, size, trace_data, _ in get_pinned_traces(db_path):
             try:
-                compact_repr = await get_compact_trace(
-                    trace_id, trace_data, timestamp_str, size, returns, use_js
-                )
+                compact_repr = get_compact_trace(trace_data, size, returns)
                 results.append((trace_id, compact_repr))
             except Exception as e:
                 # For pinned traces, we want to continue even if one fails
@@ -306,9 +178,7 @@ async def get_compact_traces(
         ) in list_traces_with_data_from_db(db_path, count=recent):
             assert trace_id is not None
             try:
-                compact_repr = await get_compact_trace(
-                    trace_id, trace_data, timestamp_str, size, returns, use_js
-                )
+                compact_repr = get_compact_trace(trace_data, size, returns)
                 results.append((trace_id, compact_repr))
             except Exception as e:
                 # For multiple traces, we want to continue even if one fails
@@ -319,9 +189,7 @@ async def get_compact_traces(
         _, timestamp_str, size, trace_data = load_trace_with_size_from_db(
             db_path, trace_id
         )
-        compact_repr = await get_compact_trace(
-            trace_id, trace_data, timestamp_str, size, returns, use_js
-        )
+        compact_repr = get_compact_trace(trace_data, size, returns)
         results.append((trace_id, compact_repr))
 
     return results

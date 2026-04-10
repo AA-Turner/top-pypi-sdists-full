@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cdflib
-Version: 1.3.8
+Version: 1.3.9
 Summary: A python CDF reader toolkit
 Author-email: Bryan Harter <harter@lasp.colorado.edu>
 License: MIT License

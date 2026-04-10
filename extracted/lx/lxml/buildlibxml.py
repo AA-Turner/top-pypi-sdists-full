@@ -1,12 +1,17 @@
+import hashlib
 import json
-import os, re, sys, platform
+import os
+import platform
+import re
+import sys
 import tarfile
 import time
 from contextlib import closing
 from ftplib import FTP
+from pathlib import Path
 
 import urllib.error
-from urllib.parse import urljoin, unquote, urlparse
+from urllib.parse import urljoin, quote as urlquote, unquote, urlparse
 from urllib.request import urlretrieve, urlopen, Request
 
 multi_make_options = []
@@ -44,25 +49,6 @@ def read_file_digest(file):
 
 
 def download_and_extract_windows_binaries(destdir):
-    url = "https://api.github.com/repos/lxml/libxml2-win-binaries/releases?per_page=5"
-    releases, _ = read_url(
-        url,
-        accept="application/vnd.github+json",
-        as_json=True,
-        github_api_token=os.environ.get("GITHUB_API_TOKEN"),
-    )
-
-    max_release = {'tag_name': ''}
-    for release in releases:
-        if max_release['tag_name'] < release.get('tag_name', ''):
-            max_release = release
-
-    url = "https://github.com/lxml/libxml2-win-binaries/releases/download/%s/" % max_release['tag_name']
-    asset_files = {
-        asset['name']: (asset['size'], asset['digest'])
-        for asset in max_release.get('assets', ())
-    }
-
     # Check for native ARM64 build or the environment variable that is set by
     # Visual Studio for cross-compilation (same variable as setuptools uses)
     if platform.machine() == 'ARM64' or os.getenv('VSCMD_ARG_TGT_ARCH') == 'arm64':
@@ -72,47 +58,68 @@ def download_and_extract_windows_binaries(destdir):
     else:
         arch = "win32"
 
-    arch_part = '.' + arch + '.'
+    def build_libzip_name(libname, version):
+        return f"{libname}-{version}.{arch}.zip"
+
+    def read_latest_release():
+        url = "https://api.github.com/repos/lxml/libxml2-win-binaries/releases?per_page=5"
+        releases, _ = read_url(
+            url,
+            accept="application/vnd.github+json",
+            as_json=True,
+            github_api_token=os.environ.get("GITHUB_API_TOKEN"),
+        )
+
+        max_release = {'tag_name': ''}
+        for release in releases:
+            if max_release['tag_name'] < release.get('tag_name', ''):
+                max_release = release
+
+        return max_release
+
+    latest_release = read_latest_release()
+
+    release_tag = latest_release['tag_name']
+    download_url = f"https://github.com/lxml/libxml2-win-binaries/releases/download/{urlquote(release_tag)}/"
+
+    arch_part = f'.{arch}.'
     asset_files = {
-        filename: details
-        for filename, details in asset_files.items()
-        if arch_part in filename
+        asset['name']: (asset['size'], asset['digest'])
+        for asset in latest_release.get('assets', ())
+        if arch_part in asset['name']
     }
 
-    libs = {}
-    for libname in ['libxml2', 'libxslt', 'zlib', 'iconv']:
-        libs[libname] = "%s-%s.%s.zip" % (
-            libname,
-            find_max_version(libname, list(asset_files)),
-            arch,
-        )
+    lib_file_names = list(asset_files)
+    libs = {
+        libname: build_libzip_name(libname, find_max_version(libname, lib_file_names))
+        for libname in ['libxml2', 'libxslt', 'zlib', 'iconv']
+    }
 
     if not os.path.exists(destdir):
         os.makedirs(destdir)
 
-    for libname, libfn in libs.items():
-        srcfile = urljoin(url, libfn)
+    for libfn in libs.values():
+        srcfile = urljoin(download_url, libfn)
         destfile = os.path.join(destdir, libfn)
         if os.path.exists(destfile):
             file_size, file_digest = asset_files.get(libfn, (None, None))
             if file_size and os.path.getsize(destfile) == file_size and read_file_digest(destfile) == file_digest:
-                print('Using local copy of  "{}"'.format(srcfile))
+                print(f'Using local copy of  "{srcfile}"')
                 continue
 
-        print('Retrieving "%s" to "%s"' % (srcfile, destfile))
+        print(f'Retrieving "{srcfile}" to "{destfile}"')
         urlretrieve(srcfile, destfile)
 
-    for libname, libfn in libs.items():
-        destfile = os.path.join(destdir, libfn)
-        d = unpack_zipfile(destfile, destdir)
-        libs[libname] = d
-
-    return libs
+    lib_dirs = {
+        libname: unpack_zipfile(os.path.join(destdir, libfn), destdir)
+        for libname, libfn in libs.items()
+    }
+    return lib_dirs
 
 
 def find_top_dir_of_zipfile(zipfile):
     topdir = None
-    files = (f.filename for f in zipfile.filelist)
+    files = [f.filename for f in zipfile.filelist]
     dirs = [d for d in files if d.endswith('/')]
     if dirs:
         dirs.sort(key=len)
@@ -277,6 +284,27 @@ def tryint(s):
         return s
 
 
+ARCHIVE_HASHES = {
+    # Default hash algorithm is SHA-256.
+    # Prefix hash with e.g. "sha512:" for alternative algorithms.
+    filename: digest
+    for line in """
+    c8b9bc81f8b590c33af8cc6c336dbff2f53409973588a351c95f1c621b13d09d  libxml2-2.15.2.tar.xz
+    7ce458a0affeb83f0b55f1f4f9e0e55735dbfc1a9de124ee86fb4a66b597203a  libxml2-2.14.6.tar.xz
+
+    9acfe68419c4d06a45c550321b3212762d92f41465062ca4ea19e632ee5d216e  libxslt-1.1.45.tar.xz
+    5a3d6b383ca5afc235b171118e90f5ff6aa27e9fea3303065231a6d403f0183a  libxslt-1.1.43.tar.xz
+
+    88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6  libiconv-1.19.tar.gz
+    3b08f5f4f9b4eb82f151a7040bfd6fe6c6fb922efe4b1659c66ea933276965e8  libiconv-1.18.tar.gz
+
+    bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16  zlib-1.3.2.tar.gz
+    """.strip().splitlines()
+    if len(line) > 64
+    for digest, filename in [line.split()]
+}
+
+
 def download_libxml2(dest_dir, version=None):
     """Downloads libxml2, returning the filename where the library was downloaded"""
     #version_re = re.compile(r'LATEST_LIBXML2_IS_([0-9.]+[0-9](?:-[abrc0-9]+)?)')
@@ -328,16 +356,35 @@ def find_max_version(libname, filenames, version_re=None):
         match = version_re.search(fn)
         if match:
             version_string = match.group(1)
-            versions.append((tuple(map(tryint, version_string.replace("-", ".-").split('.'))),
-                             version_string))
+            versions.append((
+                tuple(map(tryint, version_string.replace("-", ".-").split('.'))),
+                version_string,
+            ))
     if not versions:
         raise Exception(
             "Could not find the most current version of %s from the files: %s" % (
-                libname, filenames))
+                libname, list(filenames)))
     versions.sort()
     version_string = versions[-1][-1]
     print('Latest version of %s is %s' % (libname, version_string))
     return version_string
+
+
+def file_exists(file_path: Path, size=None, digest=None):
+    if not file_path.exists():
+        return False
+    if size is not None:
+        if file_path.stat().st_size != size:
+            return False
+    if digest is not None and hasattr(hashlib, 'file_digest'):
+        hash_alg = 'sha256'
+        if ':' in digest:
+            hash_alg, _, digest = digest.partition(':')
+        with file_path.open(mode='rb') as f:
+            file_digest = hashlib.file_digest(f, hash_alg)
+        if digest != file_digest.hexdigest():
+            return False
+    return True
 
 
 def download_library(dest_dir, location, name, version_re, filename, version=None):
@@ -368,24 +415,31 @@ def download_library(dest_dir, location, name, version_re, filename, version=Non
         filename = filename % version
 
     full_url = urljoin(location, filename)
-    dest_filename = os.path.join(dest_dir, filename)
-    if os.path.exists(dest_filename):
-        print(('Using existing %s downloaded into %s '
-               '(delete this file if you want to re-download the package)') % (
-            name, dest_filename))
-        return dest_filename
+    dest_filepath = Path(dest_dir) / filename
+    if file_exists(dest_filepath, digest=ARCHIVE_HASHES.get(filename)):
+        print(f'Using existing {name} downloaded into {dest_filepath} '
+              '(delete this file if you want to re-download the package)')
+        return dest_filepath
 
-    print('Downloading %s into %s from %s' % (name, dest_filename, full_url))
-    try:
-        urlretrieve(full_url, dest_filename)
-    except urllib.error.URLError as exc:
-        # retry once
-        retry_after_seconds = 2
-        print(f"Download failed: {exc}, retrying in {int(retry_after_seconds)} seconds…")
-        time.sleep(retry_after_seconds)
-        urlretrieve(full_url, dest_filename)
+    print('Downloading %s into %s from %s' % (name, dest_filepath, full_url))
+    for retry_after_seconds in (2, 5, 10, None):
+        try:
+            urlretrieve(full_url, dest_filepath)
+        except urllib.error.URLError as exc:
+            if retry_after_seconds is None:
+                print(f"Download failed: {exc}")
+                break
+            else:
+                print(f"Download failed: {exc}, retrying in {int(retry_after_seconds)} seconds…")
+            time.sleep(retry_after_seconds)
+        else:
+            if file_exists(dest_filepath, digest=ARCHIVE_HASHES.get(filename)):
+                return dest_filepath
 
-    return dest_filename
+    if not file_exists(dest_filepath, digest=ARCHIVE_HASHES.get(filename)):
+        raise RuntimeError(f"File download of {filename} failed to write the correct file.")
+
+    return dest_filepath
 
 
 def unpack_tarball(tar_filename, dest) -> str:
@@ -656,7 +710,7 @@ def main(with_zlib=True, download_only=False, platform=None):
     if platform is None:
         platform = sys_platform
 
-    if sys_platform.startswith('win'):
+    if platform.startswith('win'):
         return get_prebuilt_libxml2xslt(
             download_dir, static_include_dirs, static_library_dirs)
 

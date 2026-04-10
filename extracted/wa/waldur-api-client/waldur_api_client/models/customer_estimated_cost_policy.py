@@ -32,6 +32,7 @@ class CustomerEstimatedCostPolicy:
         created_by_username (str):
         has_fired (bool):
         fired_datetime (datetime.datetime):
+        affected_resources_count (int):
         limit_cost (int):
         period_name (str):
         customer_credit (int):
@@ -51,6 +52,7 @@ class CustomerEstimatedCostPolicy:
     created_by_username: str
     has_fired: bool
     fired_datetime: datetime.datetime
+    affected_resources_count: int
     limit_cost: int
     period_name: str
     customer_credit: int
@@ -82,6 +84,8 @@ class CustomerEstimatedCostPolicy:
 
         fired_datetime = self.fired_datetime.isoformat()
 
+        affected_resources_count = self.affected_resources_count
+
         limit_cost = self.limit_cost
 
         period_name = self.period_name
@@ -111,6 +115,7 @@ class CustomerEstimatedCostPolicy:
                 "created_by_username": created_by_username,
                 "has_fired": has_fired,
                 "fired_datetime": fired_datetime,
+                "affected_resources_count": affected_resources_count,
                 "limit_cost": limit_cost,
                 "period_name": period_name,
                 "customer_credit": customer_credit,
@@ -151,6 +156,8 @@ class CustomerEstimatedCostPolicy:
 
         fired_datetime = isoparse(d.pop("fired_datetime"))
 
+        affected_resources_count = d.pop("affected_resources_count")
+
         limit_cost = d.pop("limit_cost")
 
         period_name = d.pop("period_name")
@@ -180,6 +187,7 @@ class CustomerEstimatedCostPolicy:
             created_by_username=created_by_username,
             has_fired=has_fired,
             fired_datetime=fired_datetime,
+            affected_resources_count=affected_resources_count,
             limit_cost=limit_cost,
             period_name=period_name,
             customer_credit=customer_credit,

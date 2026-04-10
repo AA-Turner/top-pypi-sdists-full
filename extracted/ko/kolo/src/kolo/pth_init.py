@@ -17,7 +17,7 @@ import sys
 def pth_init():
     """Initialize Kolo monitoring when called from .pth file."""
     try:
-        # Check if disabled explicitly
+        # Check if disabled explicitly (any truthy value disables, consistent with middleware.py)
         if os.environ.get("KOLO_DISABLE"):
             return
 
@@ -62,7 +62,7 @@ def pth_init():
         if auto_enabled.activate():
             atexit.register(auto_enabled.cleanup)
 
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         # If anything goes wrong during initialization, print to stderr
         # but don't crash the Python process
         print(f"Kolo .pth initialization error: {e}", file=sys.stderr)

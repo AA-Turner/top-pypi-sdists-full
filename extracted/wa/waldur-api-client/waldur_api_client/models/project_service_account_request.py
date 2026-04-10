@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -14,7 +14,7 @@ T = TypeVar("T", bound="ProjectServiceAccountRequest")
 class ProjectServiceAccountRequest:
     """
     Attributes:
-        project (UUID):
+        project (Union[None, UUID]):
         username (Union[Unset, str]):
         description (Union[Unset, str]):
         error_traceback (Union[Unset, str]):
@@ -22,7 +22,7 @@ class ProjectServiceAccountRequest:
         preferred_identifier (Union[Unset, str]):
     """
 
-    project: UUID
+    project: Union[None, UUID]
     username: Union[Unset, str] = UNSET
     description: Union[Unset, str] = UNSET
     error_traceback: Union[Unset, str] = UNSET
@@ -31,7 +31,11 @@ class ProjectServiceAccountRequest:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        project = str(self.project)
+        project: Union[None, str]
+        if isinstance(self.project, UUID):
+            project = str(self.project)
+        else:
+            project = self.project
 
         username = self.username
 
@@ -66,7 +70,21 @@ class ProjectServiceAccountRequest:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        project = UUID(d.pop("project"))
+
+        def _parse_project(data: object) -> Union[None, UUID]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                project_type_0 = UUID(data)
+
+                return project_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID], data)
+
+        project = _parse_project(d.pop("project"))
 
         username = d.pop("username", UNSET)
 

@@ -1079,6 +1079,12 @@ class ChalkClient:
             The version of the named query to execute.
         use_metaplanner
             Controls whether the query will use the metaplanner: https://docs.chalk.ai/docs/metaplanning
+        unload_resolvers
+            Specifies resolvers to unload, optionally with partition expressions.
+            Can be a list of resolver FQNs or `Resolver` objects (no partitioning),
+            or a dict mapping resolvers to a tuple of partition expressions.
+            Partition expressions can be strings (raw FQNs), `Filter` objects
+            (e.g., ``Bean.jar_id == Jar.id``), or ``Underscore`` expressions.
 
         Other Parameters
         ----------------

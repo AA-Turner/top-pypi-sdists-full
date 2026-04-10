@@ -101,10 +101,14 @@ def _rewrite_query_for_unload(
     rewritten_sql = sql.rstrip(";\n ")
     prefix = _stage_prefix(unload_job_identifier, snowflake_unload_stage)
     storage_integration_clause = (
-        f"STORAGE_INTEGRATION = {snowflake_storage_integration} " if snowflake_storage_integration is not None else ""
+        f'STORAGE_INTEGRATION = "{snowflake_storage_integration}" ' if snowflake_storage_integration is not None else ""
     )
+    # Named stages start with '@' and are bare identifiers — must not be quoted.
+    # External cloud URLs (s3://, gcs://, azure://, etc.) are string literals and must be single-quoted.
+    # See: https://docs.snowflake.com/en/sql-reference/sql/copy-into-location
+    quoted_prefix = prefix if prefix.startswith("@") else f"'{prefix}'"
     new_query = f"""
-    COPY INTO {prefix} FROM ({rewritten_sql}) {storage_integration_clause}file_format = (type = 'parquet') overwrite=true header=true; /* {json.dumps({"unload_job_identifier": unload_job_identifier})} */
+    COPY INTO {quoted_prefix} FROM ({rewritten_sql}) {storage_integration_clause}file_format = (type = 'parquet') overwrite=true header=true; /* {json.dumps({"unload_job_identifier": unload_job_identifier})} */
     """
     return new_query
 

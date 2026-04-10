@@ -33,6 +33,8 @@ class OfferingCreateRequestMultipart:
         description (Union[Unset, str]):
         full_description (Union[Unset, str]):
         privacy_policy_link (Union[Unset, str]):
+        helpdesk_url (Union[Unset, str]):
+        documentation_url (Union[Unset, str]):
         access_url (Union[Unset, str]): Publicly accessible offering access URL
         customer (Union[None, Unset, str]):
         attributes (Union[Unset, Any]):
@@ -67,6 +69,8 @@ class OfferingCreateRequestMultipart:
     description: Union[Unset, str] = UNSET
     full_description: Union[Unset, str] = UNSET
     privacy_policy_link: Union[Unset, str] = UNSET
+    helpdesk_url: Union[Unset, str] = UNSET
+    documentation_url: Union[Unset, str] = UNSET
     access_url: Union[Unset, str] = UNSET
     customer: Union[None, Unset, str] = UNSET
     attributes: Union[Unset, Any] = UNSET
@@ -107,6 +111,10 @@ class OfferingCreateRequestMultipart:
         full_description = self.full_description
 
         privacy_policy_link = self.privacy_policy_link
+
+        helpdesk_url = self.helpdesk_url
+
+        documentation_url = self.documentation_url
 
         access_url = self.access_url
 
@@ -227,6 +235,10 @@ class OfferingCreateRequestMultipart:
             field_dict["full_description"] = full_description
         if privacy_policy_link is not UNSET:
             field_dict["privacy_policy_link"] = privacy_policy_link
+        if helpdesk_url is not UNSET:
+            field_dict["helpdesk_url"] = helpdesk_url
+        if documentation_url is not UNSET:
+            field_dict["documentation_url"] = documentation_url
         if access_url is not UNSET:
             field_dict["access_url"] = access_url
         if customer is not UNSET:
@@ -298,6 +310,12 @@ class OfferingCreateRequestMultipart:
 
         if not isinstance(self.privacy_policy_link, Unset):
             files.append(("privacy_policy_link", (None, str(self.privacy_policy_link).encode(), "text/plain")))
+
+        if not isinstance(self.helpdesk_url, Unset):
+            files.append(("helpdesk_url", (None, str(self.helpdesk_url).encode(), "text/plain")))
+
+        if not isinstance(self.documentation_url, Unset):
+            files.append(("documentation_url", (None, str(self.documentation_url).encode(), "text/plain")))
 
         if not isinstance(self.access_url, Unset):
             files.append(("access_url", (None, str(self.access_url).encode(), "text/plain")))
@@ -427,6 +445,10 @@ class OfferingCreateRequestMultipart:
         full_description = d.pop("full_description", UNSET)
 
         privacy_policy_link = d.pop("privacy_policy_link", UNSET)
+
+        helpdesk_url = d.pop("helpdesk_url", UNSET)
+
+        documentation_url = d.pop("documentation_url", UNSET)
 
         access_url = d.pop("access_url", UNSET)
 
@@ -589,6 +611,8 @@ class OfferingCreateRequestMultipart:
             description=description,
             full_description=full_description,
             privacy_policy_link=privacy_policy_link,
+            helpdesk_url=helpdesk_url,
+            documentation_url=documentation_url,
             access_url=access_url,
             customer=customer,
             attributes=attributes,

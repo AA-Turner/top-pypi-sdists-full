@@ -7,7 +7,9 @@ import logging
 import os
 from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+from opentelemetry import trace
 
 from plato.agents import vm_setup
 from plato.agents.audit import (
@@ -102,6 +104,11 @@ class AgentTask:
         self.last_execution_span_id: str = ""
         # Shared executor — set by BaseWorld.agent() when AgentConfig.max_parallel is set
         self._execution_manager: AgentExecutionManager | None = None
+        # Per-task review gate settings (set by BaseWorld.agent())
+        self._review_fn: Callable[..., Awaitable[Any]] | None = None
+        self._max_review_continuations: int = 2
+        # Set to True by the execution manager after a successful merge to main
+        self.merged: bool = False
 
     def on_prepare(self, fn: Callable[[RuntimeInfo], Awaitable[None]]) -> AgentTask:
         """Register a hook that runs after the environment is ready but before the agent task.
@@ -353,65 +360,75 @@ class AgentTask:
 
             total_attempts = 1 + (self._max_continuations if self._exit_condition else 0)
 
-            for attempt in range(total_attempts):
-                is_continuation = attempt > 0
-                if is_continuation:
-                    ci = self._continuation_instruction
-                    current_instruction = ci() if callable(ci) else ci
-                else:
-                    current_instruction = instruction
-                self._register_tool_request_context(
-                    info,
-                    instruction=current_instruction,
-                    display_name=current_display_name,
-                    attempt=attempt + 1,
-                )
+            tracer = trace.get_tracer("plato.agents.task")
+            task_attrs = {
+                "plato.agent.task_id": info.runtime_id,
+                "plato.task.type": "agent",
+            }
+            if current_display_name:
+                task_attrs["plato.task.display_name"] = current_display_name
 
-                # Inject continue_session into agent config for continuation
-                agent_config = dict(run_agent_config)
-                if is_continuation:
-                    agent_config = {**agent_config, "continue_session": True}
-
-                exec_ctx = AgentContext(
-                    image=self._agent.image,
-                    package=self._agent.package,
-                    config=agent_config,
-                    instruction=current_instruction,
-                    display_name=current_display_name,
-                    runtime=runtime_dict,
-                    agent_code_path=self._agent_code_path,
-                )
-
-                if is_continuation:
-                    logger.info(
-                        "Continuation attempt %d/%d: exit condition not met, resuming agent",
-                        attempt,
-                        self._max_continuations,
+            with tracer.start_as_current_span("agent.task", attributes=task_attrs) as task_span:
+                for attempt in range(total_attempts):
+                    is_continuation = attempt > 0
+                    task_span.set_attribute("plato.agent.attempts", attempt + 1)
+                    if is_continuation:
+                        ci = self._continuation_instruction
+                        current_instruction = ci() if callable(ci) else ci
+                    else:
+                        current_instruction = instruction
+                    self._register_tool_request_context(
+                        info,
+                        instruction=current_instruction,
+                        display_name=current_display_name,
+                        attempt=attempt + 1,
                     )
 
-                logger.info("Executing agent on VM %s...", info.runtime_id)
-                span_id = await vm_setup.execute_agent(info, exec_ctx, runner_path, workdir)
-                self.last_execution_span_id = span_id
-                logger.info("Agent execution completed on VM %s", info.runtime_id)
+                    # Inject continue_session into agent config for continuation
+                    agent_config = dict(run_agent_config)
+                    if is_continuation:
+                        agent_config = {**agent_config, "continue_session": True}
 
-                # Sync workspaces back after execution
-                await vm_setup.sync_back_workspaces(info, mounts)
-
-                # If no exit condition configured, one-shot — break immediately
-                if self._exit_condition is None:
-                    break
-
-                # Check exit condition (workspace is synced back after execute())
-                if await self._exit_condition():
-                    logger.info("Exit condition met after attempt %d", attempt + 1)
-                    break
-
-                if attempt == total_attempts - 1:
-                    logger.warning(
-                        "Exit condition not met after %d attempt(s) (max_continuations=%d)",
-                        total_attempts,
-                        self._max_continuations,
+                    exec_ctx = AgentContext(
+                        image=self._agent.image,
+                        package=self._agent.package,
+                        config=agent_config,
+                        instruction=current_instruction,
+                        display_name=current_display_name,
+                        runtime=runtime_dict,
+                        agent_code_path=self._agent_code_path,
                     )
+
+                    if is_continuation:
+                        logger.info(
+                            "Continuation attempt %d/%d: exit condition not met, resuming agent",
+                            attempt,
+                            self._max_continuations,
+                        )
+
+                    logger.info("Executing agent on VM %s...", info.runtime_id)
+                    span_id = await vm_setup.execute_agent(info, exec_ctx, runner_path, workdir)
+                    self.last_execution_span_id = span_id
+                    logger.info("Agent execution completed on VM %s", info.runtime_id)
+
+                    # Sync workspaces back after execution
+                    await vm_setup.sync_back_workspaces(info, mounts)
+
+                    # If no exit condition configured, one-shot — break immediately
+                    if self._exit_condition is None:
+                        break
+
+                    # Check exit condition (workspace is synced back after execute())
+                    if await self._exit_condition():
+                        logger.info("Exit condition met after attempt %d", attempt + 1)
+                        break
+
+                    if attempt == total_attempts - 1:
+                        logger.warning(
+                            "Exit condition not met after %d attempt(s) (max_continuations=%d)",
+                            total_attempts,
+                            self._max_continuations,
+                        )
         except Exception as exc:
             run_error = exc
             logger.exception("Agent run failed on VM %s", info.runtime_id)

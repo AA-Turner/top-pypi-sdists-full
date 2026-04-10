@@ -142,6 +142,11 @@ class GlobalConfig:
         "spark.sql.caseSensitive": "false",
         "spark.sql.mapKeyDedupPolicy": "EXCEPTION",
         "spark.sql.ansi.enabled": "false",
+        # SNOW-3317615: PySpark 3.5.6 config default is ANSI, but V1 Hive/Parquet
+        # tables (used by EMR customers) bypass TableOutputResolver entirely,
+        # making effective behavior LEGACY. Default to LEGACY to match actual
+        # customer experience on EMR.
+        "spark.sql.storeAssignmentPolicy": "LEGACY",
         "spark.sql.legacy.allowHashOnMapType": "false",
         "spark.sql.sources.default": "parquet",
         "spark.Catalog.databaseFilterInformationSchema": "false",
@@ -164,6 +169,7 @@ class GlobalConfig:
         "snowpark.connect.parquet.useVectorizedScanner": "true",
         # USE_LOGICAL_TYPE enables proper handling of Parquet logical types (TIMESTAMP, DATE, DECIMAL).
         # Without useLogicalType set to "true", Parquet TIMESTAMP (INT64 physical) is incorrectly read as NUMBER(38,0).
+        # BCR planned for 1.22.0: the default will change from "false" to "true". (SNOW-3245146)
         "snowpark.connect.parquet.useLogicalType": "false",
         "spark.sql.legacy.dataset.nameNonStructGroupingKeyAsValue": "false",
         "snowpark.connect.handleIntegralOverflow": "false",
@@ -182,6 +188,7 @@ class GlobalConfig:
         # regardless of Python version compatibility. This helps test SPROC code paths in local CI.
         "snowpark.connect.test.force_create_sproc": "false",
         "snowpark.connect.use_udf_for_unbase64": "false",
+        "spark.sql.iceberg.merge-schema": "false",
     }
 
     boolean_config_list = [
@@ -202,7 +209,9 @@ class GlobalConfig:
         "snowpark.connect.handleIntegralOverflow",
         "snowpark.connect.test.force_create_sproc",
         "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables",
+        "snowpark.connect.sql.returnDmlMetadata",
         "snowpark.connect.use_udf_for_unbase64",
+        "spark.sql.iceberg.merge-schema",
     ]
 
     int_config_list = [
@@ -333,8 +342,11 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "parquet.enable.summary-metadata",
     "spark.sql.sources.partitionOverwriteMode",
     "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables",
+    "snowpark.connect.sql.returnDmlMetadata",
     "snowpark.connect.csv.continueOnError",
     "spark.sql.parquet.inferTimestampNTZ.enabled",
+    "snowpark.connect.io.validations.mode",
+    "spark.sql.iceberg.merge-schema",
 }
 AZURE_ACCOUNT_KEY = re.compile(
     r"^fs\.azure\.sas\.[^\.]+\.[^\.]+\.blob\.core\.windows\.net$"
@@ -373,8 +385,13 @@ class SessionConfig:
         "spark.jars": None,
         "spark.sql.sources.partitionOverwriteMode": "static",
         "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables": "false",
+        "snowpark.connect.sql.returnDmlMetadata": "false",
         "snowpark.connect.csv.continueOnError": "false",
         "spark.sql.parquet.inferTimestampNTZ.enabled": "true",
+        # IO validations mode: "lenient" (default) or "strict"
+        # When "strict", enforce Spark-compatible validations (e.g., SPARK-35912)
+        "snowpark.connect.io.validations.mode": "lenient",
+        "spark.sql.iceberg.merge-schema": "false",
     }
 
     def __init__(self) -> None:
@@ -398,6 +415,10 @@ class SessionConfig:
 
 
 CONFIG_ALLOWED_VALUES: dict[str, tuple] = {
+    "snowpark.connect.io.validations.mode": (
+        "lenient",
+        "strict",
+    ),
     "snowpark.connect.views.duplicate_column_names_handling_mode": (
         "rename",
         "fail",
@@ -417,6 +438,11 @@ CONFIG_ALLOWED_VALUES: dict[str, tuple] = {
     "spark.sql.sources.partitionOverwriteMode": (
         "static",
         "dynamic",
+    ),
+    "spark.sql.storeAssignmentPolicy": (
+        "ANSI",
+        "LEGACY",
+        "STRICT",
     ),
     "snowpark.connect.udf.resource_constraint.architecture": (
         None,
@@ -668,7 +694,7 @@ def set_jvm_timezone(timezone_id: str):
         new_timezone = TimeZone.getTimeZone(timezone_id)
         TimeZone.setDefault(new_timezone)
 
-        logger.info(f"JVM timezone changed to: {new_timezone.getID()}")
+        logger.debug(f"JVM timezone changed to: {new_timezone.getID()}")
     except Exception as e:
         logger.error(f"Failed to set JVM timezone: {e}")
 
@@ -683,7 +709,7 @@ def reset_jvm_timezone_to_system_default():
     try:
         TimeZone = jpype.JClass("java.util.TimeZone")
         TimeZone.setDefault(None)
-        logger.info(
+        logger.debug(
             f"Reset JVM timezone to system default: {TimeZone.getDefault().getID()}"
         )
     except jpype.JException as e:
@@ -742,11 +768,11 @@ def set_snowflake_parameters(
             # Set CTE optimization on the snowpark session
             cte_enabled = str_to_bool(value)
             snowpark_session.cte_optimization_enabled = cte_enabled
-            logger.info(f"Updated snowpark session CTE optimization: {cte_enabled}")
+            logger.debug(f"Updated snowpark session CTE optimization: {cte_enabled}")
         case "snowpark.connect.structured_types.fix":
             # TODO: SNOW-2367714 Remove this once the fix is automatically enabled in Snowpark
             snowpark.context._enable_fix_2360274 = str_to_bool(value)
-            logger.info(f"Updated snowpark session structured types fix: {value}")
+            logger.debug(f"Updated snowpark session structured types fix: {value}")
         case "spark.sql.parquet.outputTimestampType":
             if value == "TIMESTAMP_MICROS":
                 snowpark_session.sql(
@@ -757,7 +783,7 @@ def set_snowflake_parameters(
                 snowpark_session.sql(
                     "ALTER SESSION SET UNLOAD_PARQUET_TIME_TIMESTAMP_MILLIS = true"
                 ).collect()
-            logger.info(f"Updated parquet timestamp output type to: {value}")
+            logger.debug(f"Updated parquet timestamp output type to: {value}")
         case "snowpark.connect.scala.version":
             # force java udf helper recreation
             set_java_udf_creator_initialized_state(False)
@@ -780,6 +806,10 @@ def get_boolean_session_config_param(name: str) -> bool:
 def get_string_session_config_param(name: str) -> str:
     session_config = sessions_config[get_spark_session_id()]
     return str(session_config[name])
+
+
+def get_return_dml_metadata_enabled() -> bool:
+    return get_boolean_session_config_param("snowpark.connect.sql.returnDmlMetadata")
 
 
 def get_cte_optimization_enabled() -> bool:

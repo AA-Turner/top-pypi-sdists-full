@@ -18,7 +18,7 @@ from fastcore.xdg import *
 
 import ast,importlib,warnings
 from IPython.display import Markdown
-from execnb.nbio import read_nb,NbCell
+from fastcore.nbio import read_nb,NbCell
 from urllib.error import HTTPError
 
 try: import tomllib
@@ -271,7 +271,7 @@ cache-keys = [{ file = "pyproject.toml" }, { file = "setup.py" }]
 
 # %% ../nbs/api/01_config.ipynb #f1c85f45
 _re_version = re.compile(r'^__version__\s*=\s*[\'"]([^\'"]+)[\'"]', re.MULTILINE)
-_re_proj = re.compile(r'^name\s*=\s*".*$', re.MULTILINE)
+_re_proj = re.compile(r'(\[project\](?:\n(?!\[).*)*?\n)name\s*=\s*"[^"]*"')
 _re_reqpy = re.compile(r'^requires-python\s*=\s*".*$', re.MULTILINE)
 _init = '__init__.py'
 _pyproj = 'pyproject.toml'
@@ -320,7 +320,7 @@ def update_proj(path):
     fname = path/_pyproj
     if not fname.exists(): fname.write_text(pyproj_tmpl)
     txt = fname.read_text()
-    txt = _re_proj.sub(f'name = "{get_config().lib_name}"', txt)
+    txt = _re_proj.sub(rf'\1name = "{get_config().lib_name}"', txt)
     txt = _re_reqpy.sub(f'requires-python = ">={get_config().min_python}"', txt)
     fname.write_text(txt)
 

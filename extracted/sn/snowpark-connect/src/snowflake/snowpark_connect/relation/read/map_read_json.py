@@ -38,11 +38,15 @@ from snowflake.snowpark.types import (
     _FractionalType,
     _IntegralType,
 )
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.config import (
+    get_string_session_config_param,
+    global_config,
+)
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.read.map_read import JsonReaderConfig
+from snowflake.snowpark_connect.relation.read.map_read_csv import _make_schema_nullable
 from snowflake.snowpark_connect.relation.read.map_read_partitioned_file import (
     _discover_partition_columns,
 )
@@ -365,6 +369,20 @@ def map_read_json(
     We leverage the stage that is already created in the map_read function that
     calls this.
     """
+    # SPARK-35912: File sources like JSON can always contain NULL values,
+    # so Spark automatically converts non-nullable user schemas to nullable.
+    # This is controlled by snowpark.connect.io.validations.mode:
+    # - "lenient" (default): preserve original nullable settings
+    # - "strict": convert all fields to nullable (Spark behavior)
+    io_validations_mode = (
+        get_string_session_config_param("snowpark.connect.io.validations.mode")
+        .strip()
+        .lower()
+        or "lenient"
+    )
+
+    if schema is not None and io_validations_mode == "strict":
+        schema = _make_schema_nullable(schema)
 
     if rel.read.is_streaming is True:
         # TODO: Structured streaming implementation.

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -173,7 +173,9 @@ def file_writer(
             # relative difference normalized to the size of the second axis
             # the more pixels is in the second axis, the higher the tolerance need to be
             not math.isclose(
-                axes[0]["scale"], axes[1]["scale"], rel_tol=0.1 / axes[1]["size"]
+                abs(axes[0]["scale"]),
+                abs(axes[1]["scale"]),
+                rel_tol=0.1 / axes[1]["size"],
             )
         ):
             raise ValueError(

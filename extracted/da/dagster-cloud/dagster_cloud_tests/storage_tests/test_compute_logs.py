@@ -39,7 +39,7 @@ def test_cloud_compute_log_manager_configured_disabled():
                 "agent_token": "token",
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
         }

@@ -10,12 +10,24 @@ from abc import (
 from chalk._gen.chalk.server.v1.kube_pb2 import (
     GetKubernetesAutoscalersRequest,
     GetKubernetesAutoscalersResponse,
+    GetKubernetesDeploymentWithPodsRequest,
+    GetKubernetesDeploymentWithPodsResponse,
+    GetKubernetesDeploymentsRequest,
+    GetKubernetesDeploymentsResponse,
     GetKubernetesEventsRequest,
     GetKubernetesEventsResponse,
+    GetKubernetesJobWithPodsRequest,
+    GetKubernetesJobWithPodsResponse,
+    GetKubernetesJobsRequest,
+    GetKubernetesJobsResponse,
     GetKubernetesPersistentVolumesRequest,
     GetKubernetesPersistentVolumesResponse,
     GetKubernetesServiceAccountsRequest,
     GetKubernetesServiceAccountsResponse,
+    GetKubernetesStatefulSetWithPodsRequest,
+    GetKubernetesStatefulSetWithPodsResponse,
+    GetKubernetesStatefulSetsRequest,
+    GetKubernetesStatefulSetsResponse,
     GetPodStackTraceDumpRequest,
     GetPodStackTraceDumpResponse,
 )
@@ -50,6 +62,33 @@ class KubeServiceStub:
     GetKubernetesAutoscalers: UnaryUnaryMultiCallable[
         GetKubernetesAutoscalersRequest,
         GetKubernetesAutoscalersResponse,
+    ]
+    GetKubernetesDeployments: UnaryUnaryMultiCallable[
+        GetKubernetesDeploymentsRequest,
+        GetKubernetesDeploymentsResponse,
+    ]
+    GetKubernetesStatefulSets: UnaryUnaryMultiCallable[
+        GetKubernetesStatefulSetsRequest,
+        GetKubernetesStatefulSetsResponse,
+    ]
+    GetKubernetesJobs: UnaryUnaryMultiCallable[
+        GetKubernetesJobsRequest,
+        GetKubernetesJobsResponse,
+    ]
+    GetKubernetesDeploymentWithPods: UnaryUnaryMultiCallable[
+        GetKubernetesDeploymentWithPodsRequest,
+        GetKubernetesDeploymentWithPodsResponse,
+    ]
+    """GetKubernetesDeploymentWithPods fetches a single deployment by name/namespace/cluster
+    and its associated pods, resolved via the deployment's matchLabels selector.
+    """
+    GetKubernetesStatefulSetWithPods: UnaryUnaryMultiCallable[
+        GetKubernetesStatefulSetWithPodsRequest,
+        GetKubernetesStatefulSetWithPodsResponse,
+    ]
+    GetKubernetesJobWithPods: UnaryUnaryMultiCallable[
+        GetKubernetesJobWithPodsRequest,
+        GetKubernetesJobWithPodsResponse,
     ]
 
 class KubeServiceServicer(metaclass=ABCMeta):
@@ -86,5 +125,44 @@ class KubeServiceServicer(metaclass=ABCMeta):
         request: GetKubernetesAutoscalersRequest,
         context: ServicerContext,
     ) -> GetKubernetesAutoscalersResponse: ...
+    @abstractmethod
+    def GetKubernetesDeployments(
+        self,
+        request: GetKubernetesDeploymentsRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesDeploymentsResponse: ...
+    @abstractmethod
+    def GetKubernetesStatefulSets(
+        self,
+        request: GetKubernetesStatefulSetsRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesStatefulSetsResponse: ...
+    @abstractmethod
+    def GetKubernetesJobs(
+        self,
+        request: GetKubernetesJobsRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesJobsResponse: ...
+    @abstractmethod
+    def GetKubernetesDeploymentWithPods(
+        self,
+        request: GetKubernetesDeploymentWithPodsRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesDeploymentWithPodsResponse:
+        """GetKubernetesDeploymentWithPods fetches a single deployment by name/namespace/cluster
+        and its associated pods, resolved via the deployment's matchLabels selector.
+        """
+    @abstractmethod
+    def GetKubernetesStatefulSetWithPods(
+        self,
+        request: GetKubernetesStatefulSetWithPodsRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesStatefulSetWithPodsResponse: ...
+    @abstractmethod
+    def GetKubernetesJobWithPods(
+        self,
+        request: GetKubernetesJobWithPodsRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesJobWithPodsResponse: ...
 
 def add_KubeServiceServicer_to_server(servicer: KubeServiceServicer, server: Server) -> None: ...

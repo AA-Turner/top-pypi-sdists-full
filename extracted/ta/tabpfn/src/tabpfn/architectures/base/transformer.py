@@ -319,7 +319,6 @@ class PerFeatureTransformer(Architecture):
         data_dags: list[nx.DiGraph] | None = None,
         force_recompute_layer: bool = False,
         save_peak_memory_factor: int | None = None,
-        differentiable_input: bool = False,
         task_type: str | None = None,
     ) -> torch.Tensor | dict[str, torch.Tensor]:
         """Perform a forward pass.
@@ -330,7 +329,6 @@ class PerFeatureTransformer(Architecture):
             force_recompute_layer: If True, enable activation checkpointing for each
                 Transformer block. Otherwise, checkpoint as set in the config.
         """
-        del differentiable_input
         assert style is None
 
         if isinstance(x, dict):
@@ -524,7 +522,13 @@ class PerFeatureTransformer(Architecture):
             )
         del embedded_y, embedded_x
 
-        if self.add_thinking_tokens is not None:
+        is_kv_cache_prediction = (
+            self.cache_trainset_representation and single_eval_pos == 0
+        )
+
+        # The thinking tokens are added when the cache is populated, so we don't add
+        # them again when using the cache.
+        if self.add_thinking_tokens is not None and not is_kv_cache_prediction:
             embedded_input, single_eval_pos = self.add_thinking_tokens(
                 embedded_input,
                 single_eval_pos,

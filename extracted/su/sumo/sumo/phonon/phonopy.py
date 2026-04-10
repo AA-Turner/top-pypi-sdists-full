@@ -54,12 +54,12 @@ def load_phonopy(
             ``False`` (force constants not written).
     """
     unitcell = get_phonopy_structure(structure)
-    num_atom = unitcell.get_number_of_atoms()
-    num_satom = determinant(dim) * num_atom
+    num_satom = determinant(dim) * len(unitcell)
 
     phonon = Phonopy(
-        unitcell, dim, primitive_matrix=primitive_matrix, factor=factor, symprec=symprec
+        unitcell, dim, primitive_matrix=primitive_matrix, symprec=symprec
     )
+    phonon.unit_conversion_factor = factor
 
     if "FORCE_CONSTANTS" in filename or ".hdf5" in filename:
         # if force constants exist, use these to avoid recalculating them

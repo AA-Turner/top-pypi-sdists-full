@@ -123,7 +123,7 @@ def configure_snowpark_session(session: snowpark.Session):
     # Configure CTE optimization based on session configuration
     cte_optimization_enabled = get_cte_optimization_enabled()
     session.cte_optimization_enabled = cte_optimization_enabled
-    logger.info(f"CTE optimization enabled: {cte_optimization_enabled}")
+    logger.debug(f"CTE optimization enabled: {cte_optimization_enabled}")
 
     # Default query tag to be used unless overridden by user using AppName or spark.addTag()
     query_tag = "SNOWPARK_CONNECT_QUERY"

@@ -83,6 +83,7 @@ class SessionResource(SyncAPIResource):
         connected_accounts: Dict[str, str] | Omit = omit,
         experimental: session_create_params.Experimental | Omit = omit,
         manage_connections: session_create_params.ManageConnections | Omit = omit,
+        multi_account: session_create_params.MultiAccount | Omit = omit,
         tags: session_create_params.Tags | Omit = omit,
         toolkits: session_create_params.Toolkits | Omit = omit,
         tools: Dict[str, session_create_params.Tools] | Omit = omit,
@@ -117,6 +118,9 @@ class SessionResource(SyncAPIResource):
 
           manage_connections: Configuration for connection management settings
 
+          multi_account: Configure multi-account behavior. When enabled, users can connect multiple
+              accounts per toolkit.
+
           tags: Global MCP tool annotation hints for filtering. Array format is treated as
               enabled list. Object format supports both enabled (tool must have at least one)
               and disabled (tool must NOT have any) lists. Toolkit-level tags override this.
@@ -147,6 +151,7 @@ class SessionResource(SyncAPIResource):
                     "connected_accounts": connected_accounts,
                     "experimental": experimental,
                     "manage_connections": manage_connections,
+                    "multi_account": multi_account,
                     "tags": tags,
                     "toolkits": toolkits,
                     "tools": tools,
@@ -202,6 +207,7 @@ class SessionResource(SyncAPIResource):
         session_id: str,
         *,
         tool_slug: str,
+        account: str | Omit = omit,
         arguments: Dict[str, Optional[object]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -224,6 +230,11 @@ class SessionResource(SyncAPIResource):
 
           tool_slug: The unique slug identifier of the tool to execute
 
+          account: Account identifier to specify which connected account to use. Use the account ID
+              (e.g. "coup_hurricane_dal_analytical") or an alias. When omitted with a single
+              account, the default is used. When omitted with multiple accounts, an error
+              lists available accounts.
+
           arguments: The arguments required by the tool
 
           extra_headers: Send extra headers
@@ -241,6 +252,7 @@ class SessionResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "tool_slug": tool_slug,
+                    "account": account,
                     "arguments": arguments,
                 },
                 session_execute_params.SessionExecuteParams,
@@ -315,6 +327,7 @@ class SessionResource(SyncAPIResource):
         session_id: str,
         *,
         toolkit: str,
+        alias: str | Omit = omit,
         callback_url: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -333,6 +346,9 @@ class SessionResource(SyncAPIResource):
 
           toolkit: The unique slug identifier of the toolkit to connect
 
+          alias: A human-readable alias for this connected account. Must be unique per entity and
+              toolkit within the project.
+
           callback_url: URL where users will be redirected after completing auth
 
           extra_headers: Send extra headers
@@ -350,6 +366,7 @@ class SessionResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "toolkit": toolkit,
+                    "alias": alias,
                     "callback_url": callback_url,
                 },
                 session_link_params.SessionLinkParams,
@@ -493,7 +510,7 @@ class SessionResource(SyncAPIResource):
         *,
         cursor: str | Omit = omit,
         is_connected: Optional[bool] | Omit = omit,
-        limit: Optional[float] | Omit = omit,
+        limit: int | Omit = omit,
         search: str | Omit = omit,
         toolkits: Optional[SequenceNotStr[str]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -519,7 +536,7 @@ class SessionResource(SyncAPIResource):
           is_connected: Whether to filter by connected toolkits. If provided, only connected toolkits
               will be returned.
 
-          limit: Number of items per page, max allowed is 1000
+          limit: Number of items per page, max allowed is 50
 
           search: Search query to filter toolkits by name, slug, or description
 
@@ -630,6 +647,7 @@ class AsyncSessionResource(AsyncAPIResource):
         connected_accounts: Dict[str, str] | Omit = omit,
         experimental: session_create_params.Experimental | Omit = omit,
         manage_connections: session_create_params.ManageConnections | Omit = omit,
+        multi_account: session_create_params.MultiAccount | Omit = omit,
         tags: session_create_params.Tags | Omit = omit,
         toolkits: session_create_params.Toolkits | Omit = omit,
         tools: Dict[str, session_create_params.Tools] | Omit = omit,
@@ -664,6 +682,9 @@ class AsyncSessionResource(AsyncAPIResource):
 
           manage_connections: Configuration for connection management settings
 
+          multi_account: Configure multi-account behavior. When enabled, users can connect multiple
+              accounts per toolkit.
+
           tags: Global MCP tool annotation hints for filtering. Array format is treated as
               enabled list. Object format supports both enabled (tool must have at least one)
               and disabled (tool must NOT have any) lists. Toolkit-level tags override this.
@@ -694,6 +715,7 @@ class AsyncSessionResource(AsyncAPIResource):
                     "connected_accounts": connected_accounts,
                     "experimental": experimental,
                     "manage_connections": manage_connections,
+                    "multi_account": multi_account,
                     "tags": tags,
                     "toolkits": toolkits,
                     "tools": tools,
@@ -749,6 +771,7 @@ class AsyncSessionResource(AsyncAPIResource):
         session_id: str,
         *,
         tool_slug: str,
+        account: str | Omit = omit,
         arguments: Dict[str, Optional[object]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -771,6 +794,11 @@ class AsyncSessionResource(AsyncAPIResource):
 
           tool_slug: The unique slug identifier of the tool to execute
 
+          account: Account identifier to specify which connected account to use. Use the account ID
+              (e.g. "coup_hurricane_dal_analytical") or an alias. When omitted with a single
+              account, the default is used. When omitted with multiple accounts, an error
+              lists available accounts.
+
           arguments: The arguments required by the tool
 
           extra_headers: Send extra headers
@@ -788,6 +816,7 @@ class AsyncSessionResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "tool_slug": tool_slug,
+                    "account": account,
                     "arguments": arguments,
                 },
                 session_execute_params.SessionExecuteParams,
@@ -862,6 +891,7 @@ class AsyncSessionResource(AsyncAPIResource):
         session_id: str,
         *,
         toolkit: str,
+        alias: str | Omit = omit,
         callback_url: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -880,6 +910,9 @@ class AsyncSessionResource(AsyncAPIResource):
 
           toolkit: The unique slug identifier of the toolkit to connect
 
+          alias: A human-readable alias for this connected account. Must be unique per entity and
+              toolkit within the project.
+
           callback_url: URL where users will be redirected after completing auth
 
           extra_headers: Send extra headers
@@ -897,6 +930,7 @@ class AsyncSessionResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "toolkit": toolkit,
+                    "alias": alias,
                     "callback_url": callback_url,
                 },
                 session_link_params.SessionLinkParams,
@@ -1040,7 +1074,7 @@ class AsyncSessionResource(AsyncAPIResource):
         *,
         cursor: str | Omit = omit,
         is_connected: Optional[bool] | Omit = omit,
-        limit: Optional[float] | Omit = omit,
+        limit: int | Omit = omit,
         search: str | Omit = omit,
         toolkits: Optional[SequenceNotStr[str]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -1066,7 +1100,7 @@ class AsyncSessionResource(AsyncAPIResource):
           is_connected: Whether to filter by connected toolkits. If provided, only connected toolkits
               will be returned.
 
-          limit: Number of items per page, max allowed is 1000
+          limit: Number of items per page, max allowed is 50
 
           search: Search query to filter toolkits by name, slug, or description
 

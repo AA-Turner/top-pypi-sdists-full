@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lbt-dragonfly
-Version: 0.12.421
+Version: 0.13.0
 Summary: Collection of all Dragonfly core Python libraries
 Home-page: https://github.com/ladybug-tools/lbt-dragonfly
 Author: Ladybug Tools
@@ -18,13 +18,14 @@ Classifier: Programming Language :: Python :: Implementation :: IronPython
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dragonfly-energy==1.40.8
-Requires-Dist: dragonfly-radiance==0.4.165
+Requires-Dist: dragonfly-energy==1.41.1
+Requires-Dist: dragonfly-radiance==0.4.166
+Requires-Dist: dragonfly-openstudio==0.1.0
 Requires-Dist: dragonfly-doe2==0.12.16
 Requires-Dist: dragonfly-uwg==0.5.743
 Requires-Dist: dragonfly-display==0.4.1
 Requires-Dist: dragonfly-comparison==0.1.4
-Requires-Dist: lbt-honeybee==0.9.292
+Requires-Dist: lbt-honeybee==0.9.295
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -58,6 +59,8 @@ dragonfly Python packages:
 
 * [dragonfly-energy](https://github.com/ladybug-tools/dragonfly-energy)
 * [dragonfly-radiance](https://github.com/ladybug-tools/dragonfly-radiance)
+* [dragonfly-openstudio](https://github.com/ladybug-tools/dragonfly-openstudio)
+* [dragonfly-doe2](https://github.com/ladybug-tools/dragonfly-doe2)
 * [dragonfly-uwg](https://github.com/ladybug-tools/dragonfly-uwg)
 * [dragonfly-display](https://github.com/ladybug-tools/dragonfly-display)
 

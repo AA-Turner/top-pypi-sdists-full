@@ -429,6 +429,98 @@ pub struct ToolMaturin {
     /// Include the import library (.dll.lib) in the wheel on Windows
     #[serde(default)]
     pub include_import_lib: bool,
+    /// Command to run for PGO profile generation.
+    /// Executed in a temporary virtualenv with the instrumented wheel installed.
+    /// Example: `python -m pytest tests/benchmarks`
+    pub pgo_command: Option<String>,
+    /// CI generation configuration
+    pub generate_ci: Option<GenerateCIConfig>,
+}
+
+/// The `[tool.maturin.generate-ci]` section
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct GenerateCIConfig {
+    /// GitHub Actions configuration
+    pub github: Option<GitHubCIConfig>,
+}
+
+/// The `[tool.maturin.generate-ci.github]` section
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct GitHubCIConfig {
+    /// Enable pytest
+    pub pytest: Option<bool>,
+    /// Use zig for cross compilation
+    pub zig: Option<bool>,
+    /// Skip artifact attestation
+    pub skip_attestation: Option<bool>,
+    /// Extra arguments to pass to maturin (applies to all platforms)
+    pub args: Option<String>,
+    /// Linux (manylinux) platform configuration
+    pub linux: Option<PlatformCIConfig>,
+    /// Musllinux platform configuration
+    pub musllinux: Option<PlatformCIConfig>,
+    /// Windows platform configuration
+    pub windows: Option<PlatformCIConfig>,
+    /// macOS platform configuration
+    pub macos: Option<PlatformCIConfig>,
+    /// Emscripten platform configuration
+    pub emscripten: Option<PlatformCIConfig>,
+    /// Android platform configuration
+    pub android: Option<PlatformCIConfig>,
+}
+
+/// Shared CI configuration overrides used by both platform-level and
+/// per-target CI configuration.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct CIConfigOverrides {
+    /// Runner override
+    pub runner: Option<String>,
+    /// Manylinux version (e.g. "auto", "2_28", "musllinux_1_2")
+    pub manylinux: Option<String>,
+    /// Container image to use
+    pub container: Option<String>,
+    /// Docker options
+    pub docker_options: Option<String>,
+    /// Rust toolchain (e.g. "nightly", "stable")
+    pub rust_toolchain: Option<String>,
+    /// Rustup components to install
+    pub rustup_components: Option<String>,
+    /// Script to run before build on Linux
+    pub before_script_linux: Option<String>,
+    /// Extra arguments to pass to maturin
+    pub args: Option<String>,
+}
+
+/// Per-platform CI configuration
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct PlatformCIConfig {
+    /// Simple list of target architectures (mutually exclusive with `target`)
+    pub targets: Option<Vec<String>>,
+    /// Detailed per-target configuration (mutually exclusive with `targets`)
+    pub target: Option<Vec<TargetCIConfig>>,
+    /// Platform-level overrides
+    #[serde(flatten)]
+    pub overrides: CIConfigOverrides,
+}
+
+/// Per-target CI configuration within a platform
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct TargetCIConfig {
+    /// Target architecture (e.g. "x86_64", "aarch64")
+    pub arch: String,
+    /// Per-target overrides
+    #[serde(flatten)]
+    pub overrides: CIConfigOverrides,
 }
 
 /// A pyproject.toml as specified in PEP 517
@@ -497,6 +589,11 @@ impl PyProjectToml {
         self.maturin()?.bindings.as_deref()
     }
 
+    /// Returns the PGO training command from `[tool.maturin]`
+    pub fn pgo_command(&self) -> Option<&str> {
+        self.maturin().and_then(|m| m.pgo_command.as_deref())
+    }
+
     /// Returns the value of `[tool.maturin.compatibility]` in pyproject.toml
     pub fn compatibility(&self) -> Option<PlatformTag> {
         self.maturin()?.compatibility
@@ -548,8 +645,9 @@ impl PyProjectToml {
     }
 
     /// Returns the value of `[tool.maturin.targets]` in pyproject.toml
-    pub fn targets(&self) -> Option<Vec<CargoTarget>> {
-        self.maturin().and_then(|maturin| maturin.targets.clone())
+    pub fn targets(&self) -> Option<&[CargoTarget]> {
+        self.maturin()
+            .and_then(|maturin| maturin.targets.as_deref())
     }
 
     /// Returns the value of `[tool.maturin.target.<target>]` in pyproject.toml
@@ -568,6 +666,11 @@ impl PyProjectToml {
         self.maturin()
             .map(|maturin| maturin.include_import_lib)
             .unwrap_or_default()
+    }
+
+    /// Returns the value of `[tool.maturin.generate-ci]` in pyproject.toml
+    pub fn generate_ci(&self) -> Option<&GenerateCIConfig> {
+        self.maturin()?.generate_ci.as_ref()
     }
 
     /// Warn about `build-system.requires` mismatching expectations.
@@ -670,6 +773,7 @@ impl PyProjectToml {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_utils::test_crate_path;
     use crate::{
         PyProjectToml,
         pyproject_toml::{
@@ -749,7 +853,8 @@ mod tests {
 
     #[test]
     fn test_warn_missing_maturin_version() {
-        let with_constraint = PyProjectToml::new("test-crates/pyo3-pure/pyproject.toml").unwrap();
+        let with_constraint =
+            PyProjectToml::new(test_crate_path("pyo3-pure").join("pyproject.toml")).unwrap();
         assert!(with_constraint.warn_bad_maturin_version());
         let without_constraint_dir = TempDir::new().unwrap();
         let pyproject_file = without_constraint_dir.path().join("pyproject.toml");
@@ -1084,5 +1189,115 @@ mod tests {
         "#;
         let result: Result<ToolMaturin, _> = toml::from_str(toml_str);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_generate_ci_config_deserialization() {
+        let toml_str = r#"
+            [generate-ci.github]
+            pytest = true
+            zig = true
+            skip-attestation = false
+
+            [generate-ci.github.linux]
+            runner = "ubuntu-22.04"
+            manylinux = "2_28"
+            targets = ["x86_64", "aarch64"]
+
+            [generate-ci.github.macos]
+            targets = ["aarch64"]
+        "#;
+        let maturin: ToolMaturin = toml::from_str(toml_str).unwrap();
+        let ci = maturin.generate_ci.unwrap();
+        let gh = ci.github.unwrap();
+        assert_eq!(gh.pytest, Some(true));
+        assert_eq!(gh.zig, Some(true));
+        assert_eq!(gh.skip_attestation, Some(false));
+        let linux = gh.linux.unwrap();
+        assert_eq!(linux.overrides.runner, Some("ubuntu-22.04".to_string()));
+        assert_eq!(linux.overrides.manylinux, Some("2_28".to_string()));
+        assert_eq!(
+            linux.targets,
+            Some(vec!["x86_64".to_string(), "aarch64".to_string()])
+        );
+        let macos = gh.macos.unwrap();
+        assert_eq!(macos.targets, Some(vec!["aarch64".to_string()]));
+        assert!(gh.windows.is_none());
+    }
+
+    #[test]
+    fn test_generate_ci_config_detailed_targets() {
+        let toml_str = r#"
+            [[generate-ci.github.linux.target]]
+            arch = "x86_64"
+            manylinux = "2_28"
+
+            [[generate-ci.github.linux.target]]
+            arch = "aarch64"
+            runner = "self-hosted-arm64"
+            manylinux = "2_17"
+            before-script-linux = "yum install -y openssl-devel"
+        "#;
+        let maturin: ToolMaturin = toml::from_str(toml_str).unwrap();
+        let ci = maturin.generate_ci.unwrap();
+        let gh = ci.github.unwrap();
+        let linux = gh.linux.unwrap();
+        assert!(linux.targets.is_none());
+        let detailed = linux.target.unwrap();
+        assert_eq!(detailed.len(), 2);
+        assert_eq!(detailed[0].arch, "x86_64");
+        assert_eq!(detailed[0].overrides.manylinux, Some("2_28".to_string()));
+        assert_eq!(detailed[1].arch, "aarch64");
+        assert_eq!(
+            detailed[1].overrides.runner,
+            Some("self-hosted-arm64".to_string())
+        );
+        assert_eq!(
+            detailed[1].overrides.before_script_linux,
+            Some("yum install -y openssl-devel".to_string())
+        );
+    }
+
+    #[test]
+    fn test_pgo_command() {
+        let tmp_dir = TempDir::new().unwrap();
+        let pyproject_file = tmp_dir.path().join("pyproject.toml");
+
+        fs::write(
+            &pyproject_file,
+            r#"[build-system]
+            requires = ["maturin"]
+            build-backend = "maturin"
+
+            [tool.maturin]
+            pgo-command = "python -m pytest tests/benchmarks"
+            "#,
+        )
+        .unwrap();
+        let pyproject = PyProjectToml::new(pyproject_file).unwrap();
+        assert_eq!(
+            pyproject.pgo_command(),
+            Some("python -m pytest tests/benchmarks")
+        );
+    }
+
+    #[test]
+    fn test_pgo_command_absent() {
+        let tmp_dir = TempDir::new().unwrap();
+        let pyproject_file = tmp_dir.path().join("pyproject.toml");
+
+        fs::write(
+            &pyproject_file,
+            r#"[build-system]
+            requires = ["maturin"]
+            build-backend = "maturin"
+
+            [tool.maturin]
+            manylinux = "2010"
+            "#,
+        )
+        .unwrap();
+        let pyproject = PyProjectToml::new(pyproject_file).unwrap();
+        assert_eq!(pyproject.pgo_command(), None);
     }
 }

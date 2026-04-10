@@ -7,7 +7,7 @@ import json
 from ladybug_geometry.geometry2d import Point2D, LineSegment2D, Polyline2D, Polygon2D
 from ladybug.location import Location
 from ladybug.datacollection import HourlyContinuousCollection
-from honeybee.typing import valid_ep_string
+from honeybee.typing import valid_ep_string, valid_string
 from honeybee.units import conversion_factor_to_meters
 from dragonfly.projection import meters_to_long_lat_factors, \
     origin_long_lat_from_location
@@ -32,6 +32,25 @@ class FourthGenThermalLoop(object):
         heating_plant: Optional HeatingPlant object to specify the properties
             of the heating plant in the loop. If None, default values will
             be used. (Default: None).
+        economizer_type: Text for the type of waterside economizer to be used within
+            the cooling plant. Integrated will pre-cool the inlet supply water
+            to the chiller using the cooling tower whenever outdoor wetbulb
+            temperatures are cold enough. NonIntegrated will bypass the chiller
+            completely to create chilled water via the cooling tower whenever
+            outdoor wetbulb temperatures are cold enough. Choose from the
+            options below. (Default: None).
+
+            * None
+            * Integrated
+            * NonIntegrated
+
+        heating_type: Text for the source of heat within the heating plant.
+            Choose from the options below. (Default: NaturalGas).
+
+            * NaturalGas
+            * Electricity
+            * AirSourceHeatPump
+            * DistrictHeating
 
     Properties:
         * identifier
@@ -39,14 +58,22 @@ class FourthGenThermalLoop(object):
         * cooling_plant
         * heating_plant
     """
-    __slots__ = ('_identifier', '_display_name', '_cooling_plant', '_heating_plant')
+    __slots__ = ('_identifier', '_display_name', '_cooling_plant', '_heating_plant',
+                 '_economizer_type', '_heating_type')
+    ECONOMIZER_TYPES = ('None', 'Integrated', 'NonIntegrated')
+    HEATING_TYPES = (
+        'NaturalGas', 'Electricity', 'AirSourceHeatPump', 'DistrictHeating'
+    )
 
-    def __init__(self, identifier, cooling_plant=None, heating_plant=None):
-        """Initialize GHEThermalLoop."""
+    def __init__(self, identifier, cooling_plant=None, heating_plant=None,
+                 economizer_type='None', heating_type='NaturalGas'):
+        """Initialize FourthGenThermalLoop."""
         self.identifier = identifier
         self._display_name = None
         self.cooling_plant = cooling_plant
         self.heating_plant = heating_plant
+        self.economizer_type = economizer_type
+        self.heating_type = heating_type
 
     @classmethod
     def from_dict(cls, data):
@@ -62,7 +89,9 @@ class FourthGenThermalLoop(object):
             if 'cooling_plant' in data and data['cooling_plant'] is not None else None
         hwp = HeatingPlant.from_dict(data['heating_plant']) \
             if 'heating_plant' in data and data['heating_plant'] is not None else None
-        loop = cls(data['identifier'], cwp, hwp)
+        et = data['economizer_type'] if 'economizer_type' in data else 'None'
+        ht = data['heating_type'] if 'heating_type' in data else 'NaturalGas'
+        loop = cls(data['identifier'], cwp, hwp, et, ht)
         if 'display_name' in data and data['display_name'] is not None:
             loop.display_name = data['display_name']
         return loop
@@ -121,12 +150,50 @@ class FourthGenThermalLoop(object):
             ' for FourthGenThermalLoop. Got {}.'.format(type(value))
         self._heating_plant = value
 
+    @property
+    def economizer_type(self):
+        """Get or set text to indicate the type of waterside economizer."""
+        return self._economizer_type
+
+    @economizer_type.setter
+    def economizer_type(self, value):
+        clean_input = valid_string(value).lower()
+        for key in self.ECONOMIZER_TYPES:
+            if key.lower() == clean_input:
+                value = key
+                break
+        else:
+            raise ValueError(
+                'economizer_type {} is not recognized.\nChoose from the '
+                'following:\n{}'.format(value, self.ECONOMIZER_TYPES))
+        self._economizer_type = value
+
+    @property
+    def heating_type(self):
+        """Get or set text to indicate the type of heating."""
+        return self._heating_type
+
+    @heating_type.setter
+    def heating_type(self, value):
+        clean_input = valid_string(value).lower()
+        for key in self.HEATING_TYPES:
+            if key.lower() == clean_input:
+                value = key
+                break
+        else:
+            raise ValueError(
+                'heating_type {} is not recognized.\nChoose from the '
+                'following:\n{}'.format(value, self.HEATING_TYPES))
+        self._heating_type = value
+
     def to_dict(self):
         """FourthGenThermalLoop dictionary representation."""
         base = {'type': 'FourthGenThermalLoop'}
         base['identifier'] = self.identifier
         base['cooling_plant'] = self.cooling_plant.to_dict()
         base['heating_plant'] = self.heating_plant.to_dict()
+        base['economizer_type'] = self.economizer_type
+        base['heating_type'] = self.heating_type
         if self._display_name is not None:
             base['display_name'] = self.display_name
         return base
@@ -223,7 +290,7 @@ class FourthGenThermalLoop(object):
     def __copy__(self):
         new_loop = FourthGenThermalLoop(
             self.identifier, self.cooling_plant.duplicate(),
-            self.heating_plant.duplicate()
+            self.heating_plant.duplicate(), self.economizer_type, self.heating_type
         )
         new_loop._display_name = self._display_name
         return new_loop
@@ -259,6 +326,27 @@ class FifthGenThermalLoop(object):
         horizontal_pipe_parameters: Optional HorizontalPipeParameter object to specify
             the properties of the horizontal pipes contained within ThermalConnectors.
             If None, default values will be used. (Default: None).
+        heat_rejection_type: Text for the equipment used to cool a fifth generation
+            loop when it overheats. Note that choosing None will usually cause a
+            simulation failure unless there is a very large ground heat exchanger
+            on the loop. Choose from the options below. (Default: CoolingTower).
+
+            * CoolingTower
+            * FluidCooler
+            * EvaporativeFluidCooler
+            * DistrictCooling
+            * None
+
+        supplemental_heat_type: Text for the equipment used to heat the loop
+            when it requires supplemental heating. Note that choosing None will
+            usually cause a simulation failure unless there is a very large
+            ground heat exchanger on the loop. Choose from the options below.
+            Choose from the options below. (Default: Electricity).
+
+            * Electricity
+            * NaturalGas
+            * DistrictHeating
+            * None
 
     Properties:
         * identifier
@@ -267,15 +355,26 @@ class FifthGenThermalLoop(object):
         * clockwise_flow
         * soil_parameters
         * horizontal_pipe_parameters
+        * heat_rejection_type
+        * supplemental_heat_type
     """
     __slots__ = (
         '_identifier', '_display_name', '_connectors', '_clockwise_flow',
-        '_soil_parameters', '_horizontal_pipe_parameters'
+        '_soil_parameters', '_horizontal_pipe_parameters',
+        '_heat_rejection_type', '_supplemental_heat_type'
+    )
+    HEAT_REJECTION_TYPES = (
+        'CoolingTower', 'FluidCooler', 'EvaporativeFluidCooler',
+        'DistrictCooling', 'None'
+    )
+    SUPPLEMENTAL_HEAT_TYPES = (
+        'Electricity', 'NaturalGas', 'DistrictHeating', 'None'
     )
 
     def __init__(
         self, identifier, connectors, clockwise_flow=False,
-        soil_parameters=None, horizontal_pipe_parameters=None
+        soil_parameters=None, horizontal_pipe_parameters=None,
+        heat_rejection_type='CoolingTower', supplemental_heat_type='Electricity'
     ):
         """Initialize FifthGenThermalLoop."""
         self.identifier = identifier
@@ -284,6 +383,8 @@ class FifthGenThermalLoop(object):
         self.clockwise_flow = clockwise_flow
         self.soil_parameters = soil_parameters
         self.horizontal_pipe_parameters = horizontal_pipe_parameters
+        self.heat_rejection_type = heat_rejection_type
+        self.supplemental_heat_type = supplemental_heat_type
 
     @classmethod
     def from_dict(cls, data):
@@ -302,20 +403,23 @@ class FifthGenThermalLoop(object):
             if 'soil_parameters' in data else None
         hp = HorizontalPipeParameter.from_dict(data['horizontal_pipe_parameters']) \
             if 'horizontal_pipe_parameters' in data else None
-        loop = cls(data['identifier'], conns, clock, soil, hp)
+        hrt = data['heat_rejection_type'] \
+            if 'heat_rejection_type' in data else 'CoolingTower'
+        sht = data['supplemental_heat_type'] \
+            if 'supplemental_heat_type' in data else 'Electricity'
+        loop = cls(data['identifier'], conns, clock, soil, hp, hrt, sht)
         if 'display_name' in data and data['display_name'] is not None:
             loop.display_name = data['display_name']
         return loop
 
     @classmethod
-    def from_geojson(
-            cls, geojson_file_path, location=None, point=None, units='Meters',
+    def from_geojson_dict(
+            cls, geojson_dict, location=None, point=None, units='Meters',
             clockwise_flow=False):
         """Get an FifthGenThermalLoop from a dictionary as it appears in a GeoJSON.
 
         Args:
-            geojson_file_path: Text for the full path to the geojson file to load
-                as FifthGenThermalLoop.
+            geojson_dict: The dictionary loaded from a GeoJSON file.
             location: An optional ladybug location object with longitude and
                 latitude data defining the origin of the geojson file. If None,
                 an attempt will be made to sense the location from the project
@@ -342,11 +446,8 @@ class FifthGenThermalLoop(object):
                 loop is clockwise (True) when viewed from above in the GeoJSON or it
                 is counterclockwise (False). (Default: False).
         """
-        # parse the geoJSON into a dictionary
-        with open(geojson_file_path, 'r') as fp:
-            data = json.load(fp)
-
         # extract the CAD coordinates and location from the GeoJSON if they exist
+        data = geojson_dict
         if 'project' in data:
             prd = data['project']
             if 'latitude' in prd and 'longitude' in prd and location is None:
@@ -388,11 +489,59 @@ class FifthGenThermalLoop(object):
             connectors.append(con_obj)
 
         # create the loop and adjust for the units
-        base_name = os.path.basename(geojson_file_path)
-        loop_id = base_name.replace('.json', '').replace('.geojson', '')
+        loop_id = 'FifthGenThermalLoop_{}'.format(str(uuid.uuid4())[:8])
         loop = cls(loop_id, connectors, clockwise_flow)
         if units != 'Meters':
             loop.convert_to_units(units)
+
+        # grab the heat rejection and supplemental heating if they exist
+        if 'project' in data and 'heat_rejection_type' in geojson_dict['project']:
+            loop.heat_rejection_type = geojson_dict['project']['heat_rejection_type']
+        if 'project' in data and 'supplemental_heat_type' in geojson_dict['project']:
+            loop.supplemental_heat_type = geojson_dict['project']['supplemental_heat_type']
+        return loop
+
+    @classmethod
+    def from_geojson(
+            cls, geojson_file_path, location=None, point=None, units='Meters',
+            clockwise_flow=False):
+        """Get an FifthGenThermalLoop from a GeoJSON file.
+
+        Args:
+            geojson_file_path: Text for the full path to the geojson file to load
+                as FifthGenThermalLoop.
+            location: An optional ladybug location object with longitude and
+                latitude data defining the origin of the geojson file. If None,
+                an attempt will be made to sense the location from the project
+                point in the GeoJSON (if it exists). If nothing is found, the
+                origin is autocalcualted as the bottom-left corner of the bounding
+                box of all building footprints in the geojson file. (Default: None).
+            point: A ladybug_geometry Point2D for where the location object exists
+                within the space of a scene. The coordinates of this point are
+                expected to be in the units input. If None, an attempt will be
+                made to sense the CAD coordinates from the GeoJSON if they
+                exist. If not found, they will default to (0, 0).
+            units: Text for the units system in which the model geometry
+                exists. Default: 'Meters'. Choose from the following:
+
+                * Meters
+                * Millimeters
+                * Feet
+                * Inches
+                * Centimeters
+
+                Note that this method assumes the point coordinates are in the
+                same units.
+            clockwise_flow: A boolean to note whether the direction of flow through the
+                loop is clockwise (True) when viewed from above in the GeoJSON or it
+                is counterclockwise (False). (Default: False).
+        """
+        with open(geojson_file_path) as json_file:
+            geojson_dict = json.load(json_file)
+        loop = cls.from_geojson_dict(geojson_dict, location, point, units, clockwise_flow)
+        base_name = os.path.basename(geojson_file_path)
+        loop_id = base_name.replace('.json', '').replace('.geojson', '')
+        loop.identifier = loop_id
         return loop
 
     @staticmethod
@@ -496,6 +645,42 @@ class FifthGenThermalLoop(object):
             'Expected HorizontalPipeParameter object' \
             ' for FifthGenThermalLoop. Got {}.'.format(type(value))
         self._horizontal_pipe_parameters = value
+
+    @property
+    def heat_rejection_type(self):
+        """Get or set text to indicate the type of heat rejection equipment."""
+        return self._heat_rejection_type
+
+    @heat_rejection_type.setter
+    def heat_rejection_type(self, value):
+        clean_input = valid_string(value).lower()
+        for key in self.HEAT_REJECTION_TYPES:
+            if key.lower() == clean_input:
+                value = key
+                break
+        else:
+            raise ValueError(
+                'heat_rejection_type {} is not recognized.\nChoose from the '
+                'following:\n{}'.format(value, self.HEAT_REJECTION_TYPES))
+        self._heat_rejection_type = value
+
+    @property
+    def supplemental_heat_type(self):
+        """Get or set text to indicate the type of supplemental heating."""
+        return self._supplemental_heat_type
+
+    @supplemental_heat_type.setter
+    def supplemental_heat_type(self, value):
+        clean_input = valid_string(value).lower()
+        for key in self.SUPPLEMENTAL_HEAT_TYPES:
+            if key.lower() == clean_input:
+                value = key
+                break
+        else:
+            raise ValueError(
+                'supplemental_heat_type {} is not recognized.\nChoose from the '
+                'following:\n{}'.format(value, self.SUPPLEMENTAL_HEAT_TYPES))
+        self._supplemental_heat_type = value
 
     def junctions(self, tolerance=0.01):
         """Get a list of ThermalJunction objects for the unique thermal loop junctions.
@@ -703,6 +888,8 @@ class FifthGenThermalLoop(object):
         base['clockwise_flow'] = self.clockwise_flow
         base['soil_parameters'] = self.soil_parameters.to_dict()
         base['horizontal_pipe_parameters'] = self.horizontal_pipe_parameters.to_dict()
+        base['heat_rejection_type'] = self.heat_rejection_type
+        base['supplemental_heat_type'] = self.supplemental_heat_type
         if self._display_name is not None:
             base['display_name'] = self.display_name
         return base
@@ -943,7 +1130,8 @@ class FifthGenThermalLoop(object):
         new_loop = FifthGenThermalLoop(
             self.identifier,
             tuple(conn.duplicate() for conn in self.connectors), self.clockwise_flow,
-            self.soil_parameters.duplicate(), self.horizontal_pipe_parameters.duplicate()
+            self.soil_parameters.duplicate(), self.horizontal_pipe_parameters.duplicate(),
+            self.heat_rejection_type, self.supplemental_heat_type
         )
         new_loop._display_name = self._display_name
         return new_loop
@@ -995,6 +1183,27 @@ class GHEThermalLoop(FifthGenThermalLoop):
         horizontal_pipe_parameters: Optional HorizontalPipeParameter object to specify
             the properties of the horizontal pipes contained within ThermalConnectors.
             If None, default values will be used. (Default: None).
+        heat_rejection_type: Text for the equipment used to cool a fifth generation
+            loop when it overheats. Note that choosing None will usually cause a
+            simulation failure unless there is a very large ground heat exchanger
+            on the loop. Choose from the options below. (Default: CoolingTower).
+
+            * CoolingTower
+            * FluidCooler
+            * EvaporativeFluidCooler
+            * DistrictCooling
+            * None
+
+        supplemental_heat_type: Text for the equipment used to heat the loop
+            when it requires supplemental heating. Note that choosing None will
+            usually cause a simulation failure unless there is a very large
+            ground heat exchanger on the loop. Choose from the options below.
+            Choose from the options below. (Default: Electricity).
+
+            * Electricity
+            * NaturalGas
+            * DistrictHeating
+            * None
 
     Properties:
         * identifier
@@ -1008,14 +1217,19 @@ class GHEThermalLoop(FifthGenThermalLoop):
         * borehole_parameters
         * design_parameters
         * horizontal_pipe_parameters
+        * heat_rejection_type
+        * supplemental_heat_type
     """
     __slots__ = ('_ground_heat_exchangers', '_fluid_parameters', '_pipe_parameters',
                  '_borehole_parameters', '_design_parameters')
 
-    def __init__(self, identifier, ground_heat_exchangers, connectors,
-                 clockwise_flow=False, soil_parameters=None, fluid_parameters=None,
-                 pipe_parameters=None, borehole_parameters=None, design_parameters=None,
-                 horizontal_pipe_parameters=None):
+    def __init__(
+        self, identifier, ground_heat_exchangers, connectors,
+        clockwise_flow=False, soil_parameters=None, fluid_parameters=None,
+        pipe_parameters=None, borehole_parameters=None, design_parameters=None,
+        horizontal_pipe_parameters=None,
+        heat_rejection_type='CoolingTower', supplemental_heat_type='Electricity'
+    ):
         """Initialize GHEThermalLoop."""
         self.identifier = identifier
         self._display_name = None
@@ -1028,6 +1242,8 @@ class GHEThermalLoop(FifthGenThermalLoop):
         self.borehole_parameters = borehole_parameters
         self.design_parameters = design_parameters
         self.horizontal_pipe_parameters = horizontal_pipe_parameters
+        self.heat_rejection_type = heat_rejection_type
+        self.supplemental_heat_type = supplemental_heat_type
 
     @classmethod
     def from_dict(cls, data):
@@ -1055,21 +1271,24 @@ class GHEThermalLoop(FifthGenThermalLoop):
             if 'design_parameters' in data else None
         hp = HorizontalPipeParameter.from_dict(data['horizontal_pipe_parameters']) \
             if 'horizontal_pipe_parameters' in data else None
+        hrt = data['heat_rejection_type'] \
+            if 'heat_rejection_type' in data else 'CoolingTower'
+        sht = data['supplemental_heat_type'] \
+            if 'supplemental_heat_type' in data else 'Electricity'
         loop = cls(data['identifier'], ghe, conns, clock, soil, fluid,
-                   pipe, bore, des, hp)
+                   pipe, bore, des, hp, hrt, sht)
         if 'display_name' in data and data['display_name'] is not None:
             loop.display_name = data['display_name']
         return loop
 
     @classmethod
-    def from_geojson(
-            cls, geojson_file_path, location=None, point=None, units='Meters',
+    def from_geojson_dict(
+            cls, geojson_dict, location=None, point=None, units='Meters',
             clockwise_flow=False):
         """Get an GHEThermalLoop from a dictionary as it appears in a GeoJSON.
 
         Args:
-            geojson_file_path: Text for the full path to the geojson file to load
-                as GHEThermalLoop.
+            geojson_dict: The dictionary loaded from a GeoJSON file.
             location: An optional ladybug location object with longitude and
                 latitude data defining the origin of the geojson file. If None,
                 an attempt will be made to sense the location from the project
@@ -1096,11 +1315,8 @@ class GHEThermalLoop(FifthGenThermalLoop):
                 loop is clockwise (True) when viewed from above in the GeoJSON or it
                 is counterclockwise (False). (Default: False).
         """
-        # parse the geoJSON into a dictionary
-        with open(geojson_file_path, 'r') as fp:
-            data = json.load(fp)
-
         # extract the CAD coordinates and location from the GeoJSON if they exist
+        data = geojson_dict
         if 'project' in data:
             prd = data['project']
             if 'latitude' in prd and 'longitude' in prd and location is None:
@@ -1152,11 +1368,59 @@ class GHEThermalLoop(FifthGenThermalLoop):
             ghe_fields.append(ghe_field)
 
         # create the loop and adjust for the units
-        base_name = os.path.basename(geojson_file_path)
-        loop_id = base_name.replace('.json', '').replace('.geojson', '')
+        loop_id = 'FifthGenThermalLoop_{}'.format(str(uuid.uuid4())[:8])
         loop = cls(loop_id, ghe_fields, connectors, clockwise_flow)
         if units != 'Meters':
             loop.convert_to_units(units)
+
+        # grab the heat rejection and supplemental heating if they exist
+        if 'project' in data and 'heat_rejection_type' in geojson_dict['project']:
+            loop.heat_rejection_type = geojson_dict['project']['heat_rejection_type']
+        if 'project' in data and 'supplemental_heat_type' in geojson_dict['project']:
+            loop.supplemental_heat_type = geojson_dict['project']['supplemental_heat_type']
+        return loop
+
+    @classmethod
+    def from_geojson(
+            cls, geojson_file_path, location=None, point=None, units='Meters',
+            clockwise_flow=False):
+        """Get an GHEThermalLoop from a GeoJSON file.
+
+        Args:
+            geojson_file_path: Text for the full path to the geojson file to load
+                as GHEThermalLoop.
+            location: An optional ladybug location object with longitude and
+                latitude data defining the origin of the geojson file. If None,
+                an attempt will be made to sense the location from the project
+                point in the GeoJSON (if it exists). If nothing is found, the
+                origin is autocalcualted as the bottom-left corner of the bounding
+                box of all building footprints in the geojson file. (Default: None).
+            point: A ladybug_geometry Point2D for where the location object exists
+                within the space of a scene. The coordinates of this point are
+                expected to be in the units input. If None, an attempt will be
+                made to sense the CAD coordinates from the GeoJSON if they
+                exist. If not found, they will default to (0, 0).
+            units: Text for the units system in which the model geometry
+                exists. Default: 'Meters'. Choose from the following:
+
+                * Meters
+                * Millimeters
+                * Feet
+                * Inches
+                * Centimeters
+
+                Note that this method assumes the point coordinates are in the
+                same units.
+            clockwise_flow: A boolean to note whether the direction of flow through the
+                loop is clockwise (True) when viewed from above in the GeoJSON or it
+                is counterclockwise (False). (Default: False).
+        """
+        with open(geojson_file_path) as json_file:
+            geojson_dict = json.load(json_file)
+        loop = cls.from_geojson_dict(geojson_dict, location, point, units, clockwise_flow)
+        base_name = os.path.basename(geojson_file_path)
+        loop_id = base_name.replace('.json', '').replace('.geojson', '')
+        loop.identifier = loop_id
         return loop
 
     @property
@@ -1842,7 +2106,8 @@ class GHEThermalLoop(FifthGenThermalLoop):
             self.soil_parameters.duplicate(), self.fluid_parameters.duplicate(),
             self.pipe_parameters.duplicate(), self.borehole_parameters.duplicate(),
             self.design_parameters.duplicate(),
-            self.horizontal_pipe_parameters.duplicate())
+            self.horizontal_pipe_parameters.duplicate(),
+            self.heat_rejection_type, self.supplemental_heat_type)
         new_loop._display_name = self._display_name
         return new_loop
 

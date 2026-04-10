@@ -2,12 +2,12 @@ import warnings
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union, cast
 
-from deprecation import deprecated as docstring_deprecated
 from pydantic import AnyHttpUrl, BaseModel, Field, field_validator
 from typing_extensions import TypeAlias
 from typing_extensions import deprecated as typing_deprecated
 
 from weaviate.collections.classes.config_base import _ConfigCreateModel, _EnumLikeStr
+from weaviate.util import docstring_deprecated
 
 from ...warnings import _Warnings
 
@@ -546,6 +546,7 @@ class _Multi2VecGoogleConfig(_Multi2VecBase, _VectorizerConfigCreate):
     vectorizer: Union[Vectorizers, _EnumLikeStr] = Field(
         default=Vectorizers.MULTI2VEC_PALM, frozen=True, exclude=True
     )
+    audioFields: Optional[List[Multi2VecField]]
     videoFields: Optional[List[Multi2VecField]]
     projectId: Optional[str]
     location: Optional[str]
@@ -1292,6 +1293,7 @@ This method is deprecated and will be removed in Q2 '25. Please use :meth:`~weav
         return _Multi2VecGoogleConfig(
             projectId=project_id,
             location=location,
+            audioFields=None,
             imageFields=_map_multi2vec_fields(image_fields),
             textFields=_map_multi2vec_fields(text_fields),
             videoFields=_map_multi2vec_fields(video_fields),
@@ -1333,6 +1335,7 @@ This method is deprecated and will be removed in Q2 '25. Please use :meth:`~weav
         return _Multi2VecGoogleConfig(
             projectId=project_id,
             location=location,
+            audioFields=None,
             imageFields=_map_multi2vec_fields(image_fields),
             textFields=_map_multi2vec_fields(text_fields),
             videoFields=_map_multi2vec_fields(video_fields),

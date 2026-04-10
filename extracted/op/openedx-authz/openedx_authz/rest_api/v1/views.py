@@ -10,33 +10,40 @@ import logging
 import edx_api_doc_tools as apidocs
 from django.contrib.auth import get_user_model
 from django.http import HttpRequest
-from rest_framework import status
+from django.utils.decorators import method_decorator
+from edx_api_doc_tools import schema_for
+from organizations.models import Organization
+from organizations.serializers import OrganizationSerializer
+from rest_framework import filters, generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from openedx_authz import api
+from openedx_authz.api.utils import get_user_map
 from openedx_authz.constants import permissions
 from openedx_authz.rest_api.data import RoleOperationError, RoleOperationStatus
 from openedx_authz.rest_api.decorators import authz_permissions, view_auth_classes
 from openedx_authz.rest_api.utils import (
     filter_users,
     get_generic_scope,
-    get_user_by_username_or_email,
-    get_user_map,
     sort_users,
 )
+from openedx_authz.rest_api.v1.filters import TeamMemberOrderingFilter, TeamMemberSearchFilter
 from openedx_authz.rest_api.v1.paginators import AuthZAPIViewPagination
-from openedx_authz.rest_api.v1.permissions import DynamicScopePermission
+from openedx_authz.rest_api.v1.permissions import AnyScopePermission, DynamicScopePermission
 from openedx_authz.rest_api.v1.serializers import (
     AddUsersToRoleWithScopeSerializer,
     ListRolesWithScopeResponseSerializer,
     ListRolesWithScopeSerializer,
+    ListTeamMembersSerializer,
     ListUsersInRoleWithScopeSerializer,
     PermissionValidationResponseSerializer,
     PermissionValidationSerializer,
     RemoveUsersFromRoleWithScopeSerializer,
+    TeamMemberSerializer,
     UserRoleAssignmentSerializer,
 )
+from openedx_authz.utils import get_user_by_username_or_email
 
 logger = logging.getLogger(__name__)
 
@@ -449,3 +456,133 @@ class RoleListView(APIView):
         paginated_response_data = paginator.paginate_queryset(response_data, request)
         serialized_data = ListRolesWithScopeResponseSerializer(paginated_response_data, many=True)
         return paginator.get_paginated_response(serialized_data.data)
+
+
+@view_auth_classes()
+@method_decorator(
+    authz_permissions(
+        [
+            permissions.VIEW_LIBRARY_TEAM.identifier,
+            permissions.COURSES_VIEW_COURSE_TEAM.identifier,
+        ]
+    ),
+    name="get",
+)
+@schema_for(
+    "get",
+    parameters=[
+        apidocs.query_parameter("search", str, description="Filter orgs by name or short_name"),
+        apidocs.query_parameter("page", int, description="Page number for pagination"),
+        apidocs.query_parameter("page_size", int, description="Number of items per page"),
+    ],
+    responses={
+        status.HTTP_200_OK: OrganizationSerializer(many=True),
+        status.HTTP_401_UNAUTHORIZED: "The user is not authenticated",
+    },
+)
+class AdminConsoleOrgsAPIView(generics.ListAPIView):
+    """
+    API view for listing orgs
+    This API is used on the filters functionality on the Admin Console.
+
+    **Endpoints**
+
+    - GET: Retrieve all organizations
+
+    **Query Parameters**
+
+    - search (Optional): Search term to filter organizations by name or short name
+    - page (Optional): Page number for pagination
+    - page_size (Optional): Number of items per page
+
+    **Response Format**
+
+    Returns a paginated list of organization objects, each containing:
+
+    - id: The organization's ID
+    - name: The organization's name
+    - short_name: The organization's short name
+
+    **Authentication and Permissions**
+
+    - Requires authenticated user.
+
+    **Example Request**
+
+    GET /api/authz/v1/orgs/?search=edx&page=1&page_size=10
+
+    **Example Response**::
+
+        {
+            "count": 1,
+            "next": null,
+            "previous": null,
+            "results": [
+                {
+                    "id": 1,
+                    "created": "2026-04-02T19:30:36.779095Z",
+                    "modified": "2026-04-02T19:30:36.779095Z",
+                    "name": "OpenedX",
+                    "short_name": "OpenedX",
+                    "description": "",
+                    "logo": null,
+                    "active": true
+                }
+            ]
+        }
+    """
+
+    queryset = Organization.objects.filter(active=True).order_by("name")
+    serializer_class = OrganizationSerializer
+    pagination_class = AuthZAPIViewPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["name", "short_name"]
+    permission_classes = [AnyScopePermission]
+
+
+@view_auth_classes()
+class TeamMembersAPIView(APIView):
+    """
+    API view for listing users in relation to role assignments
+    This API is used in the Team Members section in Admin Console.
+    In this content, a team member is anyone with studio access.
+    """
+
+    pagination_class = AuthZAPIViewPagination
+    filter_backends = [TeamMemberSearchFilter, TeamMemberOrderingFilter]
+
+    @apidocs.schema(
+        parameters=[
+            apidocs.query_parameter("scopes", str, description="The scopes to query assignments for"),
+            apidocs.query_parameter("orgs", str, description="The orgs to query assignments for"),
+            apidocs.query_parameter("search", str, description="The search query to filter users by"),
+            apidocs.query_parameter("sort_by", str, description="The field to sort by"),
+            apidocs.query_parameter("order", str, description="The order to sort by"),
+            apidocs.query_parameter("page", int, description="Page number for pagination"),
+            apidocs.query_parameter("page_size", int, description="Number of items per page"),
+        ],
+        responses={
+            status.HTTP_200_OK: ListRolesWithScopeResponseSerializer(many=True),
+            status.HTTP_400_BAD_REQUEST: "The request parameters are invalid",
+            status.HTTP_401_UNAUTHORIZED: "The user is not authenticated or does not have the required permissions",
+        },
+    )
+    def get(self, request: HttpRequest) -> Response:
+        """Retrieve all users that have at least one assignation according to the filtering fields."""
+        serializer = ListTeamMembersSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        query_params = serializer.validated_data
+
+        users_with_assignments = api.get_visible_role_assignments_for_user(
+            orgs=query_params.get("orgs"),
+            scopes=query_params.get("scopes"),
+            allowed_for_user_external_key=request.user.username,
+        )
+
+        team_members = TeamMemberSerializer(users_with_assignments, many=True).data
+        for backend in self.filter_backends:
+            team_members = backend().filter_queryset(request, team_members, self)
+
+        paginator = self.pagination_class()
+        paginated_response_data = paginator.paginate_queryset(team_members, request)
+        return paginator.get_paginated_response(paginated_response_data)

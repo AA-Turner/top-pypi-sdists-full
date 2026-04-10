@@ -58,7 +58,8 @@ def read_text(
     else:
         unquoted_path = path
     stage_name = unquoted_path.split("/")[0]
-    line_sep = options.get("lineSep") or "\n"
+    # Handle both camelCase (lineSep) and lowercase (linesep) option names
+    line_sep = options.get("lineSep") or options.get("linesep") or "\n"
     column_name = (
         schema[0].name if schema is not None and len(schema.fields) > 0 else '"value"'
     )

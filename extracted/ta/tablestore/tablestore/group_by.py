@@ -57,7 +57,9 @@ class SubAggSort(object):
 
 class GroupByField(BaseGroupBy):
 
-    def __init__(self, field_name, size = 10, group_by_sort = None, sub_aggs = [], sub_group_bys = [], name = 'group_by_field'):
+    def __init__(self, field_name, size = None, group_by_sort = None, sub_aggs = None, sub_group_bys = None, name = 'group_by_field'):
+        sub_aggs = [] if sub_aggs is None else sub_aggs[:]
+        sub_group_bys = [] if sub_group_bys is None else sub_group_bys[:]
         BaseGroupBy.__init__(self, field_name, sub_aggs, sub_group_bys, name, search_pb2.GROUP_BY_FIELD)
         
         self.size = size
@@ -67,22 +69,29 @@ class GroupByField(BaseGroupBy):
 
     def to_pb_str(self, agg_encode_func, group_by_encode_func, query_encode_func):
         proto = search_pb2.GroupByField()
-        proto.size = self.size
+        if self.size is not None:
+            if isinstance(self.size, int):
+                proto.size = self.size
+            else:
+                raise OTSClientError('size must be integer')
 
-        if self.group_by_sort is not None and isinstance(self.group_by_sort, list):
-            for sort in self.group_by_sort:
-                if isinstance(sort, GroupKeySort):
-                    sorter = proto.sort.sorters.add()
-                    sorter.group_key_sort.order = self._get_enum(sort.sort_order)
-                elif isinstance(sort, RowCountSort):
-                    sorter = proto.sort.sorters.add()
-                    sorter.row_count_sort.order = self._get_enum(sort.sort_order)
-                elif isinstance(sort, SubAggSort):
-                    sorter = proto.sort.sorters.add()
-                    sorter.sub_agg_sort.order = self._get_enum(sort.sort_order)
-                    sorter.sub_agg_sort.sub_agg_name = sort.sub_agg_name
-                else:
-                    raise OTSClientError('Invalid sort type:%s' % str(type(sort)))
+        if self.group_by_sort is not None:
+            if isinstance(self.group_by_sort, list):
+                for sort in self.group_by_sort:
+                    if isinstance(sort, GroupKeySort):
+                        sorter = proto.sort.sorters.add()
+                        sorter.group_key_sort.order = self._get_enum(sort.sort_order)
+                    elif isinstance(sort, RowCountSort):
+                        sorter = proto.sort.sorters.add()
+                        sorter.row_count_sort.order = self._get_enum(sort.sort_order)
+                    elif isinstance(sort, SubAggSort):
+                        sorter = proto.sort.sorters.add()
+                        sorter.sub_agg_sort.order = self._get_enum(sort.sort_order)
+                        sorter.sub_agg_sort.sub_agg_name = sort.sub_agg_name
+                    else:
+                        raise OTSClientError('Invalid sort type:%s' % str(type(sort)))
+            else:
+                raise OTSClientError('group_by_sort must be list')
 
         BaseGroupBy._base_to_pb_str(self, proto, agg_encode_func, group_by_encode_func)
         return proto.SerializeToString()
@@ -93,7 +102,9 @@ class GroupByField(BaseGroupBy):
 
 class GroupByRange(BaseGroupBy):
 
-    def __init__(self, field_name, ranges, sub_aggs = [], sub_group_bys = [], name = 'group_by_range'):
+    def __init__(self, field_name, ranges, sub_aggs = None, sub_group_bys = None, name = 'group_by_range'):
+        sub_aggs = [] if sub_aggs is None else sub_aggs[:]
+        sub_group_bys = [] if sub_group_bys is None else sub_group_bys[:]
         BaseGroupBy.__init__(self, field_name, sub_aggs, sub_group_bys, name, search_pb2.GROUP_BY_RANGE)
         self.ranges = ranges
 
@@ -117,7 +128,9 @@ class GroupByRange(BaseGroupBy):
 
 class GroupByFilter(BaseGroupBy):
     
-    def __init__(self, filters, sub_aggs = [], sub_group_bys = [], name = 'group_by_filter'):
+    def __init__(self, filters, sub_aggs = None, sub_group_bys = None, name = 'group_by_filter'):
+        sub_aggs = [] if sub_aggs is None else sub_aggs[:]
+        sub_group_bys = [] if sub_group_bys is None else sub_group_bys[:]
         BaseGroupBy.__init__(self, None, sub_aggs, sub_group_bys, name, search_pb2.GROUP_BY_FILTER)
 
         self.filters = filters
@@ -147,7 +160,9 @@ class GeoPoint(object):
 
 class GroupByGeoDistance(BaseGroupBy):
 
-    def __init__(self, field_name, origin, ranges, sub_aggs = [], sub_group_bys = [], name = 'group_by_geo_distance'):
+    def __init__(self, field_name, origin, ranges, sub_aggs = None, sub_group_bys = None, name = 'group_by_geo_distance'):
+        sub_aggs = [] if sub_aggs is None else sub_aggs[:]
+        sub_group_bys = [] if sub_group_bys is None else sub_group_bys[:]
         BaseGroupBy.__init__(self, field_name, sub_aggs, sub_group_bys, name, search_pb2.GROUP_BY_GEO_DISTANCE)
 
         self.origin = origin
@@ -185,7 +200,9 @@ class FieldRange(object):
 class GroupByHistogram(BaseGroupBy):
     
     def __init__(self, field_name, interval, field_range, missing_value=None, min_doc_count=None, group_by_sort=None,
-                 sub_aggs=[], sub_group_bys=[], name='group_by_histogram'):
+                 sub_aggs=None, sub_group_bys=None, name='group_by_histogram'):
+        sub_aggs = [] if sub_aggs is None else sub_aggs[:]
+        sub_group_bys = [] if sub_group_bys is None else sub_group_bys[:]
         BaseGroupBy.__init__(self, field_name, sub_aggs, sub_group_bys, name, search_pb2.GROUP_BY_HISTOGRAM)
 
         self.interval = interval
@@ -215,28 +232,33 @@ class GroupByHistogram(BaseGroupBy):
         else:
             raise OTSClientError('field_range(min, max) must not be None')
 
-        if self.group_by_sort is not None and isinstance(self.group_by_sort, list):
-            for sort in self.group_by_sort:
-                if isinstance(sort, GroupKeySort):
-                    sorter = proto.sort.sorters.add()
-                    sorter.group_key_sort.order = self._get_enum(sort.sort_order)
-                elif isinstance(sort, RowCountSort):
-                    sorter = proto.sort.sorters.add()
-                    sorter.row_count_sort.order = self._get_enum(sort.sort_order)
-                elif isinstance(sort, SubAggSort):
-                    sorter = proto.sort.sorters.add()
-                    sorter.sub_agg_sort.order = self._get_enum(sort.sort_order)
-                    sorter.sub_agg_sort.sub_agg_name = sort.sub_agg_name
-                else:
-                    raise OTSClientError('Invalid sort type:%s' % str(type(sort)))
-        
+        if self.group_by_sort is not None:
+            if isinstance(self.group_by_sort, list):
+                for sort in self.group_by_sort:
+                    if isinstance(sort, GroupKeySort):
+                        sorter = proto.sort.sorters.add()
+                        sorter.group_key_sort.order = self._get_enum(sort.sort_order)
+                    elif isinstance(sort, RowCountSort):
+                        sorter = proto.sort.sorters.add()
+                        sorter.row_count_sort.order = self._get_enum(sort.sort_order)
+                    elif isinstance(sort, SubAggSort):
+                        sorter = proto.sort.sorters.add()
+                        sorter.sub_agg_sort.order = self._get_enum(sort.sort_order)
+                        sorter.sub_agg_sort.sub_agg_name = sort.sub_agg_name
+                    else:
+                        raise OTSClientError('Invalid sort type:%s' % str(type(sort)))
+            else:
+                raise OTSClientError('group_by_sort must be list')
+
         BaseGroupBy._base_to_pb_str(self, proto, agg_encode_func, group_by_encode_func)
         return proto.SerializeToString()
 
 class GroupByResult(object):
-    def __init__(self, name, items):
+    def __init__(self, name, items, source_group_by_names=None, next_token=None):
         self.name = name
         self.items = items
+        self.source_group_by_names = source_group_by_names
+        self.next_token = next_token
 
     def addItem(self, group_by_result_item):
         self.items.append(group_by_result_item)
@@ -281,3 +303,195 @@ class GroupByHistogramResultItem(BaseGroupByResultItem):
 
         self.key = key
         self.value = value
+
+class GroupByComposite(BaseGroupBy):
+
+    def __init__(self, sources, size=None, next_token=None, suggested_size=None,
+                 sub_aggs=None, sub_group_bys=None, name='group_by_composite'):
+        sub_aggs = [] if sub_aggs is None else sub_aggs[:]
+        sub_group_bys = [] if sub_group_bys is None else sub_group_bys[:]
+        BaseGroupBy.__init__(self, None, sub_aggs, sub_group_bys, name, search_pb2.GROUP_BY_COMPOSITE)
+
+        self.sources = sources
+        self.size = size
+        self.next_token = next_token
+        self.suggested_size = suggested_size
+
+    def to_pb_str(self, agg_encode_func, group_by_encode_func, query_encode_func):
+        proto = search_pb2.GroupByComposite()
+
+        if self.sources is not None and isinstance(self.sources, list) and len(self.sources) > 0:
+            group_by_encode_func(proto.sources, self.sources)
+        else:
+            raise OTSClientError('GroupByComposite: sources must be a non-empty list')
+
+        if self.size is not None:
+            if isinstance(self.size, int):
+                proto.size = self.size
+            else:
+                raise OTSClientError('size must be integer')
+
+        if self.next_token is not None:
+            proto.next_token = self.next_token
+
+        if self.suggested_size is not None:
+            if isinstance(self.suggested_size, int):
+                proto.suggested_size = self.suggested_size
+            else:
+                raise OTSClientError('suggested_size must be integer')
+
+        if self.sub_aggs is not None:
+            agg_encode_func(proto.sub_aggs, self.sub_aggs)
+
+        if self.sub_group_bys is not None:
+            group_by_encode_func(proto.sub_group_bys, self.sub_group_bys)
+
+        return proto.SerializeToString()
+
+class GroupByCompositeResultItem(BaseGroupByResultItem):
+    def __init__(self, keys, row_count, sub_aggs, sub_group_bys):
+        BaseGroupByResultItem.__init__(self, sub_aggs, sub_group_bys)
+
+        self.keys = keys
+        self.row_count = row_count
+
+class DateTimeValue(object):
+    def __init__(self, value, unit):
+        self.value = value
+        self.unit = unit
+
+class GroupByDateHistogram(BaseGroupBy):
+
+    def __init__(self, field_name, interval, field_range=None, missing=None, min_doc_count=None,
+                 time_zone=None, group_by_sort=None, offset=None,
+                 sub_aggs=None, sub_group_bys=None, name='group_by_date_histogram'):
+        sub_aggs = [] if sub_aggs is None else sub_aggs[:]
+        sub_group_bys = [] if sub_group_bys is None else sub_group_bys[:]
+        BaseGroupBy.__init__(self, field_name, sub_aggs, sub_group_bys, name, search_pb2.GROUP_BY_DATE_HISTOGRAM)
+
+        self.interval = interval
+        self.field_range = field_range
+        self.missing = missing
+        self.min_doc_count = min_doc_count
+        self.time_zone = time_zone
+        self.group_by_sort = group_by_sort
+        self.offset = offset
+
+    def _encode_date_time_value(self, dtv):
+        """将 DateTimeValue 编码为 protobuf DateTimeValue message"""
+        proto = search_pb2.DateTimeValue()
+        if dtv.value is not None:
+            proto.value = dtv.value
+        if dtv.unit is not None:
+            proto.unit = self._get_enum(dtv.unit)
+        return proto
+
+    def to_pb_str(self, agg_encode_func, group_by_encode_func, query_encode_func):
+        proto = search_pb2.GroupByDateHistogram()
+
+        if self.interval is not None and isinstance(self.interval, DateTimeValue):
+            proto.interval.CopyFrom(self._encode_date_time_value(self.interval))
+        else:
+            raise OTSClientError('GroupByDateHistogram: interval must be DateTimeValue')
+
+        if self.field_range is not None:
+            if self.field_range.min is not None:
+                proto.field_range.min = bytes(PlainBufferBuilder.serialize_column_value(self.field_range.min))
+            if self.field_range.max is not None:
+                proto.field_range.max = bytes(PlainBufferBuilder.serialize_column_value(self.field_range.max))
+
+        if self.missing is not None:
+            proto.missing = bytes(PlainBufferBuilder.serialize_column_value(self.missing))
+
+        if self.min_doc_count is not None:
+            if isinstance(self.min_doc_count, int):
+                proto.min_doc_count = self.min_doc_count
+            else:
+                raise OTSClientError('min_doc_count must be integer')
+
+        if self.time_zone is not None:
+            if isinstance(self.time_zone, str):
+                proto.time_zone = self.time_zone
+            else:
+                raise OTSClientError('time_zone must be string')
+
+        if self.group_by_sort is not None:
+            if isinstance(self.group_by_sort, list):
+                for sort in self.group_by_sort:
+                    if isinstance(sort, GroupKeySort):
+                        sorter = proto.sort.sorters.add()
+                        sorter.group_key_sort.order = self._get_enum(sort.sort_order)
+                    elif isinstance(sort, RowCountSort):
+                        sorter = proto.sort.sorters.add()
+                        sorter.row_count_sort.order = self._get_enum(sort.sort_order)
+                    elif isinstance(sort, SubAggSort):
+                        sorter = proto.sort.sorters.add()
+                        sorter.sub_agg_sort.order = self._get_enum(sort.sort_order)
+                        sorter.sub_agg_sort.sub_agg_name = sort.sub_agg_name
+                    else:
+                        raise OTSClientError('Invalid sort type:%s' % str(type(sort)))
+            else:
+                raise OTSClientError('group_by_sort must be list')
+
+        if self.offset is not None:
+            if isinstance(self.offset, DateTimeValue):
+                proto.offset.CopyFrom(self._encode_date_time_value(self.offset))
+            else:
+                raise OTSClientError('offset must be DateTimeValue')
+
+        BaseGroupBy._base_to_pb_str(self, proto, agg_encode_func, group_by_encode_func)
+        return proto.SerializeToString()
+
+    def _get_enum(self, e):
+        return e.value if hasattr(e, 'value') else e
+
+class GroupByDateHistogramResultItem(BaseGroupByResultItem):
+    def __init__(self, timestamp, row_count, sub_aggs, sub_group_bys):
+        BaseGroupByResultItem.__init__(self, sub_aggs, sub_group_bys)
+
+        self.timestamp = timestamp
+        self.row_count = row_count
+
+class GroupByGeoGrid(BaseGroupBy):
+
+    def __init__(self, field_name, precision, size=None,
+                 sub_aggs=None, sub_group_bys=None, name='group_by_geo_grid'):
+        sub_aggs = [] if sub_aggs is None else sub_aggs[:]
+        sub_group_bys = [] if sub_group_bys is None else sub_group_bys[:]
+        BaseGroupBy.__init__(self, field_name, sub_aggs, sub_group_bys, name, search_pb2.GROUP_BY_GEO_GRID)
+
+        self.precision = precision
+        self.size = size
+
+    def to_pb_str(self, agg_encode_func, group_by_encode_func, query_encode_func):
+        proto = search_pb2.GroupByGeoGrid()
+
+        if self.precision is not None:
+            proto.precision = self._get_enum(self.precision)
+        else:
+            raise OTSClientError('GroupByGeoGrid: precision must not be None')
+
+        if self.size is not None:
+            if isinstance(self.size, int):
+                proto.size = self.size
+            else:
+                raise OTSClientError('size must be integer')
+
+        BaseGroupBy._base_to_pb_str(self, proto, agg_encode_func, group_by_encode_func)
+        return proto.SerializeToString()
+
+    def _get_enum(self, e):
+        return e.value if hasattr(e, 'value') else e
+
+class GeoGrid(object):
+    def __init__(self, top_left, bottom_right):
+        self.top_left = top_left
+        self.bottom_right = bottom_right
+
+class GroupByGeoGridResultItem(BaseGroupByResultItem):
+    def __init__(self, key, geo_grid, row_count, sub_aggs, sub_group_bys):
+        BaseGroupByResultItem.__init__(self, sub_aggs, sub_group_bys)
+
+        self.key = key
+        self.geo_grid = geo_grid
+        self.row_count = row_count

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrit
-Version: 0.12.0
+Version: 0.12.1
 Summary: The Python Risk Identification Tool for LLMs (PyRIT) is a library used to assess the robustness of LLMs
 Author-email: Microsoft AI Red Team <airedteam@microsoft.com>
 License-Expression: MIT
@@ -130,7 +130,7 @@ Requires-Dist: types-PyYAML>=6.0.12.20250516; extra == "all"
 Requires-Dist: types-requests>=2.31.0.20250515; extra == "all"
 Dynamic: license-file
 
-<p align="center"><img src="https://raw.githubusercontent.com/Azure/PyRIT/releases/v0.12.0/doc/roakey.png" width="150"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/Azure/PyRIT/releases/v0.12.1/doc/roakey.png" width="150"></p>
 
 # Python Risk Identification Tool for generative AI (PyRIT)
 

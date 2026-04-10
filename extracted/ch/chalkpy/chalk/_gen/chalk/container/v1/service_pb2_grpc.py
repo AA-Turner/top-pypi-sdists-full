@@ -45,6 +45,11 @@ class ContainerServiceStub(object):
             request_serializer=chalk_dot_container_dot_v1_dot_service__pb2.UpdateContainerStatusRequest.SerializeToString,
             response_deserializer=chalk_dot_container_dot_v1_dot_service__pb2.UpdateContainerStatusResponse.FromString,
         )
+        self.BatchUpdateContainerStatus = channel.unary_unary(
+            "/chalk.container.v1.ContainerService/BatchUpdateContainerStatus",
+            request_serializer=chalk_dot_container_dot_v1_dot_service__pb2.BatchUpdateContainerStatusRequest.SerializeToString,
+            response_deserializer=chalk_dot_container_dot_v1_dot_service__pb2.BatchUpdateContainerStatusResponse.FromString,
+        )
         self.SnapshotContainer = channel.unary_unary(
             "/chalk.container.v1.ContainerService/SnapshotContainer",
             request_serializer=chalk_dot_container_dot_v1_dot_service__pb2.SnapshotContainerRequest.SerializeToString,
@@ -96,7 +101,15 @@ class ContainerServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def UpdateContainerStatus(self, request, context):
-        """UpdateContainerStatus updates container status from K8s controller"""
+        """UpdateContainerStatus updates container status from K8s controller
+        Deprecated: use BatchUpdateContainerStatus
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def BatchUpdateContainerStatus(self, request, context):
+        """BatchUpdateContainerStatus updates status for multiple containers from the dataplane controller"""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -151,6 +164,11 @@ def add_ContainerServiceServicer_to_server(servicer, server):
             servicer.UpdateContainerStatus,
             request_deserializer=chalk_dot_container_dot_v1_dot_service__pb2.UpdateContainerStatusRequest.FromString,
             response_serializer=chalk_dot_container_dot_v1_dot_service__pb2.UpdateContainerStatusResponse.SerializeToString,
+        ),
+        "BatchUpdateContainerStatus": grpc.unary_unary_rpc_method_handler(
+            servicer.BatchUpdateContainerStatus,
+            request_deserializer=chalk_dot_container_dot_v1_dot_service__pb2.BatchUpdateContainerStatusRequest.FromString,
+            response_serializer=chalk_dot_container_dot_v1_dot_service__pb2.BatchUpdateContainerStatusResponse.SerializeToString,
         ),
         "SnapshotContainer": grpc.unary_unary_rpc_method_handler(
             servicer.SnapshotContainer,
@@ -340,6 +358,35 @@ class ContainerService(object):
             "/chalk.container.v1.ContainerService/UpdateContainerStatus",
             chalk_dot_container_dot_v1_dot_service__pb2.UpdateContainerStatusRequest.SerializeToString,
             chalk_dot_container_dot_v1_dot_service__pb2.UpdateContainerStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def BatchUpdateContainerStatus(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.container.v1.ContainerService/BatchUpdateContainerStatus",
+            chalk_dot_container_dot_v1_dot_service__pb2.BatchUpdateContainerStatusRequest.SerializeToString,
+            chalk_dot_container_dot_v1_dot_service__pb2.BatchUpdateContainerStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,

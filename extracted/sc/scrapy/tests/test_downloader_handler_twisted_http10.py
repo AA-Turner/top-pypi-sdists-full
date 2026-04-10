@@ -16,6 +16,9 @@ if TYPE_CHECKING:
     from tests.mockserver.http import MockServer
 
 
+pytestmark = pytest.mark.requires_reactor  # HTTP10DownloadHandler requires a reactor
+
+
 class HTTP10DownloadHandlerMixin:
     @property
     def download_handler_cls(self) -> type[DownloadHandlerProtocol]:
@@ -25,6 +28,9 @@ class HTTP10DownloadHandlerMixin:
 @pytest.mark.filterwarnings("ignore::scrapy.exceptions.ScrapyDeprecationWarning")
 class TestHttp10(HTTP10DownloadHandlerMixin, TestHttpBase):
     """HTTP 1.0 test case"""
+
+    def test_unsupported_scheme(self) -> None:  # type: ignore[override]
+        pytest.skip("Check not implemented")
 
     @deferred_f_from_coro_f
     async def test_protocol(self, mockserver: MockServer) -> None:

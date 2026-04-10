@@ -2,7 +2,8 @@
 Tests specific to the lxml.objectify API
 """
 
-
+import functools
+import itertools
 import operator
 import random
 import unittest
@@ -2700,14 +2701,16 @@ class ObjectifyTestCase(HelperTestCase):
         self.assertEqual(None, root.n)
 
     def test_standard_lookup_fuzz(self):
-        SPACES = ('',) * 10 + ('\t', 'x', '\n', '\r\n', '\xA0', '\x0A', '\u200A', '\u200B')
         DIGITS = ('', '0', '1', '11', '21', '345678', '9'*20)
+        SPECIAL_STRINGS = ('', 'INF', 'inf', 'NaN', 'nan', 'an', 'na', 'ana', 'nf')
+        SPACES = [''] * 9 + ['\t', 'x', '\n', '\r\n', '\xA0', '\x0A', '\u200A', '\u200B']  # 9+8 = 17 items
 
-        def space(_choice=random.choice):
-            return _choice(SPACES)
+        # Spaces should generally not matter, so we just shuffle them in randomly.
+        random.shuffle(SPACES)
+        space = functools.partial(next, itertools.cycle(SPACES))
 
         fuzz = [
-            '<t>%s</t>\n' % (space() + sign + digits + point + fraction + exp + exp_sign + exp_digits + special + space())
+            f'<t>{space()}{sign}{digits}{point}{fraction}{exp}{exp_sign}{exp_digits}{special}{space()}</t>\n'
             for sign in ('', '+', '-')
             for digits in DIGITS
             for point in ('', '.')
@@ -2715,7 +2718,7 @@ class ObjectifyTestCase(HelperTestCase):
             for exp in ('', 'E')
             for exp_sign in ('', '+', '-')
             for exp_digits in DIGITS
-            for special in ('', 'INF', 'inf', 'NaN', 'nan', 'an', 'na', 'ana', 'nf')
+            for special in SPECIAL_STRINGS
         ]
 
         root = self.XML('''\
@@ -2727,17 +2730,17 @@ class ObjectifyTestCase(HelperTestCase):
         test_count = 0
         for el in root.iterchildren():
             text = el.text
-            expected_type = objectify.ObjectifiedElement
             if text:
+                expected_type = objectify.StringElement
                 try:
+                    float(text)
+                    expected_type = objectify.FloatElement
                     int(text)
                     expected_type = objectify.IntElement
                 except ValueError:
-                    try:
-                        float(text)
-                        expected_type = objectify.FloatElement
-                    except ValueError:
-                        expected_type = objectify.StringElement
+                    pass
+            else:
+                expected_type = objectify.ObjectifiedElement
 
             self.assertTrue(isinstance(el, expected_type), (text, expected_type, type(el)))
             test_count += 1

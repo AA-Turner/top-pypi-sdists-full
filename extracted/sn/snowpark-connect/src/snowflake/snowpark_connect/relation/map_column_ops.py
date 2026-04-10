@@ -79,7 +79,7 @@ from snowflake.snowpark_connect.type_mapping import (
     map_snowpark_to_pyspark_types,
     proto_to_snowpark_type,
 )
-from snowflake.snowpark_connect.typed_column import TypedColumn
+from snowflake.snowpark_connect.typed_column import SelectedProjectionSpec, TypedColumn
 from snowflake.snowpark_connect.utils import context
 from snowflake.snowpark_connect.utils.context import (
     clear_lca_alias_map,
@@ -99,6 +99,24 @@ from snowflake.snowpark_connect.utils.udtf_utils import (
 from snowflake.snowpark_connect.utils.udxf_import_utils import (
     get_python_udxf_import_files,
 )
+
+
+def _resolve_selected_table_function_columns(
+    mapper: TypedColumn,
+    all_result_columns: list[str],
+) -> list[SelectedProjectionSpec]:
+    """Resolve selected multi-column expression outputs.
+
+    Metadata contract is documented on TypedColumn:
+    get_selected_projection_specs().
+    """
+    selected_column_specs = mapper.get_selected_projection_specs()
+    if selected_column_specs is None:
+        return [
+            SelectedProjectionSpec(source_column_name=col_name)
+            for col_name in all_result_columns
+        ]
+    return selected_column_specs
 
 
 def map_drop(
@@ -264,6 +282,10 @@ def map_project(
     has_multi_column_alias = False
     qualifiers: list[set[ColumnQualifier]] = []
     equivalent_snowpark_names: list[set[str]] = []
+    projected_output_positions: list[int] = []
+    projected_output_cast_types: list[DataType | None] = []
+    projected_output_extract_fields: list[str | None] = []
+    next_output_position = 1
 
     typer = ExpressionTyper(input_df)
 
@@ -350,6 +372,10 @@ def map_project(
             new_spark_columns.append(spark_name)
             column_types.extend(mapper.types)
             qualifiers.append(mapper.get_qualifiers())
+            projected_output_positions.append(next_output_position)
+            projected_output_cast_types.append(None)
+            projected_output_extract_fields.append(None)
+            next_output_position += 1
 
             # Only register LCA for explicit aliases
             if (
@@ -387,7 +413,27 @@ def map_project(
             # Multi-column case ('select *', posexplode, explode, inline, etc.)
             has_multi_column_alias = True
             select_list.append(mapper.col)
-            result_columns = input_df.select(mapper.col).columns
+            all_result_columns = input_df.select(mapper.col).columns
+            selected_specs = _resolve_selected_table_function_columns(
+                mapper, all_result_columns
+            )
+            result_columns = [s.source_column_name for s in selected_specs]
+            output_name_to_offset = {
+                unquote_if_quoted(col_name): idx
+                for idx, col_name in enumerate(all_result_columns)
+            }
+            selected_output_offsets = [
+                output_name_to_offset[unquote_if_quoted(s.source_column_name)]
+                for s in selected_specs
+            ]
+            projected_output_cast_types.extend(s.cast_type for s in selected_specs)
+            projected_output_positions.extend(
+                next_output_position + offset for offset in selected_output_offsets
+            )
+            projected_output_extract_fields.extend(
+                s.extract_field for s in selected_specs
+            )
+            next_output_position += len(all_result_columns)
             new_snowpark_columns.extend(result_columns)
             new_spark_columns.extend(new_spark_names)
             column_types.extend(mapper.types)
@@ -421,8 +467,43 @@ def map_project(
 
     result = input_df.select(*select_list)
 
+    expected_output_positions = list(range(1, next_output_position))
+    should_project = projected_output_positions != expected_output_positions
+    should_cast_projection = any(
+        cast_type is not None for cast_type in projected_output_cast_types
+    )
+    should_extract_projection = any(
+        extract_field is not None for extract_field in projected_output_extract_fields
+    )
+    projection_has_final_aliases = False
+    if should_project or should_cast_projection or should_extract_projection:
+        projection_aliases = None
+        if has_multi_column_alias and len(new_spark_columns) == len(
+            set(new_spark_columns)
+        ):
+            projection_aliases = make_column_names_snowpark_compatible(
+                new_spark_columns, rel.common.plan_id
+            )
+            projection_has_final_aliases = True
+            new_snowpark_columns = projection_aliases
+
+        projection_cols = []
+        for idx, (output_pos, cast_type) in enumerate(
+            zip(projected_output_positions, projected_output_cast_types)
+        ):
+            col = snowpark_fn.col(f"${output_pos}")
+            extract_field = projected_output_extract_fields[idx]
+            if extract_field is not None:
+                col = snowpark_fn.get(col, snowpark_fn.lit(extract_field))
+            if cast_type is not None:
+                col = snowpark_fn.cast(col, cast_type)
+            if projection_aliases is not None:
+                col = col.alias(projection_aliases[idx])
+            projection_cols.append(col)
+        result = result.select(*projection_cols)
+
     # Apply toDF renaming for multi-column aliasing
-    if has_multi_column_alias:
+    if has_multi_column_alias and not projection_has_final_aliases:
         # Generate snowpark-compatible column names for multi-column aliases
         final_snowpark_columns = make_column_names_snowpark_compatible(
             new_spark_columns, rel.common.plan_id

@@ -1,7 +1,7 @@
 import threading
 
 
-def print_thread_debug_info():
+def print_thread_debug_info():  # pragma: no cover
     main_thread = threading.main_thread()
     current_thread = threading.current_thread()
 
@@ -17,7 +17,7 @@ def print_thread_debug_info():
             print(f"  {thread.name} ({thread.native_id})")
 
 
-def get_thread_id(thread):
+def get_thread_id(thread):  # pragma: no cover
     native_id = getattr(thread, "native_id", None)
     ident = getattr(thread, "ident", None)
 

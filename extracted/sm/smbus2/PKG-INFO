@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smbus2
-Version: 0.6.0
+Version: 0.6.1
 Summary: smbus2 is a drop-in replacement for smbus-cffi/smbus-python in pure Python
 Home-page: https://github.com/kplindegaard/smbus2
 Author: Karl-Petter Lindegaard
@@ -25,7 +25,8 @@ Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: docs
-Requires-Dist: sphinx>=1.5.3; extra == "docs"
+Requires-Dist: sphinx>=7; extra == "docs"
+Requires-Dist: sphinx-rtd-theme; extra == "docs"
 Provides-Extra: qa
 Requires-Dist: flake8; extra == "qa"
 Dynamic: author
@@ -48,18 +49,18 @@ A drop-in replacement for smbus-cffi/smbus-python in pure Python
 ![CodeQL](https://github.com/kplindegaard/smbus2/actions/workflows/codeql-analysis.yml/badge.svg?branch=master)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=kplindegaard_smbus2&metric=alert_status)](https://sonarcloud.io/dashboard?id=kplindegaard_smbus2)
 
-![Python Verions](https://img.shields.io/pypi/pyversions/smbus2.svg)
+![Python Versions](https://img.shields.io/pypi/pyversions/smbus2.svg)
 [![PyPi Version](https://img.shields.io/pypi/v/smbus2.svg)](https://pypi.org/project/smbus2/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/smbus2)](https://pypi.org/project/smbus2/)
 
 # Introduction
 
-smbus2 is (yet another) pure Python implementation of the [python-smbus](http://www.lm-sensors.org/browser/i2c-tools/trunk/py-smbus/) package.
+smbus2 is a pure Python, drop-in replacement for the `python-smbus` / `python3-smbus` Linux SMBus bindings.
 
-It was designed from the ground up with two goals in mind:
+It was designed with two goals in mind:
 
-1. It should be a drop-in replacement of smbus. The syntax shall be the same.
-2. Use the inherent i2c structs and unions to a greater extent than other pure Python implementations like [pysmbus](https://github.com/bjornt/pysmbus) does. By doing so, it will be more feature complete and easier to extend.
+1. Provide an interface that is familiar to users of `smbus`.
+2. Support more complete Linux I2C/SMBus functionality, including features such as `i2c_rdwr`.
 
 Currently supported features are:
 
@@ -229,18 +230,18 @@ for k in range(msg.len):
 
 From [PyPi](https://pypi.org/) with `pip`:
 
-```
+```bash
 pip install smbus2
 ```
 
 From [conda-forge](https://anaconda.org/conda-forge) using `conda`:
 
-```
+```bash
 conda install -c conda-forge smbus2
 ```
 
 Installation from source code is straight forward:
 
-```
+```bash
 python setup.py install
 ```

@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: http-sf
-Version: 1.1.1
+Version: 1.2.0
 Summary: Parse and serialise HTTP Structured Fields
 Author-email: Mark Nottingham <mnot@mnot.net>
+License-Expression: MIT
 Project-URL: homepage, https://github.com/mnot/http-sf
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 4 - Beta
-Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-License-File: LICENCE.md
 Requires-Dist: typing_extensions
 Provides-Extra: dev
 Requires-Dist: mypy; extra == "dev"
@@ -19,7 +18,6 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-md; extra == "dev"
 Requires-Dist: validate-pyproject; extra == "dev"
 Requires-Dist: build; extra == "dev"
-Dynamic: license-file
 
 
 # HTTP Structured Fields in Python

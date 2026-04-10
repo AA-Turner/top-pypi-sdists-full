@@ -232,7 +232,12 @@ class ChronosSession:
 
         while elapsed < timeout:
             status_response = self.get_status()
-            if status_response.status in terminal_statuses:
+            status_val = (
+                status_response.status.value
+                if hasattr(status_response.status, "value")
+                else str(status_response.status)
+            )
+            if status_val in terminal_statuses:
                 return self.get_details()
 
             time.sleep(poll_interval)

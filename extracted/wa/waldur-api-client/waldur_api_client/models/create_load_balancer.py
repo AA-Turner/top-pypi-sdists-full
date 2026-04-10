@@ -14,20 +14,16 @@ class CreateLoadBalancer:
     Attributes:
         url (str):
         uuid (UUID):
-        tenant (str): OpenStack tenant this load balancer belongs to
         name (str):
-        vip_subnet_id (str):
-        project (str):
-        service_settings (str):
+        tenant (str): OpenStack tenant this load balancer belongs to
+        vip_subnet (str):
     """
 
     url: str
     uuid: UUID
-    tenant: str
     name: str
-    vip_subnet_id: str
-    project: str
-    service_settings: str
+    tenant: str
+    vip_subnet: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -35,15 +31,11 @@ class CreateLoadBalancer:
 
         uuid = str(self.uuid)
 
-        tenant = self.tenant
-
         name = self.name
 
-        vip_subnet_id = self.vip_subnet_id
+        tenant = self.tenant
 
-        project = self.project
-
-        service_settings = self.service_settings
+        vip_subnet = self.vip_subnet
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -51,11 +43,9 @@ class CreateLoadBalancer:
             {
                 "url": url,
                 "uuid": uuid,
-                "tenant": tenant,
                 "name": name,
-                "vip_subnet_id": vip_subnet_id,
-                "project": project,
-                "service_settings": service_settings,
+                "tenant": tenant,
+                "vip_subnet": vip_subnet,
             }
         )
 
@@ -68,24 +58,18 @@ class CreateLoadBalancer:
 
         uuid = UUID(d.pop("uuid"))
 
-        tenant = d.pop("tenant")
-
         name = d.pop("name")
 
-        vip_subnet_id = d.pop("vip_subnet_id")
+        tenant = d.pop("tenant")
 
-        project = d.pop("project")
-
-        service_settings = d.pop("service_settings")
+        vip_subnet = d.pop("vip_subnet")
 
         create_load_balancer = cls(
             url=url,
             uuid=uuid,
-            tenant=tenant,
             name=name,
-            vip_subnet_id=vip_subnet_id,
-            project=project,
-            service_settings=service_settings,
+            tenant=tenant,
+            vip_subnet=vip_subnet,
         )
 
         create_load_balancer.additional_properties = d

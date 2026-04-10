@@ -12,7 +12,7 @@ import msgpack
 import ulid
 
 from .config import CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE
-from .db import save_trace_in_sqlite
+from .db import save_trace
 from .filters.core import LibraryPathFilter
 from .filters.kolo import kolo_filter_filename
 from .git import COMMIT_SHA
@@ -23,6 +23,12 @@ from .utils import extract_http_trace_name, extract_test_trace_name
 from .version import __version__
 
 logger = logging.getLogger("kolo")
+
+# Kolo uses tool ID 3 for sys.monitoring (Python 3.12+).
+# IDs 0-2 and 5 are reserved for debuggers, coverage, profilers, and optimizers.
+# Kolo is a tracing/observability tool, so we use an unassigned ID to avoid
+# conflicts with traditional profilers (cProfile, django-debug-toolbar, etc).
+KOLO_TOOL_ID = 3
 
 
 def frozen_filter(filename):
@@ -131,7 +137,7 @@ if sys.version_info >= (3, 12):
             source,
             name: Optional[str] = None,
         ):
-            self.tool_id = sys.monitoring.PROFILER_ID
+            self.tool_id = KOLO_TOOL_ID
             self.active = False
             self.timestamp = None
             self.db_path = db_path
@@ -858,8 +864,8 @@ if sys.version_info >= (3, 12):
 
             serialized_data = self.build_trace(frames_by_thread=frames_by_thread)
             timeout = self.config.get("sqlite_busy_timeout", 60)
-            save_trace_in_sqlite(
-                self.db_path, self.trace_id, msgpack=serialized_data, timeout=timeout
+            save_trace(
+                self.trace_id, serialized_data, db_path=self.db_path, timeout=timeout
             )
 
         def _set_trace_name(self, frames_by_thread=None):
@@ -882,10 +888,53 @@ if sys.version_info >= (3, 12):
             if trace_name:
                 self.trace_name = trace_name
 
+    logger = logging.getLogger("kolo")
+
+    def _set_monitor_active(monitor, value):
+        # The Rust KoloMonitor exposes `set_active` (see rust/src/monitoring.rs)
+        # because PyO3-generated attribute setters would require an exclusive
+        # borrow on the pyclass's PyCell, which conflicts with shared borrows
+        # held by other threads still running Python-level monitoring callbacks
+        # (e.g. a background save thread). The pure-Python KoloMonitor in this
+        # file uses a plain attribute.
+        set_active = getattr(monitor, "set_active", None)
+        if set_active is not None:
+            set_active(value)
+        else:
+            monitor.active = value
+
+    def _set_monitor_timestamp(monitor, value):
+        # See `_set_monitor_active` for rationale.
+        set_timestamp = getattr(monitor, "set_timestamp", None)
+        if set_timestamp is not None:
+            set_timestamp(value)
+        else:
+            monitor.timestamp = value
+
     def activate_monitoring(monitor):
-        monitor.active = True
         tool_id = monitor.tool_id
-        sys.monitoring.use_tool_id(tool_id, "kolo")
+        existing_tool = sys.monitoring.get_tool(tool_id)
+        if existing_tool:  # pragma: no cover
+            logger.warning(
+                "Cannot activate Kolo monitoring: tool ID %d is already in use by %r. "
+                "This may happen when another profiler (e.g., ddtrace, cProfile) is active.",
+                tool_id,
+                existing_tool,
+            )
+            return False
+
+        try:
+            sys.monitoring.use_tool_id(tool_id, "kolo")
+        except ValueError as e:
+            # Race condition: tool ID was claimed between our check and claim
+            logger.warning(
+                "Cannot activate Kolo monitoring: %s. "
+                "This may happen due to concurrent activation.",
+                e,
+            )
+            return False
+
+        _set_monitor_active(monitor, True)
         all_events = PY_START | PY_RETURN | PY_UNWIND | PY_RESUME | PY_YIELD | PY_THROW
 
         sys.monitoring.register_callback(tool_id, PY_START, monitor.monitor_pystart)
@@ -903,11 +952,12 @@ if sys.version_info >= (3, 12):
 
         sys.monitoring.set_events(tool_id, all_events)
 
-        monitor.timestamp = time.time()
+        _set_monitor_timestamp(monitor, time.time())
+        return True
 
     def disable_monitoring(monitor):
         if monitor.active:
-            monitor.active = False
+            _set_monitor_active(monitor, False)
             sys.monitoring.set_events(monitor.tool_id, NO_EVENTS)
             sys.monitoring.register_callback(monitor.tool_id, PY_START, None)
             sys.monitoring.register_callback(monitor.tool_id, PY_RETURN, None)

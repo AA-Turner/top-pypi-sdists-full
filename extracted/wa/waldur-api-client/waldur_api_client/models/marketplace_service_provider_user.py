@@ -7,6 +7,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.blank_enum import BlankEnum
 from ..models.gender_enum import GenderEnum
 from ..types import UNSET, Unset
 
@@ -32,7 +33,7 @@ class MarketplaceServiceProviderUser:
         is_active (Union[Unset, bool]): Designates whether this user should be treated as active. Unselect this instead
             of deleting accounts.
         job_title (Union[Unset, str]):
-        gender (Union[GenderEnum, None, Unset]): ISO 5218 gender code
+        gender (Union[BlankEnum, GenderEnum, None, Unset]): User's gender (male, female, or unknown)
         personal_title (Union[Unset, str]): Honorific title (Mr, Ms, Dr, Prof, etc.)
         place_of_birth (Union[Unset, str]):
         country_of_residence (Union[Unset, str]):
@@ -62,7 +63,7 @@ class MarketplaceServiceProviderUser:
     affiliations: Union[Unset, Any] = UNSET
     is_active: Union[Unset, bool] = UNSET
     job_title: Union[Unset, str] = UNSET
-    gender: Union[GenderEnum, None, Unset] = UNSET
+    gender: Union[BlankEnum, GenderEnum, None, Unset] = UNSET
     personal_title: Union[Unset, str] = UNSET
     place_of_birth: Union[Unset, str] = UNSET
     country_of_residence: Union[Unset, str] = UNSET
@@ -107,10 +108,12 @@ class MarketplaceServiceProviderUser:
 
         job_title = self.job_title
 
-        gender: Union[None, Unset, int]
+        gender: Union[None, Unset, str]
         if isinstance(self.gender, Unset):
             gender = UNSET
         elif isinstance(self.gender, GenderEnum):
+            gender = self.gender.value
+        elif isinstance(self.gender, BlankEnum):
             gender = self.gender.value
         else:
             gender = self.gender
@@ -245,20 +248,28 @@ class MarketplaceServiceProviderUser:
 
         job_title = d.pop("job_title", UNSET)
 
-        def _parse_gender(data: object) -> Union[GenderEnum, None, Unset]:
+        def _parse_gender(data: object) -> Union[BlankEnum, GenderEnum, None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             try:
-                if not isinstance(data, int):
+                if not isinstance(data, str):
                     raise TypeError()
                 gender_type_0 = GenderEnum(data)
 
                 return gender_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[GenderEnum, None, Unset], data)
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                gender_type_1 = BlankEnum(data)
+
+                return gender_type_1
+            except:  # noqa: E722
+                pass
+            return cast(Union[BlankEnum, GenderEnum, None, Unset], data)
 
         gender = _parse_gender(d.pop("gender", UNSET))
 

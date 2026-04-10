@@ -28,6 +28,7 @@ class OfferingEstimatedCostPolicy:
         created_by_username (str):
         has_fired (bool):
         fired_datetime (datetime.datetime):
+        affected_resources_count (int):
         limit_cost (int):
         period_name (str):
         options (Union[Unset, Any]): Fields for saving actions extra data. Keys are name of actions.
@@ -48,6 +49,7 @@ class OfferingEstimatedCostPolicy:
     created_by_username: str
     has_fired: bool
     fired_datetime: datetime.datetime
+    affected_resources_count: int
     limit_cost: int
     period_name: str
     options: Union[Unset, Any] = UNSET
@@ -78,6 +80,8 @@ class OfferingEstimatedCostPolicy:
         has_fired = self.has_fired
 
         fired_datetime = self.fired_datetime.isoformat()
+
+        affected_resources_count = self.affected_resources_count
 
         limit_cost = self.limit_cost
 
@@ -110,6 +114,7 @@ class OfferingEstimatedCostPolicy:
                 "created_by_username": created_by_username,
                 "has_fired": has_fired,
                 "fired_datetime": fired_datetime,
+                "affected_resources_count": affected_resources_count,
                 "limit_cost": limit_cost,
                 "period_name": period_name,
             }
@@ -150,6 +155,8 @@ class OfferingEstimatedCostPolicy:
 
         fired_datetime = isoparse(d.pop("fired_datetime"))
 
+        affected_resources_count = d.pop("affected_resources_count")
+
         limit_cost = d.pop("limit_cost")
 
         period_name = d.pop("period_name")
@@ -179,6 +186,7 @@ class OfferingEstimatedCostPolicy:
             created_by_username=created_by_username,
             has_fired=has_fired,
             fired_datetime=fired_datetime,
+            affected_resources_count=affected_resources_count,
             limit_cost=limit_cost,
             period_name=period_name,
             options=options,

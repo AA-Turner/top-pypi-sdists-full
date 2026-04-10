@@ -36,6 +36,13 @@ class UpdateOfferingComponentRequest:
         overage_component (Union[None, UUID, Unset]):
         min_prepaid_duration (Union[None, Unset, int]):
         max_prepaid_duration (Union[None, Unset, int]):
+        prepaid_duration_step (Union[None, Unset, int]): Step size in months for the initial prepaid duration at order
+            creation. If set, only multiples of this value (starting from min_prepaid_duration) are valid. Defaults to 1
+            (any value between min and max).
+        min_renewal_duration (Union[None, Unset, int]): Minimum number of months allowed for a renewal.
+        max_renewal_duration (Union[None, Unset, int]): Maximum number of months allowed for a renewal.
+        renewal_duration_step (Union[None, Unset, int]): Step size in months for renewal. Only multiples of this value
+            (starting from min_renewal_duration) are valid. Defaults to 1.
     """
 
     uuid: UUID
@@ -57,6 +64,10 @@ class UpdateOfferingComponentRequest:
     overage_component: Union[None, UUID, Unset] = UNSET
     min_prepaid_duration: Union[None, Unset, int] = UNSET
     max_prepaid_duration: Union[None, Unset, int] = UNSET
+    prepaid_duration_step: Union[None, Unset, int] = UNSET
+    min_renewal_duration: Union[None, Unset, int] = UNSET
+    max_renewal_duration: Union[None, Unset, int] = UNSET
+    renewal_duration_step: Union[None, Unset, int] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -140,6 +151,30 @@ class UpdateOfferingComponentRequest:
         else:
             max_prepaid_duration = self.max_prepaid_duration
 
+        prepaid_duration_step: Union[None, Unset, int]
+        if isinstance(self.prepaid_duration_step, Unset):
+            prepaid_duration_step = UNSET
+        else:
+            prepaid_duration_step = self.prepaid_duration_step
+
+        min_renewal_duration: Union[None, Unset, int]
+        if isinstance(self.min_renewal_duration, Unset):
+            min_renewal_duration = UNSET
+        else:
+            min_renewal_duration = self.min_renewal_duration
+
+        max_renewal_duration: Union[None, Unset, int]
+        if isinstance(self.max_renewal_duration, Unset):
+            max_renewal_duration = UNSET
+        else:
+            max_renewal_duration = self.max_renewal_duration
+
+        renewal_duration_step: Union[None, Unset, int]
+        if isinstance(self.renewal_duration_step, Unset):
+            renewal_duration_step = UNSET
+        else:
+            renewal_duration_step = self.renewal_duration_step
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -180,6 +215,14 @@ class UpdateOfferingComponentRequest:
             field_dict["min_prepaid_duration"] = min_prepaid_duration
         if max_prepaid_duration is not UNSET:
             field_dict["max_prepaid_duration"] = max_prepaid_duration
+        if prepaid_duration_step is not UNSET:
+            field_dict["prepaid_duration_step"] = prepaid_duration_step
+        if min_renewal_duration is not UNSET:
+            field_dict["min_renewal_duration"] = min_renewal_duration
+        if max_renewal_duration is not UNSET:
+            field_dict["max_renewal_duration"] = max_renewal_duration
+        if renewal_duration_step is not UNSET:
+            field_dict["renewal_duration_step"] = renewal_duration_step
 
         return field_dict
 
@@ -311,6 +354,42 @@ class UpdateOfferingComponentRequest:
 
         max_prepaid_duration = _parse_max_prepaid_duration(d.pop("max_prepaid_duration", UNSET))
 
+        def _parse_prepaid_duration_step(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        prepaid_duration_step = _parse_prepaid_duration_step(d.pop("prepaid_duration_step", UNSET))
+
+        def _parse_min_renewal_duration(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        min_renewal_duration = _parse_min_renewal_duration(d.pop("min_renewal_duration", UNSET))
+
+        def _parse_max_renewal_duration(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        max_renewal_duration = _parse_max_renewal_duration(d.pop("max_renewal_duration", UNSET))
+
+        def _parse_renewal_duration_step(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        renewal_duration_step = _parse_renewal_duration_step(d.pop("renewal_duration_step", UNSET))
+
         update_offering_component_request = cls(
             uuid=uuid,
             billing_type=billing_type,
@@ -331,6 +410,10 @@ class UpdateOfferingComponentRequest:
             overage_component=overage_component,
             min_prepaid_duration=min_prepaid_duration,
             max_prepaid_duration=max_prepaid_duration,
+            prepaid_duration_step=prepaid_duration_step,
+            min_renewal_duration=min_renewal_duration,
+            max_renewal_duration=max_renewal_duration,
+            renewal_duration_step=renewal_duration_step,
         )
 
         update_offering_component_request.additional_properties = d

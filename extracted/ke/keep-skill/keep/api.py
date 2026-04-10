@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, Optional
 
 logger = logging.getLogger(__name__)
+_MAX_EXPORT_CHANGES_LIMIT = 10_000
 
 from .utils import (
     _parse_date_param,
@@ -42,6 +43,24 @@ import os
 import sys
 
 from .config import load_or_create_config, save_config, StoreConfig, EmbeddingIdentity
+from .markdown_sync import (
+    DOC_STRUCTURAL_MUTATIONS,
+    DOC_UPDATE_MUTATION,
+    EDGE_MUTATIONS,
+    PART_MUTATIONS,
+    VERSION_EDGE_MUTATIONS,
+    VERSION_MUTATIONS,
+    decode_sync_event_payload,
+)
+from .body_policy import (
+    BODY_AUTHORITY_DERIVED,
+    BODY_AUTHORITY_MARKDOWN,
+    BODY_AUTHORITY_TAG,
+    BodyWriteIntent,
+    body_write_allowed,
+    normalize_body_authority,
+    resolve_body_authority,
+)
 from .paths import get_config_dir, get_default_store_path
 from .provider_identity import provider_model_name
 from .protocol import DocumentStoreProtocol, VectorStoreProtocol, PendingQueueProtocol
@@ -114,6 +133,8 @@ from .system_docs import (
     _load_frontmatter,
 )
 
+from .dependencies import NoteDependencyService
+from .markdown_export import _get_export_bundle
 from .processors import _content_hash, _content_hash_full
 
 
@@ -262,14 +283,14 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 print(
                     f"Search index migrated to cosine similarity.\n"
                     f"Search is unavailable until reindex completes.\n"
-                    f"Run: keep pending",
+                    f"Run: keep daemon",
                     file=sys.stderr,
                 )
             except Exception as e:
                 logger.error("Failed to enqueue reindex after cosine migration: %s", e)
                 print(
                     f"ERROR: Search index migration failed. Search may not work.\n"
-                    f"Try: keep pending --force\n"
+                    f"Try: keep daemon --reindex\n"
                     f"Details: {e}",
                     file=sys.stderr,
                 )
@@ -914,7 +935,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 print(
                     "WARNING: tag metadata migration failed; "
                     "tag-filtered semantic search may be incomplete.\n"
-                    "Run: keep pending --reindex",
+                    "Run: keep daemon --reindex",
                     file=sys.stderr,
                 )
         elif marker_migration_state is False:
@@ -1344,7 +1365,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                         f"Embedding model changed.{dim_msg}\n"
                         f"Enqueued {stats['enqueued']} items for reindex.\n"
                         f"Search is unavailable until reindex completes.\n"
-                        f"Run: keep pending",
+                        f"Run: keep daemon",
                         file=sys.stderr,
                     )
                 except Exception as e:
@@ -1352,7 +1373,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                     print(
                         f"ERROR: Embedding model changed but reindex failed.\n"
                         f"Search will not work until reindex completes.\n"
-                        f"Try: keep pending --force\n"
+                        f"Try: keep daemon --reindex\n"
                         f"Details: {e}",
                         file=sys.stderr,
                     )
@@ -1534,6 +1555,111 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         header = next(it)
         header["documents"] = list(it)
         return header
+
+    def export_bundle(
+        self,
+        id: str,
+        *,
+        include_system: bool = True,
+        include_parts: bool = True,
+        include_versions: bool = True,
+    ) -> dict | None:
+        """Export one note bundle with metadata needed for markdown rendering."""
+        return _get_export_bundle(
+            self,
+            id,
+            include_system=include_system,
+            include_parts=include_parts,
+            include_versions=include_versions,
+        )
+
+    def export_changes(
+        self,
+        *,
+        cursor: str | None = None,
+        limit: int = 1000,
+    ) -> dict:
+        """Return a non-destructive cursor-based sync change feed."""
+        try:
+            after_outbox_id = int(str(cursor or "0"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"invalid export change cursor: {cursor!r}") from exc
+        if after_outbox_id < 0:
+            raise ValueError(f"invalid export change cursor: {cursor!r}")
+        limit = max(0, min(int(limit), _MAX_EXPORT_CHANGES_LIMIT))
+
+        oldest_id, newest_id = self._document_store.sync_outbox_bounds()
+        compacted = (
+            after_outbox_id > 0
+            and oldest_id is not None
+            and oldest_id > after_outbox_id + 1
+        )
+        events = self._document_store.list_sync_outbox_since(
+            after_outbox_id=after_outbox_id,
+            limit=limit,
+        )
+        if events:
+            doc_coll = self._resolve_doc_collection()
+            dependencies = NoteDependencyService(self._document_store, doc_coll)
+            _expanded_targets: dict[str, list[str]] = {}
+
+            def _dedupe_note_ids(values: list[str]) -> list[str]:
+                seen: set[str] = set()
+                deduped: list[str] = []
+                for value in values:
+                    if not value or value in seen:
+                        continue
+                    seen.add(value)
+                    deduped.append(value)
+                return deduped
+
+            for row in events:
+                mutation = str(row.get("mutation") or "")
+                doc_id = str(row.get("entity_id") or "")
+                payload = decode_sync_event_payload(row.get("payload_json"))
+                affected_note_ids: list[str] = []
+
+                if mutation == DOC_UPDATE_MUTATION:
+                    affected_note_ids = [doc_id]
+                    if doc_id not in _expanded_targets:
+                        _expanded_targets[doc_id] = dependencies.all_target_ids(doc_id)
+                    affected_note_ids.extend(_expanded_targets[doc_id])
+                elif mutation in PART_MUTATIONS:
+                    affected_note_ids = [doc_id]
+                elif mutation in VERSION_MUTATIONS:
+                    affected_note_ids = [doc_id]
+                elif mutation in EDGE_MUTATIONS:
+                    affected_note_ids = [
+                        doc_id,
+                        str(payload.get("target_id") or ""),
+                        str(payload.get("old_target_id") or ""),
+                    ]
+                elif mutation in VERSION_EDGE_MUTATIONS:
+                    affected_note_ids = [
+                        doc_id,
+                        str(payload.get("target_id") or ""),
+                        str(payload.get("old_target_id") or ""),
+                    ]
+                elif mutation in DOC_STRUCTURAL_MUTATIONS:
+                    affected_note_ids = [doc_id]
+
+                row["affected_note_ids"] = _dedupe_note_ids(affected_note_ids)
+        head_cursor = newest_id or after_outbox_id
+        next_cursor = events[-1]["outbox_id"] if events else head_cursor
+        truncated = (
+            bool(events)
+            and newest_id is not None
+            and events[-1]["outbox_id"] < newest_id
+        )
+        return {
+            "format": "keep-export-changes",
+            "version": 1,
+            "cursor": str(next_cursor),
+            "head_cursor": str(head_cursor),
+            "compacted": compacted,
+            "truncated": truncated,
+            "events": events,
+        }
 
     def import_data(self, data: dict, *, mode: str = "merge") -> dict:
         """Import documents from an export dict.
@@ -2311,6 +2437,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         created_at: Optional[str] = None,
         force: bool = False,
         queue_summarize: bool = True,
+        _body_authority: str | None = None,
     ) -> Item:
         """Core upsert logic used by put()."""
         with _get_tracer("keeper").start_as_current_span(
@@ -2320,7 +2447,119 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 id, content, tags=tags, summary=summary,
                 system_tags=system_tags, created_at=created_at,
                 force=force, queue_summarize=queue_summarize,
+                _body_authority=_body_authority,
             )
+
+    def _resolve_note_body_summary(
+        self,
+        *,
+        id: str,
+        content: str,
+        summary: str | None,
+        merged_tags: dict[str, Any],
+        existing_doc: Any,
+        restored_version: Any,
+        content_unchanged: bool,
+        tags_changed: bool,
+        new_hash: str,
+    ) -> tuple[str, str]:
+        """Choose the stored note body/summary from the centralized policy.
+
+        Mutates ``merged_tags`` in place when the chosen body means the note
+        should be treated as already summarized.
+        """
+        max_len = self._config.max_summary_length
+        is_system_doc = is_system_id(id)
+        body_authority = resolve_body_authority(merged_tags)
+
+        if summary is not None:
+            if (
+                body_authority != BODY_AUTHORITY_MARKDOWN
+                and not is_system_doc
+                and len(summary) > max_len
+            ):
+                import warnings
+                warnings.warn(
+                    f"Summary exceeds max_summary_length ({len(summary)} > {max_len}), truncating",
+                    UserWarning,
+                    stacklevel=3,
+                )
+                summary = summary[:max_len]
+            return summary, body_authority
+
+        if is_system_doc:
+            return content, body_authority
+
+        if restored_version is not None:
+            return restored_version.summary, body_authority
+
+        if content_unchanged and tags_changed:
+            logger.debug("Tags changed for %s", id)
+            return existing_doc.summary, body_authority
+
+        if body_authority == BODY_AUTHORITY_MARKDOWN:
+            merged_tags["_summarized_hash"] = new_hash
+            return content, body_authority
+
+        if len(content) <= max_len:
+            merged_tags["_summarized_hash"] = new_hash
+            return content, body_authority
+
+        return content[:max_len] + "...", body_authority
+
+    def _apply_summary_mutation(
+        self,
+        collection: str,
+        target: str,
+        summary: str,
+        *,
+        intent: BodyWriteIntent,
+        embed: bool = False,
+        content_hash: str = "",
+        content_hash_full: str = "",
+    ) -> None:
+        """Apply a body mutation through the centralized authority policy.
+
+        A rejected mutation is a no-op for the body itself but does not inhibit
+        sibling mutations in the same batch. Callers that need transactional
+        semantics across ``set_summary`` and related tag updates must
+        coordinate that explicitly.
+        """
+        existing = self._document_store.get(collection, target)
+        existing_tags = dict(existing.tags or {}) if existing else {}
+        authority = resolve_body_authority(existing_tags)
+        if not body_write_allowed(authority, intent):
+            logger.warning(
+                "Skipped %s body mutation for markdown-authored note %s",
+                intent,
+                target,
+            )
+            return
+
+        updated = self._document_store.update_summary(collection, target, summary)
+        if not updated:
+            return
+
+        if content_hash:
+            self._document_store.update_content_hash(
+                collection,
+                target,
+                content_hash=content_hash,
+                content_hash_full=content_hash_full,
+            )
+
+        if embed:
+            chroma_coll = self._resolve_chroma_collection()
+            embedding = self._get_embedding_provider().embed(summary)
+            self._store.upsert(
+                collection=chroma_coll,
+                id=target,
+                embedding=embedding,
+                summary=summary,
+                tags=casefold_tags_for_index(existing_tags),
+            )
+        else:
+            self._store.update_summary(collection, target, summary)
 
     def __upsert_impl(
         self,
@@ -2333,6 +2572,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         created_at: Optional[str] = None,
         force: bool = False,
         queue_summarize: bool = True,
+        _body_authority: str | None = None,
     ) -> Item:
         content = repair_surrogate_text(content)
         if summary is not None:
@@ -2440,6 +2680,20 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         ):
             merged_tags["_analyzed_version"] = _prev_analyzed_version
 
+        requested_body_authority = (
+            normalize_body_authority(_body_authority)
+            if _body_authority is not None
+            else None
+        )
+        if requested_body_authority == BODY_AUTHORITY_MARKDOWN:
+            merged_tags[BODY_AUTHORITY_TAG] = BODY_AUTHORITY_MARKDOWN
+        elif requested_body_authority == BODY_AUTHORITY_DERIVED:
+            merged_tags.pop(BODY_AUTHORITY_TAG, None)
+        elif existing_doc is not None:
+            existing_authority = resolve_body_authority(existing_doc.tags)
+            if existing_authority == BODY_AUTHORITY_MARKDOWN:
+                merged_tags[BODY_AUTHORITY_TAG] = BODY_AUTHORITY_MARKDOWN
+
         # Normalize edge-tag values to canonical labeled-ref form before
         # change detection and storage. Done here so a single
         # call covers both cloud and local code paths below, and so the
@@ -2479,36 +2733,19 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 )
             return _record_to_item(existing_doc, changed=False)
 
-        # Determine summary
-        max_len = self._config.max_summary_length
+        final_summary, effective_body_authority = self._resolve_note_body_summary(
+            id=id,
+            content=content,
+            summary=summary,
+            merged_tags=merged_tags,
+            existing_doc=existing_doc,
+            restored_version=restored_version,
+            content_unchanged=content_unchanged,
+            tags_changed=tags_changed,
+            new_hash=new_hash,
+        )
         is_system_doc = is_system_id(id)
-        if summary is not None:
-            if not is_system_doc and len(summary) > max_len:
-                import warnings
-                warnings.warn(
-                    f"Summary exceeds max_summary_length ({len(summary)} > {max_len}), truncating",
-                    UserWarning,
-                    stacklevel=3
-                )
-                summary = summary[:max_len]
-            final_summary = summary
-        elif is_system_doc:
-            # System docs (.prompt/*, .tag/*, .meta/*) store full content
-            # as the summary — they are authored content, not items to summarize.
-            final_summary = content
-        elif restored_version is not None:
-            final_summary = restored_version.summary
-        elif content_unchanged and tags_changed:
-            logger.debug("Tags changed for %s", id)
-            final_summary = existing_doc.summary
-        elif len(content) <= max_len:
-            final_summary = content
-            # Content IS the summary — mark as already summarized so no
-            # future summarize task can overwrite the original content.
-            merged_tags["_summarized_hash"] = new_hash
-        else:
-            final_summary = content[:max_len] + "..."
-            # Full LLM summary is handled by the after-write flow.
+        max_len = self._config.max_summary_length
 
         _has_embeddings = self._config.embedding is not None
         should_index = _has_embeddings and not is_system_doc
@@ -2669,6 +2906,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         if (
             queue_summarize
             and summary is None
+            and effective_body_authority != BODY_AUTHORITY_MARKDOWN
             and len(content) > max_len
             and (not content_unchanged or tags_changed or force)
         ):
@@ -2694,6 +2932,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         force: bool = False,
         queue_background_tasks: bool = True,
         capture_write_context: bool = False,
+        _body_authority: str | None = None,
     ) -> Item:
         """Store content in the memory.
 
@@ -2717,6 +2956,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
             force: Re-process even if content is unchanged.
             queue_background_tasks: Enqueue summarization/analysis after write.
             capture_write_context: Attach write-time context as tags.
+            _body_authority: Private override for authored-markdown semantics.
         """
         if content is not None and uri is not None:
             raise ValueError("Provide content or uri, not both")
@@ -2743,6 +2983,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 force=force,
                 queue_background_tasks=queue_background_tasks,
                 capture_write_context=capture_write_context,
+                _body_authority=_body_authority,
             )
 
     def __put_direct_impl(
@@ -2757,6 +2998,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
         force: bool = False,
         queue_background_tasks: bool = True,
         capture_write_context: bool = False,
+        _body_authority: str | None = None,
     ) -> Item:
         if tags:
             tags = self._validate_write_tags(tags)
@@ -2768,6 +3010,15 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 f"Cannot modify part directly: {effective_id!r}. "
                 "Parts are managed by analyze()."
             )
+
+        if uri is not None and (uri.startswith("file://") or uri.startswith("/")):
+            from .markdown_mirrors import path_inside_markdown_mirror
+
+            file_path = Path(file_uri_to_path(uri)).resolve()
+            if path_inside_markdown_mirror(self, file_path):
+                raise ValueError(
+                    f"Cannot put files from a synced markdown mirror root: {file_path}"
+                )
 
         # Enforce required tags (skip for system docs with dot-prefix IDs)
         if self._config.required_tags and not is_system_id(effective_id):
@@ -2898,6 +3149,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 created_at=created_at,
                 force=force,
                 queue_summarize=queue_background_tasks,
+                _body_authority=_body_authority,
             )
 
             ocr_pages = (doc.metadata or {}).get("_ocr_pages")
@@ -2966,6 +3218,7 @@ class Keeper(ProviderLifecycleMixin, BackgroundProcessingMixin, SearchAugmentati
                 created_at=created_at,
                 force=force,
                 queue_summarize=queue_background_tasks,
+                _body_authority=_body_authority,
             )
             if capture_write_context:
                 self._store_write_context(

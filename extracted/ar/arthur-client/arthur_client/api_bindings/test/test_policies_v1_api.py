@@ -187,6 +187,13 @@ class TestPoliciesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_list_workspace_compliance(self) -> None:
+        """Test case for list_workspace_compliance
+
+        List Workspace Compliance
+        """
+        pass
+
     def test_list_workspace_policy_assignments(self) -> None:
         """Test case for list_workspace_policy_assignments
 

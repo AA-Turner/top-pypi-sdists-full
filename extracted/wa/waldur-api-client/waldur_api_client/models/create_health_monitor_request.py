@@ -16,18 +16,20 @@ class CreateHealthMonitorRequest:
     Attributes:
         pool (str): Pool this health monitor belongs to
         type_ (LoadBalancerProtocolEnum):
-        delay (int): Interval between health checks in seconds
-        timeout (int): Time in seconds to timeout a health check
-        max_retries (int): Number of retries before marking member as down
         name (Union[Unset, str]):
+        delay (Union[Unset, int]): Interval between health checks in seconds Default: 5.
+        timeout (Union[Unset, int]): Time in seconds to timeout a health check Default: 5.
+        max_retries (Union[Unset, int]):  Default: 3.
+        max_retries_down (Union[Unset, int]):  Default: 3.
     """
 
     pool: str
     type_: LoadBalancerProtocolEnum
-    delay: int
-    timeout: int
-    max_retries: int
     name: Union[Unset, str] = UNSET
+    delay: Union[Unset, int] = 5
+    timeout: Union[Unset, int] = 5
+    max_retries: Union[Unset, int] = 3
+    max_retries_down: Union[Unset, int] = 3
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -35,13 +37,15 @@ class CreateHealthMonitorRequest:
 
         type_ = self.type_.value
 
+        name = self.name
+
         delay = self.delay
 
         timeout = self.timeout
 
         max_retries = self.max_retries
 
-        name = self.name
+        max_retries_down = self.max_retries_down
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -49,13 +53,18 @@ class CreateHealthMonitorRequest:
             {
                 "pool": pool,
                 "type": type_,
-                "delay": delay,
-                "timeout": timeout,
-                "max_retries": max_retries,
             }
         )
         if name is not UNSET:
             field_dict["name"] = name
+        if delay is not UNSET:
+            field_dict["delay"] = delay
+        if timeout is not UNSET:
+            field_dict["timeout"] = timeout
+        if max_retries is not UNSET:
+            field_dict["max_retries"] = max_retries
+        if max_retries_down is not UNSET:
+            field_dict["max_retries_down"] = max_retries_down
 
         return field_dict
 
@@ -66,21 +75,24 @@ class CreateHealthMonitorRequest:
 
         type_ = LoadBalancerProtocolEnum(d.pop("type"))
 
-        delay = d.pop("delay")
-
-        timeout = d.pop("timeout")
-
-        max_retries = d.pop("max_retries")
-
         name = d.pop("name", UNSET)
+
+        delay = d.pop("delay", UNSET)
+
+        timeout = d.pop("timeout", UNSET)
+
+        max_retries = d.pop("max_retries", UNSET)
+
+        max_retries_down = d.pop("max_retries_down", UNSET)
 
         create_health_monitor_request = cls(
             pool=pool,
             type_=type_,
+            name=name,
             delay=delay,
             timeout=timeout,
             max_retries=max_retries,
-            name=name,
+            max_retries_down=max_retries_down,
         )
 
         create_health_monitor_request.additional_properties = d

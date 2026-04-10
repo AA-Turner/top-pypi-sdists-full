@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import Any, Mapping, MutableMapping
 
@@ -10,14 +9,14 @@ try:
 except ImportError:
     import tomli as tomllib
 
-import toolz
 from cerberus import Validator
 
+# Re-export from _paths for backwards compatibility
+from ._paths import KoloWriteError, create_kolo_directory
+
+__all__ = ["KoloWriteError", "create_kolo_directory"]
+
 logger = logging.getLogger("kolo")
-
-
-class KoloWriteError(Exception):
-    pass
 
 
 class InvalidConfig(Exception):
@@ -25,7 +24,11 @@ class InvalidConfig(Exception):
 
 
 # This same list exists in config.rs
-CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE = ["filters", "processors", "test_generation"]
+CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE = [
+    "filters",
+    "processors",
+    "auto_emit",
+]
 
 schema = {
     # Be careful about adding (non-omitted) keys here that don't have string or bool values
@@ -45,20 +48,11 @@ schema = {
     "processors": {"type": "list"},
     "production_beta": {"type": "boolean"},
     "sqlite_busy_timeout": {"type": "integer"},
-    "test_generation": {
-        "type": "dict",
-        "schema": {
-            "factories": {"type": "list"},
-            "field_parsers": {"type": "list"},
-            "trace_processors": {"type": "list"},
-            "output_dir": {"type": "string"},
-            "hook_imports": {"type": "list"},
-        },
-    },
     "threading": {"type": "boolean"},
     "use_monitoring": {"type": "boolean"},
     "use_msgpack": {"type": "boolean"},
     "use_rust": {"type": "boolean"},
+    "auto_emit": {"type": "boolean"},
 }
 pyproject_schema = {
     "tool": {
@@ -119,36 +113,27 @@ def load_config_from_pyproject_toml(path: Path) -> MutableMapping[str, Any]:
         raise InvalidConfig()
 
 
-def create_kolo_directory() -> Path:
-    """
-    Create the kolo directory and contents if they do not exist
+def _merge_dicts(*dicts):
+    result = {}
+    for d in dicts:
+        result.update(d)
+    return result
 
-    Returns the path to the .kolo directory for convenience.
-    """
-    kolo_directory = (Path(os.environ.get("KOLO_PATH", ".")) / ".kolo").resolve()
-    try:
-        kolo_directory.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        message = f"Could not create .kolo directory at {kolo_directory}."
-        raise KoloWriteError(message) from e
 
-    gitignore_path = kolo_directory / ".gitignore"
-    try:
-        with open(gitignore_path, "w") as gitignore:
-            gitignore.write("db.sqlite3\n")
-            gitignore.write("db.sqlite3-shm\n")
-            gitignore.write("db.sqlite3-wal\n")
-            gitignore.write("latest.txt\n")
-            gitignore.write(".gitignore\n")
-    except Exception as e:
-        message = f"Could not write to {gitignore_path}."
-        raise KoloWriteError(message) from e
-    return kolo_directory.resolve()
+def _merge_with(func, *dicts):
+    collected: dict[str, list] = {}
+    for d in dicts:
+        for k, v in d.items():
+            if k in collected:
+                collected[k].append(v)
+            else:
+                collected[k] = [v]
+    return {k: func(v) for k, v in collected.items()}
 
 
 def merge_or_last(args):
     if all(isinstance(arg, dict) for arg in args):
-        return toolz.merge(*args)
+        return _merge_dicts(*args)
     return args[-1]
 
 
@@ -162,5 +147,5 @@ def load_config(
     except InvalidConfig:
         config = load_config_from_toml(kolo_directory / "config.toml")
     if extra_config:
-        return toolz.merge_with(merge_or_last, config, extra_config)
+        return _merge_with(merge_or_last, config, extra_config)
     return config

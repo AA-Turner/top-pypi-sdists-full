@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.nested_attribute_type_enum import NestedAttributeTypeEnum
+from ..models.attribute_type_enum import AttributeTypeEnum
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ class NestedAttributeRequest:
     Attributes:
         key (str):
         title (str):
-        type_ (NestedAttributeTypeEnum):
+        type_ (AttributeTypeEnum):
         options (list['NestedAttributeOptionRequest']):
         required (Union[Unset, bool]): A value must be provided for the attribute.
         default (Union[Unset, Any]):
@@ -28,7 +28,7 @@ class NestedAttributeRequest:
 
     key: str
     title: str
-    type_: NestedAttributeTypeEnum
+    type_: AttributeTypeEnum
     options: list["NestedAttributeOptionRequest"]
     required: Union[Unset, bool] = UNSET
     default: Union[Unset, Any] = UNSET
@@ -76,7 +76,7 @@ class NestedAttributeRequest:
 
         title = d.pop("title")
 
-        type_ = NestedAttributeTypeEnum(d.pop("type"))
+        type_ = AttributeTypeEnum(d.pop("type"))
 
         options = []
         _options = d.pop("options")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wllegal
-Version: 2026.2
+Version: 2026.3
 Summary: Hosted Weblate legal stuff
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: GPL-3.0-or-later
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Internationalization
 Classifier: Topic :: Software Development :: Localization
 Classifier: Topic :: Internet :: WWW/HTTP
@@ -33,14 +34,14 @@ Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: Django<6.1,>=5.2
-Requires-Dist: weblate-language-data>=2026.2
+Requires-Dist: weblate-language-data>=2026.7
 Provides-Extra: dev
 Requires-Dist: wllegal[lint,test]; extra == "dev"
 Provides-Extra: lint
-Requires-Dist: prek==0.3.2; extra == "lint"
+Requires-Dist: prek==0.3.8; extra == "lint"
 Provides-Extra: test
 Requires-Dist: wllegal[weblate]; extra == "test"
-Requires-Dist: coverage==7.13.4; extra == "test"
+Requires-Dist: coverage==7.13.5; extra == "test"
 Requires-Dist: translate-toolkit; extra == "test"
 Provides-Extra: weblate
 Requires-Dist: Weblate[postgres]>=5.0; extra == "weblate"

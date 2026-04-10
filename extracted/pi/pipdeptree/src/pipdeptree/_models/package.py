@@ -55,6 +55,34 @@ class Package(ABC):
 
         return f"({', '.join(license_strs)})"
 
+    def get_metadata(self, field: str) -> str | list[str]:
+        if field == "license":
+            raw = self.licenses().strip("()")
+            return raw if "license" in raw.lower() else f"{raw} License"
+        try:
+            dist_metadata = metadata(self.key)
+        except PackageNotFoundError:
+            return "Unknown"
+        values = dist_metadata.get_all(field)
+        if not values:
+            return "Unknown"
+        if len(values) == 1:
+            return str(values[0])
+        return [str(v) for v in values]
+
+    def get_metadata_values(self, fields: list[str]) -> list[str]:
+        result: list[str] = []
+        for f in fields:
+            value = self.get_metadata(f)
+            if isinstance(value, list):
+                result.extend(value)
+            else:
+                result.append(value)
+        return [r"\n".join(" ".join(line.split()) for line in v.splitlines()) for v in result]
+
+    def get_metadata_dict(self, fields: list[str]) -> dict[str, str | list[str]]:
+        return {field: self.get_metadata(field) for field in fields}
+
     @abstractmethod
     def render_as_root(self, *, frozen: bool) -> str:
         raise NotImplementedError
@@ -225,7 +253,7 @@ class ReqPackage(Package):
 
     @property
     def version_spec(self) -> str | None:
-        specs = sorted(map(str, self._obj.specifier), reverse=True)  # type: ignore[invalid-argument-type]  # `reverse` makes '>' prior to '<'
+        specs = sorted(map(str, self._obj.specifier), reverse=True)  # ty: ignore[invalid-argument-type]  # `reverse` makes '>' prior to '<'
         return ",".join(specs) if specs else None
 
     @property

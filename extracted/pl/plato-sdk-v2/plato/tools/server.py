@@ -33,8 +33,6 @@ Usage::
     await server.close()
 """
 
-from __future__ import annotations
-
 import asyncio
 import contextlib
 import inspect

@@ -110,12 +110,12 @@ class LxmlParserLinkExtractor:
     ) -> list[Link]:
         links: list[Link] = []
         # hacky way to get the underlying lxml parsed document
-        for el, attr, attr_val in self._iter_links(selector.root):
+        for el, _, attr_val in self._iter_links(selector.root):
             # pseudo lxml.html.HtmlElement.make_links_absolute(base_url)
             try:
                 if self.strip:
-                    attr_val = strip_html5_whitespace(attr_val)
-                attr_val = urljoin(base_url, attr_val)
+                    attr_val = strip_html5_whitespace(attr_val)  # noqa: PLW2901 this is intended
+                attr_val = urljoin(base_url, attr_val)  # noqa: PLW2901
             except ValueError:
                 continue  # skipping bogus links
             else:
@@ -245,7 +245,7 @@ class LxmlLinkExtractor:
             if self.allow_res
             else [True]
         )
-        denied = (regex.search(url) for regex in self.deny_res) if self.deny_res else []
+        denied = (regex.search(url) for regex in self.deny_res) if self.deny_res else ()
         return any(allowed) and not any(denied)
 
     def _process_links(self, links: list[Link]) -> list[Link]:

@@ -1,7 +1,7 @@
 //! The uploading logic was mostly reverse engineered; I wrote it down as
 //! documentation at https://warehouse.readthedocs.io/api-reference/legacy/#upload-api
 
-use crate::build_context::hash_file;
+use crate::util::hash_file;
 use anyhow::{Context, Result, bail};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
@@ -9,6 +9,7 @@ use bytesize::ByteSize;
 use configparser::ini::Ini;
 use fs_err as fs;
 
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -378,10 +379,8 @@ fn complete_registry(opt: &PublishOpt) -> Result<Registry> {
 /// Port of pip's `canonicalize_name`
 /// https://github.com/pypa/pip/blob/b33e791742570215f15663410c3ed987d2253d5b/src/pip/_vendor/packaging/utils.py#L18-L25
 fn canonicalize_name(name: &str) -> String {
-    Regex::new("[-_.]+")
-        .unwrap()
-        .replace_all(name, "-")
-        .to_lowercase()
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new("[-_.]+").unwrap());
+    RE.replace_all(name, "-").to_lowercase()
 }
 
 #[cfg(any(feature = "native-tls", feature = "rustls"))]
@@ -601,14 +600,14 @@ pub fn upload_ui(items: &[PathBuf], publish: &PublishOpt) -> Result<()> {
 
     eprintln!("🚀 Uploading {} packages", items.len());
 
-    let title_re = regex::Regex::new(r"<title>(.+?)</title>").unwrap();
+    static TITLE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"<title>(.+?)</title>").unwrap());
     for i in items {
         let upload_result = upload(&registry, i);
 
         match upload_result {
             Ok(()) => (),
             Err(UploadError::AuthenticationError(msg)) => {
-                let title = title_re
+                let title = TITLE_RE
                     .captures(&msg)
                     .and_then(|c| c.get(1))
                     .map(|m| m.as_str());

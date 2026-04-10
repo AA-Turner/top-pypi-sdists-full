@@ -17,15 +17,33 @@ T = TypeVar("T", bound="ChatResponse")
 class ChatResponse:
     """
     Attributes:
-        k (Union[Unset, str]): Component Alias (e.g. 'markdown', 'code', 'table').
+        k (Union[Unset, str]): Component key (e.g. 'markdown', 'code', 'table', 'vm_order').
         c (Union[Unset, str]): Content payload.
         t (Union[Unset, str]): Tag or language for dynamic blocks.
         e (Union[Unset, str]): Error message.
         h (Union[Unset, list[Any]]): Table headers.
         r (Union[Unset, list[Any]]): Table rows.
         n (Union[Unset, int]): Total row count.
-        m (Union[Unset, ChatResponseM]): System metadata.
+        m (Union[Unset, ChatResponseM]): System metadata (thread_uuid, message UUIDs).
         w (Union[Unset, str]): PII detection warning message.
+        status (Union[Unset, str]): vm_order status: 'form' | 'project_form' | 'preview' | 'success' | 'error'.
+        name (Union[Unset, str]): VM name.
+        flavor (Union[Unset, str]): Flavor display string (e.g. 'm1.small (2 vCPU, 4GB RAM)').
+        image (Union[Unset, str]): Image name.
+        content (Union[Unset, str]): Intro text or form instructions.
+        project (Union[Unset, str]): Project name.
+        organization (Union[Unset, str]): Organization/customer name.
+        project_uuid (Union[Unset, str]): Project UUID.
+        order_id (Union[Unset, str]): Order UUID (present on success).
+        message (Union[Unset, str]): Success message (present on success).
+        error (Union[Unset, str]): Error detail (present on error).
+        flavors (Union[Unset, list[Any]]): Available flavor options [{name, cores, ram}]. Present when status='form'.
+        images (Union[Unset, list[Any]]): Available image options [{name, min_disk, min_ram}]. Present when
+            status='form'.
+        projects (Union[Unset, list[Any]]): Available project options [{name, organization, uuid}]. Present when
+            status='project_form'.
+        offerings (Union[Unset, list[Any]]): Available offering options [{uuid, name}]. Present when
+            status='offering_form'.
     """
 
     k: Union[Unset, str] = UNSET
@@ -37,6 +55,21 @@ class ChatResponse:
     n: Union[Unset, int] = UNSET
     m: Union[Unset, "ChatResponseM"] = UNSET
     w: Union[Unset, str] = UNSET
+    status: Union[Unset, str] = UNSET
+    name: Union[Unset, str] = UNSET
+    flavor: Union[Unset, str] = UNSET
+    image: Union[Unset, str] = UNSET
+    content: Union[Unset, str] = UNSET
+    project: Union[Unset, str] = UNSET
+    organization: Union[Unset, str] = UNSET
+    project_uuid: Union[Unset, str] = UNSET
+    order_id: Union[Unset, str] = UNSET
+    message: Union[Unset, str] = UNSET
+    error: Union[Unset, str] = UNSET
+    flavors: Union[Unset, list[Any]] = UNSET
+    images: Union[Unset, list[Any]] = UNSET
+    projects: Union[Unset, list[Any]] = UNSET
+    offerings: Union[Unset, list[Any]] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -64,6 +97,44 @@ class ChatResponse:
 
         w = self.w
 
+        status = self.status
+
+        name = self.name
+
+        flavor = self.flavor
+
+        image = self.image
+
+        content = self.content
+
+        project = self.project
+
+        organization = self.organization
+
+        project_uuid = self.project_uuid
+
+        order_id = self.order_id
+
+        message = self.message
+
+        error = self.error
+
+        flavors: Union[Unset, list[Any]] = UNSET
+        if not isinstance(self.flavors, Unset):
+            flavors = self.flavors
+
+        images: Union[Unset, list[Any]] = UNSET
+        if not isinstance(self.images, Unset):
+            images = self.images
+
+        projects: Union[Unset, list[Any]] = UNSET
+        if not isinstance(self.projects, Unset):
+            projects = self.projects
+
+        offerings: Union[Unset, list[Any]] = UNSET
+        if not isinstance(self.offerings, Unset):
+            offerings = self.offerings
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -85,6 +156,36 @@ class ChatResponse:
             field_dict["m"] = m
         if w is not UNSET:
             field_dict["w"] = w
+        if status is not UNSET:
+            field_dict["status"] = status
+        if name is not UNSET:
+            field_dict["name"] = name
+        if flavor is not UNSET:
+            field_dict["flavor"] = flavor
+        if image is not UNSET:
+            field_dict["image"] = image
+        if content is not UNSET:
+            field_dict["content"] = content
+        if project is not UNSET:
+            field_dict["project"] = project
+        if organization is not UNSET:
+            field_dict["organization"] = organization
+        if project_uuid is not UNSET:
+            field_dict["project_uuid"] = project_uuid
+        if order_id is not UNSET:
+            field_dict["order_id"] = order_id
+        if message is not UNSET:
+            field_dict["message"] = message
+        if error is not UNSET:
+            field_dict["error"] = error
+        if flavors is not UNSET:
+            field_dict["flavors"] = flavors
+        if images is not UNSET:
+            field_dict["images"] = images
+        if projects is not UNSET:
+            field_dict["projects"] = projects
+        if offerings is not UNSET:
+            field_dict["offerings"] = offerings
 
         return field_dict
 
@@ -116,6 +217,36 @@ class ChatResponse:
 
         w = d.pop("w", UNSET)
 
+        status = d.pop("status", UNSET)
+
+        name = d.pop("name", UNSET)
+
+        flavor = d.pop("flavor", UNSET)
+
+        image = d.pop("image", UNSET)
+
+        content = d.pop("content", UNSET)
+
+        project = d.pop("project", UNSET)
+
+        organization = d.pop("organization", UNSET)
+
+        project_uuid = d.pop("project_uuid", UNSET)
+
+        order_id = d.pop("order_id", UNSET)
+
+        message = d.pop("message", UNSET)
+
+        error = d.pop("error", UNSET)
+
+        flavors = cast(list[Any], d.pop("flavors", UNSET))
+
+        images = cast(list[Any], d.pop("images", UNSET))
+
+        projects = cast(list[Any], d.pop("projects", UNSET))
+
+        offerings = cast(list[Any], d.pop("offerings", UNSET))
+
         chat_response = cls(
             k=k,
             c=c,
@@ -126,6 +257,21 @@ class ChatResponse:
             n=n,
             m=m,
             w=w,
+            status=status,
+            name=name,
+            flavor=flavor,
+            image=image,
+            content=content,
+            project=project,
+            organization=organization,
+            project_uuid=project_uuid,
+            order_id=order_id,
+            message=message,
+            error=error,
+            flavors=flavors,
+            images=images,
+            projects=projects,
+            offerings=offerings,
         )
 
         chat_response.additional_properties = d

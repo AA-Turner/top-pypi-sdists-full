@@ -377,21 +377,120 @@ def _quote_top_level_schema_fields(schema: StructType) -> StructType:
 def _get_all_xml_file_paths(paths: list[str], session: snowpark.Session) -> list[str]:
     paths = [str(p) for p in paths]
     paths = [p[1:-1] if p.startswith("'") and p.endswith("'") else p for p in paths]
-    new_path = []
-
-    # each path in the list could be a dir, we need to ls each one of them
+    stage_url_cache = {}
+    result = []
     for path in paths:
-        stage_files = session.sql(f"LS {path}")
         try:
-            res = [f"@{res[0]}" for res in stage_files.collect()]
-            if res:
-                new_path.extend(res)
-            else:
-                new_path.append(path)
-        except Exception:
-            new_path.append(path)
 
-    return new_path
+            ls_result = session.sql(f"LS {path}").collect()
+            if not ls_result:
+                result.append(path)
+                continue
+
+            stage_name = path[1:].split("/", 1)[0]
+            is_external_stage = _is_external_stage_cloud_path(ls_result[0][0])
+            if stage_name not in stage_url_cache:
+                stage_url = (
+                    _get_stage_url_prefix(stage_name, session)
+                    if is_external_stage
+                    else stage_name
+                )
+                stage_url_cache[stage_name] = stage_url
+            else:
+                stage_url = stage_url_cache[stage_name]
+            if is_external_stage and not stage_url:
+                result.append(path)
+                continue
+            files = [res[0] for res in ls_result]
+            res = _generate_list_of_files(
+                stage_name, path, files, stage_url or stage_name
+            )
+            result.extend(res)
+
+        except Exception:
+            # if failed, we still pass in whatever user give us to try finish the read
+            result.append(path)
+    if not result:
+        exception = IllegalArgumentException("Path does not contain valid XML file")
+        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+        raise exception
+    return result
+
+
+def _generate_list_of_files(
+    stage_name: str,
+    path: str,
+    files: list[str],
+    stage_url: str,
+) -> list[str]:
+    """Return direct child .xml files under `path`, mapped back to stage paths."""
+    result: list[str] = []
+    stage_token = f"@{stage_name}"
+
+    dir_root = f"{path.replace(stage_token, stage_url, 1)}"
+    for f in files:
+        file_name = f[len(dir_root) :]  # part after dir root
+        if f == path[1:] or dir_root == f:
+            result.append(path)
+            continue
+        # Direct child only + xml only
+        if "/" in file_name.lstrip("/") or not file_name.lower().endswith(".xml"):
+            continue
+
+        # Map back to stage path format under original input path
+        result.append(f"@{f.replace(stage_url, stage_name)}")
+    return result
+
+
+def _get_stage_url_prefix(stage_name: str, session: snowpark.Session) -> str | None:
+    """
+    Return URL property value from DESCRIBE STAGE via RESULT_SCAN(query_id).
+    """
+    try:
+        describe_job = session.sql(f"DESCRIBE STAGE {stage_name}").collect_nowait()
+        describe_query_id = describe_job.query_id
+        describe_job.result()
+    except Exception:
+        return None
+
+    if not describe_query_id:
+        return None
+
+    scan_sql = (
+        "SELECT COALESCE("
+        "PARSE_JSON(REGEXP_REPLACE(\"property_value\", '/$', ''))[0]::string, "
+        "PARSE_JSON(REGEXP_REPLACE(\"property_value\", '/$', ''))::string, "
+        "REGEXP_REPLACE(\"property_value\", '/$', '')::string"
+        ") AS url "
+        f"FROM TABLE(RESULT_SCAN('{describe_query_id}')) "
+        "WHERE \"property\" = 'URL'"
+    )
+    try:
+        url_rows = session.sql(scan_sql).collect()
+    except Exception:
+        return None
+
+    if not url_rows:
+        return None
+    try:
+        url = url_rows[0][0]
+    except Exception:
+        return None
+    if url is None:
+        return None
+    return str(url).strip().strip('"').strip("'").rstrip("/")
+
+
+def _is_external_stage_cloud_path(path: str) -> bool:
+    return (
+        path.startswith("s3://")
+        or path.startswith("s3a://")  # AWS S3
+        or path.startswith("azure://")
+        or path.startswith("abfss://")
+        or path.startswith("wasbs://")  # Azure
+        or path.startswith("gcs://")
+        or path.startswith("gs://")  # GCP
+    )
 
 
 def _cast_all_to_variant(df: snowpark.DataFrame) -> snowpark.DataFrame:
@@ -408,5 +507,8 @@ def _resolve_column_name(field_name: str, snowpark_columns: set[str]) -> str | N
     candidate = f'"{field_name}"'
     if candidate in snowpark_columns:
         return candidate
+
+    if field_name in snowpark_columns:
+        return f'"{field_name}"'
 
     return None

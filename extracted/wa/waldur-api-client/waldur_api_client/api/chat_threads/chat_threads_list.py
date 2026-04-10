@@ -19,14 +19,20 @@ def _get_kwargs(
     *,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    input_tokens_max: Union[Unset, float] = UNSET,
+    input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     max_severity: Union[Unset, InjectionSeverityEnum] = UNSET,
     modified: Union[Unset, datetime.date] = UNSET,
     o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    output_tokens_max: Union[Unset, float] = UNSET,
+    output_tokens_min: Union[Unset, float] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
+    total_tokens_max: Union[Unset, float] = UNSET,
+    total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
@@ -44,6 +50,10 @@ def _get_kwargs(
             json_field.append(field_item)
 
     params["field"] = json_field
+
+    params["input_tokens_max"] = input_tokens_max
+
+    params["input_tokens_min"] = input_tokens_min
 
     params["is_archived"] = is_archived
 
@@ -69,11 +79,19 @@ def _get_kwargs(
 
     params["o"] = json_o
 
+    params["output_tokens_max"] = output_tokens_max
+
+    params["output_tokens_min"] = output_tokens_min
+
     params["page"] = page
 
     params["page_size"] = page_size
 
     params["query"] = query
+
+    params["total_tokens_max"] = total_tokens_max
+
+    params["total_tokens_min"] = total_tokens_min
 
     json_user: Union[Unset, str] = UNSET
     if not isinstance(user, Unset):
@@ -122,28 +140,40 @@ def sync_detailed(
     client: AuthenticatedClient,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    input_tokens_max: Union[Unset, float] = UNSET,
+    input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     max_severity: Union[Unset, InjectionSeverityEnum] = UNSET,
     modified: Union[Unset, datetime.date] = UNSET,
     o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    output_tokens_max: Union[Unset, float] = UNSET,
+    output_tokens_min: Union[Unset, float] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
+    total_tokens_max: Union[Unset, float] = UNSET,
+    total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
 ) -> Response[list["ThreadSession"]]:
     """
     Args:
         created (Union[Unset, datetime.date]):
         field (Union[Unset, list[ThreadSessionFieldEnum]]):
+        input_tokens_max (Union[Unset, float]):
+        input_tokens_min (Union[Unset, float]):
         is_archived (Union[Unset, bool]):
         is_flagged (Union[Unset, bool]):
         max_severity (Union[Unset, InjectionSeverityEnum]):
         modified (Union[Unset, datetime.date]):
         o (Union[Unset, list[ThreadSessionOEnum]]):
+        output_tokens_max (Union[Unset, float]):
+        output_tokens_min (Union[Unset, float]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
+        total_tokens_max (Union[Unset, float]):
+        total_tokens_min (Union[Unset, float]):
         user (Union[Unset, UUID]):
 
     Raises:
@@ -157,14 +187,20 @@ def sync_detailed(
     kwargs = _get_kwargs(
         created=created,
         field=field,
+        input_tokens_max=input_tokens_max,
+        input_tokens_min=input_tokens_min,
         is_archived=is_archived,
         is_flagged=is_flagged,
         max_severity=max_severity,
         modified=modified,
         o=o,
+        output_tokens_max=output_tokens_max,
+        output_tokens_min=output_tokens_min,
         page=page,
         page_size=page_size,
         query=query,
+        total_tokens_max=total_tokens_max,
+        total_tokens_min=total_tokens_min,
         user=user,
     )
 
@@ -180,28 +216,40 @@ def sync(
     client: AuthenticatedClient,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    input_tokens_max: Union[Unset, float] = UNSET,
+    input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     max_severity: Union[Unset, InjectionSeverityEnum] = UNSET,
     modified: Union[Unset, datetime.date] = UNSET,
     o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    output_tokens_max: Union[Unset, float] = UNSET,
+    output_tokens_min: Union[Unset, float] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
+    total_tokens_max: Union[Unset, float] = UNSET,
+    total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
 ) -> list["ThreadSession"]:
     """
     Args:
         created (Union[Unset, datetime.date]):
         field (Union[Unset, list[ThreadSessionFieldEnum]]):
+        input_tokens_max (Union[Unset, float]):
+        input_tokens_min (Union[Unset, float]):
         is_archived (Union[Unset, bool]):
         is_flagged (Union[Unset, bool]):
         max_severity (Union[Unset, InjectionSeverityEnum]):
         modified (Union[Unset, datetime.date]):
         o (Union[Unset, list[ThreadSessionOEnum]]):
+        output_tokens_max (Union[Unset, float]):
+        output_tokens_min (Union[Unset, float]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
+        total_tokens_max (Union[Unset, float]):
+        total_tokens_min (Union[Unset, float]):
         user (Union[Unset, UUID]):
 
     Raises:
@@ -216,14 +264,20 @@ def sync(
         client=client,
         created=created,
         field=field,
+        input_tokens_max=input_tokens_max,
+        input_tokens_min=input_tokens_min,
         is_archived=is_archived,
         is_flagged=is_flagged,
         max_severity=max_severity,
         modified=modified,
         o=o,
+        output_tokens_max=output_tokens_max,
+        output_tokens_min=output_tokens_min,
         page=page,
         page_size=page_size,
         query=query,
+        total_tokens_max=total_tokens_max,
+        total_tokens_min=total_tokens_min,
         user=user,
     ).parsed
 
@@ -233,28 +287,40 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    input_tokens_max: Union[Unset, float] = UNSET,
+    input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     max_severity: Union[Unset, InjectionSeverityEnum] = UNSET,
     modified: Union[Unset, datetime.date] = UNSET,
     o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    output_tokens_max: Union[Unset, float] = UNSET,
+    output_tokens_min: Union[Unset, float] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
+    total_tokens_max: Union[Unset, float] = UNSET,
+    total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
 ) -> Response[list["ThreadSession"]]:
     """
     Args:
         created (Union[Unset, datetime.date]):
         field (Union[Unset, list[ThreadSessionFieldEnum]]):
+        input_tokens_max (Union[Unset, float]):
+        input_tokens_min (Union[Unset, float]):
         is_archived (Union[Unset, bool]):
         is_flagged (Union[Unset, bool]):
         max_severity (Union[Unset, InjectionSeverityEnum]):
         modified (Union[Unset, datetime.date]):
         o (Union[Unset, list[ThreadSessionOEnum]]):
+        output_tokens_max (Union[Unset, float]):
+        output_tokens_min (Union[Unset, float]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
+        total_tokens_max (Union[Unset, float]):
+        total_tokens_min (Union[Unset, float]):
         user (Union[Unset, UUID]):
 
     Raises:
@@ -268,14 +334,20 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         created=created,
         field=field,
+        input_tokens_max=input_tokens_max,
+        input_tokens_min=input_tokens_min,
         is_archived=is_archived,
         is_flagged=is_flagged,
         max_severity=max_severity,
         modified=modified,
         o=o,
+        output_tokens_max=output_tokens_max,
+        output_tokens_min=output_tokens_min,
         page=page,
         page_size=page_size,
         query=query,
+        total_tokens_max=total_tokens_max,
+        total_tokens_min=total_tokens_min,
         user=user,
     )
 
@@ -289,28 +361,40 @@ async def asyncio(
     client: AuthenticatedClient,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    input_tokens_max: Union[Unset, float] = UNSET,
+    input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     max_severity: Union[Unset, InjectionSeverityEnum] = UNSET,
     modified: Union[Unset, datetime.date] = UNSET,
     o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    output_tokens_max: Union[Unset, float] = UNSET,
+    output_tokens_min: Union[Unset, float] = UNSET,
     page: Union[Unset, int] = UNSET,
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
+    total_tokens_max: Union[Unset, float] = UNSET,
+    total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
 ) -> list["ThreadSession"]:
     """
     Args:
         created (Union[Unset, datetime.date]):
         field (Union[Unset, list[ThreadSessionFieldEnum]]):
+        input_tokens_max (Union[Unset, float]):
+        input_tokens_min (Union[Unset, float]):
         is_archived (Union[Unset, bool]):
         is_flagged (Union[Unset, bool]):
         max_severity (Union[Unset, InjectionSeverityEnum]):
         modified (Union[Unset, datetime.date]):
         o (Union[Unset, list[ThreadSessionOEnum]]):
+        output_tokens_max (Union[Unset, float]):
+        output_tokens_min (Union[Unset, float]):
         page (Union[Unset, int]):
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
+        total_tokens_max (Union[Unset, float]):
+        total_tokens_min (Union[Unset, float]):
         user (Union[Unset, UUID]):
 
     Raises:
@@ -326,14 +410,20 @@ async def asyncio(
             client=client,
             created=created,
             field=field,
+            input_tokens_max=input_tokens_max,
+            input_tokens_min=input_tokens_min,
             is_archived=is_archived,
             is_flagged=is_flagged,
             max_severity=max_severity,
             modified=modified,
             o=o,
+            output_tokens_max=output_tokens_max,
+            output_tokens_min=output_tokens_min,
             page=page,
             page_size=page_size,
             query=query,
+            total_tokens_max=total_tokens_max,
+            total_tokens_min=total_tokens_min,
             user=user,
         )
     ).parsed
@@ -344,12 +434,18 @@ def sync_all(
     client: AuthenticatedClient,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    input_tokens_max: Union[Unset, float] = UNSET,
+    input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     max_severity: Union[Unset, InjectionSeverityEnum] = UNSET,
     modified: Union[Unset, datetime.date] = UNSET,
     o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    output_tokens_max: Union[Unset, float] = UNSET,
+    output_tokens_min: Union[Unset, float] = UNSET,
     query: Union[Unset, str] = UNSET,
+    total_tokens_max: Union[Unset, float] = UNSET,
+    total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
 ) -> list["ThreadSession"]:
     """Get All Pages
@@ -362,12 +458,18 @@ def sync_all(
     Args:
         created (Union[Unset, datetime.date]):
         field (Union[Unset, list[ThreadSessionFieldEnum]]):
+        input_tokens_max (Union[Unset, float]):
+        input_tokens_min (Union[Unset, float]):
         is_archived (Union[Unset, bool]):
         is_flagged (Union[Unset, bool]):
         max_severity (Union[Unset, InjectionSeverityEnum]):
         modified (Union[Unset, datetime.date]):
         o (Union[Unset, list[ThreadSessionOEnum]]):
+        output_tokens_max (Union[Unset, float]):
+        output_tokens_min (Union[Unset, float]):
         query (Union[Unset, str]):
+        total_tokens_max (Union[Unset, float]):
+        total_tokens_min (Union[Unset, float]):
         user (Union[Unset, UUID]):
 
     Raises:
@@ -385,12 +487,18 @@ def sync_all(
     kwargs = _get_kwargs(
         created=created,
         field=field,
+        input_tokens_max=input_tokens_max,
+        input_tokens_min=input_tokens_min,
         is_archived=is_archived,
         is_flagged=is_flagged,
         max_severity=max_severity,
         modified=modified,
         o=o,
+        output_tokens_max=output_tokens_max,
+        output_tokens_min=output_tokens_min,
         query=query,
+        total_tokens_max=total_tokens_max,
+        total_tokens_min=total_tokens_min,
         user=user,
     )
 
@@ -441,12 +549,18 @@ async def asyncio_all(
     client: AuthenticatedClient,
     created: Union[Unset, datetime.date] = UNSET,
     field: Union[Unset, list[ThreadSessionFieldEnum]] = UNSET,
+    input_tokens_max: Union[Unset, float] = UNSET,
+    input_tokens_min: Union[Unset, float] = UNSET,
     is_archived: Union[Unset, bool] = UNSET,
     is_flagged: Union[Unset, bool] = UNSET,
     max_severity: Union[Unset, InjectionSeverityEnum] = UNSET,
     modified: Union[Unset, datetime.date] = UNSET,
     o: Union[Unset, list[ThreadSessionOEnum]] = UNSET,
+    output_tokens_max: Union[Unset, float] = UNSET,
+    output_tokens_min: Union[Unset, float] = UNSET,
     query: Union[Unset, str] = UNSET,
+    total_tokens_max: Union[Unset, float] = UNSET,
+    total_tokens_min: Union[Unset, float] = UNSET,
     user: Union[Unset, UUID] = UNSET,
 ) -> list["ThreadSession"]:
     """Get All Pages (Async)
@@ -459,12 +573,18 @@ async def asyncio_all(
     Args:
         created (Union[Unset, datetime.date]):
         field (Union[Unset, list[ThreadSessionFieldEnum]]):
+        input_tokens_max (Union[Unset, float]):
+        input_tokens_min (Union[Unset, float]):
         is_archived (Union[Unset, bool]):
         is_flagged (Union[Unset, bool]):
         max_severity (Union[Unset, InjectionSeverityEnum]):
         modified (Union[Unset, datetime.date]):
         o (Union[Unset, list[ThreadSessionOEnum]]):
+        output_tokens_max (Union[Unset, float]):
+        output_tokens_min (Union[Unset, float]):
         query (Union[Unset, str]):
+        total_tokens_max (Union[Unset, float]):
+        total_tokens_min (Union[Unset, float]):
         user (Union[Unset, UUID]):
 
     Raises:
@@ -482,12 +602,18 @@ async def asyncio_all(
     kwargs = _get_kwargs(
         created=created,
         field=field,
+        input_tokens_max=input_tokens_max,
+        input_tokens_min=input_tokens_min,
         is_archived=is_archived,
         is_flagged=is_flagged,
         max_severity=max_severity,
         modified=modified,
         o=o,
+        output_tokens_max=output_tokens_max,
+        output_tokens_min=output_tokens_min,
         query=query,
+        total_tokens_max=total_tokens_max,
+        total_tokens_min=total_tokens_min,
         user=user,
     )
 

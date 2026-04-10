@@ -22,8 +22,20 @@ class UserAttributesApi(BaseApi):
 
     def get_default_connection(self):
 
-        return self.tmo_client.get_request(
+        result = self.tmo_client.get_request(
             path=f"{self.base_path + self.path}/search/findByName",
             header_params=self._get_header_params(),
             query_params=self.generate_params(["name"], ["DEFAULT_CONNECTION"]),
         )
+
+        if not isinstance(result, dict):
+            raise ValueError("Default connection not found or invalid API response.")
+
+        connection_id = (result.get("value") or {}).get("defaultDatasetConnectionId")
+        excluded_keys = {"value"}
+
+        return {
+            **{k: v for k, v in result.items() if k not in excluded_keys},
+            "attribute_id": result.get("id"),
+            "id": connection_id,
+        }

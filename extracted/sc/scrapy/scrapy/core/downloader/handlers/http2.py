@@ -4,12 +4,16 @@ from time import time
 from typing import TYPE_CHECKING
 from urllib.parse import urldefrag
 
-from twisted.internet.error import TimeoutError as TxTimeoutError
 from twisted.web.client import URI
 
-from scrapy.core.downloader.contextfactory import load_context_factory_from_settings
+from scrapy.core.downloader.contextfactory import _load_context_factory_from_settings
 from scrapy.core.downloader.handlers.base import BaseDownloadHandler
 from scrapy.core.http2.agent import H2Agent, H2ConnectionPool, ScrapyProxyH2Agent
+from scrapy.exceptions import DownloadTimeoutError, NotConfigured
+from scrapy.utils._download_handlers import (
+    normalize_bind_address,
+    wrap_twisted_exceptions,
+)
 from scrapy.utils.defer import maybe_deferred_to_future
 from scrapy.utils.httpobj import urlparse_cached
 from scrapy.utils.python import to_bytes
@@ -28,26 +32,29 @@ class H2DownloadHandler(BaseDownloadHandler):
     lazy = True
 
     def __init__(self, crawler: Crawler):
+        if not crawler.settings.getbool("TWISTED_REACTOR_ENABLED"):
+            raise NotConfigured(f"{type(self).__name__} requires a Twisted reactor.")
         super().__init__(crawler)
         self._crawler = crawler
 
         from twisted.internet import reactor
 
         self._pool = H2ConnectionPool(reactor, crawler.settings)
-        self._context_factory = load_context_factory_from_settings(
-            crawler.settings, crawler
-        )
+        self._context_factory = _load_context_factory_from_settings(crawler)
+        self._bind_address = crawler.settings.get("DOWNLOAD_BIND_ADDRESS")
 
     async def download_request(self, request: Request) -> Response:
         agent = ScrapyH2Agent(
             context_factory=self._context_factory,
             pool=self._pool,
+            bind_address=self._bind_address,
             crawler=self._crawler,
         )
         assert self._crawler.spider
-        return await maybe_deferred_to_future(
-            agent.download_request(request, self._crawler.spider)
-        )
+        with wrap_twisted_exceptions():
+            return await maybe_deferred_to_future(
+                agent.download_request(request, self._crawler.spider)
+            )
 
     async def close(self) -> None:
         self._pool.close_connections()
@@ -62,7 +69,7 @@ class ScrapyH2Agent:
         context_factory: IPolicyForHTTPS,
         pool: H2ConnectionPool,
         connect_timeout: int = 10,
-        bind_address: bytes | None = None,
+        bind_address: str | tuple[str, int] | None = None,
         crawler: Crawler | None = None,
     ) -> None:
         self._context_factory = context_factory
@@ -75,6 +82,7 @@ class ScrapyH2Agent:
         from twisted.internet import reactor
 
         bind_address = request.meta.get("bindaddress") or self._bind_address
+        bind_address = normalize_bind_address(bind_address)
         proxy = request.meta.get("proxy")
         if proxy:
             if urlparse_cached(request).scheme == "https":
@@ -129,4 +137,4 @@ class ScrapyH2Agent:
             return response
 
         url = urldefrag(request.url)[0]
-        raise TxTimeoutError(f"Getting {url} took longer than {timeout} seconds.")
+        raise DownloadTimeoutError(f"Getting {url} took longer than {timeout} seconds.")

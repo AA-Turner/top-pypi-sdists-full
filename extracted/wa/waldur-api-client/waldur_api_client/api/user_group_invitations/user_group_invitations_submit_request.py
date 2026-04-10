@@ -6,18 +6,28 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.submit_request_request import SubmitRequestRequest
 from ...models.submit_request_response import SubmitRequestResponse
 from ...types import Response
 
 
 def _get_kwargs(
     uuid: UUID,
+    *,
+    body: SubmitRequestRequest,
 ) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
+
     _kwargs: dict[str, Any] = {
         "method": "post",
         "url": f"/api/user-group-invitations/{uuid}/submit_request/",
     }
 
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -46,6 +56,7 @@ def sync_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    body: SubmitRequestRequest,
 ) -> Response[SubmitRequestResponse]:
     """Submit a permission request
 
@@ -55,6 +66,7 @@ def sync_detailed(
 
     Args:
         uuid (UUID):
+        body (SubmitRequestRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -66,6 +78,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         uuid=uuid,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -79,6 +92,7 @@ def sync(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    body: SubmitRequestRequest,
 ) -> SubmitRequestResponse:
     """Submit a permission request
 
@@ -88,6 +102,7 @@ def sync(
 
     Args:
         uuid (UUID):
+        body (SubmitRequestRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -100,6 +115,7 @@ def sync(
     return sync_detailed(
         uuid=uuid,
         client=client,
+        body=body,
     ).parsed
 
 
@@ -107,6 +123,7 @@ async def asyncio_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    body: SubmitRequestRequest,
 ) -> Response[SubmitRequestResponse]:
     """Submit a permission request
 
@@ -116,6 +133,7 @@ async def asyncio_detailed(
 
     Args:
         uuid (UUID):
+        body (SubmitRequestRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -127,6 +145,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         uuid=uuid,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -138,6 +157,7 @@ async def asyncio(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
+    body: SubmitRequestRequest,
 ) -> SubmitRequestResponse:
     """Submit a permission request
 
@@ -147,6 +167,7 @@ async def asyncio(
 
     Args:
         uuid (UUID):
+        body (SubmitRequestRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -160,5 +181,6 @@ async def asyncio(
         await asyncio_detailed(
             uuid=uuid,
             client=client,
+            body=body,
         )
     ).parsed

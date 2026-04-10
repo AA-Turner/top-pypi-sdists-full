@@ -56,12 +56,8 @@ class DevboxView(BaseModel):
     id: str
     """The ID of the Devbox."""
 
-    capabilities: List[Literal["unknown", "computer_usage", "browser_usage", "docker_in_docker"]]
-    """A list of capability groups this devbox has access to.
-
-    This allows devboxes to be compatible with certain tools sets like computer
-    usage APIs.
-    """
+    capabilities: List[Literal["unknown", "docker_in_docker"]]
+    """A list of capability groups this devbox has access to."""
 
     create_time_ms: int
     """Creation time of the Devbox (Unix timestamp milliseconds)."""
@@ -117,7 +113,9 @@ class DevboxView(BaseModel):
     name: Optional[str] = None
     """The name of the Devbox."""
 
-    shutdown_reason: Optional[Literal["api_shutdown", "keep_alive_timeout", "entrypoint_exit", "idle"]] = None
+    shutdown_reason: Optional[
+        Literal["api_shutdown", "keep_alive_timeout", "entrypoint_exit", "idle", "ttl_expired"]
+    ] = None
     """
     The shutdown reason if the Devbox shutdown, if the Devbox has a 'shutdown'
     status.

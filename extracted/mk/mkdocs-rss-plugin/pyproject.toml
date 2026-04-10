@@ -32,6 +32,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Documentation",
     "Topic :: Software Development :: Documentation",
     "Topic :: Text Processing :: Markup :: Markdown",
@@ -40,7 +41,8 @@ classifiers = [
 dependencies = [
     "CacheControl[filecache]>=0.14.3,<1",
     "GitPython>=3.1.45,<3.2",
-    "mkdocs>=1.6.1,<2",
+    "mkdocs==1.6.1",
+    "properdocs >=1.6.5,<2",
     "requests>=2.32.5,<3",
     "tzdata>=2024,<2026 ; sys_platform == 'win32'",
 ]
@@ -62,7 +64,7 @@ docs = [
     "mkdocs-material[imaging]>=9.7,<9.8",
     "mkdocs-minify-plugin>=0.8,<0.9",
     "mkdocstrings-python>=1.16.2,<2.1",
-    "termynal>=0.12.2,<0.14",
+    "termynal>=0.12.2,<0.15",
 ]
 test = [
     "feedparser>=6.0.12,<6.1",
@@ -88,7 +90,7 @@ Repository = "https://github.com/guts/mkdocs-rss-plugin/"
 
 # Black configuration
 [tool.black]
-target-version = ["py310", "py311", "py312", "py313"]
+target-version = ["py310", "py311", "py312", "py313", "py314"]
 
 # Coverage configuration
 [tool.coverage.report]

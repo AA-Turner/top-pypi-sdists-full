@@ -3,6 +3,7 @@
 #
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from functools import cached_property
 
 import snowflake.snowpark.functions as snowpark_fn
@@ -11,6 +12,23 @@ from snowflake.snowpark.column import Column
 from snowflake.snowpark_connect.column_qualifier import ColumnQualifier
 
 _EMPTY_COLUMN = Column("")
+
+
+@dataclass(frozen=True)
+class SelectedProjectionSpec:
+    """Specifies how to project a single output from a multi-column expression.
+
+    Attributes:
+        source_column_name: Physical output column name to project
+            (e.g. "INDEX", "VALUE").
+        cast_type: Optional DataType cast applied after extraction.
+        extract_field: Optional object/VARIANT field name to extract via
+            GET(source_col, lit(extract_field)) before cast.
+    """
+
+    source_column_name: str
+    cast_type: snowpark.types.DataType | None = None
+    extract_field: str | None = None
 
 
 class TypedColumn:
@@ -24,6 +42,9 @@ class TypedColumn:
         self._type_resolver = type_resolver
         self._catalog_database_info: dict[str, str] = {}
         self._spark_struct_field_path: str | None = None
+        # Optional metadata for shaping multi-column expression outputs.
+        # See get_selected_projection_specs() for contract details.
+        self._selected_projection_specs: (list[SelectedProjectionSpec] | None) = None
 
     def __iter__(self):
         return iter((self.col, self._type_resolver))
@@ -44,7 +65,9 @@ class TypedColumn:
         return TypedColumn(_EMPTY_COLUMN, lambda: None)
 
     def alias(self, alias_name: str):
-        return TypedColumn(self.col.alias(alias_name), self._type_resolver)
+        tc = TypedColumn(self.col.alias(alias_name), self._type_resolver)
+        tc._selected_projection_specs = self._selected_projection_specs
+        return tc
 
     def set_qualifiers(self, qualifiers: set[ColumnQualifier]) -> None:
         self.qualifiers = qualifiers
@@ -76,6 +99,32 @@ class TypedColumn:
             len(self.multi_col_qualifiers) == num_columns
         ), f"Expected {num_columns} multi-column qualifiers, got {len(self.multi_col_qualifiers)}"
         return self.multi_col_qualifiers
+
+    def set_selected_projection_specs(
+        self,
+        specs: list[SelectedProjectionSpec] | None,
+    ) -> None:
+        """Set projection metadata for multi-column expression outputs.
+
+        Args:
+            specs: Ordered list of SelectedProjectionSpec.
+        """
+        self._selected_projection_specs = specs
+
+    def get_selected_projection_specs(
+        self,
+    ) -> list[SelectedProjectionSpec] | None:
+        """Get projection metadata for this expression.
+
+        This metadata is consumed by projection planning in
+        `relation/map_column_ops.py` to shape generated SQL:
+          1) choose a subset/order of output columns by name,
+          2) optionally extract a nested field from VARIANT/object outputs,
+          3) optionally cast the projected result to Spark-compatible types.
+
+        When None, output columns are projected as-is.
+        """
+        return self._selected_projection_specs
 
     def is_empty(self) -> bool:
         return (

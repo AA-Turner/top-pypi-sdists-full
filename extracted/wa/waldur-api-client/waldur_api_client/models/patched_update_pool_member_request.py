@@ -14,11 +14,11 @@ class PatchedUpdatePoolMemberRequest:
     """
     Attributes:
         name (Union[Unset, str]):
-        weight (Union[Unset, int]):
+        weight (Union[Unset, int]):  Default: 1.
     """
 
     name: Union[Unset, str] = UNSET
-    weight: Union[Unset, int] = UNSET
+    weight: Union[Unset, int] = 1
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

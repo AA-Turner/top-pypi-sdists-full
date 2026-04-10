@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-deep
-Version: 0.3.3
+Version: 0.3.4
 Summary: Deep Agent framework built on Pydantic-ai with planning, filesystem, and subagent capabilities
 Project-URL: Homepage, https://github.com/vstorm-co/pydantic-deepagents
 Project-URL: Documentation, https://github.com/vstorm-co/pydantic-deepagents
@@ -25,7 +25,7 @@ Requires-Python: >=3.10
 Requires-Dist: chardet>=5.0.0
 Requires-Dist: pydantic-ai-backend[console]>=0.2.2
 Requires-Dist: pydantic-ai-shields>=0.3.1
-Requires-Dist: pydantic-ai-slim>=1.74.0
+Requires-Dist: pydantic-ai-slim[web-fetch]>=1.77.0
 Requires-Dist: pydantic-ai-todo>=0.2.1
 Requires-Dist: pydantic>=2.0
 Requires-Dist: subagents-pydantic-ai>=0.2.1
@@ -38,7 +38,7 @@ Requires-Dist: fastapi>=0.125.0; extra == 'all'
 Requires-Dist: logfire>=4.0; extra == 'all'
 Requires-Dist: prompt-toolkit>=3.0.0; extra == 'all'
 Requires-Dist: pydantic-ai-backend[docker]>=0.2.2; extra == 'all'
-Requires-Dist: pydantic-ai-slim[anthropic,openai,openrouter]>=1.74.0; extra == 'all'
+Requires-Dist: pydantic-ai-slim[anthropic,openai,openrouter,web-fetch]>=1.77.0; extra == 'all'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'all'
 Requires-Dist: python-multipart>=0.0.21; extra == 'all'
 Requires-Dist: pyyaml>=6.0; extra == 'all'
@@ -48,7 +48,7 @@ Requires-Dist: typer>=0.12.0; extra == 'all'
 Requires-Dist: uvicorn>=0.38.0; extra == 'all'
 Provides-Extra: cli
 Requires-Dist: prompt-toolkit>=3.0.0; extra == 'cli'
-Requires-Dist: pydantic-ai-slim[anthropic,openai,openrouter]>=1.74.0; extra == 'cli'
+Requires-Dist: pydantic-ai-slim[anthropic,openai,openrouter,web-fetch]>=1.77.0; extra == 'cli'
 Requires-Dist: python-dotenv>=1.0.0; extra == 'cli'
 Requires-Dist: rich>=13.0.0; extra == 'cli'
 Requires-Dist: tomli>=2.0; (python_version < '3.11') and extra == 'cli'
@@ -57,6 +57,13 @@ Provides-Extra: logfire
 Requires-Dist: logfire>=4.0; extra == 'logfire'
 Provides-Extra: sandbox
 Requires-Dist: pydantic-ai-backend[docker]>=0.2.2; extra == 'sandbox'
+Provides-Extra: tui
+Requires-Dist: pydantic-ai-slim[anthropic,openai,openrouter,web-fetch]>=1.77.0; extra == 'tui'
+Requires-Dist: python-dotenv>=1.0.0; extra == 'tui'
+Requires-Dist: rich>=13.0.0; extra == 'tui'
+Requires-Dist: textual>=3.0.0; extra == 'tui'
+Requires-Dist: tomli>=2.0; (python_version < '3.11') and extra == 'tui'
+Requires-Dist: typer>=0.12.0; extra == 'tui'
 Provides-Extra: web
 Requires-Dist: fastapi>=0.125.0; extra == 'web'
 Requires-Dist: python-multipart>=0.0.21; extra == 'web'
@@ -137,34 +144,33 @@ pydantic-deep implements the **deep agent pattern** -- the same architecture pow
 
 ```bash
 pip install pydantic-deep[cli]
-pydantic-deep chat
+pydantic-deep
 ```
 
-That's it. You get an interactive AI agent in your terminal with:
+That's it. A Textual-based TUI launches with:
 
+- Streaming chat with tool call visualization
 - File read/write/edit, shell execution, glob, grep
 - Task planning and subagent delegation
 - Persistent memory across sessions
 - Context compression for unlimited conversations
 - Git-aware project context
-- Built-in commands: `/commit`, `/pr`, `/review`, `/test`, `/fix`, `/explain`
-- Customizable skills, hooks, and output styles
+- `/improve` -- learn from past sessions and update context files
+- `/skills`, `/diff`, `/model`, `/provider`, `/compact`, and more
+- Customizable themes, skills, and hooks
 
 ```bash
-# Interactive mode
-pydantic-deep chat
-
-# Run a single task
-pydantic-deep run "Fix the failing tests in src/"
-
-# Docker sandbox for isolated execution
-pydantic-deep run "Build a web scraper" --sandbox
+# Launch TUI (default)
+pydantic-deep
 
 # Pick a model
-pydantic-deep chat --model anthropic:claude-sonnet-4-20250514
+pydantic-deep tui --model anthropic:claude-sonnet-4-6
 
 # Manage config
 pydantic-deep config set model anthropic:claude-sonnet-4-6
+
+# List skills
+pydantic-deep skills list
 ```
 
 > See [CLI docs](docs/cli/index.md) for the full reference.
@@ -177,7 +183,7 @@ pydantic-deep config set model anthropic:claude-sonnet-4-6
 pip install pydantic-deep
 ```
 
-**Requires pydantic-ai >= 1.71.0.**
+**Requires pydantic-ai >= 1.77.0.**
 
 ```python
 from pydantic_ai_backends import StateBackend

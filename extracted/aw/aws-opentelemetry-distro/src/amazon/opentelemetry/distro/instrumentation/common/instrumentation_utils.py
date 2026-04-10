@@ -3,9 +3,10 @@
 
 import json
 import logging
+import threading
 from contextvars import Token
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 from wrapt import wrap_function_wrapper
 
@@ -16,38 +17,83 @@ from opentelemetry.semconv._incubating.attributes.gen_ai_attributes import GenAi
 
 _logger = logging.getLogger(__name__)
 
+# TODO: Remove these constants once the OTel semantic conventions release includes invoke_workflow.
+# https://github.com/open-telemetry/semantic-conventions/pull/3249
+GEN_AI_WORKFLOW_NAME = "gen_ai.workflow.name"
+OPERATION_INVOKE_WORKFLOW = "invoke_workflow"
+
 PROVIDER_MAP = {
     "bedrock": GenAiProviderNameValues.AWS_BEDROCK.value,
     "aws": GenAiProviderNameValues.AWS_BEDROCK.value,
+    "langchain_aws": GenAiProviderNameValues.AWS_BEDROCK.value,
     "openai": GenAiProviderNameValues.OPENAI.value,
     "anthropic": GenAiProviderNameValues.ANTHROPIC.value,
     "claude": GenAiProviderNameValues.ANTHROPIC.value,
     "azure": GenAiProviderNameValues.AZURE_AI_OPENAI.value,
     "azure_openai": GenAiProviderNameValues.AZURE_AI_OPENAI.value,
     "google": GenAiProviderNameValues.GCP_GEN_AI.value,
+    "langchain_google_genai": GenAiProviderNameValues.GCP_GEN_AI.value,
     "vertex": GenAiProviderNameValues.GCP_VERTEX_AI.value,
+    "vertexai": GenAiProviderNameValues.GCP_VERTEX_AI.value,
     "gemini": GenAiProviderNameValues.GCP_GEMINI.value,
     "cohere": GenAiProviderNameValues.COHERE.value,
+    "langchain_cohere": GenAiProviderNameValues.COHERE.value,
     "mistral": GenAiProviderNameValues.MISTRAL_AI.value,
+    "mistralai": GenAiProviderNameValues.MISTRAL_AI.value,
     "groq": GenAiProviderNameValues.GROQ.value,
+    "langchain_groq": GenAiProviderNameValues.GROQ.value,
     "deepseek": GenAiProviderNameValues.DEEPSEEK.value,
+    "langchain_deepseek": GenAiProviderNameValues.DEEPSEEK.value,
     "perplexity": GenAiProviderNameValues.PERPLEXITY.value,
+    "xai": GenAiProviderNameValues.X_AI.value,
+    "langchain_xai": GenAiProviderNameValues.X_AI.value,
 }
 
 
-def serialize_to_json_string(value: Any, max_depth: int = 10) -> str:
+class DictWithLock:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._data: Dict[Any, Any] = {}
 
-    def _truncate(obj: Any, depth: int) -> Any:
+    def get(self, key: Any) -> Any:
+        with self._lock:
+            return self._data.get(key)
+
+    def put(self, key: Any, value: Any) -> None:
+        with self._lock:
+            self._data[key] = value
+
+    def pop(self, key: Any) -> Any:
+        with self._lock:
+            return self._data.pop(key, None)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._data.clear()
+
+    def __contains__(self, key: Any) -> bool:
+        with self._lock:
+            return key in self._data
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._data)
+
+
+def serialize_to_json_string(value: Any, max_depth: int = 10) -> str:
+    json_safe_types = (str, int, float, bool, dict, list, tuple, type(None))
+
+    def _sanitize(obj: Any, depth: int) -> Any:
         if depth <= 0:
             return "..."
         if isinstance(obj, dict):
-            return {k: _truncate(v, depth - 1) for k, v in obj.items()}
+            return {k: _sanitize(v, depth - 1) for k, v in obj.items() if isinstance(v, json_safe_types)}
         if isinstance(obj, (list, tuple)):
-            return [_truncate(item, depth - 1) for item in obj]
+            return [_sanitize(item, depth - 1) for item in obj if isinstance(item, json_safe_types)]
         return obj
 
     try:
-        return json.dumps(_truncate(value, max_depth))
+        return json.dumps(_sanitize(value, max_depth))
     except (TypeError, ValueError):
         return str(value)
 
@@ -55,9 +101,9 @@ def serialize_to_json_string(value: Any, max_depth: int = 10) -> str:
 def try_wrap(
     module: str, name: str, wrapper: Callable[..., Any], should_wrap: Optional[Callable[..., bool]] = None
 ) -> None:
-    if should_wrap is not None and not should_wrap():
-        return
     try:
+        if should_wrap is not None and not should_wrap():
+            return
         wrap_function_wrapper(module, name, wrapper)
     except Exception:  # pylint: disable=broad-except
         _logger.debug("Failed to wrap %s.%s, instrumentation may be incomplete", module, name)

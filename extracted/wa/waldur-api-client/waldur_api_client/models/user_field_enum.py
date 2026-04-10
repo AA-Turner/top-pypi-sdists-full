@@ -11,6 +11,7 @@ class UserFieldEnum(str, Enum):
     CIVIL_NUMBER = "civil_number"
     COUNTRY_OF_RESIDENCE = "country_of_residence"
     DATE_JOINED = "date_joined"
+    DEACTIVATION_REASON = "deactivation_reason"
     DESCRIPTION = "description"
     EDUPERSON_ASSURANCE = "eduperson_assurance"
     EMAIL = "email"

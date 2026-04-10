@@ -242,14 +242,14 @@ def _add_colorbar(ax, cmap, norm, breaks, loc_legend, label,
         ticks = [ticks[i] for i in indices]
 
     cbaxes = inset_axes(
-        ax, width="75%", height="3%", loc=loc_legend, borderpad=0.25
+        ax, width="75%", height="3%", loc=loc_legend, borderpad=0.5
     )
     sm = plt.cm.ScalarMappable(norm=norm, cmap=cmap.mpl_colormap)
     cb = plt.colorbar(
         mappable=sm,
         cax=cbaxes,
         ticks=ticks,
-        ticklocation="top",
+        ticklocation="bottom",
         orientation="horizontal",
         format=FormatStrFormatter(fmt),
         extend=extend,
@@ -270,8 +270,8 @@ def _add_colorbar(ax, cmap, norm, breaks, loc_legend, label,
 
     # Hide first tick label and its tick mark
     ticks[0] = ""
-    cb.ax.set_title(label, fontsize=6, fontweight="semibold", fontfamily="sans-serif")
-    cb.ax.set_xticklabels(ticks, fontsize=5, fontfamily="sans-serif", rotation=45, ha="left")
+    cb.ax.set_xlabel(label, fontsize=6, fontweight="semibold", fontfamily="sans-serif", labelpad=2)
+    cb.ax.set_xticklabels(ticks, fontsize=5, fontfamily="sans-serif", rotation=45, ha="right")
     major_ticks = cb.ax.xaxis.get_major_ticks()
     if major_ticks:
         major_ticks[0].tick1line.set_visible(False)

@@ -4704,7 +4704,22 @@ class Models(_api_module.BaseModule):
       )
 
     return_value = types.GenerateContentResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -4790,7 +4805,22 @@ class Models(_api_module.BaseModule):
         )
 
       return_value = types.GenerateContentResponse._from_response(
-          response=response_dict, kwargs=parameter_model.model_dump()
+          response=response_dict,
+          kwargs={
+              'config': {
+                  'response_schema': getattr(
+                      parameter_model.config, 'response_schema', None
+                  ),
+                  'response_json_schema': getattr(
+                      parameter_model.config, 'response_json_schema', None
+                  ),
+                  'include_all_fields': getattr(
+                      parameter_model.config, 'include_all_fields', None
+                  ),
+              }
+          }
+          if getattr(parameter_model, 'config', None)
+          else {},
       )
       return_value.sdk_http_response = types.HttpResponse(
           headers=response.headers
@@ -4896,7 +4926,22 @@ class Models(_api_module.BaseModule):
       )
 
     return_value = types.EmbedContentResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -4972,7 +5017,22 @@ class Models(_api_module.BaseModule):
       )
 
     return_value = types.GenerateImagesResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -5038,7 +5098,22 @@ class Models(_api_module.BaseModule):
       )
 
     return_value = types.EditImageResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -5104,7 +5179,22 @@ class Models(_api_module.BaseModule):
       )
 
     return_value = types.UpscaleImageResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -5196,7 +5286,22 @@ class Models(_api_module.BaseModule):
       )
 
     return_value = types.RecontextImageResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
 
     self._api_client._verify_response(return_value)
@@ -5281,7 +5386,22 @@ class Models(_api_module.BaseModule):
       )
 
     return_value = types.SegmentImageResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
 
     self._api_client._verify_response(return_value)
@@ -5342,7 +5462,22 @@ class Models(_api_module.BaseModule):
       response_dict = _Model_from_mldev(response_dict, None, parameter_model)
 
     return_value = types.Model._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
 
     self._api_client._verify_response(return_value)
@@ -5411,7 +5546,22 @@ class Models(_api_module.BaseModule):
       )
 
     return_value = types.ListModelsResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -5479,7 +5629,22 @@ class Models(_api_module.BaseModule):
       response_dict = _Model_from_mldev(response_dict, None, parameter_model)
 
     return_value = types.Model._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
 
     self._api_client._verify_response(return_value)
@@ -5549,7 +5714,22 @@ class Models(_api_module.BaseModule):
       )
 
     return_value = types.DeleteModelResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -5644,7 +5824,22 @@ class Models(_api_module.BaseModule):
       )
 
     return_value = types.CountTokensResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -5729,7 +5924,22 @@ class Models(_api_module.BaseModule):
       )
 
     return_value = types.ComputeTokensResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -5811,7 +6021,22 @@ class Models(_api_module.BaseModule):
       )
 
     return_value = types.GenerateVideosOperation._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
 
     self._api_client._verify_response(return_value)
@@ -5846,9 +6071,8 @@ class Models(_api_module.BaseModule):
           },
       )
 
-      # Multimodal embeddings are only supported for the Vertex AI API.
       multimodal_embeddings = client.models.embed_content(
-          model='gemini-embedding-2-exp-11-2025',
+          model='gemini-embedding-2-preview',
           contents=[
               types.Part.from_uri(
                   file_uri='gs://generativeai-downloads/images/scones.jpg',
@@ -5861,6 +6085,8 @@ class Models(_api_module.BaseModule):
       )
     """
     if not self._api_client.vertexai:
+      if 'gemini-embedding-2' in model:
+        contents = t.t_contents(contents)  # type: ignore[assignment]
       return self._embed_content(model=model, contents=contents, config=config)
 
     if t.t_is_vertex_embed_content_model(model):
@@ -6645,7 +6871,22 @@ class AsyncModels(_api_module.BaseModule):
       )
 
     return_value = types.GenerateContentResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -6734,7 +6975,22 @@ class AsyncModels(_api_module.BaseModule):
           )
 
         return_value = types.GenerateContentResponse._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs={
+                'config': {
+                    'response_schema': getattr(
+                        parameter_model.config, 'response_schema', None
+                    ),
+                    'response_json_schema': getattr(
+                        parameter_model.config, 'response_json_schema', None
+                    ),
+                    'include_all_fields': getattr(
+                        parameter_model.config, 'include_all_fields', None
+                    ),
+                }
+            }
+            if getattr(parameter_model, 'config', None)
+            else {},
         )
         return_value.sdk_http_response = types.HttpResponse(
             headers=response.headers
@@ -6842,7 +7098,22 @@ class AsyncModels(_api_module.BaseModule):
       )
 
     return_value = types.EmbedContentResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -6918,7 +7189,22 @@ class AsyncModels(_api_module.BaseModule):
       )
 
     return_value = types.GenerateImagesResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -6984,7 +7270,22 @@ class AsyncModels(_api_module.BaseModule):
       )
 
     return_value = types.EditImageResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -7050,7 +7351,22 @@ class AsyncModels(_api_module.BaseModule):
       )
 
     return_value = types.UpscaleImageResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -7142,7 +7458,22 @@ class AsyncModels(_api_module.BaseModule):
       )
 
     return_value = types.RecontextImageResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
 
     self._api_client._verify_response(return_value)
@@ -7230,7 +7561,22 @@ class AsyncModels(_api_module.BaseModule):
       )
 
     return_value = types.SegmentImageResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
 
     self._api_client._verify_response(return_value)
@@ -7293,7 +7639,22 @@ class AsyncModels(_api_module.BaseModule):
       response_dict = _Model_from_mldev(response_dict, None, parameter_model)
 
     return_value = types.Model._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
 
     self._api_client._verify_response(return_value)
@@ -7364,7 +7725,22 @@ class AsyncModels(_api_module.BaseModule):
       )
 
     return_value = types.ListModelsResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -7432,7 +7808,22 @@ class AsyncModels(_api_module.BaseModule):
       response_dict = _Model_from_mldev(response_dict, None, parameter_model)
 
     return_value = types.Model._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
 
     self._api_client._verify_response(return_value)
@@ -7502,7 +7893,22 @@ class AsyncModels(_api_module.BaseModule):
       )
 
     return_value = types.DeleteModelResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -7597,7 +8003,22 @@ class AsyncModels(_api_module.BaseModule):
       )
 
     return_value = types.CountTokensResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -7681,7 +8102,22 @@ class AsyncModels(_api_module.BaseModule):
       )
 
     return_value = types.ComputeTokensResponse._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
     return_value.sdk_http_response = types.HttpResponse(
         headers=response.headers
@@ -7763,7 +8199,22 @@ class AsyncModels(_api_module.BaseModule):
       )
 
     return_value = types.GenerateVideosOperation._from_response(
-        response=response_dict, kwargs=parameter_model.model_dump()
+        response=response_dict,
+        kwargs={
+            'config': {
+                'response_schema': getattr(
+                    parameter_model.config, 'response_schema', None
+                ),
+                'response_json_schema': getattr(
+                    parameter_model.config, 'response_json_schema', None
+                ),
+                'include_all_fields': getattr(
+                    parameter_model.config, 'include_all_fields', None
+                ),
+            }
+        }
+        if getattr(parameter_model, 'config', None)
+        else {},
     )
 
     self._api_client._verify_response(return_value)
@@ -8472,9 +8923,8 @@ class AsyncModels(_api_module.BaseModule):
           },
       )
 
-      # Multimodal embeddings are only supported for the Vertex AI API.
       multimodal_embeddings = await client.aio.models.embed_content(
-          model='gemini-embedding-2-exp-11-2025',
+          model='gemini-embedding-2-preview',
           contents=[
               types.Part.from_uri(
                   file_uri='gs://generativeai-downloads/images/scones.jpg',
@@ -8487,6 +8937,8 @@ class AsyncModels(_api_module.BaseModule):
       )
     """
     if not self._api_client.vertexai:
+      if 'gemini-embedding-2' in model:
+        contents = t.t_contents(contents)  # type: ignore[assignment]
       return await self._embed_content(
           model=model, contents=contents, config=config
       )

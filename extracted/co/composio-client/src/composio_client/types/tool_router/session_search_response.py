@@ -17,6 +17,7 @@ __all__ = [
     "ToolSchemasSchemaRef",
     "ToolSchemasSchemaRefArgs",
     "ToolkitConnectionStatus",
+    "ToolkitConnectionStatusAccount",
 ]
 
 
@@ -123,11 +124,11 @@ class ToolSchemasSchemaRef(BaseModel):
     args: ToolSchemasSchemaRefArgs
     """Arguments to pass to the tool"""
 
-    message: str
-    """Instruction message for the LLM"""
-
     tool: Literal["COMPOSIO_GET_TOOL_SCHEMAS"]
     """Tool to call"""
+
+    message: Optional[str] = None
+    """Instruction message for the LLM"""
 
 
 class ToolSchemas(BaseModel):
@@ -147,10 +148,33 @@ class ToolSchemas(BaseModel):
     """Input schema for the tool (only present when hasFullSchema is true)"""
 
     output_schema: Optional[Dict[str, Optional[object]]] = None
-    """Output/response schema for the tool"""
+    """Output/response schema for the tool.
+
+    Only included when include_output_schemas is true.
+    """
 
     schema_ref: Optional[ToolSchemasSchemaRef] = FieldInfo(alias="schemaRef", default=None)
     """Reference to fetch full schema when hasFullSchema is false"""
+
+
+class ToolkitConnectionStatusAccount(BaseModel):
+    id: str
+    """Unique identifier for this account"""
+
+    created_at: str
+    """ISO 8601 timestamp of when the account was connected"""
+
+    is_default: bool
+    """Whether this is the default account for the toolkit"""
+
+    status: str
+    """Connection status (e.g., "active")"""
+
+    alias: Optional[str] = None
+    """User-assigned alias for this account"""
+
+    user_info: Optional[Dict[str, Optional[object]]] = None
+    """Information about the connected user (email, name, etc.)"""
 
 
 class ToolkitConnectionStatus(BaseModel):
@@ -165,6 +189,18 @@ class ToolkitConnectionStatus(BaseModel):
 
     toolkit: str
     """The toolkit slug identifier (e.g., "gmail", "slack")"""
+
+    account_selection: Optional[Literal["required"]] = None
+    """When "required", the agent must specify which account to use.
+
+    Present only when multiple accounts exist.
+    """
+
+    accounts: Optional[List[ToolkitConnectionStatusAccount]] = None
+    """List of connected accounts for this toolkit.
+
+    Present when multi-account is enabled.
+    """
 
     connection_details: Optional[Dict[str, Optional[object]]] = None
     """Connection details including auth config and connected account IDs.

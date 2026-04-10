@@ -47,6 +47,7 @@ class BookingResource:
         provider_name (Union[Unset, str]):
         provider_uuid (Union[Unset, UUID]):
         provider_slug (Union[Unset, str]):
+        provider_description (Union[Unset, str]):
         category_title (Union[Unset, str]):
         category_uuid (Union[Unset, UUID]):
         category_icon (Union[Unset, str]):
@@ -74,7 +75,9 @@ class BookingResource:
         project_description (Union[Unset, str]):
         project_end_date (Union[None, Unset, datetime.date]): The date is inclusive. Once reached, all project resource
             will be scheduled for termination.
-        project_end_date_requested_by (Union[Unset, str]):
+        project_effective_end_date (Union[None, Unset, datetime.date]): Effective project end date including grace
+            period. After this date, resources will be terminated.
+        project_end_date_requested_by (Union[None, Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         customer_name (Union[Unset, str]):
         offering_slug (Union[Unset, str]):
@@ -144,6 +147,7 @@ class BookingResource:
     provider_name: Union[Unset, str] = UNSET
     provider_uuid: Union[Unset, UUID] = UNSET
     provider_slug: Union[Unset, str] = UNSET
+    provider_description: Union[Unset, str] = UNSET
     category_title: Union[Unset, str] = UNSET
     category_uuid: Union[Unset, UUID] = UNSET
     category_icon: Union[Unset, str] = UNSET
@@ -170,7 +174,8 @@ class BookingResource:
     project_name: Union[Unset, str] = UNSET
     project_description: Union[Unset, str] = UNSET
     project_end_date: Union[None, Unset, datetime.date] = UNSET
-    project_end_date_requested_by: Union[Unset, str] = UNSET
+    project_effective_end_date: Union[None, Unset, datetime.date] = UNSET
+    project_end_date_requested_by: Union[None, Unset, str] = UNSET
     customer_uuid: Union[Unset, UUID] = UNSET
     customer_name: Union[Unset, str] = UNSET
     offering_slug: Union[Unset, str] = UNSET
@@ -252,6 +257,8 @@ class BookingResource:
             provider_uuid = str(self.provider_uuid)
 
         provider_slug = self.provider_slug
+
+        provider_description = self.provider_description
 
         category_title = self.category_title
 
@@ -357,7 +364,19 @@ class BookingResource:
         else:
             project_end_date = self.project_end_date
 
-        project_end_date_requested_by = self.project_end_date_requested_by
+        project_effective_end_date: Union[None, Unset, str]
+        if isinstance(self.project_effective_end_date, Unset):
+            project_effective_end_date = UNSET
+        elif isinstance(self.project_effective_end_date, datetime.date):
+            project_effective_end_date = self.project_effective_end_date.isoformat()
+        else:
+            project_effective_end_date = self.project_effective_end_date
+
+        project_end_date_requested_by: Union[None, Unset, str]
+        if isinstance(self.project_end_date_requested_by, Unset):
+            project_end_date_requested_by = UNSET
+        else:
+            project_end_date_requested_by = self.project_end_date_requested_by
 
         customer_uuid: Union[Unset, str] = UNSET
         if not isinstance(self.customer_uuid, Unset):
@@ -552,6 +571,8 @@ class BookingResource:
             field_dict["provider_uuid"] = provider_uuid
         if provider_slug is not UNSET:
             field_dict["provider_slug"] = provider_slug
+        if provider_description is not UNSET:
+            field_dict["provider_description"] = provider_description
         if category_title is not UNSET:
             field_dict["category_title"] = category_title
         if category_uuid is not UNSET:
@@ -604,6 +625,8 @@ class BookingResource:
             field_dict["project_description"] = project_description
         if project_end_date is not UNSET:
             field_dict["project_end_date"] = project_end_date
+        if project_effective_end_date is not UNSET:
+            field_dict["project_effective_end_date"] = project_effective_end_date
         if project_end_date_requested_by is not UNSET:
             field_dict["project_end_date_requested_by"] = project_end_date_requested_by
         if customer_uuid is not UNSET:
@@ -751,6 +774,8 @@ class BookingResource:
             provider_uuid = UUID(_provider_uuid)
 
         provider_slug = d.pop("provider_slug", UNSET)
+
+        provider_description = d.pop("provider_description", UNSET)
 
         category_title = d.pop("category_title", UNSET)
 
@@ -925,7 +950,33 @@ class BookingResource:
 
         project_end_date = _parse_project_end_date(d.pop("project_end_date", UNSET))
 
-        project_end_date_requested_by = d.pop("project_end_date_requested_by", UNSET)
+        def _parse_project_effective_end_date(data: object) -> Union[None, Unset, datetime.date]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                project_effective_end_date_type_0 = isoparse(data).date()
+
+                return project_effective_end_date_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, Unset, datetime.date], data)
+
+        project_effective_end_date = _parse_project_effective_end_date(d.pop("project_effective_end_date", UNSET))
+
+        def _parse_project_end_date_requested_by(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        project_end_date_requested_by = _parse_project_end_date_requested_by(
+            d.pop("project_end_date_requested_by", UNSET)
+        )
 
         _customer_uuid = d.pop("customer_uuid", UNSET)
         customer_uuid: Union[Unset, UUID]
@@ -1172,6 +1223,7 @@ class BookingResource:
             provider_name=provider_name,
             provider_uuid=provider_uuid,
             provider_slug=provider_slug,
+            provider_description=provider_description,
             category_title=category_title,
             category_uuid=category_uuid,
             category_icon=category_icon,
@@ -1198,6 +1250,7 @@ class BookingResource:
             project_name=project_name,
             project_description=project_description,
             project_end_date=project_end_date,
+            project_effective_end_date=project_effective_end_date,
             project_end_date_requested_by=project_end_date_requested_by,
             customer_uuid=customer_uuid,
             customer_name=customer_name,

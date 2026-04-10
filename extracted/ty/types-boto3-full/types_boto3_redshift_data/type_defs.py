@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_redshift_data.type_defs import BatchExecuteStatementInputTypeDef
+    from types_boto3_redshift_data.type_defs import SqlParameterTypeDef
 
-    data: BatchExecuteStatementInputTypeDef = ...
+    data: SqlParameterTypeDef = ...
     ```
 """
 
@@ -70,19 +70,9 @@ __all__ = (
 )
 
 
-class BatchExecuteStatementInputTypeDef(TypedDict):
-    Sqls: Sequence[str]
-    ClusterIdentifier: NotRequired[str]
-    SecretArn: NotRequired[str]
-    DbUser: NotRequired[str]
-    Database: NotRequired[str]
-    WithEvent: NotRequired[bool]
-    StatementName: NotRequired[str]
-    WorkgroupName: NotRequired[str]
-    ClientToken: NotRequired[str]
-    ResultFormat: NotRequired[ResultFormatStringType]
-    SessionKeepAliveSeconds: NotRequired[int]
-    SessionId: NotRequired[str]
+class SqlParameterTypeDef(TypedDict):
+    name: str
+    value: str
 
 
 class ResponseMetadataTypeDef(TypedDict):
@@ -115,11 +105,6 @@ class ColumnMetadataTypeDef(TypedDict):
 
 class DescribeStatementRequestTypeDef(TypedDict):
     Id: str
-
-
-class SqlParameterTypeDef(TypedDict):
-    name: str
-    value: str
 
 
 class SubStatementDataTypeDef(TypedDict):
@@ -234,6 +219,53 @@ TableMemberTypeDef = TypedDict(
 )
 
 
+class BatchExecuteStatementInputTypeDef(TypedDict):
+    Sqls: Sequence[str]
+    ClusterIdentifier: NotRequired[str]
+    SecretArn: NotRequired[str]
+    DbUser: NotRequired[str]
+    Database: NotRequired[str]
+    WithEvent: NotRequired[bool]
+    StatementName: NotRequired[str]
+    Parameters: NotRequired[Sequence[SqlParameterTypeDef]]
+    WorkgroupName: NotRequired[str]
+    ClientToken: NotRequired[str]
+    ResultFormat: NotRequired[ResultFormatStringType]
+    SessionKeepAliveSeconds: NotRequired[int]
+    SessionId: NotRequired[str]
+
+
+class ExecuteStatementInputTypeDef(TypedDict):
+    Sql: str
+    ClusterIdentifier: NotRequired[str]
+    SecretArn: NotRequired[str]
+    DbUser: NotRequired[str]
+    Database: NotRequired[str]
+    WithEvent: NotRequired[bool]
+    StatementName: NotRequired[str]
+    Parameters: NotRequired[Sequence[SqlParameterTypeDef]]
+    WorkgroupName: NotRequired[str]
+    ClientToken: NotRequired[str]
+    ResultFormat: NotRequired[ResultFormatStringType]
+    SessionKeepAliveSeconds: NotRequired[int]
+    SessionId: NotRequired[str]
+
+
+class StatementDataTypeDef(TypedDict):
+    Id: str
+    QueryString: NotRequired[str]
+    QueryStrings: NotRequired[list[str]]
+    SecretArn: NotRequired[str]
+    Status: NotRequired[StatusStringType]
+    StatementName: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+    QueryParameters: NotRequired[list[SqlParameterTypeDef]]
+    IsBatchStatement: NotRequired[bool]
+    ResultFormat: NotRequired[ResultFormatStringType]
+    SessionId: NotRequired[str]
+
+
 class BatchExecuteStatementOutputTypeDef(TypedDict):
     Id: str
     CreatedAt: datetime
@@ -282,37 +314,6 @@ class DescribeTableResponseTypeDef(TypedDict):
     ColumnList: list[ColumnMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-class ExecuteStatementInputTypeDef(TypedDict):
-    Sql: str
-    ClusterIdentifier: NotRequired[str]
-    SecretArn: NotRequired[str]
-    DbUser: NotRequired[str]
-    Database: NotRequired[str]
-    WithEvent: NotRequired[bool]
-    StatementName: NotRequired[str]
-    Parameters: NotRequired[Sequence[SqlParameterTypeDef]]
-    WorkgroupName: NotRequired[str]
-    ClientToken: NotRequired[str]
-    ResultFormat: NotRequired[ResultFormatStringType]
-    SessionKeepAliveSeconds: NotRequired[int]
-    SessionId: NotRequired[str]
-
-
-class StatementDataTypeDef(TypedDict):
-    Id: str
-    QueryString: NotRequired[str]
-    QueryStrings: NotRequired[list[str]]
-    SecretArn: NotRequired[str]
-    Status: NotRequired[StatusStringType]
-    StatementName: NotRequired[str]
-    CreatedAt: NotRequired[datetime]
-    UpdatedAt: NotRequired[datetime]
-    QueryParameters: NotRequired[list[SqlParameterTypeDef]]
-    IsBatchStatement: NotRequired[bool]
-    ResultFormat: NotRequired[ResultFormatStringType]
-    SessionId: NotRequired[str]
 
 
 class DescribeStatementResponseTypeDef(TypedDict):

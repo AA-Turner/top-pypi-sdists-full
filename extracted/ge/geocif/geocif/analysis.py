@@ -438,87 +438,11 @@ class Geoanalysis:
         return df_national_yield
 
     def _plot_regional_yield_scatter(self, df):
-        """
-        Plot observed vs predicted yield for all regions and all years.
-        """
-        from sklearn.metrics import (
-            mean_squared_error,
-            r2_score,
-            mean_absolute_percentage_error,
-        )
-
-        # Extract data
-        y_observed = df["Observed Yield (tn per ha)"]
-        y_predicted = df["Predicted Yield (tn per ha)"]
-        years = pd.to_numeric(df["Harvest Year"], errors="coerce")
-
-        # Generate colors for years
-        cmap = plt.cm.viridis  # Colormap for years
-        norm = plt.Normalize(
-            vmin=years.min(), vmax=years.max()
-        )  # Normalize years to colormap
-        colors = [cmap(norm(year)) for year in years]
-
-        # Create the plot
-        with plt.style.context("science"):
-            fig, ax = plt.subplots(figsize=(10, 6))
-
-            # Add gridlines
-            ax.grid(True, linestyle="--", alpha=0.5)
-
-            # Scatter plot with colors representing years
-            scatter = ax.scatter(y_observed, y_predicted, color=colors, s=50)
-
-            # Add 1:1 diagonal line
-            max_yield = max(y_observed.max(), y_predicted.max()) * 1.25
-            ax.plot([0, max_yield], [0, max_yield], color="gray", linestyle="--")
-
-            # Calculate and display metrics
-            rmse = np.sqrt(mean_squared_error(y_observed, y_predicted))
-            mape = mean_absolute_percentage_error(y_observed, y_predicted)
-            r2 = r2_score(y_observed, y_predicted)
-            n_points = len(y_observed)  # Number of data points
-
-            textstr = (
-                f"RMSE: {rmse:.2f} tn/ha\n"
-                f"MAPE: {mape:.2%}\n"
-                f"$r^2$: {r2:.2f}\n"
-                f"N: {n_points}"
-            )
-
-            ax.annotate(
-                textstr,
-                xy=(0.05, 0.95),
-                xycoords="axes fraction",
-                fontsize=12,
-                verticalalignment="top",
-            )
-
-            # Set axis limits and labels
-            ax.set_xlabel("Observed Yield (tn/ha)")
-            ax.set_ylabel("Predicted Yield (tn/ha)")
-            ax.set_xlim(0, max_yield)
-            ax.set_ylim(0, max_yield)
-
-            # Add colorbar for years
-            sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-            sm.set_array([])
-            cbar = fig.colorbar(sm, ax=ax, aspect=50, pad=0.02)
-            cbar.set_label("Harvest Year")
-
-            # Set equispaced ticks for exactly 5 points
-            ticks = np.linspace(
-                years.min(), years.max(), 5, dtype=int
-            )  # 5 equispaced ticks
-            cbar.set_ticks(ticks)
-            cbar.ax.set_yticklabels([str(tick) for tick in ticks])
-
-            plt.tight_layout()
-
-            # Save the plot
-            fname = f"scatter_all_regions_{self.country}_{self.crop}.png"
-            plt.savefig(self.dir_country_plots / fname, dpi=250)
-            plt.close()
+        """Plot observed vs predicted yield for all regions and all years."""
+        from .viz import diagnostics as diag
+        fname = f"scatter_all_regions_{self.country}_{self.crop}.png"
+        title = f"{self.country} {self.crop} — All Regions"
+        diag.scatter_obs_pred(df, title, self.dir_country_plots, fname)
 
     def _plot_scatter_by_region(self, df):
         """Small-multiples scatter plot: observed vs predicted yield per region."""
@@ -669,38 +593,10 @@ class Geoanalysis:
 
     def _plot_mape_by_region(self, df_regional_metrics):
         """Horizontal bar chart of average MAPE by region."""
-        if df_regional_metrics.empty or "MAPE" not in df_regional_metrics.columns:
-            return
-
-        df_plot = (
-            df_regional_metrics
-            .groupby("Region")["MAPE"]
-            .mean()
-            .sort_values(ascending=True)
-        )
-
-        if df_plot.empty:
-            return
-
-        fig, ax = plt.subplots(figsize=(8, max(4, len(df_plot) * 0.35)))
-        bars = ax.barh(df_plot.index, df_plot.values, color="steelblue")
-
-        for bar, val in zip(bars, df_plot.values):
-            ax.text(
-                val + 0.5, bar.get_y() + bar.get_height() / 2,
-                f"{val:.1f}%", va="center", fontsize=8,
-            )
-
-        ax.set_xlabel("MAPE (%)")
-        ax.set_title(
-            f"Mean MAPE by Region — {self.country} {self.crop}",
-            fontsize=11, fontweight="bold",
-        )
-        plt.tight_layout()
-
+        from .viz import diagnostics as diag
         fname = f"mape_by_region_{self.country}_{self.crop}.png"
-        fig.savefig(self.dir_country_plots / fname, dpi=250)
-        plt.close(fig)
+        title = f"Mean MAPE by Region — {self.country} {self.crop}"
+        diag.mape_bar_chart(df_regional_metrics, title, self.dir_country_plots, fname)
 
     def _plot_yield_with_ci(self, df):
         """Forest plot of predicted yield with CI and median yield reference."""
@@ -1746,6 +1642,8 @@ class RegionalMapper(Geoanalysis):
 
     def plot_mape_map(self):
         """Plot the map of MAPE."""
+        from .viz import diagnostics as diag
+
         self.df_regional["Country Region"] = (
             self.df_regional["Country"].str.lower().str.replace("_", " ")
             + " "
@@ -1754,43 +1652,23 @@ class RegionalMapper(Geoanalysis):
         models = self.df_regional["Model"].unique()
 
         for model in models:
-            df_model = self.df_regional[self.df_regional["Model"] == model]
+            df_model = self.df_regional[self.df_regional["Model"] == model].copy()
 
-            # HACK: Drop rows where '% of total Area (ha)' is less than 1% and Mean Absolute Percentage Error is > 50%
-            # or where the Mean Absolute Percentage Error is greater than 50% if the '% of total Area (ha)' is greater than 1%
+            # Drop minor regions with extreme MAPE that would distort the map
             df_tmp = df_model[
                 (df_model["% of total Area (ha)"] < 0.5)
                 & (df_model["Mean Absolute Percentage Error"] > 100)
             ]
-
             df_model = df_model.drop(df_tmp.index)
 
-            col = "Mean Absolute Percentage Error"
-            # Blank out MAPE scores above 100% so they appear empty on the map
-            df_model = df_model.copy()
-            df_model.loc[df_model[col] > 100, col] = np.nan
             countries = df_model["Country"].unique().tolist()
-            countries = [country.title().replace("_", " ") for country in countries]
-            crop = df_model["Crop"].unique()[0].title().replace("_", " ")
-            df = df_model[df_model["Country"].isin(countries)]
-            self.dg = self.dg[self.dg["ADM0_NAME"].isin(countries)]
+            countries = [c.title().replace("_", " ") for c in countries]
+            dg_sub = self.dg[self.dg["ADM0_NAME"].isin(countries)].copy()
 
-            fname = f"map_{self.crop}_{df_model['Model'].iloc[0]}_mape.png"
-            plot.plot_map(
-                self.dg,
-                df,
-                merge_col="Country Region",
-                name_country=countries,
-                name_col=col,
-                dir_out=self.dir_maps,
-                fname=fname,
-                label="MAPE (%)",
-                vmin=df[col].min(),
-                vmax=df[col].max(),
-                cmap=pal.scientific.sequential.Bamako_20_r,
-                series="sequential",
-                annotate_regions=self.annotate_regions,
-                loc_legend="lower left",
+            fname = f"map_{self.crop}_{model}_mape.png"
+            diag.mape_choropleth(
+                dg_sub, df_model, countries,
+                self.annotate_regions, self.dir_maps, fname,
             )
 
     def plot_mape_by_year(self):

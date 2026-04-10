@@ -306,7 +306,7 @@ class TestContextToolset:
         result = await toolset.get_instructions(ctx)
 
         assert result is not None
-        joined = "\n\n".join(result)
+        joined = "\n\n".join(p.content for p in result)
         assert "## Project Context" in joined
         assert "### DEEP.md" in joined
         assert "# Project Rules" in joined
@@ -321,7 +321,7 @@ class TestContextToolset:
         result = await toolset.get_instructions(ctx)
 
         assert result is not None
-        joined = "\n\n".join(result)
+        joined = "\n\n".join(p.content for p in result)
         assert "### AGENTS.md" in joined
 
     async def test_get_instructions_no_config(self):
@@ -354,7 +354,7 @@ class TestContextToolset:
         result = await toolset.get_instructions(ctx)
 
         assert result is not None
-        joined = "\n\n".join(result)
+        joined = "\n\n".join(p.content for p in result)
         assert "### AGENTS.md" in joined
         assert "SOUL.md" not in joined
 
@@ -381,7 +381,7 @@ class TestContextToolset:
         result = await toolset.get_instructions(ctx)
 
         assert result is not None
-        joined = "\n\n".join(result)
+        joined = "\n\n".join(p.content for p in result)
         assert "chars truncated" in joined
 
     async def test_get_instructions_discovery_empty_backend(self):

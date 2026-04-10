@@ -45,6 +45,8 @@
         is_ssi_eligible: true
         meets_ssi_resource_test: true
         ssi_countable_income: 0
+        ssi_lives_in_medical_treatment_facility: true
+        ssi_medicaid_pays_majority_of_care: true
     marital_units:
       marital_unit:
         members: [person1]
@@ -110,6 +112,9 @@
         is_ssi_eligible: true
         meets_ssi_resource_test: true
         ssi_countable_income: 0
+        ssi_lives_in_another_persons_household: true
+        ssi_receives_shelter_from_others_in_household: true
+        ssi_others_pay_all_meals: true
     marital_units:
       marital_unit:
         members: [person1]

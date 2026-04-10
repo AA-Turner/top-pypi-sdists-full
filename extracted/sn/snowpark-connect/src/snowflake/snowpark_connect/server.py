@@ -1111,6 +1111,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
 def _serve(
     stop_event: Optional[threading.Event] = None,
     session: Optional[snowpark.Session] = None,
+    app_name: str | None = None,
 ):
     server_running = get_server_running()
     # TODO: factor out the Snowflake connection code.
@@ -1129,7 +1130,7 @@ def _serve(
             # under the hood.
             configure_snowpark_session(session)
 
-        _register_snowpark_connect_session(session)
+        _register_snowpark_connect_session(session, app_name=app_name)
 
         if tcm.TCM_MODE:
             # No need to start grpc server in TCM
@@ -1199,17 +1200,19 @@ def _serve(
         otel_end_root_span()
 
 
-def _register_snowpark_connect_session(session: snowpark.Session) -> None:
+def _register_snowpark_connect_session(
+    session: snowpark.Session,
+    app_name: str | None = None,
+) -> None:
     """Register this Snowpark Connect session with Snowflake.
 
     Calls the SNOWFLAKE.SPARK.REGISTER_SNOWPARK_CONNECT_SESSION system function,
     which records the session in Snowflake's internal SCOS application registry.
     The function uses CURRENT_SESSION() internally to identify the Snowflake session.
 
-    The system function accepts an optional app name parameter, but it is not passed here
-    because spark.app.name is not yet available -- it arrives later via Config RPC after
-    the gRPC server starts and a client connects.
-    TODO: Add an initialization variant to allow registering spark.app.name at server startup.
+    Args:
+        session: The Snowpark session to register.
+        app_name: Optional application name to record with the session.
 
     Silently logs a warning if the function is not available (e.g., older deployments).
     """
@@ -1217,9 +1220,14 @@ def _register_snowpark_connect_session(session: snowpark.Session) -> None:
         f"Registering Snowpark Connect session for session {session.session_id}"
     )
     try:
-        session.sql(
-            "SELECT SNOWFLAKE.SPARK.REGISTER_SNOWPARK_CONNECT_SESSION()"
-        ).collect_nowait()
+        if app_name is not None:
+            escaped = app_name.replace("'", "''")
+            sql = (
+                f"SELECT SNOWFLAKE.SPARK.REGISTER_SNOWPARK_CONNECT_SESSION('{escaped}')"
+            )
+        else:
+            sql = "SELECT SNOWFLAKE.SPARK.REGISTER_SNOWPARK_CONNECT_SESSION()"
+        session.sql(sql).collect_nowait()
         logger.debug("Fired async registration for Snowpark Connect session")
     except Exception:
         logger.warning(
@@ -1295,6 +1303,7 @@ def start_session(
     connection_parameters: Optional[Dict[str, str]] = None,
     max_grpc_message_size: int = _SPARK_CONNECT_GRPC_MAX_MESSAGE_SIZE,
     _add_signal_handler: bool = False,
+    app_name: str | None = None,
 ) -> threading.Thread | None:
     """
     Starts Spark Connect server connected to Snowflake. No-op if the Server is already running.
@@ -1315,6 +1324,7 @@ def start_session(
                           pass in the session created by the stored proc environment.
         connection_parameters: A dictionary of connection parameters to use to create the Snowpark session. If this is
                                 provided, the `snowpark_session` parameter must be None.
+        app_name: Optional application name to register with the Snowflake session.
     """
     # Increase recursion limit to 1100 (1000 by default)
     # introduced due to Scala OSS Test: org.apache.spark.sql.ClientE2ETestSuite.spark deep recursion
@@ -1357,7 +1367,7 @@ def start_session(
             setup_signal_handlers(stop_event)
 
         if is_daemon:
-            arguments = (stop_event, snowpark_session)
+            arguments = (stop_event, snowpark_session, app_name)
 
             target_func = otel_create_context_wrapper(_serve)
 
@@ -1376,7 +1386,7 @@ def start_session(
             return server_thread
         else:
             # Launch in the foreground with stop_event
-            _serve(stop_event=stop_event, session=snowpark_session)
+            _serve(stop_event=stop_event, session=snowpark_session, app_name=app_name)
     except Exception as e:
         _reset_server_run_state()
         logger.error(e, exc_info=True)
@@ -1392,6 +1402,7 @@ def _is_running_in_snowpark_submit() -> bool:
 def init_spark_session(
     conf: SparkConf = None,
     connection_parameters: Optional[Dict[str, str]] = None,
+    app_name: str | None = None,
 ) -> SparkSession:
     """
     Initialize and return a Spark session connected to Snowflake.
@@ -1403,6 +1414,7 @@ def init_spark_session(
             host, warehouse, database, schema, etc.). If not provided, the connection
             resolver will determine which connection to use from connections.toml.
             Not supported inside snowpark-submit jobs.
+        app_name (str): Optional application name to register with the Snowflake session.
 
     Returns:
         A new SparkSession connected to the Snowpark Connect server.
@@ -1435,6 +1447,7 @@ def init_spark_session(
         start_session(
             snowpark_session=snowpark_session,
             connection_parameters=connection_parameters,
+            app_name=app_name,
         )
         return get_session(conf=conf)
 

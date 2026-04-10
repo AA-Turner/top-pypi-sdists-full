@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pytools"
-version = "2025.2.5"
+version = "2026.1"
 description = "A collection of tools for Python"
 readme = "README.rst"
 license = "MIT"
@@ -87,7 +87,17 @@ extend-ignore = [
     "E402", # module-level import not at top of file
     "UP031", # use f-strings instead of %
     "UP032", # use f-strings instead of .format
+
+    # FIXME: This is a longer discussion...
+    "RUF067", # __init__ should only contain reexports
+    "DTZ",
+    "TRY",
+    "BLE",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"pytools/test/*.py" = ["S102"]
+"doc/conf.py" = ["S102"]
 
 [tool.ruff.lint.flake8-quotes]
 docstring-quotes = "double"
@@ -118,7 +128,6 @@ exclude = [
     ".conda-root",
     "build",
     ".env",
-    ".run-pylint.py",
 ]
 
 # This reports even cycles that are qualified by 'if TYPE_CHECKING'. Not what

@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from typing import Any, TypeVar, Union
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -13,22 +14,35 @@ T = TypeVar("T", bound="UpdatePoolMember")
 class UpdatePoolMember:
     """
     Attributes:
+        url (str):
+        uuid (UUID):
         name (Union[Unset, str]):
-        weight (Union[Unset, int]):
+        weight (Union[Unset, int]):  Default: 1.
     """
 
+    url: str
+    uuid: UUID
     name: Union[Unset, str] = UNSET
-    weight: Union[Unset, int] = UNSET
+    weight: Union[Unset, int] = 1
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        url = self.url
+
+        uuid = str(self.uuid)
+
         name = self.name
 
         weight = self.weight
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({})
+        field_dict.update(
+            {
+                "url": url,
+                "uuid": uuid,
+            }
+        )
         if name is not UNSET:
             field_dict["name"] = name
         if weight is not UNSET:
@@ -39,11 +53,17 @@ class UpdatePoolMember:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        url = d.pop("url")
+
+        uuid = UUID(d.pop("uuid"))
+
         name = d.pop("name", UNSET)
 
         weight = d.pop("weight", UNSET)
 
         update_pool_member = cls(
+            url=url,
+            uuid=uuid,
             name=name,
             weight=weight,
         )

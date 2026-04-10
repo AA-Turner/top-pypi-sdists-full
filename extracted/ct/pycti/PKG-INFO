@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycti
-Version: 7.260401.0
+Version: 7.260409.0
 Summary: Python API client for OpenCTI.
 Home-page: https://github.com/OpenCTI-Platform/opencti/client-python
 Author: Filigran
@@ -31,7 +31,7 @@ Requires-Dist: PyYAML~=6.0
 Requires-Dist: requests<3,>=2.32.0
 Requires-Dist: setuptools~=82.0.0
 Requires-Dist: cachetools~=7.0.1
-Requires-Dist: prometheus-client~=0.22.1
+Requires-Dist: prometheus-client~=0.24.1
 Requires-Dist: opentelemetry-api~=1.35.0
 Requires-Dist: opentelemetry-sdk~=1.35.0
 Requires-Dist: deprecation~=2.1.0

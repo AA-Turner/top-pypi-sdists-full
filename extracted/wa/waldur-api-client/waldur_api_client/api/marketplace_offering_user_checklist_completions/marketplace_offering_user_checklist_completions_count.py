@@ -14,8 +14,10 @@ from ...types import UNSET, Response, Unset
 def _get_kwargs(
     *,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     is_completed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[UserChecklistCompletionOEnum]] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -29,12 +31,22 @@ def _get_kwargs(
         json_created = created.isoformat()
     params["created"] = json_created
 
+    json_created_before: Union[Unset, str] = UNSET
+    if not isinstance(created_before, Unset):
+        json_created_before = created_before.isoformat()
+    params["created_before"] = json_created_before
+
     params["is_completed"] = is_completed
 
     json_modified: Union[Unset, str] = UNSET
     if not isinstance(modified, Unset):
         json_modified = modified.isoformat()
     params["modified"] = json_modified
+
+    json_modified_before: Union[Unset, str] = UNSET
+    if not isinstance(modified_before, Unset):
+        json_modified_before = modified_before.isoformat()
+    params["modified_before"] = json_modified_before
 
     json_o: Union[Unset, list[str]] = UNSET
     if not isinstance(o, Unset):
@@ -100,8 +112,10 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     is_completed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[UserChecklistCompletionOEnum]] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -114,8 +128,10 @@ def sync_detailed(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         is_completed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[UserChecklistCompletionOEnum]]):
         offering_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
@@ -132,8 +148,10 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         created=created,
+        created_before=created_before,
         is_completed=is_completed,
         modified=modified,
+        modified_before=modified_before,
         o=o,
         offering_uuid=offering_uuid,
         page=page,
@@ -152,8 +170,10 @@ def sync(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     is_completed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[UserChecklistCompletionOEnum]] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -166,8 +186,10 @@ def sync(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         is_completed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[UserChecklistCompletionOEnum]]):
         offering_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
@@ -185,8 +207,10 @@ def sync(
     return sync_detailed(
         client=client,
         created=created,
+        created_before=created_before,
         is_completed=is_completed,
         modified=modified,
+        modified_before=modified_before,
         o=o,
         offering_uuid=offering_uuid,
         page=page,
@@ -199,8 +223,10 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     is_completed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[UserChecklistCompletionOEnum]] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -213,8 +239,10 @@ async def asyncio_detailed(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         is_completed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[UserChecklistCompletionOEnum]]):
         offering_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
@@ -231,8 +259,10 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         created=created,
+        created_before=created_before,
         is_completed=is_completed,
         modified=modified,
+        modified_before=modified_before,
         o=o,
         offering_uuid=offering_uuid,
         page=page,
@@ -249,8 +279,10 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     is_completed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[UserChecklistCompletionOEnum]] = UNSET,
     offering_uuid: Union[Unset, UUID] = UNSET,
     page: Union[Unset, int] = UNSET,
@@ -263,8 +295,10 @@ async def asyncio(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         is_completed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[UserChecklistCompletionOEnum]]):
         offering_uuid (Union[Unset, UUID]):
         page (Union[Unset, int]):
@@ -283,8 +317,10 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             created=created,
+            created_before=created_before,
             is_completed=is_completed,
             modified=modified,
+            modified_before=modified_before,
             o=o,
             offering_uuid=offering_uuid,
             page=page,

@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from typing import Any, TypeVar, Union
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -13,19 +14,29 @@ T = TypeVar("T", bound="UpdateHealthMonitor")
 class UpdateHealthMonitor:
     """
     Attributes:
+        url (str):
+        uuid (UUID):
         name (Union[Unset, str]):
-        delay (Union[Unset, int]):
-        timeout (Union[Unset, int]):
-        max_retries (Union[Unset, int]):
+        delay (Union[Unset, int]): Interval between health checks in seconds Default: 5.
+        timeout (Union[Unset, int]): Time in seconds to timeout a health check Default: 5.
+        max_retries (Union[Unset, int]):  Default: 3.
+        max_retries_down (Union[Unset, int]):  Default: 3.
     """
 
+    url: str
+    uuid: UUID
     name: Union[Unset, str] = UNSET
-    delay: Union[Unset, int] = UNSET
-    timeout: Union[Unset, int] = UNSET
-    max_retries: Union[Unset, int] = UNSET
+    delay: Union[Unset, int] = 5
+    timeout: Union[Unset, int] = 5
+    max_retries: Union[Unset, int] = 3
+    max_retries_down: Union[Unset, int] = 3
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        url = self.url
+
+        uuid = str(self.uuid)
+
         name = self.name
 
         delay = self.delay
@@ -34,9 +45,16 @@ class UpdateHealthMonitor:
 
         max_retries = self.max_retries
 
+        max_retries_down = self.max_retries_down
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update({})
+        field_dict.update(
+            {
+                "url": url,
+                "uuid": uuid,
+            }
+        )
         if name is not UNSET:
             field_dict["name"] = name
         if delay is not UNSET:
@@ -45,12 +63,18 @@ class UpdateHealthMonitor:
             field_dict["timeout"] = timeout
         if max_retries is not UNSET:
             field_dict["max_retries"] = max_retries
+        if max_retries_down is not UNSET:
+            field_dict["max_retries_down"] = max_retries_down
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        url = d.pop("url")
+
+        uuid = UUID(d.pop("uuid"))
+
         name = d.pop("name", UNSET)
 
         delay = d.pop("delay", UNSET)
@@ -59,11 +83,16 @@ class UpdateHealthMonitor:
 
         max_retries = d.pop("max_retries", UNSET)
 
+        max_retries_down = d.pop("max_retries_down", UNSET)
+
         update_health_monitor = cls(
+            url=url,
+            uuid=uuid,
             name=name,
             delay=delay,
             timeout=timeout,
             max_retries=max_retries,
+            max_retries_down=max_retries_down,
         )
 
         update_health_monitor.additional_properties = d

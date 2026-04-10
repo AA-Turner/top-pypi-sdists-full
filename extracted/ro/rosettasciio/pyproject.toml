@@ -98,7 +98,7 @@ image = ["imageio>=2.16", "pillow>=9.0.1"]
 mrcz = ["mrcz>=0.3.6"]
 scalebar_export = ["matplotlib-scalebar", "matplotlib>=3.6"]
 speed = ["numba>=0.56"]
-tiff = ["tifffile>=2022.7.28", "imagecodecs"]
+tiff = ["tifffile>=2022.7.28,!=2026.2.24", "imagecodecs"]
 usid = ["pyUSID>=0.0.11"]
 zspy = ["zarr>=2,<3", "msgpack"]
 tests = [
@@ -142,6 +142,13 @@ dev = [
   "rosettasciio[tests]"
 ]
 
+[tool.codespell]
+# pre-commit doesn't seem to skip correctly: need to specify test to skip...
+skip = "*.py[cod],./doc/_build,*.txt,*.ipynb,./rsciio/tests,*.spx,*.tvf,*test_*.py"
+ignore-words = "./.codespellignore"
+check-filenames = true
+check-hidden = false
+
 [tool.cibuildwheel]
 build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp313t-*", "cp314-*", "cp314t-*"]
 enable = ["cpython-freethreading"]
@@ -176,7 +183,7 @@ include = ["rsciio*"]
 [tool.setuptools_scm]
 # Presence enables setuptools_scm, the version will be determine at build time from git
 # The version will be updated by the `prepare_release.py` script
-fallback_version = "0.13.dev0"
+fallback_version = "0.14.dev0"
 
 [tool.towncrier]
 directory = "upcoming_changes/"

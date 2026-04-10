@@ -143,6 +143,31 @@ class GeoDistanceType(IntEnum):
     ARC = search_pb2.GEO_DISTANCE_ARC
     PLANE = search_pb2.GEO_DISTANCE_PLANE
 
+class DateTimeUnit(IntEnum):
+    YEAR = search_pb2.YEAR
+    QUARTER_YEAR = search_pb2.QUARTER_YEAR
+    MONTH = search_pb2.MONTH
+    WEEK = search_pb2.WEEK
+    DAY = search_pb2.DAY
+    HOUR = search_pb2.HOUR
+    MINUTE = search_pb2.MINUTE
+    SECOND = search_pb2.SECOND
+    MILLISECOND = search_pb2.MILLISECOND
+
+class GeoHashPrecision(IntEnum):
+    GHP_5009KM_4992KM_1 = search_pb2.GHP_5009KM_4992KM_1
+    GHP_1252KM_624KM_2 = search_pb2.GHP_1252KM_624KM_2
+    GHP_156KM_156KM_3 = search_pb2.GHP_156KM_156KM_3
+    GHP_39KM_19KM_4 = search_pb2.GHP_39KM_19KM_4
+    GHP_4900M_4900M_5 = search_pb2.GHP_4900M_4900M_5
+    GHP_1200M_609M_6 = search_pb2.GHP_1200M_609M_6
+    GHP_152M_152M_7 = search_pb2.GHP_152M_152M_7
+    GHP_38M_19M_8 = search_pb2.GHP_38M_19M_8
+    GHP_480CM_480CM_9 = search_pb2.GHP_480CM_480CM_9
+    GHP_120CM_595MM_10 = search_pb2.GHP_120CM_595MM_10
+    GHP_149MM_149MM_11 = search_pb2.GHP_149MM_149MM_11
+    GHP_37MM_19MM_12 = search_pb2.GHP_37MM_19MM_12
+
 
 class Sorter(DefaultJsonObject):
     def __init__(self):

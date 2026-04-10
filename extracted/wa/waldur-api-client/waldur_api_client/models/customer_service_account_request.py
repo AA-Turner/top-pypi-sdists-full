@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -14,7 +14,7 @@ T = TypeVar("T", bound="CustomerServiceAccountRequest")
 class CustomerServiceAccountRequest:
     """
     Attributes:
-        customer (UUID):
+        customer (Union[None, UUID]):
         username (Union[Unset, str]):
         description (Union[Unset, str]):
         error_traceback (Union[Unset, str]):
@@ -22,7 +22,7 @@ class CustomerServiceAccountRequest:
         preferred_identifier (Union[Unset, str]):
     """
 
-    customer: UUID
+    customer: Union[None, UUID]
     username: Union[Unset, str] = UNSET
     description: Union[Unset, str] = UNSET
     error_traceback: Union[Unset, str] = UNSET
@@ -31,7 +31,11 @@ class CustomerServiceAccountRequest:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        customer = str(self.customer)
+        customer: Union[None, str]
+        if isinstance(self.customer, UUID):
+            customer = str(self.customer)
+        else:
+            customer = self.customer
 
         username = self.username
 
@@ -66,7 +70,21 @@ class CustomerServiceAccountRequest:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        customer = UUID(d.pop("customer"))
+
+        def _parse_customer(data: object) -> Union[None, UUID]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                customer_type_0 = UUID(data)
+
+                return customer_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID], data)
+
+        customer = _parse_customer(d.pop("customer"))
 
         username = d.pop("username", UNSET)
 

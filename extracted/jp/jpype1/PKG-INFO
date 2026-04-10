@@ -1,15 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: jpype1
-Version: 1.6.0
+Version: 1.7.0
 Summary: A Python to Java bridge
-Author-email: Steve Menard <devilwolf@users.sourceforge.net>
-Maintainer-email: Luis Nell <cooperate@originell.org>
-License: License :: OSI Approved :: Apache Software License
-Project-URL: homepage, https://github.com/jpype-project/jpype
-Platform: Operating System :: Microsoft :: Windows
-Platform: Operating System :: POSIX
-Platform: Operating System :: Unix
-Platform: Operating System :: MacOS
+Author-Email: Steve Menard <devilwolf@users.sourceforge.net>
+Maintainer-Email: Luis Nell <cooperate@originell.org>
+License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -19,18 +14,15 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development
 Classifier: Topic :: Scientific/Engineering
+Project-URL: homepage, https://github.com/jpype-project/jpype
 Requires-Python: >=3.8
-Description-Content-Type: text/x-rst
-License-File: LICENSE
-License-File: NOTICE
-License-File: AUTHORS.rst
 Requires-Dist: packaging
 Provides-Extra: docs
-Requires-Dist: readthedocs-sphinx-ext; extra == "docs"
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
+Description-Content-Type: text/x-rst
 
 .. image:: doc/logo_small.png
    :alt: JPype logo

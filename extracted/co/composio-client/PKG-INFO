@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: composio-client
-Version: 1.29.0
+Version: 1.33.0
 Summary: The official Python library for the composio API
 Project-URL: Homepage, https://github.com/ComposioHQ/composio-base-py
 Project-URL: Repository, https://github.com/ComposioHQ/composio-base-py

@@ -49,6 +49,9 @@ Commands to configure and manage the Keeper Secrets Manager platform.
   {bcolors.BOLD}Create Application:{bcolors.ENDC}
   {bcolors.OKGREEN}secrets-manager app create {bcolors.OKBLUE}[NAME]{bcolors.ENDC}
 
+  {bcolors.BOLD}Update Application:{bcolors.ENDC}
+  {bcolors.OKGREEN}secrets-manager app update {bcolors.OKBLUE}[APP NAME OR UID]{bcolors.OKGREEN} --name {bcolors.OKBLUE}[NEW NAME]{bcolors.ENDC}
+
   {bcolors.BOLD}Remove Application:{bcolors.ENDC}
   {bcolors.OKGREEN}secrets-manager app remove {bcolors.OKBLUE}[APP NAME OR UID]{bcolors.ENDC}
     Options: 
@@ -73,14 +76,26 @@ Commands to configure and manage the Keeper Secrets Manager platform.
 
   {bcolors.BOLD}Remove Client Device:{bcolors.ENDC}
   {bcolors.OKGREEN}secrets-manager client remove --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--client {bcolors.OKBLUE}[NAME OR ID]{bcolors.ENDC}
-    Options: 
+    Options:
       --force : Do not prompt for confirmation
       --client : Client name or ID. Provide `*` or `all` to delete all clients at once
-      
+
+  {bcolors.BOLD}Revoke Client Device (search all applications):{bcolors.ENDC}
+  {bcolors.OKGREEN}secrets-manager client revoke --client {bcolors.OKBLUE}[CLIENT ID]{bcolors.ENDC}
+    Searches all applications for the given client ID and revokes it.
+    Useful for quickly revoking a leaked device without knowing the application.
+    The client ID can be found in the device's configuration file as "clientId".
+    Options:
+      --force : Do not prompt for confirmation
+
   {bcolors.BOLD}Add Secret to Application:{bcolors.ENDC}
   {bcolors.OKGREEN}secrets-manager share add --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--secret {bcolors.OKBLUE}[RECORD OR SHARED FOLDER UID]{bcolors.ENDC}
     Options: 
       --editable : Allow secrets to be editable by the client
+
+  {bcolors.BOLD}Update Secret Permissions:{bcolors.ENDC}
+  {bcolors.OKGREEN}secrets-manager share update --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--secret {bcolors.OKBLUE}[RECORD OR SHARED FOLDER UID] {bcolors.OKGREEN}--editable{bcolors.ENDC}
+  {bcolors.OKGREEN}secrets-manager share update --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--secret {bcolors.OKBLUE}[RECORD OR SHARED FOLDER UID] {bcolors.OKGREEN}--readonly{bcolors.ENDC}
 
   {bcolors.BOLD}Remove Secret from Application:{bcolors.ENDC}
   {bcolors.OKGREEN}secrets-manager share remove --app {bcolors.OKBLUE}[APP NAME OR UID] {bcolors.OKGREEN}--secret {bcolors.OKBLUE}[RECORD OR SHARED FOLDER UID]{bcolors.ENDC}
@@ -98,8 +113,8 @@ Commands to configure and manage the Keeper Secrets Manager platform.
 ksm_parser = argparse.ArgumentParser(prog='secrets-manager', description='Keeper Secrets Management (KSM) Commands',
                                      add_help=False)
 ksm_parser.add_argument('command', type=str, action='store', nargs="*",
-                    help='One of: "app list", "app get", "app create", "app remove", "app share", "app unshare", ' +
-                             '"client add", "client remove", "share add" or "share remove"')
+                    help='One of: "app list", "app get", "app create", "app update", "app remove", "app share", ' +
+                             '"app unshare", "client add", "client remove", "share add", "share update" or "share remove"')
 ksm_parser.add_argument('--secret', '-s', type=str, action='append', required=False,
                         help='Record UID')
 ksm_parser.add_argument('--app', '-a', type=str, action='store', required=False,
@@ -120,6 +135,8 @@ ksm_parser.add_argument('--count', '-c', type=int, dest='count', action='store',
 ksm_parser.add_argument('--help', '-h', dest='helpflag', action="store_true", help='Display help')
 ksm_parser.add_argument('--editable', '-e', action='store_true', required=False,
                         help='Is this share going to be editable or not.')
+ksm_parser.add_argument('--readonly', '-r', action='store_true', required=False,
+                        help='Set this share to read-only (used with share update).')
 ksm_parser.add_argument('--unlock-ip', '-l', dest='unlockIp', action='store_true', help='Unlock IP Address.')
 ksm_parser.add_argument('--return-tokens', dest='returnTokens', action='store_true', help='Return Tokens')
 ksm_parser.add_argument('--name', '-n', type=str, dest='name', action='store', help='client name')
@@ -223,6 +240,32 @@ class KSMCommand(Command):
                 return result
             return
 
+        if ksm_obj in ['app', 'apps'] and ksm_action in ['update', 'rename']:
+            if len(ksm_command) < 3:
+                print(
+                    f'''{bcolors.WARNING}Application name or UID is missing.{bcolors.ENDC}\n'''
+                    f'''\tEx: {bcolors.OKGREEN}secrets-manager app update {bcolors.OKBLUE}MyApp'''
+                    f'''{bcolors.OKGREEN} --name {bcolors.OKBLUE}NewAppName{bcolors.ENDC}'''
+                )
+                return
+
+            app_name_or_uid = ksm_command[2]
+            new_name = kwargs.get('name')
+
+            if not new_name:
+                print(
+                    f'''{bcolors.WARNING}New application name is required.{bcolors.ENDC}\n'''
+                    f'''\tEx: {bcolors.OKGREEN}secrets-manager app update {bcolors.OKBLUE}{app_name_or_uid}'''
+                    f'''{bcolors.OKGREEN} --name {bcolors.OKBLUE}NewAppName{bcolors.ENDC}'''
+                )
+                return
+
+            format_type = kwargs.get('format', 'table')
+            result = KSMCommand.update_app(params, app_name_or_uid, new_name, format_type)
+            if format_type == 'json' and result:
+                return result
+            return
+
         if ksm_obj in ['app', 'apps'] and ksm_action in ['remove', 'rem', 'rm']:
             app_name_or_uid = ksm_command[2]
             purge = kwargs.get('purge')
@@ -277,11 +320,60 @@ class KSMCommand(Command):
             KSMCommand.add_app_share(params, secret_uid, app_name_or_uid, is_editable)
             return
 
+        if ksm_obj in ['share', 'secret'] and ksm_action in ['update', 'edit']:
+
+            app_name_or_uid = kwargs.get('app')
+            secret_uids = kwargs.get('secret')
+            is_editable = kwargs.get('editable')
+            is_readonly = kwargs.get('readonly')
+
+            if not app_name_or_uid:
+                print(bcolors.WARNING + "\nApplication name or UID is required." + bcolors.ENDC)
+                print(f"Example:"
+                      + bcolors.OKGREEN + " secrets-manager share update --app " + bcolors.OKBLUE + "[APP NAME or APP UID]"
+                      + bcolors.OKGREEN + " --secret " + bcolors.OKBLUE + "[SECRET UID]"
+                      + bcolors.OKGREEN + " --editable" + bcolors.ENDC)
+                return
+
+            if not secret_uids:
+                print(bcolors.WARNING + "\nRecord or Shared Folder UID is required." + bcolors.ENDC)
+                print(f"Example:"
+                      + bcolors.OKGREEN + " secrets-manager share update --app " + bcolors.OKBLUE + "[APP NAME or APP UID]"
+                      + bcolors.OKGREEN + " --secret " + bcolors.OKBLUE + "[SECRET UID]"
+                      + bcolors.OKGREEN + " --editable" + bcolors.ENDC)
+                return
+
+            if not is_editable and not is_readonly:
+                print(bcolors.WARNING + "\nPlease specify either --editable or --readonly." + bcolors.ENDC)
+                print(f"Example:"
+                      + bcolors.OKGREEN + " secrets-manager share update --app " + bcolors.OKBLUE + "[APP NAME or APP UID]"
+                      + bcolors.OKGREEN + " --secret " + bcolors.OKBLUE + "[SECRET UID]"
+                      + bcolors.OKGREEN + " --editable" + bcolors.ENDC)
+                return
+
+            if is_editable and is_readonly:
+                print(bcolors.WARNING + "\nCannot specify both --editable and --readonly." + bcolors.ENDC)
+                return
+
+            KSMCommand.update_app_share(params, secret_uids, app_name_or_uid, is_editable)
+            return
+
         if ksm_obj in ['share', 'secret'] and ksm_action in ['remove', 'rem', 'rm']:
             app_name_or_uid = kwargs['app'] if 'app' in kwargs else None
             secret_uids = kwargs.get('secret')
 
             KSMCommand.remove_share(params, app_name_or_uid, secret_uids)
+            return
+
+        if ksm_obj in ['client', 'c'] and ksm_action == 'revoke':
+            client_names_or_ids = kwargs.get('client_names_or_ids')
+            if not client_names_or_ids:
+                print(f"{bcolors.WARNING}Client ID is required.{bcolors.ENDC}\n"
+                      f"  Usage: {bcolors.OKGREEN}secrets-manager client revoke --client {bcolors.OKBLUE}[CLIENT ID]{bcolors.ENDC}\n"
+                      f"  The client ID can be found in the device configuration file as \"clientId\".")
+                return
+            force = kwargs.get('force')
+            KSMCommand.revoke_client(params, client_names_or_ids, force)
             return
 
         if ksm_obj in ['client', 'c']:
@@ -588,9 +680,33 @@ class KSMCommand(Command):
                 app_data = {
                     "app_name": app.get("title"),
                     "app_uid": app_uid_str,
+                    "users": [],
                     "client_devices": [],
                     "shares": []
                 }
+
+                # Fetch user permissions for this application record
+                app_rec = params.record_cache.get(app_uid_str)
+                if app_rec:
+                    # Clear cached shares to force a fresh fetch
+                    app_rec.pop('shares', None)
+                    api.get_record_shares(params, [app_uid_str])
+                    app_rec = params.record_cache.get(app_uid_str)
+                    user_perms = (app_rec or {}).get('shares', {}).get('user_permissions', [])
+                    for up in user_perms:
+                        role = 'owner' if up.get('owner') else 'member'
+                        user_data = {
+                            "username": up.get('username'),
+                            "role": role,
+                            "share_admin": up.get('share_admin', False),
+                            "shareable": up.get('shareable', False),
+                            "editable": up.get('editable', False),
+                        }
+                        if up.get('awaiting_approval'):
+                            user_data["awaiting_approval"] = True
+                        if up.get('expiration') and up['expiration'] > 0:
+                            user_data["expiration"] = up['expiration']
+                        app_data["users"].append(user_data)
                 
                 if format_type == 'table':
                     print(f'\nSecrets Manager Application\n'
@@ -666,6 +782,19 @@ class KSMCommand(Command):
                         print(f'\n\t{bcolors.WARNING}No client devices registered for this Application{bcolors.ENDC}')
 
                 if format_type == 'table':
+                    if app_data["users"]:
+                        print(bcolors.BOLD + "\nApplication Users\n" + bcolors.ENDC)
+                        users_table_fields = ['Username', 'Role', 'Editable', 'Shareable']
+                        users_table = []
+                        for u in app_data["users"]:
+                            role_color = bcolors.OKGREEN if u["role"] == "owner" else bcolors.OKBLUE
+                            role_str = role_color + u["role"].capitalize() + bcolors.ENDC
+                            editable_str = (bcolors.OKGREEN + "Yes" + bcolors.ENDC) if u["editable"] else (bcolors.WARNING + "No" + bcolors.ENDC)
+                            shareable_str = (bcolors.OKGREEN + "Yes" + bcolors.ENDC) if u["shareable"] else (bcolors.WARNING + "No" + bcolors.ENDC)
+                            users_table.append([u["username"], role_str, editable_str, shareable_str])
+                        users_table.sort(key=lambda x: (0 if 'Owner' in x[1] else 1, x[0].lower()))
+                        dump_report_data(users_table, users_table_fields, fmt='table')
+
                     print(bcolors.BOLD + "\nApplication Access\n" + bcolors.ENDC)
 
                 if ai.shares:
@@ -914,6 +1043,164 @@ class KSMCommand(Command):
         params.sync_data = True
 
     @staticmethod
+    def update_app(params, app_name_or_uid, new_name, format_type='table'):
+        """Rename an existing KSM application."""
+        app = KSMCommand.get_app_record(params, app_name_or_uid)
+        if not app:
+            if format_type == 'json':
+                return json.dumps({"error": f"Application '{app_name_or_uid}' not found."})
+            else:
+                logging.warning('Application "%s" not found.' % app_name_or_uid)
+            return
+
+        existing_app = KSMCommand.get_app_record(params, new_name)
+        if existing_app and existing_app.get('record_uid') != app.get('record_uid'):
+            if format_type == 'json':
+                return json.dumps({"error": f'Application with the name "{new_name}" already exists.'})
+            else:
+                logging.warning('Application with the name "%s" already exists.' % new_name)
+            return
+
+        app_uid = app.get('record_uid')
+        record_key = app.get('record_key_unencrypted')
+        revision = app.get('revision')
+
+        data_dict = KSMCommand.record_data_as_dict(app)
+        old_name = data_dict.get('title')
+        data_dict['title'] = new_name
+
+        data_json = json.dumps(data_dict)
+        data_padded = api.pad_aes_gcm(data_json)
+        rdata = bytes(data_padded, 'utf-8') if isinstance(data_padded, str) else data_padded
+        rdata = crypto.encrypt_aes_v2(rdata, record_key)
+
+        ru = record_pb2.RecordUpdate()
+        ru.record_uid = utils.base64_url_decode(app_uid)
+        ru.client_modified_time = api.current_milli_time()
+        ru.revision = revision
+        ru.data = rdata
+
+        rq = api.get_records_update_request(params)
+        rq.records.append(ru)
+
+        try:
+            rs = api.communicate_rest(params, rq, 'vault/records_update',
+                                      rs_type=record_pb2.RecordsModifyResponse)
+            record_uid_bytes = utils.base64_url_decode(app_uid)
+            rs_status = next((x for x in rs.records if record_uid_bytes == x.record_uid), None)
+            if rs_status and rs_status.status != record_pb2.RS_SUCCESS:
+                raise KeeperApiError(record_pb2.RecordModifyResult.keys()[rs_status.status], rs_status.message)
+
+            params.sync_data = True
+            if format_type == 'json':
+                return json.dumps({
+                    "app_uid": app_uid,
+                    "old_name": old_name,
+                    "new_name": new_name,
+                    "message": "Application was successfully renamed"
+                }, indent=2)
+            else:
+                print(bcolors.OKGREEN +
+                      f'Application "{old_name}" was successfully renamed to "{new_name}" (UID: {app_uid})' +
+                      bcolors.ENDC)
+        except KeeperApiError as kae:
+            logging.error('Failed to update application: %s' % kae.message)
+        except Exception as e:
+            logging.error('Failed to update application: %s' % str(e))
+
+    @staticmethod
+    def update_app_share(params, secret_uids, app_name_or_uid, is_editable):
+        """Update the editable permission on secrets already shared with an application.
+
+        Performs a remove + re-add (matching the web vault behaviour) so that
+        the encrypted secret key is re-supplied with the new editable flag.
+        """
+        rec_cache_val = KSMCommand.get_app_record(params, app_name_or_uid)
+        if rec_cache_val is None:
+            logging.warning('Application "%s" not found.' % app_name_or_uid)
+            return
+
+        app_record_uid = rec_cache_val.get('record_uid')
+        master_key = rec_cache_val.get('record_key_unencrypted')
+
+        app_info = KSMCommand.get_app_info(params, app_record_uid)
+        existing_shares = {
+            utils.base64_url_encode(s.secretUid): s
+            for ai in app_info for s in (ai.shares or [])
+        }
+
+        uids_to_update = []
+        for uid in secret_uids:
+            if uid not in existing_shares:
+                logging.warning('Secret "%s" is not currently shared with this application. '
+                                'Use "share add" to add it first.' % uid)
+                continue
+            current_share = existing_shares[uid]
+            if current_share.editable == is_editable:
+                perm = "editable" if is_editable else "read-only"
+                logging.info('Secret "%s" is already %s. No change needed.' % (uid, perm))
+                continue
+            uids_to_update.append(uid)
+
+        if not uids_to_update:
+            print(bcolors.WARNING + "No share permissions to update." + bcolors.ENDC)
+            return
+
+        rq_remove = APIRequest_pb2.RemoveAppSharesRequest()
+        rq_remove.appRecordUid = utils.base64_url_decode(app_record_uid)
+        rq_remove.shares.extend(utils.base64_url_decode(uid) for uid in uids_to_update)
+
+        try:
+            api.communicate_rest(params, rq_remove, 'vault/app_share_remove')
+        except KeeperApiError as kae:
+            logging.error('Failed to remove shares for update: %s' % kae.message)
+            return
+
+        app_shares = []
+        for uid in uids_to_update:
+            is_record = uid in params.record_cache
+            is_shared_folder = api.is_shared_folder(params, uid)
+
+            if is_record:
+                share_key = params.record_cache[uid]['record_key_unencrypted']
+                share_type = 'SHARE_TYPE_RECORD'
+            elif is_shared_folder:
+                share_key = params.shared_folder_cache[uid].get('shared_folder_key_unencrypted')
+                share_type = 'SHARE_TYPE_FOLDER'
+            else:
+                logging.warning('UID "%s" not found in local cache. Run sync-down and try again.' % uid)
+                continue
+
+            encrypted_secret_key = crypto.encrypt_aes_v2(share_key, master_key)
+
+            app_share = APIRequest_pb2.AppShareAdd()
+            app_share.secretUid = utils.base64_url_decode(uid)
+            app_share.shareType = APIRequest_pb2.ApplicationShareType.Value(share_type)
+            app_share.encryptedSecretKey = encrypted_secret_key
+            app_share.editable = is_editable
+
+            app_shares.append(app_share)
+
+        if not app_shares:
+            return
+
+        rq_add = APIRequest_pb2.AddAppSharesRequest()
+        rq_add.appRecordUid = utils.base64_url_decode(app_record_uid)
+        rq_add.shares.extend(app_shares)
+
+        try:
+            api.communicate_rest(params, rq_add, 'vault/app_share_add')
+            perm = "editable" if is_editable else "read-only"
+            print(bcolors.OKGREEN +
+                  f'\nSuccessfully updated share permissions to {perm} for app uid={app_record_uid}:' +
+                  bcolors.ENDC)
+            for uid in uids_to_update:
+                print(f'\t{uid}')
+            print()
+        except KeeperApiError as kae:
+            logging.error('Failed to re-add shares with updated permissions: %s' % kae.message)
+
+    @staticmethod
     def remove_share(params, app_name_or_uid, secret_uids):
         app = KSMCommand.get_app_record(params, app_name_or_uid)
         if not app:
@@ -1009,6 +1296,87 @@ class KSMCommand(Command):
         rq.clients.extend(client_hashes)
         api.communicate_rest(params, rq, 'vault/app_client_remove')
         print(bcolors.OKGREEN + "\nClient removal was successful\n" + bcolors.ENDC)
+
+    @staticmethod
+    def revoke_client(params, client_ids, force=False):
+        """Search all SM applications for matching client IDs and revoke them.
+
+        Accepts clientId values from device config files (standard or URL-safe base64).
+        """
+        # Normalize input client IDs to URL-safe base64 for comparison
+        normalized_inputs = []
+        for cid in client_ids:
+            # Config files may use standard base64 (+, /, =) or URL-safe base64 (-, _)
+            normalized = cid.replace('+', '-').replace('/', '_').rstrip('=')
+            normalized_inputs.append(normalized)
+
+        # Collect all SM app UIDs from the vault cache
+        app_uids = []
+        app_titles = {}
+        for rec_cache_val in params.record_cache.values():
+            if rec_cache_val.get('version') == 5:
+                r_uid = rec_cache_val.get('record_uid')
+                try:
+                    r_data = json.loads(rec_cache_val.get('data_unencrypted').decode('utf-8'))
+                    app_titles[r_uid] = r_data.get('title', r_uid)
+                except Exception:
+                    app_titles[r_uid] = r_uid
+                app_uids.append(r_uid)
+
+        if not app_uids:
+            print(bcolors.WARNING + "No Secrets Manager applications found in the vault." + bcolors.ENDC)
+            return
+
+        # Fetch app info for all apps in a single API call
+        rq = APIRequest_pb2.GetAppInfoRequest()
+        for app_uid in app_uids:
+            rq.appRecordUid.append(utils.base64_url_decode(app_uid))
+        rs = api.communicate_rest(params, rq, 'vault/get_app_info', rs_type=APIRequest_pb2.GetAppInfoResponse)
+
+        # Search for matching clients across all apps
+        matches = []  # list of (app_uid, app_title, client_name, client_id_b64, client_id_bytes)
+        for ai in rs.appInfo:
+            app_uid_str = utils.base64_url_encode(ai.appRecordUid)
+            app_title = app_titles.get(app_uid_str, app_uid_str)
+            for c in ai.clients:
+                client_id_b64 = utils.base64_url_encode(c.clientId)
+                for norm_input in normalized_inputs:
+                    if client_id_b64 == norm_input or \
+                       (len(norm_input) >= KSMCommand.CLIENT_SHORT_ID_LENGTH and client_id_b64.startswith(norm_input)):
+                        matches.append((app_uid_str, app_title, c.id, client_id_b64, c.clientId))
+                        break
+
+        if not matches:
+            print(bcolors.WARNING + "No matching client devices found across any application." + bcolors.ENDC)
+            return
+
+        # Display matches and confirm
+        print(f"\n{bcolors.BOLD}Found {len(matches)} matching client device(s):{bcolors.ENDC}\n")
+        for app_uid_str, app_title, device_name, client_id_b64, _ in matches:
+            print(f"  Application: {bcolors.OKGREEN}{app_title}{bcolors.ENDC} ({app_uid_str})")
+            print(f"  Device Name: {device_name}")
+            print(f"  Client ID:   {client_id_b64[:20]}...")
+            print()
+
+        if not force:
+            uc = user_choice(f'\tAre you sure you want to revoke {len(matches)} client device(s)?', 'yn', default='n')
+            if uc.lower() != 'y':
+                return
+
+        # Group matches by app and remove
+        sorted_matches = sorted(matches, key=lambda m: m[0])
+        for app_uid_str, group in groupby(sorted_matches, key=lambda m: m[0]):
+            group_list = list(group)
+            app_title = group_list[0][1]
+            client_hashes = [m[4] for m in group_list]
+
+            rm_rq = APIRequest_pb2.RemoveAppClientsRequest()
+            rm_rq.appRecordUid = utils.base64_url_decode(app_uid_str)
+            rm_rq.clients.extend(client_hashes)
+            api.communicate_rest(params, rm_rq, 'vault/app_client_remove')
+            print(bcolors.OKGREEN + f"Revoked {len(client_hashes)} client(s) from application \"{app_title}\"" + bcolors.ENDC)
+
+        print(bcolors.OKGREEN + "\nClient revocation complete.\n" + bcolors.ENDC)
 
     @staticmethod
     def add_client(params, app_name_or_uid, count, unlock_ip, first_access_expire_on, access_expire_in_min,

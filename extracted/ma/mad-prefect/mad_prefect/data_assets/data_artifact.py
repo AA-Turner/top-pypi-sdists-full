@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from typing import BinaryIO, Sequence, cast, Any
 import duckdb
@@ -8,13 +9,15 @@ import pandas as pd
 from pydantic import TypeAdapter
 from mad_prefect.data_assets import ARTIFACT_FILE_TYPES
 from mad_prefect.data_assets.options import ReadCSVOptions, ReadJsonOptions
-from mad_prefect.data_assets.utils import yield_data_batches
-from mad_prefect.duckdb import register_mad_protocol
+from mad_prefect.data_assets.utils import safe_truthy, yield_data_batches
+from mad_prefect.duckdb import register_mad_protocol, register_fsspec_filesystem
 from mad_prefect.filesystems import get_fs
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pyarrow.csv as pacsv
 from mad_prefect.json.mad_json_encoder import MADJSONEncoder
+
+logger = logging.getLogger(__name__)
 
 
 class DataArtifact:
@@ -26,6 +29,7 @@ class DataArtifact:
         read_csv_options: ReadCSVOptions | None = None,
     ):
         self.path = path
+        logger.debug(f"Initializing DataArtifact for path: {self.path}")
         filetype = os.path.splitext(self.path)[1].lstrip(".")
 
         if filetype not in ["json", "parquet", "csv"]:
@@ -38,13 +42,19 @@ class DataArtifact:
         self.persisted = False
 
     async def persist(self):
+        logger.debug(f"Persist called for artifact: {self.path}")
         # If we've already persisted this artifact this session, don't do anything
         if self.persisted:
+            logger.debug(
+                f"Artifact {self.path} already persisted this session. Skipping."
+            )
             return True
 
         if not self._truthy(self.data):
+            logger.info(f"No data to persist for artifact {self.path}. Skipping.")
             return False
 
+        logger.info(f"Persisting artifact to {self.path} as type '{self.filetype}'.")
         await register_mad_protocol()
 
         # preserve_insertion_order to improve memory usage.
@@ -66,10 +76,11 @@ class DataArtifact:
             fs.mkdirs(os.path.dirname(self.path), exist_ok=True)
 
             path = fs._resolve_path(self.path)
-            d = self.data
 
-            duckdb.register_filesystem(cast(str, fs._fs))
-            duckdb.execute(f"COPY d TO '{protocol}://{path}'")
+            register_fsspec_filesystem(fs._fs)
+            logger.debug(f"Persisting DuckDB relation to {protocol}://{path}")
+            _d = self.data
+            duckdb.execute(f"COPY _d TO '{protocol}://{path}'")
         else:
             if self.filetype == "json":
                 await self._persist_json()
@@ -81,17 +92,26 @@ class DataArtifact:
                 raise ValueError(f"Unsupported file format {self.filetype}")
 
         self.persisted = await self.exists()
+        if self.persisted:
+            logger.info(f"Successfully persisted artifact to {self.path}.")
+        else:
+            logger.warning(f"Failed to persist artifact to {self.path}.")
 
         # Release the reference to data to free up memory
         self.data = None
+        logger.debug(
+            f"Released data reference for artifact {self.path} to free memory."
+        )
 
         return self.persisted
 
     async def _open(self):
         fs = await get_fs()
+        logger.debug(f"Opening file for writing: {self.path}")
         return cast(BinaryIO, await fs.open(self.path, "wb", True))
 
     async def _persist_json(self):
+        logger.debug(f"Starting JSON persistence for {self.path}")
         entities = self._yield_entities_to_persist()
         file: BinaryIO | None = None
         writer: jsonlines.Writer | None = None
@@ -125,9 +145,9 @@ class DataArtifact:
 
                 writer.write_all(next_entity)
                 next_entity = await anext(entities)
-        except StopAsyncIteration as e:
+        except StopAsyncIteration:
             pass
-        except Exception as e:
+        except Exception:
             raise
         finally:
             if writer:
@@ -137,8 +157,11 @@ class DataArtifact:
                 file.close()
 
             await entities.aclose()
+        logger.debug(f"Finished JSON persistence for {self.path}")
 
     async def _persist_parquet(self):
+        logger.debug(f"Starting Parquet persistence for {self.path}")
+
         def __sanitize_data(data):
             """
             Recursively go through the data and replace any empty dictionaries
@@ -190,9 +213,9 @@ class DataArtifact:
 
                 writer.write(table_or_batch)
                 next_entity = await anext(entities)
-        except StopAsyncIteration as e:
+        except StopAsyncIteration:
             pass
-        except Exception as e:
+        except Exception:
             raise
         finally:
             if writer:
@@ -202,8 +225,10 @@ class DataArtifact:
                 file.close()
 
             await entities.aclose()
+        logger.debug(f"Finished Parquet persistence for {self.path}")
 
     async def _persist_csv(self):
+        logger.debug(f"Starting CSV persistence for {self.path}")
         entities = self._yield_entities_to_persist()
         file: BinaryIO | None = None
         type_adapter = TypeAdapter(Any)
@@ -240,68 +265,76 @@ class DataArtifact:
             if file:
                 file.close()
             await entities.aclose()
+        logger.debug(f"Finished CSV persistence for {self.path}")
 
     async def _yield_entities_to_persist(self):
         from mad_prefect.data_assets.data_asset import DataAsset
 
         async for batch_data in yield_data_batches(self.data):
-            # If the data is an asset, execute it to get the result artifact
             if isinstance(batch_data, DataAsset):
+                logger.debug(
+                    "Processing artifact data batch - Data format: DataAsset, converting to DataArtifact"
+                )
                 batch_data = await batch_data()
 
-            # If the entity is a DataAsset, turn it into a DuckDbPyRelation, so it can be handled
             if isinstance(batch_data, DataArtifact):
-                # An artifact may not exist for example when there were no results
+                logger.debug(
+                    "Processing artifact data batch - Data format: DataArtifact, converting to DuckDB relation"
+                )
                 if not await batch_data.exists():
+                    logger.debug(
+                        f"Skipping artifact, file not found at path: {batch_data.path}"
+                    )
                     continue
-
                 batch_data = await batch_data.query()
 
             if isinstance(batch_data, pd.DataFrame):
+                logger.debug(
+                    "Processing artifact data batch - Data format: pd.DataFrame, converting to DuckDB relation"
+                )
                 batch_data = duckdb.from_df(batch_data)
 
             if isinstance(batch_data, (duckdb.DuckDBPyRelation)):
-                # Convert duckdb into batches of arrow tables
+                logger.debug(
+                    "Processing artifact data batch - Data format: DuckDB relation, streaming as Arrow record batches"
+                )
                 reader = batch_data.fetch_arrow_reader(1000)
-
                 try:
                     while True:
                         try:
-                            # this will yield a pyarrow RecordBatch
                             batch = reader.read_next_batch()
                             yield batch
-                        except StopIteration as stop:
+                        except StopIteration:
                             break
                 finally:
                     reader.close()
 
             elif isinstance(batch_data, httpx.Response):
+                logger.debug(
+                    "Processing artifact data batch - Data format: httpx.Response, extracting JSON content"
+                )
                 yield batch_data.json()
             else:
+                logger.debug(
+                    f"Processing artifact data batch - Data format: {type(batch_data).__name__}, yielding directly"
+                )
                 yield batch_data
 
-    async def query(self, query_str: str | None = None):
+    async def query(self, query_str: str | None = None, params: object | None = None):
         from mad_prefect.data_assets.data_artifact_query import DataArtifactQuery
 
+        logger.info(f"Querying artifact: {self.path}")
         artifact_query = DataArtifactQuery(
             [self], self.read_json_options, self.read_csv_options
         )
-        return await artifact_query.query(query_str)
+        return await artifact_query.query(query_str, params=params)
 
     async def exists(self):
         fs = await get_fs()
-        self.persisted = fs.exists(self.path)
+        exists = fs.exists(self.path)
+        logger.debug(f"Checking existence of {self.path}: {exists}")
+        self.persisted = exists
         return self.persisted
 
     def _truthy(self, data):
-        if isinstance(data, pd.DataFrame):
-            if data.empty:
-                return False
-        # duckdb hangs with the not self.data check, so make sure self.data isn't
-        # a duckdb pyrelation before checking self.data
-        elif isinstance(data, duckdb.DuckDBPyRelation):
-            pass
-        elif not data:
-            return False
-
-        return True
+        return safe_truthy(data)

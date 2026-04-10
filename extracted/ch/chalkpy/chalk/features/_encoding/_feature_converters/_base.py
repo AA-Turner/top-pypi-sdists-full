@@ -253,6 +253,10 @@ class _ScalarConverterBase(Generic[_TPrim, _TRich]):
 
     def __init__(self, default: Any, is_nullable: bool, *, pa_type: "pa.DataType | None" = None, _from_new: object = None) -> None:
         super().__init__()
+        cls = type(self)
+        self._coerce: Callable[[Any], Any] = cls._coerce_fn
+        self._arrow_coerce: Callable[[Any], Any] = cls._arrow_coerce_fn
+        self._json_coerce: Callable[[Any], Any] = cls._json_coerce_fn
         if _from_new is not _FROM_NEW:
             raise TypeError(f"Use {type(self).__name__}.new() instead of calling the constructor directly")
         if pa_type is None:
@@ -262,17 +266,16 @@ class _ScalarConverterBase(Generic[_TPrim, _TRich]):
             default = None
         if default is not ...:
             self._has_default = True
-            _pa_default = pa.array([default], type=pa_type)
+            _pa_default = pa.array(
+                [None if default is None else self._arrow_coerce(default)],
+                type=pa_type,
+            )
             self._pyarrow_default: "ellipsis | pa.Array | pa.ChunkedArray" = _pa_default
             self._primitive_default: Any = _pa_default.to_pylist()[0]
         else:
             self._has_default = False
             self._primitive_default = ...
             self._pyarrow_default = ...
-        cls = type(self)
-        self._coerce: Callable[[Any], Any] = cls._coerce_fn
-        self._arrow_coerce: Callable[[Any], Any] = cls._arrow_coerce_fn
-        self._json_coerce: Callable[[Any], Any] = cls._json_coerce_fn
 
     @property
     def rich_type(self) -> Type[_TRich]:

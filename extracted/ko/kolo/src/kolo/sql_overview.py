@@ -1,8 +1,8 @@
 from datetime import datetime
+from itertools import chain
 from typing import Any
 
 import sqlglot
-from more_itertools import flatten
 
 
 def sql_overview(query, *, database, query_data=None):
@@ -16,7 +16,7 @@ def sql_overview(query, *, database, query_data=None):
         data["columns"] = []
 
         try:
-            rows = list(flatten(query_data))
+            rows = list(chain.from_iterable(query_data))
         except TypeError:
             return {"type": "other"}
 

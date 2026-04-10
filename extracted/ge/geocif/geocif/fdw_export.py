@@ -19,10 +19,11 @@ from geocif import __version__
 logger = logging.getLogger(__name__)
 
 
-def _query_forecast(db_path, table, model, experiment_name, forecast_year):
+def _query_forecast(db_path, table, model, experiment_name, forecast_year, min_year=None):
     """Query forecast-year predictions from the database.
 
     Returns DataFrame with columns needed for FDW export.
+    If min_year is set, returns all years in [min_year, forecast_year].
     """
     if not db_path.exists():
         logger.error("Database not found: %s", db_path)
@@ -30,16 +31,28 @@ def _query_forecast(db_path, table, model, experiment_name, forecast_year):
 
     con = sqlite3.connect(db_path)
     try:
-        df = pd.read_sql(
-            f'SELECT "Country", "Region", "Season", "Harvest Year", '
-            f'"Stage Name", "Date", '
-            f'"Predicted Yield (tn per ha)" '
-            f'FROM "{table}" '
-            f'WHERE "Experiment Name" = ? AND "Model" = ? '
-            f'AND "Harvest Year" = ?',
-            con,
-            params=(experiment_name, model, forecast_year),
-        )
+        if min_year is not None and min_year < forecast_year:
+            df = pd.read_sql(
+                f'SELECT "Country", "Region", "Season", "Harvest Year", '
+                f'"Stage Name", "Date", '
+                f'"Predicted Yield (tn per ha)" '
+                f'FROM "{table}" '
+                f'WHERE "Experiment Name" = ? AND "Model" = ? '
+                f'AND "Harvest Year" >= ? AND "Harvest Year" <= ?',
+                con,
+                params=(experiment_name, model, min_year, forecast_year),
+            )
+        else:
+            df = pd.read_sql(
+                f'SELECT "Country", "Region", "Season", "Harvest Year", '
+                f'"Stage Name", "Date", '
+                f'"Predicted Yield (tn per ha)" '
+                f'FROM "{table}" '
+                f'WHERE "Experiment Name" = ? AND "Model" = ? '
+                f'AND "Harvest Year" = ?',
+                con,
+                params=(experiment_name, model, forecast_year),
+            )
     except (pd.errors.DatabaseError, sqlite3.OperationalError) as e:
         logger.warning("Failed to query table '%s': %s", table, e)
         df = pd.DataFrame()
@@ -215,6 +228,8 @@ def export_forecast(
     source_name_version="FDW",
     group="NASA Harvest",
     dir_out=None,
+    experiment_name=None,
+    n_years=1,
 ):
     """Export forecast predictions as FDW Template 1 CSV.
 
@@ -226,6 +241,10 @@ def export_forecast(
         source_name_version: Value for source_name_version column.
         group: Research group name.
         dir_out: Output directory. Defaults to ml/analysis/{today}/fdw/.
+        experiment_name: Experiment name to query (e.g. "outlook"). If None,
+            reads from parser DEFAULT section.
+        n_years: Number of years to include, counting back from forecast_year.
+            Default 1 (current year only). Set to e.g. 10 to include last 10 years.
 
     Returns:
         Path to the saved CSV, or None if no data.
@@ -239,7 +258,8 @@ def export_forecast(
         forecast_issue_date = ar.utcnow().to("America/New_York").format("YYYY-MM-DD")
 
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
-    experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
+    if experiment_name is None:
+        experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
     project_name = parser.get("DEFAULT", "project_name", fallback="geocif")
 
     if db_path is None:
@@ -283,8 +303,10 @@ def export_forecast(
         for model in config["models"]:
             logger.info("FDW export: %s %s %s", country, crop, model)
 
+            min_year = forecast_year - n_years if n_years > 1 else None
             df_pred = _query_forecast(
-                db_path, country_crop, model, experiment_name, forecast_year
+                db_path, country_crop, model, experiment_name, forecast_year,
+                min_year=min_year,
             )
             if df_pred.empty:
                 logger.warning(
@@ -293,10 +315,10 @@ def export_forecast(
                 )
                 continue
 
-            # Keep latest stage per (Country, Region)
+            # Keep latest stage per (Country, Region, Harvest Year)
             df_latest = (
                 df_pred.sort_values("Stage Name")
-                .groupby(["Country", "Region"])
+                .groupby(["Country", "Region", "Harvest Year"])
                 .last()
                 .reset_index()
             )
@@ -322,6 +344,20 @@ def export_forecast(
                 ].copy()
 
                 if not df_hvstat_crop.empty:
+                    # Deduplicate to one row per fnid: prefer primary seasons
+                    # (Main, Long, etc.) over Annual, mirroring stats.py logic.
+                    _PRIMARY = [
+                        "Long", "Gu", "Season A", "First", "1st Season",
+                        "Main", "Meher", "Main harvest", "Summer", "Wet",
+                    ]
+                    df_hvstat_crop["_rank"] = df_hvstat_crop["season_name"].map(
+                        lambda s: _PRIMARY.index(s) if s in _PRIMARY else len(_PRIMARY)
+                    )
+                    df_hvstat_crop = (
+                        df_hvstat_crop.sort_values("_rank")
+                        .drop_duplicates(subset=["fnid"], keep="first")
+                        .drop(columns=["_rank"])
+                    )
                     df_merged = df_merged.merge(
                         df_hvstat_crop.rename(columns={"fnid": "ADM_ID"}),
                         on="ADM_ID",
@@ -426,6 +462,7 @@ def export_national_forecast(
     source_name_version="FDW",
     group="NASA Harvest",
     dir_out=None,
+    experiment_name=None,
 ):
     """Export area-weighted national yield forecasts as FDW Template 1 CSV.
 
@@ -443,7 +480,8 @@ def export_national_forecast(
         forecast_issue_date = ar.utcnow().to("America/New_York").format("YYYY-MM-DD")
 
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
-    experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
+    if experiment_name is None:
+        experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
     project_name = parser.get("DEFAULT", "project_name", fallback="geocif")
 
     if db_path is None:
@@ -530,6 +568,15 @@ def export_national_forecast(
                         df_hvstat["product"].str.lower() == crop_title.lower()
                     ]
                     if not hvstat_country.empty:
+                        _PRIMARY = [
+                            "Long", "Gu", "Season A", "First", "1st Season",
+                            "Main", "Meher", "Main harvest", "Summer", "Wet",
+                        ]
+                        hvstat_country = hvstat_country.copy()
+                        hvstat_country["_rank"] = hvstat_country["season_name"].map(
+                            lambda s: _PRIMARY.index(s) if s in _PRIMARY else len(_PRIMARY)
+                        )
+                        hvstat_country = hvstat_country.sort_values("_rank")
                         planting_month = hvstat_country["planting_month"].iloc[0]
                         harvest_month = hvstat_country["harvest_month"].iloc[0]
                         season_name = hvstat_country["season_name"].iloc[0]

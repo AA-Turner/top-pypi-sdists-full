@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import inspect
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Collection, Dict, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Collection
 
 from chalk.utils.duration import CronTab, Duration
 
 if TYPE_CHECKING:
-    from chalk.client.models import FeatureReference
+    from chalk.client.models import FeatureReference, UnloadResolvers
 
 
 class ScheduledQuery:
@@ -32,7 +32,7 @@ class ScheduledQuery:
         num_shards: int | None = None,
         num_workers: int | None = None,
         input_sql: str | None = None,
-        unload_resolvers: Optional[Sequence[Union[str, Dict[str, Any]]]] = None,
+        unload_resolvers: UnloadResolvers = None,
     ):
         """Create an offline query which runs on a schedule.
 
@@ -168,11 +168,9 @@ class ScheduledQuery:
 
         self.num_shards = num_shards
         self.num_workers = num_workers
-        self.unload_resolvers = (
-            [{"fqn": r} if isinstance(r, str) else r for r in unload_resolvers]
-            if unload_resolvers is not None
-            else None
-        )
+        from chalk.client.client_impl import encode_unload_resolvers
+
+        self.unload_resolvers = encode_unload_resolvers(unload_resolvers)
 
         CRON_QUERY_REGISTRY[name] = self
 

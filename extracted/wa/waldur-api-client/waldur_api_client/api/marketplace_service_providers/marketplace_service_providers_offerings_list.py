@@ -26,6 +26,7 @@ def _get_kwargs(
     category_group_uuid: Union[Unset, UUID] = UNSET,
     category_uuid: Union[Unset, UUID] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     description: Union[Unset, str] = UNSET,
@@ -34,6 +35,7 @@ def _get_kwargs(
     has_terms_of_service: Union[Unset, bool] = UNSET,
     keyword: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ProviderOfferingDetailsOEnum]] = UNSET,
@@ -48,6 +50,7 @@ def _get_kwargs(
     scope_uuid: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
     shared: Union[Unset, bool] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[OfferingState]] = UNSET,
     tag: Union[Unset, list[UUID]] = UNSET,
     tag_name: Union[Unset, list[str]] = UNSET,
@@ -88,6 +91,11 @@ def _get_kwargs(
         json_created = created.isoformat()
     params["created"] = json_created
 
+    json_created_before: Union[Unset, str] = UNSET
+    if not isinstance(created_before, Unset):
+        json_created_before = created_before.isoformat()
+    params["created_before"] = json_created_before
+
     params["customer"] = customer
 
     json_customer_uuid: Union[Unset, str] = UNSET
@@ -116,6 +124,11 @@ def _get_kwargs(
     if not isinstance(modified, Unset):
         json_modified = modified.isoformat()
     params["modified"] = json_modified
+
+    json_modified_before: Union[Unset, str] = UNSET
+    if not isinstance(modified_before, Unset):
+        json_modified_before = modified_before.isoformat()
+    params["modified_before"] = json_modified_before
 
     params["name"] = name
 
@@ -169,6 +182,8 @@ def _get_kwargs(
     params["service_manager_uuid"] = json_service_manager_uuid
 
     params["shared"] = shared
+
+    params["slug"] = slug
 
     json_state: Union[Unset, list[str]] = UNSET
     if not isinstance(state, Unset):
@@ -261,6 +276,7 @@ def sync_detailed(
     category_group_uuid: Union[Unset, UUID] = UNSET,
     category_uuid: Union[Unset, UUID] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     description: Union[Unset, str] = UNSET,
@@ -269,6 +285,7 @@ def sync_detailed(
     has_terms_of_service: Union[Unset, bool] = UNSET,
     keyword: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ProviderOfferingDetailsOEnum]] = UNSET,
@@ -283,6 +300,7 @@ def sync_detailed(
     scope_uuid: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
     shared: Union[Unset, bool] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[OfferingState]] = UNSET,
     tag: Union[Unset, list[UUID]] = UNSET,
     tag_name: Union[Unset, list[str]] = UNSET,
@@ -308,6 +326,7 @@ def sync_detailed(
         category_group_uuid (Union[Unset, UUID]):
         category_uuid (Union[Unset, UUID]):
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         description (Union[Unset, str]):
@@ -316,6 +335,7 @@ def sync_detailed(
         has_terms_of_service (Union[Unset, bool]):
         keyword (Union[Unset, str]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[ProviderOfferingDetailsOEnum]]):
@@ -330,6 +350,7 @@ def sync_detailed(
         scope_uuid (Union[Unset, str]):
         service_manager_uuid (Union[Unset, UUID]):
         shared (Union[Unset, bool]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[OfferingState]]):
         tag (Union[Unset, list[UUID]]):
         tag_name (Union[Unset, list[str]]):
@@ -358,6 +379,7 @@ def sync_detailed(
         category_group_uuid=category_group_uuid,
         category_uuid=category_uuid,
         created=created,
+        created_before=created_before,
         customer=customer,
         customer_uuid=customer_uuid,
         description=description,
@@ -366,6 +388,7 @@ def sync_detailed(
         has_terms_of_service=has_terms_of_service,
         keyword=keyword,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -380,6 +403,7 @@ def sync_detailed(
         scope_uuid=scope_uuid,
         service_manager_uuid=service_manager_uuid,
         shared=shared,
+        slug=slug,
         state=state,
         tag=tag,
         tag_name=tag_name,
@@ -410,6 +434,7 @@ def sync(
     category_group_uuid: Union[Unset, UUID] = UNSET,
     category_uuid: Union[Unset, UUID] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     description: Union[Unset, str] = UNSET,
@@ -418,6 +443,7 @@ def sync(
     has_terms_of_service: Union[Unset, bool] = UNSET,
     keyword: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ProviderOfferingDetailsOEnum]] = UNSET,
@@ -432,6 +458,7 @@ def sync(
     scope_uuid: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
     shared: Union[Unset, bool] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[OfferingState]] = UNSET,
     tag: Union[Unset, list[UUID]] = UNSET,
     tag_name: Union[Unset, list[str]] = UNSET,
@@ -457,6 +484,7 @@ def sync(
         category_group_uuid (Union[Unset, UUID]):
         category_uuid (Union[Unset, UUID]):
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         description (Union[Unset, str]):
@@ -465,6 +493,7 @@ def sync(
         has_terms_of_service (Union[Unset, bool]):
         keyword (Union[Unset, str]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[ProviderOfferingDetailsOEnum]]):
@@ -479,6 +508,7 @@ def sync(
         scope_uuid (Union[Unset, str]):
         service_manager_uuid (Union[Unset, UUID]):
         shared (Union[Unset, bool]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[OfferingState]]):
         tag (Union[Unset, list[UUID]]):
         tag_name (Union[Unset, list[str]]):
@@ -508,6 +538,7 @@ def sync(
         category_group_uuid=category_group_uuid,
         category_uuid=category_uuid,
         created=created,
+        created_before=created_before,
         customer=customer,
         customer_uuid=customer_uuid,
         description=description,
@@ -516,6 +547,7 @@ def sync(
         has_terms_of_service=has_terms_of_service,
         keyword=keyword,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -530,6 +562,7 @@ def sync(
         scope_uuid=scope_uuid,
         service_manager_uuid=service_manager_uuid,
         shared=shared,
+        slug=slug,
         state=state,
         tag=tag,
         tag_name=tag_name,
@@ -554,6 +587,7 @@ async def asyncio_detailed(
     category_group_uuid: Union[Unset, UUID] = UNSET,
     category_uuid: Union[Unset, UUID] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     description: Union[Unset, str] = UNSET,
@@ -562,6 +596,7 @@ async def asyncio_detailed(
     has_terms_of_service: Union[Unset, bool] = UNSET,
     keyword: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ProviderOfferingDetailsOEnum]] = UNSET,
@@ -576,6 +611,7 @@ async def asyncio_detailed(
     scope_uuid: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
     shared: Union[Unset, bool] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[OfferingState]] = UNSET,
     tag: Union[Unset, list[UUID]] = UNSET,
     tag_name: Union[Unset, list[str]] = UNSET,
@@ -601,6 +637,7 @@ async def asyncio_detailed(
         category_group_uuid (Union[Unset, UUID]):
         category_uuid (Union[Unset, UUID]):
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         description (Union[Unset, str]):
@@ -609,6 +646,7 @@ async def asyncio_detailed(
         has_terms_of_service (Union[Unset, bool]):
         keyword (Union[Unset, str]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[ProviderOfferingDetailsOEnum]]):
@@ -623,6 +661,7 @@ async def asyncio_detailed(
         scope_uuid (Union[Unset, str]):
         service_manager_uuid (Union[Unset, UUID]):
         shared (Union[Unset, bool]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[OfferingState]]):
         tag (Union[Unset, list[UUID]]):
         tag_name (Union[Unset, list[str]]):
@@ -651,6 +690,7 @@ async def asyncio_detailed(
         category_group_uuid=category_group_uuid,
         category_uuid=category_uuid,
         created=created,
+        created_before=created_before,
         customer=customer,
         customer_uuid=customer_uuid,
         description=description,
@@ -659,6 +699,7 @@ async def asyncio_detailed(
         has_terms_of_service=has_terms_of_service,
         keyword=keyword,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -673,6 +714,7 @@ async def asyncio_detailed(
         scope_uuid=scope_uuid,
         service_manager_uuid=service_manager_uuid,
         shared=shared,
+        slug=slug,
         state=state,
         tag=tag,
         tag_name=tag_name,
@@ -701,6 +743,7 @@ async def asyncio(
     category_group_uuid: Union[Unset, UUID] = UNSET,
     category_uuid: Union[Unset, UUID] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     description: Union[Unset, str] = UNSET,
@@ -709,6 +752,7 @@ async def asyncio(
     has_terms_of_service: Union[Unset, bool] = UNSET,
     keyword: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ProviderOfferingDetailsOEnum]] = UNSET,
@@ -723,6 +767,7 @@ async def asyncio(
     scope_uuid: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
     shared: Union[Unset, bool] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[OfferingState]] = UNSET,
     tag: Union[Unset, list[UUID]] = UNSET,
     tag_name: Union[Unset, list[str]] = UNSET,
@@ -748,6 +793,7 @@ async def asyncio(
         category_group_uuid (Union[Unset, UUID]):
         category_uuid (Union[Unset, UUID]):
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         description (Union[Unset, str]):
@@ -756,6 +802,7 @@ async def asyncio(
         has_terms_of_service (Union[Unset, bool]):
         keyword (Union[Unset, str]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[ProviderOfferingDetailsOEnum]]):
@@ -770,6 +817,7 @@ async def asyncio(
         scope_uuid (Union[Unset, str]):
         service_manager_uuid (Union[Unset, UUID]):
         shared (Union[Unset, bool]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[OfferingState]]):
         tag (Union[Unset, list[UUID]]):
         tag_name (Union[Unset, list[str]]):
@@ -800,6 +848,7 @@ async def asyncio(
             category_group_uuid=category_group_uuid,
             category_uuid=category_uuid,
             created=created,
+            created_before=created_before,
             customer=customer,
             customer_uuid=customer_uuid,
             description=description,
@@ -808,6 +857,7 @@ async def asyncio(
             has_terms_of_service=has_terms_of_service,
             keyword=keyword,
             modified=modified,
+            modified_before=modified_before,
             name=name,
             name_exact=name_exact,
             o=o,
@@ -822,6 +872,7 @@ async def asyncio(
             scope_uuid=scope_uuid,
             service_manager_uuid=service_manager_uuid,
             shared=shared,
+            slug=slug,
             state=state,
             tag=tag,
             tag_name=tag_name,
@@ -847,6 +898,7 @@ def sync_all(
     category_group_uuid: Union[Unset, UUID] = UNSET,
     category_uuid: Union[Unset, UUID] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     description: Union[Unset, str] = UNSET,
@@ -855,6 +907,7 @@ def sync_all(
     has_terms_of_service: Union[Unset, bool] = UNSET,
     keyword: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ProviderOfferingDetailsOEnum]] = UNSET,
@@ -867,6 +920,7 @@ def sync_all(
     scope_uuid: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
     shared: Union[Unset, bool] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[OfferingState]] = UNSET,
     tag: Union[Unset, list[UUID]] = UNSET,
     tag_name: Union[Unset, list[str]] = UNSET,
@@ -894,6 +948,7 @@ def sync_all(
         category_group_uuid (Union[Unset, UUID]):
         category_uuid (Union[Unset, UUID]):
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         description (Union[Unset, str]):
@@ -902,6 +957,7 @@ def sync_all(
         has_terms_of_service (Union[Unset, bool]):
         keyword (Union[Unset, str]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[ProviderOfferingDetailsOEnum]]):
@@ -914,6 +970,7 @@ def sync_all(
         scope_uuid (Union[Unset, str]):
         service_manager_uuid (Union[Unset, UUID]):
         shared (Union[Unset, bool]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[OfferingState]]):
         tag (Union[Unset, list[UUID]]):
         tag_name (Union[Unset, list[str]]):
@@ -946,6 +1003,7 @@ def sync_all(
         category_group_uuid=category_group_uuid,
         category_uuid=category_uuid,
         created=created,
+        created_before=created_before,
         customer=customer,
         customer_uuid=customer_uuid,
         description=description,
@@ -954,6 +1012,7 @@ def sync_all(
         has_terms_of_service=has_terms_of_service,
         keyword=keyword,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -966,6 +1025,7 @@ def sync_all(
         scope_uuid=scope_uuid,
         service_manager_uuid=service_manager_uuid,
         shared=shared,
+        slug=slug,
         state=state,
         tag=tag,
         tag_name=tag_name,
@@ -1031,6 +1091,7 @@ async def asyncio_all(
     category_group_uuid: Union[Unset, UUID] = UNSET,
     category_uuid: Union[Unset, UUID] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, str] = UNSET,
     customer_uuid: Union[Unset, UUID] = UNSET,
     description: Union[Unset, str] = UNSET,
@@ -1039,6 +1100,7 @@ async def asyncio_all(
     has_terms_of_service: Union[Unset, bool] = UNSET,
     keyword: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ProviderOfferingDetailsOEnum]] = UNSET,
@@ -1051,6 +1113,7 @@ async def asyncio_all(
     scope_uuid: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
     shared: Union[Unset, bool] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[OfferingState]] = UNSET,
     tag: Union[Unset, list[UUID]] = UNSET,
     tag_name: Union[Unset, list[str]] = UNSET,
@@ -1078,6 +1141,7 @@ async def asyncio_all(
         category_group_uuid (Union[Unset, UUID]):
         category_uuid (Union[Unset, UUID]):
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, str]):
         customer_uuid (Union[Unset, UUID]):
         description (Union[Unset, str]):
@@ -1086,6 +1150,7 @@ async def asyncio_all(
         has_terms_of_service (Union[Unset, bool]):
         keyword (Union[Unset, str]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[ProviderOfferingDetailsOEnum]]):
@@ -1098,6 +1163,7 @@ async def asyncio_all(
         scope_uuid (Union[Unset, str]):
         service_manager_uuid (Union[Unset, UUID]):
         shared (Union[Unset, bool]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[OfferingState]]):
         tag (Union[Unset, list[UUID]]):
         tag_name (Union[Unset, list[str]]):
@@ -1130,6 +1196,7 @@ async def asyncio_all(
         category_group_uuid=category_group_uuid,
         category_uuid=category_uuid,
         created=created,
+        created_before=created_before,
         customer=customer,
         customer_uuid=customer_uuid,
         description=description,
@@ -1138,6 +1205,7 @@ async def asyncio_all(
         has_terms_of_service=has_terms_of_service,
         keyword=keyword,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -1150,6 +1218,7 @@ async def asyncio_all(
         scope_uuid=scope_uuid,
         service_manager_uuid=service_manager_uuid,
         shared=shared,
+        slug=slug,
         state=state,
         tag=tag,
         tag_name=tag_name,

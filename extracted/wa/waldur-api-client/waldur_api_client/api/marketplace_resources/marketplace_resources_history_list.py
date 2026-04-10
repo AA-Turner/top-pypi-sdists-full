@@ -33,6 +33,7 @@ def _get_kwargs(
     limit_based: Union[Unset, bool] = UNSET,
     limit_component_count: Union[Unset, float] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ResourceOEnum]] = UNSET,
@@ -54,10 +55,12 @@ def _get_kwargs(
     project_uuid: Union[Unset, UUID] = UNSET,
     provider_uuid: Union[Unset, UUID] = UNSET,
     query: Union[Unset, str] = UNSET,
+    resource_attributes: Union[Unset, str] = UNSET,
     restrict_member_access: Union[Unset, bool] = UNSET,
     runtime_state: Union[Unset, str] = UNSET,
     scope: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ResourceState]] = UNSET,
     usage_based: Union[Unset, bool] = UNSET,
     visible_to_providers: Union[Unset, bool] = UNSET,
@@ -106,6 +109,11 @@ def _get_kwargs(
     if not isinstance(modified, Unset):
         json_modified = modified.isoformat()
     params["modified"] = json_modified
+
+    json_modified_before: Union[Unset, str] = UNSET
+    if not isinstance(modified_before, Unset):
+        json_modified_before = modified_before.isoformat()
+    params["modified_before"] = json_modified_before
 
     params["name"] = name
 
@@ -186,6 +194,8 @@ def _get_kwargs(
 
     params["query"] = query
 
+    params["resource_attributes"] = resource_attributes
+
     params["restrict_member_access"] = restrict_member_access
 
     params["runtime_state"] = runtime_state
@@ -196,6 +206,8 @@ def _get_kwargs(
     if not isinstance(service_manager_uuid, Unset):
         json_service_manager_uuid = str(service_manager_uuid)
     params["service_manager_uuid"] = json_service_manager_uuid
+
+    params["slug"] = slug
 
     json_state: Union[Unset, list[str]] = UNSET
     if not isinstance(state, Unset):
@@ -268,6 +280,7 @@ def sync_detailed(
     limit_based: Union[Unset, bool] = UNSET,
     limit_component_count: Union[Unset, float] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ResourceOEnum]] = UNSET,
@@ -289,10 +302,12 @@ def sync_detailed(
     project_uuid: Union[Unset, UUID] = UNSET,
     provider_uuid: Union[Unset, UUID] = UNSET,
     query: Union[Unset, str] = UNSET,
+    resource_attributes: Union[Unset, str] = UNSET,
     restrict_member_access: Union[Unset, bool] = UNSET,
     runtime_state: Union[Unset, str] = UNSET,
     scope: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ResourceState]] = UNSET,
     usage_based: Union[Unset, bool] = UNSET,
     visible_to_providers: Union[Unset, bool] = UNSET,
@@ -319,6 +334,7 @@ def sync_detailed(
         limit_based (Union[Unset, bool]):
         limit_component_count (Union[Unset, float]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[ResourceOEnum]]):
@@ -340,10 +356,12 @@ def sync_detailed(
         project_uuid (Union[Unset, UUID]):
         provider_uuid (Union[Unset, UUID]):
         query (Union[Unset, str]):
+        resource_attributes (Union[Unset, str]):
         restrict_member_access (Union[Unset, bool]):
         runtime_state (Union[Unset, str]):
         scope (Union[Unset, str]):
         service_manager_uuid (Union[Unset, UUID]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[ResourceState]]):
         usage_based (Union[Unset, bool]):
         visible_to_providers (Union[Unset, bool]):
@@ -374,6 +392,7 @@ def sync_detailed(
         limit_based=limit_based,
         limit_component_count=limit_component_count,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -395,10 +414,12 @@ def sync_detailed(
         project_uuid=project_uuid,
         provider_uuid=provider_uuid,
         query=query,
+        resource_attributes=resource_attributes,
         restrict_member_access=restrict_member_access,
         runtime_state=runtime_state,
         scope=scope,
         service_manager_uuid=service_manager_uuid,
+        slug=slug,
         state=state,
         usage_based=usage_based,
         visible_to_providers=visible_to_providers,
@@ -431,6 +452,7 @@ def sync(
     limit_based: Union[Unset, bool] = UNSET,
     limit_component_count: Union[Unset, float] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ResourceOEnum]] = UNSET,
@@ -452,10 +474,12 @@ def sync(
     project_uuid: Union[Unset, UUID] = UNSET,
     provider_uuid: Union[Unset, UUID] = UNSET,
     query: Union[Unset, str] = UNSET,
+    resource_attributes: Union[Unset, str] = UNSET,
     restrict_member_access: Union[Unset, bool] = UNSET,
     runtime_state: Union[Unset, str] = UNSET,
     scope: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ResourceState]] = UNSET,
     usage_based: Union[Unset, bool] = UNSET,
     visible_to_providers: Union[Unset, bool] = UNSET,
@@ -482,6 +506,7 @@ def sync(
         limit_based (Union[Unset, bool]):
         limit_component_count (Union[Unset, float]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[ResourceOEnum]]):
@@ -503,10 +528,12 @@ def sync(
         project_uuid (Union[Unset, UUID]):
         provider_uuid (Union[Unset, UUID]):
         query (Union[Unset, str]):
+        resource_attributes (Union[Unset, str]):
         restrict_member_access (Union[Unset, bool]):
         runtime_state (Union[Unset, str]):
         scope (Union[Unset, str]):
         service_manager_uuid (Union[Unset, UUID]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[ResourceState]]):
         usage_based (Union[Unset, bool]):
         visible_to_providers (Union[Unset, bool]):
@@ -538,6 +565,7 @@ def sync(
         limit_based=limit_based,
         limit_component_count=limit_component_count,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -559,10 +587,12 @@ def sync(
         project_uuid=project_uuid,
         provider_uuid=provider_uuid,
         query=query,
+        resource_attributes=resource_attributes,
         restrict_member_access=restrict_member_access,
         runtime_state=runtime_state,
         scope=scope,
         service_manager_uuid=service_manager_uuid,
+        slug=slug,
         state=state,
         usage_based=usage_based,
         visible_to_providers=visible_to_providers,
@@ -589,6 +619,7 @@ async def asyncio_detailed(
     limit_based: Union[Unset, bool] = UNSET,
     limit_component_count: Union[Unset, float] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ResourceOEnum]] = UNSET,
@@ -610,10 +641,12 @@ async def asyncio_detailed(
     project_uuid: Union[Unset, UUID] = UNSET,
     provider_uuid: Union[Unset, UUID] = UNSET,
     query: Union[Unset, str] = UNSET,
+    resource_attributes: Union[Unset, str] = UNSET,
     restrict_member_access: Union[Unset, bool] = UNSET,
     runtime_state: Union[Unset, str] = UNSET,
     scope: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ResourceState]] = UNSET,
     usage_based: Union[Unset, bool] = UNSET,
     visible_to_providers: Union[Unset, bool] = UNSET,
@@ -640,6 +673,7 @@ async def asyncio_detailed(
         limit_based (Union[Unset, bool]):
         limit_component_count (Union[Unset, float]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[ResourceOEnum]]):
@@ -661,10 +695,12 @@ async def asyncio_detailed(
         project_uuid (Union[Unset, UUID]):
         provider_uuid (Union[Unset, UUID]):
         query (Union[Unset, str]):
+        resource_attributes (Union[Unset, str]):
         restrict_member_access (Union[Unset, bool]):
         runtime_state (Union[Unset, str]):
         scope (Union[Unset, str]):
         service_manager_uuid (Union[Unset, UUID]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[ResourceState]]):
         usage_based (Union[Unset, bool]):
         visible_to_providers (Union[Unset, bool]):
@@ -695,6 +731,7 @@ async def asyncio_detailed(
         limit_based=limit_based,
         limit_component_count=limit_component_count,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -716,10 +753,12 @@ async def asyncio_detailed(
         project_uuid=project_uuid,
         provider_uuid=provider_uuid,
         query=query,
+        resource_attributes=resource_attributes,
         restrict_member_access=restrict_member_access,
         runtime_state=runtime_state,
         scope=scope,
         service_manager_uuid=service_manager_uuid,
+        slug=slug,
         state=state,
         usage_based=usage_based,
         visible_to_providers=visible_to_providers,
@@ -750,6 +789,7 @@ async def asyncio(
     limit_based: Union[Unset, bool] = UNSET,
     limit_component_count: Union[Unset, float] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ResourceOEnum]] = UNSET,
@@ -771,10 +811,12 @@ async def asyncio(
     project_uuid: Union[Unset, UUID] = UNSET,
     provider_uuid: Union[Unset, UUID] = UNSET,
     query: Union[Unset, str] = UNSET,
+    resource_attributes: Union[Unset, str] = UNSET,
     restrict_member_access: Union[Unset, bool] = UNSET,
     runtime_state: Union[Unset, str] = UNSET,
     scope: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ResourceState]] = UNSET,
     usage_based: Union[Unset, bool] = UNSET,
     visible_to_providers: Union[Unset, bool] = UNSET,
@@ -801,6 +843,7 @@ async def asyncio(
         limit_based (Union[Unset, bool]):
         limit_component_count (Union[Unset, float]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[ResourceOEnum]]):
@@ -822,10 +865,12 @@ async def asyncio(
         project_uuid (Union[Unset, UUID]):
         provider_uuid (Union[Unset, UUID]):
         query (Union[Unset, str]):
+        resource_attributes (Union[Unset, str]):
         restrict_member_access (Union[Unset, bool]):
         runtime_state (Union[Unset, str]):
         scope (Union[Unset, str]):
         service_manager_uuid (Union[Unset, UUID]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[ResourceState]]):
         usage_based (Union[Unset, bool]):
         visible_to_providers (Union[Unset, bool]):
@@ -858,6 +903,7 @@ async def asyncio(
             limit_based=limit_based,
             limit_component_count=limit_component_count,
             modified=modified,
+            modified_before=modified_before,
             name=name,
             name_exact=name_exact,
             o=o,
@@ -879,10 +925,12 @@ async def asyncio(
             project_uuid=project_uuid,
             provider_uuid=provider_uuid,
             query=query,
+            resource_attributes=resource_attributes,
             restrict_member_access=restrict_member_access,
             runtime_state=runtime_state,
             scope=scope,
             service_manager_uuid=service_manager_uuid,
+            slug=slug,
             state=state,
             usage_based=usage_based,
             visible_to_providers=visible_to_providers,
@@ -910,6 +958,7 @@ def sync_all(
     limit_based: Union[Unset, bool] = UNSET,
     limit_component_count: Union[Unset, float] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ResourceOEnum]] = UNSET,
@@ -929,10 +978,12 @@ def sync_all(
     project_uuid: Union[Unset, UUID] = UNSET,
     provider_uuid: Union[Unset, UUID] = UNSET,
     query: Union[Unset, str] = UNSET,
+    resource_attributes: Union[Unset, str] = UNSET,
     restrict_member_access: Union[Unset, bool] = UNSET,
     runtime_state: Union[Unset, str] = UNSET,
     scope: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ResourceState]] = UNSET,
     usage_based: Union[Unset, bool] = UNSET,
     visible_to_providers: Union[Unset, bool] = UNSET,
@@ -962,6 +1013,7 @@ def sync_all(
         limit_based (Union[Unset, bool]):
         limit_component_count (Union[Unset, float]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[ResourceOEnum]]):
@@ -981,10 +1033,12 @@ def sync_all(
         project_uuid (Union[Unset, UUID]):
         provider_uuid (Union[Unset, UUID]):
         query (Union[Unset, str]):
+        resource_attributes (Union[Unset, str]):
         restrict_member_access (Union[Unset, bool]):
         runtime_state (Union[Unset, str]):
         scope (Union[Unset, str]):
         service_manager_uuid (Union[Unset, UUID]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[ResourceState]]):
         usage_based (Union[Unset, bool]):
         visible_to_providers (Union[Unset, bool]):
@@ -1019,6 +1073,7 @@ def sync_all(
         limit_based=limit_based,
         limit_component_count=limit_component_count,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -1038,10 +1093,12 @@ def sync_all(
         project_uuid=project_uuid,
         provider_uuid=provider_uuid,
         query=query,
+        resource_attributes=resource_attributes,
         restrict_member_access=restrict_member_access,
         runtime_state=runtime_state,
         scope=scope,
         service_manager_uuid=service_manager_uuid,
+        slug=slug,
         state=state,
         usage_based=usage_based,
         visible_to_providers=visible_to_providers,
@@ -1109,6 +1166,7 @@ async def asyncio_all(
     limit_based: Union[Unset, bool] = UNSET,
     limit_component_count: Union[Unset, float] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[ResourceOEnum]] = UNSET,
@@ -1128,10 +1186,12 @@ async def asyncio_all(
     project_uuid: Union[Unset, UUID] = UNSET,
     provider_uuid: Union[Unset, UUID] = UNSET,
     query: Union[Unset, str] = UNSET,
+    resource_attributes: Union[Unset, str] = UNSET,
     restrict_member_access: Union[Unset, bool] = UNSET,
     runtime_state: Union[Unset, str] = UNSET,
     scope: Union[Unset, str] = UNSET,
     service_manager_uuid: Union[Unset, UUID] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     state: Union[Unset, list[ResourceState]] = UNSET,
     usage_based: Union[Unset, bool] = UNSET,
     visible_to_providers: Union[Unset, bool] = UNSET,
@@ -1161,6 +1221,7 @@ async def asyncio_all(
         limit_based (Union[Unset, bool]):
         limit_component_count (Union[Unset, float]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[ResourceOEnum]]):
@@ -1180,10 +1241,12 @@ async def asyncio_all(
         project_uuid (Union[Unset, UUID]):
         provider_uuid (Union[Unset, UUID]):
         query (Union[Unset, str]):
+        resource_attributes (Union[Unset, str]):
         restrict_member_access (Union[Unset, bool]):
         runtime_state (Union[Unset, str]):
         scope (Union[Unset, str]):
         service_manager_uuid (Union[Unset, UUID]):
+        slug (Union[Unset, str]):
         state (Union[Unset, list[ResourceState]]):
         usage_based (Union[Unset, bool]):
         visible_to_providers (Union[Unset, bool]):
@@ -1218,6 +1281,7 @@ async def asyncio_all(
         limit_based=limit_based,
         limit_component_count=limit_component_count,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -1237,10 +1301,12 @@ async def asyncio_all(
         project_uuid=project_uuid,
         provider_uuid=provider_uuid,
         query=query,
+        resource_attributes=resource_attributes,
         restrict_member_access=restrict_member_access,
         runtime_state=runtime_state,
         scope=scope,
         service_manager_uuid=service_manager_uuid,
+        slug=slug,
         state=state,
         usage_based=usage_based,
         visible_to_providers=visible_to_providers,

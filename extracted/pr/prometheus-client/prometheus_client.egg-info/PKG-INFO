@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prometheus_client
-Version: 0.24.1
+Version: 0.25.0
 Summary: Python client for the Prometheus monitoring system.
 Author-email: The Prometheus Authors <prometheus-developers@googlegroups.com>
 License-Expression: Apache-2.0 AND BSD-2-Clause

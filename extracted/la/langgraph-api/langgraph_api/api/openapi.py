@@ -7,6 +7,7 @@ import orjson
 
 from langgraph_api import config
 from langgraph_api.graph import GRAPHS
+from langgraph_api.metadata import USER_API_URL
 from langgraph_api.validation import openapi
 
 logger = logging.getLogger(__name__)
@@ -101,7 +102,9 @@ def get_openapi_spec() -> bytes:
     final = openapi
     if CUSTOM_OPENAPI_SPEC:
         final = merge_openapi_specs(openapi, CUSTOM_OPENAPI_SPEC)
-    if config.MOUNT_PREFIX:
+    if USER_API_URL:
+        final["servers"] = [{"url": USER_API_URL}]
+    elif config.MOUNT_PREFIX:
         final["servers"] = [{"url": config.MOUNT_PREFIX}]
 
     if not config.MCP_ENABLED:

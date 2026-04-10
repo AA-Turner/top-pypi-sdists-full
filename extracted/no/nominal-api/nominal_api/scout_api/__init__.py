@@ -11,6 +11,7 @@ from .._impl import (
     scout_api_HexColor as HexColor,
     scout_api_PendingReviewDispositionState as PendingReviewDispositionState,
     scout_api_Priority as Priority,
+    scout_api_S3Handle as S3Handle,
     scout_api_Symbol as Symbol,
     scout_api_SymbolVisitor as SymbolVisitor,
 )
@@ -27,6 +28,7 @@ __all__ = [
     'HexColor',
     'PendingReviewDispositionState',
     'Priority',
+    'S3Handle',
     'Symbol',
     'SymbolVisitor',
 ]

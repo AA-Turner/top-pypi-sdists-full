@@ -301,6 +301,16 @@ class UpdateContainerStatusResponse(_message.Message):
     container: ContainerResponse
     def __init__(self, container: _Optional[_Union[ContainerResponse, _Mapping]] = ...) -> None: ...
 
+class BatchUpdateContainerStatusRequest(_message.Message):
+    __slots__ = ("updates",)
+    UPDATES_FIELD_NUMBER: _ClassVar[int]
+    updates: _containers.RepeatedCompositeFieldContainer[UpdateContainerStatusRequest]
+    def __init__(self, updates: _Optional[_Iterable[_Union[UpdateContainerStatusRequest, _Mapping]]] = ...) -> None: ...
+
+class BatchUpdateContainerStatusResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class GKEPodSnapshot(_message.Message):
     __slots__ = ("storage_bucket", "storage_path")
     STORAGE_BUCKET_FIELD_NUMBER: _ClassVar[int]

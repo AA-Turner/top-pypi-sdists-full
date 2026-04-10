@@ -71,6 +71,8 @@ class WBCoreFilterMixin:
         return request_default
 
     def _validate_initial_with_request(self, initial, request, name):
+        if isinstance(initial, (list, tuple, set)):
+            initial = ",".join(map(lambda o: "" if o is None else str(o), initial))
         if request_default := request.GET.get(name):
             try:
                 return self.field.to_python(self._parse_request_initial(request_default))

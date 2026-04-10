@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: keboola.vcr
-Version: 0.3.1
+Version: 0.4.0
 Summary: VCR recording, sanitization, and validation for Keboola component HTTP interactions
 License: MIT
 Classifier: Development Status :: 4 - Beta

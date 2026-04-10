@@ -28,20 +28,20 @@ class ArtifactDistributionResponse(BaseModel):
     """
     A serializer for ArtifactDistribution.
     """ # noqa: E501
-    repository_version: Optional[StrictStr] = Field(default=None, description="RepositoryVersion to be served")
     base_url: Optional[StrictStr] = Field(default=None, description="The URL for accessing the publication as defined by this distribution.")
-    prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")
-    content_guard_prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN) of the associated optional content guard.")
-    pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
-    name: StrictStr = Field(description="A unique name. Ex, `rawhide` and `stable`.")
-    content_guard: Optional[StrictStr] = Field(default=None, description="An optional content-guard.")
     base_path: StrictStr = Field(description="The base (relative) path component of the published url. Avoid paths that                     overlap with other distribution base paths (e.g. \"foo\" and \"foo/bar\")")
-    no_content_change_since: Optional[StrictStr] = Field(default=None, description="Timestamp since when the distributed content served by this distribution has not changed. If equals to `null`, no guarantee is provided about content changes.")
-    hidden: Optional[StrictBool] = Field(default=False, description="Whether this distribution should be shown in the content app.")
-    pulp_href: Optional[StrictStr] = None
     pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
+    name: StrictStr = Field(description="A unique name. Ex, `rawhide` and `stable`.")
+    pulp_href: Optional[StrictStr] = None
     pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
-    __properties: ClassVar[List[str]] = ["repository_version", "base_url", "prn", "content_guard_prn", "pulp_labels", "name", "content_guard", "base_path", "no_content_change_since", "hidden", "pulp_href", "pulp_last_updated", "pulp_created"]
+    hidden: Optional[StrictBool] = Field(default=False, description="Whether this distribution should be shown in the content app.")
+    content_guard_prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN) of the associated optional content guard.")
+    prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")
+    content_guard: Optional[StrictStr] = Field(default=None, description="An optional content-guard.")
+    no_content_change_since: Optional[StrictStr] = Field(default=None, description="Timestamp since when the distributed content served by this distribution has not changed. If equals to `null`, no guarantee is provided about content changes.")
+    repository_version: Optional[StrictStr] = Field(default=None, description="RepositoryVersion to be served")
+    pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
+    __properties: ClassVar[List[str]] = ["base_url", "base_path", "pulp_last_updated", "name", "pulp_href", "pulp_created", "hidden", "content_guard_prn", "prn", "content_guard", "no_content_change_since", "repository_version", "pulp_labels"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -83,12 +83,12 @@ class ArtifactDistributionResponse(BaseModel):
         """
         excluded_fields: Set[str] = set([
             "base_url",
-            "prn",
-            "content_guard_prn",
-            "no_content_change_since",
-            "pulp_href",
             "pulp_last_updated",
+            "pulp_href",
             "pulp_created",
+            "content_guard_prn",
+            "prn",
+            "no_content_change_since",
         ])
 
         _dict = self.model_dump(
@@ -96,15 +96,15 @@ class ArtifactDistributionResponse(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # set to None if repository_version (nullable) is None
-        # and model_fields_set contains the field
-        if self.repository_version is None and "repository_version" in self.model_fields_set:
-            _dict['repository_version'] = None
-
         # set to None if content_guard (nullable) is None
         # and model_fields_set contains the field
         if self.content_guard is None and "content_guard" in self.model_fields_set:
             _dict['content_guard'] = None
+
+        # set to None if repository_version (nullable) is None
+        # and model_fields_set contains the field
+        if self.repository_version is None and "repository_version" in self.model_fields_set:
+            _dict['repository_version'] = None
 
         return _dict
 

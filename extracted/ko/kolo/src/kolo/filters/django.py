@@ -45,7 +45,7 @@ def process_django(
                     "captured": match.captured_kwargs,
                     "defaults": match.extra_kwargs,
                 }
-            except AttributeError:
+            except AttributeError:  # pragma: no cover
                 # Prior to Django 4.1, the match never holds a reference to the "default" arguments
                 # etc; see the PR & corresponding ticket:
                 # https://github.com/django/django/pull/15402

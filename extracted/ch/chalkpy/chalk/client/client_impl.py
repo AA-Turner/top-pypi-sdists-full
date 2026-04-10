@@ -171,7 +171,7 @@ from chalk.features import (
 )
 from chalk.features._encoding.inputs import recursive_encode_inputs, validate_iterable_values_in_mapping
 from chalk.features._encoding.json import FeatureEncodingOptions
-from chalk.features._encoding.outputs import encode_outputs
+from chalk.features._encoding.outputs import encode_outputs, encode_partition_expr
 from chalk.features.feature_set import Features, is_feature_set_class
 from chalk.features.pseudofeatures import CHALK_TS_FEATURE
 from chalk.features.resolver import Resolver, StreamResolver
@@ -678,7 +678,7 @@ def _convert_datetime_or_timedelta_param(
             )
 
 
-def _encode_unload_resolvers(
+def encode_unload_resolvers(
     unload_resolvers: UnloadResolvers,
 ) -> list[dict[str, Any]] | None:
     """Encode unload_resolvers into the wire format (list of spec dicts).
@@ -694,9 +694,7 @@ def _encode_unload_resolvers(
         result: list[dict[str, Any]] = []
         for resolver, partition_exprs in unload_resolvers.items():
             fqn = resolver.fqn if isinstance(resolver, Resolver) else resolver
-            # TODO(q): Q-283: encode underscore expressions as base64 FeatureExpression protos.
-            # For now, pass strings through as-is.
-            partition_by = [str(expr) for expr in partition_exprs]
+            partition_by = [encode_partition_expr(expr) for expr in partition_exprs]
             result.append({"fqn": fqn, "partition_by": partition_by})
         return result
     else:
@@ -2684,7 +2682,7 @@ https://docs.chalk.ai/cli/apply
             query_name=query_name,
             query_name_version=query_name_version,
             use_metaplanner=use_metaplanner,
-            unload_resolvers=_encode_unload_resolvers(unload_resolvers),
+            unload_resolvers=encode_unload_resolvers(unload_resolvers),
         )
 
         initialized_dataset = dataset_from_response(response, self)
@@ -2762,7 +2760,7 @@ https://docs.chalk.ai/cli/apply
             api_server=self._api_server,
         )
 
-        encoded_unload_resolvers = _encode_unload_resolvers(unload_resolvers)
+        encoded_unload_resolvers = encode_unload_resolvers(unload_resolvers)
 
         resp = client_grpc.run_scheduled_query(
             name=name,

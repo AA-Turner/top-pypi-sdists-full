@@ -1,6 +1,6 @@
 import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -10,6 +10,7 @@ from dateutil.parser import isoparse
 from ..models.action_taken_enum import ActionTakenEnum
 from ..models.injection_severity_enum import InjectionSeverityEnum
 from ..models.message_role_enum import MessageRoleEnum
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="Message")
 
@@ -21,29 +22,37 @@ class Message:
         uuid (UUID):
         thread (UUID):
         role (MessageRoleEnum):
-        content (str):
+        content_display (str):
+        tool_calls (Any):
         sequence_index (int):
-        replaces (UUID):
+        replaces (Union[None, UUID]):
         created (datetime.datetime):
+        input_tokens (Union[None, int]):
+        output_tokens (Union[None, int]):
         is_flagged (bool):
         severity (InjectionSeverityEnum):
         injection_categories (Any):
         pii_categories (Any):
         action_taken (ActionTakenEnum):
+        content (Union[Unset, str]):
     """
 
     uuid: UUID
     thread: UUID
     role: MessageRoleEnum
-    content: str
+    content_display: str
+    tool_calls: Any
     sequence_index: int
-    replaces: UUID
+    replaces: Union[None, UUID]
     created: datetime.datetime
+    input_tokens: Union[None, int]
+    output_tokens: Union[None, int]
     is_flagged: bool
     severity: InjectionSeverityEnum
     injection_categories: Any
     pii_categories: Any
     action_taken: ActionTakenEnum
+    content: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -53,13 +62,25 @@ class Message:
 
         role = self.role.value
 
-        content = self.content
+        content_display = self.content_display
+
+        tool_calls = self.tool_calls
 
         sequence_index = self.sequence_index
 
-        replaces = str(self.replaces)
+        replaces: Union[None, str]
+        if isinstance(self.replaces, UUID):
+            replaces = str(self.replaces)
+        else:
+            replaces = self.replaces
 
         created = self.created.isoformat()
+
+        input_tokens: Union[None, int]
+        input_tokens = self.input_tokens
+
+        output_tokens: Union[None, int]
+        output_tokens = self.output_tokens
 
         is_flagged = self.is_flagged
 
@@ -71,6 +92,8 @@ class Message:
 
         action_taken = self.action_taken.value
 
+        content = self.content
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -78,10 +101,13 @@ class Message:
                 "uuid": uuid,
                 "thread": thread,
                 "role": role,
-                "content": content,
+                "content_display": content_display,
+                "tool_calls": tool_calls,
                 "sequence_index": sequence_index,
                 "replaces": replaces,
                 "created": created,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
                 "is_flagged": is_flagged,
                 "severity": severity,
                 "injection_categories": injection_categories,
@@ -89,6 +115,8 @@ class Message:
                 "action_taken": action_taken,
             }
         )
+        if content is not UNSET:
+            field_dict["content"] = content
 
         return field_dict
 
@@ -101,13 +129,42 @@ class Message:
 
         role = MessageRoleEnum(d.pop("role"))
 
-        content = d.pop("content")
+        content_display = d.pop("content_display")
+
+        tool_calls = d.pop("tool_calls")
 
         sequence_index = d.pop("sequence_index")
 
-        replaces = UUID(d.pop("replaces"))
+        def _parse_replaces(data: object) -> Union[None, UUID]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                replaces_type_0 = UUID(data)
+
+                return replaces_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID], data)
+
+        replaces = _parse_replaces(d.pop("replaces"))
 
         created = isoparse(d.pop("created"))
+
+        def _parse_input_tokens(data: object) -> Union[None, int]:
+            if data is None:
+                return data
+            return cast(Union[None, int], data)
+
+        input_tokens = _parse_input_tokens(d.pop("input_tokens"))
+
+        def _parse_output_tokens(data: object) -> Union[None, int]:
+            if data is None:
+                return data
+            return cast(Union[None, int], data)
+
+        output_tokens = _parse_output_tokens(d.pop("output_tokens"))
 
         is_flagged = d.pop("is_flagged")
 
@@ -119,19 +176,25 @@ class Message:
 
         action_taken = ActionTakenEnum(d.pop("action_taken"))
 
+        content = d.pop("content", UNSET)
+
         message = cls(
             uuid=uuid,
             thread=thread,
             role=role,
-            content=content,
+            content_display=content_display,
+            tool_calls=tool_calls,
             sequence_index=sequence_index,
             replaces=replaces,
             created=created,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
             is_flagged=is_flagged,
             severity=severity,
             injection_categories=injection_categories,
             pii_categories=pii_categories,
             action_taken=action_taken,
+            content=content,
         )
 
         message.additional_properties = d

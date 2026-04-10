@@ -1,3 +1,4 @@
+# pragma: no file cover
 import warnings
 from urllib.parse import urljoin
 
@@ -8,6 +9,7 @@ from scrapy.exceptions import ScrapyDeprecationWarning
 warnings.warn(
     "The scrapy.utils.testsite module is deprecated.",
     ScrapyDeprecationWarning,
+    stacklevel=2,
 )
 
 

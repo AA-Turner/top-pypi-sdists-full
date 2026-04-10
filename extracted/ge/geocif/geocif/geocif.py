@@ -130,6 +130,7 @@ class Geocif:
             "ML", "analogous_year_yield_as_feature"
         )
         self.correlation_threshold = self.parser.getfloat("ML", "correlation_threshold")
+        self.correlation_metric = self.parser.get("ML", "correlation_metric", fallback="both")
         self.include_lat_lon_as_feature = self.parser.getboolean("ML", "include_lat_lon_as_feature")
         self.spatial_autocorrelation = self.parser.getboolean("ML", "spatial_autocorrelation")
         self.sa_method = self.parser.get("ML", "sa_method")
@@ -702,7 +703,7 @@ class Geocif:
         """Save ML-ready dataframe to disk."""
         base = self.dir_analysis
         if self.experiment_name != "default":
-            base = base / self.experiment_name
+            base = base / self.experiment_name / "runs"
         dir_output = (
             base / self.country / self.crop /
             self.model_name / str(self.forecast_season)
@@ -798,6 +799,7 @@ class Geocif:
             "combined_dict": self.combined_dict,
             "plot_map": self.plot_map_for_correlation_plot,
             "correlation_threshold": self.correlation_threshold,
+            "correlation_metric": self.correlation_metric,
         }
 
     def _prepare_train_test_split(self, df: pd.DataFrame):
@@ -1891,7 +1893,7 @@ class Geocif:
         """Get output directory for current model/season."""
         base = self.dir_analysis
         if self.experiment_name != "default":
-            base = base / self.experiment_name
+            base = base / self.experiment_name / "runs"
         dir_output = (
             base / self.country / self.crop /
             self.model_name / str(self.forecast_season)

@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.container.v1.service_pb2 import (
+    BatchUpdateContainerStatusRequest,
+    BatchUpdateContainerStatusResponse,
     ExecCommandRequest,
     ExecCommandResponse,
     GetContainerRequest,
@@ -65,7 +67,14 @@ class ContainerServiceStub:
         UpdateContainerStatusRequest,
         UpdateContainerStatusResponse,
     ]
-    """UpdateContainerStatus updates container status from K8s controller"""
+    """UpdateContainerStatus updates container status from K8s controller
+    Deprecated: use BatchUpdateContainerStatus
+    """
+    BatchUpdateContainerStatus: UnaryUnaryMultiCallable[
+        BatchUpdateContainerStatusRequest,
+        BatchUpdateContainerStatusResponse,
+    ]
+    """BatchUpdateContainerStatus updates status for multiple containers from the dataplane controller"""
     SnapshotContainer: UnaryUnaryMultiCallable[
         SnapshotContainerRequest,
         SnapshotContainerResponse,
@@ -124,7 +133,16 @@ class ContainerServiceServicer(metaclass=ABCMeta):
         request: UpdateContainerStatusRequest,
         context: ServicerContext,
     ) -> UpdateContainerStatusResponse:
-        """UpdateContainerStatus updates container status from K8s controller"""
+        """UpdateContainerStatus updates container status from K8s controller
+        Deprecated: use BatchUpdateContainerStatus
+        """
+    @abstractmethod
+    def BatchUpdateContainerStatus(
+        self,
+        request: BatchUpdateContainerStatusRequest,
+        context: ServicerContext,
+    ) -> BatchUpdateContainerStatusResponse:
+        """BatchUpdateContainerStatus updates status for multiple containers from the dataplane controller"""
     @abstractmethod
     def SnapshotContainer(
         self,

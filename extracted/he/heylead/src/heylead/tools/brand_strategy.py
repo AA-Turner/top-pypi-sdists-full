@@ -85,7 +85,7 @@ async def run_brand_strategy(
     elif action == "photo_enhance":
         return await _handle_photo_enhance(account_id)
     elif action == "test_headline":
-        return _handle_test_headline(focus)
+        return await _handle_test_headline(focus)
     else:
         return (
             "Unknown action. Available actions:\n\n"
@@ -117,7 +117,7 @@ async def _handle_analyze(account_id: str, focus: str) -> str:
     profile = await run_db(get_setting, "profile", {})
     voice = await run_db(get_setting, "voice_signature", {})
     expertise = await run_db(get_setting, "expertise_map", {})
-    icp_context = get_active_icp_context()
+    icp_context = await run_db(get_active_icp_context)
 
     # Fetch SSI and posts
     ssi_data: dict[str, Any] = {}
@@ -149,7 +149,7 @@ async def _handle_analyze(account_id: str, focus: str) -> str:
     )
 
     # ── Save ──
-    save_brand_analysis(analysis)
+    await run_db(save_brand_analysis, analysis)
 
     # ── Format output ──
     return _format_analysis(analysis, focus)
@@ -276,7 +276,7 @@ async def _handle_plan(account_id: str, focus: str) -> str:
     from ..services.brand_service import get_active_icp_context
 
     # Require existing analysis
-    analysis = load_brand_analysis()
+    analysis = await run_db(load_brand_analysis)
     if not analysis:
         return (
             "No brand analysis found.\n\n"
@@ -286,7 +286,7 @@ async def _handle_plan(account_id: str, focus: str) -> str:
     profile = await run_db(get_setting, "profile", {})
     voice = await run_db(get_setting, "voice_signature", {})
     expertise = await run_db(get_setting, "expertise_map", {})
-    icp_context = get_active_icp_context()
+    icp_context = await run_db(get_active_icp_context)
 
     # ── Generate plan via LLM ──
     plan = await generate_brand_plan(
@@ -309,13 +309,13 @@ async def _handle_plan(account_id: str, focus: str) -> str:
         pass
 
     campaign_stats = await _aggregate_campaign_stats()
-    hs = _compute_current_health(ssi_data, campaign_stats)
+    hs = await _compute_current_health(ssi_data, campaign_stats)
 
     baseline = capture_baseline(profile, ssi_data, hs.total, campaign_stats.get("acceptance_rate", 0))
-    save_brand_baseline(baseline)
+    await run_db(save_brand_baseline, baseline)
 
     # ── Save plan ──
-    save_brand_plan(plan)
+    await run_db(save_brand_plan, plan)
 
     # ── Format output ──
     return _format_plan(plan)
@@ -381,7 +381,7 @@ def _format_plan(plan: dict[str, Any]) -> str:
 async def _handle_execute(account_id: str) -> str:
     """Execute the next pending action from the plan."""
 
-    plan = load_brand_plan()
+    plan = await run_db(load_brand_plan)
     if not plan:
         return (
             "No brand strategy plan found.\n\n"
@@ -407,7 +407,7 @@ async def _handle_execute(account_id: str) -> str:
     elif action_type == "engagement":
         return await _execute_engagement_action(action, action_id, account_id)
     else:
-        mark_action_completed(action_id, "Skipped — unknown type")
+        await run_db(mark_action_completed, action_id, "Skipped — unknown type")
         return f"Skipped unknown action type: {action_type}. Moving to next."
 
 
@@ -473,11 +473,11 @@ Return ONLY the post text, nothing else."""
             post_text = await llm.generate(prompt, max_tokens=800)
     except Exception as e:
         logger.error("Brand post generation failed: %s", e)
-        mark_action_completed(action_id, f"Failed: {e}")
+        await run_db(mark_action_completed, action_id, f"Failed: {e}")
         return f"Failed to generate post: {e}"
 
     if not post_text or len(post_text) < 30:
-        mark_action_completed(action_id, "Failed: empty post")
+        await run_db(mark_action_completed, action_id, "Failed: empty post")
         return "Failed to generate post content. Try again."
 
     # ── Auto-publish ──
@@ -491,9 +491,9 @@ Return ONLY the post text, nothing else."""
                 "topic": topic, "tone": tone, "chars": len(post_text),
                 "post_id": result.get("post_id", ""),
             })
-            mark_action_completed(action_id, f"Published: {topic[:50]}")
+            await run_db(mark_action_completed, action_id, f"Published: {topic[:50]}")
 
-            plan = load_brand_plan()
+            plan = await run_db(load_brand_plan)
             completed, total = count_plan_progress(plan) if plan else (0, 0)
 
             return (
@@ -505,10 +505,10 @@ Return ONLY the post text, nothing else."""
             )
         else:
             error = result.get("error", "Unknown error")
-            mark_action_completed(action_id, f"Publish failed: {error}")
+            await run_db(mark_action_completed, action_id, f"Publish failed: {error}")
             return f"Post generated but publish failed: {error}\n\nDraft:\n{post_text}"
     except Exception as e:
-        mark_action_completed(action_id, f"Publish failed: {e}")
+        await run_db(mark_action_completed, action_id, f"Publish failed: {e}")
         return f"Post generated but publish failed: {e}\n\nDraft:\n{post_text}"
 
 
@@ -519,9 +519,9 @@ async def _execute_profile_action(action: dict[str, Any], action_id: str) -> str
 
     profile = await run_db(get_setting, "profile", {})
     voice = await run_db(get_setting, "voice_signature", {})
-    analysis = load_brand_analysis() or {}
+    analysis = await run_db(load_brand_analysis) or {}
     subtype = action.get("subtype", "headline")
-    icp_context = get_active_icp_context()
+    icp_context = await run_db(get_active_icp_context)
 
     # For education/open_to_work — use action description directly (no LLM generation needed)
     if subtype in ("education", "open_to_work"):
@@ -576,9 +576,9 @@ async def _execute_profile_action(action: dict[str, Any], action_id: str) -> str
             logger.warning("Auto-apply %s failed (falling back to suggestions): %s", subtype, e)
 
     completion_note = f"Auto-applied {subtype}" if auto_applied else f"Generated {subtype} suggestions"
-    mark_action_completed(action_id, completion_note)
+    await run_db(mark_action_completed, action_id, completion_note)
 
-    plan = load_brand_plan()
+    plan = await run_db(load_brand_plan)
     completed, total = count_plan_progress(plan) if plan else (0, 0)
 
     if auto_applied:
@@ -845,9 +845,9 @@ Return ONLY the comment text."""
         "completed": count, "keywords": keywords[:100],
     })
 
-    mark_action_completed(action_id, f"{engagement_type}: {count}/{target}")
+    await run_db(mark_action_completed, action_id, f"{engagement_type}: {count}/{target}")
 
-    plan = load_brand_plan()
+    plan = await run_db(load_brand_plan)
     completed, total = count_plan_progress(plan) if plan else (0, 0)
 
     # ── Format output ──
@@ -883,8 +883,8 @@ Return ONLY the comment text."""
 async def _handle_progress(account_id: str) -> str:
     """Show before/after metrics and action progress."""
 
-    baseline = load_brand_baseline()
-    plan = load_brand_plan()
+    baseline = await run_db(load_brand_baseline)
+    plan = await run_db(load_brand_plan)
 
     if not baseline or not plan:
         return (
@@ -902,7 +902,7 @@ async def _handle_progress(account_id: str) -> str:
         pass
 
     campaign_stats = await _aggregate_campaign_stats()
-    hs = _compute_current_health(ssi_data, campaign_stats)
+    hs = await _compute_current_health(ssi_data, campaign_stats)
 
     progress = compute_progress(
         baseline,
@@ -1196,7 +1196,7 @@ async def _handle_set_link(account_id: str, url: str) -> str:
         return f"Failed to set custom link: {e}"
 
 
-def _compute_current_health(ssi_data: dict[str, Any], campaign_stats: dict[str, Any]):
+async def _compute_current_health(ssi_data: dict[str, Any], campaign_stats: dict[str, Any]):
     """Compute current health score from available data."""
     daily_record = await run_db(get_rate_limit_today)
     weekly = await run_db(get_weekly_invitation_sum)
@@ -1238,7 +1238,7 @@ async def _handle_photo_enhance(account_id: str, *, action_id: str = "") -> str:
         await client.close()
 
         if action_id:
-            mark_action_completed(action_id, "Applied STUDIO filter")
+            await run_db(mark_action_completed, action_id, "Applied STUDIO filter")
 
         if result.get("success"):
             await run_db(log_action, "brand_photo_enhanced", details=settings)
@@ -1253,7 +1253,7 @@ async def _handle_photo_enhance(account_id: str, *, action_id: str = "") -> str:
             return f"Photo enhancement failed: {error}"
     except Exception as e:
         if action_id:
-            mark_action_completed(action_id, f"Failed: {e}")
+            await run_db(mark_action_completed, action_id, f"Failed: {e}")
         return f"Photo enhancement failed: {e}"
 
 
@@ -1274,8 +1274,8 @@ async def _handle_makeover(account_id: str) -> str:
     profile = await run_db(get_setting, "profile", {})
     voice = await run_db(get_setting, "voice_signature", {})
     provider_id = profile.get("provider_id", "")
-    analysis = load_brand_analysis()
-    icp_context = get_active_icp_context()
+    analysis = await run_db(load_brand_analysis)
+    icp_context = await run_db(get_active_icp_context)
 
     if not analysis:
         return (
@@ -1414,14 +1414,14 @@ async def _execute_direct_profile_action(
     desc = action.get("description", "")
 
     if not account_id or not provider_id:
-        mark_action_completed(action_id, "Skipped — no account")
+        await run_db(mark_action_completed, action_id, "Skipped — no account")
         return f"Cannot auto-apply {subtype}: no LinkedIn account connected."
 
     # Extract structured data from action if available, otherwise skip
     data = action.get("data")
     if not data:
-        mark_action_completed(action_id, f"Suggestion: {desc}")
-        plan = load_brand_plan()
+        await run_db(mark_action_completed, action_id, f"Suggestion: {desc}")
+        plan = await run_db(load_brand_plan)
         completed, total = count_plan_progress(plan) if plan else (0, 0)
         return (
             f"Brand Strategy: {subtype.replace('_', ' ').title()} Suggestion\n\n"
@@ -1441,8 +1441,8 @@ async def _execute_direct_profile_action(
         await client.close()
 
         if result.get("success"):
-            mark_action_completed(action_id, f"Auto-applied {subtype}")
-            plan = load_brand_plan()
+            await run_db(mark_action_completed, action_id, f"Auto-applied {subtype}")
+            plan = await run_db(load_brand_plan)
             completed, total = count_plan_progress(plan) if plan else (0, 0)
             return (
                 f"Brand Strategy: {subtype.replace('_', ' ').title()} Updated!\n\n"
@@ -1451,10 +1451,10 @@ async def _execute_direct_profile_action(
             )
         else:
             error = result.get("error", "unknown")
-            mark_action_completed(action_id, f"Failed: {error}")
+            await run_db(mark_action_completed, action_id, f"Failed: {error}")
             return f"Failed to apply {subtype}: {error}"
     except Exception as e:
-        mark_action_completed(action_id, f"Failed: {e}")
+        await run_db(mark_action_completed, action_id, f"Failed: {e}")
         return f"Failed to apply {subtype}: {e}"
 
 
@@ -1463,7 +1463,7 @@ async def _execute_direct_profile_action(
 # ──────────────────────────────────────────────
 
 
-def _handle_test_headline(focus: str) -> str:
+async def _handle_test_headline(focus: str) -> str:
     """Start a headline A/B test.
 
     ``focus`` should be "Variant A headline | Variant B headline".
@@ -1511,7 +1511,8 @@ def _handle_test_headline(focus: str) -> str:
             f"Wait for it to complete or cancel it first."
         )
 
-    test_id = create_ab_test(
+    test_id = await run_db(
+        create_ab_test,
         campaign_id=campaign_id,
         name=f"Headline: {variant_a[:30]}... vs {variant_b[:30]}...",
         variant_a=variant_a,

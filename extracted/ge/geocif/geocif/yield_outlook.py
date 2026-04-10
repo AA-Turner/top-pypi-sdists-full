@@ -139,7 +139,7 @@ def _query_predictions(db_path, table, model, experiment_name="default"):
     """Query predictions from the SQLite database for a specific model.
 
     Returns DataFrame with columns: Country, Region, Harvest Year, Stage Name,
-    Predicted Yield (tn per ha).
+    Predicted Yield (tn per ha), Observed Yield (tn per ha).
     """
     if not db_path.exists():
         logger.error("Database not found: %s", db_path)
@@ -149,7 +149,7 @@ def _query_predictions(db_path, table, model, experiment_name="default"):
     try:
         df = pd.read_sql(
             f'SELECT "Country", "Region", "Harvest Year", "Stage Name", '
-            f'"Predicted Yield (tn per ha)" '
+            f'"Predicted Yield (tn per ha)", "Observed Yield (tn per ha)" '
             f'FROM "{table}" WHERE "Experiment Name" = ? AND "Model" = ?',
             con,
             params=(experiment_name, model),
@@ -162,10 +162,9 @@ def _query_predictions(db_path, table, model, experiment_name="default"):
     if not df.empty:
         if "Harvest Year" in df.columns:
             df["Harvest Year"] = df["Harvest Year"].astype(int)
-        if "Predicted Yield (tn per ha)" in df.columns:
-            df["Predicted Yield (tn per ha)"] = pd.to_numeric(
-                df["Predicted Yield (tn per ha)"], errors="coerce"
-            )
+        for col in ("Predicted Yield (tn per ha)", "Observed Yield (tn per ha)"):
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
     return df
 
 
@@ -236,6 +235,107 @@ def _compute_outlook_index(df, current_year, n_years, aggregation,
     return df_outlook
 
 
+def _load_observed_baselines(countries, crop, parser, current_year=None):
+    """Load observed yield baselines from statistics CSVs.
+
+    Returns dict: {period_label -> DataFrame(Region, obs_mean)}
+    Periods: '2013-2017', '2018-2022', '10yr' (10 years prior to current_year).
+    The current season is always excluded from the 10yr window.
+    Returns empty dict if no statistics CSVs found.
+    """
+    from geocif import utils
+
+    dir_output = Path(parser.get("PATHS", "dir_output"))
+    project_name = parser.get("DEFAULT", "project_name", fallback="geocif")
+    method = parser.get("DEFAULT", "method", fallback="monthly_r")
+    dir_out = dir_output / project_name
+
+    frames = []
+    for country in countries:
+        f = utils.statistics_file_path(dir_out, method, country, crop)
+        if f.exists():
+            df = pd.read_csv(f)
+            if {"Region", "Harvest Year", "Yield (tn per ha)"}.issubset(df.columns):
+                frames.append(df[["Region", "Harvest Year", "Yield (tn per ha)"]])
+
+    if not frames:
+        return {}
+
+    df_all = pd.concat(frames, ignore_index=True).dropna(subset=["Yield (tn per ha)"])
+    max_year = int(df_all["Harvest Year"].max())
+    # 10yr upper bound: exclude current forecast year (use current_year-1 if known,
+    # otherwise fall back to max_year-1 which may exclude the last observed season)
+    y2_10yr = (current_year - 1) if current_year is not None else (max_year - 1)
+    baselines = {}
+    for label, y1, y2 in [
+        ("2013-2017", 2013, 2017),
+        ("2018-2022", 2018, 2022),
+        ("10yr", max_year - 10, y2_10yr),
+    ]:
+        sub = df_all[(df_all["Harvest Year"] >= y1) & (df_all["Harvest Year"] <= y2)]
+        if sub.empty:
+            continue
+        baselines[label] = (
+            sub.groupby("Region")["Yield (tn per ha)"]
+            .mean()
+            .reset_index()
+            .rename(columns={"Yield (tn per ha)": "obs_mean"})
+        )
+    return baselines
+
+
+def _generate_diagnostics(df_pred_store, dg, dir_outlook):
+    """Generate scatter, MAPE bar chart, and MAPE map for each (country, crop, model).
+
+    Called after the main outlook loop.  Uses the raw per-year obs/pred DataFrame
+    collected during _query_predictions() to produce model-accuracy diagnostics.
+    Output goes to outlook/plots/{model}/{country}/ and outlook/maps/{model}/.
+    """
+    from .viz import diagnostics as diag
+
+    for (country, crop, model), df in df_pred_store.items():
+        obs_col  = "Observed Yield (tn per ha)"
+        pred_col = "Predicted Yield (tn per ha)"
+        df = df.dropna(subset=[obs_col, pred_col]) if obs_col in df.columns else pd.DataFrame()
+        if df.empty:
+            continue
+
+        countries_display = [country.title().replace("_", " ")]
+        dir_plots = dir_outlook / "plots" / model / country
+        dir_maps  = dir_outlook / "maps"  / model
+        os.makedirs(dir_plots, exist_ok=True)
+        os.makedirs(dir_maps, exist_ok=True)
+
+        title = f"{country.title()} {crop.title()} — {model}"
+
+        # Scatter: observed vs predicted, all years
+        diag.scatter_obs_pred(df, title, dir_plots,
+                              f"scatter_{country}_{crop}_{model}.png")
+
+        # MAPE bar chart: mean MAPE per region
+        df_mape = (
+            df.assign(
+                MAPE=lambda d: (
+                    (d[pred_col] - d[obs_col]).abs() / d[obs_col].replace(0, np.nan) * 100
+                )
+            )
+            .groupby("Region", as_index=False)["MAPE"].mean()
+        )
+        diag.mape_bar_chart(df_mape, title, dir_plots,
+                            f"mape_{country}_{crop}_{model}.png")
+
+        # MAPE choropleth map
+        df_mape["Country Region"] = (
+            country.lower().replace("_", " ") + " " + df_mape["Region"].str.lower()
+        )
+        df_mape = df_mape.rename(columns={"MAPE": "Mean Absolute Percentage Error"})
+        dg_sub = dg[dg["ADM0_NAME"].isin(countries_display)].copy()
+        diag.mape_choropleth(
+            dg_sub, df_mape, countries_display, False,
+            dir_maps, f"mape_map_{country}_{crop}_{model}.png",
+        )
+
+
 def _generate_outlook_map(
     dg,
     df_outlook,
@@ -248,10 +348,10 @@ def _generate_outlook_map(
     dir_out,
     stage_name="",
     annotate_regions=False,
+    col="outlook_index",
+    col_label=None,
 ):
-    """Generate a diverging choropleth map of the yield outlook index."""
-    col = "outlook_index"
-
+    """Generate a diverging choropleth map of the yield outlook index (or any anomaly column)."""
     # Fixed range: -40% to +40% departure (matching analysis.py anomaly maps)
     vmin = -40
     vmax = 40
@@ -276,6 +376,7 @@ def _generate_outlook_map(
         fname = f"yield_outlook_{'_'.join(countries)}_{crop}_{model}{stage_suffix}_{current_year}.png"
 
     stage_label = f", stage {stage_name}" if stage_name else ""
+    label = col_label or f"% departure from {n_years}-year hindcast {aggregation}\n{crop.title()}, {current_year}{stage_label}"
     plot.plot_map(
         dg,
         df_outlook,
@@ -284,7 +385,7 @@ def _generate_outlook_map(
         name_col=col,
         dir_out=dir_out,
         fname=fname,
-        label=f"% departure from {n_years}-yr {aggregation}\n{crop.title()}, {current_year}{stage_label}",
+        label=label,
         vmin=vmin,
         vmax=vmax,
         cmap=pal.colorbrewer.diverging.BrBG_11,
@@ -351,9 +452,6 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         orig_db = parser.get("DEFAULT", "db")
         outlook_db = ar.utcnow().to("America/New_York").format("[outlook_]MM[_]DD[_]YYYY[.db]")
         parser.set("DEFAULT", "db", outlook_db)
-        orig_parallel = parser.get("DEFAULT", "do_parallel_ml", fallback=None)
-        parser.set("DEFAULT", "do_parallel_ml", "False")
-
         pool_countries_flag = parser.getboolean("ML", "pool_countries", fallback=False)
         if pool_countries_flag:
             inputs = gc.gather_pooled_inputs(parser)
@@ -382,10 +480,6 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             parser.set(country, "forecast_seasons", orig)
         parser.set("DEFAULT", "experiment_name", experiment_name)
         parser.set("DEFAULT", "db", orig_db)
-        if orig_parallel is not None:
-            parser.set("DEFAULT", "do_parallel_ml", orig_parallel)
-        elif parser.has_option("DEFAULT", "do_parallel_ml"):
-            parser.remove_option("DEFAULT", "do_parallel_ml")
 
     # ---- Step 2: Load shapefiles ----
     dg, dict_config = _load_shapefiles(parser)
@@ -403,12 +497,14 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     os.makedirs(dir_outlook, exist_ok=True)
 
     all_outlook_frames = []
+    df_pred_store = {}  # keyed by (country, crop, model) for diagnostics
 
     for country_crop, config in dict_config.items():
         crop = config["crops"]
         country = country_crop.replace(f"_{crop}", "")
         is_pooled = country == "pooled"
         models = config["models"]
+        obs_baselines = _load_observed_baselines([country], crop, parser, current_year=current_year)
 
         for model in models:
             logger.info("Yield outlook: %s %s %s", country, crop, model)
@@ -435,6 +531,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     country, "annotate_regions", fallback=False
                 )
                 map_countries = [country]
+
+            # Store raw predictions for diagnostics
+            df_pred_store[(country, crop, model)] = df
 
             # Compute outlook index
             df_outlook = _compute_outlook_index(
@@ -469,7 +568,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             df_outlook["Forecast Year"] = current_year
             all_outlook_frames.append(df_outlook)
 
-            # Generate map
+            # Generate map — saved in maps/{model} subfolder
+            dir_model = dir_outlook / "maps" / model
+            os.makedirs(dir_model, exist_ok=True)
             _generate_outlook_map(
                 dg,
                 df_outlook,
@@ -479,47 +580,164 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 current_year,
                 n_years,
                 aggregation,
-                dir_outlook,
+                dir_model,
                 stage_name=stage_name,
                 annotate_regions=annotate,
             )
             logger.info(
                 "Map saved: %s",
-                dir_outlook
-                / f"yield_outlook_{country}_{crop}_{model}_{stage_name}_{current_year}.png",
+                dir_model
+                / f"yield_outlook_{'_'.join(map_countries)}_{crop}_{model}_{stage_name}_{current_year}.png",
             )
 
-    # ---- Consolidated maps (all countries on one map) ----
-    if all_outlook_frames:
-        df_all = pd.concat(all_outlook_frames, ignore_index=True)
-        for (crop, model), df_group in df_all.groupby(
-            ["Crop", "Model"]
-        ):
-            countries_with_data = df_group["Country"].unique().tolist()
-            if len(countries_with_data) <= 1:
-                continue
-            _generate_outlook_map(
-                dg,
-                df_group,
-                countries_with_data,
-                crop,
-                model,
-                current_year,
-                n_years,
-                aggregation,
-                dir_outlook,
-                stage_name="combined",
-                annotate_regions=False,
-            )
+            # Observed-baseline anomaly maps (matching analysis.py: 2013-2017, 2018-2022, 10yr)
+            for period_label, df_obs in obs_baselines.items():
+                df_anom = df_outlook[["Country", "Region", "Country Region", "current_predicted"]].merge(
+                    df_obs, on="Region", how="left"
+                )
+                df_anom["obs_anomaly"] = np.where(
+                    df_anom["obs_mean"] != 0,
+                    (df_anom["current_predicted"] - df_anom["obs_mean"]) / df_anom["obs_mean"] * 100,
+                    np.nan,
+                )
+                dir_obs = dir_model / "obs_anomaly" / period_label
+                os.makedirs(dir_obs, exist_ok=True)
+                _generate_outlook_map(
+                    dg, df_anom, map_countries, crop, model, current_year,
+                    n_years, aggregation, dir_obs,
+                    col="obs_anomaly",
+                    col_label=f"% departure from {period_label} observed mean\n{crop.title()}, {current_year}",
+                )
 
-    # Save combined CSV
+    # ---- Consolidated output: maps, ensemble, and CSVs ----
     if all_outlook_frames:
         df_all = pd.concat(all_outlook_frames, ignore_index=True)
         scope = "africa" if len(countries) > 1 else countries[0].lower().replace(" ", "_")
-        crops = "_".join(sorted(df_all["Crop"].unique()))
-        csv_path = dir_outlook / f"yield_outlook_{scope}_{crops}_{current_year}.csv"
-        df_all.to_csv(csv_path, index=False)
+        crops_str = "_".join(sorted(df_all["Crop"].unique()))
+
+        # Consolidated multi-country maps — one per (crop, model) subfolder
+        for (crop, model), df_group in df_all.groupby(["Crop", "Model"]):
+            countries_with_data = df_group["Country"].unique().tolist()
+            if len(countries_with_data) <= 1:
+                continue
+            dir_model = dir_outlook / "maps" / model
+            os.makedirs(dir_model, exist_ok=True)
+            _generate_outlook_map(
+                dg, df_group, countries_with_data, crop, model,
+                current_year, n_years, aggregation, dir_model,
+                stage_name="combined", annotate_regions=False,
+            )
+
+        # Consolidated multi-country obs_anomaly maps — one per (crop, model, period)
+        for (crop_val, model_val), df_group in df_all.groupby(["Crop", "Model"]):
+            countries_with_data = df_group["Country"].unique().tolist()
+            if len(countries_with_data) <= 1:
+                continue
+            obs_baselines_combined = _load_observed_baselines(countries_with_data, crop_val, parser, current_year=current_year)
+            for period_label, df_obs in obs_baselines_combined.items():
+                df_anom = df_group[
+                    ["Country", "Region", "Country Region", "current_predicted"]
+                ].merge(df_obs, on="Region", how="left")
+                df_anom["obs_anomaly"] = np.where(
+                    df_anom["obs_mean"] != 0,
+                    (df_anom["current_predicted"] - df_anom["obs_mean"])
+                    / df_anom["obs_mean"] * 100,
+                    np.nan,
+                )
+                dir_obs_combined = dir_outlook / "maps" / model_val / "obs_anomaly" / period_label
+                os.makedirs(dir_obs_combined, exist_ok=True)
+                _generate_outlook_map(
+                    dg, df_anom, countries_with_data, crop_val, model_val,
+                    current_year, n_years, aggregation, dir_obs_combined,
+                    col="obs_anomaly",
+                    col_label=f"% departure from {period_label} observed mean\n{crop_val.title()}, {current_year}",
+                    stage_name="combined", annotate_regions=False,
+                )
+
+        # Ensemble: mean of outlook_index / current_predicted / hist_predicted across models
+        df_ensemble = (
+            df_all.groupby(
+                ["Country", "Region", "Country Region", "Crop", "Forecast Year"],
+                as_index=False,
+            ).agg({
+                "outlook_index": "mean",
+                "current_predicted": "mean",
+                "hist_predicted": "mean",
+                "Stage Name": "last",
+            })
+        )
+        df_ensemble["Model"] = "ensemble"
+
+        dir_ens = dir_outlook / "maps" / "ensemble"
+        os.makedirs(dir_ens, exist_ok=True)
+
+        # Per-country ensemble maps
+        for (country_val, crop_val), df_group in df_ensemble.groupby(["Country", "Crop"]):
+            map_countries_val = countries if country_val == "pooled" else [country_val]
+            annotate_val = (
+                parser.getboolean(country_val, "annotate_regions", fallback=False)
+                if country_val != "pooled" else False
+            )
+            stage_val = df_group["Stage Name"].iloc[0]
+            _generate_outlook_map(
+                dg, df_group, map_countries_val, crop_val,
+                "ensemble", current_year, n_years, aggregation, dir_ens,
+                stage_name=stage_val, annotate_regions=annotate_val,
+            )
+
+        # Multi-country ensemble maps
+        for crop_val, df_group in df_ensemble.groupby("Crop"):
+            if len(df_group["Country"].unique()) > 1:
+                _generate_outlook_map(
+                    dg, df_group, df_group["Country"].unique().tolist(), crop_val,
+                    "ensemble", current_year, n_years, aggregation, dir_ens,
+                    stage_name="combined", annotate_regions=False,
+                )
+
+        # Ensemble observed-baseline anomaly maps
+        for crop_val, df_ens_crop in df_ensemble.groupby("Crop"):
+            countries_ens = df_ens_crop["Country"].unique().tolist()
+            obs_baselines_ens = _load_observed_baselines(countries_ens, crop_val, parser, current_year=current_year)
+            for period_label, df_obs in obs_baselines_ens.items():
+                df_ens_anom = df_ens_crop[
+                    ["Country", "Region", "Country Region", "current_predicted"]
+                ].merge(df_obs, on="Region", how="left")
+                df_ens_anom["obs_anomaly"] = np.where(
+                    df_ens_anom["obs_mean"] != 0,
+                    (df_ens_anom["current_predicted"] - df_ens_anom["obs_mean"])
+                    / df_ens_anom["obs_mean"] * 100,
+                    np.nan,
+                )
+                dir_ens_obs = dir_ens / "obs_anomaly" / period_label
+                os.makedirs(dir_ens_obs, exist_ok=True)
+                _generate_outlook_map(
+                    dg, df_ens_anom, countries_ens, crop_val, "ensemble", current_year,
+                    n_years, aggregation, dir_ens_obs,
+                    col="obs_anomaly",
+                    col_label=f"% departure from {period_label} observed mean\n{crop_val.title()}, {current_year}",
+                )
+
+        # Diagnostic plots: scatter, MAPE bar, MAPE map per (country, crop, model)
+        _generate_diagnostics(df_pred_store, dg, dir_outlook)
+
+        # Long-format CSV: all individual-model rows + ensemble rows
+        df_long = pd.concat([df_all, df_ensemble], ignore_index=True)
+        csv_path = dir_outlook / f"yield_outlook_{scope}_{crops_str}_{current_year}.csv"
+        df_long.to_csv(csv_path, index=False)
         logger.info("Outlook CSV saved to %s", csv_path)
+
+        # Wide-format CSV: one outlook_index column per model + ensemble column
+        pivot_cols = ["Country", "Region", "Crop", "Forecast Year"]
+        df_wide = df_all.pivot_table(
+            index=pivot_cols, columns="Model", values="outlook_index"
+        ).reset_index()
+        df_wide.columns.name = None
+        model_cols = [c for c in df_wide.columns if c not in pivot_cols]
+        if len(model_cols) > 1:
+            df_wide["ensemble"] = df_wide[model_cols].mean(axis=1)
+        csv_wide = dir_outlook / f"yield_outlook_{scope}_{crops_str}_{current_year}_wide.csv"
+        df_wide.to_csv(csv_wide, index=False)
+        logger.info("Wide-format CSV saved to %s", csv_wide)
     else:
         logger.warning("No outlook data generated — check DB has predictions.")
 
@@ -531,6 +749,8 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             parser,
             db_path=db_path,
             forecast_year=current_year,
+            experiment_name="outlook",
+            n_years=10,
         )
 
 

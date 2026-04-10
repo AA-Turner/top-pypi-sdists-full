@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured_inference
-Version: 1.6.5
+Version: 1.6.6
 Summary: A library for performing inference using trained models.
 Project-URL: Homepage, https://github.com/Unstructured-IO/unstructured-inference
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
@@ -20,11 +20,11 @@ Requires-Python: <3.13,>=3.12
 Requires-Dist: accelerate>=1.12.0
 Requires-Dist: huggingface-hub>=0.22.0
 Requires-Dist: matplotlib>=3.10.8
-Requires-Dist: numpy>=2.4.2
+Requires-Dist: numpy>=1.26.0
 Requires-Dist: onnx>=1.20.1
 Requires-Dist: onnxruntime>=1.18.0
 Requires-Dist: opencv-python>=4.13.0.90
-Requires-Dist: pandas>=3.0.0
+Requires-Dist: pandas>=1.5.0
 Requires-Dist: pypdfium2>=5.0.0
 Requires-Dist: rapidfuzz>=3.14.3
 Requires-Dist: scipy>=1.17.0

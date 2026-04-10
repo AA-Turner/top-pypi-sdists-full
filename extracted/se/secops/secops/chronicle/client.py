@@ -182,6 +182,8 @@ from secops.chronicle.models import (
     EntitySummary,
     InputInterval,
     TileType,
+    AlertState,
+    ListBasis,
 )
 from secops.chronicle.nl_search import nl_search as _nl_search
 from secops.chronicle.nl_search import translate_nl_to_udm
@@ -229,7 +231,6 @@ from secops.chronicle.reference_list import (
     update_reference_list as _update_reference_list,
 )
 
-# Import rule functions
 from secops.chronicle.rule import create_rule as _create_rule
 from secops.chronicle.rule import delete_rule as _delete_rule
 from secops.chronicle.rule import enable_rule as _enable_rule
@@ -333,7 +334,6 @@ from secops.chronicle.udm_mapping import (
     generate_udm_key_value_mappings as _generate_udm_key_value_mappings,
 )
 
-# Import functions from the new modules
 from secops.chronicle.udm_search import (
     fetch_udm_search_csv as _fetch_udm_search_csv,
 )
@@ -356,6 +356,10 @@ from secops.chronicle.parser import (
     trigger_github_checks as _trigger_github_checks,
 )
 from secops.exceptions import SecOpsError
+from secops.chronicle.soar import SOARService
+
+
+# pylint: enable=line-too-long
 
 
 class ValueType(Enum):
@@ -518,6 +522,7 @@ class ChronicleClient:
         self.default_api_version = APIVersion(default_api_version)
         self._default_forwarder_display_name: str = "Wrapper-SDK-Forwarder"
         self._cached_default_forwarder_id: str | None = None
+        self.soar = SOARService(self)
 
         # Format the instance ID to match the expected format
         if region in ["dev", "staging"]:

@@ -26,6 +26,8 @@ from chalk._gen.chalk.server.v1.offline_queries_pb2 import (
     IngestDatasetResponse,
     ListOfflineQueriesRequest,
     ListOfflineQueriesResponse,
+    ListOfflineQueryNamesRequest,
+    ListOfflineQueryNamesResponse,
     ListOfflineQueryShardsRequest,
     ListOfflineQueryShardsResponse,
     RetryOfflineQueryShardRequest,
@@ -91,6 +93,10 @@ class OfflineQueryMetadataServiceStub:
     GetBatchReport: UnaryUnaryMultiCallable[
         GetBatchReportRequest,
         GetBatchReportResponse,
+    ]
+    ListOfflineQueryNames: UnaryUnaryMultiCallable[
+        ListOfflineQueryNamesRequest,
+        ListOfflineQueryNamesResponse,
     ]
 
 class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
@@ -166,6 +172,12 @@ class OfflineQueryMetadataServiceServicer(metaclass=ABCMeta):
         request: GetBatchReportRequest,
         context: ServicerContext,
     ) -> GetBatchReportResponse: ...
+    @abstractmethod
+    def ListOfflineQueryNames(
+        self,
+        request: ListOfflineQueryNamesRequest,
+        context: ServicerContext,
+    ) -> ListOfflineQueryNamesResponse: ...
 
 def add_OfflineQueryMetadataServiceServicer_to_server(
     servicer: OfflineQueryMetadataServiceServicer, server: Server

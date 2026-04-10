@@ -20,11 +20,13 @@ class OpenStackCreateInstancePortRequest:
         fixed_ips (Union[Unset, list['OpenStackFixedIpRequest']]):
         subnet (Union[None, Unset, str]): Subnet to which this port belongs
         port (Union[Unset, str]):
+        port_security_enabled (Union[Unset, bool]): If True, security groups and rules will be applied to this port
     """
 
     fixed_ips: Union[Unset, list["OpenStackFixedIpRequest"]] = UNSET
     subnet: Union[None, Unset, str] = UNSET
     port: Union[Unset, str] = UNSET
+    port_security_enabled: Union[Unset, bool] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -43,6 +45,8 @@ class OpenStackCreateInstancePortRequest:
 
         port = self.port
 
+        port_security_enabled = self.port_security_enabled
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -52,6 +56,8 @@ class OpenStackCreateInstancePortRequest:
             field_dict["subnet"] = subnet
         if port is not UNSET:
             field_dict["port"] = port
+        if port_security_enabled is not UNSET:
+            field_dict["port_security_enabled"] = port_security_enabled
 
         return field_dict
 
@@ -78,10 +84,13 @@ class OpenStackCreateInstancePortRequest:
 
         port = d.pop("port", UNSET)
 
+        port_security_enabled = d.pop("port_security_enabled", UNSET)
+
         open_stack_create_instance_port_request = cls(
             fixed_ips=fixed_ips,
             subnet=subnet,
             port=port,
+            port_security_enabled=port_security_enabled,
         )
 
         open_stack_create_instance_port_request.additional_properties = d

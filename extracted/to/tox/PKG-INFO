@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tox
-Version: 4.52.0
+Version: 4.52.1
 Summary: tox is a generic virtualenv management and test command line tool
 Project-URL: Release Notes, https://tox.wiki/en/latest/changelog.html
 Project-URL: Documentation, https://tox.wiki
@@ -36,7 +36,7 @@ Requires-Dist: packaging>=26
 Requires-Dist: platformdirs>=4.9.4
 Requires-Dist: pluggy>=1.6
 Requires-Dist: pyproject-api>=1.10
-Requires-Dist: python-discovery>=1.2.1
+Requires-Dist: python-discovery>=1.2.2
 Requires-Dist: tomli-w>=1.2
 Requires-Dist: tomli>=2.4; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.15; python_version < '3.11'

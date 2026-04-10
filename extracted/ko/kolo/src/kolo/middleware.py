@@ -7,7 +7,7 @@ import json
 import logging
 import os
 import sys
-from typing import Awaitable, Callable, List
+from typing import Awaitable, Callable
 
 from asgiref.sync import iscoroutinefunction, markcoroutinefunction, sync_to_async
 from django.conf import settings
@@ -30,7 +30,6 @@ from .settings import get_webapp_settings
 from .web.api import (
     check_vacuum_needed,
     get_latest_version_info,
-    get_project_root,
     get_user_info,
     handle_open_editor,
     handle_static_file,
@@ -39,7 +38,6 @@ from .web.api import (
 )
 from .web.django import (
     kolo_web_api_delete_trace,
-    kolo_web_api_generate_test,
     kolo_web_api_get_trace,
     kolo_web_api_latest_traces,
     kolo_web_api_source_file,
@@ -102,7 +100,7 @@ class KoloMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         if request.path.startswith("/_kolo"):
-            if self._is_coroutine:
+            if self._is_coroutine:  # pragma: no cover
                 hide_from_daphne()
                 return sync_to_async(kolo_web_router)(request)  # type: ignore[return-value]
             return kolo_web_router(request)
@@ -124,7 +122,7 @@ class KoloMiddleware:
                 return get_response(request)
 
         monkeypatch_queryset_repr()
-        if self._is_coroutine:
+        if self._is_coroutine:  # pragma: no cover
             return self.aprofile_response(request)
         else:
             return self.profile_response(request)
@@ -194,7 +192,7 @@ class KoloMiddleware:
 
 
 @contextlib.contextmanager
-def hide_from_runserver(*args, **kwds):
+def hide_from_runserver(*args, **kwds):  # pragma: no cover
     """
     Hides the requestline log messages from runserver's stdout.
     This works because Django's runserver is built on `wsgiref` which is ultimately built on `TCPServer` and the notion
@@ -220,7 +218,7 @@ def hide_from_runserver(*args, **kwds):
 DAPHNE_PATCHED = False
 
 
-def hide_from_daphne(*args, **kwds):
+def hide_from_daphne(*args, **kwds):  # pragma: no cover
     """
     Hides the requestline log messages from daphne runserver's stdout.
     """
@@ -266,9 +264,7 @@ def kolo_web_router(request: HttpRequest) -> HttpResponse:
 
     # API paths
     elif path.startswith("/_kolo/api"):
-        if path.startswith("/_kolo/api/generate-test/"):
-            return kolo_web_api_generate_test(request)
-        elif path.startswith("/_kolo/api/traces/"):
+        if path.startswith("/_kolo/api/traces/"):
             if request.method == "GET":
                 return kolo_web_api_get_trace(request)
             elif request.method == "DELETE":
@@ -277,8 +273,6 @@ def kolo_web_router(request: HttpRequest) -> HttpResponse:
                 return HttpResponseNotFound("Kolo Web: Not Found")
         elif path.startswith("/_kolo/api/latest-traces/"):
             return kolo_web_api_latest_traces(request)
-        elif path.startswith("/_kolo/api/save-test/"):
-            return kolo_web_api_save_test(request)
         elif path.startswith("/_kolo/api/config/"):
             return kolo_web_api_config(request)
         elif path.startswith("/_kolo/api/init/"):
@@ -299,20 +293,6 @@ def kolo_web_router(request: HttpRequest) -> HttpResponse:
     # SPA path (let React render and handle the path)
     else:
         return kolo_web_home(request)
-
-
-def kolo_web_api_save_test(request: HttpRequest) -> HttpResponse:
-    project_folder = get_project_root()
-    data = json.loads(request.body.decode("utf-8"))
-    file_content: str = data["content"]
-    relative_file_path: List[str] = data["path"]
-    file_path = project_folder / os.path.join(*relative_file_path)
-
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, "w") as file:
-        file.write(file_content)
-
-    return JsonResponse({"file_path": f"{file_path}"})
 
 
 def kolo_web_api_config(request: HttpRequest) -> HttpResponse:

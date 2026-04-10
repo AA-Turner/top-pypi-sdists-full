@@ -34,6 +34,7 @@ class SlurmPeriodicUsagePolicy:
         created_by_username (str):
         has_fired (bool):
         fired_datetime (datetime.datetime):
+        affected_resources_count (int):
         component_limits_set (list['NestedOfferingComponentLimit']):
         period_name (str):
         warnings (list[str]): Warnings about misconfiguration, e.g. missing site agent queue registration.
@@ -65,6 +66,7 @@ class SlurmPeriodicUsagePolicy:
     created_by_username: str
     has_fired: bool
     fired_datetime: datetime.datetime
+    affected_resources_count: int
     component_limits_set: list["NestedOfferingComponentLimit"]
     period_name: str
     warnings: list[str]
@@ -104,6 +106,8 @@ class SlurmPeriodicUsagePolicy:
         has_fired = self.has_fired
 
         fired_datetime = self.fired_datetime.isoformat()
+
+        affected_resources_count = self.affected_resources_count
 
         component_limits_set = []
         for component_limits_set_item_data in self.component_limits_set:
@@ -161,6 +165,7 @@ class SlurmPeriodicUsagePolicy:
                 "created_by_username": created_by_username,
                 "has_fired": has_fired,
                 "fired_datetime": fired_datetime,
+                "affected_resources_count": affected_resources_count,
                 "component_limits_set": component_limits_set,
                 "period_name": period_name,
                 "warnings": warnings,
@@ -219,6 +224,8 @@ class SlurmPeriodicUsagePolicy:
         has_fired = d.pop("has_fired")
 
         fired_datetime = isoparse(d.pop("fired_datetime"))
+
+        affected_resources_count = d.pop("affected_resources_count")
 
         component_limits_set = []
         _component_limits_set = d.pop("component_limits_set")
@@ -282,6 +289,7 @@ class SlurmPeriodicUsagePolicy:
             created_by_username=created_by_username,
             has_fired=has_fired,
             fired_datetime=fired_datetime,
+            affected_resources_count=affected_resources_count,
             component_limits_set=component_limits_set,
             period_name=period_name,
             warnings=warnings,

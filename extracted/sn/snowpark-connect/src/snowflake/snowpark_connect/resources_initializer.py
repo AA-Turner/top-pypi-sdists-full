@@ -58,7 +58,7 @@ def _upload_scala_udf_jars(jar_files: list[str]) -> None:
         includes_jar_path = includes_jars_dir / jar_name
         if includes_jar_path.exists():
             jar_path = includes_jar_path
-            logger.info(f"Found {jar_name} in includes/jars")
+            logger.debug(f"Found {jar_name} in includes/jars")
         else:
             # Try to find the JAR in package 1 first, then package 2
             try:
@@ -211,7 +211,7 @@ def initialize_resources() -> None:
         resource_start = time.time()
         try:
             resource_func()
-            logger.info(f"Initialized {name} in {time.time() - resource_start:.2f}s")
+            logger.debug(f"Initialized {name} in {time.time() - resource_start:.2f}s")
         except Exception as e:
             # We will only log the error if it isn't caused by session being closed. Session
             # closed error happens when the particular run finishes very quickly.

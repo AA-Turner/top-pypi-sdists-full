@@ -3,7 +3,7 @@ use pyo3::types::PyDict;
 use hashbrown::HashMap;
 use rmpv::Value as RmpvValue;
 
-const CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE: [&str; 3] = ["filters", "processors", "test_generation"];
+const CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE: [&str; 3] = ["filters", "processors", "auto_emit"];
 
 pub struct Config {
     inner: HashMap<String, Py<PyAny>>,

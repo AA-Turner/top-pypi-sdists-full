@@ -92,6 +92,7 @@ RECORDED_CONFIG_KEYS = {
     "snowpark.connect.sql.identifiers.auto-uppercase",
     "snowpark.connect.udtf.compatibility_mode",
     "snowpark.connect.views.duplicate_column_names_handling_mode",
+    "snowpark.connect.parquet.useLogicalType",
 }
 
 # IO option allowlist for telemetry reporting.

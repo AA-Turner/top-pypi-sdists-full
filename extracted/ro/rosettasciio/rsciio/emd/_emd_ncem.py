@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -388,7 +388,7 @@ class EMD_NCEM:
                 "fy": "interpolationFactorY",
                 "F": "numFP",
                 "ns": "numSlices",
-                "te": "includeThermalEffects",
+                "te": "includeThermalEffects",  # codespell:ignore: te
                 "oc": "includeOccupancy",
                 "3D": "save3DOutput",
                 "4D": "save3DOutput",

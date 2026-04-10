@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from .cli_mcp_shared import get_compact_trace as aget_compact_trace
+from .cli_mcp_shared import get_compact_trace as sync_get_compact_trace
 from .cli_mcp_shared import get_compact_traces, get_formatted_traces, get_node_data
 from .db import get_db_path, load_trace_from_db, load_trace_with_size_from_db, setup_db
 from .mcp_plumbing import MCPServer
@@ -10,7 +10,7 @@ mcp = MCPServer("kolo")
 
 
 @mcp.tool()
-async def get_compact_trace(trace_id: str, include_returns: bool = False) -> str:
+def get_compact_trace(trace_id: str, include_returns: bool = False) -> str:
     """Get a compact representation of a specific trace.
 
     This is useful when you need to understand what happened in a specific trace,
@@ -27,17 +27,15 @@ async def get_compact_trace(trace_id: str, include_returns: bool = False) -> str
     """
     db_path = get_db_path()
     _, timestamp_str, size, trace_data = load_trace_with_size_from_db(db_path, trace_id)
-    return await aget_compact_trace(
-        trace_id=trace_id,
+    return sync_get_compact_trace(
         trace_data=trace_data,
-        timestamp_str=timestamp_str,
         size=size,
         include_returns=include_returns,
     )
 
 
 @mcp.tool()
-async def get_trace_node(trace_id: str, node_index: int) -> Dict:
+def get_trace_node(trace_id: str, node_index: int) -> Dict:
     """Get detailed information about a specific node in a trace.
 
     This is useful when you need to deeply understand what happened at a specific
@@ -54,11 +52,11 @@ async def get_trace_node(trace_id: str, node_index: int) -> Dict:
     """
     db_path = get_db_path()
     trace_data, _ = load_trace_from_db(db_path, trace_id)
-    return await get_node_data(trace_id, node_index, trace_data)
+    return get_node_data(trace_id, node_index, trace_data)
 
 
 @mcp.tool()
-async def get_pinned_traces(include_returns: bool = False) -> List[str]:
+def get_pinned_traces(include_returns: bool = False) -> List[str]:
     """Get compact representations of all pinned traces.
 
     This is useful for understanding the key execution paths that have been marked
@@ -76,12 +74,12 @@ async def get_pinned_traces(include_returns: bool = False) -> List[str]:
         ]
     """
     db_path = get_db_path()
-    traces = await get_compact_traces(db_path, pinned=True, returns=include_returns)
+    traces = get_compact_traces(db_path, pinned=True, returns=include_returns)
     return [compact for _, compact in traces]
 
 
 @mcp.tool()
-async def get_recent_compact_traces(
+def get_recent_compact_traces(
     count: int = 5, include_returns: bool = False
 ) -> List[str]:
     """
@@ -117,7 +115,7 @@ async def get_recent_compact_traces(
         ]
     """
     db_path = get_db_path()
-    traces = await get_compact_traces(db_path, recent=count, returns=include_returns)
+    traces = get_compact_traces(db_path, recent=count, returns=include_returns)
     return [compact for _, compact in traces]
 
 

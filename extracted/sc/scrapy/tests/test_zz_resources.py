@@ -8,6 +8,8 @@ import logging
 import pytest
 
 from scrapy.utils.log import LogCounterHandler
+from scrapy.utils.reactor import is_asyncio_reactor_installed, is_reactor_installed
+from tests.utils.decorators import coroutine_test
 
 
 def test_counter_handler() -> None:
@@ -31,6 +33,27 @@ def test_stderr_log_handler() -> None:
 
 
 @pytest.mark.only_asyncio
-def test_pending_asyncio_tasks() -> None:
+@coroutine_test
+async def test_pending_asyncio_tasks() -> None:
     """Test that there are no pending asyncio tasks."""
-    assert not asyncio.all_tasks()
+    # note that pytest-asyncio uses separate loops per function so this isn't as useful there
+    tasks = []
+    for t in asyncio.all_tasks():
+        coro = t.get_coro()
+        if (
+            coro is not None
+            and getattr(coro, "__name__", None) != "test_pending_asyncio_tasks"
+        ):
+            tasks.append(t)
+    assert not tasks
+
+
+def test_installed_reactor(reactor_pytest: str) -> None:
+    """Test that the correct reactor is installed."""
+    match reactor_pytest:
+        case "asyncio":
+            assert is_asyncio_reactor_installed()
+        case "default":
+            assert not is_asyncio_reactor_installed()
+        case "none":
+            assert not is_reactor_installed()

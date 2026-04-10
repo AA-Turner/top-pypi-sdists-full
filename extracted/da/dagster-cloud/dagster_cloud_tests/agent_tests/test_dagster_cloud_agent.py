@@ -1,5 +1,6 @@
 import concurrent.futures
 import datetime
+import logging
 import os
 import time
 import uuid
@@ -86,6 +87,8 @@ from dagster_cloud.execution.monitoring import (
     CloudRunWorkerStatuses,
 )
 from dagster_cloud.version import __version__ as DAGSTER_CLOUD_VERSION
+from dagster_cloud.workspace.ecs.launcher import EcsUserCodeLauncher
+from dagster_cloud.workspace.kubernetes.launcher import K8sUserCodeLauncher
 from dagster_cloud.workspace.user_code_launcher import DagsterCloudUserCodeLauncher
 from dagster_cloud_backend.agent_details import AgentDetails, AgentStatus
 from dagster_cloud_backend.instance import (
@@ -552,7 +555,7 @@ def metrics_instance(agent_token, ursula_graphql_client, request):
             "deployment": "sandbox",
         },
         "compute_logs": {
-            "module": "dagster.core.storage.noop_compute_log_manager",
+            "module": "dagster._core.storage.noop_compute_log_manager",
             "class": "NoOpComputeLogManager",
         },
     }
@@ -897,7 +900,7 @@ def _test_check_initial_deployment_names(agent_token, ursula_graphql_client, age
                 "deployment": invalid_deployment,
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
         }
@@ -3492,7 +3495,7 @@ def test_agent_liveness_sentinel(
             mock_touch.side_effect = touch_error
 
             # act
-            agent._write_liveness_sentinel_if_overdue()  # noqa: SLF001
+            agent._write_liveness_sentinel_if_overdue("/opt")  # noqa: SLF001
 
             # assert
             if touch_called:
@@ -3512,10 +3515,163 @@ def test_agent_liveness_sentinel_warning_on_permission_error(
     with mock.patch.object(os, "access") as mock_os_access:
         mock_os_access.return_value = False
 
-        agent._write_liveness_sentinel_if_overdue()  # noqa: SLF001
+        agent._write_liveness_sentinel_if_overdue("/opt")  # noqa: SLF001
 
-        assert "Disabling liveness sentinel - /opt is not writable" in caplog.text
+        assert "Disabling liveness sentinel" in caplog.text
+        assert "is not writable" in caplog.text
         assert agent._last_liveness_check_time is False  # noqa: SLF001
+
+
+def test_agent_liveness_sentinel_skipped_when_no_sentinel_dir(
+    agent,
+):
+    """When sentinel_dir is None (base class default), liveness sentinel is a no-op."""
+    agent._last_liveness_check_time = None  # noqa: SLF001
+
+    agent._write_liveness_sentinel_if_overdue(None)  # noqa: SLF001
+
+    # Still None (not touched), not False (not disabled)
+    assert agent._last_liveness_check_time is None  # noqa: SLF001
+
+
+def test_sentinel_dir_defaults():
+    """Base class defaults to None, ECS to /opt, K8s to /tmp."""
+    assert (
+        DagsterCloudUserCodeLauncher._default_sentinel_dir.fget(  # type: ignore  # noqa: SLF001
+            mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
+        )
+        is None
+    )
+    assert (
+        EcsUserCodeLauncher._default_sentinel_dir.fget(  # type: ignore  # noqa: SLF001
+            mock.MagicMock(spec=EcsUserCodeLauncher)
+        )
+        == "/opt"
+    )
+    assert (
+        K8sUserCodeLauncher._default_sentinel_dir.fget(  # type: ignore  # noqa: SLF001
+            mock.MagicMock(spec=K8sUserCodeLauncher)
+        )
+        == "/tmp"
+    )
+
+
+def test_sentinel_dir_uses_default_when_env_var_unset():
+    """Without env var, sentinel_dir returns _default_sentinel_dir."""
+    env_var = DagsterCloudUserCodeLauncher.SENTINEL_BASE_DIR_ENV_VAR
+    with mock.patch.dict(os.environ, {}, clear=False):
+        os.environ.pop(env_var, None)
+
+        launcher = mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
+        launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
+        launcher._default_sentinel_dir = "/opt"  # noqa: SLF001
+        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # type: ignore
+        assert result == "/opt"
+
+        launcher._default_sentinel_dir = None  # noqa: SLF001
+        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # type: ignore
+        assert result is None
+
+
+def test_sentinel_dir_env_var_override():
+    """Env var overrides the default for any launcher."""
+    env_var = DagsterCloudUserCodeLauncher.SENTINEL_BASE_DIR_ENV_VAR
+    with mock.patch.dict(os.environ, {env_var: "/custom"}):
+        launcher = mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
+        launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
+        launcher._default_sentinel_dir = "/opt"  # noqa: SLF001
+        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # type: ignore
+        assert result == "/custom"
+
+
+def test_sentinel_dir_empty_string_disables():
+    """Setting the env var to empty string disables sentinels."""
+    env_var = DagsterCloudUserCodeLauncher.SENTINEL_BASE_DIR_ENV_VAR
+    with mock.patch.dict(os.environ, {env_var: ""}):
+        launcher = mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
+        launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
+        launcher._default_sentinel_dir = "/opt"  # noqa: SLF001
+        result = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # type: ignore
+        assert result is None
+
+
+def test_agent_liveness_sentinel_uses_custom_dir(agent, tmp_path):
+    agent._last_liveness_check_time = None  # noqa: SLF001
+
+    agent._write_liveness_sentinel_if_overdue(str(tmp_path))  # noqa: SLF001
+
+    assert (tmp_path / "liveness_sentinel.txt").exists()
+
+
+def test_readiness_sentinel_writes_to_sentinel_dir(tmp_path):
+    """Base class _write_readiness_sentinel writes to sentinel_dir."""
+    launcher = mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
+    launcher.sentinel_dir = str(tmp_path)
+    launcher._logger = logging.getLogger("test")  # noqa: SLF001
+
+    DagsterCloudUserCodeLauncher._write_readiness_sentinel(launcher)  # noqa: SLF001
+
+    assert (tmp_path / "finished_initial_reconciliation_sentinel.txt").exists()
+
+
+def test_readiness_sentinel_noop_when_no_sentinel_dir(tmp_path):
+    """Base class _write_readiness_sentinel is a no-op when sentinel_dir is None."""
+    launcher = mock.MagicMock(spec=DagsterCloudUserCodeLauncher)
+    launcher.sentinel_dir = None
+
+    DagsterCloudUserCodeLauncher._write_readiness_sentinel(launcher)  # noqa: SLF001
+
+    # No sentinel file should exist anywhere
+    assert not list(tmp_path.glob("*sentinel*"))
+
+
+def test_ecs_sentinel_path_is_opt(tmp_path):
+    """ECS healthchecks expect /opt/finished_initial_reconciliation_sentinel.txt.
+
+    This is checked in CloudFormation templates and the serverless template.
+    Changing this default will break deploys.
+    """
+    env_var = DagsterCloudUserCodeLauncher.SENTINEL_BASE_DIR_ENV_VAR
+    with mock.patch.dict(os.environ, {}, clear=False):
+        os.environ.pop(env_var, None)
+
+        launcher = mock.MagicMock(spec=EcsUserCodeLauncher)
+        launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
+        launcher._default_sentinel_dir = EcsUserCodeLauncher._default_sentinel_dir.fget(launcher)  # type: ignore  # noqa: SLF001
+        sentinel_dir = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # type: ignore
+        assert sentinel_dir == "/opt"
+        assert (
+            os.path.join(sentinel_dir, "finished_initial_reconciliation_sentinel.txt")
+            == "/opt/finished_initial_reconciliation_sentinel.txt"
+        )
+
+
+def test_serverless_sentinel_path_is_opt():
+    """Serverless launcher inherits ECS default of /opt.
+
+    The serverless template healthcheck expects /opt/finished_initial_reconciliation_sentinel.txt.
+    Changing this default will break deploys.
+    """
+    serverless_mod = pytest.importorskip(
+        "dagster_cloud_serverless_agent.serverless.user_code_launcher"
+    )
+    ServerlessUserCodeLauncher = serverless_mod.ServerlessUserCodeLauncher
+
+    env_var = DagsterCloudUserCodeLauncher.SENTINEL_BASE_DIR_ENV_VAR
+    with mock.patch.dict(os.environ, {}, clear=False):
+        os.environ.pop(env_var, None)
+
+        launcher = mock.MagicMock(spec=ServerlessUserCodeLauncher)
+        launcher.SENTINEL_BASE_DIR_ENV_VAR = env_var
+        launcher._default_sentinel_dir = ServerlessUserCodeLauncher._default_sentinel_dir.fget(  # noqa: SLF001
+            launcher
+        )
+        sentinel_dir = DagsterCloudUserCodeLauncher.sentinel_dir.fget(launcher)  # type: ignore
+        assert sentinel_dir == "/opt"
+        assert (
+            os.path.join(sentinel_dir, "finished_initial_reconciliation_sentinel.txt")
+            == "/opt/finished_initial_reconciliation_sentinel.txt"
+        )
 
 
 def test_legacy_snap_upload(

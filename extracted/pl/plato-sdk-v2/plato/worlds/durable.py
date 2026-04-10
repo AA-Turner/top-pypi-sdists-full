@@ -616,11 +616,20 @@ async def _report_stage_started(
 
 
 async def _report_stage_completed(
-    stage_name: str, output_type: str, elapsed: float, base_path: str, started_at: datetime
+    stage_name: str,
+    output_type: str,
+    elapsed: float,
+    base_path: str,
+    started_at: datetime,
+    outputs: dict[str, Any] | None = None,
 ) -> None:
     """Report stage completed to Chronos. Also sends Slack notification via server."""
     try:
         from plato.worlds.stage_tracking import report_stage
+
+        metadata: dict[str, Any] | None = None
+        if outputs is not None:
+            metadata = {"outputs": outputs}
 
         await report_stage(
             stage_name=stage_name,
@@ -631,6 +640,7 @@ async def _report_stage_completed(
             completed_at=datetime.now(timezone.utc),
             elapsed_seconds=elapsed,
             base_path=base_path,
+            metadata=metadata,
         )
     except Exception:
         logger.debug("Stage tracking (completed) failed for %s", stage_name, exc_info=True)
@@ -665,10 +675,15 @@ def _report_stage_sync(
     started_at: datetime,
     trace_id: str | None = None,
     span_id: str | None = None,
+    outputs: dict[str, Any] | None = None,
 ) -> None:
     """Sync version of completed stage reporting."""
     try:
         from plato.worlds.stage_tracking import report_stage_sync
+
+        metadata: dict[str, Any] | None = None
+        if outputs is not None:
+            metadata = {"outputs": outputs}
 
         report_stage_sync(
             stage_name=stage_name,
@@ -681,6 +696,7 @@ def _report_stage_sync(
             base_path=base_path,
             trace_id=trace_id,
             span_id=span_id,
+            metadata=metadata,
         )
     except Exception:
         logger.debug("Stage tracking (completed sync) failed for %s", stage_name, exc_info=True)
@@ -793,12 +809,17 @@ def durable(
                     _current_stage_public_id.reset(parent_token)
                     elapsed = time.monotonic() - t0
                     _save_typed_outputs(result, bp)
+                    try:
+                        outputs = result.model_dump(mode="json")
+                    except Exception:
+                        outputs = None
                     await _report_stage_completed(
                         fn.__name__,
                         return_type.__name__,
                         elapsed,
                         str(bp),
                         stage_started_at,
+                        outputs=outputs,
                     )
                     return result
 
@@ -870,6 +891,10 @@ def durable(
                     _durable_base_path.reset(token)
                     elapsed = time.monotonic() - t0
                     _save_typed_outputs(result, bp)
+                    try:
+                        outputs = result.model_dump(mode="json")
+                    except Exception:
+                        outputs = None
                     _report_stage_sync(
                         fn.__name__,
                         return_type.__name__,
@@ -878,6 +903,7 @@ def durable(
                         stage_started_at,
                         trace_id=trace_id,
                         span_id=span_id,
+                        outputs=outputs,
                     )
                     return result
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gpiod
-Version: 2.4.1
+Version: 2.4.2
 Summary: Python bindings for libgpiod
 Author-email: Bartosz Golaszewski <brgl@bgdev.pl>
 License-Expression: LGPL-2.1-or-later

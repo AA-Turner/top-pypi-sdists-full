@@ -1067,6 +1067,19 @@ class BulkMonitorTypeEnum(pycarlo.lib.types.Enum):
     __choices__ = ("METRIC",)
 
 
+class CapabilityMode(pycarlo.lib.types.Enum):
+    """How a capability is configured in a custom integration.
+
+    Enumeration Choices:
+
+    * `COLLECT`None
+    * `REUSE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COLLECT", "REUSE")
+
+
 class CollectionNodeModelStatus(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -5204,6 +5217,20 @@ class ResponseMetadataType(pycarlo.lib.types.Enum):
     __choices__ = ("MONITOR_RECOMMENDATIONS", "QUERY_RESPONSE")
 
 
+class ReusableCapability(pycarlo.lib.types.Enum):
+    """Which previously configured capability to reuse a connection from.
+
+    Enumeration Choices:
+
+    * `LINEAGE`None
+    * `METADATA`None
+    * `QUERY_LOGS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("LINEAGE", "METADATA", "QUERY_LOGS")
+
+
 class SamplingEnabledMetricTypes(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -6636,6 +6663,7 @@ class WarehouseModelConnectionType(pycarlo.lib.types.Enum):
 
     * `BIGQUERY`: BigQuery
     * `CLICKHOUSE`: ClickHouse
+    * `CUSTOM_INTEGRATION`: Custom Integration
     * `DATA_LAKE`: Data Lake
     * `DB2`: Db2
     * `DREMIO`: Dremio
@@ -6659,6 +6687,7 @@ class WarehouseModelConnectionType(pycarlo.lib.types.Enum):
     __choices__ = (
         "BIGQUERY",
         "CLICKHOUSE",
+        "CUSTOM_INTEGRATION",
         "DATA_LAKE",
         "DB2",
         "DREMIO",
@@ -7573,6 +7602,49 @@ class BulkUpdateIncidentsValues(sgqlc.types.Input):
     owner = sgqlc.types.Field(String, graphql_name="owner")
 
     feedback = sgqlc.types.Field(String, graphql_name="feedback")
+
+
+class CapabilityConfigInput(sgqlc.types.Input):
+    """Configuration for a single capability in a custom integration.
+    When mode is COLLECT, connectionType, credentialsKey, and
+    deploymentId are required. When mode is REUSE, reuseCapability is
+    required. Omitting this input (null) means "not configured" — push
+    via API is always available, and lineage inference from query logs
+    is automatic.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "mode",
+        "connection_type",
+        "credentials_key",
+        "deployment_id",
+        "reuse_capability",
+    )
+    mode = sgqlc.types.Field(sgqlc.types.non_null(CapabilityMode), graphql_name="mode")
+    """How this capability is configured: collect a new connection or
+    reuse an existing one.
+    """
+
+    connection_type = sgqlc.types.Field(String, graphql_name="connectionType")
+    """Native connection type ID (e.g. 'spark', 'snowflake'). Required
+    when mode is COLLECT.
+    """
+
+    credentials_key = sgqlc.types.Field(String, graphql_name="credentialsKey")
+    """Temporary credentials key from a prior test mutation. Required
+    when mode is COLLECT.
+    """
+
+    deployment_id = sgqlc.types.Field(UUID, graphql_name="deploymentId")
+    """Data collector UUID to use for this connection. Required when mode
+    is COLLECT.
+    """
+
+    reuse_capability = sgqlc.types.Field(ReusableCapability, graphql_name="reuseCapability")
+    """Which previously configured capability's connection to reuse.
+    Required when mode is REUSE.
+    """
 
 
 class CatalogMappingInput(sgqlc.types.Input):
@@ -20550,6 +20622,37 @@ class CreateOrUpdateComparisonRule(sgqlc.types.Type):
     """SQL queries that will be run by the monitor on each execution."""
 
 
+class CreateOrUpdateCustomIntegration(sgqlc.types.Type):
+    """Create a custom integration warehouse with per-capability
+    connections. Each capability can collect via a new connection,
+    reuse a previously configured connection, or be left unconfigured.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("result",)
+    result = sgqlc.types.Field(
+        sgqlc.types.non_null("CreateOrUpdateCustomIntegrationResult"), graphql_name="result"
+    )
+    """The created integration warehouse and connections."""
+
+
+class CreateOrUpdateCustomIntegrationResult(sgqlc.types.Type):
+    """Result of creating or updating a custom integration."""
+
+    __schema__ = schema
+    __field_names__ = ("warehouse_uuid", "connections")
+    warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
+    """UUID of the created or updated warehouse."""
+
+    connections = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("CustomIntegrationConnection"))
+        ),
+        graphql_name="connections",
+    )
+    """Connections created or updated, with their capability assignments."""
+
+
 class CreateOrUpdateCustomMetricRule(sgqlc.types.Type):
     """Create or update a custom metric rule"""
 
@@ -21215,6 +21318,20 @@ class CustomDashboardWidgetContentData(sgqlc.types.Type):
 
     data = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="data")
     """Content data of the widget"""
+
+
+class CustomIntegrationConnection(sgqlc.types.relay.Connection):
+    """A connection created as part of a custom integration."""
+
+    __schema__ = schema
+    __field_names__ = ("capability", "connection")
+    capability = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="capability")
+    """Which capability this connection serves (metadata, query_logs,
+    lineage, monitors).
+    """
+
+    connection = sgqlc.types.Field(sgqlc.types.non_null(Connection), graphql_name="connection")
+    """The connection object."""
 
 
 class CustomMetric(sgqlc.types.Type):
@@ -31877,6 +31994,7 @@ class Mutation(sgqlc.types.Type):
         "get_customer_mcp_server_authorization_url",
         "revoke_customer_mcp_server_authorization",
         "create_fig",
+        "create_or_update_custom_integration",
         "create_or_update_custom_dashboard",
         "create_or_update_custom_dashboard_from_json",
         "delete_custom_dashboard",
@@ -32868,6 +32986,53 @@ class Mutation(sgqlc.types.Type):
     * `total_tokens` (`Int`): Total tokens consumed (default: `0`)
     * `trigger_type` (`FigTriggerType`): How the fig was triggered
       (default: `"task"`)
+    """
+
+    create_or_update_custom_integration = sgqlc.types.Field(
+        CreateOrUpdateCustomIntegration,
+        graphql_name="createOrUpdateCustomIntegration",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "lineage",
+                    sgqlc.types.Arg(CapabilityConfigInput, graphql_name="lineage", default=None),
+                ),
+                (
+                    "metadata",
+                    sgqlc.types.Arg(CapabilityConfigInput, graphql_name="metadata", default=None),
+                ),
+                (
+                    "monitors",
+                    sgqlc.types.Arg(CapabilityConfigInput, graphql_name="monitors", default=None),
+                ),
+                (
+                    "name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="name", default=None
+                    ),
+                ),
+                (
+                    "query_logs",
+                    sgqlc.types.Arg(CapabilityConfigInput, graphql_name="queryLogs", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a custom integration with per-capability
+    connections.
+
+    Arguments:
+
+    * `lineage` (`CapabilityConfigInput`): Lineage capability
+      configuration. Null to skip (lineage is still inferred from
+      query logs automatically).
+    * `metadata` (`CapabilityConfigInput`): Metadata capability
+      configuration. Null to skip.
+    * `monitors` (`CapabilityConfigInput`): Monitors capability
+      configuration. Null to skip.
+    * `name` (`String!`): Display name for the integration.
+    * `query_logs` (`CapabilityConfigInput`): Query logs capability
+      configuration. Null to skip.
     """
 
     create_or_update_custom_dashboard = sgqlc.types.Field(

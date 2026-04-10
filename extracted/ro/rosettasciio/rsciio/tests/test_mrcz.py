@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -218,4 +218,6 @@ class TestPythonMrcz:
         self.compareSaveLoad(
             [2, 64, 32], dtype=dtype, compressor="zstd", clevel=1, do_async=True
         )
-        print("MRCZ Asychronous test finished in {} s".format(perf_counter() - t_start))  # noqa: T201
+        print(  # noqa: T201
+            "MRCZ Asynchronous test finished in {} s".format(perf_counter() - t_start)
+        )

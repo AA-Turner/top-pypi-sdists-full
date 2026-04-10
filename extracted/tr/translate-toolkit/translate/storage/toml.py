@@ -21,7 +21,7 @@ r"""Class that manages TOML data files for translation."""
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, Any, BinaryIO, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 
 from tomlkit import TOMLDocument, document, loads
 from tomlkit.exceptions import TOMLKitError
@@ -114,7 +114,7 @@ class TOMLFile(base.DictStore[TOMLUnit]):
         """Return an empty root node for serialization."""
         return document()
 
-    def serialize(self, out: BinaryIO) -> None:
+    def serialize(self, out: IO[bytes]) -> None:
         """Serialize the store to a file."""
         # Always start with valid root even if original file was empty
         if self._original is None:
@@ -329,7 +329,7 @@ class GoI18nTOMLFile(TOMLFile):
         """
         # Special case: table with only "other" key is treated as singular
         if data and len(data) == 1 and "other" in data:
-            yield (prev, data["other"], None)
+            yield (prev, str(data["other"]), None)
             return
 
         # Does this look like a plural?

@@ -72,7 +72,7 @@ def ecs_instance(monkeypatch, user_code_launcher_overrides=None, overrides=None)
                 "deployment": "sandbox",
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
             **(overrides or {}),

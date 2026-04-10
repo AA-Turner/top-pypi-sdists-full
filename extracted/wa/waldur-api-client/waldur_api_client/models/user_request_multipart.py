@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from .. import types
+from ..models.blank_enum import BlankEnum
 from ..models.gender_enum import GenderEnum
 from ..types import UNSET, File, Unset
 
@@ -39,7 +40,7 @@ class UserRequestMultipart:
         last_name (Union[Unset, str]):
         birth_date (Union[None, Unset, datetime.date]):
         image (Union[File, None, Unset]):
-        gender (Union[GenderEnum, None, Unset]): ISO 5218 gender code
+        gender (Union[BlankEnum, GenderEnum, None, Unset]): User's gender (male, female, or unknown)
         personal_title (Union[Unset, str]): Honorific title (Mr, Ms, Dr, Prof, etc.)
         place_of_birth (Union[Unset, str]):
         country_of_residence (Union[Unset, str]):
@@ -53,6 +54,7 @@ class UserRequestMultipart:
             identities.
         managed_isds (Union[Unset, Any]): List of ISD source identifiers this user can manage via Identity Bridge. E.g.,
             ['isd:puhuri', 'isd:fenix']. Non-empty list implies identity manager role.
+        deactivation_reason (Union[Unset, str]): Reason why the user was deactivated. Visible to staff and support.
     """
 
     username: str
@@ -74,7 +76,7 @@ class UserRequestMultipart:
     last_name: Union[Unset, str] = UNSET
     birth_date: Union[None, Unset, datetime.date] = UNSET
     image: Union[File, None, Unset] = UNSET
-    gender: Union[GenderEnum, None, Unset] = UNSET
+    gender: Union[BlankEnum, GenderEnum, None, Unset] = UNSET
     personal_title: Union[Unset, str] = UNSET
     place_of_birth: Union[Unset, str] = UNSET
     country_of_residence: Union[Unset, str] = UNSET
@@ -86,6 +88,7 @@ class UserRequestMultipart:
     eduperson_assurance: Union[Unset, Any] = UNSET
     is_identity_manager: Union[Unset, bool] = UNSET
     managed_isds: Union[Unset, Any] = UNSET
+    deactivation_reason: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -144,10 +147,12 @@ class UserRequestMultipart:
         else:
             image = self.image
 
-        gender: Union[None, Unset, int]
+        gender: Union[None, Unset, str]
         if isinstance(self.gender, Unset):
             gender = UNSET
         elif isinstance(self.gender, GenderEnum):
+            gender = self.gender.value
+        elif isinstance(self.gender, BlankEnum):
             gender = self.gender.value
         else:
             gender = self.gender
@@ -173,6 +178,8 @@ class UserRequestMultipart:
         is_identity_manager = self.is_identity_manager
 
         managed_isds = self.managed_isds
+
+        deactivation_reason = self.deactivation_reason
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -240,6 +247,8 @@ class UserRequestMultipart:
             field_dict["is_identity_manager"] = is_identity_manager
         if managed_isds is not UNSET:
             field_dict["managed_isds"] = managed_isds
+        if deactivation_reason is not UNSET:
+            field_dict["deactivation_reason"] = deactivation_reason
 
         return field_dict
 
@@ -313,6 +322,8 @@ class UserRequestMultipart:
         if not isinstance(self.gender, Unset):
             if isinstance(self.gender, GenderEnum):
                 files.append(("gender", (None, str(self.gender.value).encode(), "text/plain")))
+            elif isinstance(self.gender, BlankEnum):
+                files.append(("gender", (None, str(self.gender.value).encode(), "text/plain")))
             elif self.gender is None:
                 files.append(("gender", (None, str(self.gender).encode(), "text/plain")))
             else:
@@ -352,6 +363,9 @@ class UserRequestMultipart:
 
         if not isinstance(self.managed_isds, Unset):
             files.append(("managed_isds", (None, str(self.managed_isds).encode(), "text/plain")))
+
+        if not isinstance(self.deactivation_reason, Unset):
+            files.append(("deactivation_reason", (None, str(self.deactivation_reason).encode(), "text/plain")))
 
         for prop_name, prop in self.additional_properties.items():
             files.append((prop_name, (None, str(prop).encode(), "text/plain")))
@@ -436,20 +450,28 @@ class UserRequestMultipart:
 
         image = _parse_image(d.pop("image", UNSET))
 
-        def _parse_gender(data: object) -> Union[GenderEnum, None, Unset]:
+        def _parse_gender(data: object) -> Union[BlankEnum, GenderEnum, None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             try:
-                if not isinstance(data, int):
+                if not isinstance(data, str):
                     raise TypeError()
                 gender_type_0 = GenderEnum(data)
 
                 return gender_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[GenderEnum, None, Unset], data)
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                gender_type_1 = BlankEnum(data)
+
+                return gender_type_1
+            except:  # noqa: E722
+                pass
+            return cast(Union[BlankEnum, GenderEnum, None, Unset], data)
 
         gender = _parse_gender(d.pop("gender", UNSET))
 
@@ -474,6 +496,8 @@ class UserRequestMultipart:
         is_identity_manager = d.pop("is_identity_manager", UNSET)
 
         managed_isds = d.pop("managed_isds", UNSET)
+
+        deactivation_reason = d.pop("deactivation_reason", UNSET)
 
         user_request_multipart = cls(
             username=username,
@@ -507,6 +531,7 @@ class UserRequestMultipart:
             eduperson_assurance=eduperson_assurance,
             is_identity_manager=is_identity_manager,
             managed_isds=managed_isds,
+            deactivation_reason=deactivation_reason,
         )
 
         user_request_multipart.additional_properties = d

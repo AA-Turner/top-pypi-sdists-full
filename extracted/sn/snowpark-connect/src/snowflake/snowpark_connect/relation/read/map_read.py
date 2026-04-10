@@ -3,6 +3,7 @@
 #
 
 import concurrent.futures
+import glob
 import json
 import logging
 import os
@@ -23,6 +24,7 @@ from snowflake.snowpark_connect.relation.io_utils import (
     get_compression_for_source_and_options,
     infer_compression_from_file_extension,
     is_cloud_path,
+    unescape_glob_metacharacters,
 )
 from snowflake.snowpark_connect.relation.neo4j_utils import (
     transform_neo4j_to_jdbc_options,
@@ -113,8 +115,12 @@ def map_read(
                         "or add it to the load() parameter if you do want to read multiple paths."
                     )
                 # Normalize paths to ensure consistent behavior
+                # Unescape glob metacharacters for local paths (e.g., \[abc\] -> [abc])
+                # Spark allows escaping glob metacharacters with backslashes
                 clean_source_paths = [
-                    path if is_cloud_path(path) else str(Path(path))
+                    path
+                    if is_cloud_path(path)
+                    else str(Path(unescape_glob_metacharacters(path)))
                     for path in rel.read.data_source.paths
                 ]
 
@@ -466,7 +472,9 @@ def upload_files_if_needed(
                 # If there are no directories, and this is not parquet where we need to filter files,
                 # we can use * to upload all files
                 if not dirs and read_format != "parquet":
-                    file_pattern = os.path.join(root, "*")
+                    # Escape glob metacharacters in the directory path to prevent
+                    # characters like [ ] { } from being interpreted as glob patterns
+                    file_pattern = os.path.join(glob.escape(root), "*")
                     # Ensure target ends with single slash
                     pattern_target = f"{curr_target}/"
                     try:
@@ -491,8 +499,10 @@ def upload_files_if_needed(
                         # Avoid double slashes in target path
                         file_target = f"{curr_target}/{file}"
                         try:
+                            # Escape glob metacharacters in the file path to prevent
+                            # characters like [ ] { } from being interpreted as glob patterns
                             session.file.put(
-                                file_path,
+                                glob.escape(file_path),
                                 file_target,
                                 auto_compress=False,
                                 overwrite=True,
@@ -515,7 +525,11 @@ def upload_files_if_needed(
         else:
             # No directory in path, use the original target
             target_dir = target
-        session.file.put(source, target_dir, auto_compress=False, overwrite=True)
+        # Escape glob metacharacters in the source path to prevent
+        # characters like [ ] { } from being interpreted as glob patterns
+        session.file.put(
+            glob.escape(source), target_dir, auto_compress=False, overwrite=True
+        )
 
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=4, thread_name_prefix="LocalFileUploader_"

@@ -9,7 +9,7 @@ T = TypeVar("T", bound="ChatResponseM")
 
 @_attrs_define
 class ChatResponseM:
-    """System metadata."""
+    """System metadata (thread_uuid, message UUIDs)."""
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 

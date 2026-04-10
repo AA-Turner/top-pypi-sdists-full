@@ -7,6 +7,7 @@ use pyo3::types::PyCode;
 use pyo3::types::PyDict;
 use std::borrow::Cow;
 use std::cell::RefCell;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use thread_local::ThreadLocal;
 
@@ -54,10 +55,14 @@ struct InstructionData {
 pub struct KoloMonitor {
     #[pyo3(get)]
     tool_id: u8,
-    #[pyo3(get, set)]
-    active: bool,
-    #[pyo3(set)]
-    timestamp: f64,
+    // `active` and `timestamp` are accessed from multiple threads at once: the
+    // main thread flips them in activate_monitoring/disable_monitoring while a
+    // background save thread may still be dispatching sys.monitoring callbacks
+    // that hold shared borrows on this pyclass's PyCell. Using atomics / a
+    // mutex keeps mutation behind interior mutability so setters only need a
+    // shared (&self) borrow, avoiding `RuntimeError: Already borrowed` panics.
+    active: AtomicBool,
+    timestamp: Mutex<f64>,
     db_path: String,
     source: String,
     one_trace_per_test: bool,
@@ -95,7 +100,8 @@ impl KoloMonitor {
         let sys = PyModule::import(py, "sys")?;
         let monitoring = sys.getattr("monitoring")?;
         let disable = monitoring.getattr("DISABLE")?.unbind();
-        let tool_id = monitoring.getattr("PROFILER_ID")?.extract()?;
+        // Kolo uses tool ID 3 (unassigned) to avoid conflicts with profilers (ID 2)
+        let tool_id: u8 = 3;
 
         let omit_return_locals = config.get_or(py, "omit_return_locals", false)?;
         let line_events = config.get_or(py, "line_events", false)?;
@@ -108,9 +114,9 @@ impl KoloMonitor {
         let plugins = load_plugins(py, config_dict)?;
 
         Ok(KoloMonitor {
-            active: false,
+            active: AtomicBool::new(false),
             tool_id,
-            timestamp: utils::timestamp(),
+            timestamp: Mutex::new(utils::timestamp()),
             db_path,
             source,
             one_trace_per_test,
@@ -353,6 +359,7 @@ impl KoloMonitor {
     fn build_trace_inner(&self, py: Python) -> Result<Py<PyBytes>, PyErr> {
         let frames_by_thread = std::mem::take(&mut *self.frames_by_thread.lock_py_attached(py).expect("mutex poisoned"));
         let trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned").clone();
+        let timestamp = *self.timestamp.lock_py_attached(py).expect("timestamp mutex poisoned");
 
         // Extract trace name if one wasn't explicitly set
         let trace_name = if self.trace_name.is_none() {
@@ -369,7 +376,7 @@ impl KoloMonitor {
             trace_name,
             &self.source,
             self.current_thread_id.clone(),
-            self.timestamp,
+            timestamp,
             &self.config,
             true, // use_monitoring
         )
@@ -502,16 +509,42 @@ impl KoloMonitor {
         Ok(self.trace_id.lock_py_attached(py).expect("mutex poisoned").clone())
     }
 
+    #[getter]
+    fn active(&self) -> bool {
+        self.active.load(Ordering::Acquire)
+    }
+
+    // Explicit setter method. We intentionally do NOT expose this as a
+    // Python attribute setter (via `#[setter]`) because PyO3-generated
+    // attribute setters require an exclusive borrow on the pyclass's PyCell,
+    // which conflicts with shared borrows held by other threads still
+    // running Python-level monitoring callbacks (e.g. a background save
+    // thread). Taking `&self` avoids the exclusive-borrow requirement.
+    fn set_active(&self, value: bool) {
+        self.active.store(value, Ordering::Release);
+    }
+
+    // See `set_active` for rationale. Uses a Mutex to store the f64.
+    fn set_timestamp(&self, py: Python, value: f64) {
+        *self.timestamp.lock_py_attached(py).expect("timestamp mutex poisoned") = value;
+    }
+
     fn save(&self, py: Python) -> Result<(), PyErr> {
         let trace = self.build_trace_inner(py)?;
         let kwargs = PyDict::new(py);
         kwargs.set_item("timeout", self.sqlite_busy_timeout)?;
-        kwargs.set_item("msgpack", trace)?;
+        kwargs.set_item("msgpack_data", trace)?;
+
+        // Convert db_path string to Path object
+        let pathlib = PyModule::import(py, "pathlib")?;
+        let path_class = pathlib.getattr(intern!(py, "Path"))?;
+        let db_path_obj = path_class.call1((&self.db_path,))?;
+        kwargs.set_item("db_path", db_path_obj)?;
 
         let trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned").clone();
         let db = PyModule::import(py, "kolo.db")?;
-        let save = db.getattr(intern!(py, "save_trace_in_sqlite"))?;
-        save.call((&self.db_path, &trace_id), Some(&kwargs))?;
+        let save = db.getattr(intern!(py, "save_trace"))?;
+        save.call((&trace_id,), Some(&kwargs))?;
         Ok(())
     }
 

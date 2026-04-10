@@ -48,7 +48,6 @@ __all__ = [
     "DEPTH_STATS_VERBOSE",
     "DNSCACHE_ENABLED",
     "DNSCACHE_SIZE",
-    "DNS_RESOLVER",
     "DNS_TIMEOUT",
     "DOWNLOADER",
     "DOWNLOADER_CLIENTCONTEXTFACTORY",
@@ -59,6 +58,7 @@ __all__ = [
     "DOWNLOADER_MIDDLEWARES",
     "DOWNLOADER_MIDDLEWARES_BASE",
     "DOWNLOADER_STATS",
+    "DOWNLOAD_BIND_ADDRESS",
     "DOWNLOAD_DELAY",
     "DOWNLOAD_FAIL_ON_DATALOSS",
     "DOWNLOAD_HANDLERS",
@@ -184,7 +184,9 @@ __all__ = [
     "TELNETCONSOLE_PORT",
     "TELNETCONSOLE_USERNAME",
     "TEMPLATES_DIR",
+    "TWISTED_DNS_RESOLVER",
     "TWISTED_REACTOR",
+    "TWISTED_REACTOR_ENABLED",
     "URLLENGTH_LIMIT",
     "USER_AGENT",
     "WARN_ON_GENERATOR_RETURN_VALUE",
@@ -242,6 +244,8 @@ DNSCACHE_SIZE = 10000
 DNS_RESOLVER = "scrapy.resolver.CachingThreadedResolver"
 DNS_TIMEOUT = 60
 
+DOWNLOAD_BIND_ADDRESS = None
+
 DOWNLOAD_DELAY = 0
 
 DOWNLOAD_FAIL_ON_DATALOSS = True
@@ -261,11 +265,11 @@ DOWNLOAD_WARNSIZE = 32 * 1024 * 1024  # 32m
 
 DOWNLOAD_TIMEOUT = 180  # 3mins
 
+DOWNLOAD_VERIFY_CERTIFICATES = False
+
 DOWNLOADER = "scrapy.core.downloader.Downloader"
 
-DOWNLOADER_CLIENTCONTEXTFACTORY = (
-    "scrapy.core.downloader.contextfactory.ScrapyClientContextFactory"
-)
+DOWNLOADER_CLIENTCONTEXTFACTORY = "SENTINEL"
 DOWNLOADER_CLIENT_TLS_CIPHERS = "DEFAULT"
 # Use highest TLS/SSL protocol version supported by the platform, also allowing negotiation:
 DOWNLOADER_CLIENT_TLS_METHOD = "TLS"
@@ -453,15 +457,14 @@ REQUEST_FINGERPRINTER_CLASS = "scrapy.utils.request.RequestFingerprinter"
 
 RETRY_ENABLED = True
 RETRY_EXCEPTIONS = [
-    "twisted.internet.defer.TimeoutError",
-    "twisted.internet.error.TimeoutError",
-    "twisted.internet.error.DNSLookupError",
-    "twisted.internet.error.ConnectionRefusedError",
+    "scrapy.exceptions.CannotResolveHostError",
+    "scrapy.exceptions.DownloadConnectionRefusedError",
+    "scrapy.exceptions.DownloadFailedError",
+    "scrapy.exceptions.DownloadTimeoutError",
+    "scrapy.exceptions.ResponseDataLossError",
     "twisted.internet.error.ConnectionDone",
     "twisted.internet.error.ConnectError",
     "twisted.internet.error.ConnectionLost",
-    "twisted.internet.error.TCPTimedOutError",
-    "twisted.web.client.ResponseFailed",
     # OSError is raised by the HttpCompression middleware when trying to
     # decompress an empty response
     OSError,
@@ -523,6 +526,9 @@ TELNETCONSOLE_PASSWORD = None
 
 TEMPLATES_DIR = str((Path(__file__).parent / ".." / "templates").resolve())
 
+TWISTED_DNS_RESOLVER = "scrapy.resolver.CachingThreadedResolver"
+
+TWISTED_REACTOR_ENABLED = True
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 
 URLLENGTH_LIMIT = 2083

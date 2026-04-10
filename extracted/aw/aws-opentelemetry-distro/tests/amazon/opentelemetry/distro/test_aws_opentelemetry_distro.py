@@ -1,15 +1,20 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
 import importlib
+import logging
 import os
 import sys
 from importlib.metadata import PackageNotFoundError, version
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from amazon.opentelemetry.distro.aws_opentelemetry_configurator import APPLICATION_SIGNALS_ENABLED_CONFIG
-from amazon.opentelemetry.distro.aws_opentelemetry_distro import AwsOpenTelemetryDistro
+from amazon.opentelemetry.distro.aws_opentelemetry_distro import (
+    AGENT_OBSERVABILITY_DISABLED_INSTRUMENTATIONS,
+    AwsOpenTelemetryDistro,
+)
 from opentelemetry import propagate
+from opentelemetry.distro import OpenTelemetryDistro
 from opentelemetry.environment_variables import (
     OTEL_LOGS_EXPORTER,
     OTEL_METRICS_EXPORTER,
@@ -29,7 +34,6 @@ from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
     OTEL_EXPORTER_OTLP_PROTOCOL,
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
-    OTEL_TRACES_SAMPLER,
 )
 
 
@@ -49,7 +53,6 @@ class TestAwsOpenTelemetryDistro(TestCase):
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT",
             OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
             OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
-            OTEL_TRACES_SAMPLER,
             OTEL_PYTHON_DISABLED_INSTRUMENTATIONS,
             OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED,
             APPLICATION_SIGNALS_ENABLED_CONFIG,
@@ -57,7 +60,7 @@ class TestAwsOpenTelemetryDistro(TestCase):
             "DJANGO_SETTINGS_MODULE",
             OTEL_EXPORTER_OTLP_ENDPOINT,
             OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
-            "AGENT_OBSERVABILITY_VERSION",
+            "AWS_AGENTIC_OBSERVABILITY_OPT_IN",
         ]
 
         # First, save all current values
@@ -156,11 +159,10 @@ class TestAwsOpenTelemetryDistro(TestCase):
         self.assertEqual(
             os.environ.get(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT), "https://logs.us-west-2.amazonaws.com/v1/logs"
         )
-        self.assertEqual(os.environ.get(OTEL_TRACES_SAMPLER), "parentbased_always_on")
+
         self.assertEqual(
             os.environ.get(OTEL_PYTHON_DISABLED_INSTRUMENTATIONS),
-            "http,sqlalchemy,psycopg2,pymysql,sqlite3,aiopg,asyncpg,mysql_connector,"
-            "urllib3,requests,system_metrics,google-genai",
+            AGENT_OBSERVABILITY_DISABLED_INSTRUMENTATIONS,
         )
         self.assertEqual(os.environ.get(OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED), "true")
         self.assertEqual(os.environ.get(APPLICATION_SIGNALS_ENABLED_CONFIG), "false")
@@ -270,22 +272,24 @@ class TestAwsOpenTelemetryDistro(TestCase):
 
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.get_aws_region")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_agent_observability_enabled")
+    @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_aws_agentic_observability_opt_in")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_installed")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.apply_instrumentation_patches")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.OpenTelemetryDistro._configure")
-    def test_configure_agent_observability_defaults_to_v1_when_version_not_set(
+    def test_configure_agent_observability_v1(
         self,
         mock_super_configure,
         mock_apply_patches,
         mock_is_installed,
+        mock_is_aws_agentic_observability_opt_in,
         mock_is_agent_observability,
         mock_get_aws_region,
     ):
-        """Test that when AGENT_OBSERVABILITY_VERSION is not set, it defaults to v1 configuration"""
+        """Test that AGENT_OBSERVABILITY_ENABLED uses v1 configuration"""
         mock_is_agent_observability.return_value = True
+        mock_is_aws_agentic_observability_opt_in.return_value = False
         mock_get_aws_region.return_value = "us-east-1"
         mock_is_installed.return_value = False
-        os.environ.pop("AGENT_OBSERVABILITY_VERSION", None)
 
         AwsOpenTelemetryDistro()._configure()
 
@@ -297,43 +301,62 @@ class TestAwsOpenTelemetryDistro(TestCase):
             os.environ.get(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT), "https://logs.us-east-1.amazonaws.com/v1/logs"
         )
         self.assertEqual(os.environ.get("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"), "true")
-        self.assertEqual(os.environ.get(OTEL_TRACES_SAMPLER), "parentbased_always_on")
+
         self.assertEqual(os.environ.get(OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED), "true")
         self.assertEqual(os.environ.get(APPLICATION_SIGNALS_ENABLED_CONFIG), "false")
         self.assertEqual(os.environ.get("OTEL_METRICS_ADD_APPLICATION_SIGNALS_DIMENSIONS"), "false")
+        disabled = os.environ.get(OTEL_PYTHON_DISABLED_INSTRUMENTATIONS, "").split(",")
+        self.assertNotIn("crewai", disabled)
+        self.assertNotIn("langchain", disabled)
+        self.assertNotIn("llama-index", disabled)
+        self.assertNotIn("llama_index", disabled)
+        self.assertNotIn("mcp", disabled)
+        self.assertIn("jinja2", disabled)
+        self.assertIn("aws_crewai", disabled)
+        self.assertIn("aws_langchain", disabled)
+        self.assertIn("aws_llama-index", disabled)
+        self.assertIn("aws_mcp", disabled)
 
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.get_aws_region")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_agent_observability_enabled")
+    @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_aws_agentic_observability_opt_in")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_installed")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.apply_instrumentation_patches")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.OpenTelemetryDistro._configure")
-    def test_configure_agent_observability_v2(
+    def test_configure_ai_observability_opt_in(
         self,
         mock_super_configure,
         mock_apply_patches,
         mock_is_installed,
+        mock_is_aws_agentic_observability_opt_in,
         mock_is_agent_observability,
         mock_get_aws_region,
     ):
-        """Test that version 2 uses localhost collector endpoint and otlp metrics"""
-        mock_is_agent_observability.return_value = True
+        """Test that AI_OBSERVABILITY_OPT_IN uses v2 collector config and disables 3rd party instrumentations"""
+        mock_is_agent_observability.return_value = False
+        mock_is_aws_agentic_observability_opt_in.return_value = True
         mock_get_aws_region.return_value = "us-east-1"
         mock_is_installed.return_value = False
-        os.environ["AGENT_OBSERVABILITY_VERSION"] = "2"
 
         AwsOpenTelemetryDistro()._configure()
 
         self.assertEqual(os.environ.get(OTEL_METRICS_EXPORTER), "otlp")
-        self.assertEqual(os.environ.get(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT), "http://localhost:4318/v1/traces")
-        self.assertEqual(os.environ.get(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT), "http://localhost:4318/v1/logs")
-        self.assertEqual(os.environ.get(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT), "http://localhost:4318/v1/metrics")
         self.assertEqual(os.environ.get("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"), "true")
-        self.assertEqual(os.environ.get(OTEL_TRACES_SAMPLER), "parentbased_always_on")
+
         self.assertEqual(os.environ.get(OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED), "true")
         self.assertEqual(os.environ.get(APPLICATION_SIGNALS_ENABLED_CONFIG), "false")
         self.assertEqual(os.environ.get("OTEL_METRICS_ADD_APPLICATION_SIGNALS_DIMENSIONS"), "false")
-
-        os.environ.pop("AGENT_OBSERVABILITY_VERSION", None)
+        disabled = os.environ.get(OTEL_PYTHON_DISABLED_INSTRUMENTATIONS, "").split(",")
+        self.assertIn("crewai", disabled)
+        self.assertIn("langchain", disabled)
+        self.assertIn("llama-index", disabled)
+        self.assertIn("llama_index", disabled)
+        self.assertIn("mcp", disabled)
+        self.assertIn("jinja2", disabled)
+        self.assertNotIn("aws_crewai", disabled)
+        self.assertNotIn("aws_langchain", disabled)
+        self.assertNotIn("aws_llama-index", disabled)
+        self.assertNotIn("aws_mcp", disabled)
 
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.apply_instrumentation_patches")
     @patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.OpenTelemetryDistro._configure")
@@ -526,20 +549,195 @@ class TestAwsOpenTelemetryDistro(TestCase):
         self.assertNotIn(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, os.environ)
         self.assertNotIn(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT, os.environ)
 
-    def test_base_otlp_endpoint_prevents_specific_endpoints_v2(self):
-        os.environ[OTEL_EXPORTER_OTLP_ENDPOINT] = "http://my-collector:4318"
-        os.environ["AGENT_OBSERVABILITY_VERSION"] = "2"
-        self._configure_with_agent_observability()
-        self.assertNotIn(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT, os.environ)
-        self.assertNotIn(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT, os.environ)
-        self.assertNotIn(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT, os.environ)
+    def test_load_instrumentor_skip_behavior(self):
+        cases = [
+            {
+                "env": {"AGENT_OBSERVABILITY_ENABLED": "true"},
+                "entry_name": "openai_agents",
+                "dist_name": "opentelemetry-instrumentation-openai-agents-v2",
+                "should_load": False,
+            },
+            {
+                "env": {"AGENT_OBSERVABILITY_ENABLED": "true"},
+                "entry_name": "openai_agents",
+                "dist_name": "openinference-instrumentation-openai-agents",
+                "should_load": True,
+            },
+            {
+                "env": {"AWS_AGENTIC_OBSERVABILITY_OPT_IN": "true"},
+                "entry_name": "openai_agents",
+                "dist_name": "opentelemetry-instrumentation-openai-agents-v2",
+                "should_load": True,
+            },
+            {
+                "env": {},
+                "entry_name": "openai_agents",
+                "dist_name": "opentelemetry-instrumentation-openai-agents-v2",
+                "should_load": True,
+            },
+        ]
+        for case in cases:
+            with self.subTest(case=case):
+                mock_entry_point = MagicMock()
+                mock_entry_point.name = case["entry_name"]
+                mock_entry_point.dist.name = case["dist_name"]
+
+                distro = AwsOpenTelemetryDistro()
+                with patch.dict(os.environ, case["env"], clear=False):
+                    with patch.object(OpenTelemetryDistro, "load_instrumentor") as mock_super:
+                        distro.load_instrumentor(mock_entry_point)
+                        if case["should_load"]:
+                            mock_super.assert_called_once_with(mock_entry_point)
+                        else:
+                            mock_super.assert_not_called()
 
     def _configure_with_agent_observability(self, region="us-west-2"):
         with patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.OpenTelemetryDistro._configure"), patch(
             "amazon.opentelemetry.distro.aws_opentelemetry_distro.apply_instrumentation_patches"
         ), patch("amazon.opentelemetry.distro.aws_opentelemetry_distro.is_installed", return_value=False), patch(
+            "amazon.opentelemetry.distro.aws_opentelemetry_distro.is_aws_agentic_observability_opt_in",
+            return_value=False,
+        ), patch(
             "amazon.opentelemetry.distro.aws_opentelemetry_distro.is_agent_observability_enabled", return_value=True
         ), patch(
             "amazon.opentelemetry.distro.aws_opentelemetry_distro.get_aws_region", return_value=region
         ):
             AwsOpenTelemetryDistro()._configure()
+
+
+class TestVersionCompatibilityCheck(TestCase):
+    """Tests for the OpenTelemetry version compatibility check."""
+
+    MODULE_PATH = "amazon.opentelemetry.distro.aws_opentelemetry_distro"
+
+    def test_no_warning_when_versions_match(self):
+        """No warning should be logged when installed versions match expected versions."""
+        from amazon.opentelemetry.distro.aws_opentelemetry_distro import _check_otel_version_compatibility
+
+        with patch(f"{self.MODULE_PATH}._get_requires") as mock_requires, patch(
+            f"{self.MODULE_PATH}._get_version"
+        ) as mock_version:
+            mock_requires.return_value = [
+                "opentelemetry-api == 1.40.0",
+                "opentelemetry-sdk == 1.40.0",
+            ]
+            mock_version.side_effect = lambda pkg: "1.40.0"
+
+            with self.assertLogs(self.MODULE_PATH, level="WARNING") as cm:
+                logging.getLogger(self.MODULE_PATH).warning("dummy")
+                _check_otel_version_compatibility()
+
+            # Only the dummy log should be present
+            self.assertEqual(len(cm.output), 1)
+            self.assertIn("dummy", cm.output[0])
+
+    def test_warning_when_api_version_mismatched(self):
+        """Warning should be logged when opentelemetry-api version doesn't match expected."""
+        from amazon.opentelemetry.distro.aws_opentelemetry_distro import _check_otel_version_compatibility
+
+        with patch(f"{self.MODULE_PATH}._get_requires") as mock_requires, patch(
+            f"{self.MODULE_PATH}._get_version"
+        ) as mock_version:
+            mock_requires.return_value = [
+                "opentelemetry-api == 1.40.0",
+                "opentelemetry-sdk == 1.40.0",
+            ]
+            mock_version.side_effect = lambda pkg: {"opentelemetry-api": "1.33.1", "opentelemetry-sdk": "1.40.0"}[pkg]
+
+            with self.assertLogs(self.MODULE_PATH, level="WARNING") as cm:
+                _check_otel_version_compatibility()
+
+            self.assertEqual(len(cm.output), 1)
+            self.assertIn("opentelemetry-api==1.33.1", cm.output[0])
+            self.assertIn("opentelemetry-api==1.40.0", cm.output[0])
+
+    def test_warning_when_both_versions_mismatched(self):
+        """Warning should include both packages when api and sdk are both mismatched."""
+        from amazon.opentelemetry.distro.aws_opentelemetry_distro import _check_otel_version_compatibility
+
+        with patch(f"{self.MODULE_PATH}._get_requires") as mock_requires, patch(
+            f"{self.MODULE_PATH}._get_version"
+        ) as mock_version:
+            mock_requires.return_value = [
+                "opentelemetry-api == 1.40.0",
+                "opentelemetry-sdk == 1.40.0",
+            ]
+            mock_version.side_effect = lambda pkg: "1.33.1"
+
+            with self.assertLogs(self.MODULE_PATH, level="WARNING") as cm:
+                _check_otel_version_compatibility()
+
+            self.assertEqual(len(cm.output), 1)
+            self.assertIn("opentelemetry-api==1.33.1", cm.output[0])
+            self.assertIn("opentelemetry-sdk==1.33.1", cm.output[0])
+            self.assertIn("opentelemetry-api==1.40.0", cm.output[0])
+            self.assertIn("opentelemetry-sdk==1.40.0", cm.output[0])
+
+    def test_exception_does_not_propagate(self):
+        """Check should silently handle exceptions without blocking startup."""
+        from amazon.opentelemetry.distro.aws_opentelemetry_distro import _check_otel_version_compatibility
+
+        with patch(f"{self.MODULE_PATH}._get_requires", side_effect=Exception("metadata unavailable")):
+            # Should not raise
+            _check_otel_version_compatibility()
+
+    def test_parsing_skips_similar_package_names(self):
+        """Parser should not confuse opentelemetry-sdk with opentelemetry-sdk-extension-aws."""
+        from amazon.opentelemetry.distro.aws_opentelemetry_distro import _check_otel_version_compatibility
+
+        with patch(f"{self.MODULE_PATH}._get_requires") as mock_requires, patch(
+            f"{self.MODULE_PATH}._get_version"
+        ) as mock_version:
+            mock_requires.return_value = [
+                "opentelemetry-api == 1.40.0",
+                "opentelemetry-sdk-extension-aws == 2.1.0",
+                "opentelemetry-sdk == 1.40.0",
+            ]
+            # Return 2.1.0 for sdk to verify it doesn't pick up sdk-extension-aws version
+            mock_version.side_effect = lambda pkg: "1.40.0"
+
+            with self.assertLogs(self.MODULE_PATH, level="WARNING") as cm:
+                logging.getLogger(self.MODULE_PATH).warning("dummy")
+                _check_otel_version_compatibility()
+
+            # Only the dummy log — no mismatch
+            self.assertEqual(len(cm.output), 1)
+            self.assertIn("dummy", cm.output[0])
+
+    def test_parsing_handles_no_spaces(self):
+        """Parser should handle requirement strings without spaces around ==."""
+        from amazon.opentelemetry.distro.aws_opentelemetry_distro import _check_otel_version_compatibility
+
+        with patch(f"{self.MODULE_PATH}._get_requires") as mock_requires, patch(
+            f"{self.MODULE_PATH}._get_version"
+        ) as mock_version:
+            mock_requires.return_value = [
+                "opentelemetry-api==1.40.0",
+                "opentelemetry-sdk==1.40.0",
+            ]
+            mock_version.side_effect = lambda pkg: "1.33.1"
+
+            with self.assertLogs(self.MODULE_PATH, level="WARNING") as cm:
+                _check_otel_version_compatibility()
+
+            self.assertIn("opentelemetry-api==1.33.1", cm.output[0])
+            self.assertIn("opentelemetry-api==1.40.0", cm.output[0])
+
+    def test_parsing_handles_environment_markers(self):
+        """Parser should strip environment markers from version strings."""
+        from amazon.opentelemetry.distro.aws_opentelemetry_distro import _check_otel_version_compatibility
+
+        with patch(f"{self.MODULE_PATH}._get_requires") as mock_requires, patch(
+            f"{self.MODULE_PATH}._get_version"
+        ) as mock_version:
+            mock_requires.return_value = [
+                'opentelemetry-api == 1.40.0 ; python_version >= "3.9"',
+                "opentelemetry-sdk == 1.40.0",
+            ]
+            mock_version.side_effect = lambda pkg: "1.33.1"
+
+            with self.assertLogs(self.MODULE_PATH, level="WARNING") as cm:
+                _check_otel_version_compatibility()
+
+            self.assertIn("opentelemetry-api==1.33.1", cm.output[0])
+            self.assertIn("opentelemetry-api==1.40.0", cm.output[0])

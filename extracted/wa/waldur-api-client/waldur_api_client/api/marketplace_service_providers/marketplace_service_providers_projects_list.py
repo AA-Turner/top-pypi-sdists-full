@@ -22,6 +22,7 @@ def _get_kwargs(
     can_manage: Union[Unset, bool] = UNSET,
     conceal_finished_projects: Union[Unset, bool] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, list[UUID]] = UNSET,
     customer_abbreviation: Union[Unset, str] = UNSET,
     customer_name: Union[Unset, str] = UNSET,
@@ -30,6 +31,7 @@ def _get_kwargs(
     field: Union[Unset, list[ProjectFieldEnum]] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]] = UNSET,
@@ -37,7 +39,7 @@ def _get_kwargs(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     slug: Union[Unset, str] = UNSET,
-    user_uuid: Union[Unset, UUID] = UNSET,
+    user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -53,6 +55,11 @@ def _get_kwargs(
     if not isinstance(created, Unset):
         json_created = created.isoformat()
     params["created"] = json_created
+
+    json_created_before: Union[Unset, str] = UNSET
+    if not isinstance(created_before, Unset):
+        json_created_before = created_before.isoformat()
+    params["created_before"] = json_created_before
 
     json_customer: Union[Unset, list[str]] = UNSET
     if not isinstance(customer, Unset):
@@ -87,6 +94,11 @@ def _get_kwargs(
         json_modified = modified.isoformat()
     params["modified"] = json_modified
 
+    json_modified_before: Union[Unset, str] = UNSET
+    if not isinstance(modified_before, Unset):
+        json_modified_before = modified_before.isoformat()
+    params["modified_before"] = json_modified_before
+
     params["name"] = name
 
     params["name_exact"] = name_exact
@@ -108,10 +120,10 @@ def _get_kwargs(
 
     params["slug"] = slug
 
-    json_user_uuid: Union[Unset, str] = UNSET
-    if not isinstance(user_uuid, Unset):
-        json_user_uuid = str(user_uuid)
-    params["user_uuid"] = json_user_uuid
+    json_user_uuid_with_active_role: Union[Unset, str] = UNSET
+    if not isinstance(user_uuid_with_active_role, Unset):
+        json_user_uuid_with_active_role = str(user_uuid_with_active_role)
+    params["user_uuid_with_active_role"] = json_user_uuid_with_active_role
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -159,6 +171,7 @@ def sync_detailed(
     can_manage: Union[Unset, bool] = UNSET,
     conceal_finished_projects: Union[Unset, bool] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, list[UUID]] = UNSET,
     customer_abbreviation: Union[Unset, str] = UNSET,
     customer_name: Union[Unset, str] = UNSET,
@@ -167,6 +180,7 @@ def sync_detailed(
     field: Union[Unset, list[ProjectFieldEnum]] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]] = UNSET,
@@ -174,7 +188,7 @@ def sync_detailed(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     slug: Union[Unset, str] = UNSET,
-    user_uuid: Union[Unset, UUID] = UNSET,
+    user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> Response[list["Project"]]:
     """List projects of a service provider
 
@@ -188,6 +202,7 @@ def sync_detailed(
         can_manage (Union[Unset, bool]):
         conceal_finished_projects (Union[Unset, bool]):
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, list[UUID]]):
         customer_abbreviation (Union[Unset, str]):
         customer_name (Union[Unset, str]):
@@ -196,6 +211,7 @@ def sync_detailed(
         field (Union[Unset, list[ProjectFieldEnum]]):
         is_removed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]]):
@@ -203,7 +219,7 @@ def sync_detailed(
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
         slug (Union[Unset, str]):
-        user_uuid (Union[Unset, UUID]):
+        user_uuid_with_active_role (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -220,6 +236,7 @@ def sync_detailed(
         can_manage=can_manage,
         conceal_finished_projects=conceal_finished_projects,
         created=created,
+        created_before=created_before,
         customer=customer,
         customer_abbreviation=customer_abbreviation,
         customer_name=customer_name,
@@ -228,6 +245,7 @@ def sync_detailed(
         field=field,
         is_removed=is_removed,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -235,7 +253,7 @@ def sync_detailed(
         page_size=page_size,
         query=query,
         slug=slug,
-        user_uuid=user_uuid,
+        user_uuid_with_active_role=user_uuid_with_active_role,
     )
 
     response = client.get_httpx_client().request(
@@ -254,6 +272,7 @@ def sync(
     can_manage: Union[Unset, bool] = UNSET,
     conceal_finished_projects: Union[Unset, bool] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, list[UUID]] = UNSET,
     customer_abbreviation: Union[Unset, str] = UNSET,
     customer_name: Union[Unset, str] = UNSET,
@@ -262,6 +281,7 @@ def sync(
     field: Union[Unset, list[ProjectFieldEnum]] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]] = UNSET,
@@ -269,7 +289,7 @@ def sync(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     slug: Union[Unset, str] = UNSET,
-    user_uuid: Union[Unset, UUID] = UNSET,
+    user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> list["Project"]:
     """List projects of a service provider
 
@@ -283,6 +303,7 @@ def sync(
         can_manage (Union[Unset, bool]):
         conceal_finished_projects (Union[Unset, bool]):
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, list[UUID]]):
         customer_abbreviation (Union[Unset, str]):
         customer_name (Union[Unset, str]):
@@ -291,6 +312,7 @@ def sync(
         field (Union[Unset, list[ProjectFieldEnum]]):
         is_removed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]]):
@@ -298,7 +320,7 @@ def sync(
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
         slug (Union[Unset, str]):
-        user_uuid (Union[Unset, UUID]):
+        user_uuid_with_active_role (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -316,6 +338,7 @@ def sync(
         can_manage=can_manage,
         conceal_finished_projects=conceal_finished_projects,
         created=created,
+        created_before=created_before,
         customer=customer,
         customer_abbreviation=customer_abbreviation,
         customer_name=customer_name,
@@ -324,6 +347,7 @@ def sync(
         field=field,
         is_removed=is_removed,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -331,7 +355,7 @@ def sync(
         page_size=page_size,
         query=query,
         slug=slug,
-        user_uuid=user_uuid,
+        user_uuid_with_active_role=user_uuid_with_active_role,
     ).parsed
 
 
@@ -344,6 +368,7 @@ async def asyncio_detailed(
     can_manage: Union[Unset, bool] = UNSET,
     conceal_finished_projects: Union[Unset, bool] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, list[UUID]] = UNSET,
     customer_abbreviation: Union[Unset, str] = UNSET,
     customer_name: Union[Unset, str] = UNSET,
@@ -352,6 +377,7 @@ async def asyncio_detailed(
     field: Union[Unset, list[ProjectFieldEnum]] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]] = UNSET,
@@ -359,7 +385,7 @@ async def asyncio_detailed(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     slug: Union[Unset, str] = UNSET,
-    user_uuid: Union[Unset, UUID] = UNSET,
+    user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> Response[list["Project"]]:
     """List projects of a service provider
 
@@ -373,6 +399,7 @@ async def asyncio_detailed(
         can_manage (Union[Unset, bool]):
         conceal_finished_projects (Union[Unset, bool]):
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, list[UUID]]):
         customer_abbreviation (Union[Unset, str]):
         customer_name (Union[Unset, str]):
@@ -381,6 +408,7 @@ async def asyncio_detailed(
         field (Union[Unset, list[ProjectFieldEnum]]):
         is_removed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]]):
@@ -388,7 +416,7 @@ async def asyncio_detailed(
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
         slug (Union[Unset, str]):
-        user_uuid (Union[Unset, UUID]):
+        user_uuid_with_active_role (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -405,6 +433,7 @@ async def asyncio_detailed(
         can_manage=can_manage,
         conceal_finished_projects=conceal_finished_projects,
         created=created,
+        created_before=created_before,
         customer=customer,
         customer_abbreviation=customer_abbreviation,
         customer_name=customer_name,
@@ -413,6 +442,7 @@ async def asyncio_detailed(
         field=field,
         is_removed=is_removed,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -420,7 +450,7 @@ async def asyncio_detailed(
         page_size=page_size,
         query=query,
         slug=slug,
-        user_uuid=user_uuid,
+        user_uuid_with_active_role=user_uuid_with_active_role,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -437,6 +467,7 @@ async def asyncio(
     can_manage: Union[Unset, bool] = UNSET,
     conceal_finished_projects: Union[Unset, bool] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, list[UUID]] = UNSET,
     customer_abbreviation: Union[Unset, str] = UNSET,
     customer_name: Union[Unset, str] = UNSET,
@@ -445,6 +476,7 @@ async def asyncio(
     field: Union[Unset, list[ProjectFieldEnum]] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]] = UNSET,
@@ -452,7 +484,7 @@ async def asyncio(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     slug: Union[Unset, str] = UNSET,
-    user_uuid: Union[Unset, UUID] = UNSET,
+    user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> list["Project"]:
     """List projects of a service provider
 
@@ -466,6 +498,7 @@ async def asyncio(
         can_manage (Union[Unset, bool]):
         conceal_finished_projects (Union[Unset, bool]):
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, list[UUID]]):
         customer_abbreviation (Union[Unset, str]):
         customer_name (Union[Unset, str]):
@@ -474,6 +507,7 @@ async def asyncio(
         field (Union[Unset, list[ProjectFieldEnum]]):
         is_removed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]]):
@@ -481,7 +515,7 @@ async def asyncio(
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
         slug (Union[Unset, str]):
-        user_uuid (Union[Unset, UUID]):
+        user_uuid_with_active_role (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -500,6 +534,7 @@ async def asyncio(
             can_manage=can_manage,
             conceal_finished_projects=conceal_finished_projects,
             created=created,
+            created_before=created_before,
             customer=customer,
             customer_abbreviation=customer_abbreviation,
             customer_name=customer_name,
@@ -508,6 +543,7 @@ async def asyncio(
             field=field,
             is_removed=is_removed,
             modified=modified,
+            modified_before=modified_before,
             name=name,
             name_exact=name_exact,
             o=o,
@@ -515,7 +551,7 @@ async def asyncio(
             page_size=page_size,
             query=query,
             slug=slug,
-            user_uuid=user_uuid,
+            user_uuid_with_active_role=user_uuid_with_active_role,
         )
     ).parsed
 
@@ -529,6 +565,7 @@ def sync_all(
     can_manage: Union[Unset, bool] = UNSET,
     conceal_finished_projects: Union[Unset, bool] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, list[UUID]] = UNSET,
     customer_abbreviation: Union[Unset, str] = UNSET,
     customer_name: Union[Unset, str] = UNSET,
@@ -537,12 +574,13 @@ def sync_all(
     field: Union[Unset, list[ProjectFieldEnum]] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]] = UNSET,
     query: Union[Unset, str] = UNSET,
     slug: Union[Unset, str] = UNSET,
-    user_uuid: Union[Unset, UUID] = UNSET,
+    user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> list["Project"]:
     """Get All Pages
 
@@ -558,6 +596,7 @@ def sync_all(
         can_manage (Union[Unset, bool]):
         conceal_finished_projects (Union[Unset, bool]):
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, list[UUID]]):
         customer_abbreviation (Union[Unset, str]):
         customer_name (Union[Unset, str]):
@@ -566,12 +605,13 @@ def sync_all(
         field (Union[Unset, list[ProjectFieldEnum]]):
         is_removed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]]):
         query (Union[Unset, str]):
         slug (Union[Unset, str]):
-        user_uuid (Union[Unset, UUID]):
+        user_uuid_with_active_role (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -592,6 +632,7 @@ def sync_all(
         can_manage=can_manage,
         conceal_finished_projects=conceal_finished_projects,
         created=created,
+        created_before=created_before,
         customer=customer,
         customer_abbreviation=customer_abbreviation,
         customer_name=customer_name,
@@ -600,12 +641,13 @@ def sync_all(
         field=field,
         is_removed=is_removed,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
         query=query,
         slug=slug,
-        user_uuid=user_uuid,
+        user_uuid_with_active_role=user_uuid_with_active_role,
     )
 
     # Set page_size to maximum
@@ -659,6 +701,7 @@ async def asyncio_all(
     can_manage: Union[Unset, bool] = UNSET,
     conceal_finished_projects: Union[Unset, bool] = UNSET,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, list[UUID]] = UNSET,
     customer_abbreviation: Union[Unset, str] = UNSET,
     customer_name: Union[Unset, str] = UNSET,
@@ -667,12 +710,13 @@ async def asyncio_all(
     field: Union[Unset, list[ProjectFieldEnum]] = UNSET,
     is_removed: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]] = UNSET,
     query: Union[Unset, str] = UNSET,
     slug: Union[Unset, str] = UNSET,
-    user_uuid: Union[Unset, UUID] = UNSET,
+    user_uuid_with_active_role: Union[Unset, UUID] = UNSET,
 ) -> list["Project"]:
     """Get All Pages (Async)
 
@@ -688,6 +732,7 @@ async def asyncio_all(
         can_manage (Union[Unset, bool]):
         conceal_finished_projects (Union[Unset, bool]):
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, list[UUID]]):
         customer_abbreviation (Union[Unset, str]):
         customer_name (Union[Unset, str]):
@@ -696,12 +741,13 @@ async def asyncio_all(
         field (Union[Unset, list[ProjectFieldEnum]]):
         is_removed (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[MarketplaceProviderCustomerProjectOEnum]]):
         query (Union[Unset, str]):
         slug (Union[Unset, str]):
-        user_uuid (Union[Unset, UUID]):
+        user_uuid_with_active_role (Union[Unset, UUID]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
@@ -722,6 +768,7 @@ async def asyncio_all(
         can_manage=can_manage,
         conceal_finished_projects=conceal_finished_projects,
         created=created,
+        created_before=created_before,
         customer=customer,
         customer_abbreviation=customer_abbreviation,
         customer_name=customer_name,
@@ -730,12 +777,13 @@ async def asyncio_all(
         field=field,
         is_removed=is_removed,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
         query=query,
         slug=slug,
-        user_uuid=user_uuid,
+        user_uuid_with_active_role=user_uuid_with_active_role,
     )
 
     # Set page_size to maximum

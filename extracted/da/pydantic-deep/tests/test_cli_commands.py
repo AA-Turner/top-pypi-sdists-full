@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from typer.testing import CliRunner
 
@@ -213,35 +213,3 @@ class TestThreadsDelete:
 
         # Session directory should be removed
         assert not session_dir.exists()
-
-
-class TestSandboxFlags:
-    """Tests for --sandbox and --runtime flags on run/chat."""
-
-    @patch("apps.cli.init.ensure_initialized", return_value=Path("/tmp"))
-    @patch("apps.cli.main.asyncio.run")
-    def test_run_with_sandbox(self, mock_asyncio_run: MagicMock, _: MagicMock) -> None:
-        mock_asyncio_run.return_value = 0
-        result = runner.invoke(app, ["run", "test", "--sandbox"])
-        assert result.exit_code == 0
-
-    @patch("apps.cli.init.ensure_initialized", return_value=Path("/tmp"))
-    @patch("apps.cli.main.asyncio.run")
-    def test_run_with_sandbox_and_runtime(self, mock_asyncio_run: MagicMock, _: MagicMock) -> None:
-        mock_asyncio_run.return_value = 0
-        result = runner.invoke(app, ["run", "test", "--sandbox", "--runtime", "python-datascience"])
-        assert result.exit_code == 0
-
-    @patch("apps.cli.init.ensure_initialized", return_value=Path("/tmp"))
-    @patch("apps.cli.main.asyncio.run")
-    def test_chat_with_sandbox(self, mock_asyncio_run: MagicMock, _: MagicMock) -> None:
-        mock_asyncio_run.return_value = None
-        result = runner.invoke(app, ["chat", "--sandbox"])
-        assert result.exit_code == 0
-
-    @patch("apps.cli.init.ensure_initialized", return_value=Path("/tmp"))
-    @patch("apps.cli.main.asyncio.run")
-    def test_chat_with_runtime(self, mock_asyncio_run: MagicMock, _: MagicMock) -> None:
-        mock_asyncio_run.return_value = None
-        result = runner.invoke(app, ["chat", "--sandbox", "--runtime", "node-minimal"])
-        assert result.exit_code == 0

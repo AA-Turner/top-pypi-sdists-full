@@ -8,7 +8,7 @@ from django.views.decorators.cache import cache_control
 from django.views.decorators.http import condition, conditional_page
 
 from ..db import get_db_last_modified
-from .api import delete_trace, generate_test, get_trace, latest_traces, read_source_file
+from .api import delete_trace, get_trace, latest_traces, read_source_file
 from .home import web_home_html
 
 
@@ -82,11 +82,6 @@ def kolo_web_api_get_trace(request: HttpRequest) -> HttpResponse:
 def kolo_web_api_delete_trace(request: HttpRequest) -> HttpResponse:
     trace_id = request.path.replace("/_kolo/api/traces/", "").replace("/", "")
     return JsonResponse(delete_trace(trace_id))
-
-
-def kolo_web_api_generate_test(request: HttpRequest) -> HttpResponse:
-    trace_id = request.path.replace("/_kolo/api/generate-test/", "").replace("/", "")
-    return JsonResponse(generate_test(trace_id))
 
 
 def kolo_web_api_source_file(request: HttpRequest) -> HttpResponse:

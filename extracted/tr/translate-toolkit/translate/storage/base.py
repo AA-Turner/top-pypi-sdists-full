@@ -25,9 +25,9 @@ import logging
 from io import BytesIO
 from itertools import starmap
 from typing import (
+    IO,
     TYPE_CHECKING,
     Any,
-    BinaryIO,
     ClassVar,
     Generic,
     Literal,
@@ -99,7 +99,7 @@ class TranslationUnit:
 
     """
 
-    rich_parsers: list[Callable[[str], list[StringElem] | None]] = []
+    rich_parsers: list[Callable[[str], StringElem | list[StringElem] | None]] = []
     """A list of functions to use for parsing a string into a rich string
     tree."""
 
@@ -888,7 +888,7 @@ class TranslationStore(Generic[U]):
         self.serialize(out)
         return out.getvalue()
 
-    def serialize(self, out: BinaryIO) -> None:
+    def serialize(self, out: IO[bytes]) -> None:
         """
         Converts to a bytes representation that can be parsed back using
         :meth:`~.TranslationStore.parsestring`.

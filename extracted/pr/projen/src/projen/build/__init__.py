@@ -278,6 +278,7 @@ class BuildWorkflow(
         container_image: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
+        mutable_install: typing.Optional[builtins.bool] = None,
         post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -294,6 +295,7 @@ class BuildWorkflow(
         :param container_image: (experimental) The container image to use for builds. Default: - the default workflow container
         :param git_identity: (experimental) Git identity to use for the workflow. Default: - default GitHub Actions user
         :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. This is enabled by default only if ``githubTokenSecret`` is set. Otherwise it is disabled, which implies that file changes that happen during build will not be pushed back to the branch. Default: true
+        :param mutable_install: (experimental) Perform a mutable (non-frozen) install during builds. This will update the package lockfile during installs, which is useful when build steps modify dependencies. Set to ``false`` to use frozen lockfile installs even when ``mutableBuild`` is enabled. Default: - value of ``mutableBuild``
         :param post_build_steps: (experimental) Steps to execute after build. Default: []
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param runs_on_group: (experimental) Github Runner Group selection options.
@@ -314,6 +316,7 @@ class BuildWorkflow(
             container_image=container_image,
             git_identity=git_identity,
             mutable_build=mutable_build,
+            mutable_install=mutable_install,
             post_build_steps=post_build_steps,
             runs_on=runs_on,
             runs_on_group=runs_on_group,
@@ -646,6 +649,7 @@ class BuildWorkflowCommonOptions:
         "container_image": "containerImage",
         "git_identity": "gitIdentity",
         "mutable_build": "mutableBuild",
+        "mutable_install": "mutableInstall",
         "post_build_steps": "postBuildSteps",
         "runs_on": "runsOn",
         "runs_on_group": "runsOnGroup",
@@ -665,6 +669,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         container_image: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
+        mutable_install: typing.Optional[builtins.bool] = None,
         post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -680,6 +685,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         :param container_image: (experimental) The container image to use for builds. Default: - the default workflow container
         :param git_identity: (experimental) Git identity to use for the workflow. Default: - default GitHub Actions user
         :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. This is enabled by default only if ``githubTokenSecret`` is set. Otherwise it is disabled, which implies that file changes that happen during build will not be pushed back to the branch. Default: true
+        :param mutable_install: (experimental) Perform a mutable (non-frozen) install during builds. This will update the package lockfile during installs, which is useful when build steps modify dependencies. Set to ``false`` to use frozen lockfile installs even when ``mutableBuild`` is enabled. Default: - value of ``mutableBuild``
         :param post_build_steps: (experimental) Steps to execute after build. Default: []
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param runs_on_group: (experimental) Github Runner Group selection options.
@@ -706,6 +712,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
             check_type(argname="argument container_image", value=container_image, expected_type=type_hints["container_image"])
             check_type(argname="argument git_identity", value=git_identity, expected_type=type_hints["git_identity"])
             check_type(argname="argument mutable_build", value=mutable_build, expected_type=type_hints["mutable_build"])
+            check_type(argname="argument mutable_install", value=mutable_install, expected_type=type_hints["mutable_install"])
             check_type(argname="argument post_build_steps", value=post_build_steps, expected_type=type_hints["post_build_steps"])
             check_type(argname="argument runs_on", value=runs_on, expected_type=type_hints["runs_on"])
             check_type(argname="argument runs_on_group", value=runs_on_group, expected_type=type_hints["runs_on_group"])
@@ -730,6 +737,8 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
             self._values["git_identity"] = git_identity
         if mutable_build is not None:
             self._values["mutable_build"] = mutable_build
+        if mutable_install is not None:
+            self._values["mutable_install"] = mutable_install
         if post_build_steps is not None:
             self._values["post_build_steps"] = post_build_steps
         if runs_on is not None:
@@ -856,6 +865,22 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def mutable_install(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Perform a mutable (non-frozen) install during builds.
+
+        This will update the
+        package lockfile during installs, which is useful when build steps modify
+        dependencies. Set to ``false`` to use frozen lockfile installs even when
+        ``mutableBuild`` is enabled.
+
+        :default: - value of ``mutableBuild``
+
+        :stability: experimental
+        '''
+        result = self._values.get("mutable_install")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def post_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after build.
 
@@ -940,6 +965,7 @@ def _typecheckingstub__f4d192684ec38f19e56855947a401da7aa8d483beaeef832704f28ff4
     container_image: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_build: typing.Optional[builtins.bool] = None,
+    mutable_install: typing.Optional[builtins.bool] = None,
     post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1029,6 +1055,7 @@ def _typecheckingstub__9d08c9df51ed0147527f9d30b5f0f37c5e4482b10a1ea4f55a1488562
     container_image: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
     mutable_build: typing.Optional[builtins.bool] = None,
+    mutable_install: typing.Optional[builtins.bool] = None,
     post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,

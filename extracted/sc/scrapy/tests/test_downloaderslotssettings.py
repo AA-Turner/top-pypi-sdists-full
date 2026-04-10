@@ -2,17 +2,16 @@ import time
 from typing import Any
 
 import pytest
-from twisted.internet.defer import inlineCallbacks
 
 from scrapy import Request
 from scrapy.core.downloader import Downloader, Slot
 from scrapy.crawler import CrawlerRunner
 from scrapy.exceptions import ScrapyDeprecationWarning
-from scrapy.utils.defer import deferred_f_from_coro_f
 from scrapy.utils.spider import DefaultSpider
 from scrapy.utils.test import get_crawler
 from tests.mockserver.http import MockServer
 from tests.spiders import MetaSpider
+from tests.utils.decorators import coroutine_test, inline_callbacks_test
 
 
 class DownloaderSlotsSettingsTestSpider(MetaSpider):
@@ -34,6 +33,7 @@ class DownloaderSlotsSettingsTestSpider(MetaSpider):
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
+        assert self.mockserver
         self.default_slot = self.mockserver.host
         self.times: dict[str, list[float]] = {}
 
@@ -68,7 +68,7 @@ class TestCrawl:
     def setup_method(self):
         self.runner = CrawlerRunner()
 
-    @inlineCallbacks
+    @inline_callbacks_test
     def test_delay(self):
         crawler = get_crawler(DownloaderSlotsSettingsTestSpider)
         yield crawler.crawl(mockserver=self.mockserver)
@@ -85,7 +85,8 @@ class TestCrawl:
         assert max(list(error_delta.values())) < tolerance
 
 
-def test_params():
+@coroutine_test
+async def test_params():
     params = {
         "concurrency": 1,
         "delay": 2,
@@ -99,9 +100,9 @@ def test_params():
     crawler = get_crawler(DefaultSpider, settings_dict=settings)
     crawler.spider = crawler._create_spider()
     downloader = Downloader(crawler)
-    downloader._slot_gc_loop.stop()  # Prevent an unclean reactor.
     request = Request("https://example.com")
     _, actual = downloader._get_slot(request)
+    downloader.close()
     expected = Slot(**params)
     for param in params:
         assert getattr(expected, param) == getattr(actual, param), (
@@ -109,11 +110,11 @@ def test_params():
         )
 
 
-def test_get_slot_deprecated_spider_arg():
+@coroutine_test
+async def test_get_slot_deprecated_spider_arg():
     crawler = get_crawler(DefaultSpider)
     crawler.spider = crawler._create_spider()
     downloader = Downloader(crawler)
-    downloader._slot_gc_loop.stop()  # Prevent an unclean reactor.
     request = Request("https://example.com")
 
     with pytest.warns(
@@ -122,6 +123,7 @@ def test_get_slot_deprecated_spider_arg():
     ):
         key1, slot1 = downloader._get_slot(request, spider=crawler.spider)
     key2, slot2 = downloader._get_slot(request)
+    downloader.close()
 
     assert key1 == key2
     assert slot1 == slot2
@@ -134,7 +136,7 @@ def test_get_slot_deprecated_spider_arg():
         "scrapy.pqueues.DownloaderAwarePriorityQueue",
     ],
 )
-@deferred_f_from_coro_f
+@coroutine_test
 async def test_none_slot_with_priority_queue(
     mockserver: MockServer, priority_queue_class: str
 ) -> None:

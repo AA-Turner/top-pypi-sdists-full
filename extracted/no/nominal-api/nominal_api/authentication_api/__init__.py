@@ -2,6 +2,8 @@
 from .._impl import (
     authentication_api_AppearanceSetting as AppearanceSetting,
     authentication_api_AuthenticationServiceV2 as AuthenticationServiceV2,
+    authentication_api_BatchPreregisterUsersRequest as BatchPreregisterUsersRequest,
+    authentication_api_BatchPreregisterUsersResponse as BatchPreregisterUsersResponse,
     authentication_api_ChartTooltipModeSetting as ChartTooltipModeSetting,
     authentication_api_CoachmarkDismissal as CoachmarkDismissal,
     authentication_api_DefaultNumberFormatConfigurations as DefaultNumberFormatConfigurations,
@@ -31,6 +33,8 @@ from .._impl import (
 
 __all__ = [
     'AppearanceSetting',
+    'BatchPreregisterUsersRequest',
+    'BatchPreregisterUsersResponse',
     'ChartTooltipModeSetting',
     'CoachmarkDismissal',
     'DefaultNumberFormatConfigurations',

@@ -1235,6 +1235,69 @@ def _plot_cid_rank_by_year(df_exp_data, experiment_name, dir_plots):
     plt.close(fig)
 
 
+def _generate_diagnostics_for_experiment(df_exp_data, exp_name, dg, dir_experiments):
+    """Scatter, MAPE bar chart, and MAPE choropleth for one experiment.
+
+    Args:
+        df_exp_data: full experiment DataFrame (all experiments)
+        exp_name: experiment label to filter on
+        dg: GeoDataFrame of boundaries (may be None if shapefiles unavailable)
+        dir_experiments: Path to ml/experiments/{today}/
+    Output dirs:
+        dir_experiments/plots/{exp_name}/  — scatter, MAPE bar
+        dir_experiments/maps/{exp_name}/   — MAPE choropleth
+    """
+    from geocif.viz import diagnostics as diag
+
+    df_exp = _filter_experiment(df_exp_data, exp_name)
+    obs_col, pred_col = _get_obs_pred_cols(df_exp)
+    if obs_col is None or df_exp.empty:
+        return
+
+    df_exp = df_exp.dropna(subset=[obs_col, pred_col]).copy()
+    df_exp = df_exp.rename(columns={obs_col: "Observed Yield (tn per ha)",
+                                     pred_col: "Predicted Yield (tn per ha)"})
+    if df_exp.empty:
+        return
+
+    dir_plots = dir_experiments / "plots" / exp_name
+    dir_maps  = dir_experiments / "maps"  / exp_name
+    os.makedirs(dir_plots, exist_ok=True)
+    os.makedirs(dir_maps, exist_ok=True)
+
+    # Scatter
+    diag.scatter_obs_pred(df_exp, exp_name, dir_plots, f"scatter_{exp_name}.png")
+
+    # MAPE bar chart
+    df_mape = df_exp.assign(
+        MAPE=lambda d: (
+            (d["Predicted Yield (tn per ha)"] - d["Observed Yield (tn per ha)"]).abs()
+            / d["Observed Yield (tn per ha)"].replace(0, np.nan) * 100
+        )
+    ).groupby("Region", as_index=False)["MAPE"].mean()
+    diag.mape_bar_chart(df_mape, exp_name, dir_plots, f"mape_bar_{exp_name}.png")
+
+    # MAPE choropleth map
+    if dg is not None and not dg.empty and not df_mape.empty:
+        country_map = (
+            df_exp.drop_duplicates("Region")
+            .set_index("Region")["Country"]
+            .str.lower().str.replace("_", " ")
+        )
+        df_mape["Country Region"] = (
+            country_map.reindex(df_mape["Region"]).values
+            + " "
+            + df_mape["Region"].str.lower()
+        )
+        df_mape = df_mape.rename(columns={"MAPE": "Mean Absolute Percentage Error"})
+        countries_display = df_exp["Country"].str.title().str.replace("_", " ").unique().tolist()
+        dg_sub = dg[dg["ADM0_NAME"].isin(countries_display)].copy()
+        diag.mape_choropleth(
+            dg_sub, df_mape, countries_display, False,
+            dir_maps, f"mape_map_{exp_name}.png",
+        )
+
+
 def analyze_experiments(parser, experiments, logger, best_models=None):
     """Read experiment results from DB and generate comparison plots."""
     logger.info("Analyzing experiment results...")
@@ -1254,9 +1317,17 @@ def analyze_experiments(parser, experiments, logger, best_models=None):
     dir_output = Path(parser.get("PATHS", "dir_output"))
     project_name = parser.get("DEFAULT", "project_name")
     today = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY")
-    dir_plots = dir_output / project_name / "ml" / "experiments" / today
+    dir_experiments = dir_output / project_name / "ml" / "experiments" / today
+    dir_plots = dir_experiments  # existing flat plots land here (unchanged)
     os.makedirs(dir_plots, exist_ok=True)
     _save_config(parser, dir_plots)
+
+    # Load shapefiles once for choropleth maps (gracefully skip if unavailable)
+    try:
+        from geocif.yield_outlook import _load_shapefiles
+        dg, _ = _load_shapefiles(parser)
+    except Exception:
+        dg = None
 
     # Compute metrics grouped by experiment variant, country, crop, region
     df_metrics = (
@@ -1294,6 +1365,9 @@ def analyze_experiments(parser, experiments, logger, best_models=None):
             _safe_plot(_plot_mape_by_cid_region, df_exp, exp_name, dir_plots)
             _safe_plot(_plot_mape_by_cid_year, df_exp, exp_name, dir_plots)
             _safe_plot(_plot_cid_rank_by_year, df_exp, exp_name, dir_plots)
+        # Diagnostic plots: scatter, MAPE bar, MAPE map
+        _safe_plot(_generate_diagnostics_for_experiment, df_exp, exp_name, dg, dir_experiments,
+                   name=f"diagnostics_{exp_name}")
 
     _plot_overall_comparison(df_metrics, experiments, dir_plots)
 

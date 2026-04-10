@@ -50,6 +50,7 @@ from .agent_task_stats_response_scheduled_tasks_item import AgentTaskStatsRespon
 from .agent_type_enum import AgentTypeEnum
 from .aggregated_usage_trend import AggregatedUsageTrend
 from .agreement_type_enum import AgreementTypeEnum
+from .aiassistantenabledroles_enum import AIASSISTANTENABLEDROLESEnum
 from .allocation import Allocation
 from .allocation_field_enum import AllocationFieldEnum
 from .allocation_marketplace_offering_plugin_options_type_0 import AllocationMarketplaceOfferingPluginOptionsType0
@@ -86,6 +87,10 @@ from .arrow_vendor_offering_mapping import ArrowVendorOfferingMapping
 from .arrow_vendor_offering_mapping_create import ArrowVendorOfferingMappingCreate
 from .arrow_vendor_offering_mapping_create_request import ArrowVendorOfferingMappingCreateRequest
 from .arrow_vendor_offering_mapping_request import ArrowVendorOfferingMappingRequest
+from .article_code_update_apply_request import ArticleCodeUpdateApplyRequest
+from .article_code_update_apply_response import ArticleCodeUpdateApplyResponse
+from .article_code_update_preview_item import ArticleCodeUpdatePreviewItem
+from .article_code_update_preview_request import ArticleCodeUpdatePreviewRequest
 from .assignment_batch import AssignmentBatch
 from .assignment_batch_list import AssignmentBatchList
 from .assignment_batch_list_o_enum import AssignmentBatchListOEnum
@@ -113,7 +118,12 @@ from .attachment_field_enum import AttachmentFieldEnum
 from .attachment_request import AttachmentRequest
 from .attachment_request_form import AttachmentRequestForm
 from .attachment_request_multipart import AttachmentRequestMultipart
+from .attribute import Attribute
+from .attribute_option import AttributeOption
+from .attribute_option_request import AttributeOptionRequest
+from .attribute_request import AttributeRequest
 from .attribute_source_detail import AttributeSourceDetail
+from .attribute_type_enum import AttributeTypeEnum
 from .auth_method_enum import AuthMethodEnum
 from .auth_result import AuthResult
 from .auth_result_request import AuthResultRequest
@@ -128,6 +138,7 @@ from .available_checklists_response import AvailableChecklistsResponse
 from .available_checklists_response_checklist_type_enum import AvailableChecklistsResponseChecklistTypeEnum
 from .available_checklists_response_customer_checklist_type_0 import AvailableChecklistsResponseCustomerChecklistType0
 from .available_checklists_response_intent_checklist_type_0 import AvailableChecklistsResponseIntentChecklistType0
+from .available_scope import AvailableScope
 from .aws_image import AwsImage
 from .aws_instance import AwsInstance
 from .aws_instance_field_enum import AwsInstanceFieldEnum
@@ -206,6 +217,7 @@ from .base_public_plan_request import BasePublicPlanRequest
 from .basic_customer import BasicCustomer
 from .basic_user import BasicUser
 from .bid_enum import BidEnum
+from .billing_mode_enum import BillingModeEnum
 from .billing_type_enum import BillingTypeEnum
 from .billing_unit import BillingUnit
 from .blank_enum import BlankEnum
@@ -244,6 +256,7 @@ from .call_managing_organisation_request import CallManagingOrganisationRequest
 from .call_managing_organisation_request_form import CallManagingOrganisationRequestForm
 from .call_managing_organisation_request_multipart import CallManagingOrganisationRequestMultipart
 from .call_managing_organisation_stat import CallManagingOrganisationStat
+from .call_performance_stat import CallPerformanceStat
 from .call_resource_template import CallResourceTemplate
 from .call_resource_template_request import CallResourceTemplateRequest
 from .call_reviewer_pool import CallReviewerPool
@@ -352,6 +365,7 @@ from .coi_status_update_request import COIStatusUpdateRequest
 from .coi_status_update_status_enum import COIStatusUpdateStatusEnum
 from .coi_type_enum import CoiTypeEnum
 from .comment import Comment
+from .comment_o_enum import CommentOEnum
 from .comment_request import CommentRequest
 from .compliance_overview import ComplianceOverview
 from .component_multiplier_config import ComponentMultiplierConfig
@@ -552,6 +566,7 @@ from .email_hook_request import EmailHookRequest
 from .email_invitation_request import EmailInvitationRequest
 from .email_log import EmailLog
 from .email_log_o_enum import EmailLogOEnum
+from .enabledreportingscreens_enum import ENABLEDREPORTINGSCREENSEnum
 from .endpoint_uuid import EndpointUUID
 from .endpoint_uuid_request import EndpointUUIDRequest
 from .entity_type_enum import EntityTypeEnum
@@ -638,6 +653,8 @@ from .firecrest_job_request_form import FirecrestJobRequestForm
 from .firecrest_job_request_multipart import FirecrestJobRequestMultipart
 from .flavor_response import FlavorResponse
 from .fontfamily_enum import FONTFAMILYEnum
+from .force_accept_pool_request import ForceAcceptPoolRequest
+from .force_unblock_request import ForceUnblockRequest
 from .freeipa_profile import FreeipaProfile
 from .freeipa_profile_request import FreeipaProfileRequest
 from .frequency_enum import FrequencyEnum
@@ -662,6 +679,7 @@ from .group_invitation_update_request import GroupInvitationUpdateRequest
 from .growth_period_enum import GrowthPeriodEnum
 from .guest_os_enum import GuestOsEnum
 from .guest_power_state_enum import GuestPowerStateEnum
+from .identity_bridge_allowed_fields import IdentityBridgeAllowedFields
 from .identity_bridge_remove_request import IdentityBridgeRemoveRequest
 from .identity_bridge_remove_result import IdentityBridgeRemoveResult
 from .identity_bridge_request_request import IdentityBridgeRequestRequest
@@ -779,7 +797,6 @@ from .keys_history_at_retrieve_response_400 import KeysHistoryAtRetrieveResponse
 from .keys_history_at_retrieve_response_404 import KeysHistoryAtRetrieveResponse404
 from .keyword_search_mode_enum import KeywordSearchModeEnum
 from .kind_enum import KindEnum
-from .lb_algorithm_enum import LbAlgorithmEnum
 from .lexis_link import LexisLink
 from .lexis_link_create_request import LexisLinkCreateRequest
 from .lexis_link_request import LexisLinkRequest
@@ -791,9 +808,9 @@ from .link_resource_request_request import LinkResourceRequestRequest
 from .link_resource_response import LinkResourceResponse
 from .link_to_invoice import LinkToInvoice
 from .link_to_invoice_request import LinkToInvoiceRequest
+from .load_balancer_async_operation_response import LoadBalancerAsyncOperationResponse
 from .load_balancer_attach_floating_ip_request import LoadBalancerAttachFloatingIPRequest
 from .load_balancer_protocol_enum import LoadBalancerProtocolEnum
-from .load_balancer_update_vip_security_groups_request import LoadBalancerUpdateVIPSecurityGroupsRequest
 from .lock_stats import LockStats
 from .loginpagelayout_enum import LOGINPAGELAYOUTEnum
 from .logout import Logout
@@ -880,6 +897,8 @@ from .marketplace_resources_suggest_name_response_200 import MarketplaceResource
 from .marketplace_service_provider_user import MarketplaceServiceProviderUser
 from .marketplace_service_provider_user_field_enum import MarketplaceServiceProviderUserFieldEnum
 from .marketplace_service_provider_user_o_enum import MarketplaceServiceProviderUserOEnum
+from .marketplacecardstyle_enum import MARKETPLACECARDSTYLEEnum
+from .marketplacelayoutmode_enum import MARKETPLACELAYOUTMODEEnum
 from .matching_algorithm import MatchingAlgorithm
 from .matching_configuration import MatchingConfiguration
 from .merged_plugin_options import MergedPluginOptions
@@ -914,7 +933,6 @@ from .nested_attribute import NestedAttribute
 from .nested_attribute_option import NestedAttributeOption
 from .nested_attribute_option_request import NestedAttributeOptionRequest
 from .nested_attribute_request import NestedAttributeRequest
-from .nested_attribute_type_enum import NestedAttributeTypeEnum
 from .nested_campaign import NestedCampaign
 from .nested_column import NestedColumn
 from .nested_column_request import NestedColumnRequest
@@ -1038,6 +1056,8 @@ from .offering_resource_options_update_request import OfferingResourceOptionsUpd
 from .offering_software_catalog import OfferingSoftwareCatalog
 from .offering_software_catalog_request import OfferingSoftwareCatalogRequest
 from .offering_state import OfferingState
+from .offering_state_counter import OfferingStateCounter
+from .offering_state_counters import OfferingStateCounters
 from .offering_stats import OfferingStats
 from .offering_stats_counter import OfferingStatsCounter
 from .offering_terms_of_service import OfferingTermsOfService
@@ -1155,7 +1175,6 @@ from .open_stack_load_balancer_field_enum import OpenStackLoadBalancerFieldEnum
 from .open_stack_load_balancer_marketplace_offering_plugin_options_type_0 import (
     OpenStackLoadBalancerMarketplaceOfferingPluginOptionsType0,
 )
-from .open_stack_load_balancer_request import OpenStackLoadBalancerRequest
 from .open_stack_nested_floating_ip import OpenStackNestedFloatingIP
 from .open_stack_nested_floating_ip_request import OpenStackNestedFloatingIPRequest
 from .open_stack_nested_instance import OpenStackNestedInstance
@@ -1183,7 +1202,6 @@ from .open_stack_pool_member_field_enum import OpenStackPoolMemberFieldEnum
 from .open_stack_pool_member_marketplace_offering_plugin_options_type_0 import (
     OpenStackPoolMemberMarketplaceOfferingPluginOptionsType0,
 )
-from .open_stack_pool_request import OpenStackPoolRequest
 from .open_stack_port import OpenStackPort
 from .open_stack_port_field_enum import OpenStackPortFieldEnum
 from .open_stack_port_ip_update_request import OpenStackPortIPUpdateRequest
@@ -1323,6 +1341,8 @@ from .patched_arrow_settings_request import PatchedArrowSettingsRequest
 from .patched_arrow_vendor_offering_mapping_request import PatchedArrowVendorOfferingMappingRequest
 from .patched_assignment_batch_request import PatchedAssignmentBatchRequest
 from .patched_assignment_item_request import PatchedAssignmentItemRequest
+from .patched_attribute_option_request import PatchedAttributeOptionRequest
+from .patched_attribute_request import PatchedAttributeRequest
 from .patched_aws_instance_request import PatchedAwsInstanceRequest
 from .patched_azure_public_ip_request import PatchedAzurePublicIPRequest
 from .patched_azure_sql_database_request import PatchedAzureSqlDatabaseRequest
@@ -1400,9 +1420,7 @@ from .patched_onboarding_question_metadata_request import PatchedOnboardingQuest
 from .patched_onboarding_verification_request import PatchedOnboardingVerificationRequest
 from .patched_open_stack_backup_request import PatchedOpenStackBackupRequest
 from .patched_open_stack_instance_request import PatchedOpenStackInstanceRequest
-from .patched_open_stack_load_balancer_request import PatchedOpenStackLoadBalancerRequest
 from .patched_open_stack_network_request import PatchedOpenStackNetworkRequest
-from .patched_open_stack_pool_request import PatchedOpenStackPoolRequest
 from .patched_open_stack_port_request import PatchedOpenStackPortRequest
 from .patched_open_stack_security_group_update_request import PatchedOpenStackSecurityGroupUpdateRequest
 from .patched_open_stack_snapshot_request import PatchedOpenStackSnapshotRequest
@@ -1471,7 +1489,9 @@ from .patched_tag_request import PatchedTagRequest
 from .patched_template_request import PatchedTemplateRequest
 from .patched_update_health_monitor_request import PatchedUpdateHealthMonitorRequest
 from .patched_update_listener_request import PatchedUpdateListenerRequest
+from .patched_update_load_balancer_request import PatchedUpdateLoadBalancerRequest
 from .patched_update_pool_member_request import PatchedUpdatePoolMemberRequest
+from .patched_update_pool_request import PatchedUpdatePoolRequest
 from .patched_user_agreement_request import PatchedUserAgreementRequest
 from .patched_user_info_request import PatchedUserInfoRequest
 from .patched_user_offering_consent_request import PatchedUserOfferingConsentRequest
@@ -1513,6 +1533,9 @@ from .person_identifier_fields_response import PersonIdentifierFieldsResponse
 from .person_identifier_fields_response_person_identifier_fields import (
     PersonIdentifierFieldsResponsePersonIdentifierFields,
 )
+from .personal_access_token import PersonalAccessToken
+from .personal_access_token_create_request import PersonalAccessTokenCreateRequest
+from .personal_access_token_created import PersonalAccessTokenCreated
 from .plan_component import PlanComponent
 from .plan_usage_response import PlanUsageResponse
 from .plugin_component import PluginComponent
@@ -1532,6 +1555,7 @@ from .project import Project
 from .project_answer import ProjectAnswer
 from .project_attach_request import ProjectAttachRequest
 from .project_classification_summary import ProjectClassificationSummary
+from .project_creation_trend import ProjectCreationTrend
 from .project_credit import ProjectCredit
 from .project_credit_o_enum import ProjectCreditOEnum
 from .project_credit_request import ProjectCreditRequest
@@ -1542,6 +1566,9 @@ from .project_digest_config_available_sections_item import ProjectDigestConfigAv
 from .project_digest_config_request import ProjectDigestConfigRequest
 from .project_digest_preview_request import ProjectDigestPreviewRequest
 from .project_digest_preview_response import ProjectDigestPreviewResponse
+from .project_end_date_change_request import ProjectEndDateChangeRequest
+from .project_end_date_change_request_create import ProjectEndDateChangeRequestCreate
+from .project_end_date_change_request_create_request import ProjectEndDateChangeRequestCreateRequest
 from .project_estimated_cost_policy import ProjectEstimatedCostPolicy
 from .project_estimated_cost_policy_request import ProjectEstimatedCostPolicyRequest
 from .project_field_enum import ProjectFieldEnum
@@ -1821,8 +1848,13 @@ from .resource_attributes import ResourceAttributes
 from .resource_backend_id_request import ResourceBackendIDRequest
 from .resource_backend_metadata_request import ResourceBackendMetadataRequest
 from .resource_current_usages import ResourceCurrentUsages
+from .resource_demand_stat import ResourceDemandStat
+from .resource_demand_stat_total_approved_limits import ResourceDemandStatTotalApprovedLimits
+from .resource_demand_stat_total_requested_limits import ResourceDemandStatTotalRequestedLimits
 from .resource_downscaled_request import ResourceDownscaledRequest
+from .resource_effective_id_request import ResourceEffectiveIDRequest
 from .resource_end_date_by_provider_request import ResourceEndDateByProviderRequest
+from .resource_end_date_request import ResourceEndDateRequest
 from .resource_field_enum import ResourceFieldEnum
 from .resource_keycloak_scopes_request import ResourceKeycloakScopesRequest
 from .resource_limit_period import ResourceLimitPeriod
@@ -1873,6 +1905,7 @@ from .resources_geography_summary import ResourcesGeographySummary
 from .resources_limits import ResourcesLimits
 from .restrictedofferingvisibilitymode_enum import RESTRICTEDOFFERINGVISIBILITYMODEEnum
 from .review_comment_request import ReviewCommentRequest
+from .review_progress_stat import ReviewProgressStat
 from .review_strategy_enum import ReviewStrategyEnum
 from .review_submit_request import ReviewSubmitRequest
 from .reviewer_affiliation import ReviewerAffiliation
@@ -2071,6 +2104,7 @@ from .storage_folder_config_request import StorageFolderConfigRequest
 from .storage_mode_enum import StorageModeEnum
 from .sub_net_mapping import SubNetMapping
 from .sub_net_mapping_request import SubNetMappingRequest
+from .submit_request_request import SubmitRequestRequest
 from .submit_request_response import SubmitRequestResponse
 from .subresource_offering import SubresourceOffering
 from .suggest_alternative_reviewers import SuggestAlternativeReviewers
@@ -2079,6 +2113,7 @@ from .suggestion_reject_request import SuggestionRejectRequest
 from .support_stats import SupportStats
 from .support_user import SupportUser
 from .supported_countries_response import SupportedCountriesResponse
+from .switch_billing_mode_request import SwitchBillingModeRequest
 from .sync_from_arrow_request_request import SyncFromArrowRequestRequest
 from .sync_pause_request_request import SyncPauseRequestRequest
 from .sync_pause_response import SyncPauseResponse
@@ -2130,6 +2165,7 @@ from .token_quota_usage_response import TokenQuotaUsageResponse
 from .token_request import TokenRequest
 from .tool_execute_request import ToolExecuteRequest
 from .top_queue import TopQueue
+from .top_service_provider_by_resources import TopServiceProviderByResources
 from .total_customer_cost import TotalCustomerCost
 from .transaction_stats import TransactionStats
 from .trigger_coi_detection_job_type_enum import TriggerCOIDetectionJobTypeEnum
@@ -2143,9 +2179,13 @@ from .update_health_monitor import UpdateHealthMonitor
 from .update_health_monitor_request import UpdateHealthMonitorRequest
 from .update_listener import UpdateListener
 from .update_listener_request import UpdateListenerRequest
+from .update_load_balancer import UpdateLoadBalancer
+from .update_load_balancer_request import UpdateLoadBalancerRequest
 from .update_offering_component_request import UpdateOfferingComponentRequest
+from .update_pool import UpdatePool
 from .update_pool_member import UpdatePoolMember
 from .update_pool_member_request import UpdatePoolMemberRequest
+from .update_pool_request import UpdatePoolRequest
 from .urgency_enum import UrgencyEnum
 from .user import User
 from .user_action import UserAction
@@ -2175,6 +2215,7 @@ from .user_info import UserInfo
 from .user_info_request import UserInfoRequest
 from .user_job_title_count import UserJobTitleCount
 from .user_language_count import UserLanguageCount
+from .user_nationality_stats import UserNationalityStats
 from .user_offering_consent import UserOfferingConsent
 from .user_offering_consent_create import UserOfferingConsentCreate
 from .user_offering_consent_create_request import UserOfferingConsentCreateRequest
@@ -2186,6 +2227,7 @@ from .user_registration_trend import UserRegistrationTrend
 from .user_request import UserRequest
 from .user_request_form import UserRequestForm
 from .user_request_multipart import UserRequestMultipart
+from .user_residence_country_stats import UserResidenceCountryStats
 from .user_role_create_request import UserRoleCreateRequest
 from .user_role_delete_request import UserRoleDeleteRequest
 from .user_role_details import UserRoleDetails
@@ -2314,6 +2356,7 @@ __all__ = (
     "AgentTypeEnum",
     "AggregatedUsageTrend",
     "AgreementTypeEnum",
+    "AIASSISTANTENABLEDROLESEnum",
     "Allocation",
     "AllocationFieldEnum",
     "AllocationMarketplaceOfferingPluginOptionsType0",
@@ -2350,6 +2393,10 @@ __all__ = (
     "ArrowVendorOfferingMappingCreate",
     "ArrowVendorOfferingMappingCreateRequest",
     "ArrowVendorOfferingMappingRequest",
+    "ArticleCodeUpdateApplyRequest",
+    "ArticleCodeUpdateApplyResponse",
+    "ArticleCodeUpdatePreviewItem",
+    "ArticleCodeUpdatePreviewRequest",
     "AssignmentBatch",
     "AssignmentBatchList",
     "AssignmentBatchListOEnum",
@@ -2377,7 +2424,12 @@ __all__ = (
     "AttachmentRequest",
     "AttachmentRequestForm",
     "AttachmentRequestMultipart",
+    "Attribute",
+    "AttributeOption",
+    "AttributeOptionRequest",
+    "AttributeRequest",
     "AttributeSourceDetail",
+    "AttributeTypeEnum",
     "AuthMethodEnum",
     "AuthResult",
     "AuthResultRequest",
@@ -2392,6 +2444,7 @@ __all__ = (
     "AvailableChecklistsResponseChecklistTypeEnum",
     "AvailableChecklistsResponseCustomerChecklistType0",
     "AvailableChecklistsResponseIntentChecklistType0",
+    "AvailableScope",
     "AwsImage",
     "AwsInstance",
     "AwsInstanceFieldEnum",
@@ -2460,6 +2513,7 @@ __all__ = (
     "BasicCustomer",
     "BasicUser",
     "BidEnum",
+    "BillingModeEnum",
     "BillingTypeEnum",
     "BillingUnit",
     "BlankEnum",
@@ -2498,6 +2552,7 @@ __all__ = (
     "CallManagingOrganisationRequestForm",
     "CallManagingOrganisationRequestMultipart",
     "CallManagingOrganisationStat",
+    "CallPerformanceStat",
     "CallResourceTemplate",
     "CallResourceTemplateRequest",
     "CallReviewerPool",
@@ -2606,6 +2661,7 @@ __all__ = (
     "COIStatusUpdateStatusEnum",
     "CoiTypeEnum",
     "Comment",
+    "CommentOEnum",
     "CommentRequest",
     "ComplianceOverview",
     "ComponentMultiplierConfig",
@@ -2800,6 +2856,7 @@ __all__ = (
     "EmailInvitationRequest",
     "EmailLog",
     "EmailLogOEnum",
+    "ENABLEDREPORTINGSCREENSEnum",
     "EndpointUUID",
     "EndpointUUIDRequest",
     "EntityTypeEnum",
@@ -2882,6 +2939,8 @@ __all__ = (
     "FirecrestJobRequestMultipart",
     "FlavorResponse",
     "FONTFAMILYEnum",
+    "ForceAcceptPoolRequest",
+    "ForceUnblockRequest",
     "FreeipaProfile",
     "FreeipaProfileRequest",
     "FrequencyEnum",
@@ -2906,6 +2965,7 @@ __all__ = (
     "GrowthPeriodEnum",
     "GuestOsEnum",
     "GuestPowerStateEnum",
+    "IdentityBridgeAllowedFields",
     "IdentityBridgeRemoveRequest",
     "IdentityBridgeRemoveResult",
     "IdentityBridgeRequestRequest",
@@ -3021,7 +3081,6 @@ __all__ = (
     "KeysHistoryAtRetrieveResponse404",
     "KeywordSearchModeEnum",
     "KindEnum",
-    "LbAlgorithmEnum",
     "LexisLink",
     "LexisLinkCreateRequest",
     "LexisLinkRequest",
@@ -3033,9 +3092,9 @@ __all__ = (
     "LinkResourceResponse",
     "LinkToInvoice",
     "LinkToInvoiceRequest",
+    "LoadBalancerAsyncOperationResponse",
     "LoadBalancerAttachFloatingIPRequest",
     "LoadBalancerProtocolEnum",
-    "LoadBalancerUpdateVIPSecurityGroupsRequest",
     "LockStats",
     "LOGINPAGELAYOUTEnum",
     "Logout",
@@ -3063,6 +3122,7 @@ __all__ = (
     "ManagedRancherCreateNodeRequest",
     "Mapping",
     "MappingRequest",
+    "MARKETPLACECARDSTYLEEnum",
     "MarketplaceCategory",
     "MarketplaceCategoryFieldEnum",
     "MarketplaceCategoryRequest",
@@ -3070,6 +3130,7 @@ __all__ = (
     "MarketplaceCategoryRequestMultipart",
     "MarketplaceCustomerStats",
     "MarketplaceGlobalCategoriesRetrieveResponse200",
+    "MARKETPLACELAYOUTMODEEnum",
     "MarketplaceOpenPortalCreateOrderAttributes",
     "MarketplaceOpenPortalRemoteCreateOrderAttributes",
     "MarketplaceOrdersSetBackendIdResponse200",
@@ -3138,7 +3199,6 @@ __all__ = (
     "NestedAttributeOption",
     "NestedAttributeOptionRequest",
     "NestedAttributeRequest",
-    "NestedAttributeTypeEnum",
     "NestedCampaign",
     "NestedColumn",
     "NestedColumnRequest",
@@ -3262,6 +3322,8 @@ __all__ = (
     "OfferingSoftwareCatalog",
     "OfferingSoftwareCatalogRequest",
     "OfferingState",
+    "OfferingStateCounter",
+    "OfferingStateCounters",
     "OfferingStats",
     "OfferingStatsCounter",
     "OfferingTermsOfService",
@@ -3365,7 +3427,6 @@ __all__ = (
     "OpenStackLoadBalancer",
     "OpenStackLoadBalancerFieldEnum",
     "OpenStackLoadBalancerMarketplaceOfferingPluginOptionsType0",
-    "OpenStackLoadBalancerRequest",
     "OpenStackNestedFloatingIP",
     "OpenStackNestedFloatingIPRequest",
     "OpenStackNestedInstance",
@@ -3387,7 +3448,6 @@ __all__ = (
     "OpenStackPoolMember",
     "OpenStackPoolMemberFieldEnum",
     "OpenStackPoolMemberMarketplaceOfferingPluginOptionsType0",
-    "OpenStackPoolRequest",
     "OpenStackPort",
     "OpenStackPortFieldEnum",
     "OpenStackPortIPUpdateRequest",
@@ -3511,6 +3571,8 @@ __all__ = (
     "PatchedArrowVendorOfferingMappingRequest",
     "PatchedAssignmentBatchRequest",
     "PatchedAssignmentItemRequest",
+    "PatchedAttributeOptionRequest",
+    "PatchedAttributeRequest",
     "PatchedAwsInstanceRequest",
     "PatchedAzurePublicIPRequest",
     "PatchedAzureSqlDatabaseRequest",
@@ -3584,9 +3646,7 @@ __all__ = (
     "PatchedOnboardingVerificationRequest",
     "PatchedOpenStackBackupRequest",
     "PatchedOpenStackInstanceRequest",
-    "PatchedOpenStackLoadBalancerRequest",
     "PatchedOpenStackNetworkRequest",
-    "PatchedOpenStackPoolRequest",
     "PatchedOpenStackPortRequest",
     "PatchedOpenStackSecurityGroupUpdateRequest",
     "PatchedOpenStackSnapshotRequest",
@@ -3655,7 +3715,9 @@ __all__ = (
     "PatchedTemplateRequest",
     "PatchedUpdateHealthMonitorRequest",
     "PatchedUpdateListenerRequest",
+    "PatchedUpdateLoadBalancerRequest",
     "PatchedUpdatePoolMemberRequest",
+    "PatchedUpdatePoolRequest",
     "PatchedUserAgreementRequest",
     "PatchedUserInfoRequest",
     "PatchedUserOfferingConsentRequest",
@@ -3687,6 +3749,9 @@ __all__ = (
     "PermissionMetadataResponseRoles",
     "PermissionMetadataResponseRolesAdditionalProperty",
     "PermissionRequest",
+    "PersonalAccessToken",
+    "PersonalAccessTokenCreated",
+    "PersonalAccessTokenCreateRequest",
     "PersonIdentifierFieldsResponse",
     "PersonIdentifierFieldsResponsePersonIdentifierFields",
     "PlanComponent",
@@ -3708,6 +3773,7 @@ __all__ = (
     "ProjectAnswer",
     "ProjectAttachRequest",
     "ProjectClassificationSummary",
+    "ProjectCreationTrend",
     "ProjectCredit",
     "ProjectCreditOEnum",
     "ProjectCreditRequest",
@@ -3718,6 +3784,9 @@ __all__ = (
     "ProjectDigestConfigRequest",
     "ProjectDigestPreviewRequest",
     "ProjectDigestPreviewResponse",
+    "ProjectEndDateChangeRequest",
+    "ProjectEndDateChangeRequestCreate",
+    "ProjectEndDateChangeRequestCreateRequest",
     "ProjectEstimatedCostPolicy",
     "ProjectEstimatedCostPolicyRequest",
     "ProjectFieldEnum",
@@ -3975,8 +4044,13 @@ __all__ = (
     "ResourceBackendIDRequest",
     "ResourceBackendMetadataRequest",
     "ResourceCurrentUsages",
+    "ResourceDemandStat",
+    "ResourceDemandStatTotalApprovedLimits",
+    "ResourceDemandStatTotalRequestedLimits",
     "ResourceDownscaledRequest",
+    "ResourceEffectiveIDRequest",
     "ResourceEndDateByProviderRequest",
+    "ResourceEndDateRequest",
     "ResourceFieldEnum",
     "ResourceKeycloakScopesRequest",
     "ResourceLimitPeriod",
@@ -4054,6 +4128,7 @@ __all__ = (
     "ReviewerSuggestionOEnum",
     "ReviewerSuggestionRequest",
     "ReviewerSuggestionStatusEnum",
+    "ReviewProgressStat",
     "ReviewStrategyEnum",
     "ReviewSubmitRequest",
     "RmqClientProperties",
@@ -4221,6 +4296,7 @@ __all__ = (
     "StorageFolderConfig",
     "StorageFolderConfigRequest",
     "StorageModeEnum",
+    "SubmitRequestRequest",
     "SubmitRequestResponse",
     "SubNetMapping",
     "SubNetMappingRequest",
@@ -4231,6 +4307,7 @@ __all__ = (
     "SupportedCountriesResponse",
     "SupportStats",
     "SupportUser",
+    "SwitchBillingModeRequest",
     "SyncedGroup",
     "SyncFromArrowRequestRequest",
     "SyncPauseRequestRequest",
@@ -4277,6 +4354,7 @@ __all__ = (
     "TokenRequest",
     "ToolExecuteRequest",
     "TopQueue",
+    "TopServiceProviderByResources",
     "ToSConsentDashboard",
     "TotalCustomerCost",
     "TransactionStats",
@@ -4291,9 +4369,13 @@ __all__ = (
     "UpdateHealthMonitorRequest",
     "UpdateListener",
     "UpdateListenerRequest",
+    "UpdateLoadBalancer",
+    "UpdateLoadBalancerRequest",
     "UpdateOfferingComponentRequest",
+    "UpdatePool",
     "UpdatePoolMember",
     "UpdatePoolMemberRequest",
+    "UpdatePoolRequest",
     "UrgencyEnum",
     "User",
     "UserAction",
@@ -4324,6 +4406,7 @@ __all__ = (
     "UserJobTitleCount",
     "UserLanguageCount",
     "UsernameGenerationPolicyEnum",
+    "UserNationalityStats",
     "UserOfferingConsent",
     "UserOfferingConsentCreate",
     "UserOfferingConsentCreateRequest",
@@ -4335,6 +4418,7 @@ __all__ = (
     "UserRequest",
     "UserRequestForm",
     "UserRequestMultipart",
+    "UserResidenceCountryStats",
     "UserRoleCreateRequest",
     "UserRoleDeleteRequest",
     "UserRoleDetails",

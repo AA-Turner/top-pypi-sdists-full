@@ -1,6 +1,6 @@
 import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -23,6 +23,11 @@ class ThreadSession:
         flags (Union[Unset, Any]):
         is_archived (Union[Unset, bool]):
         message_count (Union[Unset, int]):
+        input_tokens (Union[None, Unset, int]):
+        output_tokens (Union[None, Unset, int]):
+        total_tokens (Union[None, Unset, int]):
+        title_gen_input_tokens (Union[None, Unset, int]):
+        title_gen_output_tokens (Union[None, Unset, int]):
         is_flagged (Union[Unset, bool]):
         max_severity (Union[Unset, InjectionSeverityEnum]):
         user_username (Union[Unset, str]):
@@ -37,6 +42,11 @@ class ThreadSession:
     flags: Union[Unset, Any] = UNSET
     is_archived: Union[Unset, bool] = UNSET
     message_count: Union[Unset, int] = UNSET
+    input_tokens: Union[None, Unset, int] = UNSET
+    output_tokens: Union[None, Unset, int] = UNSET
+    total_tokens: Union[None, Unset, int] = UNSET
+    title_gen_input_tokens: Union[None, Unset, int] = UNSET
+    title_gen_output_tokens: Union[None, Unset, int] = UNSET
     is_flagged: Union[Unset, bool] = UNSET
     max_severity: Union[Unset, InjectionSeverityEnum] = UNSET
     user_username: Union[Unset, str] = UNSET
@@ -61,6 +71,36 @@ class ThreadSession:
         is_archived = self.is_archived
 
         message_count = self.message_count
+
+        input_tokens: Union[None, Unset, int]
+        if isinstance(self.input_tokens, Unset):
+            input_tokens = UNSET
+        else:
+            input_tokens = self.input_tokens
+
+        output_tokens: Union[None, Unset, int]
+        if isinstance(self.output_tokens, Unset):
+            output_tokens = UNSET
+        else:
+            output_tokens = self.output_tokens
+
+        total_tokens: Union[None, Unset, int]
+        if isinstance(self.total_tokens, Unset):
+            total_tokens = UNSET
+        else:
+            total_tokens = self.total_tokens
+
+        title_gen_input_tokens: Union[None, Unset, int]
+        if isinstance(self.title_gen_input_tokens, Unset):
+            title_gen_input_tokens = UNSET
+        else:
+            title_gen_input_tokens = self.title_gen_input_tokens
+
+        title_gen_output_tokens: Union[None, Unset, int]
+        if isinstance(self.title_gen_output_tokens, Unset):
+            title_gen_output_tokens = UNSET
+        else:
+            title_gen_output_tokens = self.title_gen_output_tokens
 
         is_flagged = self.is_flagged
 
@@ -95,6 +135,16 @@ class ThreadSession:
             field_dict["is_archived"] = is_archived
         if message_count is not UNSET:
             field_dict["message_count"] = message_count
+        if input_tokens is not UNSET:
+            field_dict["input_tokens"] = input_tokens
+        if output_tokens is not UNSET:
+            field_dict["output_tokens"] = output_tokens
+        if total_tokens is not UNSET:
+            field_dict["total_tokens"] = total_tokens
+        if title_gen_input_tokens is not UNSET:
+            field_dict["title_gen_input_tokens"] = title_gen_input_tokens
+        if title_gen_output_tokens is not UNSET:
+            field_dict["title_gen_output_tokens"] = title_gen_output_tokens
         if is_flagged is not UNSET:
             field_dict["is_flagged"] = is_flagged
         if max_severity is not UNSET:
@@ -135,6 +185,51 @@ class ThreadSession:
 
         message_count = d.pop("message_count", UNSET)
 
+        def _parse_input_tokens(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        input_tokens = _parse_input_tokens(d.pop("input_tokens", UNSET))
+
+        def _parse_output_tokens(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        output_tokens = _parse_output_tokens(d.pop("output_tokens", UNSET))
+
+        def _parse_total_tokens(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        total_tokens = _parse_total_tokens(d.pop("total_tokens", UNSET))
+
+        def _parse_title_gen_input_tokens(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        title_gen_input_tokens = _parse_title_gen_input_tokens(d.pop("title_gen_input_tokens", UNSET))
+
+        def _parse_title_gen_output_tokens(data: object) -> Union[None, Unset, int]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, int], data)
+
+        title_gen_output_tokens = _parse_title_gen_output_tokens(d.pop("title_gen_output_tokens", UNSET))
+
         is_flagged = d.pop("is_flagged", UNSET)
 
         _max_severity = d.pop("max_severity", UNSET)
@@ -169,6 +264,11 @@ class ThreadSession:
             flags=flags,
             is_archived=is_archived,
             message_count=message_count,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            title_gen_input_tokens=title_gen_input_tokens,
+            title_gen_output_tokens=title_gen_output_tokens,
             is_flagged=is_flagged,
             max_severity=max_severity,
             user_username=user_username,

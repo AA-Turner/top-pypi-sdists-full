@@ -23,7 +23,7 @@ class AgentIdentity:
         uuid (UUID):
         url (str):
         offering (UUID): UUID of an offering with a site-agent compatible type.
-        created_by (UUID):
+        created_by (Union[None, UUID]):
         name (str):
         created (datetime.datetime):
         modified (datetime.datetime):
@@ -38,7 +38,7 @@ class AgentIdentity:
     uuid: UUID
     url: str
     offering: UUID
-    created_by: UUID
+    created_by: Union[None, UUID]
     name: str
     created: datetime.datetime
     modified: datetime.datetime
@@ -57,7 +57,11 @@ class AgentIdentity:
 
         offering = str(self.offering)
 
-        created_by = str(self.created_by)
+        created_by: Union[None, str]
+        if isinstance(self.created_by, UUID):
+            created_by = str(self.created_by)
+        else:
+            created_by = self.created_by
 
         name = self.name
 
@@ -132,7 +136,20 @@ class AgentIdentity:
 
         offering = UUID(d.pop("offering"))
 
-        created_by = UUID(d.pop("created_by"))
+        def _parse_created_by(data: object) -> Union[None, UUID]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                created_by_type_0 = UUID(data)
+
+                return created_by_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID], data)
+
+        created_by = _parse_created_by(d.pop("created_by"))
 
         name = d.pop("name")
 

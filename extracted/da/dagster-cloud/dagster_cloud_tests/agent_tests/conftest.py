@@ -40,7 +40,7 @@ def agent_instance(agent_token, ursula_graphql_client):
                 "deployment": "sandbox",
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
         }
@@ -107,7 +107,7 @@ def agent_instance_local_ursula(agent_token, ursula_asgi_client):
                     "deployment": "sandbox",
                 },
                 "compute_logs": {
-                    "module": "dagster.core.storage.noop_compute_log_manager",
+                    "module": "dagster._core.storage.noop_compute_log_manager",
                     "class": "NoOpComputeLogManager",
                 },
             }
@@ -169,7 +169,7 @@ def server_ttl_agent_instance(agent_token, ursula_graphql_client):
                 "deployment": "sandbox",
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
         }
@@ -198,7 +198,7 @@ def branch_deployments_agent_instance(agent_token, ursula_graphql_client):
                 "branch_deployments": True,
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
         }
@@ -228,7 +228,7 @@ def branch_deployments_and_prod_deployments_instance(agent_token, ursula_graphql
                 "deployments": ["sandbox", "prod"],
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
         }
@@ -258,7 +258,7 @@ def serverless_instance(agent_token, ursula_graphql_client):
                 "all_serverless_deployments": True,
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
         }
@@ -284,7 +284,7 @@ def isolated_agents_instance(agent_token, ursula_graphql_client):
                 "deployment": "sandbox",
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
             "agent_replicas": {"enabled": True},
@@ -311,7 +311,7 @@ def agent_queues_agent_instance(agent_token, ursula_graphql_client):
                 "deployment": "sandbox",
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
             "agent_queues": {
@@ -345,7 +345,7 @@ def legacy_snapshot_upload_agent_instance(agent_token, ursula_graphql_client):
                 "deployment": "sandbox",
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
         }
@@ -429,7 +429,7 @@ def allowed_locations_agent_instance(agent_token, ursula_graphql_client):
                 "deployment": "sandbox",
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
             "allowed_full_deployment_locations": {
@@ -458,7 +458,7 @@ def allowed_branch_locations_agent_instance(agent_token, ursula_graphql_client):
                 "branch_deployments": True,
             },
             "compute_logs": {
-                "module": "dagster.core.storage.noop_compute_log_manager",
+                "module": "dagster._core.storage.noop_compute_log_manager",
                 "class": "NoOpComputeLogManager",
             },
             "allowed_branch_deployment_locations": ["allowed-branch-location"],

@@ -70,6 +70,10 @@ steps:
           backoff: exponential
           initial_delay: 10
 
+      # Real-behavior validation guardrail (#1200) is enforced inside the
+      # helper script: when the plan touches a SENSITIVE_PATH_PATTERNS glob,
+      # review-plan forces changes_requested unless the review JSON carries
+      # `real_validation_present: true`. See docs/workflows/local-cli-issue-flow.md.
       - id: review_plan
         type: runner
         runner: python_script
@@ -322,6 +326,11 @@ steps:
           - "{issue_number}"
         timeout: 60
 
+      # Real-behavior validation guardrail (#1200) is enforced inside the
+      # helper script: when the PR diff touches a SENSITIVE_PATH_PATTERNS
+      # glob, review-pr forces changes_requested unless the review JSON
+      # carries `real_validation_present: true` AND the PR body contains
+      # the `## Real-behavior validation` section. See docs/workflows/local-cli-issue-flow.md.
       - id: review_pr
         type: runner
         runner: python_script

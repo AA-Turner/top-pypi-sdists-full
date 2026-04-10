@@ -54,6 +54,24 @@ def _ccc_corrwith(df: pd.DataFrame, y: pd.Series) -> pd.Series:
     return pd.Series(results, dtype=float)
 
 
+def _r2_corrwith(df: pd.DataFrame, y: pd.Series) -> pd.Series:
+    """R² (squared Pearson r) of each column in df against y. Range: 0–1."""
+    results = {}
+    y_vals = y.values.astype(float)
+    for col in df.columns:
+        x_vals = df[col].values.astype(float)
+        mask = ~(np.isnan(x_vals) | np.isnan(y_vals))
+        if mask.sum() < 3:
+            continue
+        xm, ym = x_vals[mask], y_vals[mask]
+        sx, sy = xm.std(ddof=0), ym.std(ddof=0)
+        if sx == 0 or sy == 0:
+            continue
+        r = np.corrcoef(xm, ym)[0, 1]
+        results[col] = round(r ** 2, 3)
+    return pd.Series(results, dtype=float)
+
+
 def extract_regions(
     X: pd.DataFrame, 
     y: pd.Series, 
@@ -229,7 +247,8 @@ def get_top_correlated_features(
 def get_all_features_correlation(
     inputs: pd.DataFrame,
     targets: pd.Series,
-    method: str
+    method: str,
+    corr_fn=None,
 ) -> pd.DataFrame:
     """
     Compute correlations for all features, pivoted by time period.
@@ -255,9 +274,10 @@ def get_all_features_correlation(
 
     frames: list[pd.DataFrame] = []
 
+    _fn = corr_fn if corr_fn is not None else _ccc_corrwith
+
     for region_id, group in tqdm(df_all.groupby("Region", sort=False), leave=False):
-        # CCC computation (replaces Pearson corrwith)
-        correlations = _ccc_corrwith(group[numeric_cols], group["__target__"]).dropna()
+        correlations = _fn(group[numeric_cols], group["__target__"]).dropna()
         
         if correlations.empty:
             continue

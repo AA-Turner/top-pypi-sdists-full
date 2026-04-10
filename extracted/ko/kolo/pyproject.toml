@@ -5,7 +5,7 @@ backend-path = ["."]
 
 [project]
 name = "kolo"
-version = "2.42.1"
+version = "3.0.0"
 description = "See everything happening in your running Django app"
 readme = "README.md"
 authors = [{ name = "Wilhelm Klopp", email = "team@kolo.app" }]
@@ -20,6 +20,7 @@ classifiers = [
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.1",
     "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Rust",
@@ -50,20 +51,12 @@ dependencies = [
     "click>=7.1.2",
     "httpx",
     "importlib_metadata>=3.6; python_version<'3.10'",
-    "mocket>=3.13.1",
-    "more_itertools",
     "msgpack>=1.0.0",
     "platformdirs>=4.2.2",
     "sqlglot>=23.6.4",
-    "tabulate",
     "tomli>=2.0.0; python_version<'3.11'",
-    "toolz>=0.11.1",
-    "typing_extensions>=4.0.0",
     "ulid-py>=1.1.0",
 ]
-
-[project.optional-dependencies]
-cli = ["Pygments[windows-terminal]"]
 
 [project.scripts]
 kolo = "kolo.__main__:cli"
@@ -93,15 +86,21 @@ urllib = "kolo.filters.urllib:urllib"
 urllib3 = "kolo.filters.urllib3:urllib3"
 
 [tool.maturin]
-
 features = ["pyo3/extension-module"]
 profile = "release"
 module-name = "kolo._kolo"
-include = ["kolo/web/static/**/*", "kolo/js/*"]
+include = ["kolo/web/static/**/*"]
+
+[tool.coverage.paths]
+# Normalize paths from different CI runners to canonical 'src' directory
+# This allows coverage combine to merge data from Linux/Windows/BuildJet runners
+source = [
+    "src",
+    "*/kolo/python/src",
+    "D:\\a\\kolo\\kolo\\python\\src",
+    "C:\\a\\kolo\\kolo\\python\\src",
+]
 
 [tool.ruff]
 line-length = 88
 target-version = "py38"
-
-[tool.ruff.lint.per-file-ignores]
-"src/kolo/generate_tests/steps.py" = ["F402"]  # field is shadowed by loop vars throughout

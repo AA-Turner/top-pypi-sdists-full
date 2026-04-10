@@ -63,18 +63,21 @@ def file_format(
     Create a temporary file format for reading text files in Snowpark Connect.
     """
     if record_delimiter is None:
-        record_delimiter = "NONE"
+        record_delimiter_sql = "NONE"
         identifier_delimiter = "NONE"
     else:
-        record_delimiter = record_delimiter
-        # Encode delimiter to ensure that it is a valid identifier
+        # Convert delimiter to hex format (\xHH for each byte) for robustness
+        # This handles special characters, multibyte chars, and control characters safely
         identifier_delimiter = record_delimiter.encode("utf-8").hex()
+        record_delimiter_sql = "".join(
+            f"\\x{b:02x}" for b in record_delimiter.encode("utf-8")
+        )
 
     file_format_name = f"IDENTIFIER('__SNOWPARK_CONNECT_TEXT_FILE_FORMAT__{compression}_{identifier_delimiter}')"
     session.sql(
         f"""
     CREATE TEMPORARY FILE FORMAT IF NOT EXISTS  {file_format_name}
-    RECORD_DELIMITER = '{record_delimiter}'
+    RECORD_DELIMITER = '{record_delimiter_sql}'
     FIELD_DELIMITER = 'NONE'
     EMPTY_FIELD_AS_NULL = FALSE
     COMPRESSION = '{compression}'"""

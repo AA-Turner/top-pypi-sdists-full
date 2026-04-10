@@ -105,6 +105,9 @@ class ScrapeConfig(BaseApiConfig):
     os:Optional[str] = None
     auto_scroll:Optional[bool] = None
     cost_budget:Optional[int] = None
+    browser_brand:Optional[str] = None
+    geolocation:Optional[str] = None
+    proxified_response:Optional[bool] = None
 
     def __init__(
         self,
@@ -149,7 +152,10 @@ class ScrapeConfig(BaseApiConfig):
         os:Optional[str] = None,
         lang:Optional[List[str]] = None,
         auto_scroll:Optional[bool] = None,
-        cost_budget:Optional[int] = None
+        cost_budget:Optional[int] = None,
+        browser_brand:Optional[str] = None,
+        geolocation:Optional[str] = None,
+        proxified_response:Optional[bool] = None
     ):
         assert(type(url) is str)
 
@@ -202,6 +208,9 @@ class ScrapeConfig(BaseApiConfig):
         self.os = os
         self.auto_scroll = auto_scroll
         self.cost_budget = cost_budget
+        self.browser_brand = browser_brand
+        self.geolocation = geolocation
+        self.proxified_response = proxified_response
 
         if cookies:
             _cookies = []
@@ -258,6 +267,9 @@ class ScrapeConfig(BaseApiConfig):
 
         if self.cost_budget is not None:
             params['cost_budget'] = self.cost_budget
+
+        if self.proxified_response is not None:
+            params['proxified_response'] = self._bool_to_http(self.proxified_response)
 
         if self.render_js is True:
             params['render_js'] = self._bool_to_http(self.render_js)
@@ -381,6 +393,11 @@ class ScrapeConfig(BaseApiConfig):
         if self.os is not None:
             params['os'] = self.os
 
+        if self.browser_brand is not None:
+            params['browser_brand'] = self.browser_brand
+        if self.geolocation is not None:
+            params['geolocation'] = self.geolocation
+
         return params
 
     @staticmethod
@@ -478,6 +495,7 @@ class ScrapeConfig(BaseApiConfig):
             'os': self.os,
             'auto_scroll': self.auto_scroll,
             'cost_budget': self.cost_budget,
+            'browser_brand': self.browser_brand,
         }
 
     @staticmethod
@@ -532,6 +550,7 @@ class ScrapeConfig(BaseApiConfig):
         lang = scrape_config_dict.get('lang', None)
         auto_scroll = scrape_config_dict.get('auto_scroll', None)
         cost_budget = scrape_config_dict.get('cost_budget', None)
+        browser_brand = scrape_config_dict.get('browser_brand', None)
 
         return ScrapeConfig(
             url=url,
@@ -575,4 +594,5 @@ class ScrapeConfig(BaseApiConfig):
             lang=lang,
             auto_scroll=auto_scroll,
             cost_budget=cost_budget,
+            browser_brand=browser_brand,
         )

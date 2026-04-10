@@ -19,9 +19,7 @@ class CreatePoolMember:
         pool (str): Pool this member belongs to
         address (str): An IPv4 or IPv6 address.
         protocol_port (int): Port on the backend server
-        subnet_id (str):
-        project (str):
-        service_settings (str):
+        subnet (str):
         name (Union[Unset, str]):
         weight (Union[Unset, int]):  Default: 1.
     """
@@ -31,9 +29,7 @@ class CreatePoolMember:
     pool: str
     address: str
     protocol_port: int
-    subnet_id: str
-    project: str
-    service_settings: str
+    subnet: str
     name: Union[Unset, str] = UNSET
     weight: Union[Unset, int] = 1
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -50,11 +46,7 @@ class CreatePoolMember:
 
         protocol_port = self.protocol_port
 
-        subnet_id = self.subnet_id
-
-        project = self.project
-
-        service_settings = self.service_settings
+        subnet = self.subnet
 
         name = self.name
 
@@ -69,9 +61,7 @@ class CreatePoolMember:
                 "pool": pool,
                 "address": address,
                 "protocol_port": protocol_port,
-                "subnet_id": subnet_id,
-                "project": project,
-                "service_settings": service_settings,
+                "subnet": subnet,
             }
         )
         if name is not UNSET:
@@ -97,11 +87,7 @@ class CreatePoolMember:
 
         protocol_port = d.pop("protocol_port")
 
-        subnet_id = d.pop("subnet_id")
-
-        project = d.pop("project")
-
-        service_settings = d.pop("service_settings")
+        subnet = d.pop("subnet")
 
         name = d.pop("name", UNSET)
 
@@ -113,9 +99,7 @@ class CreatePoolMember:
             pool=pool,
             address=address,
             protocol_port=protocol_port,
-            subnet_id=subnet_id,
-            project=project,
-            service_settings=service_settings,
+            subnet=subnet,
             name=name,
             weight=weight,
         )

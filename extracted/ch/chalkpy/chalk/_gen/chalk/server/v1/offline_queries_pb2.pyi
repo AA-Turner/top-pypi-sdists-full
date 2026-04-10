@@ -740,3 +740,19 @@ class GetBatchReportResponse(_message.Message):
     BATCH_REPORT_FIELD_NUMBER: _ClassVar[int]
     batch_report: BatchReport
     def __init__(self, batch_report: _Optional[_Union[BatchReport, _Mapping]] = ...) -> None: ...
+
+class ListOfflineQueryNamesRequest(_message.Message):
+    __slots__ = ("cursor", "limit")
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    cursor: str
+    limit: int
+    def __init__(self, cursor: _Optional[str] = ..., limit: _Optional[int] = ...) -> None: ...
+
+class ListOfflineQueryNamesResponse(_message.Message):
+    __slots__ = ("query_names", "next_cursor")
+    QUERY_NAMES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    query_names: _containers.RepeatedScalarFieldContainer[str]
+    next_cursor: str
+    def __init__(self, query_names: _Optional[_Iterable[str]] = ..., next_cursor: _Optional[str] = ...) -> None: ...

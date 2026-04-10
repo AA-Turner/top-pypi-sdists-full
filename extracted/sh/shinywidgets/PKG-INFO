@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shinywidgets
-Version: 0.7.1
+Version: 0.7.2
 Summary: Render ipywidgets in Shiny applications
 Home-page: https://github.com/rstudio/py-shinywidgets
 Author: Carson Sievert

@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
-from pyspark.errors.exceptions.base import AnalysisException
+from pyspark.errors.exceptions.base import AnalysisException, IllegalArgumentException
 
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
@@ -37,6 +37,7 @@ from snowflake.snowpark.types import (
 )
 from snowflake.snowpark_connect.config import (
     get_boolean_session_config_param,
+    get_string_session_config_param,
     global_config,
     str_to_bool,
 )
@@ -86,6 +87,30 @@ def map_read_csv(
     We leverage the stage that is already created in the map_read function that
     calls this.
     """
+    # SPARK-35912: File sources like CSV can always contain NULL values,
+    # so Spark automatically converts non-nullable user schemas to nullable.
+    # This is controlled by snowpark.connect.io.validations.mode:
+    # - "lenient" (default): preserve original nullable settings
+    # - "strict": convert all fields to nullable (Spark behavior)
+    # Note: CSV and JSON reads support this config. Parquet may be added in the future.
+    io_validations_mode = (
+        get_string_session_config_param("snowpark.connect.io.validations.mode")
+        .strip()
+        .lower()
+        or "lenient"
+    )
+
+    if schema is not None and io_validations_mode == "strict":
+        schema = _make_schema_nullable(schema)
+
+    # Validate lineSep option - must not be empty (SPARK-35912 compatible behavior)
+    line_sep = options.config.get("linesep")
+    if line_sep is not None and line_sep == "":
+        exception = IllegalArgumentException(
+            "requirement failed: 'lineSep' cannot be an empty string."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+        raise exception
 
     if rel.read.is_streaming is True:
         # TODO: Structured streaming implementation.
@@ -667,6 +692,18 @@ def _deduplicate_column_names_pyspark_style(
     return result
 
 
+def _logical_field_delimiter_for_csv_reader(field_delimiter: str) -> str:
+    """Normalize FIELD_DELIMITER for Python's :mod:`csv` module.
+
+    Snowflake FILE FORMAT encodes a literal backslash as two ``\\`` characters in
+    option strings (SQL / CREATE FILE FORMAT — see SNOW-3245108).  The stdlib CSV
+    reader requires a single one-character delimiter.
+    """
+    if field_delimiter == "\\\\":
+        return "\\"
+    return field_delimiter
+
+
 def _get_header_names_raw(
     session: snowpark.Session,
     path: str,
@@ -724,7 +761,9 @@ def _get_header_names_raw(
     if first_content is None:
         return [], 0
 
-    delimiter = file_format_options.get("FIELD_DELIMITER", ",")
+    delimiter = _logical_field_delimiter_for_csv_reader(
+        file_format_options.get("FIELD_DELIMITER", ",")
+    )
     reader = csv_mod.reader(io.StringIO(first_content), delimiter=delimiter)
     cols = next(reader, [])
 
@@ -864,6 +903,58 @@ def relax_csv_types(t: DataType) -> DataType:
     return t
 
 
+def _make_schema_nullable(schema: StructType) -> StructType:
+    """
+    Convert all fields in a schema to nullable for CSV reading.
+
+    SPARK-35912: CSV file sources can always contain NULL values,
+    so Spark automatically converts non-nullable user schemas to nullable.
+    This matches that behavior when snowpark.connect.io.validations.mode="strict".
+
+    Args:
+        schema: The schema to convert.
+
+    Returns:
+        A new StructType with all fields set to nullable=True.
+    """
+
+    def _make_type_nullable(data_type: DataType) -> DataType:
+        """Recursively make nested types nullable."""
+        if isinstance(data_type, StructType):
+            return StructType(
+                [
+                    StructField(f.name, _make_type_nullable(f.datatype), nullable=True)
+                    for f in data_type.fields
+                ]
+            )
+        elif isinstance(data_type, ArrayType):
+            element_type = data_type.element_type
+            if element_type is not None:
+                return ArrayType(
+                    _make_type_nullable(element_type),
+                    contains_null=True,
+                )
+            return data_type
+        elif isinstance(data_type, MapType):
+            key_type = data_type.key_type
+            value_type = data_type.value_type
+            if key_type is not None and value_type is not None:
+                return MapType(
+                    _make_type_nullable(key_type),
+                    _make_type_nullable(value_type),
+                    value_contains_null=True,
+                )
+            return data_type
+        return data_type
+
+    return StructType(
+        [
+            StructField(f.name, _make_type_nullable(f.datatype), nullable=True)
+            for f in schema.fields
+        ]
+    )
+
+
 def _get_schema_for_copy_into(
     reader: DataFrameReader,
     session: snowpark.Session,
@@ -895,6 +986,7 @@ def _get_schema_for_copy_into(
         StructType schema to use for COPY INTO.
     """
     # Case 1: User provided schema - use it directly (cheapest, no I/O)
+    # Note: schema is already converted to nullable by map_read_csv (SPARK-35912)
     if schema is not None:
         return schema
 

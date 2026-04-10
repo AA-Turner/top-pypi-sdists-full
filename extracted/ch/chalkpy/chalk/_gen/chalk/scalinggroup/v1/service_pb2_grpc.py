@@ -35,6 +35,11 @@ class ScalingGroupManagerServiceStub(object):
             request_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupRequest.SerializeToString,
             response_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupResponse.FromString,
         )
+        self.BatchUpdateScalingGroupStatus = channel.unary_unary(
+            "/chalk.scalinggroup.v1.ScalingGroupManagerService/BatchUpdateScalingGroupStatus",
+            request_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.BatchUpdateScalingGroupStatusRequest.SerializeToString,
+            response_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.BatchUpdateScalingGroupStatusResponse.FromString,
+        )
 
 
 class ScalingGroupManagerServiceServicer(object):
@@ -64,6 +69,12 @@ class ScalingGroupManagerServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def BatchUpdateScalingGroupStatus(self, request, context):
+        """BatchUpdateScalingGroupStatus updates status for multiple scaling groups from the dataplane controller"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ScalingGroupManagerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -86,6 +97,11 @@ def add_ScalingGroupManagerServiceServicer_to_server(servicer, server):
             servicer.DeleteScalingGroup,
             request_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupRequest.FromString,
             response_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupResponse.SerializeToString,
+        ),
+        "BatchUpdateScalingGroupStatus": grpc.unary_unary_rpc_method_handler(
+            servicer.BatchUpdateScalingGroupStatus,
+            request_deserializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.BatchUpdateScalingGroupStatusRequest.FromString,
+            response_serializer=chalk_dot_scalinggroup_dot_v1_dot_service__pb2.BatchUpdateScalingGroupStatusResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -204,6 +220,35 @@ class ScalingGroupManagerService(object):
             "/chalk.scalinggroup.v1.ScalingGroupManagerService/DeleteScalingGroup",
             chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupRequest.SerializeToString,
             chalk_dot_scalinggroup_dot_v1_dot_service__pb2.DeleteScalingGroupResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def BatchUpdateScalingGroupStatus(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.scalinggroup.v1.ScalingGroupManagerService/BatchUpdateScalingGroupStatus",
+            chalk_dot_scalinggroup_dot_v1_dot_service__pb2.BatchUpdateScalingGroupStatusRequest.SerializeToString,
+            chalk_dot_scalinggroup_dot_v1_dot_service__pb2.BatchUpdateScalingGroupStatusResponse.FromString,
             options,
             channel_credentials,
             insecure,

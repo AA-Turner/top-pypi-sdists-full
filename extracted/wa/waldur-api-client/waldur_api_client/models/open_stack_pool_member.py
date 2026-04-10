@@ -54,7 +54,7 @@ class OpenStackPoolMember:
         load_balancer_uuid (Union[Unset, UUID]):
         address (Union[Unset, str]): An IPv4 or IPv6 address.
         protocol_port (Union[Unset, int]):
-        subnet_id (Union[Unset, str]): Subnet ID for the member (required for creation)
+        subnet (Union[None, Unset, str]):
         weight (Union[Unset, int]):
         provisioning_status (Union[Unset, str]):
         operating_status (Union[Unset, str]):
@@ -103,7 +103,7 @@ class OpenStackPoolMember:
     load_balancer_uuid: Union[Unset, UUID] = UNSET
     address: Union[Unset, str] = UNSET
     protocol_port: Union[Unset, int] = UNSET
-    subnet_id: Union[Unset, str] = UNSET
+    subnet: Union[None, Unset, str] = UNSET
     weight: Union[Unset, int] = UNSET
     provisioning_status: Union[Unset, str] = UNSET
     operating_status: Union[Unset, str] = UNSET
@@ -219,7 +219,11 @@ class OpenStackPoolMember:
 
         protocol_port = self.protocol_port
 
-        subnet_id = self.subnet_id
+        subnet: Union[None, Unset, str]
+        if isinstance(self.subnet, Unset):
+            subnet = UNSET
+        else:
+            subnet = self.subnet
 
         weight = self.weight
 
@@ -362,8 +366,8 @@ class OpenStackPoolMember:
             field_dict["address"] = address
         if protocol_port is not UNSET:
             field_dict["protocol_port"] = protocol_port
-        if subnet_id is not UNSET:
-            field_dict["subnet_id"] = subnet_id
+        if subnet is not UNSET:
+            field_dict["subnet"] = subnet
         if weight is not UNSET:
             field_dict["weight"] = weight
         if provisioning_status is not UNSET:
@@ -528,7 +532,14 @@ class OpenStackPoolMember:
 
         protocol_port = d.pop("protocol_port", UNSET)
 
-        subnet_id = d.pop("subnet_id", UNSET)
+        def _parse_subnet(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        subnet = _parse_subnet(d.pop("subnet", UNSET))
 
         weight = d.pop("weight", UNSET)
 
@@ -681,7 +692,7 @@ class OpenStackPoolMember:
             load_balancer_uuid=load_balancer_uuid,
             address=address,
             protocol_port=protocol_port,
-            subnet_id=subnet_id,
+            subnet=subnet,
             weight=weight,
             provisioning_status=provisioning_status,
             operating_status=operating_status,

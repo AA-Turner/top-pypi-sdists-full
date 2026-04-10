@@ -30,6 +30,7 @@ jobs:
           - "3.11"
           - "3.12"
           - "3.13"
+          - "3.14"
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -53,7 +54,7 @@ jobs:
         run: python -m pytest
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5.5.2
+        uses: codecov/codecov-action@v6.0.0
         with:
           env_vars: PYTHON
           flags: unittests

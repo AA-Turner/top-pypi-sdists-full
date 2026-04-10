@@ -35,6 +35,9 @@ class PermissionRequest:
         role_description (str):
         project_name_template (str):
         review_comment (Union[None, Unset, str]): Optional comment provided during review
+        project_name (Union[Unset, str]): Custom project name provided by user during invitation acceptance.
+        project_description (Union[Unset, str]): Custom project description provided by user during invitation
+            acceptance.
     """
 
     url: str
@@ -56,6 +59,8 @@ class PermissionRequest:
     role_description: str
     project_name_template: str
     review_comment: Union[None, Unset, str] = UNSET
+    project_name: Union[Unset, str] = UNSET
+    project_description: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -105,6 +110,10 @@ class PermissionRequest:
         else:
             review_comment = self.review_comment
 
+        project_name = self.project_name
+
+        project_description = self.project_description
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -131,6 +140,10 @@ class PermissionRequest:
         )
         if review_comment is not UNSET:
             field_dict["review_comment"] = review_comment
+        if project_name is not UNSET:
+            field_dict["project_name"] = project_name
+        if project_description is not UNSET:
+            field_dict["project_description"] = project_description
 
         return field_dict
 
@@ -195,6 +208,10 @@ class PermissionRequest:
 
         review_comment = _parse_review_comment(d.pop("review_comment", UNSET))
 
+        project_name = d.pop("project_name", UNSET)
+
+        project_description = d.pop("project_description", UNSET)
+
         permission_request = cls(
             url=url,
             uuid=uuid,
@@ -215,6 +232,8 @@ class PermissionRequest:
             role_description=role_description,
             project_name_template=project_name_template,
             review_comment=review_comment,
+            project_name=project_name,
+            project_description=project_description,
         )
 
         permission_request.additional_properties = d

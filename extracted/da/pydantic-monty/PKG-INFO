@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-monty
-Version: 0.0.9
+Version: 0.0.10
 Classifier: Development Status :: 3 - Alpha
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -20,6 +20,7 @@ Classifier: Environment :: MacOS X
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Internet
 Classifier: Programming Language :: Python :: Implementation
+Requires-Dist: typing-extensions>=4.5
 Summary: Python bindings for the Monty sandboxed Python interpreter
 Home-Page: https://github.com/pydantic/monty/
 License: MIT

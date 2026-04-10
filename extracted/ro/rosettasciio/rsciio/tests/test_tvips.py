@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -392,7 +392,7 @@ def test_tvips_file_reader(filename, lazy, kwargs, wsa):
         signal_test.data[..., ::2, :, :] = np.roll(
             signal_test.data[..., ::2, :, :], hyst, axis=-4
         )
-    assert np.allclose(signal_test.data, signal.data)
+    np.testing.assert_allclose(signal_test.data, signal.data, rtol=1e-6)
 
 
 @pytest.mark.xfail(raises=ValueError)

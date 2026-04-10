@@ -19,13 +19,12 @@ authors = [
     {name = "Jukka Lehtosalo", email = "jukka.lehtosalo@iki.fi"},
     {name = "Ivan Levkivskyi", email = "levkivskyi@gmail.com"},
 ]
-version = "0.8.1"
-license = {text = "MIT"}
+version = "0.9.0"
+license = "MIT"
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",

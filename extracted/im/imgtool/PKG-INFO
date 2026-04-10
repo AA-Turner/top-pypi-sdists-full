@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: imgtool
-Version: 2.3.0
+Version: 2.4.0
 Summary: MCUboot's image signing and key management
 Home-page: http://github.com/mcu-tools/mcuboot
 Author: The MCUboot committers

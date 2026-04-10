@@ -1,0 +1,182 @@
+from http import HTTPStatus
+from typing import Any, Union
+from uuid import UUID
+
+import httpx
+
+from ... import errors
+from ...client import AuthenticatedClient, Client
+from ...models.attribute_option import AttributeOption
+from ...models.patched_attribute_option_request import PatchedAttributeOptionRequest
+from ...types import Response
+
+
+def _get_kwargs(
+    uuid: UUID,
+    *,
+    body: PatchedAttributeOptionRequest,
+) -> dict[str, Any]:
+    headers: dict[str, Any] = {}
+
+    _kwargs: dict[str, Any] = {
+        "method": "patch",
+        "url": f"/api/marketplace-attribute-options/{uuid}/",
+    }
+
+    _kwargs["json"] = body.to_dict()
+
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
+    return _kwargs
+
+
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> AttributeOption:
+    if response.status_code == 404:
+        raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
+    if response.status_code == 200:
+        response_200 = AttributeOption.from_dict(response.json())
+
+        return response_200
+    raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
+
+
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[AttributeOption]:
+    return Response(
+        status_code=HTTPStatus(response.status_code),
+        content=response.content,
+        headers=response.headers,
+        parsed=_parse_response(client=client, response=response),
+    )
+
+
+def sync_detailed(
+    uuid: UUID,
+    *,
+    client: AuthenticatedClient,
+    body: PatchedAttributeOptionRequest,
+) -> Response[AttributeOption]:
+    """Partially update an attribute option
+
+     Partially updates an existing attribute option. To set the default option, PATCH the attribute with
+    default=<option_key>. Requires staff permissions.
+
+    Args:
+        uuid (UUID):
+        body (PatchedAttributeOptionRequest):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[AttributeOption]
+    """
+
+    kwargs = _get_kwargs(
+        uuid=uuid,
+        body=body,
+    )
+
+    response = client.get_httpx_client().request(
+        **kwargs,
+    )
+
+    return _build_response(client=client, response=response)
+
+
+def sync(
+    uuid: UUID,
+    *,
+    client: AuthenticatedClient,
+    body: PatchedAttributeOptionRequest,
+) -> AttributeOption:
+    """Partially update an attribute option
+
+     Partially updates an existing attribute option. To set the default option, PATCH the attribute with
+    default=<option_key>. Requires staff permissions.
+
+    Args:
+        uuid (UUID):
+        body (PatchedAttributeOptionRequest):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        AttributeOption
+    """
+
+    return sync_detailed(
+        uuid=uuid,
+        client=client,
+        body=body,
+    ).parsed
+
+
+async def asyncio_detailed(
+    uuid: UUID,
+    *,
+    client: AuthenticatedClient,
+    body: PatchedAttributeOptionRequest,
+) -> Response[AttributeOption]:
+    """Partially update an attribute option
+
+     Partially updates an existing attribute option. To set the default option, PATCH the attribute with
+    default=<option_key>. Requires staff permissions.
+
+    Args:
+        uuid (UUID):
+        body (PatchedAttributeOptionRequest):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[AttributeOption]
+    """
+
+    kwargs = _get_kwargs(
+        uuid=uuid,
+        body=body,
+    )
+
+    response = await client.get_async_httpx_client().request(**kwargs)
+
+    return _build_response(client=client, response=response)
+
+
+async def asyncio(
+    uuid: UUID,
+    *,
+    client: AuthenticatedClient,
+    body: PatchedAttributeOptionRequest,
+) -> AttributeOption:
+    """Partially update an attribute option
+
+     Partially updates an existing attribute option. To set the default option, PATCH the attribute with
+    default=<option_key>. Requires staff permissions.
+
+    Args:
+        uuid (UUID):
+        body (PatchedAttributeOptionRequest):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        AttributeOption
+    """
+
+    return (
+        await asyncio_detailed(
+            uuid=uuid,
+            client=client,
+            body=body,
+        )
+    ).parsed

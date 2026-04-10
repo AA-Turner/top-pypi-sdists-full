@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fast-agent-mcp
-Version: 0.6.12
+Version: 0.6.13
 Summary: Define, Prompt and Test MCP enabled Agents and Workflows
 Author-email: Shaun Smith <fastagent@llmindset.co.uk>
 License:                                  Apache License
@@ -227,7 +227,7 @@ Requires-Dist: anthropic[vertex]>=0.86.0
 Requires-Dist: deprecated>=1.2.18
 Requires-Dist: email-validator>=2.2.0
 Requires-Dist: fastapi>=0.121.0
-Requires-Dist: fastmcp==3.1.1
+Requires-Dist: fastmcp==3.2.0
 Requires-Dist: google-genai>=1.66.0
 Requires-Dist: keyring>=24.3.1
 Requires-Dist: mcp==1.26.0

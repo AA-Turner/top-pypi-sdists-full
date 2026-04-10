@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 from collections import deque
+from dataclasses import dataclass, field
 from datetime import datetime
 from time import time
 from typing import TYPE_CHECKING, Any
@@ -40,24 +41,21 @@ if TYPE_CHECKING:
     from scrapy.signalmanager import SignalManager
 
 
+@dataclass(slots=True, eq=False)
 class Slot:
     """Downloader slot"""
 
-    def __init__(
-        self,
-        concurrency: int,
-        delay: float,
-        randomize_delay: bool,
-    ):
-        self.concurrency: int = concurrency
-        self.delay: float = delay
-        self.randomize_delay: bool = randomize_delay
+    concurrency: int
+    delay: float
+    randomize_delay: bool
 
-        self.active: set[Request] = set()
-        self.queue: deque[tuple[Request, Deferred[Response]]] = deque()
-        self.transferring: set[Request] = set()
-        self.lastseen: float = 0
-        self.latercall: CallLaterResult | None = None
+    active: set[Request] = field(default_factory=set, init=False, repr=False)
+    queue: deque[tuple[Request, Deferred[Response]]] = field(
+        default_factory=deque, init=False, repr=False
+    )
+    transferring: set[Request] = field(default_factory=set, init=False, repr=False)
+    lastseen: float = field(default=0, init=False, repr=False)
+    latercall: CallLaterResult | None = field(default=None, init=False, repr=False)
 
     def free_transfer_slots(self) -> int:
         return self.concurrency - len(self.transferring)
@@ -71,14 +69,6 @@ class Slot:
         if self.latercall:
             self.latercall.cancel()
             self.latercall = None
-
-    def __repr__(self) -> str:
-        cls_name = self.__class__.__name__
-        return (
-            f"{cls_name}(concurrency={self.concurrency!r}, "
-            f"delay={self.delay:.2f}, "
-            f"randomize_delay={self.randomize_delay!r})"
-        )
 
     def __str__(self) -> str:
         return (
@@ -108,6 +98,7 @@ def _get_concurrency_delay(
 
 class Downloader:
     DOWNLOAD_SLOT = "download_slot"
+    _SLOT_GC_INTERVAL: float = 60.0  # seconds
 
     def __init__(self, crawler: Crawler):
         self.crawler: Crawler = crawler
@@ -125,10 +116,7 @@ class Downloader:
         self.middleware: DownloaderMiddlewareManager = (
             DownloaderMiddlewareManager.from_crawler(crawler)
         )
-        self._slot_gc_loop: AsyncioLoopingCall | LoopingCall = create_looping_call(
-            self._slot_gc
-        )
-        self._slot_gc_loop.start(60)
+        self._slot_gc_loop: AsyncioLoopingCall | LoopingCall | None = None
         self.per_slot_settings: dict[str, dict[str, Any]] = self.settings.getdict(
             "DOWNLOAD_SLOTS"
         )
@@ -159,9 +147,7 @@ class Downloader:
         if key not in self.slots:
             assert self.crawler.spider
             slot_settings = self.per_slot_settings.get(key, {})
-            conc = (
-                self.ip_concurrency if self.ip_concurrency else self.domain_concurrency
-            )
+            conc = self.ip_concurrency or self.domain_concurrency
             conc, delay = _get_concurrency_delay(
                 conc, self.crawler.spider, self.settings
             )
@@ -172,6 +158,7 @@ class Downloader:
             randomize_delay = slot_settings.get("randomize_delay", self.randomize_delay)
             new_slot = Slot(conc, delay, randomize_delay)
             self.slots[key] = new_slot
+            self._start_slot_gc()
 
         return key, self.slots[key]
 
@@ -273,7 +260,7 @@ class Downloader:
             queue_dfd.callback(response)  # awaited in _enqueue_request()
 
     def close(self) -> None:
-        self._slot_gc_loop.stop()
+        self._stop_slot_gc()
         for slot in self.slots.values():
             slot.close()
 
@@ -282,3 +269,14 @@ class Downloader:
         for key, slot in list(self.slots.items()):
             if not slot.active and slot.lastseen + slot.delay < mintime:
                 self.slots.pop(key).close()
+
+    def _start_slot_gc(self) -> None:
+        if self._slot_gc_loop:
+            return
+        self._slot_gc_loop = create_looping_call(self._slot_gc)
+        self._slot_gc_loop.start(self._SLOT_GC_INTERVAL, now=False)
+
+    def _stop_slot_gc(self) -> None:
+        if self._slot_gc_loop:
+            self._slot_gc_loop.stop()
+            self._slot_gc_loop = None

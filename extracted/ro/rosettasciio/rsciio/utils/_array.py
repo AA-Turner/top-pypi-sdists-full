@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -29,7 +29,7 @@ def sarray2dict(sarray, dictionary=None):
     sarray: struct array
     dictionary: None or dict
         If dictionary is not None the content of sarray will be appended to the
-        given dictonary
+        given dictionary
 
     Returns
     -------

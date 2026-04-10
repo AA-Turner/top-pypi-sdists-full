@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.114.2
+Version: 2.115.0
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -81,7 +81,7 @@ Requires-Dist: cohere==5.11.4; extra == "cohere"
 Provides-Extra: vertexai
 Requires-Dist: google-cloud-aiplatform<1.76.0; extra == "vertexai"
 Provides-Extra: sentence-transformers
-Requires-Dist: sentence-transformers; extra == "sentence-transformers"
+Requires-Dist: sentence-transformers==5.3.0; extra == "sentence-transformers"
 Provides-Extra: sql
 Requires-Dist: sqlalchemy[asyncio]<2,>=1.4.26; extra == "sql"
 Requires-Dist: adlfs; extra == "sql"

@@ -46,8 +46,8 @@ class OpenStackLoadBalancerFieldEnum(str, Enum):
     URL = "url"
     UUID = "uuid"
     VIP_ADDRESS = "vip_address"
-    VIP_PORT_ID = "vip_port_id"
-    VIP_SUBNET_ID = "vip_subnet_id"
+    VIP_PORT = "vip_port"
+    VIP_SUBNET = "vip_subnet"
 
     def __str__(self) -> str:
         return str(self.value)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tabpfn
-Version: 7.1.0
+Version: 7.1.1
 Summary: TabPFN: Foundation model for tabular data
 Author: Noah Hollmann, Samuel Müller, Lennart Purucker, Arjun Krishnakumar, Max Körfer, Shi Bin Hoo, Robin Tibor Schirrmeister, Frank Hutter, Eddie Bergman, Leo Grinsztajn, Felix Jabloski, Klemens Flöge, Oscar Key, Felix Birkel, Philipp Jund, Brendan Roof, Dominik Safaric, Benjamin Jaeger, Alan Arazi
 License: 
@@ -237,6 +237,8 @@ Requires-Dist: eval-type-backport>=0.2.2
 Requires-Dist: joblib>=1.2.0
 Requires-Dist: tabpfn-common-utils[telemetry-interactive]>=0.2.13
 Requires-Dist: filelock>=3.11.0
+Provides-Extra: wandb
+Requires-Dist: wandb>=0.25.1; extra == "wandb"
 Dynamic: license-file
 
 # TabPFN

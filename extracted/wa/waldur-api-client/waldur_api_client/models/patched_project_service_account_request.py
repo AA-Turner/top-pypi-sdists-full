@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar, Union, cast
 from uuid import UUID
 
 from attrs import define as _attrs_define
@@ -19,7 +19,7 @@ class PatchedProjectServiceAccountRequest:
         error_traceback (Union[Unset, str]):
         email (Union[Unset, str]):
         preferred_identifier (Union[Unset, str]):
-        project (Union[Unset, UUID]):
+        project (Union[None, UUID, Unset]):
     """
 
     username: Union[Unset, str] = UNSET
@@ -27,7 +27,7 @@ class PatchedProjectServiceAccountRequest:
     error_traceback: Union[Unset, str] = UNSET
     email: Union[Unset, str] = UNSET
     preferred_identifier: Union[Unset, str] = UNSET
-    project: Union[Unset, UUID] = UNSET
+    project: Union[None, UUID, Unset] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -41,9 +41,13 @@ class PatchedProjectServiceAccountRequest:
 
         preferred_identifier = self.preferred_identifier
 
-        project: Union[Unset, str] = UNSET
-        if not isinstance(self.project, Unset):
+        project: Union[None, Unset, str]
+        if isinstance(self.project, Unset):
+            project = UNSET
+        elif isinstance(self.project, UUID):
             project = str(self.project)
+        else:
+            project = self.project
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -76,12 +80,22 @@ class PatchedProjectServiceAccountRequest:
 
         preferred_identifier = d.pop("preferred_identifier", UNSET)
 
-        _project = d.pop("project", UNSET)
-        project: Union[Unset, UUID]
-        if isinstance(_project, Unset):
-            project = UNSET
-        else:
-            project = UUID(_project)
+        def _parse_project(data: object) -> Union[None, UUID, Unset]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                project_type_0 = UUID(data)
+
+                return project_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID, Unset], data)
+
+        project = _parse_project(d.pop("project", UNSET))
 
         patched_project_service_account_request = cls(
             username=username,

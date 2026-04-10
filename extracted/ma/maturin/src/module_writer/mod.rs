@@ -1,6 +1,4 @@
 use std::fmt::Write as _;
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt as _;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -40,8 +38,6 @@ mod private {
     pub trait Sealed {}
 }
 
-const EMPTY: Vec<u8> = vec![];
-
 /// Allows writing the module to a wheel or add it directly to the virtualenv
 pub trait ModuleWriterInternal: private::Sealed {
     /// Adds an entry into the archive
@@ -74,7 +70,7 @@ pub trait ModuleWriter: private::Sealed {
     /// Add an empty file to the target path
     #[inline]
     fn add_empty_file(&mut self, target: impl AsRef<Path>) -> Result<()> {
-        self.add_bytes(target, None, EMPTY, false)
+        self.add_bytes(target, None, Vec::new(), false)
     }
 }
 
@@ -174,13 +170,10 @@ pub fn write_python_part(
                 debug!("Ignoring develop build artifact {}", relative.display());
                 continue;
             }
-            #[cfg(unix)]
-            let mode = absolute.metadata()?.permissions().mode();
-            #[cfg(not(unix))]
-            let mode = 0o644;
+            let mode = file_permission_mode(&absolute)?;
             writer
                 .add_file(relative, &absolute, permission_is_executable(mode))
-                .context(format!("File to add file from {}", absolute.display()))?;
+                .context(format!("Failed to add file from {}", absolute.display()))?;
         }
     }
 
@@ -200,10 +193,7 @@ pub fn write_python_part(
                     python_dir,
                 )?;
                 for m in matches {
-                    #[cfg(unix)]
-                    let mode = m.source.metadata()?.permissions().mode();
-                    #[cfg(not(unix))]
-                    let mode = 0o644;
+                    let mode = file_permission_mode(m.source.as_ref())?;
                     writer.add_file(m.target, m.source, permission_is_executable(mode))?;
                 }
             }
@@ -240,46 +230,71 @@ pub fn add_data(
                 );
             }
             debug!("Adding data from {}", subdir.path().display());
-            (|| {
-                for file in WalkBuilder::new(subdir.path())
-                    .standard_filters(false)
-                    .build()
-                {
-                    let file = file?;
-                    #[cfg(unix)]
-                    let mode = file.metadata()?.permissions().mode();
-                    #[cfg(not(unix))]
-                    let mode = 0o644;
-                    let relative = metadata24
-                        .get_data_dir()
-                        .join(file.path().strip_prefix(data).unwrap());
-
-                    if file.path_is_symlink() {
-                        // Copy the actual file contents, not the link, so that you can create a
-                        // data directory by joining different data sources
-                        let source = fs::read_link(file.path())?;
-                        writer.add_file(
-                            relative,
-                            source.parent().unwrap(),
-                            permission_is_executable(mode),
-                        )?;
-                    } else if file.path().is_file() {
-                        writer.add_file(relative, file.path(), permission_is_executable(mode))?;
-                    } else if file.path().is_dir() {
-                        // Intentionally ignored
-                    } else {
-                        bail!("Can't handle data dir entry {}", file.path().display());
-                    }
-                }
-                Ok(())
-            })()
-            .with_context(|| format!("Failed to include data from {}", data.display()))?
+            add_data_subdir(writer, subdir.path().as_path(), data, metadata24)
+                .with_context(|| format!("Failed to include data from {}", data.display()))?
         }
     }
     Ok(())
 }
 
-/// Creates the .dist-info directory and fills it with all metadata files except RECORD
+/// Walk a single data subdirectory and add its files to the writer.
+fn add_data_subdir(
+    writer: &mut impl ModuleWriter,
+    subdir_path: &Path,
+    data: &Path,
+    metadata24: &Metadata24,
+) -> Result<()> {
+    for file in WalkBuilder::new(subdir_path)
+        .standard_filters(false)
+        .build()
+    {
+        let file = file?;
+        let relative_path = file.path().strip_prefix(data).with_context(|| {
+            format!(
+                "Data file {} is not under data dir {}",
+                file.path().display(),
+                data.display()
+            )
+        })?;
+        let relative = metadata24.get_data_dir().join(relative_path);
+
+        if file.path_is_symlink() {
+            // Copy the actual file contents, not the link, so that you can create a
+            // data directory by joining different data sources
+            let link_target = fs::read_link(file.path())?;
+            let source = if link_target.is_absolute() {
+                link_target
+            } else {
+                file.path()
+                    .parent()
+                    .with_context(|| {
+                        format!(
+                            "Data symlink {} has no parent directory",
+                            file.path().display()
+                        )
+                    })?
+                    .join(link_target)
+            };
+            let mode = file_permission_mode(&source)?;
+            writer.add_file(relative, source, permission_is_executable(mode))?;
+        } else if file.path().is_file() {
+            let mode = file_permission_mode(file.path())?;
+            writer.add_file(relative, file.path(), permission_is_executable(mode))?;
+        } else if file.path().is_dir() {
+            // Intentionally ignored
+        } else {
+            bail!("Can't handle data dir entry {}", file.path().display());
+        }
+    }
+    Ok(())
+}
+
+/// Creates the .dist-info directory and fills it with all metadata files except RECORD.
+///
+/// If the `MATURIN_PEP517_METADATA_DIR` environment variable is set, copies the
+/// pre-generated metadata files from that directory instead of regenerating them.
+/// The WHEEL file is always regenerated to ensure correct tags. This implements
+/// the PEP 517 requirement that `build_wheel` respects `metadata_directory`.
 pub fn write_dist_info(
     writer: &mut VirtualWriter<impl ModuleWriterInternal>,
     pyproject_dir: &Path,
@@ -287,6 +302,38 @@ pub fn write_dist_info(
     tags: &[String],
 ) -> Result<PathBuf> {
     let dist_info_dir = metadata24.get_dist_info_dir();
+
+    if let Ok(metadata_dir) = std::env::var("MATURIN_PEP517_METADATA_DIR") {
+        let metadata_path = Path::new(&metadata_dir);
+        // Support both forms:
+        //   1. Direct .dist-info path (pip's behavior)
+        //   2. Parent directory containing the .dist-info subdirectory (per PEP 517 spec)
+        let pre_existing = if metadata_path.is_dir()
+            && metadata_path
+                .file_name()
+                .is_some_and(|n| n.to_string_lossy().ends_with(".dist-info"))
+        {
+            metadata_path.to_path_buf()
+        } else {
+            let nested = metadata_path.join(&dist_info_dir);
+            if nested.is_dir() {
+                nested
+            } else {
+                bail!(
+                    "MATURIN_PEP517_METADATA_DIR is set to '{}' but no .dist-info directory \
+                     was found (tried both '{}' directly and '{}')",
+                    metadata_dir,
+                    metadata_path.display(),
+                    metadata_path.join(&dist_info_dir).display(),
+                );
+            }
+        };
+        debug!(
+            "Using pre-generated metadata from {}",
+            pre_existing.display()
+        );
+        return write_dist_info_from_dir(writer, &dist_info_dir, &pre_existing, tags);
+    }
 
     writer.add_bytes(
         dist_info_dir.join("METADATA"),
@@ -350,6 +397,57 @@ pub fn write_dist_info(
     }
 
     Ok(dist_info_dir)
+}
+
+/// Copies pre-generated metadata files from a `.dist-info` directory on disk into the wheel,
+/// but always regenerates the WHEEL file to ensure correct tags.
+fn write_dist_info_from_dir(
+    writer: &mut VirtualWriter<impl ModuleWriterInternal>,
+    dist_info_dir: &Path,
+    source_dir: &Path,
+    tags: &[String],
+) -> Result<PathBuf> {
+    // Always regenerate WHEEL to ensure correct tags for the built wheel
+    writer.add_bytes(
+        dist_info_dir.join("WHEEL"),
+        None,
+        wheel_file(tags)?.as_bytes(),
+        false,
+    )?;
+
+    // Copy all other files from the pre-generated .dist-info directory
+    for entry in fs::read_dir(source_dir)? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let file_name_str = file_name.to_string_lossy();
+
+        // Skip WHEEL (already regenerated) and RECORD (will be regenerated by WheelWriter)
+        if file_name_str == "WHEEL" || file_name_str == "RECORD" {
+            continue;
+        }
+
+        let entry_path = entry.path();
+        if entry_path.is_dir() {
+            // Recursively add subdirectories (e.g. licenses/)
+            for sub_entry in walkdir::WalkDir::new(&entry_path) {
+                let sub_entry = sub_entry?;
+                if sub_entry.file_type().is_file() {
+                    let rel = sub_entry.path().strip_prefix(source_dir).with_context(|| {
+                        format!(
+                            "walkdir entry '{}' is not under source dir '{}'",
+                            sub_entry.path().display(),
+                            source_dir.display()
+                        )
+                    })?;
+                    writer.add_file(dist_info_dir.join(rel), sub_entry.path(), false)?;
+                }
+            }
+        } else {
+            writer.add_file(dist_info_dir.join(&file_name), &entry_path, false)?;
+        }
+    }
+
+    Ok(dist_info_dir.to_owned())
 }
 
 /// Add a pth file to wheel root for editable installs
@@ -482,6 +580,21 @@ pub(crate) fn permission_is_executable(mode: u32) -> bool {
     (0o100 & mode) == 0o100
 }
 
+/// Returns the Unix permission mode of a file, or 0o644 on non-Unix platforms.
+#[inline]
+pub(crate) fn file_permission_mode(path: &std::path::Path) -> std::io::Result<u32> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        Ok(path.metadata()?.permissions().mode())
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Ok(0o644)
+    }
+}
+
 #[inline]
 pub(crate) fn default_permission(executable: bool) -> u32 {
     match executable {
@@ -492,10 +605,26 @@ pub(crate) fn default_permission(executable: bool) -> u32 {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Read as _;
+    #[cfg(unix)]
+    use std::os::unix::fs::{PermissionsExt as _, symlink};
+
+    use anyhow::Result;
+    use fs_err as fs;
+    use ignore::overrides::Override;
+    use pep440_rs::Version;
+    use tempfile::TempDir;
+    use zip::ZipArchive;
+    use zip::write::SimpleFileOptions;
+
+    use super::VirtualWriter;
+    use super::WheelWriter;
+    use super::add_data;
     use super::wheel_file;
+    use crate::Metadata24;
 
     #[test]
-    fn wheel_file_compressed_tags() -> Result<(), Box<dyn std::error::Error>> {
+    fn wheel_file_compressed_tags() -> Result<()> {
         let expected = format!(
             "Wheel-Version: 1.0
 Generator: {name} ({version})
@@ -516,6 +645,61 @@ Tag: cp37-abi3-manylinux2014_x86_64
         ])?;
         assert_eq!(expected, actual);
 
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn add_data_resolves_symlink_targets_and_uses_source_permissions() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let source = tmp_dir.path().join("README.md");
+        fs::write(&source, b"hello from symlink target")?;
+        fs::set_permissions(&source, std::fs::Permissions::from_mode(0o644))?;
+
+        let data_dir = tmp_dir.path().join("test-pkg.data");
+        let linked_dir = data_dir.join("data/data");
+        fs::create_dir_all(&linked_dir)?;
+        symlink("../../../README.md", linked_dir.join("README.md"))?;
+
+        let metadata = Metadata24::new("test-pkg".to_string(), Version::new([1, 0]));
+        let wheel_dir = tmp_dir.path().join("dist");
+        fs::create_dir_all(&wheel_dir)?;
+
+        let wheel_writer = WheelWriter::new(
+            "py3-none-any",
+            &wheel_dir,
+            &metadata,
+            SimpleFileOptions::default(),
+        )?;
+        let mut writer = VirtualWriter::new(wheel_writer, Override::empty());
+        let wheel_path = {
+            add_data(&mut writer, &metadata, Some(&data_dir))?;
+            writer.finish(&metadata, tmp_dir.path(), &["py3-none-any".to_string()])?
+        };
+
+        let mut wheel = ZipArchive::new(fs::File::open(&wheel_path)?)?;
+        let entry_name = metadata
+            .get_data_dir()
+            .join("data/data/README.md")
+            .to_string_lossy()
+            .replace('\\', "/");
+        {
+            let mut entry = wheel.by_name(&entry_name)?;
+            assert_eq!(entry.unix_mode().map(|mode| mode & 0o777), Some(0o644));
+
+            let mut content = String::new();
+            entry.read_to_string(&mut content)?;
+            assert_eq!(content, "hello from symlink target");
+        }
+
+        let record_name = metadata
+            .get_dist_info_dir()
+            .join("RECORD")
+            .to_string_lossy()
+            .replace('\\', "/");
+        assert!(wheel.by_name(&record_name).is_ok());
+
+        tmp_dir.close()?;
         Ok(())
     }
 }

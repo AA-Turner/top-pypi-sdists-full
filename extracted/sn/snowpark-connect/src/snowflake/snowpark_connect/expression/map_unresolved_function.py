@@ -4,14 +4,12 @@
 
 import datetime
 import functools
-import inspect
 import math
 import operator
 import random
 import re
 import string
 import sys
-import tempfile
 import time
 import uuid
 from collections import defaultdict
@@ -19,8 +17,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Context, Decimal
-from functools import partial, reduce
-from pathlib import Path
+from functools import reduce
 from typing import List, Optional
 from urllib.parse import quote, unquote
 
@@ -121,10 +118,12 @@ from snowflake.snowpark_connect.type_mapping import (
     map_type_to_snowflake_type,
 )
 from snowflake.snowpark_connect.typed_column import (
+    SelectedProjectionSpec,
     TypedColumn,
     TypedColumnWithDeferredCast,
     TypedColumnWithDeferredWindowBuilder,
 )
+from snowflake.snowpark_connect.utils import sfdb_udfs
 from snowflake.snowpark_connect.utils.context import (
     add_sql_aggregate_function,
     get_current_grouping_columns,
@@ -153,14 +152,7 @@ from snowflake.snowpark_connect.utils.udf_cache import (
     register_cached_sql_udf,
 )
 from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
-from snowflake.snowpark_connect.utils.xxhash64 import (
-    DEFAULT_SEED,
-    xxhash64_double,
-    xxhash64_float,
-    xxhash64_int,
-    xxhash64_long,
-    xxhash64_string,
-)
+from snowflake.snowpark_connect.utils.xxhash64 import DEFAULT_SEED
 
 MAX_UINT64 = 2**64 - 1
 MAX_INT64 = 2**63 - 1
@@ -560,6 +552,7 @@ def map_unresolved_function(
     function_name = exp.unresolved_function.function_name.lower()
     telemetry.report_function_usage(function_name)
     result_type: Optional[DataType | List[DateType]] = None
+    selected_projection_specs: list[SelectedProjectionSpec] | None = None
     qualifier_parts: List[str] = []
 
     # Check if this is an aggregate function (used by GROUP BY ALL implementation)
@@ -2669,19 +2662,9 @@ def map_unresolved_function(
             result_exp = _bitmap_construct_agg_udaf(snowpark_args[0])
             result_type = BinaryType()
         case "bitmap_count":
-
-            @cached_udf(input_types=[BinaryType()], return_type=LongType())
-            def _bitmap_count(bitmap: Optional[bytes]) -> Optional[int]:
-                if bitmap is None:
-                    return None
-
-                return functools.reduce(
-                    lambda acc, el: acc + bin(el).count("1"), list(bitmap), 0
-                )
-
-            # Spark returns long type
-            # https://github.com/apache/spark/blob/branch-3.5/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/bitmapExpressions.scala#L130
-            result_exp = _bitmap_count(snowpark_args[0])
+            result_exp = snowpark_fn.call_function(
+                sfdb_udfs.bitmap_count, snowpark_args[0]
+            )
             result_type = LongType()
         case "bitmap_or_agg":
 
@@ -3311,28 +3294,17 @@ def map_unresolved_function(
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
 
-            # UDF to calculate the unsigned CRC32 value of data in bytes. Returns the CRC32 value
-            # as a 32-bit INT, or None if the input is None.
-            @cached_udf(
-                input_types=[snowpark_typed_args[0].typ],
-                return_type=LongType(),
-            )
-            def _crc32(data):
-                import zlib
+            if isinstance(snowpark_typed_args[0].typ, BinaryType):
+                result_exp = snowpark_fn.call_function(
+                    sfdb_udfs.crc32_binary, snowpark_args[0]
+                )
+            else:
+                result_exp = snowpark_fn.call_function(
+                    sfdb_udfs.crc32_string,
+                    snowpark_fn.cast(snowpark_args[0], StringType()),
+                )
 
-                if data is None:
-                    return None
-
-                if isinstance(data, bytes) or isinstance(data, bytearray):
-                    crc32_value = zlib.crc32(data)
-                else:
-                    crc32_value = zlib.crc32(data.encode("utf-8"))
-
-                return crc32_value
-
-            result_exp = _crc32(snowpark_args[0])
             result_type = LongType()
-
         case "csc":
             spark_function_name = f"CSC({snowpark_arg_names[0]})"
             csc_base = snowpark_fn.when(
@@ -6779,91 +6751,131 @@ def map_unresolved_function(
             url, part_to_extract = snowpark_args[0], snowpark_args[1]
             key = snowpark_args[2] if len(snowpark_args) > 2 else snowpark_fn.lit(None)
 
-            result_exp = snowpark_fn.call_function("parse_url", url)
+            parsed_url = snowpark_fn.call_function("parse_url", url)
             split_part = snowpark_fn.function("split_part")
 
-            host = snowpark_fn.get(result_exp, snowpark_fn.lit("host"))
-            path = snowpark_fn.get(result_exp, snowpark_fn.lit("path"))
-            scheme = snowpark_fn.get(result_exp, snowpark_fn.lit("scheme"))
-
-            result_exp = (
-                snowpark_fn.when(
-                    snowpark_fn.upper(part_to_extract) != part_to_extract,
-                    snowpark_fn.lit(None),
+            host = snowpark_fn.get(parsed_url, snowpark_fn.lit("host"))
+            path = snowpark_fn.get(parsed_url, snowpark_fn.lit("path"))
+            scheme = snowpark_fn.get(parsed_url, snowpark_fn.lit("scheme"))
+            authority_result = snowpark_fn.nvl(
+                snowpark_fn.concat_ws(
+                    snowpark_fn.lit(":"),
+                    host,
+                    snowpark_fn.get(parsed_url, snowpark_fn.lit("port")),
+                ),
+                host,
+            )
+            raw_query = snowpark_fn.get(parsed_url, snowpark_fn.lit("query"))
+            query_result = snowpark_fn.when(key.is_null(), raw_query,).otherwise(
+                # Spark keeps the first value for duplicate query keys. Snowflake's
+                # parse_url(...).parameters map keeps the last value, so extract from
+                # raw query text first and only fall back to parameters map if needed.
+                snowpark_fn.nvl(
+                    snowpark_fn.call_function(
+                        "regexp_substr",
+                        raw_query,
+                        snowpark_fn.concat(
+                            snowpark_fn.lit("(^|&)"),
+                            key,
+                            snowpark_fn.lit("=([^&]*)"),
+                        ),
+                        snowpark_fn.lit(1),
+                        snowpark_fn.lit(1),
+                        snowpark_fn.lit("e"),
+                        snowpark_fn.lit(2),
+                    ),
+                    snowpark_fn.get(
+                        snowpark_fn.get(parsed_url, snowpark_fn.lit("parameters")),
+                        key,
+                    ),
                 )
-                .when(
-                    part_to_extract == snowpark_fn.lit("PROTOCOL"),
-                    scheme,
-                )
-                .when(
-                    part_to_extract == snowpark_fn.lit("REF"),
-                    snowpark_fn.get(result_exp, snowpark_fn.lit("fragment")),
-                )
-                .when(
-                    part_to_extract == snowpark_fn.lit("AUTHORITY"),
+            )
+            file_result = snowpark_fn.concat(
+                snowpark_fn.lit("/"),
+                snowpark_fn.trim(
                     snowpark_fn.nvl(
                         snowpark_fn.concat_ws(
-                            snowpark_fn.lit(":"),
-                            host,
-                            snowpark_fn.get(result_exp, snowpark_fn.lit("port")),
+                            snowpark_fn.lit("?"),
+                            path,
+                            snowpark_fn.get(parsed_url, snowpark_fn.lit("query")),
                         ),
-                        host,
+                        path,
                     ),
-                )
-                .when(
-                    part_to_extract == snowpark_fn.lit("QUERY"),
-                    snowpark_fn.when(
-                        key.is_null(),
-                        snowpark_fn.get(result_exp, snowpark_fn.lit("query")),
-                    ).otherwise(
-                        snowpark_fn.get(
-                            snowpark_fn.get(result_exp, snowpark_fn.lit("parameters")),
-                            key,
-                        )
-                    ),
-                )
-                .when(
-                    (part_to_extract == snowpark_fn.lit("FILE"))
-                    & ~(scheme == snowpark_fn.lit("mailto")),
-                    snowpark_fn.concat(
-                        snowpark_fn.lit("/"),
-                        snowpark_fn.trim(
-                            snowpark_fn.nvl(
-                                snowpark_fn.concat_ws(
-                                    snowpark_fn.lit("?"),
-                                    path,
-                                    snowpark_fn.get(
-                                        result_exp, snowpark_fn.lit("query")
-                                    ),
-                                ),
-                                path,
-                            ),
-                            snowpark_fn.lit("/"),
-                        ),
-                    ),
-                )
-                .when(
-                    part_to_extract == snowpark_fn.lit("USERINFO"),
-                    snowpark_fn.when(
-                        snowpark_fn.contains(host, snowpark_fn.lit("@")),
-                        split_part(
-                            host,
-                            snowpark_fn.lit("@"),
-                            snowpark_fn.lit(0),
-                        ),
-                    ).otherwise(snowpark_fn.lit(None)),
-                )
-                .when(
-                    (part_to_extract == snowpark_fn.lit("PATH"))
-                    & ~(scheme == snowpark_fn.lit("mailto")),
-                    snowpark_fn.concat(snowpark_fn.lit("/"), path),
-                )
-                .when(
-                    part_to_extract == snowpark_fn.lit("HOST"),
-                    split_part(host, snowpark_fn.lit("@"), snowpark_fn.lit(-1)),
-                )
-                .otherwise(snowpark_fn.lit(None))
+                    snowpark_fn.lit("/"),
+                ),
             )
+            user_info_result = snowpark_fn.when(
+                snowpark_fn.contains(host, snowpark_fn.lit("@")),
+                split_part(
+                    host,
+                    snowpark_fn.lit("@"),
+                    snowpark_fn.lit(0),
+                ),
+            ).otherwise(snowpark_fn.lit(None))
+            host_result = split_part(host, snowpark_fn.lit("@"), snowpark_fn.lit(-1))
+            path_result = snowpark_fn.concat(snowpark_fn.lit("/"), path)
+
+            def _parse_url_part_branch(part_name: str) -> Column:
+                match part_name:
+                    case "PROTOCOL":
+                        return scheme
+                    case "REF":
+                        return snowpark_fn.get(parsed_url, snowpark_fn.lit("fragment"))
+                    case "AUTHORITY":
+                        return authority_result
+                    case "QUERY":
+                        return query_result
+                    case "FILE":
+                        return snowpark_fn.when(
+                            scheme != snowpark_fn.lit("mailto"),
+                            file_result,
+                        ).otherwise(snowpark_fn.lit(None))
+                    case "USERINFO":
+                        return user_info_result
+                    case "PATH":
+                        return snowpark_fn.when(
+                            scheme != snowpark_fn.lit("mailto"),
+                            path_result,
+                        ).otherwise(snowpark_fn.lit(None))
+                    case "HOST":
+                        return host_result
+                    case _:
+                        return snowpark_fn.lit(None)
+
+            # Fast path: when part_to_extract is a literal we can select one branch
+            # directly instead of building a full CASE/WHEN chain.
+            if isinstance(part_to_extract._expression, Literal):
+                part_literal = part_to_extract._expression.value
+                if (
+                    isinstance(part_literal, str)
+                    and part_literal == part_literal.upper()
+                ):
+                    result_exp = _parse_url_part_branch(part_literal)
+                else:
+                    result_exp = snowpark_fn.lit(None)
+            else:
+                # Slow path: preserve dynamic-column behavior with CASE/WHEN.
+                parse_url_parts = (
+                    "PROTOCOL",
+                    "REF",
+                    "AUTHORITY",
+                    "QUERY",
+                    "FILE",
+                    "USERINFO",
+                    "PATH",
+                    "HOST",
+                )
+                result_exp = reduce(
+                    lambda case_expr, url_part: case_expr.when(
+                        part_to_extract == snowpark_fn.lit(url_part),
+                        _parse_url_part_branch(url_part),
+                    ),
+                    parse_url_parts,
+                    snowpark_fn.when(
+                        snowpark_fn.upper(part_to_extract) != part_to_extract,
+                        snowpark_fn.lit(None),
+                    ),
+                ).otherwise(snowpark_fn.lit(None))
 
             result_exp = snowpark_fn.cast(result_exp, StringType())
             result_type = StringType()
@@ -7135,79 +7147,53 @@ def map_unresolved_function(
             input_type = snowpark_typed_args[0].typ
             is_nullable = function_name == "posexplode_outer"
             if isinstance(input_type, ArrayType):
-
-                class PosExplode:
-                    def process(self, arr, function_name):
-                        if not arr:
-                            if function_name == "posexplode":
-                                yield
-                            else:
-                                yield (None, None)
-                        else:
-                            yield from enumerate(arr)
-
-                posexplode_udtf = cached_udtf(
-                    PosExplode,
-                    output_schema=StructType(
-                        [
-                            StructField(
-                                "pos", IntegerType(), is_nullable, _is_column=False
-                            ),
-                            StructField(
-                                "col", input_type.element_type, True, _is_column=False
-                            ),
-                        ]
-                    ),
-                    input_types=[input_type, StringType()],
+                # Snowflake FLATTEN skips SQL NULL array elements (represented as `undefined`).
+                # Normalize each element into VARIANT and map SQL NULL -> JSON null so
+                # posexplode keeps positional null rows like Spark.
+                analyzer = session._analyzer
+                arg_sql = analyzer.analyze(snowpark_args[0]._expression, defaultdict())
+                normalized_array = snowpark_fn.sql_expr(
+                    f"transform({arg_sql}, x -> iff(x is null, parse_json('null'), to_variant(x)))"
                 )
-
+                # use call_table_function so we avoid passing in the MODE argument
+                result_exp = snowpark_fn.call_table_function(
+                    "flatten",
+                    input=normalized_array,
+                    outer=snowpark_fn.lit(is_nullable),
+                )
+                # See map_column_ops._resolve_selected_table_function_columns().
+                selected_projection_specs = [
+                    SelectedProjectionSpec("INDEX", IntegerType()),
+                    SelectedProjectionSpec("VALUE", input_type.element_type),
+                ]
                 spark_col_names = ["pos", "col"]
                 result_type = [IntegerType(), input_type.element_type]
             elif isinstance(input_type, MapType):
-
-                class PosExplode:
-                    def process(self, m, function_name):
-                        if not m:
-                            if function_name == "posexplode":
-                                yield
-                            else:
-                                yield (None, None, None)
-                        else:
-                            for i, (key, value) in enumerate(m.items()):
-                                yield (i, key, value)
-
-                posexplode_udtf = cached_udtf(
-                    PosExplode,
-                    output_schema=StructType(
-                        [
-                            StructField(
-                                "pos",
-                                LongType(),
-                                is_nullable,
-                                _is_column=False,
-                            ),
-                            StructField(
-                                "key",
-                                input_type.key_type,
-                                is_nullable,
-                                _is_column=False,
-                            ),
-                            StructField(
-                                "value",
-                                input_type.value_type,
-                                True,
-                                _is_column=False,
-                            ),
-                        ]
-                    ),
-                    input_types=[input_type, StringType()],
-                )
-
                 spark_col_names = ["pos", "key", "value"]
                 result_type = [
                     LongType(),
                     input_type.key_type,
                     input_type.value_type,
+                ]
+                analyzer = session._analyzer
+                arg_sql = analyzer.analyze(snowpark_args[0]._expression, defaultdict())
+                # Build an array of key/value objects so flatten INDEX becomes posexplode pos.
+                # Store map values in VARIANT to support nested map value types.
+                kv_pairs = snowpark_fn.sql_expr(
+                    f"transform(map_keys({arg_sql}), "
+                    f"k -> object_construct_keep_null('k', k, 'v', get(to_variant({arg_sql}), to_varchar(k))))"
+                )
+                result_exp = snowpark_fn.call_table_function(
+                    "flatten",
+                    input=kv_pairs,
+                    outer=snowpark_fn.lit(is_nullable),
+                )
+                # For map posexplode, INDEX is pos, and VALUE contains an object:
+                # {"k": <key>, "v": <value>}. Extract and cast each field.
+                selected_projection_specs = [
+                    SelectedProjectionSpec("INDEX", LongType()),
+                    SelectedProjectionSpec("VALUE", input_type.key_type, "k"),
+                    SelectedProjectionSpec("VALUE", input_type.value_type, "v"),
                 ]
             else:
                 exception = TypeError(
@@ -7215,9 +7201,6 @@ def map_unresolved_function(
                 )
                 attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
                 raise exception
-            result_exp = snowpark_fn.call_table_function(
-                posexplode_udtf.name, snowpark_args[0], snowpark_fn.lit(function_name)
-            )
         case "position":
             substr, base_str = snowpark_args[0], snowpark_args[1]
             start_pos = (
@@ -7379,11 +7362,23 @@ def map_unresolved_function(
             result_type = snowpark_typed_args[0].typ
         case "regexp_count":
             # Spark counts an empty pattern as length(input) + 1
-            result_exp = (
-                snowpark_fn.when(snowpark_fn.is_null(snowpark_args[0]), None)
-                .when(snowpark_args[1] == "", snowpark_fn.length(snowpark_args[0]) + 1)
-                .otherwise(snowpark_fn.regexp_count(snowpark_args[0], snowpark_args[1]))
-            )
+            result_exp = snowpark_fn.when(snowpark_fn.is_null(snowpark_args[0]), None)
+            pattern = snowpark_args[1]
+            if isinstance(pattern._expression, Literal) and isinstance(
+                pattern._expression.value, str
+            ):
+                # optimization: if pattern is a literal, avoid one case when branch
+                pattern_value = pattern._expression.value
+                result_exp = result_exp.otherwise(
+                    snowpark_fn.length(snowpark_args[0]) + 1
+                    if pattern_value == ""
+                    else snowpark_fn.regexp_count(snowpark_args[0], pattern)
+                )
+            else:
+                result_exp = result_exp.when(
+                    pattern == "", snowpark_fn.length(snowpark_args[0]) + 1
+                ).otherwise(snowpark_fn.regexp_count(snowpark_args[0], pattern))
+
             # Spark 3.5.3: RegExpCount defines dataType = IntegerType
             # https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/regexpExpressions.scala#L1078
             result_type = IntegerType()
@@ -7393,46 +7388,65 @@ def map_unresolved_function(
             # We check the input to get the same behaviour.
             # If pattern doesn't match string, return empty string
             #    Else if the matched group returns null, throw exception
-            result_exp = (
-                snowpark_fn.when(snowpark_fn.is_null(snowpark_args[0]), None)
-                .when(
-                    snowpark_fn.is_null(
-                        snowpark_fn.call_function(
-                            "regexp_substr",
-                            snowpark_args[0],
-                            snowpark_args[1],
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit("c"),
-                            snowpark_fn.lit(0),
-                        )
-                    ),
-                    "",
-                )
-                .when(
-                    snowpark_fn.is_null(
-                        snowpark_fn.call_function(
-                            "regexp_substr",
-                            snowpark_args[0],
-                            snowpark_args[1],
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit("c"),
-                            snowpark_args[2],
-                        ),
-                    ),
-                    _raise_error_helper(StringType())(
-                        snowpark_fn.lit(
-                            "[INVALID_PARAMETER_VALUE.REGEX_GROUP_INDEX] The value of parameter(s) `idx` in `regexp_extract` is invalid."
-                        )
-                    ),
-                )
-                .otherwise(
-                    snowpark_fn.regexp_extract(
-                        snowpark_args[0], snowpark_args[1], snowpark_args[2]
+            if len(snowpark_args) == 2:
+                snowpark_args.append(snowpark_fn.lit(1))
+                spark_function_name = spark_function_name[:-1] + ", 1)"
+
+            pattern = snowpark_args[1]._expression.value
+            group = snowpark_args[2]._expression.value
+            result_exp = snowpark_fn.when(
+                snowpark_fn.is_null(snowpark_args[0]), None
+            ).when(
+                snowpark_fn.is_null(
+                    snowpark_fn.call_function(
+                        "regexp_substr",
+                        snowpark_args[0],
+                        snowpark_args[1],
+                        snowpark_fn.lit(1),
+                        snowpark_fn.lit(1),
+                        snowpark_fn.lit("c"),
+                        snowpark_fn.lit(0),
                     )
+                ),
+                "",
+            )
+
+            group_check = snowpark_fn.is_null(
+                snowpark_fn.call_function(
+                    "regexp_substr",
+                    snowpark_args[0],
+                    snowpark_args[1],
+                    snowpark_fn.lit(1),
+                    snowpark_fn.lit(1),
+                    snowpark_fn.lit("c"),
+                    snowpark_args[2],
+                ),
+            )
+
+            group_error = _raise_error_helper(StringType())(
+                snowpark_fn.lit(
+                    "[INVALID_PARAMETER_VALUE.REGEX_GROUP_INDEX] The value of parameter(s) `idx` in `regexp_extract` is invalid."
                 )
             )
+
+            extract_exp = snowpark_fn.regexp_extract(
+                snowpark_args[0], snowpark_args[1], snowpark_args[2]
+            )
+
+            num_groups = None
+            with suppress(re.error):
+                num_groups = re.compile(pattern).groups
+
+            if num_groups is not None:
+                # optimization: if we can compile the pattern, we can skip one case when branch for the group index check
+                result_exp = result_exp.otherwise(
+                    extract_exp if 0 <= group <= num_groups else group_error
+                )
+            else:
+                result_exp = result_exp.when(group_check, group_error).otherwise(
+                    extract_exp
+                )
+
             result_type = StringType()
         case "regexp_extract_all":
             if len(snowpark_args) == 2:
@@ -7440,77 +7454,104 @@ def map_unresolved_function(
                 spark_function_name = spark_function_name[:-1] + ", 1)"
             else:
                 idx = snowpark_args[2]
+            pattern = snowpark_args[1]
             # Snowflake's regexp_extract_all has more arguments, so we need to fill out default values
             # If pattern doesn't match string, return empty string
             #    Else if the matched group returns null, throw exception
-            result_exp = (
-                snowpark_fn.when(snowpark_fn.is_null(snowpark_args[0]), None)
-                .when(
-                    snowpark_fn.is_null(
-                        snowpark_fn.call_function(
-                            "regexp_substr",
-                            snowpark_args[0],
-                            snowpark_args[1],
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit("c"),
-                            snowpark_fn.lit(0),
-                        ),
+            result_exp = snowpark_fn.when(
+                snowpark_fn.is_null(snowpark_args[0]), None
+            ).when(
+                snowpark_fn.is_null(
+                    snowpark_fn.call_function(
+                        "regexp_substr",
+                        snowpark_args[0],
+                        snowpark_args[1],
+                        snowpark_fn.lit(1),
+                        snowpark_fn.lit(1),
+                        snowpark_fn.lit("c"),
+                        snowpark_fn.lit(0),
                     ),
-                    [],
-                )
-                .when(
-                    snowpark_fn.is_null(
-                        snowpark_fn.call_function(
-                            "regexp_substr",
-                            snowpark_args[0],
-                            snowpark_args[1],
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit("c"),
-                            idx,
-                        )
-                    ),
-                    _raise_error_helper(ArrayType(StringType()))(
-                        snowpark_fn.lit(
-                            "[INVALID_PARAMETER_VALUE.REGEX_GROUP_INDEX] The value of parameter(s) `idx` in `regexp_extract_all` is invalid."
-                        )
-                    ),
-                )
-                .otherwise(
-                    snowpark_fn.cast(
-                        snowpark_fn.call_function(
-                            "regexp_extract_all",
-                            snowpark_args[0],
-                            snowpark_args[1],
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit(1),
-                            snowpark_fn.lit("c"),
-                            idx,
-                        ),
-                        ArrayType(StringType()),
-                    )
+                ),
+                [],
+            )
+
+            group_check = snowpark_fn.is_null(
+                snowpark_fn.call_function(
+                    "regexp_substr",
+                    snowpark_args[0],
+                    snowpark_args[1],
+                    snowpark_fn.lit(1),
+                    snowpark_fn.lit(1),
+                    snowpark_fn.lit("c"),
+                    idx,
                 )
             )
+
+            group_error = _raise_error_helper(ArrayType(StringType()))(
+                snowpark_fn.lit(
+                    "[INVALID_PARAMETER_VALUE.REGEX_GROUP_INDEX] The value of parameter(s) `idx` in `regexp_extract_all` is invalid."
+                )
+            )
+
+            extract_exp = snowpark_fn.cast(
+                snowpark_fn.call_function(
+                    "regexp_extract_all",
+                    snowpark_args[0],
+                    snowpark_args[1],
+                    snowpark_fn.lit(1),
+                    snowpark_fn.lit(1),
+                    snowpark_fn.lit("c"),
+                    idx,
+                ),
+                ArrayType(StringType()),
+            )
+
+            num_groups = None
+            if isinstance(pattern._expression, Literal):
+                pattern_value = pattern._expression.value
+                with suppress(re.error):
+                    num_groups = re.compile(pattern_value).groups
+
+            if num_groups is not None:
+                # optimization: if we can compile the pattern, we can skip one regexp_substr call
+                result_exp = result_exp.when(
+                    (idx >= 0) & (idx <= num_groups), extract_exp
+                ).otherwise(group_error)
+            else:
+                result_exp = result_exp.when(group_check, group_error).otherwise(
+                    extract_exp
+                )
+
             result_type = ArrayType(StringType())
         case "regexp_instr":
             # Spark seems to ignore the group index argument, so we don't use it here.
             # Spark matches certain patterns to an empty string. We can emulate this with rlike.
-            result_exp = (
-                snowpark_fn.when(snowpark_fn.is_null(snowpark_args[0]), None)
-                .when(
+            matches_empty = None
+            if isinstance(snowpark_args[1]._expression, Literal):
+                pattern_value = snowpark_args[1]._expression.value
+                with suppress(re.error):
+                    matches_empty = re.compile(pattern_value).match("") is not None
+
+            result_exp = snowpark_fn.when(snowpark_fn.is_null(snowpark_args[0]), None)
+
+            # optimization: if the pattern is a literal, we can skip the rlike check and maybe the case when branch
+            if matches_empty is True:
+                result_exp = result_exp.when(snowpark_args[0] == "", 1)
+            elif matches_empty is None:
+                result_exp = result_exp.when(
                     (snowpark_args[0] == "")
                     & (snowpark_args[0].rlike(snowpark_args[1])),
                     1,
                 )
-                .otherwise(
-                    snowpark_fn.call_function(
-                        "regexp_instr",
-                        snowpark_args[0],
-                        snowpark_args[1],
-                    )
+
+            result_exp = result_exp.otherwise(
+                snowpark_fn.call_function(
+                    "regexp_instr",
+                    snowpark_args[0],
+                    snowpark_args[1],
                 )
             )
+
             # Spark 3.5.3: RegExpInStr defines dataType = IntegerType
             # https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/regexpExpressions.scala#L1078
             result_type = IntegerType()
@@ -7664,45 +7705,71 @@ def map_unresolved_function(
             # We also handle:
             # - the case where the pattern is an empty string, which Spark treats as .*
             # - the case where the pattern uses embedded flag expressions (such as '(?i)', which Spark treats as case-insensitive)
-            begin_flag_pyspark = "(?"
+            text = snowpark_args[0]
+            pattern = snowpark_args[1]
+
             flag_pyspark_regex_pattern = r"\(\?([a-z]+)\)"
-            regex_pattern = (
-                snowpark_fn.when(snowpark_args[1] == "", ".*")
-                .when(
-                    snowpark_args[1].startswith(begin_flag_pyspark),
-                    snowpark_fn.regexp_replace(
-                        snowpark_args[1], flag_pyspark_regex_pattern
-                    ),
+            begin_flag_pyspark = "(?"
+
+            # resolve regex pattern and params
+            if isinstance(pattern._expression, Literal):
+                # Fast path: pattern is a literal, resolve flags and empty-pattern handling at compile time
+                pattern_value = pattern._expression.value
+                if not pattern_value:
+                    regex_pattern = snowpark_fn.lit(
+                        ".*" if pattern_value == "" else None
+                    )
+                    regex_params = snowpark_fn.lit("c")
+                elif not pattern_value.startswith(begin_flag_pyspark):
+                    regex_pattern = snowpark_fn.lit(pattern_value)
+                    regex_params = snowpark_fn.lit("c")
+                else:
+                    flags = "".join(
+                        re.findall(flag_pyspark_regex_pattern, pattern_value)
+                    )
+                    stripped_pattern = re.sub(
+                        flag_pyspark_regex_pattern, "", pattern_value
+                    )
+                    regex_pattern = snowpark_fn.lit(stripped_pattern)
+                    regex_params = snowpark_fn.lit(flags if flags else "c")
+            else:
+                # Slow path: pattern is a column expression, must handle at runtime
+                regex_pattern = (
+                    snowpark_fn.when(pattern == "", ".*")
+                    .when(
+                        pattern.startswith(begin_flag_pyspark),
+                        snowpark_fn.regexp_replace(pattern, flag_pyspark_regex_pattern),
+                    )
+                    .otherwise(pattern)
                 )
-                .otherwise(snowpark_args[1])
-            )
-            regex_params = snowpark_fn.when(
-                snowpark_args[1].startswith(begin_flag_pyspark),
-                snowpark_fn.array_to_string(
-                    snowpark_fn.call_function(
-                        "regexp_substr_all",
-                        snowpark_args[1],
-                        flag_pyspark_regex_pattern,
-                        1,
-                        1,
-                        "e",
-                        1,
+                regex_params = snowpark_fn.when(
+                    pattern.startswith(begin_flag_pyspark),
+                    snowpark_fn.array_to_string(
+                        snowpark_fn.call_function(
+                            "regexp_substr_all",
+                            pattern,
+                            flag_pyspark_regex_pattern,
+                            1,
+                            1,
+                            "e",
+                            1,
+                        ),
+                        snowpark_fn.lit(""),
                     ),
-                    snowpark_fn.lit(""),
-                ),
-            ).otherwise("c")
+                ).otherwise("c")
+
             result_exp = (
-                snowpark_fn.when(snowpark_fn.is_null(snowpark_args[0]), None)
+                snowpark_fn.when(snowpark_fn.is_null(text), None)
                 .when(
-                    snowpark_args[0] == "",
+                    text == "",
                     snowpark_fn.call_function(
-                        "rlike", snowpark_args[0], regex_pattern, regex_params
+                        "rlike", text, regex_pattern, regex_params
                     ),
                 )
                 .otherwise(
                     snowpark_fn.call_function(
                         "regexp_instr",
-                        snowpark_args[0],
+                        text,
                         regex_pattern,
                         1,
                         1,
@@ -10743,80 +10810,44 @@ def map_unresolved_function(
             result_type = StringType()
             result_exp = _create_xpath_expression("xpath_string", "STRING")
         case "xxhash64":
-            import snowflake.snowpark_connect.utils.xxhash64 as xxhash64
-
-            xxhash64_src_file = Path(__file__).parent.parent / "utils" / "xxhash64.py"
-
-            # In the notebook environment, the physical file may not be where it's expected, if not found
-            # then temporarily create in another location.
-            if not xxhash64_src_file.exists():
-                xxhash64_src_bytes = inspect.getsource(xxhash64).encode("utf-8")
-                sub_dir = (
-                    Path(tempfile.gettempdir())
-                    / "snowflake"
-                    / "snowpark_connect"
-                    / "utils"
-                )
-                xxhash64_src_file = sub_dir / "xxhash64.py"
-                # If the file doesn't exist (from a prior run) or it's a different size, then recreate.
-                # Otherwise we can use the previously created xxhash64 source file.
-                if (
-                    not xxhash64_src_file.exists()
-                    or xxhash64_src_file.stat().st_size != len(xxhash64_src_bytes)
-                ):
-                    sub_dir.mkdir(parents=True, exist_ok=True)
-                    xxhash64_src_file.write_bytes(xxhash64_src_bytes)
-
-            xxhash_udf_imports = [
-                (
-                    str(xxhash64_src_file),
-                    "snowflake.snowpark_connect.utils.xxhash64",
-                )
-            ]
-
-            xxhash_udf = partial(
-                cached_udf, return_type=LongType(), imports=xxhash_udf_imports
-            )
-
             result_exp = snowpark_fn.lit(DEFAULT_SEED)
 
             for arg in snowpark_typed_args:
                 match arg.typ:
                     case IntegerType() | ShortType() | ByteType() | BooleanType():
-                        xxhash64_udf_int = xxhash_udf(
-                            xxhash64_int, input_types=[LongType(), LongType()]
-                        )
-
-                        result_exp = xxhash64_udf_int(
-                            snowpark_fn.cast(arg.col, LongType()), result_exp
+                        hash_result = snowpark_fn.call_function(
+                            sfdb_udfs.xxhash64_int,
+                            snowpark_fn.cast(arg.col, IntegerType()),
+                            result_exp,
                         )
                     case FloatType():
-                        xxhash64_udf_float = xxhash_udf(
-                            xxhash64_float, input_types=[FloatType(), LongType()]
+                        hash_result = snowpark_fn.call_function(
+                            sfdb_udfs.xxhash64_float, arg.col, result_exp
                         )
-
-                        result_exp = xxhash64_udf_float(arg.col, result_exp)
                     case DoubleType():
-                        xxhash64_udf_double = xxhash_udf(
-                            xxhash64_double, input_types=[DoubleType(), LongType()]
+                        hash_result = snowpark_fn.call_function(
+                            sfdb_udfs.xxhash64_double, arg.col, result_exp
                         )
-
-                        result_exp = xxhash64_udf_double(arg.col, result_exp)
                     case LongType():
-                        xxhash64_udf_long = xxhash_udf(
-                            xxhash64_long, input_types=[LongType(), LongType()]
+                        hash_result = snowpark_fn.call_function(
+                            sfdb_udfs.xxhash64_long, arg.col, result_exp
                         )
-
-                        result_exp = xxhash64_udf_long(arg.col, result_exp)
+                    case BinaryType():
+                        hash_result = snowpark_fn.call_function(
+                            sfdb_udfs.xxhash64_bytes, arg.col, result_exp
+                        )
                     case _:
-                        xxhash64_udf_str = xxhash_udf(
-                            xxhash64_string, input_types=[StringType(), LongType()]
+                        hash_result = snowpark_fn.call_function(
+                            sfdb_udfs.xxhash64_string,
+                            snowpark_fn.cast(arg.col, StringType()),
+                            result_exp,
                         )
 
-                        result_exp = xxhash64_udf_str(
-                            snowpark_fn.cast(arg.col, StringType()), result_exp
-                        )
-                result_type = LongType()
+                result_exp = snowpark_fn.when(arg.col.isNull(), result_exp).otherwise(
+                    hash_result
+                )
+
+            result_type = LongType()
         case "year":
             if isinstance(snowpark_typed_args[0].typ, StringType):
                 result_exp = snowpark_fn.year(
@@ -10871,28 +10902,9 @@ def map_unresolved_function(
             return map_cast(cast_exp, column_mapping, typer, from_type_cast=True)
 
         case "luhn_check":
-
-            # https://en.wikipedia.org/wiki/Luhn_algorithm
-            @cached_udf(input_types=[StringType()], return_type=BooleanType())
-            def _luhn_check(input_number: str) -> bool:
-                if input_number is None:
-                    return None
-                else:
-                    input_number = input_number.replace(" ", "")
-                    if not input_number.isdigit():
-                        return False
-
-                    digits = list(map(int, input_number))
-
-                    for i in range(len(digits) - 2, -1, -2):
-                        digits[i] *= 2
-                        if digits[i] > 9:
-                            digits[i] -= 9
-
-                    total_sum = sum(digits)
-                    return total_sum % 10 == 0
-
-            result_exp = _luhn_check(snowpark_args[0])
+            result_exp = snowpark_fn.call_function(
+                sfdb_udfs.luhn_check, snowpark_args[0]
+            )
             result_type = BooleanType()
 
         case other:
@@ -10934,6 +10946,7 @@ def map_unresolved_function(
         spark_col_names if len(spark_col_names) > 0 else [spark_function_name]
     )
     typed_col = _to_typed_column(result_exp, result_type, function_name)
+    typed_col.set_selected_projection_specs(selected_projection_specs)
     typed_col.set_qualifiers({ColumnQualifier(tuple(qualifier_parts))})
     return spark_col_names, typed_col
 

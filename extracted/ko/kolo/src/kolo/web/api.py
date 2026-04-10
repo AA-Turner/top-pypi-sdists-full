@@ -13,7 +13,7 @@ from urllib.request import urlopen
 import platformdirs
 
 from .. import kv
-from ..config import create_kolo_directory, load_config
+from ..config import create_kolo_directory
 from ..db import (
     db_connection,
     delete_traces_before,
@@ -22,7 +22,6 @@ from ..db import (
     setup_db,
     vacuum_db,
 )
-from ..generate_tests import build_test_context, create_test_plan
 from ..open_in_pycharm import open_in_pycharm
 from ..settings import WebappSettings, get_webapp_settings, save_webapp_settings
 
@@ -92,19 +91,6 @@ def delete_trace(trace_id):
     db_path = setup_db()
     count = delete_traces_by_id(db_path, (trace_id,))
     return {"deleted": count}
-
-
-def generate_test(trace_id):
-    test_class = "MyTestCase"
-    test_name = "test_my_view"
-
-    config = load_config()
-    context = build_test_context(
-        trace_id, test_class=test_class, test_name=test_name, config=config
-    )
-    plan = create_test_plan(config, context)
-
-    return {"test_code": plan.render(), "plan": plan.as_json()}
 
 
 def get_project_root() -> Path:

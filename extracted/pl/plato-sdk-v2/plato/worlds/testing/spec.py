@@ -41,6 +41,9 @@ class WorldTestContext(Protocol):
         workspaces: list[Workspace] | None = None,
         warm_pool: object | None = None,
         agent_code_path: Path | None = None,
+        total_agents: int | None = None,
+        review_fn: object | None = None,
+        max_review_continuations: int = 2,
     ) -> AgentTask: ...
 
     async def checkpoint(self, label: str, *, trigger_span_id: str = "") -> None: ...

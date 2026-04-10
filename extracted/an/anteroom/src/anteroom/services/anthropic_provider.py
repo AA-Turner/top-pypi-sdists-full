@@ -302,6 +302,8 @@ class AnthropicService:
                                     "message": "Stream stalled — no data received",
                                     "code": "stream_stall",
                                     "retryable": True,
+                                    "provider": "anthropic",
+                                    "model": self.config.model,
                                 },
                             }
                             return
@@ -415,6 +417,8 @@ class AnthropicService:
                             "message": "Authentication failed. Check your API key.",
                             "code": "auth_failed",
                             "retryable": False,
+                            "provider": "anthropic",
+                            "model": self.config.model,
                         },
                     }
                 return
@@ -427,6 +431,8 @@ class AnthropicService:
                             "message": "Conversation too long for model context window.",
                             "code": "context_length_exceeded",
                             "retryable": False,
+                            "provider": "anthropic",
+                            "model": self.config.model,
                         },
                     }
                 elif "tool" in err_msg and "too many" in err_msg:
@@ -436,6 +442,8 @@ class AnthropicService:
                             "message": "Too many tools for this API provider.",
                             "code": "too_many_tools",
                             "retryable": False,
+                            "provider": "anthropic",
+                            "model": self.config.model,
                         },
                     }
                 else:
@@ -486,6 +494,8 @@ class AnthropicService:
                             "message": f"API error (HTTP {e.status_code})",
                             "code": "api_error",
                             "retryable": False,
+                            "provider": "anthropic",
+                            "model": self.config.model,
                         },
                     }
                     return
@@ -518,9 +528,22 @@ class AnthropicService:
                     else:
                         await asyncio.sleep(delay)
                     continue
-            except Exception:
-                logger.exception("AI stream error")
-                yield {"event": "error", "data": {"message": "An internal error occurred", "retryable": False}}
+            except Exception as e:
+                # (#1343) Tightened catch-all: preserve the underlying
+                # provider message via sanitize_provider_error so users
+                # can diagnose config failures (e.g., "a conversation must
+                # start with a user message"), plus provider/model context.
+                logger.exception("Anthropic stream provider error: %s", type(e).__name__)
+                yield {
+                    "event": "error",
+                    "data": {
+                        "message": sanitize_provider_error(str(e)) or "An internal error occurred",
+                        "code": "provider_error",
+                        "retryable": False,
+                        "provider": "anthropic",
+                        "model": self.config.model,
+                    },
+                }
                 return
 
         # All retries exhausted
@@ -530,6 +553,8 @@ class AnthropicService:
                 "message": f"API request failed ({max_attempts} attempts)",
                 "code": "timeout",
                 "retryable": True,
+                "provider": "anthropic",
+                "model": self.config.model,
             },
         }
 

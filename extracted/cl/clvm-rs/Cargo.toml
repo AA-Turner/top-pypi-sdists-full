@@ -3,7 +3,7 @@ members = ["wheel"]
 
 [package]
 name = "clvmr"
-version = "0.17.4"
+version = "0.17.5"
 authors = ["Richard Kiss <him@richardkiss.com>"]
 edition = "2024"
 license = "Apache-2.0"
@@ -45,13 +45,13 @@ lazy_static = "1.5.0"
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
 num-integer = "0.1.46"
-chia-bls = "0.28.1"
-chia-sha2 = "0.34.0"
+chia-bls = "0.36.1"
+chia-sha2 = "0.36.1"
 hex-literal = "0.4.1"
 # for secp sigs
 k256 = "0.13.4"
 p256 = "0.13.2"
-rstest = "0.21.0"
+rstest = "0.26.1"
 criterion = "0.5.1"
 hex = "0.4.3"
 pyo3 = "0.28.2"

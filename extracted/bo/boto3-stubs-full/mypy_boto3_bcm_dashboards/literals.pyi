@@ -28,12 +28,16 @@ __all__ = (
     "DimensionType",
     "GranularityType",
     "GroupDefinitionTypeType",
+    "HealthStatusCodeType",
     "ListDashboardsPaginatorName",
+    "ListScheduledReportsPaginatorName",
     "MatchOptionType",
     "MetricNameType",
     "PaginatorName",
     "ResourceServiceName",
+    "ScheduleStateType",
     "ServiceName",
+    "StatusReasonType",
     "VisualTypeType",
 )
 
@@ -69,7 +73,9 @@ DimensionType = Literal[
 ]
 GranularityType = Literal["DAILY", "HOURLY", "MONTHLY"]
 GroupDefinitionTypeType = Literal["COST_CATEGORY", "DIMENSION", "TAG"]
+HealthStatusCodeType = Literal["HEALTHY", "UNHEALTHY"]
 ListDashboardsPaginatorName = Literal["list_dashboards"]
+ListScheduledReportsPaginatorName = Literal["list_scheduled_reports"]
 MatchOptionType = Literal[
     "ABSENT",
     "CASE_INSENSITIVE",
@@ -92,6 +98,16 @@ MetricNameType = Literal[
     "UnblendedCost",
     "Unit",
     "UsageQuantity",
+]
+ScheduleStateType = Literal["DISABLED", "ENABLED"]
+StatusReasonType = Literal[
+    "DASHBOARD_ACCESS_DENIED",
+    "DASHBOARD_NOT_FOUND",
+    "DATA_SOURCE_ACCESS_DENIED",
+    "EXECUTION_ROLE_ASSUME_FAILED",
+    "EXECUTION_ROLE_INSUFFICIENT_PERMISSIONS",
+    "INTERNAL_FAILURE",
+    "WIDGET_ID_NOT_FOUND",
 ]
 VisualTypeType = Literal["BAR", "LINE", "STACK"]
 BillingandCostManagementDashboardsServiceName = Literal["bcm-dashboards"]
@@ -522,4 +538,4 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_dashboards"]
+PaginatorName = Literal["list_dashboards", "list_scheduled_reports"]

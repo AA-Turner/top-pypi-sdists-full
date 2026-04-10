@@ -47,6 +47,24 @@ def tail_v2_neutralize_block_f32_out(
     """对 `float32` 输入直接返回 `float32` 残差，语义与 `tail_v2_neutralize_block_f32` 一致。"""
     ...
 
+def tail_v4_neutralize_block_f32_out_legacy(
+    style_cube: NDArray[np.float32],
+    factor_block: NDArray[np.float32],
+    rank_before: bool = True,
+    min_valid: int = 12,
+) -> NDArray[np.float32]:
+    """按旧版 `batch_factor_neutralization_io_optimized` 口径做截面中性化。"""
+    ...
+
+def tail_v4_neutralize_block_f64_out_legacy(
+    style_cube: NDArray[np.float64],
+    factor_block: NDArray[np.float64],
+    rank_before: bool = True,
+    min_valid: int = 12,
+) -> NDArray[np.float64]:
+    """按旧版 `batch_factor_neutralization_io_optimized` 口径做截面中性化，保留 `float64` 精度。"""
+    ...
+
 def tail_v2_backtest_block(
     factor_block: NDArray[np.float64],
     ret_array: NDArray[np.float64],
@@ -106,6 +124,17 @@ def tail_v2_rank_roll_factor_f32(
     """
     ...
 
+def tail_v3_rank_roll_block_f32(
+    data: NDArray[np.float32],
+    windows: list[int],
+) -> NDArray[np.float32]:
+    """对二维因子矩阵按行做平均名次排序并返回三维 block。
+
+    返回形状为 `(n_dates, n_stocks, n_slots)`，最后一维顺序与
+    `tail_v2_rank_roll_factor_f32` 完全一致。
+    """
+    ...
+
 def tail_v2_select_by_ic_corr_abs_f32(
     ic_by_factor: NDArray[np.float32],
     threshold: float,
@@ -125,6 +154,58 @@ def tail_v2_select_by_ic_corr_abs_f32(
     list[int]
         保留下来的行下标，按原候选顺序返回。
     """
+    ...
+
+def tail_v4_run_candidates(
+    factor_names: list[str],
+    factor_paths: list[str],
+    dates: list[int],
+    stocks: list[str],
+    windows: list[int],
+    fold: bool,
+    n_jobs: int,
+    min_valid: int,
+    cache_root: str,
+    style_data_path: str,
+    ret_gap1_path: str,
+    ret_sum_gap1_path: str,
+    ret_gap5_path: str,
+    ret_sum_gap5_path: str,
+    restrict_path: str,
+    index_ret_path: str,
+    backtest_start: int,
+    cover_rate: float = 0.97,
+    ret_point_neu_gap5: float = 0.055,
+    ret_point_neu_gap1: float = 0.08,
+    ic_point_neu_gap5: float = 0.01,
+    ic_point_neu_gap1: float = 0.006,
+    ret_point_gap5: float = 0.1,
+    ret_point_gap1: float = 0.13,
+    ic_point_gap5: float = 0.03,
+    ic_point_gap1: float = 0.02,
+    ic_more_important_gap5: float | None = 0.01,
+    ic_more_important_gap1: float | None = 0.006,
+) -> dict:
+    """Tail V4 主计算入口。
+
+    Rust 侧完成：
+    - 原始因子 parquet 读取与对齐
+    - fold
+    - rolling
+    - raw / neu 回测
+    - 候选结果按源因子落盘与断点恢复
+    - 候选 summary / IC 聚合输出
+    """
+    ...
+
+def tail_v4_neutralize_block_exact(
+    style_data_path: str,
+    dates: list[int],
+    stocks: list[str],
+    factor_block: NDArray[np.float32],
+    rank_before: bool = True,
+    min_valid: int = 12,
+) -> NDArray[np.float32]:
     ...
 
 def column_correlation_fast(array1: NDArray[np.float64], array2: NDArray[np.float64]) -> NDArray[np.float64]:

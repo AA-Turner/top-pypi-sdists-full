@@ -7,6 +7,7 @@ import sys
 from contextlib import suppress
 from pathlib import Path
 from tempfile import TemporaryDirectory, mkdtemp
+from urllib.parse import urlparse
 from warnings import warn
 
 from packaging import version
@@ -54,9 +55,13 @@ REPLACEMENTS = (
 def is_git_repo_root(path: StrOrPath) -> bool:
     """Indicate if a given path is a git repo root directory."""
     try:
-        with local.cwd(Path(path, ".git")):
-            return get_git()("rev-parse", "--is-inside-git-dir").strip() == "true"
-    except OSError:
+        return (
+            Path(
+                get_git()("-C", path, "rev-parse", "--show-toplevel").strip()
+            ).resolve()
+            == Path(path).resolve()
+        )
+    except (OSError, ProcessExecutionError):
         return False
 
 
@@ -139,6 +144,15 @@ def get_latest_tag(url: str, use_prereleases: OptBool = False) -> str:
     Returns:
         The latest git tag, or `HEAD` if no valid tags are found.
     """
+    # For local Git repos, `git ls-remote` requires an absolute path to work correctly,
+    # it behaves unexpectedly with some relative paths, especially with parent path
+    # traversal.
+    #
+    # See:
+    # - https://github.com/copier-org/copier/issues/2589
+    # - https://stackoverflow.com/q/59981939
+    if urlparse(url).scheme in {"", "file"}:
+        url = Path(url).resolve().as_posix()
     git = get_git()
     all_tags = (
         tag.split("\t", 1)[1].removeprefix("refs/tags/")

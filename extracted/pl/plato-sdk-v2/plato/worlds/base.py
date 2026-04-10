@@ -240,6 +240,8 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         warm_pool: WarmPool | None = None,
         agent_code_path: Path | None = None,
         total_agents: int | None = None,
+        review_fn: Any | None = None,
+        max_review_continuations: int = 2,
     ) -> AgentTask:
         """Get an agent runner for the given config.
 
@@ -253,6 +255,12 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             total_agents: Total number of agents that will run through the pool.
                 Scales the VM sandbox timeout to ``runtime.timeout * total_agents``
                 so pooled VMs stay alive long enough for all sequential reuse.
+            review_fn: Optional async review function. When set, each agent
+                execution is followed by a review; merge happens only on pass,
+                otherwise the agent is continued with feedback. The function
+                receives the agent hostname and must return a
+                :class:`~plato.agents.review_gate.ReviewGateResult`.
+            max_review_continuations: Max agent retries after review failure.
         """
         from plato.agents.execution import AgentExecutionManager
         from plato.agents.mounts import AgentWorkspaceMount
@@ -319,6 +327,11 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             elif total_agents is not None:
                 manager.update_vm_timeout(total_agents)
             runner._execution_manager = manager
+
+        # Review gate is per-task, not per-manager — set on the runner
+        if review_fn is not None:
+            runner._review_fn = review_fn
+            runner._max_review_continuations = max_review_continuations
 
         return runner
 

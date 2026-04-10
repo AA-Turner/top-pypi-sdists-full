@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -605,3 +605,14 @@ class TestSpdMap_061_xrf:
 def test_unsupported_extension():
     with pytest.raises(ValueError):
         file_reader("fname.unsupported_extension")
+
+
+@pytest.mark.parametrize("fname", ["single_spect.spc", "spd_map.spd"])
+def test_lazy_loading(fname):
+    spc = hs.load(os.path.join(TMP_DIR.name, fname))
+    spc_lazy = hs.load(os.path.join(TMP_DIR.name, fname), lazy=True)
+    assert spc_lazy._lazy
+
+    spc_lazy.compute()
+
+    np.testing.assert_allclose(spc_lazy.data, spc.data)

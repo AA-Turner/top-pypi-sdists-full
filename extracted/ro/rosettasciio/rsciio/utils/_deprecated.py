@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -169,4 +169,12 @@ def mmap_mode_keyword_deprecation(func):
         "mmap_mode",
         "0.8.0",
         additional_msg=" `mmap_mode` is deprecated because it is not used anymore.",
+    )(func)
+
+
+def endianess_keyword_deprecation(func):
+    return deprecated_argument(
+        "endianess",  # codespell:ignore
+        "0.13.0",
+        alternative="endianness",
     )(func)

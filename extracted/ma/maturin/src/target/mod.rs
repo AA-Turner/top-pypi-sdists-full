@@ -18,8 +18,11 @@ use target_lexicon::{Architecture, Environment, Triple};
 use tracing::error;
 
 mod legacy_py;
+mod platform_tag;
 mod pypi_tags;
 
+pub use platform_tag::get_platform_tag;
+pub(crate) use platform_tag::rustc_macosx_target_version;
 pub use pypi_tags::{is_arch_supported_by_pypi, validate_wheel_filename_for_pypi};
 
 pub(crate) const RUST_1_64_0: semver::Version = semver::Version::new(1, 64, 0);
@@ -161,9 +164,9 @@ impl Arch {
 }
 
 // Returns the set of supported architectures for each operating system
-fn get_supported_architectures(os: &Os) -> Vec<Arch> {
+fn get_supported_architectures(os: &Os) -> &'static [Arch] {
     match os {
-        Os::Android => vec![
+        Os::Android => &[
             Arch::Aarch64,
             Arch::Armv5teL,
             Arch::Armv6L,
@@ -171,7 +174,7 @@ fn get_supported_architectures(os: &Os) -> Vec<Arch> {
             Arch::X86,
             Arch::X86_64,
         ],
-        Os::Linux => vec![
+        Os::Linux => &[
             Arch::Aarch64,
             Arch::Armv5teL,
             Arch::Armv6L,
@@ -191,10 +194,10 @@ fn get_supported_architectures(os: &Os) -> Vec<Arch> {
             Arch::Sparc64,
             Arch::LoongArch64,
         ],
-        Os::Windows => vec![Arch::X86, Arch::X86_64, Arch::Aarch64],
-        Os::Macos => vec![Arch::Aarch64, Arch::X86_64],
-        Os::Ios => vec![Arch::Aarch64, Arch::X86_64],
-        Os::FreeBsd | Os::NetBsd => vec![
+        Os::Windows => &[Arch::X86, Arch::X86_64, Arch::Aarch64],
+        Os::Macos => &[Arch::Aarch64, Arch::X86_64],
+        Os::Ios => &[Arch::Aarch64, Arch::X86_64],
+        Os::FreeBsd | Os::NetBsd => &[
             Arch::Aarch64,
             Arch::Armv6L,
             Arch::Armv7L,
@@ -209,7 +212,7 @@ fn get_supported_architectures(os: &Os) -> Vec<Arch> {
             Arch::Mipsel,
             Arch::Sparc64,
         ],
-        Os::OpenBsd => vec![
+        Os::OpenBsd => &[
             Arch::X86,
             Arch::X86_64,
             Arch::Aarch64,
@@ -221,14 +224,14 @@ fn get_supported_architectures(os: &Os) -> Vec<Arch> {
             Arch::Riscv64,
             Arch::Sparc64,
         ],
-        Os::Dragonfly => vec![Arch::X86_64],
-        Os::Illumos => vec![Arch::X86_64],
-        Os::Haiku => vec![Arch::X86_64],
-        Os::Solaris => vec![Arch::X86_64, Arch::Sparc64, Arch::Sparcv9],
-        Os::Emscripten | Os::Wasi => vec![Arch::Wasm32],
-        Os::Aix => vec![Arch::Powerpc64],
-        Os::Hurd => vec![Arch::X86, Arch::X86_64],
-        Os::Cygwin => vec![Arch::X86, Arch::X86_64],
+        Os::Dragonfly => &[Arch::X86_64],
+        Os::Illumos => &[Arch::X86_64],
+        Os::Haiku => &[Arch::X86_64],
+        Os::Solaris => &[Arch::X86_64, Arch::Sparc64, Arch::Sparcv9],
+        Os::Emscripten | Os::Wasi => &[Arch::Wasm32],
+        Os::Aix => &[Arch::Powerpc64],
+        Os::Hurd => &[Arch::X86, Arch::X86_64],
+        Os::Cygwin => &[Arch::X86, Arch::X86_64],
     }
 }
 
@@ -742,13 +745,31 @@ impl Target {
 
     /// Returns the path to the python executable
     ///
-    /// For windows it's always python.exe for unix it's first the venv's `python`
-    /// and then `python3`
+    /// Checks in order: `VIRTUAL_ENV`'s python, `pythonLocation` (GitHub Actions),
+    /// and finally falls back to `python.exe` (Windows) or `python3` (Unix).
     pub fn get_python(&self) -> PathBuf {
+        if let Some(venv) = env::var_os("VIRTUAL_ENV") {
+            // Use the full path to the venv's python to ensure we get the
+            // correct version, rather than relying on PATH resolution (#2198)
+            let venv_python = self.get_venv_python(&venv);
+            if venv_python.exists() {
+                return venv_python;
+            }
+        }
+        // GitHub Actions setup-python sets pythonLocation to the install dir
+        if let Some(python_location) = env::var_os("pythonLocation") {
+            let python_location = Path::new(&python_location);
+            let python = if self.is_windows() {
+                python_location.join("python.exe")
+            } else {
+                python_location.join("bin").join("python3")
+            };
+            if python.exists() {
+                return python;
+            }
+        }
         if self.is_windows() {
             PathBuf::from("python.exe")
-        } else if env::var_os("VIRTUAL_ENV").is_some() {
-            PathBuf::from("python")
         } else {
             PathBuf::from("python3")
         }

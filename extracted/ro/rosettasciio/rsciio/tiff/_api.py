@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -119,7 +119,7 @@ def file_writer(filename, signal, export_scale=True, extratags=None, **kwds):
         if "metadata" not in kwds.keys():
             # Because we write the calibration to the ImageDescription tag
             # for imageJ, we need to disable tiffile from also writing JSON
-            # metadata if not explicitely requested
+            # metadata if not explicitly requested
             # (https://github.com/cgohlke/tifffile/issues/21)
             kwds["metadata"] = None
 
@@ -587,7 +587,7 @@ def _axes_jeol_sightx(tiff, op, shape, names):
 
     from box import Box
 
-    from rsciio.utils.tools import XmlToDict
+    from rsciio.utils.xml import XmlToDict
 
     scales, offsets, units = _axes_defaults()
     jeol_xml = "".join(
@@ -605,7 +605,7 @@ def _axes_jeol_sightx(tiff, op, shape, names):
     is_STEM = eos == "modeASID"
     mode_strs = []
     mode_strs.append("STEM" if is_STEM else "TEM")
-    mode_strs.append(illumi["ImageField"][4:])  # Bright Fiels?
+    mode_strs.append(illumi["ImageField"][4:])  # Bright Fields?
     if is_STEM:
         mode_strs.append(imaging["ScanningImageFormingMode"][4:])
     else:

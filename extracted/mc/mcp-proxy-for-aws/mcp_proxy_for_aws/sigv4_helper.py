@@ -22,10 +22,27 @@ from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 from botocore.credentials import Credentials
 from functools import partial
+from httpx import __version__ as httpx_version
+from mcp_proxy_for_aws import __version__
 from typing import Any, Dict, Generator, Optional
 
 
 logger = logging.getLogger(__name__)
+
+# Headers that should be redacted when logging to prevent credential exposure
+SENSITIVE_HEADERS = frozenset({'authorization', 'x-amz-security-token', 'x-amz-date'})
+
+
+def _sanitize_headers(headers: Dict[str, str]) -> Dict[str, str]:
+    """Redact sensitive header values for safe logging.
+
+    Args:
+        headers: Dictionary of HTTP headers
+
+    Returns:
+        Dictionary with sensitive values replaced by '[REDACTED]'
+    """
+    return {k: '[REDACTED]' if k.lower() in SENSITIVE_HEADERS else v for k, v in headers.items()}
 
 
 class SigV4HTTPXAuth(httpx.Auth):
@@ -139,8 +156,13 @@ def create_sigv4_client(
         **kwargs,
     }
 
+    user_agent = f'python-httpx/{httpx_version} mcp-proxy-for-aws/{__version__}'
+
     # Add headers if provided
-    default_headers = {'Accept': 'application/json, text/event-stream'}
+    default_headers = {
+        'Accept': 'application/json, text/event-stream',
+        'User-Agent': user_agent,
+    }
     if headers is not None:
         default_headers.update(headers)
     client_kwargs['headers'] = default_headers
@@ -236,7 +258,11 @@ async def _sign_request_hook(
 
     # Get AWS credentials from the session
     credentials = session.get_credentials()
-    logger.info('Signing request with credentials for access key: %s', credentials.access_key)
+    logger.debug(
+        'Signing request with credentials for access key: %s...%s',
+        credentials.access_key[:4],
+        credentials.access_key[-4:],
+    )
 
     # Create SigV4 auth and use its signing logic
     auth = SigV4HTTPXAuth(credentials, service, region)
@@ -245,7 +271,7 @@ async def _sign_request_hook(
     auth_flow = auth.auth_flow(request)
     next(auth_flow)  # Execute the generator to perform signing
 
-    logger.debug('Request headers after signing: %s', request.headers)
+    logger.debug('Request headers after signing: %s', _sanitize_headers(dict(request.headers)))
 
 
 async def _inject_metadata_hook(metadata: Dict[str, Any], request: httpx.Request) -> None:

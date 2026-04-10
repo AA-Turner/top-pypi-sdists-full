@@ -26,6 +26,10 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .base import ParseResult
 
 logger = logging.getLogger(__name__)
 
@@ -777,13 +781,6 @@ class StringElem:
 
         parent = self.get_parent_elem(right)
         if parent.iseditable:
-            idx = 0
-            for child in parent.sub:
-                if child is right:
-                    break
-                idx += 1
-            # logger.debug('parent%s.sub.insert(%d, %s)' %
-            #              (repr(parent), idx, repr(text)))
             parent.sub.insert(0, text)
             return True
 
@@ -828,7 +825,7 @@ class StringElem:
                 f(elem)
 
     @classmethod
-    def parse(cls, pstr: str) -> StringElem | list[StringElem] | None:
+    def parse(cls, pstr: str) -> ParseResult:
         """
         Parse an instance of this class from the start of the given string.
         This method should be implemented by any subclass that wants to

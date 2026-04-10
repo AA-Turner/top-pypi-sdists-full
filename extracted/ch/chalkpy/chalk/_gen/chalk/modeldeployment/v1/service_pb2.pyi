@@ -86,3 +86,29 @@ class CreateModelScalingGroupResponse(_message.Message):
     def __init__(
         self, scaling_group: _Optional[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]] = ...
     ) -> None: ...
+
+class ModelVersionSelector(_message.Message):
+    __slots__ = ("model_name", "identifier")
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
+    model_name: str
+    identifier: _model_version_pb2.ModelVersionIdentifier
+    def __init__(
+        self,
+        model_name: _Optional[str] = ...,
+        identifier: _Optional[_Union[_model_version_pb2.ModelVersionIdentifier, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListModelScalingGroupsRequest(_message.Message):
+    __slots__ = ("model_version",)
+    MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    model_version: ModelVersionSelector
+    def __init__(self, model_version: _Optional[_Union[ModelVersionSelector, _Mapping]] = ...) -> None: ...
+
+class ListModelScalingGroupsResponse(_message.Message):
+    __slots__ = ("scaling_groups",)
+    SCALING_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    scaling_groups: _containers.RepeatedCompositeFieldContainer[_service_pb2_1.ScalingGroupResponse]
+    def __init__(
+        self, scaling_groups: _Optional[_Iterable[_Union[_service_pb2_1.ScalingGroupResponse, _Mapping]]] = ...
+    ) -> None: ...

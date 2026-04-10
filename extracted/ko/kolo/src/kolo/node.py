@@ -40,6 +40,10 @@ class ProcessedNode(ABC):
         self.data = tree_node.data
         self.subtype = tree_node.subtype
 
+        # Sibling navigation - set by parent or ProcessedTree for root nodes
+        self._sibling_index: int = 0
+        self._tree_root_nodes: Optional[list[ProcessedNode]] = None
+
         # Extract timestamps - subclasses may override
         self.start, self.end = self._extract_timestamps(tree_node)
         if self.start and self.end:
@@ -47,10 +51,12 @@ class ProcessedNode(ABC):
         else:
             self.duration_ms = 0
 
-        # Create child nodes
+        # Create child nodes and set their sibling indices
         self.children = [
             make_processed_node(child, self, trace_id) for child in tree_node.children
         ]
+        for i, child in enumerate(self.children):
+            child._sibling_index = i
 
     def _extract_timestamps(
         self, tree_node: ExecutionTreeNode
@@ -84,6 +90,33 @@ class ProcessedNode(ABC):
             if ancestor.frame_id == frame_id:
                 return ancestor
         return None
+
+    @property
+    def sibling_index(self) -> int:
+        """Get the index of this node among its siblings."""
+        return self._sibling_index
+
+    @property
+    def siblings(self) -> list[ProcessedNode]:
+        """Get all siblings including this node."""
+        if self.parent is None and self._tree_root_nodes:
+            return self._tree_root_nodes
+        return self.parent.children if self.parent else [self]
+
+    @property
+    def previous_sibling(self) -> Optional[ProcessedNode]:
+        """Get the previous sibling, or None if this is the first."""
+        if self._sibling_index == 0:
+            return None
+        return self.siblings[self._sibling_index - 1]
+
+    @property
+    def next_sibling(self) -> Optional[ProcessedNode]:
+        """Get the next sibling, or None if this is the last."""
+        siblings = self.siblings
+        if self._sibling_index >= len(siblings) - 1:
+            return None
+        return siblings[self._sibling_index + 1]
 
     def is_part_of_background_job(self) -> bool:
         """Check if this node is part of a background job subtree."""

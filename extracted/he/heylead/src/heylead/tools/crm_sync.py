@@ -96,7 +96,7 @@ async def run_crm_sync(
         filter_label = "hot leads"
     else:
         # All — combine both
-        outreaches = get_unsynced_won_outreaches(campaign_id) + await run_db(get_hot_lead_outreaches, campaign_id)
+        outreaches = await run_db(get_unsynced_won_outreaches, campaign_id) + await run_db(get_hot_lead_outreaches, campaign_id)
         filter_label = "won + hot leads"
 
     if not outreaches:

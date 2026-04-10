@@ -1002,9 +1002,9 @@ def _round_to_td_float(x, max_digits=15):
     # This function is needed to cast/round decimal and float number to the maximum precision allowed by Teradata database.
     # Teradata floats allow maximum 15 digits for mantissa, so this strange logic below does exactly that.
     # Possibly at some point we may need to add a round to exponent as well.
-    (sign, digits, exponent) = Decimal(x).as_tuple()
+    sign, digits, exponent = Decimal(x).as_tuple()
     e = len(digits) + exponent
-    (_, m, _) = (
+    _, m, _ = (
         Decimal(x)
         .scaleb(-e)
         .quantize(Decimal(f"1E-{max_digits}"))

@@ -44,7 +44,7 @@ class OpenStackPoolMemberFieldEnum(str, Enum):
     SERVICE_SETTINGS_STATE = "service_settings_state"
     SERVICE_SETTINGS_UUID = "service_settings_uuid"
     STATE = "state"
-    SUBNET_ID = "subnet_id"
+    SUBNET = "subnet"
     URL = "url"
     UUID = "uuid"
     WEIGHT = "weight"

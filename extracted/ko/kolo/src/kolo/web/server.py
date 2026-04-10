@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timedelta
-from functools import cached_property
 from hashlib import sha1
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
@@ -32,7 +31,7 @@ from .home import web_home_html
 logger = logging.getLogger("kolo")
 
 
-class KoloRequestHandler(BaseHTTPRequestHandler):
+class KoloRequestHandler(BaseHTTPRequestHandler):  # pragma: no cover
     protocol_version = "HTTP/1.1"
 
     def log_message(self, format, *args):
@@ -49,11 +48,11 @@ class KoloRequestHandler(BaseHTTPRequestHandler):
         # Keep default logging for all other requests
         super().log_message(format, *args)
 
-    @cached_property
+    @property
     def url(self):
         return urlparse(self.path)
 
-    @cached_property
+    @property
     def query_data(self):
         return dict(parse_qsl(self.url.query))
 
@@ -135,29 +134,30 @@ class KoloRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(message_bytes)
 
     def do_GET(self):
-        if self.path.startswith("/_kolo/static/"):
+        request_path = self.url.path
+        if request_path.startswith("/_kolo/static/"):
             self.handle_static()
-        elif self.path.startswith("/_kolo/api/traces/"):
+        elif request_path.startswith("/_kolo/api/traces/"):
             self.get_trace()
-        elif self.path.startswith("/_kolo/api/latest-traces/"):
+        elif request_path.startswith("/_kolo/api/latest-traces/"):
             self.latest_traces()
-        elif self.path.startswith("/_kolo/api/source-file/"):
+        elif request_path.startswith("/_kolo/api/source-file/"):
             self.get_source_file()
-        elif self.path.startswith("/_kolo/api/config/"):
+        elif request_path.startswith("/_kolo/api/config/"):
             self.get_config()
-        elif self.path.startswith("/_kolo/api/init/"):
+        elif request_path.startswith("/_kolo/api/init/"):
             self.init()
-        elif self.path.startswith("/_kolo/api/settings/"):
+        elif request_path.startswith("/_kolo/api/settings/"):
             self.get_settings()
-        elif self.path.startswith("/_kolo/api/open-editor/"):
+        elif request_path.startswith("/_kolo/api/open-editor/"):
             self.open_editor()
-        elif self.path.startswith("/_kolo/api/user-info/"):
+        elif request_path.startswith("/_kolo/api/user-info/"):
             self.get_user_info()
-        elif self.path.startswith("/_kolo/api/latest-version/"):
+        elif request_path.startswith("/_kolo/api/latest-version/"):
             self.get_latest_version()
-        elif self.path.startswith("/_kolo/api"):
+        elif request_path.startswith("/_kolo/api"):
             self.send_error_response(HTTPStatus.NOT_FOUND, "Kolo Web API: Not Found")
-        elif self.path.startswith("/_kolo/"):
+        elif request_path.startswith("/_kolo/"):
             self.web_home()
         else:
             self.send_response(HTTPStatus.PERMANENT_REDIRECT)
@@ -241,7 +241,8 @@ class KoloRequestHandler(BaseHTTPRequestHandler):
         self.write_json(json.dumps(source))
 
     def handle_static(self):
-        file_path = self.path[len("/_kolo/static/") :]
+        # Parse from URL path so cache-busting query params don't leak into file lookups.
+        file_path = self.url.path[len("/_kolo/static/") :]
         try:
             contents, mime_type = handle_static_file(file_path)
             self.send_response_with_content(content=contents, content_type=mime_type)

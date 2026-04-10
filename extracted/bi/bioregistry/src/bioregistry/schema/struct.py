@@ -26,6 +26,7 @@ from typing import (
 )
 
 import click
+from curies import Reference
 from curies.w3c import NCNAME_RE
 from pydantic import BaseModel, EmailStr, Field, PrivateAttr
 from pydantic.json_schema import models_json_schema
@@ -258,9 +259,23 @@ class Attributable(BaseModel):
         ),
     )
 
+    wikidata: str | None = Field(
+        default=None,
+        title="Wikidata identifier",
+        pattern="^Q\\d+$",
+        examples=["Q47475003"],
+    )
+
     def get_score(self) -> int:
         """Get a score."""
-        return sum((3 * (self.orcid is not None), self.email is not None, self.github is not None))
+        return sum(
+            (
+                3 * (self.orcid is not None),
+                self.email is not None,
+                self.github is not None,
+                self.wikidata is not None,
+            )
+        )
 
     def add_triples(self, graph: rdflib.Graph) -> rdflib.term.Node:
         """Add triples to an RDF graph for this author.
@@ -436,13 +451,13 @@ class AnnotatedURL(BaseModel):
 DEFAULT_METAPREFIX_PRIORITY = [
     "obofoundry",
     "ols",
+    "miriam",
     "wikidata",
     "go",
     "ncbi",
     "bioportal",
     "agroportal",
     "ecoportal",
-    "miriam",
     "n2t",
     "cellosaurus",
     "cropoct",
@@ -1369,8 +1384,7 @@ class Resource(BaseModel):
         """Return the repository, if available."""
         if self.repository:
             return self.repository
-        metaprefixes: Sequence[str] = ("obofoundry", "fairsharing")
-        return self._get_prefix_key_str("repository", metaprefixes)
+        return self._get_prefix_key_str("repository", DEFAULT_METAPREFIX_PRIORITY)
 
     def get_contact(self) -> Attributable | None:
         """Get the contact, if available.
@@ -1480,7 +1494,7 @@ class Resource(BaseModel):
         """Get an example identifier, if it's available."""
         if self.example is not None:
             return self.example
-        for metaprefix in ["miriam", "ncbi", "n2t", "prefixcommons", "wikidata"]:
+        for metaprefix in DEFAULT_METAPREFIX_PRIORITY:
             if examples := self.get_external(metaprefix).get("examples", []):
                 return cast(str, examples[0])
         if strict:
@@ -1539,7 +1553,7 @@ class Resource(BaseModel):
         """
         if self.deprecated is not None:
             return self.deprecated
-        for key in ("obofoundry", "ols", "miriam"):
+        for key in DEFAULT_METAPREFIX_PRIORITY:
             if self.get_external(key).get("status") in {"deprecated", "inactive"}:
                 return True
         return False
@@ -2145,7 +2159,7 @@ class Resource(BaseModel):
         provider_uris = {provider.uri_format for provider in providers}
         rv.extend(providers)
 
-        for metaprefix in ["miriam", "prefixcommons"]:
+        for metaprefix in DEFAULT_METAPREFIX_PRIORITY:
             for provider_raw in self.get_external(metaprefix).get("providers") or []:
                 provider = Provider.model_validate(provider_raw)
                 if provider.code in provider_codes or provider.uri_format in provider_uris:
@@ -2446,20 +2460,21 @@ class Resource(BaseModel):
 
     def has_download(self) -> bool:
         """Check if this resource can be downloaded."""
-        return any(
-            (
-                self.get_download_obo(),
-                self.get_download_owl(),
-                self.get_download_obograph(),
-                self.get_download_rdf(),
-            )
-        )
+        return any(self._downloads())
+
+    def _downloads(self) -> list[str | None]:
+        return [
+            self.get_download_obo(),
+            self.get_download_owl(),
+            self.get_download_obograph(),
+            self.get_download_rdf(get_format=False),
+        ]
 
     def get_license(self) -> str | None:
         """Get the license for the resource."""
         if self.license:
             return self.license
-        for metaprefix in ("obofoundry", "ols", "bioportal"):
+        for metaprefix in DEFAULT_METAPREFIX_PRIORITY:
             match self.get_external(metaprefix).get("license"):
                 case str() as license_str:
                     if license_value := standardize_license(license_str):
@@ -2537,6 +2552,109 @@ class Resource(BaseModel):
         if license_url:
             rv["license"] = license_url
         return rv
+
+    def get_ols_config(self, ontology_purl: str | None = None) -> OlsConfig:
+        """Get a JSON configuration usable in the OLS."""
+        creators = []
+        if contact := self.get_contact():
+            creators.append(contact.name)
+            if self.contact_extras:
+                creators.extend(ce.name for ce in self.contact_extras if ce.name)
+        else:
+            creators = [
+                "Converted to OWL by Charles Tapley Hoyt (cthoyt@gmail.com), "
+                "no primary contact information is available."
+            ]
+
+        description = ""
+        if description_ := self.get_description():
+            description += description_
+        if license_ := self.get_license():
+            description += f" Licensed under {license_}."
+
+        for url in self._downloads():
+            if url is not None:
+                ontology_purl = url
+                break
+        else:
+            raise ValueError("no OWL nor OBO download available")
+
+        values = {
+            # as per https://github.com/EBISPOT/ols4/pull/896#discussion_r2126144218
+            "id": self.prefix,
+            "reasoner": "none",
+            "oboSlims": False,
+            # typo on purpose, since OLS has a typo
+            "is_foundary": self.get_obofoundry_prefix() is not None,
+            "ontology_purl": ontology_purl,
+            ######################################################################
+            # The remainder are ontology metadata, which could be part of the    #
+            # ontology itself.                                                   #
+            #                                                                    #
+            # See https://github.com/OBOFoundry/OBOFoundry.github.io/issues/1365 #
+            ######################################################################
+            # Property: dcterms:creator
+            "creator": creators,
+            # http://purl.org/vocab/vann/preferredNamespacePrefix
+            "preferredPrefix": self.get_preferred_prefix() or self.prefix,
+            # Property: dcterms:title
+            "title": self.get_name(),
+            # Property: dcterms:description
+            "description": description,
+            # TODO figure out why there's dupicate on `uri` and `homepage`
+            "uri": self.get_homepage(),
+            # Property:  foaf:homepage
+            "homepage": self.get_homepage(),
+            # Property: http://usefulinc.com/ns/doap#mailing-list
+            "mailing_list": self.get_mailing_list() or self.get_contact_email(),
+            # TODO add to OMO
+            "label_property": "https://www.w3.org/2000/01/rdf-schema#label",
+            # TODO add to OMO
+            "definition_property": [
+                "http://purl.org/dc/terms/description",
+            ],
+            # TODO add to OMO
+            "synonym_property": [
+                "http://www.geneontology.org/formats/oboInOwl#hasExactSynonym",
+                "http://www.geneontology.org/formats/oboInOwl#hasNarrowSynonym",
+                "http://www.geneontology.org/formats/oboInOwl#hasBroadSynonym",
+                "http://www.geneontology.org/formats/oboInOwl#hasCloseSynonym",
+            ],
+            # See https://github.com/information-artifact-ontology/ontology-metadata/pull/193
+            "hierarchical_property": [
+                "https://www.w3.org/2000/01/rdf-schema#subClassOf",
+            ],
+            "hidden_property": [],
+            # http://purl.org/vocab/vann/preferredNamespaceUri
+            "base_uri": [
+                self.get_rdf_uri_prefix() or self.get_uri_prefix(),
+            ],
+            # TODO root terms IAO_0000700 (preferred_root_term)
+        }
+        return OlsConfig.model_validate(values)
+
+
+class OlsConfig(BaseModel):
+    """A configuration for the Ontology Lookup Service (OLS)."""
+
+    id: str
+    reasoner: str
+    oboSlims: bool  # noqa:N815
+    is_foundary: bool
+    ontology_purl: str
+    creator: list[str]
+    preferredPrefix: str  # noqa:N815
+    title: str
+    description: str
+    uri: str | None
+    homepage: str | None
+    mailing_list: str | None
+    label_property: str
+    definition_property: list[str]
+    synonym_property: list[str]
+    hierarchical_property: list[str]
+    hidden_property: list[str]
+    base_uri: list[str]
 
 
 SchemaStatus = Literal["required", "required*", "present", "present*", "missing"]
@@ -2997,6 +3115,17 @@ class Registry(BaseModel):
         )
 
 
+class CollectionAnnotation(BaseModel):
+    """Collection annotation."""
+
+    prefix: str
+    comment: str | None = None
+
+    def is_empty(self) -> bool:
+        """Check if the collection annotation is empty."""
+        return self.comment is None
+
+
 class Collection(BaseModel):
     """A collection of resources."""
 
@@ -3010,12 +3139,12 @@ class Collection(BaseModel):
         description="A description of the collection",
         min_length=30,
     )
-    resources: list[str] = Field(
+    resources: list[str | CollectionAnnotation] = Field(
         ...,
         description="A list of prefixes of resources appearing in the collection",
         min_length=1,
     )
-    contributors: list[Author] = Field(
+    contributors: list[Attributable] = Field(
         ...,
         description="A list of authors/contributors to the collection",
         min_length=1,
@@ -3034,6 +3163,7 @@ class Collection(BaseModel):
     context: str | None = Field(default=None, description="The JSON-LD context's name")
     references: list[str] | None = Field(default=None, description="URL references")
     keywords: list[str] | None = None
+    mappings: list[Reference] | None = None
 
     def add_triples(self, graph: rdflib.Graph) -> None:
         """Add triples to an RDF graph for this collection.
@@ -3070,7 +3200,7 @@ class Collection(BaseModel):
         for keyword in self.keywords or []:
             graph.add((node, SDO.keywords, Literal(keyword)))
 
-        for resource in self.resources:
+        for resource in self.get_prefixes():
             graph.add((node, DCTERMS.hasPart, bioregistry_resource[resource]))
 
     def as_context_jsonld_str(self) -> str:
@@ -3083,24 +3213,48 @@ class Collection(BaseModel):
             "@context": self.as_prefix_map(),
         }
 
+    def get_prefixes(self) -> list[str]:
+        """Get prefixes."""
+        rv = []
+        for resource in self.resources:
+            match resource:
+                case CollectionAnnotation():
+                    rv.append(resource.prefix)
+                case str():
+                    rv.append(resource)
+        return rv
+
+    def get_annotated_prefixes(self) -> list[CollectionAnnotation]:
+        """Get annotated prefixes."""
+        rv = []
+        for resource in self.resources:
+            match resource:
+                case CollectionAnnotation():
+                    rv.append(resource)
+                case str():
+                    rv.append(CollectionAnnotation(prefix=resource))
+        return rv
+
     def as_prefix_map(self) -> Mapping[str, str]:
         """Get the prefix map for a given collection."""
         from ..uri_format import get_uri_prefix
 
         rv = {}
-        for prefix in self.resources:
+        for prefix in self.get_prefixes():
             fmt = get_uri_prefix(prefix)
             if fmt is not None:
                 rv[prefix] = fmt
         return rv
 
+    def has_organization_with_ror(self, ror: str) -> bool:
+        """Check if there is an organization with a given ROR."""
+        return any(organization.ror == ror for organization in self.organizations or [])
+
 
 def filter_collections(collections: Iterable[Collection], ror: str) -> list[Collection]:
     """Filter collections based on a ROR."""
     return [
-        collection_
-        for collection_ in collections
-        if any(organization.ror == ror for organization in collection_.organizations or [])
+        collection_ for collection_ in collections if collection_.has_organization_with_ror(ror)
     ]
 
 

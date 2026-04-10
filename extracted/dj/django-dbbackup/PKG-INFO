@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: django-dbbackup
-Version: 5.2.0
+Version: 5.3.0
 Summary: Management commands to help backup and restore a project database and media.
-Project-URL: Changelog, https://archmonger.github.io/django-dbbackup /latest/changelog/
+Project-URL: Changelog, https://archmonger.github.io/django-dbbackup/latest/changelog/
 Project-URL: Documentation, https://archmonger.github.io/django-dbbackup
 Project-URL: Source, https://github.com/Archmonger/django-dbbackup
 Author-email: Mark Bakhit <archiethemonger@gmail.com>
@@ -12,27 +12,27 @@ Keywords: amazon,backup,database,django,dropbox,media,s3,sqlite
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database
 Classifier: Topic :: System :: Archiving
 Classifier: Topic :: System :: Archiving :: Backup
 Classifier: Topic :: System :: Archiving :: Compression
-Requires-Python: >=3.9
-Requires-Dist: django>=4.2
+Requires-Python: >=3.10
+Requires-Dist: django>=5.0
 Description-Content-Type: text/markdown
 
 <!--docs-top-start-->

@@ -65,6 +65,7 @@ class OrderDetailsFieldEnum(str, Enum):
     PROJECT_NAME = "project_name"
     PROJECT_SLUG = "project_slug"
     PROJECT_UUID = "project_uuid"
+    PROVIDER_DESCRIPTION = "provider_description"
     PROVIDER_MESSAGE = "provider_message"
     PROVIDER_MESSAGE_ATTACHMENT = "provider_message_attachment"
     PROVIDER_MESSAGE_URL = "provider_message_url"

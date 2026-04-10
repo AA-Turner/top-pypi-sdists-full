@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_evals
-Version: 0.7.0
+Version: 0.8.0
 Summary: Collection of large language model evaluations
 Author: UK AI Security Institute
 License-Expression: MIT
@@ -141,6 +141,11 @@ Provides-Extra: agentic-misalignment
 Requires-Dist: bs4; extra == "agentic-misalignment"
 Provides-Extra: cje
 Requires-Dist: cje-eval; extra == "cje"
+Provides-Extra: theagentcompany
+Requires-Dist: inspect_cyber; extra == "theagentcompany"
+Requires-Dist: pandas; extra == "theagentcompany"
+Requires-Dist: openpyxl; extra == "theagentcompany"
+Requires-Dist: odfpy>=1.4.1; extra == "theagentcompany"
 Provides-Extra: novelty-bench
 Requires-Dist: transformers>=4.57.1; extra == "novelty-bench"
 Requires-Dist: torch>=2.9.1; extra == "novelty-bench"
@@ -585,6 +590,17 @@ For running evaluations from the Harbor Framework (e.g. Terminal-Bench 2.0, SWE-
   uv run inspect eval inspect_evals/tau2_airline
   uv run inspect eval inspect_evals/tau2_retail
   uv run inspect eval inspect_evals/tau2_telecom
+  ```
+
+- ### [The Agent Company: Evaluating multi-tool autonomous agents in a synthetic company](src/inspect_evals/theagentcompany)
+
+  The Agent Company benchmark evaluates autonomous agents in a realistic, self-contained
+  company environment. Tasks require browsing internal web services, reading and writing
+  files, running code, and coordinating tools to solve multi-step problems.
+  <sub><sup>Contributed by: [@bndxn](https://github.com/bndxn)</sub></sup>
+
+  ```bash
+  uv run inspect eval inspect_evals/theagentcompany
   ```
 
 ## Cybersecurity
@@ -1203,7 +1219,7 @@ For running evaluations from the Harbor Framework (e.g. Terminal-Bench 2.0, SWE-
 - ### [ChemBench: Are large language models superhuman chemists?](src/inspect_evals/chembench)
 
   ChemBench is designed to reveal limitations of current frontier models for use in the chemical sciences. It consists of 2786 question-answer pairs compiled from diverse sources. Our corpus measures reasoning, knowledge and intuition across a large fraction of the topics taught in undergraduate and graduate chemistry curricula. It can be used to evaluate any system that can return text (i.e., including tool-augmented systems).
-  <sub><sup>Contributed by: [@Esther-Guo](https://github.com/Esther-Guo)</sub></sup>
+  <sub><sup>Contributed by: [@Esther-Guo](https://github.com/Esther-Guo), [@MrtinoRG](https://github.com/MrtinoRG), [@r-fedorov](https://github.com/r-fedorov)</sub></sup>
 
   ```bash
   uv run inspect eval inspect_evals/chembench

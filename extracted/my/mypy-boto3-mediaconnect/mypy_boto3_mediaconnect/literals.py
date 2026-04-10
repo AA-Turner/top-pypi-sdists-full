@@ -64,6 +64,7 @@ __all__ = (
     "MaintenanceScheduleTypeType",
     "MaintenanceTypeType",
     "MediaConnectServiceName",
+    "MediaLiveChannelPipelineIdType",
     "MediaLiveInputPipelineIdType",
     "MediaLiveTransitEncryptionKeyTypeType",
     "MediaStreamTypeType",
@@ -169,6 +170,7 @@ MaintenanceDayType = Literal[
 ]
 MaintenanceScheduleTypeType = Literal["WINDOW"]
 MaintenanceTypeType = Literal["DEFAULT", "PREFERRED_DAY_TIME"]
+MediaLiveChannelPipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
 MediaLiveInputPipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
 MediaLiveTransitEncryptionKeyTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
 MediaStreamTypeType = Literal["ancillary-data", "audio", "video"]
@@ -213,7 +215,9 @@ RouterInputStateType = Literal[
 ]
 RouterInputTierType = Literal["INPUT_100", "INPUT_20", "INPUT_50"]
 RouterInputTransitEncryptionKeyTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
-RouterInputTypeType = Literal["FAILOVER", "MEDIACONNECT_FLOW", "MERGE", "STANDARD"]
+RouterInputTypeType = Literal[
+    "FAILOVER", "MEDIACONNECT_FLOW", "MEDIALIVE_CHANNEL", "MERGE", "STANDARD"
+]
 RouterNetworkInterfaceStateType = Literal[
     "ACTIVE", "CREATING", "DELETING", "ERROR", "RECOVERING", "UPDATING"
 ]
@@ -346,6 +350,7 @@ ServiceName = Literal[
     "connectcampaigns",
     "connectcampaignsv2",
     "connectcases",
+    "connecthealth",
     "connectparticipant",
     "controlcatalog",
     "controltower",
@@ -361,6 +366,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -387,13 +393,13 @@ ServiceName = Literal[
     "elasticbeanstalk",
     "elb",
     "elbv2",
+    "elementalinference",
     "emr",
     "emr-containers",
     "emr-serverless",
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -433,7 +439,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -484,6 +489,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -581,6 +587,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",
@@ -597,6 +604,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -608,7 +616,9 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
+    "simpledbv2",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -630,6 +640,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -642,6 +653,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",
@@ -699,6 +711,7 @@ RegionName = Literal[
     "ap-southeast-1",
     "ap-southeast-2",
     "ap-southeast-4",
+    "ap-southeast-5",
     "ca-central-1",
     "eu-central-1",
     "eu-north-1",

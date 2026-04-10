@@ -71,6 +71,13 @@ class Customer:
         bank_account (Union[Unset, str]):
         country (Union[BlankEnum, CountryEnum, Unset]): Country code (ISO 3166-1 alpha-2)
         notification_emails (Union[Unset, str]): Comma-separated list of notification email addresses
+        city (Union[Unset, str]):
+        state (Union[Unset, str]):
+        parish (Union[Unset, str]):
+        street (Union[Unset, str]):
+        house_nr (Union[Unset, str]):
+        apartment_nr (Union[Unset, str]):
+        household (Union[Unset, str]):
         payment_profiles (Union[Unset, list['PaymentProfile']]):
         customer_credit (Union[None, Unset, float]):
         customer_unallocated_credit (Union[None, Unset, float]):
@@ -125,6 +132,13 @@ class Customer:
     bank_account: Union[Unset, str] = UNSET
     country: Union[BlankEnum, CountryEnum, Unset] = UNSET
     notification_emails: Union[Unset, str] = UNSET
+    city: Union[Unset, str] = UNSET
+    state: Union[Unset, str] = UNSET
+    parish: Union[Unset, str] = UNSET
+    street: Union[Unset, str] = UNSET
+    house_nr: Union[Unset, str] = UNSET
+    apartment_nr: Union[Unset, str] = UNSET
+    household: Union[Unset, str] = UNSET
     payment_profiles: Union[Unset, list["PaymentProfile"]] = UNSET
     customer_credit: Union[None, Unset, float] = UNSET
     customer_unallocated_credit: Union[None, Unset, float] = UNSET
@@ -271,6 +285,20 @@ class Customer:
 
         notification_emails = self.notification_emails
 
+        city = self.city
+
+        state = self.state
+
+        parish = self.parish
+
+        street = self.street
+
+        house_nr = self.house_nr
+
+        apartment_nr = self.apartment_nr
+
+        household = self.household
+
         payment_profiles: Union[Unset, list[dict[str, Any]]] = UNSET
         if not isinstance(self.payment_profiles, Unset):
             payment_profiles = []
@@ -407,6 +435,20 @@ class Customer:
             field_dict["country"] = country
         if notification_emails is not UNSET:
             field_dict["notification_emails"] = notification_emails
+        if city is not UNSET:
+            field_dict["city"] = city
+        if state is not UNSET:
+            field_dict["state"] = state
+        if parish is not UNSET:
+            field_dict["parish"] = parish
+        if street is not UNSET:
+            field_dict["street"] = street
+        if house_nr is not UNSET:
+            field_dict["house_nr"] = house_nr
+        if apartment_nr is not UNSET:
+            field_dict["apartment_nr"] = apartment_nr
+        if household is not UNSET:
+            field_dict["household"] = household
         if payment_profiles is not UNSET:
             field_dict["payment_profiles"] = payment_profiles
         if customer_credit is not UNSET:
@@ -615,6 +657,20 @@ class Customer:
 
         notification_emails = d.pop("notification_emails", UNSET)
 
+        city = d.pop("city", UNSET)
+
+        state = d.pop("state", UNSET)
+
+        parish = d.pop("parish", UNSET)
+
+        street = d.pop("street", UNSET)
+
+        house_nr = d.pop("house_nr", UNSET)
+
+        apartment_nr = d.pop("apartment_nr", UNSET)
+
+        household = d.pop("household", UNSET)
+
         payment_profiles = []
         _payment_profiles = d.pop("payment_profiles", UNSET)
         for payment_profiles_item_data in _payment_profiles or []:
@@ -731,6 +787,13 @@ class Customer:
             bank_account=bank_account,
             country=country,
             notification_emails=notification_emails,
+            city=city,
+            state=state,
+            parish=parish,
+            street=street,
+            house_nr=house_nr,
+            apartment_nr=apartment_nr,
+            household=household,
             payment_profiles=payment_profiles,
             customer_credit=customer_credit,
             customer_unallocated_credit=customer_unallocated_credit,

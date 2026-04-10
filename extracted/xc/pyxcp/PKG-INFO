@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyxcp
-Version: 0.29.2
+Version: 0.29.7
 Summary: Universal Calibration Protocol for Python
 License: LGPLv3
 License-File: LICENSE
@@ -20,11 +20,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
-Requires-Dist: bandit (>=1.7,<2)
-Requires-Dist: chardet (>=5.0,<6)
+Requires-Dist: chardet (>=7.0.0)
 Requires-Dist: construct (>=2.10.68,<3)
-Requires-Dist: line-profiler-pycharm (>=1.1,<2)
-Requires-Dist: mako (>=1.2,<2)
 Requires-Dist: pydantic (>=2.5,<3)
 Requires-Dist: pyserial (>=3.5,<4)
 Requires-Dist: python-can (>=4.2,<5)
@@ -32,9 +29,7 @@ Requires-Dist: pytz (>=2024.1)
 Requires-Dist: pyusb (>=1.2,<2)
 Requires-Dist: rich (>=13.0,<15)
 Requires-Dist: toml (>=0.10,<1)
-Requires-Dist: tomlkit (>=0.13,<1)
 Requires-Dist: traitlets (>=5.9,<6)
-Requires-Dist: uptime (>=3.0,<4)
 Project-URL: Homepage, https://github.com/christoph2/pyxcp
 Description-Content-Type: text/x-rst
 
@@ -48,7 +43,7 @@ Reliable Python tooling for the ASAM MCD-1 XCP protocol (measurement,
 calibration, flashing) with multiple transports (CAN, Ethernet, USB,
 Serial) and handy CLI utilities.
 
-|PyPI| |Python Versions| |License: LGPL v3+| |Code style: ruff|
+|PyPI| |Python Versions| |License: LGPL v3+| |Code style: ruff| |Ask DeepWiki| |PDF Manual|
 
 ``pyXCP`` is a production-ready Python library for communicating with
 XCP-enabled devices, most commonly automotive ECUs. Use it to take
@@ -112,6 +107,32 @@ Minimal example using the built-in argument parser and context manager:
        print(f"ID: {identifier!r}")
        print(x.slaveProperties)
        x.disconnect()
+
+Async facade for awaitable command handling plus DAQ/event streaming:
+
+.. code:: python
+
+   import asyncio
+
+   from pyxcp.cmdline import ArgumentParser
+   from pyxcp.transport import AsyncPolicyAdapter
+
+
+   async def main():
+       ap = ArgumentParser(description="pyXCP async example")
+       policy = AsyncPolicyAdapter()
+
+       async with ap.async_run(policy=policy) as x:
+           await x.connect()
+           status = await x.getStatus()
+           print(status)
+
+           daq_frames = x.subscribe_daq()
+           frame = await daq_frames.get()
+           print(frame.category, frame.counter, frame.payload.hex())
+
+
+   asyncio.run(main())
 
 Configuration
 ~~~~~~~~~~~~~
@@ -366,4 +387,8 @@ Further resources
 .. |Code style: ruff| image:: https://img.shields.io/badge/code%20style-ruff-000000.svg
    :target: https://docs.astral.sh/ruff/
    :alt: Ruff
+.. |Ask DeepWiki| image:: https://deepwiki.com/badge.svg
+   :target: https://deepwiki.com/christoph2/pyxcp
+.. |PDF Manual| image:: https://img.shields.io/badge/docs-PDF%20manual-blue.svg
+   :target: https://pyxcp.readthedocs.io/_/downloads/en/latest/pdf/
 

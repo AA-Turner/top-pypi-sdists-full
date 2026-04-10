@@ -18,11 +18,13 @@ from ...utils import parse_link_header
 def _get_kwargs(
     *,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     field: Union[Unset, list[OfferingUserFieldEnum]] = UNSET,
     has_complete_profile: Union[Unset, bool] = UNSET,
     has_consent: Union[Unset, bool] = UNSET,
     is_restricted: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
@@ -43,6 +45,11 @@ def _get_kwargs(
         json_created = created.isoformat()
     params["created"] = json_created
 
+    json_created_before: Union[Unset, str] = UNSET
+    if not isinstance(created_before, Unset):
+        json_created_before = created_before.isoformat()
+    params["created_before"] = json_created_before
+
     json_field: Union[Unset, list[str]] = UNSET
     if not isinstance(field, Unset):
         json_field = []
@@ -62,6 +69,11 @@ def _get_kwargs(
     if not isinstance(modified, Unset):
         json_modified = modified.isoformat()
     params["modified"] = json_modified
+
+    json_modified_before: Union[Unset, str] = UNSET
+    if not isinstance(modified_before, Unset):
+        json_modified_before = modified_before.isoformat()
+    params["modified_before"] = json_modified_before
 
     json_o: Union[Unset, list[str]] = UNSET
     if not isinstance(o, Unset):
@@ -162,11 +174,13 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     field: Union[Unset, list[OfferingUserFieldEnum]] = UNSET,
     has_complete_profile: Union[Unset, bool] = UNSET,
     has_consent: Union[Unset, bool] = UNSET,
     is_restricted: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
@@ -189,11 +203,13 @@ def sync_detailed(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         field (Union[Unset, list[OfferingUserFieldEnum]]):
         has_complete_profile (Union[Unset, bool]):
         has_consent (Union[Unset, bool]):
         is_restricted (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[OfferingUserOEnum]]):
         offering (Union[Unset, str]):
         offering_slug (Union[Unset, list[str]]):
@@ -217,11 +233,13 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         created=created,
+        created_before=created_before,
         field=field,
         has_complete_profile=has_complete_profile,
         has_consent=has_consent,
         is_restricted=is_restricted,
         modified=modified,
+        modified_before=modified_before,
         o=o,
         offering=offering,
         offering_slug=offering_slug,
@@ -247,11 +265,13 @@ def sync(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     field: Union[Unset, list[OfferingUserFieldEnum]] = UNSET,
     has_complete_profile: Union[Unset, bool] = UNSET,
     has_consent: Union[Unset, bool] = UNSET,
     is_restricted: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
@@ -274,11 +294,13 @@ def sync(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         field (Union[Unset, list[OfferingUserFieldEnum]]):
         has_complete_profile (Union[Unset, bool]):
         has_consent (Union[Unset, bool]):
         is_restricted (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[OfferingUserOEnum]]):
         offering (Union[Unset, str]):
         offering_slug (Union[Unset, list[str]]):
@@ -303,11 +325,13 @@ def sync(
     return sync_detailed(
         client=client,
         created=created,
+        created_before=created_before,
         field=field,
         has_complete_profile=has_complete_profile,
         has_consent=has_consent,
         is_restricted=is_restricted,
         modified=modified,
+        modified_before=modified_before,
         o=o,
         offering=offering,
         offering_slug=offering_slug,
@@ -327,11 +351,13 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     field: Union[Unset, list[OfferingUserFieldEnum]] = UNSET,
     has_complete_profile: Union[Unset, bool] = UNSET,
     has_consent: Union[Unset, bool] = UNSET,
     is_restricted: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
@@ -354,11 +380,13 @@ async def asyncio_detailed(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         field (Union[Unset, list[OfferingUserFieldEnum]]):
         has_complete_profile (Union[Unset, bool]):
         has_consent (Union[Unset, bool]):
         is_restricted (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[OfferingUserOEnum]]):
         offering (Union[Unset, str]):
         offering_slug (Union[Unset, list[str]]):
@@ -382,11 +410,13 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         created=created,
+        created_before=created_before,
         field=field,
         has_complete_profile=has_complete_profile,
         has_consent=has_consent,
         is_restricted=is_restricted,
         modified=modified,
+        modified_before=modified_before,
         o=o,
         offering=offering,
         offering_slug=offering_slug,
@@ -410,11 +440,13 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     field: Union[Unset, list[OfferingUserFieldEnum]] = UNSET,
     has_complete_profile: Union[Unset, bool] = UNSET,
     has_consent: Union[Unset, bool] = UNSET,
     is_restricted: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
@@ -437,11 +469,13 @@ async def asyncio(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         field (Union[Unset, list[OfferingUserFieldEnum]]):
         has_complete_profile (Union[Unset, bool]):
         has_consent (Union[Unset, bool]):
         is_restricted (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[OfferingUserOEnum]]):
         offering (Union[Unset, str]):
         offering_slug (Union[Unset, list[str]]):
@@ -467,11 +501,13 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             created=created,
+            created_before=created_before,
             field=field,
             has_complete_profile=has_complete_profile,
             has_consent=has_consent,
             is_restricted=is_restricted,
             modified=modified,
+            modified_before=modified_before,
             o=o,
             offering=offering,
             offering_slug=offering_slug,
@@ -492,11 +528,13 @@ def sync_all(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     field: Union[Unset, list[OfferingUserFieldEnum]] = UNSET,
     has_complete_profile: Union[Unset, bool] = UNSET,
     has_consent: Union[Unset, bool] = UNSET,
     is_restricted: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
@@ -517,11 +555,13 @@ def sync_all(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         field (Union[Unset, list[OfferingUserFieldEnum]]):
         has_complete_profile (Union[Unset, bool]):
         has_consent (Union[Unset, bool]):
         is_restricted (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[OfferingUserOEnum]]):
         offering (Union[Unset, str]):
         offering_slug (Union[Unset, list[str]]):
@@ -547,11 +587,13 @@ def sync_all(
     # Get initial request kwargs
     kwargs = _get_kwargs(
         created=created,
+        created_before=created_before,
         field=field,
         has_complete_profile=has_complete_profile,
         has_consent=has_consent,
         is_restricted=is_restricted,
         modified=modified,
+        modified_before=modified_before,
         o=o,
         offering=offering,
         offering_slug=offering_slug,
@@ -610,11 +652,13 @@ async def asyncio_all(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     field: Union[Unset, list[OfferingUserFieldEnum]] = UNSET,
     has_complete_profile: Union[Unset, bool] = UNSET,
     has_consent: Union[Unset, bool] = UNSET,
     is_restricted: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     o: Union[Unset, list[OfferingUserOEnum]] = UNSET,
     offering: Union[Unset, str] = UNSET,
     offering_slug: Union[Unset, list[str]] = UNSET,
@@ -635,11 +679,13 @@ async def asyncio_all(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         field (Union[Unset, list[OfferingUserFieldEnum]]):
         has_complete_profile (Union[Unset, bool]):
         has_consent (Union[Unset, bool]):
         is_restricted (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         o (Union[Unset, list[OfferingUserOEnum]]):
         offering (Union[Unset, str]):
         offering_slug (Union[Unset, list[str]]):
@@ -665,11 +711,13 @@ async def asyncio_all(
     # Get initial request kwargs
     kwargs = _get_kwargs(
         created=created,
+        created_before=created_before,
         field=field,
         has_complete_profile=has_complete_profile,
         has_consent=has_consent,
         is_restricted=is_restricted,
         modified=modified,
+        modified_before=modified_before,
         o=o,
         offering=offering,
         offering_slug=offering_slug,

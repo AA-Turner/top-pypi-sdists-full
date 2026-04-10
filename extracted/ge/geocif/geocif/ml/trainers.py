@@ -16,6 +16,7 @@ def loocv(
     fraction_loocv=1.0,
     cat_features=[],
     trial_id=0,
+    seed=0,
 ):
     """
     Perform Leave-One-Out Cross Validation (LOOCV)
@@ -40,7 +41,7 @@ def loocv(
     unique_values = df[loocv_var].unique()
     num_to_select = int(len(unique_values) * fraction_loocv)
     # Randomly select X% of the unique values without replacement
-    selected_values = np.random.choice(unique_values, size=num_to_select, replace=False)
+    selected_values = np.random.default_rng(seed).choice(unique_values, size=num_to_select, replace=False)
     pbar = tqdm(selected_values, leave=False)
     for idx, var in enumerate(pbar):
         pbar.set_description(f"Trial {trial_id}, LOOCV {var}")
@@ -168,6 +169,7 @@ def optimized_model(
                     fraction_loocv,
                     cat_features,
                     trial_id,
+                    seed,
                 )
             else:
                 error_metric = optuna_objective(
@@ -186,7 +188,7 @@ def optimized_model(
         sampler = optuna.samplers.TPESampler(seed=seed)
         study = optuna.create_study(sampler=sampler, direction="minimize")
         study.optimize(
-            _optuna_objective, n_trials=n_trials, n_jobs=int(mp.cpu_count() * 0.4)
+            _optuna_objective, n_trials=n_trials, n_jobs=1
         )
         if study.best_trial is None:
             raise ValueError("Optimization failed to complete any trials.")
@@ -311,7 +313,7 @@ def auto_train(
                 cat_feature_indices = [X_train.columns.get_loc(col) for col in cat_features if
                     col in X_train.columns]
 
-            model = TabPFNRegressor(device="auto")
+            model = TabPFNRegressor(device="auto", random_state=seed)
 
             # model = AutoTabPFNRegressor(max_time=600,
             #                            #categorical_feature_indices=cat_feature_indices,

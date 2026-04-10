@@ -11,6 +11,7 @@ from tests.utils import assert_matches_type
 from composio_client import Composio, AsyncComposio
 from composio_client.types import (
     ConnectedAccountListResponse,
+    ConnectedAccountPatchResponse,
     ConnectedAccountCreateResponse,
     ConnectedAccountDeleteResponse,
     ConnectedAccountRefreshResponse,
@@ -37,6 +38,7 @@ class TestConnectedAccounts:
         connected_account = client.connected_accounts.create(
             auth_config={"id": "id"},
             connection={
+                "alias": "alias",
                 "callback_url": "https://example.com",
                 "data": {"foo": "bar"},
                 "deprecated_is_v1_rerouted": True,
@@ -104,14 +106,14 @@ class TestConnectedAccounts:
     @parametrize
     def test_method_retrieve(self, client: Composio) -> None:
         connected_account = client.connected_accounts.retrieve(
-            "con_1a2b3c4d5e6f",
+            "ca_1a2b3c4d5e6f",
         )
         assert_matches_type(ConnectedAccountRetrieveResponse, connected_account, path=["response"])
 
     @parametrize
     def test_raw_response_retrieve(self, client: Composio) -> None:
         response = client.connected_accounts.with_raw_response.retrieve(
-            "con_1a2b3c4d5e6f",
+            "ca_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -122,7 +124,7 @@ class TestConnectedAccounts:
     @parametrize
     def test_streaming_response_retrieve(self, client: Composio) -> None:
         with client.connected_accounts.with_streaming_response.retrieve(
-            "con_1a2b3c4d5e6f",
+            "ca_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -186,14 +188,14 @@ class TestConnectedAccounts:
     @parametrize
     def test_method_delete(self, client: Composio) -> None:
         connected_account = client.connected_accounts.delete(
-            "con_1a2b3c4d5e6f",
+            "ca_1a2b3c4d5e6f",
         )
         assert_matches_type(ConnectedAccountDeleteResponse, connected_account, path=["response"])
 
     @parametrize
     def test_raw_response_delete(self, client: Composio) -> None:
         response = client.connected_accounts.with_raw_response.delete(
-            "con_1a2b3c4d5e6f",
+            "ca_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -204,7 +206,7 @@ class TestConnectedAccounts:
     @parametrize
     def test_streaming_response_delete(self, client: Composio) -> None:
         with client.connected_accounts.with_streaming_response.delete(
-            "con_1a2b3c4d5e6f",
+            "ca_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -222,16 +224,102 @@ class TestConnectedAccounts:
             )
 
     @parametrize
+    def test_method_patch(self, client: Composio) -> None:
+        connected_account = client.connected_accounts.patch(
+            nanoid="ca_1a2b3c4d5e6f",
+        )
+        assert_matches_type(ConnectedAccountPatchResponse, connected_account, path=["response"])
+
+    @parametrize
+    def test_method_patch_with_all_params(self, client: Composio) -> None:
+        connected_account = client.connected_accounts.patch(
+            nanoid="ca_1a2b3c4d5e6f",
+            alias="alias",
+            connection={
+                "state": {
+                    "auth_scheme": "BEARER_TOKEN",
+                    "val": {
+                        "token": "new_access_token",
+                        "account_id": "account_id",
+                        "account_url": "account_url",
+                        "api_key": "api_key",
+                        "api_url": "api_url",
+                        "application_id": "application_id",
+                        "base_url": "base_url",
+                        "basic_encoded": "basic_encoded",
+                        "bearer_token": "bearer_token",
+                        "borneo_dashboard_url": "borneo_dashboard_url",
+                        "companydomain": "COMPANYDOMAIN",
+                        "credentials_json": "credentials_json",
+                        "dc": "dc",
+                        "domain": "domain",
+                        "extension": "extension",
+                        "form_api_base_url": "form_api_base_url",
+                        "generic_api_key": "generic_api_key",
+                        "installation_id": "installation_id",
+                        "instance_endpoint": "instanceEndpoint",
+                        "instance_name": "instanceName",
+                        "password": "password",
+                        "private_key": "private_key",
+                        "proxy_password": "proxy_password",
+                        "proxy_username": "proxy_username",
+                        "region": "region",
+                        "server_location": "server_location",
+                        "shop": "shop",
+                        "site_name": "site_name",
+                        "subdomain": "subdomain",
+                        "username": "username",
+                        "version": "version",
+                        "your_server": "your_server",
+                        "your_domain": "your-domain",
+                    },
+                }
+            },
+        )
+        assert_matches_type(ConnectedAccountPatchResponse, connected_account, path=["response"])
+
+    @parametrize
+    def test_raw_response_patch(self, client: Composio) -> None:
+        response = client.connected_accounts.with_raw_response.patch(
+            nanoid="ca_1a2b3c4d5e6f",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        connected_account = response.parse()
+        assert_matches_type(ConnectedAccountPatchResponse, connected_account, path=["response"])
+
+    @parametrize
+    def test_streaming_response_patch(self, client: Composio) -> None:
+        with client.connected_accounts.with_streaming_response.patch(
+            nanoid="ca_1a2b3c4d5e6f",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            connected_account = response.parse()
+            assert_matches_type(ConnectedAccountPatchResponse, connected_account, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_patch(self, client: Composio) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `nanoid` but received ''"):
+            client.connected_accounts.with_raw_response.patch(
+                nanoid="",
+            )
+
+    @parametrize
     def test_method_refresh(self, client: Composio) -> None:
         connected_account = client.connected_accounts.refresh(
-            nanoid="con_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
         )
         assert_matches_type(ConnectedAccountRefreshResponse, connected_account, path=["response"])
 
     @parametrize
     def test_method_refresh_with_all_params(self, client: Composio) -> None:
         connected_account = client.connected_accounts.refresh(
-            nanoid="con_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
             query_redirect_url="https://example.com",
             body_redirect_url="https://example.com",
             validate_credentials=True,
@@ -241,7 +329,7 @@ class TestConnectedAccounts:
     @parametrize
     def test_raw_response_refresh(self, client: Composio) -> None:
         response = client.connected_accounts.with_raw_response.refresh(
-            nanoid="con_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -252,7 +340,7 @@ class TestConnectedAccounts:
     @parametrize
     def test_streaming_response_refresh(self, client: Composio) -> None:
         with client.connected_accounts.with_streaming_response.refresh(
-            nanoid="con_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -272,7 +360,7 @@ class TestConnectedAccounts:
     @parametrize
     def test_method_update_status(self, client: Composio) -> None:
         connected_account = client.connected_accounts.update_status(
-            nano_id="con_1a2b3c4d5e6f",
+            nano_id="ca_1a2b3c4d5e6f",
             enabled=True,
         )
         assert_matches_type(ConnectedAccountUpdateStatusResponse, connected_account, path=["response"])
@@ -280,7 +368,7 @@ class TestConnectedAccounts:
     @parametrize
     def test_raw_response_update_status(self, client: Composio) -> None:
         response = client.connected_accounts.with_raw_response.update_status(
-            nano_id="con_1a2b3c4d5e6f",
+            nano_id="ca_1a2b3c4d5e6f",
             enabled=True,
         )
 
@@ -292,7 +380,7 @@ class TestConnectedAccounts:
     @parametrize
     def test_streaming_response_update_status(self, client: Composio) -> None:
         with client.connected_accounts.with_streaming_response.update_status(
-            nano_id="con_1a2b3c4d5e6f",
+            nano_id="ca_1a2b3c4d5e6f",
             enabled=True,
         ) as response:
             assert not response.is_closed
@@ -330,6 +418,7 @@ class TestAsyncConnectedAccounts:
         connected_account = await async_client.connected_accounts.create(
             auth_config={"id": "id"},
             connection={
+                "alias": "alias",
                 "callback_url": "https://example.com",
                 "data": {"foo": "bar"},
                 "deprecated_is_v1_rerouted": True,
@@ -397,14 +486,14 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncComposio) -> None:
         connected_account = await async_client.connected_accounts.retrieve(
-            "con_1a2b3c4d5e6f",
+            "ca_1a2b3c4d5e6f",
         )
         assert_matches_type(ConnectedAccountRetrieveResponse, connected_account, path=["response"])
 
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncComposio) -> None:
         response = await async_client.connected_accounts.with_raw_response.retrieve(
-            "con_1a2b3c4d5e6f",
+            "ca_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -415,7 +504,7 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncComposio) -> None:
         async with async_client.connected_accounts.with_streaming_response.retrieve(
-            "con_1a2b3c4d5e6f",
+            "ca_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -479,14 +568,14 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_method_delete(self, async_client: AsyncComposio) -> None:
         connected_account = await async_client.connected_accounts.delete(
-            "con_1a2b3c4d5e6f",
+            "ca_1a2b3c4d5e6f",
         )
         assert_matches_type(ConnectedAccountDeleteResponse, connected_account, path=["response"])
 
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncComposio) -> None:
         response = await async_client.connected_accounts.with_raw_response.delete(
-            "con_1a2b3c4d5e6f",
+            "ca_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -497,7 +586,7 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncComposio) -> None:
         async with async_client.connected_accounts.with_streaming_response.delete(
-            "con_1a2b3c4d5e6f",
+            "ca_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -515,16 +604,102 @@ class TestAsyncConnectedAccounts:
             )
 
     @parametrize
+    async def test_method_patch(self, async_client: AsyncComposio) -> None:
+        connected_account = await async_client.connected_accounts.patch(
+            nanoid="ca_1a2b3c4d5e6f",
+        )
+        assert_matches_type(ConnectedAccountPatchResponse, connected_account, path=["response"])
+
+    @parametrize
+    async def test_method_patch_with_all_params(self, async_client: AsyncComposio) -> None:
+        connected_account = await async_client.connected_accounts.patch(
+            nanoid="ca_1a2b3c4d5e6f",
+            alias="alias",
+            connection={
+                "state": {
+                    "auth_scheme": "BEARER_TOKEN",
+                    "val": {
+                        "token": "new_access_token",
+                        "account_id": "account_id",
+                        "account_url": "account_url",
+                        "api_key": "api_key",
+                        "api_url": "api_url",
+                        "application_id": "application_id",
+                        "base_url": "base_url",
+                        "basic_encoded": "basic_encoded",
+                        "bearer_token": "bearer_token",
+                        "borneo_dashboard_url": "borneo_dashboard_url",
+                        "companydomain": "COMPANYDOMAIN",
+                        "credentials_json": "credentials_json",
+                        "dc": "dc",
+                        "domain": "domain",
+                        "extension": "extension",
+                        "form_api_base_url": "form_api_base_url",
+                        "generic_api_key": "generic_api_key",
+                        "installation_id": "installation_id",
+                        "instance_endpoint": "instanceEndpoint",
+                        "instance_name": "instanceName",
+                        "password": "password",
+                        "private_key": "private_key",
+                        "proxy_password": "proxy_password",
+                        "proxy_username": "proxy_username",
+                        "region": "region",
+                        "server_location": "server_location",
+                        "shop": "shop",
+                        "site_name": "site_name",
+                        "subdomain": "subdomain",
+                        "username": "username",
+                        "version": "version",
+                        "your_server": "your_server",
+                        "your_domain": "your-domain",
+                    },
+                }
+            },
+        )
+        assert_matches_type(ConnectedAccountPatchResponse, connected_account, path=["response"])
+
+    @parametrize
+    async def test_raw_response_patch(self, async_client: AsyncComposio) -> None:
+        response = await async_client.connected_accounts.with_raw_response.patch(
+            nanoid="ca_1a2b3c4d5e6f",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        connected_account = await response.parse()
+        assert_matches_type(ConnectedAccountPatchResponse, connected_account, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_patch(self, async_client: AsyncComposio) -> None:
+        async with async_client.connected_accounts.with_streaming_response.patch(
+            nanoid="ca_1a2b3c4d5e6f",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            connected_account = await response.parse()
+            assert_matches_type(ConnectedAccountPatchResponse, connected_account, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_patch(self, async_client: AsyncComposio) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `nanoid` but received ''"):
+            await async_client.connected_accounts.with_raw_response.patch(
+                nanoid="",
+            )
+
+    @parametrize
     async def test_method_refresh(self, async_client: AsyncComposio) -> None:
         connected_account = await async_client.connected_accounts.refresh(
-            nanoid="con_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
         )
         assert_matches_type(ConnectedAccountRefreshResponse, connected_account, path=["response"])
 
     @parametrize
     async def test_method_refresh_with_all_params(self, async_client: AsyncComposio) -> None:
         connected_account = await async_client.connected_accounts.refresh(
-            nanoid="con_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
             query_redirect_url="https://example.com",
             body_redirect_url="https://example.com",
             validate_credentials=True,
@@ -534,7 +709,7 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_raw_response_refresh(self, async_client: AsyncComposio) -> None:
         response = await async_client.connected_accounts.with_raw_response.refresh(
-            nanoid="con_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
         )
 
         assert response.is_closed is True
@@ -545,7 +720,7 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_streaming_response_refresh(self, async_client: AsyncComposio) -> None:
         async with async_client.connected_accounts.with_streaming_response.refresh(
-            nanoid="con_1a2b3c4d5e6f",
+            nanoid="ca_1a2b3c4d5e6f",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -565,7 +740,7 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_method_update_status(self, async_client: AsyncComposio) -> None:
         connected_account = await async_client.connected_accounts.update_status(
-            nano_id="con_1a2b3c4d5e6f",
+            nano_id="ca_1a2b3c4d5e6f",
             enabled=True,
         )
         assert_matches_type(ConnectedAccountUpdateStatusResponse, connected_account, path=["response"])
@@ -573,7 +748,7 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_raw_response_update_status(self, async_client: AsyncComposio) -> None:
         response = await async_client.connected_accounts.with_raw_response.update_status(
-            nano_id="con_1a2b3c4d5e6f",
+            nano_id="ca_1a2b3c4d5e6f",
             enabled=True,
         )
 
@@ -585,7 +760,7 @@ class TestAsyncConnectedAccounts:
     @parametrize
     async def test_streaming_response_update_status(self, async_client: AsyncComposio) -> None:
         async with async_client.connected_accounts.with_streaming_response.update_status(
-            nano_id="con_1a2b3c4d5e6f",
+            nano_id="ca_1a2b3c4d5e6f",
             enabled=True,
         ) as response:
             assert not response.is_closed

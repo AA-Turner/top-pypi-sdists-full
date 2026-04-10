@@ -240,3 +240,37 @@ def convert_file_prefix_path(path: str) -> str:
     if path.startswith("file:/"):
         return urlparse(path).path
     return path
+
+
+def unescape_glob_metacharacters(path: str | None) -> str | None:
+    """
+    Unescape glob metacharacters in a file path.
+
+    Spark allows users to escape glob metacharacters with backslashes to match
+    literal characters. For example, to read from a directory named "[abc]",
+    the user would specify the path as "\\[abc\\]".
+
+    This function converts escaped metacharacters back to their literal form:
+    - \\[ -> [
+    - \\] -> ]
+    - \\{ -> {
+    - \\} -> }
+    - \\* -> *
+    - \\? -> ?
+
+    Args:
+        path: A file path that may contain escaped glob metacharacters, or None.
+
+    Returns:
+        The path with glob metacharacters unescaped, or None if path is None.
+
+    Example:
+        >>> unescape_glob_metacharacters("/path/to/\\[abc\\]")
+        '/path/to/[abc]'
+    """
+    if path is None:
+        return None
+
+    import re
+
+    return re.sub(r"\\([\[\]\{\}\*\?])", r"\1", path)

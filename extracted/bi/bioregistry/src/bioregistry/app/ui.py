@@ -6,7 +6,7 @@ import datetime
 import itertools as itt
 import json
 import platform
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable
 from operator import attrgetter
 from pathlib import Path
@@ -32,7 +32,7 @@ from .utils import (
     serialize_model,
 )
 from .. import version
-from ..constants import INTERNAL_LABEL, INTERNAL_METAPREFIX, NDEX_UUID
+from ..constants import INTERNAL_LABEL, INTERNAL_METAPREFIX, NDEX_UUID, NFDI_ROR
 from ..export.rdf_export import (
     collection_to_rdf_str,
     metaresource_to_rdf_str,
@@ -51,6 +51,7 @@ from ..schema import (
 from ..schema.constants import SCHEMA_TERMS
 from ..schema.struct import Collection, Organization, filter_collections
 from ..schema_utils import (
+    get_collection_mappings,
     read_collections_contributions,
     read_context_contributions,
     read_prefix_contacts,
@@ -266,12 +267,16 @@ def collection(identifier: str) -> str | flask.Response:
     if accept != "text/html":
         return serialize_model(entry, collection_to_rdf_str, negotiate=True)
     indirect = manager.get_collection_indirect_dependencies(entry)
+    first_party = manager.get_collection_first_party(entry, skip_org_rors={NFDI_ROR})
     return render_template(
         "collection.html",
         identifier=identifier,
         entry=entry,
-        resources={prefix: manager.get_resource(prefix) for prefix in entry.resources},
+        resources={
+            prefix: manager.get_resource(prefix, strict=True) for prefix in entry.get_prefixes()
+        },
         indirect=indirect,
+        first_party=first_party,
         formats=[
             *FORMATS,
             ("Context (JSON-LD)", "context"),
@@ -690,3 +695,51 @@ def highlights_owners() -> str:
 def apidocs() -> werkzeug.Response:
     """Render api documentation page."""
     return redirect("/docs")
+
+
+@ui_blueprint.route("/nfdi")
+@ui_blueprint.route("/nfdi/")
+def show_nfdi() -> str:
+    """Render the NFDI dashboard page."""
+    nfdi_collections = {
+        c.identifier: c
+        for c in manager.collections.values()
+        if c.has_organization_with_ror(NFDI_ROR)
+    }
+    tib_collection_mappings = get_collection_mappings("tib.collection")
+    bartoc_collection_mappings = get_collection_mappings("bartoc")
+    collection_to_tib_opportunities = defaultdict(list)
+    collection_to_license_needs_curation = defaultdict(list)
+    collection_to_domain_needs_curation = defaultdict(list)
+    collection_to_download_need_curation = defaultdict(list)
+    tib_opportunities = set()
+    for collection_ in nfdi_collections.values():
+        for prefix in collection_.get_prefixes():
+            if prefix == "bioregistry":
+                continue
+            resource_ = manager.get_resource(prefix, strict=True)
+            if not resource_.get_mapped_prefix("tib") and resource_.has_download():
+                collection_to_tib_opportunities[collection_.identifier].append(prefix)
+                tib_opportunities.add(prefix)
+            if not resource_.get_license():
+                collection_to_license_needs_curation[collection_.identifier].append(resource)
+            if not resource_.domain:
+                collection_to_domain_needs_curation[collection_.identifier].append(resource)
+            if not resource_.has_download():
+                collection_to_download_need_curation[collection_.identifier].append(resource)
+
+    # who is used more than once?
+    counter = Counter(prefix for c in nfdi_collections.values() for prefix in c.get_prefixes())
+
+    return render_template(
+        "nfdi.html",
+        collections=nfdi_collections,
+        tib_collection_mappings=tib_collection_mappings,
+        bartoc_collection_mappings=bartoc_collection_mappings,
+        collection_to_tib_opportunities=collection_to_tib_opportunities,
+        tib_opportunities=tib_opportunities,
+        prefix_counter=counter,
+        collection_to_license_needs_curation=collection_to_license_needs_curation,
+        collection_to_domain_needs_curation=collection_to_domain_needs_curation,
+        collection_to_download_need_curation=collection_to_download_need_curation,
+    )

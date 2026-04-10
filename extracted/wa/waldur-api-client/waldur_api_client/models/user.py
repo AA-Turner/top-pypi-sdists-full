@@ -7,6 +7,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.blank_enum import BlankEnum
 from ..models.gender_enum import GenderEnum
 from ..types import UNSET, Unset
 
@@ -62,7 +63,7 @@ class User:
         has_active_session (Union[Unset, bool]):
         has_usable_password (Union[Unset, bool]):
         ip_address (Union[None, Unset, str]):
-        gender (Union[GenderEnum, None, Unset]): ISO 5218 gender code
+        gender (Union[BlankEnum, GenderEnum, None, Unset]): User's gender (male, female, or unknown)
         personal_title (Union[Unset, str]): Honorific title (Mr, Ms, Dr, Prof, etc.)
         place_of_birth (Union[Unset, str]):
         country_of_residence (Union[Unset, str]):
@@ -80,6 +81,7 @@ class User:
             ['isd:puhuri', 'isd:fenix']. Non-empty list implies identity manager role.
         active_isds (Union[Unset, Any]): List of ISDs that have asserted this user exists. User is deactivated when this
             becomes empty.
+        deactivation_reason (Union[Unset, str]): Reason why the user was deactivated. Visible to staff and support.
     """
 
     url: Union[Unset, str] = UNSET
@@ -120,7 +122,7 @@ class User:
     has_active_session: Union[Unset, bool] = UNSET
     has_usable_password: Union[Unset, bool] = UNSET
     ip_address: Union[None, Unset, str] = UNSET
-    gender: Union[GenderEnum, None, Unset] = UNSET
+    gender: Union[BlankEnum, GenderEnum, None, Unset] = UNSET
     personal_title: Union[Unset, str] = UNSET
     place_of_birth: Union[Unset, str] = UNSET
     country_of_residence: Union[Unset, str] = UNSET
@@ -134,6 +136,7 @@ class User:
     attribute_sources: Union[Unset, Any] = UNSET
     managed_isds: Union[Unset, Any] = UNSET
     active_isds: Union[Unset, Any] = UNSET
+    deactivation_reason: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -262,10 +265,12 @@ class User:
         else:
             ip_address = self.ip_address
 
-        gender: Union[None, Unset, int]
+        gender: Union[None, Unset, str]
         if isinstance(self.gender, Unset):
             gender = UNSET
         elif isinstance(self.gender, GenderEnum):
+            gender = self.gender.value
+        elif isinstance(self.gender, BlankEnum):
             gender = self.gender.value
         else:
             gender = self.gender
@@ -295,6 +300,8 @@ class User:
         managed_isds = self.managed_isds
 
         active_isds = self.active_isds
+
+        deactivation_reason = self.deactivation_reason
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -403,6 +410,8 @@ class User:
             field_dict["managed_isds"] = managed_isds
         if active_isds is not UNSET:
             field_dict["active_isds"] = active_isds
+        if deactivation_reason is not UNSET:
+            field_dict["deactivation_reason"] = deactivation_reason
 
         return field_dict
 
@@ -582,20 +591,28 @@ class User:
 
         ip_address = _parse_ip_address(d.pop("ip_address", UNSET))
 
-        def _parse_gender(data: object) -> Union[GenderEnum, None, Unset]:
+        def _parse_gender(data: object) -> Union[BlankEnum, GenderEnum, None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             try:
-                if not isinstance(data, int):
+                if not isinstance(data, str):
                     raise TypeError()
                 gender_type_0 = GenderEnum(data)
 
                 return gender_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[GenderEnum, None, Unset], data)
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                gender_type_1 = BlankEnum(data)
+
+                return gender_type_1
+            except:  # noqa: E722
+                pass
+            return cast(Union[BlankEnum, GenderEnum, None, Unset], data)
 
         gender = _parse_gender(d.pop("gender", UNSET))
 
@@ -624,6 +641,8 @@ class User:
         managed_isds = d.pop("managed_isds", UNSET)
 
         active_isds = d.pop("active_isds", UNSET)
+
+        deactivation_reason = d.pop("deactivation_reason", UNSET)
 
         user = cls(
             url=url,
@@ -678,6 +697,7 @@ class User:
             attribute_sources=attribute_sources,
             managed_isds=managed_isds,
             active_isds=active_isds,
+            deactivation_reason=deactivation_reason,
         )
 
         user.additional_properties = d

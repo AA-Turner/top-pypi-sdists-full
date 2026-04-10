@@ -125,6 +125,7 @@ class PamConfigEnvironment():
         self.attachments = None # PamAttachmentsObject
 
         # common settings (shared across all config types)
+        self.identity_provider_uid: str = ""  # optional, text:identityProviderUid
         self.pam_resources = {} # {"folderUid": "", "controllerUid": ""} - "resourceRef": unused/legacy
 
         # Local environment: pamNetworkConfiguration
@@ -244,6 +245,9 @@ class PamConfigEnvironment():
 
         self.scripts = PamScriptsObject.load(settings.get("scripts", None))
         self.attachments = PamAttachmentsObject.load(settings.get("attachments", None))
+
+        val = settings.get("identity_provider_uid", None)
+        if isinstance(val, str): self.identity_provider_uid = val
 
         # Local Network
         if environment_type == "local":
@@ -2035,6 +2039,7 @@ class ConnectionSettingsRDP(BaseConnectionSettings, ClipboardConnectionSettings)
         self.sftp = sftp if isinstance(sftp, SFTPConnectionSettings) else None
         self.disableAudio = disableAudio
         self.resizeMethod = resizeMethod # disable_dynamic_resizing ? "" : "display-update"
+        # resize-method: "" | "display-update" | "reconnect"
         # Performance Properties
         self.enableWallpaper = enableWallpaper
         self.enableFullWindowDrag = enableFullWindowDrag
@@ -3035,6 +3040,24 @@ def is_blank_instance(obj, skiplist: Optional[List[str]] = None):
         if not (attr in skiplist or not value):
             return False
     return True
+
+def is_database_protocol(protocol):
+    """
+    Returns True if the protocol is one of the database protocols: MYSQL, POSTGRESQL, or SQLSERVER.
+
+    Accepts ConnectionProtocol or the string wire values (e.g. 'mysql', 'postgresql', 'sql-server').
+    """
+    db_members = (
+        ConnectionProtocol.MYSQL,
+        ConnectionProtocol.POSTGRESQL,
+        ConnectionProtocol.SQLSERVER,
+    )
+    db_values = {m.value for m in db_members}
+    if isinstance(protocol, ConnectionProtocol):
+        return protocol in db_members
+    if isinstance(protocol, str):
+        return str(protocol).strip().lower() in db_values
+    return False
 
 def get_sftp_attribute(obj, name: str) -> str:
     # Get one of pam_settings.connection.sftp.{sftpResource,sftpResourceUid,sftpUser,sftpUserUid}

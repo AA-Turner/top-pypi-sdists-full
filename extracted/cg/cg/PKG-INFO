@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cg
-Version: 85.1.6
+Version: 85.2.1
 Summary: Clinical Genomics command center
 Requires-Python: >=3.11,<3.13
 Classifier: Programming Language :: Python
@@ -132,3 +132,4 @@ For development, use `poetry install --all-extras` to install development depend
 [codefactor-url]: https://www.codefactor.io/repository/github/clinical-genomics/cg
 [black-image]: https://img.shields.io/badge/code%20style-black-000000.svg
 [black-url]: https://github.com/psf/black
+

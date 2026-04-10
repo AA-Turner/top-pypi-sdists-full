@@ -181,7 +181,7 @@ class GenericFeatureConverter(PrimitiveFeatureConverter[_TPrim, _TRich], Generic
             # Treat these as missing defaults since they're not concrete values.
             if isinstance(rich_default, UnresolvedFeature):
                 rich_default = ...
-            elif rich_default is None:
+            elif rich_default is None and not isinstance(self.pyarrow_dtype, pa.StructType):
                 primitive_default = cast(_TPrim, None)
             else:
                 # The missing value strategy doesn't really matter because rich_default is not missing

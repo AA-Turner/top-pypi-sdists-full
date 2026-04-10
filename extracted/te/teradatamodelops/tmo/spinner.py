@@ -73,7 +73,8 @@ class Spinner(ProgressBase):
                         self.rlock.release()
                 if self.inplace:
                     sys_print(
-                        f"{CODE['RM_LINE']}{CODE['CYAN']}{char}{CODE['END']} {self.__msg}{CODE['CURSOR_INIT']}"
+                        f"{CODE['RM_LINE']}{CODE['CYAN']}{char}{CODE['END']}"
+                        f" {self.__msg}{CODE['CURSOR_INIT']}"
                     )
 
 

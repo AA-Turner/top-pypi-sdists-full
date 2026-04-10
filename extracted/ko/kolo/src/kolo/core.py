@@ -8,8 +8,6 @@ from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, TypeVar, overload
 
-import httpx
-
 from .config import load_config
 from .db import setup_db
 from .serialize import monkeypatch_queryset_repr
@@ -24,17 +22,130 @@ if TYPE_CHECKING:
 
 logger = __import__("logging").getLogger("kolo")
 
+# Throttling for auto-emit subprocess spawning
+_auto_emit_lock = threading.Lock()
+_auto_emit_last_spawn: float = 0.0
+_AUTO_EMIT_COOLDOWN_SECONDS: float = 0.5  # Max one spawn per 500ms
 
-def save_trace_in_thread(profiler):
-    if platform.machine() == "wasm32":
+# Lock to prevent TOCTOU race condition during activation.
+# Without this, two concurrent requests could both pass the _is_already_active()
+# check before either claims the sys.monitoring tool ID, causing a ValueError.
+_activation_lock = threading.Lock()
+
+
+def save_trace_in_thread(
+    profiler,
+    auto_emit: bool = False,
+    db_path: Path | None = None,
+):
+    def save_then_emit():
         profiler.save()
+        # Spawn subprocess AFTER save completes, so the trace is in the DB
+        if auto_emit:
+            _spawn_auto_emit(db_path=db_path)
+
+    if platform.machine() == "wasm32":  # pragma: no cover
+        save_then_emit()
     else:
         name = "kolo-save_trace_in_db"
-        threading.Thread(target=profiler.save, name=name).start()
+        # daemon=False explicitly: Thread inherits the parent's daemon flag
+        # by default, so if kolo.enable() is called from a daemon thread, the
+        # save thread would also be daemon and CPython would not wait for it
+        # at interpreter shutdown, re-exposing the C-extension-teardown race.
+        threading.Thread(target=save_then_emit, name=name, daemon=False).start()
+
+
+def _spawn_auto_emit(db_path: Path | None = None) -> None:
+    """
+    Spawn a subprocess to auto-emit the latest traces.
+
+    This runs `python -m kolo._emit_auto` in a completely separate process,
+    ensuring zero impact on the Django process (no GIL, no shared memory).
+    The subprocess is fire-and-forget - we don't wait for it to complete.
+
+    Uses a lightweight entry point that avoids importing heavy dependencies
+    (httpx, click, django) for faster subprocess startup.
+
+    Throttled to max once per 500ms to prevent fork-bombing under high load.
+
+    If db_path is provided, KOLO_PATH is set in the subprocess environment
+    so setup_db() resolves to the same .kolo directory the trace was saved
+    to (important when the caller passed an explicit _db_path override).
+    """
+    import os
+    import subprocess
+    import time
+
+    global _auto_emit_last_spawn
+
+    if platform.machine() == "wasm32":  # pragma: no cover
+        return  # Can't spawn subprocesses in wasm
+
+    if not sys.executable:
+        logger.debug(
+            "Cannot spawn auto-emit: sys.executable is not set (embedded Python?)"
+        )
+        return
+
+    # Throttle: skip if we spawned recently
+    with _auto_emit_lock:
+        now = time.monotonic()
+        if now - _auto_emit_last_spawn < _AUTO_EMIT_COOLDOWN_SECONDS:
+            logger.debug("Skipping auto-emit spawn: cooldown active")
+            return
+        _auto_emit_last_spawn = now
+
+    try:
+        # Copy environment but remove TZ so subprocess uses system local timezone
+        # (Django often sets TZ=UTC which would affect folder timestamps)
+        env = os.environ.copy()
+        env.pop("TZ", None)
+        # Prevent the auto-emit subprocess from being traced by Kolo
+        # (avoids infinite recursion when KOLO=1 is set in the environment)
+        # Belt-and-suspenders: both disable tracing AND remove activation triggers
+        env["KOLO_DISABLE"] = "1"
+        env.pop("KOLO", None)
+
+        # If caller provided an explicit db_path, point the subprocess at
+        # the same .kolo directory via KOLO_PATH. db_path is
+        # <parent>/.kolo/.internal/db.sqlite3, so KOLO_PATH is <parent>.
+        if db_path is not None:
+            env["KOLO_PATH"] = str(db_path.parent.parent.parent)
+
+        # Build Popen kwargs - platform-specific detachment
+        popen_kwargs: dict = {
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+            "env": env,
+        }
+
+        if sys.platform == "win32":  # pragma: no cover
+            # Windows: use creation flags to fully detach
+            # These constants only exist on Windows
+            DETACHED_PROCESS = 0x00000008
+            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            popen_kwargs["creationflags"] = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        else:
+            # Unix: use new session and close file descriptors
+            popen_kwargs["start_new_session"] = True
+            popen_kwargs["close_fds"] = True
+
+        # Use the same Python interpreter that's running this code
+        # Use lightweight _emit_auto module instead of full CLI for faster startup
+        subprocess.Popen(
+            [sys.executable, "-m", "kolo._emit_auto"],
+            **popen_kwargs,
+        )
+    except (OSError, ValueError) as e:
+        # Best-effort - log failures for debugging but don't crash
+        logger.debug("Failed to spawn auto-emit subprocess: %s", e)
 
 
 def upload_trace_in_thread(profiler, upload_token):
     def upload():
+        import httpx
+
         trace = profiler.build_trace()
         try:
             from .upload import upload_to_dashboard
@@ -44,7 +155,7 @@ def upload_trace_in_thread(profiler, upload_token):
         except httpx.HTTPError:
             logger.exception("Failed to upload trace to Kolo dashboard.")
 
-    if platform.machine() == "wasm32":
+    if platform.machine() == "wasm32":  # pragma: no cover
         upload()
     else:
         name = "kolo-upload_to_dashboard"
@@ -114,7 +225,17 @@ class Enabled:
         use_monitoring = self.config.get("use_monitoring", default_use_monitoring)
 
         if use_monitoring and sys.version_info >= (3, 12):
-            if sys.monitoring.get_tool(sys.monitoring.PROFILER_ID):  # type: ignore[attr-defined]
+            from .monitoring import KOLO_TOOL_ID
+
+            tool_name = sys.monitoring.get_tool(KOLO_TOOL_ID)  # type: ignore[attr-defined]
+            if tool_name:
+                if tool_name != "kolo":
+                    logger.warning(
+                        "Tool ID %d is in use by %r (expected 'kolo'). "
+                        "Another tool may be using Kolo's reserved tool ID.",
+                        KOLO_TOOL_ID,
+                        tool_name,
+                    )
                 return True
 
         if sys.getprofile() is not None:
@@ -131,51 +252,72 @@ class Enabled:
 
         return False
 
-    def _activate(self) -> None:
+    def _activate(self) -> bool:
         """
         Internal activation logic.
 
         Activates Kolo profiling/monitoring. If already active, logs a message
         and returns early.
+
+        Uses a lock to prevent TOCTOU race conditions where two threads could
+        both pass the _is_already_active() check before either claims the
+        sys.monitoring tool ID.
+
+        Returns:
+            True if activation succeeded, False if already active or failed.
         """
-        if self._is_already_active():
-            logger.debug(
-                "Kolo already active, skipping duplicate activation from %s",
-                self.source,
-            )
-            return
+        # Acquire lock to prevent race condition between check and activation.
+        # This ensures only one thread can be in the activation window at a time.
+        with _activation_lock:
+            if self._is_already_active():
+                logger.debug(
+                    "Kolo already active, skipping duplicate activation from %s",
+                    self.source,
+                )
+                return False
 
-        # self.db_path is typically not set,
-        # but we make use of it in tests.
-        if self.db_path is None:
-            db_path = setup_db()
-        else:
-            db_path = self.db_path
+            # Resolve db_path once during activation so that _deactivate
+            # and _output_inline_trace use the same path, even if cwd or
+            # KOLO_PATH changes during tracing.  Stored in _active_db_path
+            # (not self.db_path) so reused instances (e.g. @kolo.enable
+            # decorator) re-resolve on each call. .resolve() turns
+            # relative paths into absolute ones so they don't drift with
+            # cwd changes mid-trace.
+            if self.db_path is not None:
+                self._active_db_path = self.db_path.resolve()
+            else:
+                self._active_db_path = setup_db()
+            db_path = self._active_db_path
 
-        monkeypatch_queryset_repr()
+            monkeypatch_queryset_repr()
 
-        # Default to monitoring on Python 3.12+
-        default_use_monitoring = sys.version_info >= (3, 12)
-        use_monitoring = self.config.get("use_monitoring", default_use_monitoring)
-        if sys.version_info >= (3, 12) and use_monitoring:
-            from .monitoring import activate_monitoring
+            # Default to monitoring on Python 3.12+
+            default_use_monitoring = sys.version_info >= (3, 12)
+            use_monitoring = self.config.get("use_monitoring", default_use_monitoring)
+            if sys.version_info >= (3, 12) and use_monitoring:
+                from .monitoring import activate_monitoring
 
-            monitor = self.register_monitor(db_path)
-            activate_monitoring(monitor)
-            self._monitor = monitor
-            self.trace_id = monitor.trace_id
-        else:
-            from .profiler import KoloProfiler
+                monitor = self.register_monitor(db_path)
+                if activate_monitoring(monitor):
+                    self._monitor = monitor
+                    self.trace_id = monitor.trace_id
+                else:
+                    # Another profiler has claimed the tool ID; skip activation
+                    return False
+            else:
+                from .profiler import KoloProfiler
 
-            self._profiler = KoloProfiler(
-                db_path,
-                config=self.config,
-                source=self.source,
-                one_trace_per_test=self.one_trace_per_test,
-                name=self.name,
-            )
-            self._profiler.__enter__()
-            self.trace_id = self._profiler.trace_id
+                self._profiler = KoloProfiler(
+                    db_path,
+                    config=self.config,
+                    source=self.source,
+                    one_trace_per_test=self.one_trace_per_test,
+                    name=self.name,
+                )
+                self._profiler.__enter__()
+                self.trace_id = self._profiler.trace_id
+
+            return True
 
     def __enter__(self):
         self._activate()
@@ -185,7 +327,7 @@ class Enabled:
         if self.config.get("use_rust", True):
             try:
                 from ._kolo import register_monitor
-            except ImportError as e:
+            except ImportError as e:  # pragma: no cover
                 # Rust extension not available (e.g. PyPy), fall back to pure Python
                 logger.debug("Rust monitor import failed (%s), using Python monitor", e)
             else:
@@ -207,20 +349,34 @@ class Enabled:
             name=self.name,
         )
 
+    @property
+    def _save_sync(self) -> bool:
+        """Whether this Enabled instance should save synchronously.
+
+        Inline output reads the trace by id from the db immediately after
+        deactivation, so a background save would race against it and
+        produce either a missing trace or TraceNotFoundError. We force
+        synchronous save whenever the caller asked for inline output.
+        """
+        return not self.save_in_thread or self.inline
+
     def save_trace_profiler(self):
         assert self._profiler is not None
 
         if self.one_trace_per_test:
             return
 
-        if not self.save_in_thread:
+        if self._save_sync:
             self._profiler.save()
             return
 
         if self.upload_token:
             upload_trace_in_thread(self._profiler, self.upload_token)
         else:
-            save_trace_in_thread(self._profiler)
+            auto_emit = self.config.get("auto_emit", True)
+            save_trace_in_thread(
+                self._profiler, auto_emit=auto_emit, db_path=self._active_db_path
+            )
 
     def save_trace_monitor(self):
         assert self._monitor is not None
@@ -228,14 +384,17 @@ class Enabled:
         if self.one_trace_per_test:
             return
 
-        if not self.save_in_thread:
+        if self._save_sync:
             self._monitor.save()
             return
 
         if self.upload_token:
             upload_trace_in_thread(self._monitor, self.upload_token)
         else:
-            save_trace_in_thread(self._monitor)
+            auto_emit = self.config.get("auto_emit", True)
+            save_trace_in_thread(
+                self._monitor, auto_emit=auto_emit, db_path=self._active_db_path
+            )
 
     def _deactivate(self, *exc) -> None:
         """
@@ -243,10 +402,13 @@ class Enabled:
 
         Deactivates profiling/monitoring, saves traces, and handles inline output.
         """
+        did_deactivate = False
+
         if self._profiler is not None:
             self._profiler.__exit__(*exc)
             self.save_trace_profiler()
             self._profiler = None
+            did_deactivate = True
 
         if self._monitor is not None:
             from .monitoring import disable_monitoring  # type: ignore[attr-defined]
@@ -254,6 +416,11 @@ class Enabled:
             disable_monitoring(self._monitor)
             self.save_trace_monitor()
             self._monitor = None
+            did_deactivate = True
+
+        if did_deactivate and self._save_sync:
+            if self.config.get("auto_emit", True):
+                _spawn_auto_emit(db_path=self._active_db_path)
 
         if self.inline:
             assert self.trace_id is not None
@@ -264,26 +431,21 @@ class Enabled:
 
     def _output_inline_trace(self):
         """Output the compact trace representation to stderr."""
-        import asyncio
-
         import click
 
         from .cli_mcp_shared import get_compact_traces
-        from .db import setup_db
 
-        db_path = self.db_path if self.db_path else setup_db()
+        assert self._active_db_path is not None
+        db_path = self._active_db_path
 
-        async def _get_inline_compact():
-            results = await get_compact_traces(
-                db_path,
-                trace_id=self.trace_id,
-                returns=self.inline_returns,
-            )
-            if results:
-                trace_id, compact_repr = results[0]
-                click.echo(compact_repr, err=True)
-
-        asyncio.run(_get_inline_compact())
+        results = get_compact_traces(
+            db_path,
+            trace_id=self.trace_id,
+            returns=self.inline_returns,
+        )
+        if results:
+            trace_id, compact_repr = results[0]
+            click.echo(compact_repr, err=True)
 
 
 class _AutoEnabled:
@@ -329,13 +491,16 @@ class _AutoEnabled:
         Activate Kolo profiling.
 
         Returns:
-            True if activation succeeded, False if already active (skipped)
+            True if activation succeeded, False if already active or failed
         """
         if self._enabled._is_already_active():
             logger.debug("KOLO=1: Tracing already active, skipping auto-activation")
             return False
 
-        self._enabled._activate()
+        if not self._enabled._activate():
+            # Activation failed (e.g., another tool claimed the ID)
+            return False
+
         self._activated = True
 
         # Expose trace_id for external access
@@ -355,8 +520,9 @@ class _AutoEnabled:
 
         try:
             self._enabled._deactivate(None, None, None)
-            self._save_latest_trace_file()
-        except Exception as e:
+            if self._enabled.config.get("auto_emit", True):
+                self._print_kolotxt_path()
+        except Exception as e:  # pragma: no cover
             # Don't crash during shutdown - log to stderr
             import sys
 
@@ -365,42 +531,21 @@ class _AutoEnabled:
 
             traceback.print_exc(file=sys.stderr)
 
-    def _save_latest_trace_file(self):
+    def _print_kolotxt_path(self):
         """
-        Save the compact representation of the trace to .kolo/latest.txt
-        and print a link to stderr.
+        Print the kolo.txt path to stderr.
+
+        Note: kolo.txt is updated by the auto-emit subprocess spawned in
+        _deactivate(). The file may not exist yet (subprocess is
+        fire-and-forget), but it will be created shortly.
         """
-        if not self.trace_id:
-            return
-
-        from .cli_mcp_shared import get_compact_trace_sync
-        from .db import load_trace_with_size_from_db
-
-        db_path = self._enabled.db_path if self._enabled.db_path else setup_db()
-
-        try:
-            _, _, size, trace_data = load_trace_with_size_from_db(
-                db_path, self.trace_id
-            )
-            compact_repr = get_compact_trace_sync(trace_data, size)
-
-            latest_path = db_path.parent / "latest.txt"
-
-            with open(latest_path, "w", encoding="utf-8") as f:
-                f.write(compact_repr)
-
-            latest_path_display = latest_path.absolute()
-            print(
-                f"\nTrace captured using KOLO=1\n{latest_path_display}",
-                file=sys.stderr,
-            )
-        except Exception as e:
-            # If trace loading fails (e.g. if it wasn't saved yet), just ignore
-            # We don't want to spam stderr with errors during shutdown
-            print(
-                f"Error occurred while saving trace using KOLO=1: {e}",
-                file=sys.stderr,
-            )
+        # _active_db_path is resolved during _activate() and always set
+        assert self._enabled._active_db_path is not None
+        kolotxt_path = self._enabled._active_db_path.parent.parent / "kolo.txt"
+        print(
+            f"\nTrace captured using KOLO=1\n{kolotxt_path.absolute()}",
+            file=sys.stderr,
+        )
 
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -425,7 +570,7 @@ def enable(
     name: Optional[str] = None,
     source: str = "kolo.enable",
     _one_trace_per_test: bool = False,
-    _save_in_thread: bool = False,
+    _save_in_thread: bool = True,
     _upload_token: Optional[str] = None,
     _db_path: Optional[Path] = None,
     _inline: bool = False,
@@ -440,7 +585,7 @@ def enable(
     name=None,
     source="kolo.enable",
     _one_trace_per_test=False,
-    _save_in_thread=False,
+    _save_in_thread=True,
     _upload_token=None,
     _db_path=None,
     _inline=False,

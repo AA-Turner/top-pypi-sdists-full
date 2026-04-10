@@ -1,6 +1,6 @@
 [project]
 name = "pulpcore-client"
-version = "3.107.0"
+version = "3.107.1"
 description = "Pulp 3 API"
 authors = [
   {name = "Pulp Team",email = "pulp-list@redhat.com"},

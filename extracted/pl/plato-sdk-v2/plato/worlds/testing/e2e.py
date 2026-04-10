@@ -62,12 +62,15 @@ async def run_e2e_tests(
     for test_file in test_files:
         module = _import_file(test_file)
         if module is None:
+            # When a filter is active, only count import failures as errors
+            # if the file could contain matching tests (filter appears in filename).
+            if test_filter and test_filter not in test_file.stem:
+                logger.debug("Skipping import-failed file %s (no filter match)", test_file.name)
+                continue
             errors += 1
             results.append({"name": test_file.stem, "status": "error", "error": "import failed"})
             _world_logger(world).error("IMPORT ERROR: %s", test_file.name)
             continue
-
-        await _call_hook(module, "setup_module", world)
 
         test_fns = sorted(
             ((name, fn) for name, fn in inspect.getmembers(module, inspect.isfunction) if name.startswith("test_")),
@@ -75,6 +78,11 @@ async def run_e2e_tests(
         )
         if test_filter:
             test_fns = [(name, fn) for name, fn in test_fns if test_filter in name]
+
+        if not test_fns:
+            continue
+
+        await _call_hook(module, "setup_module", world)
 
         for fn_name, fn in test_fns:
             qualified_name = f"{test_file.stem}::{fn_name}"

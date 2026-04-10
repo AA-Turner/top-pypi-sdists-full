@@ -33,6 +33,9 @@ class AssignmentItem:
         review (Union[None, str]): The Review record created when this assignment was accepted.
         review_uuid (UUID):
         reassign_count (int): Number of times this proposal has been reassigned.
+        override_reason (str): Reason for manager override of COI block.
+        overridden_by_name (str):  Default: ''.
+        overridden_at (Union[None, datetime.datetime]):
         created (datetime.datetime):
         decline_reason (Union[Unset, str]): Reason provided by reviewer for declining.
     """
@@ -53,7 +56,10 @@ class AssignmentItem:
     review: Union[None, str]
     review_uuid: UUID
     reassign_count: int
+    override_reason: str
+    overridden_at: Union[None, datetime.datetime]
     created: datetime.datetime
+    overridden_by_name: str = ""
     decline_reason: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -96,6 +102,16 @@ class AssignmentItem:
 
         reassign_count = self.reassign_count
 
+        override_reason = self.override_reason
+
+        overridden_by_name = self.overridden_by_name
+
+        overridden_at: Union[None, str]
+        if isinstance(self.overridden_at, datetime.datetime):
+            overridden_at = self.overridden_at.isoformat()
+        else:
+            overridden_at = self.overridden_at
+
         created = self.created.isoformat()
 
         decline_reason = self.decline_reason
@@ -120,6 +136,9 @@ class AssignmentItem:
                 "review": review,
                 "review_uuid": review_uuid,
                 "reassign_count": reassign_count,
+                "override_reason": override_reason,
+                "overridden_by_name": overridden_by_name,
+                "overridden_at": overridden_at,
                 "created": created,
             }
         )
@@ -186,6 +205,25 @@ class AssignmentItem:
 
         reassign_count = d.pop("reassign_count")
 
+        override_reason = d.pop("override_reason")
+
+        overridden_by_name = d.pop("overridden_by_name")
+
+        def _parse_overridden_at(data: object) -> Union[None, datetime.datetime]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                overridden_at_type_0 = isoparse(data)
+
+                return overridden_at_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, datetime.datetime], data)
+
+        overridden_at = _parse_overridden_at(d.pop("overridden_at"))
+
         created = isoparse(d.pop("created"))
 
         decline_reason = d.pop("decline_reason", UNSET)
@@ -207,6 +245,9 @@ class AssignmentItem:
             review=review,
             review_uuid=review_uuid,
             reassign_count=reassign_count,
+            override_reason=override_reason,
+            overridden_by_name=overridden_by_name,
+            overridden_at=overridden_at,
             created=created,
             decline_reason=decline_reason,
         )

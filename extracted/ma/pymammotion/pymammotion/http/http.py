@@ -248,8 +248,25 @@ class MammotionHTTP:
         return Response.from_dict(data)
 
     @refresh_token_decorator
-    async def refresh_authorization_code(self) -> Response:
-        """Refresh token."""
+    async def refresh_authorization_token(self) -> Response:
+        """Proactively refresh the /authorization/code token.
+
+        The @refresh_token_decorator checks whether the OAuth access token is
+        close to expiry and calls refresh_login() first if needed.  Use this
+        for scheduled / background refreshes.  For reactive refreshes (after a
+        401 is already in hand) use fetch_authorization_token() directly so the
+        caller can ensure the access token is already fresh before calling.
+        """
+        return await self.fetch_authorization_token()
+
+    async def fetch_authorization_token(self) -> Response:
+        """Call POST /authorization/code with the current access token.
+
+        Does **not** check token expiry first — the caller is responsible for
+        ensuring login_info.access_token is valid before calling this.  This is
+        the shared implementation used by both the proactive decorated path and
+        the reactive force-refresh path in TokenManager.
+        """
         async with self._client_session() as session:
             resp = await session.post(
                 f"{MAMMOTION_DOMAIN}/authorization/code",
@@ -264,7 +281,6 @@ class MammotionHTTP:
         _LOGGER.debug("handle_expiry response: %s", data)
         self.login_info.access_token = data["data"].get("accessToken", self.login_info.access_token)
         self.login_info.authorization_code = data["data"].get("code", self.login_info.authorization_code)
-        await self.get_mqtt_credentials()
         return Response.from_dict(data)
 
     @refresh_token_decorator

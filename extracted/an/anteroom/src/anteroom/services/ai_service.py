@@ -408,6 +408,21 @@ class AIService:
                         pass
                     yield {"event": "done", "data": {}}
                     return
+                except Exception:
+                    # (#1343) Provider exception raised synchronously from
+                    # first_token_task.result(). Close the stream and
+                    # re-raise so the existing BadRequestError /
+                    # RateLimitError / APIStatusError / transient handlers
+                    # below can map it. Anything unmapped lands in the
+                    # tightened generic catch-all at the bottom as
+                    # provider_error with full provider/model context.
+                    logger.debug("ai_service first_token provider error", exc_info=True)
+                    try:
+                        if hasattr(stream, "close"):
+                            await stream.close()
+                    except Exception:
+                        pass
+                    raise
 
                 logger.debug(
                     "ai_service first_token attempt=%d elapsed=%.2fs",
@@ -531,6 +546,8 @@ class AIService:
                             "message": "Authentication failed. Check your API key or api_key_command.",
                             "code": "auth_failed",
                             "retryable": False,
+                            "provider": self.config.provider,
+                            "model": self.config.model,
                         },
                     }
                 return
@@ -545,6 +562,8 @@ class AIService:
                             "message": "Conversation too long for model context window.",
                             "code": "context_length_exceeded",
                             "retryable": False,
+                            "provider": self.config.provider,
+                            "model": self.config.model,
                         },
                     }
                 elif "too many" in str(e).lower() and "tool" in str(e).lower():
@@ -557,6 +576,8 @@ class AIService:
                             ),
                             "code": "too_many_tools",
                             "retryable": False,
+                            "provider": self.config.provider,
+                            "model": self.config.model,
                         },
                     }
                 else:
@@ -582,6 +603,8 @@ class AIService:
                         "message": "Rate limited by API provider",
                         "code": "rate_limit",
                         "retryable": True,
+                        "provider": self.config.provider,
+                        "model": self.config.model,
                     },
                 }
                 return
@@ -637,6 +660,8 @@ class AIService:
                             "message": msg,
                             "code": "api_error",
                             "retryable": False,
+                            "provider": self.config.provider,
+                            "model": self.config.model,
                         },
                     }
                     return
@@ -652,6 +677,8 @@ class AIService:
                         "message": f"Stream timed out after {stream_elapsed:.0f}s — response may be incomplete",
                         "code": "timeout",
                         "retryable": True,
+                        "provider": self.config.provider,
+                        "model": self.config.model,
                     },
                 }
                 return
@@ -701,11 +728,27 @@ class AIService:
                             ),
                             "code": "html_response",
                             "retryable": False,
+                            "provider": self.config.provider,
+                            "model": self.config.model,
                         },
                     }
                 else:
-                    logger.exception("AI stream error")
-                    yield {"event": "error", "data": {"message": "An internal error occurred", "retryable": False}}
+                    # (#1343) Tightened generic catch-all: preserve the
+                    # original provider message via sanitize_provider_error
+                    # so users can diagnose config errors like
+                    # "toolConfig must be defined ..." or
+                    # "a conversation must start with a user message".
+                    logger.exception("AI stream provider error: %s", type(e).__name__)
+                    yield {
+                        "event": "error",
+                        "data": {
+                            "message": sanitize_provider_error(str(e)) or "An internal error occurred",
+                            "code": "provider_error",
+                            "retryable": False,
+                            "provider": self.config.provider,
+                            "model": self.config.model,
+                        },
+                    }
                 return
 
         # All retries exhausted — yield appropriate error for the last transient error
@@ -716,6 +759,8 @@ class AIService:
                     "message": f"Request timed out ({max_attempts} attempts)",
                     "code": "timeout",
                     "retryable": True,
+                    "provider": self.config.provider,
+                    "model": self.config.model,
                 },
             }
         elif isinstance(last_transient_error, _FirstTokenTimeoutError):
@@ -725,6 +770,8 @@ class AIService:
                     "message": f"No response from API ({max_attempts} attempts)",
                     "code": "timeout",
                     "retryable": True,
+                    "provider": self.config.provider,
+                    "model": self.config.model,
                 },
             }
         elif isinstance(last_transient_error, APIConnectionError):
@@ -734,6 +781,8 @@ class AIService:
                     "message": f"Cannot connect to API ({max_attempts} attempts)",
                     "code": "connection_error",
                     "retryable": True,
+                    "provider": self.config.provider,
+                    "model": self.config.model,
                 },
             }
         elif isinstance(last_transient_error, APIStatusError):
@@ -750,6 +799,8 @@ class AIService:
                     "message": msg,
                     "code": "api_error",
                     "retryable": True,
+                    "provider": self.config.provider,
+                    "model": self.config.model,
                 },
             }
 

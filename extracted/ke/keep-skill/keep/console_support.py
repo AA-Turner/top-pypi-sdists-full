@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 _URI_SCHEME_PATTERN = re.compile(r'^[a-zA-Z][a-zA-Z0-9+.-]*://')
 
 from .api import Keeper
-from .config import get_tool_directory
+from .config import get_default_provider_model, get_tool_directory
 from .logging_config import configure_quiet_mode, enable_debug_mode
 from .provider_identity import provider_model_name
 from .projections import plan_find_context_render, render_find_context_plan
@@ -756,19 +756,37 @@ See: https://github.com/keepnotes-ai/keep#installation
 """
 
 
+def _authoritative_remote_store(config):
+    """Return the ``remote_store`` config if valid, else None."""
+    remote_store = getattr(config, "remote_store", None)
+    if remote_store is None:
+        return None
+    api_url = getattr(remote_store, "api_url", None)
+    api_key = getattr(remote_store, "api_key", None)
+    project = getattr(remote_store, "project", None)
+    if not isinstance(api_url, str) or not api_url.strip():
+        return None
+    if not isinstance(api_key, str) or not api_key.strip():
+        return None
+    if project is not None and not isinstance(project, str):
+        return None
+    return remote_store
+
+
 def _get_keeper(store: Optional[Path], *, _force_local: bool = False) -> Keeper:
     """Initialize memory, handling errors gracefully.
 
-    Returns a local Keeper or RemoteKeeper (cloud) depending on config.
+    Returns a local Keeper or RemoteKeeper depending on authoritative-store
+    config.
     Local daemon commands (put directory, pending, etc.)
     always use a local Keeper — the command app handles the daemon HTTP path.
 
     When ``_force_local`` is True, skips the remote backend check
-    (used by ``keep pending`` which manages the daemon itself).
+    (used by ``keep daemon`` and the hidden ``keep pending`` compatibility alias).
     """
     import atexit
 
-    # Check for remote backend config (env vars or TOML [remote] section)
+    # Env vars target the remote authoritative store.
     api_url = os.environ.get("KEEPNOTES_API_URL", "https://api.keepnotes.ai")
     api_key = os.environ.get("KEEPNOTES_API_KEY")
     if api_url and api_key and not _force_local:
@@ -827,13 +845,15 @@ def _get_keeper(store: Optional[Path], *, _force_local: bool = False) -> Keeper:
             except Exception as e:
                 logger.warning("System doc setup deferred: %s", e)
 
-        # Check for remote config in TOML (loaded during Keeper init)
-        if kp.config and kp.config.remote:
+        # Check for remote authoritative-store config in TOML.
+        remote_store = _authoritative_remote_store(kp.config) if kp.config else None
+        if remote_store and not _force_local:
             from .remote import RemoteKeeper
             remote = RemoteKeeper(
-                kp.config.remote.api_url,
-                kp.config.remote.api_key,
+                remote_store.api_url,
+                remote_store.api_key,
                 kp.config,
+                project=remote_store.project,
             )
             atexit.register(remote.close)
             kp.close()  # Don't need the local Keeper
@@ -842,13 +862,6 @@ def _get_keeper(store: Optional[Path], *, _force_local: bool = False) -> Keeper:
         # Warn (don't exit) if no embedding provider — read-only ops still work
         if kp.config and kp.config.embedding is None:
             typer.echo(NO_PROVIDER_ERROR.strip(), err=True)
-        # Check tool integrations (fast path: dict lookup, no I/O if wizard ran)
-        if kp.config and not wizard_config:
-            from .integrations import check_and_install
-            try:
-                check_and_install(kp.config)
-            except (OSError, ValueError) as e:
-                pass  # Never block normal operation
         return kp
     except Exception as e:
         typer.echo(f"Error: {e}", err=True)
@@ -1327,14 +1340,38 @@ def _format_config_with_defaults(cfg, store_path: Path) -> str:
         lines.append("#   GOOGLE_CLOUD_PROJECT → Vertex AI (uses Workload Identity / ADC)")
         lines.append("#")
         lines.append("# Models (configure in keep.toml):")
-        lines.append("#   voyage: voyage-3.5-lite (default), voyage-3-large, voyage-code-3")
-        lines.append("#   anthropic: claude-3-haiku-20240307 (default), claude-3-5-haiku-20241022")
-        lines.append("#   openai embedding: text-embedding-3-small (default), text-embedding-3-large")
-        lines.append("#   openai summarization: gpt-4o-mini (default)")
-        lines.append("#   openrouter embedding: openai/text-embedding-3-small (default)")
-        lines.append("#   openrouter summarization: openai/gpt-4o-mini (default)")
-        lines.append("#   gemini embedding: text-embedding-004 (default)")
-        lines.append("#   gemini summarization: gemini-2.5-flash (default)")
+        lines.append(
+            f"#   voyage: {get_default_provider_model('embedding', 'voyage') or 'voyage-3.5-lite'} (default), "
+            "voyage-3-large, voyage-code-3"
+        )
+        lines.append(
+            f"#   anthropic: {get_default_provider_model('summarization', 'anthropic') or 'claude-haiku-4-5-20251001'} "
+            "(default), claude-3-5-haiku-20241022"
+        )
+        lines.append(
+            f"#   openai embedding: {get_default_provider_model('embedding', 'openai') or 'text-embedding-3-small'} "
+            "(default), text-embedding-3-large"
+        )
+        lines.append(
+            f"#   openai summarization: {get_default_provider_model('summarization', 'openai') or 'gpt-4.1-mini'} "
+            "(default)"
+        )
+        lines.append(
+            f"#   openrouter embedding: {get_default_provider_model('embedding', 'openrouter') or 'openai/text-embedding-3-small'} "
+            "(default)"
+        )
+        lines.append(
+            f"#   openrouter summarization: {get_default_provider_model('summarization', 'openrouter') or 'openai/gpt-4.1-mini'} "
+            "(default)"
+        )
+        lines.append(
+            f"#   gemini embedding: {get_default_provider_model('embedding', 'gemini') or 'text-embedding-004'} "
+            "(default)"
+        )
+        lines.append(
+            f"#   gemini summarization: {get_default_provider_model('summarization', 'gemini') or 'gemini-2.5-flash'} "
+            "(default)"
+        )
         lines.append("#")
         lines.append("# Ollama (auto-detected if running, no API key needed):")
         lines.append("#   OLLAMA_HOST        → default: http://localhost:11434")
@@ -1345,12 +1382,18 @@ def _format_config_with_defaults(cfg, store_path: Path) -> str:
 
 
 
-def run_pending_daemon(kp) -> None:
+def run_pending_daemon(
+    kp,
+    *,
+    bind_host: str | None = None,
+    advertised_url: str | None = None,
+    trusted_proxy: bool | None = None,
+) -> None:
     """Run the background processing daemon loop.
 
     Manages HTTP server, signal handlers, work processing, watches,
-    timer events, and version-aware restart.  Called from the CLI
-    ``pending --daemon`` path.
+    timer events, and version-aware restart. Called from the CLI
+    daemon command and the hidden ``pending --daemon`` compatibility path.
     """
     from .model_lock import ModelLock
     from .shutdown import clear_shutdown
@@ -1363,6 +1406,18 @@ def run_pending_daemon(kp) -> None:
     processor_lock = ModelLock(kp._store_path / ".processor.lock")
     flow_worker_id = f"pending-daemon:{os.getpid()}"
     shutdown_requested = False
+    export_keeper = kp
+
+    remote_store = _authoritative_remote_store(kp.config) if kp.config else None
+    if remote_store:
+        from .remote import RemoteKeeper
+
+        export_keeper = RemoteKeeper(
+            remote_store.api_url,
+            remote_store.api_key,
+            kp.config,
+            project=remote_store.project,
+        )
 
     if not processor_lock.acquire(blocking=False):
         _daemon_logger.info("Daemon: another processor already running, exiting")
@@ -1385,7 +1440,14 @@ def run_pending_daemon(kp) -> None:
     # That race is enough to make SQLite fall over on brand-new stores.
     kp.ensure_sysdocs()
 
-    _daemon_server, _port_path, _token_path = _start_daemon_query_server(kp, _daemon_logger)
+    _daemon_server, _port_path, _token_path = _start_daemon_query_server(
+        kp,
+        _daemon_logger,
+        export_keeper=export_keeper,
+        bind_host=bind_host,
+        advertised_url=advertised_url,
+        trusted_proxy=trusted_proxy,
+    )
 
     from .shutdown import wait_or_shutdown
 
@@ -1441,6 +1503,17 @@ def run_pending_daemon(kp) -> None:
                     "Watches: checked=%d changed=%d stale=%d errors=%d",
                     watch_result["checked"], watch_result["changed"],
                     watch_result["stale"], watch_result["errors"],
+                )
+
+            _daemon_logger.debug("Tick: poll_markdown_mirrors")
+            from .markdown_mirrors import poll_markdown_mirrors as _poll_markdown_mirrors
+            mirror_result = _poll_markdown_mirrors(kp, source_keeper=export_keeper)
+            if mirror_result["checked"] > 0:
+                _daemon_logger.info(
+                    "Markdown mirrors: checked=%d exported=%d errors=%d",
+                    mirror_result["checked"],
+                    mirror_result["exported"],
+                    mirror_result["errors"],
                 )
 
             if shutdown_state["requested"]:
@@ -1520,6 +1593,8 @@ def run_pending_daemon(kp) -> None:
             except OSError:
                 pass
         kp.close()
+        if export_keeper is not kp:
+            export_keeper.close()
         processor_lock.release()
 
 
@@ -1533,19 +1608,41 @@ def _daemon_version() -> str:
         return "unknown"
 
 
-def _start_daemon_query_server(kp, daemon_logger):
+def _start_daemon_query_server(
+    kp,
+    daemon_logger,
+    *,
+    export_keeper=None,
+    bind_host: str | None = None,
+    advertised_url: str | None = None,
+    trusted_proxy: bool | None = None,
+):
     """Start the daemon HTTP server and publish discovery files."""
     from .daemon_server import DaemonServer
 
     daemon_port = int(os.environ.get("KEEP_DAEMON_PORT", "0")) or DAEMON_PORT
-    daemon_server = DaemonServer(kp, port=daemon_port)
+    daemon_bind_host = bind_host or os.environ.get("KEEP_DAEMON_BIND_HOST", "127.0.0.1")
+    daemon_advertised_url = advertised_url or os.environ.get("KEEP_DAEMON_ADVERTISED_URL")
+    daemon_trusted_proxy = trusted_proxy
+    if daemon_trusted_proxy is None:
+        daemon_trusted_proxy = os.environ.get("KEEP_DAEMON_TRUSTED_PROXY", "").strip().lower() in (
+            "1", "true", "yes", "on",
+        )
+    daemon_server = DaemonServer(
+        kp,
+        port=daemon_port,
+        export_keeper=export_keeper,
+        bind_host=daemon_bind_host,
+        advertised_url=daemon_advertised_url,
+        trusted_proxy=bool(daemon_trusted_proxy),
+    )
     actual_port = daemon_server.start()
     port_path = kp._store_path / DAEMON_PORT_FILE
     token_path = kp._store_path / DAEMON_TOKEN_FILE
     port_path.write_text(str(actual_port))
     token_path.touch(mode=0o600, exist_ok=True)
     token_path.write_text(daemon_server.auth_token)
-    daemon_logger.info("Query server on 127.0.0.1:%d", actual_port)
+    daemon_logger.info("Query server on %s:%d", daemon_bind_host, actual_port)
     return daemon_server, port_path, token_path
 
 
@@ -1608,12 +1705,19 @@ def _prune_work_if_due(kp, *, last_prune_ts: float, prune_interval: float) -> fl
 
 def _log_daemon_startup_state(kp, daemon_logger) -> None:
     """Log initial queue and provider state once the daemon is reachable."""
+    mirror_count = 0
+    try:
+        from .markdown_mirrors import list_markdown_mirrors
+        mirror_count = len(list_markdown_mirrors(kp))
+    except Exception:
+        pass
     daemon_logger.info(
         "Queue: %d pending, %d flow, %d failed",
         kp._pending_queue.count(),
         kp.pending_work_count() if hasattr(kp, "pending_work_count") else 0,
         0,
     )
+    daemon_logger.info("Markdown mirrors: %d configured", mirror_count)
     daemon_logger.info(
         "Embedding: %s/%s",
         kp._config.embedding.name if kp._config.embedding else "none",
@@ -1733,6 +1837,16 @@ def _daemon_has_flow_activity(flow_result: dict[str, Any]) -> bool:
 
 def _log_daemon_batch_result(*, logger, result: dict[str, Any], delegated: int, flow_result: dict[str, Any], drain: bool = False) -> None:
     """Emit a consistent batch-progress log line for daemon work ticks."""
+    flow_processed = int(flow_result.get("processed", 0))
+    flow_failed = int(flow_result.get("failed", 0)) + int(flow_result.get("dead_lettered", 0))
+    if (
+        int(result.get("processed", 0)) == 0
+        and int(result.get("failed", 0)) == 0
+        and int(delegated) == 0
+        and flow_processed == 0
+        and flow_failed == 0
+    ):
+        return
     label = "Daemon batch (drain)" if drain else "Daemon batch"
     logger.info(
         "%s: processed=%d failed=%d delegated=%d flow_processed=%d flow_failed=%d",
@@ -1740,8 +1854,8 @@ def _log_daemon_batch_result(*, logger, result: dict[str, Any], delegated: int, 
         result["processed"],
         result["failed"],
         delegated,
-        int(flow_result.get("processed", 0)),
-        int(flow_result.get("failed", 0)) + int(flow_result.get("dead_lettered", 0)),
+        flow_processed,
+        flow_failed,
     )
 
 
@@ -1754,6 +1868,11 @@ def _maybe_wait_for_daemon_idle(
     wait_or_shutdown,
 ) -> bool:
     """Sleep when the daemon is idle but has background timers or queued retries."""
+    from .markdown_mirrors import (
+        has_active_markdown_mirrors,
+        list_markdown_mirrors,
+        next_markdown_mirror_delay,
+    )
     from .watches import has_active_watches, load_watches, next_check_delay
 
     delegated_remaining = (
@@ -1777,6 +1896,9 @@ def _maybe_wait_for_daemon_idle(
         return True
 
     has_timers = has_active_watches(kp)
+    mirrors = list_markdown_mirrors(kp) if not has_timers else []
+    if not has_timers:
+        has_timers = any(m.enabled for m in mirrors)
     if not has_timers:
         has_timers = (
             last_replenish_ts == 0
@@ -1787,6 +1909,8 @@ def _maybe_wait_for_daemon_idle(
 
     if has_active_watches(kp):
         delay = next_check_delay(load_watches(kp))
+    elif mirrors and any(m.enabled for m in mirrors):
+        delay = next_markdown_mirror_delay(mirrors)
     else:
         time_to_replenish = max(0, replenish_interval - (time.time() - last_replenish_ts))
         delay = min(time_to_replenish, 60.0)
@@ -1882,11 +2006,19 @@ def print_pending_interactive(kp) -> None:
     queue_stats = kp._pending_queue.stats()
     failed_count = queue_stats.get("failed", 0)
     processing_count = queue_stats.get("processing", 0)
+    mirror_count = 0
 
     _has_timer_events = False
     try:
         from .watches import has_active_watches
         _has_timer_events = has_active_watches(kp)
+    except Exception:
+        pass
+    try:
+        from .markdown_mirrors import list_markdown_mirrors
+        mirror_count = len([entry for entry in list_markdown_mirrors(kp) if entry.enabled])
+        if mirror_count:
+            _has_timer_events = True
     except Exception:
         pass
     if not _has_timer_events:
@@ -1920,6 +2052,8 @@ def print_pending_interactive(kp) -> None:
         typer.echo(_queue_status_line(kp, queue_stats), err=True)
     elif _has_timer_events:
         typer.echo("No work queued, but timer events need servicing.", err=True)
+    if mirror_count:
+        typer.echo(f"Markdown mirrors active: {mirror_count}", err=True)
 
     if not kp._is_processor_running():
         kp._spawn_processor()

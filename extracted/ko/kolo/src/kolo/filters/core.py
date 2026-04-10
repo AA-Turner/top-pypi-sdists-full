@@ -131,11 +131,13 @@ class LibraryPathFilter:
             os.path.normpath("/PyPy/"),
         )
 
-        if self.python_implementation == "PyPy" and self.system == "Windows":
+        if (
+            self.python_implementation == "PyPy" and self.system == "Windows"
+        ):  # pragma: no cover
             self.paths = default_paths + windows_paths + pypy_paths
-        elif self.system == "Windows":
+        elif self.system == "Windows":  # pragma: no cover
             self.paths = default_paths + windows_paths
-        elif self.python_implementation == "PyPy":
+        elif self.python_implementation == "PyPy":  # pragma: no cover
             self.paths = default_paths + pypy_paths
         else:
             self.paths = default_paths

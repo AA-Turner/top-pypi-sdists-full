@@ -21,6 +21,8 @@ class NestedPlanComponent:
         future_price (Union[None, Unset, str]):
         discount_threshold (Union[None, Unset, int]): Minimum amount to be eligible for discount.
         discount_rate (Union[None, Unset, int]): Discount rate in percentage.
+        discounted_price (Union[None, Unset, str]):
+        discount_description (Union[None, Unset, str]):
     """
 
     type_: Union[Unset, str] = UNSET
@@ -31,6 +33,8 @@ class NestedPlanComponent:
     future_price: Union[None, Unset, str] = UNSET
     discount_threshold: Union[None, Unset, int] = UNSET
     discount_rate: Union[None, Unset, int] = UNSET
+    discounted_price: Union[None, Unset, str] = UNSET
+    discount_description: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -62,6 +66,18 @@ class NestedPlanComponent:
         else:
             discount_rate = self.discount_rate
 
+        discounted_price: Union[None, Unset, str]
+        if isinstance(self.discounted_price, Unset):
+            discounted_price = UNSET
+        else:
+            discounted_price = self.discounted_price
+
+        discount_description: Union[None, Unset, str]
+        if isinstance(self.discount_description, Unset):
+            discount_description = UNSET
+        else:
+            discount_description = self.discount_description
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -81,6 +97,10 @@ class NestedPlanComponent:
             field_dict["discount_threshold"] = discount_threshold
         if discount_rate is not UNSET:
             field_dict["discount_rate"] = discount_rate
+        if discounted_price is not UNSET:
+            field_dict["discounted_price"] = discounted_price
+        if discount_description is not UNSET:
+            field_dict["discount_description"] = discount_description
 
         return field_dict
 
@@ -124,6 +144,24 @@ class NestedPlanComponent:
 
         discount_rate = _parse_discount_rate(d.pop("discount_rate", UNSET))
 
+        def _parse_discounted_price(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        discounted_price = _parse_discounted_price(d.pop("discounted_price", UNSET))
+
+        def _parse_discount_description(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        discount_description = _parse_discount_description(d.pop("discount_description", UNSET))
+
         nested_plan_component = cls(
             type_=type_,
             name=name,
@@ -133,6 +171,8 @@ class NestedPlanComponent:
             future_price=future_price,
             discount_threshold=discount_threshold,
             discount_rate=discount_rate,
+            discounted_price=discounted_price,
+            discount_description=discount_description,
         )
 
         nested_plan_component.additional_properties = d

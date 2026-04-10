@@ -4,6 +4,7 @@ from chalk._gen.chalk.artifacts.v1 import cron_query_pb2 as _cron_query_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
 from chalk._gen.chalk.lsp.v1 import lsp_pb2 as _lsp_pb2
+from chalk._gen.chalk.python.v1 import types_pb2 as _types_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -148,6 +149,7 @@ class Export(_message.Message):
         "logs",
         "lsp",
         "conversion_errors",
+        "captured_global_variables",
     )
     GRAPH_FIELD_NUMBER: _ClassVar[int]
     CRONS_FIELD_NUMBER: _ClassVar[int]
@@ -159,6 +161,7 @@ class Export(_message.Message):
     LOGS_FIELD_NUMBER: _ClassVar[int]
     LSP_FIELD_NUMBER: _ClassVar[int]
     CONVERSION_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    CAPTURED_GLOBAL_VARIABLES_FIELD_NUMBER: _ClassVar[int]
     graph: _graph_pb2.Graph
     crons: _containers.RepeatedCompositeFieldContainer[_cron_query_pb2.CronQuery]
     charts: _containers.RepeatedCompositeFieldContainer[_chart_pb2.Chart]
@@ -169,6 +172,7 @@ class Export(_message.Message):
     logs: _containers.RepeatedCompositeFieldContainer[ValidationLog]
     lsp: _lsp_pb2.LSP
     conversion_errors: _containers.RepeatedCompositeFieldContainer[_chalk_error_pb2.ChalkError]
+    captured_global_variables: _types_pb2.GlobalVariablesInfo
     def __init__(
         self,
         graph: _Optional[_Union[_graph_pb2.Graph, _Mapping]] = ...,
@@ -181,4 +185,5 @@ class Export(_message.Message):
         logs: _Optional[_Iterable[_Union[ValidationLog, _Mapping]]] = ...,
         lsp: _Optional[_Union[_lsp_pb2.LSP, _Mapping]] = ...,
         conversion_errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
+        captured_global_variables: _Optional[_Union[_types_pb2.GlobalVariablesInfo, _Mapping]] = ...,
     ) -> None: ...

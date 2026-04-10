@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
+from typing import Iterable, NamedTuple, Union
 from dateutil.relativedelta import relativedelta
 
 from . import definitions as di  # For PHENOLOGICAL_STAGES, dict_indices, etc.
@@ -18,6 +19,40 @@ logging.basicConfig(
     format="%(asctime)s | %(name)s | %(levelname)s | %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
+###############################################################################
+#                          MODULE CONSTANTS
+###############################################################################
+# ICCLIM indices that must bypass the multi-year cache because their output
+# depends on multi-year warm-up semantics. See Colab Q4: SPI3 per-year returns
+# NaN for the first row (no warm-up) while a multi-year call returns valid
+# values using prior-year data as warm-up — different semantics, cannot mix.
+# Also reused by ``compute_indices`` to decide whether to pass ``slice_mode``:
+# SPI rejects the ("season", ...) tuple and returns monthly output instead.
+_ICCLIM_BYPASS_CACHE = frozenset({"SPI3", "SPI6"})
+
+# Sentinel for cache misses. Can't use None because compute_indices may
+# legitimately return None on icclim error and we cache that too to avoid
+# retrying.
+_ICCLIM_CACHE_MISS = object()
+
+
+class ProcessFileArgs(NamedTuple):
+    """
+    Picklable arguments for ``process_file``. Using a NamedTuple instead of a
+    raw 9-tuple so fields are self-documenting, callers build by keyword, and
+    multiprocessing pickling still works (NamedTuple subclasses tuple).
+    """
+    parser: object           # configparser.ConfigParser — forward-ref to avoid import
+    process_type: str
+    file_path: Union[str, Path]
+    file_name: str
+    admin_zone: str
+    method: str
+    years: Iterable[int]
+    vi_var: str
+    redo: bool
 
 
 ###############################################################################
@@ -156,33 +191,6 @@ def add_season_information(
     return pd.concat(frames)
 
 
-def adjust_dataframes(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Shifts the 'time' column forward by one year if multiple years are present,
-    ensuring a consistent baseline period for index calculations.
-
-    Args:
-        df (pd.DataFrame): DataFrame with a 'time' column of timestamps.
-
-    Returns:
-        pd.DataFrame: Adjusted DataFrame (time-shifted if needed).
-    """
-    unique_years = df["time"].dt.year.unique()
-    if len(unique_years) > 1:
-        earliest_year = df["time"].dt.year.min()
-        desired_start_year = earliest_year + 1
-        desired_start_date_dynamic = pd.Timestamp(f"{desired_start_year}-01-01")
-
-        # Calculate the difference between the earliest date in the dataset and the desired start date
-        min_date_new = df["time"].min()
-        date_difference_dynamic = desired_start_date_dynamic - min_date_new
-
-        # Adjust all dates in the 'time' column forward by the calculated difference
-        df["time"] = df["time"] + date_difference_dynamic
-
-    return df
-
-
 def df_to_xarray(vals: pd.DataFrame):
     """
     Convert a (lat, lon, time)-indexed DataFrame to an xarray Dataset
@@ -246,11 +254,14 @@ def compute_indices(
     logs_verbosity: str = "LOW"
 ):
     """
-    Compute climate indices using icclim. Shifts dataframes if multiple years are detected,
-    then builds an xarray dataset for ICCLIM.
+    Compute climate indices using icclim. Uses slice_mode=("season", tuple) for
+    non-SPI indices so cross-year harvest windows (Southern Hemisphere) aggregate
+    into one row per harvest year natively, without a time-shift hack.
 
     Args:
         df_time_period (pd.DataFrame): DataFrame for the target/harvest year sub-period.
+            May span multiple harvest years when called through the ICCLIM cache
+            — icclim will emit one row per season window in that case.
         df_base_period (pd.DataFrame): DataFrame for the baseline reference period.
         index_name (str): The name of the index to compute (e.g., "SPI3", "SU", etc.).
 
@@ -259,42 +270,36 @@ def compute_indices(
     """
     ds = None
 
-    # Adjust if multiple years are in the data
-    unique_years = df_time_period["time"].dt.year.unique()
-    if len(unique_years) > 1:
-        df_time_period = adjust_dataframes(df_time_period)
-        df_base_period = adjust_dataframes(df_base_period)
-
     dx, vals_ix = df_to_xarray(df_base_period)
     start_br, end_br, start_tr, end_tr = get_icclim_dates(vals_ix, df_time_period.set_index(["lat", "lon", "time"]))
 
-    # For seasonal indices, slice_mode is used, but for SPI indices it fails
-    slice_mode = (
-        "season",
-        (
-            f"{df_time_period.time.iloc[0].strftime('%d %B')}",
-            f"{df_time_period.time.iloc[-1].strftime('%d %B')}",
-        ),
+    # Derive the season window from a representative single harvest year so that
+    # cross-year seasons (e.g. Oct–Jun winter wheat) get the correct end date
+    # from the second calendar year.  Sampling by first calendar year alone
+    # would stop at Dec 31 and produce the wrong slice_mode tuple.
+    rep_season = df_time_period["Season"].iloc[0]
+    rep_sample = (
+        df_time_period[df_time_period["Season"] == rep_season]
+        .sort_values("time")
     )
+    season_start = rep_sample["time"].iloc[0].strftime("%d %B")
+    season_end = rep_sample["time"].iloc[-1].strftime("%d %B")
+
+    kwargs = dict(
+        index_name=index_name,
+        in_files=dx,
+        base_period_time_range=[start_br, end_br],
+        time_range=[start_tr, end_tr],
+        logs_verbosity=logs_verbosity,
+    )
+    # SPI rejects slice_mode entirely and returns monthly output. Every other
+    # index gets the ("season", ...) tuple so cross-year harvest windows
+    # aggregate into one row per harvest year natively.
+    if index_name not in _ICCLIM_BYPASS_CACHE:
+        kwargs["slice_mode"] = ("season", (season_start, season_end))
 
     try:
-        if index_name in ["SPI3", "SPI6"]:
-            ds = icclim.index(
-                index_name=index_name,
-                in_files=dx,
-                base_period_time_range=[start_br, end_br],
-                time_range=[start_tr, end_tr],
-                logs_verbosity=logs_verbosity,
-            )
-        else:
-            ds = icclim.index(
-                index_name=index_name,
-                in_files=dx,
-                base_period_time_range=[start_br, end_br],
-                time_range=[start_tr, end_tr],
-                slice_mode="year",
-                logs_verbosity=logs_verbosity,
-            )
+        ds = icclim.index(**kwargs)
     except Exception as e:
         logger.error(
             "Error computing %s for %s to %s: %s",
@@ -392,10 +397,11 @@ class CEIs:
         self.harvest_year = harvest_year
         self.redo = redo
 
-        # Will be assigned later
-        self.country = None
-        self.crop = None
-        self.season = None
+        # Will be assigned later (placeholders; set by get_unique_country_name
+        # and _run_one_year before use).
+        self.country: str = ""
+        self.crop: str = ""
+        self.season: int = 0
 
         # Directories
         self.dir_output = None
@@ -404,6 +410,14 @@ class CEIs:
         # DataFrames
         self.df_country_crop = pd.DataFrame()
         self.df_harvest_year = pd.DataFrame()
+
+        # ICCLIM result cache keyed on (region_key, tuple(stage), index_name).
+        # Shared across all harvest years for a single file via process_file,
+        # so ICCLIM is called once per (region, stage, index) instead of once
+        # per (region, stage, index, year). SPI3/SPI6 bypass this cache — see
+        # ``_ICCLIM_BYPASS_CACHE``. Public (no leading underscore) because
+        # process_file injects a shared dict by reference as a DI hook.
+        self.icclim_cache: dict = {}
 
         # Paths — include project_name so output lands under {dir_output}/{project_name}/
         project_name = self.parser.get("DEFAULT", "project_name")
@@ -692,31 +706,58 @@ class CEIs:
 
         # For each stage combination, compute climate indices and EO stats
         for extended_stage in extended_stages_list:
+            # df_time_period is the harvest-year slice (for EO aggregates and
+            # for the SPI per-year code path). df_base_period is the full
+            # multi-year baseline shared across all years for this file via
+            # self.icclim_cache — no separate df_time_multi alias needed.
             df_time_period, df_base_period = self.filter_data_for_stage(
                 df_group, df_harvest_year_region, col, extended_stage
             )
 
             # 1) ICCLIM-based indices
             icclim_verbosity = "SILENT" if self.suppress_icclim_logs else "LOW"
-            try:
-                for index_name, (index_type, index_details) in di.dict_indices.items():
-                    ds = compute_indices(df_time_period, df_base_period, index_name, logs_verbosity=icclim_verbosity)
-                    if ds:
-                        df_out = ds.to_dataframe().reset_index()
-                        df_processed = self.process_row(
-                            df_out,
-                            df_harvest_year_region,
-                            extended_stage,
-                            key,
-                            index_name,
-                            index_type,
-                            index_details
+            for index_name, (index_type, index_details) in di.dict_indices.items():
+                try:
+                    if index_name in _ICCLIM_BYPASS_CACHE:
+                        # SPI needs per-year warm-up isolation (Colab Q4).
+                        # Use the single-harvest-year slice directly.
+                        ds = compute_indices(
+                            df_time_period, df_base_period, index_name,
+                            logs_verbosity=icclim_verbosity,
                         )
+                    else:
+                        cache_key = (key, tuple(extended_stage), index_name)
+                        ds = self.icclim_cache.get(cache_key, _ICCLIM_CACHE_MISS)
+                        if ds is _ICCLIM_CACHE_MISS:
+                            # Cache miss: compute once with the full multi-year
+                            # stage-filtered span. icclim's slice_mode=("season",
+                            # tuple) emits one row per harvest window.
+                            ds = compute_indices(
+                                df_base_period, df_base_period, index_name,
+                                logs_verbosity=icclim_verbosity,
+                            )
+                            self.icclim_cache[cache_key] = ds
+                except Exception as e:
+                    logger.error(
+                        "Error computing %s for %s: %s", index_name, key, e
+                    )
+                    continue
 
-                        if not df_processed.empty:
-                            frames_group.append(df_processed)
-            except Exception as e:
-                print(f"Error processing indices for {key}: {e}")
+                if ds is None:
+                    continue
+
+                df_out = ds.to_dataframe().reset_index()
+                df_processed = self.process_row(
+                    df_out,
+                    df_harvest_year_region,
+                    extended_stage,
+                    key,
+                    index_name,
+                    index_type,
+                    index_details,
+                )
+                if not df_processed.empty:
+                    frames_group.append(df_processed)
             # 2) EO indices (NDVI, ESI, GCVI, H-INDEX, etc.)
             eo_vars = ["GCVI", "NDVI", "ESI4WK", "H-INDEX", "AEF"]
             if any(c.startswith("fldas_") for c in df_group.columns):
@@ -768,7 +809,19 @@ class CEIs:
         # Typically, ICCLIM data might have multiple lat/lon/time rows
         # but if it collapses them, you might only get 1 row.
         # Some indices produce a single value after bounding.
-        df = df[df["bounds"] == 1] if "bounds" in df.columns else df
+        if "bounds" in df.columns:
+            df = df[df["bounds"] == 1]
+
+        # When the ICCLIM cache widens ``time_range`` to the full multi-year
+        # span, the non-SPI branch (slice_mode=("season", tuple)) emits one
+        # row per harvest window labeled by the season midpoint and the SPI
+        # branch emits one row per month. Both label years match
+        # ``self.harvest_year`` directly, so filter before dropping the time
+        # column.
+        if "time" in df.columns:
+            years = pd.to_datetime(df["time"]).dt.year
+            df = df[years == self.harvest_year]
+
         df = df.drop(columns=[c for c in ["time", "bounds", "time_bounds"] if c in df], errors="ignore")
 
         if df.empty:
@@ -989,73 +1042,125 @@ class CEIs:
 ###############################################################################
 #                            MAIN PROCESS FUNCTION
 ###############################################################################
-def process(row: tuple):
+def _run_one_year(obj: "CEIs") -> None:
     """
-    Main pipeline function used for parallel or sequential calls.
+    Run the per-harvest-year pipeline on a ``CEIs`` instance whose
+    ``df_country_crop`` and ``icclim_cache`` have already been populated by
+    the caller. Extracted so ``process_file`` can amortize CSV read and ICCLIM
+    result caching across many years for one file.
+    """
+    obj.df_harvest_year = obj.filter_data_for_harvest_year()
+    if obj.df_harvest_year.empty:
+        logger.warning(
+            "No data for harvest year %s. Skipping.", obj.harvest_year
+        )
+        return
+
+    obj.crop, obj.season = utils.get_crop_season(obj.file_name)
+    obj.get_unique_country_name()
+    obj.prepare_directories()
+
+    intermediate_file = obj.manage_existing_files()
+    if not intermediate_file:
+        return
+
+    obj.df_harvest_year.to_csv(intermediate_file, index=False)
+
+    df_result = obj.process_data_by_region_and_stage()
+    if not df_result.empty:
+        obj.save(df_result)
+    else:
+        logger.warning(
+            "No results produced for %s year %s", obj.file_name, obj.harvest_year
+        )
+
+
+def process_file(row) -> None:
+    """
+    One task = one file × all requested harvest years. Reads the CSV exactly
+    once (shared across years) and shares an in-memory ICCLIM result cache
+    across years so ICCLIM is called once per ``(region, stage, index)``
+    instead of once per ``(region, stage, index, year)``.
 
     Args:
-        row (tuple): Typically includes
-            (parser, process_type, file_path, file_name, admin_zone, method, harvest_year, vi_var, redo).
-
-    Returns:
-        None
+        row: A ``ProcessFileArgs`` instance, or a raw 9-tuple in the same
+            field order (legacy callers).
     """
-    parser, process_type, file_path, file_name, admin_zone, method, harvest_year, vi_var, redo = row
+    args = row if isinstance(row, ProcessFileArgs) else ProcessFileArgs(*row)
 
-    # Suppress icclim Python loggers if configured
-    suppress_icclim = parser.getboolean("DEFAULT", "suppress_icclim_logs", fallback=False)
-    if suppress_icclim:
+    if args.parser.getboolean("DEFAULT", "suppress_icclim_logs", fallback=False):
         logging.getLogger("icclim").setLevel(logging.WARNING)
         logging.getLogger("xclim").setLevel(logging.WARNING)
 
-    obj = CEIs(
+    years = list(args.years)
+    if not years:
+        return
+
+    def _build_ceis(harvest_year: int) -> "CEIs":
+        return CEIs(
+            parser=args.parser,
+            process_type=args.process_type,
+            file_path=args.file_path,
+            file_name=args.file_name,
+            admin_zone=args.admin_zone,
+            method=args.method,
+            harvest_year=harvest_year,
+            redo=args.redo,
+        )
+
+    # Read + standardize + add season columns exactly once for this file.
+    try:
+        df_country_crop = _build_ceis(years[0]).preprocess_input_df(args.vi_var)
+    except Exception as e:
+        logger.error("preprocess_input_df failed for %s: %s", args.file_path, e)
+        return
+    if df_country_crop.empty:
+        logger.warning("No data after preprocessing. Skipping %s.", args.file_name)
+        return
+
+    # Shared ICCLIM result cache for every year in this file. Ordinary dict
+    # passed by reference so every CEIs instance below appends to the same
+    # object — amortizes ICCLIM across years without reusing CEIs state.
+    icclim_cache: dict = {}
+
+    for year in years:
+        try:
+            obj = _build_ceis(year)
+            # Inject the pre-loaded dataframe and the shared cache. Everything
+            # else (directories, df_harvest_year, paths) is reset cleanly by
+            # ``CEIs.__init__`` so no per-year state leaks.
+            obj.df_country_crop = df_country_crop
+            obj.icclim_cache = icclim_cache
+            _run_one_year(obj)
+        except Exception as e:
+            logger.error(
+                "Error in process_file for %s year %s: %s", args.file_path, year, e
+            )
+
+
+def process(row) -> None:
+    """
+    Back-compat entry point for callers that dispatch one task per
+    ``(file, harvest_year)``. Wraps ``process_file`` with a single-element
+    years list so the ICCLIM cache still works within one call (even though
+    there is nothing to amortize across with only one year).
+
+    Args:
+        row: Raw 9-tuple ``(parser, process_type, file_path, file_name,
+            admin_zone, method, harvest_year, vi_var, redo)``.
+    """
+    parser, process_type, file_path, file_name, admin_zone, method, harvest_year, vi_var, redo = row
+    process_file(ProcessFileArgs(
         parser=parser,
         process_type=process_type,
         file_path=file_path,
         file_name=file_name,
         admin_zone=admin_zone,
         method=method,
-        harvest_year=harvest_year,
-        redo=redo
-    )
-
-    try:
-        # Read input data, convert columns, unify climate vars
-        obj.df_country_crop = obj.preprocess_input_df(vi_var)
-        if obj.df_country_crop.empty:
-            logger.warning("No data after preprocessing. Skipping.")
-            return
-
-        # Filter data for harvest year
-        obj.df_harvest_year = obj.filter_data_for_harvest_year()
-        if obj.df_harvest_year.empty:
-            logger.warning("No data for harvest year %s. Skipping.", harvest_year)
-            return
-
-        # Extract country/crop/season
-        obj.crop, obj.season = utils.get_crop_season(file_name)
-        obj.get_unique_country_name()
-
-        # Prepare directories for intermediate/final output
-        obj.prepare_directories()
-
-        # Possibly skip if the final file already exists
-        intermediate_file = obj.manage_existing_files()
-        if not intermediate_file:
-            return
-
-        # Save harvest-year subset to intermediate
-        obj.df_harvest_year.to_csv(intermediate_file, index=False)
-
-        # Process by region and stage => get final CEI DataFrame
-        df_result = obj.process_data_by_region_and_stage()
-        if not df_result.empty:
-            obj.save(df_result)
-        else:
-            logger.warning("No results produced for %s", file_name)
-
-    except Exception as e:
-        logger.error("Error in main process() for file %s: %s", file_path, e)
+        years=[harvest_year],
+        vi_var=vi_var,
+        redo=redo,
+    ))
 
 
 def validate_index_definitions():

@@ -63,6 +63,7 @@ __all__ = (
     "MaintenanceScheduleTypeType",
     "MaintenanceTypeType",
     "MediaConnectServiceName",
+    "MediaLiveChannelPipelineIdType",
     "MediaLiveInputPipelineIdType",
     "MediaLiveTransitEncryptionKeyTypeType",
     "MediaStreamTypeType",
@@ -167,6 +168,7 @@ MaintenanceDayType = Literal[
 ]
 MaintenanceScheduleTypeType = Literal["WINDOW"]
 MaintenanceTypeType = Literal["DEFAULT", "PREFERRED_DAY_TIME"]
+MediaLiveChannelPipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
 MediaLiveInputPipelineIdType = Literal["PIPELINE_0", "PIPELINE_1"]
 MediaLiveTransitEncryptionKeyTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
 MediaStreamTypeType = Literal["ancillary-data", "audio", "video"]
@@ -211,7 +213,9 @@ RouterInputStateType = Literal[
 ]
 RouterInputTierType = Literal["INPUT_100", "INPUT_20", "INPUT_50"]
 RouterInputTransitEncryptionKeyTypeType = Literal["AUTOMATIC", "SECRETS_MANAGER"]
-RouterInputTypeType = Literal["FAILOVER", "MEDIACONNECT_FLOW", "MERGE", "STANDARD"]
+RouterInputTypeType = Literal[
+    "FAILOVER", "MEDIACONNECT_FLOW", "MEDIALIVE_CHANNEL", "MERGE", "STANDARD"
+]
 RouterNetworkInterfaceStateType = Literal[
     "ACTIVE", "CREATING", "DELETING", "ERROR", "RECOVERING", "UPDATING"
 ]

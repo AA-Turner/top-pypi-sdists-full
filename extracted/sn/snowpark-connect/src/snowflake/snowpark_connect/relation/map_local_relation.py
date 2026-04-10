@@ -3,6 +3,7 @@
 #
 import io
 import json
+import random
 import re
 from datetime import timedelta
 from json import JSONDecodeError
@@ -36,6 +37,23 @@ from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
+
+
+def _create_dataframe_unseeded(func, *args, **kwargs):
+    """Call func with OS entropy for global random, then restore the caller's state.
+
+    Snowflake's connector generates temp stage names via the global random module
+    (``CREATE TEMPORARY STAGE`` without ``IF NOT EXISTS``). If the caller has seeded
+    global random to a fixed value, concurrent workers collide on the same stage name.
+    This helper saves/restores the caller's RNG state so Snowflake internals always
+    get OS entropy for naming. See SNOW-3327127.
+    """
+    _rng_state = random.getstate()
+    random.seed(None)
+    try:
+        return func(*args, **kwargs)
+    finally:
+        random.setstate(_rng_state)
 
 
 def parse_local_relation_schema_string(rel: relation_proto.Relation):
@@ -331,7 +349,9 @@ def map_local_relation(
         if all(len(col) == 0 for col in table.column_names):
             # Only create the pandas dataframe for empty dataframe cases.
             pandas_df = table.to_pandas()
-            snowpark_df: snowpark.DataFrame = session.create_dataframe(pandas_df)
+            snowpark_df: snowpark.DataFrame = _create_dataframe_unseeded(
+                session.create_dataframe, pandas_df
+            )
             return DataFrameContainer.create_with_column_mapping(
                 dataframe=snowpark_df,
                 spark_column_names=spark_column_names,
@@ -394,7 +414,9 @@ def map_local_relation(
         if use_pyarrow:
             table = _convert_arrow_table_intervals(table, snowpark_schema)
 
-            snowpark_df: snowpark.DataFrame = session.create_dataframe(
+            # See _create_dataframe_unseeded for why we avoid a fixed random seed here.
+            snowpark_df: snowpark.DataFrame = _create_dataframe_unseeded(
+                session.create_dataframe,
                 # Rename the columns to match the Snowpark schema before creating.
                 data=table.rename_columns([unquote_if_quoted(c) for c in new_columns]),
                 use_vectorized_scanner=use_vectorized_scanner,

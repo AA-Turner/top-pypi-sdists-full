@@ -55,8 +55,8 @@ def sync_detailed(
 ) -> Response[Any]:
     """Set end date by provider
 
-     Allows a service provider to set or update the end date for a resource, scheduling it for
-    termination. A notification is sent to the consumer.
+     Deprecated: Use set_end_date instead. Allows a service provider to set or update the end date for a
+    resource.
 
     Args:
         uuid (UUID):
@@ -90,8 +90,8 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """Set end date by provider
 
-     Allows a service provider to set or update the end date for a resource, scheduling it for
-    termination. A notification is sent to the consumer.
+     Deprecated: Use set_end_date instead. Allows a service provider to set or update the end date for a
+    resource.
 
     Args:
         uuid (UUID):

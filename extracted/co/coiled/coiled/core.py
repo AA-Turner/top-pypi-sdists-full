@@ -775,7 +775,9 @@ class Cloud(Generic[IsAsynchronous]):
         if response.status >= 400:
             await handle_api_exception(response)  # always raises exception, no return
         data = await response.json()
-        if data["should_upload"]:
+        if data["should_upload"] or dask.config.get("coiled.package_sync.always_upload", False):
+            if not data["should_upload"]:
+                logger.debug(f"uploading {package_name} ({data['id']}) because coiled.package_sync.always_upload set")
             num_bytes = len(package_bytes)
             await self._put_package(
                 url=data["upload_url"],

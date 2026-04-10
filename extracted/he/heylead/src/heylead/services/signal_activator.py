@@ -598,7 +598,8 @@ async def activate_pending_signals() -> str:
                     "pain_points": signal_context.get("pain_points", []),
                 })
 
-                create_outreach(
+                await run_db(
+                    create_outreach,
                     campaign_id=campaign_id,
                     contact_id=contact_id,
                     status="pending",

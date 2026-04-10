@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weaviate-client
-Version: 4.20.4
+Version: 4.20.5
 Summary: A python native Weaviate client
 Home-page: https://github.com/weaviate/weaviate-python-client
 Author: Weaviate
@@ -18,7 +18,6 @@ Requires-Dist: authlib<2.0.0,>=1.6.7
 Requires-Dist: pydantic<3.0.0,>=2.12.0
 Requires-Dist: grpcio<1.80.0,>=1.59.5
 Requires-Dist: protobuf<7.0.0,>=4.21.6
-Requires-Dist: deprecation<3.0.0,>=2.1.0
 Provides-Extra: agents
 Requires-Dist: weaviate-agents<2.0.0,>=1.0.0; extra == "agents"
 Dynamic: license-file
@@ -54,7 +53,6 @@ We currently support the following versions client versions:
 
 - 4.X: actively supported
 - 3.X: deprecated, receives only critical bug fixes and dependency updates
-- copy of the 3.X branch in v4 releases: Will be removed on 2024-11-30
 
 
 Articles
@@ -76,8 +74,7 @@ Documentation
 Support
 -------
 
-- Use our `Forum <https://forum.weaviate.io>`_ for support or any other question.
-- Use our `Slack Channel <https://weaviate.io/slack>`_ for discussions or any other question.
+- Use our `Community Forum <https://forum.weaviate.io>`_ for support or any other question.
 - Use the ``weaviate`` tag on `StackOverflow <https://stackoverflow.com/questions/tagged/weaviate>`_  for questions.
 - For bugs or problems, submit a GitHub `issue <https://github.com/weaviate/weaviate-python-client/issues>`_.
 

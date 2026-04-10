@@ -511,13 +511,13 @@ LANGGRAPH_METRICS_EXPORT_INTERVAL_MS = env(
 )
 # Not in public docs: infrastructure, set by platform
 LSD_DD_API_KEY = _first_non_empty(
-    env("LSD_DD_API_KEY", cast=str, default=None),
     env("CUSTOM_LSD_DD_API_KEY", cast=str, default=None),
+    env("LSD_DD_API_KEY", cast=str, default=None),
 )
 # Not in public docs: infrastructure, set by platform
 LSD_DD_ENDPOINT = _first_non_empty(
-    env("LSD_DD_ENDPOINT", cast=str, default=None),
     env("CUSTOM_LSD_DD_ENDPOINT", cast=str, default=None),
+    env("LSD_DD_ENDPOINT", cast=str, default=None),
     "otlp.us5.datadoghq.com",
 )
 # Not in public docs: infrastructure, set by platform

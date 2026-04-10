@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import types
 
 from collections.abc import (
@@ -15,7 +16,6 @@ from collections.abc import (
     Sized,
 )
 from contextlib import AbstractContextManager
-from dataclasses import dataclass
 from decimal import Decimal
 from fractions import Fraction
 from threading import Lock
@@ -33,7 +33,6 @@ from typing_extensions import Protocol
 __all__ = [
     'AbortThread',
     'SequenceView',
-    'Stats',
     'adjacent',
     'all_unique',
     'always_iterable',
@@ -119,9 +118,6 @@ __all__ = [
     'rlocate',
     'rstrip',
     'run_length',
-    'running_min',
-    'running_max',
-    'running_statistics',
     'sample',
     'seekable',
     'serialize',
@@ -170,7 +166,11 @@ _GenFn = TypeVar('_GenFn', bound=Callable[..., Iterator[Any]])
 _Raisable = BaseException | type[BaseException]
 _NumberT = TypeVar("_NumberT", float, Decimal, Fraction)
 
-_ClassInfo = type | types.UnionType | tuple[_ClassInfo, ...]
+# The type of isinstance's second argument (from typeshed builtins)
+if sys.version_info >= (3, 10):
+    _ClassInfo = type | types.UnionType | tuple[_ClassInfo, ...]
+else:
+    _ClassInfo = type | tuple[_ClassInfo, ...]
 
 @type_check_only
 class _SizedIterable(Protocol[_T_co], Sized, Iterable[_T_co]): ...
@@ -435,30 +435,6 @@ def sort_together(
 ) -> list[tuple[_T, ...]]: ...
 def unzip(iterable: Iterable[Sequence[_T]]) -> tuple[Iterator[_T], ...]: ...
 def divide(n: int, iterable: Iterable[_T]) -> list[Iterator[_T]]: ...
-@overload
-def always_iterable(
-    obj: None, base_type: Any = ...
-) -> Iterator[tuple[()]]: ...
-@overload
-def always_iterable(obj: bytes, base_type: None) -> Iterator[int]: ...
-@overload
-def always_iterable(obj: Iterable[_T], base_type: None) -> Iterator[_T]: ...
-@overload
-def always_iterable(obj: _T, base_type: None) -> Iterator[_T]: ...
-@overload
-def always_iterable(
-    obj: bytes, base_type: type[bytes] | tuple[type[str], type[bytes]] = ...
-) -> Iterator[bytes]: ...
-@overload
-def always_iterable(
-    obj: Iterable[_T],
-    base_type: type[bytes] | type[str] | tuple[type[str], type[bytes]] = ...,
-) -> Iterator[_T]: ...
-@overload
-def always_iterable(
-    obj: _T, base_type: tuple[type[str], type[bytes]] = ...
-) -> Iterator[_T]: ...
-@overload
 def always_iterable(
     obj: object,
     base_type: _ClassInfo | None = ...,
@@ -985,21 +961,3 @@ def concurrent_tee(
 def synchronized(
     func: Callable[..., Iterator[_T]],
 ) -> Callable[..., Iterator[_T]]: ...
-
-@dataclass(frozen=True, slots=True)
-class Stats:
-    size: int
-    minimum: float
-    median: float
-    maximum: float
-    mean: float
-
-def running_min(
-    iterable: Iterable[_NumberT], *, maxlen: int | None = ...
-) -> Iterator[_NumberT]: ...
-def running_max(
-    iterable: Iterable[_NumberT], *, maxlen: int | None = ...
-) -> Iterator[_NumberT]: ...
-def running_statistics(
-    iterable: Iterable[_NumberT], *, maxlen: int | None = ...
-) -> Iterator[Stats]: ...

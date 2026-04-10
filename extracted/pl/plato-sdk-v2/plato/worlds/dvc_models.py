@@ -11,7 +11,13 @@ import hashlib
 import json
 import logging
 import os
+import platform
+import shutil
 import stat as stat_mod
+import subprocess
+import tempfile
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -75,9 +81,18 @@ class DVCManifest:
     manifest_md5: str
 
     @classmethod
-    async def from_dvc_file(cls, dvc_content: str, s3_config: S3Config) -> DVCManifest:
+    async def from_dvc_file(
+        cls,
+        dvc_content: str,
+        s3_config: S3Config,
+        *,
+        phase_reporter: Callable[[str, float], None] | None = None,
+    ) -> DVCManifest:
         """Parse .dvc YAML and download the manifest from S3."""
+        started_at = time.monotonic()
         dvc_data = yaml.safe_load(dvc_content)
+        if phase_reporter is not None:
+            phase_reporter("dvc_yaml_parse", time.monotonic() - started_at)
         outs = dvc_data.get("outs", [])
         if not outs:
             return cls(entries_list=[], manifest_md5="")
@@ -87,6 +102,7 @@ class DVCManifest:
             return cls(entries_list=[], manifest_md5="")
 
         manifest_key = f"{s3_config.cache_prefix}/{manifest_md5[:2]}/{manifest_md5[2:]}.dir"
+        started_at = time.monotonic()
         try:
             raw = await s3_download_bytes(s3_config, manifest_key)
         except Exception:
@@ -94,10 +110,19 @@ class DVCManifest:
             manifest_key_alt = f"{s3_config.cache_prefix}/{manifest_md5[:2]}/{manifest_md5[2:]}"
             logger.warning("Manifest not found at %s, trying %s", manifest_key, manifest_key_alt)
             raw = await s3_download_bytes(s3_config, manifest_key_alt)
+        if phase_reporter is not None:
+            phase_reporter("manifest_download", time.monotonic() - started_at)
+
+        started_at = time.monotonic()
         items = json.loads(raw)
         entries = [DVCManifestEntry(**it) for it in items]
-        await cls._resolve_missing_sizes(entries, s3_config)
+        if phase_reporter is not None:
+            phase_reporter("manifest_parse", time.monotonic() - started_at)
 
+        started_at = time.monotonic()
+        await cls._resolve_missing_sizes(entries, s3_config)
+        if phase_reporter is not None:
+            phase_reporter("manifest_resolve_metadata", time.monotonic() - started_at)
         return cls(entries_list=entries, manifest_md5=manifest_md5)
 
     @staticmethod
@@ -203,34 +228,168 @@ class SmartCommitMetadata:
 # S3 helpers
 # ============================================================
 
+S5CMD_VERSION = "2.2.2"
+S5CMD_RELEASE_BASE_URL = f"https://github.com/peak/s5cmd/releases/download/v{S5CMD_VERSION}"
+
 _s5cmd_checked = False
+_s5cmd_binary: str | None = None
+_s5cmd_lock = asyncio.Lock()
 
 
-async def _ensure_s5cmd() -> None:
-    """Install s5cmd if not found on PATH."""
-    global _s5cmd_checked
-    if _s5cmd_checked:
-        return
-    import shutil
+def _s5cmd_asset_name() -> str:
+    system = platform.system()
+    machine = platform.machine().lower()
 
-    if shutil.which("s5cmd"):
-        _s5cmd_checked = True
-        return
+    if system == "Darwin":
+        if machine in {"arm64", "aarch64"}:
+            return f"s5cmd_{S5CMD_VERSION}_macOS-arm64.tar.gz"
+        if machine in {"x86_64", "amd64"}:
+            return f"s5cmd_{S5CMD_VERSION}_macOS-64bit.tar.gz"
+    elif system == "Linux":
+        if machine in {"arm64", "aarch64"}:
+            return f"s5cmd_{S5CMD_VERSION}_Linux-arm64.tar.gz"
+        if machine in {"x86_64", "amd64"}:
+            return f"s5cmd_{S5CMD_VERSION}_Linux-64bit.tar.gz"
 
-    logger.info("s5cmd not found, installing...")
-    proc = await asyncio.create_subprocess_exec(
-        "bash",
-        "-c",
-        "curl -fsSL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz "
-        "| tar xzf - -C /usr/local/bin s5cmd",
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    _, stderr = await proc.communicate()
-    if proc.returncode != 0:
-        raise RuntimeError(f"Failed to install s5cmd: {stderr.decode().strip()}")
+    raise RuntimeError(f"Unsupported platform for s5cmd auto-install: {system}/{machine}")
+
+
+def _s5cmd_release_url() -> str:
+    return f"{S5CMD_RELEASE_BASE_URL}/{_s5cmd_asset_name()}"
+
+
+def _s5cmd_install_path() -> Path:
+    global_install = Path("/usr/local/bin/s5cmd")
+    if global_install.parent.exists() and os.access(global_install.parent, os.W_OK):
+        return global_install
+
+    user_install = Path.home() / ".local" / "bin" / "s5cmd"
+    user_install.parent.mkdir(parents=True, exist_ok=True)
+    return user_install
+
+
+def _cached_s5cmd_binary() -> str | None:
+    override = os.environ.get("PLATO_S5CMD_BINARY")
+    if override:
+        override_path = Path(override)
+        if not override_path.is_file():
+            raise RuntimeError(f"PLATO_S5CMD_BINARY does not exist: {override}")
+        return str(override_path)
+
+    binary = shutil.which("s5cmd")
+    if binary:
+        return binary
+
+    install_path = _s5cmd_install_path()
+    if install_path.is_file():
+        return str(install_path)
+    return None
+
+
+def _mark_s5cmd_ready(binary: str) -> str:
+    global _s5cmd_checked, _s5cmd_binary
     _s5cmd_checked = True
-    logger.info("Installed s5cmd to /usr/local/bin/s5cmd")
+    _s5cmd_binary = binary
+    return binary
+
+
+async def _install_s5cmd_async(binary_path: Path) -> str:
+    tmp_dir = Path(tempfile.mkdtemp(prefix="plato-s5cmd-"))
+    archive_path = tmp_dir / "s5cmd.tar.gz"
+    try:
+        download = await asyncio.create_subprocess_exec(
+            "curl",
+            "-fsSL",
+            _s5cmd_release_url(),
+            "-o",
+            str(archive_path),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await download.communicate()
+        if download.returncode != 0:
+            raise RuntimeError(f"Failed to download s5cmd: {stderr.decode().strip()}")
+
+        extract = await asyncio.create_subprocess_exec(
+            "tar",
+            "-xzf",
+            str(archive_path),
+            "-C",
+            str(tmp_dir),
+            "s5cmd",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await extract.communicate()
+        if extract.returncode != 0:
+            raise RuntimeError(f"Failed to extract s5cmd: {stderr.decode().strip()}")
+
+        binary_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(tmp_dir / "s5cmd", binary_path)
+        os.chmod(binary_path, 0o755)
+        return str(binary_path)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def _install_s5cmd_sync(binary_path: Path) -> str:
+    tmp_dir = Path(tempfile.mkdtemp(prefix="plato-s5cmd-"))
+    archive_path = tmp_dir / "s5cmd.tar.gz"
+    try:
+        download = subprocess.run(
+            ["curl", "-fsSL", _s5cmd_release_url(), "-o", str(archive_path)],
+            capture_output=True,
+            text=True,
+        )
+        if download.returncode != 0:
+            raise RuntimeError(f"Failed to download s5cmd: {download.stderr.strip()}")
+
+        extract = subprocess.run(
+            ["tar", "-xzf", str(archive_path), "-C", str(tmp_dir), "s5cmd"],
+            capture_output=True,
+            text=True,
+        )
+        if extract.returncode != 0:
+            raise RuntimeError(f"Failed to extract s5cmd: {extract.stderr.strip()}")
+
+        binary_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(tmp_dir / "s5cmd", binary_path)
+        os.chmod(binary_path, 0o755)
+        return str(binary_path)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+async def _ensure_s5cmd() -> str:
+    """Return an s5cmd binary path, installing it if needed."""
+    if _s5cmd_checked and _s5cmd_binary is not None:
+        return _s5cmd_binary
+
+    async with _s5cmd_lock:
+        if _s5cmd_checked and _s5cmd_binary is not None:
+            return _s5cmd_binary
+
+        existing = _cached_s5cmd_binary()
+        if existing is not None:
+            return _mark_s5cmd_ready(existing)
+
+        install_path = _s5cmd_install_path()
+        logger.info("s5cmd not found, installing to %s", install_path)
+        return _mark_s5cmd_ready(await _install_s5cmd_async(install_path))
+
+
+def _ensure_s5cmd_sync() -> str:
+    """Return an s5cmd binary path, installing it if needed."""
+    if _s5cmd_checked and _s5cmd_binary is not None:
+        return _s5cmd_binary
+
+    existing = _cached_s5cmd_binary()
+    if existing is not None:
+        return _mark_s5cmd_ready(existing)
+
+    install_path = _s5cmd_install_path()
+    logger.info("s5cmd not found, installing to %s", install_path)
+    return _mark_s5cmd_ready(_install_s5cmd_sync(install_path))
 
 
 def _s3_env(config: S3Config) -> dict[str, str]:
@@ -241,8 +400,7 @@ def _s3_env(config: S3Config) -> dict[str, str]:
 
 
 async def s3_download_bytes(config: S3Config, key: str) -> bytes:
-    await _ensure_s5cmd()
-    import tempfile
+    s5cmd_binary = await _ensure_s5cmd()
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_path = tmp.name
@@ -250,7 +408,7 @@ async def s3_download_bytes(config: S3Config, key: str) -> bytes:
     try:
         s3_url = f"s3://{config.bucket}/{key}"
         proc = await asyncio.create_subprocess_exec(
-            "s5cmd",
+            s5cmd_binary,
             "cp",
             s3_url,
             tmp_path,
@@ -270,10 +428,10 @@ async def s3_download_bytes(config: S3Config, key: str) -> bytes:
 
 
 async def s3_head_size(config: S3Config, key: str) -> int:
-    await _ensure_s5cmd()
+    s5cmd_binary = await _ensure_s5cmd()
     s3_url = f"s3://{config.bucket}/{key}"
     proc = await asyncio.create_subprocess_exec(
-        "s5cmd",
+        s5cmd_binary,
         "ls",
         s3_url,
         env=_s3_env(config),
@@ -303,8 +461,7 @@ async def s3_head_size(config: S3Config, key: str) -> int:
 
 
 async def s3_upload_bytes(config: S3Config, key: str, data: bytes) -> None:
-    await _ensure_s5cmd()
-    import tempfile
+    s5cmd_binary = await _ensure_s5cmd()
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp.write(data)
@@ -313,7 +470,7 @@ async def s3_upload_bytes(config: S3Config, key: str, data: bytes) -> None:
     try:
         s3_url = f"s3://{config.bucket}/{key}"
         proc = await asyncio.create_subprocess_exec(
-            "s5cmd",
+            s5cmd_binary,
             "cp",
             tmp_path,
             s3_url,
@@ -336,8 +493,7 @@ async def s3_upload_batch(config: S3Config, uploads: list[tuple[str, str]]) -> N
     if not uploads:
         return
 
-    await _ensure_s5cmd()
-    import tempfile
+    s5cmd_binary = await _ensure_s5cmd()
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as batch:
         for local_path, s3_key in uploads:
@@ -347,7 +503,7 @@ async def s3_upload_batch(config: S3Config, uploads: list[tuple[str, str]]) -> N
 
     try:
         proc = await asyncio.create_subprocess_exec(
-            "s5cmd",
+            s5cmd_binary,
             "run",
             batch_path,
             env=_s3_env(config),
@@ -367,8 +523,7 @@ async def s3_upload_batch(config: S3Config, uploads: list[tuple[str, str]]) -> N
 
 def s3_download_bytes_sync(config: S3Config, key: str) -> bytes:
     """Synchronous S3 download using s5cmd."""
-    import subprocess
-    import tempfile
+    s5cmd_binary = _ensure_s5cmd_sync()
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_path = tmp.name
@@ -376,7 +531,7 @@ def s3_download_bytes_sync(config: S3Config, key: str) -> bytes:
     try:
         s3_url = f"s3://{config.bucket}/{key}"
         result = subprocess.run(
-            ["s5cmd", "cp", s3_url, tmp_path],
+            [s5cmd_binary, "cp", s3_url, tmp_path],
             env=_s3_env(config),
             capture_output=True,
         )

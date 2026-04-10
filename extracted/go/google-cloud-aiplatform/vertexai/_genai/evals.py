@@ -963,7 +963,24 @@ class Evals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.EvaluationItem._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1023,7 +1040,24 @@ class Evals(_api_module.BaseModule):
             response_dict = _EvaluationMetric_from_vertex(response_dict)
 
         return_value = types.EvaluationMetric._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1091,7 +1125,24 @@ class Evals(_api_module.BaseModule):
             response_dict = _EvaluationRun_from_vertex(response_dict)
 
         return_value = types.EvaluationRun._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1146,7 +1197,24 @@ class Evals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.EvaluationSet._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1231,7 +1299,24 @@ class Evals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.EvaluateInstancesResponse._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1292,7 +1377,24 @@ class Evals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.GenerateUserScenariosResponse._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1351,7 +1453,24 @@ class Evals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.GenerateLossClustersOperation._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1412,7 +1531,24 @@ class Evals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.GenerateInstanceRubricsResponse._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1468,7 +1604,24 @@ class Evals(_api_module.BaseModule):
             response_dict = _EvaluationMetric_from_vertex(response_dict)
 
         return_value = types.EvaluationMetric._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1521,7 +1674,24 @@ class Evals(_api_module.BaseModule):
             response_dict = _EvaluationRun_from_vertex(response_dict)
 
         return_value = types.EvaluationRun._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1571,7 +1741,24 @@ class Evals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.EvaluationSet._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1621,7 +1808,24 @@ class Evals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.EvaluationItem._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1673,7 +1877,24 @@ class Evals(_api_module.BaseModule):
             response_dict = _ListEvaluationMetricsResponse_from_vertex(response_dict)
 
         return_value = types.ListEvaluationMetricsResponse._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -1736,6 +1957,7 @@ class Evals(_api_module.BaseModule):
                 - dest: The destination path for storage of the inference results.
                 - prompt_template: The template string to use for constructing prompts.
                 - generate_content_config: The config for the Gemini generate content call.
+                - allow_cross_region_model: Opt-in flag to authorize cross-region routing for LLM models.
 
         Returns:
           The evaluation dataset.
@@ -1771,6 +1993,7 @@ class Evals(_api_module.BaseModule):
             location=location,
             config=config.generate_content_config,
             user_simulator_config=getattr(config, "user_simulator_config", None),
+            allow_cross_region_model=getattr(config, "allow_cross_region_model", False),
         )
 
     def evaluate(
@@ -2216,6 +2439,8 @@ class Evals(_api_module.BaseModule):
               If `agent_info` is provided without `inference_configs`, this config is used
               to automatically construct the inference configuration. If not specified,
               or if `max_turn` is not set, `max_turn` defaults to 5.
+              The `model_name` inside this config can be either a full model path or a
+              short model name, e.g. `gemini-3-preview-flash`.
           inference_configs: The candidate to inference config map for the evaluation run.
               The key is the candidate name, and the value is the inference config.
               If provided, `agent_info` must be None. If omitted and `agent_info` is provided,
@@ -2577,7 +2802,24 @@ class AsyncEvals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.EvaluationItem._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -2639,7 +2881,24 @@ class AsyncEvals(_api_module.BaseModule):
             response_dict = _EvaluationMetric_from_vertex(response_dict)
 
         return_value = types.EvaluationMetric._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -2709,7 +2968,24 @@ class AsyncEvals(_api_module.BaseModule):
             response_dict = _EvaluationRun_from_vertex(response_dict)
 
         return_value = types.EvaluationRun._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -2766,7 +3042,24 @@ class AsyncEvals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.EvaluationSet._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -2853,7 +3146,24 @@ class AsyncEvals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.EvaluateInstancesResponse._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -2916,7 +3226,24 @@ class AsyncEvals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.GenerateUserScenariosResponse._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -2977,7 +3304,24 @@ class AsyncEvals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.GenerateLossClustersOperation._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -3040,7 +3384,24 @@ class AsyncEvals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.GenerateInstanceRubricsResponse._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -3098,7 +3459,24 @@ class AsyncEvals(_api_module.BaseModule):
             response_dict = _EvaluationMetric_from_vertex(response_dict)
 
         return_value = types.EvaluationMetric._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -3153,7 +3531,24 @@ class AsyncEvals(_api_module.BaseModule):
             response_dict = _EvaluationRun_from_vertex(response_dict)
 
         return_value = types.EvaluationRun._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -3205,7 +3600,24 @@ class AsyncEvals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.EvaluationSet._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -3257,7 +3669,24 @@ class AsyncEvals(_api_module.BaseModule):
         response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.EvaluationItem._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -3311,7 +3740,24 @@ class AsyncEvals(_api_module.BaseModule):
             response_dict = _ListEvaluationMetricsResponse_from_vertex(response_dict)
 
         return_value = types.ListEvaluationMetricsResponse._from_response(
-            response=response_dict, kwargs=parameter_model.model_dump()
+            response=response_dict,
+            kwargs=(
+                {
+                    "config": {
+                        "response_schema": getattr(
+                            parameter_model.config, "response_schema", None
+                        ),
+                        "response_json_schema": getattr(
+                            parameter_model.config, "response_json_schema", None
+                        ),
+                        "include_all_fields": getattr(
+                            parameter_model.config, "include_all_fields", None
+                        ),
+                    }
+                }
+                if getattr(parameter_model, "config", None)
+                else {}
+            ),
         )
 
         self._api_client._verify_response(return_value)
@@ -3486,6 +3932,8 @@ class AsyncEvals(_api_module.BaseModule):
               If `agent_info` is provided without `inference_configs`, this config is used
               to automatically construct the inference configuration. If not specified,
               or if `max_turn` is not set, `max_turn` defaults to 5.
+              The `model_name` inside this config can be either a full model path or a
+              short model name, e.g. `gemini-3-preview-flash`.
           inference_configs: The candidate to inference config map for the evaluation run.
               The key is the candidate name, and the value is the inference config.
               If provided, `agent_info` must be None. If omitted and `agent_info` is provided,

@@ -1736,10 +1736,29 @@ def load_spark_table(source: str) -> Any:
     return spark.table(source)
 
 
-def register_temp_view(spark_df: Any, view_name: str) -> str:
+def register_temp_view(spark_df: Any, view_name: str, *, purpose: str) -> str:
+    """Register ``spark_df`` as a Spark global temp view.
+
+    ``purpose`` is a required, non-empty audit string documenting why the
+    caller needs a session-scoped view (e.g. ``"lifecycle_round_trip_test"``,
+    ``"interactive_debug"``). Code review can scan call sites and ask "is a
+    temp view really the right tool here?" — for cross-notebook persistence
+    the right tool is ``save_active_dataset``, since temp views vanish when
+    the next notebook starts a new SparkSession.
+    """
+    _require_purpose(purpose)
     _assert_no_case_insensitive_duplicate_columns(spark_df, view_name)
     spark_df.createOrReplaceGlobalTempView(view_name)
     return f"global_temp.{view_name}"
+
+
+def _require_purpose(purpose: str) -> None:
+    if not isinstance(purpose, str) or not purpose.strip():
+        raise ValueError(
+            "register_temp_view: 'purpose' kwarg is required and must be a "
+            "non-empty audit string. Spark global temp views are session-"
+            "scoped — for cross-notebook persistence call `save_active_dataset`."
+        )
 
 
 def _assert_no_case_insensitive_duplicate_columns(spark_df: Any, view_name: str) -> None:

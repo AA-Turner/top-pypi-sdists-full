@@ -189,6 +189,8 @@ def plot_feature_corr_by_time(df: pd.DataFrame, **kwargs) -> None:
     plot_map = kwargs.get("plot_map", False)
     region_name = kwargs.get("region_name", "")
     region_id = kwargs.get("region_id", "unknown")
+    metric_label = kwargs.get("metric_label", "Concordance Correlation Coefficient")
+    metric_dir = kwargs.get("metric_dir", "ccc")
 
     # Setup figure and gridspec
     fig = plt.figure(figsize=(10, 5))
@@ -213,12 +215,19 @@ def plot_feature_corr_by_time(df: pd.DataFrame, **kwargs) -> None:
     df_plot = df.T
     df_plot = df_plot[df_plot.columns[::-1]]
     
+    # Colormap: R² is 0–1 (sequential); CCC is –1 to +1 (diverging)
+    cmap = (
+        pal.colorbrewer.sequential.YlOrRd_9.get_mpl_colormap()
+        if metric_dir == "r2"
+        else pal.cartocolors.diverging.Earth_5.get_mpl_colormap()
+    )
+
     # Create heatmap
     sns.heatmap(
         df_plot,
         ax=ax_heatmap,
         annot=True,
-        cmap=pal.cartocolors.diverging.Earth_5.get_mpl_colormap(),
+        cmap=cmap,
         fmt=".2f",
         square=False,
         linewidths=0.5,
@@ -264,7 +273,7 @@ def plot_feature_corr_by_time(df: pd.DataFrame, **kwargs) -> None:
         ax_empty.axis("off")
 
     # Style the heatmap
-    cbar_ax.set_title("Concordance Correlation Coefficient", loc="left", size="small")
+    cbar_ax.set_title(metric_label, loc="left", size="small")
     ax_heatmap.set_xticklabels(
         ax_heatmap.get_xticklabels(), size="x-small", rotation=0, fontsize=5
     )
@@ -297,8 +306,9 @@ def plot_feature_corr_by_time(df: pd.DataFrame, **kwargs) -> None:
         fname = f"{country}_{crop}_corr_feature_by_time.png"
 
     if dir_output is not None:
-        os.makedirs(dir_output, exist_ok=True)
-        plt.savefig(dir_output / fname, dpi=250)
+        dir_save = dir_output / metric_dir
+        os.makedirs(dir_save, exist_ok=True)
+        plt.savefig(dir_save / fname, dpi=250)
     
     plt.close(fig)
 
@@ -317,6 +327,7 @@ def _all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
     all_stages = kwargs.get("all_stages", [])
     target_col = kwargs.get("target_col")
     method = kwargs.get("method")
+    corr_fn = kwargs.get("corr_fn")
 
     if not len(all_stages):
         return pd.DataFrame()
@@ -378,9 +389,10 @@ def _all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
 
         # Get correlations for all features
         df_tmp = embedding.get_all_features_correlation(
-            df_clean[current_feature_set + ["Region"]], 
-            df_clean[target_col], 
-            method
+            df_clean[current_feature_set + ["Region"]],
+            df_clean[target_col],
+            method,
+            corr_fn=corr_fn,
         )
 
         if not df_tmp.empty:
@@ -497,45 +509,83 @@ def all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> tuple:
     group_by = kwargs.get("groupby")
     combined_dict = kwargs.get("combined_dict", {})
     threshold = kwargs.get("correlation_threshold", 0.0)
+    correlation_metric = kwargs.get("correlation_metric", "both")
+
+    # Primary metric drives feature selection; extra metrics are plot-only.
+    if correlation_metric == "r2":
+        primary_metric = "r2"
+        extra_plot_metrics = []
+    elif correlation_metric == "both":
+        primary_metric = "ccc"
+        extra_plot_metrics = ["r2"]
+    else:  # "ccc" or unrecognised
+        primary_metric = "ccc"
+        extra_plot_metrics = []
+
+    def _metric_kwargs(base_kwargs, metric):
+        fn = embedding._r2_corrwith if metric == "r2" else None
+        label = "R² (Coefficient of Determination)" if metric == "r2" else "Concordance Correlation Coefficient"
+        return {**base_kwargs, "corr_fn": fn, "metric_label": label, "metric_dir": metric}
+
+    primary_kwargs = _metric_kwargs(kwargs, primary_metric)
 
     dict_selected_features = {}
     dict_best_cei = {}
 
     if not national_correlation:
         groups = df.groupby(group_by)
-        
+
         for region_id, group in tqdm(
-            groups, 
-            desc=f"Compute all correlated feature by {group_by}", 
+            groups,
+            desc=f"Compute all correlated feature by {group_by}",
             leave=False
         ):
-            df_corr = _all_correlated_feature_by_time(group, **kwargs)
+            df_corr = _all_correlated_feature_by_time(group, **primary_kwargs)
 
             if not df_corr.empty:
                 selected_df, best_cei = _process_region_correlations(
-                    df_corr, threshold, combined_dict, region_id, group, kwargs
+                    df_corr, threshold, combined_dict, region_id, group, primary_kwargs
                 )
                 dict_selected_features[region_id] = selected_df
                 dict_best_cei[region_id] = best_cei
             else:
                 # Fallback to full dataset (HACK from original)
-                df_corr_full = _all_correlated_feature_by_time(df, **kwargs)
-                
+                df_corr_full = _all_correlated_feature_by_time(df, **primary_kwargs)
+
                 if not df_corr_full.empty:
                     df_filtered = _filter_by_correlation_threshold(df_corr_full, threshold)
                     dict_selected_features[region_id] = _compute_absolute_medians(df_filtered)
                 else:
                     dict_selected_features[region_id] = pd.DataFrame(columns=['CEI', 'Median'])
-                    
+
                 dict_best_cei[region_id] = {}
+
+            # Extra plot-only metrics (no feature selection update)
+            for extra_metric in extra_plot_metrics:
+                extra_kwargs = _metric_kwargs(kwargs, extra_metric)
+                df_corr_extra = _all_correlated_feature_by_time(group, **extra_kwargs)
+                if not df_corr_extra.empty:
+                    df_filtered_extra = _filter_by_correlation_threshold(df_corr_extra, threshold)
+                    if not df_filtered_extra.empty:
+                        kwargs_plot = extra_kwargs.copy()
+                        kwargs_plot["region_id"] = region_id
+                        kwargs_plot["region_name"] = ", ".join(str(x) for x in group['Region'].unique())
+                        plot_feature_corr_by_time(df_filtered_extra, **kwargs_plot)
     else:
         # National correlation
-        df_corr = _all_correlated_feature_by_time(df, **kwargs)
+        df_corr = _all_correlated_feature_by_time(df, **primary_kwargs)
         df_filtered = _filter_by_correlation_threshold(df_corr, threshold)
-        
+
         dict_selected_features[0] = _compute_absolute_medians(df_filtered)
-        
+
         if not df_corr.empty:
-            plot_feature_corr_by_time(df_corr, **kwargs)
+            plot_feature_corr_by_time(df_corr, **primary_kwargs)
+
+        # Extra plot-only metrics (national)
+        for extra_metric in extra_plot_metrics:
+            extra_kwargs = _metric_kwargs(kwargs, extra_metric)
+            df_corr_extra = _all_correlated_feature_by_time(df, **extra_kwargs)
+            if not df_corr_extra.empty:
+                plot_feature_corr_by_time(df_corr_extra, **extra_kwargs)
 
     return dict_selected_features, dict_best_cei

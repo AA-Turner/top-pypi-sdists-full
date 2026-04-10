@@ -7,6 +7,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.blank_enum import BlankEnum
 from ..models.gender_enum import GenderEnum
 from ..models.offering_user_state import OfferingUserState
 from ..types import UNSET, Unset
@@ -40,7 +41,7 @@ class OfferingUser:
         user_organization (Union[Unset, str]):
         user_job_title (Union[Unset, str]):
         user_affiliations (Union[Unset, Any]): Person's affiliation within organization such as student, faculty, staff.
-        user_gender (Union[GenderEnum, None, Unset]): ISO 5218 gender code
+        user_gender (Union[BlankEnum, GenderEnum, None, Unset]): User's gender (male, female, or unknown)
         user_personal_title (Union[Unset, str]): Honorific title (Mr, Ms, Dr, Prof, etc.)
         user_place_of_birth (Union[Unset, str]):
         user_country_of_residence (Union[Unset, str]):
@@ -93,7 +94,7 @@ class OfferingUser:
     user_organization: Union[Unset, str] = UNSET
     user_job_title: Union[Unset, str] = UNSET
     user_affiliations: Union[Unset, Any] = UNSET
-    user_gender: Union[GenderEnum, None, Unset] = UNSET
+    user_gender: Union[BlankEnum, GenderEnum, None, Unset] = UNSET
     user_personal_title: Union[Unset, str] = UNSET
     user_place_of_birth: Union[Unset, str] = UNSET
     user_country_of_residence: Union[Unset, str] = UNSET
@@ -170,10 +171,12 @@ class OfferingUser:
 
         user_affiliations = self.user_affiliations
 
-        user_gender: Union[None, Unset, int]
+        user_gender: Union[None, Unset, str]
         if isinstance(self.user_gender, Unset):
             user_gender = UNSET
         elif isinstance(self.user_gender, GenderEnum):
+            user_gender = self.user_gender.value
+        elif isinstance(self.user_gender, BlankEnum):
             user_gender = self.user_gender.value
         else:
             user_gender = self.user_gender
@@ -415,20 +418,28 @@ class OfferingUser:
 
         user_affiliations = d.pop("user_affiliations", UNSET)
 
-        def _parse_user_gender(data: object) -> Union[GenderEnum, None, Unset]:
+        def _parse_user_gender(data: object) -> Union[BlankEnum, GenderEnum, None, Unset]:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
             try:
-                if not isinstance(data, int):
+                if not isinstance(data, str):
                     raise TypeError()
                 user_gender_type_0 = GenderEnum(data)
 
                 return user_gender_type_0
             except:  # noqa: E722
                 pass
-            return cast(Union[GenderEnum, None, Unset], data)
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                user_gender_type_1 = BlankEnum(data)
+
+                return user_gender_type_1
+            except:  # noqa: E722
+                pass
+            return cast(Union[BlankEnum, GenderEnum, None, Unset], data)
 
         user_gender = _parse_user_gender(d.pop("user_gender", UNSET))
 

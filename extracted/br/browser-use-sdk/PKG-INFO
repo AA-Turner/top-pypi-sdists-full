@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browser-use-sdk
-Version: 3.4.2
+Version: 3.4.3
 Summary: Python SDK for the Browser Use cloud API
 License-Expression: MIT
 Requires-Python: >=3.9

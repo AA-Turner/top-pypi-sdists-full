@@ -10,15 +10,23 @@ from typing import Any, ClassVar
 from pydantic import model_validator, TypeAdapter, computed_field
 from typing import Self
 
-from .base_types import BinProviderName, PATHStr, BinName, InstallArgs, HostBinPath
+from .base_types import (
+    DEFAULT_LIB_DIR,
+    BinProviderName,
+    PATHStr,
+    BinName,
+    InstallArgs,
+    HostBinPath,
+    abx_pkg_install_root_default,
+)
 from .semver import SemVer
 from .binprovider import BinProvider, remap_kwargs
 from .logging import format_subprocess_output
 
 
-DEFAULT_DOCKER_ROOT = Path(
-    os.environ.get("ABX_PKG_DOCKER_ROOT", "~/.cache/abx-pkg/docker"),
-).expanduser()
+# Ultimate fallback when neither the constructor arg nor
+# ``ABX_PKG_DOCKER_ROOT`` nor ``ABX_PKG_LIB_DIR`` is set.
+DEFAULT_DOCKER_ROOT = DEFAULT_LIB_DIR / "docker"
 
 
 class DockerProvider(BinProvider):
@@ -29,7 +37,8 @@ class DockerProvider(BinProvider):
 
     PATH: PATHStr = ""
 
-    docker_root: Path | None = None
+    # Default: ABX_PKG_DOCKER_ROOT > ABX_PKG_LIB_DIR/docker > None.
+    docker_root: Path | None = abx_pkg_install_root_default("docker")
     docker_shim_dir: Path | None = None
     docker_run_args: list[str] = ["--rm", "-i"]
 
@@ -148,6 +157,18 @@ class DockerProvider(BinProvider):
         wrapper_path.chmod(0o755)
         return wrapper_path
 
+    @staticmethod
+    def _should_repair_failed_pull(output: str) -> bool:
+        return any(
+            marker in output
+            for marker in (
+                "unable to prepare extraction snapshot",
+                "failed to prepare extraction snapshot",
+                "target snapshot",
+                "missing parent",
+            )
+        )
+
     @remap_kwargs({"packages": "install_args"})
     def default_install_handler(
         self,
@@ -175,7 +196,32 @@ class DockerProvider(BinProvider):
                 timeout=timeout,
             )
             if proc.returncode != 0:
-                self._raise_proc_error("install", image_ref, proc)
+                pull_output = format_subprocess_output(proc.stdout, proc.stderr)
+                if self._should_repair_failed_pull(pull_output):
+                    repair_proc = self.exec(
+                        bin_name=installer_bin,
+                        cmd=["image", "rm", "--force", image_ref],
+                        quiet=True,
+                        timeout=timeout,
+                    )
+                    logs.extend(
+                        output
+                        for output in (
+                            pull_output,
+                            format_subprocess_output(
+                                repair_proc.stdout,
+                                repair_proc.stderr,
+                            ),
+                        )
+                        if output
+                    )
+                    proc = self.exec(
+                        bin_name=installer_bin,
+                        cmd=["pull", image_ref],
+                        timeout=timeout,
+                    )
+                if proc.returncode != 0:
+                    self._raise_proc_error("install", image_ref, proc)
             logs.append(format_subprocess_output(proc.stdout, proc.stderr))
 
         main_image = self._main_image_ref(bin_name, install_args)

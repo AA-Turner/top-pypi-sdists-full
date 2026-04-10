@@ -35,6 +35,7 @@ from uipath.core.guardrails import (
 )
 from uipath.eval.mocks import ExampleCall
 from uipath.platform.connections import Connection
+from uipath.platform.entities import DataFabricEntityItem
 from uipath.platform.guardrails import (
     BuiltInValidatorGuardrail,
 )
@@ -394,16 +395,6 @@ class AgentContextSettings(BaseCfg):
     )
 
 
-class DataFabricEntityItem(BaseCfg):
-    """A single Data Fabric entity reference."""
-
-    id: str
-    reference_key: Optional[str] = Field(None, alias="referenceKey")
-    name: str
-    folder_id: str = Field(alias="folderId")
-    description: Optional[str] = None
-
-
 class AgentContextResourceConfig(BaseAgentResourceConfig):
     """Agent context resource configuration model."""
 
@@ -476,15 +467,10 @@ class AgentA2aResourceConfig(BaseAgentResourceConfig):
     )
     id: str
     slug: str = Field(..., alias="slug")
-    agent_card_url: str = Field(default="", alias="agentCardUrl")
-    is_active: bool = Field(default=True, alias="isActive")
+    folder_path: str = Field(alias="folderPath")
     cached_agent_card: Optional[Dict[str, Any]] = Field(
         default=None, alias="cachedAgentCard"
     )
-    created_at: Optional[str] = Field(default=None, alias="createdAt")
-    created_by: Optional[str] = Field(default=None, alias="createdBy")
-    updated_at: Optional[str] = Field(default=None, alias="updatedAt")
-    updated_by: Optional[str] = Field(default=None, alias="updatedBy")
 
 
 _RECIPIENT_TYPE_NORMALIZED_MAP: Mapping[int | str, AgentEscalationRecipientType] = {

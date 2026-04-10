@@ -4,19 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import shutil
-import tempfile
 import uuid
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import TYPE_CHECKING
-
-from git import Repo
-from git.exc import GitCommandError
 
 from plato.agents.mounts import AgentWorkspaceMount, GitCheckoutPolicy, GitSyncPolicy
 from plato.agents.warmpool import WarmPool
+from plato.git_ops.merge import delete_remote_ref, merge_ref_to_main
 from plato.git_ops.repo import trust_git_directory
 from plato.runtimes.base import Runtime, RuntimeInfo
 from plato.runtimes.config import VMRuntimeConfig
@@ -24,6 +19,7 @@ from plato.transports.git import GitPublishedRef, GitTransport
 from plato.worlds.workspace import Workspace
 
 if TYPE_CHECKING:
+    from plato.agents.review_gate import ReviewGateResult
     from plato.agents.task import AgentTask
     from plato.worlds.config import AgentConfig
 
@@ -87,6 +83,11 @@ class AgentExecutionManager:
         task_name = _task_slug(display_name or task._display_name or "agent-task")
         published_transport = await self._prepare_git_mount(run_mounts, task_name)
 
+        # Wire up review gate if the task has a review_fn
+        review_fn = task._review_fn
+        if review_fn is not None and published_transport is not None:
+            self._attach_review_gate(task, task_name, published_transport, review_fn)
+
         pooled_runtime = await self._warm_pool.acquire()
         try:
             agent_id = await task._run_on_runtime(
@@ -108,12 +109,71 @@ class AgentExecutionManager:
             workspace_paths=[mount.agent_path for mount in run_mounts],
         )
 
-        if published_transport is not None and published_transport.published_ref is not None:
+        # Only auto-merge if no review gate handled it
+        if review_fn is None and published_transport is not None and published_transport.published_ref is not None:
             await self._integrate_published_ref(
                 task_name=task_name,
                 published_ref=published_transport.published_ref,
             )
+            task.merged = True
         return agent_id
+
+    def _attach_review_gate(
+        self,
+        task: AgentTask,
+        task_name: str,
+        published_transport: GitTransport,
+        review_fn: Callable[[str], Awaitable[ReviewGateResult]],
+    ) -> None:
+        """Wire up the review gate on the task for review-before-merge flow."""
+        from plato.agents.review_gate import attach_review_gate
+
+        primary_transport = _git_transport_from_mount(self._primary_mount) if self._primary_mount else None
+
+        async def _merge() -> bool:
+            # published_ref is set after workspace sync-back during each attempt
+            pub_ref = published_transport.published_ref
+            if pub_ref is None:
+                logger.warning("No published ref available for merge after review pass")
+                return False
+
+            if primary_transport is None:
+                return False
+
+            async with self._integration_lock, _optional_lock(primary_transport.sync_lock):
+                result = await merge_ref_to_main(
+                    primary_transport.bare_repo_path,
+                    pub_ref.ref,
+                    squash=True,
+                    commit_message=f"Merge {task_name}",
+                )
+                if not result.merged:
+                    return False
+
+                await primary_transport._refresh_local_workspace_from_main()
+
+                # Checkpoint tracked workspace
+                workspace = self._primary_workspace
+                if workspace is not None and workspace.tracked and self._checkpoint is not None:
+                    step_name = f"parallel_agents.{task_name}.{result.commit_sha[:12]}"
+                    await workspace.ensure_fuse_mount()
+                    await workspace.materialize_current_tree_into_overlay()
+                    await self._checkpoint(step_name)
+
+                await delete_remote_ref(primary_transport.bare_repo_path, pub_ref.ref)
+                task.merged = True
+                return True
+
+        result_dir = self._primary_mount.world_path if self._primary_mount else None
+
+        attach_review_gate(
+            task,
+            review_fn=review_fn,
+            branch_name=f"plato-task/{task_name}",
+            merge_fn=_merge,
+            max_continuations=task._max_review_continuations,
+            result_dir=result_dir,
+        )
 
     async def _prepare_git_mount(
         self,
@@ -126,6 +186,10 @@ class AgentExecutionManager:
         primary_mount = mounts[0]
         if primary_mount.transport_kind != "git" or primary_mount.git_sync is None:
             return None
+        # Already configured for publish_ref — use the caller's setup as-is
+        if primary_mount.git_sync.mode == "publish_ref":
+            return _git_transport_from_mount(primary_mount)
+
         if primary_mount.git_sync.mode != "merge_to_main":
             return None
 
@@ -154,21 +218,18 @@ class AgentExecutionManager:
         transport = _git_transport_from_mount(self._primary_mount)
 
         async with self._integration_lock, _optional_lock(transport.sync_lock):
-            temp_dir = Path(tempfile.mkdtemp(prefix=f"merge-{task_name}-"))
-            try:
-                await asyncio.to_thread(_clone_repo_local, transport.bare_repo_path, temp_dir)
-                await asyncio.to_thread(_fetch_ref_local, temp_dir, published_ref.ref)
+            result = await merge_ref_to_main(
+                transport.bare_repo_path,
+                published_ref.ref,
+                squash=True,
+                commit_message=f"Merge parallel task {task_name}",
+            )
+            if not result.merged:
+                raise RuntimeError(f"Merge conflict integrating task {task_name}")
 
-                merge_conflicted = await asyncio.to_thread(_merge_fetched_commit_local, temp_dir, task_name)
-                if merge_conflicted:
-                    raise RuntimeError(f"Merge conflict integrating task {task_name}")
-
-                await asyncio.to_thread(_push_main_local, temp_dir, False)
-                await transport._refresh_local_workspace_from_main()
-                await self._checkpoint_tracked_workspace(task_name, published_ref)
-                await asyncio.to_thread(_delete_remote_ref_local, temp_dir, published_ref.ref)
-            finally:
-                shutil.rmtree(temp_dir, ignore_errors=True)
+            await transport._refresh_local_workspace_from_main()
+            await self._checkpoint_tracked_workspace(task_name, published_ref)
+            await delete_remote_ref(transport.bare_repo_path, published_ref.ref)
 
     async def _checkpoint_tracked_workspace(self, task_name: str, published_ref: GitPublishedRef) -> None:
         workspace = self._primary_workspace
@@ -206,59 +267,8 @@ def _git_transport_from_mount(mount: AgentWorkspaceMount) -> GitTransport:
     return transport
 
 
-def _repo(path: Path | str) -> Repo:
-    trust_git_directory(path)
-    return Repo(path)
-
-
 def _rev_parse_ref(repo_path: str, ref: str) -> str:
-    return _repo(repo_path).commit(ref).hexsha
+    from git import Repo
 
-
-def _clone_repo_local(bare_repo_path: str, temp_dir: Path) -> None:
-    trust_git_directory(bare_repo_path)
-    trust_git_directory(temp_dir)
-    repo = Repo.clone_from(bare_repo_path, temp_dir)
-    with repo.config_writer() as config:
-        config.set_value("user", "email", "agent@plato.dev")
-        config.set_value("user", "name", "Plato Agent")
-
-
-def _fetch_ref_local(temp_dir: Path, ref: str) -> None:
-    _repo(temp_dir).remote("origin").fetch(ref)
-
-
-def _reset_hard_local(temp_dir: Path, ref: str) -> None:
-    _repo(temp_dir).git.reset("--hard", ref)
-
-
-def _merge_fetched_commit_local(temp_dir: Path, task_name: str) -> bool:
-    repo = _repo(temp_dir)
-    try:
-        repo.git.merge("FETCH_HEAD", "-m", f"Merge parallel task {task_name}")
-        return False
-    except GitCommandError as exc:
-        unresolved = _unmerged_files_local(temp_dir)
-        if unresolved:
-            return True
-        raise RuntimeError(exc.stderr.strip() or exc.stdout.strip() or str(exc)) from exc
-
-
-def _unmerged_files_local(temp_dir: Path) -> list[str]:
-    return sorted(str(path) for path in _repo(temp_dir).index.unmerged_blobs().keys())
-
-
-def _push_main_local(temp_dir: Path, force: bool) -> None:
-    args = ["--porcelain"]
-    if force:
-        args.append("--force")
-    args.extend(["origin", "HEAD:main"])
-    _repo(temp_dir).git.push(*args)
-
-
-def _delete_remote_ref_local(temp_dir: Path, ref: str) -> bool:
-    try:
-        _repo(temp_dir).git.push("--porcelain", "origin", f":{ref}")
-        return True
-    except GitCommandError:
-        return False
+    trust_git_directory(repo_path)
+    return Repo(repo_path).commit(ref).hexsha

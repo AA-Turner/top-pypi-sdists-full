@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.scalinggroup.v1.service_pb2 import (
+    BatchUpdateScalingGroupStatusRequest,
+    BatchUpdateScalingGroupStatusResponse,
     CreateScalingGroupRequest,
     CreateScalingGroupResponse,
     DeleteScalingGroupRequest,
@@ -46,6 +48,11 @@ class ScalingGroupManagerServiceStub:
         DeleteScalingGroupResponse,
     ]
     """DeleteScalingGroup deletes a scaling group and its Kubernetes resources"""
+    BatchUpdateScalingGroupStatus: UnaryUnaryMultiCallable[
+        BatchUpdateScalingGroupStatusRequest,
+        BatchUpdateScalingGroupStatusResponse,
+    ]
+    """BatchUpdateScalingGroupStatus updates status for multiple scaling groups from the dataplane controller"""
 
 class ScalingGroupManagerServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -76,6 +83,13 @@ class ScalingGroupManagerServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> DeleteScalingGroupResponse:
         """DeleteScalingGroup deletes a scaling group and its Kubernetes resources"""
+    @abstractmethod
+    def BatchUpdateScalingGroupStatus(
+        self,
+        request: BatchUpdateScalingGroupStatusRequest,
+        context: ServicerContext,
+    ) -> BatchUpdateScalingGroupStatusResponse:
+        """BatchUpdateScalingGroupStatus updates status for multiple scaling groups from the dataplane controller"""
 
 def add_ScalingGroupManagerServiceServicer_to_server(
     servicer: ScalingGroupManagerServiceServicer, server: Server

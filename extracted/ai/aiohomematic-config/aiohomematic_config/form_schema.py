@@ -58,6 +58,7 @@ class FormParameter(BaseModel):
     current_value: Any = None
     writable: bool = True
     modified: bool = False
+    operations: int = 0  # Raw OPERATIONS bitfield from paramset description
     options: list[str] | None = None
     option_labels: dict[str, str] | None = None
 
@@ -304,6 +305,7 @@ class FormSchemaGenerator:
                     current_value=current,
                     writable=writable,
                     modified=modified,
+                    operations=pd.get("OPERATIONS", 0),
                     options=options,
                     option_labels=option_labels,
                 )

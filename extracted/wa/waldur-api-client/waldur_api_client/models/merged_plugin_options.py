@@ -66,6 +66,8 @@ class MergedPluginOptions:
         max_security_groups (Union[Unset, int]): Default limit for number of security groups in OpenStack tenant
         storage_mode (Union[Unset, StorageModeEnum]):
         snapshot_size_limit_gb (Union[Unset, int]): Default limit for snapshot size in GB
+        lbaas_enabled (Union[Unset, bool]): If True, Octavia LBaaS (load balancers) is intended to be available for
+            tenants from this offering.
         heappe_cluster_id (Union[Unset, str]): HEAppE cluster id
         heappe_local_base_path (Union[Unset, str]): HEAppE local base path
         heappe_url (Union[Unset, str]): HEAppE url
@@ -168,6 +170,7 @@ class MergedPluginOptions:
     max_security_groups: Union[Unset, int] = UNSET
     storage_mode: Union[Unset, StorageModeEnum] = UNSET
     snapshot_size_limit_gb: Union[Unset, int] = UNSET
+    lbaas_enabled: Union[Unset, bool] = UNSET
     heappe_cluster_id: Union[Unset, str] = UNSET
     heappe_local_base_path: Union[Unset, str] = UNSET
     heappe_url: Union[Unset, str] = UNSET
@@ -279,6 +282,8 @@ class MergedPluginOptions:
             storage_mode = self.storage_mode.value
 
         snapshot_size_limit_gb = self.snapshot_size_limit_gb
+
+        lbaas_enabled = self.lbaas_enabled
 
         heappe_cluster_id = self.heappe_cluster_id
 
@@ -447,6 +452,8 @@ class MergedPluginOptions:
             field_dict["storage_mode"] = storage_mode
         if snapshot_size_limit_gb is not UNSET:
             field_dict["snapshot_size_limit_gb"] = snapshot_size_limit_gb
+        if lbaas_enabled is not UNSET:
+            field_dict["lbaas_enabled"] = lbaas_enabled
         if heappe_cluster_id is not UNSET:
             field_dict["heappe_cluster_id"] = heappe_cluster_id
         if heappe_local_base_path is not UNSET:
@@ -620,6 +627,8 @@ class MergedPluginOptions:
 
         snapshot_size_limit_gb = d.pop("snapshot_size_limit_gb", UNSET)
 
+        lbaas_enabled = d.pop("lbaas_enabled", UNSET)
+
         heappe_cluster_id = d.pop("heappe_cluster_id", UNSET)
 
         heappe_local_base_path = d.pop("heappe_local_base_path", UNSET)
@@ -775,6 +784,7 @@ class MergedPluginOptions:
             max_security_groups=max_security_groups,
             storage_mode=storage_mode,
             snapshot_size_limit_gb=snapshot_size_limit_gb,
+            lbaas_enabled=lbaas_enabled,
             heappe_cluster_id=heappe_cluster_id,
             heappe_local_base_path=heappe_local_base_path,
             heappe_url=heappe_url,

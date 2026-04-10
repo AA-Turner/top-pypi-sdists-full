@@ -56,13 +56,15 @@ def linux_detect_libc():
 # tags. We build semgrep on glibc and musl, so we must make sure we tag
 # each build as either glibc (manylinux) or musl (musllinux) compatible
 #
-# NOTE: although semgrep-core is statically linked, that won't be the case
-# soon.
+# NOTE: semgrep-core is dynamically linked to the user's libc; the libc version
+# in these tags MUST match the libc version we use to build the binary, see:
+# musllinux: https://peps.python.org/pep-0656/
+# manylinux: https://peps.python.org/pep-0600/
 plat_libc_to_tag = {
-    ("linux_aarch64", "musl"): "musllinux_1_0_aarch64",
-    ("linux_x86_64", "musl"): "musllinux_1_0_x86_64",
-    ("linux_aarch64", "glibc"): "manylinux2014_aarch64",
-    ("linux_x86_64", "glibc"): "manylinux2014_x86_64",
+    ("linux_aarch64", "musl"): "musllinux_1_2_aarch64",
+    ("linux_x86_64", "musl"): "musllinux_1_2_x86_64",
+    ("linux_aarch64", "glibc"): "manylinux_2_35_aarch64",
+    ("linux_x86_64", "glibc"): "manylinux_2_35_x86_64",
 }
 
 
@@ -124,11 +126,11 @@ if WHEEL_CMD in sys.argv:
                 plat = plat_libc_to_tag[(plat, lib)]
 
             # The macOS Python binary is sometimes a universal binary, which leads to a
-            # platform name of "macosx_10_9_universal2" in the wheel tag. Unfortunately,
+            # platform name of "macosx_xx_x_universal2" in the wheel tag. Unfortunately,
             # our binary is not built as universal, so we must detect the architecture of
             # the actual machine this is running on and clarify that we are only building
             # for that one.
-            elif plat == "macosx_10_9_universal2":
+            elif plat.startswith("macos") and "universal" in plat:
                 machine = platform.machine()
                 if machine == "x86_64":
                     plat = "macosx_10_14_x86_64"

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -136,7 +136,7 @@ class XmlToDict:
         |-Window
         ...
 
-    Produced dict/list structures are then good enought to be
+    Produced dict/list structures are then good enough to be
     returned as part of original metadata without making any more
     copies.
 

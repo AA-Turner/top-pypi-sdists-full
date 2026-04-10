@@ -29,6 +29,8 @@ Usage::
         ListPolicyEnginesPaginator,
         ListPolicyGenerationAssetsPaginator,
         ListPolicyGenerationsPaginator,
+        ListRegistriesPaginator,
+        ListRegistryRecordsPaginator,
         ListWorkloadIdentitiesPaginator,
         MemoryCreatedWaiter,
         PolicyActiveWaiter,
@@ -65,6 +67,8 @@ Usage::
     list_policy_engines_paginator: ListPolicyEnginesPaginator = client.get_paginator("list_policy_engines")
     list_policy_generation_assets_paginator: ListPolicyGenerationAssetsPaginator = client.get_paginator("list_policy_generation_assets")
     list_policy_generations_paginator: ListPolicyGenerationsPaginator = client.get_paginator("list_policy_generations")
+    list_registries_paginator: ListRegistriesPaginator = client.get_paginator("list_registries")
+    list_registry_records_paginator: ListRegistryRecordsPaginator = client.get_paginator("list_registry_records")
     list_workload_identities_paginator: ListWorkloadIdentitiesPaginator = client.get_paginator("list_workload_identities")
     ```
 """
@@ -88,6 +92,8 @@ from .paginator import (
     ListPolicyEnginesPaginator,
     ListPolicyGenerationAssetsPaginator,
     ListPolicyGenerationsPaginator,
+    ListRegistriesPaginator,
+    ListRegistryRecordsPaginator,
     ListWorkloadIdentitiesPaginator,
 )
 from .waiter import (
@@ -122,6 +128,8 @@ __all__ = (
     "ListPolicyEnginesPaginator",
     "ListPolicyGenerationAssetsPaginator",
     "ListPolicyGenerationsPaginator",
+    "ListRegistriesPaginator",
+    "ListRegistryRecordsPaginator",
     "ListWorkloadIdentitiesPaginator",
     "MemoryCreatedWaiter",
     "PolicyActiveWaiter",

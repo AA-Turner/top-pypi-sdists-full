@@ -17,7 +17,7 @@ import ulid
 from kolo.threads import get_thread_id
 
 from .config import CONFIG_KEYS_TO_OMIT_FROM_SAVED_TRACE
-from .db import save_trace_in_sqlite
+from .db import save_trace
 from .filters.attrs import attrs_filter
 from .filters.core import (
     FrameFilter,
@@ -328,7 +328,7 @@ class KoloProfiler:
         if self.config.get("use_rust", True):
             try:
                 from ._kolo import register_profiler
-            except ImportError as e:
+            except ImportError as e:  # pragma: no cover
                 # Useful for PyPy, which doesn't do Rust
                 logger.debug(
                     "Rust profiler import failed (%s), using Python profiler", e
@@ -423,8 +423,8 @@ class KoloProfiler:
 
         serialized_data = self.build_trace(frames_by_thread=frames_by_thread)
         timeout = self.config.get("sqlite_busy_timeout", 60)
-        save_trace_in_sqlite(
-            self.db_path, self.trace_id, msgpack=serialized_data, timeout=timeout
+        save_trace(
+            self.trace_id, serialized_data, db_path=self.db_path, timeout=timeout
         )
 
     def _set_trace_name(self, frames_by_thread=None):

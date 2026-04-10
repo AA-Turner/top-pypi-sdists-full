@@ -7,16 +7,23 @@ from typing import TYPE_CHECKING, Any
 
 from h2.errors import ErrorCodes
 from h2.exceptions import H2Error, ProtocolError, StreamClosedError
-from twisted.internet.defer import CancelledError, Deferred
+from twisted.internet.defer import Deferred
 from twisted.internet.error import ConnectionClosed
 from twisted.python.failure import Failure
 from twisted.web.client import ResponseFailed
 
+from scrapy.exceptions import DownloadCancelledError
 from scrapy.http.headers import Headers
-from scrapy.responsetypes import responsetypes
+from scrapy.utils._download_handlers import (
+    get_maxsize_msg,
+    get_warnsize_msg,
+    make_response,
+)
 from scrapy.utils.httpobj import urlparse_cached
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from hpack import HeaderTuple
 
     from scrapy.core.http2.protocol import H2ClientProtocol
@@ -73,6 +80,9 @@ class StreamCloseReason(Enum):
     # The hostname of the request is not same as of connected peer hostname
     # As a result sending this request will the end the connection
     INVALID_HOSTNAME = 7
+
+    # Actual response body size is more than allowed limit
+    MAXSIZE_EXCEEDED_ACTUAL = 8
 
 
 class Stream:
@@ -142,7 +152,7 @@ class Stream:
             # flow control window
             "flow_controlled_size": 0,
             # Headers received after sending the request
-            "headers": Headers({}),
+            "headers": Headers(),
         }
 
         def _cancel(_: Any) -> None:
@@ -333,14 +343,16 @@ class Stream:
             self._download_maxsize
             and self._response["flow_controlled_size"] > self._download_maxsize
         ):
-            self.reset_stream(StreamCloseReason.MAXSIZE_EXCEEDED)
+            self.reset_stream(StreamCloseReason.MAXSIZE_EXCEEDED_ACTUAL)
             return
 
         if self._log_warnsize:
             self.metadata["reached_warnsize"] = True
-            warning_msg = (
-                f"Received more ({self._response['flow_controlled_size']}) bytes than download "
-                f"warn size ({self._download_warnsize}) in request {self._request}"
+            warning_msg = get_warnsize_msg(
+                self._response["flow_controlled_size"],
+                self._download_warnsize,
+                self._request,
+                expected=False,
             )
             logger.warning(warning_msg)
 
@@ -361,9 +373,8 @@ class Stream:
 
         if self._log_warnsize:
             self.metadata["reached_warnsize"] = True
-            warning_msg = (
-                f"Expected response size ({expected_size}) larger than "
-                f"download warn size ({self._download_warnsize}) in request {self._request}"
+            warning_msg = get_warnsize_msg(
+                expected_size, self._download_warnsize, self._request, expected=True
             )
             logger.warning(warning_msg)
 
@@ -382,7 +393,7 @@ class Stream:
     def close(
         self,
         reason: StreamCloseReason,
-        errors: list[BaseException] | None = None,
+        errors: Sequence[BaseException] | None = None,
         from_protocol: bool = False,
     ) -> None:
         """Based on the reason sent we will handle each case."""
@@ -396,7 +407,7 @@ class Stream:
 
         # Have default value of errors as an empty list as
         # some cases can add a list of exceptions
-        errors = errors or []
+        errors = errors or ()
 
         if not from_protocol:
             self._protocol.pop_stream(self.stream_id)
@@ -411,18 +422,23 @@ class Stream:
         # As we immediately cancel the request when maxsize is exceeded while
         # receiving DATA_FRAME's when we have received the headers (not
         # having Content-Length)
-        if reason is StreamCloseReason.MAXSIZE_EXCEEDED:
+        if reason in {
+            StreamCloseReason.MAXSIZE_EXCEEDED,
+            StreamCloseReason.MAXSIZE_EXCEEDED_ACTUAL,
+        }:
             expected_size = int(
                 self._response["headers"].get(
                     b"Content-Length", self._response["flow_controlled_size"]
                 )
             )
-            error_msg = (
-                f"Cancelling download of {self._request.url}: received response "
-                f"size ({expected_size}) larger than download max size ({self._download_maxsize})"
+            error_msg = get_maxsize_msg(
+                expected_size,
+                self._download_maxsize,
+                self._request,
+                expected=reason == StreamCloseReason.MAXSIZE_EXCEEDED,
             )
             logger.error(error_msg)
-            self._deferred_response.errback(CancelledError(error_msg))
+            self._deferred_response.errback(DownloadCancelledError(error_msg))
 
         elif reason is StreamCloseReason.ENDED:
             self._fire_response_deferred()
@@ -456,7 +472,7 @@ class Stream:
             self._deferred_response.errback(ResponseFailed(errors))
 
         elif reason is StreamCloseReason.INACTIVE:
-            errors.insert(0, InactiveStreamClosed(self._request))
+            errors = (InactiveStreamClosed(self._request), *errors)
             self._deferred_response.errback(ResponseFailed(errors))
 
         else:
@@ -474,22 +490,13 @@ class Stream:
         and fires the response deferred callback with the
         generated response instance"""
 
-        body = self._response["body"].getvalue()
-        response_cls = responsetypes.from_args(
-            headers=self._response["headers"],
-            url=self._request.url,
-            body=body,
-        )
-
-        response = response_cls(
+        response = make_response(
             url=self._request.url,
             status=int(self._response["headers"][":status"]),
             headers=self._response["headers"],
-            body=body,
-            request=self._request,
+            body=self._response["body"].getvalue(),
             certificate=self._protocol.metadata["certificate"],
             ip_address=self._protocol.metadata["ip_address"],
             protocol="h2",
         )
-
         self._deferred_response.callback(response)

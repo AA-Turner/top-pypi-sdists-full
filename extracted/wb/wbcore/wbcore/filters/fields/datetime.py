@@ -8,7 +8,6 @@ from django_filters.utils import get_model_field
 from wbcore.filters.mixins import WBCoreFilterMixin
 from wbcore.forms import DateRangeField, DateTimeRangeField
 from wbcore.utils.date import financial_performance_shortcuts
-from wbcore.utils.date_builder.components import Component
 
 
 class TimeFilter(WBCoreFilterMixin, django_filters.TimeFilter):
@@ -58,18 +57,15 @@ class DateRangeFilter(ShortcutAndPerformanceMixin, django_filters.Filter):
     def _get_initial(self, *args):
         initial = super()._get_initial(*args)
         if initial is not None:
-            lower = upper = None
             if isinstance(initial, tuple):
                 lower, upper = initial
-
-                # if the initial is a tuple of components, we need to convert them to string
-                if isinstance(lower, Component) and isinstance(upper, Component):
-                    return f"{lower},{upper}"
-
-            elif hasattr(initial, "lower") and hasattr(initial, "upper"):
+            else:
                 lower, upper = initial.lower, initial.upper
-            initial = f'{lower.strftime(self.initial_format) if lower else ""},{upper.strftime(self.initial_format) if upper else ""}'
-        return initial
+            if hasattr(lower, "strftime"):
+                lower = lower.strftime(self.initial_format)
+            if hasattr(upper, "strftime"):
+                upper = upper.strftime(self.initial_format)
+            return lower, upper
 
     def get_representation(self, request, name, view):
         representation, lookup_expr = super().get_representation(request, name, view)
@@ -86,17 +82,12 @@ class DateRangeFilter(ShortcutAndPerformanceMixin, django_filters.Filter):
         if value:
             lower, upper = value.lower, value.upper
             filters = {}
-            is_field_range = self.is_range
-            if lower:
-                if is_field_range:
-                    filters[f"{self.field_name}__startswith__gte"] = lower
-                else:
+            if self.is_range:
+                filters[f"{self.field_name}__overlap"] = (lower, upper)
+            else:
+                if lower:
                     filters[f"{self.field_name}__gte"] = lower
-
-            if upper:
-                if is_field_range:
-                    filters[f"{self.field_name}__endswith__lte"] = upper
-                else:
+                if upper:
                     filters[f"{self.field_name}__lte"] = upper
 
             if self.exclude:

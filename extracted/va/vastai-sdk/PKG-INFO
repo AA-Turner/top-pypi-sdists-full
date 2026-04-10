@@ -1,8 +1,7 @@
 Metadata-Version: 2.4
 Name: vastai-sdk
-Version: 0.6.0
-Summary: SDK for Vast.ai GPU Cloud Service
-License-File: LICENSE
+Version: 1.0.0
+Summary: Vast.ai SDK - installs the vastai package (CLI + SDK + Serverless)
 Author: Chris McKenzie
 Author-email: chris@vast.ai
 Requires-Python: >=3.9
@@ -13,86 +12,42 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: aiodns (>=3.6.0)
-Requires-Dist: aiofiles (>=23.0)
-Requires-Dist: aiohttp (>=3.9.1,<3.13.4)
-Requires-Dist: anyio (>=4.4,<4.5)
-Requires-Dist: borb (>=2.1.25,<2.2.0)
-Requires-Dist: fastapi (>=0.110,<1.0)
-Requires-Dist: hf_transfer (>=0.1.9)
-Requires-Dist: jsonschema (>=3.2)
-Requires-Dist: nltk (>=3.9,<3.10)
-Requires-Dist: psutil (>=6.0,<6.1)
-Requires-Dist: pycares (==4.11.0)
-Requires-Dist: pycryptodome (>=3.20,<3.21)
-Requires-Dist: pyparsing (>=3.1,<4.0)
-Requires-Dist: python-dateutil (>=2.8.2)
-Requires-Dist: pytz (>=2023.3)
-Requires-Dist: requests (>=2.32.3)
-Requires-Dist: transformers (>=4.52,<4.53)
-Requires-Dist: urllib3 (>=2.0,<3.0)
-Requires-Dist: uvicorn[standard] (>=0.24,<0.32)
-Requires-Dist: xdg (>=1.0.0)
+Requires-Dist: vastai (==1.0.0)
 Project-URL: Homepage, https://vast.ai
-Project-URL: Repository, https://github.com/vast-ai/vast-sdk
-Project-URL: Source, https://github.com/vast-ai/vast-sdk
+Project-URL: Repository, https://github.com/vast-ai/vast-cli
+Project-URL: Source, https://github.com/vast-ai/vast-cli
 Description-Content-Type: text/markdown
 
-# Vast.ai Python SDK
-[![PyPI version](https://badge.fury.io/py/vastai-sdk.svg)](https://badge.fury.io/py/vastai-sdk)
+# vastai-sdk
 
-The official Vast.ai SDK pip package.
+This package is a thin compatibility wrapper around the [`vastai`](https://pypi.org/project/vastai/) package.
 
-## Install
+All code now lives in the `vastai` package. This wrapper allows existing code that does `import vastai_sdk` or `from vastai_sdk import ...` to continue working without changes.
+
+## Installation
+
 ```bash
 pip install vastai-sdk
 ```
-## Examples
 
-NOTE: Ensure your Vast.ai API key is set in your working environment as `VAST_API_KEY`. Alternatively, you may pass the API key in as a parameter to either client.
+This will automatically install the `vastai` package as a dependency.
 
-### Using the VastAI CLI client
+## Usage
 
-1. Create the client
 ```python
+# Both of these work identically:
 from vastai import VastAI
-vastai = VastAI() # or, VastAI("YOUR_API_KEY")
-```
-2. Run commands
-```python
-vastai.search_offers()
-```
-3. Get help
-```python
-help(v.create_instances)
+from vastai_sdk import VastAI
+
+# Submodule imports also work:
+from vastai_sdk.serverless.client.client import Serverless
 ```
 
-### Using the Serverless client
+## Migration
 
-1. Create the client
-```python
-from vastai import Serverless
-serverless = Serverless() # or, Serverless("YOUR_API_KEY")
-```
-2. Get an endpoint
-```python
-endpoint = await serverless.get_endpoint("my-endpoint")
-```
-3. Make a request
-```python
-request_body = {
-    "model": "Qwen/Qwen3-8B",
-    "prompt" : "Who are you?",
-    "max_tokens" : 100,
-    "temperature" : 0.7
-}
-response = await serverless.request("/v1/completions", request_body)
-```
-4. Read the response
-```python
-text = response["response"]["choices"][0]["text"]
-print(text)
-```
+If you are starting a new project, use `vastai` directly:
 
-Find more examples in the `examples` directory
+```bash
+pip install vastai
+```
 

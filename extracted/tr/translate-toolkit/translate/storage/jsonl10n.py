@@ -75,14 +75,16 @@ import re
 import uuid
 from collections import defaultdict
 from typing import (
+    IO,
     TYPE_CHECKING,
     Any,
     BinaryIO,
-    ClassVar,
+    Generic,
     Never,
     NotRequired,
     TextIO,
     TypedDict,
+    TypeVar,
     cast,
 )
 
@@ -174,10 +176,13 @@ class DumpArgsType(TypedDict):
     sort_keys: NotRequired[bool]
 
 
-class JsonFile(base.DictStore[BaseJsonUnit]):
+JsonUnit = TypeVar("JsonUnit", bound=BaseJsonUnit)
+
+
+class JsonFile(base.DictStore[JsonUnit], Generic[JsonUnit]):
     """A JSON file."""
 
-    UnitClass: ClassVar[type[BaseJsonUnit]] = FlatJsonUnit
+    UnitClass: type[JsonUnit] = FlatJsonUnit  # ty:ignore[invalid-assignment]
 
     def __init__(self, inputfile=None, filter=None, **kwargs) -> None:
         """Construct a JSON file, optionally reading in from inputfile."""
@@ -615,7 +620,7 @@ class GoTextJsonUnit(BaseJsonUnit):
             target["select"]["cases"] = {
                 plural: {"msg": strings[offset]}
                 for offset, plural in enumerate(self._store.get_plural_tags())  # ty:ignore[unresolved-attribute]
-            }
+            }  # ty:ignore[invalid-assignment]
         value = {"id": self._unitid.parts if self._unitid else self.getid()}
         if self.message:
             value["message"] = self.message
@@ -1009,7 +1014,7 @@ class NextcloudJsonUnit(FlatJsonUnit):
         self.setid(source)
 
 
-class NextcloudJsonFile(JsonFile):
+class NextcloudJsonFile(JsonFile[NextcloudJsonUnit]):
     """
     Nextcloud JSON file.
 
@@ -1067,7 +1072,7 @@ class NextcloudJsonFile(JsonFile):
             unit.setid(key, unitid=self.UnitClass.IdClass.from_key(key))
             yield unit
 
-    def serialize(self, out: BinaryIO) -> None:
+    def serialize(self, out: IO[bytes]) -> None:
         """Serialize to Nextcloud JSON format."""
         # Build translations dictionary
         translations = {}

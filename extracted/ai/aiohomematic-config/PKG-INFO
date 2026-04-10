@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiohomematic-config
-Version: 2026.4.0
+Version: 2026.4.1
 Summary: Presentation-layer library for Homematic device configuration UI.
 Author-email: SukramJ <sukramj@icloud.com>
 License: MIT License

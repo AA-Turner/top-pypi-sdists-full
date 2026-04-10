@@ -77,12 +77,14 @@ dependencies = [
   "opentelemetry-instrumentation-sqlite3 == 0.61b0",
   "opentelemetry-instrumentation-starlette == 0.61b0",
   "opentelemetry-instrumentation-system-metrics == 0.61b0",
+  "opentelemetry-instrumentation-threading == 0.61b0",
   "opentelemetry-instrumentation-tornado == 0.61b0",
   "opentelemetry-instrumentation-tortoiseorm == 0.61b0",
   "opentelemetry-instrumentation-urllib == 0.61b0",
   "opentelemetry-instrumentation-urllib3 == 0.61b0",
   "opentelemetry-instrumentation-wsgi == 0.61b0",
   "opentelemetry-instrumentation-cassandra == 0.61b0",
+  "opentelemetry-instrumentation-openai-agents-v2 == 0.1.0",
   "cachetools == 6.2.4",
   "protobuf == 6.33.5",
   "pyyaml == 6.0.3",
@@ -101,6 +103,16 @@ aws_configurator = "amazon.opentelemetry.distro.aws_opentelemetry_configurator:A
 
 [project.entry-points.opentelemetry_distro]
 aws_distro = "amazon.opentelemetry.distro.aws_opentelemetry_distro:AwsOpenTelemetryDistro"
+
+[project.entry-points.opentelemetry_instrumentor]
+aws_llama-index = "amazon.opentelemetry.distro.instrumentation.llama_index:LlamaIndexInstrumentor"
+aws_crewai = "amazon.opentelemetry.distro.instrumentation.crewai:CrewAIInstrumentor"
+aws_langchain = "amazon.opentelemetry.distro.instrumentation.langchain:LangChainInstrumentor"
+aws_mcp = "amazon.opentelemetry.distro.instrumentation.mcp:McpInstrumentor"
+# Wraps the upstream OTel OpenAI Agents instrumentor under a unique entry point name.
+# This allows us to disable 3rd party "openai_agents" entry points in the opt-in path
+# while keeping OpenAI Agents instrumentation active via this alias.
+aws_openai_agents = "opentelemetry.instrumentation.openai_agents:OpenAIAgentsInstrumentor"
 
 [project.urls]
 Homepage = "https://github.com/aws-observability/aws-otel-python-instrumentation/tree/main/aws-opentelemetry-distro"

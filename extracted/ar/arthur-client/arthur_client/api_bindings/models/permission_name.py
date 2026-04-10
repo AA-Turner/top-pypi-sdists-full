@@ -216,6 +216,7 @@ class PermissionName(str, Enum):
     MODEL_LIST_ATTESTATIONS = 'model_list_attestations'
     MODEL_CHECK_COMPLIANCE = 'model_check_compliance'
     WORKSPACE_LIST_POLICY_ASSIGNMENTS = 'workspace_list_policy_assignments'
+    WORKSPACE_LIST_POLICY_COMPLIANCE = 'workspace_list_policy_compliance'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

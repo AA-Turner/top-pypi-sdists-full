@@ -1682,8 +1682,8 @@ class OTSProtoBufferEncoder(object):
     def _make_group_bys(self, proto, group_bys):
         if isinstance(group_bys, list):
             for group_by in group_bys:
-                if type(group_by) not in [GroupByField, GroupByRange, GroupByFilter, GroupByGeoDistance, GroupByHistogram]:
-                    raise OTSClientError('group_by must be one of [GroupByField, GroupByRange, GroupByFilter, GroupByGeoDistance, GroupByHistogram]')
+                if type(group_by) not in [GroupByField, GroupByRange, GroupByFilter, GroupByGeoDistance, GroupByHistogram, GroupByDateHistogram, GroupByGeoGrid, GroupByComposite]:
+                    raise OTSClientError('group_by must be one of [GroupByField, GroupByRange, GroupByFilter, GroupByGeoDistance, GroupByHistogram, GroupByDateHistogram, GroupByGeoGrid, GroupByComposite]')
                 group_by_proto = proto.group_bys.add()
                 group_by_proto.name = group_by.name
                 group_by_proto.type = group_by.type

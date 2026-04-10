@@ -409,8 +409,12 @@ class TestBadRequestErrorHandling:
 
 class TestGenericExceptionHandling:
     @pytest.mark.asyncio
-    async def test_generic_exception_yields_internal_error(self):
-        """Unexpected exceptions must yield a generic internal error (no details leaked)."""
+    async def test_generic_exception_yields_provider_error_with_context(self):
+        """(#1343) Unexpected exceptions now surface as structured
+        provider_error events carrying the sanitized underlying message
+        plus provider/model context, so users can diagnose provider-side
+        config failures like 'toolConfig must be defined ...' instead of
+        seeing the opaque 'An internal error occurred'."""
         service = _make_service()
         service.client.chat.completions.create = AsyncMock(side_effect=RuntimeError("something unexpected"))
 
@@ -420,8 +424,56 @@ class TestGenericExceptionHandling:
 
         error_events = [e for e in events if e["event"] == "error"]
         assert len(error_events) == 1
-        assert error_events[0]["data"]["message"] == "An internal error occurred"
-        assert "something unexpected" not in error_events[0]["data"].get("message", "")
+        err = error_events[0]["data"]
+        assert err["code"] == "provider_error"
+        assert err["retryable"] is False
+        # Message should carry the underlying text so users can act on it.
+        assert "something unexpected" in err["message"]
+        # #1343: every error event now carries provider + model.
+        assert "provider" in err
+        assert "model" in err
+
+    @pytest.mark.asyncio
+    async def test_toolconfig_error_surfaces_with_provider_model(self):
+        """(#1343) Repro 1: toolConfig must be defined — previously collapsed
+        to 'An internal error occurred', now surfaces with full context."""
+        service = _make_service()
+        service.client.chat.completions.create = AsyncMock(
+            side_effect=RuntimeError("toolConfig must be defined when using tool calling with bedrock")
+        )
+
+        events = []
+        async for event in service.stream_chat([{"role": "user", "content": "hi"}]):
+            events.append(event)
+
+        error_events = [e for e in events if e["event"] == "error"]
+        assert len(error_events) == 1
+        err = error_events[0]["data"]
+        assert err["code"] == "provider_error"
+        assert "toolConfig" in err["message"]
+        assert "provider" in err
+        assert "model" in err
+
+    @pytest.mark.asyncio
+    async def test_first_message_must_be_user_error_surfaces_with_provider_model(self):
+        """(#1343) Repro 2: a conversation must start with a user message —
+        surfaces with full context instead of opaque internal error."""
+        service = _make_service()
+        service.client.chat.completions.create = AsyncMock(
+            side_effect=RuntimeError("a conversation must start with a user message")
+        )
+
+        events = []
+        async for event in service.stream_chat([{"role": "user", "content": "hi"}]):
+            events.append(event)
+
+        error_events = [e for e in events if e["event"] == "error"]
+        assert len(error_events) == 1
+        err = error_events[0]["data"]
+        assert err["code"] == "provider_error"
+        assert "conversation must start" in err["message"]
+        assert "provider" in err
+        assert "model" in err
 
 
 class TestIterStream:

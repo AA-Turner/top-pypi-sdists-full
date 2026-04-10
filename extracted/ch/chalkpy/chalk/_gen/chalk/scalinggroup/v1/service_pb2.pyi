@@ -1,5 +1,6 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as _service_pb2
+from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -56,7 +57,18 @@ class ScalingGroupResponse(_message.Message):
         "web_url",
         "ready_replicas",
         "available_replicas",
+        "metadata",
     )
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
@@ -67,6 +79,7 @@ class ScalingGroupResponse(_message.Message):
     WEB_URL_FIELD_NUMBER: _ClassVar[int]
     READY_REPLICAS_FIELD_NUMBER: _ClassVar[int]
     AVAILABLE_REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     status: str
@@ -77,6 +90,7 @@ class ScalingGroupResponse(_message.Message):
     web_url: str
     ready_replicas: int
     available_replicas: int
+    metadata: _containers.MessageMap[str, _struct_pb2.Value]
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -89,6 +103,7 @@ class ScalingGroupResponse(_message.Message):
         web_url: _Optional[str] = ...,
         ready_replicas: _Optional[int] = ...,
         available_replicas: _Optional[int] = ...,
+        metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
     ) -> None: ...
 
 class CreateScalingGroupRequest(_message.Message):
@@ -140,3 +155,27 @@ class DeleteScalingGroupResponse(_message.Message):
     SCALING_GROUP_FIELD_NUMBER: _ClassVar[int]
     scaling_group: ScalingGroupResponse
     def __init__(self, scaling_group: _Optional[_Union[ScalingGroupResponse, _Mapping]] = ...) -> None: ...
+
+class UpdateScalingGroupStatusRequest(_message.Message):
+    __slots__ = ("scaling_group_id", "status", "status_message")
+    SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    STATUS_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    scaling_group_id: str
+    status: str
+    status_message: str
+    def __init__(
+        self, scaling_group_id: _Optional[str] = ..., status: _Optional[str] = ..., status_message: _Optional[str] = ...
+    ) -> None: ...
+
+class BatchUpdateScalingGroupStatusRequest(_message.Message):
+    __slots__ = ("updates",)
+    UPDATES_FIELD_NUMBER: _ClassVar[int]
+    updates: _containers.RepeatedCompositeFieldContainer[UpdateScalingGroupStatusRequest]
+    def __init__(
+        self, updates: _Optional[_Iterable[_Union[UpdateScalingGroupStatusRequest, _Mapping]]] = ...
+    ) -> None: ...
+
+class BatchUpdateScalingGroupStatusResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-botocore
-Version: 0.61b0
+Version: 0.62b0
 Summary: OpenTelemetry Botocore instrumentation
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation/opentelemetry-instrumentation-botocore
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib
@@ -20,11 +20,14 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Requires-Dist: opentelemetry-api~=1.37
-Requires-Dist: opentelemetry-instrumentation==0.61b0
+Requires-Dist: opentelemetry-instrumentation==0.62b0
 Requires-Dist: opentelemetry-propagator-aws-xray~=1.0
-Requires-Dist: opentelemetry-semantic-conventions==0.61b0
+Requires-Dist: opentelemetry-semantic-conventions==0.62b0
+Requires-Dist: wrapt<3.0.0,>=1.0.0
 Provides-Extra: instruments
-Requires-Dist: botocore~=1.0; extra == 'instruments'
+Provides-Extra: instruments-any
+Requires-Dist: aiobotocore~=2.0; extra == 'instruments-any'
+Requires-Dist: botocore~=1.0; extra == 'instruments-any'
 Description-Content-Type: text/x-rst
 
 OpenTelemetry Botocore Tracing
@@ -35,7 +38,7 @@ OpenTelemetry Botocore Tracing
 .. |pypi| image:: https://badge.fury.io/py/opentelemetry-instrumentation-botocore.svg
    :target: https://pypi.org/project/opentelemetry-instrumentation-botocore/
 
-This library allows tracing requests made by the Botocore library.
+This library allows tracing requests made by the botocore and aiobotocore libraries.
 
 Extensions
 ----------
@@ -43,14 +46,14 @@ Extensions
 The instrumentation supports creating extensions for AWS services for enriching what is collected. We have extensions
 for the following AWS services:
 
-- Bedrock Runtime
+- Bedrock Runtime (botocore only)
 - DynamoDB
 - Lambda
 - SNS
 - SQS
 
-Bedrock Runtime
-***************
+Bedrock Runtime (botocore only)
+*******************************
 
 This extension implements the GenAI semantic conventions for the following API calls:
 

@@ -194,7 +194,7 @@ def delete_v1_system(snmpEngine: SnmpEngine, communityIndex):
     )
 
     debug.logger & debug.FLAG_SM and debug.logger(
-        "delV1System: deleted table entry by communityIndex " '"%s"' % (communityIndex,)
+        'delV1System: deleted table entry by communityIndex "%s"' % (communityIndex,)
     )
 
 
@@ -208,7 +208,9 @@ def __cook_v3_user_info(snmpEngine: SnmpEngine, securityName, securityEngineId):
     else:
         securityEngineId = snmpEngineID.syntax.clone(securityEngineId)
 
-    (usmUserEntry,) = mibBuilder.import_symbols("SNMP-USER-BASED-SM-MIB", "usmUserEntry")  # type: ignore
+    (usmUserEntry,) = mibBuilder.import_symbols(
+        "SNMP-USER-BASED-SM-MIB", "usmUserEntry"
+    )  # type: ignore
     tblIdx1 = usmUserEntry.getInstIdFromIndices(securityEngineId, securityName)
 
     (pysnmpUsmSecretEntry,) = mibBuilder.import_symbols(  # type: ignore
@@ -519,13 +521,19 @@ def add_target_address(
             sourceAddress = ("0.0.0.0", 0)
         sourceAddress = SnmpUDPAddress(sourceAddress)
     elif transportDomain[: len(SNMP_UDP6_DOMAIN)] == SNMP_UDP6_DOMAIN:
-        (TransportAddressIPv6,) = mibBuilder.import_symbols(  # type: ignore
-            "TRANSPORT-ADDRESS-MIB", "TransportAddressIPv6"
+        (TransportAddressIPv6, TransportAddressIPv6z) = mibBuilder.import_symbols(  # type: ignore
+            "TRANSPORT-ADDRESS-MIB", "TransportAddressIPv6", "TransportAddressIPv6z"
         )
-        transportAddress = TransportAddressIPv6(transportAddress)
-        if sourceAddress is None:
-            sourceAddress = ("::", 0)
-        sourceAddress = TransportAddressIPv6(sourceAddress)
+        if len(transportAddress) == 4 and transportAddress[3]:  # Scoped IPv6 address
+            transportAddress = TransportAddressIPv6z(transportAddress)
+            if sourceAddress is None:
+                sourceAddress = ("::", 0, 0, 0)
+            sourceAddress = TransportAddressIPv6z(sourceAddress)
+        else:  # Unscoped IPv6 address
+            transportAddress = TransportAddressIPv6(transportAddress)
+            if sourceAddress is None:
+                sourceAddress = ("::", 0)
+            sourceAddress = TransportAddressIPv6(sourceAddress)
 
     snmpEngine.message_dispatcher.mib_instrum_controller.write_variables(
         (snmpTargetAddrEntry.name + (9,) + tblIdx, "destroy"),

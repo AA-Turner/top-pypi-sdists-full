@@ -1,5 +1,7 @@
 # coding=utf-8
 from .._impl import (
+    datasource_api_BatchGetAvailableTagsForChannelRequest as BatchGetAvailableTagsForChannelRequest,
+    datasource_api_BatchGetAvailableTagsForChannelResponse as BatchGetAvailableTagsForChannelResponse,
     datasource_api_BatchGetChannelPrefixTreeRequest as BatchGetChannelPrefixTreeRequest,
     datasource_api_BatchGetChannelPrefixTreeResponse as BatchGetChannelPrefixTreeResponse,
     datasource_api_BatchGetDataScopeBoundsRequest as BatchGetDataScopeBoundsRequest,
@@ -13,6 +15,7 @@ from .._impl import (
     datasource_api_ChannelPrefixTreeNode as ChannelPrefixTreeNode,
     datasource_api_ChannelWithAvailableTags as ChannelWithAvailableTags,
     datasource_api_ChannelWithTagFilters as ChannelWithTagFilters,
+    datasource_api_ClearChannelPrefixTreeRequest as ClearChannelPrefixTreeRequest,
     datasource_api_DataScopeFilters as DataScopeFilters,
     datasource_api_DataSourcePrefixNode as DataSourcePrefixNode,
     datasource_api_GetAvailableTagKeysRequest as GetAvailableTagKeysRequest,
@@ -42,6 +45,8 @@ from .._impl import (
 )
 
 __all__ = [
+    'BatchGetAvailableTagsForChannelRequest',
+    'BatchGetAvailableTagsForChannelResponse',
     'BatchGetChannelPrefixTreeRequest',
     'BatchGetChannelPrefixTreeResponse',
     'BatchGetDataScopeBoundsRequest',
@@ -55,6 +60,7 @@ __all__ = [
     'ChannelPrefixTreeNode',
     'ChannelWithAvailableTags',
     'ChannelWithTagFilters',
+    'ClearChannelPrefixTreeRequest',
     'DataScopeFilters',
     'DataSourcePrefixNode',
     'GetAvailableTagKeysRequest',

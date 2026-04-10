@@ -13,7 +13,15 @@ from collections.abc import Iterable
 
 from pydantic import Field, computed_field, model_validator
 
-from .base_types import BinName, BinProviderName, HostBinPath, InstallArgs, PATHStr
+from .base_types import (
+    BinName,
+    BinProviderName,
+    DEFAULT_LIB_DIR,
+    HostBinPath,
+    InstallArgs,
+    PATHStr,
+    abx_pkg_install_root_default,
+)
 from .binary import Binary
 from .binprovider import BinProvider, EnvProvider, env_flag_is_true, remap_kwargs
 from .binprovider_npm import NpmProvider
@@ -27,9 +35,10 @@ CLAUDE_SANDBOX_NO_PROXY = (
     ".svc.cluster.local,.local"
 )
 
-DEFAULT_PUPPETEER_ROOT = Path(
-    os.environ.get("ABX_PKG_PUPPETEER_ROOT", "~/.cache/abx-pkg/puppeteer"),
-).expanduser()
+# Puppeteer's provider bootstraps @puppeteer/browsers via a local npm
+# prefix and creates symlinks in bin_dir — it genuinely needs a managed
+# directory even when no explicit root is set.
+DEFAULT_PUPPETEER_ROOT = DEFAULT_LIB_DIR / "puppeteer"
 
 
 class PuppeteerProvider(BinProvider):
@@ -45,7 +54,8 @@ class PuppeteerProvider(BinProvider):
     )
     min_release_age: float | None = Field(default=None, repr=False)
 
-    puppeteer_root: Path | None = None
+    # Default: ABX_PKG_PUPPETEER_ROOT > ABX_PKG_LIB_DIR/puppeteer > None.
+    puppeteer_root: Path | None = abx_pkg_install_root_default("puppeteer")
     browser_bin_dir: Path | None = None
     browser_cache_dir: Path | None = None
 

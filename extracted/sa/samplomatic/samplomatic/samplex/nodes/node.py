@@ -19,12 +19,29 @@ from typing import Literal
 from ...aliases import InterfaceName, NumSubsystems, ParamIndex, RegisterName, SubsystemIndex
 from ...exceptions import SamplexConstructionError
 from ...serializable import Serializable
+from ...trace_info import TraceInfo
 from ...virtual_registers import VirtualType
 from ...visualization.hover_style import NodeStyle
 
 
 class Node(metaclass=Serializable):
     """Parent class for samplex node operations."""
+
+    _trace_info: TraceInfo | None = None
+
+    @property
+    def trace_info(self) -> TraceInfo | None:
+        """Debug trace information linking this node back to its originating box(es).
+
+        Populated only when the samplex was built with ``debug=True``. Contains annotation
+        metadata such as tag and inject-noise refs from the box(es) that produced this node.
+        This information is not serialized.
+        """
+        return self._trace_info
+
+    @trace_info.setter
+    def trace_info(self, value: TraceInfo | None) -> None:
+        self._trace_info = value
 
     def __repr__(self):
         register_names = sorted(f"{register_name}(r)" for register_name in self.reads_from())
@@ -155,17 +172,26 @@ class Node(metaclass=Serializable):
             style.append_list_data("removes", sorted(removes), bullet="• ")
         if isinstance(outputs := self.outputs_to(), dict):
             style.append_dict_data("outputs_to", _reg_style(outputs), bullet="• ")
+        if self._trace_info is not None:
+            style.append_dict_data("trace_refs", self._trace_info.style_data())
         return style.append_divider()
 
     @abc.abstractmethod
     def __eq__(self, other) -> bool: ...
 
 
+def _truncate_idx_list(idxs: list[int], max_display: int = 10) -> list[int]:
+    # truncate long index lists for display, keeping small cases fully informative
+    if len(idxs) > max_display:
+        return idxs[:max_display] + [f"... +{len(idxs) - max_display}"]
+    return idxs
+
+
 def _reg_style(register_manifest):
     # helper to format node style
     return {
         reg_name: (
-            int(idxs) if isinstance(idxs, Number) else sorted(map(int, idxs)),
+            int(idxs) if isinstance(idxs, Number) else _truncate_idx_list(sorted(map(int, idxs))),
             str(reg_type),
         )
         for reg_name, (idxs, reg_type) in sorted(register_manifest.items())

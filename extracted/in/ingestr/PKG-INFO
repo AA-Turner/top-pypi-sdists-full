@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ingestr
-Version: 0.14.149
+Version: 0.14.150
 Summary: ingestr is a command-line application that ingests data from various sources and stores them in any database.
 Project-URL: Homepage, https://github.com/bruin-data/ingestr
 Project-URL: Issues, https://github.com/bruin-data/ingestr/issues
@@ -86,7 +86,7 @@ Requires-Dist: google-cloud-storage==3.1.0
 Requires-Dist: google-crc32c==1.6.0
 Requires-Dist: google-resumable-media==2.7.2
 Requires-Dist: googleapis-common-protos==1.69.0
-Requires-Dist: greenlet==3.3.2
+Requires-Dist: greenlet==3.4.0
 Requires-Dist: grpc-google-iam-v1==0.14.2
 Requires-Dist: grpc-interceptor==0.15.4
 Requires-Dist: grpcio-status==1.70.0

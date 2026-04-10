@@ -3,62 +3,60 @@ from __future__ import annotations
 import asyncio
 import gzip
 import json
+import logging
 import os
-import sqlite3
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from http.server import ThreadingHTTPServer
 from io import BytesIO
 from pathlib import Path
 from runpy import run_module, run_path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Union
 
 import click
 import httpx
 import msgpack
 
-from . import django_schema
 from .cli_mcp_shared import (
     format_trace_for_display,
     get_compact_traces,
-    get_execution_tree,
     get_formatted_traces,
     get_node_data,
+    parse_trace_timestamp,
 )
 from .config import load_config
 from .core import enable
 from .db import (
     TraceNotFoundError,
     convert_json_to_msgpack,
-    create_schema_table,
-    db_connection,
     delete_traces_before,
     delete_traces_by_id,
+    get_db_path,
+    get_migration_status,
     get_pinned_traces,
     list_traces_from_db,
     load_trace_from_db,
+    migrate_traces_to_files,
     pin_trace,
-    save_schema,
-    save_trace_in_sqlite,
+    save_trace,
     setup_db,
+    trace_exists,
     unpin_trace,
     vacuum_db,
 )
-from .generate_tests import generate_from_trace_ids, generate_test_intermediate_format
+from ._kolotxt import update_kolotxt
 from .serialize import load_msgpack, monkeypatch_queryset_repr
 from .trace import Trace
 from .upload import upload_to_dashboard
 from .utils import (
-    extract_main_frames_from_data,
-    get_terminal_formatter,
-    highlight_python,
-    highlight_sql,
     maybe_format,
 )
 from .version import __version__
 from .web.server import KoloRequestHandler
+
+logger = logging.getLogger("kolo")
 
 DATETIME_FORMATS = click.DateTime(
     (
@@ -71,21 +69,78 @@ DATETIME_FORMATS = click.DateTime(
 )
 
 
-DJANGO_SETTINGS_ERROR = """Django settings not found.
-Use `--settings` or set the `DJANGO_SETTINGS_MODULE` environment variable."""
-
 TRACE_NOT_FOUND_ERROR = "Could not find trace_id: `{trace_id}`"
 
 
-@click.group()
+def _run_auto_migration_if_needed():
+    """
+    Check if migration is needed and run it automatically.
+
+    This is called before CLI commands to ensure traces are migrated
+    from SQLite to file-based storage. Errors are logged but don't block
+    CLI commands.
+    """
+    try:
+        db_path = get_db_path()
+        if not db_path.exists():
+            return
+
+        migration_status = get_migration_status(db_path)
+        if migration_status["needs_migration"] == 0:
+            return
+
+        migrate_traces_to_files(db_path)
+    except Exception as e:
+        # Don't let migration errors block CLI commands
+        logger.debug(f"Auto-migration failed: {e}")
+
+
+# Commands that should NOT trigger auto-migration (performance-sensitive or migration-related)
+_SKIP_MIGRATION_COMMANDS = {"run", "migrate"}
+
+
+@click.group(invoke_without_command=True)
 @click.version_option(__version__, "--version", "-v", "-V")
-def cli():
+@click.pass_context
+def cli(ctx):
     # Ensure the current working directory is on the path.
     # Important when running the `kolo` script installed by setuptools.
     # Not really necessary when using `python -m kolo`, but doesn't hurt.
     # Note, we use 1, not 0: https://stackoverflow.com/q/10095037
     # This probably doesn't matter for our use case, but it doesn't hurt.
     sys.path.insert(1, ".")
+
+    # Run auto-migration if needed before interactive commands
+    # Skip for performance-sensitive commands like `run`
+    if ctx.invoked_subcommand not in _SKIP_MIGRATION_COMMANDS:
+        _run_auto_migration_if_needed()
+
+    if ctx.invoked_subcommand is None:
+        # Show help and last 5 traces as a preview
+        click.echo(ctx.get_help())
+        click.echo()
+        click.echo("Recent traces:")
+        db_path = setup_db()
+        preview_count = 5
+        shown = 0
+        for formatted_trace in get_formatted_traces(
+            db_path, count=preview_count, reverse=False
+        ):
+            shown += 1
+            click.echo(f"  {formatted_trace}")
+        if shown == 0:
+            click.echo("  No traces found")
+        elif shown == preview_count:
+            click.echo("  ... use `kolo trace list` to see all")
+
+        if shown > 0:
+            try:
+                kolotxt_path = update_kolotxt(db_path)
+            except Exception:
+                logger.debug("Failed to update kolo.txt", exc_info=True)
+            else:
+                click.echo()
+                click.echo(f"  kolo.txt: {kolotxt_path}")
 
 
 def python_noop_profiler(frame, event, arg):  # pragma: no cover
@@ -116,9 +171,9 @@ def python_noop_profiler(frame, event, arg):  # pragma: no cover
 )
 def run(path, args, one_trace_per_test, noop, inline, returns):
     """
-    Profile Python code using Kolo.
+    Trace Python code using Kolo.
 
-    PATH is the path to the python file or module being profiled.
+    PATH is the path to the python file or module being traced.
     """
     if path == "python":
         path, *args = args
@@ -203,50 +258,7 @@ def trace():
     """
 
 
-@trace.command()
-@click.argument("path")
-@click.option(
-    "--created-at",
-    help="Mark this trace as created at this time.",
-    type=DATETIME_FORMATS,
-)
-def load(path, created_at):
-    """
-    Load a trace from a file into the Kolo database.
-    """
-    db_path = setup_db()
-
-    try:
-        with open(path, "rb") as dump:
-            raw_data = dump.read()
-    except FileNotFoundError:
-        raise click.ClickException(f'File "{path}" not found')
-
-    try:
-        data = msgpack.unpackb(raw_data, strict_map_key=False)
-    except Exception:
-        raise click.ClickException("Trace file is not valid msgpack")
-
-    try:
-        trace_id = data["trace_id"]
-    except KeyError:
-        raise click.ClickException("Trace file is missing the `trace_id`")
-
-    try:
-        save_trace_in_sqlite(
-            db_path,
-            trace_id,
-            msgpack=raw_data,
-            ignore_errors=False,
-            created_at=created_at,
-        )
-    except sqlite3.IntegrityError:
-        raise click.ClickException(f"Trace ID `{trace_id}` already exists")
-
-    click.echo(f"Loaded trace {trace_id}")
-
-
-@trace.command()
+@trace.command(hidden=True)
 @click.argument("trace_id")
 @click.option("--file", help="The name of the file to save the trace to.")
 @click.option(
@@ -255,15 +267,7 @@ def load(path, created_at):
     is_flag=True,
     help="Show the trace as readable Python types.",
 )
-@click.option(
-    "--syntax-highlight",
-    help="Highlight Python syntax. Ignored unless `--as-python` is set.",
-    default="off",
-    flag_value="dark",
-    is_flag=False,
-    type=click.Choice(["off", "light", "dark"], case_sensitive=False),
-)
-def dump(trace_id, file, as_python, syntax_highlight):
+def dump(trace_id, file, as_python):
     """
     Dump a trace from the Kolo database to stdout or a specified file.
     """
@@ -278,9 +282,6 @@ def dump(trace_id, file, as_python, syntax_highlight):
         data = load_msgpack(msgpack_data)
         data = repr(data)
         data = maybe_format(data)
-        if syntax_highlight != "off":
-            formatter = get_terminal_formatter(syntax_highlight)
-            data = highlight_python(data, formatter)
         if file:
             with open(file, "w") as f:
                 f.write(data)
@@ -343,9 +344,7 @@ def list(count, reverse, pinned):
         auto_generated_name,
     ) in get_pinned_traces(db_path):
         found_any = True
-        timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S.%f").replace(
-            tzinfo=timezone.utc
-        )
+        timestamp = parse_trace_timestamp(timestamp_str)
 
         trace_name = Trace.resolve_display_name(
             msgpack_data, auto_generated_name, db_path, trace_id
@@ -362,45 +361,8 @@ def list(count, reverse, pinned):
 
 @trace.command()
 @click.argument("trace_id")
-@click.option(
-    "--syntax-highlight",
-    help="Highlight SQL query syntax.",
-    default="off",
-    flag_value="dark",
-    is_flag=False,
-    type=click.Choice(["off", "light", "dark"], case_sensitive=False),
-)
-def list_queries(trace_id, syntax_highlight):
-    """List all SQL queries in a trace."""
-    db_path = setup_db()
-
-    try:
-        msgpack_data, _ = load_trace_from_db(db_path, trace_id)
-    except TraceNotFoundError:
-        raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=trace_id))
-
-    formatter = get_terminal_formatter(syntax_highlight)
-
-    data = load_msgpack(msgpack_data)
-    frames = extract_main_frames_from_data(data)
-    for frame in frames:
-        if frame["type"] == "end_sql_query":
-            query = highlight_sql(
-                frame["query"], dialect=frame["database"], formatter=formatter
-            )
-            click.echo(query)
-
-
-@trace.command()
-@click.argument("trace_id")
 @click.argument("node_index", type=int)
-@click.option(
-    "--js",
-    is_flag=True,
-    hidden=True,
-    help="Use Node.js implementation instead of Python (for comparison/testing)",
-)
-def node(trace_id: str, node_index: int, js: bool):
+def node(trace_id: str, node_index: int):
     """Get detailed information about a specific node in a trace.
     This is useful when you need to deeply understand what happened at a specific
     point in the execution, like examining function arguments, local variables,
@@ -408,21 +370,14 @@ def node(trace_id: str, node_index: int, js: bool):
     """
     db_path = setup_db()
 
-    async def _get_node():
-        try:
-            trace_data, _ = load_trace_from_db(db_path, trace_id)
-            node_data = await get_node_data(trace_id, node_index, trace_data, use_js=js)
-            click.echo(json.dumps(node_data, indent=2))
-        except TraceNotFoundError:
-            raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=trace_id))
-        except httpx.HTTPError as e:
-            if hasattr(e, "response") and e.response.status_code == 404:
-                raise click.ClickException(
-                    f"Node {node_index} not found in trace {trace_id}"
-                )
-            raise click.ClickException(f"Error fetching node data: {e}")
-
-    asyncio.run(_get_node())
+    try:
+        trace_data, _ = load_trace_from_db(db_path, trace_id)
+        node_data = get_node_data(trace_id, node_index, trace_data)
+        click.echo(json.dumps(node_data, indent=2))
+    except TraceNotFoundError:
+        raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=trace_id))
+    except ValueError as e:
+        raise click.ClickException(str(e))
 
 
 @trace.command()
@@ -521,15 +476,7 @@ def unpin(trace_id):
     flag_value=5,
     help="Show compact representation of the N most recent traces (default: 5)",
 )
-@click.option(
-    "--js",
-    is_flag=True,
-    hidden=True,
-    help="Use Node.js implementation instead of Python (for comparison/testing)",
-)
-def compact(
-    trace_id: str | None, pinned: bool, returns: bool, recent: int | None, js: bool
-):
+def compact(trace_id: str | None, pinned: bool, returns: bool, recent: int | None):
     """Get a compact representation of a specific trace.
 
     [LEGACY] This command is deprecated. Use `kolo cat` instead.
@@ -546,233 +493,23 @@ def compact(
 
     db_path = setup_db()
 
-    async def _get_compact():
-        try:
-            results = await get_compact_traces(
-                db_path,
-                trace_id,
-                pinned=pinned,
-                returns=returns,
-                recent=recent or 0,
-                use_js=js,
-            )
-            for tid, compact_repr in results:
-                if pinned or recent is not None:
-                    click.echo(f"\n=== Trace {tid} ===")
-                click.echo(compact_repr)
-        except TraceNotFoundError as e:
-            raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=e.args[0]))
-
-    asyncio.run(_get_compact())
-
-
-@trace.command()
-@click.argument("trace_id")
-@click.option(
-    "--js",
-    is_flag=True,
-    hidden=True,
-    help="Use Node.js implementation instead of Python (for comparison/testing)",
-)
-def tree(trace_id: str, js: bool):
-    """Get the full JSON execution tree for a trace. Very verbose.
-    Most likely you want to use `kolo cat` instead.
-    """
-    db_path = setup_db()
-
-    async def _get_tree():
-        try:
-            trace_data, _ = load_trace_from_db(db_path, trace_id)
-            tree_data = await get_execution_tree(trace_id, trace_data, use_js=js)
-            click.echo(json.dumps(tree_data, indent=2))
-        except TraceNotFoundError:
-            raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=trace_id))
-        except httpx.HTTPError as e:
-            raise click.ClickException(f"Error fetching execution tree: {e}")
-
-    asyncio.run(_get_tree())
-
-
-def manage_py_settings():
-    import ast
-
     try:
-        with open("manage.py") as f:
-            data = f.read()
-    except OSError:  # pragma: no cover
-        return None
-    source = ast.parse(data, "manage.py")
-    for node in ast.walk(source):
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "setdefault"
-            and isinstance(node.args[0], ast.Constant)
-            and node.args[0].value == "DJANGO_SETTINGS_MODULE"
-            and isinstance(node.args[1], ast.Constant)
-        ):
-            return node.args[1].value  # pragma: no cover
-    return None
+        results = get_compact_traces(
+            db_path,
+            trace_id,
+            pinned=pinned,
+            returns=returns,
+            recent=recent or 0,
+        )
+        for tid, compact_repr in results:
+            if pinned or recent is not None:
+                click.echo(f"\n=== Trace {tid} ===")
+            click.echo(compact_repr)
+    except TraceNotFoundError as e:
+        raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=e.args[0]))
 
 
-def load_django(settings):
-    import django
-
-    if settings:
-        os.environ["DJANGO_SETTINGS_MODULE"] = settings
-    elif os.environ.get("DJANGO_SETTINGS_MODULE"):
-        pass
-    else:
-        settings = manage_py_settings()
-        if settings:
-            os.environ["DJANGO_SETTINGS_MODULE"] = settings  # pragma: no cover
-        else:
-            raise click.ClickException(DJANGO_SETTINGS_ERROR)
-
-    django.setup()
-
-
-@cli.command()
-@click.argument("trace_ids", nargs=-1)
-@click.option(
-    "--test-name", default="test_my_view", help="The name of the generated test."
-)
-@click.option(
-    "--test-class",
-    default="MyTestCase",
-    help="The name of the generated TestCase class.",
-)
-@click.option(
-    "--file",
-    type=click.File("w"),
-    help="Write the generated test to this file.",
-)
-@click.option(
-    "--settings", default="", help="The dotted path to a Django settings module."
-)
-@click.option(
-    "--use-saved-schemas",
-    default=False,
-    is_flag=True,
-    help="Load Django schemas saved with `kolo store-django-model-schema` instead of using the current schema. This may be useful when generating a test from an old trace.",
-)
-@click.option(
-    "--intermediate-format",
-    default=False,
-    is_flag=True,
-    help="Show an intermediate format of the data Kolo has extracted from the trace for use in the test.",
-)
-@click.option(
-    "--and-run",
-    default=False,
-    is_flag=True,
-    help="[Experimental, Use not recommended] Immediately run the newly generated test.",
-)
-@click.option(
-    "--unittest", "pytest", flag_value=False, help="Generate a unittest style test."
-)
-@click.option(
-    "--pytest",
-    "pytest",
-    flag_value=True,
-    default=True,
-    help="Generate a pytest style test (default).",
-)
-def generate_test(
-    trace_ids,
-    test_name,
-    test_class,
-    file,
-    settings,
-    use_saved_schemas,
-    intermediate_format,
-    and_run,
-    pytest,
-):
-    """Generate a test from a Kolo trace."""
-    import logging
-
-    logging.disable()
-
-    try:
-        load_django(settings)
-
-        if intermediate_format:
-            for data in generate_test_intermediate_format(
-                *trace_ids,
-                test_class=test_class,
-                test_name=test_name,
-                use_saved_schemas=use_saved_schemas,
-            ):
-                click.echo(data)
-            return
-        try:
-            test_code = generate_from_trace_ids(
-                *trace_ids,
-                test_class=test_class,
-                test_name=test_name,
-                use_saved_schemas=use_saved_schemas,
-                pytest=pytest,
-            )
-        except TraceNotFoundError as e:
-            raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=e.args[0]))
-
-        if and_run:
-            import unittest
-
-            from django.test.runner import DiscoverRunner
-
-            our_globals: Dict[Any, Any] = {}
-            exec(test_code, our_globals)
-
-            # Create TestSuite manually and add test cases
-            test_suite = unittest.TestSuite()
-            test_suite.addTest(
-                unittest.defaultTestLoader.loadTestsFromTestCase(
-                    our_globals[test_class]
-                )
-            )
-
-            class CustomRunner(DiscoverRunner):
-                def build_suite(
-                    self, test_labels: Optional[Sequence[str]] = None, **kwargs
-                ) -> unittest.TestSuite:
-                    return test_suite
-
-                def suite_result(self, suite, result, **kwargs):
-                    return suite, result
-
-            runner = CustomRunner()
-
-            # Test output will be output in the terminal as usual
-            suite, result = runner.run_tests([])  # type: ignore # we're now returning a tuple (see CustomRunner.suite_result above)
-        elif file:
-            file.write(test_code)
-        else:
-            click.echo(test_code)
-    finally:
-        logging.disable(logging.NOTSET)
-
-
-@cli.command()
-@click.option(
-    "--settings", default="", help="The dotted path to a Django settings module."
-)
-def store_django_model_schema(settings):
-    """Store Django model info for test generation."""
-    from .git import COMMIT_SHA
-
-    load_django(settings)
-
-    schema = django_schema.get_schema()
-
-    db_path = setup_db()
-    with db_connection(db_path) as connection:
-        create_schema_table(connection)
-        save_schema(connection, schema, COMMIT_SHA)
-
-
-@cli.command()
+@cli.command(hidden=True)
 def dbshell():  # pragma: no cover
     """
     Open a sqlite3 shell to the Kolo database.
@@ -830,16 +567,10 @@ def download(trace_id):
     except Exception:
         raise click.ClickException("Downloaded trace was not valid msgpack.")
 
-    try:
-        save_trace_in_sqlite(
-            db_path,
-            trace_id,
-            msgpack=raw_data,
-            ignore_errors=False,
-        )
-    except sqlite3.IntegrityError:
+    if trace_exists(trace_id, db_path):
         raise click.ClickException(f"`{trace_id}` already exists.")
 
+    save_trace(trace_id, raw_data)
     click.echo(f"`{trace_id}` downloaded successfully!")
 
 
@@ -851,6 +582,183 @@ def json_to_msgpack():  # pragma: no cover
     db_path = setup_db()
     count = convert_json_to_msgpack(db_path)
     click.echo(f"{count} traces converted!")
+
+
+@cli.command(hidden=True)
+@click.option(
+    "--status",
+    is_flag=True,
+    help="Show migration status without running migration.",
+)
+def migrate(status):
+    """
+    Migrate traces from SQLite database to file-based storage.
+
+    This command migrates trace data from the SQLite database to individual
+    files in the .kolo/.internal/raw/ directory. The database will only store
+    metadata (id, created_at, is_pinned) after migration.
+
+    File-based storage provides better performance and makes traces
+    easier to manage and search.
+    """
+    db_path = setup_db()
+
+    if status:
+        migration_status = get_migration_status(db_path)
+        click.echo(f"Traces in database: {migration_status['db_traces']}")
+        if migration_status["json_traces"] > 0:
+            click.echo(f"Legacy JSON traces: {migration_status['json_traces']}")
+        click.echo(f"Traces in files: {migration_status['file_traces']}")
+        click.echo(f"Total traces: {migration_status['total_traces']}")
+
+        needs_migration = migration_status["needs_migration"]
+        if needs_migration > 0:
+            trace_word = "trace" if needs_migration == 1 else "traces"
+            click.echo(
+                f"\nRun `kolo migrate` to migrate {needs_migration} {trace_word} to file storage."
+            )
+        else:
+            click.echo("\nAll traces are already migrated to file storage.")
+        return
+
+    # Check if migration is needed
+    migration_status = get_migration_status(db_path)
+    needs_migration = migration_status["needs_migration"]
+    if needs_migration == 0:
+        click.echo("All traces are already migrated to file storage.")
+        return
+
+    trace_word = "trace" if needs_migration == 1 else "traces"
+    click.echo(f"Migrating {needs_migration} {trace_word} to file storage...")
+
+    def progress_callback(migrated: int, remaining: int):
+        click.echo(f"  Migrated {migrated} traces, {remaining} remaining...")
+
+    total_migrated = migrate_traces_to_files(db_path, callback=progress_callback)
+    click.echo(f"Migration complete: {total_migrated} traces migrated.")
+    click.echo("Run `kolo delete --vacuum` to reclaim disk space.")
+
+
+@trace.command()
+@click.argument("trace_id", required=False)
+@click.option(
+    "--output-dir",
+    "-o",
+    type=click.Path(file_okay=False, dir_okay=True, path_type=Path),
+    default=None,
+    help="Directory where the trace directory will be created. Defaults to .kolo/traces/",
+)
+def emit(trace_id: Optional[str], output_dir: Optional[Path]):
+    """
+    Emit a trace into a browsable directory structure.
+
+    When called without arguments, emits/updates the 5 most recent traces.
+
+    Creates a directory tree that mirrors the trace's execution tree,
+    with human-readable files for each node (.py for syntax highlighting, .sql for SQL). This makes it easy to:
+
+    \b
+    - Browse trace data by clicking through directories
+    - Search with grep: `grep -r "team_id" trace_dir/`
+    - Let AI agents explore trace data efficiently
+
+    The output includes:
+    \b
+    - {trace_id}.txt: Trace metadata and compact tree (overview)
+    - Nested directories mirroring execution flow
+    - call.py/return.py for function calls with locals (Python syntax highlighting)
+    - request.txt/response.txt for HTTP (plain text)
+    - .sql for SQL queries
+    """
+    from .emit import emit_trace
+
+    db_path = setup_db()
+
+    # Default to .kolo/traces/ directory
+    if output_dir is None:
+        output_dir = db_path.parent / "traces"
+    output_dir = output_dir.resolve()
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True)
+
+    # If specific trace_id provided, emit just that one
+    if trace_id is not None:
+        try:
+            msgpack_data, _ = load_trace_from_db(db_path, trace_id)
+        except TraceNotFoundError:
+            raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=trace_id))
+
+        data = load_msgpack(msgpack_data)
+        trace = Trace(unprocessed_data=data, size=len(msgpack_data))
+        trace_dir = emit_trace(trace, output_dir)
+        click.echo(f"Browse: {trace_dir}/{trace_id}.txt")
+        return
+
+    # No trace_id: emit/update the 5 most recent traces
+    traces = list_traces_from_db(db_path, count=5)
+    if not traces:
+        raise click.ClickException("No traces found in the database.")
+
+    first_trace_dir = None
+    first_trace_id = None
+    for row in traces:
+        tid = row[0]
+        try:
+            msgpack_data, _ = load_trace_from_db(db_path, tid)
+            data = load_msgpack(msgpack_data)
+            trace = Trace(unprocessed_data=data, size=len(msgpack_data))
+            trace_dir = emit_trace(trace, output_dir)
+            if first_trace_dir is None:
+                first_trace_dir = trace_dir
+                first_trace_id = tid
+        except (TraceNotFoundError, KeyError, ValueError):
+            continue
+
+    if first_trace_dir:
+        click.echo(f"Browse: {first_trace_dir}/{first_trace_id}.txt")
+
+
+@trace.command(hidden=True)
+@click.argument("trace_id", required=False)
+def flat(trace_id: Optional[str]):
+    """
+    Emit a trace as a single flat markdown file.
+
+    Uses the same emit logic as `kolo trace emit` but outputs to a single
+    markdown file instead of a directory tree. The file uses markdown headers
+    for editor folding support.
+
+    When called without arguments, emits the most recent trace.
+
+    \b
+    Example:
+        kolo trace flat > trace.md
+        kolo trace flat trc_abc123 > trace.md
+    """
+    from .emit_flat import emit_trace_flat
+
+    db_path = setup_db()
+
+    # Default to most recent trace if no trace_id provided
+    if trace_id is None:
+        traces = list_traces_from_db(db_path, count=1)
+        if not traces:
+            raise click.ClickException("No traces found in the database.")
+        trace_id = traces[0][0]
+        click.echo(f"Using most recent trace: {trace_id}", err=True)
+
+    # Load trace
+    try:
+        msgpack_data, _ = load_trace_from_db(db_path, trace_id)
+    except TraceNotFoundError:
+        raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=trace_id))
+
+    data = load_msgpack(msgpack_data)
+    trace_obj = Trace(unprocessed_data=data, size=len(msgpack_data))
+
+    # Emit to stdout
+    content = emit_trace_flat(trace_obj)
+    click.echo(content)
 
 
 @cli.command()
@@ -870,15 +778,7 @@ def json_to_msgpack():  # pragma: no cover
     flag_value=5,
     help="Show compact representation of the N most recent traces (default: 5)",
 )
-@click.option(
-    "--js",
-    is_flag=True,
-    hidden=True,
-    help="Use Node.js implementation instead of Python (for comparison/testing)",
-)
-def cat(
-    trace_id: str | None, pinned: bool, returns: bool, recent: int | None, js: bool
-):
+def cat(trace_id: str | None, pinned: bool, returns: bool, recent: int | None):
     """Get a compact, text-based representation of a trace.
 
     Shows a concise yet detailed overview of everything that happened in the trace.
@@ -895,27 +795,23 @@ def cat(
 
     db_path = setup_db()
 
-    async def _get_compact():
-        try:
-            results = await get_compact_traces(
-                db_path,
-                trace_id,
-                pinned=pinned,
-                returns=returns,
-                recent=recent or 0,
-                use_js=js,
-            )
-            for tid, compact_repr in results:
-                if pinned or recent is not None:
-                    click.echo(f"\n=== Trace {tid} ===")
-                click.echo(compact_repr)
-        except TraceNotFoundError as e:
-            raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=e.args[0]))
-
-    asyncio.run(_get_compact())
+    try:
+        results = get_compact_traces(
+            db_path,
+            trace_id,
+            pinned=pinned,
+            returns=returns,
+            recent=recent or 0,
+        )
+        for tid, compact_repr in results:
+            if pinned or recent is not None:
+                click.echo(f"\n=== Trace {tid} ===")
+            click.echo(compact_repr)
+    except TraceNotFoundError as e:
+        raise click.ClickException(TRACE_NOT_FOUND_ERROR.format(trace_id=e.args[0]))
 
 
-@cli.group()
+@cli.group(hidden=True)
 def ci():
     """
     Subcommands for CI-related operations.
@@ -1092,7 +988,7 @@ def ci_upload(sync: bool):
         asyncio.run(async_ci_upload(traces=traces_registered, db_path=db_path))
 
 
-@cli.command()
+@cli.command(hidden=True)
 def mcp():
     """
     Start the Kolo MCP server.

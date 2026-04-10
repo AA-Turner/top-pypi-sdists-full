@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: virtualenv
-Version: 21.2.0
+Version: 21.2.1
 Summary: Virtual Python Environment builder
 Project-URL: Documentation, https://virtualenv.pypa.io
 Project-URL: Homepage, https://github.com/pypa/virtualenv
 Project-URL: Source, https://github.com/pypa/virtualenv
 Project-URL: Tracker, https://github.com/pypa/virtualenv/issues
-Maintainer-email: Bernat Gabor <gaborjbernat@gmail.com>
+Maintainer-email: Bernat Gabor <gaborjbernat@gmail.com>, Rahul Devikar <rahuldevikar5512@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
 Keywords: environments,isolated,virtual
@@ -52,7 +52,7 @@ Description-Content-Type: text/markdown
 
 A tool for creating isolated `virtual` python environments.
 
-- [Installation](https://virtualenv.pypa.io/en/latest/installation.html)
+- [Installation](https://virtualenv.pypa.io/en/latest/how-to/install.html)
 - [Documentation](https://virtualenv.pypa.io)
 - [Changelog](https://virtualenv.pypa.io/en/latest/changelog.html)
 - [Issues](https://github.com/pypa/virtualenv/issues)

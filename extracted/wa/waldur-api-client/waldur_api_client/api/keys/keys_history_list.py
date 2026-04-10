@@ -24,6 +24,7 @@ def _get_kwargs(
     fingerprint_sha512: Union[Unset, str] = UNSET,
     is_shared: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
@@ -55,6 +56,11 @@ def _get_kwargs(
     if not isinstance(modified, Unset):
         json_modified = modified.isoformat()
     params["modified"] = json_modified
+
+    json_modified_before: Union[Unset, str] = UNSET
+    if not isinstance(modified_before, Unset):
+        json_modified_before = modified_before.isoformat()
+    params["modified_before"] = json_modified_before
 
     params["name"] = name
 
@@ -132,6 +138,7 @@ def sync_detailed(
     fingerprint_sha512: Union[Unset, str] = UNSET,
     is_shared: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
@@ -154,6 +161,7 @@ def sync_detailed(
         fingerprint_sha512 (Union[Unset, str]):
         is_shared (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
@@ -180,6 +188,7 @@ def sync_detailed(
         fingerprint_sha512=fingerprint_sha512,
         is_shared=is_shared,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -208,6 +217,7 @@ def sync(
     fingerprint_sha512: Union[Unset, str] = UNSET,
     is_shared: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
@@ -230,6 +240,7 @@ def sync(
         fingerprint_sha512 (Union[Unset, str]):
         is_shared (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
@@ -257,6 +268,7 @@ def sync(
         fingerprint_sha512=fingerprint_sha512,
         is_shared=is_shared,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -279,6 +291,7 @@ async def asyncio_detailed(
     fingerprint_sha512: Union[Unset, str] = UNSET,
     is_shared: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
@@ -301,6 +314,7 @@ async def asyncio_detailed(
         fingerprint_sha512 (Union[Unset, str]):
         is_shared (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
@@ -327,6 +341,7 @@ async def asyncio_detailed(
         fingerprint_sha512=fingerprint_sha512,
         is_shared=is_shared,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -353,6 +368,7 @@ async def asyncio(
     fingerprint_sha512: Union[Unset, str] = UNSET,
     is_shared: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
@@ -375,6 +391,7 @@ async def asyncio(
         fingerprint_sha512 (Union[Unset, str]):
         is_shared (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
@@ -403,6 +420,7 @@ async def asyncio(
             fingerprint_sha512=fingerprint_sha512,
             is_shared=is_shared,
             modified=modified,
+            modified_before=modified_before,
             name=name,
             name_exact=name_exact,
             o=o,
@@ -426,6 +444,7 @@ def sync_all(
     fingerprint_sha512: Union[Unset, str] = UNSET,
     is_shared: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
@@ -449,6 +468,7 @@ def sync_all(
         fingerprint_sha512 (Union[Unset, str]):
         is_shared (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
@@ -477,6 +497,7 @@ def sync_all(
         fingerprint_sha512=fingerprint_sha512,
         is_shared=is_shared,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -538,6 +559,7 @@ async def asyncio_all(
     fingerprint_sha512: Union[Unset, str] = UNSET,
     is_shared: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
@@ -561,6 +583,7 @@ async def asyncio_all(
         fingerprint_sha512 (Union[Unset, str]):
         is_shared (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
@@ -589,6 +612,7 @@ async def asyncio_all(
         fingerprint_sha512=fingerprint_sha512,
         is_shared=is_shared,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,

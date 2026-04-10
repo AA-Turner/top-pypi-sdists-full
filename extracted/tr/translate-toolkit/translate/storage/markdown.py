@@ -70,12 +70,6 @@ class MarkdownUnit(base.TranslationUnit):
         return self.locations
 
 
-class MarkdownFrontmatterUnit(MarkdownUnit):
-    @staticmethod
-    def isheader() -> bool:
-        return True
-
-
 class MarkdownFile(base.TranslationStore[MarkdownUnit]):
     UnitClass = MarkdownUnit
 
@@ -85,6 +79,7 @@ class MarkdownFile(base.TranslationStore[MarkdownUnit]):
         callback=None,
         max_line_length=None,
         extract_code_blocks=True,
+        extract_frontmatter=True,
     ) -> None:
         """
         Construct a new object instance.
@@ -97,12 +92,15 @@ class MarkdownFile(base.TranslationStore[MarkdownUnit]):
           given line length when rendered.
         :param extract_code_blocks: if True (default), code blocks are extracted
           for translation. If False, code blocks are left as-is.
+        :param extract_frontmatter: if True (default), front matter is extracted
+          for translation. If False, it is preserved as-is.
         """
         base.TranslationStore.__init__(self)
         self.filename = getattr(inputfile, "name", None)
         self.callback = callback or self._dummy_callback
         self.max_line_length = max_line_length
         self.extract_code_blocks = extract_code_blocks
+        self.extract_frontmatter = extract_frontmatter
         self.filesrc = ""
         if inputfile is not None:
             md_src = inputfile.read()
@@ -132,10 +130,15 @@ class MarkdownFile(base.TranslationStore[MarkdownUnit]):
                 not lines[front_matter_end + 1] or lines[front_matter_end + 1].isspace()
             ):
                 front_matter_end += 1
-            # Generate header unit to store front matter
             front_matter = "\n".join(chain(lines[: front_matter_end + 1], [""]))
-            header = MarkdownFrontmatterUnit(front_matter)
-            self.addunit(header)
+            if self.extract_frontmatter:
+                # Keep front matter as a normal translation unit.
+                unit = self.UnitClass(front_matter)
+                if self.filename:
+                    unit.addlocation(f"{self.filename}:1")
+                unit.setdocpath("frontmatter[1]")
+                self.addunit(unit)
+                front_matter = self.callback(front_matter)
             lines = lines[front_matter_end + 1 :]
 
         with TranslatingMarkdownRenderer(
@@ -143,6 +146,7 @@ class MarkdownFile(base.TranslationStore[MarkdownUnit]):
             block_token.Table,
             max_line_length=self.max_line_length,
             extract_code_blocks=self.extract_code_blocks,
+            lookup_callback=self.callback,
         ) as renderer:
             document = block_token.Document(lines)
             self.filesrc = front_matter + renderer.render(document)
@@ -174,9 +178,11 @@ class TranslatingMarkdownRenderer(MarkdownRenderer):
         *extras,
         max_line_length: int | None = None,
         extract_code_blocks: bool = True,
+        lookup_callback: Callable[[str], str] | None = None,
     ) -> None:
         super().__init__(*extras, max_line_length=max_line_length)  # ty:ignore[invalid-argument-type]
         self.translate_callback = translate_callback
+        self.lookup_callback = lookup_callback
         self.bypass = False
         self.path = []
         self.ignore_translation = False
@@ -568,6 +574,28 @@ class TranslatingMarkdownRenderer(MarkdownRenderer):
                 translated_md = self.translate_callback(
                     content_md, self.path, self._current_docpath
                 )
+                # If translation with placeholders didn't match and there are
+                # placeholders, try looking up with expanded placeholders
+                # (full markdown links, etc.) to support PO files that contain
+                # the original markdown syntax instead of placeholder markers.
+                # Note: if the translation is intentionally identical to the
+                # source, this fallback is harmless — it will also not find a
+                # different translation.
+                if (
+                    translated_md == content_md
+                    and placeholders
+                    and self.lookup_callback
+                ):
+                    expanded_content_md = self.remove_placeholder_markers(
+                        content_md, list(placeholders)
+                    )
+                    expanded_translated_md = self.lookup_callback(expanded_content_md)
+                    if expanded_translated_md != expanded_content_md:
+                        translated_md = expanded_translated_md
+                        # Clear placeholders since the expanded translation
+                        # already contains full markdown syntax (e.g. links)
+                        # and does not need placeholder replacement.
+                        placeholders = []
                 translated_md = translated_md.replace("\n", "\\\n").strip(" \t")
                 translated_md = self.remove_placeholder_markers(
                     translated_md, placeholders

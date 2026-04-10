@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -350,7 +350,7 @@ class IMGReader:
                     )
                     break
             else:
-                _logger.warning("Unknown date format, cannot transfrom to ISO.")
+                _logger.warning("Unknown date format, cannot transform to ISO.")
                 general["date"] = date
             general["time"] = time.split(".")[0]
         return general

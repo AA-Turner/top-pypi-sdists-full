@@ -71,7 +71,7 @@ class ScreenshotConfig(BaseApiConfig):
     auto_scroll: Optional[bool] = None
     js: Optional[str] = None
     cache: Optional[bool] = None
-    cache_ttl: Optional[bool] = None
+    cache_ttl: Optional[int] = None
     cache_clear: Optional[bool] = None
     webhook: Optional[str] = None
     raise_on_upstream_error: bool = True
@@ -90,7 +90,7 @@ class ScreenshotConfig(BaseApiConfig):
         auto_scroll: Optional[bool] = None,
         js: Optional[str] = None,
         cache: Optional[bool] = None,
-        cache_ttl: Optional[bool] = None,
+        cache_ttl: Optional[int] = None,
         cache_clear: Optional[bool] = None,
         vision_deficiency: Optional[VisionDeficiency] = None,
         webhook: Optional[str] = None,
@@ -155,9 +155,9 @@ class ScreenshotConfig(BaseApiConfig):
 
         if self.cache is not None:
             params['cache'] = self._bool_to_http(self.cache)
-            
+
             if self.cache_ttl is not None:
-                params['cache_ttl'] = self._bool_to_http(self.cache_ttl)
+                params['cache_ttl'] = self.cache_ttl
 
             if self.cache_clear is not None:
                 params['cache_clear'] = self._bool_to_http(self.cache_clear)

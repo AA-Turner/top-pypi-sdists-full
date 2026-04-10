@@ -8,8 +8,12 @@ from chalk._gen.chalk.common.v1.online_query_pb2 import FeatureExpression
 from chalk.client.models import OutputExpression
 from chalk.features import Feature, FeatureWrapper, Resolver
 from chalk.features.feature_set import is_features_cls
+from chalk.features.filter import Filter
 from chalk.features.underscore import UnderscoreAttr, UnderscoreCall
 from chalk.features.underscore_features import NamedUnderscoreExpr, Underscore, process_named_underscore_expr
+from chalk.parsed.to_proto import ToProtoConverter
+
+PartitionExpr = Union[str, Feature, FeatureWrapper, Filter, Underscore]
 
 
 @dataclasses.dataclass
@@ -46,6 +50,43 @@ def encode_feature_expression_proto(expr: NamedUnderscoreExpr) -> FeatureExpress
 def encode_feature_expression_base64(expr: FeatureExpression) -> str:
     b = expr.SerializeToString(deterministic=True)
     return base64.b64encode(b).decode("utf-8")
+
+
+def encode_partition_expr(expr: Any) -> str:
+    """Encode a single partition expression to a base64-encoded LogicalExprNode proto.
+
+    Supported partition expressions:
+    - str: resolved to a Feature via FQN, then treated as ``feature == feature``.
+    - Feature/FeatureWrapper: shorthand for ``feature == feature``.
+    - Filter with ``==`` operation: an equality join expression (e.g., ``Bean.jar_id == Jar.id``).
+    """
+    match expr:
+        case str():
+            feat = Feature.from_root_fqn(expr)
+            expr = Filter(feat, "==", feat)
+        case Feature() | FeatureWrapper():
+            expr = Filter(expr, "==", expr)
+        case _:
+            pass
+
+    match expr:
+        case Filter(operation="=="):
+            if not isinstance(expr.lhs, Feature):
+                raise ValueError(f"Left side of partition expression must be a Feature, got {type(expr.lhs).__name__}.")
+            if not isinstance(expr.rhs, Feature):
+                raise ValueError(
+                    f"Right side of partition expression must be a Feature, got {type(expr.rhs).__name__}."
+                )
+            proto = ToProtoConverter.convert_filter(expr)
+            return base64.b64encode(proto.SerializeToString(deterministic=True)).decode("utf-8")
+        case Filter():
+            # TODO(q): Q-386: support richer partition expressions (e.g., inequalities, IN, etc.).
+            raise ValueError(f"'{expr.operation}' partition expressions are not currently supported.")
+        case Underscore():
+            # TODO(q): Q-386: support richer partition expressions (e.g., underscore expressions).
+            raise ValueError("Underscore partition expressions are not currently supported.")
+        case _:
+            raise TypeError(f"Unsupported partition expression type: {type(expr)}")
 
 
 def parse_underscore_aliased_column(u: Underscore) -> tuple[str, Underscore]:

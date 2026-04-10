@@ -59,6 +59,13 @@ class CustomerRequestMultipart:
         bank_account (Union[Unset, str]):
         country (Union[BlankEnum, CountryEnum, Unset]): Country code (ISO 3166-1 alpha-2)
         notification_emails (Union[Unset, str]): Comma-separated list of notification email addresses
+        city (Union[Unset, str]):
+        state (Union[Unset, str]):
+        parish (Union[Unset, str]):
+        street (Union[Unset, str]):
+        house_nr (Union[Unset, str]):
+        apartment_nr (Union[Unset, str]):
+        household (Union[Unset, str]):
     """
 
     name: str
@@ -97,6 +104,13 @@ class CustomerRequestMultipart:
     bank_account: Union[Unset, str] = UNSET
     country: Union[BlankEnum, CountryEnum, Unset] = UNSET
     notification_emails: Union[Unset, str] = UNSET
+    city: Union[Unset, str] = UNSET
+    state: Union[Unset, str] = UNSET
+    parish: Union[Unset, str] = UNSET
+    street: Union[Unset, str] = UNSET
+    house_nr: Union[Unset, str] = UNSET
+    apartment_nr: Union[Unset, str] = UNSET
+    household: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -213,6 +227,20 @@ class CustomerRequestMultipart:
 
         notification_emails = self.notification_emails
 
+        city = self.city
+
+        state = self.state
+
+        parish = self.parish
+
+        street = self.street
+
+        house_nr = self.house_nr
+
+        apartment_nr = self.apartment_nr
+
+        household = self.household
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -290,6 +318,20 @@ class CustomerRequestMultipart:
             field_dict["country"] = country
         if notification_emails is not UNSET:
             field_dict["notification_emails"] = notification_emails
+        if city is not UNSET:
+            field_dict["city"] = city
+        if state is not UNSET:
+            field_dict["state"] = state
+        if parish is not UNSET:
+            field_dict["parish"] = parish
+        if street is not UNSET:
+            field_dict["street"] = street
+        if house_nr is not UNSET:
+            field_dict["house_nr"] = house_nr
+        if apartment_nr is not UNSET:
+            field_dict["apartment_nr"] = apartment_nr
+        if household is not UNSET:
+            field_dict["household"] = household
 
         return field_dict
 
@@ -435,6 +477,27 @@ class CustomerRequestMultipart:
 
         if not isinstance(self.notification_emails, Unset):
             files.append(("notification_emails", (None, str(self.notification_emails).encode(), "text/plain")))
+
+        if not isinstance(self.city, Unset):
+            files.append(("city", (None, str(self.city).encode(), "text/plain")))
+
+        if not isinstance(self.state, Unset):
+            files.append(("state", (None, str(self.state).encode(), "text/plain")))
+
+        if not isinstance(self.parish, Unset):
+            files.append(("parish", (None, str(self.parish).encode(), "text/plain")))
+
+        if not isinstance(self.street, Unset):
+            files.append(("street", (None, str(self.street).encode(), "text/plain")))
+
+        if not isinstance(self.house_nr, Unset):
+            files.append(("house_nr", (None, str(self.house_nr).encode(), "text/plain")))
+
+        if not isinstance(self.apartment_nr, Unset):
+            files.append(("apartment_nr", (None, str(self.apartment_nr).encode(), "text/plain")))
+
+        if not isinstance(self.household, Unset):
+            files.append(("household", (None, str(self.household).encode(), "text/plain")))
 
         for prop_name, prop in self.additional_properties.items():
             files.append((prop_name, (None, str(prop).encode(), "text/plain")))
@@ -603,6 +666,20 @@ class CustomerRequestMultipart:
 
         notification_emails = d.pop("notification_emails", UNSET)
 
+        city = d.pop("city", UNSET)
+
+        state = d.pop("state", UNSET)
+
+        parish = d.pop("parish", UNSET)
+
+        street = d.pop("street", UNSET)
+
+        house_nr = d.pop("house_nr", UNSET)
+
+        apartment_nr = d.pop("apartment_nr", UNSET)
+
+        household = d.pop("household", UNSET)
+
         customer_request_multipart = cls(
             name=name,
             backend_id=backend_id,
@@ -640,6 +717,13 @@ class CustomerRequestMultipart:
             bank_account=bank_account,
             country=country,
             notification_emails=notification_emails,
+            city=city,
+            state=state,
+            parish=parish,
+            street=street,
+            house_nr=house_nr,
+            apartment_nr=apartment_nr,
+            household=household,
         )
 
         customer_request_multipart.additional_properties = d

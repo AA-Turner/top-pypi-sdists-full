@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws-sam-cli
-Version: 1.157.1
+Version: 1.158.0
 Summary: AWS SAM CLI is a CLI tool for local development and testing of Serverless applications
 Author-email: Amazon Web Services <aws-sam-developers@amazon.com>
 License-Expression: Apache-2.0
@@ -35,10 +35,10 @@ Requires-Dist: jmespath~=1.1.0
 Requires-Dist: ruamel_yaml~=0.19.1
 Requires-Dist: PyYAML~=6.0
 Requires-Dist: cookiecutter<2.8,>=2.6
-Requires-Dist: aws-sam-translator==1.108.0
+Requires-Dist: aws-sam-translator==1.109.0
 Requires-Dist: docker~=7.1.0
 Requires-Dist: dateparser~=1.3
-Requires-Dist: requests~=2.32.5
+Requires-Dist: requests<2.34.0,>=2.32.5
 Requires-Dist: aws_lambda_builders==1.63.0
 Requires-Dist: tomlkit==0.14.0
 Requires-Dist: watchdog==4.0.2
@@ -48,14 +48,14 @@ Requires-Dist: jsonschema<4.27
 Requires-Dist: typing_extensions<5,>=4.4.0
 Requires-Dist: regex!=2021.10.8
 Requires-Dist: tzlocal==5.3.1
-Requires-Dist: cfn-lint<1.48,>=1.45
+Requires-Dist: cfn-lint<1.49,>=1.45
 Requires-Dist: boto3-stubs[apigateway,cloudformation,ecr,iam,kinesis,lambda,s3,schemas,secretsmanager,signer,sqs,stepfunctions,sts,xray]>=1.41.0
 Requires-Dist: python-dotenv<1.3,>=1.0
 Provides-Extra: pre-dev
-Requires-Dist: ruff==0.15.6; extra == "pre-dev"
+Requires-Dist: ruff==0.15.8; extra == "pre-dev"
 Provides-Extra: dev
 Requires-Dist: aws-sam-cli[pre-dev]; extra == "dev"
-Requires-Dist: coverage==7.13.4; extra == "dev"
+Requires-Dist: coverage==7.13.5; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
 Requires-Dist: mypy==1.19.1; extra == "dev"
 Requires-Dist: types-pywin32==311.0.0.20260323; extra == "dev"
@@ -65,11 +65,11 @@ Requires-Dist: types-psutil==7.2.2.20260130; extra == "dev"
 Requires-Dist: types-setuptools==82.0.0.20260210; extra == "dev"
 Requires-Dist: types-Pygments==2.19.0.20251121; extra == "dev"
 Requires-Dist: types-colorama==0.4.15.20250801; extra == "dev"
-Requires-Dist: types-dateparser==1.3.0.20260211; extra == "dev"
-Requires-Dist: types-docutils==0.22.3.20260316; extra == "dev"
+Requires-Dist: types-dateparser==1.4.0.20260328; extra == "dev"
+Requires-Dist: types-docutils==0.22.3.20260322; extra == "dev"
 Requires-Dist: types-jsonschema==4.26.0.20260202; extra == "dev"
 Requires-Dist: types-pyOpenSSL==24.1.0.20240722; extra == "dev"
-Requires-Dist: types-requests==2.32.4.20260107; extra == "dev"
+Requires-Dist: types-requests==2.33.0.20260327; extra == "dev"
 Requires-Dist: types-urllib3==1.26.25.14; extra == "dev"
 Requires-Dist: pytest==9.0.2; extra == "dev"
 Requires-Dist: parameterized==0.9.0; extra == "dev"

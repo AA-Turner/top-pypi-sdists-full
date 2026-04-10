@@ -13,19 +13,6 @@ from geocif import geocif
 
 plt.style.use("default")
 
-# Show usage info on import
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-
-_console = Console()
-_table = Table(show_header=False, box=None, padding=(0, 1))
-_table.add_column(style="bold cyan", no_wrap=True)
-_table.add_column()
-_table.add_row("Usage", "from geocif import geocif_runner; geocif_runner.run(cfg)")
-_table.add_row("cfg", "\\[geobase.txt, countries.txt, crops.txt, geocif.txt]")
-_console.print(Panel(_table, title="[bold bright_white]GeoCIF ML Runner[/]", border_style="bright_blue", padding=(1, 2)))
-
 
 def _loop_execute(logger, parser, project_name, country, crop, season, model, index):
     """Execute ML pipeline for a single country/crop/season/model combination."""
@@ -141,7 +128,12 @@ def execute_models(inputs, logger, parser, loop_fn=None):
         cpu_count = int(mp.cpu_count() * fraction_cpus)
 
         with mp.Pool(cpu_count) as pool:
-            pool.map(loop_fn, inputs)
+            for _ in tqdm(
+                pool.imap_unordered(loop_fn, inputs),
+                total=len(inputs),
+                desc="Executing ML models",
+            ):
+                pass
     else:
         pbar = tqdm(inputs, desc="Executing ML models")
         for item in pbar:
@@ -254,6 +246,17 @@ def main(logger, parser):
 
 
 def run(path_config_files=[Path("../config/geocif.txt")]):
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+    console = Console()
+    table = Table(show_header=False, box=None, padding=(0, 1))
+    table.add_column(style="bold cyan", no_wrap=True)
+    table.add_column()
+    table.add_row("Usage", "from geocif import geocif_runner; geocif_runner.run(cfg)")
+    table.add_row("cfg", "[geobase.txt, countries.txt, crops.txt, geocif.txt]")
+    console.print(Panel(table, title="[bold bright_white]GeoCIF ML Runner[/]",
+                        border_style="bright_blue", padding=(1, 2)))
     logger, parser = log.setup_logger_parser(path_config_files)
     main(logger, parser)
 

@@ -442,7 +442,7 @@ async def _fetch_and_analyze(client, account_id: str) -> str:
 
             from ..services.brand_service import load_brand_analysis
 
-            ba = load_brand_analysis()
+            ba = await run_db(load_brand_analysis)
             score = ba.get("overall_score", 0) if ba else 0
             brand_summary = (
                 f"\n\n Brand Audit: {score}/100\n"

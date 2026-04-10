@@ -29,12 +29,15 @@ from snowflake.snowpark.types import (
     DateType,
     MapType,
     StringType,
+    StructField,
     StructType,
     TimestampType,
     VariantType,
     _NumericType,
 )
+from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.config import (
+    SessionConfig,
     auto_uppercase_column_identifiers,
     get_parquet_metadata_generation_enabled,
     get_success_file_generation_enabled,
@@ -46,6 +49,8 @@ from snowflake.snowpark_connect.constants import SPARK_VERSION
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
+from snowflake.snowpark_connect.expression.map_expression import map_expression
+from snowflake.snowpark_connect.expression.typer import ExpressionTyper
 from snowflake.snowpark_connect.relation.io_utils import (
     convert_file_prefix_path,
     get_compression_for_source_and_options,
@@ -70,6 +75,7 @@ from snowflake.snowpark_connect.relation.utils import (
 from snowflake.snowpark_connect.type_mapping import (
     map_pyspark_types_to_pyarrow_types,
     map_snowpark_to_pyspark_types,
+    snowpark_to_iceberg_type,
 )
 from snowflake.snowpark_connect.utils.context import get_spark_session_id
 from snowflake.snowpark_connect.utils.identifiers import (
@@ -135,7 +141,8 @@ def get_param_from_options(
             config = CsvWriterConfig(options)
             params["format_type_options"]["FILE_EXTENSION"] = "txt"
             params["format_type_options"]["ESCAPE_UNENCLOSED_FIELD"] = "NONE"
-            if "lineSep" in options:
+            # Handle both camelCase (lineSep) and lowercase (linesep) option names
+            if "lineSep" in options or "linesep" in options:
                 params["format_type_options"]["RECORD_DELIMITER"] = config.get(
                     "linesep"
                 )
@@ -197,6 +204,141 @@ def _validate_table_type(
         raise ValueError(
             f"Invalid table_type: {table_type}. Must be 'iceberg' or 'fdn'"
         )
+
+
+def _iceberg_write_col_key(name: str) -> str:
+    """Column name key for Iceberg merge matching (see _validate_schema_for_append)."""
+    raw = name.upper() if auto_uppercase_column_identifiers() else name
+    return unquote_if_quoted(raw)
+
+
+def _iceberg_merge_schema_enabled(
+    options: dict[str, str], session_config: SessionConfig
+) -> bool:
+    """Resolve mergeSchema from write options or Spark session config."""
+    for k, v in options.items():
+        # Normalize to bare lowercase so all variants match:
+        # "mergeSchema", "merge-schema", "merge_schema", "MERGESCHEMA", etc.
+        kl = k.lower().replace("-", "").replace("_", "")
+        if kl == "mergeschema":
+            return str_to_bool(str(v))
+    return str_to_bool(session_config.get("spark.sql.iceberg.merge-schema", "false"))
+
+
+def _session_config_for_write() -> SessionConfig:
+    return sessions_config[get_spark_session_id()]
+
+
+def _alter_iceberg_add_column(
+    session: snowpark.Session,
+    snowpark_table_name: str,
+    field: StructField,
+) -> None:
+    """Run ALTER ICEBERG TABLE ... ADD COLUMN IF NOT EXISTS for one column."""
+    col_sql = quote_name_without_upper_casing(unquote_if_quoted(field.name))
+    iceberg_t = snowpark_to_iceberg_type(field.datatype)
+    stmt = (
+        f"ALTER ICEBERG TABLE {snowpark_table_name} "
+        f"ADD COLUMN IF NOT EXISTS {col_sql} {iceberg_t}"
+    )
+    try:
+        result = session.sql(stmt).collect()
+        logger.info(
+            "Iceberg schema evolution: added column %s %s to %s — result: %s",
+            col_sql,
+            iceberg_t,
+            snowpark_table_name,
+            result,
+        )
+    except SnowparkSQLException as e:
+        exc = AnalysisException(
+            "Iceberg mergeSchema could not add columns to the table (often "
+            "external-catalog or permission restrictions). Evolve the Iceberg "
+            f"schema in the catalog or use a Snowflake-managed Iceberg table. "
+            f"Underlying error: {e.message}"
+        )
+        attach_custom_error_code(exc, ErrorCodes.INVALID_OPERATION)
+        raise exc from e
+
+
+def _evolve_iceberg_schema_if_needed(
+    session: snowpark.Session,
+    snowpark_table_name: str,
+    table_struct: StructType,
+    input_df: snowpark.DataFrame,
+) -> snowpark.DataFrame:
+    """Merge-aware Iceberg schema: ALTER new columns, validate overlaps, pad missing columns."""
+    data_struct = input_df.schema
+    table_by_key = {_iceberg_write_col_key(f.name): f for f in table_struct.fields}
+    data_by_key = {_iceberg_write_col_key(f.name): f for f in data_struct.fields}
+
+    new_keys = set(data_by_key) - set(table_by_key)
+    shared_keys = set(table_by_key) & set(data_by_key)
+
+    for k in shared_keys:
+        t_dt = table_by_key[k].datatype
+        d_dt = data_by_key[k].datatype
+        _validate_schema_for_append(
+            t_dt,
+            d_dt,
+            snowpark_table_name,
+            compare_structs=isinstance(t_dt, StructType)
+            and isinstance(d_dt, StructType),
+        )
+
+    for k in new_keys:
+        _alter_iceberg_add_column(session, snowpark_table_name, data_by_key[k])
+
+    refreshed = session.table(snowpark_table_name).schema
+    if not isinstance(refreshed, StructType):
+        exception = AnalysisException(
+            f"Expected struct schema for Iceberg table {snowpark_table_name}"
+        )
+        attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
+        raise exception
+
+    data_name_by_key = {
+        _iceberg_write_col_key(f.name): f.name for f in data_struct.fields
+    }
+
+    select_cols: list[snowpark.Column] = []
+    for table_field in refreshed.fields:
+        key = _iceberg_write_col_key(table_field.name)
+        if key in data_name_by_key:
+            src = data_name_by_key[key]
+            df_field = next(
+                f for f in data_struct.fields if _iceberg_write_col_key(f.name) == key
+            )
+            cast_col = _build_cast_column(
+                col(src),
+                df_field.datatype,
+                table_field.datatype,
+                rename_fields=auto_uppercase_column_identifiers(),
+            )
+            select_cols.append(cast_col.alias(table_field.name))
+        else:
+            select_cols.append(
+                lit(None).cast(table_field.datatype).alias(table_field.name)
+            )
+
+    return input_df.select(select_cols)
+
+
+def _prepare_iceberg_write_dataframe(
+    session: snowpark.Session,
+    input_df: snowpark.DataFrame,
+    snowpark_table_name: str,
+    table_schema_or_error: DataType | SnowparkSQLException | None,
+    merge_schema: bool,
+) -> tuple[snowpark.DataFrame, DataType | SnowparkSQLException | None]:
+    """Evolve Iceberg schema if mergeSchema is enabled, return (df, refreshed_schema)."""
+    if not merge_schema or not isinstance(table_schema_or_error, StructType):
+        return input_df, table_schema_or_error
+    evolved_df = _evolve_iceberg_schema_if_needed(
+        session, snowpark_table_name, table_schema_or_error, input_df
+    )
+    refreshed = _get_table_schema_or_error(snowpark_table_name, session)
+    return evolved_df, refreshed
 
 
 def _validate_table_does_not_exist(
@@ -702,10 +844,29 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 if write_op.partitioning_columns
                 else None
             )
+            partition_cols_for_iceberg_config = (
+                updated_result.column_map.get_snowpark_column_names_from_spark_column_names(
+                    partition_cols
+                )
+                if partition_cols
+                else None
+            )
+            if (
+                partition_cols_for_iceberg_config
+                and auto_uppercase_column_identifiers()
+            ):
+                partition_cols_for_iceberg_config = [
+                    spark_to_sf_single_id(unquote_if_quoted(c), is_column=True)
+                    for c in partition_cols_for_iceberg_config
+                ]
 
             iceberg_config = _build_iceberg_config(
                 options=dict(write_op.options),
-                partition_cols=partition_cols,
+                partition_cols=partition_cols_for_iceberg_config,
+            )
+            session_conf = _session_config_for_write()
+            merge_schema = _iceberg_merge_schema_enabled(
+                dict(write_op.options), session_conf
             )
 
             match write_mode:
@@ -728,6 +889,13 @@ def map_write(request: proto_base.ExecutePlanRequest):
                     )
                     if isinstance(table_schema_or_error, DataType):  # Table exists
                         _validate_table_type(snowpark_table_name, session, "iceberg")
+                    input_df, table_schema_or_error = _prepare_iceberg_write_dataframe(
+                        session,
+                        input_df,
+                        snowpark_table_name,
+                        table_schema_or_error,
+                        merge_schema,
+                    )
                     _validate_schema_and_get_writer(
                         input_df, "append", snowpark_table_name, table_schema_or_error
                     ).saveAsTable(
@@ -788,30 +956,35 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         partition_cols, table_partition_spec
                     )
 
+                    _validate_data_columns_present_in_table(
+                        table_schema_or_error,
+                        input_df.schema,
+                        snowpark_table_name,
+                    )
                     partition_column_names = updated_result.column_map.get_snowpark_column_names_from_spark_column_names(
                         partition_cols
                     )
                     distinct_partitions_df = input_df.select(
                         *partition_column_names
                     ).distinct()
-
                     overwrite_condition = get_overwrite_condition(
                         distinct_partitions_df,
                         partition_column_names,
                     )
-                    _validate_schema_and_get_writer(
-                        input_df,
-                        "overwrite",
-                        snowpark_table_name,
-                        table_schema_or_error,
-                    ).saveAsTable(
-                        table_name=snowpark_table_name,
-                        table_exists=True,
-                        mode="overwrite",
-                        column_order=_column_order_for_write,
-                        overwrite_condition=overwrite_condition,
-                        iceberg_config=iceberg_config,
-                    )
+                    if overwrite_condition is not None:
+                        _validate_schema_and_get_writer(
+                            input_df,
+                            "overwrite",
+                            snowpark_table_name,
+                            table_schema_or_error,
+                        ).saveAsTable(
+                            table_name=snowpark_table_name,
+                            table_exists=True,
+                            mode="overwrite",
+                            column_order=_column_order_for_write,
+                            overwrite_condition=overwrite_condition,
+                            iceberg_config=iceberg_config,
+                        )
                 case _:
                     exception = SnowparkConnectNotImplementedError(
                         f"Write mode {write_mode} is not supported"
@@ -971,14 +1144,34 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
         if write_op.partitioning_columns
         else None
     )
+    partition_cols_for_iceberg_config = (
+        updated_result.column_map.get_snowpark_column_names_from_spark_column_names(
+            partition_cols
+        )
+        if partition_cols
+        else None
+    )
+    if partition_cols_for_iceberg_config and auto_uppercase_column_identifiers():
+        partition_cols_for_iceberg_config = [
+            spark_to_sf_single_id(unquote_if_quoted(c), is_column=True)
+            for c in partition_cols_for_iceberg_config
+        ]
 
     iceberg_config = (
         _build_iceberg_config(
             options=dict(write_op.table_properties),
-            partition_cols=partition_cols,
+            partition_cols=partition_cols_for_iceberg_config,
         )
         if is_iceberg
         else None
+    )
+    merge_schema = (
+        _iceberg_merge_schema_enabled(
+            {**dict(write_op.table_properties), **dict(write_op.options)},
+            _session_config_for_write(),
+        )
+        if is_iceberg
+        else False
     )
 
     match write_op.mode:
@@ -1001,6 +1194,14 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             _validate_table_exist_and_of_type(
                 snowpark_table_name, session, table_type, table_schema_or_error
             )
+            if is_iceberg:
+                input_df, table_schema_or_error = _prepare_iceberg_write_dataframe(
+                    session,
+                    input_df,
+                    snowpark_table_name,
+                    table_schema_or_error,
+                    merge_schema,
+                )
             _validate_schema_and_get_writer(
                 input_df, "append", snowpark_table_name, table_schema_or_error
             ).saveAsTable(
@@ -1010,8 +1211,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                 iceberg_config=iceberg_config,
             )
 
-        case commands_proto.WriteOperationV2.MODE_OVERWRITE | commands_proto.WriteOperationV2.MODE_OVERWRITE_PARTITIONS:
-            # TODO: handle the filter condition for MODE_OVERWRITE
+        case commands_proto.WriteOperationV2.MODE_OVERWRITE:
             table_schema_or_error = _get_table_schema_or_error(
                 snowpark_table_name, session
             )
@@ -1021,7 +1221,25 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             writer = _validate_schema_and_get_writer(
                 input_df, "overwrite", snowpark_table_name, table_schema_or_error
             )
-            if is_iceberg:
+
+            overwrite_cond = None
+            if write_op.HasField("overwrite_condition"):
+                overwrite_cond = _map_overwrite_condition(
+                    write_op.overwrite_condition,
+                    updated_result,
+                    input_df,
+                )
+
+            if overwrite_cond is not None:
+                writer.saveAsTable(
+                    table_name=snowpark_table_name,
+                    table_exists=True,
+                    mode="overwrite",
+                    column_order=_column_order_for_write,
+                    overwrite_condition=overwrite_cond,
+                    iceberg_config=iceberg_config,
+                )
+            elif is_iceberg:
                 _overwrite_iceberg_with_fallback(
                     writer=writer,
                     snowpark_table_name=snowpark_table_name,
@@ -1035,6 +1253,81 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     mode="overwrite",
                     column_order=_column_order_for_write,
                 )
+
+        case commands_proto.WriteOperationV2.MODE_OVERWRITE_PARTITIONS:
+            table_schema_or_error = _get_table_schema_or_error(
+                snowpark_table_name, session
+            )
+            if not isinstance(table_schema_or_error, StructType):
+                exception = AnalysisException(
+                    f"[TABLE_OR_VIEW_NOT_FOUND] The table or view `{snowpark_table_name}` cannot be found."
+                )
+                attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+                raise exception
+            # overwritePartitions targets an existing table — detect the
+            # actual table type so the iceberg path is used regardless of
+            # whether the caller specified .using("iceberg").
+            actual_type = get_table_type(snowpark_table_name, session)
+            actual_is_iceberg = actual_type == "ICEBERG"
+            # Partition overwrites have to be done with an overwrite condition.
+            # For Iceberg tables, the condition will be derived from the partition specs.
+            # FDN tables are effectively not partitioned, so there will be a full overwrite.
+            overwrite_condition = None
+            if actual_is_iceberg:
+                table_partition_spec = get_partition_spec(snowpark_table_name, session)
+
+                effective_partition_cols = (
+                    table_partition_spec.columns()
+                    if table_partition_spec
+                    else partition_cols
+                )
+
+                if effective_partition_cols:
+                    _validate_data_columns_present_in_table(
+                        table_schema_or_error,
+                        input_df.schema,
+                        snowpark_table_name,
+                    )
+                    partition_column_names = updated_result.column_map.get_snowpark_column_names_from_spark_column_names(
+                        effective_partition_cols
+                    )
+                    distinct_partitions_df = input_df.select(
+                        *partition_column_names
+                    ).distinct()
+
+                    overwrite_condition = get_overwrite_condition(
+                        distinct_partitions_df,
+                        partition_column_names,
+                    )
+                    # Empty input has no partitions to overwrite — skip the
+                    # write entirely so existing data is not truncated.
+                    if overwrite_condition is not None:
+                        _validate_schema_and_get_writer(
+                            input_df,
+                            "overwrite",
+                            snowpark_table_name,
+                            table_schema_or_error,
+                        ).saveAsTable(
+                            table_name=snowpark_table_name,
+                            table_exists=True,
+                            mode="overwrite",
+                            column_order=_column_order_for_write,
+                            overwrite_condition=overwrite_condition,
+                        )
+                    return
+
+            # No partition spec on table: full overwrite
+            _validate_schema_and_get_writer(
+                input_df,
+                "truncate",
+                snowpark_table_name,
+                table_schema_or_error,
+            ).saveAsTable(
+                table_name=snowpark_table_name,
+                table_exists=True,
+                mode="truncate",
+                column_order=_column_order_for_write,
+            )
 
         case commands_proto.WriteOperationV2.MODE_REPLACE:
             table_schema_or_error = _get_table_schema_or_error(
@@ -1074,6 +1367,16 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     input_df=input_df,
                 )
             else:
+                if partition_cols:
+                    # Do not allow users to think that FDN tables have partition columns,
+                    # at least until we implement
+                    exception = SnowparkConnectNotImplementedError(
+                        "Standard Snowflake table do not support partition columns"
+                    )
+                    attach_custom_error_code(
+                        exception, ErrorCodes.UNSUPPORTED_OPERATION
+                    )
+                    raise exception
                 writer.saveAsTable(
                     table_name=snowpark_table_name,
                     mode="overwrite",
@@ -1184,16 +1487,13 @@ def _validate_schema_and_get_writer(
             )
 
             if needs_cast:
-                if isinstance(matching_field.datatype, StructType):
-                    select_cols.append(
-                        col(col_name)
-                        .cast(matching_field.datatype, rename_fields=True)
-                        .alias(target_name)
-                    )
-                else:
-                    select_cols.append(
-                        col(col_name).cast(matching_field.datatype).alias(target_name)
-                    )
+                cast_col = _build_cast_column(
+                    col(col_name),
+                    field.datatype,
+                    matching_field.datatype,
+                    rename_fields=True,
+                )
+                select_cols.append(cast_col.alias(target_name))
                 needs_rewrite = True
             elif target_name != col_name:
                 select_cols.append(col(col_name).alias(target_name))
@@ -1203,7 +1503,7 @@ def _validate_schema_and_get_writer(
         if needs_rewrite:
             input_df = input_df.select(select_cols)
     else:
-        # Case-sensitive mode: only cast to VariantType (other type mismatches handled by Snowflake)
+        # Case-sensitive mode: cast mismatched types to match the existing table schema
         select_cols = []
         needs_rewrite = False
         for field in input_df.schema.fields:
@@ -1216,20 +1516,64 @@ def _validate_schema_and_get_writer(
                 ),
                 None,
             )
-            if (
-                matching_field is not None
-                and field.datatype != matching_field.datatype
-                and isinstance(matching_field.datatype, VariantType)
-            ):
-                select_cols.append(
-                    col(col_name).cast(matching_field.datatype).alias(col_name)
+            needs_cast = (
+                matching_field is not None and field.datatype != matching_field.datatype
+            )
+            if needs_cast:
+                cast_col = _build_cast_column(
+                    col(col_name),
+                    field.datatype,
+                    matching_field.datatype,
                 )
+                select_cols.append(cast_col.alias(col_name))
                 needs_rewrite = True
             else:
                 select_cols.append(col(col_name))
         if needs_rewrite:
             input_df = input_df.select(select_cols)
     return input_df.write
+
+
+def _is_atomic_type(t: DataType) -> bool:
+    return not isinstance(t, (StructType, ArrayType, MapType))
+
+
+def _store_assignment_is_legacy() -> bool:
+    return global_config.get("spark.sql.storeAssignmentPolicy", "LEGACY") == "LEGACY"
+
+
+def _use_try_cast(source_type: DataType, target_type: DataType) -> bool:
+    """Use TRY_CAST for string→scalar casts when storeAssignmentPolicy is LEGACY.
+
+    PySpark with LEGACY policy allows any valid Cast and uses
+    Cast(ansiEnabled=false), where invalid values become NULL.
+    We match this with TRY_CAST. With ANSI policy (default), PySpark
+    rejects these mismatches at analysis time via canANSIStoreAssign.
+    """
+    return (
+        isinstance(source_type, StringType)
+        and _is_atomic_type(target_type)
+        and not isinstance(target_type, StringType)
+        and _store_assignment_is_legacy()
+    )
+
+
+def _build_cast_column(
+    source_col: snowpark.Column,
+    source_type: DataType,
+    target_type: DataType,
+    rename_fields: bool = False,
+) -> snowpark.Column:
+    """Build the appropriate cast expression for a column in the write path.
+
+    Uses TRY_CAST when storeAssignmentPolicy is LEGACY and source is
+    StringType targeting a scalar type (invalid values become NULL).
+    """
+    if _use_try_cast(source_type, target_type):
+        return source_col.try_cast(target_type)
+    if isinstance(target_type, StructType) and rename_fields:
+        return source_col.cast(target_type, rename_fields=True)
+    return source_col.cast(target_type)
 
 
 def _validate_schema_for_append(
@@ -1308,6 +1652,13 @@ def _validate_schema_for_append(
         ):
             return
 
+        case (_, _) if (
+            _is_atomic_type(table_schema)
+            and _is_atomic_type(data_schema)
+            and _store_assignment_is_legacy()
+        ):
+            return
+
         case (ArrayType() as table_array, ArrayType() as data_array):
             _validate_schema_for_append(
                 table_array.element_type, data_array.element_type, snowpark_table_name
@@ -1330,6 +1681,49 @@ def _validate_schema_for_append(
         case (_, _):
             exception = AnalysisException(
                 f"[INCOMPATIBLE_DATA_FOR_TABLE.CANNOT_SAFELY_CAST] Cannot write incompatible data for the table {snowpark_table_name}: Cannot safely cast {data_schema.simple_string()} to {table_schema.simple_string()}"
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+            raise exception
+
+
+def _validate_data_columns_present_in_table(
+    table_schema: StructType,
+    data_schema: StructType,
+    snowpark_table_name: str,
+) -> None:
+    if auto_uppercase_column_identifiers():
+        table_col_names = {
+            unquote_if_quoted(f.name).upper() for f in table_schema.fields
+        }
+        data_col_names = {unquote_if_quoted(f.name).upper() for f in data_schema.fields}
+    else:
+        table_col_names = {unquote_if_quoted(f.name) for f in table_schema.fields}
+        data_col_names = {unquote_if_quoted(f.name) for f in data_schema.fields}
+
+    for table_field in table_schema.fields:
+        comparable_name = (
+            unquote_if_quoted(table_field.name).upper()
+            if auto_uppercase_column_identifiers()
+            else unquote_if_quoted(table_field.name)
+        )
+        if comparable_name not in data_col_names:
+            exception = AnalysisException(
+                f"[INCOMPATIBLE_DATA_FOR_TABLE.CANNOT_FIND_DATA] Cannot write incompatible data for the table "
+                f"`{snowpark_table_name}`: Cannot find data for the output column `{unquote_if_quoted(table_field.name)}`."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
+            raise exception
+
+    for data_field in data_schema.fields:
+        comparable_name = (
+            unquote_if_quoted(data_field.name).upper()
+            if auto_uppercase_column_identifiers()
+            else unquote_if_quoted(data_field.name)
+        )
+        if comparable_name not in table_col_names:
+            exception = AnalysisException(
+                f"[INCOMPATIBLE_DATA_FOR_TABLE.EXTRA_COLUMNS] Cannot write incompatible data for the table "
+                f"`{snowpark_table_name}`: Data contains extra columns not found in the target table: `{unquote_if_quoted(data_field.name)}`."
             )
             attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
             raise exception
@@ -1554,6 +1948,28 @@ def rewrite_df(input_df: snowpark.DataFrame, source: str) -> snowpark.DataFrame:
             return _rewrite_df_for_parquet(input_df)
         case _:
             return input_df
+
+
+def _map_overwrite_condition(
+    condition_proto,
+    container: DataFrameContainer,
+    input_df: snowpark.DataFrame,
+) -> snowpark.Column:
+    # saveAsTable(overwrite_condition=...) generates SQL against the target
+    # table, so column references must use target-table identifiers (produced
+    # by spark_to_sf_single_id) rather than the internal Snowpark names that
+    # live in the container's column map.
+    spark_names = container.column_map.get_spark_columns()
+    table_snowpark_names = [
+        spark_to_sf_single_id(name, is_column=True) for name in spark_names
+    ]
+    condition_column_map = ColumnNameMap(
+        spark_column_names=spark_names,
+        snowpark_column_names=table_snowpark_names,
+    )
+    typer = ExpressionTyper(input_df)
+    _, typed_col = map_expression(condition_proto, condition_column_map, typer)
+    return typed_col.col
 
 
 def handle_column_names(

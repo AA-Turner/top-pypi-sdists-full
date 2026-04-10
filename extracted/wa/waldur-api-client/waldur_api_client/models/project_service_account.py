@@ -25,7 +25,7 @@ class ProjectServiceAccount:
         state (ServiceAccountState):
         token (Union[None, str]):
         expires_at (Union[None, str]):
-        project (UUID):
+        project (Union[None, UUID]):
         project_uuid (UUID):
         project_name (str):
         customer_uuid (UUID):
@@ -46,7 +46,7 @@ class ProjectServiceAccount:
     state: ServiceAccountState
     token: Union[None, str]
     expires_at: Union[None, str]
-    project: UUID
+    project: Union[None, UUID]
     project_uuid: UUID
     project_name: str
     customer_uuid: UUID
@@ -78,7 +78,11 @@ class ProjectServiceAccount:
         expires_at: Union[None, str]
         expires_at = self.expires_at
 
-        project = str(self.project)
+        project: Union[None, str]
+        if isinstance(self.project, UUID):
+            project = str(self.project)
+        else:
+            project = self.project
 
         project_uuid = str(self.project_uuid)
 
@@ -162,7 +166,20 @@ class ProjectServiceAccount:
 
         expires_at = _parse_expires_at(d.pop("expires_at"))
 
-        project = UUID(d.pop("project"))
+        def _parse_project(data: object) -> Union[None, UUID]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                project_type_0 = UUID(data)
+
+                return project_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID], data)
+
+        project = _parse_project(d.pop("project"))
 
         project_uuid = UUID(d.pop("project_uuid"))
 

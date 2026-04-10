@@ -16,8 +16,12 @@
 
 import httpx
 import pytest
+from httpx import __version__ as httpx_version
+from mcp_proxy_for_aws import __version__
 from mcp_proxy_for_aws.sigv4_helper import (
+    SENSITIVE_HEADERS,
     SigV4HTTPXAuth,
+    _sanitize_headers,
     create_aws_session,
     create_sigv4_client,
 )
@@ -140,6 +144,8 @@ class TestCreateSigv4Client:
         assert len(call_args[1]['event_hooks']['response']) == 1
         assert len(call_args[1]['event_hooks']['request']) == 2  # metadata + sign hooks
         assert call_args[1]['headers']['Accept'] == 'application/json, text/event-stream'
+        expected_user_agent = f'python-httpx/{httpx_version} mcp-proxy-for-aws/{__version__}'
+        assert call_args[1]['headers']['User-Agent'] == expected_user_agent
         assert result == mock_client
 
     @patch('mcp_proxy_for_aws.sigv4_helper.create_aws_session')
@@ -161,6 +167,7 @@ class TestCreateSigv4Client:
         call_args = mock_client_class.call_args
         expected_headers = {
             'Accept': 'application/json, text/event-stream',
+            'User-Agent': f'python-httpx/{httpx_version} mcp-proxy-for-aws/{__version__}',
             'Custom-Header': 'custom-value',
         }
         assert call_args[1]['headers'] == expected_headers
@@ -243,6 +250,7 @@ class TestCreateSigv4Client:
         # Verify headers include both default and prompt-context headers
         expected_headers = {
             'Accept': 'application/json, text/event-stream',
+            'User-Agent': f'python-httpx/{httpx_version} mcp-proxy-for-aws/{__version__}',
             'X-MCP-Prompt-Context': 'enabled',
             'Content-Type': 'application/json',
         }
@@ -254,3 +262,77 @@ class TestCreateSigv4Client:
         assert len(call_args[1]['event_hooks']['response']) == 1
 
         assert result == mock_client
+
+
+class TestSanitizeHeaders:
+    """Test cases for the _sanitize_headers function."""
+
+    def test_sanitize_headers_redacts_authorization(self):
+        """Test that Authorization header is redacted."""
+        headers = {
+            'Authorization': 'AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/...',
+            'Content-Type': 'application/json',
+        }
+        result = _sanitize_headers(headers)
+
+        assert result['Authorization'] == '[REDACTED]'
+        assert result['Content-Type'] == 'application/json'
+
+    def test_sanitize_headers_redacts_security_token(self):
+        """Test that x-amz-security-token header is redacted."""
+        headers = {
+            'x-amz-security-token': 'FwoGZXIvYXdzEBYaDK...',
+            'Host': 'example.com',
+        }
+        result = _sanitize_headers(headers)
+
+        assert result['x-amz-security-token'] == '[REDACTED]'
+        assert result['Host'] == 'example.com'
+
+    def test_sanitize_headers_redacts_amz_date(self):
+        """Test that x-amz-date header is redacted."""
+        headers = {
+            'X-Amz-Date': '20260206T120000Z',
+            'Accept': 'application/json',
+        }
+        result = _sanitize_headers(headers)
+
+        assert result['X-Amz-Date'] == '[REDACTED]'
+        assert result['Accept'] == 'application/json'
+
+    def test_sanitize_headers_case_insensitive(self):
+        """Test that header matching is case-insensitive."""
+        headers = {
+            'AUTHORIZATION': 'secret',
+            'X-AMZ-SECURITY-TOKEN': 'secret',
+            'x-amz-date': 'secret',
+        }
+        result = _sanitize_headers(headers)
+
+        assert result['AUTHORIZATION'] == '[REDACTED]'
+        assert result['X-AMZ-SECURITY-TOKEN'] == '[REDACTED]'
+        assert result['x-amz-date'] == '[REDACTED]'
+
+    def test_sanitize_headers_preserves_non_sensitive(self):
+        """Test that non-sensitive headers are preserved."""
+        headers = {
+            'Content-Type': 'application/json',
+            'Content-Length': '123',
+            'Host': 'example.amazonaws.com',
+            'User-Agent': 'test-client/1.0',
+        }
+        result = _sanitize_headers(headers)
+
+        assert result == headers
+
+    def test_sanitize_headers_empty_dict(self):
+        """Test handling of empty headers dictionary."""
+        result = _sanitize_headers({})
+        assert result == {}
+
+    def test_sensitive_headers_constant_is_frozen(self):
+        """Test that SENSITIVE_HEADERS is immutable."""
+        assert isinstance(SENSITIVE_HEADERS, frozenset)
+        assert 'authorization' in SENSITIVE_HEADERS
+        assert 'x-amz-security-token' in SENSITIVE_HEADERS
+        assert 'x-amz-date' in SENSITIVE_HEADERS

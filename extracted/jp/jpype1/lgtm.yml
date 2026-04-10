@@ -1,0 +1,21 @@
+path_classifiers:
+   test:
+     - test
+     - examples
+
+   docs:
+     - doc
+
+extraction:
+   cpp:
+       index:
+           build_command: 
+             - pip install .
+
+   java:
+       index:
+           build_command: ant -f native/build.xml
+
+   python:
+       python_setup: 
+           version: "3"

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -223,7 +223,7 @@ def stream_to_sparse_COO_array(
     sum_frames=True,
     first_frame=0,
 ):
-    """Returns data stored in a FEI stream as a nd COO array
+    """Returns data stored in a FEI stream as a multi-dimensional COO array
 
     Parameters
     ----------
@@ -328,7 +328,7 @@ def stream_to_array(
     dtype="uint16",
     spectrum_image=None,
 ):
-    """Returns data stored in a FEI stream as a nd COO array
+    """Returns data stored in a FEI stream as a multi-dimensional COO array
 
     Parameters
     ----------

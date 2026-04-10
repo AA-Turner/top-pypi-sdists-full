@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytrilogy
-Version: 0.3.218
+Version: 0.3.219
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -8,24 +8,24 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: httpx ; extra == 'ai'
-Requires-Dist: altair ; extra == 'analysis'
-Requires-Dist: sqlalchemy-bigquery ; extra == 'bigquery'
-Requires-Dist: rich ; extra == 'cli'
-Requires-Dist: plotext ; extra == 'cli'
 Requires-Dist: pyodbc ; extra == 'odbc'
 Requires-Dist: psycopg2-binary ; extra == 'postgres'
+Requires-Dist: sqlalchemy-bigquery ; extra == 'bigquery'
+Requires-Dist: snowflake-sqlalchemy ; extra == 'snowflake'
+Requires-Dist: httpx ; extra == 'ai'
+Requires-Dist: rich ; extra == 'cli'
+Requires-Dist: plotext ; extra == 'cli'
 Requires-Dist: fastapi ; extra == 'serve'
 Requires-Dist: uvicorn ; extra == 'serve'
-Requires-Dist: snowflake-sqlalchemy ; extra == 'snowflake'
-Provides-Extra: ai
-Provides-Extra: analysis
-Provides-Extra: bigquery
-Provides-Extra: cli
+Requires-Dist: altair ; extra == 'analysis'
 Provides-Extra: odbc
 Provides-Extra: postgres
-Provides-Extra: serve
+Provides-Extra: bigquery
 Provides-Extra: snowflake
+Provides-Extra: ai
+Provides-Extra: cli
+Provides-Extra: serve
+Provides-Extra: analysis
 License-File: LICENSE.md
 Summary: Declarative, typed query language that compiles to SQL.
 Description-Content-Type: text/markdown

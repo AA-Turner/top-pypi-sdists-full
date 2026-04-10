@@ -16,9 +16,11 @@ from ...utils import parse_link_header
 def _get_kwargs(
     *,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, UUID] = UNSET,
     full_name: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     native_name: Union[Unset, str] = UNSET,
     o: Union[Unset, list[OfferingPermissionOEnum]] = UNSET,
     offering: Union[Unset, UUID] = UNSET,
@@ -41,6 +43,11 @@ def _get_kwargs(
         json_created = created.isoformat()
     params["created"] = json_created
 
+    json_created_before: Union[Unset, str] = UNSET
+    if not isinstance(created_before, Unset):
+        json_created_before = created_before.isoformat()
+    params["created_before"] = json_created_before
+
     json_customer: Union[Unset, str] = UNSET
     if not isinstance(customer, Unset):
         json_customer = str(customer)
@@ -52,6 +59,11 @@ def _get_kwargs(
     if not isinstance(modified, Unset):
         json_modified = modified.isoformat()
     params["modified"] = json_modified
+
+    json_modified_before: Union[Unset, str] = UNSET
+    if not isinstance(modified_before, Unset):
+        json_modified_before = modified_before.isoformat()
+    params["modified_before"] = json_modified_before
 
     params["native_name"] = native_name
 
@@ -140,9 +152,11 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, UUID] = UNSET,
     full_name: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     native_name: Union[Unset, str] = UNSET,
     o: Union[Unset, list[OfferingPermissionOEnum]] = UNSET,
     offering: Union[Unset, UUID] = UNSET,
@@ -161,9 +175,11 @@ def sync_detailed(
     """
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, UUID]):
         full_name (Union[Unset, str]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         native_name (Union[Unset, str]):
         o (Union[Unset, list[OfferingPermissionOEnum]]):
         offering (Union[Unset, UUID]):
@@ -189,9 +205,11 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         created=created,
+        created_before=created_before,
         customer=customer,
         full_name=full_name,
         modified=modified,
+        modified_before=modified_before,
         native_name=native_name,
         o=o,
         offering=offering,
@@ -219,9 +237,11 @@ def sync(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, UUID] = UNSET,
     full_name: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     native_name: Union[Unset, str] = UNSET,
     o: Union[Unset, list[OfferingPermissionOEnum]] = UNSET,
     offering: Union[Unset, UUID] = UNSET,
@@ -240,9 +260,11 @@ def sync(
     """
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, UUID]):
         full_name (Union[Unset, str]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         native_name (Union[Unset, str]):
         o (Union[Unset, list[OfferingPermissionOEnum]]):
         offering (Union[Unset, UUID]):
@@ -269,9 +291,11 @@ def sync(
     return sync_detailed(
         client=client,
         created=created,
+        created_before=created_before,
         customer=customer,
         full_name=full_name,
         modified=modified,
+        modified_before=modified_before,
         native_name=native_name,
         o=o,
         offering=offering,
@@ -293,9 +317,11 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, UUID] = UNSET,
     full_name: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     native_name: Union[Unset, str] = UNSET,
     o: Union[Unset, list[OfferingPermissionOEnum]] = UNSET,
     offering: Union[Unset, UUID] = UNSET,
@@ -314,9 +340,11 @@ async def asyncio_detailed(
     """
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, UUID]):
         full_name (Union[Unset, str]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         native_name (Union[Unset, str]):
         o (Union[Unset, list[OfferingPermissionOEnum]]):
         offering (Union[Unset, UUID]):
@@ -342,9 +370,11 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         created=created,
+        created_before=created_before,
         customer=customer,
         full_name=full_name,
         modified=modified,
+        modified_before=modified_before,
         native_name=native_name,
         o=o,
         offering=offering,
@@ -370,9 +400,11 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, UUID] = UNSET,
     full_name: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     native_name: Union[Unset, str] = UNSET,
     o: Union[Unset, list[OfferingPermissionOEnum]] = UNSET,
     offering: Union[Unset, UUID] = UNSET,
@@ -391,9 +423,11 @@ async def asyncio(
     """
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, UUID]):
         full_name (Union[Unset, str]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         native_name (Union[Unset, str]):
         o (Union[Unset, list[OfferingPermissionOEnum]]):
         offering (Union[Unset, UUID]):
@@ -421,9 +455,11 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             created=created,
+            created_before=created_before,
             customer=customer,
             full_name=full_name,
             modified=modified,
+            modified_before=modified_before,
             native_name=native_name,
             o=o,
             offering=offering,
@@ -446,9 +482,11 @@ def sync_all(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, UUID] = UNSET,
     full_name: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     native_name: Union[Unset, str] = UNSET,
     o: Union[Unset, list[OfferingPermissionOEnum]] = UNSET,
     offering: Union[Unset, UUID] = UNSET,
@@ -471,9 +509,11 @@ def sync_all(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, UUID]):
         full_name (Union[Unset, str]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         native_name (Union[Unset, str]):
         o (Union[Unset, list[OfferingPermissionOEnum]]):
         offering (Union[Unset, UUID]):
@@ -501,9 +541,11 @@ def sync_all(
     # Get initial request kwargs
     kwargs = _get_kwargs(
         created=created,
+        created_before=created_before,
         customer=customer,
         full_name=full_name,
         modified=modified,
+        modified_before=modified_before,
         native_name=native_name,
         o=o,
         offering=offering,
@@ -564,9 +606,11 @@ async def asyncio_all(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     customer: Union[Unset, UUID] = UNSET,
     full_name: Union[Unset, str] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     native_name: Union[Unset, str] = UNSET,
     o: Union[Unset, list[OfferingPermissionOEnum]] = UNSET,
     offering: Union[Unset, UUID] = UNSET,
@@ -589,9 +633,11 @@ async def asyncio_all(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         customer (Union[Unset, UUID]):
         full_name (Union[Unset, str]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         native_name (Union[Unset, str]):
         o (Union[Unset, list[OfferingPermissionOEnum]]):
         offering (Union[Unset, UUID]):
@@ -619,9 +665,11 @@ async def asyncio_all(
     # Get initial request kwargs
     kwargs = _get_kwargs(
         created=created,
+        created_before=created_before,
         customer=customer,
         full_name=full_name,
         modified=modified,
+        modified_before=modified_before,
         native_name=native_name,
         o=o,
         offering=offering,

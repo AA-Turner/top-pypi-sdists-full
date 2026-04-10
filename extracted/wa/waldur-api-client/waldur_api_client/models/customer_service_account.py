@@ -25,7 +25,7 @@ class CustomerServiceAccount:
         state (ServiceAccountState):
         token (Union[None, str]):
         expires_at (Union[None, str]):
-        customer (UUID):
+        customer (Union[None, UUID]):
         customer_uuid (UUID):
         customer_name (str):
         username (Union[Unset, str]):
@@ -43,7 +43,7 @@ class CustomerServiceAccount:
     state: ServiceAccountState
     token: Union[None, str]
     expires_at: Union[None, str]
-    customer: UUID
+    customer: Union[None, UUID]
     customer_uuid: UUID
     customer_name: str
     username: Union[Unset, str] = UNSET
@@ -72,7 +72,11 @@ class CustomerServiceAccount:
         expires_at: Union[None, str]
         expires_at = self.expires_at
 
-        customer = str(self.customer)
+        customer: Union[None, str]
+        if isinstance(self.customer, UUID):
+            customer = str(self.customer)
+        else:
+            customer = self.customer
 
         customer_uuid = str(self.customer_uuid)
 
@@ -147,7 +151,20 @@ class CustomerServiceAccount:
 
         expires_at = _parse_expires_at(d.pop("expires_at"))
 
-        customer = UUID(d.pop("customer"))
+        def _parse_customer(data: object) -> Union[None, UUID]:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                customer_type_0 = UUID(data)
+
+                return customer_type_0
+            except:  # noqa: E722
+                pass
+            return cast(Union[None, UUID], data)
+
+        customer = _parse_customer(d.pop("customer"))
 
         customer_uuid = UUID(d.pop("customer_uuid"))
 

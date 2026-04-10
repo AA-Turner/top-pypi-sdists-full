@@ -1,13 +1,11 @@
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar
 from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.lb_algorithm_enum import LbAlgorithmEnum
 from ..models.load_balancer_protocol_enum import LoadBalancerProtocolEnum
-from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="CreatePool")
 
@@ -18,22 +16,16 @@ class CreatePool:
     Attributes:
         url (str):
         uuid (UUID):
-        load_balancer (str): Load balancer this pool belongs to
         name (str):
+        load_balancer (str): Load balancer this pool belongs to
         protocol (LoadBalancerProtocolEnum):
-        project (str):
-        service_settings (str):
-        lb_algorithm (Union[Unset, LbAlgorithmEnum]):  Default: LbAlgorithmEnum.SOURCE_IP_PORT.
     """
 
     url: str
     uuid: UUID
-    load_balancer: str
     name: str
+    load_balancer: str
     protocol: LoadBalancerProtocolEnum
-    project: str
-    service_settings: str
-    lb_algorithm: Union[Unset, LbAlgorithmEnum] = LbAlgorithmEnum.SOURCE_IP_PORT
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -41,19 +33,11 @@ class CreatePool:
 
         uuid = str(self.uuid)
 
-        load_balancer = self.load_balancer
-
         name = self.name
 
+        load_balancer = self.load_balancer
+
         protocol = self.protocol.value
-
-        project = self.project
-
-        service_settings = self.service_settings
-
-        lb_algorithm: Union[Unset, str] = UNSET
-        if not isinstance(self.lb_algorithm, Unset):
-            lb_algorithm = self.lb_algorithm.value
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -61,15 +45,11 @@ class CreatePool:
             {
                 "url": url,
                 "uuid": uuid,
-                "load_balancer": load_balancer,
                 "name": name,
+                "load_balancer": load_balancer,
                 "protocol": protocol,
-                "project": project,
-                "service_settings": service_settings,
             }
         )
-        if lb_algorithm is not UNSET:
-            field_dict["lb_algorithm"] = lb_algorithm
 
         return field_dict
 
@@ -80,32 +60,18 @@ class CreatePool:
 
         uuid = UUID(d.pop("uuid"))
 
-        load_balancer = d.pop("load_balancer")
-
         name = d.pop("name")
 
+        load_balancer = d.pop("load_balancer")
+
         protocol = LoadBalancerProtocolEnum(d.pop("protocol"))
-
-        project = d.pop("project")
-
-        service_settings = d.pop("service_settings")
-
-        _lb_algorithm = d.pop("lb_algorithm", UNSET)
-        lb_algorithm: Union[Unset, LbAlgorithmEnum]
-        if isinstance(_lb_algorithm, Unset):
-            lb_algorithm = UNSET
-        else:
-            lb_algorithm = LbAlgorithmEnum(_lb_algorithm)
 
         create_pool = cls(
             url=url,
             uuid=uuid,
-            load_balancer=load_balancer,
             name=name,
+            load_balancer=load_balancer,
             protocol=protocol,
-            project=project,
-            service_settings=service_settings,
-            lb_algorithm=lb_algorithm,
         )
 
         create_pool.additional_properties = d

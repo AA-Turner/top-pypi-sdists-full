@@ -28,6 +28,7 @@ class SoftwarePackage:
         catalog (str):
         name (str):
         parent_softwares (list['NestedParentSoftware']):
+        extensions (list['NestedParentSoftware']):
         catalog_name (str):
         catalog_version (str):
         catalog_type (str):
@@ -50,6 +51,7 @@ class SoftwarePackage:
     catalog: str
     name: str
     parent_softwares: list["NestedParentSoftware"]
+    extensions: list["NestedParentSoftware"]
     catalog_name: str
     catalog_version: str
     catalog_type: str
@@ -82,6 +84,11 @@ class SoftwarePackage:
         for parent_softwares_item_data in self.parent_softwares:
             parent_softwares_item = parent_softwares_item_data.to_dict()
             parent_softwares.append(parent_softwares_item)
+
+        extensions = []
+        for extensions_item_data in self.extensions:
+            extensions_item = extensions_item_data.to_dict()
+            extensions.append(extensions_item)
 
         catalog_name = self.catalog_name
 
@@ -127,6 +134,7 @@ class SoftwarePackage:
                 "catalog": catalog,
                 "name": name,
                 "parent_softwares": parent_softwares,
+                "extensions": extensions,
                 "catalog_name": catalog_name,
                 "catalog_version": catalog_version,
                 "catalog_type": catalog_type,
@@ -176,6 +184,13 @@ class SoftwarePackage:
 
             parent_softwares.append(parent_softwares_item)
 
+        extensions = []
+        _extensions = d.pop("extensions")
+        for extensions_item_data in _extensions:
+            extensions_item = NestedParentSoftware.from_dict(extensions_item_data)
+
+            extensions.append(extensions_item)
+
         catalog_name = d.pop("catalog_name")
 
         catalog_version = d.pop("catalog_version")
@@ -222,6 +237,7 @@ class SoftwarePackage:
             catalog=catalog,
             name=name,
             parent_softwares=parent_softwares,
+            extensions=extensions,
             catalog_name=catalog_name,
             catalog_version=catalog_version,
             catalog_type=catalog_type,

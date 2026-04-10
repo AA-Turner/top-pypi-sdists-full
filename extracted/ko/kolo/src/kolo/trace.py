@@ -42,6 +42,31 @@ class ProcessedTree:
             self.basic_execution_tree.total_execution_tree_node_count
         )
 
+        # Build frame_id -> node index for O(1) lookups
+        self._frame_id_index: Dict[str, ProcessedNode] = {}
+        self._build_frame_id_index()
+
+        # Set sibling metadata on root nodes
+        for i, root in enumerate(self.root_nodes):
+            root._sibling_index = i
+            root._tree_root_nodes = self.root_nodes
+
+    def _build_frame_id_index(self) -> None:
+        """Build the frame_id to node index."""
+        for node in self.dfs():
+            self._frame_id_index[node.frame_id] = node
+
+    def find_node_by_frame_id(self, frame_id: str) -> Optional[ProcessedNode]:
+        """Find a node by its frame_id in O(1) time.
+
+        Args:
+            frame_id: The frame_id to search for
+
+        Returns:
+            The ProcessedNode with the given frame_id, or None if not found
+        """
+        return self._frame_id_index.get(frame_id)
+
     def dfs(self) -> Generator[ProcessedNode, None, None]:
         """Depth-first traversal of all nodes in the tree."""
         for root_node in self.root_nodes:
@@ -202,36 +227,103 @@ class Trace:
                     return trace.name
         return None
 
-    def compact(self, include_return_value: bool = False) -> str:
-        """Generate compact text representation of the trace."""
+    def compact(
+        self,
+        include_return_value: bool = False,
+        include_guidance: bool = True,
+        include_header: bool = True,
+    ) -> str:
+        """Generate compact text representation of the trace.
 
-        header = f"""=== Kolo Trace {self.id} ===
-{self.name}
-{relative_time(self.dt_utc)}, {pretty_byte_size(self.size)}
-source: {self.unprocessed_data.get("meta", {}).get("source", "unknown")} (kolo v{self.unprocessed_data.get("meta", {}).get("version", "unknown")})
-config: {self.unprocessed_data.get("meta", {}).get("config", {})}
-Python: {self.unprocessed_data.get("meta", {}).get("environment", {}).get("py_version", "unknown")}
+        Args:
+            include_return_value: Include input/return values in output
+            include_guidance: Include CLI guidance section
+            include_header: Include the "=== Kolo Trace ===" header with metadata
+        """
 
-format: node_idx, type, qualname, start_to_end_loc, duration
-"""
+        parts = []
 
-        # todo: on the config, keep just the stuff that is not default.
+        if include_header:
+            meta = self.unprocessed_data.get("meta", {})
+            source = meta.get("source")
+            version = meta.get("version")
+            py_version = meta.get("environment", {}).get("py_version")
+            config = meta.get("config", {})
 
-        if include_return_value:
-            header += """  ↪ input value 
+            header_lines = [
+                f"=== Kolo Trace {self.id} ===",
+                self.name,
+                f"{relative_time(self.dt_utc)}, {pretty_byte_size(self.size)}",
+            ]
+            if source and version:
+                header_lines.append(f"source: {source} (kolo v{version})")
+            elif source:
+                header_lines.append(f"source: {source}")
+            if config:
+                header_lines.append(f"config: {config}")
+            if py_version:
+                header_lines.append(f"Python: {py_version}")
+            header_lines.extend(
+                ["", "format: node_idx, type, qualname, start_to_end_loc, duration", ""]
+            )
+            header = "\n".join(header_lines)
+
+            # todo: on the config, keep just the stuff that is not default.
+
+            if include_return_value:
+                header += """  ↪ input value
   ↩ return value
 """
+            parts.append(header)
 
-        guidance = """\nguidance:
+        if include_guidance:
+            guidance = """guidance:
 - `kolo run myprogram.py` - run with kolo enabled or capture in another way: docs.kolo.app/capture
 - `kolo trace list` - list recent kolo traces
 - `kolo cat TRACE_ID` - show trace output. run with `--returns` to include input and return values
 - `kolo trace node TRACE_ID NODE_INDEX` - get the FULL details of a specific node, incl locals
 """
+            parts.append(guidance)
 
-        header += guidance + "\n"
         lines = []
         for node in self.main_tree.dfs():
             lines.append(node.full_compact_tree_line(include_return_value))
 
-        return header + "=== Trace ===\n" + "\n".join(lines)
+        if include_header:
+            parts.append("=== Trace ===\n" + "\n".join(lines))
+        else:
+            parts.append("\n".join(lines))
+
+        return "\n".join(parts)
+
+    def compact_tree_only(self, include_return_value: bool = False) -> str:
+        """Return just the compact tree lines without any headers or metadata."""
+        lines = []
+        for node in self.main_tree.dfs():
+            lines.append(node.full_compact_tree_line(include_return_value))
+        return "\n".join(lines)
+
+    def compact_metadata(self) -> str:
+        """Return just the metadata section (source, config, python version, format)."""
+        meta = self.unprocessed_data.get("meta", {})
+        source = meta.get("source")
+        version = meta.get("version")
+        py_version = meta.get("environment", {}).get("py_version")
+        config = meta.get("config", {})
+
+        lines = [
+            self.name,
+            f"{relative_time(self.dt_utc)}, {pretty_byte_size(self.size)}",
+        ]
+        if source and version:
+            lines.append(f"source: {source} (kolo v{version})")
+        elif source:
+            lines.append(f"source: {source}")
+        if config:
+            lines.append(f"config: {config}")
+        if py_version:
+            lines.append(f"Python: {py_version}")
+        lines.extend(
+            ["", "format: node_idx, type, qualname, start_to_end_loc, duration"]
+        )
+        return "\n".join(lines)

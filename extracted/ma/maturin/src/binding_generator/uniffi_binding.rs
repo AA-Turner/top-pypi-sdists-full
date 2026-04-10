@@ -32,8 +32,8 @@ impl BindingGenerator for UniFfiBindingGenerator {
         artifact: &BuildArtifact,
         module: &Path,
     ) -> Result<GeneratorOutput> {
-        let base_path = if context.project_layout.python_module.is_some() {
-            module.join(&context.project_layout.extension_name)
+        let base_path = if context.project.project_layout.python_module.is_some() {
+            module.join(&context.project.project_layout.extension_name)
         } else {
             module.to_path_buf()
         };
@@ -43,10 +43,10 @@ impl BindingGenerator for UniFfiBindingGenerator {
             cdylib,
             path: binding_dir,
         } = generate_uniffi_bindings(
-            context.manifest_path.parent().unwrap(),
-            &context.target_dir,
-            &context.module_name,
-            context.target.target_os(),
+            context.project.manifest_path.parent().unwrap(),
+            &context.project.target_dir,
+            &context.project.module_name,
+            context.project.target.target_os(),
             &artifact.path,
         )?;
         let artifact_target = ArtifactTarget::ExtensionModule(base_path.join(cdylib));
@@ -226,11 +226,7 @@ fn generate_uniffi_bindings(
     let cdylib = match cdylib_name {
         // this logic should match with uniffi's expected names, e.g.
         // https://github.com/mozilla/uniffi-rs/blob/86a34083dd18bdd33f420c602b4fad624cc1e404/uniffi_bindgen/src/bindings/python/templates/NamespaceLibraryTemplate.py#L14-L37
-        Some(cdylib_name) => match target_os {
-            Os::Macos => format!("lib{cdylib_name}.dylib"),
-            Os::Windows => format!("{cdylib_name}.dll"),
-            _ => format!("lib{cdylib_name}.so"),
-        },
+        Some(cdylib_name) => super::cdylib_filename(&cdylib_name, target_os),
         None => artifact.file_name().unwrap().to_str().unwrap().to_string(),
     };
 

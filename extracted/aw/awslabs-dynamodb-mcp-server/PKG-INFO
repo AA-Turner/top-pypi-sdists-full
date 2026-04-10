@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.dynamodb-mcp-server
-Version: 2.0.23
+Version: 2.0.24
 Summary: The official MCP Server for interacting with AWS DynamoDB
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/dynamodb-mcp-server/
@@ -21,15 +21,15 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
-Requires-Dist: awslabs-aws-api-mcp-server>=1.3.19
+Requires-Dist: awslabs-aws-api-mcp-server==1.3.24
 Requires-Dist: awslabs-mysql-mcp-server==1.0.9
-Requires-Dist: boto3>=1.40.5
-Requires-Dist: jinja2>=3.1.6
+Requires-Dist: boto3<1.43.0,>=1.42.0
+Requires-Dist: jinja2==3.1.6
 Requires-Dist: loguru==0.7.3
-Requires-Dist: mcp[cli]>=1.23.0
-Requires-Dist: psutil==7.1.1
-Requires-Dist: pydantic==2.11.7
-Requires-Dist: typing-extensions>=4.14.1
+Requires-Dist: mcp[cli]==1.26.0
+Requires-Dist: psutil==7.2.2
+Requires-Dist: pydantic==2.12.5
+Requires-Dist: typing-extensions==4.15.0
 Description-Content-Type: text/markdown
 
 # AWS DynamoDB MCP Server
@@ -439,7 +439,7 @@ pip install pydantic boto3
 **Optional Development Dependencies:**
 
 For linting and formatting the generated code:
-- `ruff>=0.9.7` - Python linter and formatter (recommended)
+- `ruff==0.15.8` - Python linter and formatter (recommended)
 
 **Generated File Structure:**
 

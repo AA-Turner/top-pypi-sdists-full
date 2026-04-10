@@ -30,6 +30,7 @@ class KubernetesPodData(_message.Message):
         "uid",
         "name",
         "namespace",
+        "owner_reference",
     )
     class Volume(_message.Message):
         __slots__ = ("name",)
@@ -594,6 +595,30 @@ class KubernetesPodData(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
+    class OwnerReference(_message.Message):
+        __slots__ = ("api_version", "kind", "name", "uid", "controller", "block_owner_deletion")
+        API_VERSION_FIELD_NUMBER: _ClassVar[int]
+        KIND_FIELD_NUMBER: _ClassVar[int]
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        UID_FIELD_NUMBER: _ClassVar[int]
+        CONTROLLER_FIELD_NUMBER: _ClassVar[int]
+        BLOCK_OWNER_DELETION_FIELD_NUMBER: _ClassVar[int]
+        api_version: str
+        kind: str
+        name: str
+        uid: str
+        controller: bool
+        block_owner_deletion: bool
+        def __init__(
+            self,
+            api_version: _Optional[str] = ...,
+            kind: _Optional[str] = ...,
+            name: _Optional[str] = ...,
+            uid: _Optional[str] = ...,
+            controller: bool = ...,
+            block_owner_deletion: bool = ...,
+        ) -> None: ...
+
     TEAM_FIELD_NUMBER: _ClassVar[int]
     APP_FIELD_NUMBER: _ClassVar[int]
     COMPONENT_FIELD_NUMBER: _ClassVar[int]
@@ -611,6 +636,7 @@ class KubernetesPodData(_message.Message):
     UID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    OWNER_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     team: str
     app: str
     component: str
@@ -628,6 +654,7 @@ class KubernetesPodData(_message.Message):
     uid: str
     name: str
     namespace: str
+    owner_reference: KubernetesPodData.OwnerReference
     def __init__(
         self,
         team: _Optional[str] = ...,
@@ -647,4 +674,5 @@ class KubernetesPodData(_message.Message):
         uid: _Optional[str] = ...,
         name: _Optional[str] = ...,
         namespace: _Optional[str] = ...,
+        owner_reference: _Optional[_Union[KubernetesPodData.OwnerReference, _Mapping]] = ...,
     ) -> None: ...

@@ -1,6 +1,6 @@
-import itertools
-import warnings
 import ast
+import logging
+import warnings
 from multiprocessing import Pool, cpu_count
 from pathlib import Path
 
@@ -14,147 +14,83 @@ from .cid import indices
 from geocif import utils as ut
 from geoprepare import base
 
-# Show usage info on import
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-
-_console = Console()
-_table = Table(show_header=False, box=None, padding=(0, 1))
-_table.add_column(style="bold cyan", no_wrap=True)
-_table.add_column()
-_table.add_row("Usage", "from geocif import indices_runner; indices_runner.run(cfg)")
-_table.add_row("cfg", "\\[geobase.txt, countries.txt, crops.txt, geocif.txt]")
-_console.print(Panel(_table, title="[bold bright_white]GeoCIF Indices Runner[/]", border_style="bright_blue", padding=(1, 2)))
+logger = logging.getLogger(__name__)
 
 
-def remove_duplicates(lst):
+def _require_country_option(parser, country, option) -> str:
     """
+    Read ``option`` from the country-specific config section, falling back to
+    the DEFAULT section. Raises if neither has the option.
 
-    :param lst:
-    :return:
+    Args:
+        parser: ConfigParser instance.
+        country: Country name (any case/spacing).
+        option: Config option name to read.
+
+    Returns:
+        The option value as a string.
+
+    Raises:
+        ValueError: If neither section has the option.
     """
-    return list(set([i for i in lst]))
+    country_lower = country.lower().replace(" ", "_")
+    if parser.has_section(country_lower) and parser.has_option(country_lower, option):
+        return parser.get(country_lower, option)
+    if parser.has_option("DEFAULT", option):
+        return parser.get("DEFAULT", option)
+    raise ValueError(
+        f"{option} not specified for country {country} in config file."
+    )
 
 
-def get_admin_zone(country, parser):
+def _get_country_option(parser, country, option, default: str) -> str:
     """
-    Get admin zone and admin column name from config file for the given country.
-    Falls back to DEFAULT section if not specified for country.
-    
-    :param country: Country name
-    :param parser: ConfigParser object
-    :return: tuple of (admin_zone, admin_col_name)
+    Like ``_require_country_option`` but returns ``default`` when the option is
+    missing from both sections. Always returns a ``str``.
     """
-    country = country.title().replace(" ", "_")
-    country_lower = country.lower()
-    
-    # Try to get admin_level from country-specific section
-    if parser.has_section(country_lower) and parser.has_option(country_lower, "admin_level"):
-        admin_zone = parser.get(country_lower, "admin_level")
-    # Fall back to DEFAULT section
-    elif parser.has_option("DEFAULT", "admin_level"):
-        admin_zone = parser.get("DEFAULT", "admin_level")
-    else:
-        raise ValueError(f"admin_level not specified for country {country} in config file.")
-    
-    # admin_col_name is legacy (replaced by config-driven shapefile column mapping);
-    # kept for backwards compatibility but no longer required.
-    if parser.has_section(country_lower) and parser.has_option(country_lower, "admin_col_name"):
-        admin_col_name = parser.get(country_lower, "admin_col_name")
-    elif parser.has_option("DEFAULT", "admin_col_name"):
-        admin_col_name = parser.get("DEFAULT", "admin_col_name")
-    else:
-        admin_col_name = "ADM1_NAME"
-    
-    return admin_zone, admin_col_name
+    country_lower = country.lower().replace(" ", "_")
+    if parser.has_section(country_lower) and parser.has_option(country_lower, option):
+        return parser.get(country_lower, option)
+    if parser.has_option("DEFAULT", option):
+        return parser.get("DEFAULT", option)
+    return default
+
+
+def get_admin_zone(country, parser) -> str:
+    """Return the admin level (e.g. "adm1") for ``country``."""
+    return _require_country_option(parser, country, "admin_level")
 
 
 def get_crops(country, parser):
-    """
-    Get crops list from config file for the given country.
-    Falls back to DEFAULT section if not specified for country.
-    
-    :param country: Country name
-    :param parser: ConfigParser object
-    :return: list of crops
-    """
-    country_lower = country.lower().replace(" ", "_")
-    
-    # Try to get crops from country-specific section
-    if parser.has_section(country_lower) and parser.has_option(country_lower, "crops"):
-        crops_str = parser.get(country_lower, "crops")
-    # Fall back to DEFAULT section
-    elif parser.has_option("DEFAULT", "crops"):
-        crops_str = parser.get("DEFAULT", "crops")
-    else:
-        raise ValueError(f"crops not specified for country {country} in config file.")
-    
-    return ast.literal_eval(crops_str)
+    """Return the list of crops configured for ``country``."""
+    return ast.literal_eval(_require_country_option(parser, country, "crops"))
 
 
 def get_seasons(country, parser):
-    """
-    Get seasons list from config file for the given country.
-    Falls back to DEFAULT section if not specified for country.
-    Default is [1] if not specified anywhere.
-    
-    :param country: Country name
-    :param parser: ConfigParser object
-    :return: list of seasons (integers)
-    """
-    country_lower = country.lower().replace(" ", "_")
-    
-    # Try to get seasons from country-specific section
-    if parser.has_section(country_lower) and parser.has_option(country_lower, "seasons"):
-        seasons_str = parser.get(country_lower, "seasons")
-        return ast.literal_eval(seasons_str)
-    # Fall back to DEFAULT section
-    elif parser.has_option("DEFAULT", "seasons"):
-        seasons_str = parser.get("DEFAULT", "seasons")
-        return ast.literal_eval(seasons_str)
-    # Final fallback - default to season 1
-    else:
-        return [1]
+    """Return the list of harvest seasons for ``country`` (defaults to ``[1]``)."""
+    return ast.literal_eval(
+        _get_country_option(parser, country, "seasons", default="[1]")
+    )
 
 
-def get_input_file_path(country, parser, data_source="harvest"):
+def get_input_file_path(country, parser, data_source="harvest") -> Path:
     """
-    Get input file path from config file for the given country.
-    Path depends on data_source flag:
-        - 'harvest': ${PATHS:dir_output}/{project_name}/crop_t{floor}/{country}/
-        - 'agmet': ${input_file_path}/{country}/
-    
-    :param country: Country name
-    :param parser: ConfigParser object
-    :param data_source: 'harvest' or 'agmet'
-    :return: Path object for input files
+    Resolve the input directory for ``country`` based on ``data_source``:
+      - ``harvest``: ``${PATHS:dir_output}/{project_name}[/crop_t{floor}]/{country}/``
+      - ``agmet``:   ``${input_file_path}/{country}/`` (country-specific override wins)
     """
     country_lower = country.lower().replace(" ", "_")
-    
+
     if data_source == "harvest":
-        # Use dir_output/{project_name}/{dir_threshold}/{country}/ path
-        # project_name and dir_threshold come from geoextract.txt config
         dir_output = parser.get("PATHS", "dir_output")
         project_name = parser.get("DEFAULT", "project_name")
         if parser.has_option("DEFAULT", "threshold") and parser.getboolean("DEFAULT", "threshold"):
             floor = parser.getint("DEFAULT", "floor")
-            path_str = f"{dir_output}/{project_name}/crop_t{floor}/{country_lower}"
-        else:
-            path_str = f"{dir_output}/{project_name}/{country_lower}"
-    else:
-        # Use agmet path - check country-specific first, then DEFAULT
-        if parser.has_section(country_lower) and parser.has_option(country_lower, "input_file_path"):
-            path_str = parser.get(country_lower, "input_file_path")
-        elif parser.has_option("DEFAULT", "input_file_path"):
-            path_str = parser.get("DEFAULT", "input_file_path")
-        else:
-            raise ValueError(f"input_file_path not specified for country {country} in config file.")
-        
-        # Append country subdirectory for agmet
-        path_str = f"{path_str}/{country_lower}"
-    
-    return Path(path_str)
+            return Path(f"{dir_output}/{project_name}/crop_t{floor}/{country_lower}")
+        return Path(f"{dir_output}/{project_name}/{country_lower}")
+
+    base_path = _require_country_option(parser, country, "input_file_path")
+    return Path(f"{base_path}/{country_lower}")
 
 
 class cei_runner(base.BaseGeo):
@@ -189,146 +125,97 @@ class cei_runner(base.BaseGeo):
         self.countries = ast.literal_eval(self.parser.get("DEFAULT", "countries"))
         self.method = self.parser.get("DEFAULT", "method")
 
+    _FILE_COLUMNS = ["directory", "path", "filename", "admin_zone"]
+
     def collect_files_harvest(self):
         """
         Collect files for 'harvest' data source.
-        Reads specific files with pattern: {country}_{crop}_s{season}.csv
-        from ${PATHS:dir_output}/{project_name}/crop_t{floor}/{country}/
-        
-        :return: DataFrame with file information
+        Reads specific files with pattern: ``{country}_{crop}_s{season}.csv``
+        from ``${PATHS:dir_output}/{project_name}/crop_t{floor}/{country}/``.
         """
-        df_files = pd.DataFrame(columns=["directory", "path", "filename", "admin_zone", "admin_col_name"])
-        
+        rows = []
+
         for country in self.countries:
             country_lower = country.lower().replace(" ", "_")
             country_path = get_input_file_path(country, self.parser, data_source="harvest")
-            
-            # Get crops and seasons for this country
+
             crops = get_crops(country, self.parser)
             seasons = get_seasons(country, self.parser)
-            
-            # Get admin_zone and admin_col_name from config file
-            admin_zone, admin_col_name = get_admin_zone(country, self.parser)
-            
+            admin_zone = get_admin_zone(country, self.parser)
+
             for crop in crops:
                 for season in seasons:
-                    # Construct expected filename
                     filename = f"{country_lower}_{crop}_s{season}.csv"
                     filepath = country_path / filename
-                    
+
                     if filepath.exists():
-                        # For harvest mode, directory is 'countries'
-                        process_type = "countries"
-                        
-                        # Add to dataframe
-                        df_files.loc[len(df_files)] = [
-                            process_type, 
-                            filepath, 
-                            filename, 
-                            admin_zone, 
-                            admin_col_name
-                        ]
+                        rows.append({
+                            "directory": "countries",
+                            "path": filepath,
+                            "filename": filename,
+                            "admin_zone": admin_zone,
+                        })
                     else:
-                        print(f"Warning: Expected file not found: {filepath}")
-        
-        return df_files
+                        logger.warning("Expected file not found: %s", filepath)
+
+        return pd.DataFrame(rows, columns=self._FILE_COLUMNS)
 
     def collect_files_agmet(self):
         """
         Collect files for 'agmet' data source.
         Recursively finds all CSV files in the input directory.
-        
-        :return: DataFrame with file information
         """
-        df_files = pd.DataFrame(columns=["directory", "path", "filename", "admin_zone", "admin_col_name"])
-        
-        # If specific countries are defined, check their paths individually
-        if self.countries and self.countries != ['all']:
-            for country in self.countries:
-                country_path = get_input_file_path(country, self.parser, data_source="agmet")
-                
-                # Go up one level since get_input_file_path now includes country
-                # and we want to search from the country directory
-                for filepath in country_path.rglob("*.csv"):
-                    country_name = filepath.parents[0].name
+        rows = []
 
-                    # Get admin_zone and admin_col_name from config file
-                    admin_zone, admin_col_name = get_admin_zone(country_name, self.parser)
-
-                    # HACK: Skip korea for now, as it is giving errors
-                    if country_name == "republic_of_korea":
-                        continue
-
-                    # Get name of directory one level up
-                    process_type = filepath.parents[1].name
-
-                    # Get name of file
-                    filename = filepath.name
-
-                    # Add to dataframe
-                    df_files.loc[len(df_files)] = [process_type, filepath, filename, admin_zone, admin_col_name]
-        else:
-            # Use base directory for all countries
-            for filepath in self.base_dir.rglob("*.csv"):
-                country = filepath.parents[0].name
-
-                # Get admin_zone and admin_col_name from config file
-                admin_zone, admin_col_name = get_admin_zone(country, self.parser)
-
+        def _add_from(search_root):
+            for filepath in search_root.rglob("*.csv"):
+                country_name = filepath.parents[0].name
                 # HACK: Skip korea for now, as it is giving errors
-                if country == "republic_of_korea":
+                if country_name == "republic_of_korea":
                     continue
+                rows.append({
+                    "directory": filepath.parents[1].name,
+                    "path": filepath,
+                    "filename": filepath.name,
+                    "admin_zone": get_admin_zone(country_name, self.parser),
+                })
 
-                # Get name of directory one level up
-                process_type = filepath.parents[1].name
+        if self.countries and self.countries != ["all"]:
+            for country in self.countries:
+                _add_from(get_input_file_path(country, self.parser, data_source="agmet"))
+        else:
+            _add_from(self.base_dir)
 
-                # Get name of file
-                filename = filepath.name
-
-                # Add to dataframe
-                df_files.loc[len(df_files)] = [process_type, filepath, filename, admin_zone, admin_col_name]
-
-        return df_files
+        return pd.DataFrame(rows, columns=self._FILE_COLUMNS)
 
     def collect_files(self):
         """
-        Collect files based on data_source configuration.
-        
-        1. If data_source='harvest': Read specific files {country}_{crop}_s{season}.csv
-           from ${PATHS:dir_output}/{project_name}/crop_t{floor}/{country}/
-        2. If data_source='agmet': Recursively find all CSVs in processed directory
-        
-        :return: DataFrame with columns: directory, path, filename, admin_zone, admin_col_name
+        Collect files based on ``self.data_source``:
+
+        1. ``harvest``: reads the fixed set of ``{country}_{crop}_s{season}.csv``
+           files from the extraction output directory.
+        2. ``agmet``: recursively globs all CSVs under the agmet input path.
+
+        :return: DataFrame with columns ``[directory, path, filename, admin_zone]``.
         """
         if self.data_source == "harvest":
             return self.collect_files_harvest()
-        else:
-            return self.collect_files_agmet()
+        return self.collect_files_agmet()
 
     def process_combinations(self, df, method):
         """
-        Create a list of tuples of the following:
-            - directory: name of directory where file is located
-            - path: full path to file
-            - filename: name of file
-            - method: whether to compute indices for phenological stages or not
-        This tuple will be used as input to the `process` function
+        Build a deduplicated list of ``(directory, path, filename, admin_zone, method)``
+        tuples from ``df``. These are the file-level task descriptors for the
+        main loop; one tuple per unique CSV file.
+
         :param df:
         :param method:
         :return:
         """
-        combinations = []
-
-        for index, row in tqdm(df.iterrows()):
-            combinations.extend(
-                list(
-                    itertools.product([row["directory"]], [row["path"]], [row["filename"]], [row["admin_zone"]], [method])
-                )
-            )
-
-        combinations = remove_duplicates(combinations)
-
-        return combinations
+        return list({
+            (row["directory"], row["path"], row["filename"], row["admin_zone"], method)
+            for _, row in df.iterrows()
+        })
 
     def main(self):
         """
@@ -340,7 +227,11 @@ class cei_runner(base.BaseGeo):
         df_files = self.collect_files()
         
         if df_files.empty:
-            print(f"No files found for data_source='{self.data_source}' and countries={self.countries}")
+            logger.warning(
+                "No files found for data_source='%s' and countries=%s",
+                self.data_source,
+                self.countries,
+            )
             return
 
         # Extract unique crops from filenames by stripping the known country prefix
@@ -368,11 +259,13 @@ class cei_runner(base.BaseGeo):
 
         combinations = self.process_combinations(df_files, self.method)
 
-        # Add an element to the tuple to indicate the season
-        # Last element is redo flag which is True if the analysis is to be redone
-        # and False otherwise. Analysis is always redone for the current year
-        # and last year whether file exists or not
-        combinations = [
+        # One task per file, covering all harvest years in a single call so the
+        # ICCLIM result cache inside process_file amortizes icclim.index calls
+        # across years (~25x speedup on the cached path). The redo flag is
+        # False here; process_file / CEIs still force recomputation for the
+        # current and previous harvest years regardless.
+        years = list(range(2001, ar.utcnow().year + 1))
+        tasks = [
             (
                 self.parser,
                 status,
@@ -380,48 +273,33 @@ class cei_runner(base.BaseGeo):
                 filename,
                 admin_zone,
                 category,
-                year,
+                years,
                 "ndvi",
                 False,  # redo
             )
-            for year in range(2001, ar.utcnow().year + 1)
             for status, path, filename, admin_zone, category in combinations
         ]
-
-        # Filter combinations based on countries from config file
-        if self.countries and self.countries != ['all']:
-            combinations = [
-                i
-                for i in combinations
-                if any(country.lower().replace(" ", "_") in i[3].lower() 
-                       for country in self.countries)
-            ]
+        # Note: countries have already been filtered at collect_files_* time;
+        # no redundant post-filter on `i[3].lower()` needed.
 
         if self.do_parallel:
             with Pool(num_cpu) as p:
-                for i, _ in enumerate(p.imap_unordered(indices.process, combinations)):
+                for _ in tqdm(
+                    p.imap_unordered(indices.process_file, tasks),
+                    total=len(tasks),
+                    desc="CEI files",
+                ):
                     pass
         else:
-            # Use the code below if you want to test without parallelization or
-            # if you want to debug by using pdb
-            pbar = tqdm(combinations)
-            for i, val in enumerate(pbar):
-                pbar.set_description(
-                    f"Main loop {combinations[i][2]} {combinations[i][5]}"
-                )
-                indices.process(val)
+            pbar = tqdm(tasks, desc="CEI files")
+            for val in pbar:
+                pbar.set_description(f"Main loop {val[3]} {val[5]}")
+                indices.process_file(val)
 
 
 def run(path_config_files=[]):
-    """
-
-    Args:
-        path_config_files:
-
-    Returns:
-
-    """
-    """ Check dictionary keys to have no spaces"""
+    """Entry point: validate index definitions and run the indices pipeline."""
+    # Sanity-check index definitions have no spaces in keys
     indices.validate_index_definitions()
 
     obj = cei_runner(path_config_files)

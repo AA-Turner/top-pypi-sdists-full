@@ -14,11 +14,13 @@ from ...types import UNSET, Response, Unset
 def _get_kwargs(
     *,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     fingerprint_md5: Union[Unset, str] = UNSET,
     fingerprint_sha256: Union[Unset, str] = UNSET,
     fingerprint_sha512: Union[Unset, str] = UNSET,
     is_shared: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
@@ -34,6 +36,11 @@ def _get_kwargs(
         json_created = created.isoformat()
     params["created"] = json_created
 
+    json_created_before: Union[Unset, str] = UNSET
+    if not isinstance(created_before, Unset):
+        json_created_before = created_before.isoformat()
+    params["created_before"] = json_created_before
+
     params["fingerprint_md5"] = fingerprint_md5
 
     params["fingerprint_sha256"] = fingerprint_sha256
@@ -46,6 +53,11 @@ def _get_kwargs(
     if not isinstance(modified, Unset):
         json_modified = modified.isoformat()
     params["modified"] = json_modified
+
+    json_modified_before: Union[Unset, str] = UNSET
+    if not isinstance(modified_before, Unset):
+        json_modified_before = modified_before.isoformat()
+    params["modified_before"] = json_modified_before
 
     params["name"] = name
 
@@ -115,11 +127,13 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     fingerprint_md5: Union[Unset, str] = UNSET,
     fingerprint_sha256: Union[Unset, str] = UNSET,
     fingerprint_sha512: Union[Unset, str] = UNSET,
     is_shared: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
@@ -132,11 +146,13 @@ def sync_detailed(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         fingerprint_md5 (Union[Unset, str]):
         fingerprint_sha256 (Union[Unset, str]):
         fingerprint_sha512 (Union[Unset, str]):
         is_shared (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
@@ -155,11 +171,13 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         created=created,
+        created_before=created_before,
         fingerprint_md5=fingerprint_md5,
         fingerprint_sha256=fingerprint_sha256,
         fingerprint_sha512=fingerprint_sha512,
         is_shared=is_shared,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -180,11 +198,13 @@ def sync(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     fingerprint_md5: Union[Unset, str] = UNSET,
     fingerprint_sha256: Union[Unset, str] = UNSET,
     fingerprint_sha512: Union[Unset, str] = UNSET,
     is_shared: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
@@ -197,11 +217,13 @@ def sync(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         fingerprint_md5 (Union[Unset, str]):
         fingerprint_sha256 (Union[Unset, str]):
         fingerprint_sha512 (Union[Unset, str]):
         is_shared (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
@@ -221,11 +243,13 @@ def sync(
     return sync_detailed(
         client=client,
         created=created,
+        created_before=created_before,
         fingerprint_md5=fingerprint_md5,
         fingerprint_sha256=fingerprint_sha256,
         fingerprint_sha512=fingerprint_sha512,
         is_shared=is_shared,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -240,11 +264,13 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     fingerprint_md5: Union[Unset, str] = UNSET,
     fingerprint_sha256: Union[Unset, str] = UNSET,
     fingerprint_sha512: Union[Unset, str] = UNSET,
     is_shared: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
@@ -257,11 +283,13 @@ async def asyncio_detailed(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         fingerprint_md5 (Union[Unset, str]):
         fingerprint_sha256 (Union[Unset, str]):
         fingerprint_sha512 (Union[Unset, str]):
         is_shared (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
@@ -280,11 +308,13 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         created=created,
+        created_before=created_before,
         fingerprint_md5=fingerprint_md5,
         fingerprint_sha256=fingerprint_sha256,
         fingerprint_sha512=fingerprint_sha512,
         is_shared=is_shared,
         modified=modified,
+        modified_before=modified_before,
         name=name,
         name_exact=name_exact,
         o=o,
@@ -303,11 +333,13 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     created: Union[Unset, datetime.datetime] = UNSET,
+    created_before: Union[Unset, datetime.datetime] = UNSET,
     fingerprint_md5: Union[Unset, str] = UNSET,
     fingerprint_sha256: Union[Unset, str] = UNSET,
     fingerprint_sha512: Union[Unset, str] = UNSET,
     is_shared: Union[Unset, bool] = UNSET,
     modified: Union[Unset, datetime.datetime] = UNSET,
+    modified_before: Union[Unset, datetime.datetime] = UNSET,
     name: Union[Unset, str] = UNSET,
     name_exact: Union[Unset, str] = UNSET,
     o: Union[Unset, list[SshKeyOEnum]] = UNSET,
@@ -320,11 +352,13 @@ async def asyncio(
 
     Args:
         created (Union[Unset, datetime.datetime]):
+        created_before (Union[Unset, datetime.datetime]):
         fingerprint_md5 (Union[Unset, str]):
         fingerprint_sha256 (Union[Unset, str]):
         fingerprint_sha512 (Union[Unset, str]):
         is_shared (Union[Unset, bool]):
         modified (Union[Unset, datetime.datetime]):
+        modified_before (Union[Unset, datetime.datetime]):
         name (Union[Unset, str]):
         name_exact (Union[Unset, str]):
         o (Union[Unset, list[SshKeyOEnum]]):
@@ -345,11 +379,13 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             created=created,
+            created_before=created_before,
             fingerprint_md5=fingerprint_md5,
             fingerprint_sha256=fingerprint_sha256,
             fingerprint_sha512=fingerprint_sha512,
             is_shared=is_shared,
             modified=modified,
+            modified_before=modified_before,
             name=name,
             name_exact=name_exact,
             o=o,

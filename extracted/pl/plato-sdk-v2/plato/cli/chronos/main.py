@@ -17,7 +17,7 @@ from rich.table import Table
 
 from plato.chronos.sdk import Chronos
 from plato.cli.chronos.settings import get_settings
-from plato.cli.utils import console
+from plato.cli.utils import console, safe_print
 
 chronos_app = typer.Typer(help="Chronos job management commands.")
 logger = logging.getLogger(__name__)
@@ -668,6 +668,117 @@ def audit_command(
         raise
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Mount workspace locally
+# ---------------------------------------------------------------------------
+
+
+@chronos_app.command("mount")
+def mount(
+    session_ref: Annotated[
+        str,
+        typer.Argument(help="Session ID, or session_id:step_name"),
+    ],
+    repo_name: Annotated[str | None, typer.Option("--repo", "-r", help="Workspace repo name")] = None,
+    step_name: Annotated[
+        str | None, typer.Option("--step", "-s", help="Step name (parsed from session_ref if present)")
+    ] = None,
+    mount_path: Annotated[
+        str | None,
+        typer.Option("--mount", "-m", help="Local mount path (default: ~/plato-workspaces/<session>-<repo>)"),
+    ] = None,
+    cpus: Annotated[int, typer.Option(help="VM CPUs")] = 1,
+    memory: Annotated[int, typer.Option(help="VM memory in MB")] = 2048,
+    disk: Annotated[int, typer.Option(help="VM disk in MB")] = 10240,
+    api_key: str = _api_key_option,
+):
+    """Mount a workspace locally and return a short mount alias.
+
+    This starts a detached helper that keeps the VM, tunnel, and local mount alive.
+    The helper records mount metadata in `~/plato-workspaces/.plato-mounts/state.json`.
+    Use `plato chronos unmount <alias>` to tear it down later.
+
+    Examples:
+
+        plato chronos mount abc123:step.1.stage.build --repo webclone/stripe/code
+
+        plato chronos mount abc123 --repo code --step step.1
+    """
+    from plato.cli.chronos.mount import start_mount_daemon
+
+    resolved_api_key = api_key or os.environ.get("PLATO_API_KEY")
+    if not resolved_api_key:
+        console.print("[red]PLATO_API_KEY required[/red]")
+        raise typer.Exit(1)
+
+    # Parse session_ref — supports "session_id:step_name" format
+    if ":" in session_ref and step_name is None:
+        session_id, step_name = session_ref.split(":", 1)
+    else:
+        session_id = session_ref
+
+    try:
+        console.print("[blue]Starting workspace mount...[/blue]")
+
+        def _render_mount_event(event: dict[str, object]) -> None:
+            kind = event.get("kind")
+            message = str(event.get("message", ""))
+            duration = event.get("duration_s")
+            duration_s = float(duration) if isinstance(duration, (int, float)) else None
+            if kind == "start":
+                safe_print(f"  [dim]\u2192[/dim] {message}")
+            elif kind == "done":
+                suffix = f" [dim]({duration_s:.1f}s)[/dim]" if duration_s is not None else ""
+                safe_print(f"  [green]\u2713[/green] {message}{suffix}")
+            elif kind == "timing":
+                suffix = f" [dim]({duration_s:.1f}s)[/dim]" if duration_s is not None else ""
+                safe_print(f"    [dim]-[/dim] {message}{suffix}")
+            else:
+                safe_print(f"  [yellow]![/yellow] {message}")
+
+        record = start_mount_daemon(
+            session_id,
+            repo_name=repo_name,
+            step_name=step_name,
+            mount_path=mount_path,
+            api_key=resolved_api_key,
+            cpus=cpus,
+            memory=memory,
+            disk=disk,
+            on_event=_render_mount_event,
+        )
+        safe_print(f"[green]Mounted[/green] {record['mount_path']}")
+        safe_print(f"[dim]Alias:[/dim] {record['alias']}")
+        safe_print(f"[dim]Session:[/dim] {record['session_id']}")
+        if record.get("repo_name"):
+            safe_print(f"[dim]Repo:[/dim] {record['repo_name']}")
+        if record.get("step_name"):
+            safe_print(f"[dim]Step:[/dim] {record['step_name']}")
+        safe_print(f"[dim]Unmount:[/dim] plato chronos unmount {record['alias']}")
+    except Exception as e:
+        safe_print(f"[red]Failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@chronos_app.command("unmount")
+def unmount(
+    mount_id: Annotated[
+        str,
+        typer.Argument(help="Mount alias returned by `plato chronos mount`, or the mount path"),
+    ],
+):
+    """Unmount a previously mounted Chronos workspace."""
+    from plato.cli.chronos.mount import unmount_workspace
+
+    try:
+        safe_print(f"[blue]Unmounting[/blue] {mount_id}...")
+        unmount_workspace(mount_id)
+        safe_print(f"[green]Unmounted[/green] {mount_id}")
+    except Exception as e:
+        safe_print(f"[red]Failed: {e}[/red]")
         raise typer.Exit(1)
 
 

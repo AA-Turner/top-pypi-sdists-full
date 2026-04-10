@@ -1,6 +1,6 @@
 [project]
 name = "abx-pkg"
-version = "1.9.27"
+version = "1.9.29"
 description = "System package manager interfaces with Python type hints"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.11"
@@ -44,7 +44,12 @@ dependencies = [
     "typing-extensions>=4.15.0",
     "platformdirs>=4.9.2",
     "pydantic>=2.12.5",
+    "rich-click>=1.9.7",
 ]
+
+[project.scripts]
+abx-pkg = "abx_pkg.cli:main"
+abx = "abx_pkg.cli:abx_main"
 
 [project.optional-dependencies]
 rich = [
@@ -99,7 +104,11 @@ dev = [
 ]
 
 [tool.uv]
-exclude-newer = "5 days"
+# Pin lockfile resolution to a recent upstream cutoff so CI/test runs stay
+# reproducible. ``uv`` (as of 0.8.x) requires a literal RFC 3339 date/time
+# here, not a relative duration like ``"5 days"`` — passing an invalid value
+# silently disables the cutoff and regenerates the lockfile on every invoke.
+exclude-newer = "2026-04-04T00:00:00Z"
 
 [tool.mypy]
 mypy_path = "abx_pkg"

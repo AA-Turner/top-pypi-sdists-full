@@ -198,12 +198,18 @@ impl KoloProfiler {
         kwargs.set_item("timeout", self.timeout).unwrap();
 
         let data = self.build_trace_inner(py)?;
-        kwargs.set_item("msgpack", data).unwrap();
+        kwargs.set_item("msgpack_data", data).unwrap();
+
+        // Convert db_path string to Path object
+        let pathlib = PyModule::import(py, "pathlib")?;
+        let path_class = pathlib.getattr(intern!(py, "Path"))?;
+        let db_path_obj = path_class.call1((&self.db_path,))?;
+        kwargs.set_item("db_path", db_path_obj)?;
 
         let trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned").clone();
         let db = PyModule::import(py, "kolo.db")?;
-        let save = db.getattr(intern!(py, "save_trace_in_sqlite"))?;
-        save.call((&self.db_path, &trace_id), Some(&kwargs))?;
+        let save = db.getattr(intern!(py, "save_trace"))?;
+        save.call((&trace_id,), Some(&kwargs))?;
         Ok(())
     }
 

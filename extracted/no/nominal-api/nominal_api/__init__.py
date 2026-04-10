@@ -63,7 +63,6 @@ __all__ = [
     'secrets_api',
     'security_api_workspace',
     'storage_datasource_api',
-    'storage_deletion_api',
     'storage_series_api',
     'storage_writer_api',
     'themes_api',
@@ -75,10 +74,11 @@ __all__ = [
     'timeseries_seriescache',
     'timeseries_seriescache_api',
     'upload_api',
+    'usage_internal',
     'usercreation_api',
 ]
 
 __conjure_generator_version__ = "4.17.0"
 
-__version__ = "0.1168.0"
+__version__ = "0.1192.0"
 

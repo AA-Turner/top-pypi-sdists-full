@@ -40,17 +40,42 @@ class _MockConnectionError(_MockLiteLLMAPIError):
     pass
 
 
+class _MockTimeoutError(_MockLiteLLMAPIError):
+    pass
+
+
+class _MockServiceUnavailableError(_MockLiteLLMAPIError):
+    pass
+
+
+class _MockInternalServerError(_MockLiteLLMAPIError):
+    pass
+
+
+class _MockBadGatewayError(_MockLiteLLMAPIError):
+    pass
+
+
 # Inject a mock litellm module before importing litellm_provider,
 # so that the try/except import succeeds and `litellm` is bound as a module attribute.
 _mock_litellm_module = MagicMock()
 
-# Wire up mock exceptions module
+# Wire up mock exceptions module. The litellm_provider module imports these
+# at module init time and uses them in the `_LITELLM_TRANSIENT` tuple, so
+# each attribute MUST be a real class that inherits from BaseException — a
+# bare MagicMock would break `except _LITELLM_TRANSIENT` with
+# "TypeError: catching classes that do not inherit from BaseException".
 _mock_exceptions = MagicMock()
 _mock_exceptions.AuthenticationError = _MockAuthError
 _mock_exceptions.RateLimitError = _MockRateLimitError
 _mock_exceptions.ContextWindowExceededError = _MockContextError
 _mock_exceptions.BadRequestError = _MockBadRequestError
 _mock_exceptions.APIConnectionError = _MockConnectionError
+_mock_exceptions.APIError = _MockLiteLLMAPIError
+_mock_exceptions.Timeout = _MockTimeoutError
+_mock_exceptions.ServiceUnavailableError = _MockServiceUnavailableError
+_mock_exceptions.InternalServerError = _MockInternalServerError
+_mock_exceptions.BadGatewayError = _MockBadGatewayError
 _mock_litellm_module.exceptions = _mock_exceptions
 
 sys.modules.setdefault("litellm", _mock_litellm_module)
@@ -380,9 +405,11 @@ class TestLiteLLMStreamErrors:
 
     @pytest.mark.asyncio
     async def test_transient_error_retries(self) -> None:
+        # (#1343) Transient = typed LiteLLM classes only. Bare Exception is
+        # now fail-fast; see test_unknown_exception_fails_fast below.
         svc = _make_service(_make_config(retry_max_attempts=1))
         mock_litellm = MagicMock()
-        mock_litellm.acompletion = AsyncMock(side_effect=Exception("Connection reset"))
+        mock_litellm.acompletion = AsyncMock(side_effect=_MockConnectionError("Connection reset"))
 
         with patch("anteroom.services.litellm_provider.litellm", mock_litellm):
             events: list[dict[str, Any]] = []
@@ -391,9 +418,14 @@ class TestLiteLLMStreamErrors:
 
         retry_events = [e for e in events if e["event"] == "retrying"]
         assert len(retry_events) >= 1
+        # (#1343) retrying events now carry exception_type for observability.
+        assert retry_events[0]["data"]["exception_type"] == "_MockConnectionError"
         error_events = [e for e in events if e["event"] == "error"]
         assert len(error_events) == 1
         assert error_events[0]["data"]["retryable"] is True
+        # (#1343) error events now carry provider + model.
+        assert error_events[0]["data"]["provider"] == "litellm"
+        assert error_events[0]["data"]["model"] == "openrouter/openai/gpt-4o"
 
     @pytest.mark.asyncio
     async def test_transient_error_refreshes_api_key_each_attempt(self) -> None:
@@ -414,7 +446,9 @@ class TestLiteLLMStreamErrors:
 
         async def capture_and_fail(**kwargs: Any) -> Any:
             captured_keys.append(kwargs["api_key"])
-            raise Exception("transient failure")
+            # (#1343) Use a typed transient class so this exercises the
+            # retry path; bare Exception would now fail fast.
+            raise _MockConnectionError("transient failure")
 
         mock_litellm = MagicMock()
         mock_litellm.acompletion = AsyncMock(side_effect=capture_and_fail)
@@ -462,6 +496,209 @@ class TestLiteLLMStreamErrors:
         assert len(error_events) == 1
         assert error_events[0]["data"]["code"] == "too_many_tools"
         assert error_events[0]["data"]["retryable"] is False
+
+
+# ---------------------------------------------------------------------------
+# (#1343) Typed transient retry path + tightened catch-all regression tests
+# ---------------------------------------------------------------------------
+
+
+class TestLiteLLMTypedTransientRetries:
+    """Regression coverage for the explicit LiteLLM transient retry path.
+
+    Before #1343, LiteLLM timeout / connection / service-unavailable
+    failures rode the generic `except Exception` catch-all for retries.
+    After #1343, they have typed handlers that retry, and the catch-all
+    is tightened to fail-fast `provider_error`. These tests lock the
+    new typed path in place so a future regression that drops one of
+    the typed classes is caught immediately.
+    """
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_retries_on_litellm_connection_error(self) -> None:
+        svc = _make_service(_make_config(retry_max_attempts=1))
+        mock_litellm = MagicMock()
+        # First attempt fails with a typed transient; second succeeds.
+        done_chunk = MagicMock()
+        done_chunk.choices = [MagicMock()]
+        done_chunk.choices[0].delta.content = "ok"
+        done_chunk.choices[0].delta.tool_calls = None
+        done_chunk.choices[0].finish_reason = "stop"
+        done_chunk.usage = None
+
+        call_count = 0
+
+        async def flaky(**kwargs: Any) -> Any:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise _MockConnectionError("network blip")
+            return _AsyncChunkIterator([done_chunk])
+
+        mock_litellm.acompletion = AsyncMock(side_effect=flaky)
+
+        with patch("anteroom.services.litellm_provider.litellm", mock_litellm):
+            events: list[dict[str, Any]] = []
+            async for event in svc.stream_chat([{"role": "user", "content": "hi"}]):
+                events.append(event)
+
+        retry_events = [e for e in events if e["event"] == "retrying"]
+        assert len(retry_events) == 1
+        assert retry_events[0]["data"]["exception_type"] == "_MockConnectionError"
+        error_events = [e for e in events if e["event"] == "error"]
+        assert len(error_events) == 0  # second attempt succeeded
+        done_events = [e for e in events if e["event"] == "done"]
+        assert len(done_events) == 1
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_retries_on_litellm_timeout_error(self) -> None:
+        svc = _make_service(_make_config(retry_max_attempts=1))
+        done_chunk = MagicMock()
+        done_chunk.choices = [MagicMock()]
+        done_chunk.choices[0].delta.content = "ok"
+        done_chunk.choices[0].delta.tool_calls = None
+        done_chunk.choices[0].finish_reason = "stop"
+        done_chunk.usage = None
+
+        call_count = 0
+
+        async def flaky(**kwargs: Any) -> Any:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise _MockTimeoutError("request timed out")
+            return _AsyncChunkIterator([done_chunk])
+
+        mock_litellm = MagicMock()
+        mock_litellm.acompletion = AsyncMock(side_effect=flaky)
+
+        with patch("anteroom.services.litellm_provider.litellm", mock_litellm):
+            events: list[dict[str, Any]] = []
+            async for event in svc.stream_chat([{"role": "user", "content": "hi"}]):
+                events.append(event)
+
+        retry_events = [e for e in events if e["event"] == "retrying"]
+        assert len(retry_events) == 1
+        assert retry_events[0]["data"]["exception_type"] == "_MockTimeoutError"
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_retries_on_litellm_service_unavailable(self) -> None:
+        svc = _make_service(_make_config(retry_max_attempts=1))
+        done_chunk = MagicMock()
+        done_chunk.choices = [MagicMock()]
+        done_chunk.choices[0].delta.content = "ok"
+        done_chunk.choices[0].delta.tool_calls = None
+        done_chunk.choices[0].finish_reason = "stop"
+        done_chunk.usage = None
+
+        call_count = 0
+
+        async def flaky(**kwargs: Any) -> Any:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise _MockServiceUnavailableError("503")
+            return _AsyncChunkIterator([done_chunk])
+
+        mock_litellm = MagicMock()
+        mock_litellm.acompletion = AsyncMock(side_effect=flaky)
+
+        with patch("anteroom.services.litellm_provider.litellm", mock_litellm):
+            events: list[dict[str, Any]] = []
+            async for event in svc.stream_chat([{"role": "user", "content": "hi"}]):
+                events.append(event)
+
+        retry_events = [e for e in events if e["event"] == "retrying"]
+        assert len(retry_events) == 1
+        assert retry_events[0]["data"]["exception_type"] == "_MockServiceUnavailableError"
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_retries_on_litellm_internal_server_error(self) -> None:
+        svc = _make_service(_make_config(retry_max_attempts=1))
+        done_chunk = MagicMock()
+        done_chunk.choices = [MagicMock()]
+        done_chunk.choices[0].delta.content = "ok"
+        done_chunk.choices[0].delta.tool_calls = None
+        done_chunk.choices[0].finish_reason = "stop"
+        done_chunk.usage = None
+
+        call_count = 0
+
+        async def flaky(**kwargs: Any) -> Any:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise _MockInternalServerError("500")
+            return _AsyncChunkIterator([done_chunk])
+
+        mock_litellm = MagicMock()
+        mock_litellm.acompletion = AsyncMock(side_effect=flaky)
+
+        with patch("anteroom.services.litellm_provider.litellm", mock_litellm):
+            events: list[dict[str, Any]] = []
+            async for event in svc.stream_chat([{"role": "user", "content": "hi"}]):
+                events.append(event)
+
+        retry_events = [e for e in events if e["event"] == "retrying"]
+        assert len(retry_events) == 1
+        assert retry_events[0]["data"]["exception_type"] == "_MockInternalServerError"
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_emits_timeout_error_event_after_transient_retries_exhausted(
+        self,
+    ) -> None:
+        """When all typed-transient retries are exhausted, emit a single
+        error event with code=timeout/connection_error and provider/model."""
+        svc = _make_service(_make_config(retry_max_attempts=1))
+        mock_litellm = MagicMock()
+        mock_litellm.acompletion = AsyncMock(side_effect=_MockTimeoutError("persistent timeout"))
+
+        with patch("anteroom.services.litellm_provider.litellm", mock_litellm):
+            events: list[dict[str, Any]] = []
+            async for event in svc.stream_chat([{"role": "user", "content": "hi"}]):
+                events.append(event)
+
+        error_events = [e for e in events if e["event"] == "error"]
+        assert len(error_events) == 1
+        err = error_events[0]["data"]
+        assert err["code"] == "timeout"
+        assert err["retryable"] is True
+        assert err["provider"] == "litellm"
+        assert err["model"] == "openrouter/openai/gpt-4o"
+        assert "_MockTimeoutError" in err["message"]
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_emits_provider_error_for_unknown_exception(self) -> None:
+        """Tightened catch-all: bare Exception (not a typed transient) now
+        emits code=provider_error with retryable=False and is NOT retried.
+
+        This is the test that proves the catch-all tightening landed —
+        any regression that reverts the typed transient handlers would
+        cause this exception to fall through to the old retry path and
+        this test would fail with a retry event."""
+        svc = _make_service(_make_config(retry_max_attempts=1))
+        mock_litellm = MagicMock()
+        mock_litellm.acompletion = AsyncMock(
+            side_effect=Exception("toolConfig must be defined when using tool calling with bedrock")
+        )
+
+        with patch("anteroom.services.litellm_provider.litellm", mock_litellm):
+            events: list[dict[str, Any]] = []
+            async for event in svc.stream_chat([{"role": "user", "content": "hi"}]):
+                events.append(event)
+
+        # Exactly one call (no retry) — catch-all is fail-fast now.
+        assert mock_litellm.acompletion.call_count == 1
+        retry_events = [e for e in events if e["event"] == "retrying"]
+        assert len(retry_events) == 0
+        error_events = [e for e in events if e["event"] == "error"]
+        assert len(error_events) == 1
+        err = error_events[0]["data"]
+        assert err["code"] == "provider_error"
+        assert err["retryable"] is False
+        assert err["provider"] == "litellm"
+        assert err["model"] == "openrouter/openai/gpt-4o"
+        assert "toolConfig" in err["message"]
 
 
 # ---------------------------------------------------------------------------

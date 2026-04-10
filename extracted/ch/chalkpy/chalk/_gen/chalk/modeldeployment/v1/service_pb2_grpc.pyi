@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.modeldeployment.v1.service_pb2 import (
     CreateModelScalingGroupRequest,
     CreateModelScalingGroupResponse,
+    ListModelScalingGroupsRequest,
+    ListModelScalingGroupsResponse,
 )
 from grpc import (
     Channel,
@@ -25,6 +27,11 @@ class ModelDeploymentServiceStub:
         CreateModelScalingGroupResponse,
     ]
     """CreateModelScalingGroup creates a scaling group for a model version"""
+    ListModelScalingGroups: UnaryUnaryMultiCallable[
+        ListModelScalingGroupsRequest,
+        ListModelScalingGroupsResponse,
+    ]
+    """ListModelScalingGroups lists model scaling groups, optionally filtered to a model version"""
 
 class ModelDeploymentServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -34,5 +41,12 @@ class ModelDeploymentServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> CreateModelScalingGroupResponse:
         """CreateModelScalingGroup creates a scaling group for a model version"""
+    @abstractmethod
+    def ListModelScalingGroups(
+        self,
+        request: ListModelScalingGroupsRequest,
+        context: ServicerContext,
+    ) -> ListModelScalingGroupsResponse:
+        """ListModelScalingGroups lists model scaling groups, optionally filtered to a model version"""
 
 def add_ModelDeploymentServiceServicer_to_server(servicer: ModelDeploymentServiceServicer, server: Server) -> None: ...

@@ -32,6 +32,7 @@ class ProjectEstimatedCostPolicy:
         created_by_username (str):
         has_fired (bool):
         fired_datetime (datetime.datetime):
+        affected_resources_count (int):
         limit_cost (int):
         period_name (str):
         project_credit (Union[None, float]):
@@ -52,6 +53,7 @@ class ProjectEstimatedCostPolicy:
     created_by_username: str
     has_fired: bool
     fired_datetime: datetime.datetime
+    affected_resources_count: int
     limit_cost: int
     period_name: str
     project_credit: Union[None, float]
@@ -83,6 +85,8 @@ class ProjectEstimatedCostPolicy:
         has_fired = self.has_fired
 
         fired_datetime = self.fired_datetime.isoformat()
+
+        affected_resources_count = self.affected_resources_count
 
         limit_cost = self.limit_cost
 
@@ -117,6 +121,7 @@ class ProjectEstimatedCostPolicy:
                 "created_by_username": created_by_username,
                 "has_fired": has_fired,
                 "fired_datetime": fired_datetime,
+                "affected_resources_count": affected_resources_count,
                 "limit_cost": limit_cost,
                 "period_name": period_name,
                 "project_credit": project_credit,
@@ -157,6 +162,8 @@ class ProjectEstimatedCostPolicy:
         has_fired = d.pop("has_fired")
 
         fired_datetime = isoparse(d.pop("fired_datetime"))
+
+        affected_resources_count = d.pop("affected_resources_count")
 
         limit_cost = d.pop("limit_cost")
 
@@ -199,6 +206,7 @@ class ProjectEstimatedCostPolicy:
             created_by_username=created_by_username,
             has_fired=has_fired,
             fired_datetime=fired_datetime,
+            affected_resources_count=affected_resources_count,
             limit_cost=limit_cost,
             period_name=period_name,
             project_credit=project_credit,

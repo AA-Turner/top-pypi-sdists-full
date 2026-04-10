@@ -4,13 +4,39 @@ from pathlib import Path
 
 # Entity types to include in the output. Add more as platforms are added.
 # To publish all entity types, replace this with: INCLUDED_ENTITY_TYPES = None
-INCLUDED_ENTITY_TYPES = {"sensor"}
+INCLUDED_ENTITY_TYPES = {"sensor", "button"}
+
+
+def build_common_lookup(data, prefix=""):
+    """Build reverse lookup: value -> list of key paths from strings_common.json."""
+    lookup = {}
+    for key, value in data.items():
+        path = f"{prefix}::{key}" if prefix else key
+        if isinstance(value, dict):
+            for v, paths in build_common_lookup(value, path).items():
+                lookup.setdefault(v, []).extend(paths)
+        elif isinstance(value, str):
+            lookup.setdefault(value, []).append(path)
+    return lookup
+
+
+def resolve_common_ref(value, common_lookup, prefer_section=None):
+    """Replace a value with a [%key:...%] reference if found in common strings."""
+    if value not in common_lookup:
+        return value
+    paths = common_lookup[value]
+    if prefer_section:
+        for path in paths:
+            if prefer_section in path:
+                return f"[%key:{path}%]"
+    return f"[%key:{paths[0]}%]"
 
 
 def main():
     parser = argparse.ArgumentParser(description="Merge victron_mqtt topics into strings.json")
     parser.add_argument("--topics", help="Path to victron_mqtt.json")
     parser.add_argument("--strings", help="Path to strings.json")
+    parser.add_argument("--common", help="Path to strings_common.json")
     args = parser.parse_args()
 
     if args.topics and args.strings:
@@ -21,6 +47,15 @@ def main():
         topics_path = base / "victron_mqtt.json"
         translations_dir = base / "custom_components" / "victron_mqtt" / "translations"
         output_path = translations_dir / "strings.json"
+
+    common_path = Path(args.common) if args.common else Path(__file__).parent / "strings_common.json"
+    common_lookup = {}
+    if common_path.exists():
+        with common_path.open(encoding="utf-8") as f:
+            common_lookup = build_common_lookup(json.load(f))
+        print(f"Loaded {len(common_lookup)} common string values from {common_path}")
+    else:
+        print(f"Warning: strings_common.json not found at {common_path}, skipping common references")
 
     print(f"topics_path={topics_path}")
     print(f"output_path={output_path}")
@@ -68,6 +103,7 @@ def main():
         message_type = topic.get("message_type")
         is_adjustable_suffix = topic.get("is_adjustable_suffix")
         enum_name = topic.get("enum")
+        is_main_topic = topic.get("main_topic", False)
 
         # Extract the part after the dot and make it lower case
         entity_type = message_type.split(".", 1)[1].lower() if "." in message_type else message_type.lower()
@@ -78,12 +114,16 @@ def main():
         # Build entity entry with name and optional state for enums.
         # Only include unit_of_measurement in the translation when the metric
         # does NOT have a device_class (those get native_unit in code instead).
-        entity_entry = {"name": topic_name}
+        # Main topics inherit their name from the device, so omit "name".
+        entity_entry = {} if is_main_topic else {"name": topic_name}
         has_device_class = topic_metric_type in DEVICE_CLASS_METRIC_TYPES
         if topic_unit is not None and not has_device_class:
             entity_entry["unit_of_measurement"] = topic_unit
         if enum_name and enum_name in enum_lookup:
-            entity_entry["state"] = enum_lookup[enum_name]
+            entity_entry["state"] = {
+                k: resolve_common_ref(v, common_lookup, prefer_section="common::state")
+                for k, v in enum_lookup[enum_name].items()
+            }
 
         # Add to original entity type
         if entity_type not in entity:
@@ -96,15 +136,6 @@ def main():
             if "sensor" not in entity:
                 entity["sensor"] = {}
             entity["sensor"][translation_key] = entity_entry
-        # to support READ_ONLY we need everything in sensor and in binary_sensor
-        if entity_type == "switch":
-            if "binary_sensor" not in entity:
-                entity["binary_sensor"] = {}
-            entity["binary_sensor"][translation_key] = entity_entry
-        if entity_type in ["number", "select"]:
-            if "sensor" not in entity:
-                entity["sensor"] = {}
-            entity["sensor"][translation_key] = entity_entry
     # Sort the entity dictionary and its nested dictionaries
     sorted_entity = {}
     for entity_type in sorted(entity.keys()):
@@ -113,18 +144,21 @@ def main():
         sorted_entity[entity_type] = {}
         for translation_key in sorted(entity[entity_type].keys()):
             entry = entity[entity_type][translation_key]
-            sorted_entry = {"name": entry["name"]}
-            if "unit_of_measurement" in entry:
+            sorted_entry = {}
+            if "name" in entry:
+                sorted_entry["name"] = entry["name"]
+            if "unit_of_measurement" in entry and entity_type != "time":
                 sorted_entry["unit_of_measurement"] = entry["unit_of_measurement"]
-            if "state" in entry:
-                # For binary_sensor, skip state if it only has on/off options
+            if "state" in entry and entity_type != "button":
+                # For binary_sensor and switches, skip state if it only has on/off options
                 state_keys = set(entry["state"].keys())
-                if entity_type == "binary_sensor" and state_keys <= {"on", "off"}:
+                if entity_type in ["binary_sensor", "switch"] and state_keys <= {"on", "off"}:
                     pass
                 else:
                     # Sort the state dictionary alphabetically by key
                     sorted_entry["state"] = dict(sorted(entry["state"].items()))
-            sorted_entity[entity_type][translation_key] = sorted_entry
+            if sorted_entry:
+                sorted_entity[entity_type][translation_key] = sorted_entry
 
     en["entity"] = sorted_entity
 

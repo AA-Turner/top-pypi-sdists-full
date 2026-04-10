@@ -1835,3 +1835,31 @@ def test_types_csv(path: str) -> None:
     check(read_csv(path, iterator=False))
     "#,
 );
+
+testcase!(
+    test_partial_inference_through_overload,
+    r#"
+from typing import assert_type, overload
+x = []
+y = "y"
+@overload
+def f(x: list[int], y: int): ...
+@overload
+def f(x: list[str], y: str): ...
+def f(x, y): ...
+f(x, y)
+assert_type(x, list[str])
+    "#,
+);
+
+testcase!(
+    test_round_after_narrow,
+    r#"
+def test(value: int | float | None) -> str:
+    if value is None:
+        return ''
+    value = round(value, 4)
+    i = int(value)
+    return str(i)
+    "#,
+);

@@ -26,8 +26,11 @@ from .literals import (
     DimensionType,
     GranularityType,
     GroupDefinitionTypeType,
+    HealthStatusCodeType,
     MatchOptionType,
     MetricNameType,
+    ScheduleStateType,
+    StatusReasonType,
     VisualTypeType,
 )
 
@@ -46,17 +49,23 @@ __all__ = (
     "CostCategoryValuesUnionTypeDef",
     "CreateDashboardRequestTypeDef",
     "CreateDashboardResponseTypeDef",
+    "CreateScheduledReportRequestTypeDef",
+    "CreateScheduledReportResponseTypeDef",
     "DashboardReferenceTypeDef",
     "DateTimeRangeTypeDef",
     "DateTimeValueTypeDef",
     "DeleteDashboardRequestTypeDef",
     "DeleteDashboardResponseTypeDef",
+    "DeleteScheduledReportRequestTypeDef",
+    "DeleteScheduledReportResponseTypeDef",
     "DimensionValuesOutputTypeDef",
     "DimensionValuesTypeDef",
     "DimensionValuesUnionTypeDef",
     "DisplayConfigOutputTypeDef",
     "DisplayConfigTypeDef",
     "DisplayConfigUnionTypeDef",
+    "ExecuteScheduledReportRequestTypeDef",
+    "ExecuteScheduledReportResponseTypeDef",
     "ExpressionOutputTypeDef",
     "ExpressionTypeDef",
     "ExpressionUnionTypeDef",
@@ -64,11 +73,17 @@ __all__ = (
     "GetDashboardResponseTypeDef",
     "GetResourcePolicyRequestTypeDef",
     "GetResourcePolicyResponseTypeDef",
+    "GetScheduledReportRequestTypeDef",
+    "GetScheduledReportResponseTypeDef",
     "GraphDisplayConfigTypeDef",
     "GroupDefinitionTypeDef",
+    "HealthStatusTypeDef",
     "ListDashboardsRequestPaginateTypeDef",
     "ListDashboardsRequestTypeDef",
     "ListDashboardsResponseTypeDef",
+    "ListScheduledReportsRequestPaginateTypeDef",
+    "ListScheduledReportsRequestTypeDef",
+    "ListScheduledReportsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "PaginatorConfigTypeDef",
@@ -89,13 +104,25 @@ __all__ = (
     "SavingsPlansUtilizationQueryOutputTypeDef",
     "SavingsPlansUtilizationQueryTypeDef",
     "SavingsPlansUtilizationQueryUnionTypeDef",
+    "ScheduleConfigOutputTypeDef",
+    "ScheduleConfigTypeDef",
+    "ScheduleConfigUnionTypeDef",
+    "SchedulePeriodOutputTypeDef",
+    "SchedulePeriodTypeDef",
+    "SchedulePeriodUnionTypeDef",
+    "ScheduledReportInputTypeDef",
+    "ScheduledReportSummaryTypeDef",
+    "ScheduledReportTypeDef",
     "TagResourceRequestTypeDef",
     "TagValuesOutputTypeDef",
     "TagValuesTypeDef",
     "TagValuesUnionTypeDef",
+    "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateDashboardRequestTypeDef",
     "UpdateDashboardResponseTypeDef",
+    "UpdateScheduledReportRequestTypeDef",
+    "UpdateScheduledReportResponseTypeDef",
     "WidgetConfigOutputTypeDef",
     "WidgetConfigTypeDef",
     "WidgetConfigUnionTypeDef",
@@ -162,6 +189,10 @@ class DeleteDashboardRequestTypeDef(TypedDict):
     arn: str
 
 
+class DeleteScheduledReportRequestTypeDef(TypedDict):
+    arn: str
+
+
 class DimensionValuesOutputTypeDef(TypedDict):
     key: DimensionType
     values: list[str]
@@ -178,6 +209,18 @@ class GraphDisplayConfigTypeDef(TypedDict):
     visualType: VisualTypeType
 
 
+class ExecuteScheduledReportRequestTypeDef(TypedDict):
+    arn: str
+    clientToken: NotRequired[str]
+    dryRun: NotRequired[bool]
+
+
+class HealthStatusTypeDef(TypedDict):
+    statusCode: HealthStatusCodeType
+    lastRefreshedAt: NotRequired[datetime]
+    statusReasons: NotRequired[list[StatusReasonType]]
+
+
 class TagValuesOutputTypeDef(TypedDict):
     key: NotRequired[str]
     values: NotRequired[list[str]]
@@ -192,6 +235,10 @@ class GetResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str
 
 
+class GetScheduledReportRequestTypeDef(TypedDict):
+    arn: str
+
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -203,8 +250,21 @@ class ListDashboardsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListScheduledReportsRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
+
+
+class SchedulePeriodOutputTypeDef(TypedDict):
+    startTime: NotRequired[datetime]
+    endTime: NotRequired[datetime]
+
+
+TimestampTypeDef = Union[datetime, str]
 
 
 class TagValuesTypeDef(TypedDict):
@@ -231,7 +291,17 @@ class CreateDashboardResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateScheduledReportResponseTypeDef(TypedDict):
+    arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteDashboardResponseTypeDef(TypedDict):
+    arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteScheduledReportResponseTypeDef(TypedDict):
     arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -248,6 +318,11 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 
 
 class UpdateDashboardResponseTypeDef(TypedDict):
+    arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateScheduledReportResponseTypeDef(TypedDict):
     arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -276,6 +351,23 @@ class DisplayConfigTypeDef(TypedDict):
     table: NotRequired[Mapping[str, Any]]
 
 
+class ExecuteScheduledReportResponseTypeDef(TypedDict):
+    healthStatus: HealthStatusTypeDef
+    executionTriggered: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ScheduledReportSummaryTypeDef(TypedDict):
+    arn: str
+    name: str
+    dashboardArn: str
+    scheduleExpression: str
+    state: ScheduleStateType
+    healthStatus: HealthStatusTypeDef
+    scheduleExpressionTimeZone: NotRequired[str]
+    widgetIds: NotRequired[list[str]]
+
+
 ExpressionOutputTypeDef = TypedDict(
     "ExpressionOutputTypeDef",
     {
@@ -293,8 +385,32 @@ class ListDashboardsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListScheduledReportsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ScheduleConfigOutputTypeDef(TypedDict):
+    scheduleExpression: NotRequired[str]
+    scheduleExpressionTimeZone: NotRequired[str]
+    schedulePeriod: NotRequired[SchedulePeriodOutputTypeDef]
+    state: NotRequired[ScheduleStateType]
+
+
+class SchedulePeriodTypeDef(TypedDict):
+    startTime: NotRequired[TimestampTypeDef]
+    endTime: NotRequired[TimestampTypeDef]
+
+
 TagValuesUnionTypeDef = Union[TagValuesTypeDef, TagValuesOutputTypeDef]
 DisplayConfigUnionTypeDef = Union[DisplayConfigTypeDef, DisplayConfigOutputTypeDef]
+
+
+class ListScheduledReportsResponseTypeDef(TypedDict):
+    scheduledReports: list[ScheduledReportSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 CostAndUsageQueryOutputTypeDef = TypedDict(
     "CostAndUsageQueryOutputTypeDef",
     {
@@ -342,6 +458,24 @@ SavingsPlansUtilizationQueryOutputTypeDef = TypedDict(
         "filter": NotRequired[ExpressionOutputTypeDef],
     },
 )
+
+
+class ScheduledReportTypeDef(TypedDict):
+    name: str
+    dashboardArn: str
+    scheduledReportExecutionRoleArn: str
+    scheduleConfig: ScheduleConfigOutputTypeDef
+    arn: NotRequired[str]
+    description: NotRequired[str]
+    widgetIds: NotRequired[list[str]]
+    widgetDateRangeOverride: NotRequired[DateTimeRangeTypeDef]
+    createdAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    lastExecutionAt: NotRequired[datetime]
+    healthStatus: NotRequired[HealthStatusTypeDef]
+
+
+SchedulePeriodUnionTypeDef = Union[SchedulePeriodTypeDef, SchedulePeriodOutputTypeDef]
 ExpressionTypeDef = TypedDict(
     "ExpressionTypeDef",
     {
@@ -363,6 +497,18 @@ class QueryParametersOutputTypeDef(TypedDict):
     reservationUtilization: NotRequired[ReservationUtilizationQueryOutputTypeDef]
 
 
+class GetScheduledReportResponseTypeDef(TypedDict):
+    scheduledReport: ScheduledReportTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ScheduleConfigTypeDef(TypedDict):
+    scheduleExpression: NotRequired[str]
+    scheduleExpressionTimeZone: NotRequired[str]
+    schedulePeriod: NotRequired[SchedulePeriodUnionTypeDef]
+    state: NotRequired[ScheduleStateType]
+
+
 ExpressionUnionTypeDef = Union[ExpressionTypeDef, ExpressionOutputTypeDef]
 
 
@@ -371,6 +517,7 @@ class WidgetConfigOutputTypeDef(TypedDict):
     displayConfig: DisplayConfigOutputTypeDef
 
 
+ScheduleConfigUnionTypeDef = Union[ScheduleConfigTypeDef, ScheduleConfigOutputTypeDef]
 CostAndUsageQueryTypeDef = TypedDict(
     "CostAndUsageQueryTypeDef",
     {
@@ -430,6 +577,31 @@ WidgetOutputTypeDef = TypedDict(
         "horizontalOffset": NotRequired[int],
     },
 )
+
+
+class ScheduledReportInputTypeDef(TypedDict):
+    name: str
+    dashboardArn: str
+    scheduledReportExecutionRoleArn: str
+    scheduleConfig: ScheduleConfigUnionTypeDef
+    description: NotRequired[str]
+    widgetIds: NotRequired[Sequence[str]]
+    widgetDateRangeOverride: NotRequired[DateTimeRangeTypeDef]
+
+
+class UpdateScheduledReportRequestTypeDef(TypedDict):
+    arn: str
+    name: NotRequired[str]
+    description: NotRequired[str]
+    dashboardArn: NotRequired[str]
+    scheduledReportExecutionRoleArn: NotRequired[str]
+    scheduleConfig: NotRequired[ScheduleConfigUnionTypeDef]
+    widgetIds: NotRequired[Sequence[str]]
+    widgetDateRangeOverride: NotRequired[DateTimeRangeTypeDef]
+    clearWidgetIds: NotRequired[bool]
+    clearWidgetDateRangeOverride: NotRequired[bool]
+
+
 CostAndUsageQueryUnionTypeDef = Union[CostAndUsageQueryTypeDef, CostAndUsageQueryOutputTypeDef]
 ReservationCoverageQueryUnionTypeDef = Union[
     ReservationCoverageQueryTypeDef, ReservationCoverageQueryOutputTypeDef
@@ -456,6 +628,12 @@ GetDashboardResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+
+class CreateScheduledReportRequestTypeDef(TypedDict):
+    scheduledReport: ScheduledReportInputTypeDef
+    resourceTags: NotRequired[Sequence[ResourceTagTypeDef]]
+    clientToken: NotRequired[str]
 
 
 class QueryParametersTypeDef(TypedDict):
@@ -499,6 +677,6 @@ class CreateDashboardRequestTypeDef(TypedDict):
 
 class UpdateDashboardRequestTypeDef(TypedDict):
     arn: str
-    name: NotRequired[str]
+    name: str
     description: NotRequired[str]
     widgets: NotRequired[Sequence[WidgetUnionTypeDef]]

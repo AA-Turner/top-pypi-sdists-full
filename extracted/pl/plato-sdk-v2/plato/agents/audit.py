@@ -13,7 +13,7 @@ from opentelemetry import trace
 from plato.agents.mounts import AgentWorkspaceMount, AuditedMount
 from plato.chronos.models import AuditEventInput, Operation
 from plato.runtimes.base import RuntimeInfo
-from plato.transports import NFSTransport, SSHFSTransport
+from plato.transports import GitTransport, NFSTransport, SSHFSTransport
 from plato.utils.audit import (
     AuditScopeContext,
     audit_ignore_filter,
@@ -54,8 +54,12 @@ def prepare_audited_mounts(
         run_mount = mount
         transport = mount.transport
 
-        if mount.tracked and isinstance(transport, (NFSTransport, SSHFSTransport)):
-            run_mount = mount.clone_for_run()
+        if mount.tracked and isinstance(transport, (NFSTransport, SSHFSTransport, GitTransport)):
+            # Mounts are already cloned by the caller (AgentExecutionManager,
+            # _run_with_warm_pool, or _run_impl) before reaching here, so we
+            # just attach audit metadata without cloning again.  A second
+            # clone_for_run() would create a new transport instance, breaking
+            # the published_ref reference chain for git transports.
             audit_run_id = new_audit_run_id()
             audit_key = build_audit_key(audit_run_id)
             run_mount.audit_run_id = audit_run_id

@@ -584,6 +584,7 @@ class LazyFramePlaceholder:
         output_uri_prefix: str,
         schema: pyarrow.Schema,
         dialect: str = "bigquery",
+        external_location_prefix: str | None = None,
     ) -> "LazyFramePlaceholder":
         """Create a DataFrame by executing a SQL SELECT and scanning the resulting parquet files.
 
@@ -594,11 +595,17 @@ class LazyFramePlaceholder:
         pool
             A connection pool for the data warehouse.
         output_uri_prefix
-            URI prefix where the exported parquet output will be written.
+            URI prefix where the exported parquet output will be written
+            (e.g., ``gs://bucket/path/`` or ``s3://bucket/prefix/``). Alternatively, can be something that
+            the SQL operation can unload to, such as a stage in Snowflake defined via CREATE STAGE.
         schema
             Arrow schema of the parquet files produced by the export.
         dialect
             SQL dialect for query rewriting (default ``"bigquery"``).
+        external_location_prefix
+            If `output_uri_prefix` is not an external location (ex: set to a Snowflake stage), this should specify the
+            URI prefix where the exported parquet output will be written (e.g., ``gs://bucket/path/`` or
+            ``s3://bucket/prefix/``). If None, will assume that output_uri_prefix is the URI prefix. Defaults to None.
 
         Returns
         -------
@@ -612,6 +619,7 @@ class LazyFramePlaceholder:
             output_uri_prefix=output_uri_prefix,
             schema=schema,
             dialect=dialect,
+            external_location_prefix=external_location_prefix,
         )
 
     @classmethod

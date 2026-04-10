@@ -52,8 +52,8 @@ class OpenStackLoadBalancer:
         tenant_name (Union[Unset, str]):
         tenant_uuid (Union[Unset, UUID]):
         vip_address (Union[Unset, str]): An IPv4 or IPv6 address.
-        vip_subnet_id (Union[Unset, str]):
-        vip_port_id (Union[Unset, str]):
+        vip_subnet (Union[None, Unset, str]):
+        vip_port (Union[None, Unset, str]):
         attached_floating_ip (Union[None, Unset, str]): Floating IP attached to the VIP port
         provider (Union[Unset, str]):
         provisioning_status (Union[Unset, str]):
@@ -101,8 +101,8 @@ class OpenStackLoadBalancer:
     tenant_name: Union[Unset, str] = UNSET
     tenant_uuid: Union[Unset, UUID] = UNSET
     vip_address: Union[Unset, str] = UNSET
-    vip_subnet_id: Union[Unset, str] = UNSET
-    vip_port_id: Union[Unset, str] = UNSET
+    vip_subnet: Union[None, Unset, str] = UNSET
+    vip_port: Union[None, Unset, str] = UNSET
     attached_floating_ip: Union[None, Unset, str] = UNSET
     provider: Union[Unset, str] = UNSET
     provisioning_status: Union[Unset, str] = UNSET
@@ -213,9 +213,17 @@ class OpenStackLoadBalancer:
         else:
             vip_address = self.vip_address
 
-        vip_subnet_id = self.vip_subnet_id
+        vip_subnet: Union[None, Unset, str]
+        if isinstance(self.vip_subnet, Unset):
+            vip_subnet = UNSET
+        else:
+            vip_subnet = self.vip_subnet
 
-        vip_port_id = self.vip_port_id
+        vip_port: Union[None, Unset, str]
+        if isinstance(self.vip_port, Unset):
+            vip_port = UNSET
+        else:
+            vip_port = self.vip_port
 
         attached_floating_ip: Union[None, Unset, str]
         if isinstance(self.attached_floating_ip, Unset):
@@ -360,10 +368,10 @@ class OpenStackLoadBalancer:
             field_dict["tenant_uuid"] = tenant_uuid
         if vip_address is not UNSET:
             field_dict["vip_address"] = vip_address
-        if vip_subnet_id is not UNSET:
-            field_dict["vip_subnet_id"] = vip_subnet_id
-        if vip_port_id is not UNSET:
-            field_dict["vip_port_id"] = vip_port_id
+        if vip_subnet is not UNSET:
+            field_dict["vip_subnet"] = vip_subnet
+        if vip_port is not UNSET:
+            field_dict["vip_port"] = vip_port
         if attached_floating_ip is not UNSET:
             field_dict["attached_floating_ip"] = attached_floating_ip
         if provider is not UNSET:
@@ -521,9 +529,23 @@ class OpenStackLoadBalancer:
 
         vip_address = _parse_vip_address(d.pop("vip_address", UNSET))
 
-        vip_subnet_id = d.pop("vip_subnet_id", UNSET)
+        def _parse_vip_subnet(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
 
-        vip_port_id = d.pop("vip_port_id", UNSET)
+        vip_subnet = _parse_vip_subnet(d.pop("vip_subnet", UNSET))
+
+        def _parse_vip_port(data: object) -> Union[None, Unset, str]:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(Union[None, Unset, str], data)
+
+        vip_port = _parse_vip_port(d.pop("vip_port", UNSET))
 
         def _parse_attached_floating_ip(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -683,8 +705,8 @@ class OpenStackLoadBalancer:
             tenant_name=tenant_name,
             tenant_uuid=tenant_uuid,
             vip_address=vip_address,
-            vip_subnet_id=vip_subnet_id,
-            vip_port_id=vip_port_id,
+            vip_subnet=vip_subnet,
+            vip_port=vip_port,
             attached_floating_ip=attached_floating_ip,
             provider=provider,
             provisioning_status=provisioning_status,

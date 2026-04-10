@@ -16,14 +16,37 @@ logger = logging.getLogger(__name__)
 
 try:
     import litellm
+    from litellm.exceptions import APIConnectionError as LiteLLMConnectionError
     from litellm.exceptions import AuthenticationError as LiteLLMAuthError
+    from litellm.exceptions import BadGatewayError as LiteLLMBadGatewayError
     from litellm.exceptions import BadRequestError as LiteLLMBadRequestError
     from litellm.exceptions import ContextWindowExceededError as LiteLLMContextError
+    from litellm.exceptions import InternalServerError as LiteLLMInternalServerError
     from litellm.exceptions import RateLimitError as LiteLLMRateLimitError
+    from litellm.exceptions import ServiceUnavailableError as LiteLLMServiceUnavailableError
+    from litellm.exceptions import Timeout as LiteLLMTimeoutError
 
     HAS_LITELLM = True
 except ImportError:
     HAS_LITELLM = False
+
+
+# Transient exception classes that should ride the retry path (#1343).
+# Must be declared AFTER the imports above — any bump to the typed
+# catch-all (`except Exception`) that runs after this tuple will
+# otherwise silently regress retries. Mirrors the native openai path in
+# ai_service.py:658 (`APITimeoutError, APIConnectionError`).
+_LITELLM_TRANSIENT: tuple[type[BaseException], ...] = (
+    (
+        LiteLLMConnectionError,
+        LiteLLMTimeoutError,
+        LiteLLMServiceUnavailableError,
+        LiteLLMInternalServerError,
+        LiteLLMBadGatewayError,
+    )
+    if HAS_LITELLM
+    else ()
+)
 
 
 class LiteLLMService:
@@ -136,7 +159,6 @@ class LiteLLMService:
         full_messages = [system_msg] + messages
 
         max_attempts = max(1, self.config.retry_max_attempts + 1)
-        last_error: Exception | None = None
 
         for attempt in range(max_attempts):
             if cancel_event and cancel_event.is_set():
@@ -251,6 +273,8 @@ class LiteLLMService:
                             "message": "Authentication failed. Check your API key.",
                             "code": "auth_failed",
                             "retryable": False,
+                            "provider": "litellm",
+                            "model": self.config.model,
                         },
                     }
                 return
@@ -262,6 +286,8 @@ class LiteLLMService:
                         "message": "Conversation too long for model context window.",
                         "code": "context_length_exceeded",
                         "retryable": False,
+                        "provider": "litellm",
+                        "model": self.config.model,
                     },
                 }
                 return
@@ -275,6 +301,8 @@ class LiteLLMService:
                         "message": "Rate limited by API provider",
                         "code": "rate_limit",
                         "retryable": True,
+                        "provider": "litellm",
+                        "model": self.config.model,
                     },
                 }
                 return
@@ -290,6 +318,8 @@ class LiteLLMService:
                             ),
                             "code": "too_many_tools",
                             "retryable": False,
+                            "provider": "litellm",
+                            "model": self.config.model,
                         },
                     }
                 else:
@@ -301,20 +331,25 @@ class LiteLLMService:
                             "message": user_msg,
                             "code": "bad_request",
                             "retryable": False,
+                            "provider": "litellm",
+                            "model": self.config.model,
                         },
                     }
                 return
 
-            except Exception as e:
-                last_error = e
-                # Transient errors — retry
+            except _LITELLM_TRANSIENT as e:
+                # Explicitly transient: connection, timeout, service
+                # unavailable, internal server, bad gateway. These ride the
+                # retry path (#1343). Mirrors the native openai path in
+                # ai_service.py:658 (APITimeoutError, APIConnectionError).
                 if attempt < max_attempts - 1:
                     delay = self.config.retry_backoff_base * (2**attempt)
                     logger.warning(
-                        "Transient error (attempt %d/%d): %s. Retrying in %.1fs...",
+                        "Transient %s (attempt %d/%d): %s. Retrying in %.1fs...",
+                        type(e).__name__,
                         attempt + 1,
                         max_attempts,
-                        type(e).__name__,
+                        e,
                         delay,
                     )
                     yield {
@@ -324,6 +359,7 @@ class LiteLLMService:
                             "max_attempts": max_attempts,
                             "delay": delay,
                             "reason": "transient_error",
+                            "exception_type": type(e).__name__,
                         },
                     }
                     if cancel_event:
@@ -335,17 +371,45 @@ class LiteLLMService:
                     else:
                         await asyncio.sleep(delay)
                     continue
+                # Retries exhausted on a transient error: structured error event
+                logger.error(
+                    "Transient %s exhausted %d attempts: %s",
+                    type(e).__name__,
+                    max_attempts,
+                    e,
+                )
+                yield {
+                    "event": "error",
+                    "data": {
+                        "message": (
+                            f"Transient {type(e).__name__} after {max_attempts} attempts: "
+                            + sanitize_provider_error(str(e))
+                        ),
+                        "code": "timeout" if isinstance(e, LiteLLMTimeoutError) else "connection_error",
+                        "retryable": True,
+                        "provider": "litellm",
+                        "model": self.config.model,
+                    },
+                }
+                return
 
-        # All retries exhausted
-        logger.error("All %d attempts failed: %s", max_attempts, type(last_error).__name__)
-        yield {
-            "event": "error",
-            "data": {
-                "message": f"API request failed after {max_attempts} attempts",
-                "code": "timeout",
-                "retryable": True,
-            },
-        }
+            except Exception as e:
+                # Unknown/unmapped error shape. Tighten to fail-fast (not
+                # retry) so bad-request-style failures don't burn retry
+                # budget. Transient classes are caught by the typed
+                # handler above (#1343).
+                logger.exception("LiteLLM unexpected error: %s", type(e).__name__)
+                yield {
+                    "event": "error",
+                    "data": {
+                        "message": sanitize_provider_error(str(e)),
+                        "code": "provider_error",
+                        "retryable": False,
+                        "provider": "litellm",
+                        "model": self.config.model,
+                    },
+                }
+                return
 
     async def generate_title(self, user_message: str) -> str:
         try:

@@ -31,6 +31,7 @@ def _get_kwargs(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     year: Union[Unset, int] = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
@@ -84,6 +85,8 @@ def _get_kwargs(
     params["query"] = query
 
     params["registration_code"] = registration_code
+
+    params["slug"] = slug
 
     params["year"] = year
 
@@ -147,6 +150,7 @@ def sync_detailed(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     year: Union[Unset, int] = UNSET,
 ) -> Response[int]:
     """Get number of items in the collection matching the request parameters.
@@ -172,6 +176,7 @@ def sync_detailed(
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
+        slug (Union[Unset, str]):
         year (Union[Unset, int]):
 
     Raises:
@@ -203,6 +208,7 @@ def sync_detailed(
         page_size=page_size,
         query=query,
         registration_code=registration_code,
+        slug=slug,
         year=year,
     )
 
@@ -236,6 +242,7 @@ def sync(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     year: Union[Unset, int] = UNSET,
 ) -> int:
     """Get number of items in the collection matching the request parameters.
@@ -261,6 +268,7 @@ def sync(
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
+        slug (Union[Unset, str]):
         year (Union[Unset, int]):
 
     Raises:
@@ -293,6 +301,7 @@ def sync(
         page_size=page_size,
         query=query,
         registration_code=registration_code,
+        slug=slug,
         year=year,
     ).parsed
 
@@ -320,6 +329,7 @@ async def asyncio_detailed(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     year: Union[Unset, int] = UNSET,
 ) -> Response[int]:
     """Get number of items in the collection matching the request parameters.
@@ -345,6 +355,7 @@ async def asyncio_detailed(
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
+        slug (Union[Unset, str]):
         year (Union[Unset, int]):
 
     Raises:
@@ -376,6 +387,7 @@ async def asyncio_detailed(
         page_size=page_size,
         query=query,
         registration_code=registration_code,
+        slug=slug,
         year=year,
     )
 
@@ -407,6 +419,7 @@ async def asyncio(
     page_size: Union[Unset, int] = UNSET,
     query: Union[Unset, str] = UNSET,
     registration_code: Union[Unset, str] = UNSET,
+    slug: Union[Unset, str] = UNSET,
     year: Union[Unset, int] = UNSET,
 ) -> int:
     """Get number of items in the collection matching the request parameters.
@@ -432,6 +445,7 @@ async def asyncio(
         page_size (Union[Unset, int]):
         query (Union[Unset, str]):
         registration_code (Union[Unset, str]):
+        slug (Union[Unset, str]):
         year (Union[Unset, int]):
 
     Raises:
@@ -465,6 +479,7 @@ async def asyncio(
             page_size=page_size,
             query=query,
             registration_code=registration_code,
+            slug=slug,
             year=year,
         )
     ).parsed

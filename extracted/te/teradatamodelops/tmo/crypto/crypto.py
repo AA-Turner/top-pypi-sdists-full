@@ -86,7 +86,7 @@ def aes_gcm_decrypt(
     :return: decrypted text
     """
     data = base64.urlsafe_b64decode(message.encode())
-    (iv, salt, ciphertext, auth_tag) = (
+    iv, salt, ciphertext, auth_tag = (
         data[: conf["bytes_iv_length"]],
         data[
             conf["bytes_iv_length"] : conf["bytes_iv_length"]

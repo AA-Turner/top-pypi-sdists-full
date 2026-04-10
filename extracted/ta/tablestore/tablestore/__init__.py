@@ -133,6 +133,7 @@ __all__ = [
     'GroupByFilter',
     'GroupByGeoDistance',
     'GroupByHistogram',
+    'GroupByComposite',
     'GroupByResult',
     'BaseGroupByResultItem',
     'GroupByFieldResultItem',
@@ -140,6 +141,15 @@ __all__ = [
     'GroupByFilterResultItem',
     'GroupByGeoDistanceResultItem',
     'GroupByHistogramResultItem',
+    'GroupByCompositeResultItem',
+    'DateTimeValue',
+    'DateTimeUnit',
+    'GeoHashPrecision',
+    'GroupByDateHistogram',
+    'GroupByDateHistogramResultItem',
+    'GroupByGeoGrid',
+    'GeoGrid',
+    'GroupByGeoGridResultItem',
 ]
 
 

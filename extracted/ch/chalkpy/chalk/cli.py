@@ -44,9 +44,19 @@ def get_list_results(directory: Optional[str], file_allowlist: Optional[List[str
         )
 
 
-def get_artifacts_export_safe(directory: Optional[str], file_allowlist: Optional[List[str]]) -> bytes:
+def get_artifacts_export_safe(
+    directory: Optional[str],
+    file_allowlist: Optional[List[str]],
+    *,
+    include_captured_global_values: bool = False,
+) -> bytes:
     try:
-        return import_files_then_export_from_registry(directory, file_allowlist).SerializeToString()
+        export = import_files_then_export_from_registry(
+            directory,
+            file_allowlist,
+            include_captured_global_values=include_captured_global_values,
+        )
+        return export.SerializeToString()
     except Exception:
         ex_type, ex_value, ex_traceback = sys.exc_info()
         assert ex_type is not None
@@ -63,7 +73,14 @@ def get_artifacts_export_safe(directory: Optional[str], file_allowlist: Optional
         ).SerializeToString()
 
 
-def dump_cmd(filename: str, directory: Optional[str], filter_file: Optional[str], use_proto: bool = False):
+def dump_cmd(
+    filename: str,
+    directory: Optional[str],
+    filter_file: Optional[str],
+    use_proto: bool = False,
+    *,
+    include_captured_global_values: bool = False,
+):
     file_allowlist = None
     if filter_file is not None and os.path.exists(filter_file):
         with open(filter_file) as f:
@@ -75,6 +92,7 @@ def dump_cmd(filename: str, directory: Optional[str], filter_file: Optional[str]
                 get_artifacts_export_safe(
                     directory=directory,
                     file_allowlist=file_allowlist,
+                    include_captured_global_values=include_captured_global_values,
                 )
             )
     else:
@@ -105,8 +123,7 @@ def cli(args_override: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         prog="Chalk Python CLI",
         description=(
-            "You typically do not need to invoke this utility directly. "
-            "Prefer https://github.com/chalk-ai/cli instead."
+            "You typically do not need to invoke this utility directly. Prefer https://github.com/chalk-ai/cli instead."
         ),
     )
     parser.add_argument("--log-level", help="Print debug info", nargs="?")
@@ -127,9 +144,14 @@ def cli(args_override: Optional[List[str]] = None):
         help="If set, will output the diagnostics in the format expected by the LSP instead of eagerly raising",
         action=argparse.BooleanOptionalAction,
     )
-
     export_parser.add_argument("--proto", action="store_true")
     export_parser.set_defaults(proto=False)
+    export_parser.add_argument(
+        "--include-captured-global-values",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Populate Export.captured_global_variables when writing a proto export",
+    )
 
     # STUBGEN
     stubgen_parser = subparsers.add_parser("stubgen", help="Generate type stubs for feature set classes")
@@ -150,7 +172,13 @@ def cli(args_override: Optional[List[str]] = None):
 
     if args.command == "export":
         LSPErrorBuilder.lsp = args.lsp
-        dump_cmd(filename=args.filename, directory=args.directory, filter_file=args.file_filter, use_proto=args.proto)
+        dump_cmd(
+            filename=args.filename,
+            directory=args.directory,
+            filter_file=args.file_filter,
+            use_proto=args.proto,
+            include_captured_global_values=args.include_captured_global_values,
+        )
 
     elif args.command == "config":
         config_cmd()

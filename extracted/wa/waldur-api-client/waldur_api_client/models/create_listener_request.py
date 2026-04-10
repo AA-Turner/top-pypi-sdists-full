@@ -15,27 +15,27 @@ class CreateListenerRequest:
     """
     Attributes:
         load_balancer (str): Load balancer this listener belongs to
-        name (str):
         protocol (LoadBalancerProtocolEnum):
         protocol_port (int): Port on which the listener listens
+        name (Union[Unset, str]):
         default_pool (Union[None, Unset, str]):
     """
 
     load_balancer: str
-    name: str
     protocol: LoadBalancerProtocolEnum
     protocol_port: int
+    name: Union[Unset, str] = UNSET
     default_pool: Union[None, Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         load_balancer = self.load_balancer
 
-        name = self.name
-
         protocol = self.protocol.value
 
         protocol_port = self.protocol_port
+
+        name = self.name
 
         default_pool: Union[None, Unset, str]
         if isinstance(self.default_pool, Unset):
@@ -48,11 +48,12 @@ class CreateListenerRequest:
         field_dict.update(
             {
                 "load_balancer": load_balancer,
-                "name": name,
                 "protocol": protocol,
                 "protocol_port": protocol_port,
             }
         )
+        if name is not UNSET:
+            field_dict["name"] = name
         if default_pool is not UNSET:
             field_dict["default_pool"] = default_pool
 
@@ -63,11 +64,11 @@ class CreateListenerRequest:
         d = dict(src_dict)
         load_balancer = d.pop("load_balancer")
 
-        name = d.pop("name")
-
         protocol = LoadBalancerProtocolEnum(d.pop("protocol"))
 
         protocol_port = d.pop("protocol_port")
+
+        name = d.pop("name", UNSET)
 
         def _parse_default_pool(data: object) -> Union[None, Unset, str]:
             if data is None:
@@ -80,9 +81,9 @@ class CreateListenerRequest:
 
         create_listener_request = cls(
             load_balancer=load_balancer,
-            name=name,
             protocol=protocol,
             protocol_port=protocol_port,
+            name=name,
             default_pool=default_pool,
         )
 

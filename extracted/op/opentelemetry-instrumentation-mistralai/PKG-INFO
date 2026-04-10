@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-mistralai
-Version: 0.57.0
+Version: 0.58.0
 Summary: OpenTelemetry Mistral AI instrumentation
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-mistralai
 Author-email: Gal Kleinman <gal@traceloop.com>, Nir Gazit <nir@traceloop.com>

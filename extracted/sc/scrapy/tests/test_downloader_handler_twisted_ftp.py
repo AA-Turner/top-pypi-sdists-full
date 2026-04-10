@@ -11,7 +11,10 @@ import pytest
 from pytest_twisted import async_yield_fixture
 from twisted.cred import checkers, credentials, portal
 
+from scrapy import Spider
 from scrapy.core.downloader.handlers.ftp import FTPDownloadHandler
+from scrapy.crawler import Crawler
+from scrapy.exceptions import NotConfigured
 from scrapy.http import HtmlResponse, Request, Response
 from scrapy.http.response.text import TextResponse
 from scrapy.utils.defer import deferred_f_from_coro_f
@@ -23,6 +26,9 @@ if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Generator
 
     from twisted.protocols.ftp import FTPFactory
+
+
+pytestmark = pytest.mark.requires_reactor  # FTPDownloadHandler requires a reactor
 
 
 class TestFTPBase(ABC):
@@ -44,7 +50,7 @@ class TestFTPBase(ABC):
     def _get_factory(self, tmp_path: Path) -> FTPFactory:
         raise NotImplementedError
 
-    @async_yield_fixture
+    @async_yield_fixture  # type: ignore[untyped-decorator]
     async def server_url(self, tmp_path: Path) -> AsyncGenerator[str]:
         from twisted.internet import reactor
 
@@ -197,3 +203,9 @@ class TestAnonymousFTP(TestFTPBase):
         p = portal.Portal(realm)
         p.registerChecker(checkers.AllowAnonymousAccess(), credentials.IAnonymous)
         return FTPFactory(portal=p, userAnonymous=self.username)
+
+
+def test_not_configured_without_reactor() -> None:
+    crawler = Crawler(Spider, {"TWISTED_REACTOR_ENABLED": False})
+    with pytest.raises(NotConfigured):
+        FTPDownloadHandler.from_crawler(crawler)

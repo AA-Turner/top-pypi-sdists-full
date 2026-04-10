@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clvm_rs
-Version: 0.17.4
+Version: 0.17.5
 Summary: Implementation of `clvm` for Chia Network's cryptocurrency
 Home-Page: https://github.com/Chia-Network/clvm_rs/
 Author: Richard Kiss <him@richardkiss.com>
@@ -37,13 +37,6 @@ cargo test
 The fuzzing infrastructure for `clvm_rs` uses [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz).
 
 Documentation for setting up fuzzing in rust can be found [here](https://rust-fuzz.github.io/book/cargo-fuzz.html).
-
-To generate an initial corpus (for the `run_program` fuzzer), run:
-
-```
-cd tools
-cargo run generate-fuzz-corpus
-```
 
 To get started, run:
 

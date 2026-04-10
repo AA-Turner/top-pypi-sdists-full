@@ -20,10 +20,13 @@ from scrapy.utils.url import strip_url
 
 if TYPE_CHECKING:
     # typing.Self requires Python 3.11
-    from typing_extensions import Self
+    from typing_extensions import Self, TypedDict, Unpack
 
     from scrapy.crawler import Crawler
     from scrapy.settings import BaseSettings
+
+    class _PolicyKwargs(TypedDict, total=False):
+        resp_or_url: Response | str
 
 
 LOCAL_SCHEMES: tuple[str, ...] = (
@@ -95,12 +98,12 @@ class ReferrerPolicy(ABC):
     def potentially_trustworthy(self, url: str) -> bool:
         # Note: this does not follow https://w3c.github.io/webappsec-secure-contexts/#is-url-trustworthy
         parsed_url = urlparse(url)
-        if parsed_url.scheme in ("data",):
+        if parsed_url.scheme == "data":
             return False
         return self.tls_protected(url)
 
     def tls_protected(self, url: str) -> bool:
-        return urlparse(url).scheme in ("https", "ftps")
+        return urlparse(url).scheme in {"https", "ftps"}
 
 
 class NoReferrerPolicy(ReferrerPolicy):
@@ -328,7 +331,7 @@ class RefererMiddleware(BaseSpiderMiddleware):
         self,
         response: Response | str | None = None,
         request: Request | None = None,
-        **kwargs,
+        **kwargs: Unpack[_PolicyKwargs],
     ) -> ReferrerPolicy:
         """Return the referrer policy to use for *request* based on *request*
         meta, *response* and settings.
@@ -421,7 +424,7 @@ class RefererMiddleware(BaseSpiderMiddleware):
             msg += " (import paths from the response Referrer-Policy header are not allowed)"
         if not warning_only:
             raise RuntimeError(msg)
-        warnings.warn(msg, RuntimeWarning)
+        warnings.warn(msg, RuntimeWarning, stacklevel=2)
         return None
 
     def get_processed_request(

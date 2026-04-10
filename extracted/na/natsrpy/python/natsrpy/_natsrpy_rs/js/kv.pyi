@@ -90,13 +90,6 @@ class KVEntryIterator:
 
     def __aiter__(self) -> Self: ...
     def __anext__(self) -> Future[KVEntry]: ...
-    def next(self, timeout: float | timedelta | None = None) -> Future[KVEntry]:
-        """Receive the next key-value entry.
-
-        :param timeout: maximum time to wait in seconds or as a timedelta,
-            defaults to None (wait indefinitely).
-        :return: the next entry.
-        """
 
 @final
 class KeysIterator:
@@ -104,13 +97,6 @@ class KeysIterator:
 
     def __aiter__(self) -> Self: ...
     def __anext__(self) -> Future[str]: ...
-    def next(self, timeout: float | timedelta | None = None) -> Future[str]:
-        """Receive the next key.
-
-        :param timeout: maximum time to wait in seconds or as a timedelta,
-            defaults to None (wait indefinitely).
-        :return: the next key name.
-        """
 
 @final
 class KVConfig:
@@ -136,10 +122,10 @@ class KVConfig:
     """
 
     bucket: str
-    description: str
+    description: str | None
     max_value_size: int | None
     history: int | None
-    max_age: float | None
+    max_age: timedelta | None
     max_bytes: int | None
     storage: StorageType | None
     num_replicas: int | None
@@ -149,7 +135,7 @@ class KVConfig:
     mirror_direct: bool | None
     compression: bool | None
     placement: Placement | None
-    limit_markers: float | None
+    limit_markers: timedelta | None
 
     def __new__(
         cls,

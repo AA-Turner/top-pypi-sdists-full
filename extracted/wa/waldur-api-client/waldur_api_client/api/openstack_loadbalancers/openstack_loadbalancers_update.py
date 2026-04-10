@@ -6,15 +6,15 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...models.open_stack_load_balancer import OpenStackLoadBalancer
-from ...models.open_stack_load_balancer_request import OpenStackLoadBalancerRequest
+from ...models.update_load_balancer import UpdateLoadBalancer
+from ...models.update_load_balancer_request import UpdateLoadBalancerRequest
 from ...types import Response
 
 
 def _get_kwargs(
     uuid: UUID,
     *,
-    body: OpenStackLoadBalancerRequest,
+    body: UpdateLoadBalancerRequest,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -31,11 +31,11 @@ def _get_kwargs(
     return _kwargs
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> OpenStackLoadBalancer:
+def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> UpdateLoadBalancer:
     if response.status_code == 404:
         raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
     if response.status_code == 200:
-        response_200 = OpenStackLoadBalancer.from_dict(response.json())
+        response_200 = UpdateLoadBalancer.from_dict(response.json())
 
         return response_200
     raise errors.UnexpectedStatus(response.status_code, response.content, response.url)
@@ -43,7 +43,7 @@ def _parse_response(*, client: Union[AuthenticatedClient, Client], response: htt
 
 def _build_response(
     *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[OpenStackLoadBalancer]:
+) -> Response[UpdateLoadBalancer]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -56,22 +56,22 @@ def sync_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: OpenStackLoadBalancerRequest,
-) -> Response[OpenStackLoadBalancer]:
+    body: UpdateLoadBalancerRequest,
+) -> Response[UpdateLoadBalancer]:
     """Update load balancer
 
      Update an existing load balancer.
 
     Args:
         uuid (UUID):
-        body (OpenStackLoadBalancerRequest):
+        body (UpdateLoadBalancerRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[OpenStackLoadBalancer]
+        Response[UpdateLoadBalancer]
     """
 
     kwargs = _get_kwargs(
@@ -90,22 +90,22 @@ def sync(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: OpenStackLoadBalancerRequest,
-) -> OpenStackLoadBalancer:
+    body: UpdateLoadBalancerRequest,
+) -> UpdateLoadBalancer:
     """Update load balancer
 
      Update an existing load balancer.
 
     Args:
         uuid (UUID):
-        body (OpenStackLoadBalancerRequest):
+        body (UpdateLoadBalancerRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        OpenStackLoadBalancer
+        UpdateLoadBalancer
     """
 
     return sync_detailed(
@@ -119,22 +119,22 @@ async def asyncio_detailed(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: OpenStackLoadBalancerRequest,
-) -> Response[OpenStackLoadBalancer]:
+    body: UpdateLoadBalancerRequest,
+) -> Response[UpdateLoadBalancer]:
     """Update load balancer
 
      Update an existing load balancer.
 
     Args:
         uuid (UUID):
-        body (OpenStackLoadBalancerRequest):
+        body (UpdateLoadBalancerRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[OpenStackLoadBalancer]
+        Response[UpdateLoadBalancer]
     """
 
     kwargs = _get_kwargs(
@@ -151,22 +151,22 @@ async def asyncio(
     uuid: UUID,
     *,
     client: AuthenticatedClient,
-    body: OpenStackLoadBalancerRequest,
-) -> OpenStackLoadBalancer:
+    body: UpdateLoadBalancerRequest,
+) -> UpdateLoadBalancer:
     """Update load balancer
 
      Update an existing load balancer.
 
     Args:
         uuid (UUID):
-        body (OpenStackLoadBalancerRequest):
+        body (UpdateLoadBalancerRequest):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        OpenStackLoadBalancer
+        UpdateLoadBalancer
     """
 
     return (

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from pydantic_ai import RunContext
+from pydantic_ai.messages import InstructionPart
 from pydantic_ai.toolsets import FunctionToolset
 from pydantic_ai_backends import BackendProtocol
 
@@ -190,7 +191,7 @@ class ContextToolset(FunctionToolset[Any]):
         self._is_subagent = is_subagent
         self._max_chars = max_chars
 
-    async def get_instructions(self, ctx: RunContext[Any]) -> list[str] | None:
+    async def get_instructions(self, ctx: RunContext[Any]) -> list[InstructionPart] | None:
         """Load and format context files for system prompt injection.
 
         Args:
@@ -216,4 +217,4 @@ class ContextToolset(FunctionToolset[Any]):
             is_subagent=self._is_subagent,
             max_chars=self._max_chars,
         )
-        return [result] if result else None
+        return [InstructionPart(content=result, dynamic=True)] if result else None

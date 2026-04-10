@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -603,7 +603,7 @@ def test_seq_eds_files(tmp_path):
     with zipfile.ZipFile(test_file, "r") as zipped:
         zipped.extractall(tmp_path)
 
-    # test reading sequential acuired EDS spectrum
+    # test reading sequential acquired EDS spectrum
     s = hs.load(tmp_path / "1" / "1.ASW", reader="JEOL")
     # check if three subfiles are in file (img, eds, eds)
     assert len(s) == 3

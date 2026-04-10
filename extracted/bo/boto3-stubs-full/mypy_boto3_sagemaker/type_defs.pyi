@@ -12886,10 +12886,10 @@ class ModelPackageValidationSpecificationTypeDef(TypedDict):
 class ClusterInstanceGroupSpecificationTypeDef(TypedDict):
     InstanceCount: int
     InstanceGroupName: str
-    InstanceType: ClusterInstanceTypeType
     LifeCycleConfig: ClusterLifeCycleConfigTypeDef
     ExecutionRole: str
     MinInstanceCount: NotRequired[int]
+    InstanceType: NotRequired[ClusterInstanceTypeType]
     ThreadsPerCore: NotRequired[int]
     InstanceStorageConfigs: NotRequired[Sequence[ClusterInstanceStorageConfigTypeDef]]
     OnStartDeepHealthChecks: NotRequired[Sequence[DeepHealthCheckTypeType]]

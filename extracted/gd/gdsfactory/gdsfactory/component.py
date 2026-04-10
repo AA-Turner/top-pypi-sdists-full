@@ -33,6 +33,7 @@ from kfactory.utils.violations import (
     fix_spacing_tiled,
     fix_width_minkowski_tiled,
 )
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from pydantic import Field
 from trimesh.scene.scene import Scene
@@ -203,7 +204,7 @@ class ComponentBase(ProtoKCell[float, BaseKCell], ABC):
         if self.locked:
             raise LockedError(self)
 
-        from gdsfactory.pdk import get_cross_section, get_layer
+        from gdsfactory.pdk import get_active_pdk, get_cross_section, get_layer
 
         # Resolve initial values and determine if we need to override the transformation
         override_transformation = False
@@ -215,10 +216,16 @@ class ComponentBase(ProtoKCell[float, BaseKCell], ABC):
             layer = layer if layer is not None else port.layer
             port_type = port_type if port_type is not None else port.port_type
             name = name if name is not None else port.name
+            _xs = port.info.get("cross_section")
+            _xs_is_registered = (
+                isinstance(_xs, str) and _xs in get_active_pdk().cross_sections
+            )
             cross_section = (
                 cross_section
                 if cross_section is not None
-                else getattr(port, "cross_section", port.info.get("cross_section"))
+                else _xs
+                if _xs_is_registered
+                else getattr(port, "cross_section", _xs)
             )
 
         # Apply CrossSection overrides
@@ -416,7 +423,7 @@ class ComponentBase(ProtoKCell[float, BaseKCell], ABC):
             gdsdir: directory for the GDS file. Defaults to /tmp/randomFile/gdsfactory.
             save_options: klayout save options.
             with_metadata: if True, writes metadata (ports, settings) to the GDS file.
-            exlude_layers: list of layers to exclude from the GDS file.
+            exclude_layers: list of layers to exclude from the GDS file.
             no_empty_cells: if True, does not save empty cells.
         """
         from gdsfactory.pdk import get_layer
@@ -712,7 +719,6 @@ class Component(ComponentBase, kf.DKCell):
             column_pitch: column pitch.
             row_pitch: row pitch.
         """
-
         if isinstance(component, ComponentAllAngle):
             raise ValueError(
                 f"Use Component.add_ref_off_grid() for all angle {component.name!r}"
@@ -1199,6 +1205,7 @@ class Component(ComponentBase, kf.DKCell):
         show_ruler: bool = True,
         pixel_buffer_options: PixelBufferOptions | None = None,
         return_fig: Literal[True] = True,
+        ax: Axes | None = None,
     ) -> Figure: ...
 
     @overload
@@ -1211,6 +1218,7 @@ class Component(ComponentBase, kf.DKCell):
         show_ruler: bool = True,
         pixel_buffer_options: PixelBufferOptions | None = None,
         return_fig: Literal[False] = False,
+        ax: Axes | None = None,
     ) -> None: ...
 
     def plot(
@@ -1222,6 +1230,7 @@ class Component(ComponentBase, kf.DKCell):
         show_ruler: bool = True,
         pixel_buffer_options: PixelBufferOptions | None = None,
         return_fig: bool = False,
+        ax: Axes | None = None,
     ) -> Figure | None:
         """Plots the Component using klayout.
 
@@ -1234,6 +1243,7 @@ class Component(ComponentBase, kf.DKCell):
                 If None, uses default values (width=800, height=600, linewidth=0,
                 oversampling=0, resolution=0).
             return_fig: if True, returns the figure.
+            ax: Optional matplotlib Axes to plot on. If None, creates a new figure and axes. When specified, fig_size and dpi are determined by the provided axes' figure.
         """
         from io import BytesIO
 
@@ -1245,11 +1255,7 @@ class Component(ComponentBase, kf.DKCell):
 
         lyp_path = GDSDIR_TEMP / "layer_properties.lyp"
         layer_views = get_layer_views()
-
-        if isinstance(layer_views, str | pathlib.Path):
-            lyp_path = pathlib.Path(layer_views)
-        else:
-            layer_views.to_lyp(filepath=lyp_path)
+        layer_views.to_lyp(filepath=lyp_path)
 
         layout_view = lay.LayoutView()
         cell_view_index = layout_view.create_layout(True)
@@ -1285,7 +1291,10 @@ class Component(ComponentBase, kf.DKCell):
         fig_width = img_array.shape[1] / dpi
         fig_height = img_array.shape[0] / dpi
 
-        fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=dpi)
+        if ax is not None:
+            fig = plt.gcf()  # Get the current figure (global figure, not subfigure)
+        else:
+            fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=dpi)
 
         # Remove margins and display the image
         ax.imshow(img_array)

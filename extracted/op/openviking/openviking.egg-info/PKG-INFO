@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.3.3
+Version: 0.3.5
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License: AGPL-3.0
@@ -60,9 +60,15 @@ Requires-Dist: tree-sitter-rust>=0.23.0
 Requires-Dist: tree-sitter-go>=0.23.0
 Requires-Dist: tree-sitter-c-sharp>=0.23.0
 Requires-Dist: tree-sitter-php>=0.23.0
+Requires-Dist: tree-sitter-lua>=0.1.0
+Requires-Dist: opentelemetry-api>=1.14
+Requires-Dist: opentelemetry-sdk>=1.14
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.14
+Requires-Dist: opentelemetry-instrumentation-asyncio>=0.61b0
 Requires-Dist: loguru>=0.7.3
 Requires-Dist: cryptography>=42.0.0
 Requires-Dist: argon2-cffi>=23.0.0
+Requires-Dist: lark-oapi>=1.5.3
 Provides-Extra: test
 Requires-Dist: pytest>=7.0.0; extra == "test"
 Requires-Dist: pytest-asyncio>=0.21.0; extra == "test"
@@ -161,7 +167,7 @@ Dynamic: license-file
 
 English / [中文](README_CN.md) / [日本語](README_JA.md)
 
-<a href="https://www.openviking.ai">Website</a> · <a href="https://github.com/volcengine/OpenViking">GitHub</a> · <a href="https://github.com/volcengine/OpenViking/issues">Issues</a> · <a href="https://www.openviking.ai/docs">Docs</a>
+<a href="https://www.openviking.ai">Website</a> · <a href="https://github.com/volcengine/OpenViking">GitHub</a> · <a href="https://github.com/volcengine/OpenViking/issues">Issues</a> · <a href="./docs">Docs</a>
 
 [![][release-shield]][release-link]
 [![][github-stars-shield]][github-stars-link]
@@ -684,6 +690,8 @@ After integrating OpenViking:
 👉 **[View: OpenClaw Context Plugin](examples/openclaw-plugin/README.md)**
 
 👉 **[View: OpenCode Memory Plugin Example](examples/opencode-memory-plugin/README.md)**
+
+👉 **[View: Claude Code Memory Plugin Example](examples/claude-code-memory-plugin/README.md)**
 
 --
 

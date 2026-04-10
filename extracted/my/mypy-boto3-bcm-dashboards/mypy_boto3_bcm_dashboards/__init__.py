@@ -13,19 +13,26 @@ Usage::
         BillingandCostManagementDashboardsClient,
         Client,
         ListDashboardsPaginator,
+        ListScheduledReportsPaginator,
     )
 
     session = Session()
     client: BillingandCostManagementDashboardsClient = session.client("bcm-dashboards")
 
     list_dashboards_paginator: ListDashboardsPaginator = client.get_paginator("list_dashboards")
+    list_scheduled_reports_paginator: ListScheduledReportsPaginator = client.get_paginator("list_scheduled_reports")
     ```
 """
 
 from .client import BillingandCostManagementDashboardsClient
-from .paginator import ListDashboardsPaginator
+from .paginator import ListDashboardsPaginator, ListScheduledReportsPaginator
 
 Client = BillingandCostManagementDashboardsClient
 
 
-__all__ = ("BillingandCostManagementDashboardsClient", "Client", "ListDashboardsPaginator")
+__all__ = (
+    "BillingandCostManagementDashboardsClient",
+    "Client",
+    "ListDashboardsPaginator",
+    "ListScheduledReportsPaginator",
+)

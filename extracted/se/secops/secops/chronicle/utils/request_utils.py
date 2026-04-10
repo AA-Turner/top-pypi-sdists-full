@@ -14,7 +14,7 @@
 #
 """Helper functions for Chronicle."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 import requests
 from google.auth.exceptions import GoogleAuthError
@@ -307,3 +307,95 @@ def chronicle_request(
         )
 
     return data
+
+
+def chronicle_request_bytes(
+    client: "ChronicleClient",
+    method: str,
+    endpoint_path: str,
+    *,
+    api_version: str = APIVersion.V1,
+    params: Optional[dict[str, Any]] = None,
+    headers: Optional[dict[str, Any]] = None,
+    expected_status: int | set[int] | tuple[int, ...] | list[int] = 200,
+    error_message: str | None = None,
+    timeout: int | None = None,
+) -> bytes:
+    """Perform an HTTP request and return the raw response bytes.
+
+    Use this helper for endpoints that return binary content such as ZIP
+    files or other non-JSON payloads. The response is streamed to avoid
+    loading large payloads into memory unnecessarily.
+
+    Args:
+        client: ChronicleClient instance.
+        method: HTTP method, e.g. 'GET', 'POST'.
+        endpoint_path: URL path after {base_url}/{instance_id}/. RPC-style
+            methods starting with ':' are appended directly to the instance
+            URL without a path separator.
+        api_version: The API version to use. Default is V1.
+        params: Optional query parameters.
+        headers: Optional request headers.
+        expected_status: Expected HTTP status code(s). May be a single int
+            or an iterable of acceptable status codes. Raises APIError if
+            the response status is not acceptable.
+        error_message: Optional base error message to include on failure.
+        timeout: Optional timeout in seconds for the request.
+
+    Returns:
+        Raw response bytes.
+
+    Raises:
+        APIError: If the request fails, the status code is not in
+            expected_status, or a network or authentication error occurs.
+    """
+
+    base = f"{client.base_url(api_version)}/{client.instance_id}"
+
+    if endpoint_path.startswith(":"):
+        url = f"{base}{endpoint_path}"
+    else:
+        url = f'{base}/{endpoint_path.lstrip("/")}'
+
+    try:
+        response = client.session.request(
+            method=method,
+            url=url,
+            params=params,
+            headers=headers,
+            timeout=timeout,
+            stream=True,
+        )
+    except GoogleAuthError as exc:
+        base_msg = error_message or "Google authentication failed"
+        raise APIError(f"{base_msg}: authentication_error={exc}") from exc
+    except requests.RequestException as exc:
+        base_msg = error_message or "API request failed"
+        raise APIError(
+            f"{base_msg}: method={method}, url={url}, "
+            f"request_error={exc.__class__.__name__}, detail={exc}"
+        ) from exc
+
+    if isinstance(expected_status, (set, tuple, list)):
+        status_ok = response.status_code in expected_status
+    else:
+        status_ok = response.status_code == expected_status
+
+    if not status_ok:
+        # try json for detail, else preview text
+        try:
+            data = response.json()
+            raise APIError(
+                f"{error_message or 'API request failed'}: method={method}, url={url}, "
+                f"status={response.status_code}, response={data}"
+            ) from None
+        except ValueError:
+            preview = _safe_body_preview(
+                getattr(response, "text", ""), limit=MAX_BODY_CHARS
+            )
+            raise APIError(
+                f"{error_message or 'API request failed'}: method={method}, url={url}, "
+                f"status={response.status_code}, response_text={preview}"
+            ) from None
+
+    return response.content

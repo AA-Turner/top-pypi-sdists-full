@@ -10,7 +10,7 @@ import sys
 
 def get_pycharm_executable():
     """Get the PyCharm executable path based on the operating system."""
-    if sys.platform.startswith("win"):
+    if sys.platform.startswith("win"):  # pragma: no cover
         # Windows: Check common installation directories
         common_paths = [
             r"C:\Program Files\JetBrains\PyCharm*\bin\pycharm64.exe",
@@ -64,10 +64,10 @@ def open_in_pycharm(file_path):
     try:
         subprocess.Popen(cmd)
     except Exception as e:
-        OpenInPyCharmError(f"Error opening PyCharm: {e}")
+        raise OpenInPyCharmError(f"Error opening PyCharm: {e}") from e
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     if len(sys.argv) < 2:
         print("Usage: python open_in_pycharm.py <file_path>")
         sys.exit(1)

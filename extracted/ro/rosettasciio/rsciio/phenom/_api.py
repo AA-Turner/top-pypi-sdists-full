@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2007-2025 The HyperSpy developers
+# Copyright 2007-2026 The HyperSpy developers
 #
 # This file is part of RosettaSciIO.
 #
@@ -103,7 +103,7 @@ def element_symbol(z):
         "In",
         "Sn",
         "Sb",
-        "Te",
+        "Te",  # codespell:ignore
         "I",
         "Xe",
         "Cs",
@@ -111,7 +111,7 @@ def element_symbol(z):
         "La",
         "Ce",
         "Pr",
-        "Nd",
+        "Nd",  # codespell:ignore
         "Pm",
         "Sm",
         "Eu",
