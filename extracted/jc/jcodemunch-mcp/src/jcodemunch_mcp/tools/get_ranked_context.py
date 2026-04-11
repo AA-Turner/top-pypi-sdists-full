@@ -26,6 +26,7 @@ def get_ranked_context(
     strategy: str = "combined",
     include_kinds: Optional[list] = None,
     scope: Optional[str] = None,
+    fusion: bool = False,
     storage_path: Optional[str] = None,
 ) -> dict:
     """Assemble the best-fit context for a query within a token budget.
@@ -45,6 +46,8 @@ def get_ranked_context(
         include_kinds: Optional list of symbol kinds to restrict results to
             (e.g. ['class', 'function']).
         scope: Optional subdirectory glob to limit search (e.g. 'src/core/*').
+        fusion: Enable multi-signal fusion (Weighted Reciprocal Rank) for
+            ranking. When True, ``strategy`` maps to channel weight presets.
         storage_path: Custom storage path.
 
     Returns:
@@ -95,6 +98,24 @@ def get_ranked_context(
             )
             cache["pagerank"] = pr_scores
         pagerank = cache["pagerank"]
+
+    # ── Fusion path ─────────────────────────────────────────────────────
+    if fusion:
+        return _get_ranked_context_fusion(
+            index=index,
+            store=store,
+            owner=owner,
+            name=name,
+            query=query,
+            query_terms=query_terms,
+            idf=idf,
+            avgdl=avgdl,
+            pagerank=pagerank,
+            token_budget=token_budget,
+            include_kinds=include_kinds,
+            scope=scope,
+            start=start,
+        )
 
     # Normalize PageRank to [0,1] for score combination
     max_pr = max(pagerank.values()) if pagerank else 1.0
@@ -271,3 +292,123 @@ def get_ranked_context(
                 f"Verify before claiming this feature exists."
             )
     return result
+
+
+def _get_ranked_context_fusion(
+    *,
+    index,
+    store,
+    owner: str,
+    name: str,
+    query: str,
+    query_terms: list[str],
+    idf: dict,
+    avgdl: float,
+    pagerank: dict,
+    token_budget: int,
+    include_kinds,
+    scope,
+    start: float,
+) -> dict:
+    """Fusion-based ranked context: WRR across channels, greedy budget packing."""
+    from ..retrieval.signal_fusion import (
+        fuse,
+        build_lexical_channel,
+        build_structural_channel,
+        build_identity_channel,
+        load_fusion_weights,
+    )
+    from .search_symbols import _compute_centrality
+
+    # Filter candidates
+    candidates = index.symbols
+    if include_kinds or scope:
+        candidates = [
+            sym for sym in candidates
+            if (not include_kinds or sym.get("kind") in include_kinds)
+            and (not scope or fnmatch(sym.get("file", ""), scope))
+        ]
+
+    if not candidates:
+        elapsed = (time.perf_counter() - start) * 1000
+        return {
+            "context_items": [],
+            "total_tokens": 0,
+            "budget_tokens": token_budget,
+            "items_included": 0,
+            "items_considered": 0,
+            "_meta": {"timing_ms": round(elapsed, 1), "tokens_saved": 0, "total_tokens_saved": 0},
+        }
+
+    # Centrality for BM25 tiebreaker
+    cache = index._bm25_cache
+    if "centrality" not in cache:
+        cache["centrality"] = _compute_centrality(
+            index.symbols, index.imports, index.alias_map,
+            getattr(index, "psr4_map", None),
+        )
+    centrality = cache["centrality"]
+
+    weights, smoothing = load_fusion_weights()
+
+    channels = []
+    lex_ch = build_lexical_channel(candidates, query_terms, idf, avgdl, centrality)
+    channels.append(lex_ch)
+
+    id_ch = build_identity_channel(candidates, query)
+    channels.append(id_ch)
+
+    if pagerank:
+        candidate_ids = set(lex_ch.ranked_ids) | set(id_ch.ranked_ids)
+        struct_ch = build_structural_channel(candidates, pagerank, candidate_ids)
+        channels.append(struct_ch)
+
+    fused = fuse(channels, smoothing=smoothing, weights=weights)
+
+    # Greedy budget packing
+    sym_by_id = {sym["id"]: sym for sym in candidates}
+    context_items = []
+    total_tokens = 0
+
+    for fr in fused:
+        sym = sym_by_id.get(fr.symbol_id)
+        if not sym:
+            continue
+        source = store.get_symbol_content(owner, name, sym["id"], _index=index) or ""
+        item_tokens = _count_tokens(source) if source else max(1, sym.get("byte_length", 0) // BYTES_PER_TOKEN)
+        if total_tokens + item_tokens > token_budget:
+            continue
+
+        context_items.append({
+            "symbol_id": sym["id"],
+            "fusion_score": round(fr.score, 6),
+            "channels": {k: round(v, 6) for k, v in fr.channel_contributions.items()},
+            "tokens": item_tokens,
+            "source": source,
+        })
+        total_tokens += item_tokens
+
+    raw_bytes = sum(
+        index.file_sizes.get(sym_by_id.get(fr.symbol_id, {}).get("file", ""), 0)
+        for fr in fused[:len(context_items)]
+    )
+    response_bytes = total_tokens * BYTES_PER_TOKEN
+    tokens_saved = estimate_savings(raw_bytes, response_bytes)
+    total_saved = record_savings(tokens_saved, tool_name="get_ranked_context")
+    elapsed = (time.perf_counter() - start) * 1000
+
+    return {
+        "context_items": context_items,
+        "total_tokens": total_tokens,
+        "budget_tokens": token_budget,
+        "items_included": len(context_items),
+        "items_considered": len(fused),
+        "_meta": {
+            "timing_ms": round(elapsed, 1),
+            "tokens_saved": tokens_saved,
+            "total_tokens_saved": total_saved,
+            **_cost_avoided(tokens_saved, total_saved),
+            "fusion": True,
+            "channels": [ch.name for ch in channels],
+        },
+    }

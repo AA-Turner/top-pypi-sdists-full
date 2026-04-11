@@ -1,0 +1,60 @@
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[project]
+name = "running_process"
+version = "3.0.9"
+description = "A Rust-backed subprocess wrapper with split stdout/stderr streaming"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "BSD 3-Clause License" }
+license-files = ["LICENSE"]
+authors = [{ name = "Your Name", email = "your.email@example.com" }]
+dependencies = []
+
+[project.scripts]
+running-process = "running_process.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/zackees/running-process"
+Repository = "https://github.com/zackees/running-process"
+Issues = "https://github.com/zackees/running-process/issues"
+
+[dependency-groups]
+dev = ["maturin[zig]>=1.7,<2", "pytest>=8.0.0", "ruff>=0.8.0"]
+
+[tool.maturin]
+manifest-path = "crates/running-process-py/Cargo.toml"
+module-name = "running_process._native"
+python-source = "src"
+features = ["pyo3/extension-module", "pyo3/abi3-py310"]
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "Cargo.lock" },
+    { file = "build.py" },
+    { file = "src/**/*.py" },
+    { file = "crates/**/*.rs" },
+    { file = "crates/**/*.toml" },
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = ["-ra", "--strict-markers"]
+testpaths = ["tests"]
+markers = [
+    "live: exercises real OS process and signal behavior; skipped unless RUNNING_PROCESS_LIVE_TESTS=1",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "PT", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["N802", "N803", "N806", "PT009", "PT027"]

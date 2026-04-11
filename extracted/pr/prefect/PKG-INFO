@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect
-Version: 3.6.25
+Version: 3.6.26
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io
@@ -37,6 +37,7 @@ Requires-Dist: cyclopts>=4.8.0
 Requires-Dist: dateparser<2.0.0,>=1.1.1
 Requires-Dist: docker<8.0,>=4.0
 Requires-Dist: exceptiongroup>=1.0.0
+Requires-Dist: fakeredis<2.35.0
 Requires-Dist: fastapi<1.0.0,>=0.111.0
 Requires-Dist: fsspec>=2022.5.0
 Requires-Dist: graphviz>=0.20.1
@@ -52,7 +53,7 @@ Requires-Dist: opentelemetry-api<2.0.0,>=1.27.0
 Requires-Dist: orjson<4.0,>=3.7
 Requires-Dist: packaging<26.1,>=21.3
 Requires-Dist: pathspec>=0.8.0
-Requires-Dist: pendulum<4,>=3.0.0; python_version < '3.13'
+Requires-Dist: pendulum<4,>=3.1.0; python_version < '3.13'
 Requires-Dist: pluggy>=1.6.0
 Requires-Dist: prometheus-client>=0.20.0
 Requires-Dist: pydantic!=2.11.0,!=2.11.1,!=2.11.2,!=2.11.3,!=2.11.4,<3.0.0,>=2.10.1
@@ -76,7 +77,7 @@ Requires-Dist: toml>=0.10.0
 Requires-Dist: typing-extensions<5.0.0,>=4.10.0
 Requires-Dist: uvicorn!=0.29.0,>=0.14.0
 Requires-Dist: websockets<17.0,>=15.0.1
-Requires-Dist: whenever<0.10.0,>=0.7.3; python_version >= '3.13'
+Requires-Dist: whenever<0.11.0,>=0.7.3; python_version >= '3.13'
 Provides-Extra: aws
 Requires-Dist: prefect-aws>=0.5.8; extra == 'aws'
 Provides-Extra: azure

@@ -21,6 +21,11 @@
 // ```
 
 mod buffer_pool;
+pub mod display_constants;
+pub use display_constants::{
+    chars_to_pixels, current_time_millis, parse_display_size, pixels_to_chars, CHAR_HEIGHT,
+    CHAR_WIDTH, DEFAULT_COLS, DEFAULT_ROWS, JPEG_QUALITY, RENDER_INTERVAL_MS,
+};
 #[cfg(feature = "h264-soft")]
 pub mod h264_encoder;
 #[cfg(feature = "h264-soft")]

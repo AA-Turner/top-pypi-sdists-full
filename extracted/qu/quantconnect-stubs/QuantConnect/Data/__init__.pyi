@@ -1158,14 +1158,14 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         ...
 
     @overload
-    def get(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: typing.Any) -> typing.Any:
+    def get(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], default_value: typing.Any) -> typing.Any:
         """
         Returns the value for the specified key if key is in dictionary.
         
         :param key: key to be searched in the dictionary
-        :param value: Value to be returned if the key is not found. The default value is null.
+        :param default_value: Value to be returned if the key is not found or if the key is None.
         :returns: The value for the specified key if key is in dictionary.
-        value if the key is not found and value is specified.
+        default_value if the key is not found, or if the key is None.
         """
         ...
 
@@ -1176,7 +1176,7 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         
         :param key: key to be searched in the dictionary
         :returns: The value for the specified key if key is in dictionary.
-        None if the key is not found and value is not specified.
+        None if the key is not found, or if the key is None.
         """
         ...
 

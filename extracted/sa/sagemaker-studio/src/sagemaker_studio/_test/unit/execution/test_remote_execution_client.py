@@ -365,6 +365,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
 
         self.remote_client.domain_identifier = "domain-123"
         self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_endpoint = "https://bogus_endpoint.example.com/"
         self.remote_client.datazone_domain_region = "us-west-2"
         self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
         self.remote_client.security_group = "sg-12345678"
@@ -472,6 +473,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
         self.remote_client.domain_identifier = "domain-123"
         self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_endpoint = "https://bogus_endpoint.example.com/"
         self.remote_client.datazone_domain_region = "us-west-2"
         self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
         self.remote_client.security_group = "sg-12345678"
@@ -548,6 +550,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
         self.remote_client.domain_identifier = "domain-123"
         self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_endpoint = "https://bogus_endpoint.example.com/"
         self.remote_client.datazone_domain_region = "us-west-2"
         self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
         self.remote_client.security_group = "sg-12345678"
@@ -815,6 +818,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
         self.remote_client.domain_identifier = "domain-123"
         self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_endpoint = "https://bogus_endpoint.example.com/"
         self.remote_client.datazone_domain_region = "us-west-2"
         self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
         self.remote_client.security_group = "sg-12345678"
@@ -894,6 +898,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
         self.remote_client.domain_identifier = "domain-123"
         self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_endpoint = "https://bogus_endpoint.example.com/"
         self.remote_client.datazone_domain_region = "us-west-2"
         self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
         self.remote_client.security_group = "sg-12345678"
@@ -966,6 +971,7 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
         self.remote_client.domain_identifier = "domain-123"
         self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_endpoint = "https://bogus_endpoint.example.com/"
         self.remote_client.datazone_domain_region = "us-west-2"
         self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
         self.remote_client.security_group = "sg-12345678"
@@ -1027,3 +1033,224 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.assertEqual(call_args["VpcConfig"]["Subnets"], self.remote_client.subnets)
 
         self.assertEqual(result["execution_id"], "test-job-1234-5678-9012-3456")
+
+    @patch("sagemaker_studio.execution.remote_execution_client.uuid")
+    def test_start_execution_input_path_git_project_nested_path(self, mock_uuid):
+        """Verify that for a git project with a nested input path like 'src/subdir/notebook.ipynb',
+        the input S3Uri points to the project-files root and the file includes the subdirectory."""
+        # Arrange
+        mock_uuid.return_value = "1234-5678-9012-3456"
+
+        mock_sagemaker_client = Mock()
+        mock_sagemaker_client.create_training_job.return_value = {
+            "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123456123456:training-job/test-job-1234-5678-9012-3456"
+        }
+        self.remote_client.sagemaker_client = mock_sagemaker_client
+        self.remote_client.kms_key_identifier = (
+            "arn:aws:kms:us-west-2:123456123456:key/1234abcd-12ab-34cd-56ef-1234567890ab"
+        )
+        self.remote_client.user_role_arn = "arn:aws:iam::123456123456:role/SageMakerRole"
+        self.remote_client.default_tooling_environment = {
+            "awsAccountId": "123456123456",
+            "awsAccountRegion": "us-west-2",
+            "id": "env-12345",
+            "name": "Default Environment",
+            "provisionedResources": [
+                {"name": "VpcId", "value": "vpc-12345678"},
+                {"name": "SubnetIds", "value": "subnet-12345678,subnet-87654321"},
+                {"name": "SecurityGroupId", "value": "sg-12345678"},
+                {"name": "s3BucketPath", "value": "s3://my-bucket/my-project/"},
+                {"name": "codeRepositoryName", "value": "my-code-repository"},
+            ],
+        }
+        self.remote_client._utils = Mock()
+        self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
+        self.remote_client.domain_identifier = "domain-123"
+        self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_endpoint = "https://bogus_endpoint.example.com/"
+        self.remote_client.datazone_domain_region = "us-west-2"
+        self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
+        self.remote_client.security_group = "sg-12345678"
+        self.remote_client.subnets = ["subnet-12345678"]
+
+        mock_ec2_client = Mock()
+        mock_ec2_client.describe_instance_types.return_value = {
+            "InstanceTypes": [
+                {
+                    "InstanceType": "m6i.xlarge",
+                    "VCpuInfo": {"DefaultVCpus": 4},
+                    "MemoryInfo": {"SizeInMiB": 16384},
+                }
+            ]
+        }
+        self.remote_client.ec2_client = mock_ec2_client
+
+        mock_ssm_client = Mock()
+        mock_ssm_client.get_parameter.return_value = {"Parameter": {"Value": "123456123456"}}
+        self.remote_client.ssm_client = mock_ssm_client
+
+        # Act
+        self.remote_client.start_execution(
+            execution_name="test-job",
+            input_config={"notebook_config": {"input_path": "src/subdir/notebook.ipynb"}},
+        )
+
+        # Assert
+        call_args = mock_sagemaker_client.create_training_job.call_args[1]
+
+        # The input S3Uri should point to the project-files root, not include the subdirectory
+        self.assertEqual(
+            call_args["InputDataConfig"][0]["DataSource"]["S3DataSource"]["S3Uri"],
+            "s3://my-bucket/my-project/workflows/project-files",
+        )
+        # The file should include the subdirectory relative path
+        self.assertEqual(
+            call_args["Environment"]["SM_INPUT_NOTEBOOK_NAME"], "subdir/notebook.ipynb"
+        )
+        self.assertEqual(call_args["Environment"]["SM_OUTPUT_NOTEBOOK_NAME"], "_notebook.ipynb")
+
+    @patch("sagemaker_studio.execution.remote_execution_client.uuid")
+    def test_start_execution_input_path_s3_project(self, mock_uuid):
+        """Verify that for a non-git (S3) project with input path 'shared/test.ipynb',
+        the input S3Uri points to the shared root and the file is the relative path."""
+        # Arrange
+        mock_uuid.return_value = "1234-5678-9012-3456"
+
+        mock_sagemaker_client = Mock()
+        mock_sagemaker_client.create_training_job.return_value = {
+            "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123456123456:training-job/test-job-1234-5678-9012-3456"
+        }
+        self.remote_client.sagemaker_client = mock_sagemaker_client
+        self.remote_client.kms_key_identifier = (
+            "arn:aws:kms:us-west-2:123456123456:key/1234abcd-12ab-34cd-56ef-1234567890ab"
+        )
+        self.remote_client.user_role_arn = "arn:aws:iam::123456123456:role/SageMakerRole"
+        # No codeRepositoryName or gitConnectionArn → S3 project
+        self.remote_client.default_tooling_environment = {
+            "awsAccountId": "123456123456",
+            "awsAccountRegion": "us-west-2",
+            "id": "env-12345",
+            "name": "Default Environment",
+            "provisionedResources": [
+                {"name": "VpcId", "value": "vpc-12345678"},
+                {"name": "SubnetIds", "value": "subnet-12345678,subnet-87654321"},
+                {"name": "SecurityGroupId", "value": "sg-12345678"},
+                {"name": "s3BucketPath", "value": "s3://my-bucket/my-project/"},
+            ],
+        }
+        self.remote_client._utils = Mock()
+        self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
+        self.remote_client.domain_identifier = "domain-123"
+        self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_endpoint = "https://bogus_endpoint.example.com/"
+        self.remote_client.datazone_domain_region = "us-west-2"
+        self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
+        self.remote_client.security_group = "sg-12345678"
+        self.remote_client.subnets = ["subnet-12345678"]
+
+        mock_ec2_client = Mock()
+        mock_ec2_client.describe_instance_types.return_value = {
+            "InstanceTypes": [
+                {
+                    "InstanceType": "m6i.xlarge",
+                    "VCpuInfo": {"DefaultVCpus": 4},
+                    "MemoryInfo": {"SizeInMiB": 16384},
+                }
+            ]
+        }
+        self.remote_client.ec2_client = mock_ec2_client
+
+        mock_ssm_client = Mock()
+        mock_ssm_client.get_parameter.return_value = {"Parameter": {"Value": "123456123456"}}
+        self.remote_client.ssm_client = mock_ssm_client
+
+        # Act
+        self.remote_client.start_execution(
+            execution_name="test-job",
+            input_config={"notebook_config": {"input_path": "shared/test.ipynb"}},
+        )
+
+        # Assert
+        call_args = mock_sagemaker_client.create_training_job.call_args[1]
+
+        # For S3 projects, the input S3Uri should point to the project root
+        # (pack_s3_path_for_input_file produces "s3://my-bucket/my-project/test.ipynb" for S3 projects,
+        # and stripping the relative path "test.ipynb" leaves the project root)
+        self.assertEqual(
+            call_args["InputDataConfig"][0]["DataSource"]["S3DataSource"]["S3Uri"],
+            "s3://my-bucket/my-project",
+        )
+        # The file should be just the filename with shared/ stripped
+        self.assertEqual(call_args["Environment"]["SM_INPUT_NOTEBOOK_NAME"], "test.ipynb")
+
+    @patch("sagemaker_studio.execution.remote_execution_client.uuid")
+    def test_start_execution_input_path_s3_project_nested_path(self, mock_uuid):
+        """Verify that for a non-git (S3) project with a nested input path like 'shared/subdir/nb.ipynb',
+        the input S3Uri points to the shared root and the file includes the subdirectory."""
+        # Arrange
+        mock_uuid.return_value = "1234-5678-9012-3456"
+
+        mock_sagemaker_client = Mock()
+        mock_sagemaker_client.create_training_job.return_value = {
+            "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123456123456:training-job/test-job-1234-5678-9012-3456"
+        }
+        self.remote_client.sagemaker_client = mock_sagemaker_client
+        self.remote_client.kms_key_identifier = (
+            "arn:aws:kms:us-west-2:123456123456:key/1234abcd-12ab-34cd-56ef-1234567890ab"
+        )
+        self.remote_client.user_role_arn = "arn:aws:iam::123456123456:role/SageMakerRole"
+        self.remote_client.default_tooling_environment = {
+            "awsAccountId": "123456123456",
+            "awsAccountRegion": "us-west-2",
+            "id": "env-12345",
+            "name": "Default Environment",
+            "provisionedResources": [
+                {"name": "VpcId", "value": "vpc-12345678"},
+                {"name": "SubnetIds", "value": "subnet-12345678,subnet-87654321"},
+                {"name": "SecurityGroupId", "value": "sg-12345678"},
+                {"name": "s3BucketPath", "value": "s3://my-bucket/my-project/"},
+            ],
+        }
+        self.remote_client._utils = Mock()
+        self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
+        self.remote_client.domain_identifier = "domain-123"
+        self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_endpoint = "https://bogus_endpoint.example.com/"
+        self.remote_client.datazone_domain_region = "us-west-2"
+        self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
+        self.remote_client.security_group = "sg-12345678"
+        self.remote_client.subnets = ["subnet-12345678"]
+
+        mock_ec2_client = Mock()
+        mock_ec2_client.describe_instance_types.return_value = {
+            "InstanceTypes": [
+                {
+                    "InstanceType": "m6i.xlarge",
+                    "VCpuInfo": {"DefaultVCpus": 4},
+                    "MemoryInfo": {"SizeInMiB": 16384},
+                }
+            ]
+        }
+        self.remote_client.ec2_client = mock_ec2_client
+
+        mock_ssm_client = Mock()
+        mock_ssm_client.get_parameter.return_value = {"Parameter": {"Value": "123456123456"}}
+        self.remote_client.ssm_client = mock_ssm_client
+
+        # Act
+        self.remote_client.start_execution(
+            execution_name="test-job",
+            input_config={"notebook_config": {"input_path": "shared/subdir/nb.ipynb"}},
+        )
+
+        # Assert
+        call_args = mock_sagemaker_client.create_training_job.call_args[1]
+
+        # For S3 projects with nested paths, S3Uri should point to the project root
+        self.assertEqual(
+            call_args["InputDataConfig"][0]["DataSource"]["S3DataSource"]["S3Uri"],
+            "s3://my-bucket/my-project",
+        )
+        # The file should include the subdirectory relative path
+        self.assertEqual(call_args["Environment"]["SM_INPUT_NOTEBOOK_NAME"], "subdir/nb.ipynb")
+        self.assertEqual(call_args["Environment"]["SM_OUTPUT_NOTEBOOK_NAME"], "_nb.ipynb")

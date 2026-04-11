@@ -23,6 +23,7 @@ class OrganizationRoleTeamAssignmentArgs:
                  team_slug: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a OrganizationRoleTeamAssignment resource.
+
         :param pulumi.Input[_builtins.str] role_id: The GitHub organization role id
         :param pulumi.Input[_builtins.str] team_slug: The GitHub team slug
         """
@@ -61,6 +62,7 @@ class _OrganizationRoleTeamAssignmentState:
                  team_slug: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering OrganizationRoleTeamAssignment resources.
+
         :param pulumi.Input[_builtins.str] role_id: The GitHub organization role id
         :param pulumi.Input[_builtins.str] team_slug: The GitHub team slug
         """
@@ -130,11 +132,6 @@ class OrganizationRoleTeamAssignment(pulumi.CustomResource):
 
         GitHub Team Organization Role Assignment can be imported using an ID made up of `team_slug:role_id`
 
-        text
-
-        ```sh
-        $ pulumi import github:index/organizationRoleTeamAssignment:OrganizationRoleTeamAssignment role_assignment test-team:8132
-        ```
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -174,11 +171,6 @@ class OrganizationRoleTeamAssignment(pulumi.CustomResource):
 
         GitHub Team Organization Role Assignment can be imported using an ID made up of `team_slug:role_id`
 
-        text
-
-        ```sh
-        $ pulumi import github:index/organizationRoleTeamAssignment:OrganizationRoleTeamAssignment role_assignment test-team:8132
-        ```
 
         :param str resource_name: The name of the resource.
         :param OrganizationRoleTeamAssignmentArgs args: The arguments to use to populate this resource's properties.

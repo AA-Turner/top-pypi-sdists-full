@@ -132,6 +132,7 @@ impl ProtocolHandler for DynamoDbHandler {
         };
         let mut executor = QueryExecutor::new_with_size(prompt, "dynamodb", rows, cols)
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        executor.use_binary = params.get("binary").map(|v| v == "true").unwrap_or(false);
 
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "DynamoDB", cols, rows);
@@ -199,6 +200,7 @@ impl ProtocolHandler for DynamoDbHandler {
                         &region_line,
                         "Type 'help' for available commands.",
                     ],
+                    &security,
                     &mut recorder,
                 )
                 .await?;

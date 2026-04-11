@@ -409,7 +409,7 @@ class DNSProtocol(netius.DatagramProtocol):
 
         # prints some debug information about the DNS query that is going
         # to be performed (provides some development capabilities)
-        self.debug("Running DNS query %s '%s in '%s'" % (type, name, ns))
+        self.debug("Running DNS query %s '%s in '%s'", type, name, ns)
 
         # adds the current request pending callback handing to the internal
         # management structures so that it becomes callable latter
@@ -464,9 +464,19 @@ class DNSClient(netius.ClientAgent):
         address = (ns, 53)
         protocol = cls.protocol()
 
+        def on_response(*args, **kwargs):
+            # calls the original callback with the response and then
+            # closes the protocol to release the underlying datagram
+            # connection that would otherwise leak in the connections list
+            try:
+                if callback:
+                    callback(*args, **kwargs)
+            finally:
+                protocol.close()
+
         def on_connect(result):
             _transport, protocol = result
-            protocol.query(name, type=type, cls=cls_, ns=ns, callback=callback)
+            protocol.query(name, type=type, cls=cls_, ns=ns, callback=on_response)
 
         loop = netius.build_datagram(
             lambda: protocol, callback=on_connect, loop=loop, remote_addr=address

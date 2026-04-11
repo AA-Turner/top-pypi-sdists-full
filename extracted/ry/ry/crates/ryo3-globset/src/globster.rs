@@ -1,11 +1,13 @@
-use crate::{DEFAULT_BACKSLASH_ESCAPE, PyGlobPatternsString};
+use std::path::Path;
+use std::str::FromStr;
+
 use globset::{GlobBuilder, GlobSetBuilder};
 use pyo3::exceptions::PyValueError;
 use pyo3::types::PyTuple;
 use pyo3::{Bound, PyErr, PyResult, Python, pyclass, pymethods};
 use ryo3_core::types::PathLike;
-use std::path::Path;
-use std::str::FromStr;
+
+use crate::{DEFAULT_BACKSLASH_ESCAPE, PyGlobPatternsString};
 
 #[derive(Clone, Debug)]
 pub struct Globster {
@@ -56,9 +58,9 @@ impl PyGlobster {
         signature = (
             patterns,
             /, *,
-            case_insensitive=false,
-            literal_separator=false,
-            backslash_escape=DEFAULT_BACKSLASH_ESCAPE
+            case_insensitive = false,
+            literal_separator = false,
+            backslash_escape = DEFAULT_BACKSLASH_ESCAPE
         )
     )]
     pub(crate) fn py_new(

@@ -27,6 +27,7 @@ class ExtensionArgs:
                  version: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a Extension resource.
+
         :param pulumi.Input[_builtins.bool] create_cascade: When true, will also create any extensions that this extension depends on that are not already installed. (Default: false)
         :param pulumi.Input[_builtins.str] database: Which database to create the extension on. Defaults to provider database.
         :param pulumi.Input[_builtins.bool] drop_cascade: When true, will also drop all the objects that depend on the extension, and in turn all objects that depend on those objects. (Default: false)
@@ -131,6 +132,7 @@ class _ExtensionState:
                  version: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering Extension resources.
+
         :param pulumi.Input[_builtins.bool] create_cascade: When true, will also create any extensions that this extension depends on that are not already installed. (Default: false)
         :param pulumi.Input[_builtins.str] database: Which database to create the extension on. Defaults to provider database.
         :param pulumi.Input[_builtins.bool] drop_cascade: When true, will also drop all the objects that depend on the extension, and in turn all objects that depend on those objects. (Default: false)
@@ -254,9 +256,8 @@ class Extension(pulumi.CustomResource):
 
         PostgreSQL Extensions can be imported using the database name and the extension's resource name, e.g.
 
-        ```sh
-        $ pulumi import postgresql:index/extension:Extension uuid_ossp example-database.uuid-ossp`
-        ```
+        `terraform import postgresql_extension.uuid_ossp example-database.uuid-ossp`
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -290,9 +291,8 @@ class Extension(pulumi.CustomResource):
 
         PostgreSQL Extensions can be imported using the database name and the extension's resource name, e.g.
 
-        ```sh
-        $ pulumi import postgresql:index/extension:Extension uuid_ossp example-database.uuid-ossp`
-        ```
+        `terraform import postgresql_extension.uuid_ossp example-database.uuid-ossp`
+
 
         :param str resource_name: The name of the resource.
         :param ExtensionArgs args: The arguments to use to populate this resource's properties.

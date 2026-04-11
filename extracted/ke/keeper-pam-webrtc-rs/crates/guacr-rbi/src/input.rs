@@ -523,6 +523,42 @@ impl MouseState {
 
         modifiers
     }
+
+    /// W3C / CDP `buttons` bitmask for the currently held mouse buttons.
+    /// Guacamole: LEFT=0x01, MIDDLE=0x02, RIGHT=0x04
+    /// W3C/CDP:   left=1,    middle=4,    right=2
+    pub fn current_buttons_mask(&self) -> u32 {
+        let mut buttons = 0u32;
+        if (self.mask & MOUSE_BUTTON_LEFT) != 0 {
+            buttons |= 1;
+        }
+        if (self.mask & MOUSE_BUTTON_RIGHT) != 0 {
+            buttons |= 2;
+        }
+        if (self.mask & MOUSE_BUTTON_MIDDLE) != 0 {
+            buttons |= 4;
+        }
+        buttons
+    }
+}
+
+/// Convert ChromeEventFlags modifier bitmask to the CDP `Input.dispatchKeyEvent`
+/// `modifiers` encoding (Alt=1, Ctrl=2, Meta/Command=4, Shift=8).
+pub fn chrome_flags_to_cdp_modifiers(flags: u32) -> i64 {
+    let mut cdp = 0i64;
+    if flags & ChromeEventFlags::ALT_DOWN != 0 {
+        cdp |= 1;
+    }
+    if flags & ChromeEventFlags::CONTROL_DOWN != 0 {
+        cdp |= 2;
+    }
+    if flags & ChromeEventFlags::COMMAND_DOWN != 0 {
+        cdp |= 4;
+    }
+    if flags & ChromeEventFlags::SHIFT_DOWN != 0 {
+        cdp |= 8;
+    }
+    cdp
 }
 
 /// Touch state tracking for multi-touch
@@ -857,6 +893,11 @@ impl RbiInputHandler {
             pressure: force,
             event_type,
         })
+    }
+
+    /// W3C/CDP `buttons` bitmask for buttons currently held, for use in mouse events.
+    pub fn mouse_buttons_mask(&self) -> u32 {
+        self.state.mouse.current_buttons_mask()
     }
 }
 

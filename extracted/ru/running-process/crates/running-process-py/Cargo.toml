@@ -1,0 +1,22 @@
+[package]
+name = "running-process-py"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "PyO3 bindings for running-process"
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+libc = "0.2"
+pyo3 = { workspace = true }
+portable-pty = "0.9"
+regex = "1"
+running-process-core = { path = "../running-process-core" }
+sysinfo = "0.30"
+winapi = { version = "0.3", features = ["consoleapi", "handleapi", "jobapi2", "processenv", "processthreadsapi", "synchapi", "winbase", "wincon", "winnt", "winuser"] }

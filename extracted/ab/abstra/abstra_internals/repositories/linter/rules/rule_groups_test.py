@@ -6,7 +6,10 @@ from abstra_internals.repositories.linter.repository import LocalLinterRepositor
 from abstra_internals.repositories.linter.rules import (
     rules,
     run_after_abstra_json_change,
+    run_after_css_change,
     run_after_env_or_gitignore_change,
+    run_after_html_change,
+    run_after_js_change,
     run_after_package_install,
     run_after_py_change,
     run_after_requirements_change,
@@ -24,6 +27,9 @@ class RuleGroupCompletenessTest(BaseTest):
             run_after_abstra_json_change,
             run_after_env_or_gitignore_change,
             run_after_package_install,
+            run_after_html_change,
+            run_after_css_change,
+            run_after_js_change,
         ]
         names = set()
         for group in all_groups:

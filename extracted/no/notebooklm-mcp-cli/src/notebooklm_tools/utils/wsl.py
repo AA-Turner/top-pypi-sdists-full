@@ -141,7 +141,9 @@ def find_windows_chrome() -> str | None:
     return None
 
 
-def launch_windows_chrome(port: int = DEFAULT_WSL_CDP_PORT, debug: bool = False) -> subprocess.Popen:
+def launch_windows_chrome(
+    port: int = DEFAULT_WSL_CDP_PORT, debug: bool = False
+) -> subprocess.Popen:
     """Launch Chrome on Windows side from WSL.
 
     Args:
@@ -202,8 +204,7 @@ def launch_windows_chrome(port: int = DEFAULT_WSL_CDP_PORT, debug: bool = False)
     if not chrome_path:
         raise RuntimeError(
             "Chrome not found on Windows side. "
-            "Common locations checked:\n  " +
-            "\n  ".join(WINDOWS_CHROME_PATHS)
+            "Common locations checked:\n  " + "\n  ".join(WINDOWS_CHROME_PATHS)
         )
 
     # Convert Windows path to WSL executable path
@@ -212,6 +213,7 @@ def launch_windows_chrome(port: int = DEFAULT_WSL_CDP_PORT, debug: bool = False)
 
     # Create a temp profile directory for clean Chrome instance
     import tempfile
+
     temp_dir = tempfile.mkdtemp(prefix="nlm-chrome-")
     windows_temp = subprocess.run(
         ["wslpath", "-w", temp_dir],
@@ -433,7 +435,7 @@ def create_firewall_rule(port: int = DEFAULT_WSL_CDP_PORT) -> tuple[bool, str]:
         # Build PowerShell command to create firewall rule
         # This will trigger UAC prompt if not running as admin
         logger.info(f"Creating Windows Firewall rule for port {port}")
-        
+
         ps_cmd = (
             f"New-NetFirewallRule -DisplayName '{rule_name}' "
             f"-Direction Inbound -Action Allow -Protocol TCP -LocalPort {port} "
@@ -454,9 +456,13 @@ def create_firewall_rule(port: int = DEFAULT_WSL_CDP_PORT) -> tuple[bool, str]:
         else:
             error = result.stderr.strip() if result.stderr else "Unknown error"
             logger.warning(f"Failed to create firewall rule: {error}")
-            
+
             # Check if it's a permission issue
-            if "access" in error.lower() or "permission" in error.lower() or "privilege" in error.lower():
+            if (
+                "access" in error.lower()
+                or "permission" in error.lower()
+                or "privilege" in error.lower()
+            ):
                 return False, (
                     "Administrator privileges required.\n"
                     "Please run in Windows PowerShell (as Administrator):\n"
@@ -464,7 +470,7 @@ def create_firewall_rule(port: int = DEFAULT_WSL_CDP_PORT) -> tuple[bool, str]:
                     f"-Direction Inbound -Action Allow -Protocol TCP -LocalPort {port}"
                 )
             return False, error
-            
+
     except Exception as e:
         logger.error(f"Exception creating firewall rule: {e}")
         return False, str(e)
@@ -520,6 +526,7 @@ def diagnose_wsl_connectivity(host_ip: str, port: int = DEFAULT_WSL_CDP_PORT) ->
 
     # Test 1: Basic TCP connection
     import socket
+
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5)
@@ -532,6 +539,7 @@ def diagnose_wsl_connectivity(host_ip: str, port: int = DEFAULT_WSL_CDP_PORT) ->
     # Test 2: HTTP request to /json
     try:
         import httpx
+
         response = httpx.get(f"http://{host_ip}:{port}/json", timeout=5)
         results["tests"]["http_json"] = f"Status {response.status_code}"
         if response.status_code == 200:
@@ -544,14 +552,16 @@ def diagnose_wsl_connectivity(host_ip: str, port: int = DEFAULT_WSL_CDP_PORT) ->
     ps_path = _get_powershell_path()
     if ps_path:
         try:
-            ps_cmd = 'Get-Process chrome -ErrorAction SilentlyContinue | Select-Object -First 1'
+            ps_cmd = "Get-Process chrome -ErrorAction SilentlyContinue | Select-Object -First 1"
             result = subprocess.run(
                 [str(ps_path), "-Command", ps_cmd],
                 capture_output=True,
                 text=True,
                 timeout=10,
             )
-            results["tests"]["chrome_running"] = "YES" if "chrome" in result.stdout.lower() else "NO"
+            results["tests"]["chrome_running"] = (
+                "YES" if "chrome" in result.stdout.lower() else "NO"
+            )
         except Exception as e:
             results["tests"]["chrome_running"] = f"ERROR: {e}"
 
@@ -561,14 +571,16 @@ def diagnose_wsl_connectivity(host_ip: str, port: int = DEFAULT_WSL_CDP_PORT) ->
     # Test 5: Port binding on Windows
     if ps_path:
         try:
-            ps_cmd = f'Get-NetTCPConnection -LocalPort {port} -ErrorAction SilentlyContinue | Select-Object LocalAddress, LocalPort, State'
+            ps_cmd = f"Get-NetTCPConnection -LocalPort {port} -ErrorAction SilentlyContinue | Select-Object LocalAddress, LocalPort, State"
             result = subprocess.run(
                 [str(ps_path), "-Command", ps_cmd],
                 capture_output=True,
                 text=True,
                 timeout=10,
             )
-            results["tests"]["port_binding"] = result.stdout.strip() if result.stdout.strip() else "NOT_FOUND"
+            results["tests"]["port_binding"] = (
+                result.stdout.strip() if result.stdout.strip() else "NOT_FOUND"
+            )
         except Exception as e:
             results["tests"]["port_binding"] = f"ERROR: {e}"
 

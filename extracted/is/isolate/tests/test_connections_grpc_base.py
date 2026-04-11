@@ -31,7 +31,7 @@ def test_abort_agent_logs_return_code_for_already_exited_process(
     process.wait.assert_not_called()
     process.kill.assert_not_called()
     connection.log.assert_called_once_with(
-        "Isolate agent finished (exit code: 0)",
+        "Isolate agent finished successfully",
         level=LogLevel.INFO,
         source=LogSource.BRIDGE,
     )
@@ -52,7 +52,7 @@ def test_abort_agent_logs_return_code_for_graceful_termination(tmp_path: Path) -
     process.wait.assert_called_once()
     process.kill.assert_not_called()
     connection.log.assert_called_once_with(
-        "Isolate agent finished (exit code: -15)",
+        "Isolate agent gracefully terminated",
         level=LogLevel.INFO,
         source=LogSource.BRIDGE,
     )
@@ -74,7 +74,7 @@ def test_abort_agent_logs_return_code_after_kill_fallback(tmp_path: Path) -> Non
     process.kill.assert_called_once()
     process.wait.assert_called_once()
     connection.log.assert_called_once_with(
-        "Isolate agent finished (exit code: -9)",
+        "Isolate agent forcefully killed",
         level=LogLevel.INFO,
         source=LogSource.BRIDGE,
     )

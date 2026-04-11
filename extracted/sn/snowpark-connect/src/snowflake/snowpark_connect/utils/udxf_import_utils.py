@@ -4,6 +4,7 @@
 
 from snowflake import snowpark
 from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
 
 
 def get_python_udxf_import_files(session: snowpark.Session) -> str:
@@ -16,6 +17,11 @@ def get_python_udxf_import_files(session: snowpark.Session) -> str:
         if config_imports
         else []
     )
-    imports = {*session._python_files, *session._import_files, *config_imports}
+    artifacts_store = get_spark_session_cache().artifacts_store
+    imports = {
+        *artifacts_store.get_python_files(),
+        *artifacts_store.get_import_files(),
+        *config_imports,
+    }
 
     return ",".join([file for file in imports if file])

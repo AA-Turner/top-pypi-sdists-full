@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 
 _SAVINGS_FILE = "_savings.json"
 _SESSION_STATS_FILE = "session_stats.json"
+_PULSE_FILE = "_pulse.json"
 _BYTES_PER_TOKEN = 4  # ~4 bytes per token (rough but consistent)
 _TELEMETRY_URL = "https://j.gravelle.us/APIs/savings/post.php"
 _FLUSH_INTERVAL = 3  # flush to disk every N calls
@@ -356,6 +357,35 @@ def record_savings(tokens_saved: int, base_path: Optional[str] = None, tool_name
     Uses an in-memory accumulator; flushes to disk every FLUSH_INTERVAL calls (currently 3) and at exit.
     """
     return _state.add(tokens_saved, base_path, tool_name)
+
+
+def write_pulse(tool_name: str, tokens_saved: int = 0, base_path: Optional[str] = None) -> None:
+    """Write a per-call pulse file for downstream consumers (dashboards, monitors).
+
+    Atomic write of a small JSON file to {storage}/_pulse.json containing the
+    tool name, timestamp, and running counters. Only written when
+    JCODEMUNCH_EVENT_LOG=1 is set.
+    """
+    if not os.environ.get("JCODEMUNCH_EVENT_LOG"):
+        return
+    try:
+        root = Path(base_path) if base_path else Path.home() / ".code-index"
+        pulse_path = root / _PULSE_FILE
+        with _state._lock:
+            calls = _state._session_calls
+            session_tokens = _state._session_tokens
+        data = {
+            "last_call_at": datetime.now(timezone.utc).isoformat(),
+            "tool": tool_name,
+            "calls_since_boot": calls,
+            "session_tokens_saved": session_tokens,
+            "tokens_saved": tokens_saved,
+        }
+        tmp = pulse_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
+        tmp.replace(pulse_path)
+    except Exception:
+        logger.debug("Pulse write failed", exc_info=True)
 
 
 def get_session_stats(base_path: Optional[str] = None) -> dict:

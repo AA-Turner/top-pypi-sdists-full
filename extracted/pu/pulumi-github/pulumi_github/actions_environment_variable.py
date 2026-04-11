@@ -25,6 +25,7 @@ class ActionsEnvironmentVariableArgs:
                  variable_name: pulumi.Input[_builtins.str]):
         """
         The set of arguments for constructing a ActionsEnvironmentVariable resource.
+
         :param pulumi.Input[_builtins.str] environment: Name of the environment.
         :param pulumi.Input[_builtins.str] repository: Name of the repository.
         :param pulumi.Input[_builtins.str] value: Value of the variable.
@@ -96,6 +97,7 @@ class _ActionsEnvironmentVariableState:
                  variable_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ActionsEnvironmentVariable resources.
+
         :param pulumi.Input[_builtins.str] created_at: Date the variable was created.
         :param pulumi.Input[_builtins.str] environment: Name of the environment.
         :param pulumi.Input[_builtins.str] repository: Name of the repository.
@@ -249,13 +251,16 @@ class ActionsEnvironmentVariable(pulumi.CustomResource):
 
         ## Import
 
+        This resource can be imported using an ID made of the repository name, environment name (any `:` in the environment name need to be escaped as `??`), and variable name all separated by a `:`.
+
         ### Import Command
 
-        The following command imports a GitHub actions environment variable named `myvariable` for the repo `myrepo` and environment `myenv` to a `github_actions_environment_variable` resource named `example`.
+        The following command imports a GitHub actions environment variable named `myvariable` for the repo `myrepo` and environment `myenv` to a `ActionsEnvironmentVariable` resource named `example`.
 
         ```sh
         $ pulumi import github:index/actionsEnvironmentVariable:ActionsEnvironmentVariable example myrepo:myenv:myvariable
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -304,13 +309,16 @@ class ActionsEnvironmentVariable(pulumi.CustomResource):
 
         ## Import
 
+        This resource can be imported using an ID made of the repository name, environment name (any `:` in the environment name need to be escaped as `??`), and variable name all separated by a `:`.
+
         ### Import Command
 
-        The following command imports a GitHub actions environment variable named `myvariable` for the repo `myrepo` and environment `myenv` to a `github_actions_environment_variable` resource named `example`.
+        The following command imports a GitHub actions environment variable named `myvariable` for the repo `myrepo` and environment `myenv` to a `ActionsEnvironmentVariable` resource named `example`.
 
         ```sh
         $ pulumi import github:index/actionsEnvironmentVariable:ActionsEnvironmentVariable example myrepo:myenv:myvariable
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ActionsEnvironmentVariableArgs args: The arguments to use to populate this resource's properties.

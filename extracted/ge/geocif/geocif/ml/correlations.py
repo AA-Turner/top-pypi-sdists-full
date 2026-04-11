@@ -54,14 +54,14 @@ def _compute_absolute_medians(df: pd.DataFrame) -> pd.DataFrame:
         df: DataFrame with correlation values
         
     Returns:
-        DataFrame with columns ['CEI', 'Median']
+        DataFrame with columns ['CID', 'Median']
     """
     if df.empty:
-        return pd.DataFrame(columns=['CEI', 'Median'])
-    
+        return pd.DataFrame(columns=['CID', 'Median'])
+
     absolute_medians = df.abs().median()
     result = absolute_medians.reset_index()
-    result.columns = ['CEI', 'Median']
+    result.columns = ['CID', 'Median']
     return result
 
 
@@ -443,24 +443,24 @@ def _process_region_correlations(
         kwargs: Additional kwargs for plotting
         
     Returns:
-        Tuple of (selected_features_df, best_cei_array)
+        Tuple of (selected_features_df, best_cid_array)
     """
     # Remove columns with >50% NaN
     df_corr = df_corr.dropna(thresh=len(df_corr) / 2, axis=1)
     
     if df_corr.empty:
-        return pd.DataFrame(columns=['CEI', 'Median']), {}
+        return pd.DataFrame(columns=['CID', 'Median']), {}
 
     # Filter by threshold
     df_filtered = _filter_by_correlation_threshold(df_corr, threshold)
-    
+
     if df_filtered.empty:
-        return pd.DataFrame(columns=['CEI', 'Median']), {}
+        return pd.DataFrame(columns=['CID', 'Median']), {}
 
     # Compute medians
     absolute_median_df = _compute_absolute_medians(df_filtered)
 
-    # Compute best CEI by type (vectorized)
+    # Compute best CID by type (vectorized)
     df_metrics = (
         df_filtered.median(axis=0)
         .abs()
@@ -474,8 +474,8 @@ def _process_region_correlations(
         lambda x: combined_dict.get(x, [None])[0]
     )
 
-    # Get best CEI per type
-    best_cei = (
+    # Get best CID per type
+    best_cid = (
         df_metrics.groupby("Type")
         .apply(lambda x: x.nlargest(1, "Value")["Metric"].iloc[0])
         .values
@@ -487,7 +487,7 @@ def _process_region_correlations(
     kwargs_copy["region_name"] = ", ".join(str(x) for x in group['Region'].unique())
     plot_feature_corr_by_time(df_filtered, **kwargs_copy)
 
-    return absolute_median_df, best_cei
+    return absolute_median_df, best_cid
 
 
 def all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> tuple:
@@ -503,7 +503,7 @@ def all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> tuple:
             - correlation_threshold: Minimum correlation threshold
             
     Returns:
-        Tuple of (dict_selected_features, dict_best_cei)
+        Tuple of (dict_selected_features, dict_best_cid)
     """
     national_correlation = kwargs.get("national_correlation", False)
     group_by = kwargs.get("groupby")
@@ -530,7 +530,7 @@ def all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> tuple:
     primary_kwargs = _metric_kwargs(kwargs, primary_metric)
 
     dict_selected_features = {}
-    dict_best_cei = {}
+    dict_best_cid = {}
 
     if not national_correlation:
         groups = df.groupby(group_by)
@@ -543,11 +543,11 @@ def all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> tuple:
             df_corr = _all_correlated_feature_by_time(group, **primary_kwargs)
 
             if not df_corr.empty:
-                selected_df, best_cei = _process_region_correlations(
+                selected_df, best_cid = _process_region_correlations(
                     df_corr, threshold, combined_dict, region_id, group, primary_kwargs
                 )
                 dict_selected_features[region_id] = selected_df
-                dict_best_cei[region_id] = best_cei
+                dict_best_cid[region_id] = best_cid
             else:
                 # Fallback to full dataset (HACK from original)
                 df_corr_full = _all_correlated_feature_by_time(df, **primary_kwargs)
@@ -556,9 +556,9 @@ def all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> tuple:
                     df_filtered = _filter_by_correlation_threshold(df_corr_full, threshold)
                     dict_selected_features[region_id] = _compute_absolute_medians(df_filtered)
                 else:
-                    dict_selected_features[region_id] = pd.DataFrame(columns=['CEI', 'Median'])
+                    dict_selected_features[region_id] = pd.DataFrame(columns=['CID', 'Median'])
 
-                dict_best_cei[region_id] = {}
+                dict_best_cid[region_id] = {}
 
             # Extra plot-only metrics (no feature selection update)
             for extra_metric in extra_plot_metrics:
@@ -588,4 +588,4 @@ def all_correlated_feature_by_time(df: pd.DataFrame, **kwargs) -> tuple:
             if not df_corr_extra.empty:
                 plot_feature_corr_by_time(df_corr_extra, **extra_kwargs)
 
-    return dict_selected_features, dict_best_cei
+    return dict_selected_features, dict_best_cid

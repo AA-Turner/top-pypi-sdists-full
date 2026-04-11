@@ -36,6 +36,7 @@ class BranchProtectionArgs:
                  restrict_pushes: Optional[pulumi.Input[Sequence[pulumi.Input['BranchProtectionRestrictPushArgs']]]] = None):
         """
         The set of arguments for constructing a BranchProtection resource.
+
         :param pulumi.Input[_builtins.str] pattern: Identifies the protection rule pattern.
         :param pulumi.Input[_builtins.str] repository_id: The name or node ID of the repository associated with this branch protection rule.
         :param pulumi.Input[_builtins.bool] allows_deletions: Boolean, setting this to `true` to allow the branch to be deleted.
@@ -250,6 +251,7 @@ class _BranchProtectionState:
                  restrict_pushes: Optional[pulumi.Input[Sequence[pulumi.Input['BranchProtectionRestrictPushArgs']]]] = None):
         """
         Input properties used for looking up and filtering BranchProtection resources.
+
         :param pulumi.Input[_builtins.bool] allows_deletions: Boolean, setting this to `true` to allow the branch to be deleted.
         :param pulumi.Input[_builtins.bool] allows_force_pushes: Boolean, setting this to `true` to allow force pushes on the branch to everyone. Set it to `false` if you specify `force_push_bypassers`.
         :param pulumi.Input[_builtins.bool] enforce_admins: Boolean, setting this to `true` enforces status checks for repository administrators.
@@ -469,6 +471,12 @@ class BranchProtection(pulumi.CustomResource):
                  restrict_pushes: Optional[pulumi.Input[Sequence[pulumi.Input[Union['BranchProtectionRestrictPushArgs', 'BranchProtectionRestrictPushArgsDict']]]]] = None,
                  __props__=None):
         """
+        Protects a GitHub branch.
+
+        This resource allows you to configure branch protection for repositories in your organization. When applied, the branch will be protected from forced pushes and deletion. Additional constraints, such as required status checks or restrictions on users, teams, and apps, can also be configured.
+
+        Note: for the `push_allowances` a given user or team must have specific write access to the repository. If specific write access not provided, github will reject the given actor, which will be the cause of terraform drift.
+
         ## Example Usage
 
         ```python
@@ -525,6 +533,7 @@ class BranchProtection(pulumi.CustomResource):
         ```sh
         $ pulumi import github:index/branchProtection:BranchProtection terraform terraform:main
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -549,6 +558,12 @@ class BranchProtection(pulumi.CustomResource):
                  args: BranchProtectionArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        Protects a GitHub branch.
+
+        This resource allows you to configure branch protection for repositories in your organization. When applied, the branch will be protected from forced pushes and deletion. Additional constraints, such as required status checks or restrictions on users, teams, and apps, can also be configured.
+
+        Note: for the `push_allowances` a given user or team must have specific write access to the repository. If specific write access not provided, github will reject the given actor, which will be the cause of terraform drift.
+
         ## Example Usage
 
         ```python
@@ -605,6 +620,7 @@ class BranchProtection(pulumi.CustomResource):
         ```sh
         $ pulumi import github:index/branchProtection:BranchProtection terraform terraform:main
         ```
+
 
         :param str resource_name: The name of the resource.
         :param BranchProtectionArgs args: The arguments to use to populate this resource's properties.

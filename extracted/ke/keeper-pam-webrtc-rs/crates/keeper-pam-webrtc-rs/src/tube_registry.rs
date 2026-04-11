@@ -852,21 +852,14 @@ impl RegistryActor {
             .is_some_and(|cfg| cfg.starts_with("TEST_MODE_KSM_CONFIG"));
 
         if is_test_mode {
+            // Loopback tests use host candidates only — no STUN needed, and adding
+            // external STUN servers (e.g. Google) causes 3-5s timeout per server when
+            // they're unreachable from the test environment, significantly slowing ICE
+            // gathering.  Empty ice_servers → ICE uses local host candidates only.
             info!(
-                "TEST_MODE_KSM_CONFIG active: Using Google STUN server (tube_id: {})",
+                "TEST_MODE_KSM_CONFIG active: using host candidates only, no STUN (tube_id: {})",
                 tube_id
             );
-            // Note: turn_only is not used after this point for test mode
-            ice_servers.push(RTCIceServer {
-                urls: vec!["stun:stun.l.google.com:19302?transport=udp&family=ipv4".to_string()],
-                username: String::new(),
-                credential: String::new(),
-            });
-            ice_servers.push(RTCIceServer {
-                urls: vec!["stun:stun1.l.google.com:19302?transport=udp&family=ipv4".to_string()],
-                username: String::new(),
-                credential: String::new(),
-            });
             return Ok(ice_servers);
         }
 
@@ -1300,8 +1293,25 @@ impl RegistryHandle {
         // LOCK-FREE: Collect stale tube IDs from DashMap
         for entry in self.tubes.iter() {
             let (tube_id, tube) = (entry.key(), entry.value());
+
             if tube.is_stale().await {
                 debug!("Detected stale tube (tube_id: {})", tube_id);
+                stale_tube_ids.push(tube_id.clone());
+                continue;
+            }
+
+            // Also sweep tunnels that are empty (no active channels) regardless
+            // of connection state, if they have been inactive long enough.
+            // deregister_channel auto-closes Connected+empty tubes immediately,
+            // but tubes that were Disconnected when the last channel left (ICE
+            // restart path) and then reconnected without a new channel would
+            // otherwise linger indefinitely.
+            if !tube.has_active_channels().await
+                && tube
+                    .is_inactive_for_duration(std::time::Duration::from_secs(300))
+                    .await
+            {
+                debug!("Detected empty+inactive tube (tube_id: {})", tube_id);
                 stale_tube_ids.push(tube_id.clone());
             }
         }

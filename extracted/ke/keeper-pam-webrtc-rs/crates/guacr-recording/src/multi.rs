@@ -102,13 +102,18 @@ impl MultiFormatRecorder {
                 let file = std::fs::File::create(&path)?;
                 let mut writer = std::io::BufWriter::new(file);
 
-                // Write typescript header
-                let now = chrono::Utc::now();
-                writeln!(writer, "Script started on {}", now.format("%c"))?;
+                // Write typescript header — matches guacd format expected by Keeper player
+                writeln!(writer, "[BEGIN TYPESCRIPT]")?;
                 writer.flush()?;
 
-                // Create companion .timing file for scriptreplay
-                let timing_path = path.with_extension("timing");
+                // Companion timing file: same stem as the typescript file so multiple
+                // recordings in the same directory never collide.
+                // e.g. "session" → "session.timing", "session.ts" → "session.timing.txt"
+                let timing_path = if path.extension().is_some() {
+                    path.with_extension("timing.txt")
+                } else {
+                    path.with_extension("timing")
+                };
                 let timing_file = std::fs::File::create(&timing_path)?;
                 let timing_writer = std::io::BufWriter::new(timing_file);
 
@@ -253,10 +258,9 @@ impl MultiFormatRecorder {
             writer.flush()?;
         }
 
-        // Finalize typescript
+        // Finalize typescript — matches guacd format expected by Keeper player
         if let Some(mut writer) = self.typescript_writer.take() {
-            let now = chrono::Utc::now();
-            writeln!(writer, "\nScript done on {}", now.format("%c"))?;
+            writeln!(writer, "[END TYPESCRIPT]")?;
             writer.flush()?;
         }
 

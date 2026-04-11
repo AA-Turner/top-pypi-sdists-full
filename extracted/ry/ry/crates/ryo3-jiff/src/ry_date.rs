@@ -1,3 +1,16 @@
+use std::fmt::Display;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::ops::Sub;
+
+use jiff::Zoned;
+use jiff::civil::{Date, Weekday};
+use pyo3::prelude::*;
+use pyo3::pyclass::CompareOp;
+use pyo3::types::{PyDict, PyTuple};
+use pyo3::{BoundObject, IntoPyObject, IntoPyObjectExt};
+use ryo3_core::{PyAsciiString, map_py_overflow_err, map_py_value_err};
+use ryo3_macro_rules::{any_repr, py_type_err, py_value_error};
+
 use crate::difference::{DateDifferenceArg, RyDateDifference};
 use crate::ry_datetime::RyDateTime;
 use crate::ry_iso_week_date::RyISOWeekDate;
@@ -10,19 +23,6 @@ use crate::series::RyDateSeries;
 use crate::spanish::Spanish;
 use crate::util::SpanKwargs;
 use crate::{JiffEra, JiffEraYear, JiffRoundMode, JiffUnit, JiffWeekday};
-use jiff::Zoned;
-use jiff::civil::{Date, Weekday};
-use pyo3::pyclass::CompareOp;
-use pyo3::types::{PyDict, PyTuple};
-use pyo3::{BoundObject, prelude::*};
-use pyo3::{IntoPyObject, IntoPyObjectExt};
-use ryo3_core::PyAsciiString;
-use ryo3_core::map_py_overflow_err;
-use ryo3_core::map_py_value_err;
-use ryo3_macro_rules::{any_repr, py_type_err, py_value_error};
-use std::fmt::Display;
-use std::hash::{DefaultHasher, Hash, Hasher};
-use std::ops::Sub;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
@@ -69,7 +69,7 @@ impl RyDate {
         Self::from(Zoned::now().date())
     }
 
-    #[pyo3(signature = (hour, minute, second, nanosecond=0))]
+    #[pyo3(signature = (hour, minute, second, nanosecond = 0))]
     pub(crate) fn at(&self, hour: i8, minute: i8, second: i8, nanosecond: i32) -> RyDateTime {
         RyDateTime::from(self.0.at(hour, minute, second, nanosecond))
     }
@@ -168,19 +168,19 @@ impl RyDate {
 
     #[expect(clippy::too_many_arguments)]
     #[pyo3(
-        signature=(
-            other=None,
+        signature = (
+            other = None,
             /, *,
-            years=0,
-            months=0,
-            weeks=0,
-            days=0,
-            hours=0,
-            minutes=0,
-            seconds=0,
-            milliseconds=0,
-            microseconds=0,
-            nanoseconds=0
+            years = 0,
+            months = 0,
+            weeks = 0,
+            days = 0,
+            hours = 0,
+            minutes = 0,
+            seconds = 0,
+            milliseconds = 0,
+            microseconds = 0,
+            nanoseconds = 0
         )
     )]
     fn add(
@@ -227,19 +227,19 @@ impl RyDate {
 
     #[expect(clippy::too_many_arguments)]
     #[pyo3(
-        signature=(
-            other=None,
+        signature = (
+            other = None,
             /, *,
-            years=0,
-            months=0,
-            weeks=0,
-            days=0,
-            hours=0,
-            minutes=0,
-            seconds=0,
-            milliseconds=0,
-            microseconds=0,
-            nanoseconds=0
+            years = 0,
+            months = 0,
+            weeks = 0,
+            days = 0,
+            hours = 0,
+            minutes = 0,
+            seconds = 0,
+            milliseconds = 0,
+            microseconds = 0,
+            nanoseconds = 0
         )
     )]
     fn sub<'py>(
@@ -297,12 +297,12 @@ impl RyDate {
     #[pyo3(
         signature = (
             *,
-            year=None,
-            era_year=None,
-            month=None,
-            day=None,
-            day_of_year=None,
-            day_of_year_no_leap=None,
+            year = None,
+            era_year = None,
+            month = None,
+            day = None,
+            day_of_year = None,
+            day_of_year_no_leap = None,
         )
     )]
     fn replace(
@@ -489,9 +489,9 @@ impl RyDate {
         signature = (
             other,
             *,
-            smallest=JiffUnit::DAY,
-            largest=None,
-            mode=JiffRoundMode::TRUNC,
+            smallest = JiffUnit::DAY,
+            largest = None,
+            mode = JiffRoundMode::TRUNC,
             increment = 1
         ),
         text_signature = "(self, other, *, smallest=\"day\", largest=None, mode=\"trunc\", increment=1)"
@@ -515,9 +515,9 @@ impl RyDate {
         signature = (
             other,
             *,
-            smallest=JiffUnit::DAY,
-            largest=None,
-            mode=JiffRoundMode::TRUNC,
+            smallest = JiffUnit::DAY,
+            largest = None,
+            mode = JiffRoundMode::TRUNC,
             increment = 1
         ),
         text_signature = "(self, other, *, smallest=\"day\", largest=None, mode=\"trunc\", increment=1)"

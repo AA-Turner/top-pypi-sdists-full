@@ -30,8 +30,10 @@ fn test_ses_recorder_writes_raw_instruction() {
     let config = RecordingConfig::default();
     let mut recorder = GuacamoleSesRecorder::new(&ses_path, &config).unwrap();
 
-    // Write a test instruction (Guacamole protocol format)
-    let instruction = Bytes::from("4.sync,13.1234567890123,1.0;");
+    // Use a non-sync instruction to verify raw pass-through.
+    // sync instructions are intentionally rewritten to session-relative
+    // timestamps so they are excluded from this raw-passthrough test.
+    let instruction = Bytes::from("4.size,1.0,4.1920,4.1080;");
     recorder
         .record(RecordingDirection::ServerToClient, &instruction)
         .unwrap();
@@ -46,7 +48,7 @@ fn test_ses_recorder_writes_raw_instruction() {
 
     // Format: raw Guacamole protocol instruction (NO timestamp prefix)
     assert!(
-        content.contains("4.sync,13.1234567890123,1.0;"),
+        content.contains("4.size,1.0,4.1920,4.1080;"),
         "Should contain raw instruction without timestamp prefix"
     );
     // Should NOT have old format with timestamp prefix
@@ -100,9 +102,10 @@ fn test_ses_recorder_records_multiple_instructions() {
         content.contains("4.size,1.0,3.800,3.600;"),
         "Should contain size instruction"
     );
+    // sync is rewritten to session-relative timestamp — check format only
     assert!(
-        content.contains("4.sync,13.1234567890123,1.0;"),
-        "Should contain sync instruction"
+        content.contains("4.sync,"),
+        "Should contain sync instruction (session-relative timestamp)"
     );
     // Key instruction gets a timestamp injected
     assert!(
@@ -191,14 +194,22 @@ fn test_ses_format_compatible_with_guacenc() {
 
     let content = std::fs::read_to_string(&ses_path).unwrap();
 
-    // Each instruction should be on its own line, raw format
+    // Non-sync instructions should be raw; sync timestamps are rewritten
+    // to session-relative values so we only check format, not exact content.
     for instr in &instructions {
         let instr_str = String::from_utf8_lossy(instr);
-        assert!(
-            content.contains(instr_str.as_ref()),
-            "Recording should contain: {}",
-            instr_str
-        );
+        if instr_str.starts_with("4.sync,") {
+            assert!(
+                content.contains("4.sync,"),
+                "Recording should contain a sync instruction"
+            );
+        } else {
+            assert!(
+                content.contains(instr_str.as_ref()),
+                "Recording should contain: {}",
+                instr_str
+            );
+        }
     }
 
     // Verify file can be parsed as Guacamole protocol

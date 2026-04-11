@@ -45,6 +45,34 @@ class BotInfo(TLObject):
         return cls(name=_name, about=_about, description=_description)
 
 
+class ExportedBotToken(TLObject):
+    CONSTRUCTOR_ID = 0x3c60b621
+    SUBCLASS_OF_ID = 0x78496c77
+
+    def __init__(self, token: str):
+        """
+        Constructor for bots.ExportedBotToken: Instance of ExportedBotToken.
+        """
+        self.token = token
+
+    def to_dict(self):
+        return {
+            '_': 'ExportedBotToken',
+            'token': self.token
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'!\xb6`<',
+            self.serialize_bytes(self.token),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _token = reader.tgread_string()
+        return cls(token=_token)
+
+
 class PopularAppBots(TLObject):
     CONSTRUCTOR_ID = 0x1991b13b
     SUBCLASS_OF_ID = 0x7b64be7d
@@ -128,4 +156,32 @@ class PreviewInfo(TLObject):
             _lang_codes.append(_x)
 
         return cls(media=_media, lang_codes=_lang_codes)
+
+
+class RequestedButton(TLObject):
+    CONSTRUCTOR_ID = 0xf13bbcd7
+    SUBCLASS_OF_ID = 0xf9df53a
+
+    def __init__(self, webapp_req_id: str):
+        """
+        Constructor for bots.RequestedButton: Instance of RequestedButton.
+        """
+        self.webapp_req_id = webapp_req_id
+
+    def to_dict(self):
+        return {
+            '_': 'RequestedButton',
+            'webapp_req_id': self.webapp_req_id
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xd7\xbc;\xf1',
+            self.serialize_bytes(self.webapp_req_id),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _webapp_req_id = reader.tgread_string()
+        return cls(webapp_req_id=_webapp_req_id)
 

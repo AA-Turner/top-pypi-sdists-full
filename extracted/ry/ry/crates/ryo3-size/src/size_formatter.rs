@@ -1,7 +1,8 @@
-use crate::types::{Base, Style};
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use pyo3::{IntoPyObjectExt, intern};
+
+use crate::types::{Base, Style};
 
 #[pyclass(name = "SizeFormatter", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]

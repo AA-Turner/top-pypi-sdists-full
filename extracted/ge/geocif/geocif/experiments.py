@@ -180,8 +180,8 @@ def experiment_1_cid_ablation(logger, parser, best_models, all_cids):
     """Experiment 1: Run each CID type individually using the best model per country."""
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
 
-    # Save originals — use_ceis lives in [DEFAULT], not [ML]
-    orig_use_cids = parser.get("DEFAULT", "use_ceis")
+    # Save originals — use_cids lives in [DEFAULT], not [ML]
+    orig_use_cids = parser.get("DEFAULT", "use_cids")
     orig_experiment_name = parser.get("ML", "experiment_name")
     orig_models = {c: parser.get(c, "models") for c in countries}
 
@@ -192,13 +192,13 @@ def experiment_1_cid_ablation(logger, parser, best_models, all_cids):
     for cid in all_cids:
         logger.info(f"  CID ablation: {cid}")
         parser.set("ML", "experiment_name", f"cid_{cid}")
-        parser.set("DEFAULT", "use_ceis", f'["{cid}"]')
+        parser.set("DEFAULT", "use_cids", f'["{cid}"]')
 
         inputs = gc.gather_inputs(parser)
         gc.execute_models(inputs, logger, parser)
 
     # Restore originals
-    parser.set("DEFAULT", "use_ceis", orig_use_cids)
+    parser.set("DEFAULT", "use_cids", orig_use_cids)
     parser.set("ML", "experiment_name", orig_experiment_name)
     for country, orig in orig_models.items():
         parser.set(country, "models", orig)
@@ -679,7 +679,7 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
     for _, values in hp_space:
         total_combos *= len(values)
 
-    all_cids = ast.literal_eval(parser.get("ML", "use_ceis"))
+    all_cids = ast.literal_eval(parser.get("ML", "use_cids"))
 
     params = gc._build_summary_params(parser, inputs)
     params.append(("Exp 0: models", ", ".join(model_experiment)))
@@ -703,7 +703,7 @@ def run(path_config_files=[Path("../config/geocif.txt")], n_trials=30):
 
     # Experiment 1: CID ablation — run each CID type individually with best model
     logger.info("Experiment 1: CID ablation")
-    all_cids = ast.literal_eval(parser.get("ML", "use_ceis"))
+    all_cids = ast.literal_eval(parser.get("ML", "use_cids"))
     best_models = _get_best_models_from_exp0(parser, model_experiment)
     logger.info(f"  Best models from Exp 0: {best_models}")
     parser = experiment_1_cid_ablation(logger, parser, best_models, all_cids)
@@ -935,7 +935,7 @@ def _plot_regional_mape(df_metrics, df_exp_data, experiment_name, dir_plots):
         ax.set_ylabel("Region (% of national production)")
         ax.legend(title="Model", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
         plt.tight_layout()
-        fig.savefig(dir_plots / f"regional_mape_{experiment_name}_{country}.png", dpi=250)
+        fig.savefig(dir_plots / f"mape_region_{experiment_name}_{country}.png", dpi=250)
         plt.close(fig)
 
 
@@ -1094,7 +1094,7 @@ def _plot_mape_by_year(df_exp_data, experiment_name, dir_plots):
     ax.legend(title="Model", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
-    fig.savefig(dir_plots / f"mape_by_year_{experiment_name}.png", dpi=250)
+    fig.savefig(dir_plots / f"mape_year_{experiment_name}.png", dpi=250)
     plt.close(fig)
 
 
@@ -1117,7 +1117,7 @@ def _plot_mape_by_cid(df_exp_data, experiment_name, dir_plots):
     ax.set_title(f"MAPE by CID Type — {experiment_name}")
     ax.tick_params(axis="x", rotation=45)
     plt.tight_layout()
-    fig.savefig(dir_plots / f"mape_by_cid_{experiment_name}.png", dpi=250)
+    fig.savefig(dir_plots / f"mape_cid_{experiment_name}.png", dpi=250)
     plt.close(fig)
 
 
@@ -1153,7 +1153,7 @@ def _plot_mape_by_cid_region(df_exp_data, experiment_name, dir_plots):
             if tick.get_text() == "All CIDs":
                 tick.set_fontweight("bold")
         plt.tight_layout()
-        fig.savefig(dir_plots / f"mape_by_cid_region_{experiment_name}_{country}.png", dpi=250)
+        fig.savefig(dir_plots / f"mape_cid_region_{experiment_name}_{country}.png", dpi=250)
         plt.close(fig)
 
 
@@ -1195,7 +1195,7 @@ def _plot_mape_by_cid_year(df_exp_data, experiment_name, dir_plots):
     ax.legend(handles, labels, title="CID Type", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
-    fig.savefig(dir_plots / f"mape_by_cid_year_{experiment_name}.png", dpi=250)
+    fig.savefig(dir_plots / f"mape_cid_year_{experiment_name}.png", dpi=250)
     plt.close(fig)
 
 
@@ -1231,7 +1231,7 @@ def _plot_cid_rank_by_year(df_exp_data, experiment_name, dir_plots):
         if tick.get_text() == "All CIDs":
             tick.set_fontweight("bold")
     plt.tight_layout()
-    fig.savefig(dir_plots / f"cid_rank_by_year_{experiment_name}.png", dpi=250)
+    fig.savefig(dir_plots / f"cid_rank_year_{experiment_name}.png", dpi=250)
     plt.close(fig)
 
 
@@ -1354,17 +1354,19 @@ def analyze_experiments(parser, experiments, logger, best_models=None):
 
     for exp_name in experiment_names:
         logger.info(f"  Plotting {exp_name}...")
-        _safe_plot(_plot_heatmap, df_metrics, exp_name, dir_plots)
-        _safe_plot(_plot_boxplot, df_exp, exp_name, dir_plots)
-        _safe_plot(_plot_regional_mape, df_metrics, df_exp, exp_name, dir_plots)
-        _safe_plot(_plot_error_distribution, df_exp, exp_name, dir_plots)
-        _safe_plot(_plot_feature_frequency, df_exp, exp_name, dir_plots)
-        _safe_plot(_plot_mape_by_year, df_exp, exp_name, dir_plots)
+        dir_exp_plots = dir_experiments / "plots" / exp_name
+        os.makedirs(dir_exp_plots, exist_ok=True)
+        _safe_plot(_plot_heatmap, df_metrics, exp_name, dir_exp_plots)
+        _safe_plot(_plot_boxplot, df_exp, exp_name, dir_exp_plots)
+        _safe_plot(_plot_regional_mape, df_metrics, df_exp, exp_name, dir_exp_plots)
+        _safe_plot(_plot_error_distribution, df_exp, exp_name, dir_exp_plots)
+        _safe_plot(_plot_feature_frequency, df_exp, exp_name, dir_exp_plots)
+        _safe_plot(_plot_mape_by_year, df_exp, exp_name, dir_exp_plots)
         if exp_name == "cids":
-            _safe_plot(_plot_mape_by_cid, df_exp, exp_name, dir_plots)
-            _safe_plot(_plot_mape_by_cid_region, df_exp, exp_name, dir_plots)
-            _safe_plot(_plot_mape_by_cid_year, df_exp, exp_name, dir_plots)
-            _safe_plot(_plot_cid_rank_by_year, df_exp, exp_name, dir_plots)
+            _safe_plot(_plot_mape_by_cid, df_exp, exp_name, dir_exp_plots)
+            _safe_plot(_plot_mape_by_cid_region, df_exp, exp_name, dir_exp_plots)
+            _safe_plot(_plot_mape_by_cid_year, df_exp, exp_name, dir_exp_plots)
+            _safe_plot(_plot_cid_rank_by_year, df_exp, exp_name, dir_exp_plots)
         # Diagnostic plots: scatter, MAPE bar, MAPE map
         _safe_plot(_generate_diagnostics_for_experiment, df_exp, exp_name, dg, dir_experiments,
                    name=f"diagnostics_{exp_name}")

@@ -1,18 +1,17 @@
-use pyo3::prelude::*;
-
-use pyo3::intern;
-use ryo3_core::types::{PyOpenMode, PyOpenOptions};
-use ryo3_macro_rules::{py_io_error, py_runtime_err, py_stop_async_iteration_err, pytodo};
-use ryo3_tokio_rt::{future_into_py, get_tokio_runtime};
 use std::io::SeekFrom;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use pyo3::intern;
+use pyo3::prelude::*;
+use ryo3_core::types::{PyOpenMode, PyOpenOptions};
+use ryo3_macro_rules::{py_io_error, py_runtime_err, py_stop_async_iteration_err, pytodo};
+#[cfg(feature = "experimental-async")]
+use ryo3_tokio_rt::on_tokio_py;
+use ryo3_tokio_rt::{future_into_py, get_tokio_runtime};
 use tokio::fs::File;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncSeekExt, AsyncWriteExt, BufStream};
 use tokio::sync::Mutex;
-
-#[cfg(feature = "experimental-async")]
-use ryo3_tokio_rt::on_tokio_py;
 
 enum FileState {
     Closed,
@@ -251,7 +250,7 @@ impl PyAsyncFile {
 impl PyAsyncFile {
     #[new]
     #[pyo3(
-        signature = (p, mode=PyOpenMode::default()),
+        signature = (p, mode = PyOpenMode::default()),
         text_signature = "(path, mode='rb')"
     )]
     fn py_new(p: PathBuf, mode: PyOpenMode) -> PyResult<Self> {
@@ -461,7 +460,7 @@ impl PyAsyncFile {
     }
 
     #[pyo3(
-        signature = (offset, whence=0, /),
+        signature = (offset, whence = 0, /),
         text_signature = "(self, offset, whence=os.SEEK_SET, /)")
     ]
     fn seek<'py>(
@@ -539,7 +538,7 @@ impl PyAsyncFile {
 impl PyAsyncFile {
     #[new]
     #[pyo3(
-        signature = (p, mode=PyOpenMode::default()),
+        signature = (p, mode = PyOpenMode::default()),
         text_signature = "(path, mode='rb')"
     )]
     fn py_new(p: PathBuf, mode: PyOpenMode) -> PyResult<Self> {
@@ -667,9 +666,7 @@ impl PyAsyncFile {
         Ok(ryo3_bytes::PyBytes::from(bvec))
     }
 
-    #[pyo3(
-        signature = (size = None, /),
-    )]
+    #[pyo3(signature = (size = None, /))]
     async fn read(&self, size: Option<usize>) -> PyResult<ryo3_bytes::PyBytes> {
         let inner = Arc::clone(&self.inner);
         on_tokio_py(async move {
@@ -752,7 +749,7 @@ impl PyAsyncFile {
     }
 
     #[pyo3(
-        signature = (offset, whence=0, /),
+        signature = (offset, whence = 0, /),
         text_signature = "(self, offset, whence=os.SEEK_SET, /)")
     ]
     async fn seek(&self, offset: i64, whence: usize) -> PyResult<u64> {

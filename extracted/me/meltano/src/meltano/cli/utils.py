@@ -206,9 +206,9 @@ def _prompt_plugin_capabilities(plugin_type):  # noqa: ANN001, ANN202
         click.style("(capabilities)", fg="blue"),
         type=list,
         default=[],
-        value_proc=lambda value: [word.strip() for word in value.split(",")]
-        if value
-        else [],
+        value_proc=lambda value: (
+            [word.strip() for word in value.split(",")] if value else []
+        ),
     )
 
 
@@ -250,11 +250,11 @@ def _prompt_plugin_settings(plugin_type: PluginType) -> list[dict[str, t.Any]]:
             click.style("(settings)", fg="blue"),
             type=list,
             default=[],
-            value_proc=lambda value: [
-                setting.strip().partition(":") for setting in value.split(",")
-            ]
-            if value
-            else [],
+            value_proc=lambda value: (
+                [setting.strip().partition(":") for setting in value.split(",")]
+                if value
+                else []
+            ),
         )
         try:
             settings = [
@@ -267,7 +267,7 @@ def _prompt_plugin_settings(plugin_type: PluginType) -> list[dict[str, t.Any]]:
     return settings
 
 
-def add_plugin(  # noqa: ANN201
+def add_plugin(
     plugin_type: PluginType,
     plugin_name: str,
     *,
@@ -278,13 +278,13 @@ def add_plugin(  # noqa: ANN201
     custom: bool = False,
     update: bool = False,
     plugin_yaml: dict | None = None,
-):
+) -> PluginRef:
     """Add Plugin to given Project."""
     if custom:
         # XXX: For backwards compatibility, the namespace must be prompted for first.
         namespace = _prompt_plugin_namespace(plugin_type, plugin_name)
         pip_url = _prompt_plugin_pip_url(plugin_name)
-        plugin_attrs = {
+        plugin_attrs: dict[str, t.Any] = {
             "namespace": namespace,
             "pip_url": pip_url,
             "executable": _prompt_plugin_executable(pip_url, plugin_name),
@@ -376,14 +376,14 @@ def add_plugin(  # noqa: ANN201
     return plugin
 
 
-def add_required_plugins(  # noqa: ANN201
-    plugins: list[ProjectPlugin],
+def add_required_plugins(
+    plugins: list[PluginRef],
     add_service: ProjectAddService,
     *,
     lock: bool = True,
-):
+) -> list[PluginRef]:
     """Add any Plugins required by the given Plugin."""
-    added_plugins = []
+    added_plugins: list[PluginRef] = []
     for plugin_install in plugins:
         required_plugins = add_service.add_required(
             plugin_install,

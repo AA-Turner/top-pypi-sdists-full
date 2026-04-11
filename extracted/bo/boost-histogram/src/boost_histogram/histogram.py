@@ -113,9 +113,31 @@ IndexingExpr: TypeAlias = (
 T = TypeVar("T")
 
 
+IntHists = TypeVar(
+    "IntHists", bound="Histogram[bhs.AtomicInt64] | Histogram[bhs.Int64]"
+)
+FloatHists = TypeVar(
+    "FloatHists", bound="Histogram[bhs.Double] | Histogram[bhs.Unlimited]"
+)
+ListHists = TypeVar("ListHists", bound="Histogram[bhs.MultiCell]")
+WeightHists = TypeVar("WeightHists", bound="Histogram[bhs.Weight]")
+MeanHists = TypeVar("MeanHists", bound="Histogram[bhs.Mean]")
+WeightedMeanHists = TypeVar("WeightedMeanHists", bound="Histogram[bhs.WeightedMean]")
+
+
+@typing.overload
 def _fill_cast(
-    value: T, *, inner: bool = False
-) -> T | np.typing.NDArray[Any] | tuple[T, ...]:
+    value: tuple[T, ...] | list[T], *, inner: Literal[False] = False
+) -> tuple[T | np.typing.NDArray[Any], ...]: ...
+
+
+@typing.overload
+def _fill_cast(value: T, *, inner: bool = False) -> T | np.typing.NDArray[Any]: ...
+
+
+def _fill_cast(
+    value: Any, *, inner: bool = False
+) -> Any | np.typing.NDArray[Any] | tuple[Any | np.typing.NDArray[Any], ...]:
     """
     Convert to NumPy arrays. Some buffer objects do not get converted by forcecast.
     If not called by itself (inner=False), then will work through one level of tuple/list.
@@ -124,7 +146,7 @@ def _fill_cast(
         return value
 
     if not inner and isinstance(value, (tuple, list)):
-        return tuple(_fill_cast(a, inner=True) for a in value)  # type: ignore[misc]
+        return tuple(_fill_cast(a, inner=True) for a in value)
 
     if hasattr(value, "__iter__") or hasattr(value, "__array__"):
         return np.asarray(value)
@@ -701,11 +723,23 @@ class Histogram(typing.Generic[S]):
         weight_ars = _fill_cast(weight)
         sample_ars = _fill_cast(sample)
 
+        # Broadcast scalar positional args to match sample length when sample is an array.
+        # This allows e.g. h.fill(0, sample=[1, 2, 3]) to work for Mean/WeightedMean storage.
+        if sample_ars is not None:
+            sample_arr = np.asarray(sample_ars)
+            if sample_arr.ndim > 0:
+                sample_len = len(sample_arr)
+                if sample_len > 1:
+                    args_ars = tuple(
+                        np.full(sample_len, a) if np.ndim(a) == 0 else a
+                        for a in args_ars
+                    )
+
         if threads == 0:
             threads = cpu_count()
 
         if threads is None or threads == 1:
-            self._hist.fill(*args_ars, weight=weight_ars, sample=sample_ars)  # type: ignore[arg-type]
+            self._hist.fill(*args_ars, weight=weight_ars, sample=sample_ars)
             return self
 
         if self._hist._storage_type in {
@@ -714,24 +748,26 @@ class Histogram(typing.Generic[S]):
         }:
             raise RuntimeError("Mean histograms do not support threaded filling")
 
-        data: list[list[np.typing.NDArray[Any]] | list[str]] = [
-            np.array_split(a, threads) if not isinstance(a, str) else [a] * threads  # type: ignore[arg-type, list-item]
-            for a in args_ars
-        ]
+        data: list[list[np.typing.NDArray[Any]] | list[str]] = []
+        for a in args_ars:
+            if isinstance(a, str):
+                data.append([a] * threads)
+            else:
+                data.append(np.array_split(np.asarray(a), threads))
 
         weights: list[Any]
         if weight is None or np.isscalar(weight):
             assert threads is not None
             weights = [weight_ars] * threads
         else:
-            weights = np.array_split(weight_ars, threads)  # type: ignore[arg-type]
+            weights = np.array_split(np.asarray(weight_ars), threads)
 
         samples: list[Any]
         if sample_ars is None or np.isscalar(sample_ars):
             assert threads is not None
             samples = [sample_ars] * threads
         else:
-            samples = np.array_split(sample_ars, threads)  # type: ignore[arg-type]
+            samples = np.array_split(np.asarray(sample_ars), threads)
 
         if self._hist._storage_type is _core.storage.atomic_int64:
 
@@ -790,17 +826,26 @@ class Histogram(typing.Generic[S]):
         return cast(self, self._hist.axis(i), Axis)
 
     @property
-    def storage_type(self) -> type[Storage]:
+    def storage_type(self) -> type[S]:
         return cast(self, self._hist._storage_type, Storage)  # type: ignore[return-value]
 
     @property
-    def _storage_type(self) -> type[Storage]:
+    def _storage_type(self) -> type[S]:
         warnings.warn(
             "Accessing storage type has changed from _storage_type to storage_type, and will be removed in future.",
             FutureWarning,
             stacklevel=2,
         )
         return cast(self, self._hist._storage_type, Storage)  # type: ignore[return-value]
+
+    @property
+    def storage(self) -> S:
+        """
+        New storage matching the one the histogram was constructed with.
+        """
+        if issubclass(self.storage_type, bhs.MultiCell):
+            return self.storage_type(self._hist.nelem())  # type: ignore[attr-defined]
+        return self.storage_type()
 
     def _reduce(self, *args: Any) -> Self:
         return self._new_hist(self._hist.reduce(*args))
@@ -857,7 +902,7 @@ class Histogram(typing.Generic[S]):
         sep = "," if len(self.axes) > 0 else ""
         ret = f"{self.__class__.__name__}({first_newline}"
         ret += f",{newline}".join(repr(ax) for ax in self.axes)
-        ret += f"{sep}{storage_newline}storage={self.storage_type()}"  # pylint: disable=not-callable
+        ret += f"{sep}{storage_newline}storage={self.storage}"
         ret += ")"
         outer = self.sum(flow=True)
         if outer:
@@ -872,7 +917,7 @@ class Histogram(typing.Generic[S]):
         Converts an expression that contains UHI locators to one that does not.
         """
         # Support sum and rebin directly
-        if index is sum or hasattr(index, "factor"):  # type: ignore[comparison-overlap]
+        if index is sum or hasattr(index, "factor"):  # type: ignore[comparison-overlap,redundant-expr]
             return slice(None, None, index)
 
         # General locators
@@ -1010,16 +1055,13 @@ class Histogram(typing.Generic[S]):
         return self._hist.empty(flow)
 
     @typing.overload
-    def sum(self: Histogram[bhs.Double], flow: bool = False) -> float: ...
-
-    @typing.overload
-    def sum(self: Histogram[bhs.Int64], flow: bool = False) -> float: ...
-
-    @typing.overload
-    def sum(self: Histogram[bhs.AtomicInt64], flow: bool = False) -> float: ...
-
-    @typing.overload
-    def sum(self: Histogram[bhs.Unlimited], flow: bool = False) -> float: ...
+    def sum(
+        self: Histogram[bhs.Double]
+        | Histogram[bhs.Int64]
+        | Histogram[bhs.AtomicInt64]
+        | Histogram[bhs.Unlimited],
+        flow: bool = False,
+    ) -> float: ...
 
     @typing.overload
     def sum(self: Histogram[bhs.MultiCell], flow: bool = False) -> list[float]: ...
@@ -1057,44 +1099,28 @@ class Histogram(typing.Generic[S]):
         return self.axes.size
 
     @typing.overload
-    def __getitem__(
-        self: Histogram[bhs.Double], index: IndexingExpr
-    ) -> Histogram[bhs.Double] | float: ...
+    def __getitem__(self: FloatHists, index: IndexingExpr) -> FloatHists | float: ...
+
+    @typing.overload
+    def __getitem__(self: IntHists, index: IndexingExpr) -> IntHists | int: ...
 
     @typing.overload
     def __getitem__(
-        self: Histogram[bhs.Int64], index: IndexingExpr
-    ) -> Histogram[bhs.Int64] | int: ...
+        self: ListHists, index: IndexingExpr
+    ) -> ListHists | list[float]: ...
 
     @typing.overload
     def __getitem__(
-        self: Histogram[bhs.AtomicInt64], index: IndexingExpr
-    ) -> Histogram[bhs.AtomicInt64] | int: ...
+        self: WeightHists, index: IndexingExpr
+    ) -> WeightHists | WeightedSum: ...
+
+    @typing.overload
+    def __getitem__(self: MeanHists, index: IndexingExpr) -> MeanHists | Mean: ...
 
     @typing.overload
     def __getitem__(
-        self: Histogram[bhs.Unlimited], index: IndexingExpr
-    ) -> Histogram[bhs.Unlimited] | int | float: ...
-
-    @typing.overload
-    def __getitem__(
-        self: Histogram[bhs.MultiCell], index: IndexingExpr
-    ) -> Histogram[bhs.MultiCell] | list[float]: ...
-
-    @typing.overload
-    def __getitem__(
-        self: Histogram[bhs.Weight], index: IndexingExpr
-    ) -> Histogram[bhs.Weight] | WeightedSum: ...
-
-    @typing.overload
-    def __getitem__(
-        self: Histogram[bhs.Mean], index: IndexingExpr
-    ) -> Histogram[bhs.Mean] | Mean: ...
-
-    @typing.overload
-    def __getitem__(
-        self: Histogram[bhs.WeightedMean], index: IndexingExpr
-    ) -> Histogram[bhs.WeightedMean] | WeightedMean: ...
+        self: WeightedMeanHists, index: IndexingExpr
+    ) -> WeightedMeanHists | WeightedMean: ...
 
     @typing.overload
     def __getitem__(
@@ -1397,6 +1423,9 @@ class Histogram(typing.Generic[S]):
         if isinstance(self._hist, _core.hist.any_multi_cell):
             # Ignore first dimension for MultiCell arrays, the first dimension is for the cells, the normal histogram axis indexing starts with dimension 2 in this case
             value_n = 1
+        # value_hist_axis tracks the axis index in the value histogram (always 0-based,
+        # independent of the MultiCell offset in value_n)
+        value_hist_axis = 0
         for n, request in enumerate(indexes):
             has_underflow = self.axes[n].traits.underflow
             has_overflow = self.axes[n].traits.overflow
@@ -1411,8 +1440,8 @@ class Histogram(typing.Generic[S]):
 
                 # If the input is a histogram, we need to exactly match underflow/overflow
                 if isinstance(value, Histogram):
-                    in_underflow = value.axes[n].traits.underflow
-                    in_overflow = value.axes[n].traits.overflow
+                    in_underflow = value.axes[value_hist_axis].traits.underflow
+                    in_overflow = value.axes[value_hist_axis].traits.overflow
 
                     if use_underflow != in_underflow or use_overflow != in_overflow:
                         msg = (
@@ -1459,6 +1488,7 @@ class Histogram(typing.Generic[S]):
                 )
                 indexes[n] = slice(start_real, stop_real, request.step)
                 value_n += 1
+                value_hist_axis += 1
             else:
                 indexes[n] = request + has_underflow
 

@@ -14,6 +14,9 @@ use tokio::sync::mpsc;
 use guacr_threat_detection::{SessionGuard, ThreatDetector};
 
 use crate::csv_export::{generate_csv_filename, CsvExporter};
+use crate::handler_helpers::{
+    reject_with_error, render_connection_error, render_connection_success, send_render,
+};
 use crate::query_executor::QueryExecutor;
 use crate::recording::{
     finalize_recording, init_recording, record_error_output, record_query_input, send_and_record,
@@ -115,24 +118,7 @@ impl ProtocolHandler for MongoDbHandler {
             username, hostname, port, database
         );
 
-        // Parse display size from parameters (like SSH does)
-        let size_params = params
-            .get("size")
-            .map(|s| s.as_str())
-            .unwrap_or("1024,768,96");
-        let size_parts: Vec<&str> = size_params.split(',').collect();
-        let width: u32 = size_parts
-            .first()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(1024);
-        let height: u32 = size_parts
-            .get(1)
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(768);
-
-        // Calculate terminal dimensions (9x18 pixels per character cell)
-        let cols = (width / 9).max(80) as u16;
-        let rows = (height / 18).max(24) as u16;
+        let (width, height, cols, rows) = crate::handler_helpers::parse_display_size(&params);
 
         info!(
             "MongoDB: Display size {}x{} px → {}x{} chars",
@@ -147,6 +133,7 @@ impl ProtocolHandler for MongoDbHandler {
         };
         let mut executor = QueryExecutor::new_with_size(prompt, "mongodb", rows, cols)
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        executor.use_binary = params.get("binary").map(|v| v == "true").unwrap_or(false);
 
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "MongoDB", cols, rows);
@@ -211,25 +198,20 @@ impl ProtocolHandler for MongoDbHandler {
                 let error_msg = format!("Failed to parse MongoDB URI: {}", e);
                 warn!("MongoDB: {}", error_msg);
 
-                executor
-                    .write_error(&error_msg)
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_prompt()
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                let (_, instructions) = executor
-                    .render_screen()
-                    .await
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                for instr in instructions {
-                    to_client
-                        .send(instr)
-                        .await
-                        .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                }
-
-                while from_client.recv().await.is_some() {}
+                render_connection_error(
+                    &mut executor,
+                    &to_client,
+                    &mut from_client,
+                    &error_msg,
+                    &[
+                        "Check hostname and port",
+                        "Verify MongoDB server is running",
+                        "Check credentials and authSource",
+                        "Verify network connectivity",
+                    ],
+                    &mut recorder,
+                )
+                .await?;
                 return Err(HandlerError::ConnectionFailed(error_msg));
             }
         };
@@ -240,25 +222,20 @@ impl ProtocolHandler for MongoDbHandler {
                 let error_msg = format!("Failed to create MongoDB client: {}", e);
                 warn!("MongoDB: {}", error_msg);
 
-                executor
-                    .write_error(&error_msg)
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_prompt()
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                let (_, instructions) = executor
-                    .render_screen()
-                    .await
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                for instr in instructions {
-                    to_client
-                        .send(instr)
-                        .await
-                        .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                }
-
-                while from_client.recv().await.is_some() {}
+                render_connection_error(
+                    &mut executor,
+                    &to_client,
+                    &mut from_client,
+                    &error_msg,
+                    &[
+                        "Check hostname and port",
+                        "Verify MongoDB server is running",
+                        "Check credentials and authSource",
+                        "Verify network connectivity",
+                    ],
+                    &mut recorder,
+                )
+                .await?;
                 return Err(HandlerError::ConnectionFailed(error_msg));
             }
         };
@@ -269,87 +246,40 @@ impl ProtocolHandler for MongoDbHandler {
             Ok(_) => {
                 info!("MongoDB: Connected successfully");
 
-                executor
-                    .write_line("")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line(&format!("Connected to MongoDB at {}:{}", hostname, port))
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line(&format!("Database: {}", database))
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("Type 'help' for available commands.")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_prompt()
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                // Render the connection success screen
+                let info = [
+                    format!("Connected to MongoDB at {}:{}", hostname, port),
+                    format!("Database: {}", database),
+                ];
+                let info_refs: Vec<&str> = info.iter().map(|s| s.as_str()).collect();
                 debug!("MongoDB: Rendering initial screen with prompt");
-                let (_, instructions) = executor
-                    .render_screen()
-                    .await
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                debug!(
-                    "MongoDB: Sending {} instructions to client",
-                    instructions.len()
-                );
-                for instr in instructions {
-                    to_client
-                        .send(instr)
-                        .await
-                        .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                }
+                render_connection_success(
+                    &mut executor,
+                    &to_client,
+                    &info_refs,
+                    &security,
+                    &mut recorder,
+                )
+                .await?;
                 debug!("MongoDB: Initial screen sent successfully");
             }
             Err(e) => {
                 let error_msg = format!("MongoDB connection test failed: {}", e);
                 warn!("MongoDB: {}", error_msg);
 
-                executor
-                    .write_line("")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_error(&error_msg)
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("Troubleshooting:")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("  1. Check hostname and port")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("  2. Verify MongoDB server is running")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("  3. Check credentials and authSource")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("  4. Verify network connectivity")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_prompt()
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                let (_, instructions) = executor
-                    .render_screen()
-                    .await
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                for instr in instructions {
-                    to_client
-                        .send(instr)
-                        .await
-                        .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                }
-
-                while from_client.recv().await.is_some() {}
+                render_connection_error(
+                    &mut executor,
+                    &to_client,
+                    &mut from_client,
+                    &error_msg,
+                    &[
+                        "Check hostname and port",
+                        "Verify MongoDB server is running",
+                        "Check credentials and authSource",
+                        "Verify network connectivity",
+                    ],
+                    &mut recorder,
+                )
+                .await?;
                 return Err(HandlerError::ConnectionFailed(error_msg));
             }
         }
@@ -476,23 +406,7 @@ impl ProtocolHandler for MongoDbHandler {
 
                         // Check read-only mode for modifying commands
                         if security.base.read_only && is_mongodb_modifying_command(&command) {
-                            executor
-
-                                .write_error("Command blocked: read-only mode is enabled.")
-                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                            executor
-
-                                .write_prompt()
-                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                            let (_, result_instructions) = executor
-                                .render_screen()
-                                .await
-                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                            for instr in result_instructions {
-                                send_and_record(&to_client, &mut recorder, instr)
-                                    .await
-                                    .map_err(HandlerError::ChannelError)?;
-                            }
+                            reject_with_error(&mut executor, &to_client, &mut recorder, "Command blocked: read-only mode is enabled.").await?;
                             continue;
                         }
 
@@ -519,19 +433,10 @@ impl ProtocolHandler for MongoDbHandler {
                         }
 
                         executor
-
                             .write_prompt()
                             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
-                        let (_, result_instructions) = executor
-                            .render_screen()
-                            .await
-                            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                        for instr in result_instructions {
-                            send_and_record(&to_client, &mut recorder, instr)
-                                .await
-                                .map_err(HandlerError::ChannelError)?;
-                        }
+                        send_render(&mut executor, &to_client, &mut recorder).await?;
                         continue;
                     }
 
@@ -818,23 +723,8 @@ async fn handle_builtin_command(
             }
             return Ok(Some(current_db.to_string())); // Keep current db
         }
-        "quit" | "exit" => {
-            executor
-                .write_line("bye")
-                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-            let (_, instructions) = executor
-                .render_screen()
-                .await
-                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-            for instr in instructions {
-                to_client
-                    .send(instr)
-                    .await
-                    .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-            }
-            return Err(HandlerError::Disconnected(
-                "User requested disconnect".to_string(),
-            ));
+        "quit" | "exit" | "\\q" | "bye" => {
+            return Err(crate::handler_helpers::handle_quit(executor, to_client, &mut None).await);
         }
         _ => {}
     }

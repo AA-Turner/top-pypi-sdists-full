@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strawpot-gui
-Version: 0.1.164
+Version: 0.1.165
 Summary: Local web dashboard for StrawPot agent orchestration
 License-Expression: MIT
 Requires-Python: >=3.11

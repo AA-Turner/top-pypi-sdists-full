@@ -354,6 +354,8 @@ class CustomDpDimmer(StateChangeTimerMixin, BrightnessMixin, CustomDataPoint):
 
         if (timer := self.get_and_start_timer()) is not None:
             await self._dp_on_time.send_value(value=timer, collector=collector)
+        elif self._dp_on_time.has_unit:
+            await self._dp_on_time.send_value(value=_NOT_USED, collector=collector)
         if ramp_time := kwargs.get("ramp_time"):
             await self._dp_ramp_time.send_value(value=ramp_time, collector=collector)
         if not (brightness := kwargs.get("brightness", self.brightness)):
@@ -583,6 +585,9 @@ class CustomDpIpRGBWLight(CustomDpDimmer):
         """Turn the light off."""
         if kwargs.get("on_time") is None and kwargs.get("ramp_time"):
             await self._dp_on_time.send_value(value=_NOT_USED, collector=collector)
+        if ramp_time := kwargs.get("ramp_time"):
+            await self._dp_ramp_time_to_off.send_value(value=ramp_time, collector=collector)
+            kwargs.pop("ramp_time")
         await super().turn_off(collector=collector, **kwargs)
 
     @bind_collector
@@ -642,6 +647,16 @@ class CustomDpIpDrgDaliLight(CustomDpDimmer):
     def hs_color(self) -> tuple[float, float] | None:
         """Return the hue and saturation color value [float, float]."""
         return self._dp_hs_color.value
+
+    @bind_collector
+    async def turn_off(
+        self, *, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOffArgs]
+    ) -> None:
+        """Turn the light off."""
+        if ramp_time := kwargs.get("ramp_time"):
+            await self._dp_ramp_time_to_off.send_value(value=ramp_time, collector=collector)
+            kwargs.pop("ramp_time")
+        await super().turn_off(collector=collector, **kwargs)
 
     @bind_collector
     async def turn_on(self, *, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:

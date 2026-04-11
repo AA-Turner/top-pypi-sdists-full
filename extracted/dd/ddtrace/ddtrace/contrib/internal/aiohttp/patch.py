@@ -1,4 +1,4 @@
-import os
+from typing import Optional
 
 import aiohttp
 import wrapt
@@ -9,6 +9,7 @@ from ddtrace._trace.pin import Pin
 from ddtrace.constants import SPAN_KIND
 from ddtrace.contrib.internal.trace_utils import ext_service
 from ddtrace.contrib.internal.trace_utils import extract_netloc_and_query_info_from_url
+from ddtrace.contrib.internal.trace_utils import maybe_set_service_source_tag
 from ddtrace.contrib.internal.trace_utils import set_http_meta
 from ddtrace.contrib.internal.trace_utils import unwrap
 from ddtrace.contrib.internal.trace_utils import with_traced_module as with_traced_module_sync
@@ -20,6 +21,7 @@ from ddtrace.internal.constants import COMPONENT
 from ddtrace.internal.logger import get_logger
 from ddtrace.internal.schema import schematize_url_operation
 from ddtrace.internal.schema.span_attribute_schema import SpanDirection
+from ddtrace.internal.settings import env
 from ddtrace.internal.telemetry import get_config as _get_config
 from ddtrace.internal.utils import get_argument_value
 from ddtrace.internal.utils.formats import asbool
@@ -28,7 +30,6 @@ from ddtrace.trace import tracer
 
 
 log = get_logger(__name__)
-
 
 # Server config
 config._add(
@@ -44,9 +45,9 @@ config._add(
 config._add(
     "aiohttp_client",
     dict(
-        distributed_tracing=asbool(os.getenv("DD_AIOHTTP_CLIENT_DISTRIBUTED_TRACING", True)),
+        distributed_tracing=asbool(env.get("DD_AIOHTTP_CLIENT_DISTRIBUTED_TRACING", True)),
         default_http_tag_query_string=config._http_client_tag_query_string,
-        split_by_domain=asbool(os.getenv("DD_AIOHTTP_CLIENT_SPLIT_BY_DOMAIN", default=False)),
+        split_by_domain=asbool(env.get("DD_AIOHTTP_CLIENT_SPLIT_BY_DOMAIN", default=False)),
     ),
 )
 
@@ -82,7 +83,10 @@ class _WrappedConnectorClass(wrapt.ObjectProxy):
 @with_traced_module
 async def _traced_clientsession_request(aiohttp, pin, func, instance, args, kwargs):
     method: str = get_argument_value(args, kwargs, 0, "method")
-    url: URL = URL(get_argument_value(args, kwargs, 1, "url"))
+    raw_url: URL = URL(str(get_argument_value(args, kwargs, 1, "url")))
+    # Resolve against base_url if present, mirroring aiohttp's internal behaviour.
+    base_url: Optional[URL] = getattr(instance, "_base_url", None)
+    url: URL = base_url.join(raw_url) if base_url is not None else raw_url
     params = kwargs.get("params")
     headers = kwargs.get("headers") or {}
 
@@ -94,14 +98,16 @@ async def _traced_clientsession_request(aiohttp, pin, func, instance, args, kwar
         if config.aiohttp_client.split_by_domain:
             span.service = url.host
 
+        maybe_set_service_source_tag(span, config.aiohttp)
+
         if pin._config["distributed_tracing"]:
             HTTPPropagator.inject(span.context, headers)
             kwargs["headers"] = headers
 
-        span._set_tag_str(COMPONENT, config.aiohttp_client.integration_name)
+        span._set_attribute(COMPONENT, config.aiohttp_client.integration_name)
 
         # set span.kind tag equal to type of request
-        span._set_tag_str(SPAN_KIND, SpanKind.CLIENT)
+        span._set_attribute(SPAN_KIND, SpanKind.CLIENT)
 
         # Params can be included separate of the URL so the URL has to be constructed
         # with the passed params.

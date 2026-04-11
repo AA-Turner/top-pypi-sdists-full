@@ -5,7 +5,7 @@ setuptools.setup(
     name="assisted-service-client",
     description="AssistedInstall",
     setup_requires=[],
-    version="2.51.0.post66",
+    version="2.51.0.post83",
     author="RedHat",
     author_email="UNKNOWN",
     url="https://github.com/openshift/assisted-service",
@@ -385,6 +385,7 @@ Class | Method | HTTP request | Description
  - [VerifyVip](docs/VerifyVip.md)
  - [VerifyVipsRequest](docs/VerifyVipsRequest.md)
  - [VerifyVipsResponse](docs/VerifyVipsResponse.md)
+ - [VersionedClusterHostRequirementsDetails](docs/VersionedClusterHostRequirementsDetails.md)
  - [VersionedHostRequirements](docs/VersionedHostRequirements.md)
  - [Versions](docs/Versions.md)
  - [VipType](docs/VipType.md)

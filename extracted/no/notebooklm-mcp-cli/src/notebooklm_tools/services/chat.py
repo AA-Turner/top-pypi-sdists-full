@@ -8,8 +8,8 @@ from typing import Any, TypedDict
 
 from ..core.client import NotebookLMClient
 from ..core.conversation import QueryRejectedError
-from .errors import ServiceError, ValidationError
 from . import notebooks as notebook_service
+from .errors import ServiceError, ValidationError
 
 logger = logging.getLogger(__name__)
 

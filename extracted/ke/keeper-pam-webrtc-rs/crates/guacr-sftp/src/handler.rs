@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use base64::Engine;
 use bytes::Bytes;
 use guacr_handlers::{
+    ConnectionParameters,
     EventBasedHandler,
     EventCallback,
     HandlerError,
@@ -147,17 +148,12 @@ impl ProtocolHandler for SftpHandler {
             info!("SFTP: Host key verification via pinned fingerprint");
         }
 
-        let hostname = params
-            .get("hostname")
-            .ok_or_else(|| HandlerError::MissingParameter("hostname".to_string()))?;
+        let conn = ConnectionParameters::from_params(&params, self.config.default_port)?;
+        let hostname = conn.hostname;
+        let port = conn.port;
 
-        let port: u16 = params
-            .get("port")
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(self.config.default_port);
-
-        let username = params
-            .get("username")
+        let username = conn
+            .username
             .ok_or_else(|| HandlerError::MissingParameter("username".to_string()))?;
 
         let password = params.get("password");
@@ -190,7 +186,7 @@ impl ProtocolHandler for SftpHandler {
         // Authenticate
         let authenticated = if let Some(pwd) = password {
             session
-                .authenticate_password(username, pwd)
+                .authenticate_password(username.clone(), pwd)
                 .await
                 .map_err(|e| {
                     HandlerError::AuthenticationFailed(format!("Password auth failed: {}", e))
@@ -218,7 +214,7 @@ impl ProtocolHandler for SftpHandler {
 
                 debug!("SFTP: Certificate parsed successfully, authenticating with certificate");
                 session
-                    .authenticate_openssh_cert(username, Arc::new(key), certificate)
+                    .authenticate_openssh_cert(username.clone(), Arc::new(key), certificate)
                     .await
                     .map_err(|e| {
                         HandlerError::AuthenticationFailed(format!(
@@ -229,7 +225,7 @@ impl ProtocolHandler for SftpHandler {
             } else {
                 debug!("SFTP: Authenticating with public key");
                 session
-                    .authenticate_publickey(username, Arc::new(key))
+                    .authenticate_publickey(username.clone(), Arc::new(key))
                     .await
                     .map_err(|e| {
                         HandlerError::AuthenticationFailed(format!("Key auth failed: {}", e))
@@ -293,114 +289,16 @@ impl ProtocolHandler for SftpHandler {
 
         let mut current_path = home.clone();
 
-        // Get initial directory listing
-        let mut file_entries = vec![
-            FileEntry {
-                name: ".".to_string(),
-                size: 0,
-                is_directory: true,
-                permissions: "drwxr-xr-x".to_string(),
-                modified: chrono::Utc::now().format("%Y-%m-%d %H:%M").to_string(),
-            },
-            FileEntry {
-                name: "..".to_string(),
-                size: 0,
-                is_directory: true,
-                permissions: "drwxr-xr-x".to_string(),
-                modified: chrono::Utc::now().format("%Y-%m-%d %H:%M").to_string(),
-            },
-        ];
-
-        // Read directory entries from SFTP server
-        match sftp
-            .read_dir(current_path.to_string_lossy().to_string())
-            .await
-        {
-            Ok(read_dir) => {
-                // ReadDir implements Iterator (synchronous), not Stream
-                // Collect all entries
-                for dir_entry in read_dir {
-                    let metadata = dir_entry.metadata();
-                    let file_name = dir_entry.file_name().to_string();
-
-                    // Skip hidden files starting with '.' (except . and ..)
-                    if file_name.starts_with('.') && file_name != "." && file_name != ".." {
-                        continue;
-                    }
-
-                    let is_dir = metadata.is_dir();
-                    let size = metadata.len();
-
-                    // Format permissions (simplified)
-                    let perms = if is_dir {
-                        "drwxr-xr-x".to_string()
-                    } else {
-                        "-rw-r--r--".to_string()
-                    };
-
-                    // Format modified time
-                    let modified = metadata
-                        .modified()
-                        .ok()
-                        .and_then(|t| {
-                            t.duration_since(std::time::UNIX_EPOCH)
-                                .ok()
-                                .and_then(|d| {
-                                    chrono::DateTime::<chrono::Utc>::from_timestamp(
-                                        d.as_secs() as i64,
-                                        0,
-                                    )
-                                })
-                                .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
-                        })
-                        .unwrap_or("Unknown".to_string());
-
-                    file_entries.push(FileEntry {
-                        name: file_name,
-                        size,
-                        is_directory: is_dir,
-                        permissions: perms,
-                        modified,
-                    });
-                }
-            }
-            Err(e) => {
-                warn!(
-                    "SFTP: Failed to read directory {}: {}",
-                    current_path.display(),
-                    e
-                );
-            }
-        }
-
-        let mut file_browser =
-            FileBrowser::new(current_path.to_string_lossy().to_string(), file_entries);
-
-        // Render initial file browser
         let mut protocol_encoder = TextProtocolEncoder::new();
         let mut stream_id = 1u32;
-        let browser_image = file_browser
-            .render_to_jpeg(1920, 1080)
-            .map_err(|e| HandlerError::ProtocolError(format!("Render failed: {}", e)))?;
-
-        // Base64 encode and send via modern zero-allocation protocol
-        let base64_data =
-            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &browser_image);
-
-        let img_instr = protocol_encoder.format_img_instruction(stream_id, 0, 0, 0, "image/jpeg");
-        to_client
-            .send(img_instr.freeze())
-            .await
-            .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-
-        let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-        for instr in blob_instructions {
-            to_client
-                .send(Bytes::from(instr))
-                .await
-                .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-        }
-        stream_id += 1;
+        let mut file_browser = read_dir_and_render(
+            &sftp,
+            &current_path,
+            &mut protocol_encoder,
+            &mut stream_id,
+            &to_client,
+        )
+        .await?;
 
         // Main event loop
         loop {
@@ -435,96 +333,25 @@ impl ProtocolHandler for SftpHandler {
                                                 let new_path = current_path.join(&entry.name);
                                                 let validated_path = self.validate_path(&new_path, &home)?;
 
-                                                // Read directory entries from SFTP server
-                                                let mut file_entries = vec![
-                                                    FileEntry {
-                                                        name: ".".to_string(),
-                                                        size: 0,
-                                                        is_directory: true,
-                                                        permissions: "drwxr-xr-x".to_string(),
-                                                        modified: chrono::Utc::now().format("%Y-%m-%d %H:%M").to_string(),
-                                                    },
-                                                    FileEntry {
-                                                        name: "..".to_string(),
-                                                        size: 0,
-                                                        is_directory: true,
-                                                        permissions: "drwxr-xr-x".to_string(),
-                                                        modified: chrono::Utc::now().format("%Y-%m-%d %H:%M").to_string(),
-                                                    },
-                                                ];
-
-                                                match sftp.read_dir(validated_path.to_string_lossy().to_string()).await {
-                                                    Ok(read_dir) => {
-                                                        // ReadDir implements Iterator (synchronous)
-                                                        for dir_entry in read_dir {
-                                                            let metadata = dir_entry.metadata();
-                                                            let file_name = dir_entry.file_name().to_string();
-
-                                                            // Skip hidden files
-                                                            if file_name.starts_with('.') && file_name != "." && file_name != ".." {
-                                                                continue;
-                                                            }
-
-                                                            let is_dir = metadata.is_dir();
-                                                            let size = metadata.len();
-                                                            let perms = if is_dir {
-                                                                "drwxr-xr-x".to_string()
-                                                            } else {
-                                                                "-rw-r--r--".to_string()
-                                                            };
-                                                            let modified = metadata.modified()
-                                                                .ok()
-                                                                .and_then(|t| {
-                                                                    t.duration_since(std::time::UNIX_EPOCH)
-                                                                        .ok()
-                                                                        .and_then(|d| chrono::DateTime::<chrono::Utc>::from_timestamp(d.as_secs() as i64, 0))
-                                                                        .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
-                                                                })
-                                                                .unwrap_or("Unknown".to_string());
-
-                                                            file_entries.push(FileEntry {
-                                                                name: file_name,
-                                                                size,
-                                                                is_directory: is_dir,
-                                                                permissions: perms,
-                                                                modified,
-                                                            });
-                                                        }
-
+                                                match read_dir_and_render(
+                                                    &sftp,
+                                                    &validated_path,
+                                                    &mut protocol_encoder,
+                                                    &mut stream_id,
+                                                    &to_client,
+                                                )
+                                                .await
+                                                {
+                                                    Ok(new_browser) => {
                                                         current_path = validated_path;
-                                                        file_browser = FileBrowser::new(
-                                                            current_path.to_string_lossy().to_string(),
-                                                            file_entries,
-                                                        );
-
-                                                        // Re-render browser
-                                                        let browser_image = file_browser
-                                                            .render_to_jpeg(1920, 1080)
-                                                            .map_err(|e| HandlerError::ProtocolError(format!("Render failed: {}", e)))?;
-
-                                                        // Base64 encode and send via modern zero-allocation protocol
-                                                        let base64_data = base64::Engine::encode(
-                                                            &base64::engine::general_purpose::STANDARD,
-                                                            &browser_image,
-                                                        );
-
-                                                        let img_instr = protocol_encoder.format_img_instruction(stream_id, 0, 0, 0, "image/jpeg");
-                                                        to_client
-                                                            .send(img_instr.freeze())
-                                                            .await
-                                                            .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-
-                                                        let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                                                        for instr in blob_instructions {
-                                                            to_client
-                                                                .send(Bytes::from(instr))
-                                                                .await
-                                                                .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                                                        }
-                                                        stream_id += 1;
+                                                        file_browser = new_browser;
                                                     }
                                                     Err(e) => {
-                                                        warn!("SFTP: Failed to read directory {}: {}", validated_path.display(), e);
+                                                        warn!(
+                                                            "SFTP: Failed to navigate to {}: {}",
+                                                            validated_path.display(),
+                                                            e
+                                                        );
                                                     }
                                                 }
                                             } else if self.config.allow_downloads && security.is_download_allowed() {
@@ -602,97 +429,30 @@ impl ProtocolHandler for SftpHandler {
                                             Ok(_) => {
                                                 info!("SFTP: Uploaded file {} ({} bytes)", filename, file_data.len());
 
-                                                // Refresh directory listing
-                                                let mut file_entries = vec![
-                                                    FileEntry {
-                                                        name: ".".to_string(),
-                                                        size: 0,
-                                                        is_directory: true,
-                                                        permissions: "drwxr-xr-x".to_string(),
-                                                        modified: chrono::Utc::now().format("%Y-%m-%d %H:%M").to_string(),
-                                                    },
-                                                    FileEntry {
-                                                        name: "..".to_string(),
-                                                        size: 0,
-                                                        is_directory: true,
-                                                        permissions: "drwxr-xr-x".to_string(),
-                                                        modified: chrono::Utc::now().format("%Y-%m-%d %H:%M").to_string(),
-                                                    },
-                                                ];
-
-                                                // Re-read directory to show new file
-                                                if let Ok(read_dir) = sftp.read_dir(current_path.to_string_lossy().to_string()).await {
-                                                    // ReadDir implements Iterator (synchronous)
-                                                    for dir_entry in read_dir {
-                                                        let metadata = dir_entry.metadata();
-                                                        let file_name = dir_entry.file_name().to_string();
-
-                                                        if file_name.starts_with('.') && file_name != "." && file_name != ".." {
-                                                            continue;
-                                                        }
-
-                                                        let is_dir = metadata.is_dir();
-                                                        let size = metadata.len();
-                                                        let perms = if is_dir {
-                                                            "drwxr-xr-x".to_string()
-                                                        } else {
-                                                            "-rw-r--r--".to_string()
-                                                        };
-                                                        let modified = metadata.modified()
-                                                            .ok()
-                                                            .and_then(|t| {
-                                                                t.duration_since(std::time::UNIX_EPOCH)
-                                                                    .ok()
-                                                                    .and_then(|d| chrono::DateTime::<chrono::Utc>::from_timestamp(d.as_secs() as i64, 0))
-                                                                    .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
-                                                            })
-                                                            .unwrap_or("Unknown".to_string());
-
-                                                        file_entries.push(FileEntry {
-                                                            name: file_name,
-                                                            size,
-                                                            is_directory: is_dir,
-                                                            permissions: perms,
-                                                            modified,
-                                                        });
-                                                    }
-                                                }
-
-                                                        file_browser = FileBrowser::new(
-                                                            current_path.to_string_lossy().to_string(),
-                                                            file_entries,
-                                                        );
-
-                                                        // Re-render browser
-                                                        let browser_image = file_browser
-                                                            .render_to_jpeg(1920, 1080)
-                                                            .map_err(|e| HandlerError::ProtocolError(format!("Render failed: {}", e)))?;
-
-                                                        // Base64 encode and send via modern zero-allocation protocol
-                                                        let base64_data = base64::Engine::encode(
-                                                            &base64::engine::general_purpose::STANDARD,
-                                                            &browser_image,
-                                                        );
-
-                                                        let img_instr = protocol_encoder.format_img_instruction(stream_id, 0, 0, 0, "image/jpeg");
-                                                        to_client
-                                                            .send(img_instr.freeze())
-                                                            .await
-                                                            .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-
-                                                        let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                                                        for instr in blob_instructions {
-                                                            to_client
-                                                                .send(Bytes::from(instr))
-                                                                .await
-                                                                .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                                                        }
-                                                        stream_id += 1;
+                                                match read_dir_and_render(
+                                                    &sftp,
+                                                    &current_path,
+                                                    &mut protocol_encoder,
+                                                    &mut stream_id,
+                                                    &to_client,
+                                                )
+                                                .await
+                                                {
+                                                    Ok(new_browser) => {
+                                                        file_browser = new_browser;
                                                     }
                                                     Err(e) => {
-                                                        warn!("SFTP: Failed to write file {}: {}", validated_path.display(), e);
+                                                        warn!(
+                                                            "SFTP: Failed to refresh directory after upload: {}",
+                                                            e
+                                                        );
                                                     }
                                                 }
+                                            }
+                                            Err(e) => {
+                                                warn!("SFTP: Failed to write file {}: {}", validated_path.display(), e);
+                                            }
+                                        }
                                     }
                                     Err(e) => {
                                         warn!("SFTP: Failed to decode file data: {}", e);
@@ -721,6 +481,100 @@ impl ProtocolHandler for SftpHandler {
     async fn stats(&self) -> guacr_handlers::Result<HandlerStats> {
         Ok(HandlerStats::default())
     }
+}
+
+async fn read_dir_and_render(
+    sftp: &SftpSession,
+    path: &Path,
+    protocol_encoder: &mut TextProtocolEncoder,
+    stream_id: &mut u32,
+    to_client: &mpsc::Sender<Bytes>,
+) -> Result<FileBrowser, HandlerError> {
+    let mut file_entries = vec![
+        FileEntry {
+            name: ".".to_string(),
+            size: 0,
+            is_directory: true,
+            permissions: "drwxr-xr-x".to_string(),
+            modified: chrono::Utc::now().format("%Y-%m-%d %H:%M").to_string(),
+        },
+        FileEntry {
+            name: "..".to_string(),
+            size: 0,
+            is_directory: true,
+            permissions: "drwxr-xr-x".to_string(),
+            modified: chrono::Utc::now().format("%Y-%m-%d %H:%M").to_string(),
+        },
+    ];
+
+    match sftp.read_dir(path.to_string_lossy().to_string()).await {
+        Ok(read_dir) => {
+            for dir_entry in read_dir {
+                let metadata = dir_entry.metadata();
+                let file_name = dir_entry.file_name().to_string();
+                if file_name.starts_with('.') && file_name != "." && file_name != ".." {
+                    continue;
+                }
+                let is_dir = metadata.is_dir();
+                let size = metadata.len();
+                let perms = if is_dir {
+                    "drwxr-xr-x".to_string()
+                } else {
+                    "-rw-r--r--".to_string()
+                };
+                let modified = metadata
+                    .modified()
+                    .ok()
+                    .and_then(|t| {
+                        t.duration_since(std::time::UNIX_EPOCH)
+                            .ok()
+                            .and_then(|d| {
+                                chrono::DateTime::<chrono::Utc>::from_timestamp(
+                                    d.as_secs() as i64,
+                                    0,
+                                )
+                            })
+                            .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                    })
+                    .unwrap_or("Unknown".to_string());
+                file_entries.push(FileEntry {
+                    name: file_name,
+                    size,
+                    is_directory: is_dir,
+                    permissions: perms,
+                    modified,
+                });
+            }
+        }
+        Err(e) => {
+            warn!("SFTP: Failed to read directory {}: {}", path.display(), e);
+        }
+    }
+
+    let browser = FileBrowser::new(path.to_string_lossy().to_string(), file_entries);
+    let browser_image = browser
+        .render_to_jpeg(1920, 1080)
+        .map_err(|e| HandlerError::ProtocolError(format!("Render failed: {}", e)))?;
+
+    let base64_data =
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &browser_image);
+
+    let img_instr = protocol_encoder.format_img_instruction(*stream_id, 0, 0, 0, "image/jpeg");
+    to_client
+        .send(img_instr.freeze())
+        .await
+        .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
+
+    let blob_instructions = format_chunked_blobs(*stream_id, &base64_data, None);
+    for instr in blob_instructions {
+        to_client
+            .send(Bytes::from(instr))
+            .await
+            .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
+    }
+    *stream_id += 1;
+
+    Ok(browser)
 }
 
 /// SFTP client handler with host key verification support

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mergify_cli
-Version: 2026.4.8.1
+Version: 2026.4.10.1
 Summary: Mergify CLI is a tool that automates the creation and management of stacked pull requests on GitHub and handles CI results upload
 Project-URL: Homepage, https://mergify.com
 Project-URL: Documentation, https://docs.mergify.com
@@ -24,8 +24,8 @@ Requires-Dist: aiofiles==25.1.0
 Requires-Dist: click==8.3.2
 Requires-Dist: httpx==0.28.1
 Requires-Dist: jsonschema==4.26.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.40.0
-Requires-Dist: opentelemetry-sdk==1.40.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.41.0
+Requires-Dist: opentelemetry-sdk==1.41.0
 Requires-Dist: pydantic==2.12.5
 Requires-Dist: pyyaml==6.0.3
 Requires-Dist: questionary>=2.0.0
@@ -77,6 +77,25 @@ mergify ci --help
 
 # Manage scheduled freezes
 mergify freeze --help
+```
+
+## Claude Code Plugin
+
+Mergify CLI is available as a [Claude Code
+plugin](https://docs.anthropic.com/en/docs/claude-code/plugins), providing AI
+skills for managing stacked PRs and Git workflows.
+
+### Install from the official marketplace
+
+```shell
+claude /plugin install mergify@claude-plugins-official
+```
+
+### Install from this repository
+
+```shell
+claude /plugin marketplace add https://github.com/Mergifyio/mergify-cli
+claude /plugin install mergify
 ```
 
 ## Contributing

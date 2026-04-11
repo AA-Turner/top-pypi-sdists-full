@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_postgresql
-Version: 3.16.2
+Version: 3.16.3
 Summary: A Pulumi package for creating and managing postgresql cloud resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

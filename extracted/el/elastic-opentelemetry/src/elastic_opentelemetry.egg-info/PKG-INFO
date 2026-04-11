@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: elastic-opentelemetry
-Version: 1.11.0
+Version: 1.12.0
 Summary: Elastic Distribution of OpenTelemetry Python
 Author-email: Riccardo Magliocchetti <riccardo.magliocchetti@elastic.co>
 Maintainer-email: Riccardo Magliocchetti <riccardo.magliocchetti@elastic.co>
@@ -18,21 +18,23 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE.txt
-Requires-Dist: opentelemetry-api==1.39.1
-Requires-Dist: opentelemetry-exporter-otlp==1.39.1
-Requires-Dist: opentelemetry-instrumentation==0.60b1
-Requires-Dist: opentelemetry-instrumentation-system-metrics==0.60b1
+Requires-Dist: opentelemetry-api==1.40.0
+Requires-Dist: opentelemetry-exporter-otlp==1.40.0
+Requires-Dist: opentelemetry-instrumentation==0.61b0
+Requires-Dist: opentelemetry-instrumentation-system-metrics==0.61b0
 Requires-Dist: opentelemetry-resourcedetector-gcp~=1.8.0a0
 Requires-Dist: opentelemetry-resource-detector-azure~=0.1.5
-Requires-Dist: opentelemetry-resource-detector-containerid==0.60b1
-Requires-Dist: opentelemetry-sdk==1.39.1
+Requires-Dist: opentelemetry-resource-detector-containerid==0.61b0
+Requires-Dist: opentelemetry-sdk==1.40.0
 Requires-Dist: opentelemetry-sdk-extension-aws~=2.1.0
-Requires-Dist: opentelemetry-semantic-conventions==0.60b1
+Requires-Dist: opentelemetry-semantic-conventions==0.61b0
+Requires-Dist: opentelemetry-opamp-client==0.2b0
 Requires-Dist: packaging
 Requires-Dist: uuid-utils
 Provides-Extra: dev
@@ -59,7 +61,7 @@ With EDOT Python you have access to all the features of the OpenTelemetry Python
 
 ## Configuration
 
-The distribution supports all the configuration variables from OpenTelemetry Python project version 1.39.1.
+The distribution supports all the configuration variables from OpenTelemetry Python project version 1.40.0.
 
 See [Configuration](https://www.elastic.co/docs/reference/opentelemetry/edot-sdks/python/configuration.html) for more details.
 

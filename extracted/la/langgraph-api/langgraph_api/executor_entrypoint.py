@@ -12,7 +12,7 @@ async def main(grpc_port: int = 50051):
         loaded_config = json.load(file)
         logging.config.dictConfig(loaded_config)
     try:
-        import uvloop  # type: ignore[unresolved-import]  # noqa: PLC0415
+        import uvloop  # noqa: PLC0415
 
         uvloop.install()
     except ImportError:

@@ -130,15 +130,15 @@ class Segment:
                 f"Segment {self.tag} is empty, and should be omitted completely.",
                 category=SyntaxWarning,
             )
-        # Validate segment tag is uppercase alphanumeric string
+        # Validate segment tag is uppercase alphanumeric 3‑letter string
         if (
             not isinstance(self.tag, str)
             or not self.tag.isalnum()
-            or len(self.tag) == 0
+            or len(self.tag) != 3
             or not self.tag.isupper()
         ):
             raise ValueError(
-                f"Segment tag must be an uppercase alphanumeric string, not '{self.tag}'."
+                f"Segment tag must be an uppercase 3-letter string, not '{self.tag}'."
             )
 
     def __str__(self) -> str:
@@ -328,17 +328,12 @@ class Segment:
                                     f"{len(element)}: {element}"
                                 )
 
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             warnings.warn(
                 f"segments.xml not found for directory '{directory}'. "
-                f"Falling back to schema-based validation.",
+                f"Skipping XML-based validation for segment {self.tag}.",
                 category=MissingImplementationWarning,
             )
-            if self.tag in service_segments:
-                raise ValidationError(
-                    f"Schema for service segment {self.tag} not found "
-                    f"(directory '{directory}')"
-                ) from e
         except ET.ParseError as e:
             warnings.warn(
                 f"Failed to parse segments.xml: {e}. ",

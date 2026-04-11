@@ -854,7 +854,7 @@ class Status:
     @staticmethod
     def _format_log_line(timestamp: datetime, level: int, message: str) -> str:
         time_str = timestamp.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-        level_name = logging.getLevelName(level)
+        level_name = logging.getLevelName(level).replace('WARNING', 'WARN')
         prefix = f'{level_name:<5} {time_str} '
         indent_prefix = f'{level_name:<5} {" " * len(time_str)} '
         indented_message = textwrap.indent(message, indent_prefix)[len(indent_prefix):]

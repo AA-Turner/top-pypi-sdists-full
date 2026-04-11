@@ -37,11 +37,12 @@ from ddtrace.llmobs._constants import SPAN_SUBDOMAIN_NAME
 from ddtrace.llmobs._experiment import ConfigType
 from ddtrace.llmobs._experiment import Dataset
 from ddtrace.llmobs._experiment import DatasetRecord
-from ddtrace.llmobs._experiment import DatasetRecordRaw
+from ddtrace.llmobs._experiment import DatasetRecordUpdateWithId
 from ddtrace.llmobs._experiment import Experiment
 from ddtrace.llmobs._experiment import JSONType
 from ddtrace.llmobs._experiment import Project
-from ddtrace.llmobs._experiment import UpdatableDatasetRecord
+from ddtrace.llmobs._experiment import RemoteEvaluatorError
+from ddtrace.llmobs._experiment import _TagOperations
 from ddtrace.llmobs._http import get_connection
 from ddtrace.llmobs._utils import safe_json
 from ddtrace.llmobs.types import _Meta
@@ -117,12 +118,23 @@ class LLMObsExperimentEvalMetricEvent(TypedDict, total=False):
     score_value: float
     boolean_value: bool
     json_value: dict[str, JSONType]
+    status: str
     error: Optional[dict[str, str]]
     tags: list[str]
     experiment_id: str
     reasoning: str
     assessment: str
     metadata: dict[str, JSONType]
+    eval_source_type: str
+
+
+class EvaluatorInferResponse(TypedDict, total=False):
+    """Response from the evaluator_infer API endpoint."""
+
+    value: JSONType
+    assessment: Optional[str]
+    reasoning: Optional[str]
+    status: Optional[str]
 
 
 def should_use_agentless(user_defined_agentless_enabled: Optional[bool] = None) -> bool:
@@ -467,7 +479,7 @@ class LLMObsExperimentsClient(BaseLLMObsWriter):
         )
 
     @staticmethod
-    def _get_record_json(record: Union[UpdatableDatasetRecord, DatasetRecordRaw], is_update: bool) -> JSONType:
+    def _get_record_json(record: Union[DatasetRecordUpdateWithId, DatasetRecord], is_update: bool) -> JSONType:
         # for now, if a user wants to "erase" the value of expected_output or metadata, they are expected to
         # set it to None, and we serialize an empty string (for expected_output) and empty dict (for metadata)
         # to indicate this erasure to BE
@@ -485,12 +497,25 @@ class LLMObsExperimentsClient(BaseLLMObsWriter):
             "metadata": metadata,
         }
 
+        rj["id"] = record["record_id"]
+
         if is_update:
-            rj["id"] = cast(UpdatableDatasetRecord, record)["record_id"]
+            update_record = cast(DatasetRecordUpdateWithId, record)
+            tag_ops: _TagOperations = update_record.get("tag_operations", {})
+            if tag_ops:
+                serialized: dict[str, JSONType] = {}
+                if "add" in tag_ops:
+                    serialized["add"] = tag_ops["add"]
+                if "remove" in tag_ops:
+                    serialized["remove"] = tag_ops["remove"]
+                if "replace" in tag_ops:
+                    serialized["set"] = tag_ops["replace"]  # map replace → set for backend
+                rj["tag_operations"] = serialized
         else:
-            tags = record.get("tags")
+            insert_record = cast(DatasetRecord, record)
+            tags = insert_record.get("tags")
             if tags:
-                rj["tags"] = cast(JSONType, tags)
+                rj["tags"] = tags
 
         return rj
 
@@ -498,8 +523,8 @@ class LLMObsExperimentsClient(BaseLLMObsWriter):
         self,
         dataset_id: str,
         project_id: str,
-        insert_records: list[DatasetRecordRaw],
-        update_records: list[UpdatableDatasetRecord],
+        insert_records: list[DatasetRecord],
+        update_records: list[DatasetRecordUpdateWithId],
         delete_record_ids: list[str],
         deduplicate: bool = True,
         create_new_version: bool = True,
@@ -514,7 +539,7 @@ class LLMObsExperimentsClient(BaseLLMObsWriter):
                 "attributes": {
                     "insert_records": irs,
                     "update_records": urs,
-                    "delete_records": cast(JSONType, delete_record_ids),  # mypy bug?
+                    "delete_records": delete_record_ids,
                     "deduplicate": deduplicate,
                     "create_new_version": create_new_version,
                 },
@@ -629,15 +654,15 @@ class LLMObsExperimentsClient(BaseLLMObsWriter):
                 raise ValueError(f"{file_ext} files not supported")
 
             with open(tmp.name, "w", newline="") as csv_file:
-                field_names = ["input", "expected_output", "metadata"]
                 writer = csv.writer(csv_file)
-                writer.writerow(field_names)
+                writer.writerow(["input", "expected_output", "metadata", "id"])
                 for r in records:
                     writer.writerow(
                         [
                             json.dumps(r.get("input_data", "")),
                             json.dumps(r.get("expected_output", "")),
                             json.dumps(r.get("metadata", "")),
+                            r["record_id"],
                         ]
                     )
 
@@ -791,7 +816,7 @@ class LLMObsExperimentsClient(BaseLLMObsWriter):
                         "project_id": project_id,
                         "dataset_version": dataset_version,
                         "config": exp_config or {},
-                        "metadata": {"tags": cast(JSONType, tags or [])},
+                        "metadata": {"tags": tags or []},
                         "ensure_unique": ensure_unique,
                         "run_count": runs,
                     },
@@ -845,7 +870,7 @@ class LLMObsExperimentsClient(BaseLLMObsWriter):
                     "attributes": {
                         "scope": "experiments",
                         "metrics": cast(list[JSONType], events),
-                        "tags": cast(list[JSONType], tags),
+                        "tags": tags,
                     },
                 }
             },
@@ -856,6 +881,50 @@ class LLMObsExperimentsClient(BaseLLMObsWriter):
             )
         logger.debug("Sent %d experiment evaluation metrics for %s", len(events), experiment_id)
         return None
+
+    def evaluator_infer(
+        self,
+        eval_name: str,
+        context: dict[str, Any],
+    ) -> EvaluatorInferResponse:
+        """Call backend to run inference on a LLM-as-Judge evaluator.
+
+        :param eval_name: The name of the LLM-as-Judge evaluator configured in Datadog
+        :param context: The evaluation context
+        :return: EvaluatorInferResponse with status, value, assessment, and reasoning
+        :raises RemoteEvaluatorError: If backend returns an evaluation error (structured error with
+            type/message/recommended_resolution)
+        :raises RuntimeError: If HTTP request fails and no structured error info is available
+        """
+        path = f"/api/unstable/llm-obs/v1/evaluators/{eval_name}/infer"
+        body: JSONType = {"data": {"type": "evaluator_inference", "attributes": {"context": context}}}
+
+        resp = self.request("POST", path, body)
+        response_data = resp.get_json() or {}
+
+        attributes = response_data.get("data", {}).get("attributes", {})
+
+        if resp.status != 200:
+            error_details = attributes.get("error", {})
+            if error_details:
+                raise RemoteEvaluatorError(
+                    f"Remote evaluator '{eval_name}' failed: {error_details.get('message', f'HTTP {resp.status}')}",
+                    status=attributes.get("status", "ERROR"),
+                    backend_error=error_details,
+                )
+            error_msg = f"HTTP {resp.status}"
+            if "errors" in response_data and response_data["errors"]:
+                error = response_data["errors"][0]
+                if isinstance(error, dict):
+                    error_msg = error.get("detail") or error.get("title") or error_msg
+            raise RuntimeError(f"Failed to call evaluator '{eval_name}': {error_msg}")
+
+        return {
+            "value": attributes.get("value"),
+            "assessment": attributes.get("assessment"),
+            "reasoning": attributes.get("reasoning"),
+            "status": attributes.get("status"),
+        }
 
 
 class LLMObsSpanWriter(BaseLLMObsWriter):

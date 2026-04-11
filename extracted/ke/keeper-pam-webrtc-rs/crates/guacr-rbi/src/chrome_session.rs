@@ -595,37 +595,77 @@ impl ChromeSession {
         }
     }
 
-    /// Inject keyboard input via chromiumoxide
+    /// Inject keyboard input via CDP `Input.dispatchKeyEvent`.
+    ///
+    /// Uses proper CDP native key events (`isTrusted=true`) instead of JS `dispatchEvent`
+    /// (`isTrusted=false`). For printable keys a `char` event is also sent so that `input`
+    /// events fire in text fields. `cdp_modifiers` is the CDP bitmask (Alt=1, Ctrl=2,
+    /// Meta=4, Shift=8) computed from the current keyboard state.
     #[cfg(feature = "chrome")]
-    pub async fn inject_keyboard(&self, keysym: u32, pressed: bool) -> Result<(), String> {
+    pub async fn inject_keyboard(
+        &self,
+        keysym: u32,
+        pressed: bool,
+        cdp_modifiers: i64,
+    ) -> Result<(), String> {
         let page = self
             .page
             .as_ref()
             .ok_or_else(|| "Page not initialized".to_string())?;
 
-        // Convert keysym to key string
-        let key = self.keysym_to_key(keysym)?;
+        let Some((key, code, windows_vk, text)) = keysym_to_key_info(keysym) else {
+            debug!("RBI: No key mapping for keysym 0x{:04x}, skipping", keysym);
+            return Ok(());
+        };
 
-        // Use JavaScript to dispatch keyboard events for full control
-        let event_type = if pressed { "keydown" } else { "keyup" };
+        use chromiumoxide::cdp::browser_protocol::input::{
+            DispatchKeyEventParams, DispatchKeyEventType,
+        };
 
-        let js = format!(
-            r#"document.activeElement.dispatchEvent(new KeyboardEvent('{}', {{
-                key: '{}',
-                code: '{}',
-                bubbles: true,
-                cancelable: true
-            }}))"#,
-            event_type, key, key
-        );
+        if pressed {
+            // rawKeyDown — fires keydown in the page
+            let mut params = DispatchKeyEventParams::new(DispatchKeyEventType::RawKeyDown);
+            params.key = Some(key.clone());
+            params.code = Some(code.clone());
+            params.windows_virtual_key_code = Some(windows_vk);
+            params.native_virtual_key_code = Some(windows_vk);
+            params.modifiers = Some(cdp_modifiers);
+            page.execute(params)
+                .await
+                .map_err(|e| format!("Failed to dispatch rawKeyDown: {}", e))?;
 
-        page.evaluate(js)
-            .await
-            .map_err(|e| format!("Failed to inject keyboard event: {}", e))?;
+            // char — fires input event in text fields (printable keys only)
+            if let Some(ref ch) = text {
+                let mut params = DispatchKeyEventParams::new(DispatchKeyEventType::Char);
+                params.key = Some(ch.clone());
+                params.text = Some(ch.clone());
+                params.unmodified_text = Some(ch.clone());
+                params.modifiers = Some(cdp_modifiers);
+                page.execute(params)
+                    .await
+                    .map_err(|e| format!("Failed to dispatch char event: {}", e))?;
+            }
+        } else {
+            // keyUp
+            let mut params = DispatchKeyEventParams::new(DispatchKeyEventType::KeyUp);
+            params.key = Some(key.clone());
+            params.code = Some(code.clone());
+            params.windows_virtual_key_code = Some(windows_vk);
+            params.native_virtual_key_code = Some(windows_vk);
+            params.modifiers = Some(cdp_modifiers);
+            page.execute(params)
+                .await
+                .map_err(|e| format!("Failed to dispatch keyUp: {}", e))?;
+        }
 
         debug!(
-            "RBI: Keyboard {} for keysym {} (key: {})",
-            event_type, keysym, key
+            "RBI: Key {} for keysym 0x{:04x} (key={}, code={}, vk={}, text={:?})",
+            if pressed { "down" } else { "up" },
+            keysym,
+            key,
+            code,
+            windows_vk,
+            text
         );
 
         Ok(())
@@ -633,11 +673,21 @@ impl ChromeSession {
 
     /// Inject keyboard (fallback)
     #[cfg(not(feature = "chrome"))]
-    pub async fn inject_keyboard(&self, _keysym: u32, _pressed: bool) -> Result<(), String> {
+    pub async fn inject_keyboard(
+        &self,
+        _keysym: u32,
+        _pressed: bool,
+        _cdp_modifiers: i64,
+    ) -> Result<(), String> {
         Err("Chrome feature not enabled".to_string())
     }
 
-    /// Inject mouse input via chromiumoxide
+    /// Inject mouse press/release via CDP `Input.dispatchMouseEvent`.
+    ///
+    /// `buttons_mask` is the W3C bitmask of ALL buttons currently held AFTER this
+    /// event (left=1, right=2, middle=4). Chrome uses this to correctly update its
+    /// internal button state — without it many sites' click handlers silently ignore
+    /// the event because `event.buttons` is 0.
     #[cfg(feature = "chrome")]
     pub async fn inject_mouse(
         &self,
@@ -645,6 +695,7 @@ impl ChromeSession {
         y: i32,
         button: u8,
         pressed: bool,
+        buttons_mask: u32,
     ) -> Result<(), String> {
         let page = self
             .page
@@ -682,6 +733,7 @@ impl ChromeSession {
 
         let mut params = DispatchMouseEventParams::new(event_type, x, y);
         params.button = Some(mouse_button);
+        params.buttons = Some(buttons_mask as i64);
         params.click_count = Some(1);
 
         page.execute(params)
@@ -689,9 +741,10 @@ impl ChromeSession {
             .map_err(|e| format!("Failed to dispatch mouse event: {}", e))?;
 
         debug!(
-            "RBI: Mouse {} button={} at ({}, {})",
+            "RBI: Mouse {} button={} buttons_mask={} at ({}, {})",
             if pressed { "press" } else { "release" },
             button,
+            buttons_mask,
             x,
             y
         );
@@ -701,10 +754,16 @@ impl ChromeSession {
 
     /// Inject mouse move — updates Chrome's cursor position so hover effects,
     /// CSS :hover, and cursor style changes work correctly.
-    /// Returns true if the event was sent, false if throttled.
+    /// `buttons_mask` is the W3C bitmask of currently held buttons (left=1, right=2, middle=4).
+    /// Returns true if the event was sent, false if page not ready.
     #[cfg(feature = "chrome")]
     #[allow(dead_code)] // called from browser_client.rs; cdylib build can't trace cfg-gated callers
-    pub async fn inject_mouse_move(&self, x: i32, y: i32) -> Result<bool, String> {
+    pub async fn inject_mouse_move(
+        &self,
+        x: i32,
+        y: i32,
+        buttons_mask: u32,
+    ) -> Result<bool, String> {
         let page = self
             .page
             .as_ref()
@@ -712,11 +771,12 @@ impl ChromeSession {
         use chromiumoxide::cdp::browser_protocol::input::{
             DispatchMouseEventParams, DispatchMouseEventType,
         };
-        let params = DispatchMouseEventParams::new(
+        let mut params = DispatchMouseEventParams::new(
             DispatchMouseEventType::MouseMoved,
             x.max(0) as f64,
             y.max(0) as f64,
         );
+        params.buttons = Some(buttons_mask as i64);
         page.execute(params)
             .await
             .map_err(|e| format!("Failed to move mouse: {}", e))?;
@@ -724,7 +784,12 @@ impl ChromeSession {
     }
 
     #[cfg(not(feature = "chrome"))]
-    pub async fn inject_mouse_move(&self, _x: i32, _y: i32) -> Result<bool, String> {
+    pub async fn inject_mouse_move(
+        &self,
+        _x: i32,
+        _y: i32,
+        _buttons_mask: u32,
+    ) -> Result<bool, String> {
         Ok(false)
     }
 
@@ -736,6 +801,7 @@ impl ChromeSession {
         _y: i32,
         _button: u8,
         _pressed: bool,
+        _buttons_mask: u32,
     ) -> Result<(), String> {
         Err("Chrome feature not enabled".to_string())
     }
@@ -921,41 +987,6 @@ impl ChromeSession {
     #[cfg(not(feature = "chrome"))]
     pub async fn get_performance_metrics(&self) -> Result<PerformanceMetrics, String> {
         Ok(PerformanceMetrics::default())
-    }
-
-    /// Convert X11 keysym to key string for chromiumoxide
-    #[cfg_attr(not(feature = "chrome"), allow(dead_code))]
-    fn keysym_to_key(&self, keysym: u32) -> Result<String, String> {
-        // Basic key mapping - chromiumoxide expects key names
-        match keysym {
-            // Letters A-Z
-            0x0041..=0x005A => {
-                let key = ((keysym - 0x0041) + 'A' as u32) as u8 as char;
-                Ok(key.to_lowercase().to_string())
-            }
-            // Numbers 0-9
-            0x0030..=0x0039 => {
-                let key = ((keysym - 0x0030) + '0' as u32) as u8 as char;
-                Ok(key.to_string())
-            }
-            // Special keys
-            0xFF08 => Ok("Backspace".to_string()),
-            0xFF09 => Ok("Tab".to_string()),
-            0xFF0D => Ok("Enter".to_string()),
-            0xFF1B => Ok("Escape".to_string()),
-            0xFF20 => Ok(" ".to_string()),
-            0xFF52 => Ok("ArrowUp".to_string()),
-            0xFF54 => Ok("ArrowDown".to_string()),
-            0xFF51 => Ok("ArrowLeft".to_string()),
-            0xFF53 => Ok("ArrowRight".to_string()),
-            _ => {
-                warn!(
-                    "RBI: Unknown keysym: 0x{:04x}, using 'Unidentified'",
-                    keysym
-                );
-                Ok("Unidentified".to_string())
-            }
-        }
     }
 
     /// Get page reference (for advanced operations)
@@ -1818,4 +1849,143 @@ impl Drop for ChromeSession {
             }
         }
     }
+}
+
+/// Map an X11 keysym to the CDP key info needed by `Input.dispatchKeyEvent`.
+///
+/// Returns `(key, code, windows_virtual_key_code, text)` where `text` is `Some`
+/// only for printable characters that should produce a `char` CDP event (which
+/// causes `input` events to fire in text fields).
+///
+/// Returns `None` for keysyms with no meaningful CDP mapping (e.g. dead keys,
+/// compose, unmapped Unicode above BMP).
+fn keysym_to_key_info(keysym: u32) -> Option<(String, String, i64, Option<String>)> {
+    // --- Special / non-printable keys ---
+    let special: Option<(&str, &str, i64)> = match keysym {
+        0xFF08 => Some(("Backspace", "Backspace", 8)),
+        0xFF09 => Some(("Tab", "Tab", 9)),
+        0xFF0D => Some(("Enter", "Enter", 13)),
+        0xFF1B => Some(("Escape", "Escape", 27)),
+        0xFF50 => Some(("Home", "Home", 36)),
+        0xFF51 => Some(("ArrowLeft", "ArrowLeft", 37)),
+        0xFF52 => Some(("ArrowUp", "ArrowUp", 38)),
+        0xFF53 => Some(("ArrowRight", "ArrowRight", 39)),
+        0xFF54 => Some(("ArrowDown", "ArrowDown", 40)),
+        0xFF55 => Some(("PageUp", "PageUp", 33)),
+        0xFF56 => Some(("PageDown", "PageDown", 34)),
+        0xFF57 => Some(("End", "End", 35)),
+        0xFF63 => Some(("Insert", "Insert", 45)),
+        0xFFFF => Some(("Delete", "Delete", 46)),
+        0xFF7F => Some(("NumLock", "NumLock", 144)),
+        0xFF14 => Some(("ScrollLock", "ScrollLock", 145)),
+        0xFFE5 => Some(("CapsLock", "CapsLock", 20)),
+        0xFFE1 => Some(("Shift", "ShiftLeft", 16)),
+        0xFFE2 => Some(("Shift", "ShiftRight", 16)),
+        0xFFE3 => Some(("Control", "ControlLeft", 17)),
+        0xFFE4 => Some(("Control", "ControlRight", 17)),
+        0xFFE7 => Some(("Meta", "MetaLeft", 91)),
+        0xFFE8 => Some(("Meta", "MetaRight", 92)),
+        0xFFE9 => Some(("Alt", "AltLeft", 18)),
+        0xFFEA => Some(("Alt", "AltRight", 18)),
+        0xFE03 => Some(("AltGraph", "AltRight", 225)),
+        0xFFBE => Some(("F1", "F1", 112)),
+        0xFFBF => Some(("F2", "F2", 113)),
+        0xFFC0 => Some(("F3", "F3", 114)),
+        0xFFC1 => Some(("F4", "F4", 115)),
+        0xFFC2 => Some(("F5", "F5", 116)),
+        0xFFC3 => Some(("F6", "F6", 117)),
+        0xFFC4 => Some(("F7", "F7", 118)),
+        0xFFC5 => Some(("F8", "F8", 119)),
+        0xFFC6 => Some(("F9", "F9", 120)),
+        0xFFC7 => Some(("F10", "F10", 121)),
+        0xFFC8 => Some(("F11", "F11", 122)),
+        0xFFC9 => Some(("F12", "F12", 123)),
+        // Numpad operators — printable
+        0xFFBD => return Some(("=".into(), "NumpadEqual".into(), 187, Some("=".into()))),
+        0xFFAA => return Some(("*".into(), "NumpadMultiply".into(), 106, Some("*".into()))),
+        0xFFAB => return Some(("+".into(), "NumpadAdd".into(), 107, Some("+".into()))),
+        0xFFAD => return Some(("-".into(), "NumpadSubtract".into(), 109, Some("-".into()))),
+        0xFFAE => return Some((".".into(), "NumpadDecimal".into(), 110, Some(".".into()))),
+        0xFFAF => return Some(("/".into(), "NumpadDivide".into(), 111, Some("/".into()))),
+        0xFF8D => Some(("Enter", "NumpadEnter", 13)),
+        _ => None,
+    };
+    if let Some((key, code, vk)) = special {
+        // Tab produces "\t"; Enter, Backspace, etc. produce no char event.
+        let text = if keysym == 0xFF09 {
+            Some("\t".into())
+        } else {
+            None
+        };
+        return Some((key.into(), code.into(), vk, text));
+    }
+
+    // Numpad digits 0-9
+    if (0xFFB0..=0xFFB9).contains(&keysym) {
+        let digit = (keysym - 0xFFB0) as u8 + b'0';
+        let ch = char::from(digit);
+        let vk = 96 + (keysym - 0xFFB0) as i64;
+        return Some((
+            ch.to_string(),
+            format!("Numpad{}", ch),
+            vk,
+            Some(ch.to_string()),
+        ));
+    }
+
+    // --- Printable ASCII (0x20..=0x7E) ---
+    if (0x20..=0x7E).contains(&keysym) {
+        let ch = char::from_u32(keysym)?;
+        let key = ch.to_string();
+        let text = Some(ch.to_string());
+
+        let (code, vk): (String, i64) = match keysym {
+            0x20 => ("Space".into(), 32),
+            // Digits
+            0x30..=0x39 => (format!("Digit{}", ch), keysym as i64),
+            // Uppercase A-Z
+            0x41..=0x5A => (format!("Key{}", ch), keysym as i64),
+            // Lowercase a-z → same physical key, VK is the uppercase code
+            0x61..=0x7A => (
+                format!("Key{}", char::from(b'A' + (keysym as u8 - b'a'))),
+                keysym as i64 - 0x20,
+            ),
+            // Punctuation (shifted digit row)
+            0x21 => ("Digit1".into(), 49), // !
+            0x40 => ("Digit2".into(), 50), // @
+            0x23 => ("Digit3".into(), 51), // #
+            0x24 => ("Digit4".into(), 52), // $
+            0x25 => ("Digit5".into(), 53), // %
+            0x5E => ("Digit6".into(), 54), // ^
+            0x26 => ("Digit7".into(), 55), // &
+            0x2A => ("Digit8".into(), 56), // *
+            0x28 => ("Digit9".into(), 57), // (
+            0x29 => ("Digit0".into(), 48), // )
+            // Other punctuation
+            0x2D | 0x5F => ("Minus".into(), 189),
+            0x3D | 0x2B => ("Equal".into(), 187),
+            0x5B | 0x7B => ("BracketLeft".into(), 219),
+            0x5D | 0x7D => ("BracketRight".into(), 221),
+            0x3B | 0x3A => ("Semicolon".into(), 186),
+            0x27 | 0x22 => ("Quote".into(), 222),
+            0x60 | 0x7E => ("Backquote".into(), 192),
+            0x5C | 0x7C => ("Backslash".into(), 220),
+            0x2C | 0x3C => ("Comma".into(), 188),
+            0x2E | 0x3E => ("Period".into(), 190),
+            0x2F | 0x3F => ("Slash".into(), 191),
+            _ => (format!("Key{}", ch), keysym as i64),
+        };
+
+        return Some((key, code, vk, text));
+    }
+
+    // Unicode characters above ASCII plane (keysym >= 0x01000000)
+    if keysym >= 0x0100_0000 {
+        if let Some(ch) = char::from_u32(keysym & 0x00FF_FFFF) {
+            let s = ch.to_string();
+            return Some((s.clone(), String::new(), 0, Some(s)));
+        }
+    }
+
+    None
 }

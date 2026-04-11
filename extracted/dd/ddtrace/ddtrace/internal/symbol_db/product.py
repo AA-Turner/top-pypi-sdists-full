@@ -8,11 +8,14 @@ def post_preload() -> None:
     pass
 
 
-def start() -> None:
-    if config.enabled:
-        from ddtrace.internal import symbol_db
+def enabled() -> bool:
+    return config.enabled
 
-        symbol_db.bootstrap()
+
+def start() -> None:
+    from ddtrace.internal import symbol_db
+
+    symbol_db.bootstrap()
 
 
 def restart(join: bool = False) -> None:
@@ -25,7 +28,3 @@ def restart(join: bool = False) -> None:
 def stop(join: bool = False) -> None:
     # Controlled via RC
     pass
-
-
-def at_exit(join: bool = False) -> None:
-    stop(join=join)

@@ -356,13 +356,18 @@ def _rename_columns(
     user_columns = [str(col._1()) for col in as_java_list(user_specified_columns)]
 
     if user_columns:
-        columns = zip(df.columns, user_columns)
+        columns = list(zip(df.columns, user_columns))
     else:
-        columns = column_map.snowpark_to_spark_map().items()
+        columns = list(column_map.snowpark_to_spark_map().items())
 
-    for orig_column, user_column in columns:
-        df = df.with_column_renamed(
-            orig_column, spark_to_sf_single_id(user_column, is_column=True)
+    if columns:
+        return df.select(
+            [
+                snowpark_fn.col(orig).alias(
+                    spark_to_sf_single_id(user_col, is_column=True)
+                )
+                for orig, user_col in columns
+            ]
         )
     return df
 
@@ -405,9 +410,14 @@ def _create_table_as_select(logical_plan, mode: str) -> None:
     df = container.dataframe
     df = _apply_decimal_schema_emulation(df)
     columns = container.column_map.snowpark_to_spark_map().items()
-    for orig_column, user_column in columns:
-        df = df.with_column_renamed(
-            orig_column, spark_to_sf_single_id(user_column, is_column=True)
+    if columns:
+        df = df.select(
+            [
+                snowpark_fn.col(orig_column).alias(
+                    spark_to_sf_single_id(user_column, is_column=True)
+                )
+                for orig_column, user_column in columns
+            ]
         )
 
     # TODO escaping should be handled by snowpark. remove when SNOW-2210271 is done
@@ -1558,15 +1568,21 @@ def map_sql_to_pandas_df(
 
                 target_table = session.table(target_table_name)
                 target_table_columns = target_table.columns
-                target_df_spark_names = []
-                for target_table_col, target_df_col in zip(
-                    target_table_columns, target_df_container.column_map.columns
-                ):
-                    target_df = target_df.with_column_renamed(
-                        target_df_col.snowpark_name,
-                        target_table_col,
+                target_df_spark_names = [
+                    c.spark_name for c in target_df_container.column_map.columns
+                ]
+                if target_table_columns:
+                    target_df = target_df.select(
+                        [
+                            snowpark_fn.col(target_df_col.snowpark_name).alias(
+                                target_table_col
+                            )
+                            for target_table_col, target_df_col in zip(
+                                target_table_columns,
+                                target_df_container.column_map.columns,
+                            )
+                        ]
                     )
-                    target_df_spark_names.append(target_df_col.spark_name)
                 target_df_container = DataFrameContainer.create_with_column_mapping(
                     dataframe=target_df,
                     spark_column_names=target_df_spark_names,
@@ -1667,15 +1683,17 @@ def map_sql_to_pandas_df(
                 table = session.table(name)
                 table_columns = table.columns
                 df = df_container.dataframe
-                spark_names = []
-                for table_col, df_col in zip(
-                    table_columns, df_container.column_map.columns
-                ):
-                    df = df.with_column_renamed(
-                        df_col.snowpark_name,
-                        table_col,
+                spark_names = [c.spark_name for c in df_container.column_map.columns]
+                if table_columns:
+                    df = df.select(
+                        [
+                            snowpark_fn.col(df_col.snowpark_name).alias(table_col)
+                            for table_col, df_col in zip(
+                                table_columns,
+                                df_container.column_map.columns,
+                            )
+                        ]
                     )
-                    spark_names.append(df_col.spark_name)
                 df_container = DataFrameContainer.create_with_column_mapping(
                     dataframe=df,
                     spark_column_names=spark_names,

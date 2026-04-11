@@ -6,7 +6,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeCodeSettings, TypeEmailVerification, TypeInputCheckPasswordSRP
+    from ...tl.types import TypeCodeSettings, TypeEmailVerification, TypeInputCheckPasswordSRP, TypeInputPasskeyCredential
     from ...tl.types.account import TypePasswordInputSettings
 
 
@@ -305,6 +305,52 @@ class ExportLoginTokenRequest(TLRequest):
         return cls(api_id=_api_id, api_hash=_api_hash, except_ids=_except_ids)
 
 
+class FinishPasskeyLoginRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x9857ad07
+    SUBCLASS_OF_ID = 0xb9e04e39
+
+    def __init__(self, credential: 'TypeInputPasskeyCredential', from_dc_id: Optional[int]=None, from_auth_key_id: Optional[int]=None):
+        """
+        :returns auth.Authorization: Instance of either Authorization, AuthorizationSignUpRequired.
+        """
+        self.credential = credential
+        self.from_dc_id = from_dc_id
+        self.from_auth_key_id = from_auth_key_id
+
+    def to_dict(self):
+        return {
+            '_': 'FinishPasskeyLoginRequest',
+            'credential': self.credential.to_dict() if isinstance(self.credential, TLObject) else self.credential,
+            'from_dc_id': self.from_dc_id,
+            'from_auth_key_id': self.from_auth_key_id
+        }
+
+    def _bytes(self):
+        assert ((self.from_dc_id or self.from_dc_id is not None) and (self.from_auth_key_id or self.from_auth_key_id is not None)) or ((self.from_dc_id is None or self.from_dc_id is False) and (self.from_auth_key_id is None or self.from_auth_key_id is False)), 'from_dc_id, from_auth_key_id parameters must all be False-y (like None) or all be True-y'
+        return b''.join((
+            b'\x07\xadW\x98',
+            struct.pack('<I', (0 if self.from_dc_id is None or self.from_dc_id is False else 1) | (0 if self.from_auth_key_id is None or self.from_auth_key_id is False else 1)),
+            self.credential._bytes(),
+            b'' if self.from_dc_id is None or self.from_dc_id is False else (struct.pack('<i', self.from_dc_id)),
+            b'' if self.from_auth_key_id is None or self.from_auth_key_id is False else (struct.pack('<q', self.from_auth_key_id)),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        flags = reader.read_int()
+
+        _credential = reader.tgread_object()
+        if flags & 1:
+            _from_dc_id = reader.read_int()
+        else:
+            _from_dc_id = None
+        if flags & 1:
+            _from_auth_key_id = reader.read_long()
+        else:
+            _from_auth_key_id = None
+        return cls(credential=_credential, from_dc_id=_from_dc_id, from_auth_key_id=_from_auth_key_id)
+
+
 class ImportAuthorizationRequest(TLRequest):
     CONSTRUCTOR_ID = 0xa57a7dad
     SUBCLASS_OF_ID = 0xb9e04e39
@@ -439,6 +485,38 @@ class ImportWebTokenAuthorizationRequest(TLRequest):
         _api_hash = reader.tgread_string()
         _web_auth_token = reader.tgread_string()
         return cls(api_id=_api_id, api_hash=_api_hash, web_auth_token=_web_auth_token)
+
+
+class InitPasskeyLoginRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x518ad0b7
+    SUBCLASS_OF_ID = 0xd9793032
+
+    def __init__(self, api_id: int, api_hash: str):
+        """
+        :returns auth.PasskeyLoginOptions: Instance of PasskeyLoginOptions.
+        """
+        self.api_id = api_id
+        self.api_hash = api_hash
+
+    def to_dict(self):
+        return {
+            '_': 'InitPasskeyLoginRequest',
+            'api_id': self.api_id,
+            'api_hash': self.api_hash
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xb7\xd0\x8aQ',
+            struct.pack('<i', self.api_id),
+            self.serialize_bytes(self.api_hash),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _api_id = reader.read_int()
+        _api_hash = reader.tgread_string()
+        return cls(api_id=_api_id, api_hash=_api_hash)
 
 
 class LogOutRequest(TLRequest):

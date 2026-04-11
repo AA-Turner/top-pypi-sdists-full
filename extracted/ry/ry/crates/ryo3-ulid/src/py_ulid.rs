@@ -1,12 +1,14 @@
-use pyo3::exceptions::{PyOverflowError, PyRuntimeError, PyTypeError, PyValueError};
-use pyo3::types::{PyBytes, PyDict, PyType};
-use pyo3::{IntoPyObjectExt, intern, prelude::*};
-use ryo3_pydantic::GetPydanticCoreSchemaCls;
-use ryo3_uuid::{CPythonUuid, PyUuid};
 use std::fmt::Write;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::{Mutex, OnceLock};
 use std::time::SystemTime;
+
+use pyo3::exceptions::{PyOverflowError, PyRuntimeError, PyTypeError, PyValueError};
+use pyo3::prelude::*;
+use pyo3::types::{PyBytes, PyDict, PyType};
+use pyo3::{IntoPyObjectExt, intern};
+use ryo3_pydantic::GetPydanticCoreSchemaCls;
+use ryo3_uuid::{CPythonUuid, PyUuid};
 use ulid::Ulid;
 use uuid::Uuid;
 
@@ -479,7 +481,7 @@ impl GetPydanticCoreSchemaCls for PyUlid {
 
         // let core_schema = core_schema.getattr(intern!(py, "core_schema"))?;
 
-        // oy vey this is hideous, but it works
+        // oof this is hideous, but it works
         let str_schema_kwargs = PyDict::new(py);
         str_schema_kwargs.set_item(interns::pattern(py), intern!(py, r"[A-Z0-9]{26}"))?;
         str_schema_kwargs.set_item(interns::min_length(py), 26)?;

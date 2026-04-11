@@ -9,7 +9,8 @@ from ..storage import IndexStore, result_cache_get, result_cache_put
 from ..parser.imports import resolve_specifier
 from ._utils import resolve_repo, resolve_fqn
 from .package_registry import extract_root_package_from_specifier
-from ._call_graph import build_symbols_by_file, find_direct_callers, bfs_callers
+from ._call_graph import build_symbols_by_file, _word_match, find_direct_callers, bfs_callers
+from .find_dead_code import _is_test_file
 
 
 def _build_reverse_adjacency(
@@ -302,6 +303,26 @@ def get_blast_radius(
                 )
             # Re-sort by file path for stable output
             confirmed.sort(key=lambda x: x["file"])
+
+    # Enrich confirmed entries with test-reachability signal
+    # For each confirmed file, check if any test file imports it AND
+    # references sym_name — lightweight per-file check, no BFS.
+    test_file_set = frozenset(f for f in index.source_files if _is_test_file(f))
+    for entry in confirmed:
+        imp_file = entry["file"]
+        # Which test files import imp_file?
+        test_importers = [f for f in rev.get(imp_file, []) if f in test_file_set]
+        if not test_importers:
+            entry["has_test_reach"] = False
+            continue
+        # Any test file reference the affected symbol by name?
+        reached = False
+        for tf in test_importers:
+            tf_content = content_cache.get(tf) or store.get_file_content(owner, name, tf)
+            if tf_content and _name_in_content(tf_content, sym_name):
+                reached = True
+                break
+        entry["has_test_reach"] = reached
 
     # Cross-repo: find other repos that import this repo's package
     cross_repo_confirmed: list[dict] = []

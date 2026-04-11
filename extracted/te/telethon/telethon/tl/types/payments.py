@@ -5,7 +5,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeBankCardOpenUrl, TypeChat, TypeConnectedBotStarRef, TypeDataJSON, TypeInvoice, TypePaymentFormMethod, TypePaymentRequestedInfo, TypePaymentSavedCredentials, TypePeer, TypeSavedStarGift, TypeShippingOption, TypeStarGift, TypeStarGiftAttribute, TypeStarGiftAttributeCounter, TypeStarGiftCollection, TypeStarGiftUpgradePrice, TypeStarRefProgram, TypeStarsAmount, TypeStarsRevenueStatus, TypeStarsSubscription, TypeStarsTransaction, TypeStatsGraph, TypeTextWithEntities, TypeUpdates, TypeUser, TypeWebDocument
+    from ...tl.types import TypeBankCardOpenUrl, TypeChat, TypeConnectedBotStarRef, TypeDataJSON, TypeInvoice, TypePaymentFormMethod, TypePaymentRequestedInfo, TypePaymentSavedCredentials, TypePeer, TypeSavedStarGift, TypeShippingOption, TypeStarGift, TypeStarGiftActiveAuctionState, TypeStarGiftAttribute, TypeStarGiftAttributeCounter, TypeStarGiftAuctionAcquiredGift, TypeStarGiftAuctionState, TypeStarGiftAuctionUserState, TypeStarGiftCollection, TypeStarGiftUpgradePrice, TypeStarRefProgram, TypeStarsAmount, TypeStarsRevenueStatus, TypeStarsSubscription, TypeStarsTransaction, TypeStatsGraph, TypeTextWithEntities, TypeUpdates, TypeUser, TypeWebDocument
 
 
 
@@ -94,15 +94,15 @@ class CheckCanSendGiftResultOk(TLObject):
 
 
 class CheckedGiftCode(TLObject):
-    CONSTRUCTOR_ID = 0x284a1096
+    CONSTRUCTOR_ID = 0xeb983f8f
     SUBCLASS_OF_ID = 0x5b2997e8
 
-    def __init__(self, date: Optional[datetime], months: int, chats: List['TypeChat'], users: List['TypeUser'], via_giveaway: Optional[bool]=None, from_id: Optional['TypePeer']=None, giveaway_msg_id: Optional[int]=None, to_id: Optional[int]=None, used_date: Optional[datetime]=None):
+    def __init__(self, date: Optional[datetime], days: int, chats: List['TypeChat'], users: List['TypeUser'], via_giveaway: Optional[bool]=None, from_id: Optional['TypePeer']=None, giveaway_msg_id: Optional[int]=None, to_id: Optional[int]=None, used_date: Optional[datetime]=None):
         """
         Constructor for payments.CheckedGiftCode: Instance of CheckedGiftCode.
         """
         self.date = date
-        self.months = months
+        self.days = days
         self.chats = chats
         self.users = users
         self.via_giveaway = via_giveaway
@@ -115,7 +115,7 @@ class CheckedGiftCode(TLObject):
         return {
             '_': 'CheckedGiftCode',
             'date': self.date,
-            'months': self.months,
+            'days': self.days,
             'chats': [] if self.chats is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.chats],
             'users': [] if self.users is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.users],
             'via_giveaway': self.via_giveaway,
@@ -127,13 +127,13 @@ class CheckedGiftCode(TLObject):
 
     def _bytes(self):
         return b''.join((
-            b'\x96\x10J(',
+            b'\x8f?\x98\xeb',
             struct.pack('<I', (0 if self.via_giveaway is None or self.via_giveaway is False else 4) | (0 if self.from_id is None or self.from_id is False else 16) | (0 if self.giveaway_msg_id is None or self.giveaway_msg_id is False else 8) | (0 if self.to_id is None or self.to_id is False else 1) | (0 if self.used_date is None or self.used_date is False else 2)),
             b'' if self.from_id is None or self.from_id is False else (self.from_id._bytes()),
             b'' if self.giveaway_msg_id is None or self.giveaway_msg_id is False else (struct.pack('<i', self.giveaway_msg_id)),
             b'' if self.to_id is None or self.to_id is False else (struct.pack('<q', self.to_id)),
             self.serialize_datetime(self.date),
-            struct.pack('<i', self.months),
+            struct.pack('<i', self.days),
             b'' if self.used_date is None or self.used_date is False else (self.serialize_datetime(self.used_date)),
             b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.chats)),b''.join(x._bytes() for x in self.chats),
             b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.users)),b''.join(x._bytes() for x in self.users),
@@ -157,7 +157,7 @@ class CheckedGiftCode(TLObject):
         else:
             _to_id = None
         _date = reader.tgread_date()
-        _months = reader.read_int()
+        _days = reader.read_int()
         if flags & 2:
             _used_date = reader.tgread_date()
         else:
@@ -174,7 +174,7 @@ class CheckedGiftCode(TLObject):
             _x = reader.tgread_object()
             _users.append(_x)
 
-        return cls(date=_date, months=_months, chats=_chats, users=_users, via_giveaway=_via_giveaway, from_id=_from_id, giveaway_msg_id=_giveaway_msg_id, to_id=_to_id, used_date=_used_date)
+        return cls(date=_date, days=_days, chats=_chats, users=_users, via_giveaway=_via_giveaway, from_id=_from_id, giveaway_msg_id=_giveaway_msg_id, to_id=_to_id, used_date=_used_date)
 
 
 class ConnectedStarRefBots(TLObject):
@@ -422,7 +422,7 @@ class PaymentForm(TLObject):
         }
 
     def _bytes(self):
-        assert ((self.native_provider or self.native_provider is not None) and (self.native_params or self.native_params is not None)) or ((self.native_provider is None or self.native_provider is False) and (self.native_params is None or self.native_params is False)), 'native_provider, native_params parameters must all be False-y (like None) or all me True-y'
+        assert ((self.native_provider or self.native_provider is not None) and (self.native_params or self.native_params is not None)) or ((self.native_provider is None or self.native_provider is False) and (self.native_params is None or self.native_params is False)), 'native_provider, native_params parameters must all be False-y (like None) or all be True-y'
         return b''.join((
             b'Q\x87\x05\xa0',
             struct.pack('<I', (0 if self.can_save_credentials is None or self.can_save_credentials is False else 4) | (0 if self.password_missing is None or self.password_missing is False else 8) | (0 if self.photo is None or self.photo is False else 32) | (0 if self.native_provider is None or self.native_provider is False else 16) | (0 if self.native_params is None or self.native_params is False else 16) | (0 if self.additional_methods is None or self.additional_methods is False else 64) | (0 if self.saved_info is None or self.saved_info is False else 1) | (0 if self.saved_credentials is None or self.saved_credentials is False else 2)),
@@ -855,7 +855,7 @@ class ResaleStarGifts(TLObject):
         }
 
     def _bytes(self):
-        assert ((self.attributes or self.attributes is not None) and (self.attributes_hash or self.attributes_hash is not None)) or ((self.attributes is None or self.attributes is False) and (self.attributes_hash is None or self.attributes_hash is False)), 'attributes, attributes_hash parameters must all be False-y (like None) or all me True-y'
+        assert ((self.attributes or self.attributes is not None) and (self.attributes_hash or self.attributes_hash is not None)) or ((self.attributes is None or self.attributes is False) and (self.attributes_hash is None or self.attributes_hash is False)), 'attributes, attributes_hash parameters must all be False-y (like None) or all be True-y'
         return b''.join((
             b'\xdf\x12z\x94',
             struct.pack('<I', (0 if self.next_offset is None or self.next_offset is False else 1) | (0 if self.attributes is None or self.attributes is False else 2) | (0 if self.attributes_hash is None or self.attributes_hash is False else 2) | (0 if self.counters is None or self.counters is False else 4)),
@@ -1030,6 +1030,185 @@ class SavedStarGifts(TLObject):
         return cls(count=_count, gifts=_gifts, chats=_chats, users=_users, chat_notifications_enabled=_chat_notifications_enabled, next_offset=_next_offset)
 
 
+class StarGiftActiveAuctions(TLObject):
+    CONSTRUCTOR_ID = 0xaef6abbc
+    SUBCLASS_OF_ID = 0x917dd0c7
+
+    def __init__(self, auctions: List['TypeStarGiftActiveAuctionState'], users: List['TypeUser'], chats: List['TypeChat']):
+        """
+        Constructor for payments.StarGiftActiveAuctions: Instance of either StarGiftActiveAuctionsNotModified, StarGiftActiveAuctions.
+        """
+        self.auctions = auctions
+        self.users = users
+        self.chats = chats
+
+    def to_dict(self):
+        return {
+            '_': 'StarGiftActiveAuctions',
+            'auctions': [] if self.auctions is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.auctions],
+            'users': [] if self.users is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.users],
+            'chats': [] if self.chats is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.chats]
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xbc\xab\xf6\xae',
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.auctions)),b''.join(x._bytes() for x in self.auctions),
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.users)),b''.join(x._bytes() for x in self.users),
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.chats)),b''.join(x._bytes() for x in self.chats),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        reader.read_int()
+        _auctions = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _auctions.append(_x)
+
+        reader.read_int()
+        _users = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _users.append(_x)
+
+        reader.read_int()
+        _chats = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _chats.append(_x)
+
+        return cls(auctions=_auctions, users=_users, chats=_chats)
+
+
+class StarGiftActiveAuctionsNotModified(TLObject):
+    CONSTRUCTOR_ID = 0xdb33dad0
+    SUBCLASS_OF_ID = 0x917dd0c7
+
+    def to_dict(self):
+        return {
+            '_': 'StarGiftActiveAuctionsNotModified'
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xd0\xda3\xdb',
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        return cls()
+
+
+class StarGiftAuctionAcquiredGifts(TLObject):
+    CONSTRUCTOR_ID = 0x7d5bd1f0
+    SUBCLASS_OF_ID = 0xa7080a1b
+
+    def __init__(self, gifts: List['TypeStarGiftAuctionAcquiredGift'], users: List['TypeUser'], chats: List['TypeChat']):
+        """
+        Constructor for payments.StarGiftAuctionAcquiredGifts: Instance of StarGiftAuctionAcquiredGifts.
+        """
+        self.gifts = gifts
+        self.users = users
+        self.chats = chats
+
+    def to_dict(self):
+        return {
+            '_': 'StarGiftAuctionAcquiredGifts',
+            'gifts': [] if self.gifts is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.gifts],
+            'users': [] if self.users is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.users],
+            'chats': [] if self.chats is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.chats]
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xf0\xd1[}',
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.gifts)),b''.join(x._bytes() for x in self.gifts),
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.users)),b''.join(x._bytes() for x in self.users),
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.chats)),b''.join(x._bytes() for x in self.chats),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        reader.read_int()
+        _gifts = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _gifts.append(_x)
+
+        reader.read_int()
+        _users = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _users.append(_x)
+
+        reader.read_int()
+        _chats = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _chats.append(_x)
+
+        return cls(gifts=_gifts, users=_users, chats=_chats)
+
+
+class StarGiftAuctionState(TLObject):
+    CONSTRUCTOR_ID = 0x6b39f4ec
+    SUBCLASS_OF_ID = 0x1a318599
+
+    def __init__(self, gift: 'TypeStarGift', state: 'TypeStarGiftAuctionState', user_state: 'TypeStarGiftAuctionUserState', timeout: int, users: List['TypeUser'], chats: List['TypeChat']):
+        """
+        Constructor for payments.StarGiftAuctionState: Instance of StarGiftAuctionState.
+        """
+        self.gift = gift
+        self.state = state
+        self.user_state = user_state
+        self.timeout = timeout
+        self.users = users
+        self.chats = chats
+
+    def to_dict(self):
+        return {
+            '_': 'StarGiftAuctionState',
+            'gift': self.gift.to_dict() if isinstance(self.gift, TLObject) else self.gift,
+            'state': self.state.to_dict() if isinstance(self.state, TLObject) else self.state,
+            'user_state': self.user_state.to_dict() if isinstance(self.user_state, TLObject) else self.user_state,
+            'timeout': self.timeout,
+            'users': [] if self.users is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.users],
+            'chats': [] if self.chats is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.chats]
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xec\xf49k',
+            self.gift._bytes(),
+            self.state._bytes(),
+            self.user_state._bytes(),
+            struct.pack('<i', self.timeout),
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.users)),b''.join(x._bytes() for x in self.users),
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.chats)),b''.join(x._bytes() for x in self.chats),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _gift = reader.tgread_object()
+        _state = reader.tgread_object()
+        _user_state = reader.tgread_object()
+        _timeout = reader.read_int()
+        reader.read_int()
+        _users = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _users.append(_x)
+
+        reader.read_int()
+        _chats = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _chats.append(_x)
+
+        return cls(gift=_gift, state=_state, user_state=_user_state, timeout=_timeout, users=_users, chats=_chats)
+
+
 class StarGiftCollections(TLObject):
     CONSTRUCTOR_ID = 0x8a2932f3
     SUBCLASS_OF_ID = 0xf01721ec
@@ -1080,6 +1259,39 @@ class StarGiftCollectionsNotModified(TLObject):
     @classmethod
     def from_reader(cls, reader):
         return cls()
+
+
+class StarGiftUpgradeAttributes(TLObject):
+    CONSTRUCTOR_ID = 0x46c6e36f
+    SUBCLASS_OF_ID = 0xf46acef
+
+    def __init__(self, attributes: List['TypeStarGiftAttribute']):
+        """
+        Constructor for payments.StarGiftUpgradeAttributes: Instance of StarGiftUpgradeAttributes.
+        """
+        self.attributes = attributes
+
+    def to_dict(self):
+        return {
+            '_': 'StarGiftUpgradeAttributes',
+            'attributes': [] if self.attributes is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.attributes]
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'o\xe3\xc6F',
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.attributes)),b''.join(x._bytes() for x in self.attributes),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        reader.read_int()
+        _attributes = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _attributes.append(_x)
+
+        return cls(attributes=_attributes)
 
 
 class StarGiftUpgradePreview(TLObject):
@@ -1576,8 +1788,8 @@ class UniqueStarGiftValueInfo(TLObject):
         }
 
     def _bytes(self):
-        assert ((self.last_sale_date or self.last_sale_date is not None) and (self.last_sale_price or self.last_sale_price is not None)) or ((self.last_sale_date is None or self.last_sale_date is False) and (self.last_sale_price is None or self.last_sale_price is False)), 'last_sale_date, last_sale_price parameters must all be False-y (like None) or all me True-y'
-        assert ((self.fragment_listed_count or self.fragment_listed_count is not None) and (self.fragment_listed_url or self.fragment_listed_url is not None)) or ((self.fragment_listed_count is None or self.fragment_listed_count is False) and (self.fragment_listed_url is None or self.fragment_listed_url is False)), 'fragment_listed_count, fragment_listed_url parameters must all be False-y (like None) or all me True-y'
+        assert ((self.last_sale_date or self.last_sale_date is not None) and (self.last_sale_price or self.last_sale_price is not None)) or ((self.last_sale_date is None or self.last_sale_date is False) and (self.last_sale_price is None or self.last_sale_price is False)), 'last_sale_date, last_sale_price parameters must all be False-y (like None) or all be True-y'
+        assert ((self.fragment_listed_count or self.fragment_listed_count is not None) and (self.fragment_listed_url or self.fragment_listed_url is not None)) or ((self.fragment_listed_count is None or self.fragment_listed_count is False) and (self.fragment_listed_url is None or self.fragment_listed_url is False)), 'fragment_listed_count, fragment_listed_url parameters must all be False-y (like None) or all be True-y'
         return b''.join((
             b'F\xe4/Q',
             struct.pack('<I', (0 if self.last_sale_on_fragment is None or self.last_sale_on_fragment is False else 2) | (0 if self.value_is_average is None or self.value_is_average is False else 64) | (0 if self.last_sale_date is None or self.last_sale_date is False else 1) | (0 if self.last_sale_price is None or self.last_sale_price is False else 1) | (0 if self.floor_price is None or self.floor_price is False else 4) | (0 if self.average_price is None or self.average_price is False else 8) | (0 if self.listed_count is None or self.listed_count is False else 16) | (0 if self.fragment_listed_count is None or self.fragment_listed_count is False else 32) | (0 if self.fragment_listed_url is None or self.fragment_listed_url is False else 32)),

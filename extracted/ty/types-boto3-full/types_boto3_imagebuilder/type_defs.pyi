@@ -1966,6 +1966,7 @@ class ImagePipelineTypeDef(TypedDict):
     dateNextRun: NotRequired[str]
     tags: NotRequired[dict[str, str]]
     imageScanningConfiguration: NotRequired[ImageScanningConfigurationOutputTypeDef]
+    imageTags: NotRequired[dict[str, str]]
     executionRole: NotRequired[str]
     workflows: NotRequired[list[WorkflowConfigurationOutputTypeDef]]
     loggingConfiguration: NotRequired[PipelineLoggingConfigurationTypeDef]
@@ -2267,6 +2268,7 @@ class CreateImagePipelineRequestTypeDef(TypedDict):
     schedule: NotRequired[ScheduleTypeDef]
     status: NotRequired[PipelineStatusType]
     tags: NotRequired[Mapping[str, str]]
+    imageTags: NotRequired[Mapping[str, str]]
     imageScanningConfiguration: NotRequired[ImageScanningConfigurationUnionTypeDef]
     workflows: NotRequired[Sequence[WorkflowConfigurationUnionTypeDef]]
     executionRole: NotRequired[str]
@@ -2302,6 +2304,7 @@ class UpdateImagePipelineRequestTypeDef(TypedDict):
     workflows: NotRequired[Sequence[WorkflowConfigurationUnionTypeDef]]
     loggingConfiguration: NotRequired[PipelineLoggingConfigurationTypeDef]
     executionRole: NotRequired[str]
+    imageTags: NotRequired[Mapping[str, str]]
 
 class GetImageResponseTypeDef(TypedDict):
     requestId: str

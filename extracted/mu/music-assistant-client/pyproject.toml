@@ -4,20 +4,19 @@ authors = [
 ]
 classifiers = [
     "Environment :: Console",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
     "aiohttp>=3.8.6",
-    "music_assistant_models==1.1.97",
+    "music_assistant_models==1.1.115",
     "orjson>=3.9",
 ]
 description = "Music Assistant Client"
 name = "music_assistant_client"
 readme = "README.md"
-requires-python = ">=3.11"
-version = "1.3.4"
+requires-python = ">=3.12"
+version = "1.3.5"
 
 [project.license]
 text = "Apache-2.0"
@@ -25,11 +24,11 @@ text = "Apache-2.0"
 [project.optional-dependencies]
 test = [
     "codespell==2.4.1",
-    "isort==7.0.0",
-    "mypy==1.19.1",
-    "pre-commit==4.5.0",
+    "isort==8.0.1",
+    "mypy==1.20.0",
+    "pre-commit==4.5.1",
     "pre-commit-hooks==6.0.0",
-    "tomli==2.3.0",
+    "tomli==2.4.1",
     "ruff==0.14.9",
 ]
 

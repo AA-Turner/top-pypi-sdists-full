@@ -1,9 +1,3 @@
-use crate::errors::map_reqwest_err;
-use crate::request::{BlockingReqwestKwargs, ReqwestKwargs};
-#[cfg(feature = "experimental-async")]
-use crate::response::RyAsyncResponse;
-use crate::response::RyBlockingResponse;
-use crate::{ClientConfig, RyResponse};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
@@ -11,6 +5,13 @@ use reqwest::{Method, RequestBuilder};
 use ryo3_http::PyHttpMethod;
 use ryo3_tokio_rt::{future_into_py, get_tokio_runtime};
 use ryo3_url::UrlLike;
+
+use crate::errors::map_reqwest_err;
+use crate::request::{BlockingReqwestKwargs, ReqwestKwargs};
+#[cfg(feature = "experimental-async")]
+use crate::response::RyAsyncResponse;
+use crate::response::RyBlockingResponse;
+use crate::{ClientConfig, RyResponse};
 
 //============================================================================
 
@@ -382,9 +383,7 @@ impl RyHttpClient {
         self.request(py, url, Method::PATCH, kwargs)
     }
 
-    #[pyo3(
-        signature = (url, *, method=PyHttpMethod::GET, **kwargs)
-    )]
+    #[pyo3(signature = (url, *, method = PyHttpMethod::GET, **kwargs))]
     pub(crate) fn fetch<'py>(
         &'py self,
         py: Python<'py>,
@@ -395,9 +394,7 @@ impl RyHttpClient {
         self.request(py, url, method.into(), kwargs)
     }
 
-    #[pyo3(
-        signature = (url, *, method=PyHttpMethod::GET, **kwargs)
-    )]
+    #[pyo3(signature = (url, *, method = PyHttpMethod::GET, **kwargs))]
     fn __call__<'py>(
         &'py self,
         py: Python<'py>,
@@ -408,9 +405,7 @@ impl RyHttpClient {
         self.request(py, url, method.into(), kwargs)
     }
 
-    #[pyo3(
-        signature = (url, *, method=PyHttpMethod::GET, **kwargs)
-    )]
+    #[pyo3(signature = (url, *, method = PyHttpMethod::GET, **kwargs))]
     pub(crate) fn fetch_sync(
         &self,
         py: Python<'_>,

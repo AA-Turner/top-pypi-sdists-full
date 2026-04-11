@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.24.1
+Version: 1.32.1
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -17,6 +17,7 @@ Provides-Extra: all
 Requires-Dist: anthropic>=0.40.0; extra == 'all'
 Requires-Dist: anyio>=4.0.0; extra == 'all'
 Requires-Dist: google-generativeai>=0.8.0; extra == 'all'
+Requires-Dist: onnxruntime>=1.16.0; extra == 'all'
 Requires-Dist: openai>=1.0.0; extra == 'all'
 Requires-Dist: pyyaml>=6.0; extra == 'all'
 Requires-Dist: sentence-transformers>=2.2.0; extra == 'all'
@@ -33,6 +34,8 @@ Provides-Extra: http
 Requires-Dist: anyio>=4.0.0; extra == 'http'
 Requires-Dist: starlette>=0.27.0; extra == 'http'
 Requires-Dist: uvicorn>=0.20.0; extra == 'http'
+Provides-Extra: local-embed
+Requires-Dist: onnxruntime>=1.16.0; extra == 'local-embed'
 Provides-Extra: minimax
 Requires-Dist: openai>=1.0.0; extra == 'minimax'
 Provides-Extra: openai
@@ -152,7 +155,7 @@ That means:
 
 It indexes your codebase once using tree-sitter, stores structured symbol metadata plus byte offsets into the original source, and retrieves exact implementations on demand instead of re-reading entire files over and over.
 
-Recent releases have made that retrieval workflow sharper and more useful in real engineering work, with BM25-based symbol search, fuzzy matching, semantic/hybrid search (opt-in, zero mandatory dependencies), query-driven token-budgeted context assembly (`get_ranked_context`), dead code detection (`find_dead_code`), git-diff-to-symbol mapping (`get_changed_symbols`), architectural centrality ranking (`get_symbol_importance`, PageRank), blast-radius depth scoring with source snippets, context bundles with token budgets, AST-derived call graphs and call hierarchy traversal, decorator-aware search and filtering, hotspot detection (complexity x churn), dependency cycles and coupling metrics, session-aware routing (`plan_turn`, turn budgets, negative evidence), agent config auditing, complexity-based model routing (Agent Selector), enforcement hooks (PreToolUse/PostToolUse/PreCompact), dependency graphs, class hierarchy traversal, multi-symbol bundles, live watch-based reindexing, automatic Claude Code worktree discovery (`watch-claude`), and trusted-folder access controls.
+Recent releases have made that retrieval workflow sharper and more useful in real engineering work, with BM25-based symbol search, fuzzy matching, semantic/hybrid search (opt-in, zero mandatory dependencies), query-driven token-budgeted context assembly (`get_ranked_context`), dead code detection (`find_dead_code`), untested symbol detection (`get_untested_symbols`), git-diff-to-symbol mapping (`get_changed_symbols`), architectural centrality ranking (`get_symbol_importance`, PageRank), blast-radius depth scoring with source snippets, context bundles with token budgets, AST-derived call graphs and call hierarchy traversal, decorator-aware search and filtering, hotspot detection (complexity x churn), dependency cycles and coupling metrics, session-aware routing (`plan_turn`, turn budgets, negative evidence), agent config auditing, complexity-based model routing (Agent Selector), enforcement hooks (PreToolUse/PostToolUse/PreCompact), dependency graphs, class hierarchy traversal, multi-symbol bundles, live watch-based reindexing, automatic Claude Code worktree discovery (`watch-claude`), and trusted-folder access controls.
 
 ---
 
@@ -230,7 +233,7 @@ Send the model the code it needs, not 1,500 lines of collateral damage.
 
 ### Structural queries native tools can't answer
 
-`find_importers` tells you what imports a file. `get_blast_radius` tells you what breaks if you change a symbol, with depth-weighted risk scores and optional source snippets. `get_class_hierarchy` traverses inheritance chains. `get_call_hierarchy` traces callers and callees N levels deep using AST-derived call graphs. `find_dead_code` finds symbols and files unreachable from any entry point. `get_changed_symbols` maps a git diff to the exact symbols that were added, modified, or removed. `get_symbol_importance` ranks your codebase by architectural centrality using PageRank on the import graph. `get_hotspots` surfaces the riskiest code by combining complexity with git churn. `get_dependency_cycles` detects circular imports. `get_coupling_metrics` measures module coupling and instability. These are not "faster grep" — they are questions grep cannot answer at all.
+`find_importers` tells you what imports a file. `get_blast_radius` tells you what breaks if you change a symbol, with depth-weighted risk scores and optional source snippets. `get_class_hierarchy` traverses inheritance chains. `get_call_hierarchy` traces callers and callees N levels deep using AST-derived call graphs, with optional LSP-enriched dispatch resolution for interface/trait method calls. `find_dead_code` finds symbols and files unreachable from any entry point. `get_untested_symbols` finds functions with no evidence of test-file reachability — the intersection of import-graph analysis and test-file detection. `get_changed_symbols` maps a git diff to the exact symbols that were added, modified, or removed. `get_symbol_importance` ranks your codebase by architectural centrality using PageRank on the import graph. `get_hotspots` surfaces the riskiest code by combining complexity with git churn. `get_dependency_cycles` detects circular imports. `get_coupling_metrics` measures module coupling and instability. These are not "faster grep" — they are questions grep cannot answer at all.
 
 ### Agent config hygiene
 
@@ -264,6 +267,10 @@ So when the agent wants a symbol, jCodeMunch can fetch the exact source directly
 
 ## Start fast
 
+> **Ubuntu 24.04+ / Debian 12+:** System Python is externally managed (PEP 668).
+> Use `pipx install jcodemunch-mcp` or `uv tool install jcodemunch-mcp` instead
+> of bare `pip install`.
+
 ### Option A: One command (recommended)
 
 ```bash
@@ -286,6 +293,27 @@ jcodemunch-mcp init --yes --claude-md global --hooks --index --audit
 ```bash
 pip install jcodemunch-mcp
 ```
+
+> **Want semantic search?** Install the local embedding extra for zero-config
+> semantic search — no API keys, no internet after first download:
+>
+> ```bash
+> pip install "jcodemunch-mcp[local-embed]"  # bundled ONNX encoder (recommended)
+> jcodemunch-mcp download-model              # fetch model (~23 MB, one-time)
+> ```
+>
+> **Want AI-generated summaries?** Install the extra for your provider:
+>
+> ```bash
+> pip install "jcodemunch-mcp[anthropic]"   # Claude
+> pip install "jcodemunch-mcp[gemini]"      # Gemini
+> pip install "jcodemunch-mcp[openai]"      # OpenAI-compatible
+> pip install "jcodemunch-mcp[all]"         # all providers + local embeddings
+> ```
+>
+> Without an extra, summaries fall back to signatures (which still works — you
+> just get shorter descriptions). Run `jcodemunch-mcp config --check` to verify
+> your provider is installed and working.
 
 #### 2. Add it to your MCP client
 
@@ -329,6 +357,25 @@ Use jcodemunch-mcp for code lookup whenever available. Prefer symbol search, out
 ```
 
 > **Note:** `jcodemunch-mcp init` handles steps 2 and 3 automatically. For a comprehensive guide on enforcing these rules through agent hooks and prompt policies, see [AGENT_HOOKS.md](AGENT_HOOKS.md).
+
+---
+
+## Starter Packs
+
+Pre-built indexes for popular frameworks and libraries. Skip the initial indexing step — install a pack and start querying immediately.
+
+```bash
+# List available packs
+jcodemunch-mcp install-pack --list
+
+# Install a free pack
+jcodemunch-mcp install-pack fastapi
+
+# Install a licensed pack
+jcodemunch-mcp install-pack express --license YOUR-KEY
+```
+
+Free packs require no license. Licensed packs require a [jCodeMunch license](https://j.gravelle.us/jCodeMunch/#pricing). Use `--force` to re-download an already-installed pack.
 
 ---
 

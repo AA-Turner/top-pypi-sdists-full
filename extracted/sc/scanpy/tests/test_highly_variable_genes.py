@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 import pytest
+import scipy.sparse as sps
 from anndata import AnnData
 from fast_array_utils import stats
 from pandas.testing import assert_frame_equal, assert_index_equal
@@ -18,7 +19,7 @@ import scanpy as sc
 from scanpy._compat import CSRBase
 from testing.scanpy._helpers import _check_check_values_warnings
 from testing.scanpy._helpers.data import pbmc3k, pbmc68k_reduced
-from testing.scanpy._pytest.marks import needs, skip_numba_0_63
+from testing.scanpy._pytest.marks import needs
 from testing.scanpy._pytest.params import ARRAY_TYPES
 
 if TYPE_CHECKING:
@@ -165,7 +166,6 @@ def _check_pearson_hvg_columns(output_df: pd.DataFrame, n_top_genes: int):
     assert np.nanmax(output_df["highly_variable_rank"].to_numpy()) <= n_top_genes - 1
 
 
-@skip_numba_0_63
 def test_pearson_residuals_inputchecks(
     pbmc3k_parametrized_small: Callable[[], AnnData],
 ) -> None:
@@ -202,7 +202,6 @@ def test_pearson_residuals_inputchecks(
         )
 
 
-@skip_numba_0_63
 @pytest.mark.parametrize("subset", [True, False], ids=["subset", "full"])
 @pytest.mark.parametrize(
     "clip", [None, np.inf, 30], ids=["noclip", "infclip", "30clip"]
@@ -296,7 +295,6 @@ def test_pearson_residuals_general(
     _check_pearson_hvg_columns(output_df, n_top_genes)
 
 
-@skip_numba_0_63
 @pytest.mark.parametrize("subset", [True, False], ids=["subset", "full"])
 @pytest.mark.parametrize("n_top_genes", [100, 200], ids=["100n", "200n"])
 def test_pearson_residuals_batch(
@@ -520,6 +518,15 @@ def test_seurat_v3_warning():
         match="`flavor='seurat_v3'` expects raw count data, but non-integers were found.",
     ):
         sc.pp.highly_variable_genes(pbmc, flavor="seurat_v3")
+
+
+@needs.skmisc
+def test_seurat_v3_degenerate() -> None:
+    """Tests that the flavor handles all-zero genes."""
+    adata = AnnData(sps.random(10, 1000, density=0.001, format="csr", dtype="int"))
+    adata.X.data = np.abs(adata.X.data)
+
+    sc.pp.highly_variable_genes(adata, flavor="seurat_v3")
 
 
 def test_batches():

@@ -13,7 +13,10 @@ from abstra_internals.modules import reload_module
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.repositories.linter.rules import (
     run_after_abstra_json_change,
+    run_after_css_change,
     run_after_env_or_gitignore_change,
+    run_after_html_change,
+    run_after_js_change,
     run_after_py_change,
     run_after_requirements_change,
 )
@@ -99,6 +102,12 @@ class CodebaseEventController:
             target_rules = run_after_env_or_gitignore_change
         elif filepath.suffix == ".py":
             target_rules = run_after_py_change
+        elif filepath.suffix == ".html":
+            target_rules = run_after_html_change
+        elif filepath.suffix == ".css":
+            target_rules = run_after_css_change
+        elif filepath.suffix == ".js":
+            target_rules = run_after_js_change
         else:
             return
 

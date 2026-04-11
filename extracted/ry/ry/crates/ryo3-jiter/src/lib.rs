@@ -4,11 +4,12 @@
 //! Provides jitter wrapper that uses `PyBackedStr` and `PyBackedBytes` and
 //! allows for parsing json from bytes or str (which jiter-python does not as
 //! of [2024-05-29])
+use std::path::PathBuf;
+
 use ::jiter::{FloatMode, PartialMode, PythonParse, StringCacheMode, map_json_error};
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
-use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy)]
 pub struct JiterParseOptions {

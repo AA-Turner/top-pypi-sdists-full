@@ -213,7 +213,11 @@ def _check_wsl_chrome(verbose: bool) -> bool:
         console.print("\n  [dim]Running connectivity diagnostics...[/dim]")
         diagnostics = diagnose_wsl_connectivity(windows_ip)
         for test_name, result in diagnostics.get("tests", {}).items():
-            status = "[green]✓[/green]" if "PASS" in str(result).upper() or result in ["EXISTS", "YES"] else "[red]✗[/red]"
+            status = (
+                "[green]✓[/green]"
+                if "PASS" in str(result).upper() or result in ["EXISTS", "YES"]
+                else "[red]✗[/red]"
+            )
             console.print(f"    {status} {test_name}: {result}")
 
     # Check for saved profile (same as regular mode)
@@ -232,7 +236,9 @@ def _check_wsl_chrome(verbose: bool) -> bool:
         console.print("  Headless auth: [green]available[/green]")
     else:
         console.print("  Headless auth: [yellow]not available[/yellow]")
-        console.print("  [dim]Run [cyan]nlm login --wsl[/cyan] to authenticate (saves Windows Chrome profile)[/dim]")
+        console.print(
+            "  [dim]Run [cyan]nlm login --wsl[/cyan] to authenticate (saves Windows Chrome profile)[/dim]"
+        )
 
     return ok
 

@@ -149,7 +149,7 @@ def common_options(f: Callable) -> Callable:
 
     These are applied to all of the cli commands.
     """
-    f = click.version_option()(f)
+    f = click.version_option(package_name="collate-sqlfluff")(f)
     f = click.option(
         "-v",
         "--verbose",
@@ -476,7 +476,7 @@ def get_linter_and_formatter(
    sqlfluff parse --dialect duckdb --templater jinja path/my_query.sql\n\n
 """,
 )
-@click.version_option()
+@click.version_option(package_name="collate-sqlfluff")
 def cli() -> None:
     """SQLFluff is a modular SQL linter for humans."""  # noqa D403
 

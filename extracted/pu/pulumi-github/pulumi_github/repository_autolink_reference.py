@@ -25,6 +25,7 @@ class RepositoryAutolinkReferenceArgs:
                  is_alphanumeric: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a RepositoryAutolinkReference resource.
+
         :param pulumi.Input[_builtins.str] key_prefix: This prefix appended by a number will generate a link any time it is found in an issue, pull request, or commit.
         :param pulumi.Input[_builtins.str] repository: The repository of the autolink reference.
         :param pulumi.Input[_builtins.str] target_url_template: The template of the target URL used for the links; must be a valid URL and contain `<num>` for the reference number
@@ -95,6 +96,7 @@ class _RepositoryAutolinkReferenceState:
                  target_url_template: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering RepositoryAutolinkReference resources.
+
         :param pulumi.Input[_builtins.str] etag: An etag representing the autolink reference object.
         :param pulumi.Input[_builtins.bool] is_alphanumeric: Whether this autolink reference matches alphanumeric characters. If false, this autolink reference only matches numeric characters. Default is true.
         :param pulumi.Input[_builtins.str] key_prefix: This prefix appended by a number will generate a link any time it is found in an issue, pull request, or commit.
@@ -205,11 +207,22 @@ class RepositoryAutolinkReference(pulumi.CustomResource):
 
         ## Import
 
+        Autolink references can be imported using the `name` of the repository, combined with the `id` or `key prefix` of the autolink reference and a `/` character for separating components, e.g.
+
+        ### Import by ID
+
+        ```sh
+        $ pulumi import github:index/repositoryAutolinkReference:RepositoryAutolinkReference auto my-repo/123
+        ```
+
+        See the GitHub documentation for how to [list all autolinks of a repository](https://docs.github.com/en/rest/repos/autolinks#list-all-autolinks-of-a-repository) to learn the autolink ids to use with the import command.
+
         ### Import by key prefix
 
         ```sh
         $ pulumi import github:index/repositoryAutolinkReference:RepositoryAutolinkReference auto oof/OOF-
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -245,11 +258,22 @@ class RepositoryAutolinkReference(pulumi.CustomResource):
 
         ## Import
 
+        Autolink references can be imported using the `name` of the repository, combined with the `id` or `key prefix` of the autolink reference and a `/` character for separating components, e.g.
+
+        ### Import by ID
+
+        ```sh
+        $ pulumi import github:index/repositoryAutolinkReference:RepositoryAutolinkReference auto my-repo/123
+        ```
+
+        See the GitHub documentation for how to [list all autolinks of a repository](https://docs.github.com/en/rest/repos/autolinks#list-all-autolinks-of-a-repository) to learn the autolink ids to use with the import command.
+
         ### Import by key prefix
 
         ```sh
         $ pulumi import github:index/repositoryAutolinkReference:RepositoryAutolinkReference auto oof/OOF-
         ```
+
 
         :param str resource_name: The name of the resource.
         :param RepositoryAutolinkReferenceArgs args: The arguments to use to populate this resource's properties.

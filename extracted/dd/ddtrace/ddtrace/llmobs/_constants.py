@@ -7,7 +7,6 @@ METADATA = "_ml_obs.meta.metadata"
 METRICS = "_ml_obs.metrics"
 ML_APP = "_ml_obs.meta.ml_app"
 PROPAGATED_PARENT_ID_KEY = "_dd.p.llmobs_parent_id"
-LLMOBS_SUBMITTED_TAG_KEY = "_dd.llmobs.submitted"
 PROPAGATED_ML_APP_KEY = "_dd.p.llmobs_ml_app"
 PARENT_ID_KEY = "_ml_obs.llmobs_parent_id"
 PROPAGATED_LLMOBS_TRACE_ID_KEY = "_dd.p.llmobs_trace_id"
@@ -17,6 +16,7 @@ AGENT_MANIFEST = "_ml_obs.meta.agent_manifest"
 
 MODEL_NAME = "_ml_obs.meta.model_name"
 MODEL_PROVIDER = "_ml_obs.meta.model_provider"
+UNKNOWN_MODEL_PROVIDER = "unknown"
 
 INPUT_DOCUMENTS = "_ml_obs.meta.input.documents"
 INPUT_MESSAGES = "_ml_obs.meta.input.messages"
@@ -51,6 +51,8 @@ CACHE_WRITE_INPUT_TOKENS_METRIC_KEY = "cache_write_input_tokens"
 CACHE_READ_INPUT_TOKENS_METRIC_KEY = "cache_read_input_tokens"
 BILLABLE_CHARACTER_COUNT_METRIC_KEY = "billable_character_count"
 REASONING_OUTPUT_TOKENS_METRIC_KEY = "reasoning_output_tokens"
+CACHE_WRITE_1H_INPUT_TOKENS_METRIC_KEY = "ephemeral_1h_input_tokens"
+CACHE_WRITE_5M_INPUT_TOKENS_METRIC_KEY = "ephemeral_5m_input_tokens"
 
 TIME_TO_FIRST_TOKEN_METRIC_KEY = "time_to_first_token"  # nosec B105
 TIME_IN_QUEUE_METRIC_KEY = "time_in_queue"
@@ -71,11 +73,12 @@ AGENTLESS_EXP_BASE_URL = "https://{}".format(EXP_SUBDOMAIN_NAME)
 
 # from https://docs.datadoghq.com/getting_started/site/#access-the-datadog-site
 DD_SITES_NEEDING_APP_SUBDOMAIN = {"datadoghq.com", "datadoghq.eu", "ddog-gov.com"}
+DD_SITE_STAGING = "datad0g.com"
 
 EXPERIMENT_CSV_FIELD_MAX_SIZE = 10 * 1024 * 1024
 
 DROPPED_IO_COLLECTION_ERROR = "dropped_io"
-DROPPED_VALUE_TEXT = "[This value has been dropped because this span's size exceeds the 1MB size limit.]"
+DROPPED_VALUE_TEXT = "[This value has been dropped because this span's size exceeds the 5MB size limit.]"
 
 ROOT_PARENT_ID = "undefined"
 

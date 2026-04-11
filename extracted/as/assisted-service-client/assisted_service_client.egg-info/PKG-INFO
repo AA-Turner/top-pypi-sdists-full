@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: assisted-service-client
-Version: 2.51.0.post66
+Version: 2.51.0.post83
 Summary: AssistedInstall
 Home-page: https://github.com/openshift/assisted-service
 Author: RedHat
@@ -394,6 +394,7 @@ Class | Method | HTTP request | Description
  - [VerifyVip](docs/VerifyVip.md)
  - [VerifyVipsRequest](docs/VerifyVipsRequest.md)
  - [VerifyVipsResponse](docs/VerifyVipsResponse.md)
+ - [VersionedClusterHostRequirementsDetails](docs/VersionedClusterHostRequirementsDetails.md)
  - [VersionedHostRequirements](docs/VersionedHostRequirements.md)
  - [Versions](docs/Versions.md)
  - [VipType](docs/VipType.md)

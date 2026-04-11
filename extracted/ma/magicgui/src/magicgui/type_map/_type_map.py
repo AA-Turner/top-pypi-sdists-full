@@ -149,7 +149,7 @@ class TypeMap:
 
         if safe_issubclass(origin, set):
             for arg in get_args(type_):
-                if get_origin(arg) is Literal:
+                if get_origin(arg) is Literal:  # type: ignore [comparison-overlap]
                     return widgets.Select, {"choices": get_args(arg)}
 
         pint = sys.modules.get("pint")
@@ -166,9 +166,13 @@ class TypeMap:
         if type_ is widgets.Table:
             return widgets.Table, {}
 
-        table_types = [
-            resolve_single_type(x) for x in ("pandas.DataFrame", "numpy.ndarray")
-        ]
+        table_types = []
+        for type_name in ("pandas.DataFrame", "numpy.ndarray"):
+            try:
+                table_types.append(resolve_single_type(type_name))
+            except ModuleNotFoundError:
+                # if the type cannot be resolved, it is not available
+                pass
 
         if any(
             safe_issubclass(type_, tt)

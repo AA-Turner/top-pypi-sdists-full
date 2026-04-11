@@ -133,7 +133,7 @@ def start_research(
 
         if auto_import:
             console.print("\n[dim]Waiting for research to complete...[/dim]")
-            
+
             # Use progress indicator from status command
             with Progress(
                 SpinnerColumn(),
@@ -141,7 +141,7 @@ def start_research(
                 console=console,
             ) as progress:
                 progress.add_task("Gathering sources...", total=None)
-                
+
                 # Use a larger timeout for deep mode
                 max_wait = 600 if mode == "deep" else 120
                 with get_client(profile) as import_client:
@@ -152,23 +152,27 @@ def start_research(
                         poll_interval=10,
                         max_wait=max_wait,
                     )
-            
+
             _display_research_status(poll_res, compact=True)
-            
+
             if poll_res["status"] == "completed":
                 console.print("\n[dim]Importing discovered sources...[/dim]")
                 with get_client(profile) as import_client:
                     import_res = research_service.import_research(
-                        import_client,
-                        notebook_id,
-                        poll_res["task_id"]
+                        import_client, notebook_id, poll_res["task_id"]
                     )
                 console.print(f"[green]✓[/green] {import_res['message']}")
                 for src in import_res.get("imported_sources", []):
-                    title = src.get('title', 'Unknown') if isinstance(src, dict) else getattr(src, 'title', 'Unknown')
+                    title = (
+                        src.get("title", "Unknown")
+                        if isinstance(src, dict)
+                        else getattr(src, "title", "Unknown")
+                    )
                     console.print(f"  • {title}")
             else:
-                console.print("[yellow]Warning:[/yellow] Could not auto-import. Research may have timed out or failed.")
+                console.print(
+                    "[yellow]Warning:[/yellow] Could not auto-import. Research may have timed out or failed."
+                )
         else:
             estimate = "~30 seconds" if mode == "fast" else "~5 minutes"
             console.print(f"\n[dim]Estimated time: {estimate}[/dim]")

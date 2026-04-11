@@ -1,9 +1,21 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
-FUZZ_TARGETS="fuzz_echion_remote_read fuzz_echion_strings fuzz_echion_mirrors fuzz_echion_stacks"
+FUZZ_TARGETS=(
+    fuzz_echion_frame_read
+    fuzz_echion_greenlet
+    fuzz_echion_interp
+    fuzz_echion_long
+    fuzz_echion_mirrors
+    fuzz_echion_pyunicode
+    fuzz_echion_remote_read
+    fuzz_echion_stacks
+    fuzz_echion_strings
+    fuzz_echion_task_unwind
+    fuzz_echion_tasks
+)
 BUILD_DIR=/tmp/fuzz/build
-MANIFEST_FILE="${BUILD_DIR}/fuzz_binaries.txt"
+MANIFEST_FILE="/fuzz_binaries.txt"
 
 # Get the directory where this script lives, then go up one level to the stack source
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,7 +23,7 @@ SOURCE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PROFILING_DIR="$(cd "${SOURCE_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${PROFILING_DIR}/../../../.." && pwd)"
 
-echo "Building fuzz targets: $FUZZ_TARGETS"
+echo "Building fuzz targets: ${FUZZ_TARGETS[*]}"
 echo "Source directory: $SOURCE_DIR"
 echo "Profiling directory: $PROFILING_DIR"
 
@@ -21,7 +33,12 @@ echo "=== Building Rust dependencies ==="
 # Ensure Rust toolchain is available
 if ! command -v cargo &> /dev/null; then
     echo "Rust not found, installing via rustup..."
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    for i in 1 2 3; do
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && break
+      echo "rustup install attempt $i failed, retrying..."
+      sleep 5
+      [ "$i" -eq 3 ] && { echo "Failed to install rustup after 3 attempts"; exit 1; }
+    done
     . "$HOME/.cargo/env"
 fi
 
@@ -61,6 +78,7 @@ cmake --build "${DD_WRAPPER_BUILD}" --target install
 echo "=== Building fuzz target ==="
 cmake -S "${SOURCE_DIR}" -B "${BUILD_DIR}" \
       -DBUILD_FUZZING=ON -DBUILD_TESTING=OFF -DSTACK_USE_LIBFUZZER=ON \
+      -DDD_WRAPPER_DIR="${LIB_INSTALL_DIR}" \
       -DLIB_INSTALL_DIR="${LIB_INSTALL_DIR}" \
       -DEXTENSION_SUFFIX="${EXTENSION_SUFFIX}" \
       -DNATIVE_EXTENSION_LOCATION="${NATIVE_EXTENSION_LOCATION}" \
@@ -71,8 +89,11 @@ cmake -S "${SOURCE_DIR}" -B "${BUILD_DIR}" \
       -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" \
   && cmake --build "${BUILD_DIR}" -j
 
+# Copy LSan suppression file next to the binaries so it can be referenced at runtime
+cp "${SCRIPT_DIR}/lsan.supp" "${BUILD_DIR}/fuzz/lsan.supp"
+
 # Register the built binaries in the manifest file for the CI infrastructure to discover
-for TARGET in $FUZZ_TARGETS; do
+for TARGET in "${FUZZ_TARGETS[@]}"; do
     BINARY_PATH="${BUILD_DIR}/fuzz/${TARGET}"
     if [ -x "${BINARY_PATH}" ]; then
         echo "${BINARY_PATH}" >> "${MANIFEST_FILE}"

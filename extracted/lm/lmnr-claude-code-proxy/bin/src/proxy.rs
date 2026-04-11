@@ -227,7 +227,19 @@ where
         // ============================================================
 
         // Parse the request to check if streaming is enabled
-        let parsed_request: Option<PostMessagesRequest> = serde_json::from_str(&request_body).ok();
+        let mut parsed_request: Option<PostMessagesRequest> =
+            serde_json::from_str(&request_body).ok();
+
+        if let Some(req) = parsed_request.as_mut() {
+            if req.model.is_none() && is_bedrock_path(&uri_path) {
+                // Bedrock request body doesn't contain model, but it can be parsed from
+                // the URI path: /model/<model_name>/invoke...
+                req.model = uri_path
+                    .strip_prefix("/model/")
+                    .and_then(|s| s.split('/').next())
+                    .map(|s| s.to_string());
+            };
+        }
 
         // Parse the response - handle both streaming and non-streaming
         let parsed_response: Option<MessageResponse> = parsed_request.as_ref().and_then(|req| {
@@ -274,7 +286,11 @@ where
                     );
 
                     // Also register spawning tools as pending tool spans for timing
-                    span_processor.register_spawning_tools_as_pending(response, &reg_ctx);
+                    span_processor.register_spawning_tools_as_pending(
+                        response,
+                        nested_context.as_ref(),
+                        &reg_ctx,
+                    );
 
                     // Register regular tool calls
                     span_processor.register_tool_calls(response, nested_context.as_ref(), &reg_ctx);
@@ -347,7 +363,7 @@ where
                             effective_span_path,
                             req,
                             response_info,
-                            nested_context.map(|ctx| ctx.parent_tool_type),
+                            nested_context,
                         ) {
                             Ok(span_request) => {
                                 if let Err(e) = send_trace_to_lmnr(

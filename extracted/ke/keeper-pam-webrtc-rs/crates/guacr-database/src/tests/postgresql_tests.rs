@@ -6,7 +6,7 @@ fn test_postgresql_handler_new() {
     let handler = PostgreSqlHandler::with_defaults();
     assert_eq!(
         <PostgreSqlHandler as ProtocolHandler>::name(&handler),
-        "postgresql"
+        "postgres"
     );
 }
 

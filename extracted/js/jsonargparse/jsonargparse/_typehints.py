@@ -75,9 +75,9 @@ from ._optionals import (
     validate_annotated,
 )
 from ._paths import Path, PathError, change_to_path_dir
+from ._required import clear_required
 from ._subcommands import find_action, find_parent_action, parse_kwargs
 from ._util import (
-    ClassType,
     NestedArg,
     NoneType,
     get_import_path,
@@ -89,10 +89,7 @@ from ._util import (
     parse_value_or_config,
     warning,
 )
-from .typing import get_registered_type, is_pydantic_type
-
-__all__ = ["lazy_instance"]
-
+from .typing import _LazyInitBaseClass, get_registered_type, is_pydantic_type
 
 NotRequired = typing_extensions_import("NotRequired")
 Required = typing_extensions_import("Required")
@@ -261,7 +258,7 @@ class ActionTypeHint(Action):
         from ._signatures import convert_to_dict, is_convertible_to_dict
 
         is_subclass_type = self.is_subclass_typehint(self._typehint, all_subtypes=False)
-        if isinstance(default, LazyInitBaseClass):
+        if isinstance(default, _LazyInitBaseClass):
             default = default.lazy_get_init_data().as_dict()
         elif is_convertible_to_dict(default.__class__):
             default = convert_to_dict(default)
@@ -289,7 +286,7 @@ class ActionTypeHint(Action):
         typehint = kwargs.pop("type")
         if args[0].startswith("--") and ActionTypeHint.supports_append(typehint):
             args = tuple(list(args) + [args[0] + "+"])
-        if _ActionHelpClassPath.get_help_types(typehint):
+        if get_registered_type(typehint) is None and _ActionHelpClassPath.get_help_types(typehint):
             help_option = f"--{args[0]}.help" if args[0][0] != "-" else f"{args[0]}.help"
             help_action = container.add_argument(help_option, action=_ActionHelpClassPath(typehint=typehint))
             if sub_add_kwargs:
@@ -302,6 +299,8 @@ class ActionTypeHint(Action):
     @staticmethod
     def is_supported_typehint(typehint, full=False):
         """Whether the given type hint is supported."""
+        if get_registered_type(typehint) is not None:
+            return True
         typehint = get_unaliased_type(typehint)
 
         if is_subclass(typehint, Namespace):
@@ -575,7 +574,6 @@ class ActionTypeHint(Action):
                     with change_to_path_dir(config_path):
                         val = adapt_typehints(val, self._typehint, **kwargs)
                 except ValueError as ex:
-                    assert ex  # needed due to ruff bug that removes " as ex"
                     if orig_val == "-" and isinstance(getattr(ex, "parent", None), PathError):
                         raise ex
                     try:
@@ -606,7 +604,7 @@ class ActionTypeHint(Action):
                 if self._is_valid_string(val):
                     value[num] = val
                 else:
-                    elem = "" if not islist else f" element {num+1}"
+                    elem = "" if not islist else f" element {num + 1}"
                     error = indent_text(str(ex))
                     raise TypeError(f'Parser key "{self.dest}"{elem}:\n{error}') from ex
         return value if islist else value[0]
@@ -652,10 +650,9 @@ class ActionTypeHint(Action):
             kwargs = {k: v for k, v in kwargs.items() if k != "instantiate"}
             parser.add_function_arguments(val_class, **kwargs)
 
-        if "linked_targets" in kwargs and parser.required_args:
+        if "linked_targets" in kwargs:
             for key in kwargs["linked_targets"]:
-                if key in parser.required_args:
-                    parser.required_args.remove(key)
+                clear_required(parser, key)
 
         for link_kwargs in nested_links.get():
             parser.link_arguments(**link_kwargs)
@@ -1370,7 +1367,7 @@ def get_all_subclass_paths(cls: type) -> list[str]:
         except (ImportError, AttributeError) as err:  # Attribute is added in case of dot notation imports
             warning(f"Hit failing import with following error: {err}")
             return
-        if is_local(cl) or is_subclass(cl, LazyInitBaseClass):
+        if is_local(cl) or is_subclass(cl, _LazyInitBaseClass):
             return
         if not (inspect.isabstract(cl) or is_private(class_path) or is_protocol(cl)):
             if class_path in subclass_list:
@@ -1410,7 +1407,7 @@ def resolve_class_path_by_name(cls: Union[type, tuple[type]], name: str) -> str:
             if len(name_subclasses) > 1:
                 raise ValueError(
                     f"Multiple subclasses with name {name}. Give the full class path to "
-                    f'avoid ambiguity: {", ".join(name_subclasses)}.'
+                    f"avoid ambiguity: {', '.join(name_subclasses)}."
                 )
             class_path = name_subclasses[0]
     return class_path
@@ -1684,90 +1681,3 @@ def serialize_class_instance(val):
 def callable_instances(cls: type):
     # https://stackoverflow.com/a/71568161/2732151
     return isinstance(getattr(cls, "__call__", None), FunctionType)
-
-
-def check_lazy_kwargs(class_type: type, lazy_kwargs: dict):
-    if lazy_kwargs:
-        from ._core import ArgumentParser
-
-        parser = ArgumentParser(exit_on_error=False)
-        parser.add_class_arguments(class_type)
-        try:
-            parser.parse_object(lazy_kwargs)
-        except ArgumentError as ex:
-            raise ValueError(str(ex)) from ex
-
-
-class LazyInitBaseClass:
-    def __init__(self, class_type: type, lazy_kwargs: dict):
-        assert not issubclass(class_type, LazyInitBaseClass)
-        check_lazy_kwargs(class_type, lazy_kwargs)
-        self._lazy = type(self)
-        self._lazy_class_type = class_type
-        self._lazy_kwargs = lazy_kwargs
-        self._lazy_methods = {}
-        seen_methods: dict = {}
-        for name, member in inspect.getmembers(class_type, predicate=inspect.isfunction):
-            method = getattr(self, name)
-            if not inspect.ismethod(method) or name == "__init__":
-                continue
-            assert name not in self.__dict__
-            self._lazy_methods[name] = method
-            if id(member) in seen_methods:
-                self.__dict__[name] = seen_methods[id(member)]
-            else:
-                lazy_method = partial(self._lazy_init_then_call_method, name)
-                if name == "__call__":
-                    lazy_method = staticmethod(lazy_method)  # type: ignore[assignment]
-                    self._lazy.__call__ = lazy_method  # type: ignore[method-assign]
-                self.__dict__[name] = lazy_method
-                seen_methods[id(member)] = lazy_method
-
-    def _lazy_init(self):
-        for name in self._lazy_methods:
-            if name == "__call__":
-                self._lazy.__call__ = self._lazy_methods[name]
-            del self.__dict__[name]
-        super().__init__(**self._lazy_kwargs)
-
-    def _lazy_init_then_call_method(self, method_name, *args, **kwargs):
-        self._lazy_init()
-        return self._lazy_methods[method_name](*args, **kwargs)
-
-    def lazy_get_init_args(self) -> Namespace:
-        return Namespace(self._lazy_kwargs)
-
-    def lazy_get_init_data(self):
-        init_args = self.lazy_get_init_args()
-        init = Namespace(class_path=get_import_path(self._lazy_class_type))
-        if len(self._lazy_kwargs) > 0:
-            init["init_args"] = init_args
-        return init
-
-
-def lazy_instance(class_type: type[ClassType], **kwargs) -> ClassType:
-    """Instantiates a lazy instance of the given type.
-
-    By lazy it is meant that the ``__init__`` is delayed until the first time that a
-    method of the instance is called. It also provides a `lazy_get_init_data` method
-    useful for serializing.
-
-    Args:
-        class_type: The class to instantiate.
-        **kwargs: Any keyword arguments to use for instantiation.
-    """
-    caller_module = inspect.getmodule(inspect.stack()[1][0])
-    class_name = f"LazyInstance_{class_type.__name__}"
-    if hasattr(caller_module, class_name):
-        lazy_init_class = getattr(caller_module, class_name)
-        assert is_subclass(lazy_init_class, LazyInitBaseClass) and is_subclass(lazy_init_class, class_type)
-    else:
-        lazy_init_class = type(
-            class_name,
-            (LazyInitBaseClass, class_type),
-            {"__doc__": f"Class for lazy instances of {class_type}"},
-        )
-        if caller_module is not None:
-            lazy_init_class.__module__ = getattr(caller_module, "__name__", __name__)
-            setattr(caller_module, lazy_init_class.__qualname__, lazy_init_class)
-    return lazy_init_class(class_type, kwargs)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot-genai
-Version: 0.13.3
+Version: 0.14.2
 Summary: Generic helpers for GenAI
 Author: DataRobot, Inc.
 License: Apache-2.0
@@ -41,7 +41,7 @@ Requires-Dist: ag-ui-protocol<0.2.0,>=0.1.14; extra == "crewai"
 Requires-Dist: pyarrow==21.0.0; extra == "crewai"
 Requires-Dist: anthropic<1.0.0,~=0.71.0; extra == "crewai"
 Requires-Dist: azure-ai-inference<2.0.0,>=1.0.0b9; extra == "crewai"
-Requires-Dist: crewai[litellm]<2.0.0,>=1.1.0; extra == "crewai"
+Requires-Dist: crewai[litellm]==1.6.1; extra == "crewai"
 Requires-Dist: litellm<2.0.0,>=1.83.0; extra == "crewai"
 Requires-Dist: crewai-tools[mcp]<0.77.0,>=0.69.0; extra == "crewai"
 Requires-Dist: nvidia-nat-crewai==1.4.1; extra == "crewai"
@@ -231,7 +231,7 @@ Dynamic: provides-extra
 - Integrations: CrewAI, LangGraph, LlamaIndex, NAT, MCP
 
 ## Installation
-- Requires Python 3.10–3.13.
+- Requires Python 3.11–3.13.
 - Install:
 ```bash
 pip install --upgrade pip

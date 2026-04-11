@@ -4,8 +4,8 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "vastai-sdk"
-version = "1.0.0"
-description = "Vast.ai SDK - installs the vastai package (CLI + SDK + Serverless)"
+version = "1.0.1"
+description = "DEPRECATED — use 'pip install vastai' instead. This package is a compatibility wrapper that installs vastai."
 readme = "README.md"
 authors = [
   "Chris McKenzie <chris@vast.ai>",
@@ -25,7 +25,7 @@ vcs = "git"
 
 [tool.poetry.dependencies]
 python = ">=3.9"
-vastai = "==1.0.0"
+vastai = "==1.0.1"
 
 [tool.poetry.urls]
 Homepage = "https://vast.ai"

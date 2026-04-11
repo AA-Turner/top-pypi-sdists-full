@@ -16,6 +16,7 @@ from ddtrace.contrib.internal.subprocess.constants import COMMANDS
 from ddtrace.ext import SpanTypes
 from ddtrace.internal import core
 from ddtrace.internal.logger import get_logger
+from ddtrace.internal.settings import env
 from ddtrace.internal.settings._config import config
 from ddtrace.internal.settings.asm import config as asm_config
 from ddtrace.internal.threads import RLock
@@ -26,7 +27,7 @@ log = get_logger(__name__)
 
 config._add(
     "subprocess",
-    dict(sensitive_wildcards=os.getenv("DD_SUBPROCESS_SENSITIVE_WILDCARDS", default="").split(",")),
+    dict(sensitive_wildcards=env.get("DD_SUBPROCESS_SENSITIVE_WILDCARDS", default="").split(",")),
 )
 
 
@@ -491,12 +492,12 @@ def _traced_ossystem(module, pin, wrapped, instance, args, kwargs):
             return wrapped(*args, **kwargs)
 
         with tracer.trace(COMMANDS.SPAN_NAME, resource=shellcmd.binary, span_type=SpanTypes.SYSTEM) as span:
-            span._set_tag_str(COMMANDS.SHELL, shellcmd.as_string())
+            span._set_attribute(COMMANDS.SHELL, shellcmd.as_string())
             if shellcmd.truncated:
-                span._set_tag_str(COMMANDS.TRUNCATED, "yes")
-            span._set_tag_str(COMMANDS.COMPONENT, "os")
+                span._set_attribute(COMMANDS.TRUNCATED, "yes")
+            span._set_attribute(COMMANDS.COMPONENT, "os")
             ret = wrapped(*args, **kwargs)
-            span._set_tag_str(COMMANDS.EXIT_CODE, str(ret))
+            span._set_attribute(COMMANDS.EXIT_CODE, str(ret))
             return ret
     else:
         return wrapped(*args, **kwargs)
@@ -516,7 +517,7 @@ def _traced_fork(module, pin, wrapped, instance, args, kwargs):
 
     with tracer.trace(COMMANDS.SPAN_NAME, resource="fork", span_type=SpanTypes.SYSTEM) as span:
         span.set_tag(COMMANDS.EXEC, ["os.fork"])
-        span._set_tag_str(COMMANDS.COMPONENT, "os")
+        span._set_attribute(COMMANDS.COMPONENT, "os")
         return wrapped(*args, **kwargs)
 
 
@@ -545,12 +546,12 @@ def _traced_osspawn(module, pin, wrapped, instance, args, kwargs):
     with tracer.trace(COMMANDS.SPAN_NAME, resource=shellcmd.binary, span_type=SpanTypes.SYSTEM) as span:
         span.set_tag(COMMANDS.EXEC, shellcmd.as_list())
         if shellcmd.truncated:
-            span._set_tag_str(COMMANDS.TRUNCATED, "true")
-        span._set_tag_str(COMMANDS.COMPONENT, "os")
+            span._set_attribute(COMMANDS.TRUNCATED, "true")
+        span._set_attribute(COMMANDS.COMPONENT, "os")
 
         ret = wrapped(*args, **kwargs)
         if mode == os.P_WAIT:
-            span._set_tag_str(COMMANDS.EXIT_CODE, str(ret))
+            span._set_attribute(COMMANDS.EXIT_CODE, str(ret))
         return ret
 
 
@@ -610,16 +611,16 @@ def _traced_subprocess_wait(module, pin, wrapped, instance, args, kwargs):
 
         with tracer.trace(COMMANDS.SPAN_NAME, resource=binary, span_type=SpanTypes.SYSTEM) as span:
             if core.find_item(COMMANDS.CTX_SUBP_IS_SHELL):
-                span._set_tag_str(COMMANDS.SHELL, core.find_item(COMMANDS.CTX_SUBP_LINE))
+                span._set_attribute(COMMANDS.SHELL, core.find_item(COMMANDS.CTX_SUBP_LINE))
             else:
                 span.set_tag(COMMANDS.EXEC, core.find_item(COMMANDS.CTX_SUBP_LINE))
 
             truncated = core.find_item(COMMANDS.CTX_SUBP_TRUNCATED)
             if truncated:
-                span._set_tag_str(COMMANDS.TRUNCATED, "yes")
-            span._set_tag_str(COMMANDS.COMPONENT, "subprocess")
+                span._set_attribute(COMMANDS.TRUNCATED, "yes")
+            span._set_attribute(COMMANDS.COMPONENT, "subprocess")
             ret = wrapped(*args, **kwargs)
-            span._set_tag_str(COMMANDS.EXIT_CODE, str(ret))
+            span._set_attribute(COMMANDS.EXIT_CODE, str(ret))
             return ret
     else:
         return wrapped(*args, **kwargs)

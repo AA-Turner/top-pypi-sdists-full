@@ -103,9 +103,9 @@ class CompressionType(str, Enum):
 def _normalize_field_modifiers(
     field: RedisField, canonical_order: List[str], want_unf: bool = False
 ) -> None:
-    """Normalize field modifier ordering for RediSearch parser.
+    """Normalize field modifier ordering for Redis Search parser.
 
-    RediSearch has a parser limitation where INDEXEMPTY and
+    Redis Search has a parser limitation where INDEXEMPTY and
     INDEXMISSING must appear BEFORE SORTABLE in field definitions. This function
     reorders field.args_suffix to match the canonical order.
 
@@ -400,6 +400,10 @@ class TextField(BaseField):
         if self.attrs.phonetic_matcher is not None:  # type: ignore
             kwargs["phonetic_matcher"] = self.attrs.phonetic_matcher  # type: ignore
 
+        # Add WITHSUFFIXTRIE if enabled
+        if self.attrs.withsuffixtrie:  # type: ignore
+            kwargs["withsuffixtrie"] = True
+
         # Add INDEXMISSING if enabled
         if self.attrs.index_missing:  # type: ignore
             kwargs["index_missing"] = True
@@ -414,7 +418,7 @@ class TextField(BaseField):
 
         field = RedisTextField(name, **kwargs)
 
-        # Normalize suffix ordering to satisfy RediSearch parser expectations.
+        # Normalize suffix ordering to satisfy Redis Search parser expectations.
         # Canonical order: [INDEXEMPTY] [INDEXMISSING] [SORTABLE [UNF]] [NOINDEX]
         canonical_order = ["INDEXEMPTY", "INDEXMISSING", "SORTABLE", "UNF", "NOINDEX"]
         want_unf = self.attrs.unf and self.attrs.sortable  # type: ignore
@@ -442,6 +446,10 @@ class TagField(BaseField):
         if as_name is not None:
             kwargs["as_name"] = as_name
 
+        # Add WITHSUFFIXTRIE if enabled
+        if self.attrs.withsuffixtrie:  # type: ignore
+            kwargs["withsuffixtrie"] = True
+
         # Add INDEXMISSING if enabled
         if self.attrs.index_missing:  # type: ignore
             kwargs["index_missing"] = True
@@ -456,7 +464,7 @@ class TagField(BaseField):
 
         field = RedisTagField(name, **kwargs)
 
-        # Normalize suffix ordering to satisfy RediSearch parser expectations.
+        # Normalize suffix ordering to satisfy Redis Search parser expectations.
         # Canonical order: [INDEXEMPTY] [INDEXMISSING] [SORTABLE] [NOINDEX]
         canonical_order = ["INDEXEMPTY", "INDEXMISSING", "SORTABLE", "NOINDEX"]
         _normalize_field_modifiers(field, canonical_order)
@@ -491,7 +499,7 @@ class NumericField(BaseField):
 
         field = RedisNumericField(name, **kwargs)
 
-        # Normalize suffix ordering to satisfy RediSearch parser expectations.
+        # Normalize suffix ordering to satisfy Redis Search parser expectations.
         # Canonical order: [INDEXMISSING] [SORTABLE [UNF]] [NOINDEX]
         # Note: INDEXEMPTY is not supported for NUMERIC fields
         canonical_order = ["INDEXMISSING", "SORTABLE", "UNF", "NOINDEX"]
@@ -528,7 +536,7 @@ class GeoField(BaseField):
 
         field = RedisGeoField(name, **kwargs)
 
-        # Normalize suffix ordering to satisfy RediSearch parser expectations.
+        # Normalize suffix ordering to satisfy Redis Search parser expectations.
         # Canonical order: [INDEXMISSING] [SORTABLE] [NOINDEX]
         # Note: INDEXEMPTY is not supported for GEO fields
         canonical_order = ["INDEXMISSING", "SORTABLE", "NOINDEX"]

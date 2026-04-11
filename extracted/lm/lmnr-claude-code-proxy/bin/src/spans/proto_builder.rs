@@ -1,11 +1,15 @@
 //! Helpers for building OpenTelemetry protobuf spans
 
-use crate::proto::{
-    opentelemetry_collector_trace_v1::ExportTraceServiceRequest,
-    opentelemetry_proto_common_v1::KeyValue as KeyValueInner,
-    opentelemetry_proto_trace_v1::{
-        ResourceSpans, ScopeSpans, Span as ProtoSpan, Status, span::SpanKind, status::StatusCode,
+use crate::{
+    proto::{
+        opentelemetry_collector_trace_v1::ExportTraceServiceRequest,
+        opentelemetry_proto_common_v1::KeyValue as KeyValueInner,
+        opentelemetry_proto_trace_v1::{
+            ResourceSpans, ScopeSpans, Span as ProtoSpan, Status, span::SpanKind,
+            status::StatusCode,
+        },
     },
+    spans::utils::bytes_to_uuid_like_string,
 };
 
 use serde_json::Value;
@@ -27,6 +31,8 @@ pub struct ToolSpanData {
     pub start_time_unix_nano: u64,
     pub end_time_unix_nano: u64,
     pub is_error: bool,
+    pub spawning_tool_use_id: Option<String>,
+    pub spawning_span_id_bytes: Option<Vec<u8>>,
 }
 
 impl From<CompletedToolSpan> for ToolSpanData {
@@ -43,6 +49,8 @@ impl From<CompletedToolSpan> for ToolSpanData {
             start_time_unix_nano: span.start_time_unix_nano,
             end_time_unix_nano: span.end_time_unix_nano,
             is_error: span.is_error,
+            spawning_span_id_bytes: span.spawning_span_id_bytes,
+            spawning_tool_use_id: span.spawning_tool_use_id,
         }
     }
 }
@@ -78,6 +86,8 @@ impl From<CompletedSpawningToolSpan> for ToolSpanData {
             start_time_unix_nano: span.start_time_unix_nano,
             end_time_unix_nano: span.end_time_unix_nano,
             is_error: false,
+            spawning_span_id_bytes: span.spawning_span_id_bytes,
+            spawning_tool_use_id: span.spawning_tool_use_id,
         }
     }
 }
@@ -118,6 +128,20 @@ fn build_tool_attributes(data: &ToolSpanData) -> HashMap<String, Value> {
             "lmnr.span.output".to_string(),
             Value::String(output.clone()),
         );
+    }
+    if let Some(tool_use_id) = &data.spawning_tool_use_id {
+        attributes.insert(
+            "lmnr.spawning_subagent.tool_use_id".to_string(),
+            Value::String(tool_use_id.clone()),
+        );
+    }
+    if let Some(span_id_bytes) = &data.spawning_span_id_bytes {
+        if let Ok(span_id_str) = bytes_to_uuid_like_string(&span_id_bytes) {
+            attributes.insert(
+                "lmnr.spawning_subagent.span_id".to_string(),
+                Value::String(span_id_str.clone()),
+            );
+        }
     }
 
     attributes

@@ -531,8 +531,11 @@ __all__ = (
     "ClusterInstanceGroupDetailsTypeDef",
     "ClusterInstanceGroupSpecificationTypeDef",
     "ClusterInstancePlacementTypeDef",
+    "ClusterInstanceRequirementDetailsTypeDef",
+    "ClusterInstanceRequirementsTypeDef",
     "ClusterInstanceStatusDetailsTypeDef",
     "ClusterInstanceStorageConfigTypeDef",
+    "ClusterInstanceTypeDetailTypeDef",
     "ClusterKubernetesConfigDetailsTypeDef",
     "ClusterKubernetesConfigNodeDetailsTypeDef",
     "ClusterKubernetesConfigTypeDef",
@@ -1192,6 +1195,7 @@ __all__ = (
     "InferenceSpecificationUnionTypeDef",
     "InfraCheckConfigTypeDef",
     "InputConfigTypeDef",
+    "InstanceGroupHealthCheckConfigurationTypeDef",
     "InstanceGroupMetadataTypeDef",
     "InstanceGroupScalingMetadataTypeDef",
     "InstanceGroupTypeDef",
@@ -1869,6 +1873,8 @@ __all__ = (
     "SpaceSharingSettingsTypeDef",
     "SpaceStorageSettingsTypeDef",
     "StairsTypeDef",
+    "StartClusterHealthCheckRequestTypeDef",
+    "StartClusterHealthCheckResponseTypeDef",
     "StartEdgeDeploymentStageRequestTypeDef",
     "StartInferenceExperimentRequestTypeDef",
     "StartInferenceExperimentResponseTypeDef",
@@ -2126,6 +2132,8 @@ class ResponseMetadataTypeDef(TypedDict):
 class AddClusterNodeSpecificationTypeDef(TypedDict):
     InstanceGroupName: str
     IncrementTargetCountBy: int
+    AvailabilityZones: NotRequired[Sequence[str]]
+    InstanceTypes: NotRequired[Sequence[ClusterInstanceTypeType]]
 
 
 class TagTypeDef(TypedDict):
@@ -2379,6 +2387,8 @@ class BatchAddClusterNodesErrorTypeDef(TypedDict):
     InstanceGroupName: str
     ErrorCode: BatchAddClusterNodesErrorCodeType
     FailedCount: int
+    AvailabilityZones: NotRequired[list[str]]
+    InstanceTypes: NotRequired[list[ClusterInstanceTypeType]]
     Message: NotRequired[str]
 
 
@@ -2386,6 +2396,8 @@ class NodeAdditionResultTypeDef(TypedDict):
     NodeLogicalId: str
     InstanceGroupName: str
     Status: ClusterInstanceStatusType
+    AvailabilityZones: NotRequired[list[str]]
+    InstanceTypes: NotRequired[list[ClusterInstanceTypeType]]
 
 
 class BatchDataCaptureConfigTypeDef(TypedDict):
@@ -2760,14 +2772,29 @@ class ClusterFsxOpenZfsConfigTypeDef(TypedDict):
     MountPath: NotRequired[str]
 
 
+class ClusterInstanceRequirementDetailsTypeDef(TypedDict):
+    CurrentInstanceTypes: NotRequired[list[ClusterInstanceTypeType]]
+    DesiredInstanceTypes: NotRequired[list[ClusterInstanceTypeType]]
+
+
+class ClusterInstanceTypeDetailTypeDef(TypedDict):
+    InstanceType: NotRequired[ClusterInstanceTypeType]
+    CurrentCount: NotRequired[int]
+    ThreadsPerCore: NotRequired[int]
+
+
 class ClusterLifeCycleConfigTypeDef(TypedDict):
-    SourceS3Uri: str
-    OnCreate: str
+    SourceS3Uri: NotRequired[str]
+    OnCreate: NotRequired[str]
 
 
 class ClusterSlurmConfigDetailsTypeDef(TypedDict):
     NodeType: ClusterSlurmNodeTypeType
     PartitionNames: NotRequired[list[str]]
+
+
+class ClusterInstanceRequirementsTypeDef(TypedDict):
+    InstanceTypes: Sequence[ClusterInstanceTypeType]
 
 
 class ClusterSlurmConfigTypeDef(TypedDict):
@@ -4835,6 +4862,12 @@ class InferenceRecommendationsJobTypeDef(TypedDict):
     ModelPackageVersionArn: NotRequired[str]
 
 
+class InstanceGroupHealthCheckConfigurationTypeDef(TypedDict):
+    InstanceGroupName: str
+    DeepHealthChecks: Sequence[DeepHealthCheckTypeType]
+    InstanceIds: NotRequired[Sequence[str]]
+
+
 class InstanceGroupTypeDef(TypedDict):
     InstanceType: TrainingInstanceTypeType
     InstanceCount: int
@@ -6604,6 +6637,11 @@ class SendPipelineExecutionStepFailureResponseTypeDef(TypedDict):
 
 class SendPipelineExecutionStepSuccessResponseTypeDef(TypedDict):
     PipelineExecutionArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartClusterHealthCheckResponseTypeDef(TypedDict):
+    ClusterArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -10222,6 +10260,11 @@ class ListInferenceRecommendationsJobsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class StartClusterHealthCheckRequestTypeDef(TypedDict):
+    ClusterName: str
+    DeepHealthCheckConfigurations: Sequence[InstanceGroupHealthCheckConfigurationTypeDef]
+
+
 class InstancePlacementConfigOutputTypeDef(TypedDict):
     EnableMultipleJobs: NotRequired[bool]
     PlacementSpecifications: NotRequired[list[PlacementSpecificationTypeDef]]
@@ -13621,6 +13664,8 @@ class ClusterInstanceGroupDetailsTypeDef(TypedDict):
     MinCount: NotRequired[int]
     InstanceGroupName: NotRequired[str]
     InstanceType: NotRequired[ClusterInstanceTypeType]
+    InstanceRequirements: NotRequired[ClusterInstanceRequirementDetailsTypeDef]
+    InstanceTypeDetails: NotRequired[list[ClusterInstanceTypeDetailTypeDef]]
     LifeCycleConfig: NotRequired[ClusterLifeCycleConfigTypeDef]
     ExecutionRole: NotRequired[str]
     ThreadsPerCore: NotRequired[int]
@@ -14567,10 +14612,11 @@ class ModelPackageValidationSpecificationTypeDef(TypedDict):
 class ClusterInstanceGroupSpecificationTypeDef(TypedDict):
     InstanceCount: int
     InstanceGroupName: str
-    LifeCycleConfig: ClusterLifeCycleConfigTypeDef
     ExecutionRole: str
     MinInstanceCount: NotRequired[int]
     InstanceType: NotRequired[ClusterInstanceTypeType]
+    InstanceRequirements: NotRequired[ClusterInstanceRequirementsTypeDef]
+    LifeCycleConfig: NotRequired[ClusterLifeCycleConfigTypeDef]
     ThreadsPerCore: NotRequired[int]
     InstanceStorageConfigs: NotRequired[Sequence[ClusterInstanceStorageConfigTypeDef]]
     OnStartDeepHealthChecks: NotRequired[Sequence[DeepHealthCheckTypeType]]

@@ -1,6 +1,6 @@
 [project]
 name = "cuga"
-version = "0.2.17"
+version = "0.2.18"
 description = "CUGA is an open-source generalist agent for the enterprise, supporting complex task execution on web and APIs, OpenAPI/MCP integrations, composable architecture, reasoning modes, and policy-aware features."
 readme = "README.md"
 license = "Apache-2.0"
@@ -128,6 +128,7 @@ cuga = [
     "backend/**/*.js",
     "backend/server/demo_setup_utils/*.json",
     "frontend/dist/**",
+    "demo_tools/**",
 ]
 scripts = ["*.py"]
 system_tests = ["**/*.py", "**/*.yaml", "**/*.sh"]

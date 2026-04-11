@@ -3105,6 +3105,41 @@ async def test_serial_proxy_get_modem_pins(
     assert result.line_states == 1
 
 
+async def test_serial_proxy_get_modem_pins_matches_instance(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test that serial_proxy_get_modem_pins filters responses by instance.
+
+    A response for a different instance must be ignored so that an in-flight
+    request for a specific instance does not pick up an unrelated response.
+    """
+    client, _connection, _transport, protocol = api_client
+    task = asyncio.create_task(client.serial_proxy_get_modem_pins(instance=1))
+    await asyncio.sleep(0)
+
+    # Send a response for a different instance; it must not satisfy the
+    # request.
+    other_instance_response: message.Message = SerialProxyGetModemPinsResponsePb(
+        instance=0, line_states=7
+    )
+    mock_data_received(protocol, generate_plaintext_packet(other_instance_response))
+    await asyncio.sleep(0)
+    assert not task.done()
+
+    # Now send the response for the requested instance.
+    matching_response: message.Message = SerialProxyGetModemPinsResponsePb(
+        instance=1, line_states=3
+    )
+    mock_data_received(protocol, generate_plaintext_packet(matching_response))
+    result = await task
+
+    assert isinstance(result, SerialProxyModemPins)
+    assert result.instance == 1
+    assert result.line_states == 3
+
+
 async def test_serial_proxy_get_modem_pins_timeout(
     api_client: tuple[
         APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
@@ -3762,6 +3797,131 @@ async def test_bluetooth_device_connect_cancelled(
 
     handlers_after = len(list(itertools.chain(*connection._message_handlers.values())))
     # Make sure we do not leak message handlers
+    assert handlers_after == handlers_before
+
+
+async def test_bluetooth_device_connect_future_cancelled_raises_api_error(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test that external cancellation of the connect_future raises APIConnectionError.
+
+    When the connect_future is cancelled externally (not via a cancel of the
+    awaiting task), the CancelledError should be converted into an
+    APIConnectionError so callers can treat it as a normal connection failure
+    instead of aborting with CancelledError.
+    """
+    client, connection, transport, _protocol = api_client
+    states = []
+
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
+
+    def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
+        states.append((connected, mtu, error))
+
+    original_create_future = client._loop.create_future
+    captured: list[asyncio.Future[None]] = []
+
+    def capturing_create_future() -> asyncio.Future[None]:
+        fut = original_create_future()
+        captured.append(fut)
+        return fut
+
+    with patch.object(client._loop, "create_future", capturing_create_future):
+        connect_task = asyncio.create_task(
+            client.bluetooth_device_connect(
+                1234,
+                on_bluetooth_connection_state,
+                timeout=10,
+                feature_flags=0,
+                has_cache=True,
+                disconnect_timeout=10,
+                address_type=1,
+            )
+        )
+        await asyncio.sleep(0)
+        # The connect request should be written and the future captured
+        assert len(transport.writelines.mock_calls) == 1
+        assert len(captured) == 1
+        # Cancel the connect_future directly (not the task); this simulates
+        # an external cancel of the future itself.
+        captured[0].cancel()
+        with pytest.raises(APIConnectionError, match="cancelled"):
+            await connect_task
+        assert states == []
+        # Current task was not actually cancelled.
+        assert connect_task.cancelling() == 0
+
+    # The unsub + disconnect should have run, so handlers are not leaked.
+    handlers_after = len(list(itertools.chain(*connection._message_handlers.values())))
+    assert handlers_after == handlers_before
+
+
+async def test_bluetooth_device_connect_base_exception_propagates(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test a BaseException other than CancelledError propagates and cleans up.
+
+    The ``except BaseException`` branch must still run cleanup (unsub the
+    message handler and send a disconnect) and re-raise the original
+    exception unchanged.
+    """
+    client, connection, transport, _protocol = api_client
+    states = []
+
+    handlers_before = len(list(itertools.chain(*connection._message_handlers.values())))
+
+    def on_bluetooth_connection_state(connected: bool, mtu: int, error: int) -> None:
+        states.append((connected, mtu, error))
+
+    original_create_future = client._loop.create_future
+    captured: list[asyncio.Future[None]] = []
+
+    def capturing_create_future() -> asyncio.Future[None]:
+        fut = original_create_future()
+        captured.append(fut)
+        return fut
+
+    with patch.object(client._loop, "create_future", capturing_create_future):
+        connect_task = asyncio.create_task(
+            client.bluetooth_device_connect(
+                1234,
+                on_bluetooth_connection_state,
+                timeout=10,
+                feature_flags=0,
+                has_cache=True,
+                disconnect_timeout=10,
+                address_type=1,
+            )
+        )
+        await asyncio.sleep(0)
+        assert len(transport.writelines.mock_calls) == 1
+        assert len(captured) == 1
+
+        # Inject a non-CancelledError BaseException via the future so the
+        # ``except BaseException`` branch is exercised. A custom
+        # BaseException subclass avoids pytest's special handling of
+        # ``KeyboardInterrupt`` / ``SystemExit``.
+        class _TestBaseException(BaseException):
+            pass
+
+        captured[0].set_exception(_TestBaseException("boom"))
+        with pytest.raises(_TestBaseException, match="boom"):
+            await connect_task
+        assert states == []
+
+    # Ensure the disconnect request was written as cleanup.
+    assert len(transport.writelines.mock_calls) == 2
+    req = BluetoothDeviceRequest(
+        address=1234, request_type=BluetoothDeviceRequestType.DISCONNECT
+    ).SerializeToString()
+    assert transport.writelines.mock_calls[-1] == call([b"\x00", b"\x05", b"D", req])
+
+    # Ensure the message handler was unsubscribed.
+    handlers_after = len(list(itertools.chain(*connection._message_handlers.values())))
     assert handlers_after == handlers_before
 
 

@@ -10,6 +10,12 @@ from typing import Any, AsyncGenerator
 from ..config import AIConfig
 from .egress_allowlist import check_egress_allowed
 from .error_sanitizer import sanitize_provider_error
+from .provider_validation import (
+    ProviderRequestError,
+    _is_anthropic_or_bedrock_route,
+    validate_first_message_user,
+    validate_not_bedrock_tools_without_confirmation,
+)
 from .token_provider import TokenProvider, TokenProviderError
 
 logger = logging.getLogger(__name__)
@@ -86,6 +92,31 @@ class LiteLLMService:
             logger.exception("Token refresh failed")
             return False
 
+    def _validate_request(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> None:
+        """Pre-flight validation for the LiteLLM provider.
+
+        Only applies provider-specific rules when the model route targets
+        Anthropic or Bedrock (other providers accept flexible message ordering).
+        """
+        model = self.config.model
+        if _is_anthropic_or_bedrock_route(model):
+            validate_first_message_user(
+                messages,
+                allow_leading_system=True,
+                provider="litellm",
+                model=model,
+            )
+        validate_not_bedrock_tools_without_confirmation(
+            model,
+            tools,
+            confirmed=self.config.litellm_bedrock_tools_confirmed,
+            provider="litellm",
+        )
+
     def _build_kwargs(
         self,
         messages: list[dict[str, Any]],
@@ -157,6 +188,12 @@ class LiteLLMService:
             system_content = extra_system_prompt + "\n\n" + system_content
         system_msg = {"role": "system", "content": system_content}
         full_messages = [system_msg] + messages
+
+        try:
+            self._validate_request(full_messages, tools)
+        except ProviderRequestError as exc:
+            yield exc.to_error_event()
+            return
 
         max_attempts = max(1, self.config.retry_max_attempts + 1)
 
@@ -413,19 +450,18 @@ class LiteLLMService:
 
     async def generate_title(self, user_message: str) -> str:
         try:
-            kwargs = self._build_kwargs(
-                [
-                    {
-                        "role": "system",
-                        "content": (
-                            "Generate a short title (3-6 words) for a conversation that starts"
-                            " with the following message. Return only the title, no quotes or punctuation."
-                        ),
-                    },
-                    {"role": "user", "content": user_message},
-                ],
-                max_completion_tokens=20,
-            )
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Generate a short title (3-6 words) for a conversation that starts"
+                        " with the following message. Return only the title, no quotes or punctuation."
+                    ),
+                },
+                {"role": "user", "content": user_message},
+            ]
+            self._validate_request(messages)
+            kwargs = self._build_kwargs(messages, max_completion_tokens=20)
             response = await litellm.acompletion(**kwargs)
             title = response.choices[0].message.content or "New Conversation"
             return title.strip().strip('"').strip("'")
@@ -435,10 +471,9 @@ class LiteLLMService:
 
     async def validate_connection(self) -> tuple[bool, str, list[str]]:
         try:
-            kwargs = self._build_kwargs(
-                [{"role": "user", "content": "Hi"}],
-                max_completion_tokens=5,
-            )
+            messages = [{"role": "user", "content": "Hi"}]
+            self._validate_request(messages)
+            kwargs = self._build_kwargs(messages, max_completion_tokens=5)
             response = await litellm.acompletion(**kwargs)
             if response.choices:
                 return True, "Connected successfully", [self.config.model]
@@ -453,6 +488,7 @@ class LiteLLMService:
         max_completion_tokens: int = 1000,
     ) -> str | None:
         try:
+            self._validate_request(messages)
             kwargs = self._build_kwargs(messages, max_completion_tokens=max_completion_tokens)
             response = await litellm.acompletion(**kwargs)
             return response.choices[0].message.content if response.choices else None
@@ -473,6 +509,7 @@ class LiteLLMService:
         Returns (response_text, {"prompt_tokens": N, "completion_tokens": N, "total_tokens": N}).
         """
         try:
+            self._validate_request(messages)
             kwargs = self._build_kwargs(messages, max_completion_tokens=max_completion_tokens)
             if temperature is not None:
                 kwargs["temperature"] = temperature

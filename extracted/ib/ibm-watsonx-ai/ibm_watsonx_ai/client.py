@@ -996,10 +996,10 @@ to `APIClient.service_instance.get_details` method.
         """Get HTTP headers used during requests.
 
         :param content_type: value for `Content-Type` header, defaults to `application/json`
-        :type name: str, optional
+        :type content_type: str, optional
 
         :param include_user_agent: whether the result should include `User-Agent` header, defaults to `False`
-        :type name: bool, optional
+        :type include_user_agent: bool, optional
 
         :return: headers used during requests
         :rtype: dict

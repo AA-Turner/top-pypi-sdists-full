@@ -1,6 +1,7 @@
 """Tests for services.chat module."""
 
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from notebooklm_tools.services.chat import (

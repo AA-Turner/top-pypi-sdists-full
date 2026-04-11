@@ -43,6 +43,7 @@ def filter_by_levenshtein(
     other: str | pl.Expr,
     bound: int,
     parallel: bool = False,
+    as_bytes: bool = False
 ) -> pl.Expr:
     """
     Returns whether the Levenshtein distance between self and other is <= bound. This is
@@ -60,16 +61,20 @@ def filter_by_levenshtein(
     parallel
         Whether to run it in parallel. Note that this is only recommended when this query
         is the only one in execution and when this is not executed in any aggregation / streaming context.
+    as_bytes
+        Whether to treat the strings as ASCII characters. This will boost performance but does not
+        work on non-ASCII characters.
     """
+    params = {
+        "bound": abs(bound),
+        "parallel": parallel,
+        "as_bytes": as_bytes
+    }
     return pl_plugin(
         symbol="pl_levenshtein_filter",
-        args=[
-            to_expr(c),
-            to_expr(other),
-            pl.lit(abs(bound), pl.UInt32),
-            pl.lit(parallel, pl.Boolean),
-        ],
-        is_elementwise=True,
+        args=[to_expr(c), to_expr(other)],
+        is_elementwise=True and not parallel,
+        kwargs=params,
     )
 
 
@@ -106,7 +111,7 @@ def filter_by_hamming(
             pl.lit(bound, dtype=pl.UInt32),
             pl.lit(parallel, pl.Boolean),
         ],
-        is_elementwise=True,
+        is_elementwise=True and not parallel,
     )
 
 
@@ -135,13 +140,13 @@ def str_hamming(
         return pl_plugin(
             symbol="pl_hamming_padded",
             args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-            is_elementwise=True,
+            is_elementwise=True and not parallel,
         )
     else:
         return pl_plugin(
             symbol="pl_hamming",
             args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-            is_elementwise=True,
+            is_elementwise=True and not parallel,
         )
 
 
@@ -258,7 +263,7 @@ def str_jaccard(
             pl.lit(substr_size, pl.UInt32),
             pl.lit(parallel, pl.Boolean),
         ],
-        is_elementwise=True,
+        is_elementwise=True and not parallel,
     )
 
 
@@ -297,7 +302,7 @@ def str_overlap_coeff(
             pl.lit(substr_size, pl.UInt32),
             pl.lit(parallel, pl.Boolean),
         ],
-        is_elementwise=True,
+        is_elementwise=True and not parallel,
     )
 
 
@@ -336,6 +341,7 @@ def str_sorensen_dice(
             pl.lit(substr_size, pl.UInt32),
             pl.lit(parallel, pl.Boolean),
         ],
+        is_elementwise=True and not parallel,
     )
 
 
@@ -392,6 +398,7 @@ def str_tversky_sim(
             pl.lit(beta, pl.Float64),
             pl.lit(parallel, pl.Boolean),
         ],
+        is_elementwise=True and not parallel,
     )
 
 
@@ -426,7 +433,7 @@ def str_jw(
             pl.lit(weight, pl.Float64),
             pl.lit(parallel, pl.Boolean),
         ],
-        is_elementwise=True,
+        is_elementwise=True and not parallel,
     )
 
 
@@ -448,7 +455,7 @@ def str_jaro(c: str | pl.Expr, other: str | pl.Expr, parallel: bool = False) -> 
     return pl_plugin(
         symbol="pl_jaro",
         args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-        is_elementwise=True,
+        is_elementwise=True and not parallel,
     )
 
 
@@ -457,6 +464,7 @@ def str_d_leven(
     other: str | pl.Expr,
     parallel: bool = False,
     return_sim: bool = False,
+    as_bytes: bool = False
 ) -> pl.Expr:
     """
     Computes the Damerau-Levenshtein distance between this and the other str.
@@ -473,18 +481,27 @@ def str_d_leven(
         is the only one in execution and when this is not executed in any aggregation / streaming context.
     return_sim
         If true, return normalized Damerau-Levenshtein.
+    as_bytes
+        Whether to treat the strings as ASCII characters. This will boost performance but does not
+        work on non-ASCII characters.
     """
+    params = {
+        "parallel": parallel,
+        "as_bytes": as_bytes
+    }
     if return_sim:
         return pl_plugin(
             symbol="pl_d_levenshtein_sim",
-            args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-            is_elementwise=True,
+            args=[to_expr(c), to_expr(other)],
+            is_elementwise=True and not parallel,
+            kwargs=params,
         )
     else:
         return pl_plugin(
             symbol="pl_d_levenshtein",
-            args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-            is_elementwise=True,
+            args=[to_expr(c), to_expr(other)],
+            is_elementwise=True and not parallel,
+            kwargs=params,
         )
 
 
@@ -493,6 +510,7 @@ def str_leven(
     other: str | pl.Expr,
     parallel: bool = False,
     return_sim: bool = False,
+    as_bytes: bool = False,
 ) -> pl.Expr:
     """
     Computes the Levenshtein distance between this and the other str.
@@ -509,18 +527,27 @@ def str_leven(
         is the only one in execution and when this is not executed in any aggregation / streaming context.
     return_sim
         If true, return normalized Levenshtein.
+    as_bytes
+        Whether to treat the strings as ASCII characters. This will boost performance but does not
+        work on non-ASCII characters.
     """
+    params = {
+        "parallel": parallel,
+        "as_bytes": as_bytes
+    }
     if return_sim:
         return pl_plugin(
             symbol="pl_levenshtein_sim",
             args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-            is_elementwise=True,
+            is_elementwise=True and not parallel,
+            kwargs=params,
         )
     else:
         return pl_plugin(
             symbol="pl_levenshtein",
             args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-            is_elementwise=True,
+            is_elementwise=True and not parallel,
+            kwargs=params,
         )
 
 
@@ -548,7 +575,7 @@ def str_lcs_substr(
     return pl_plugin(
         symbol="pl_lcs_substr",
         args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-        is_elementwise=True,
+        is_elementwise=True and not parallel,
     )
 
 
@@ -576,7 +603,7 @@ def str_lcs_subseq(
     return pl_plugin(
         symbol="pl_lcs_subseq",
         args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-        is_elementwise=True,
+        is_elementwise=True and not parallel,
     )
 
 
@@ -610,13 +637,13 @@ def str_lcs_subseq_dist(
         return pl_plugin(
             symbol="pl_lcs_subseq_sim",
             args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-            is_elementwise=True,
+            is_elementwise=True and not parallel,
         )
     else:
         return pl_plugin(
             symbol="pl_lcs_subseq_dist",
             args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-            is_elementwise=True,
+            is_elementwise=True and not parallel,
         )
 
 
@@ -646,13 +673,13 @@ def str_osa(
         return pl_plugin(
             symbol="pl_osa_sim",
             args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-            is_elementwise=True,
+            is_elementwise=True and not parallel,
         )
     else:
         return pl_plugin(
             symbol="pl_osa",
             args=[to_expr(c), to_expr(other), pl.lit(parallel, pl.Boolean)],
-            is_elementwise=True,
+            is_elementwise=True and not parallel,
         )
 
 
@@ -685,6 +712,7 @@ def similar_to_vocab(
     threshold: float,
     metric: Literal["lv", "dlv", "jw", "osa"] = "lv",
     strategy: Literal["avg", "all", "any"] = "avg",
+    as_bytes: bool = False,
 ) -> pl.Expr:
     """
     Compare each word in the vocab with each word in the column c. Returns a boolean
@@ -707,11 +735,14 @@ def similar_to_vocab(
         the threshold.
         If `any`, then will return true if the similarity to any words in the vocab is above
         the threshold.
+    as_bytes
+        Only works for Levenshtein distance. Whether to treat the strings as ASCII characters. 
+        This will boost performance but does not work on non-ASCII characters.
     """
     if metric == "lv":
-        sims = [str_leven(c, pl.lit(w, dtype=pl.String), return_sim=True) for w in vocab]
+        sims = [str_leven(c, pl.lit(w, dtype=pl.String), as_bytes=as_bytes, return_sim=True) for w in vocab]
     elif metric == "dlv":
-        sims = [str_d_leven(c, pl.lit(w, dtype=pl.String), return_sim=True) for w in vocab]
+        sims = [str_d_leven(c, pl.lit(w, dtype=pl.String), as_bytes=as_bytes, return_sim=True) for w in vocab]
     elif metric == "osa":
         sims = [str_osa(c, pl.lit(w, dtype=pl.String), return_sim=True) for w in vocab]
     elif metric == "jw":

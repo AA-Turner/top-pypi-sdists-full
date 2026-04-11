@@ -23,6 +23,7 @@ class DependabotOrganizationSecretRepositoriesArgs:
                  selected_repository_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.int]]]):
         """
         The set of arguments for constructing a DependabotOrganizationSecretRepositories resource.
+
         :param pulumi.Input[_builtins.str] secret_name: Name of the Dependabot organization secret.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.int]]] selected_repository_ids: List of IDs for the repositories that should be able to access the secret.
         """
@@ -61,6 +62,7 @@ class _DependabotOrganizationSecretRepositoriesState:
                  selected_repository_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.int]]]] = None):
         """
         Input properties used for looking up and filtering DependabotOrganizationSecretRepositories resources.
+
         :param pulumi.Input[_builtins.str] secret_name: Name of the Dependabot organization secret.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.int]]] selected_repository_ids: List of IDs for the repositories that should be able to access the secret.
         """
@@ -129,13 +131,16 @@ class DependabotOrganizationSecretRepositories(pulumi.CustomResource):
 
         ## Import
 
+        This resource can be imported using the secret name as the ID.
+
         ### Import Command
 
-        The following command imports the repositories able to access the Dependabot organization secret named `mysecret` to a `github_dependabot_organization_secret_repositories` resource named `example`.
+        The following command imports the repositories able to access the Dependabot organization secret named `mysecret` to a `DependabotOrganizationSecretRepositories` resource named `example`.
 
         ```sh
         $ pulumi import github:index/dependabotOrganizationSecretRepositories:DependabotOrganizationSecretRepositories example mysecret
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -174,13 +179,16 @@ class DependabotOrganizationSecretRepositories(pulumi.CustomResource):
 
         ## Import
 
+        This resource can be imported using the secret name as the ID.
+
         ### Import Command
 
-        The following command imports the repositories able to access the Dependabot organization secret named `mysecret` to a `github_dependabot_organization_secret_repositories` resource named `example`.
+        The following command imports the repositories able to access the Dependabot organization secret named `mysecret` to a `DependabotOrganizationSecretRepositories` resource named `example`.
 
         ```sh
         $ pulumi import github:index/dependabotOrganizationSecretRepositories:DependabotOrganizationSecretRepositories example mysecret
         ```
+
 
         :param str resource_name: The name of the resource.
         :param DependabotOrganizationSecretRepositoriesArgs args: The arguments to use to populate this resource's properties.

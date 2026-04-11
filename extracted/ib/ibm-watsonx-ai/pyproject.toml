@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ibm_watsonx_ai"
-version = "1.5.5"
+version = "1.5.6"
 requires-python = ">=3.11,<3.14"
 authors = [
   {name = "IBM"}
@@ -110,11 +110,11 @@ typing = [
     "types-PyYAML"
 ]
 test_core = [
-    "pytest>=8,<9",
+    "pytest>=9,<10",
     "allure-pytest",
     "pytest-mock",
     "pytest-env",
-    "pytest-asyncio<1",
+    "pytest-asyncio>=1.0,<2",
     "pytest-cov",
     "pytest-timeout",
     "allure-python-commons",
@@ -321,7 +321,8 @@ exclude = ["tests.*", "tests"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope="session"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 addopts = "--clean-alluredir --alluredir=target/allure-results"
 markers = [
     "asyncio: async function",

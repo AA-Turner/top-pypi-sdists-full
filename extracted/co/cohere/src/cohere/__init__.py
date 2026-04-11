@@ -286,6 +286,7 @@ if typing.TYPE_CHECKING:
     from .datasets import DatasetsCreateResponse, DatasetsGetResponse, DatasetsGetUsageResponse, DatasetsListResponse
     from .embed_jobs import CreateEmbedJobRequestTruncate
     from .environment import ClientEnvironment
+    from .oci_client import OciClient, OciClientV2
     from .sagemaker_client import SagemakerClient, SagemakerClientV2
     from .v2 import (
         CitationEndV2ChatStreamResponse,
@@ -523,6 +524,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "NotFoundError": ".errors",
     "NotImplementedError": ".errors",
     "OAuthAuthorizeResponse": ".types",
+    "OciClient": ".oci_client",
+    "OciClientV2": ".oci_client",
     "ParseInfo": ".types",
     "RerankDocument": ".types",
     "RerankRequestDocumentsItem": ".types",
@@ -860,6 +863,8 @@ __all__ = [
     "NotFoundError",
     "NotImplementedError",
     "OAuthAuthorizeResponse",
+    "OciClient",
+    "OciClientV2",
     "ParseInfo",
     "RerankDocument",
     "RerankRequestDocumentsItem",

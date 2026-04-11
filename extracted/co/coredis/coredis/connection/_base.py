@@ -27,6 +27,7 @@ from exceptiongroup import BaseExceptionGroup, catch
 
 import coredis
 from coredis._packer import Packer
+from coredis._telemetry import TelemetryAttributeProvider, TelemetryProvider
 from coredis._utils import logger, nativestr
 from coredis.commands.constants import CommandName
 from coredis.commands.request import CommandRequest
@@ -52,7 +53,7 @@ from coredis.typing import (
     TypeVar,
 )
 
-from ._request import Request
+from ._request import BaseRequest, Request, RequestBatch
 from ._statistics import ConnectionStatistics
 
 CERT_REQS = {
@@ -159,7 +160,7 @@ class RedisSSLContext:
         return self.context
 
 
-class BaseConnection(ABC):
+class BaseConnection(TelemetryAttributeProvider):
     """
     Base class for Redis connections.
 
@@ -286,13 +287,13 @@ class BaseConnection(ABC):
         )
         # RESP parser/packer
         #  for writes to the socket
-        self._write_buffer_in, self._write_buffer_out = create_memory_object_stream[list[Request]](
-            math.inf
-        )
+        self._write_buffer_in, self._write_buffer_out = create_memory_object_stream[
+            list[tuple[bytes, tuple[RedisValueT, ...]]]
+        ](math.inf)
         self._parser = Parser()
         self._packer: Packer = Packer(self._encoding)
 
-        self._requests: deque[Request] = deque()
+        self._requests: deque[BaseRequest] = deque()
         self._connection_cancel_scope: CancelScope | None = None
 
         # Error & State flags
@@ -343,6 +344,12 @@ class BaseConnection(ABC):
             self._push_message_buffer_in.statistics().current_buffer_used == 0
             and self._streamed_message_buffer_in.statistics().current_buffer_used == 0
         )
+
+    def telemetry_attributes(self, provider: TelemetryProvider) -> dict[str, str | int]:
+        attributes: dict[str, str | int] = {}
+        if self._db is not None:
+            attributes["db.namespace"] = self._db
+        return attributes
 
     def register_connect_callback(
         self,
@@ -492,27 +499,28 @@ class BaseConnection(ABC):
 
     def _data_received(self, data: bytes) -> None:
         self._parser.feed(data)
-        decode = self._requests[0].decode if self._requests else self._decode_responses
+        current = self._requests[0] if self._requests else None
+        decode = current.current_decode if current else self._decode_responses
         response = self._parser.parse(
             decode=decode,
-            encoding=self._requests[0].encoding if self._requests else self._encoding,
+            encoding=current.current_encoding if current else self._encoding,
         )
         while not isinstance(response, NotEnoughData):
             if response[0] == DataType.PUSH:
                 self._push_message_buffer_in.send_nowait(response[1])
             else:
                 if self._requests:
-                    request = self._requests.popleft()
-                    if request.raise_exceptions and isinstance(response[1], RedisError):
-                        request.fail(response[1])
-                    else:
-                        request.resolve(response[1])
+                    queued = self._requests[0]
+                    queued.consume(response[1])
+                    if queued.complete:
+                        self._requests.popleft()
                 else:
                     self._streamed_message_buffer_in.send_nowait(response[1])
-            decode = self._requests[0].decode if self._requests else self._decode_responses
+            current = self._requests[0] if self._requests else None
+            decode = current.current_decode if current else self._decode_responses
             response = self._parser.parse(
                 decode=decode,
-                encoding=self._requests[0].encoding if self._requests else self._encoding,
+                encoding=current.current_encoding if current else self._encoding,
             )
 
     async def _writer_task(self) -> None:
@@ -525,9 +533,7 @@ class BaseConnection(ABC):
                 requests.extend(self._write_buffer_out.receive_nowait())
                 await checkpoint()
             data = b"".join(
-                self._packer.pack_commands(
-                    [(request.command, *request.args) for request in requests]
-                )
+                self._packer.pack_commands([(command, *args) for command, args in requests])
             )
             try:
                 await self.stream.send(data)
@@ -670,17 +676,7 @@ class BaseConnection(ABC):
         pubsub scenarios where commands such as ``SUBSCRIBE``, ``UNSUBSCRIBE``
         etc do not result in a response.
         """
-        self._write_buffer_in.send_nowait(
-            [
-                Request(
-                    connection=self,
-                    command=command,
-                    args=args,
-                    decode=False,
-                    expects_response=False,
-                )
-            ]
-        )
+        self._write_buffer_in.send_nowait([(command, args)])
 
     @_ensure_usable
     def create_request(
@@ -698,26 +694,14 @@ class BaseConnection(ABC):
         Queue a command to send to the server and create an
         associated request that can awaited for the response.
         """
-        requests = []
+        outbound_commands: list[tuple[bytes, tuple[RedisValueT, ...]]] = []
         request_timeout: float | None = timeout or self._stream_timeout
         expects_response = not (self._noreply_set or noreply)
         if noreply and not self._noreply:
-            requests.append(
-                Request(
-                    connection=self,
-                    command=CommandName.CLIENT_REPLY,
-                    args=(PureToken.SKIP,),
-                    decode=bool(decode) if decode is not None else self._decode_responses,
-                    encoding=encoding or self._encoding,
-                    raise_exceptions=raise_exceptions,
-                    expects_response=False,
-                    disconnect_on_cancellation=disconnect_on_cancellation,
-                )
-            )
+            outbound_commands.append((CommandName.CLIENT_REPLY, (PureToken.SKIP,)))
         request = Request(
             connection=self,
             command=command,
-            args=args,
             decode=bool(decode) if decode is not None else self._decode_responses,
             encoding=encoding or self._encoding,
             raise_exceptions=raise_exceptions,
@@ -725,37 +709,33 @@ class BaseConnection(ABC):
             expects_response=expects_response,
             disconnect_on_cancellation=disconnect_on_cancellation,
         )
-        requests.append(request)
-        self._write_buffer_in.send_nowait(requests)
+        outbound_commands.append((command, args))
+        self._write_buffer_in.send_nowait(outbound_commands)
         if expects_response:
             self._requests.append(request)
         return request
 
     @_ensure_usable
-    def create_requests(
+    def create_request_batch(
         self,
         commands: Sequence[CommandRequest[Any]],
-        raise_exceptions: bool = True,
         timeout: float | None = None,
-        disconnect_on_cancellation: bool = False,
-    ) -> list[Request]:
-        """
-        Queue multiple commands to send to the server
-        """
+    ) -> RequestBatch:
         request_timeout: float | None = timeout or self._stream_timeout
-        requests = [
-            Request(
-                connection=self,
-                command=cmd.name,
-                args=cmd.serialized_arguments,
-                decode=bool(cmd.decode) if cmd.decode is not None else self._decode_responses,
-                encoding=self._encoding,
-                raise_exceptions=raise_exceptions,
-                response_timeout=request_timeout,
-                disconnect_on_cancellation=disconnect_on_cancellation,
-            )
-            for cmd in commands
-        ]
-        self._write_buffer_in.send_nowait(requests)
-        self._requests.extend(requests)
-        return requests
+        command_names = tuple(cmd.name for cmd in commands)
+        batch = RequestBatch(
+            connection=self,
+            commands=command_names,
+            decode=tuple(
+                bool(cmd.decode) if cmd.decode is not None else self._decode_responses
+                for cmd in commands
+            ),
+            encoding=tuple(self._encoding for _ in commands),
+            response_timeout=request_timeout,
+            disconnect_on_cancellation=True,
+        )
+        self._write_buffer_in.send_nowait(
+            list(zip(command_names, (cmd.serialized_arguments for cmd in commands)))
+        )
+        self._requests.append(batch)
+        return batch

@@ -75,6 +75,7 @@ __all__ = [
     "HtmlConversionOptions",
     "HtmlImageMetadata",
     "HtmlMetadata",
+    "HtmlOutputConfig",
     "HtmlPreprocessingOptions",
     "ImageExtractionConfig",
     "ImagePreprocessingConfig",
@@ -722,6 +723,39 @@ class StructuredExtractionConfig:
         prompt: str | None = None,
     ) -> None: ...
 
+class HtmlOutputConfig:
+    """HTML output configuration for styled HTML rendering.
+
+    Controls how the HTML output format renders documents, including
+    theme selection, custom CSS, and class prefix configuration.
+
+    Attributes:
+        theme (str): Built-in theme name. One of 'default', 'github', 'dark',
+            'light', 'unstyled'. Default: 'unstyled'
+        css (str | None): Inline CSS string injected after the theme stylesheet.
+            Default: None
+        css_file (str | None): Path to a CSS file loaded at renderer construction time.
+            Default: None
+        class_prefix (str): CSS class prefix for emitted class names. Default: 'kb-'
+        embed_css (bool): Embed resolved CSS in a <style> block. Default: True
+    """
+
+    theme: str
+    css: str | None
+    css_file: str | None
+    class_prefix: str
+    embed_css: bool
+
+    def __init__(
+        self,
+        *,
+        theme: str | None = None,
+        css: str | None = None,
+        css_file: str | None = None,
+        class_prefix: str | None = None,
+        embed_css: bool | None = None,
+    ) -> None: ...
+
 class ExtractionConfig:
     """Main extraction configuration for document processing.
 
@@ -824,6 +858,7 @@ class ExtractionConfig:
     concurrency: ConcurrencyConfig | None
     tree_sitter: TreeSitterConfig | None
     content_filter: ContentFilterConfig | None
+    html_output: HtmlOutputConfig | None
     cache_namespace: str | None
     cache_ttl_secs: int | None
     extraction_timeout_secs: int | None
@@ -857,6 +892,7 @@ class ExtractionConfig:
         concurrency: ConcurrencyConfig | None = None,
         tree_sitter: TreeSitterConfig | None = None,
         content_filter: ContentFilterConfig | None = None,
+        html_output: HtmlOutputConfig | None = None,
         cache_namespace: str | None = ...,
         cache_ttl_secs: int | None = ...,
         extraction_timeout_secs: int | None = ...,

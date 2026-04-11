@@ -1,0 +1,9 @@
+template-repository: "jebel-quant/rhiza"
+template-branch: "v0.8.21"
+
+templates:
+  - devcontainer
+  - github
+  - book
+  - marimo
+  - tests

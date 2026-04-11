@@ -208,9 +208,17 @@ class SecureHTTPConnection(httplib.HTTPConnection, object):
             ctx.verify_mode = ssl.CERT_NONE
             self.sock = ctx.wrap_socket(plainsock)
             bincert = self.sock.getpeercert(binary_form=True)
-            if not self._certverify(bincert):
-                raise pygexc.UnrecognizedCertificate('Unknown certificate',
-                                                     bincert)
+            try:
+                if not self._certverify(bincert):
+                    raise pygexc.UnrecognizedCertificate('Unknown certificate',
+                                                        bincert)
+            except Exception:
+                try:
+                    self.sock.close()
+                except Exception:
+                    pass
+                self.sock = None
+                raise
         else:
             ctx = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
             ctx.load_default_certs()

@@ -54,6 +54,7 @@ from montecarlodata.integrations.onboarding.fields import (
     HIVE_MYSQL_CONNECTION_TYPE,
     HIVE_S3_CONNECTION_TYPE,
     MARIADB_DB_TYPE,
+    MICROSOFT_FABRIC_CONNECTION_TYPE,
     MOTHERDUCK_DATABASE_TYPE,
     MYSQL_DB_TYPE,
     ORACLE_DB_TYPE,
@@ -2111,6 +2112,57 @@ def add_azure_sql_database(ctx, database, name, **kwargs):
         warehouseName=name,
         dbName=database,
         dbType=AZURE_SQL_DATABASE_TYPE,
+        **kwargs,
+    )
+
+
+@integrations.command(help=f"Setup a Microsoft Fabric integration. {LIGHTWEIGHT_VERBIAGE}.")
+@click.pass_obj
+@click.option("--host", help="Microsoft Fabric SQL analytics endpoint.", required=True)
+@click.option("--database", help="Database name.", required=True)
+@click.option(
+    "--client-id",
+    "client_id",
+    help="Service principal client (application) ID.",
+    required=True,
+    cls=AdvancedOptions,
+)
+@click.option(
+    "--client-secret",
+    "client_secret",
+    help=f"Service principal client secret. {PASSWORD_VERBIAGE}.",
+    required=True,
+    cls=AdvancedOptions,
+    prompt_if_requested=True,
+)
+@click.option(
+    "--tenant-id",
+    "tenant_id",
+    help="Azure tenant ID.",
+    required=True,
+    cls=AdvancedOptions,
+)
+@add_common_options(
+    warehouse_create_option(required=True)
+    + port_create_option(default_port=1433)
+    + ONBOARDING_CONFIGURATION_OPTIONS
+)
+@click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
+def add_microsoft_fabric(ctx, database, name, client_id, client_secret, tenant_id, **kwargs):
+    """
+    Onboard a Microsoft Fabric connection
+    """
+    TransactionalOnboardingService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="integrations add_microsoft_fabric",
+    ).onboard_transactional_db(
+        warehouseName=name,
+        dbName=database,
+        dbType=MICROSOFT_FABRIC_CONNECTION_TYPE,
+        client_id=client_id,
+        client_secret=client_secret,
+        tenant_id=tenant_id,
         **kwargs,
     )
 

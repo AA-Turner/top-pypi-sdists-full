@@ -7180,19 +7180,19 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, Qu
         
         :param key: key to be searched in the dictionary
         :returns: The value for the specified key if key is in dictionary.
-        None if the key is not found and value is not specified.
+        None if the key is not found, or if the key is None.
         """
         ...
 
     @overload
-    def get(self, key: QuantConnect_ExtendedDictionary_TKey, value: QuantConnect_ExtendedDictionary_TValue) -> QuantConnect_ExtendedDictionary_TValue:
+    def get(self, key: QuantConnect_ExtendedDictionary_TKey, default_value: QuantConnect_ExtendedDictionary_TValue) -> QuantConnect_ExtendedDictionary_TValue:
         """
         Returns the value for the specified key if key is in dictionary.
         
         :param key: key to be searched in the dictionary
-        :param value: Value to be returned if the key is not found. The default value is null.
+        :param default_value: Value to be returned if the key is not found or if the key is None.
         :returns: The value for the specified key if key is in dictionary.
-        value if the key is not found and value is specified.
+        default_value if the key is not found, or if the key is None.
         """
         ...
 
@@ -10175,6 +10175,9 @@ class Messages(System.Object):
 
         indexer_by_symbol_not_implemented: str = "Types deriving from 'ExtendedDictionary' must implement the 'T this[Symbol] method."
         """Returns a string message saying the types deriving from ExtendedDictionary must implement the T this<Symbol> method"""
+
+        key_not_found_due_to_none: str = ...
+        """Returns a string with the error message we receive from Python when we try to pop a key with a null value in the ExtendedDictionary. It also shows a recommendation for solving this problem"""
 
         @staticmethod
         def ticker_not_found_in_symbol_cache(ticker: str) -> str:

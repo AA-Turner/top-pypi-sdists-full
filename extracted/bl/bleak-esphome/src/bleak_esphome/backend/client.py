@@ -318,6 +318,16 @@ class ESPHomeClient(BaseBleakClient):
                         # to avoid a warning about an un-retrieved
                         # exception.
                         await connected_future
+                # If the current task is not actually being cancelled,
+                # the cancellation came from inside (e.g. the
+                # connect_future being cancelled externally). Convert
+                # it to a BleakError so bleak_retry_connector's retry
+                # logic can handle it instead of aborting the caller.
+                current_task = asyncio.current_task()
+                if current_task is None or not current_task.cancelling():
+                    raise BleakError(
+                        f"{self._description}: Connect attempt was cancelled"
+                    ) from None
                 raise
             except Exception as ex:
                 if connected_future.done():
@@ -331,7 +341,31 @@ class ESPHomeClient(BaseBleakClient):
                         await connected_future
                 connected_future.cancel(f"Unhandled exception in connect call: {ex}")
                 raise
-            await connected_future
+            try:
+                await connected_future
+            except asyncio.CancelledError:
+                # Clean up the connection-state subscription that was
+                # registered by bluetooth_device_connect above, since we
+                # are bailing out before the normal disconnect path runs.
+                # Done for both the spurious-cancel (BleakError conversion)
+                # and the real-cancel (bare raise) branches so the
+                # subscription does not leak and trigger the
+                # ``not properly disconnected before destruction`` warning
+                # from ``__del__``.
+                cancel_connection_state = self._cancel_connection_state
+                self._cancel_connection_state = None
+                if cancel_connection_state is not None:
+                    cancel_connection_state()
+                # If the current task is not actually being cancelled,
+                # treat a cancellation of connected_future as a normal
+                # connection failure so bleak_retry_connector can retry
+                # rather than letting CancelledError leak to the caller.
+                current_task = asyncio.current_task()
+                if current_task is None or not current_task.cancelling():
+                    raise BleakError(
+                        f"{self._description}: Connect attempt was cancelled"
+                    ) from None
+                raise
 
         if pair:
             await self._pair()
@@ -341,11 +375,24 @@ class ESPHomeClient(BaseBleakClient):
                 dangerous_use_bleak_cache=dangerous_use_bleak_cache
             )
         except asyncio.CancelledError:
-            # On cancel we must still raise cancelled error
-            # to avoid blocking the cancellation even if the
-            # disconnect call fails.
+            # On cancel we must still raise CancelledError to avoid
+            # blocking the cancellation even if the disconnect call
+            # fails. Shield the disconnect so a re-cancellation arriving
+            # while it is running cannot interrupt it half-way and leave
+            # the device connected on the ESP side. If a re-cancel does
+            # arrive, finish awaiting the disconnect before re-raising
+            # so the cancellation still propagates to the caller.
+            disconnect_task = asyncio.create_task(self._disconnect())
             with contextlib.suppress(Exception):
-                await self._disconnect()
+                try:
+                    await asyncio.shield(disconnect_task)
+                except asyncio.CancelledError:
+                    # Re-cancelled while the shielded disconnect was in
+                    # flight. Drain disconnect_task best-effort so it
+                    # does not leak before the original CancelledError
+                    # is re-raised below.
+                    with contextlib.suppress(Exception):
+                        await disconnect_task
             raise
         except Exception:
             await self._disconnect()

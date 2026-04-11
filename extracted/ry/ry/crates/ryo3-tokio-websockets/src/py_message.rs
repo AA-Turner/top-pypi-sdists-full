@@ -1,21 +1,18 @@
-use std::{ops::Deref, os::raw::c_int};
+use std::ops::Deref;
+use std::os::raw::c_int;
 
 use bytes::Bytes;
-use pyo3::{
-    IntoPyObjectExt,
-    prelude::*,
-    pybacked::PyBackedStr,
-    types::{PyDict, PyTuple},
-};
-use ryo3_bytes::PyBytes as RyBytes;
+use pyo3::IntoPyObjectExt;
+use pyo3::prelude::*;
+use pyo3::pybacked::PyBackedStr;
+use pyo3::types::{PyDict, PyTuple};
+use ryo3_bytes::{PyBytes as RyBytes, ReadableBuffer};
 use ryo3_core::{PyTryFrom, py_type_err, py_value_err, py_value_error};
 use tokio_websockets::Message;
 
-use crate::{
-    PyWebSocketMessageKind,
-    constants::WS_MSG_PINGPONG_PAYLOAD_MAX_LEN,
-    types::{PyWsCloseCode, PyWsCloseReason},
-};
+use crate::PyWebSocketMessageKind;
+use crate::constants::WS_MSG_PINGPONG_PAYLOAD_MAX_LEN;
+use crate::types::{PyWsCloseCode, PyWsCloseReason};
 
 #[derive(Debug, Clone)]
 #[pyclass(name = "WsMessage", frozen, immutable_type, skip_from_py_object)]
@@ -38,10 +35,9 @@ impl PartialEq for PyWsMessage {
 impl PyWsMessage {
     #[new]
     #[pyo3(signature = (kind, data = None, *, code = None, reason = None))]
-    fn py_new<'py>(
-        _py: Python<'py>,
+    fn py_new(
         kind: PyWebSocketMessageKind,
-        data: Option<Bound<'py, PyAny>>,
+        data: Option<Bound<'_, PyAny>>,
         code: Option<u16>,
         reason: Option<&str>,
     ) -> PyResult<Self> {
@@ -311,8 +307,8 @@ impl<'py> FromPyObject<'_, 'py> for PyMessageLike {
             Ok(Self::Message(msg.get().clone()))
         } else if let Ok(text) = obj.extract::<PyBackedStr>() {
             Ok(Self::Text(text))
-        } else if let Ok(bytes) = obj.extract::<RyBytes>() {
-            Ok(Self::Bytes(bytes))
+        } else if let Ok(bytes) = obj.extract::<ReadableBuffer>() {
+            Ok(Self::Bytes(bytes.to_rybytes()))
         } else {
             py_type_err!("expected Message, str, or bytes-like object")
         }

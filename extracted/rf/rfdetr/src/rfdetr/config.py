@@ -4,14 +4,44 @@
 # Licensed under the Apache License, Version 2.0 [see LICENSE for details]
 # ------------------------------------------------------------------------
 
-
 import os
+import warnings
 from typing import Any, ClassVar, Dict, List, Literal, Mapping, Optional, Union
 
 import torch
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+
+def _detect_device() -> str:
+    """Detect the best available device **without** initialising the CUDA runtime.
+
+    ``torch.cuda.is_available()`` creates a CUDA driver context that makes
+    ``_is_in_bad_fork()`` return ``True`` in child processes.  This breaks
+    fork-based DDP strategies (e.g. ``ddp_notebook``) in notebook environments.
+
+    We defer to :func:`torch.accelerator.current_accelerator` (PyTorch ≥ 2.4)
+    when available — it queries the driver through NVML without creating a
+    primary context.  On older builds we fall back to ``torch.cuda.is_available()``.
+    """
+    accelerator = getattr(torch, "accelerator", None)
+    current_accelerator = getattr(accelerator, "current_accelerator", None)
+    if current_accelerator is not None:
+        try:
+            accel = current_accelerator()
+            if accel is not None:
+                return str(accel)
+            return "cpu"
+        except RuntimeError:
+            return "cpu"
+    # Fallback for PyTorch < 2.4 — this DOES create a CUDA driver context.
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+DEVICE: str = _detect_device()
 
 
 class BaseConfig(BaseModel):
@@ -382,13 +412,14 @@ class TrainConfig(BaseModel):
     clearml: bool = False  # Not yet implemented — reserved for future use.
     project: Optional[str] = None
     run: Optional[str] = None
-    class_names: List[str] = None
+    class_names: Optional[List[str]] = None
     run_test: bool = False
     segmentation_head: bool = False
     eval_max_dets: int = 500
     eval_interval: int = 1
     log_per_class_metrics: bool = True
     aug_config: Optional[Dict[str, Any]] = None
+    save_dataset_grids: bool = False
 
     @field_validator("progress_bar", mode="before")
     @classmethod
@@ -492,3 +523,15 @@ class SegmentationTrainConfig(TrainConfig):
     mask_dice_loss_coef: float = 5.0
     cls_loss_coef: float = 5.0
     segmentation_head: bool = True
+
+    @model_validator(mode="after")
+    def warn_deprecated_num_select(self) -> "SegmentationTrainConfig":
+        """Warn when callers explicitly set the deprecated train-time ``num_select`` field."""
+        if "num_select" in self.model_fields_set and self.num_select is not None:
+            warnings.warn(
+                "TrainConfig.num_select is deprecated and ignored by "
+                "PTL/inference; set ModelConfig.num_select instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return self

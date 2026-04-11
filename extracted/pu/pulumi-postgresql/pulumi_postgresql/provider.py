@@ -44,11 +44,13 @@ class ProviderArgs:
                  username: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a Provider resource.
+
         :param pulumi.Input[_builtins.bool] aws_rds_iam_auth: Use rds_iam instead of password authentication (see: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.html)
         :param pulumi.Input[_builtins.str] aws_rds_iam_profile: AWS profile to use for IAM auth
         :param pulumi.Input[_builtins.str] aws_rds_iam_provider_role_arn: AWS IAM role to assume for IAM auth
         :param pulumi.Input[_builtins.str] aws_rds_iam_region: AWS region to use for IAM auth
         :param pulumi.Input[_builtins.bool] azure_identity_auth: Use MS Azure identity OAuth token (see: https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/how-to-configure-sign-in-azure-ad-authentication)
+        :param pulumi.Input[_builtins.str] azure_tenant_id: MS Azure tenant ID (see: https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config.html)
         :param pulumi.Input['ProviderClientcertArgs'] clientcert: SSL client certificate if required by the database.
         :param pulumi.Input[_builtins.int] connect_timeout: Maximum wait for connection, in seconds. Zero or not specified means wait indefinitely.
         :param pulumi.Input[_builtins.str] database: The name of the database to connect to in order to connect to (defaults to `postgres`).
@@ -179,6 +181,9 @@ class ProviderArgs:
     @_builtins.property
     @pulumi.getter(name="azureTenantId")
     def azure_tenant_id(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        MS Azure tenant ID (see: https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config.html)
+        """
         return pulumi.get(self, "azure_tenant_id")
 
     @azure_tenant_id.setter
@@ -408,6 +413,7 @@ class Provider(pulumi.ProviderResource):
         construction to achieve fine-grained programmatic control over provider settings. See the
         [documentation](https://www.pulumi.com/docs/reference/programming-model/#providers) for more information.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.bool] aws_rds_iam_auth: Use rds_iam instead of password authentication (see: https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAMDBAuth.html)
@@ -415,6 +421,7 @@ class Provider(pulumi.ProviderResource):
         :param pulumi.Input[_builtins.str] aws_rds_iam_provider_role_arn: AWS IAM role to assume for IAM auth
         :param pulumi.Input[_builtins.str] aws_rds_iam_region: AWS region to use for IAM auth
         :param pulumi.Input[_builtins.bool] azure_identity_auth: Use MS Azure identity OAuth token (see: https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/how-to-configure-sign-in-azure-ad-authentication)
+        :param pulumi.Input[_builtins.str] azure_tenant_id: MS Azure tenant ID (see: https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config.html)
         :param pulumi.Input[Union['ProviderClientcertArgs', 'ProviderClientcertArgsDict']] clientcert: SSL client certificate if required by the database.
         :param pulumi.Input[_builtins.int] connect_timeout: Maximum wait for connection, in seconds. Zero or not specified means wait indefinitely.
         :param pulumi.Input[_builtins.str] database: The name of the database to connect to in order to connect to (defaults to `postgres`).
@@ -441,6 +448,7 @@ class Provider(pulumi.ProviderResource):
         settings, however an explicit `Provider` instance may be created and passed during resource
         construction to achieve fine-grained programmatic control over provider settings. See the
         [documentation](https://www.pulumi.com/docs/reference/programming-model/#providers) for more information.
+
 
         :param str resource_name: The name of the resource.
         :param ProviderArgs args: The arguments to use to populate this resource's properties.
@@ -549,6 +557,9 @@ class Provider(pulumi.ProviderResource):
     @_builtins.property
     @pulumi.getter(name="azureTenantId")
     def azure_tenant_id(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        MS Azure tenant ID (see: https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config.html)
+        """
         return pulumi.get(self, "azure_tenant_id")
 
     @_builtins.property

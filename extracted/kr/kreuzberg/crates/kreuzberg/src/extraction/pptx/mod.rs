@@ -26,10 +26,10 @@
 //! # Example
 //!
 //! ```rust
-//! use kreuzberg::extraction::pptx::extract_pptx_from_path;
+//! use kreuzberg::extraction::pptx::{extract_pptx_from_path, PptxExtractionOptions};
 //!
 //! # fn example() -> kreuzberg::Result<()> {
-//! let result = extract_pptx_from_path("presentation.pptx", true, None, false, false)?;
+//! let result = extract_pptx_from_path("presentation.pptx", &PptxExtractionOptions::default())?;
 //!
 //! println!("Slide count: {}", result.slide_count);
 //! println!("Image count: {}", result.image_count);
@@ -60,6 +60,33 @@ use elements::{ParserConfig, Run, SlideElement};
 use image_handling::detect_image_format;
 use metadata::{extract_all_notes, extract_metadata};
 
+/// Options for PPTX content extraction.
+#[derive(Debug, Clone)]
+pub struct PptxExtractionOptions {
+    /// Whether to extract embedded images.
+    pub extract_images: bool,
+    /// Optional page configuration for boundary tracking.
+    pub page_config: Option<crate::core::config::PageConfig>,
+    /// Whether to output plain text (no markdown).
+    pub plain: bool,
+    /// Whether to build the `DocumentStructure` tree.
+    pub include_structure: bool,
+    /// Whether to emit `![alt](target)` references in markdown output.
+    pub inject_placeholders: bool,
+}
+
+impl Default for PptxExtractionOptions {
+    fn default() -> Self {
+        Self {
+            extract_images: true,
+            page_config: None,
+            plain: false,
+            include_structure: false,
+            inject_placeholders: true,
+        }
+    }
+}
+
 /// Join text runs with smart spacing: inserts a space between adjacent runs
 /// only when the previous run doesn't end with whitespace and the next run
 /// doesn't start with whitespace.
@@ -84,23 +111,14 @@ fn join_runs_with_spacing(runs: &[Run], extract: impl Fn(&Run) -> String) -> Str
 /// # Arguments
 ///
 /// * `path` - Path to the PPTX file
-/// * `extract_images` - Whether to extract embedded images
-/// * `page_config` - Optional page configuration for boundary tracking
-/// * `plain` - Whether to output plain text (no markdown)
-/// * `include_structure` - Whether to build the `DocumentStructure` tree
+/// * `options` - Extraction options controlling image extraction, formatting, etc.
 ///
 /// # Returns
 ///
 /// A `PptxExtractionResult` containing extracted content, metadata, and images.
-pub fn extract_pptx_from_path(
-    path: &str,
-    extract_images: bool,
-    page_config: Option<&crate::core::config::PageConfig>,
-    plain: bool,
-    include_structure: bool,
-) -> Result<PptxExtractionResult> {
+pub fn extract_pptx_from_path(path: &str, options: &PptxExtractionOptions) -> Result<PptxExtractionResult> {
     let container = PptxContainer::open(path)?;
-    extract_pptx_from_container(container, extract_images, page_config, plain, include_structure)
+    extract_pptx_from_container(container, options)
 }
 
 /// Extract PPTX content from a byte buffer.
@@ -108,37 +126,28 @@ pub fn extract_pptx_from_path(
 /// # Arguments
 ///
 /// * `data` - Raw PPTX file bytes
-/// * `extract_images` - Whether to extract embedded images
-/// * `page_config` - Optional page configuration for boundary tracking
-/// * `plain` - Whether to output plain text (no markdown)
-/// * `include_structure` - Whether to build the `DocumentStructure` tree
+/// * `options` - Extraction options controlling image extraction, formatting, etc.
 ///
 /// # Returns
 ///
 /// A `PptxExtractionResult` containing extracted content, metadata, and images.
-pub fn extract_pptx_from_bytes(
-    data: &[u8],
-    extract_images: bool,
-    page_config: Option<&crate::core::config::PageConfig>,
-    plain: bool,
-    include_structure: bool,
-) -> Result<PptxExtractionResult> {
+pub fn extract_pptx_from_bytes(data: &[u8], options: &PptxExtractionOptions) -> Result<PptxExtractionResult> {
     let container = PptxContainer::from_bytes(data)?;
-    extract_pptx_from_container(container, extract_images, page_config, plain, include_structure)
+    extract_pptx_from_container(container, options)
 }
 
 fn extract_pptx_from_container<R: std::io::Read + std::io::Seek>(
     mut container: PptxContainer<R>,
-    extract_images: bool,
-    page_config: Option<&crate::core::config::PageConfig>,
-    plain: bool,
-    include_structure: bool,
+    options: &PptxExtractionOptions,
 ) -> Result<PptxExtractionResult> {
     let config = ParserConfig {
-        extract_images,
-        plain,
+        extract_images: options.extract_images,
+        plain: options.plain,
+        inject_placeholders: options.inject_placeholders,
         ..Default::default()
     };
+    let page_config = options.page_config.as_ref();
+    let include_structure = options.include_structure;
 
     let (metadata, office_metadata) = extract_metadata(&mut container.archive);
 
@@ -148,7 +157,7 @@ fn extract_pptx_from_container<R: std::io::Read + std::io::Seek>(
     let slide_count = iterator.slide_count();
 
     let estimated_capacity = slide_count.saturating_mul(1000).max(8192);
-    let mut content_builder = ContentBuilder::with_page_config(estimated_capacity, page_config.cloned(), plain);
+    let mut content_builder = ContentBuilder::with_page_config(estimated_capacity, page_config.cloned(), options.plain);
 
     let mut total_image_count = 0;
     let mut total_table_count = 0;
@@ -640,14 +649,19 @@ impl elements::Slide {
                     }
                 }
                 SlideElement::Image(img_ref, _) => {
-                    // Resolve image target from rels
-                    let target = self
-                        .images
-                        .iter()
-                        .find(|rel| rel.id == img_ref.id)
-                        .map(|rel| rel.target.as_str())
-                        .unwrap_or("");
-                    builder.add_image_with_desc(&img_ref.id, img_ref.description.as_deref(), target);
+                    // Only emit the markdown image reference when inject_placeholders
+                    // is enabled (default true). When false, image data may still be
+                    // extracted separately but the reference is not injected into text.
+                    if config.inject_placeholders {
+                        // Resolve image target from rels
+                        let target = self
+                            .images
+                            .iter()
+                            .find(|rel| rel.id == img_ref.id)
+                            .map(|rel| rel.target.as_str())
+                            .unwrap_or("");
+                        builder.add_image_with_desc(&img_ref.id, img_ref.description.as_deref(), target);
+                    }
                 }
                 SlideElement::Unknown => {}
             }
@@ -781,7 +795,14 @@ mod tests {
     #[test]
     fn test_extract_pptx_from_bytes_single_slide() {
         let pptx_bytes = create_test_pptx_bytes(vec!["Hello World"]);
-        let result = extract_pptx_from_bytes(&pptx_bytes, false, None, false, false).unwrap();
+        let result = extract_pptx_from_bytes(
+            &pptx_bytes,
+            &PptxExtractionOptions {
+                extract_images: false,
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         assert_eq!(result.slide_count, 1);
         assert!(
@@ -796,7 +817,14 @@ mod tests {
     #[test]
     fn test_extract_pptx_from_bytes_multiple_slides() {
         let pptx_bytes = create_test_pptx_bytes(vec!["Slide 1", "Slide 2", "Slide 3"]);
-        let result = extract_pptx_from_bytes(&pptx_bytes, false, None, false, false).unwrap();
+        let result = extract_pptx_from_bytes(
+            &pptx_bytes,
+            &PptxExtractionOptions {
+                extract_images: false,
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         assert_eq!(result.slide_count, 3);
         assert!(result.content.contains("Slide 1"));
@@ -807,7 +835,14 @@ mod tests {
     #[test]
     fn test_extract_pptx_metadata() {
         let pptx_bytes = create_test_pptx_bytes(vec!["Content"]);
-        let result = extract_pptx_from_bytes(&pptx_bytes, false, None, false, false).unwrap();
+        let result = extract_pptx_from_bytes(
+            &pptx_bytes,
+            &PptxExtractionOptions {
+                extract_images: false,
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         // Metadata should be populated (slide_count should be 1 for the test content)
         assert_eq!(result.metadata.slide_count, 1);
@@ -816,7 +851,14 @@ mod tests {
     #[test]
     fn test_extract_pptx_empty_slides() {
         let pptx_bytes = create_test_pptx_bytes(vec!["", "", ""]);
-        let result = extract_pptx_from_bytes(&pptx_bytes, false, None, false, false).unwrap();
+        let result = extract_pptx_from_bytes(
+            &pptx_bytes,
+            &PptxExtractionOptions {
+                extract_images: false,
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         assert_eq!(result.slide_count, 3);
     }
@@ -826,7 +868,13 @@ mod tests {
         use crate::error::KreuzbergError;
 
         let invalid_bytes = b"not a valid pptx file";
-        let result = extract_pptx_from_bytes(invalid_bytes, false, None, false, false);
+        let result = extract_pptx_from_bytes(
+            invalid_bytes,
+            &PptxExtractionOptions {
+                extract_images: false,
+                ..Default::default()
+            },
+        );
 
         assert!(result.is_err());
         if let Err(KreuzbergError::Parsing { message: msg, .. }) = result {
@@ -839,7 +887,13 @@ mod tests {
     #[test]
     fn test_extract_pptx_from_bytes_empty_data() {
         let empty_bytes: &[u8] = &[];
-        let result = extract_pptx_from_bytes(empty_bytes, false, None, false, false);
+        let result = extract_pptx_from_bytes(
+            empty_bytes,
+            &PptxExtractionOptions {
+                extract_images: false,
+                ..Default::default()
+            },
+        );
 
         assert!(result.is_err());
     }
@@ -917,6 +971,195 @@ mod tests {
         assert_eq!(
             image_handling::get_full_image_path("ppt/slides/slide1.xml", "image1.png"),
             "ppt/slides/image1.png"
+        );
+    }
+
+    // ── inject_placeholders tests (issue #671) ──
+
+    /// Build a minimal PPTX ZIP with one slide that contains an image (<p:pic>) element.
+    ///
+    /// The slide XML includes a picture shape referencing rel id "rId2", and the
+    /// slide rels file maps that id to "media/image1.png".
+    fn create_pptx_with_image_slide(slide_text: &str) -> Vec<u8> {
+        use std::io::Write;
+        use zip::write::{SimpleFileOptions, ZipWriter};
+
+        let mut buffer = Vec::new();
+        {
+            let mut zip = ZipWriter::new(std::io::Cursor::new(&mut buffer));
+            let opts = SimpleFileOptions::default();
+
+            zip.start_file("[Content_Types].xml", opts).unwrap();
+            zip.write_all(
+                br#"<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+    <Default Extension="xml" ContentType="application/xml"/>
+    <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+    <Default Extension="png" ContentType="image/png"/>
+</Types>"#,
+            )
+            .unwrap();
+
+            zip.start_file("_rels/.rels", opts).unwrap();
+            zip.write_all(br#"<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+</Relationships>"#).unwrap();
+
+            zip.start_file("ppt/presentation.xml", opts).unwrap();
+            zip.write_all(b"<?xml version=\"1.0\"?><presentation/>").unwrap();
+
+            zip.start_file("ppt/_rels/presentation.xml.rels", opts).unwrap();
+            zip.write_all(br#"<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+</Relationships>"#).unwrap();
+
+            // Slide with both a text run and a picture element
+            let slide_xml = format!(
+                r#"<?xml version="1.0" encoding="UTF-8"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+       xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+       xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+    <p:cSld>
+        <p:spTree>
+            <p:sp>
+                <p:txBody>
+                    <a:p><a:r><a:t>{slide_text}</a:t></a:r></a:p>
+                </p:txBody>
+            </p:sp>
+            <p:pic>
+                <p:nvPicPr>
+                    <p:nvPr><p:ph type="pic"/></p:nvPr>
+                    <p:cNvPicPr/>
+                    <p:nvPr><a:hlinkClick r:id=""/></p:nvPr>
+                </p:nvPicPr>
+                <p:blipFill>
+                    <a:blip r:embed="rId2" descr="Test chart"/>
+                </p:blipFill>
+                <p:spPr>
+                    <a:xfrm><a:off x="0" y="0"/><a:ext cx="1000000" cy="1000000"/></a:xfrm>
+                </p:spPr>
+            </p:pic>
+        </p:spTree>
+    </p:cSld>
+</p:sld>"#
+            );
+            zip.start_file("ppt/slides/slide1.xml", opts).unwrap();
+            zip.write_all(slide_xml.as_bytes()).unwrap();
+
+            // Rels for the slide: rId2 → media/image1.png
+            zip.start_file("ppt/slides/_rels/slide1.xml.rels", opts).unwrap();
+            zip.write_all(br#"<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+    <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>
+</Relationships>"#).unwrap();
+
+            // A tiny placeholder PNG (1×1 transparent)
+            zip.start_file("ppt/media/image1.png", opts).unwrap();
+            zip.write_all(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82").unwrap();
+
+            zip.start_file("docProps/core.xml", opts).unwrap();
+            zip.write_all(
+                br#"<?xml version="1.0" encoding="UTF-8"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+                   xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Image Test</dc:title>
+</cp:coreProperties>"#,
+            )
+            .unwrap();
+
+            zip.start_file("docProps/app.xml", opts).unwrap();
+            zip.write_all(b"<?xml version=\"1.0\"?><Properties xmlns=\"http://schemas.openxmlformats.org/officeDocument/2006/extended-properties\"><Slides>1</Slides></Properties>").unwrap();
+
+            let _ = zip.finish().unwrap();
+        }
+        buffer
+    }
+
+    #[test]
+    fn test_inject_placeholders_true_emits_image_reference() {
+        let pptx = create_pptx_with_image_slide("Hello");
+        let result = extract_pptx_from_bytes(
+            &pptx,
+            &PptxExtractionOptions {
+                extract_images: false,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(
+            result.content.contains("!["),
+            "inject_placeholders=true must emit image reference, got: {:?}",
+            result.content
+        );
+    }
+
+    #[test]
+    fn test_inject_placeholders_false_suppresses_image_reference() {
+        let pptx = create_pptx_with_image_slide("Hello");
+        let result = extract_pptx_from_bytes(
+            &pptx,
+            &PptxExtractionOptions {
+                extract_images: false,
+                inject_placeholders: false,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(
+            !result.content.contains("!["),
+            "inject_placeholders=false must NOT emit image reference, got: {:?}",
+            result.content
+        );
+    }
+
+    #[test]
+    fn test_inject_placeholders_false_preserves_text_content() {
+        // Suppressing image references must not remove surrounding slide text.
+        let pptx = create_pptx_with_image_slide("Quarterly Review");
+        let result = extract_pptx_from_bytes(
+            &pptx,
+            &PptxExtractionOptions {
+                extract_images: false,
+                inject_placeholders: false,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(
+            result.content.contains("Quarterly Review"),
+            "Text content must survive when inject_placeholders=false, got: {:?}",
+            result.content
+        );
+    }
+
+    #[test]
+    fn test_default_inject_placeholders_preserves_existing_behaviour() {
+        // inject_placeholders defaults to true — existing call sites without the
+        // new arg (via the public API passing true) must continue to emit refs.
+        let pptx = create_pptx_with_image_slide("Slide Title");
+        let result_true = extract_pptx_from_bytes(
+            &pptx,
+            &PptxExtractionOptions {
+                extract_images: false,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let result_false = extract_pptx_from_bytes(
+            &pptx,
+            &PptxExtractionOptions {
+                extract_images: false,
+                inject_placeholders: false,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        // With placeholders: content is longer (image refs add characters)
+        assert!(
+            result_true.content.len() >= result_false.content.len(),
+            "inject_placeholders=true should produce >= content length vs false"
         );
     }
 }

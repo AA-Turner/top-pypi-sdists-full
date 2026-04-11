@@ -130,14 +130,12 @@ def cover(session: nox.Session) -> None:
 
 @nox.session(python="3.12")
 def lint(session: nox.Session) -> None:
-    """Run pre-commit linting."""
-    session.install("pre-commit")
+    """Run the linters."""
+    session.install("prek")
     session.run(
-        "pre-commit",
+        "prek",
         "run",
         "--all-files",
-        "--show-diff-on-failure",
-        "--hook-stage=manual",
         *session.posargs,
     )
 
@@ -191,8 +189,11 @@ def _check_python_version(session: nox.Session) -> None:
     python=[
         *ALL_PYTHONS,
         "pypy-3.11",
+        "3.13t",
+        "3.14t",
     ],
     default=False,
+    tags=["gha"],
 )
 def github_actions_default_tests(session: nox.Session) -> None:
     """Check default versions installed by the nox GHA Action"""
@@ -203,12 +204,12 @@ def github_actions_default_tests(session: nox.Session) -> None:
 @nox.session(
     python=[
         *ALL_PYTHONS,
-        "pypy3.8",
         "pypy3.9",
         "pypy3.10",
         "pypy3.11",
     ],
     default=False,
+    tags=["gha"],
 )
 def github_actions_all_tests(session: nox.Session) -> None:
     """Check all versions installed by the nox GHA Action"""

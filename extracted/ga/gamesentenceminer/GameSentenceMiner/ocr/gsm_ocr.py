@@ -38,7 +38,7 @@ from GameSentenceMiner.ocr.gsm_ocr_config import (
     get_scene_furigana_filter_sensitivity,
 )
 from GameSentenceMiner.owocr.owocr import run
-from GameSentenceMiner.owocr.owocr.ocr import normalize_japanese_ocr_dashes
+from GameSentenceMiner.owocr.owocr.ocr import normalize_japanese_ocr_dashes, normalize_japanese_ocr_text_and_segments
 from GameSentenceMiner.owocr.owocr.run import TextFiltering
 from GameSentenceMiner.util.communication import ocr_ipc
 from GameSentenceMiner.util.config.configuration import (
@@ -1232,7 +1232,17 @@ class WebsocketServerThread(threading.Thread):
         finally:
             self.clients.discard(websocket)
 
-    async def send_text(self, text, line_time: datetime, response_dict=None, source=TextSource.OCR):
+    def _get_running_loop(self):
+        loop = self._loop
+        if loop is None:
+            raise RuntimeError("OCR websocket event loop is not initialized")
+        if loop.is_closed():
+            raise RuntimeError("OCR websocket event loop is closed")
+        if not loop.is_running():
+            raise RuntimeError("OCR websocket event loop is not running")
+        return loop
+
+    def send_text(self, text, line_time: datetime, response_dict=None, source=TextSource.OCR):
         if text:
             data = {
                 "sentence": text,
@@ -1242,7 +1252,13 @@ class WebsocketServerThread(threading.Thread):
             }
             if response_dict:
                 data["dict_from_ocr"] = response_dict
-            return asyncio.run_coroutine_threadsafe(self._queue_or_send_message(json.dumps(data)), self.loop)
+            loop = self._get_running_loop()
+            send_coro = self._queue_or_send_message(json.dumps(data))
+            try:
+                return asyncio.run_coroutine_threadsafe(send_coro, loop)
+            except Exception:
+                send_coro.close()
+                raise
 
     def stop_server(self):
         self.loop.call_soon_threadsafe(self._stop_event.set)
@@ -1375,18 +1391,28 @@ def _normalize_overlay_lookup_lines(lines: Any) -> list[dict[str, Any]]:
             continue
 
         normalized_line = dict(line)
-        normalized_line["text"] = normalize_japanese_ocr_dashes(str(normalized_line.get("text", "") or ""))
-
         raw_words = normalized_line.get("words")
         if isinstance(raw_words, list):
+            raw_word_texts = [str(word.get("text", "") or "") for word in raw_words if isinstance(word, dict)]
+            normalized_text, normalized_word_texts = normalize_japanese_ocr_text_and_segments(
+                str(normalized_line.get("text", "") or ""),
+                raw_word_texts,
+            )
+            normalized_line["text"] = normalized_text
             normalized_words = []
+            normalized_word_iter = iter(normalized_word_texts or [])
             for word in raw_words:
                 if not isinstance(word, dict):
                     continue
                 normalized_word = dict(word)
-                normalized_word["text"] = normalize_japanese_ocr_dashes(str(normalized_word.get("text", "") or ""))
+                normalized_word["text"] = next(
+                    normalized_word_iter,
+                    normalize_japanese_ocr_dashes(str(normalized_word.get("text", "") or "")),
+                )
                 normalized_words.append(normalized_word)
             normalized_line["words"] = normalized_words
+        else:
+            normalized_line["text"] = normalize_japanese_ocr_dashes(str(normalized_line.get("text", "") or ""))
 
         normalized_lines.append(normalized_line)
 
@@ -1790,15 +1816,26 @@ async def send_result(text, time, response_dict=None, source=TextSource.OCR):
             overlay_payload = build_overlay_coordinate_payload(response_dict)
         else:
             overlay_payload = None
-        if get_ocr_send_to_clipboard(source):
-            import pyperclipfix
-
-            # TODO Test this out and see if i can make it work properly across platforms
-            # from GameSentenceMiner.ui.qt_main import send_to_clipboard
-            # send_to_clipboard(text)
-            pyperclipfix.copy(text)
         try:
-            await websocket_server_thread.send_text(text, time, response_dict=overlay_payload, source=source)
+            if get_ocr_send_to_clipboard(source):
+                import pyperclipfix
+
+                # TODO Test this out and see if i can make it work properly across platforms
+                # from GameSentenceMiner.ui.qt_main import send_to_clipboard
+                # send_to_clipboard(text)
+                pyperclipfix.copy(text)
+        except Exception as e:
+            logger.error(f"Error sending text to clipboard: {e}")
+
+        try:
+            send_future = websocket_server_thread.send_text(
+                text,
+                time,
+                response_dict=overlay_payload,
+                source=source,
+            )
+            if send_future is not None:
+                await asyncio.wrap_future(send_future)
         except Exception as e:
             logger.debug(f"Error sending text to websocket: {e}")
 

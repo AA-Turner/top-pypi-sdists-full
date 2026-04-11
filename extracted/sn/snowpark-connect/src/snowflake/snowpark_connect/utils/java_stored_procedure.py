@@ -112,8 +112,15 @@ def get_quoted_imports(session: Session) -> str:
         else set()
     )
 
+    from snowflake.snowpark_connect.utils.spark_session_cache import (
+        get_spark_session_cache,
+    )
+
+    artifacts_store = get_spark_session_cache().artifacts_store
+
     return ", ".join(
-        quote_single(x) for x in session._artifact_jars | spark_imports | config_imports
+        quote_single(x)
+        for x in artifacts_store.get_jars() | spark_imports | config_imports
     )
 
 

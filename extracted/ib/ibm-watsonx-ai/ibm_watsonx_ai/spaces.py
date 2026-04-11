@@ -759,19 +759,20 @@ class Spaces(WMLResource):
         self,
         space_id: str | None = None,
         limit: int | None = None,
-        asynchronous: bool = False,
         get_all: bool = False,
         space_name: str | None = None,
         **kwargs: Any,
-    ) -> dict[str, Any] | Generator:
+    ) -> dict[str, Any]:
         """Get metadata of stored space(s) with caching. It's dedicated for internal usage."""
-        return self.get_details(
-            space_id=space_id,
-            limit=limit,
-            asynchronous=asynchronous,
-            get_all=get_all,
-            space_name=space_name,
-            **kwargs,
+        return cast(
+            dict[str, Any],
+            self.get_details(
+                space_id=space_id,
+                limit=limit,
+                get_all=get_all,
+                space_name=space_name,
+                **kwargs,
+            ),
         )
 
     async def _aget_details(

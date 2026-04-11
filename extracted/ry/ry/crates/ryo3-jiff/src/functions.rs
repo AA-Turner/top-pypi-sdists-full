@@ -1,11 +1,11 @@
-use crate::RyZoned;
-use crate::{RyDate, RyDateTime, RyOffset, RySpan, RyTime};
 use jiff::civil::Date;
 use jiff::tz::TimeZone;
 use jiff::{Span, Zoned};
 use pyo3::prelude::*;
 use ryo3_core::map_py_value_err;
 use ryo3_macro_rules::py_overflow_error;
+
+use crate::{RyDate, RyDateTime, RyOffset, RySpan, RyTime, RyZoned};
 
 #[pyfunction]
 #[must_use]
@@ -19,13 +19,13 @@ pub fn date(year: i16, month: i8, day: i8) -> PyResult<RyDate> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (hour=0, minute=0, second=0, nanosecond=0))]
+#[pyo3(signature = (hour = 0, minute = 0, second = 0, nanosecond = 0))]
 pub fn time(hour: i8, minute: i8, second: i8, nanosecond: i32) -> PyResult<RyTime> {
     RyTime::py_new(hour, minute, second, nanosecond)
 }
 
 #[pyfunction]
-#[pyo3(signature = ( year, month, day, hour=0, minute=0, second=0, nanosecond=0))]
+#[pyo3(signature = ( year, month, day, hour = 0, minute = 0, second = 0, nanosecond = 0))]
 pub fn datetime(
     year: i16,
     month: i8,
@@ -39,7 +39,7 @@ pub fn datetime(
 }
 
 #[pyfunction]
-#[pyo3(signature = (year, month, day, hour=0, minute=0, second=0, nanosecond=0, tz=None))]
+#[pyo3(signature = (year, month, day, hour = 0, minute = 0, second = 0, nanosecond = 0, tz = None))]
 #[expect(clippy::too_many_arguments)]
 pub fn zoned(
     year: i16,
@@ -126,7 +126,21 @@ pub(crate) fn span(
 
 #[expect(clippy::too_many_arguments)]
 #[pyfunction]
-#[pyo3(signature = (*, years=0, months=0, weeks=0, days=0, hours=0, minutes=0, seconds=0, milliseconds=0, microseconds=0, nanoseconds=0))]
+#[pyo3(
+    signature = (
+        *,
+        years = 0,
+        months = 0,
+        weeks = 0,
+        days = 0,
+        hours = 0,
+        minutes = 0,
+        seconds = 0,
+        milliseconds = 0,
+        microseconds = 0,
+        nanoseconds = 0
+    )
+)]
 pub fn timespan(
     years: i64,
     months: i64,

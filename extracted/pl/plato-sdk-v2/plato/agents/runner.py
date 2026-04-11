@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -116,6 +117,7 @@ def main() -> None:
     run_parser.add_argument("--agent-package", help="Registered agent package/name to run")
     run_parser.add_argument("--instruction", "-i", help="Task instruction")
     run_parser.add_argument("--instruction-b64", help="Base64 encoded instruction")
+    run_parser.add_argument("--instruction-file", help="Path to file containing base64 encoded instruction")
     run_parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
 
     reset_parser = subparsers.add_parser("reset-commands", help="Print pooled VM reset commands as JSON")
@@ -141,10 +143,14 @@ def main() -> None:
             from plato.utils.encoding import decode_b64
 
             instruction = decode_b64(args.instruction_b64)
+        elif args.instruction_file:
+            from plato.utils.encoding import decode_b64
+
+            instruction = decode_b64(Path(args.instruction_file).read_text().strip())
         elif args.instruction:
             instruction = args.instruction
         else:
-            parser.error("--instruction or --instruction-b64 required")
+            parser.error("--instruction, --instruction-b64, or --instruction-file required")
 
         asyncio.run(_run_agent_cli(instruction, args.agent_package))
     elif args.command == "reset-commands":

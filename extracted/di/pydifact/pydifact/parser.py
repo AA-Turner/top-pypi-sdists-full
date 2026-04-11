@@ -40,7 +40,12 @@ logger = logging.getLogger(__name__)
 
 
 class TokenIterator:
-    """Wrapper for token iterator to allow pushing back tokens."""
+    """Wrapper for token iterator to allow pushing back tokens.
+
+    TokenIterator is a thin push-back wrapper around a normal token stream.
+    Its only special power is push_back(token), which lets a consumer "un-read" a token
+    so it gets returned again on the next __next__() call.
+    """
 
     def __init__(self, iterable: Iterable[Token]):
         self.iterator = iter(iterable)
@@ -140,26 +145,11 @@ class Parser:
             raw_segments = self.convert_tokens_to_raw_segments(token_iterator)
             try:
                 raw_segment = next(raw_segments)
+                yield self.convert_raw_segment_to_segment(
+                    raw_segment, directory=self.directory
+                )
             except StopIteration:
                 break
-
-            segment = self.convert_raw_segment_to_segment(
-                raw_segment, directory=self.directory
-            )
-            yield segment
-
-            # check if this segment starts a payload
-            if self.is_payload_start(segment):
-                yield from self.handle_payload(token_iterator)
-
-    def is_payload_start(self, segment: Segment) -> bool:
-        """Return True if the segment starts a non-EDIFACT payload section.
-        Override in subclasses."""
-        return False
-
-    def handle_payload(self, tokens: TokenIterator) -> Iterator[Segment]:
-        """Handle a non-EDIFACT payload. Override in subclasses."""
-        yield from []
 
     @staticmethod
     def get_control_characters(
@@ -319,91 +309,3 @@ class Parser:
             version=self.version,
             directory=directory,
         )
-
-
-class AEKParser(Parser):
-    """Parser for AEK messages."""
-
-    def is_payload_start(self, segment: Segment) -> bool:
-        """The UNB segment starts the payload in AEK messages."""
-        return segment.tag == "UNB"
-
-    def handle_payload(self, tokens: TokenIterator) -> Iterator[Segment]:
-        """Parse the HL7-like payload.
-        It ends when a UNZ segment is reached.
-        """
-        # Collect tokens until we see something that looks like UNZ or UNT.
-        payload_parts = []
-        while True:
-            try:
-                token = next(tokens)
-                # print(f"DEBUG: Token type={token.type}, value={repr(token.value)}")
-                if token.type == Token.Type.CONTENT:
-                    # check if this content starts with UNZ or UNT (next segment)
-                    if token.value.startswith("UNZ") or token.value.startswith("UNT"):
-                        # Peek next to see if it's a separator
-                        try:
-                            next_token = next(tokens)
-                            if next_token.type == Token.Type.DATA_SEPARATOR:
-                                # It's a segment start!
-                                tokens.push_back(next_token)
-                                tokens.push_back(token)
-                                # print("DEBUG: Found UNZ/UNT at start of CONTENT")
-                                break
-                            else:
-                                tokens.push_back(next_token)
-                        except StopIteration:
-                            pass
-
-                    # Look for terminator + UNZ/UNT
-                    # The tokenizer might have split them if there are separators.
-
-                    payload_parts.append(token.value)
-                elif token.type == Token.Type.TERMINATOR:
-                    # After a terminator, we might have UNZ
-                    try:
-                        next_token = next(tokens)
-                        # print(f"DEBUG: Token after terminator={next_token.type}, value={repr(next_token.value)}")
-                        if next_token.type == Token.Type.CONTENT and (
-                            next_token.value.startswith("UNZ")
-                            or next_token.value.startswith("UNT")
-                        ):
-                            # Check if it's really a segment
-                            try:
-                                n2 = next(tokens)
-                                # print(f"DEBUG: Token after UNZ/UNT={n2.type}, value={repr(n2.value)}")
-                                if n2.type == Token.Type.DATA_SEPARATOR:
-                                    tokens.push_back(n2)
-                                    tokens.push_back(next_token)
-                                    tokens.push_back(token)
-                                    # print("DEBUG: Found UNZ/UNT after TERMINATOR")
-                                    break
-                                else:
-                                    tokens.push_back(n2)
-                                    payload_parts.append(token.value)
-                                    payload_parts.append(next_token.value)
-                            except StopIteration:
-                                payload_parts.append(token.value)
-                                payload_parts.append(next_token.value)
-                        else:
-                            tokens.push_back(next_token)
-                            payload_parts.append(token.value)
-                    except StopIteration:
-                        payload_parts.append(token.value)
-                else:
-                    payload_parts.append(token.value)
-
-            except StopIteration:
-                break
-
-        full_payload = "".join(payload_parts).strip()
-        # print(f"DEBUG: Full payload={repr(full_payload)}")
-        for line in full_payload.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            # AEK/HL7 segments use ` as separator
-            parts = line.split("`")
-            tag = parts[0]
-            # print(f"DEBUG: Yielding segment {tag}")
-            yield Segment(tag, *parts[1:])

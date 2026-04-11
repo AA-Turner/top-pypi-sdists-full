@@ -39,7 +39,7 @@ from ibm_watsonx_ai.data_loaders.datasets.constants import (
     DEFAULT_SAMPLE_SIZE_LIMIT,
     DEFAULT_SAMPLING_TYPE,
 )
-from ibm_watsonx_ai.utils import get_filename_from_asset_details
+from ibm_watsonx_ai.utils import get_document_path_from_asset_details
 from ibm_watsonx_ai.utils.autoai.enums import DataConnectionTypes
 from ibm_watsonx_ai.utils.autoai.errors import (
     CannotGetFilename,
@@ -2238,6 +2238,8 @@ class DataConnection(BaseDataConnection):
     def _get_filename(self) -> str:
         """Get file name of the file in data connection, if applicable.
 
+        Returns only the filename (last segment of the path), without directory structure.
+
         :return: file name
         :rtype: str
 
@@ -2247,9 +2249,46 @@ class DataConnection(BaseDataConnection):
 
             document_reference = DataConnection(
                 connection_asset_id="<connection_id>",
-                location=S3Location(bucket="<bucket_name>", path="path/to/file"),
+                location=S3Location(
+                    bucket="<bucket_name>", path="path/to/file.txt"
+                ),
             )
             filename = document_reference._get_filename()
+            # Returns: "file.txt"
+
+        """
+        document_id = self._get_document_id()
+        return document_id.split("/")[-1]
+
+    def _get_document_id(self) -> str:
+        """Get document ID for the file in data connection.
+
+        Returns the full path that should be used as document_id in RemoteDocument.
+        For AssetLocation, includes catalog_id and asset_id prefix.
+        For other location types, returns the full path.
+
+        :return: document ID (full path)
+        :rtype: str
+
+        **Examples**
+
+        .. code-block:: python
+
+            # For AssetLocation with catalog
+            document_reference = DataConnection(
+                connection=None,
+                location=AssetLocation(asset_id="<asset_id>"),
+            )
+            document_id = document_reference._get_document_id()
+            # Returns: "catalog_123/asset_456/filename.txt"
+
+            # For S3Location
+            document_reference = DataConnection(
+                connection_asset_id="<connection_id>",
+                location=S3Location(bucket="<bucket_name>", path="folder/file.txt"),
+            )
+            document_id = document_reference._get_document_id()
+            # Returns: "folder/file.txt"
 
         """
         if isinstance(self.location, AssetLocation):
@@ -2259,15 +2298,18 @@ class DataConnection(BaseDataConnection):
                     "DataConnection._api_client property to be able to use this functionality."
                 )
             asset_details = self._api_client.data_assets.get_details(self.location.id)
-            if (filename := get_filename_from_asset_details(asset_details)) is not None:
+            if (
+                filename := get_document_path_from_asset_details(asset_details)
+            ) is not None:
                 return filename
+            raise CannotGetFilename()
         elif hasattr(self.location, "file_name"):
-            filename = self.location.file_name.split("/")[-1]
+            filename = self.location.file_name
             if "." not in filename or filename == ".":
                 raise DirectoryHasNoFilename()
             return filename
         elif hasattr(self.location, "path"):
-            filename = self.location.path.split("/")[-1]
+            filename = self.location.path
             if "." not in filename or filename == ".":
                 raise DirectoryHasNoFilename()
             return filename

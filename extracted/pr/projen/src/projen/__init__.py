@@ -7401,6 +7401,8 @@ class Renovatebot(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Renovate
         ignore_projen: typing.Optional[builtins.bool] = None,
         labels: typing.Optional[typing.Sequence[builtins.str]] = None,
         marker: typing.Optional[builtins.bool] = None,
+        minimum_release_age: typing.Optional[builtins.str] = None,
+        minimum_release_age_behaviour: typing.Optional["RenovatebotMinimumReleaseAgeBehaviour"] = None,
         override_config: typing.Any = None,
         schedule_interval: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -7410,6 +7412,8 @@ class Renovatebot(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Renovate
         :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``ProjenUpgrade`` class. Default: true
         :param labels: (experimental) List of labels to apply to the created PR's.
         :param marker: 
+        :param minimum_release_age: (experimental) Minimum release age for packages before Renovate will propose an update. This is a supply chain security feature to avoid updating to newly published, potentially malicious versions. Default: - no minimum release age
+        :param minimum_release_age_behaviour: (experimental) Controls whether a release timestamp is required when using ``minimumReleaseAge``. Default: RenovatebotMinimumReleaseAgeBehaviour.TIMESTAMP_REQUIRED
         :param override_config: 
         :param schedule_interval: (experimental) How often to check for new versions and raise pull requests. Can be given in CRON or LATER format, and use multiple schedules (e.g. different for weekdays and weekends). Multiple rules are handles as OR. Some normal scheduling values defined in enum ``RenovatebotScheduleInterval``. Default: ["at any time"]
 
@@ -7423,6 +7427,8 @@ class Renovatebot(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Renovate
             ignore_projen=ignore_projen,
             labels=labels,
             marker=marker,
+            minimum_release_age=minimum_release_age,
+            minimum_release_age_behaviour=minimum_release_age_behaviour,
             override_config=override_config,
             schedule_interval=schedule_interval,
         )
@@ -7439,6 +7445,26 @@ class Renovatebot(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Renovate
         return typing.cast("JsonFile", jsii.get(self, "file"))
 
 
+@jsii.enum(jsii_type="projen.RenovatebotMinimumReleaseAgeBehaviour")
+class RenovatebotMinimumReleaseAgeBehaviour(enum.Enum):
+    '''(experimental) Behaviour when a release timestamp is missing for ``minimumReleaseAge``.
+
+    :see: https://docs.renovatebot.com/configuration-options/#minimumreleaseagebehaviour
+    :stability: experimental
+    '''
+
+    TIMESTAMP_REQUIRED = "TIMESTAMP_REQUIRED"
+    '''(experimental) A release without a timestamp is not treated as stable.
+
+    :stability: experimental
+    '''
+    TIMESTAMP_OPTIONAL = "TIMESTAMP_OPTIONAL"
+    '''(experimental) A release without a timestamp is treated as stable.
+
+    :stability: experimental
+    '''
+
+
 @jsii.data_type(
     jsii_type="projen.RenovatebotOptions",
     jsii_struct_bases=[],
@@ -7447,6 +7473,8 @@ class Renovatebot(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Renovate
         "ignore_projen": "ignoreProjen",
         "labels": "labels",
         "marker": "marker",
+        "minimum_release_age": "minimumReleaseAge",
+        "minimum_release_age_behaviour": "minimumReleaseAgeBehaviour",
         "override_config": "overrideConfig",
         "schedule_interval": "scheduleInterval",
     },
@@ -7459,6 +7487,8 @@ class RenovatebotOptions:
         ignore_projen: typing.Optional[builtins.bool] = None,
         labels: typing.Optional[typing.Sequence[builtins.str]] = None,
         marker: typing.Optional[builtins.bool] = None,
+        minimum_release_age: typing.Optional[builtins.str] = None,
+        minimum_release_age_behaviour: typing.Optional["RenovatebotMinimumReleaseAgeBehaviour"] = None,
         override_config: typing.Any = None,
         schedule_interval: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -7468,6 +7498,8 @@ class RenovatebotOptions:
         :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``ProjenUpgrade`` class. Default: true
         :param labels: (experimental) List of labels to apply to the created PR's.
         :param marker: 
+        :param minimum_release_age: (experimental) Minimum release age for packages before Renovate will propose an update. This is a supply chain security feature to avoid updating to newly published, potentially malicious versions. Default: - no minimum release age
+        :param minimum_release_age_behaviour: (experimental) Controls whether a release timestamp is required when using ``minimumReleaseAge``. Default: RenovatebotMinimumReleaseAgeBehaviour.TIMESTAMP_REQUIRED
         :param override_config: 
         :param schedule_interval: (experimental) How often to check for new versions and raise pull requests. Can be given in CRON or LATER format, and use multiple schedules (e.g. different for weekdays and weekends). Multiple rules are handles as OR. Some normal scheduling values defined in enum ``RenovatebotScheduleInterval``. Default: ["at any time"]
 
@@ -7479,6 +7511,8 @@ class RenovatebotOptions:
             check_type(argname="argument ignore_projen", value=ignore_projen, expected_type=type_hints["ignore_projen"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
             check_type(argname="argument marker", value=marker, expected_type=type_hints["marker"])
+            check_type(argname="argument minimum_release_age", value=minimum_release_age, expected_type=type_hints["minimum_release_age"])
+            check_type(argname="argument minimum_release_age_behaviour", value=minimum_release_age_behaviour, expected_type=type_hints["minimum_release_age_behaviour"])
             check_type(argname="argument override_config", value=override_config, expected_type=type_hints["override_config"])
             check_type(argname="argument schedule_interval", value=schedule_interval, expected_type=type_hints["schedule_interval"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -7490,6 +7524,10 @@ class RenovatebotOptions:
             self._values["labels"] = labels
         if marker is not None:
             self._values["marker"] = marker
+        if minimum_release_age is not None:
+            self._values["minimum_release_age"] = minimum_release_age
+        if minimum_release_age_behaviour is not None:
+            self._values["minimum_release_age_behaviour"] = minimum_release_age_behaviour
         if override_config is not None:
             self._values["override_config"] = override_config
         if schedule_interval is not None:
@@ -7540,6 +7578,35 @@ class RenovatebotOptions:
         '''
         result = self._values.get("marker")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def minimum_release_age(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Minimum release age for packages before Renovate will propose an update.
+
+        This is a supply chain security feature to avoid updating to newly published,
+        potentially malicious versions.
+
+        :default: - no minimum release age
+
+        :see: https://docs.renovatebot.com/configuration-options/#minimumreleaseage
+        :stability: experimental
+        '''
+        result = self._values.get("minimum_release_age")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def minimum_release_age_behaviour(
+        self,
+    ) -> typing.Optional["RenovatebotMinimumReleaseAgeBehaviour"]:
+        '''(experimental) Controls whether a release timestamp is required when using ``minimumReleaseAge``.
+
+        :default: RenovatebotMinimumReleaseAgeBehaviour.TIMESTAMP_REQUIRED
+
+        :see: https://docs.renovatebot.com/configuration-options/#minimumreleaseagebehaviour
+        :stability: experimental
+        '''
+        result = self._values.get("minimum_release_age_behaviour")
+        return typing.cast(typing.Optional["RenovatebotMinimumReleaseAgeBehaviour"], result)
 
     @builtins.property
     def override_config(self) -> typing.Any:
@@ -13008,6 +13075,7 @@ __all__ = [
     "ProjenrcOptions",
     "ReleasableCommits",
     "Renovatebot",
+    "RenovatebotMinimumReleaseAgeBehaviour",
     "RenovatebotOptions",
     "RenovatebotScheduleInterval",
     "ResolveOptions",
@@ -14130,6 +14198,8 @@ def _typecheckingstub__096e7567a3344884436d387a9f887ed96b3691c6d8ad217be945ed3e6
     ignore_projen: typing.Optional[builtins.bool] = None,
     labels: typing.Optional[typing.Sequence[builtins.str]] = None,
     marker: typing.Optional[builtins.bool] = None,
+    minimum_release_age: typing.Optional[builtins.str] = None,
+    minimum_release_age_behaviour: typing.Optional[RenovatebotMinimumReleaseAgeBehaviour] = None,
     override_config: typing.Any = None,
     schedule_interval: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -14142,6 +14212,8 @@ def _typecheckingstub__567099b4941210c2f0eb5a6df45f4f8e145db210a75dd2f52fb480378
     ignore_projen: typing.Optional[builtins.bool] = None,
     labels: typing.Optional[typing.Sequence[builtins.str]] = None,
     marker: typing.Optional[builtins.bool] = None,
+    minimum_release_age: typing.Optional[builtins.str] = None,
+    minimum_release_age_behaviour: typing.Optional[RenovatebotMinimumReleaseAgeBehaviour] = None,
     override_config: typing.Any = None,
     schedule_interval: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:

@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Any
+from typing import Iterator
 from typing import Literal
+from typing import Mapping
 from typing import Optional
 from typing import TypeVar
 
@@ -253,6 +255,12 @@ class TraceExporterBuilder:
         """
         Set the git commit sha of the TraceExporter.
         :param git_commit_sha: The git commit SHA of the current code version.
+        """
+        ...
+    def set_process_tags(self, process_tags: str) -> TraceExporterBuilder:
+        """
+        Set the process tags to be included in the stats payload.
+        :param process_tags: Comma-separated list of key:value process tags (e.g., "key1:val1,key2:val2").
         """
         ...
     def set_tracer_version(self, version: str) -> TraceExporterBuilder:
@@ -568,8 +576,16 @@ class SpanData:
     @property
     def finished(self) -> bool: ...  # Read-only, returns duration_ns != -1
 
-class SpanEventData:
-    def __init__(self, name: str, attributes: Optional[dict[str, Any]], time_unix_nano: Optional[int]): ...
+class SpanEvent:
+    name: str
+    time_unix_nano: int
+    attributes: dict[str, Any]
+    def __init__(
+        self, name: str, attributes: Optional[Mapping[str, Any]] = None, time_unix_nano: Optional[int] = None
+    ): ...
+    def __repr__(self) -> str: ...
+    def __iter__(self) -> Iterator[tuple[str, Any]]: ...
+    def __reduce__(self) -> tuple: ...
 
 class SpanLinkData:
     def __init__(

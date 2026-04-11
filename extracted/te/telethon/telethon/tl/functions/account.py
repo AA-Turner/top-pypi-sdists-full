@@ -6,7 +6,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeAccountDaysTTL, TypeAutoDownloadSettings, TypeAutoSaveSettings, TypeBaseTheme, TypeBirthday, TypeBusinessBotRights, TypeBusinessWorkHours, TypeCodeSettings, TypeEmailVerification, TypeEmailVerifyPurpose, TypeEmojiStatus, TypeGlobalPrivacySettings, TypeInputBusinessAwayMessage, TypeInputBusinessBotRecipients, TypeInputBusinessChatLink, TypeInputBusinessGreetingMessage, TypeInputBusinessIntro, TypeInputChannel, TypeInputCheckPasswordSRP, TypeInputDocument, TypeInputFile, TypeInputGeoPoint, TypeInputNotifyPeer, TypeInputPeer, TypeInputPeerNotifySettings, TypeInputPhoto, TypeInputPrivacyKey, TypeInputPrivacyRule, TypeInputSecureValue, TypeInputTheme, TypeInputThemeSettings, TypeInputUser, TypeInputWallPaper, TypePeerColor, TypeProfileTab, TypeReactionsNotifySettings, TypeReportReason, TypeSecureCredentialsEncrypted, TypeSecureValueHash, TypeSecureValueType, TypeWallPaperSettings
+    from ...tl.types import TypeAccountDaysTTL, TypeAutoDownloadSettings, TypeAutoSaveSettings, TypeBaseTheme, TypeBirthday, TypeBusinessBotRights, TypeBusinessWorkHours, TypeCodeSettings, TypeEmailVerification, TypeEmailVerifyPurpose, TypeEmojiStatus, TypeGlobalPrivacySettings, TypeInputBusinessAwayMessage, TypeInputBusinessBotRecipients, TypeInputBusinessChatLink, TypeInputBusinessGreetingMessage, TypeInputBusinessIntro, TypeInputChannel, TypeInputCheckPasswordSRP, TypeInputDocument, TypeInputFile, TypeInputGeoPoint, TypeInputNotifyPeer, TypeInputPasskeyCredential, TypeInputPeer, TypeInputPeerNotifySettings, TypeInputPhoto, TypeInputPrivacyKey, TypeInputPrivacyRule, TypeInputSecureValue, TypeInputTheme, TypeInputThemeSettings, TypeInputUser, TypeInputWallPaper, TypePeerColor, TypeProfileTab, TypeReactionsNotifySettings, TypeReportReason, TypeSecureCredentialsEncrypted, TypeSecureValueHash, TypeSecureValueType, TypeWallPaperSettings
     from ...tl.types.account import TypePasswordInputSettings
 
 
@@ -458,6 +458,34 @@ class DeleteBusinessChatLinkRequest(TLRequest):
     def from_reader(cls, reader):
         _slug = reader.tgread_string()
         return cls(slug=_slug)
+
+
+class DeletePasskeyRequest(TLRequest):
+    CONSTRUCTOR_ID = 0xf5b5563f
+    SUBCLASS_OF_ID = 0xf5b399ac
+
+    def __init__(self, id: str):
+        """
+        :returns Bool: This type has no constructors.
+        """
+        self.id = id
+
+    def to_dict(self):
+        return {
+            '_': 'DeletePasskeyRequest',
+            'id': self.id
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'?V\xb5\xf5',
+            self.serialize_bytes(self.id),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _id = reader.tgread_string()
+        return cls(id=_id)
 
 
 class DeleteSecureValueRequest(TLRequest):
@@ -1215,6 +1243,25 @@ class GetPaidMessagesRevenueRequest(TLRequest):
         return cls(user_id=_user_id, parent_peer=_parent_peer)
 
 
+class GetPasskeysRequest(TLRequest):
+    CONSTRUCTOR_ID = 0xea1f0c52
+    SUBCLASS_OF_ID = 0x24dd205e
+
+    def to_dict(self):
+        return {
+            '_': 'GetPasskeysRequest'
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'R\x0c\x1f\xea',
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        return cls()
+
+
 class GetPasswordRequest(TLRequest):
     CONSTRUCTOR_ID = 0x548a30f5
     SUBCLASS_OF_ID = 0x53a211a3
@@ -1633,6 +1680,25 @@ class GetWebAuthorizationsRequest(TLRequest):
         return cls()
 
 
+class InitPasskeyRegistrationRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x429547e8
+    SUBCLASS_OF_ID = 0x341d83e4
+
+    def to_dict(self):
+        return {
+            '_': 'InitPasskeyRegistrationRequest'
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xe8G\x95B',
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        return cls()
+
+
 class InitTakeoutSessionRequest(TLRequest):
     CONSTRUCTOR_ID = 0x8ef3eab0
     SUBCLASS_OF_ID = 0x843ebe85
@@ -1662,7 +1728,7 @@ class InitTakeoutSessionRequest(TLRequest):
         }
 
     def _bytes(self):
-        assert ((self.files or self.files is not None) and (self.file_max_size or self.file_max_size is not None)) or ((self.files is None or self.files is False) and (self.file_max_size is None or self.file_max_size is False)), 'files, file_max_size parameters must all be False-y (like None) or all me True-y'
+        assert ((self.files or self.files is not None) and (self.file_max_size or self.file_max_size is not None)) or ((self.files is None or self.files is False) and (self.file_max_size is None or self.file_max_size is False)), 'files, file_max_size parameters must all be False-y (like None) or all be True-y'
         return b''.join((
             b'\xb0\xea\xf3\x8e',
             struct.pack('<I', (0 if self.contacts is None or self.contacts is False else 1) | (0 if self.message_users is None or self.message_users is False else 2) | (0 if self.message_chats is None or self.message_chats is False else 4) | (0 if self.message_megagroups is None or self.message_megagroups is False else 8) | (0 if self.message_channels is None or self.message_channels is False else 16) | (0 if self.files is None or self.files is False else 32) | (0 if self.file_max_size is None or self.file_max_size is False else 32)),
@@ -1855,6 +1921,34 @@ class RegisterDeviceRequest(TLRequest):
             _other_uids.append(_x)
 
         return cls(token_type=_token_type, token=_token, app_sandbox=_app_sandbox, secret=_secret, other_uids=_other_uids, no_muted=_no_muted)
+
+
+class RegisterPasskeyRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x55b41fd6
+    SUBCLASS_OF_ID = 0xcf380de0
+
+    def __init__(self, credential: 'TypeInputPasskeyCredential'):
+        """
+        :returns Passkey: Instance of Passkey.
+        """
+        self.credential = credential
+
+    def to_dict(self):
+        return {
+            '_': 'RegisterPasskeyRequest',
+            'credential': self.credential.to_dict() if isinstance(self.credential, TLObject) else self.credential
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xd6\x1f\xb4U',
+            self.credential._bytes(),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _credential = reader.tgread_object()
+        return cls(credential=_credential)
 
 
 class ReorderUsernamesRequest(TLRequest):

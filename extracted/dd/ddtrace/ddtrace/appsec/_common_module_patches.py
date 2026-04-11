@@ -11,7 +11,7 @@ from ddtrace.appsec._constants import EXPLOIT_PREVENTION
 from ddtrace.appsec._constants import WAF_ACTIONS
 from ddtrace.appsec._contrib.stripe.patch import patch as patch_stripe_for_appsec
 from ddtrace.appsec._contrib.stripe.patch import unpatch as unpatch_stripe_for_appsec
-from ddtrace.appsec._metrics import _report_rasp_skipped
+from ddtrace.appsec._metrics import report_rasp_skipped
 from ddtrace.appsec._patch_utils import try_unwrap
 from ddtrace.appsec._patch_utils import try_wrap_function_wrapper
 import ddtrace.contrib.internal.subprocess.patch as subprocess_patch
@@ -45,15 +45,15 @@ def patch_common_modules():
         return
 
     try_wrap_function_wrapper(
-        "urllib3.connectionpool", "HTTPConnectionPool._make_request", wrapped_urllib3_make_request
+        "urllib3.connectionpool", "HTTPConnectionPool._make_request", wrapped_urllib3_make_request_6D4E8B2A1F095C73
     )
     try_wrap_function_wrapper("urllib3.connectionpool", "HTTPConnectionPool.urlopen", wrapped_urllib3_urlopen)
     try_wrap_function_wrapper("urllib3._request_methods", "RequestMethods.request", wrapped_request_D8CB81E472AF98A2)
     try_wrap_function_wrapper("urllib3.request", "RequestMethods.request", wrapped_request_D8CB81E472AF98A2)
     try_wrap_function_wrapper("builtins", "open", wrapped_open_CFDDB7ABBA9081B6)
-    try_wrap_function_wrapper("pathlib", "Path.open", wrapped_path_open_rasp_lfi)
+    try_wrap_function_wrapper("pathlib", "Path.open", wrapped_path_open_B91CA5063FE27D84)
     try_wrap_function_wrapper("urllib.request", "OpenerDirector.open", wrapped_open_ED4CF71136E15EBF)
-    try_wrap_function_wrapper("http.client", "HTTPConnection.request", wrapped_request)
+    try_wrap_function_wrapper("http.client", "HTTPConnection.request", wrapped_request_A7F2C6E4D3B10958)
     try_wrap_function_wrapper("http.client", "HTTPConnection.getresponse", wrapped_response)
 
     patch_stripe_for_appsec()
@@ -101,7 +101,13 @@ def _get_rasp_capability(capability: str) -> bool:
         if not in_asm_context():
             return False
 
-        from ddtrace.appsec._processor import AppSecSpanProcessor
+        try:
+            from ddtrace.appsec._processor import AppSecSpanProcessor
+        except Exception as e:
+            from ddtrace.appsec._listeners import _abort_appsec
+
+            _abort_appsec(str(e))
+            return False
 
         return AppSecSpanProcessor._instance is not None and getattr(
             AppSecSpanProcessor._instance, f"rasp_{capability}_enabled", False
@@ -142,7 +148,7 @@ def wrapped_open_CFDDB7ABBA9081B6(original_open_callable, instance, args, kwargs
                         get_blocked(), EXPLOIT_PREVENTION.BLOCKING, EXPLOIT_PREVENTION.TYPE.LFI, filename
                     )
             else:
-                _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.LFI, False)
+                report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.LFI, False)
     try:
         return original_open_callable(*args, **kwargs)
     except Exception as e:
@@ -152,7 +158,7 @@ def wrapped_open_CFDDB7ABBA9081B6(original_open_callable, instance, args, kwargs
         )
 
 
-def wrapped_path_open_rasp_lfi(original_method_callable, instance, args, kwargs):
+def wrapped_path_open_B91CA5063FE27D84(original_method_callable, instance, args, kwargs):
     """
     wrapper for pathlib.Path.open() method
     """
@@ -172,7 +178,7 @@ def wrapped_path_open_rasp_lfi(original_method_callable, instance, args, kwargs)
             if in_asm_context():
                 res = call_waf_callback(
                     {EXPLOIT_PREVENTION.ADDRESS.LFI: filename},
-                    crop_trace="wrapped_path_open_rasp_lfi",
+                    crop_trace="wrapped_path_open_B91CA5063FE27D84",
                     rule_type=EXPLOIT_PREVENTION.TYPE.LFI,
                 )
                 if res and _must_block(res.actions):
@@ -180,7 +186,7 @@ def wrapped_path_open_rasp_lfi(original_method_callable, instance, args, kwargs)
                         get_blocked(), EXPLOIT_PREVENTION.BLOCKING, EXPLOIT_PREVENTION.TYPE.LFI, filename
                     )
             else:
-                _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.LFI, False)
+                report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.LFI, False)
     try:
         return original_method_callable(*args, **kwargs)
     except Exception as e:
@@ -204,11 +210,11 @@ def _build_headers(lst: Iterable[tuple[str, str]]) -> dict[str, Union[str, list[
     return res
 
 
-def wrapped_request(original_request_callable, instance, args, kwargs):
-    full_url = core.get_item("full_url")
+def wrapped_request_A7F2C6E4D3B10958(original_request_callable, instance, args, kwargs):
+    full_url = core.find_item("full_url")
     env = _get_asm_context()
     if _get_rasp_capability("ssrf") and full_url is not None and env is not None:
-        use_body = core.get_item("use_body", False)
+        use_body = core.find_item("use_body", False)
         method = args[0] if len(args) > 0 else kwargs.get("method", None)
         body = args[2] if len(args) > 2 else kwargs.get("body", None)
         headers = args[3] if len(args) > 3 else kwargs.get("headers", {})
@@ -221,7 +227,7 @@ def wrapped_request(original_request_callable, instance, args, kwargs):
                 pass  # nosec
         res = call_waf_callback(
             addresses,
-            crop_trace="wrapped_open_ED4CF71136E15EBF",
+            crop_trace="wrapped_request_A7F2C6E4D3B10958",
             rule_type=EXPLOIT_PREVENTION.TYPE.SSRF_REQ,
         )
         env.downstream_requests += 1
@@ -273,7 +279,7 @@ def wrapped_open_ED4CF71136E15EBF(original_open_callable, instance, args, kwargs
         except ImportError:
             # open is used during module initialization
             # and shouldn't be changed at that time
-            _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SSRF, True)
+            report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SSRF, True)
             return original_open_callable(*args, **kwargs)
 
         url = args[0] if args else kwargs.get("fullurl", None)
@@ -314,7 +320,7 @@ def wrapped_open_ED4CF71136E15EBF(original_open_callable, instance, args, kwargs
                             )
                     raise
         elif valid_url:
-            _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SSRF, False)
+            report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SSRF, False)
     return original_open_callable(*args, **kwargs)
 
 
@@ -325,12 +331,12 @@ def _parse_headers_urllib3(headers):
         return {}
 
 
-def wrapped_urllib3_make_request(original_request_callable, instance, args, kwargs):
-    full_url = core.get_item("full_url")
+def wrapped_urllib3_make_request_6D4E8B2A1F095C73(original_request_callable, instance, args, kwargs):
+    full_url = core.find_item("full_url")
     env = _get_asm_context()
     do_rasp = _get_rasp_capability("ssrf") and full_url is not None and env is not None
     if do_rasp:
-        use_body = core.get_item("use_body", False)
+        use_body = core.find_item("use_body", False)
         method = args[1] if len(args) > 1 else kwargs.get("method", None)
         body = args[3] if len(args) > 3 else kwargs.get("body", None)
         headers = _parse_headers_urllib3(args[4] if len(args) > 4 else kwargs.get("headers", {}))
@@ -343,7 +349,7 @@ def wrapped_urllib3_make_request(original_request_callable, instance, args, kwar
                 pass  # nosec
         res = call_waf_callback(
             addresses,
-            crop_trace="wrapped_request_D8CB81E472AF98A2",
+            crop_trace="wrapped_urllib3_make_request_6D4E8B2A1F095C73",
             rule_type=EXPLOIT_PREVENTION.TYPE.SSRF_REQ,
         )
         env.downstream_requests += 1
@@ -366,7 +372,7 @@ def wrapped_urllib3_make_request(original_request_callable, instance, args, kwar
 
 def wrapped_urllib3_urlopen(original_open_callable, instance, args, kwargs):
     full_url = args[2] if len(args) > 2 else kwargs.get("url", None)
-    if core.get_item("full_url") is None:
+    if core.find_item("full_url") is None:
         core.set_item("full_url", full_url)
     try:
         return original_open_callable(*args, **kwargs)
@@ -387,7 +393,7 @@ def wrapped_request_D8CB81E472AF98A2(original_request_callable, instance, args, 
         except ImportError:
             # open is used during module initialization
             # and shouldn't be changed at that time
-            _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SSRF, True)
+            report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SSRF, True)
             return original_request_callable(*args, **kwargs)
 
         url = args[1] if len(args) > 1 else kwargs.get("url", None)
@@ -413,7 +419,7 @@ def wrapped_request_D8CB81E472AF98A2(original_request_callable, instance, args, 
                 except Exception:
                     raise
         elif valid_url:
-            _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SSRF, False)
+            report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SSRF, False)
     return original_request_callable(*args, **kwargs)
 
 
@@ -426,7 +432,7 @@ def wrapped_system_5542593D237084A7(command: str) -> None:
             from ddtrace.appsec._asm_request_context import call_waf_callback
             from ddtrace.appsec._asm_request_context import in_asm_context
         except ImportError:
-            _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SHI, True)
+            report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SHI, True)
             return
 
         if in_asm_context():
@@ -440,7 +446,7 @@ def wrapped_system_5542593D237084A7(command: str) -> None:
                     get_blocked(), EXPLOIT_PREVENTION.BLOCKING, EXPLOIT_PREVENTION.TYPE.SHI, command
                 )
         else:
-            _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SHI, False)
+            report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SHI, False)
 
 
 def popen_FD233052260D8B4D(arg_list: Union[list[str], str]) -> None:
@@ -452,7 +458,7 @@ def popen_FD233052260D8B4D(arg_list: Union[list[str], str]) -> None:
             from ddtrace.appsec._asm_request_context import call_waf_callback
             from ddtrace.appsec._asm_request_context import in_asm_context
         except ImportError:
-            _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.CMDI, True)
+            report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.CMDI, True)
             return
 
         if in_asm_context():
@@ -466,7 +472,7 @@ def popen_FD233052260D8B4D(arg_list: Union[list[str], str]) -> None:
                     get_blocked(), EXPLOIT_PREVENTION.BLOCKING, EXPLOIT_PREVENTION.TYPE.CMDI, arg_list
                 )
         else:
-            _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.CMDI, False)
+            report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.CMDI, False)
 
 
 _DB_DIALECTS = {
@@ -513,4 +519,4 @@ def execute_4C9BAC8E228EB347(instrument_self, query, args, kwargs) -> None:
                         get_blocked(), EXPLOIT_PREVENTION.BLOCKING, EXPLOIT_PREVENTION.TYPE.SQLI, query
                     )
             else:
-                _report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SQLI, False)
+                report_rasp_skipped(EXPLOIT_PREVENTION.TYPE.SQLI, False)

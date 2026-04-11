@@ -36,7 +36,7 @@ def _get_sqlfluff_version() -> str:
     NOTE: At the stage of loading plugins, SQLFluff isn't fully
     initialised and so we can't use the normal methods.
     """
-    return importlib.metadata.version("sqlfluff")
+    return importlib.metadata.version("collate-sqlfluff")
 
 
 def _discover_plugins() -> Iterator[tuple[importlib.metadata.EntryPoint, str, str]]:

@@ -50,6 +50,12 @@ def _strip_strict_from_tools(tools: Any) -> Any:
     return tools
 
 
+def _strip_strict_from_kwargs(kwargs: dict) -> dict:
+    """Strip 'strict' from top-level kwargs which causes issues for GPT models."""
+    kwargs.pop("strict", None)  # Remove top-level strict if present
+    return kwargs
+
+
 def _should_strip_strict(model: str | None) -> bool:
     """Determine if strict should be stripped based on model name.
 
@@ -100,6 +106,35 @@ def _fix_empty_assistant_content_in_messages(messages: Any) -> None:
         if message.get("role") == "assistant" and message.get("tool_calls"):
             if _is_empty_content(message.get("content")):
                 message["content"] = " "
+
+
+def _resolve_base_url(
+    workspace_client: WorkspaceClient,
+    base_url: str | None,
+    use_ai_gateway: bool,
+    use_ai_gateway_native_api: bool,
+) -> str:
+    """Resolve the target base URL for the OpenAI client."""
+    if use_ai_gateway_native_api and base_url is not None:
+        raise ValueError("Cannot specify both 'use_ai_gateway_native_api' and 'base_url'.")
+    if use_ai_gateway_native_api and use_ai_gateway:
+        raise ValueError("Cannot specify both 'use_ai_gateway_native_api' and 'use_ai_gateway'.")
+
+    if base_url is not None:
+        if _DATABRICKS_APPS_DOMAIN in base_url:
+            _validate_oauth_for_apps(workspace_client)
+        return base_url
+
+    host = workspace_client.config.host
+
+    # AI Gateway routing: {host}/ai-gateway/{api_path}
+    if use_ai_gateway_native_api:
+        return f"{host}/ai-gateway/openai/v1"
+    elif use_ai_gateway:
+        return f"{host}/ai-gateway/mlflow/v1"
+
+    # Fallback to using serving endpoints
+    return f"{host}/serving-endpoints"
 
 
 def _get_authorized_http_client(workspace_client: WorkspaceClient) -> Client:
@@ -199,6 +234,7 @@ class DatabricksCompletions(Completions):
             _strip_strict_from_tools(kwargs.get("tools"))
         if _is_claude_model(model):
             _fix_empty_assistant_content_in_messages(kwargs.get("messages"))
+        kwargs = _strip_strict_from_kwargs(kwargs)
         return super().create(**kwargs)
 
 
@@ -208,8 +244,44 @@ class DatabricksChat(Chat):
     completions: DatabricksCompletions
 
 
+_FMAPI_MAX_ID_LENGTH = 64
+
+
+def _truncate_response_ids(response: Any) -> None:
+    """Truncate ids that exceed FMAPI's 64-char input limit.
+
+    FMAPI returns response and output item ids longer than 64 chars, but rejects
+    them on the next turn's input. We truncate to prevent multi-turn failures.
+    """
+    if hasattr(response, "id") and response.id and len(response.id) > _FMAPI_MAX_ID_LENGTH:
+        response.id = response.id[:_FMAPI_MAX_ID_LENGTH]
+    if not hasattr(response, "output"):
+        return
+    for item in response.output:
+        item_id = getattr(item, "id", None)
+        if item_id and len(item_id) > _FMAPI_MAX_ID_LENGTH:
+            item.id = item_id[:_FMAPI_MAX_ID_LENGTH]
+
+
+def _truncate_input_ids(input_items: Any) -> None:
+    """Truncate ids in input items. Covers the streaming path where
+    _truncate_response_ids can't intercept the assembled response.
+    """
+    if not input_items or not isinstance(input_items, list):
+        return
+    for item in input_items:
+        if isinstance(item, dict):
+            item_id = item.get("id")
+            if isinstance(item_id, str) and len(item_id) > _FMAPI_MAX_ID_LENGTH:
+                item["id"] = item_id[:_FMAPI_MAX_ID_LENGTH]
+        else:
+            item_id = getattr(item, "id", None)
+            if isinstance(item_id, str) and len(item_id) > _FMAPI_MAX_ID_LENGTH:
+                item.id = item_id[:_FMAPI_MAX_ID_LENGTH]
+
+
 class DatabricksResponses(Responses):
-    """Responses resource that handles apps/ prefix routing."""
+    """Responses resource that handles apps/ prefix routing and id truncation."""
 
     def __init__(self, client, workspace_client: WorkspaceClient):
         super().__init__(client)
@@ -231,6 +303,7 @@ class DatabricksResponses(Responses):
 
     def create(self, **kwargs):
         model = kwargs.get("model", "")
+        _truncate_input_ids(kwargs.get("input"))
 
         if isinstance(model, str) and model.startswith(_APPS_ENDPOINT_PREFIX):
             app_name = model[len(_APPS_ENDPOINT_PREFIX) :]
@@ -240,7 +313,9 @@ class DatabricksResponses(Responses):
             except (APIStatusError, APIConnectionError) as e:
                 raise _wrap_app_error(e, app_name) from e
 
-        return super().create(**kwargs)
+        response = super().create(**kwargs)
+        _truncate_response_ids(response)
+        return response
 
 
 class DatabricksOpenAI(OpenAI):
@@ -262,9 +337,22 @@ class DatabricksOpenAI(OpenAI):
         base_url: Optional base URL to override the default serving endpoints URL. When the URL
             points to a Databricks App (contains "databricksapps"), OAuth authentication is
             required.
+        use_ai_gateway_native_api: If True, auto-detect AI Gateway V2 and route requests through
+            its native OpenAI-compatible API (``<ai_gateway_url>/openai/v1``). This allows use of
+            provider-native features not available through the MLflow API. Cannot be combined
+            with ``base_url`` or ``use_ai_gateway``. Defaults to False.
+        use_ai_gateway: If True, auto-detect AI Gateway V2 availability and route
+            requests through it using the MLflow API. Defaults to False.
 
-    Example - Query a serving endpoint:
+    Example - Query a serving or AI gateway endpoint:
         >>> client = DatabricksOpenAI()
+        >>> response = client.chat.completions.create(
+        ...     model="databricks-meta-llama-3-1-70b-instruct",
+        ...     messages=[{"role": "user", "content": "Hello!"}],
+        ... )
+
+    Example - Query AI Gateway endpoints via the native OpenAI-compatible API:
+        >>> client = DatabricksOpenAI(use_ai_gateway_native_api=True)
         >>> response = client.chat.completions.create(
         ...     model="databricks-meta-llama-3-1-70b-instruct",
         ...     messages=[{"role": "user", "content": "Hello!"}],
@@ -295,20 +383,17 @@ class DatabricksOpenAI(OpenAI):
         self,
         workspace_client: WorkspaceClient | None = None,
         base_url: str | None = None,
+        use_ai_gateway_native_api: bool = False,
+        use_ai_gateway: bool = False,
     ):
         if workspace_client is None:
             workspace_client = WorkspaceClient()
 
         self._workspace_client = workspace_client
 
-        if base_url is not None:
-            # Only validate OAuth for Databricks App URLs
-            if _DATABRICKS_APPS_DOMAIN in base_url:
-                _validate_oauth_for_apps(workspace_client)
-            target_base_url = base_url
-        else:
-            # Default: Serving endpoints
-            target_base_url = f"{workspace_client.config.host}/serving-endpoints"
+        target_base_url = _resolve_base_url(
+            workspace_client, base_url, use_ai_gateway, use_ai_gateway_native_api
+        )
 
         # Authentication is handled via http_client, not api_key
         super().__init__(
@@ -346,6 +431,7 @@ class AsyncDatabricksCompletions(AsyncCompletions):
             _strip_strict_from_tools(kwargs.get("tools"))
         if _is_claude_model(model):
             _fix_empty_assistant_content_in_messages(kwargs.get("messages"))
+        kwargs = _strip_strict_from_kwargs(kwargs)
         return await super().create(**kwargs)
 
 
@@ -356,7 +442,7 @@ class AsyncDatabricksChat(AsyncChat):
 
 
 class AsyncDatabricksResponses(AsyncResponses):
-    """Async Responses resource that handles apps/ prefix routing."""
+    """Async Responses resource that handles apps/ prefix routing and id truncation."""
 
     def __init__(self, client, workspace_client: WorkspaceClient):
         super().__init__(client)
@@ -378,6 +464,7 @@ class AsyncDatabricksResponses(AsyncResponses):
 
     async def create(self, **kwargs):
         model = kwargs.get("model", "")
+        _truncate_input_ids(kwargs.get("input"))
 
         if isinstance(model, str) and model.startswith(_APPS_ENDPOINT_PREFIX):
             app_name = model[len(_APPS_ENDPOINT_PREFIX) :]
@@ -387,7 +474,9 @@ class AsyncDatabricksResponses(AsyncResponses):
             except (APIStatusError, APIConnectionError) as e:
                 raise _wrap_app_error(e, app_name) from e
 
-        return await super().create(**kwargs)
+        response = await super().create(**kwargs)
+        _truncate_response_ids(response)
+        return response
 
 
 class AsyncDatabricksOpenAI(AsyncOpenAI):
@@ -409,9 +498,22 @@ class AsyncDatabricksOpenAI(AsyncOpenAI):
         base_url: Optional base URL to override the default serving endpoints URL. When the URL
             points to a Databricks App (contains "databricksapps"), OAuth authentication is
             required.
+        use_ai_gateway_native_api: If True, auto-detect AI Gateway V2 and route requests through
+            its native OpenAI-compatible API (``<ai_gateway_url>/openai/v1``). This allows use of
+            provider-native features not available through the MLflow API. Cannot be combined
+            with ``base_url`` or ``use_ai_gateway``. Defaults to False.
+        use_ai_gateway: If True, auto-detect AI Gateway V2 availability and route
+            requests through it using the MLflow API. Defaults to False.
 
-    Example - Query a serving endpoint:
+    Example - Query a serving or AI gateway endpoint:
         >>> client = AsyncDatabricksOpenAI()
+        >>> response = await client.chat.completions.create(
+        ...     model="databricks-meta-llama-3-1-70b-instruct",
+        ...     messages=[{"role": "user", "content": "Hello!"}],
+        ... )
+
+    Example - Query AI Gateway endpoints via the native OpenAI-compatible API:
+        >>> client = AsyncDatabricksOpenAI(use_ai_gateway_native_api=True)
         >>> response = await client.chat.completions.create(
         ...     model="databricks-meta-llama-3-1-70b-instruct",
         ...     messages=[{"role": "user", "content": "Hello!"}],
@@ -442,20 +544,17 @@ class AsyncDatabricksOpenAI(AsyncOpenAI):
         self,
         workspace_client: WorkspaceClient | None = None,
         base_url: str | None = None,
+        use_ai_gateway_native_api: bool = False,
+        use_ai_gateway: bool = False,
     ):
         if workspace_client is None:
             workspace_client = WorkspaceClient()
 
         self._workspace_client = workspace_client
 
-        if base_url is not None:
-            # Only validate OAuth for Databricks App URLs
-            if _DATABRICKS_APPS_DOMAIN in base_url:
-                _validate_oauth_for_apps(workspace_client)
-            target_base_url = base_url
-        else:
-            # Default: Serving endpoints
-            target_base_url = f"{workspace_client.config.host}/serving-endpoints"
+        target_base_url = _resolve_base_url(
+            workspace_client, base_url, use_ai_gateway, use_ai_gateway_native_api
+        )
 
         # Authentication is handled via http_client, not api_key
         super().__init__(

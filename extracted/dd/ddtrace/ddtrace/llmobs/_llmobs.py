@@ -78,7 +78,6 @@ from ddtrace.llmobs._constants import INPUT_VALUE
 from ddtrace.llmobs._constants import INSTRUMENTATION_METHOD_ANNOTATED
 from ddtrace.llmobs._constants import INTEGRATION
 from ddtrace.llmobs._constants import LLMOBS_STRUCT
-from ddtrace.llmobs._constants import LLMOBS_SUBMITTED_TAG_KEY
 from ddtrace.llmobs._constants import LLMOBS_TRACE_ID
 from ddtrace.llmobs._constants import MCP_TOOL_CALL_INTENT
 from ddtrace.llmobs._constants import METADATA
@@ -113,7 +112,7 @@ from ddtrace.llmobs._experiment import BaseSummaryEvaluator
 from ddtrace.llmobs._experiment import ConfigType
 from ddtrace.llmobs._experiment import Dataset
 from ddtrace.llmobs._experiment import DatasetRecord
-from ddtrace.llmobs._experiment import DatasetRecordInputType
+from ddtrace.llmobs._experiment import DatasetRecordNew
 from ddtrace.llmobs._experiment import EvaluatorType
 from ddtrace.llmobs._experiment import Experiment
 from ddtrace.llmobs._experiment import ExperimentResult
@@ -126,6 +125,9 @@ from ddtrace.llmobs._experiment import _deep_eval_async_evaluator_wrapper
 from ddtrace.llmobs._experiment import _deep_eval_evaluator_wrapper
 from ddtrace.llmobs._experiment import _get_base_url
 from ddtrace.llmobs._experiment import _is_deep_eval_evaluator
+from ddtrace.llmobs._experiment import _is_pydantic_evaluator
+from ddtrace.llmobs._experiment import _pydantic_async_evaluator_wrapper
+from ddtrace.llmobs._experiment import _pydantic_evaluator_wrapper
 from ddtrace.llmobs._prompt_optimization import PromptOptimization
 from ddtrace.llmobs._prompt_optimization import validate_dataset
 from ddtrace.llmobs._prompt_optimization import validate_dataset_split
@@ -237,6 +239,9 @@ def _validate_evaluator_signature(evaluator: Any, is_async: bool) -> None:
         return
 
     if _is_deep_eval_evaluator(evaluator):
+        return
+
+    if _is_pydantic_evaluator(evaluator):
         return
 
     if not callable(evaluator):
@@ -490,7 +495,6 @@ class LLMObs(Service):
             span_event = self._llmobs_span_event(span)
             if span_event is None:
                 return
-            span.set_tag(LLMOBS_SUBMITTED_TAG_KEY, "1")
             self._llmobs_span_writer.enqueue(span_event)
         except (KeyError, TypeError, ValueError):
             log.error(
@@ -1177,7 +1181,7 @@ class LLMObs(Service):
         dataset_name: str,
         project_name: Optional[str] = None,
         description: str = "",
-        records: Optional[list[DatasetRecord]] = None,
+        records: Optional[list[DatasetRecordNew]] = None,
         bulk_upload: bool = False,
         deduplicate: bool = True,
     ) -> Dataset:
@@ -1188,7 +1192,7 @@ class LLMObs(Service):
         :param description: The description of the dataset.
         :param records: Optional records to initialize the dataset with.
         :param deduplicate:
-            Wether to deduplicate the records or not. If bulk_upload is True, deduplication occurs
+            Whether to deduplicate the records or not. If bulk_upload is True, deduplication occurs
             within the uploaded data, not existing data already stored on the sever.
         :param bulk_upload:
             - True:
@@ -1211,12 +1215,13 @@ class LLMObs(Service):
             else:
                 num_batches = math.ceil(len(safe_json(records)) / ds.BATCH_UPDATE_THRESHOLD)
                 batch_size = math.ceil(len(records) / num_batches)
+                batch_size = min(batch_size, ds.BATCH_UPDATE_MAX_RECORDS)
                 log.debug(
                     "batched upload num_batches :%d, batch_size: %d",
                     num_batches,
                     batch_size,
                 )
-                create_new_version = True  # wether the server should attempt to bump the data version or not
+                create_new_version = True  # whether the server should attempt to bump the data version or not
                 for record_batch in _batched(records, batch_size):
                     for record in record_batch:
                         ds.append(record)
@@ -1243,6 +1248,7 @@ class LLMObs(Service):
         description: str = "",
         project_name: Optional[str] = None,
         deduplicate: bool = True,
+        id_column: Optional[str] = None,
     ) -> Dataset:
         if expected_output_columns is None:
             expected_output_columns = []
@@ -1279,18 +1285,19 @@ class LLMObs(Service):
                     raise ValueError(f"Expected output columns not found in CSV header: {missing_output_columns}")
                 if any(col not in header_columns for col in metadata_columns):
                     raise ValueError(f"Metadata columns not found in CSV header: {missing_metadata_columns}")
+                if id_column and id_column not in header_columns:
+                    raise ValueError(f"ID column '{id_column}' not found in CSV header")
 
                 for row in rows:
-                    records.append(
-                        DatasetRecord(
-                            input_data={col: row[col] for col in input_data_columns},
-                            expected_output={col: row[col] for col in expected_output_columns},
-                            metadata={col: row[col] for col in metadata_columns},
-                            tags=[],
-                            record_id="",
-                            canonical_id=None,
-                        )
-                    )
+                    record: DatasetRecordNew = {
+                        "input_data": {col: row[col] for col in input_data_columns},
+                        "expected_output": {col: row[col] for col in expected_output_columns},
+                        "metadata": {col: row[col] for col in metadata_columns},
+                        "tags": [],
+                    }
+                    if id_column:
+                        record["id"] = row[id_column]
+                    records.append(record)
 
         finally:
             # Always restore the original field size limit
@@ -1311,7 +1318,7 @@ class LLMObs(Service):
     def _prompt_optimization(
         cls,
         name: str,
-        task: Callable[[DatasetRecordInputType, Optional[ConfigType]], JSONType],
+        task: Callable[[JSONType, Optional[ConfigType]], JSONType],
         optimization_task: Callable[[str, str, ConfigType], str],
         dataset: Dataset,
         evaluators: Sequence[EvaluatorType],
@@ -1516,10 +1523,24 @@ class LLMObs(Service):
         if not evaluators:
             raise TypeError("Evaluators must be a list of callable functions or BaseEvaluator instances.")
         evaluators_list = list(evaluators)
+        eval_names: dict[str, int] = {}
         for idx, evaluator in enumerate(evaluators_list):
             _validate_evaluator_signature(evaluator, is_async=False)
             if _is_deep_eval_evaluator(evaluator):
                 evaluators_list[idx] = _deep_eval_evaluator_wrapper(evaluator)
+                continue
+            if _is_pydantic_evaluator(evaluator):
+                duration = 0
+                eval_name_count = 1
+                current_span = cls._instance._current_span()
+                if current_span is not None and current_span.duration_ns is not None:
+                    duration = current_span.duration_ns
+                eval_name = cast(Any, evaluator).get_default_evaluation_name()
+                if eval_name in eval_names:
+                    eval_name_count = eval_names[eval_name]
+                evaluators_list[idx] = _pydantic_evaluator_wrapper(evaluator, duration, eval_name_count)
+                eval_names[eval_name] = eval_name_count + 1
+
                 continue
         if summary_evaluators and not all(
             callable(summary_evaluator) or isinstance(summary_evaluator, BaseSummaryEvaluator)
@@ -1594,10 +1615,23 @@ class LLMObs(Service):
                 "Evaluators must be a list of callable functions, BaseEvaluator, or BaseAsyncEvaluator instances."
             )
         evaluators_list = list(evaluators)
+        eval_names: dict[str, int] = {}
         for idx, evaluator in enumerate(evaluators_list):
             _validate_evaluator_signature(evaluator, is_async=True)
             if _is_deep_eval_evaluator(evaluator):
                 evaluators_list[idx] = _deep_eval_async_evaluator_wrapper(evaluator)
+                continue
+            if _is_pydantic_evaluator(evaluator):
+                duration = 0
+                eval_name_count = 1
+                current_span = cls._instance._current_span()
+                if current_span is not None and current_span.duration_ns is not None:
+                    duration = current_span.duration_ns
+                eval_name = cast(Any, evaluator).get_default_evaluation_name()
+                if eval_name in eval_names:
+                    eval_name_count = eval_names[eval_name]
+                evaluators_list[idx] = _pydantic_async_evaluator_wrapper(evaluator, duration, eval_name_count)
+                eval_names[eval_name] = eval_name_count + 1
                 continue
         if summary_evaluators:
             for summary_evaluator in summary_evaluators:
@@ -1650,7 +1684,7 @@ class LLMObs(Service):
     def _run_for_experiment(
         cls,
         experiment_id: str,
-        task: Callable[[DatasetRecordInputType, Optional[ConfigType]], JSONType],
+        task: Callable[[JSONType, Optional[ConfigType]], JSONType],
         dataset_records: list[DatasetRecord],
         evaluators: Sequence[Union[EvaluatorType, AsyncEvaluatorType]],
         jobs: int = 1,

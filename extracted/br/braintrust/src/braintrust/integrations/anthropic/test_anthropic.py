@@ -2,6 +2,8 @@
 Tests to ensure we reliably wrap the Anthropic API.
 """
 
+import inspect
+import json
 import time
 import unittest.mock
 from pathlib import Path
@@ -12,13 +14,27 @@ import pytest
 from braintrust import Attachment, logger
 from braintrust.integrations.anthropic import AnthropicIntegration, wrap_anthropic
 from braintrust.integrations.anthropic._utils import extract_anthropic_usage
-from braintrust.integrations.anthropic.tracing import _get_input_from_kwargs, _log_message_to_span
+from braintrust.integrations.anthropic.tracing import (
+    _get_input_from_kwargs,
+    _get_metadata_from_kwargs,
+    _log_message_to_span,
+)
 from braintrust.test_helpers import init_test_logger
 
 
 PROJECT_NAME = "test-anthropic-app"
 MODEL = "claude-3-haiku-20240307"  # use the cheapest model since answers dont matter
 MULTIMODAL_MODEL = "claude-haiku-4-5-20251001"
+STRUCTURED_OUTPUT_MODEL = "claude-haiku-4-5"
+STRUCTURED_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "answer": {"type": "integer"},
+        "label": {"type": "string"},
+    },
+    "required": ["answer", "label"],
+    "additionalProperties": False,
+}
 PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="
 PDF_BASE64 = "JVBERi0xLjAKMSAwIG9iago8PC9UeXBlL0NhdGFsb2cvUGFnZXMgMiAwIFI+PmVuZG9iagoyIDAgb2JqCjw8L1R5cGUvUGFnZXMvS2lkc1szIDAgUl0vQ291bnQgMT4+ZW5kb2JqCjMgMCBvYmoKPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXT4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZg0KMDAwMDAwMDAxMCAwMDAwMCBuDQowMDAwMDAwMDUzIDAwMDAwIG4NCjAwMDAwMDAxMDIgMDAwMDAgbg0KdHJhaWxlcgo8PC9TaXplIDQvUm9vdCAxIDAgUj4+CnN0YXJ0eHJlZgoxNDkKJUVPRg=="
 
@@ -34,6 +50,29 @@ def _get_client():
 
 def _get_async_client():
     return anthropic.AsyncAnthropic()
+
+
+def _get_supported_structured_output_param():
+    parameter_names = inspect.signature(_get_client().messages.create).parameters
+    if "output_config" in parameter_names:
+        return (
+            "output_config",
+            {
+                "format": {
+                    "type": "json_schema",
+                    "schema": STRUCTURED_OUTPUT_SCHEMA,
+                }
+            },
+        )
+    if "output_format" in parameter_names:
+        return (
+            "output_format",
+            {
+                "type": "json_schema",
+                "schema": STRUCTURED_OUTPUT_SCHEMA,
+            },
+        )
+    pytest.skip("Installed anthropic SDK does not support structured outputs parameters")
 
 
 @pytest.fixture
@@ -92,6 +131,39 @@ def test_get_input_from_kwargs_converts_multimodal_base64_blocks_to_attachments(
     serialized = str(processed_input)
     assert PNG_BASE64 not in serialized
     assert PDF_BASE64 not in serialized
+
+
+def test_get_metadata_from_kwargs_includes_structured_output_params():
+    metadata = _get_metadata_from_kwargs(
+        {
+            "model": MODEL,
+            "output_config": {
+                "format": {
+                    "type": "json_schema",
+                    "schema": STRUCTURED_OUTPUT_SCHEMA,
+                }
+            },
+            "output_format": {
+                "type": "json_schema",
+                "schema": STRUCTURED_OUTPUT_SCHEMA,
+            },
+        }
+    )
+
+    assert metadata == {
+        "provider": "anthropic",
+        "model": MODEL,
+        "output_config": {
+            "format": {
+                "type": "json_schema",
+                "schema": STRUCTURED_OUTPUT_SCHEMA,
+            }
+        },
+        "output_format": {
+            "type": "json_schema",
+            "schema": STRUCTURED_OUTPUT_SCHEMA,
+        },
+    }
 
 
 def test_log_message_to_span_includes_stop_reason_and_stop_sequence():
@@ -164,6 +236,55 @@ def test_extract_anthropic_usage_includes_server_tool_use_metrics_from_objects()
         "tokens": 23.0,
     }
     assert metadata == {}
+
+
+def test_extract_anthropic_usage_supports_to_dict_only_objects():
+    class ToDictOnly:
+        __slots__ = ("_payload",)
+
+        def __init__(self, payload):
+            self._payload = payload
+
+        def to_dict(self):
+            return self._payload
+
+    usage = ToDictOnly(
+        {
+            "input_tokens": 11,
+            "output_tokens": 7,
+            "cache_read_input_tokens": 3,
+            "cache_creation": ToDictOnly(
+                {
+                    "ephemeral_5m_input_tokens": 2,
+                    "ephemeral_1h_input_tokens": 5,
+                }
+            ),
+            "server_tool_use": ToDictOnly(
+                {
+                    "web_search_requests": 2,
+                    "web_fetch_requests": 1,
+                }
+            ),
+            "service_tier": "standard",
+        }
+    )
+
+    metrics, metadata = extract_anthropic_usage(usage)
+
+    assert metrics == {
+        "prompt_tokens": 21.0,
+        "completion_tokens": 7.0,
+        "prompt_cached_tokens": 3.0,
+        "prompt_cache_creation_tokens": 7.0,
+        "server_tool_use_web_search_requests": 2.0,
+        "server_tool_use_web_fetch_requests": 1.0,
+        "tokens": 28.0,
+    }
+    assert metadata == {
+        "cache_creation_ephemeral_5m_input_tokens": 2,
+        "cache_creation_ephemeral_1h_input_tokens": 5,
+        "usage_service_tier": "standard",
+    }
 
 
 @pytest.mark.vcr(match_on=["method", "scheme", "host", "port", "path"])
@@ -282,6 +403,33 @@ def test_anthropic_messages_create_stream_true(memory_logger):
     assert span["output"]
     assert span["output"]["role"] == "assistant"
     assert "12" in span["output"]["content"][0]["text"]
+
+
+@pytest.mark.vcr
+def test_anthropic_messages_create_tracks_structured_outputs_metadata(memory_logger):
+    assert not memory_logger.pop()
+
+    structured_output_param_name, structured_output_param_value = _get_supported_structured_output_param()
+    client = wrap_anthropic(_get_client())
+    response = client.messages.create(
+        model=STRUCTURED_OUTPUT_MODEL,
+        max_tokens=128,
+        messages=[
+            {
+                "role": "user",
+                "content": 'Return a JSON object with answer=2 and label="ok".',
+            }
+        ],
+        **{structured_output_param_name: structured_output_param_value},
+    )
+
+    assert json.loads(response.content[0].text) == {"answer": 2, "label": "ok"}
+
+    spans = memory_logger.pop()
+    assert len(spans) == 1
+    span = spans[0]
+    assert span["metadata"]["model"] == STRUCTURED_OUTPUT_MODEL
+    assert span["metadata"][structured_output_param_name] == structured_output_param_value
 
 
 @pytest.mark.vcr
@@ -525,6 +673,87 @@ def test_anthropic_messages_streaming_sync(memory_logger):
     assert "4" in str(log["output"])
     assert log["project_id"] == PROJECT_NAME
     assert log["span_attributes"]["type"] == "llm"
+    _assert_metrics_are_valid(log["metrics"], start, end)
+    assert log["metrics"]["prompt_tokens"] == usage.input_tokens
+    assert log["metrics"]["completion_tokens"] == usage.output_tokens
+    assert log["metrics"]["tokens"] == usage.input_tokens + usage.output_tokens
+    assert log["metrics"]["prompt_cached_tokens"] == usage.cache_read_input_tokens
+    assert log["metrics"]["prompt_cache_creation_tokens"] == usage.cache_creation_input_tokens
+
+
+@pytest.mark.vcr
+def test_anthropic_messages_streaming_sync_text_stream(memory_logger):
+    """time_to_first_token is captured when iterating via .text_stream (BT-4702)."""
+    assert not memory_logger.pop()
+
+    client = wrap_anthropic(_get_client())
+    msg_in = {"role": "user", "content": "what is 2+2? (just the number)"}
+
+    start = time.time()
+    with client.messages.stream(model=MODEL, max_tokens=300, messages=[msg_in]) as stream:
+        texts = list(stream.text_stream)
+    end = time.time()
+    msg_out = stream.get_final_message()
+    usage = msg_out.usage
+
+    text = "".join(texts)
+    assert "4" in text
+    assert "4" in msg_out.content[0].text
+
+    logs = memory_logger.pop()
+    assert len(logs) == 1
+    log = logs[0]
+    assert "user" in str(log["input"])
+    assert "2+2" in str(log["input"])
+    assert "4" in str(log["output"])
+    assert log["project_id"] == PROJECT_NAME
+    assert log["span_attributes"]["type"] == "llm"
+    assert log["metadata"]["model"] == MODEL
+    assert log["metadata"]["max_tokens"] == 300
+    assert log["output"]["role"] == "assistant"
+    assert log["output"]["model"] == msg_out.model
+    assert log["output"]["stop_reason"] == msg_out.stop_reason
+    _assert_metrics_are_valid(log["metrics"], start, end)
+    assert log["metrics"]["prompt_tokens"] == usage.input_tokens
+    assert log["metrics"]["completion_tokens"] == usage.output_tokens
+    assert log["metrics"]["tokens"] == usage.input_tokens + usage.output_tokens
+    assert log["metrics"]["prompt_cached_tokens"] == usage.cache_read_input_tokens
+    assert log["metrics"]["prompt_cache_creation_tokens"] == usage.cache_creation_input_tokens
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_anthropic_messages_streaming_async_text_stream(memory_logger):
+    """time_to_first_token is captured when iterating via .text_stream on async streams (BT-4702)."""
+    assert not memory_logger.pop()
+
+    client = wrap_anthropic(_get_async_client())
+    msgs_in = [{"role": "user", "content": "what is 1+1?, just return the number"}]
+
+    start = time.time()
+    async with client.messages.stream(max_tokens=1024, messages=msgs_in, model=MODEL) as stream:
+        texts = [t async for t in stream.text_stream]
+        msg_out = await stream.get_final_message()
+        usage = msg_out.usage
+    end = time.time()
+
+    text = "".join(texts)
+    assert "2" in text
+    assert msg_out.content[0].text == "2"
+
+    logs = memory_logger.pop()
+    assert len(logs) == 1
+    log = logs[0]
+    assert "user" in str(log["input"])
+    assert "1+1" in str(log["input"])
+    assert "2" in str(log["output"])
+    assert log["project_id"] == PROJECT_NAME
+    assert log["span_attributes"]["type"] == "llm"
+    assert log["metadata"]["model"] == MODEL
+    assert log["metadata"]["max_tokens"] == 1024
+    assert log["output"]["role"] == "assistant"
+    assert log["output"]["model"] == msg_out.model
+    assert log["output"]["stop_reason"] == msg_out.stop_reason
     _assert_metrics_are_valid(log["metrics"], start, end)
     assert log["metrics"]["prompt_tokens"] == usage.input_tokens
     assert log["metrics"]["completion_tokens"] == usage.output_tokens

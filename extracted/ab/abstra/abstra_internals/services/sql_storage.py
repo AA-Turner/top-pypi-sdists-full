@@ -1,6 +1,8 @@
 import errno
 import json
+import os
 import shutil
+import sys
 import threading
 import time
 from contextlib import contextmanager
@@ -10,7 +12,6 @@ from typing import Generic, List, Optional, Type, TypeVar
 from abstra_json_sql.eval import eval_sql
 from abstra_json_sql.persistence import FileSystemJsonTables
 from abstra_json_sql.tables import Column, ColumnType, Table
-from filelock import FileLock
 
 from abstra_internals.interface.sdk.tables.utils import serialize
 from abstra_internals.logger import AbstraLogger
@@ -21,7 +22,61 @@ T = TypeVar("T", bound=Serializable)
 
 MAX_RETRIES = 5
 BASE_DELAY = 0.05
-MAX_LOCK_RETRIES = 3
+LOCK_TIMEOUT = 30
+
+
+if sys.platform == "win32":
+    from filelock import FileLock
+
+    def _create_file_lock(lock_path: str) -> FileLock:
+        return FileLock(lock_path, timeout=LOCK_TIMEOUT)
+
+else:
+    import fcntl
+
+    class _PosixFileLock:
+        """Cross-process lock using fcntl.lockf() (POSIX byte-range locks).
+
+        Unlike flock(), POSIX locks are properly supported by NFSv4 and EFS,
+        providing reliable mutual exclusion across pods sharing a filesystem.
+        """
+
+        def __init__(self, lock_path: str, timeout: float = LOCK_TIMEOUT):
+            self._lock_path = lock_path
+            self._timeout = timeout
+            self._fd: Optional[int] = None
+
+        def acquire(self) -> None:
+            self._fd = os.open(self._lock_path, os.O_CREAT | os.O_RDWR)
+            deadline = time.monotonic() + self._timeout
+            while True:
+                try:
+                    fcntl.lockf(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    return
+                except OSError as e:
+                    if e.errno not in (errno.EACCES, errno.EAGAIN):
+                        os.close(self._fd)
+                        self._fd = None
+                        raise
+                    if time.monotonic() >= deadline:
+                        os.close(self._fd)
+                        self._fd = None
+                        raise TimeoutError(
+                            f"Could not acquire lock {self._lock_path} "
+                            f"within {self._timeout}s"
+                        )
+                    time.sleep(0.05)
+
+        def release(self) -> None:
+            if self._fd is not None:
+                try:
+                    fcntl.lockf(self._fd, fcntl.LOCK_UN)
+                finally:
+                    os.close(self._fd)
+                    self._fd = None
+
+    def _create_file_lock(lock_path: str) -> _PosixFileLock:
+        return _PosixFileLock(lock_path)
 
 
 class SqlStorage(Generic[T]):
@@ -32,7 +87,8 @@ class SqlStorage(Generic[T]):
         self.table_name = "data"
         self._tables_instance: Optional[FileSystemJsonTables] = None
         self.directory_path.mkdir(parents=True, exist_ok=True)
-        self._file_lock = FileLock(str(self.directory_path / ".lock"), timeout=30)
+        self._lock_path = str(self.directory_path / ".lock")
+        self.health_check()
 
     @property
     def directory_path(self) -> Path:
@@ -42,30 +98,15 @@ class SqlStorage(Generic[T]):
     def _locked(self):
         """Acquire both thread lock (intra-process) and file lock (cross-process)."""
         with self._thread_lock:
-            last_error: Optional[OSError] = None
-            for _ in range(MAX_LOCK_RETRIES):
+            lock = _create_file_lock(self._lock_path)
+            lock.acquire()
+            try:
+                yield
+            finally:
                 try:
-                    self._file_lock.acquire()
-                except OSError as e:
-                    if e.errno == errno.ESTALE:
-                        last_error = e
-                        AbstraLogger.capture_exception(e)
-                        self._file_lock = FileLock(
-                            str(self.directory_path / ".lock"), timeout=30
-                        )
-                        continue
-                    raise
-                try:
-                    yield
-                finally:
-                    try:
-                        self._file_lock.release()
-                    except OSError as release_error:
-                        AbstraLogger.capture_exception(release_error)
-                return
-            raise last_error or RuntimeError(
-                "Failed to acquire file lock after retries"
-            )
+                    lock.release()
+                except OSError as release_error:
+                    AbstraLogger.capture_exception(release_error)
 
     @property
     def tables(self) -> FileSystemJsonTables:
@@ -139,6 +180,87 @@ class SqlStorage(Generic[T]):
             raise last_exception
         raise RuntimeError("Unexpected state in _execute_with_retry")
 
+    def _find_data_files(self) -> List[Path]:
+        return [
+            f for f in self.directory_path.glob("*.json") if f.name != "__schema__.json"
+        ]
+
+    def _find_salvageable_position(
+        self, raw: bytes, error: json.JSONDecodeError
+    ) -> Optional[int]:
+        """Find a position to truncate corrupted data and salvage valid JSON.
+
+        Handles two corruption patterns:
+        - Null bytes: valid JSON followed by \\x00 padding (torn write with gap)
+        - Extra data: valid JSON followed by leftover data from a previous write
+        """
+        # Pattern 1: null bytes in the middle of the file
+        null_pos = raw.find(b"\x00")
+        if null_pos > 0:
+            return null_pos
+
+        # Pattern 2: "Extra data" — parser found valid JSON then trailing garbage
+        if error.msg == "Extra data" and error.pos is not None and error.pos > 0:
+            return error.pos
+
+        return None
+
+    def _try_recover_corrupted_data(self) -> bool:
+        """Attempt to recover corrupted JSON data files.
+
+        Returns True if any file was recovered or reset.
+        """
+        recovered = False
+        for data_file in self._find_data_files():
+            try:
+                raw = data_file.read_bytes()
+            except OSError:
+                continue
+
+            try:
+                json.loads(raw)
+                continue  # file is valid
+            except json.JSONDecodeError as e:
+                truncate_pos = self._find_salvageable_position(raw, e)
+
+            if truncate_pos is not None:
+                try:
+                    valid_content = raw[:truncate_pos].decode("utf-8")
+                    json.loads(valid_content)  # validate before writing
+                    data_file.write_text(valid_content, encoding="utf-8")
+                    AbstraLogger.warning(
+                        f"Recovered corrupted file {data_file.name}: "
+                        f"salvaged {truncate_pos} bytes out of {len(raw)}"
+                    )
+                    recovered = True
+                    continue
+                except (json.JSONDecodeError, UnicodeDecodeError, OSError):
+                    pass
+
+            # Cannot salvage — reset to empty array
+            data_file.write_text("[]", encoding="utf-8")
+            AbstraLogger.warning(
+                f"Could not recover {data_file.name} — reset to empty. "
+                f"Original size: {len(raw)} bytes"
+            )
+            recovered = True
+
+        if recovered:
+            self._tables_instance = None
+
+        return recovered
+
+    def health_check(self) -> None:
+        """Validate data files on startup and recover if corrupted."""
+        with self._locked():
+            for data_file in self._find_data_files():
+                try:
+                    raw = data_file.read_bytes()
+                    json.loads(raw)
+                except (json.JSONDecodeError, OSError):
+                    self._try_recover_corrupted_data()
+                    return
+
     def save(self, id: str, data: T) -> None:
         with self._locked():
             self._ensure_table_exists()
@@ -160,6 +282,16 @@ class SqlStorage(Generic[T]):
                 result = self._execute_with_retry(
                     f'SELECT "id" FROM {self.table_name} WHERE "id" = \'{self._escape_sql_string(id)}\''
                 )
+            except json.JSONDecodeError:
+                self._try_recover_corrupted_data()
+                self._ensure_table_exists()
+                try:
+                    result = self._execute_with_retry(
+                        f'SELECT "id" FROM {self.table_name} WHERE "id" = \'{self._escape_sql_string(id)}\''
+                    )
+                except Exception as e:
+                    AbstraLogger.capture_exception(e)
+                    result = []
             except Exception as e:
                 AbstraLogger.capture_exception(e)
                 result = []
@@ -193,25 +325,32 @@ class SqlStorage(Generic[T]):
                 )
                 self._execute_with_retry(sql_command)
 
+    def _load_all_rows(self) -> List[T]:
+        self._ensure_table_exists()
+        result = self._execute_with_retry(f"SELECT * FROM {self.table_name}")
+        data_list = []
+        if result is not None:
+            for row in result:
+                try:
+                    deserialized_row = self._deserialize_row(row)
+                    data_list.append(self.model(**deserialized_row))
+                except Exception as e:
+                    AbstraLogger.capture_exception(e)
+                    continue
+        return data_list
+
     def load_all(self) -> List[T]:
         with self._locked():
             try:
-                self._ensure_table_exists()
-
-                result = self._execute_with_retry(f"SELECT * FROM {self.table_name}")
-
-                data_list = []
-                if result is not None:
-                    for row in result:
-                        try:
-                            # Deserialize JSON strings back to objects
-                            deserialized_row = self._deserialize_row(row)
-                            data_list.append(self.model(**deserialized_row))
-                        except Exception as e:
-                            AbstraLogger.capture_exception(e)
-                            continue
-
-                return data_list
+                return self._load_all_rows()
+            except json.JSONDecodeError:
+                if self._try_recover_corrupted_data():
+                    try:
+                        return self._load_all_rows()
+                    except Exception as e:
+                        AbstraLogger.capture_exception(e)
+                        return []
+                return []
             except Exception as e:
                 AbstraLogger.capture_exception(e)
                 return []

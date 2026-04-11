@@ -1,9 +1,10 @@
 //! Extension(s) to the `pyo3-bytes` which will be hopefully be upstreamed.
-use crate::bytes::PyBytes;
-use crate::python_bytes_methods::PythonBytesMethods;
 use bytes::BytesMut;
 use pyo3::prelude::*;
 use pyo3::types::PyString;
+
+use crate::bytes::PyBytes;
+use crate::python_bytes_methods::PythonBytesMethods;
 
 impl PythonBytesMethods for PyBytes {}
 
@@ -36,7 +37,7 @@ impl PyBytes {
     /// ```python
     /// (encoding='utf-8', errors='strict')
     /// ```
-    #[pyo3(signature = (encoding="utf-8", errors="strict"))]
+    #[pyo3(signature = (encoding = "utf-8", errors = "strict"))]
     fn decode<'py>(
         slf: PyRef<'py, Self>,
         py: Python<'py>,
@@ -64,7 +65,7 @@ impl PyBytes {
     /// 'b9:01ef'
     /// >>> value.hex(':', -2)
     /// 'b901:ef'
-    #[pyo3(signature = (sep=None, bytes_per_sep=None))]
+    #[pyo3(signature = (sep = None, bytes_per_sep = None))]
     fn hex(&self, sep: Option<&str>, bytes_per_sep: Option<usize>) -> PyResult<String> {
         self.py_hex(sep, bytes_per_sep)
     }
@@ -165,7 +166,7 @@ impl PyBytes {
         self.py_expandtabs(tabsize)
     }
 
-    #[pyo3(signature = (bin=None))]
+    #[pyo3(signature = (bin = None))]
     fn strip(&self, bin: Option<PyBytes>) -> Self {
         if let Some(bin) = bin {
             self.py_strip(Some(bin.as_ref()))
@@ -174,7 +175,7 @@ impl PyBytes {
         }
     }
 
-    #[pyo3(signature = (bin=None))]
+    #[pyo3(signature = (bin = None))]
     fn lstrip(&self, bin: Option<Self>) -> Self {
         if let Some(bin) = bin {
             self.py_lstrip(Some(bin.as_ref()))
@@ -183,7 +184,7 @@ impl PyBytes {
         }
     }
 
-    #[pyo3(signature = (bin=None))]
+    #[pyo3(signature = (bin = None))]
     fn rstrip(&self, bin: Option<Self>) -> Self {
         if let Some(bin) = bin {
             self.py_rstrip(Some(bin.as_ref()))

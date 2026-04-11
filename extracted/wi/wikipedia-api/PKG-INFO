@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Wikipedia-API
-Version: 0.14.0
+Version: 0.14.1
 Summary: Python Wrapper for Wikipedia
 Project-URL: Homepage, https://github.com/martin-majlis/Wikipedia-API
 Project-URL: Repository, https://github.com/martin-majlis/Wikipedia-API
@@ -26,7 +26,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Communications :: Email
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: click==8.3.1
+Requires-Dist: click==8.3.2
 Requires-Dist: httpx==0.28.1
 Requires-Dist: tenacity==9.1.4
 Description-Content-Type: text/x-rst

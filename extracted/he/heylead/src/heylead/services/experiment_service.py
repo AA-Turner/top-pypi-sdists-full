@@ -388,9 +388,12 @@ def evaluate_headline_tests() -> list[str]:
         complete_ab_test(t["id"], winner, json.dumps(result_data))
 
         winner_headline = t["variant_a"] if winner == "A" else t["variant_b"] if winner == "B" else "neither"
+        if winner != "inconclusive":
+            verdict = f'Winner: {winner} — "{winner_headline[:60]}"'
+        else:
+            verdict = "Inconclusive"
         results.append(
-            f"Headline A/B Test '{t['name']}' completed: "
-            f"{'Winner: ' + winner + ' — \"' + winner_headline[:60] + '\"' if winner != 'inconclusive' else 'Inconclusive'} — {reason}"
+            f"Headline A/B Test '{t['name']}' completed: {verdict} — {reason}"
         )
 
     return results

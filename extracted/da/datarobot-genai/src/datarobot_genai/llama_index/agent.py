@@ -18,6 +18,7 @@ import inspect
 import json
 import logging
 import uuid
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import cast
@@ -35,6 +36,8 @@ from ag_ui.core import ToolCallArgsEvent
 from ag_ui.core import ToolCallEndEvent
 from ag_ui.core import ToolCallResultEvent
 from ag_ui.core import ToolCallStartEvent
+from llama_index.core.agent.workflow import AgentWorkflow
+from llama_index.core.agent.workflow import BaseWorkflowAgent
 from llama_index.core.base.llms.types import LLMMetadata
 from llama_index.core.tools import BaseTool
 from llama_index.core.workflow import Event
@@ -80,14 +83,11 @@ class LlamaIndexAgent(BaseAgent[BaseTool], abc.ABC):
         """Extract final response text from workflow state and/or events."""
         raise NotImplementedError
 
-    def make_input_message(self, run_agent_input: RunAgentInput) -> str:
-        """Create an input string for the workflow from the user prompt."""
-        user_prompt_content = extract_user_prompt_content(run_agent_input)
-        return str(user_prompt_content)
-
     async def invoke(self, run_agent_input: RunAgentInput) -> InvokeReturn:
         """Run the LlamaIndex workflow with the provided completion parameters."""
-        input_message = self.make_input_message(run_agent_input)
+        user_prompt_content = extract_user_prompt_content(run_agent_input)
+        input_message = str(user_prompt_content)
+        uses_memory = "{memory}" in input_message
 
         # Handle {chat_history} placeholder replacement for subclass templates
         if "{chat_history}" in input_message:
@@ -96,6 +96,13 @@ class LlamaIndexAgent(BaseAgent[BaseTool], abc.ABC):
                 f"\n\nPrior conversation:\n{history_summary}" if history_summary else ""
             )
             input_message = input_message.replace("{chat_history}", formatted_history)
+        if uses_memory:
+            memory = ""
+            try:
+                memory = await self.retrieve_memory_for_run(user_prompt_content, run_agent_input)
+            except Exception as exc:
+                logger.warning("LlamaIndex memory retrieval failed: %s", exc)
+            input_message = input_message.replace("{memory}", memory)
 
         logger.info(f"Running agent with user prompt: {input_message}")
 
@@ -286,6 +293,11 @@ class LlamaIndexAgent(BaseAgent[BaseTool], abc.ABC):
         _ = self.extract_response_text(state, events)
 
         pipeline_interactions = self.create_pipeline_interactions_from_events(events)
+        if uses_memory:
+            try:
+                await self.store_memory_for_run(user_prompt_content, run_agent_input)
+            except Exception as exc:
+                logger.warning("LlamaIndex memory storage failed: %s", exc)
         # TODO: find a way to count usage (LlamaIndex does not report it)
         yield (
             RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id),
@@ -311,3 +323,61 @@ class LlamaIndexAgent(BaseAgent[BaseTool], abc.ABC):
         ragas_trace = convert_to_ragas_messages(list(events))
         ragas_messages = cast(list[HumanMessage | AIMessage | ToolMessage], ragas_trace)
         return MultiTurnSample(user_input=ragas_messages)
+
+
+def datarobot_agent_class_from_llamaindex(
+    workflow: AgentWorkflow,
+    agents: list[BaseWorkflowAgent],
+    extract_response_text: Callable[[Any, list[Any]], str],
+) -> type[LlamaIndexAgent]:
+    """Create a LlamaIndex agent class from a pre-built workflow and agents.
+
+    This is a convenience helper that dynamically builds a concrete
+    :class:`LlamaIndexAgent` subclass so that callers can define an agent
+    entirely from an existing :class:`AgentWorkflow` and its constituent
+    agents without writing a class by hand.
+
+    When the returned class is instantiated, calling ``set_llm`` or
+    ``set_tools`` propagates the LLM / tools to every agent in *agents*
+    while preserving each agent's originally configured tools.
+
+    Parameters
+    ----------
+    workflow : AgentWorkflow
+        A fully configured LlamaIndex :class:`AgentWorkflow` instance that
+        orchestrates the provided agents.
+    agents : list[BaseWorkflowAgent]
+        The list of LlamaIndex workflow agents participating in the workflow.
+        Their ``llm`` and ``tools`` attributes are updated at runtime when the
+        DataRobot platform injects the LLM and MCP tools.
+    extract_response_text : Callable[[Any, list[Any]], str]
+        A callback that extracts the final human-readable response from the
+        workflow result state and the list of streamed events.  Receives
+        ``(result_state, events)`` and must return a ``str``.
+
+    Returns
+    -------
+    type[LlamaIndexAgent]
+        A new :class:`LlamaIndexAgent` subclass wired to the provided
+        workflow, agents, and response extractor.
+    """
+    original_agent_tools = {agent.name: agent.tools for agent in agents}
+
+    class DataRobotLlamaIndexAgent(LlamaIndexAgent):
+        def set_llm(self, llm: Any) -> None:
+            super().set_llm(llm)
+            for agent in agents:
+                agent.llm = llm
+
+        def set_tools(self, tools: list[BaseTool]) -> None:
+            super().set_tools(tools)
+            for agent in agents:
+                agent.tools = original_agent_tools[agent.name] + tools
+
+        async def build_workflow(self) -> AgentWorkflow:
+            return workflow
+
+        def extract_response_text(self, result_state: Any, events: list[Any]) -> str:
+            return extract_response_text(result_state, events)
+
+    return DataRobotLlamaIndexAgent

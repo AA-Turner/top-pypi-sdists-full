@@ -18,6 +18,7 @@ from ._actions import (
 from ._common import parser_context
 from ._namespace import Namespace, split_key, split_key_leaf
 from ._parameter_resolvers import get_signature_parameters
+from ._required import clear_required
 from ._subcommands import (
     ActionSubCommands,
     find_parent_action,
@@ -143,7 +144,8 @@ class ActionLink(Action):
                     )
         else:
             self.source = [
-                (s, find_parent_or_child_actions(parser, s, exclude=exclude)) for s in source  # type: ignore[misc]
+                (s, find_parent_or_child_actions(parser, s, exclude=exclude))  # type: ignore[misc]
+                for s in source
             ]
 
         # Set and check target action
@@ -193,8 +195,7 @@ class ActionLink(Action):
                         group._group_actions.clear()
 
         # Remove target from required
-        if target in parser.required_args:
-            parser.required_args.remove(target)
+        clear_required(parser, target)
         if is_target_subclass and not valid_target_leaf:
             sub_add_kwargs = self.target[1].sub_add_kwargs  # type: ignore[union-attr]
             if "linked_targets" not in sub_add_kwargs:

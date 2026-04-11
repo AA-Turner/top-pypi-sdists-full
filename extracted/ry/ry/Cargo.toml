@@ -9,7 +9,7 @@ homepage.workspace = true
 keywords.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "ry = rust + python"
+description = "ry == rust | python"
 readme = "README.md"
 
 [lints]
@@ -68,12 +68,19 @@ strip = true
 panic = "abort"
 lto = "thin"
 
+# fast build: skips debug info gen and simple opts (ty uv for idea)
+[profile.fast-build]
+inherits = "dev"
+opt-level = 1
+debug = 0
+strip = "debuginfo"
+
 [profile.bench]
 inherits = "release"
 lto = "fat"
 
 [workspace.package]
-version = "0.0.87"
+version = "0.0.88"
 authors = [
   "jesse k. rubin <jessekrubin@gmail.com>",
   # hopefully you will contribute!

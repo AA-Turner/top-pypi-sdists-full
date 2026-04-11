@@ -191,6 +191,53 @@ async def run_ssh_streaming(
     return exit_code
 
 
+async def scp_content_to_vm(
+    ssh_key: Path,
+    hostname: str,
+    remote_path: str,
+    content: bytes,
+    *,
+    extra_opts: list[tuple[str, str]] | None = None,
+    timeout: float = 30,
+) -> None:
+    """Write content to a remote file via scp.
+
+    Writes content to a local temp file, scp's it to the VM, then cleans up.
+    Avoids shell argument expansion that causes E2BIG with large payloads.
+    """
+    import tempfile
+
+    cmd = ["scp", "-i", str(ssh_key)]
+    all_opts = list(SSH_OPTS)
+    if extra_opts:
+        all_opts.extend(extra_opts)
+    for name, value in all_opts:
+        cmd.extend(["-o", f"{name}={value}"])
+
+    with tempfile.NamedTemporaryFile(delete=True) as tmp:
+        tmp.write(content)
+        tmp.flush()
+        cmd.extend([tmp.name, f"root@{hostname}:{remote_path}"])
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
+            await proc.wait()
+            _close_subprocess(proc)
+            raise RuntimeError(f"scp to {hostname}:{remote_path} timed out after {timeout}s")
+        _close_subprocess(proc)
+        if proc.returncode != 0:
+            raise RuntimeError(f"scp to {hostname}:{remote_path} failed (exit {proc.returncode}): {err.decode()}")
+
+
 def build_ssh_command(
     ssh_key: Path,
     hostname: str,

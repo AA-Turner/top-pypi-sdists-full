@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "collate-sqlfluff"
-version = "3.5.0"
+version = "3.5.1"
 description = "The SQL Linter for Humans"
 readme = {file = "README.md", content-type = "text/markdown"}
 requires-python = ">=3.9"
@@ -24,7 +24,6 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -79,7 +78,6 @@ dependencies = [
     "colorama>=0.3",
     # Used for diffcover plugin
     "diff-cover>=2.5.0",
-    "importlib_resources; python_version < '3.9'",
     "Jinja2",
     # Used for .sqlfluffignore
     "pathspec",
@@ -135,7 +133,7 @@ sqlfluff_rules_tsql = "sqlfluff.rules.tsql"
 
 [tool.sqlfluff_docs]
 # NOTE: Stable version is used by docs/conf.py
-stable_version = "3.5.0"
+stable_version = "3.5.1"
 
 
 [tool.setuptools.package-data]

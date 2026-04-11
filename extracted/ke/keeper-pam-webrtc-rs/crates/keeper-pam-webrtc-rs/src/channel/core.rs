@@ -11,7 +11,9 @@ use crate::runtime::get_runtime;
 use crate::tube_and_channel_helpers::parse_network_rules_from_settings;
 use crate::tube_protocol::{try_parse_frame, CloseConnectionReason, ControlMessage, Frame};
 use crate::unlikely;
-use crate::webrtc_data_channel::{WebRTCDataChannel, STANDARD_BUFFER_THRESHOLD};
+use crate::webrtc_data_channel::{
+    EventDrivenSender, WebRTCDataChannel, SCTP_HIGH_WATER, STANDARD_BUFFER_THRESHOLD,
+};
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use bytes::{BufMut, BytesMut};
@@ -124,6 +126,10 @@ pub struct ConnectAsSettings {
 /// Channel instance. Owns the data‑channel and a map of active back‑end TCP streams.
 pub struct Channel {
     pub(crate) webrtc: WebRTCDataChannel,
+    /// One shared EventDrivenSender per tube — all logical connections (conn_no)
+    /// clone this so they share one bounded mpsc channel and one actor task.
+    /// Created on first use (setup_outbound_task or start_server).
+    pub(crate) event_sender: Option<EventDrivenSender>,
     pub(crate) conns: Arc<DashMap<u32, Conn>>,
     pub(crate) conn_generations: Arc<DashMap<u32, std::sync::atomic::AtomicU64>>,
     pub(crate) rx_from_dc: mpsc::UnboundedReceiver<Bytes>,
@@ -191,6 +197,8 @@ pub struct Channel {
 
     // Store the close reason when control connection closes
     pub(crate) channel_close_reason: Arc<AsyncMutex<Option<CloseConnectionReason>>>,
+    // Store the error message from guacd when it sends an error instruction
+    pub(crate) channel_close_message: Arc<AsyncMutex<Option<String>>>,
     /// Set when conn_no 0 (control connection) is closed. Signals the tube to close itself.
     pub(crate) control_connection_closed: Arc<std::sync::atomic::AtomicBool>,
     // Callback token for router communication
@@ -231,6 +239,10 @@ pub struct ChannelParams {
     /// owner to drop so rx_from_dc.recv() returns None when DataChannel closes.
     pub tx_from_dc: Arc<Mutex<Option<mpsc::UnboundedSender<Bytes>>>>,
     pub channel_id: String,
+    /// ID of the Tube that owns this channel. Accepted for API compatibility;
+    /// not currently stored on Channel (adaptive backpressure removed).
+    #[allow(dead_code)]
+    pub tube_id: String,
     pub timeouts: Option<TunnelTimeouts>,
     pub protocol_settings: HashMap<String, JsonValue>,
     pub server_mode: bool,
@@ -256,6 +268,7 @@ impl Channel {
             rx_from_dc,
             tx_from_dc,
             channel_id,
+            tube_id: _,
             timeouts,
             protocol_settings,
             server_mode,
@@ -753,6 +766,7 @@ impl Channel {
 
         let new_channel = Self {
             webrtc,
+            event_sender: None,
             conns: Arc::new(DashMap::new()),
             conn_generations: Arc::new(DashMap::new()),
             rx_from_dc,
@@ -798,6 +812,7 @@ impl Channel {
             conn_closed_rx: Some(conn_closed_rx),
             primary_guacd_conn_no: Arc::new(AsyncMutex::new(None)),
             channel_close_reason: Arc::new(AsyncMutex::new(None)),
+            channel_close_message: Arc::new(AsyncMutex::new(None)),
             control_connection_closed: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             callback_token,
             ksm_config,
@@ -1607,18 +1622,46 @@ impl Channel {
 
     /// Log comprehensive WebRTC statistics when a channel closes
     pub async fn log_final_stats(&mut self) {
-        // Log comprehensive connection summary on channel close
         let total_connections = self.conns.len();
         let connection_ids = self.get_connection_ids();
-        let buffered_amount = self.webrtc.buffered_amount().await;
+        // buffered_amount() at close: shows any data still queued in SCTP at teardown.
+        let sctp_at_close = self.webrtc.buffered_amount().await as usize;
+        let app_queued = self.event_sender.as_ref().map(|s| s.queue_depth()).unwrap_or(0);
+        // Peak SCTP buffer depth is no longer tracked on EventDrivenSender; the metrics
+        // collector records it per-pause via record_backpressure_pause().
+        let (pacing_pauses, pacing_paused_us, peak_sctp) = crate::metrics::METRICS_COLLECTOR
+            .get_pacing_stats(&self.channel_id)
+            .unwrap_or((0, 0, 0));
 
-        info!("Channel '{}' closing - Final stats: {} connections: {:?}, {} bytes buffered (channel_id: {}, server_mode: {}, active_protocol: {:?})",
-              self.channel_id, total_connections, connection_ids, buffered_amount, self.channel_id, self.server_mode, self.active_protocol);
+        if sctp_at_close > SCTP_HIGH_WATER {
+            warn!(
+                "Channel '{}' closed with {} bytes in SCTP send buffer (>{} KB high-water) — \
+                 backend data was ahead of the WebRTC link at close time \
+                 (protocol: {:?}, app_queued: {} bytes)",
+                self.channel_id,
+                sctp_at_close,
+                SCTP_HIGH_WATER / 1024,
+                self.active_protocol,
+                app_queued,
+            );
+        }
 
-        // Note: Full WebRTC native stats (bytes sent/received, round-trip time,
-        // packet loss, bandwidth usage, connection quality, etc.) are available
-        // via peer_connection.get_stats() API in browser context.
-        // These provide much more detailed metrics than our previous custom tracking.
+        info!(
+            "Channel '{}' closing — connections: {}: {:?} | \
+             sctp_at_close: {} B, peak_sctp: {} B, app_queued: {} B | \
+             pacing: {} pauses, {:.1}ms total \
+             (server_mode: {}, protocol: {:?})",
+            self.channel_id,
+            total_connections,
+            connection_ids,
+            sctp_at_close,
+            peak_sctp,
+            app_queued,
+            pacing_pauses,
+            pacing_paused_us as f64 / 1000.0,
+            self.server_mode,
+            self.active_protocol,
+        );
     }
 }
 

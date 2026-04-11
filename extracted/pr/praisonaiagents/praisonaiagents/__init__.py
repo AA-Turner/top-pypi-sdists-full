@@ -424,9 +424,9 @@ _LAZY_IMPORTS = {
     'ManagerConfig': ('praisonaiagents.context.manager', 'ManagerConfig'),
     'ContextManager': ('praisonaiagents.context.manager', 'ContextManager'),
     
-    # db and obs modules
+    # db module
     'db': ('praisonaiagents.db', 'db'),
-    'obs': ('praisonaiagents.obs', 'obs'),
+    # Note: 'obs' is handled by custom_handler to return _LazyObsModule instance
     
     # Gateway protocols and config (implementations in praisonai wrapper)
     'GatewayProtocol': ('praisonaiagents.gateway.protocols', 'GatewayProtocol'),
@@ -455,6 +455,10 @@ _LAZY_IMPORTS = {
     'ResourceLimits': ('praisonaiagents.sandbox.protocols', 'ResourceLimits'),
     'SandboxConfig': ('praisonaiagents.sandbox.config', 'SandboxConfig'),
     'SecurityPolicy': ('praisonaiagents.sandbox.config', 'SecurityPolicy'),
+    
+    # Managed backend protocols (implementations in praisonai wrapper)
+    'ManagedBackendProtocol': ('praisonaiagents.agent.protocols', 'ManagedBackendProtocol'),
+    'ManagedBackendConfig': ('praisonaiagents.agent.protocols', 'ManagedBackendConfig'),
     
     # Model failover
     'AuthProfile': ('praisonaiagents.llm.failover', 'AuthProfile'),
@@ -592,6 +596,16 @@ def _custom_handler(name, cache):
         import importlib
         mod = importlib.import_module('.workflows', 'praisonaiagents')
         cache['workflows'] = mod
+        return mod
+    if name == 'obs':
+        import importlib
+        mod = importlib.import_module('.obs', 'praisonaiagents')
+        cache['obs'] = mod.obs  # Return the _LazyObsModule instance, not the module
+        return mod.obs
+    if name == 'db':
+        import importlib
+        mod = importlib.import_module('.db', 'praisonaiagents')
+        cache['db'] = mod
         return mod
     
     raise AttributeError(f"Not handled by custom_handler: {name}")

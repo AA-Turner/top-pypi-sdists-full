@@ -93,6 +93,7 @@ fn _internal_bindings(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<config::FileExtractionConfig>()?;
     m.add_class::<config::PyLlmConfig>()?;
     m.add_class::<config::PyStructuredExtractionConfig>()?;
+    m.add_class::<config::HtmlOutputConfig>()?;
 
     m.add_class::<keywords::YakeParams>()?;
     m.add_class::<keywords::RakeParams>()?;

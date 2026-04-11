@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonargparse
-Version: 4.47.0
+Version: 4.48.0
 Summary: Minimal effort CLIs derived from type hints and parse from command line, config files and environment variables.
 Author-email: Mauricio Villegas <mauricio@omnius.com>
 License-Expression: MIT
@@ -40,7 +40,6 @@ Requires-Dist: jsonargparse[fsspec]; extra == "all"
 Requires-Dist: jsonargparse[ruamel]; extra == "all"
 Requires-Dist: jsonargparse[omegaconf]; extra == "all"
 Requires-Dist: jsonargparse[typing-extensions]; extra == "all"
-Requires-Dist: jsonargparse[reconplogger]; extra == "all"
 Provides-Extra: signatures
 Requires-Dist: jsonargparse[typing-extensions]; extra == "signatures"
 Requires-Dist: docstring-parser>=0.17; extra == "signatures"
@@ -67,8 +66,6 @@ Provides-Extra: omegaconf
 Requires-Dist: omegaconf>=2.1.1; extra == "omegaconf"
 Provides-Extra: typing-extensions
 Requires-Dist: typing-extensions>=3.10.0.0; python_version < "3.10" and extra == "typing-extensions"
-Provides-Extra: reconplogger
-Requires-Dist: reconplogger>=4.4.0; extra == "reconplogger"
 Provides-Extra: test
 Requires-Dist: jsonargparse[test-no-urls]; extra == "test"
 Requires-Dist: jsonargparse[shtab]; extra == "test"

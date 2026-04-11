@@ -12,11 +12,18 @@ use async_trait::async_trait;
 use base64::Engine as _;
 use bytes::Bytes;
 use guacr_handlers::{
-    connect_tcp_with_timeout, send_disconnect, send_name, send_ready, HandlerError, HandlerStats,
-    HealthStatus, ProtocolHandler, VideoOutput,
+    connect_tcp_with_timeout, send_disconnect, send_name, send_ready, ConnectionParameters,
+    HandlerError, HandlerStats, HealthStatus, ProtocolHandler, VideoOutput,
 };
-use guacr_protocol::{format_chunked_blobs, format_instruction, TextProtocolEncoder};
-use guacr_terminal::{parse_key_instruction, TerminalRenderer};
+use guacr_protocol::{
+    format_chunked_blobs, format_instruction,
+    telnet::{extract_record, DO, IAC, OPT_BINARY, OPT_EOR, OPT_TERMINAL_TYPE, SB, SE, WILL},
+    TextProtocolEncoder,
+};
+use guacr_terminal::{
+    current_time_millis, parse_key_instruction, TerminalRenderer, CHAR_HEIGHT, CHAR_WIDTH,
+    DEFAULT_COLS, DEFAULT_ROWS, JPEG_QUALITY, RENDER_INTERVAL_MS,
+};
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -27,30 +34,6 @@ use tokio::sync::mpsc;
 use crate::datastream::{parse_data_stream, Aid};
 use crate::renderer;
 use crate::screen::ScreenBuffer;
-
-// -- Display constants -------------------------------------------------------
-
-/// Default IBM 3270 Model 2: 24 rows × 80 columns.
-const DEFAULT_ROWS: u16 = 24;
-const DEFAULT_COLS: u16 = 80;
-const CHAR_WIDTH: u32 = 9;
-const CHAR_HEIGHT: u32 = 18;
-const JPEG_QUALITY: u8 = 85;
-/// 3270 screens change infrequently; 30 FPS is more than enough.
-const RENDER_INTERVAL_MS: u64 = 33;
-
-// -- TN3270 Telnet framing bytes ---------------------------------------------
-
-pub(crate) const IAC: u8 = 0xFF;
-const WILL: u8 = 0xFB;
-pub(crate) const DO: u8 = 0xFD;
-const SB: u8 = 0xFA;
-const SE: u8 = 0xF0;
-/// End-of-record marker: IAC EOR terminates each 3270 data record.
-pub(crate) const EOR: u8 = 0xEF;
-pub(crate) const OPT_BINARY: u8 = 0x00;
-const OPT_TERMINAL_TYPE: u8 = 0x18;
-const OPT_EOR: u8 = 0x19;
 
 // -- Handler -----------------------------------------------------------------
 
@@ -81,14 +64,9 @@ impl ProtocolHandler for Tn3270Handler {
         mut from_client: mpsc::Receiver<Bytes>,
         _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
-        let hostname = params
-            .get("hostname")
-            .ok_or_else(|| HandlerError::ConnectionFailed("Missing hostname".to_string()))?
-            .clone();
-        let port: u16 = params
-            .get("port")
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(3270);
+        let conn = ConnectionParameters::from_params(&params, 3270u16)?;
+        let hostname = conn.hostname;
+        let port = conn.port;
 
         // Screen dimensions — IBM 3270 model sizes:
         //   Model 2: 24×80 (default)   Model 3: 32×80
@@ -236,11 +214,7 @@ impl ProtocolHandler for Tn3270Handler {
                     }
                     stream_id += 1;
 
-                    let ts = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_millis()
-                        .to_string();
+                    let ts = current_time_millis().to_string();
                     let sync = format_instruction("sync", &[&ts]);
                     let _ = to_client.send(Bytes::from(sync)).await;
                 }
@@ -400,69 +374,4 @@ fn handle_key(screen: &mut ScreenBuffer, keysym: u32) -> Option<Vec<u8>> {
         // All other keys ignored
         _ => None,
     }
-}
-
-// -- TN3270 record framing ---------------------------------------------------
-
-/// Extract one complete TN3270 data record from the buffer.
-///
-/// Records are framed by `IAC EOR` (0xFF 0xEF). Telnet IAC option sequences
-/// embedded in the stream are stripped transparently. `IAC IAC` is unescaped
-/// to a literal `0xFF` byte inside record data.
-///
-/// Returns `Some(record_bytes)` and drains those bytes from the buffer, or
-/// `None` if no complete record is available yet.
-pub(crate) fn extract_record(buf: &mut Vec<u8>) -> Option<Vec<u8>> {
-    let mut record = Vec::new();
-    let mut i = 0;
-
-    while i < buf.len() {
-        if buf[i] != IAC {
-            record.push(buf[i]);
-            i += 1;
-            continue;
-        }
-
-        // Need at least one more byte after IAC.
-        if i + 1 >= buf.len() {
-            return None; // Wait for more data — leave buffer intact.
-        }
-
-        match buf[i + 1] {
-            EOR => {
-                // End of record: drain consumed bytes and return.
-                buf.drain(..i + 2);
-                return Some(record);
-            }
-            IAC => {
-                // IAC IAC → literal 0xFF inside record data.
-                record.push(IAC);
-                i += 2;
-            }
-            SB => {
-                // Subnegotiation: IAC SB … IAC SE — skip entirely.
-                i += 2;
-                loop {
-                    if i + 1 >= buf.len() {
-                        return None; // Incomplete subnegotiation — wait.
-                    }
-                    if buf[i] == IAC && buf[i + 1] == SE {
-                        i += 2;
-                        break;
-                    }
-                    i += 1;
-                }
-            }
-            _ => {
-                // 3-byte IAC option command (DO/DONT/WILL/WONT + option).
-                if i + 2 >= buf.len() {
-                    return None; // Incomplete command — wait.
-                }
-                i += 3;
-            }
-        }
-    }
-
-    // No EOR seen yet — leave buffer intact for next call.
-    None
 }

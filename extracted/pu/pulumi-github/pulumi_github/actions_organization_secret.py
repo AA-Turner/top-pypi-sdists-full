@@ -28,6 +28,7 @@ class ActionsOrganizationSecretArgs:
                  selected_repository_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.int]]]] = None):
         """
         The set of arguments for constructing a ActionsOrganizationSecret resource.
+
         :param pulumi.Input[_builtins.str] secret_name: Name of the secret.
         :param pulumi.Input[_builtins.str] visibility: Configures the access that repositories have to the organization secret; must be one of `all`, `private`, or `selected`.
         :param pulumi.Input[_builtins.bool] destroy_on_drift: (Optional) This is ignored as drift detection is built into the resource.
@@ -161,6 +162,7 @@ class _ActionsOrganizationSecretState:
                  visibility: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering ActionsOrganizationSecret resources.
+
         :param pulumi.Input[_builtins.str] created_at: Date the secret was created.
         :param pulumi.Input[_builtins.bool] destroy_on_drift: (Optional) This is ignored as drift detection is built into the resource.
                
@@ -341,15 +343,79 @@ class ActionsOrganizationSecret(pulumi.CustomResource):
                  visibility: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        This resource allows you to create and manage GitHub Actions secrets within your GitHub organization.
+        You must have write access to a repository to use this resource.
+
+        Secret values are encrypted using the [Go '/crypto/box' module](https://godoc.org/golang.org/x/crypto/nacl/box) which is
+        interoperable with [libsodium](https://libsodium.gitbook.io/doc/). Libsodium is used by GitHub to decrypt secret values.
+
+        For the purposes of security, the contents of the `plaintext_value` field have been marked as `sensitive` to Terraform,
+        but it is important to note that **this does not hide it from state files**. You should treat state as sensitive always.
+        It is also advised that you do not store plaintext values in your code but rather populate the `encrypted_value`
+        using fields from a resource, data source or variable as, while encrypted in state, these will be easily accessible
+        in your code. See below for an example of this abstraction.
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_github as github
+
+        example_plaintext = github.ActionsOrganizationSecret("example_plaintext",
+            secret_name="example_secret_name",
+            visibility="all",
+            plaintext_value=some_secret_string)
+        example_encrypted = github.ActionsOrganizationSecret("example_encrypted",
+            secret_name="example_secret_name",
+            visibility="all",
+            encrypted_value=some_encrypted_secret_string)
+        ```
+
+        ```python
+        import pulumi
+        import pulumi_github as github
+
+        repo = github.get_repository(full_name="my-org/repo")
+        example_encrypted = github.ActionsOrganizationSecret("example_encrypted",
+            secret_name="example_secret_name",
+            visibility="selected",
+            plaintext_value=some_secret_string,
+            selected_repository_ids=[repo.repo_id])
+        example_secret = github.ActionsOrganizationSecret("example_secret",
+            secret_name="example_secret_name",
+            visibility="selected",
+            encrypted_value=some_encrypted_secret_string,
+            selected_repository_ids=[repo.repo_id])
+        ```
+
+        ## Example Lifecycle Ignore Changes
+
+        This resource supports using the `lifecycle` `ignore_changes` block on `remote_updated_at` to support use cases where a secret value is created using a placeholder value and then modified after creation outside the scope of Terraform. This approach ensures only the initial placeholder value is referenced in your code and in the resulting state file.
+
+        ```python
+        import pulumi
+        import pulumi_github as github
+
+        example_allow_drift = github.ActionsOrganizationSecret("example_allow_drift",
+            secret_name="example_secret_name",
+            visibility="all",
+            plaintext_value="placeholder")
+        ```
+
         ## Import
+
+        This resource can be imported using the secret name as the ID.
+
+        > **Note**: When importing secrets, the `plaintext_value` or `encrypted_value` fields will not be populated in the state. You may need to ignore changes for these as a workaround if you're not planning on updating the secret through Terraform.
 
         ### Import Command
 
-        The following command imports a GitHub actions organization secret named `mysecret` to a `github_actions_organization_secret` resource named `example`.
+        The following command imports a GitHub actions organization secret named `mysecret` to a `ActionsOrganizationSecret` resource named `example`.
 
         ```sh
         $ pulumi import github:index/actionsOrganizationSecret:ActionsOrganizationSecret example mysecret
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -370,15 +436,79 @@ class ActionsOrganizationSecret(pulumi.CustomResource):
                  args: ActionsOrganizationSecretArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        This resource allows you to create and manage GitHub Actions secrets within your GitHub organization.
+        You must have write access to a repository to use this resource.
+
+        Secret values are encrypted using the [Go '/crypto/box' module](https://godoc.org/golang.org/x/crypto/nacl/box) which is
+        interoperable with [libsodium](https://libsodium.gitbook.io/doc/). Libsodium is used by GitHub to decrypt secret values.
+
+        For the purposes of security, the contents of the `plaintext_value` field have been marked as `sensitive` to Terraform,
+        but it is important to note that **this does not hide it from state files**. You should treat state as sensitive always.
+        It is also advised that you do not store plaintext values in your code but rather populate the `encrypted_value`
+        using fields from a resource, data source or variable as, while encrypted in state, these will be easily accessible
+        in your code. See below for an example of this abstraction.
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_github as github
+
+        example_plaintext = github.ActionsOrganizationSecret("example_plaintext",
+            secret_name="example_secret_name",
+            visibility="all",
+            plaintext_value=some_secret_string)
+        example_encrypted = github.ActionsOrganizationSecret("example_encrypted",
+            secret_name="example_secret_name",
+            visibility="all",
+            encrypted_value=some_encrypted_secret_string)
+        ```
+
+        ```python
+        import pulumi
+        import pulumi_github as github
+
+        repo = github.get_repository(full_name="my-org/repo")
+        example_encrypted = github.ActionsOrganizationSecret("example_encrypted",
+            secret_name="example_secret_name",
+            visibility="selected",
+            plaintext_value=some_secret_string,
+            selected_repository_ids=[repo.repo_id])
+        example_secret = github.ActionsOrganizationSecret("example_secret",
+            secret_name="example_secret_name",
+            visibility="selected",
+            encrypted_value=some_encrypted_secret_string,
+            selected_repository_ids=[repo.repo_id])
+        ```
+
+        ## Example Lifecycle Ignore Changes
+
+        This resource supports using the `lifecycle` `ignore_changes` block on `remote_updated_at` to support use cases where a secret value is created using a placeholder value and then modified after creation outside the scope of Terraform. This approach ensures only the initial placeholder value is referenced in your code and in the resulting state file.
+
+        ```python
+        import pulumi
+        import pulumi_github as github
+
+        example_allow_drift = github.ActionsOrganizationSecret("example_allow_drift",
+            secret_name="example_secret_name",
+            visibility="all",
+            plaintext_value="placeholder")
+        ```
+
         ## Import
+
+        This resource can be imported using the secret name as the ID.
+
+        > **Note**: When importing secrets, the `plaintext_value` or `encrypted_value` fields will not be populated in the state. You may need to ignore changes for these as a workaround if you're not planning on updating the secret through Terraform.
 
         ### Import Command
 
-        The following command imports a GitHub actions organization secret named `mysecret` to a `github_actions_organization_secret` resource named `example`.
+        The following command imports a GitHub actions organization secret named `mysecret` to a `ActionsOrganizationSecret` resource named `example`.
 
         ```sh
         $ pulumi import github:index/actionsOrganizationSecret:ActionsOrganizationSecret example mysecret
         ```
+
 
         :param str resource_name: The name of the resource.
         :param ActionsOrganizationSecretArgs args: The arguments to use to populate this resource's properties.

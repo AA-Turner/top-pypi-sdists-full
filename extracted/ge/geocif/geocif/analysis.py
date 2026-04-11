@@ -440,7 +440,7 @@ class Geoanalysis:
     def _plot_regional_yield_scatter(self, df):
         """Plot observed vs predicted yield for all regions and all years."""
         from .viz import diagnostics as diag
-        fname = f"scatter_all_regions_{self.country}_{self.crop}.png"
+        fname = f"scatter_regions_{self.country}_{self.crop}.png"
         title = f"{self.country} {self.crop} — All Regions"
         diag.scatter_obs_pred(df, title, self.dir_country_plots, fname)
 
@@ -514,7 +514,7 @@ class Geoanalysis:
         fig.suptitle(f"{self.country} — {self.crop}", fontsize=12, fontweight="bold")
         plt.tight_layout()
 
-        fname = f"scatter_by_region_{self.country}_{self.crop}.png"
+        fname = f"scatter_region_{self.country}_{self.crop}.png"
         fig.savefig(self.dir_country_plots / fname, dpi=250)
         plt.close(fig)
 
@@ -587,14 +587,14 @@ class Geoanalysis:
         fig.suptitle(f"Pooled — {self.crop}", fontsize=12, fontweight="bold")
         plt.tight_layout()
 
-        fname = f"scatter_by_country_{self.crop}.png"
+        fname = f"scatter_country_{self.crop}.png"
         fig.savefig(self.dir_plots / fname, dpi=250)
         plt.close(fig)
 
     def _plot_mape_by_region(self, df_regional_metrics):
         """Horizontal bar chart of average MAPE by region."""
         from .viz import diagnostics as diag
-        fname = f"mape_by_region_{self.country}_{self.crop}.png"
+        fname = f"mape_bar_{self.country}_{self.crop}.png"
         title = f"Mean MAPE by Region — {self.country} {self.crop}"
         diag.mape_bar_chart(df_regional_metrics, title, self.dir_country_plots, fname)
 
@@ -1001,7 +1001,7 @@ class Geoanalysis:
                     #
                     #                 """ % of total area """
                     if idx == 0:
-                        fname = f"{self.country}_{self.crop}_{model}_perc_area.png"
+                        fname = f"perc_area_{self.country}_{self.crop}_{model}.png"
                         col = "% of total Area (ha)"
                         plot.plot_map(
                             self.dg,  # dataframe containing adm1 name and polygon
@@ -1198,7 +1198,7 @@ class Geoanalysis:
                         dir_consolidated = dir_maps / str(year)
                         consolidated_prefix = f"{len(countries_with_data)}_countries"
 
-                        fname = f"{consolidated_prefix}_{self.crop}_{model}_predicted_yield_{time_period_label}_{year}.png"
+                        fname = f"predicted_yield_{consolidated_prefix}_{self.crop}_{model}_{time_period_label}_{year}.png"
                         plot.plot_map(
                             self.dg,
                             df_time_period,
@@ -1223,7 +1223,7 @@ class Geoanalysis:
                             ("2018-2022", "Anomaly (2018-2022)"),
                             ("10yr", "Anomaly (10yr)"),
                         ]:
-                            fname = f"{consolidated_prefix}_{self.crop}_{model}_anomaly_{time_period_label}_{year}.png"
+                            fname = f"anomaly_{consolidated_prefix}_{self.crop}_{model}_{time_period_label}_{year}.png"
                             _amin = df_time_period[anomaly_col].min()
                             _amax = df_time_period[anomaly_col].max()
                             _extend = "both" if _amin < -40 and _amax > 40 else "min" if _amin < -40 else "max" if _amax > 40 else "neither"
@@ -1248,7 +1248,7 @@ class Geoanalysis:
 
                     # Consolidated ratio of predicted to last observed yield
                     if len(countries_with_data) > 1 and "Ratio Last Observed" in df_time_period.columns and df_time_period["Ratio Last Observed"].notna().any():
-                        fname = f"{consolidated_prefix}_{self.crop}_{model}_ratio_last_observed_{time_period_label}_{year}.png"
+                        fname = f"ratio_observed_{consolidated_prefix}_{self.crop}_{model}_{time_period_label}_{year}.png"
                         _rmin = df_time_period["Ratio Last Observed"].min()
                         _rmax = df_time_period["Ratio Last Observed"].max()
                         _extend = "both" if _rmin < 60 and _rmax > 140 else "min" if _rmin < 60 else "max" if _rmax > 140 else "neither"
@@ -1274,7 +1274,7 @@ class Geoanalysis:
                     # Area
                     # breakpoint()
                     if df_time_period["Area (ha)"].notna().all():
-                        fname = f"{self.country}_{self.crop}_{model}_{year}_area.png"
+                        fname = f"area_{self.country}_{self.crop}_{model}_{year}.png"
                         plot.plot_map(
                             self.dg,  # dataframe containing adm1 name and polygon
                             df_time_period,  # dataframe containing information that will be mapped
@@ -1665,7 +1665,7 @@ class RegionalMapper(Geoanalysis):
             countries = [c.title().replace("_", " ") for c in countries]
             dg_sub = self.dg[self.dg["ADM0_NAME"].isin(countries)].copy()
 
-            fname = f"map_{self.crop}_{model}_mape.png"
+            fname = f"mape_map_{self.crop}_{model}.png"
             diag.mape_choropleth(
                 dg_sub, df_model, countries,
                 self.annotate_regions, self.dir_maps, fname,
@@ -1696,7 +1696,7 @@ class RegionalMapper(Geoanalysis):
             plt.xticks(rotation=0)
 
             plt.tight_layout()
-            plt.savefig(self.dir_plots / f"bar_mape_by_year_{self.crop}.png", dpi=250)
+            plt.savefig(self.dir_plots / f"mape_year_{self.crop}.png", dpi=250)
             plt.close()
 
 

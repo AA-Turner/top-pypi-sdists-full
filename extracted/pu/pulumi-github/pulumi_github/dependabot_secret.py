@@ -26,6 +26,7 @@ class DependabotSecretArgs:
                  plaintext_value: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a DependabotSecret resource.
+
         :param pulumi.Input[_builtins.str] repository: Name of the repository.
         :param pulumi.Input[_builtins.str] secret_name: Name of the secret.
         :param pulumi.Input[_builtins.str] encrypted_value: Encrypted value of the secret using the GitHub public key in Base64 format.
@@ -120,6 +121,7 @@ class _DependabotSecretState:
                  updated_at: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering DependabotSecret resources.
+
         :param pulumi.Input[_builtins.str] created_at: Date the secret was created.
         :param pulumi.Input[_builtins.str] encrypted_value: Encrypted value of the secret using the GitHub public key in Base64 format.
         :param pulumi.Input[_builtins.str] key_id: ID of the public key used to encrypt the secret. This should be provided when setting `encrypted_value`; if it isn't then the current public key will be looked up, which could cause a missmatch. This conflicts with `plaintext_value`.
@@ -275,15 +277,62 @@ class DependabotSecret(pulumi.CustomResource):
                  secret_name: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        This resource allows you to create and manage GitHub Dependabot secrets within your GitHub repositories.
+        You must have write access to a repository to use this resource.
+
+        Secret values are encrypted using the [Go '/crypto/box' module](https://godoc.org/golang.org/x/crypto/nacl/box) which is
+        interoperable with [libsodium](https://libsodium.gitbook.io/doc/). Libsodium is used by GitHub to decrypt secret values.
+
+        For the purposes of security, the contents of the `plaintext_value` field have been marked as `sensitive` to Terraform,
+        but it is important to note that **this does not hide it from state files**. You should treat state as sensitive always.
+        It is also advised that you do not store plaintext values in your code but rather populate the `encrypted_value`
+        using fields from a resource, data source or variable as, while encrypted in state, these will be easily accessible
+        in your code. See below for an example of this abstraction.
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_github as github
+
+        example_plaintext = github.DependabotSecret("example_plaintext",
+            repository="example_repository",
+            secret_name="example_secret_name",
+            plaintext_value=some_secret_string)
+        example_encrypted = github.DependabotSecret("example_encrypted",
+            repository="example_repository",
+            secret_name="example_secret_name",
+            encrypted_value=some_encrypted_secret_string)
+        ```
+
+        ## Example Lifecycle Ignore Changes
+
+        This resource supports using the `lifecycle` `ignore_changes` block on `remote_updated_at` to support use cases where a secret value is created using a placeholder value and then modified after creation outside the scope of Terraform. This approach ensures only the initial placeholder value is referenced in your code and in the resulting state file.
+
+        ```python
+        import pulumi
+        import pulumi_github as github
+
+        example_allow_drift = github.DependabotSecret("example_allow_drift",
+            repository="example_repository",
+            secret_name="example_secret_name",
+            plaintext_value="placeholder")
+        ```
+
         ## Import
+
+        This resource can be imported using an ID made of the repository name, and secret name separated by a `:`.
+
+        > **Note**: When importing secrets, the `plaintext_value` or `encrypted_value` fields will not be populated in the state. You may need to ignore changes for these as a workaround if you're not planning on updating the secret through Terraform.
 
         ### Import Command
 
-        The following command imports a GitHub Dependabot secret named `mysecret` for the repo `myrepo` to a `github_dependabot_secret` resource named `example`.
+        The following command imports a GitHub Dependabot secret named `mysecret` for the repo `myrepo` to a `DependabotSecret` resource named `example`.
 
         ```sh
         $ pulumi import github:index/dependabotSecret:DependabotSecret example myrepo:mysecret
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -302,15 +351,62 @@ class DependabotSecret(pulumi.CustomResource):
                  args: DependabotSecretArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        This resource allows you to create and manage GitHub Dependabot secrets within your GitHub repositories.
+        You must have write access to a repository to use this resource.
+
+        Secret values are encrypted using the [Go '/crypto/box' module](https://godoc.org/golang.org/x/crypto/nacl/box) which is
+        interoperable with [libsodium](https://libsodium.gitbook.io/doc/). Libsodium is used by GitHub to decrypt secret values.
+
+        For the purposes of security, the contents of the `plaintext_value` field have been marked as `sensitive` to Terraform,
+        but it is important to note that **this does not hide it from state files**. You should treat state as sensitive always.
+        It is also advised that you do not store plaintext values in your code but rather populate the `encrypted_value`
+        using fields from a resource, data source or variable as, while encrypted in state, these will be easily accessible
+        in your code. See below for an example of this abstraction.
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_github as github
+
+        example_plaintext = github.DependabotSecret("example_plaintext",
+            repository="example_repository",
+            secret_name="example_secret_name",
+            plaintext_value=some_secret_string)
+        example_encrypted = github.DependabotSecret("example_encrypted",
+            repository="example_repository",
+            secret_name="example_secret_name",
+            encrypted_value=some_encrypted_secret_string)
+        ```
+
+        ## Example Lifecycle Ignore Changes
+
+        This resource supports using the `lifecycle` `ignore_changes` block on `remote_updated_at` to support use cases where a secret value is created using a placeholder value and then modified after creation outside the scope of Terraform. This approach ensures only the initial placeholder value is referenced in your code and in the resulting state file.
+
+        ```python
+        import pulumi
+        import pulumi_github as github
+
+        example_allow_drift = github.DependabotSecret("example_allow_drift",
+            repository="example_repository",
+            secret_name="example_secret_name",
+            plaintext_value="placeholder")
+        ```
+
         ## Import
+
+        This resource can be imported using an ID made of the repository name, and secret name separated by a `:`.
+
+        > **Note**: When importing secrets, the `plaintext_value` or `encrypted_value` fields will not be populated in the state. You may need to ignore changes for these as a workaround if you're not planning on updating the secret through Terraform.
 
         ### Import Command
 
-        The following command imports a GitHub Dependabot secret named `mysecret` for the repo `myrepo` to a `github_dependabot_secret` resource named `example`.
+        The following command imports a GitHub Dependabot secret named `mysecret` for the repo `myrepo` to a `DependabotSecret` resource named `example`.
 
         ```sh
         $ pulumi import github:index/dependabotSecret:DependabotSecret example myrepo:mysecret
         ```
+
 
         :param str resource_name: The name of the resource.
         :param DependabotSecretArgs args: The arguments to use to populate this resource's properties.

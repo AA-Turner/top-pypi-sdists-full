@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: scanpy
-Version: 1.12
+Version: 1.12.1
 Summary: Single-Cell Analysis in Python.
-Project-URL: Documentation, https://scanpy.readthedocs.io/
-Project-URL: Source, https://github.com/scverse/scanpy
-Project-URL: Homepage, https://scanpy.org
-Project-URL: Discourse, https://discourse.scverse.org/c/help/scanpy/37
 Project-URL: Bluesky, https://bsky.app/profile/scverse.bsky.social
+Project-URL: Discourse, https://discourse.scverse.org/c/help/scanpy/37
+Project-URL: Documentation, https://scanpy.readthedocs.io/
+Project-URL: Homepage, https://scanpy.org
+Project-URL: Source, https://github.com/scverse/scanpy
 Project-URL: Twitter, https://x.com/scverse_team
-Author: Alex Wolf, Philipp Angerer, Fidel Ramirez, Isaac Virshup, Sergei Rybakov, Gokcen Eraslan, Ilan Gold, Tom White, Malte Luecken, Davide Cittaro, Tobias Callies, Marius Lange, Andrés R. Muñoz-Rojas, Giovanni Palla, Adam Gayoso, Lukas Heumos
-Maintainer-email: Philipp Angerer <phil.angerer@helmholtz-munich.de>, Ilan Gold <ilan.gold@helmholtz-munich.de>, Severin Dicks <severin.dicks@scverse.org>
+Author: Adam Gayoso, Alex Wolf, Andrés R. Muñoz-Rojas, Davide Cittaro, Fidel Ramirez, Giovanni Palla, Gokcen Eraslan, Ilan Gold, Isaac Virshup, Lukas Heumos, Malte Luecken, Marius Lange, Philipp Angerer, Sergei Rybakov, Tobias Callies, Tom White
+Maintainer-email: Ilan Gold <ilan.gold@helmholtz-munich.de>, Philipp Angerer <phil.angerer@helmholtz-munich.de>, Severin Dicks <severin.dicks@scverse.org>
 License-Expression: BSD-3-Clause
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
@@ -22,7 +22,7 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
@@ -30,7 +30,8 @@ Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Scientific/Engineering :: Visualization
 Requires-Python: >=3.12
 Requires-Dist: anndata>=0.10.8
-Requires-Dist: fast-array-utils[accel,sparse]>=1.2.1
+Requires-Dist: certifi
+Requires-Dist: fast-array-utils[accel,sparse]>=1.4
 Requires-Dist: h5py>=3.11
 Requires-Dist: joblib
 Requires-Dist: legacy-api-wrap>=1.5
@@ -40,17 +41,17 @@ Requires-Dist: networkx>=2.8.8
 Requires-Dist: numba>=0.60
 Requires-Dist: numpy>=2
 Requires-Dist: packaging>=25
-Requires-Dist: pandas>=2.2.2
+Requires-Dist: pandas>=2.3
 Requires-Dist: patsy
 Requires-Dist: pynndescent>=0.5.13
-Requires-Dist: scikit-learn>=1.4.2
+Requires-Dist: scikit-learn>=1.6
 Requires-Dist: scipy>=1.13
 Requires-Dist: seaborn>=0.13.2
 Requires-Dist: session-info2
 Requires-Dist: statsmodels>=0.14.5
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions; python_version < '3.13'
-Requires-Dist: umap-learn>=0.5.7
+Requires-Dist: umap-learn>=0.5.12
 Provides-Extra: bbknn
 Requires-Dist: bbknn; extra == 'bbknn'
 Provides-Extra: dask

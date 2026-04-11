@@ -540,7 +540,7 @@ class BaseClient:
                                                 detail_data = detail[1] if len(detail) > 1 else None
                                                 break
 
-                                    # Provide fallback names for common gRPC status codes 
+                                    # Provide fallback names for common gRPC status codes
                                     # if the backend didn't provide a specific detail_type
                                     friendly_type = detail_type
                                     if not friendly_type:
@@ -548,7 +548,7 @@ class BaseClient:
                                             3: "INVALID_ARGUMENT",
                                             5: "NOT_FOUND",
                                             7: "PERMISSION_DENIED",
-                                            16: "UNAUTHENTICATED"
+                                            16: "UNAUTHENTICATED",
                                         }
                                         friendly_type = grpc_codes.get(error_code, "unknown")
 

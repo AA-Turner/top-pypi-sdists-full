@@ -1540,6 +1540,7 @@ class Dependabot(
         *,
         allow: typing.Optional[typing.Sequence[typing.Union["DependabotAllow", typing.Dict[builtins.str, typing.Any]]]] = None,
         assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cooldown: typing.Optional[typing.Union["DependabotCooldown", typing.Dict[builtins.str, typing.Any]]] = None,
         groups: typing.Optional[typing.Mapping[builtins.str, typing.Union["DependabotGroup", typing.Dict[builtins.str, typing.Any]]]] = None,
         ignore: typing.Optional[typing.Sequence[typing.Union["DependabotIgnore", typing.Dict[builtins.str, typing.Any]]]] = None,
         ignore_projen: typing.Optional[builtins.bool] = None,
@@ -1555,6 +1556,7 @@ class Dependabot(
         :param github: -
         :param allow: (experimental) https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#allow. Use the allow option to customize which dependencies are updated. This applies to both version and security updates. Default: []
         :param assignees: (experimental) Specify individual assignees or teams of assignees for all pull requests raised for a package manager. Default: []
+        :param cooldown: (experimental) Defines a cooldown period for dependency version updates. During the cooldown, Dependabot will not propose updates for a dependency. This only applies to version updates, not security updates. Default: - no cooldown
         :param groups: (experimental) https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups. You can create groups to package dependency updates together into a single PR. Default: []
         :param ignore: (experimental) You can use the ``ignore`` option to customize which dependencies are updated. The ignore option supports the following options. Default: []
         :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``ProjenUpgrade`` class. Default: true
@@ -1574,6 +1576,7 @@ class Dependabot(
         options = DependabotOptions(
             allow=allow,
             assignees=assignees,
+            cooldown=cooldown,
             groups=groups,
             ignore=ignore,
             ignore_projen=ignore_projen,
@@ -1683,6 +1686,146 @@ class DependabotAllow:
 
     def __repr__(self) -> str:
         return "DependabotAllow(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.github.DependabotCooldown",
+    jsii_struct_bases=[],
+    name_mapping={
+        "default_days": "defaultDays",
+        "exclude": "exclude",
+        "include": "include",
+        "semver_major_days": "semverMajorDays",
+        "semver_minor_days": "semverMinorDays",
+        "semver_patch_days": "semverPatchDays",
+    },
+)
+class DependabotCooldown:
+    def __init__(
+        self,
+        *,
+        default_days: typing.Optional[jsii.Number] = None,
+        exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+        include: typing.Optional[typing.Sequence[builtins.str]] = None,
+        semver_major_days: typing.Optional[jsii.Number] = None,
+        semver_minor_days: typing.Optional[jsii.Number] = None,
+        semver_patch_days: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''(experimental) Defines a cooldown period for dependency version updates.
+
+        :param default_days: (experimental) Default cooldown period (in days) for all dependencies without specific semver rules. Default: - no default cooldown
+        :param exclude: (experimental) List of dependencies excluded from cooldown. Supports wildcards. Takes precedence over ``include``. Default: - no exclusions
+        :param include: (experimental) List of dependencies to apply cooldown to. Supports wildcards. Default: - all dependencies
+        :param semver_major_days: (experimental) Cooldown period (in days) for major version updates. Default: - uses defaultDays
+        :param semver_minor_days: (experimental) Cooldown period (in days) for minor version updates. Default: - uses defaultDays
+        :param semver_patch_days: (experimental) Cooldown period (in days) for patch version updates. Default: - uses defaultDays
+
+        :see: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#cooldown-
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__668dcc7d83ed6999074523659402b5e391317ab3cfed4e3e1e323aa22ea1c3cf)
+            check_type(argname="argument default_days", value=default_days, expected_type=type_hints["default_days"])
+            check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
+            check_type(argname="argument include", value=include, expected_type=type_hints["include"])
+            check_type(argname="argument semver_major_days", value=semver_major_days, expected_type=type_hints["semver_major_days"])
+            check_type(argname="argument semver_minor_days", value=semver_minor_days, expected_type=type_hints["semver_minor_days"])
+            check_type(argname="argument semver_patch_days", value=semver_patch_days, expected_type=type_hints["semver_patch_days"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if default_days is not None:
+            self._values["default_days"] = default_days
+        if exclude is not None:
+            self._values["exclude"] = exclude
+        if include is not None:
+            self._values["include"] = include
+        if semver_major_days is not None:
+            self._values["semver_major_days"] = semver_major_days
+        if semver_minor_days is not None:
+            self._values["semver_minor_days"] = semver_minor_days
+        if semver_patch_days is not None:
+            self._values["semver_patch_days"] = semver_patch_days
+
+    @builtins.property
+    def default_days(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Default cooldown period (in days) for all dependencies without specific semver rules.
+
+        :default: - no default cooldown
+
+        :stability: experimental
+        '''
+        result = self._values.get("default_days")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def exclude(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) List of dependencies excluded from cooldown.
+
+        Supports wildcards.
+        Takes precedence over ``include``.
+
+        :default: - no exclusions
+
+        :stability: experimental
+        '''
+        result = self._values.get("exclude")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def include(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) List of dependencies to apply cooldown to.
+
+        Supports wildcards.
+
+        :default: - all dependencies
+
+        :stability: experimental
+        '''
+        result = self._values.get("include")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def semver_major_days(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Cooldown period (in days) for major version updates.
+
+        :default: - uses defaultDays
+
+        :stability: experimental
+        '''
+        result = self._values.get("semver_major_days")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def semver_minor_days(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Cooldown period (in days) for minor version updates.
+
+        :default: - uses defaultDays
+
+        :stability: experimental
+        '''
+        result = self._values.get("semver_minor_days")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def semver_patch_days(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) Cooldown period (in days) for patch version updates.
+
+        :default: - uses defaultDays
+
+        :stability: experimental
+        '''
+        result = self._values.get("semver_patch_days")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DependabotCooldown(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1943,6 +2086,7 @@ class DependabotIgnore:
     name_mapping={
         "allow": "allow",
         "assignees": "assignees",
+        "cooldown": "cooldown",
         "groups": "groups",
         "ignore": "ignore",
         "ignore_projen": "ignoreProjen",
@@ -1961,6 +2105,7 @@ class DependabotOptions:
         *,
         allow: typing.Optional[typing.Sequence[typing.Union["DependabotAllow", typing.Dict[builtins.str, typing.Any]]]] = None,
         assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cooldown: typing.Optional[typing.Union["DependabotCooldown", typing.Dict[builtins.str, typing.Any]]] = None,
         groups: typing.Optional[typing.Mapping[builtins.str, typing.Union["DependabotGroup", typing.Dict[builtins.str, typing.Any]]]] = None,
         ignore: typing.Optional[typing.Sequence[typing.Union["DependabotIgnore", typing.Dict[builtins.str, typing.Any]]]] = None,
         ignore_projen: typing.Optional[builtins.bool] = None,
@@ -1975,6 +2120,7 @@ class DependabotOptions:
         '''
         :param allow: (experimental) https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#allow. Use the allow option to customize which dependencies are updated. This applies to both version and security updates. Default: []
         :param assignees: (experimental) Specify individual assignees or teams of assignees for all pull requests raised for a package manager. Default: []
+        :param cooldown: (experimental) Defines a cooldown period for dependency version updates. During the cooldown, Dependabot will not propose updates for a dependency. This only applies to version updates, not security updates. Default: - no cooldown
         :param groups: (experimental) https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups. You can create groups to package dependency updates together into a single PR. Default: []
         :param ignore: (experimental) You can use the ``ignore`` option to customize which dependencies are updated. The ignore option supports the following options. Default: []
         :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``ProjenUpgrade`` class. Default: true
@@ -1988,10 +2134,13 @@ class DependabotOptions:
 
         :stability: experimental
         '''
+        if isinstance(cooldown, dict):
+            cooldown = DependabotCooldown(**cooldown)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0078e67a79ce21c460b876a72b4fbd4a358306502062bdf9bdb13085805a3f2)
             check_type(argname="argument allow", value=allow, expected_type=type_hints["allow"])
             check_type(argname="argument assignees", value=assignees, expected_type=type_hints["assignees"])
+            check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument groups", value=groups, expected_type=type_hints["groups"])
             check_type(argname="argument ignore", value=ignore, expected_type=type_hints["ignore"])
             check_type(argname="argument ignore_projen", value=ignore_projen, expected_type=type_hints["ignore_projen"])
@@ -2007,6 +2156,8 @@ class DependabotOptions:
             self._values["allow"] = allow
         if assignees is not None:
             self._values["assignees"] = assignees
+        if cooldown is not None:
+            self._values["cooldown"] = cooldown
         if groups is not None:
             self._values["groups"] = groups
         if ignore is not None:
@@ -2052,6 +2203,21 @@ class DependabotOptions:
         '''
         result = self._values.get("assignees")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def cooldown(self) -> typing.Optional["DependabotCooldown"]:
+        '''(experimental) Defines a cooldown period for dependency version updates.
+
+        During the cooldown, Dependabot will not propose updates for a dependency.
+        This only applies to version updates, not security updates.
+
+        :default: - no cooldown
+
+        :see: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#cooldown-
+        :stability: experimental
+        '''
+        result = self._values.get("cooldown")
+        return typing.cast(typing.Optional["DependabotCooldown"], result)
 
     @builtins.property
     def groups(
@@ -2878,6 +3044,7 @@ class GitHub(
         *,
         allow: typing.Optional[typing.Sequence[typing.Union["DependabotAllow", typing.Dict[builtins.str, typing.Any]]]] = None,
         assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cooldown: typing.Optional[typing.Union["DependabotCooldown", typing.Dict[builtins.str, typing.Any]]] = None,
         groups: typing.Optional[typing.Mapping[builtins.str, typing.Union["DependabotGroup", typing.Dict[builtins.str, typing.Any]]]] = None,
         ignore: typing.Optional[typing.Sequence[typing.Union["DependabotIgnore", typing.Dict[builtins.str, typing.Any]]]] = None,
         ignore_projen: typing.Optional[builtins.bool] = None,
@@ -2892,6 +3059,7 @@ class GitHub(
         '''
         :param allow: (experimental) https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#allow. Use the allow option to customize which dependencies are updated. This applies to both version and security updates. Default: []
         :param assignees: (experimental) Specify individual assignees or teams of assignees for all pull requests raised for a package manager. Default: []
+        :param cooldown: (experimental) Defines a cooldown period for dependency version updates. During the cooldown, Dependabot will not propose updates for a dependency. This only applies to version updates, not security updates. Default: - no cooldown
         :param groups: (experimental) https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups. You can create groups to package dependency updates together into a single PR. Default: []
         :param ignore: (experimental) You can use the ``ignore`` option to customize which dependencies are updated. The ignore option supports the following options. Default: []
         :param ignore_projen: (experimental) Ignores updates to ``projen``. This is required since projen updates may cause changes in committed files and anti-tamper checks will fail. Projen upgrades are covered through the ``ProjenUpgrade`` class. Default: true
@@ -2908,6 +3076,7 @@ class GitHub(
         options = DependabotOptions(
             allow=allow,
             assignees=assignees,
+            cooldown=cooldown,
             groups=groups,
             ignore=ignore,
             ignore_projen=ignore_projen,
@@ -9304,6 +9473,7 @@ __all__ = [
     "CreatePullRequestOptions",
     "Dependabot",
     "DependabotAllow",
+    "DependabotCooldown",
     "DependabotGroup",
     "DependabotGroupAppliesTo",
     "DependabotGroupDependencyType",
@@ -9527,6 +9697,7 @@ def _typecheckingstub__2caae883697ce14c090e89c8fd0dbbab7e7c0f31d6d4d66311f05a679
     *,
     allow: typing.Optional[typing.Sequence[typing.Union[DependabotAllow, typing.Dict[builtins.str, typing.Any]]]] = None,
     assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cooldown: typing.Optional[typing.Union[DependabotCooldown, typing.Dict[builtins.str, typing.Any]]] = None,
     groups: typing.Optional[typing.Mapping[builtins.str, typing.Union[DependabotGroup, typing.Dict[builtins.str, typing.Any]]]] = None,
     ignore: typing.Optional[typing.Sequence[typing.Union[DependabotIgnore, typing.Dict[builtins.str, typing.Any]]]] = None,
     ignore_projen: typing.Optional[builtins.bool] = None,
@@ -9561,6 +9732,18 @@ def _typecheckingstub__95f7e72bd3f0d0b83df633a27522aaab6cab1baeaf4b90de44beff992
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__668dcc7d83ed6999074523659402b5e391317ab3cfed4e3e1e323aa22ea1c3cf(
+    *,
+    default_days: typing.Optional[jsii.Number] = None,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    include: typing.Optional[typing.Sequence[builtins.str]] = None,
+    semver_major_days: typing.Optional[jsii.Number] = None,
+    semver_minor_days: typing.Optional[jsii.Number] = None,
+    semver_patch_days: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__97650f1e1a170d34a5bd50211445090d04d890ec494749c1eb3f5a1fabbec7d4(
     *,
     patterns: typing.Sequence[builtins.str],
@@ -9584,6 +9767,7 @@ def _typecheckingstub__d0078e67a79ce21c460b876a72b4fbd4a358306502062bdf9bdb13085
     *,
     allow: typing.Optional[typing.Sequence[typing.Union[DependabotAllow, typing.Dict[builtins.str, typing.Any]]]] = None,
     assignees: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cooldown: typing.Optional[typing.Union[DependabotCooldown, typing.Dict[builtins.str, typing.Any]]] = None,
     groups: typing.Optional[typing.Mapping[builtins.str, typing.Union[DependabotGroup, typing.Dict[builtins.str, typing.Any]]]] = None,
     ignore: typing.Optional[typing.Sequence[typing.Union[DependabotIgnore, typing.Dict[builtins.str, typing.Any]]]] = None,
     ignore_projen: typing.Optional[builtins.bool] = None,

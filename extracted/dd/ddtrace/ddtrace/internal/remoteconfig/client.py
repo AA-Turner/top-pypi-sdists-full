@@ -29,6 +29,7 @@ from ddtrace.internal.remoteconfig._connectors import PublisherSubscriberConnect
 from ddtrace.internal.remoteconfig._subscribers import RemoteConfigSubscriber
 from ddtrace.internal.remoteconfig.constants import REMOTE_CONFIG_AGENT_ENDPOINT
 from ddtrace.internal.service import ServiceStatus
+from ddtrace.internal.settings import env
 from ddtrace.internal.settings._agent import config as agent_config
 from ddtrace.internal.settings._core import DDConfig
 from ddtrace.internal.telemetry import telemetry_writer
@@ -212,7 +213,7 @@ class RemoteConfigClient:
         self.agent_url = agent_config.trace_agent_url
 
         self._headers = {"content-type": "application/json"}
-        additional_header_str = os.environ.get("_DD_REMOTE_CONFIGURATION_ADDITIONAL_HEADERS")
+        additional_header_str = env.get("_DD_REMOTE_CONFIGURATION_ADDITIONAL_HEADERS")
         if additional_header_str is not None:
             self._headers.update(parse_tags_str(additional_header_str))
 
@@ -282,12 +283,6 @@ class RemoteConfigClient:
         # Call periodic method for all registered callbacks
         for product_name, callback in product_callbacks.items():
             try:
-                log.debug(
-                    "[%s][P: %s] Calling periodic method for product %s",
-                    os.getpid(),
-                    os.getppid(),
-                    product_name,
-                )
                 with StopWatch() as sw:
                     callback.periodic()
 
@@ -349,10 +344,11 @@ class RemoteConfigClient:
                         )
                 except Exception:
                     log.error(
-                        "[%s][P: %s] Error dispatching to product %s",
+                        "[%s][P: %s] Error dispatching to product %s. Payloads: %r",
                         os.getpid(),
                         os.getppid(),
                         product_name,
+                        product_payload_list,
                         exc_info=True,
                     )
 
@@ -608,7 +604,13 @@ class RemoteConfigClient:
                     continue
 
                 try:
-                    log.debug("[%s][P: %s] Load new configuration: %s. content", os.getpid(), os.getppid(), target)
+                    log.debug(
+                        "[%s][P: %s] Load new configuration: %s. content: %s",
+                        os.getpid(),
+                        os.getppid(),
+                        target,
+                        config_content,
+                    )
                     self._accumulate_payload(payload_list, config_content, target, config)
                 except Exception:
                     error_message = "Failed to apply configuration %s for product %r" % (config, config.product_name)
@@ -654,9 +656,7 @@ class RemoteConfigClient:
             if (payload_targets_signed.targets and not payload_targets_signed.targets.get(target.path)) and (
                 client_configs and not client_configs.get(target.path)
             ):
-                raise RemoteConfigError(
-                    "target file %s not exists in client_config and signed targets" % (target.path,)
-                )
+                raise RemoteConfigError(f"target file {target.path} does not exist in client_config and signed targets")
 
     def _publish_configuration(self, payload_list: list[Payload]) -> None:
         """Publish all accumulated payloads to the global connector."""
@@ -710,13 +710,6 @@ class RemoteConfigClient:
             return
 
         client_configs = {k: v for k, v in targets.items() if k in payload.client_configs}
-        log.debug(
-            "[%s][P: %s] Retrieved client configs last version %s: %s",
-            os.getpid(),
-            os.getppid(),
-            last_targets_version,
-            client_configs,
-        )
 
         self._validate_signed_target_files(payload.target_files, payload.targets.signed, client_configs)
 

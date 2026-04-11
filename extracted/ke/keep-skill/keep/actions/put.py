@@ -21,6 +21,10 @@ class Put:
         item_id = params.get("id")
         created_at = params.get("created_at")
         force = bool(params.get("force", False))
+        raw_queue_background_tasks = params.get("queue_background_tasks")
+        queue_background_tasks = (
+            True if raw_queue_background_tasks is None else bool(raw_queue_background_tasks)
+        )
 
         item = context.put(
             content=str(content) if content is not None else None,
@@ -30,6 +34,7 @@ class Put:
             summary=str(summary) if summary is not None else None,
             created_at=str(created_at) if created_at is not None else None,
             force=force,
+            queue_background_tasks=queue_background_tasks,
         )
         return {
             "id": getattr(item, "id", None),

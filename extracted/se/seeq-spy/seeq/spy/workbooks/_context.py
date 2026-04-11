@@ -106,6 +106,7 @@ class WorkbookPushContext:
     datasource_maps: Optional[DatasourceMapList] = None
     datasource_id_cache: Dict[Tuple[str, str], str] = field(default_factory=dict)
     failed_mappings: Set[str] = field(default_factory=set)
+    intentional_no_mappings: Set[str] = field(default_factory=set)
     errors_displayed_count: int = 0
     annotations_to_fixup: Dict[str, Any] = field(default_factory=dict)
     all_users: Optional[List[UserOutputV1]] = None

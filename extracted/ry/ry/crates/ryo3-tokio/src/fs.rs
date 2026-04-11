@@ -1,4 +1,6 @@
 //! python `tokio::fs` module
+use std::path::PathBuf;
+
 use pyo3::prelude::*;
 use pyo3::pybacked::PyBackedStr;
 use pyo3::types::PyDict;
@@ -6,7 +8,6 @@ pub use read_dir::PyAsyncReadDir;
 use ryo3_bytes::PyBytes;
 use ryo3_core::types::PyOpenMode;
 use ryo3_std::fs::PyMetadata;
-use std::path::PathBuf;
 use tracing::warn;
 mod async_file_read_stream;
 mod file;

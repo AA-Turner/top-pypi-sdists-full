@@ -1,7 +1,3 @@
-from unittest.mock import patch
-
-from filelock import FileLock
-
 from abstra_internals.services.sql_storage import SqlStorage
 from abstra_internals.utils.serializable import Serializable
 from tests.fixtures import BaseTest
@@ -110,56 +106,3 @@ class TestFileManager(BaseTest):
         reloaded_data = manager.load("reserved_id")
         assert reloaded_data is not None
         assert reloaded_data.update == "new_update_value"
-
-
-class TestSqlStorageEstale(BaseTest):
-    def setUp(self) -> None:
-        super().setUp()
-        self.manager = SqlStorage[MockModel](directory="test_estale", model=MockModel)
-
-    def test_locked_retries_on_estale(self):
-        """_locked() recreates FileLock and retries successfully on ESTALE."""
-        call_count = 0
-        original_acquire = FileLock.acquire
-
-        def patched_acquire(self_lock, *args, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                raise OSError(116, "Stale file handle")
-            return original_acquire(self_lock, *args, **kwargs)
-
-        with patch.object(FileLock, "acquire", patched_acquire):
-            self.manager.save("estale_id", MockModel(name="Alice", age=42))
-
-        assert call_count == 2  # First attempt failed (ESTALE), second succeeded
-        loaded = self.manager.load("estale_id")
-        assert loaded is not None
-        assert loaded.name == "Alice"
-
-    def test_locked_raises_after_max_retries(self):
-        """_locked() re-raises OSError after exhausting all ESTALE retries."""
-        stale_error = OSError(116, "Stale file handle")
-
-        with patch.object(FileLock, "acquire", side_effect=stale_error):
-            with self.assertRaises(OSError) as ctx:
-                self.manager.save("never_id", MockModel(name="Bob", age=1))
-
-        assert ctx.exception.errno == 116
-
-    def test_locked_does_not_suppress_non_estale_errors(self):
-        """_locked() propagates non-ESTALE OSErrors immediately without retrying."""
-        call_count = 0
-        perm_error = OSError(13, "Permission denied")
-
-        def patched_acquire(self_lock, *args, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            raise perm_error
-
-        with patch.object(FileLock, "acquire", patched_acquire):
-            with self.assertRaises(OSError) as ctx:
-                self.manager.save("perm_id", MockModel(name="Carol", age=5))
-
-        assert ctx.exception.errno == 13
-        assert call_count == 1  # No retries for non-ESTALE errors

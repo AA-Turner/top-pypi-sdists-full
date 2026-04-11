@@ -1,13 +1,15 @@
 #![doc = include_str!("../README.md")]
 mod globster;
 
-pub use crate::globster::PyGlobster;
+use std::str::FromStr;
+
 use ::globset::{Glob, GlobBuilder, GlobSetBuilder};
 use globster::Globster;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use ryo3_core::types::{PathLike, StringOrStrings};
-use std::str::FromStr;
+
+pub use crate::globster::PyGlobster;
 
 /// Default value for the `literal_separator` parameter.
 const DEFAULT_BACKSLASH_ESCAPE: bool = cfg!(windows);
@@ -47,9 +49,9 @@ impl PyGlob {
         signature = (
             pattern,
             /, *,
-            case_insensitive=false,
-            literal_separator=false,
-            backslash_escape=DEFAULT_BACKSLASH_ESCAPE
+            case_insensitive = false,
+            literal_separator = false,
+            backslash_escape = DEFAULT_BACKSLASH_ESCAPE
         )
     )]
     fn py_new(
@@ -151,9 +153,9 @@ impl PyGlobSet {
         signature = (
             patterns,
             /, *,
-            case_insensitive=false,
-            literal_separator=false,
-            backslash_escape=DEFAULT_BACKSLASH_ESCAPE
+            case_insensitive = false,
+            literal_separator = false,
+            backslash_escape = DEFAULT_BACKSLASH_ESCAPE
         )
     )]
     fn py_new(
@@ -294,9 +296,9 @@ impl TryFrom<&GlobsterLike> for PyGlobster {
     signature = (
         patterns,
         /, *,
-        case_insensitive=false,
-        literal_separator=false,
-        backslash_escape=DEFAULT_BACKSLASH_ESCAPE
+        case_insensitive = false,
+        literal_separator = false,
+        backslash_escape = DEFAULT_BACKSLASH_ESCAPE
     )
 )]
 fn py_globster(

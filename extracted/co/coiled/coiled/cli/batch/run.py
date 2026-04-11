@@ -490,6 +490,12 @@ def get_kwargs_from_header(f: dict, click_params: list):
         "For example, you can specify '30 minutes' or '1 hour'. Default is no timeout."
     ),
 )
+@click.option(
+    "--max-retries",
+    default=0,
+    type=int,
+    help="Maximum number of times to retry task on failure. Default is no retries.",
+)
 @click.option("--dask-container", default=None, type=str)
 @click.argument("command", nargs=-1, required=True)
 def batch_run_cli(ctx, **kwargs):
@@ -859,6 +865,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
         "host_setup": host_setup_content,
         "job_timeout_seconds": parse_timedelta(kwargs["job_timeout"]) if kwargs["job_timeout"] else None,
         "run_in_container": not kwargs.get("run_on_host"),
+        "max_retries": kwargs.get("max_retries") or 0,
     }
 
     with coiled.Cloud(workspace=kwargs["workspace"]) as cloud:

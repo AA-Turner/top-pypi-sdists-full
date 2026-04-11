@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PraisonAI
-Version: 4.5.136
+Version: 4.5.145
 Summary: PraisonAI is an AI Agents Framework with Self Reflection. PraisonAI application combines PraisonAI Agents, AutoGen, and CrewAI into a low-code solution for building and managing multi-agent LLM systems, focusing on simplicity, customisation, and efficient human-agent collaboration.
 Author: Mervin Praison
 License: MIT
@@ -11,7 +11,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: rich>=13.7
 Requires-Dist: markdown>=3.5
 Requires-Dist: pyparsing>=3.0.0
-Requires-Dist: praisonaiagents>=1.5.136
+Requires-Dist: praisonaiagents>=1.5.145
 Requires-Dist: python-dotenv>=0.19.0
 Requires-Dist: litellm<=1.82.6,>=1.81.0
 Requires-Dist: PyYAML>=6.0
@@ -823,6 +823,7 @@ praisonai agents.yaml
 | Auto-Save Sessions | [Docs](https://docs.praison.ai/docs/cli/session) | [📖](https://docs.praison.ai/docs/cli/session) |
 | History in Context | [Docs](https://docs.praison.ai/docs/cli/session) | [📖](https://docs.praison.ai/docs/cli/session) |
 | Telemetry | [Example](examples/python/telemetry/production-telemetry-example.py) | [📖](https://docs.praison.ai/docs/features/telemetry) |
+| Langfuse Tracing | [Docs](https://docs.praison.ai/docs/observability/langfuse) | [📖](https://docs.praison.ai/docs/observability/langfuse) |
 | Project Docs (.praison/docs/) | [Docs](https://docs.praison.ai/docs/cli/docs) | [📖](https://docs.praison.ai/docs/cli/docs) |
 | AI Commit Messages | [Docs](https://docs.praison.ai/docs/cli/commit) | [📖](https://docs.praison.ai/docs/cli/commit) |
 | @Mentions in Prompts | [Docs](https://docs.praison.ai/docs/cli/mentions) | [📖](https://docs.praison.ai/docs/cli/mentions) |
@@ -916,6 +917,19 @@ PraisonAI is built for speed, with agent instantiation in under 4μs. This reduc
 ## ⭐ Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=MervinPraison/PraisonAI&type=Date)](https://docs.praison.ai)
+
+---
+
+## 🔍 Langfuse Tracing
+
+```bash
+pip install "praisonai[langfuse]"
+praisonai langfuse
+```
+
+<p align="center">
+  <img src=".github/images/langfuse.png" alt="PraisonAI Langfuse Tracing" width="800" />
+</p>
 
 ---
 

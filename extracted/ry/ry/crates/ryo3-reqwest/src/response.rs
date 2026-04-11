@@ -1,11 +1,5 @@
-use crate::charset::PyEncodingName;
-use crate::errors::map_reqwest_err;
-use crate::pyo3_json_bytes::Pyo3JsonBytes;
-use crate::response_head::RyResponseHead;
-#[cfg(feature = "experimental-async")]
-use crate::response_stream::RyAsyncResponseStream;
-use crate::response_stream::RyBlockingResponseStream;
-use crate::{RyResponseStream, pyerr_response_already_consumed};
+use std::sync::Arc;
+
 use cookie::Cookie;
 use parking_lot::Mutex;
 use pyo3::exceptions::PyValueError;
@@ -21,7 +15,15 @@ use ryo3_macro_rules::pytodo;
 use ryo3_std::net::PySocketAddr;
 use ryo3_tokio_rt::{future_into_py, get_tokio_runtime};
 use ryo3_url::PyUrl;
-use std::sync::Arc;
+
+use crate::charset::PyEncodingName;
+use crate::errors::map_reqwest_err;
+use crate::pyo3_json_bytes::Pyo3JsonBytes;
+use crate::response_head::RyResponseHead;
+#[cfg(feature = "experimental-async")]
+use crate::response_stream::RyAsyncResponseStream;
+use crate::response_stream::RyBlockingResponseStream;
+use crate::{RyResponseStream, pyerr_response_already_consumed};
 
 #[pyclass(name = "Response", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
@@ -223,7 +225,7 @@ impl RyResponse {
 
     /// Return the response body as text/string (consumes the response)
     #[pyo3(
-        signature = (*, encoding=PyEncodingName::UTF_8),
+        signature = (*, encoding = PyEncodingName::UTF_8),
         text_signature = "(self, *, encoding=\"utf-8\")"
     )]
     fn text<'py>(
@@ -284,14 +286,14 @@ impl RyResponse {
     }
 
     /// Return a response consuming async iterator over the response body
-    #[pyo3(signature = (min_read_size=0, /))]
+    #[pyo3(signature = (min_read_size = 0, /))]
     fn bytes_stream(&self, min_read_size: usize) -> PyResult<RyResponseStream> {
         let response = self.take_response()?;
         Ok(RyResponseStream::from_response(response, min_read_size))
     }
 
     /// Return a response consuming async iterator over the response body
-    #[pyo3(signature = (min_read_size=0, /))]
+    #[pyo3(signature = (min_read_size = 0, /))]
     fn stream(&self, min_read_size: usize) -> PyResult<RyResponseStream> {
         self.bytes_stream(min_read_size)
     }
@@ -427,7 +429,7 @@ impl RyAsyncResponse {
 
     /// Return the response body as text/string (consumes the response)
     #[pyo3(
-        signature = (*, encoding=PyEncodingName::UTF_8),
+        signature = (*, encoding = PyEncodingName::UTF_8),
         text_signature = "(self, *, encoding=\"utf-8\")"
     )]
     async fn text(&self, encoding: PyEncodingName) -> PyResult<String> {
@@ -483,7 +485,7 @@ impl RyAsyncResponse {
     }
 
     /// Return a response consuming async iterator over the response body
-    #[pyo3(signature = (min_read_size=0, /))]
+    #[pyo3(signature = (min_read_size = 0, /))]
     fn bytes_stream(&self, min_read_size: usize) -> PyResult<RyAsyncResponseStream> {
         let response = self.take_response()?;
         Ok(RyAsyncResponseStream::from_response(
@@ -493,7 +495,7 @@ impl RyAsyncResponse {
     }
 
     /// Return a response consuming async iterator over the response body
-    #[pyo3(signature = (min_read_size=0, /))]
+    #[pyo3(signature = (min_read_size = 0, /))]
     fn stream(&self, min_read_size: usize) -> PyResult<RyAsyncResponseStream> {
         self.bytes_stream(min_read_size)
     }
@@ -656,7 +658,7 @@ impl RyBlockingResponse {
 
     /// Return the response body as text/string (consumes the response)
     #[pyo3(
-        signature = (*, encoding=PyEncodingName::UTF_8),
+        signature = (*, encoding = PyEncodingName::UTF_8),
         text_signature = "(self, *, encoding=\"utf-8\")"
     )]
     fn text<'py>(&'py self, py: Python<'py>, encoding: PyEncodingName) -> PyResult<String> {
@@ -720,7 +722,7 @@ impl RyBlockingResponse {
     }
 
     /// Return a response consuming async iterator over the response body
-    #[pyo3(signature = (min_read_size=0, /))]
+    #[pyo3(signature = (min_read_size = 0, /))]
     fn bytes_stream(&self, min_read_size: usize) -> PyResult<RyBlockingResponseStream> {
         let response = self.take_response()?;
         Ok(RyBlockingResponseStream::from_response(
@@ -730,7 +732,7 @@ impl RyBlockingResponse {
     }
 
     /// Return a response consuming async iterator over the response body
-    #[pyo3(signature = (min_read_size=0, /))]
+    #[pyo3(signature = (min_read_size = 0, /))]
     fn stream(&self, min_read_size: usize) -> PyResult<RyBlockingResponseStream> {
         self.bytes_stream(min_read_size)
     }

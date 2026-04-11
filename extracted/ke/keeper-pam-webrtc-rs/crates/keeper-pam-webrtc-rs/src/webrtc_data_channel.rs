@@ -1,45 +1,31 @@
-use crate::unlikely;
 use bytes::Bytes;
 #[cfg(test)]
 use futures::future::BoxFuture;
 use log::{debug, warn};
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::{mpsc, Semaphore};
 use webrtc::data_channel::RTCDataChannel;
 
 // Lock-free queue for pending frames - uses crossbeam's SegQueue
 use crossbeam_queue::SegQueue;
 
-/// Initial buffer threshold passed to EventDrivenSender.  The sender adapts this
-/// dynamically after the first few drain events.  8 KB is the RECEIVE_MTU floor so
-/// it is also the minimum the adaptive algorithm will ever go.
+/// WebRTC RECEIVE_MTU (8 KB). Used by adaptive_pool and core.rs to compare against
+/// the native buffered-amount counter — not related to EventDrivenSender frame counts.
 pub const STANDARD_BUFFER_THRESHOLD: u64 = 8 * 1024; // 8 KB
 
-// Adaptive drain constants — mirrors vault's ControlDataChannel algorithm.
-//
-// On each bufferedAmountLow event the sender:
-//   1. Measures how many bytes drained since the last event (frames × ~8 KB).
-//   2. Updates an EMA of drain rate (bytes/ms).
-//   3. Sets next threshold = clamp(TARGET_DELAY_MS × ema_rate, MIN, MAX).
-//
-// This eliminates the fixed 2000-frame burst (16 MB spike) that caused
-// saw-tooth latency for interactive traffic during concurrent bulk transfers.
-const DRAIN_TARGET_DELAY_MS: u64 = 50; // fill the pipe for ~50 ms per drain cycle
-const DRAIN_MIN_THRESHOLD: u64 = 8 * 1024; // 8 KB — never go below RECEIVE_MTU
-const DRAIN_MAX_THRESHOLD: u64 = 64 * 1024; // 64 KB — matches negotiated max-message-size
-const DRAIN_BATCH_SIZE: usize = 50; // frames per drain cycle (was 2000 → 400 KB max burst)
-                                    // EMA: new = 0.3 × current + 0.7 × prev  (α = 3/10)
-const DRAIN_EMA_ALPHA_NUM: u64 = 3;
-const DRAIN_EMA_ALPHA_DEN: u64 = 10;
+/// Actor byte budget: maximum bytes buffered in the per-tube send queue before
+/// send_with_natural_backpressure blocks. Acts as a hard OOM guard.
+pub const ACTOR_BYTE_BUDGET: usize = 512 * 1024; // 512 KB per tube
 
-// Error message constants to avoid repeated allocations in hot paths
-const QUEUE_FULL_ERROR: &str = "Queue full - backpressure required (loss-intolerant protocol)";
+/// SCTP send buffer high-water mark. The outbound task stops reading from the backend
+/// when buffered_amount exceeds this, preventing unbounded queue growth on any protocol.
+/// At 160 KB/s TURN this caps queue latency at ~200ms — well under guacd's 15s sync
+/// timeout and natural for TCP-based protocols (port forward, database proxy, etc.).
+pub const SCTP_HIGH_WATER: usize = 32 * 1024; // 32 KB
+
 const DATACHANNEL_CLOSED_ERROR: &str = "DataChannel closed";
-
-// Type alias for complex callback type - callbacks still need Mutex (can't be atomic)
-type BufferedAmountLowCallback =
-    Arc<std::sync::Mutex<Option<Box<dyn Fn() + Send + Sync + 'static>>>>;
 
 #[cfg(test)]
 type TestSendHook = Arc<
@@ -50,11 +36,6 @@ type TestSendHook = Arc<
 pub struct WebRTCDataChannel {
     pub data_channel: Arc<RTCDataChannel>,
     pub(crate) is_closing: Arc<AtomicBool>,
-    /// Buffered amount threshold - lock-free with AtomicU64
-    pub(crate) buffered_amount_low_threshold: Arc<AtomicU64>,
-    /// Callback for buffered amount low - still needs Mutex (callback is not Copy)
-    pub(crate) on_buffered_amount_low_callback: BufferedAmountLowCallback,
-    pub(crate) threshold_monitor: Arc<AtomicBool>,
     /// Notification for when data channel opens - allows multiple waiters without callback conflicts
     pub(crate) open_notify: Arc<tokio::sync::Notify>,
     /// Flag indicating if data channel is open - set once and never reset
@@ -79,9 +60,6 @@ impl Clone for WebRTCDataChannel {
         Self {
             data_channel: Arc::clone(&self.data_channel),
             is_closing: Arc::clone(&self.is_closing),
-            buffered_amount_low_threshold: Arc::clone(&self.buffered_amount_low_threshold),
-            on_buffered_amount_low_callback: Arc::clone(&self.on_buffered_amount_low_callback),
-            threshold_monitor: Arc::clone(&self.threshold_monitor),
             open_notify: Arc::clone(&self.open_notify),
             is_open: Arc::clone(&self.is_open),
             early_message_buffer: Arc::clone(&self.early_message_buffer),
@@ -154,9 +132,6 @@ impl WebRTCDataChannel {
         Self {
             data_channel,
             is_closing: Arc::new(AtomicBool::new(false)),
-            buffered_amount_low_threshold: Arc::new(AtomicU64::new(0)),
-            on_buffered_amount_low_callback: Arc::new(std::sync::Mutex::new(None)),
-            threshold_monitor: Arc::new(AtomicBool::new(false)),
             open_notify,
             is_open,
             early_message_buffer,
@@ -165,75 +140,6 @@ impl WebRTCDataChannel {
 
             #[cfg(test)]
             test_send_hook: Arc::new(std::sync::Mutex::new(None)),
-        }
-    }
-
-    /// Set the buffered amount low threshold (lock-free)
-    pub fn set_buffered_amount_low_threshold(&self, threshold: u64) {
-        // Lock-free store
-        self.buffered_amount_low_threshold
-            .store(threshold, Ordering::Release);
-
-        // Log the threshold change
-        debug!("Set buffered amount low threshold to {} bytes", threshold);
-
-        // Set the native WebRTC bufferedAmountLowThreshold
-        if threshold > 0 {
-            let dc = self.clone();
-            let threshold_clone = threshold;
-
-            // Spawn a task to set the threshold and register the callback on the native data channel
-            tokio::spawn(async move {
-                // Set the native threshold - convert u64 to usize
-                let threshold_usize = threshold_clone.try_into().unwrap_or(usize::MAX);
-                dc.data_channel
-                    .set_buffered_amount_low_threshold(threshold_usize)
-                    .await;
-
-                // Make a separate clone for the callback
-                let callback_dc = dc.clone();
-
-                // Register the onBufferedAmountLow callback
-                dc.data_channel
-                    .on_buffered_amount_low(Box::new(move || {
-                        let callback_dc = callback_dc.clone();
-                        let threshold_value = threshold_clone;
-
-                        Box::pin(async move {
-                            // Buffer drain event logging - verbose only (can be frequent)
-                            if unlikely!(crate::logger::is_verbose_logging()) {
-                                debug!(
-                                    "Native bufferedAmountLow event triggered (buffer below {})",
-                                    threshold_value
-                                );
-                            }
-
-                            // Get and call our callback (callback mutex is infrequent, not hot path)
-                            if let Ok(callback_guard) =
-                                callback_dc.on_buffered_amount_low_callback.lock()
-                            {
-                                if let Some(ref callback) = *callback_guard {
-                                    callback();
-                                }
-                            }
-                        })
-                    }))
-                    .await;
-            });
-        }
-    }
-
-    /// Set the callback to be called when the buffered amount drops below the threshold
-    pub fn on_buffered_amount_low(&self, callback: Option<Box<dyn Fn() + Send + Sync + 'static>>) {
-        // Check is_some() before moving the callback
-        let has_callback = callback.is_some();
-
-        // Callback registration is infrequent - mutex is acceptable here
-        if let Ok(mut guard) = self.on_buffered_amount_low_callback.lock() {
-            *guard = callback;
-            debug!("Set buffered amount low callback: {}", has_callback);
-        } else {
-            warn!("Failed to set buffered amount low callback - mutex poisoned");
         }
     }
 
@@ -473,452 +379,186 @@ impl WebRTCDataChannel {
     }
 }
 
-/// Retry state for exponential backoff
-/// Uses atomic timestamp (nanoseconds since epoch) for lock-free access
-struct RetryState {
-    /// Number of retry attempts
-    attempts: AtomicUsize,
-    /// Timestamp of last retry attempt (nanoseconds since Unix epoch, 0 = None)
-    last_retry_ns: AtomicU64,
-}
-
-impl RetryState {
-    fn new() -> Self {
-        Self {
-            attempts: AtomicUsize::new(0),
-            last_retry_ns: AtomicU64::new(0), // 0 = None
-        }
-    }
-
-    // Note: get_backoff_delay() reserved for future use when implementing
-    // actual retry with backoff delays. Currently retries happen via queue.
-
-    /// Record a retry attempt (lock-free)
-    fn record_retry(&self) {
-        self.attempts.fetch_add(1, Ordering::Release);
-        let now_ns = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos() as u64;
-        self.last_retry_ns.store(now_ns, Ordering::Release);
-    }
-
-    /// Reset retry state on success (lock-free)
-    fn reset(&self) {
-        self.attempts.store(0, Ordering::Release);
-        self.last_retry_ns.store(0, Ordering::Release); // 0 = None
-    }
-
-    /// Get current attempt count (lock-free)
-    fn get_attempts(&self) -> usize {
-        self.attempts.load(Ordering::Acquire)
-    }
-
-    /// Get elapsed time since last retry (lock-free)
-    fn get_last_retry_elapsed(&self) -> Option<Duration> {
-        let last_ns = self.last_retry_ns.load(Ordering::Acquire);
-        if last_ns == 0 {
-            return None;
-        }
-        let now_ns = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos() as u64;
-        if now_ns >= last_ns {
-            Some(Duration::from_nanos(now_ns - last_ns))
-        } else {
-            None // Clock went backwards
-        }
-    }
-}
-
-/// Event-driven sender that uses WebRTC native bufferedAmountLow events
-/// Eliminates polling and provides natural backpressure
-/// Uses lock-free SegQueue for zero-contention frame queueing
+/// Actor-model sender: one background tokio task per tube is the sole caller of
+/// `dc.send()`. TCP reader tasks acquire byte permits then push to an unbounded
+/// channel; the actor releases permits after each successful send.
+///
+/// Using a byte-based semaphore rather than a fixed frame count bounds memory
+/// regardless of frame size — 64-byte SSH frames get ~8 000 slots before blocking;
+/// 32-KB RDP tiles get ~16. Both stay within `byte_budget` per tube.
+///
+/// This eliminates the drain callback, two-queue system, drain_active flag,
+/// adaptive EMA, and drain_notify machinery that the previous EventDrivenSender
+/// required to prevent concurrent SCTP writes on Windows IOCP.
 pub struct EventDrivenSender {
-    data_channel: Arc<WebRTCDataChannel>,
-    /// Lock-free queue for pending frames - SegQueue provides MPSC without locks
-    pending_frames: Arc<SegQueue<Bytes>>,
-    /// Priority re-queue for frames that failed a previous send attempt.
-    /// Drained BEFORE pending_frames to preserve strict ordering.
-    requeue_frames: Arc<SegQueue<Bytes>>,
-    can_send: Arc<AtomicBool>,
-    threshold: u64,               // Backpressure threshold for monitoring
-    queue_size: Arc<AtomicUsize>, // Lock-free queue depth counter (covers both queues)
+    tx: mpsc::UnboundedSender<Bytes>,
+    budget: Arc<Semaphore>,
+    byte_budget: usize,
+    /// Mirrors WebRTCDataChannel.is_closing — lets send_with_natural_backpressure
+    /// return DATACHANNEL_CLOSED_ERROR immediately when the channel is going away
+    /// without needing the full WebRTCDataChannel reference.
+    is_closing: Arc<AtomicBool>,
+}
 
-    // Queue monitoring for alerts (lock-free atomics)
-    /// Timestamp when queue first exceeded 75% threshold (nanoseconds since Unix epoch, 0 = None)
-    high_queue_start_ns: Arc<AtomicU64>,
-    /// Count of frames that were blocked (queue full) - for metrics
-    frames_blocked: Arc<AtomicUsize>,
-
-    // Retry state for exponential backoff
-    retry_state: Arc<RetryState>,
+impl Clone for EventDrivenSender {
+    fn clone(&self) -> Self {
+        Self {
+            tx: self.tx.clone(),
+            budget: Arc::clone(&self.budget),
+            byte_budget: self.byte_budget,
+            is_closing: Arc::clone(&self.is_closing),
+        }
+    }
 }
 
 impl EventDrivenSender {
-    /// Create a new event-driven sender with the specified threshold
-    pub fn new(data_channel: Arc<WebRTCDataChannel>, threshold: u64) -> Self {
-        let sender = Self {
-            data_channel: data_channel.clone(),
-            pending_frames: Arc::new(SegQueue::new()),
-            requeue_frames: Arc::new(SegQueue::new()),
-            can_send: Arc::new(AtomicBool::new(true)),
-            threshold,
-            queue_size: Arc::new(AtomicUsize::new(0)),
-            high_queue_start_ns: Arc::new(AtomicU64::new(0)), // 0 = None
-            frames_blocked: Arc::new(AtomicUsize::new(0)),
-            retry_state: Arc::new(RetryState::new()),
-        };
+    /// Spawn the per-tube send actor and return the sender handle.
+    ///
+    /// `byte_budget` is the maximum bytes that may be queued before sends block.
+    /// Use `ACTOR_BYTE_BUDGET` (512 KB) for normal connections.
+    pub async fn new(data_channel: Arc<WebRTCDataChannel>, byte_budget: usize) -> Self {
+        let (tx, mut rx) = mpsc::unbounded_channel::<Bytes>();
+        let budget = Arc::new(Semaphore::new(byte_budget));
+        let is_closing = Arc::clone(&data_channel.is_closing);
+        let dc_for_actor = Arc::clone(&data_channel);
+        let budget_for_actor = Arc::clone(&budget);
 
-        // Set up WebRTC native event handling
-        data_channel.set_buffered_amount_low_threshold(threshold);
-
-        let can_send_clone = sender.can_send.clone();
-        let pending_clone = sender.pending_frames.clone();
-        let requeue_clone = sender.requeue_frames.clone();
-        let queue_size_clone = sender.queue_size.clone();
-        let dc_clone = data_channel.clone();
-
-        // Adaptive drain state — shared between consecutive drain events.
-        // last_drain_time_ms: Unix time (ms) of the previous bufferedAmountLow event.
-        // last_batch_frames:  how many frames we drained in that previous event.
-        // ema_rate_fp:        EMA of drain rate in bytes/ms, stored ×10 (fixed-point).
-        let last_drain_time_ms: Arc<AtomicU64> = Arc::new(AtomicU64::new(0));
-        let last_batch_frames: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
-        let ema_rate_fp: Arc<AtomicU64> = Arc::new(AtomicU64::new(0));
-
-        let last_drain_time_clone = last_drain_time_ms;
-        let last_batch_clone = last_batch_frames;
-        let ema_rate_clone = ema_rate_fp;
-        let native_dc_clone = data_channel.data_channel.clone();
-
-        // EVENT-DRIVEN: Only wake up when buffer space available
-        data_channel.on_buffered_amount_low(Some(Box::new(move || {
-            can_send_clone.store(true, Ordering::Release);
-
-            // --- Adaptive threshold update ---
-            // Measure bytes drained since the last event and update EMA drain rate.
-            // new_threshold = clamp(TARGET_DELAY_MS × ema_rate, MIN, MAX)
-            let now_ms = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_millis() as u64)
-                .unwrap_or(0);
-            let last_ms = last_drain_time_clone.load(Ordering::Relaxed);
-            if last_ms > 0 && now_ms > last_ms {
-                let elapsed_ms = now_ms - last_ms;
-                let prev_frames = last_batch_clone.load(Ordering::Relaxed) as u64;
-                if prev_frames > 0 && elapsed_ms > 0 {
-                    // Approximate bytes drained: frames × 8 KB (MAX_READ_SIZE baseline).
-                    // Stored ×10 to keep integer precision for the EMA.
-                    let cur_rate_fp = prev_frames * 8192 * 10 / elapsed_ms;
-                    let prev_ema = ema_rate_clone.load(Ordering::Relaxed);
-                    let new_ema = if prev_ema == 0 {
-                        cur_rate_fp
-                    } else {
-                        (DRAIN_EMA_ALPHA_NUM * cur_rate_fp
-                            + (DRAIN_EMA_ALPHA_DEN - DRAIN_EMA_ALPHA_NUM) * prev_ema)
-                            / DRAIN_EMA_ALPHA_DEN
-                    };
-                    ema_rate_clone.store(new_ema, Ordering::Relaxed);
-
-                    // threshold = target_delay × rate (de-scaling the ×10 fixed-point)
-                    let new_threshold =
-                        (DRAIN_TARGET_DELAY_MS * new_ema / 10)
-                            .clamp(DRAIN_MIN_THRESHOLD, DRAIN_MAX_THRESHOLD);
-
-                    // Update native WebRTC threshold directly — avoids the full
-                    // set_buffered_amount_low_threshold() path which re-registers the callback.
-                    let native_dc = native_dc_clone.clone();
-                    let thr = new_threshold;
-                    tokio::spawn(async move {
-                        native_dc
-                            .set_buffered_amount_low_threshold(
-                                thr.try_into().unwrap_or(usize::MAX),
-                            )
-                            .await;
-                    });
-                }
-            }
-            last_drain_time_clone.store(now_ms, Ordering::Relaxed);
-
-            // --- Drain batch ---
-            // Drain at most DRAIN_BATCH_SIZE frames per event (was 2000).
-            // Smaller batches smooth out the burst that causes saw-tooth latency
-            // for interactive traffic during concurrent bulk transfers.
-            // Pop from requeue_frames FIRST to preserve ordering of frames
-            // that failed a previous send attempt, then from pending_frames.
-            let mut to_send = Vec::with_capacity(DRAIN_BATCH_SIZE);
-            while to_send.len() < DRAIN_BATCH_SIZE {
-                match requeue_clone.pop() {
-                    Some(frame) => to_send.push(frame),
-                    None => break,
-                }
-            }
-            while to_send.len() < DRAIN_BATCH_SIZE {
-                match pending_clone.pop() {
-                    Some(frame) => to_send.push(frame),
-                    None => break,
-                }
-            }
-            last_batch_clone.store(to_send.len(), Ordering::Relaxed);
-
-            // Update atomic counter after draining (covers both queues)
-            let old_size = queue_size_clone.fetch_sub(to_send.len(), Ordering::AcqRel);
-
-            // Sanity check: counter should never underflow (indicates a bug in increment/decrement logic)
-            // In development: panic to catch the bug immediately
-            // In production: log error and reset counter to prevent permanent corruption
-            debug_assert!(
-                old_size >= to_send.len(),
-                "Queue size counter underflowed! old_size={}, to_send.len()={} - this indicates a race condition in queue management",
-                old_size,
-                to_send.len()
-            );
-
-            if old_size < to_send.len() {
-                log::error!(
-                    "CRITICAL: Queue size counter underflowed! old_size={}, to_send.len()={} - resetting counter to 0. This indicates a bug in queue increment/decrement logic.",
-                    old_size,
-                    to_send.len()
-                );
-                queue_size_clone.store(0, Ordering::Release);
-            }
-
-            if !to_send.is_empty() {
-                let dc = dc_clone.clone();
-                let can_send_for_batch = can_send_clone.clone();
-                let requeue_for_batch = requeue_clone.clone();
-                let requeue_counter = queue_size_clone.clone();
-
-                tokio::spawn(async move {
-                    let total = to_send.len();
-                    let mut failed_at = total; // assume all succeed
-
-                    for (i, frame) in to_send.iter().enumerate() {
-                        match dc.send(frame.clone()).await {
-                            Ok(_) => continue,
-                            Err(_) => {
-                                can_send_for_batch.store(false, Ordering::Release);
-                                failed_at = i;
-                                break;
-                            }
-                        }
+        tokio::spawn(async move {
+            while let Some(frame) = rx.recv().await {
+                // Permits to release = same value acquired in send_with_natural_backpressure.
+                let permits = (frame.len().min(byte_budget) as u32).max(1) as usize;
+                // dc.send() blocks internally on SCTP congestion (it does not error on
+                // backpressure). Any error returned here is a permanent channel failure —
+                // "sending payload data in non-Established state", "Stream closed",
+                // "DataChannel is not opened", OS-level IOCP errors, etc. Close the
+                // semaphore to wake all blocked senders immediately.
+                match dc_for_actor.send(frame).await {
+                    Ok(_) => {
+                        budget_for_actor.add_permits(permits);
                     }
-
-                    // Re-queue unsent frames into the priority requeue_frames queue
-                    // to preserve strict ordering on the next drain cycle.
-                    if failed_at < total {
-                        let unsent = &to_send[failed_at..];
-                        let requeue_count = unsent.len();
-                        for frame in unsent {
-                            requeue_for_batch.push(frame.clone());
-                        }
-                        requeue_counter.fetch_add(requeue_count, Ordering::AcqRel);
+                    Err(e) => {
+                        debug!("Actor send failed, closing channel: {}", e);
+                        budget_for_actor.close(); // wake all blocked senders
+                        return;
                     }
-                });
+                }
             }
-        })));
+            // rx.recv() returned None: all senders dropped, normal shutdown.
+        });
 
-        sender
+        Self {
+            tx,
+            budget,
+            byte_budget,
+            is_closing,
+        }
     }
 
-    /// Send with zero-polling natural backpressure (lock-free!)
-    /// Returns immediately - either sends or queues for later
+    /// Push a frame into the actor's channel.
+    ///
+    /// Blocks (awaits) when the byte budget is exhausted — the actor releases
+    /// permits as it drains frames through dc.send(), so this provides natural
+    /// backpressure proportional to actual SCTP throughput.
+    ///
+    /// Returns `Err(DATACHANNEL_CLOSED_ERROR)` when:
+    ///   - the WebRTCDataChannel is marked closing (`is_closing` flag), or
+    ///   - the actor task has exited (semaphore closed after a permanent send error).
     pub async fn send_with_natural_backpressure(&self, frame: Bytes) -> Result<(), &'static str> {
-        let frame_len = frame.len(); // Capture for logging
-
-        // Fast path: send immediately if buffer has space
-        if self.can_send.load(Ordering::Acquire) {
-            match self.data_channel.send(frame.clone()).await {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    let error_str = e.to_string();
-
-                    // Detect permanent failures (WebRTC closed) vs temporary failures (buffer full)
-                    // When WebRTC is permanently closed, we must return error to trigger cleanup
-                    // Otherwise backend tasks become zombies, guacd keeps responding, 15s timeout leak
-                    if error_str.contains("DataChannel is not opened")
-                        || error_str.contains("Channel is closing")
-                        || error_str.contains("closed")
-                    {
-                        // Permanent failure - WebRTC is dead, don't queue
-                        // Only log once per channel to avoid spam during shutdown
-                        if unlikely!(crate::logger::is_verbose_logging()) {
-                            debug!(
-                                "WebRTC permanently closed, failing send (frame_size: {} bytes)",
-                                frame_len
-                            );
-                        }
-                        return Err(DATACHANNEL_CLOSED_ERROR);
-                    }
-
-                    // Temporary failure (buffer full, congestion) - queue for retry
-                    // Record retry attempt for exponential backoff tracking
-                    self.retry_state.record_retry();
-                    let attempts = self.retry_state.get_attempts();
-
-                    if unlikely!(crate::logger::is_verbose_logging()) {
-                        debug!(
-                            "WebRTC send failed temporarily (frame_size: {} bytes, retry_attempt: {}), queueing for retry. Error: {}",
-                            frame_len, attempts, e
-                        );
-                    }
-
-                    self.can_send.store(false, Ordering::Release);
-                    // Fall through to queueing
-                }
-            }
+        if self.is_closing.load(Ordering::Acquire) {
+            return Err(DATACHANNEL_CLOSED_ERROR);
         }
-
-        // Slow path: queue for later when buffer drains (lock-free!)
-        // CRITICAL: Check size BEFORE incrementing to avoid race condition where
-        // counter is incremented but frame is never queued (window of incorrect state)
-        let current_queue_size = self.queue_size.load(Ordering::Acquire);
-
-        // Prevent unbounded growth - increased from 1000 to 10000 frames
-        // Check BEFORE incrementing counter to maintain accurate queue depth
-        // CRITICAL: Never drop frames for loss-intolerant protocols (RDP/SSH/SFTP)
-        // Return error to trigger backpressure instead (caller pauses reads)
-        if current_queue_size >= 10000 {
-            // Track blocked frames for metrics
-            self.frames_blocked.fetch_add(1, Ordering::Relaxed);
-
-            warn!(
-                "EventDrivenSender queue FULL - backpressure required (queue_size: {}, threshold: {}, frame_bytes: {})",
-                current_queue_size,
-                self.threshold,
-                frame_len
-            );
-            // Return error to trigger backpressure - caller will pause reads
-            // This prevents frame loss for loss-intolerant protocols
-            return Err(QUEUE_FULL_ERROR);
-        }
-
-        // Queue monitoring: Track sustained high queue pressure for alerts (lock-free)
-        const HIGH_QUEUE_THRESHOLD: usize = 7500; // 75% of max capacity
-        const SUSTAINED_PRESSURE_DURATION: Duration = Duration::from_secs(30);
-
-        if current_queue_size > HIGH_QUEUE_THRESHOLD {
-            // Track when queue first exceeded threshold (lock-free compare-and-swap)
-            let now_ns = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos() as u64;
-
-            // Only set if currently 0 (None) - lock-free initialization
-            let _ = self.high_queue_start_ns.compare_exchange(
-                0,
-                now_ns,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            );
-
-            // Check if sustained pressure for alert threshold (lock-free read)
-            let start_ns = self.high_queue_start_ns.load(Ordering::Acquire);
-            if start_ns != 0 {
-                let elapsed = Duration::from_nanos(now_ns.saturating_sub(start_ns));
-                if elapsed >= SUSTAINED_PRESSURE_DURATION {
-                    warn!(
-                        "Sustained queue pressure detected: {}/10000 frames ({:.1}% full) for {:?} - network may be degraded",
-                        current_queue_size,
-                        (current_queue_size as f64 / 10000.0) * 100.0,
-                        elapsed
-                    );
-                    // Record metrics for sustained pressure (non-blocking)
-                    // Note: conversation_id not available here, will be tracked at channel level
-                }
-            }
-
-            // Log warning at 75% threshold
-            // Re-check queue size to avoid stale warnings if it dropped during processing
-            let final_queue_size = self.queue_size.load(Ordering::Acquire);
-            if final_queue_size > HIGH_QUEUE_THRESHOLD {
-                warn!(
-                    "EventDrivenSender queue critically high: {}/10000 frames ({:.1}% full) - backpressure active",
-                    final_queue_size,
-                    (final_queue_size as f64 / 10000.0) * 100.0
-                );
-            }
-        } else {
-            // Queue below threshold - reset tracking (lock-free)
-            self.high_queue_start_ns.store(0, Ordering::Release); // 0 = None
-
-            // Log at 50% threshold (every 500 frames for monitoring)
-            if current_queue_size > 5000
-                && current_queue_size.is_multiple_of(500)
-                && unlikely!(crate::logger::is_verbose_logging())
-            {
-                debug!(
-                    "EventDrivenSender queue growing: {}/10000 frames ({:.1}% full)",
-                    current_queue_size,
-                    (current_queue_size as f64 / 10000.0) * 100.0
-                );
-            }
-        }
-
-        // Push to queue FIRST (SegQueue::push is infallible - always succeeds)
-        self.pending_frames.push(frame);
-
-        // Then increment counter (atomic operation)
-        // This ensures counter never exceeds actual queue size
-        self.queue_size.fetch_add(1, Ordering::Release);
-
-        // Reset retry state on successful queue (frame will be sent when buffer drains)
-        self.retry_state.reset();
-
-        Ok(()) // Queued successfully - no blocking!
+        // Clamp to byte_budget so a single oversized frame can never deadlock.
+        let permits = (frame.len().min(self.byte_budget) as u32).max(1);
+        self.budget
+            .acquire_many(permits)
+            .await
+            .map_err(|_| DATACHANNEL_CLOSED_ERROR)?
+            .forget(); // released by actor after dc.send() succeeds
+        self.tx.send(frame).map_err(|_| DATACHANNEL_CLOSED_ERROR)
     }
 
-    /// Get retry statistics for monitoring (lock-free)
-    #[allow(dead_code)] // Reserved for future metrics API
-    pub fn get_retry_stats(&self) -> (usize, Option<Duration>) {
-        let attempts = self.retry_state.get_attempts();
-        let last_retry = self.retry_state.get_last_retry_elapsed();
-        (attempts, last_retry)
-    }
-
-    /// Get queue depth for monitoring (lock-free)
+    /// Bytes currently queued (acquired permits not yet released by the actor).
     pub fn queue_depth(&self) -> usize {
-        self.queue_size.load(Ordering::Acquire)
+        self.byte_budget
+            .saturating_sub(self.budget.available_permits())
     }
 
-    /// Check if sender can send immediately (useful for monitoring)
+    /// True if the byte budget has at least one permit available.
     pub fn can_send_immediate(&self) -> bool {
-        self.can_send.load(Ordering::Acquire)
+        self.budget.available_permits() > 0
     }
 
-    /// Check if queue depth exceeds threshold (for monitoring/alerting)
+    /// True if the byte budget is fully exhausted (next send will block).
     pub fn is_over_threshold(&self) -> bool {
-        self.queue_depth() as u64 > self.threshold
+        self.budget.available_permits() == 0
     }
 
-    /// Get the configured threshold for monitoring
+    /// Total byte budget for this sender.
     pub fn get_threshold(&self) -> u64 {
-        self.threshold
+        self.byte_budget as u64
     }
 
-    /// Get count of frames that were blocked (queue full) - for metrics
-    #[allow(dead_code)] // Reserved for future metrics API
-    pub fn get_frames_blocked(&self) -> usize {
-        self.frames_blocked.load(Ordering::Acquire)
-    }
+    /// Check whether the actor queue needs backpressure and pause if so.
+    ///
+    /// Returns `(should_break, pause_us)`:
+    /// - `should_break`: cancellation token fired — caller should exit the outbound loop.
+    /// - `pause_us`: wall-clock microseconds spent waiting (0 if no pause was needed).
+    ///
+    /// ## Design
+    ///
+    /// `queue_depth()` is the number of bytes the outbound task has pushed into the
+    /// actor's channel that the actor has not yet sent (semaphore permits acquired but
+    /// not yet released).  When the actor stalls inside `dc.send()` — because the SCTP
+    /// pending queue is full and its write loop is delayed on a large IOCP completion
+    /// backlog on Windows — it stops releasing permits and `queue_depth()` rises.
+    ///
+    /// This is a pure atomic semaphore read: no RTCDataChannel mutex, no SCTP calls,
+    /// no contention with the actor hot path on any platform.
+    ///
+    /// The previous approach called `buffered_amount()` which acquires the RTCDataChannel
+    /// `data_channel` mutex.  `RTCDataChannel::send()` holds that same mutex while
+    /// awaiting `pending_queue.append()`, which blocks when the 128 KB SCTP pending
+    /// queue is full.  On Windows CI (after many tests accumulate an IOCP completion
+    /// backlog), this caused `maybe_pause_for_sctp` to hang indefinitely, triggering
+    /// the 60-second socket timeout.
+    ///
+    /// ## Why no on_buffered_amount_low callback
+    ///
+    /// That callback fires from inside the SCTP send path.  Awaiting a future there
+    /// causes reentrancy hazards on Windows IOCP — the same problem the actor model
+    /// was built to eliminate.
+    pub async fn maybe_pause_for_sctp(
+        &self,
+        cancel: &tokio_util::sync::CancellationToken,
+    ) -> (bool, u64) {
+        if self.queue_depth() <= SCTP_HIGH_WATER {
+            return (false, 0);
+        }
 
-    /// Check if queue has been high for sustained period (for alerts) - lock-free
-    #[allow(dead_code)] // Reserved for future metrics API
-    pub fn has_sustained_pressure(&self) -> bool {
-        let start_ns = self.high_queue_start_ns.load(Ordering::Acquire);
-        if start_ns == 0 {
-            return false;
+        // Actor queue is above the high-water mark — SCTP path is congested.
+        // Pause reading from the TCP backend until the actor drains below threshold.
+        // All checks are lock-free atomic reads.
+        const SCTP_POLL_MS: u64 = 5;
+        let pause_start = std::time::Instant::now();
+        let deadline = pause_start + std::time::Duration::from_secs(2);
+
+        loop {
+            tokio::select! {
+                biased;
+                _ = cancel.cancelled() => return (true, 0),
+                _ = tokio::time::sleep(std::time::Duration::from_millis(SCTP_POLL_MS)) => {}
+            }
+
+            if self.queue_depth() <= SCTP_HIGH_WATER {
+                break;
+            }
+
+            if std::time::Instant::now() >= deadline {
+                debug!("SCTP backpressure: actor queue still high after 2s — forcing resume");
+                break;
+            }
         }
-        let now_ns = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos() as u64;
-        if now_ns >= start_ns {
-            Duration::from_nanos(now_ns - start_ns) >= Duration::from_secs(30)
-        } else {
-            false // Clock went backwards
-        }
+
+        (false, pause_start.elapsed().as_micros() as u64)
     }
 }

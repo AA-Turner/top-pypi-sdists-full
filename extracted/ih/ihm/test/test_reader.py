@@ -802,11 +802,14 @@ loop_
 _struct_ref_seq_dif.pdbx_ordinal
 _struct_ref_seq_dif.align_id
 _struct_ref_seq_dif.seq_num
+_struct_ref_seq_dif.pdbx_seq_db_seq_num
 _struct_ref_seq_dif.db_mon_id
 _struct_ref_seq_dif.mon_id
 _struct_ref_seq_dif.details
-1 1 2 TRP SER 'Test mutation'
-2 1 2 . . 'Test mutation'
+1 1 2 ? TRP SER 'Test mutation'
+2 1 2 ? . . 'Test mutation'
+3 1 2 ? ? PRO insertion
+4 1 ? 10 CYS ? deletion
 #
 """
         # Order of the categories shouldn't matter
@@ -830,8 +833,9 @@ _struct_ref_seq_dif.details
                 self.assertEqual(a1.db_end, 6)
                 self.assertEqual(a1.entity_begin, 1)
                 self.assertEqual(a1.entity_end, 4)
-                sd, sd2 = a1.seq_dif
+                sd, sd2, sd3, sd4 = a1.seq_dif
                 self.assertEqual(sd.seq_id, 2)
+                self.assertEqual(sd.db_seq_id, ihm.unknown)
                 self.assertIsInstance(sd.db_monomer, ihm.ChemComp)
                 self.assertIsInstance(sd.monomer, ihm.ChemComp)
                 self.assertEqual(sd.db_monomer.id, 'TRP')
@@ -840,6 +844,15 @@ _struct_ref_seq_dif.details
                 # Both mon_id and db_mon_id are optional, so could be empty
                 self.assertIsNone(sd2.db_monomer)
                 self.assertIsNone(sd2.monomer)
+
+                # Insertion
+                self.assertIsInstance(sd3, ihm.reference.InsertionSeqDif)
+                self.assertEqual(sd3.seq_id, 2)
+                self.assertEqual(sd3.db_seq_id, ihm.unknown)
+                # Deletion
+                self.assertIsInstance(sd4, ihm.reference.DeletionSeqDif)
+                self.assertEqual(sd4.seq_id, ihm.unknown)
+                self.assertEqual(sd4.db_seq_id, 10)
 
                 self.assertEqual(a2.db_begin, 8)
                 self.assertEqual(a2.db_end, 8)
@@ -1384,7 +1397,7 @@ _ihm_starting_model_details.starting_model_sequence_offset
 _ihm_starting_model_details.dataset_list_id
 _ihm_starting_model_details.description
 1 1 Nup84 A 1 'comparative model' Q 8 4 .
-2 1 Nup84 A . 'comparative model' X . 6 'test desc'
+2 1 Nup84 A . 'comparative model' X . . 'test desc'
 """
         # Order of the two categories shouldn't matter
         for cif in ps_cif + sm_cif, sm_cif + ps_cif:
@@ -1401,7 +1414,7 @@ _ihm_starting_model_details.description
                 self.assertEqual(m2.asym_unit._id, 'A')
                 self.assertEqual(m2.asym_id, 'X')
                 self.assertEqual(m2.offset, 0)
-                self.assertEqual(m2.dataset._id, '6')
+                self.assertIsNone(m2.dataset)
                 self.assertEqual(m2.description, 'test desc')
 
     def test_starting_computational_models_handler(self):

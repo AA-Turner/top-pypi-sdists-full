@@ -200,6 +200,7 @@ from assisted_service_client.models.verified_vip import VerifiedVip
 from assisted_service_client.models.verify_vip import VerifyVip
 from assisted_service_client.models.verify_vips_request import VerifyVipsRequest
 from assisted_service_client.models.verify_vips_response import VerifyVipsResponse
+from assisted_service_client.models.versioned_cluster_host_requirements_details import VersionedClusterHostRequirementsDetails
 from assisted_service_client.models.versioned_host_requirements import VersionedHostRequirements
 from assisted_service_client.models.versions import Versions
 from assisted_service_client.models.vip_type import VipType

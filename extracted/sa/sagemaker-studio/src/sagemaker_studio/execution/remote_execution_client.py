@@ -64,6 +64,7 @@ class RemoteExecutionClient(ExecutionClient):
         self.session = Session()
         self.domain_identifier = None
         self.project_identifier = None
+        self.datazone_endpoint = None
         self.datazone_domain_region = None
         self.project_s3_path = None
         self.default_tooling_environment = None
@@ -517,7 +518,10 @@ class RemoteExecutionClient(ExecutionClient):
             is_git_project,
         )
 
-        input = ExecutionUtils.unpack_path_file(input_s3_location)
+        project_root_pattern = r"^/?src/" if is_git_project else r"^/?shared/"
+        input_relative_path = re.sub(project_root_pattern, "", local_input_file_path)
+        project_s3_root = input_s3_location.replace(input_relative_path, "").rstrip("/")
+        input = {"path": project_s3_root, "file": input_relative_path}
         output = ExecutionUtils.unpack_path_file(output_s3_location)
 
         execution_tags = [
@@ -616,6 +620,7 @@ class RemoteExecutionClient(ExecutionClient):
                 # Required by connection magics
                 "DataZoneDomainId": self.domain_identifier,
                 "DataZoneProjectId": self.project_identifier,
+                "DataZoneEndpoint": self.datazone_endpoint,
                 "DataZoneDomainRegion": self.datazone_domain_region,
                 "ProjectS3Path": self.project_s3_path,
                 "InputNotebookPath": local_full_input_file_path,
@@ -889,6 +894,9 @@ class RemoteExecutionClient(ExecutionClient):
 
         if not self.domain_identifier or not self.project_identifier:
             raise InternalServerError("Domain identifier and project identifier are required")
+
+        if self.datazone_endpoint is None:
+            self.datazone_endpoint = self.config.datazone_endpoint
 
         if self.datazone_domain_region is None:
             if domain_region:

@@ -135,6 +135,13 @@ class StoredOrCalculatedItem(Item):
 
             capture_groups.update(match.groupdict())
 
+        # Check if "New" is explicitly null, indicating intentional no-mapping
+        if regex_map['New'] is None:
+            # Old patterns matched but New is null - this is intentional no-mapping
+            item_map.log(self.id, f'- RegEx-Based Map {regex_map_index}: Old patterns matched but New is null')
+            item_map.log(self.id, f'    This explicitly indicates the item cannot be mapped')
+            return 'INTENTIONAL_NO_MAPPING', capture_groups
+
         new_definition = dict()
         for prop, regex in regex_map['New'].items():
             new_definition[prop] = util.replace_tokens_in_regex(regex, capture_groups, escape=False)
@@ -331,6 +338,11 @@ class StoredOrCalculatedItem(Item):
                                        f'{self._get_datasource_map_name_log_str(datasource_map)}')
                 return item_object
 
+            # If this item was marked as intentionally unmappable (New: null), stop immediately
+            # regardless of "On Match" setting, as intentional no-mapping is a definitive outcome
+            if self.id in context.intentional_no_mappings:
+                break
+
             on_match_default = 'Stop' if session.options.wants_compatibility_with(191) else 'Continue'
             on_match = str(_common.get(regex_map, 'On Match', on_match_default)).lower()
             if not isinstance(on_match, str) and on_match not in ['continue', 'stop']:
@@ -368,6 +380,13 @@ class StoredOrCalculatedItem(Item):
 
         if new_definition is None:
             return None, False
+
+        # Check if this is an intentional no-mapping (New: null in datasource map)
+        if new_definition == 'INTENTIONAL_NO_MAPPING':
+            context.intentional_no_mappings.add(self.id)
+            item_map.log(self.id, f'- Marked as intentionally unmappable (datasource map has New: null)',
+                         at_top=True)
+            return None, True
 
         if 'Type' not in new_definition:
             raise SPyValueError('"Type" property required in "New" datasource map definitions')
@@ -711,7 +730,8 @@ class StoredItem(StoredOrCalculatedItem):
             return cached_item
 
         if self.id in context.failed_mappings:
-            raise SPyDependencyNotFound(item_map.explain(self.id))
+            intentional = self.id in context.intentional_no_mappings
+            raise SPyDependencyNotFound(item_map.explain(self.id), intentional_no_mapping=intentional)
 
         local: bool = self['Scoped To'] is not None
         only_override_maps = item_map.only_override_maps
@@ -735,12 +755,20 @@ class StoredItem(StoredOrCalculatedItem):
                     self._push_local_item(context, label, item_map, datasource_output, pushed_workbook_id,
                                           item_inventory)
             else:
-                if dummy_items_workbook_context is None:
-                    status.log(f'Mapping failed for {self}:\n{item_map.explain(self.id)}',
-                               level=logging.ERROR)
+                # Check if this is an intentional no-mapping and short-circuit before dummy item creation
+                if self.id in context.intentional_no_mappings:
+                    log_message = f'Intentionally not mapped (New: null in datasource map) for {self}:\n{item_map.explain(self.id)}'
+                    status.log(log_message, level=logging.INFO)
                     # Add to failed mappings so we don't try again and spam the logs
                     context.failed_mappings.add(self.id)
-                    raise SPyDependencyNotFound(item_map.explain(self.id))
+                    raise SPyDependencyNotFound(item_map.explain(self.id), intentional_no_mapping=True)
+
+                if dummy_items_workbook_context is None:
+                    # Mapping failed (not intentional)
+                    status.log(f'Mapping failed for {self}:\n{item_map.explain(self.id)}', level=logging.ERROR)
+                    # Add to failed mappings so we don't try again and spam the logs
+                    context.failed_mappings.add(self.id)
+                    raise SPyDependencyNotFound(item_map.explain(self.id), intentional_no_mapping=False)
 
                 status.log(f'{dry_run_tense} dummy item for {self}')
                 self._push_dummy_item(context, label, item_map, datasource_output, dummy_items_workbook_context)
@@ -838,7 +866,8 @@ class CalculatedItem(StoredOrCalculatedItem):
             item = self
 
         if not local and not is_standalone_item and item is None:
-            raise SPyDependencyNotFound(item_map.explain(self.id))
+            intentional = self.id in context.intentional_no_mappings
+            raise SPyDependencyNotFound(item_map.explain(self.id), intentional_no_mapping=intentional)
 
         if item:
             item_map[self.id] = item.id

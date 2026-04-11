@@ -2201,7 +2201,7 @@ class AxisBins:
         raise NotImplementedError()
 
     def isByCategory(self) -> bool:
-        '''Indicates whether grouping data by category'''
+        '''Indicates whether grouping data by category is enabled.'''
         raise NotImplementedError()
 
     def getCount(self) -> int:
@@ -2209,7 +2209,7 @@ class AxisBins:
         raise NotImplementedError()
 
     def setByCategory(self, value : bool) -> None:
-        '''Indicates whether grouping data by category
+        '''Indicates whether grouping data by category is enabled.
         :param value: '''
         raise NotImplementedError()
 
@@ -2231,7 +2231,7 @@ class AxisBins:
         raise NotImplementedError()
 
     def setWidth(self, value : float) -> None:
-        '''Sets the width of axis bin
+        '''Sets the width of the axis bin.
         :param value: '''
         raise NotImplementedError()
 
@@ -2241,7 +2241,7 @@ class AxisBins:
         raise NotImplementedError()
 
     def getWidth(self) -> float:
-        '''Gets the width of axis bin'''
+        '''Gets the width of the axis bin.'''
         raise NotImplementedError()
 
     def setAutomatic(self, value : bool) -> None:
@@ -6760,7 +6760,7 @@ class ChartArea:
 
 
 class ChartCalculateOptions:
-    '''Represents the options for calculating chart.'''
+    '''Represents the options for calculating the chart.'''
 
     def getUpdateAllPoints(self) -> bool:
         '''Whether update all data points when performing the chart calculation. Default: False.
@@ -6861,7 +6861,7 @@ class ChartCollection:
 
 
 class ChartColorPaletteType:
-    '''Enumerates all Monochromatic Palettes used in Excel chart.'''
+    '''Enumerates all Monochromatic Palettes used in an Excel chart.'''
 
     MONOCHROMATIC_PALETTE_1 : ChartColorPaletteType
     '''accent1 theme color gradient, dark to light.'''
@@ -7257,7 +7257,7 @@ class ChartFrame:
 
 
 class ChartGlobalizationSettings:
-    '''Represents the globalization settings for chart.'''
+    '''Represents the globalization settings for a chart.'''
 
     def getLegendDecreaseName(self) -> str:
         '''Gets the name of Decrease for Legend.'''
@@ -7651,10 +7651,10 @@ class ChartTextDirectionType:
     '''Vertical direction type.'''
 
     ROTATE_90 : ChartTextDirectionType
-    '''Rotate 90 angle.'''
+    '''Rotate 90-degree angle.'''
 
     ROTATE_270 : ChartTextDirectionType
-    '''Rotate 270 angle.'''
+    '''Rotate 270-degree angle.'''
 
     STACKED : ChartTextDirectionType
     '''Stacked text.'''
@@ -7727,7 +7727,7 @@ class ChartTextFrame:
         raise NotImplementedError()
 
     def isDeleted(self) -> bool:
-        '''Indicates whether this data labels is deleted.'''
+        '''Indicates whether this data labels are deleted.'''
         raise NotImplementedError()
 
     def setTextDirection(self, value : int) -> None:
@@ -7750,7 +7750,7 @@ class ChartTextFrame:
         raise NotImplementedError()
 
     def setDeleted(self, value : bool) -> None:
-        '''Indicates whether this data labels is deleted.
+        '''Indicates whether this data labels are deleted.
         :param value: '''
         raise NotImplementedError()
 
@@ -7761,7 +7761,7 @@ class ChartTextFrame:
         raise NotImplementedError()
 
     def getRotationAngle(self) -> int:
-        '''Represents text rotation angle.'''
+        '''Represents the text rotation angle.'''
         raise NotImplementedError()
 
     def setDirectionType(self, value : int) -> None:
@@ -7782,7 +7782,7 @@ class ChartTextFrame:
         raise NotImplementedError()
 
     def setRotationAngle(self, value : int) -> None:
-        '''Represents text rotation angle.
+        '''Represents the text rotation angle.
         :param value: '''
         raise NotImplementedError()
 
@@ -10537,6 +10537,10 @@ class CopyOptions:
         :param value: '''
         raise NotImplementedError()
 
+    def getUpdateInvalidReferencesToTargetSheet(self) -> bool:
+        '''Indicates whether to refer to target worksheet if the referred worksheet is not copied.'''
+        raise NotImplementedError()
+
     def setExtendToAdjacentRange(self, value : bool) -> None:
         '''Indicates whether extend ranges when copying the range to adjacent range.
         :param value: '''
@@ -10592,6 +10596,11 @@ class CopyOptions:
 
     def getCopyNames(self) -> bool:
         '''Indicates whether copying the names.'''
+        raise NotImplementedError()
+
+    def setUpdateInvalidReferencesToTargetSheet(self, value : bool) -> None:
+        '''Indicates whether to refer to target worksheet if the referred worksheet is not copied.
+        :param value: '''
         raise NotImplementedError()
 
     def setCopyInvalidFormulasAsValues(self, value : bool) -> None:
@@ -13819,6 +13828,18 @@ class ErrorBarType:
 class ErrorCellValueType:
     '''Represents a cell value which contains an error.'''
 
+    VALUE : ErrorCellValueType
+    '''Represents the value of a cell containing a #VALUE! error.'''
+
+    REF : ErrorCellValueType
+    '''Represents the value of a cell containing a #REF! error.'''
+
+    NAME : ErrorCellValueType
+    '''Represents the value of a cell containing a #NAME? error.'''
+
+    NA : ErrorCellValueType
+    '''Represents the value of a cell containing a #NAME? error.'''
+
     BLOCKED : ErrorCellValueType
     '''Represents the value of a cell containing a #BLOCKED! error.'''
 
@@ -13830,9 +13851,6 @@ class ErrorCellValueType:
 
     CONNECT : ErrorCellValueType
     '''Represents the value of a cell containing a #CONNECT! error.'''
-
-    NAME : ErrorCellValueType
-    '''Represents the value of a cell containing a #NAME? error.'''
 
     FIELD : ErrorCellValueType
     '''Represents the value of a cell containing a #FIELD! error.'''
@@ -20773,7 +20791,7 @@ class LabelPositionType:
     '''Represents data label position type.'''
 
     CENTER : LabelPositionType
-    '''Applies only to bar, 2d/3d pie charts'''
+    '''Applies only to bar, 2D/3D pie charts'''
 
     INSIDE_BASE : LabelPositionType
     '''Applies only to bar, 2d/3d pie charts'''
@@ -20797,10 +20815,10 @@ class LabelPositionType:
     '''Applies only to line charts'''
 
     BEST_FIT : LabelPositionType
-    '''Applies only to 2d/3d pie charts'''
+    '''Applies only to 2D/3D pie charts'''
 
     MOVED : LabelPositionType
-    '''User moved the data labels, Only for reading chart from template file.'''
+    '''User moved the data labels only for reading the chart from the template file.'''
 
 
 class Legend:
@@ -23144,7 +23162,7 @@ class MapChartLabelLayout:
     '''Represents the layout of map chart's labels.'''
 
     BEST_FIT_ONLY : MapChartLabelLayout
-    '''Only best fit.'''
+    '''Only the best fit.'''
 
     SHOW_ALL : MapChartLabelLayout
     '''Shows all labels.'''
@@ -23154,7 +23172,7 @@ class MapChartLabelLayout:
 
 
 class MapChartProjectionType:
-    '''Represents projection type of the map chart.'''
+    '''Represents the projection type of the map chart.'''
 
     AUTOMATIC : MapChartProjectionType
     '''Automatic'''
@@ -31051,7 +31069,7 @@ class PivotTable:
         raise NotImplementedError()
 
     def getFilterArea(self) -> CellArea:
-        '''Gets the region of filter region.'''
+        '''Gets the area of filter region.'''
         raise NotImplementedError()
 
     def getRowHeaderCaption(self) -> str:
@@ -31797,11 +31815,11 @@ class PlotArea:
     '''Encapsulates the object that represents the plot area in a chart.'''
 
     def getXRatioToChart(self) -> float:
-        '''Gets or gets the x coordinate of the upper left corner of plot-area bounding box in units of ratio of the chart area.'''
+        '''Gets the x coordinate of the upper left corner of the plot area bounding box as a ratio of the chart area.'''
         raise NotImplementedError()
 
     def getWidthRatioToChart(self) -> float:
-        '''Gets the width of plot-area bounding box in units of ratio of the chart area.'''
+        '''Gets the width of plot-area bounding box in units of the ratio of the chart area.'''
         raise NotImplementedError()
 
     def setWidth(self, value : int) -> None:
@@ -31817,29 +31835,29 @@ class PlotArea:
         raise NotImplementedError()
 
     def setAutomaticSize(self, value : bool) -> None:
-        '''Indicates whether the plot area is automatic sized.
+        '''Indicates whether the plot area is automatically sized.
         :param value: '''
         raise NotImplementedError()
 
     def setInnerYRatioToChart(self, value : float) -> None:
-        '''Gets or gets the x coordinate of the upper top corner of plot area in units of ratio of the chart area.
+        '''Gets or gets the x coordinate of the upper top corner of plot area in units of the ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
     def isAutomaticSize(self) -> bool:
-        '''Indicates whether the plot area is automatic sized.'''
+        '''Indicates whether the plot area is automatically sized.'''
         raise NotImplementedError()
 
     def getYRatioToChart(self) -> float:
-        '''Gets or gets the y coordinate of the upper top corner  of plot-area bounding box in units of ratio of the chart area.'''
+        '''Gets the y coordinate of the upper top corner of the plot-area bounding box as a ratio of the chart area.'''
         raise NotImplementedError()
 
     def getHeightRatioToChart(self) -> float:
-        '''Gets the height of plot-area bounding box in units of ratio of the chart area.'''
+        '''Gets the height of the plot-area bounding box in units of the ratio of the chart area.'''
         raise NotImplementedError()
 
     def setXRatioToChart(self, value : float) -> None:
-        '''Gets or gets the x coordinate of the upper left corner of plot-area bounding box in units of ratio of the chart area.
+        '''Sets the x coordinate of the upper left corner of the plot area bounding box as a ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
@@ -31848,7 +31866,7 @@ class PlotArea:
         raise NotImplementedError()
 
     def setWidthRatioToChart(self, value : float) -> None:
-        '''Sets the width of plot-area bounding box in units of ratio of the chart area.
+        '''Sets the width of plot-area bounding box in units of the ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
@@ -31861,17 +31879,17 @@ class PlotArea:
         raise NotImplementedError()
 
     def setYRatioToChart(self, value : float) -> None:
-        '''Gets or gets the y coordinate of the upper top corner  of plot-area bounding box in units of ratio of the chart area.
+        '''Sets the y coordinate of the upper top corner of the plot-area bounding box as a ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
     def setHeightRatioToChart(self, value : float) -> None:
-        '''Sets the height of plot-area bounding box in units of ratio of the chart area.
+        '''Sets the height of the plot-area bounding box in units of the ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
     def getInnerWidthRatioToChart(self) -> float:
-        '''Gets the width  of plot area in units of ratio of the chart area.'''
+        '''Gets the width of the plot area in units of the ratio of the chart area.'''
         raise NotImplementedError()
 
     def getHeight(self) -> int:
@@ -31900,12 +31918,12 @@ class PlotArea:
         raise NotImplementedError()
 
     def setInnerWidthRatioToChart(self, value : float) -> None:
-        '''Sets the width  of plot area in units of ratio of the chart area.
+        '''Sets the width of the plot area in units of the ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
     def getInnerXRatioToChart(self) -> float:
-        '''Gets or gets the x coordinate of the upper top corner of plot area in units of ratio of the chart area.'''
+        '''Gets or gets the x coordinate of the upper top corner of plot area in units of the ratio of the chart area.'''
         raise NotImplementedError()
 
     def getInnerY(self) -> int:
@@ -31925,7 +31943,7 @@ class PlotArea:
         raise NotImplementedError()
 
     def setPositionAuto(self) -> None:
-        '''Set position of the plot area to automatic'''
+        '''Set the position of the plot area to automatic'''
         raise NotImplementedError()
 
     def getInnerHeight(self) -> int:
@@ -31937,11 +31955,11 @@ class PlotArea:
         raise NotImplementedError()
 
     def getInnerYRatioToChart(self) -> float:
-        '''Gets or gets the x coordinate of the upper top corner of plot area in units of ratio of the chart area.'''
+        '''Gets or gets the x coordinate of the upper top corner of plot area in units of the ratio of the chart area.'''
         raise NotImplementedError()
 
     def setInnerXRatioToChart(self, value : float) -> None:
-        '''Gets or gets the x coordinate of the upper top corner of plot area in units of ratio of the chart area.
+        '''Gets or gets the x coordinate of the upper top corner of plot area in units of the ratio of the chart area.
         :param value: '''
         raise NotImplementedError()
 
@@ -35268,7 +35286,7 @@ class Series:
         raise NotImplementedError()
 
     def setValuesFormatCode(self, value : str) -> None:
-        '''Represents format code of Values's NumberList.
+        '''Represents format code of Values' NumberList.
         :param value: '''
         raise NotImplementedError()
 
@@ -35277,7 +35295,8 @@ class Series:
         raise NotImplementedError()
 
     def setFiltered(self, value : bool) -> None:
-        '''Indicates whether the series is selected or filtered.True represents this series is filtered, and it will not be displayed on the chart.
+        '''Indicates whether the series is selected or filtered.
+        True represents that this series is filtered, and it will not be displayed on the chart.
         :param value: '''
         raise NotImplementedError()
 
@@ -35327,11 +35346,11 @@ class Series:
         raise NotImplementedError()
 
     def getValuesFormatCode(self) -> str:
-        '''Represents format code of Values's NumberList.'''
+        '''Represents format code of Values' NumberList.'''
         raise NotImplementedError()
 
     def setXValuesFormatCode(self, value : str) -> None:
-        '''Represents format code of X Values's NumberList.
+        '''Represents format code of X Values' NumberList.
         :param value: '''
         raise NotImplementedError()
 
@@ -35376,7 +35395,8 @@ class Series:
         raise NotImplementedError()
 
     def isFiltered(self) -> bool:
-        '''Indicates whether the series is selected or filtered.True represents this series is filtered, and it will not be displayed on the chart.'''
+        '''Indicates whether the series is selected or filtered.
+        True represents that this series is filtered, and it will not be displayed on the chart.'''
         raise NotImplementedError()
 
     def setBar3DShapeType(self, value : int) -> None:
@@ -35406,7 +35426,7 @@ class Series:
         raise NotImplementedError()
 
     def getXValuesFormatCode(self) -> str:
-        '''Represents format code of X Values's NumberList.'''
+        '''Represents format code of X Values' NumberList.'''
         raise NotImplementedError()
 
     def getSizeRepresents(self) -> int:
@@ -35511,7 +35531,7 @@ class Series:
         raise NotImplementedError()
 
     def getArea(self) -> Area:
-        '''Represents the background area of Series object.'''
+        '''Represents the background area of the Series object.'''
         raise NotImplementedError()
 
     def getDownBars(self) -> DropBars:
@@ -35579,7 +35599,7 @@ class Series:
         raise NotImplementedError()
 
     def getBorder(self) -> Line:
-        '''Represents border of Series object.'''
+        '''Represents the border of a Series object.'''
         raise NotImplementedError()
 
     def getSplitType(self) -> int:
@@ -35724,7 +35744,7 @@ class SeriesLayoutProperties:
         raise NotImplementedError()
 
     def getShowConnectorLines(self) -> bool:
-        '''Indicates whether showing connector lines between data points.'''
+        '''Indicates whether connector lines are shown between data points.'''
         raise NotImplementedError()
 
     def getSubtotals(self) -> list[int]:
@@ -35732,7 +35752,7 @@ class SeriesLayoutProperties:
         raise NotImplementedError()
 
     def setShowOutlierPoints(self, value : bool) -> None:
-        '''Indicates whether showing outlier data points.
+        '''Indicates whether outlier data points are shown.
         :param value: '''
         raise NotImplementedError()
 
@@ -35758,7 +35778,7 @@ class SeriesLayoutProperties:
         raise NotImplementedError()
 
     def setShowMeanMarker(self, value : bool) -> None:
-        '''Indicates whether showing markers denoting the mean.
+        '''Indicates whether markers denoting the mean are shown.
         :param value: '''
         raise NotImplementedError()
 
@@ -35769,7 +35789,7 @@ class SeriesLayoutProperties:
         raise NotImplementedError()
 
     def setShowConnectorLines(self, value : bool) -> None:
-        '''Indicates whether showing connector lines between data points.
+        '''Indicates whether connector lines are shown between data points.
         :param value: '''
         raise NotImplementedError()
 
@@ -35779,7 +35799,7 @@ class SeriesLayoutProperties:
         raise NotImplementedError()
 
     def getShowMeanLine(self) -> bool:
-        '''Indicates whether showing the line connecting all mean points.'''
+        '''Indicates whether to show the line connecting all mean points.'''
         raise NotImplementedError()
 
     def isIntervalLeftClosed(self) -> bool:
@@ -35787,11 +35807,11 @@ class SeriesLayoutProperties:
         raise NotImplementedError()
 
     def getShowMeanMarker(self) -> bool:
-        '''Indicates whether showing markers denoting the mean.'''
+        '''Indicates whether markers denoting the mean are shown.'''
         raise NotImplementedError()
 
     def setShowInnerPoints(self, value : bool) -> None:
-        '''Indicates whether showing non-outlier data points.
+        '''Indicates whether to show non-outlier data points.
         :param value: '''
         raise NotImplementedError()
 
@@ -35802,16 +35822,16 @@ class SeriesLayoutProperties:
         raise NotImplementedError()
 
     def getShowOutlierPoints(self) -> bool:
-        '''Indicates whether showing outlier data points.'''
+        '''Indicates whether outlier data points are shown.'''
         raise NotImplementedError()
 
     def setShowMeanLine(self, value : bool) -> None:
-        '''Indicates whether showing the line connecting all mean points.
+        '''Indicates whether to show the line connecting all mean points.
         :param value: '''
         raise NotImplementedError()
 
     def getShowInnerPoints(self) -> bool:
-        '''Indicates whether showing non-outlier data points.'''
+        '''Indicates whether to show non-outlier data points.'''
         raise NotImplementedError()
 
     def setIntervalLeftClosed(self, value : bool) -> None:
@@ -39449,7 +39469,8 @@ class SparklineCollection:
 
 
 class SparklineGroup:
-    ''':class:`Sparkline` is organized into sparkline group. A SparklineGroup contains a variable number of sparkline items.
+    ''':class:`Sparkline` is organized into a sparkline group.
+    A SparklineGroup contains a variable number of sparkline items.
     A sparkline group specifies the type, display settings and axis settings for the sparklines.'''
 
     def setHorizontalAxisColor(self, value : CellsColor) -> None:
@@ -39725,7 +39746,7 @@ class SparklineGroupCollection:
         raise NotImplementedError()
 
     def clearSparklines(self, cellArea : CellArea) -> None:
-        '''Clears the sparklines that is inside an area of cells.
+        '''Clears the sparklines that are inside an area of cells.
         :param cellArea: Specifies the area of cells'''
         raise NotImplementedError()
 
@@ -39747,7 +39768,7 @@ class SparklineGroupCollection:
         raise NotImplementedError()
 
     def clearSparklineGroups(self, cellArea : CellArea) -> None:
-        '''Clears the sparkline groups that overlaps an area of cells.
+        '''Clears the sparkline groups that overlap an area of cells.
         :param cellArea: Specifies the area of cells'''
         raise NotImplementedError()
 
@@ -39877,7 +39898,7 @@ class SparklineType:
     '''Column sparkline.'''
 
     STACKED : SparklineType
-    '''Win/Loss sparkline.'''
+    '''Represents a Win/Loss sparkline.'''
 
 
 class SpinButtonActiveXControl:
@@ -41693,11 +41714,14 @@ class TableStyleElementType:
     WHOLE_TABLE : TableStyleElementType
     '''Table style element that applies to table's entire content.'''
 
-    GRAND_TOTAL_COLUMN_HEADER : TableStyleElementType
-    '''Table style element that applies to pivot table's header of grand total column.'''
+    LAST_COLUMN_SUBHEADING : TableStyleElementType
+    '''Table style element that applies to pivot table's last column field.'''
 
-    GRAND_TOTAL_ROW_HEADER : TableStyleElementType
-    '''Table style element that applies to pivot table's header of grand total row.'''
+    LAST_ROW_SUBHEADING : TableStyleElementType
+    '''Table style element that applies to pivot table's last row field.'''
+
+    LAST_SUBTOTAL_ROW : TableStyleElementType
+    '''Table style element that applies to pivot table's last subtotal row field.'''
 
 
 class TableStyleType:
@@ -43644,32 +43668,32 @@ class TickLabelAlignmentType:
     '''Represents the text alignment type for the tick labels on the axis'''
 
     CENTER : TickLabelAlignmentType
-    '''Represents the text shall be centered.'''
+    '''Represents that the text shall be centered.'''
 
     LEFT : TickLabelAlignmentType
-    '''Represents the text shall be left justified.'''
+    '''Represents the text that shall be left justified.'''
 
     RIGHT : TickLabelAlignmentType
-    '''Represents the text shall be right justified.'''
+    '''Represents that the text shall be right justified.'''
 
 
 class TickLabelItem:
     '''Represents a tick label in the chart.'''
 
     def getWidth(self) -> float:
-        '''Width of Ticklabel item in ratio of chart width.'''
+        '''Width of Ticklabel item as a ratio of chart width.'''
         raise NotImplementedError()
 
     def getY(self) -> float:
-        '''Y coordinates of Ticklabel item in ratio of chart height.'''
+        '''Y coordinates of Ticklabel item as a ratio of the chart height.'''
         raise NotImplementedError()
 
     def getX(self) -> float:
-        '''X coordinates of Ticklabel item in ratio of chart width.'''
+        '''X coordinates of Ticklabel item as a ratio of chart width.'''
         raise NotImplementedError()
 
     def getHeight(self) -> float:
-        '''Height of Ticklabel item in ratio of chart height.'''
+        '''Height of Ticklabel item as a ratio of chart height.'''
         raise NotImplementedError()
 
 

@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use base64::Engine;
 use bytes::Bytes;
 use guacr_handlers::{
+    handle_mouse_event,
     is_keyboard_event_allowed_readonly,
-    is_mouse_event_allowed_readonly,
     parse_blob_instruction,
     parse_end_instruction,
     parse_pipe_instruction,
@@ -18,6 +18,7 @@ use guacr_handlers::{
     send_error_best_effort,
     send_name,
     send_ready,
+    ConnectionParameters,
     // Cursor
     CursorManager,
     EventBasedHandler,
@@ -53,15 +54,14 @@ use guacr_protocol::{
 use guacr_recorder::build_terminal_sink;
 use guacr_terminal::{
     extract_selection_text, format_clear_selection_instructions, format_clipboard_instructions,
-    format_selection_overlay_instructions, handle_mouse_selection, parse_clipboard_blob,
-    parse_key_instruction, parse_mouse_instruction, x11_keysym_to_bytes_with_modes,
-    x11_keysym_to_kitty_sequence, DirtyTracker, ModifierState, MouseSelection, SelectionResult,
-    TerminalConfig, TerminalEmulator, TerminalRenderer,
+    format_selection_overlay_instructions, parse_clipboard_blob, parse_key_instruction,
+    parse_mouse_instruction, x11_keysym_to_bytes_with_modes, x11_keysym_to_kitty_sequence,
+    DirtyRect, DirtyTracker, ModifierState, MouseSelection, TerminalConfig, TerminalEmulator,
+    TerminalRenderer,
 };
-#[cfg(feature = "threat-detection")]
-use guacr_threat_detection::{ThreatDetector, ThreatDetectorConfig};
 use log::{debug, error, info, trace, warn};
 use russh::client;
+use russh::Pty;
 use russh_keys::key;
 use russh_keys::PublicKeyBase64;
 use ssh_key::Certificate;
@@ -238,6 +238,10 @@ impl ProtocolHandler for SshHandler {
     ) -> guacr_handlers::Result<()> {
         info!("SSH handler starting connection");
 
+        // ----------------------------------------------------------------
+        // 1. Parse parameters
+        // ----------------------------------------------------------------
+
         // Parse security settings
         let security = HandlerSecuritySettings::from_params(&params);
         info!(
@@ -302,28 +306,13 @@ impl ProtocolHandler for SshHandler {
         }
 
         // Extract connection parameters
-        let hostname = match params.get("hostname") {
-            Some(h) => h,
-            None => {
-                error!("SSH handler: Missing hostname parameter");
-                let err = HandlerError::MissingParameter("hostname".to_string());
-                return Err(Self::send_error_and_return(&to_client, err).await);
-            }
-        };
+        let conn = ConnectionParameters::from_params(&params, self.config.default_port)?;
+        let hostname = conn.hostname;
+        let port = conn.port;
 
-        let port: u16 = params
-            .get("port")
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(self.config.default_port);
-
-        let username = match params.get("username") {
-            Some(u) => u,
-            None => {
-                error!("SSH handler: Missing username parameter");
-                let err = HandlerError::MissingParameter("username".to_string());
-                return Err(Self::send_error_and_return(&to_client, err).await);
-            }
-        };
+        let username = conn
+            .username
+            .ok_or_else(|| HandlerError::MissingParameter("username".to_string()))?;
 
         let password = params.get("password");
         let private_key = params.get("private_key");
@@ -408,267 +397,40 @@ impl ProtocolHandler for SshHandler {
 
         debug!("SSH handler: Connected to SSH server, starting authentication");
 
-        // Authenticate with timeout (same timeout as connection)
+        // ----------------------------------------------------------------
+        // 3. Authenticate
+        // ----------------------------------------------------------------
         let auth_timeout = Duration::from_secs(security.connection_timeout_secs);
-        let auth_result = if let Some(pwd) = password {
-            debug!("SSH handler: Authenticating with password");
-            let pwd_for_kbi = pwd.clone();
-            let password_result = tokio::time::timeout(
-                auth_timeout,
-                sh.authenticate_password(username.clone(), pwd),
-            )
-            .await
-            .map_err(|_| {
-                error!("SSH handler: Authentication timed out");
-                HandlerError::AuthenticationFailed("Authentication timed out".to_string())
-            });
+        let passphrase = params.get("passphrase").map(|s| s.as_str());
+        let public_key_cert = params.get("public-key").map(|s| s.as_str());
+        authenticate(
+            &mut sh,
+            username.clone(),
+            password,
+            private_key,
+            passphrase,
+            public_key_cert,
+            auth_timeout,
+            &to_client,
+        )
+        .await?;
 
-            // If password auth was rejected (Ok(Ok(false))), fall back to
-            // keyboard-interactive. Many SSH servers (OpenSSH default config)
-            // disable the "password" method and only allow "keyboard-interactive",
-            // which is functionally equivalent but uses a challenge-response flow.
-            // libssh2/libguac handles this transparently; we must do it explicitly.
-            match &password_result {
-                Ok(Ok(false)) => {
-                    info!("SSH handler: Password auth rejected, trying keyboard-interactive");
-                    tokio::time::timeout(auth_timeout, async {
-                        use russh::client::KeyboardInteractiveAuthResponse;
-                        let mut resp = sh
-                            .authenticate_keyboard_interactive_start(username.clone(), None)
-                            .await?;
-                        loop {
-                            match resp {
-                                KeyboardInteractiveAuthResponse::Success => return Ok(true),
-                                KeyboardInteractiveAuthResponse::Failure => return Ok(false),
-                                KeyboardInteractiveAuthResponse::InfoRequest {
-                                    prompts, ..
-                                } => {
-                                    // Respond to each prompt with the password
-                                    // (standard PAM password prompt sends one prompt)
-                                    let responses: Vec<String> =
-                                        prompts.iter().map(|_| pwd_for_kbi.clone()).collect();
-                                    resp = sh
-                                        .authenticate_keyboard_interactive_respond(responses)
-                                        .await?;
-                                }
-                            }
-                        }
-                    })
-                    .await
-                    .map_err(|_| {
-                        error!("SSH handler: Keyboard-interactive authentication timed out");
-                        HandlerError::AuthenticationFailed("Authentication timed out".to_string())
-                    })
-                }
-                _ => password_result,
-            }
-        } else if let Some(key_pem) = private_key {
-            debug!("SSH handler: Authenticating with private key");
-
-            // Parse private key (supports OpenSSH, PEM, and PKCS#8 formats)
-            // russh_keys::decode_secret_key handles all formats and optional passphrase
-            let passphrase = params.get("passphrase").map(|s| s.as_str());
-
-            debug!(
-                "SSH handler: Decoding private key (encrypted: {})",
-                passphrase.is_some()
-            );
-            let key_pair = match russh_keys::decode_secret_key(key_pem, passphrase) {
-                Ok(k) => k,
-                Err(e) => {
-                    error!("SSH handler: Failed to decode private key: {}", e);
-                    let err = if passphrase.is_some() {
-                        HandlerError::AuthenticationFailed(format!(
-                            "Invalid private key or passphrase: {}",
-                            e
-                        ))
-                    } else {
-                        HandlerError::AuthenticationFailed(format!(
-                            "Invalid private key format: {}",
-                            e
-                        ))
-                    };
-                    return Err(Self::send_error_and_return(&to_client, err).await);
-                }
-            };
-
-            // Check for certificate-based authentication
-            let public_key_cert = params.get("public-key");
-
-            if let Some(cert_str) = public_key_cert {
-                debug!("SSH handler: Certificate provided, using certificate-based authentication");
-
-                // Parse OpenSSH certificate
-                let certificate = match cert_str.trim().parse::<Certificate>() {
-                    Ok(cert) => cert,
-                    Err(e) => {
-                        error!("SSH handler: Failed to parse SSH certificate: {}", e);
-                        let err = HandlerError::AuthenticationFailed(format!(
-                            "Invalid SSH certificate format: {}",
-                            e
-                        ));
-                        return Err(Self::send_error_and_return(&to_client, err).await);
-                    }
-                };
-
-                debug!(
-                    "SSH handler: Certificate parsed successfully, authenticating with certificate"
-                );
-                tokio::time::timeout(
-                    auth_timeout,
-                    sh.authenticate_openssh_cert(username, Arc::new(key_pair), certificate),
-                )
-                .await
-                .map_err(|_| {
-                    error!("SSH handler: Certificate authentication timed out");
-                    HandlerError::AuthenticationFailed("Authentication timed out".to_string())
-                })
-            } else {
-                debug!(
-                    "SSH handler: Private key decoded successfully, authenticating with public key"
-                );
-                tokio::time::timeout(
-                    auth_timeout,
-                    sh.authenticate_publickey(username, Arc::new(key_pair)),
-                )
-                .await
-                .map_err(|_| {
-                    error!("SSH handler: Authentication timed out");
-                    HandlerError::AuthenticationFailed("Authentication timed out".to_string())
-                })
-            }
-        } else {
-            error!("SSH handler: No authentication method provided");
-            let err = HandlerError::MissingParameter("password or private_key".to_string());
-            return Err(Self::send_error_and_return(&to_client, err).await);
-        };
-
-        let auth_result = match auth_result {
-            Ok(r) => r,
-            Err(e) => return Err(Self::send_error_and_return(&to_client, e).await),
-        };
-
-        let auth_success = match auth_result {
-            Ok(success) => success,
-            Err(e) => {
-                error!("SSH handler: Authentication error: {}", e);
-                let err = HandlerError::AuthenticationFailed(e.to_string());
-                return Err(Self::send_error_and_return(&to_client, err).await);
-            }
-        };
-
-        if !auth_success {
-            error!("SSH handler: Authentication failed - wrong credentials");
-            let err = HandlerError::AuthenticationFailed("Authentication failed".to_string());
-            return Err(Self::send_error_and_return(&to_client, err).await);
-        }
-
-        info!("SSH handler: Authentication successful");
-
-        // Open channel and request PTY
-        let mut channel = sh
-            .channel_open_session()
-            .await
-            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-        channel
-            .request_pty(
-                false,                       // want_reply
-                terminal_config.term_type(), // Use configured terminal type
-                cols as u32,
-                rows as u32,
-                0,
-                0,
-                &[],
-            )
-            .await
-            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-        // Set environment variables (locale/timezone) before shell/command
-        // Note: Many SSH servers have AcceptEnv disabled by default, so these may be ignored
-        if let Some(locale) = params.get("locale") {
-            debug!("SSH: Setting LANG={}", locale);
-            // Ignore errors - server may reject env vars
-            let _ = channel.set_env(false, "LANG", locale.as_str()).await;
-        }
-        if let Some(timezone) = params.get("timezone") {
-            debug!("SSH: Setting TZ={}", timezone);
-            let _ = channel.set_env(false, "TZ", timezone.as_str()).await;
-        }
-
-        // Either execute a specific command or open interactive shell
-        if let Some(command) = params.get("command") {
-            info!("SSH: Executing command: {}", command);
-            channel
-                .exec(false, command.as_str())
-                .await
-                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-            debug!("SSH handler: Command execution started");
-        } else {
-            channel
-                .request_shell(false)
-                .await
-                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-            debug!("SSH handler: SSH shell established");
-        }
+        // ----------------------------------------------------------------
+        // 4. Open session channel
+        // ----------------------------------------------------------------
+        let mut channel =
+            open_session_channel(&mut sh, &terminal_config, rows, cols, &params).await?;
 
         // Create terminal emulator with browser-requested dimensions and configured scrollback
         let mut terminal =
             TerminalEmulator::new_with_scrollback(rows, cols, terminal_config.scrollback_size);
 
+        // ----------------------------------------------------------------
+        // 5. Collect banner
+        // ----------------------------------------------------------------
         // CRITICAL: Read any initial data (banner/MOTD) that arrived immediately after shell request
         // SSH servers often send welcome banners right away, before we enter the event loop
-        //
-        // IMPORTANT: Use a longer timeout (500ms) to ensure we capture the full banner.
-        // Some SSH servers send the banner in multiple packets with delays between them.
-        // The 200ms timeout was too short and caused the banner to be cut off.
-        //
-        // Strategy:
-        // 1. Wait up to 500ms for the first packet (initial banner)
-        // 2. Then wait 200ms between subsequent packets (continuation)
-        // 3. Stop when we hit a timeout (no more data coming)
-        debug!("SSH: Checking for initial banner data...");
-        let mut banner_bytes_total = 0usize;
-        let mut first_packet = true;
-        loop {
-            // Use longer timeout for first packet, shorter for subsequent packets
-            let timeout_ms = if first_packet { 500 } else { 200 };
-
-            match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), channel.wait())
-                .await
-            {
-                Ok(Some(russh::ChannelMsg::Data { ref data })) => {
-                    banner_bytes_total += data.len();
-                    trace!(
-                        "SSH: Received {} bytes of initial banner data (total: {}, first_packet: {})",
-                        data.len(),
-                        banner_bytes_total,
-                        first_packet
-                    );
-                    terminal
-                        .process(data)
-                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                    first_packet = false;
-                }
-                Ok(Some(_other)) => {
-                    // Other channel messages during startup (ignore for now)
-                    debug!("SSH: Received non-data message during banner check");
-                }
-                Ok(None) => {
-                    // Channel closed unexpectedly
-                    warn!("SSH: Channel closed during banner check");
-                    break;
-                }
-                Err(_timeout) => {
-                    // No more data available - banner collection complete
-                    debug!(
-                        "SSH: Banner collection complete (timeout after {}ms, total {} bytes)",
-                        timeout_ms, banner_bytes_total
-                    );
-                    break;
-                }
-            }
-        }
+        let banner_bytes_total = collect_banner(&mut channel, &mut terminal).await;
 
         // Check if we collected any banner data
         let banner_collected = terminal.is_dirty();
@@ -781,85 +543,7 @@ impl ProtocolHandler for SshHandler {
 
         // Initialize threat detection if the feature is enabled and baml endpoint is configured
         #[cfg(feature = "threat-detection")]
-        let threat_detector = {
-            if let Some(baml_endpoint) = params.get("threat_detection_baml_endpoint") {
-                let config = ThreatDetectorConfig {
-                    baml_endpoint: baml_endpoint.clone(),
-                    baml_api_key: params.get("threat_detection_baml_api_key").cloned(),
-                    enabled: true,
-                    auto_terminate: params
-                        .get("threat_detection_auto_terminate")
-                        .map(|s| s == "true")
-                        .unwrap_or(true),
-                    min_log_level: params
-                        .get("threat_detection_min_log_level")
-                        .and_then(|s| match s.as_str() {
-                            "critical" => Some(guacr_threat_detection::ThreatLevel::Critical),
-                            "high" => Some(guacr_threat_detection::ThreatLevel::High),
-                            "medium" => Some(guacr_threat_detection::ThreatLevel::Medium),
-                            "low" => Some(guacr_threat_detection::ThreatLevel::Low),
-                            _ => None,
-                        })
-                        .unwrap_or(guacr_threat_detection::ThreatLevel::Low),
-                    command_history_size: params
-                        .get("threat_detection_command_history_size")
-                        .and_then(|s| s.parse().ok())
-                        .unwrap_or(10),
-                    timeout_seconds: params
-                        .get("threat_detection_timeout_seconds")
-                        .and_then(|s| s.parse().ok())
-                        .unwrap_or(5),
-                    deny_tags: HashMap::new(),
-                    allow_tags: HashMap::new(),
-                    enable_tag_checking: true,
-                    proactive_mode: params
-                        .get("threat_detection_proactive_mode")
-                        .map(|s| s == "true")
-                        .unwrap_or(false),
-                    approval_timeout_ms: params
-                        .get("threat_detection_approval_timeout_ms")
-                        .and_then(|s| s.parse().ok())
-                        .unwrap_or(2000),
-                    fail_closed_on_error: params
-                        .get("threat_detection_fail_closed_on_error")
-                        .map(|s| s == "true")
-                        .unwrap_or(false),
-                    show_approval_status: params
-                        .get("threat_detection_show_approval_status")
-                        .map(|s| s == "true")
-                        .unwrap_or(true),
-                    auto_approve_safe_commands: params
-                        .get("threat_detection_auto_approve_safe_commands")
-                        .map(|s| s == "true")
-                        .unwrap_or(true),
-                    config_allow_ai_session_terminate: params
-                        .get("threat_detection_config_allow_ai_session_terminate")
-                        .map(|s| s == "true")
-                        .unwrap_or(true),
-                    resource_ai_session_terminate_enabled: params
-                        .get("threat_detection_resource_ai_session_terminate_enabled")
-                        .map(|s| s == "true")
-                        .unwrap_or(true),
-                    level_terminate_flags: HashMap::new(),
-                };
-
-                match ThreatDetector::new(config) {
-                    Ok(detector) => {
-                        info!(
-                            "SSH: Threat detection enabled with BAML endpoint: {}",
-                            baml_endpoint
-                        );
-                        Some(Arc::new(detector))
-                    }
-                    Err(e) => {
-                        warn!("SSH: Failed to initialize threat detection: {}", e);
-                        None
-                    }
-                }
-            } else {
-                None
-            }
-        };
+        let threat_detector = guacr_threat_detection::ThreatDetector::from_params(&params, "SSH");
         #[cfg(feature = "threat-detection")]
         let threat_session_id = uuid::Uuid::new_v4().to_string();
         #[cfg(feature = "threat-detection")]
@@ -921,61 +605,24 @@ impl ProtocolHandler for SshHandler {
         // as soon as possible so the user sees the SSH banner/MOTD right away
         if banner_collected {
             debug!("SSH: Banner collected, rendering immediately");
-
-            // Render the banner at the initial size
-            let quality = adaptive_quality.calculate_quality();
-            let jpeg = renderer
-                .render_screen_with_quality(terminal.screen(), rows, cols, quality)
-                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-            adaptive_quality.track_frame_sent(jpeg.len());
-            debug!(
-                "SSH: Banner render produced {} byte JPEG (quality {})",
-                jpeg.len(),
-                quality
-            );
-
-            // Base64 encode JPEG
-            let base64_data =
-                base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &jpeg);
-
-            // Send img instruction (zero-allocation)
-            let img_instr = protocol_encoder.format_img_instruction(
-                stream_id,
-                0, // layer
-                0, // x
-                0, // y
-                "image/jpeg",
-            );
-            send_and_record(&to_client, &mut recorder, img_instr.freeze())
-                .await
-                .map_err(HandlerError::ChannelError)?;
-
-            // Send blob chunks + end instruction
-            let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-            for instr in blob_instructions {
-                send_and_record(&to_client, &mut recorder, Bytes::from(instr))
-                    .await
-                    .map_err(HandlerError::ChannelError)?;
+            {
+                let mut ctx = RenderContext::new(
+                    &renderer,
+                    &mut protocol_encoder,
+                    &mut adaptive_quality,
+                    stream_id,
+                    &to_client,
+                    &mut recorder,
+                );
+                let _ts = ctx.send_screen(&terminal, rows, cols).await?;
             }
-
-            let sync_instr = renderer.format_sync_instruction(
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64,
-            );
-            send_and_record(&to_client, &mut recorder, Bytes::from(sync_instr))
-                .await
-                .map_err(HandlerError::ChannelError)?;
-
             terminal.clear_dirty();
             debug!("SSH: Banner rendered immediately at initial size");
         }
 
         // Backup render timer - only fires if immediate render somehow missed an update
         // This is a safety net, not the primary rendering mechanism
-        let mut backup_render = tokio::time::interval(std::time::Duration::from_millis(100));
+        let mut backup_render = tokio::time::interval(std::time::Duration::from_millis(16));
         backup_render.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         // Force initial render after 300ms to catch SSH prompt
@@ -1029,214 +676,39 @@ impl ProtocolHandler for SshHandler {
                     // Only render if terminal has content (is_dirty means data was processed)
                     if terminal.is_dirty() {
                         debug!("SSH: Rendering initial screen");
-
-                        // Force a full screen render to catch any SSH prompt that arrived
-                        let quality = adaptive_quality.calculate_quality();
-                        let jpeg = renderer.render_screen_with_quality(
-                            terminal.screen(),
-                            terminal.size().0,
-                            terminal.size().1,
-                            quality,
-                        ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                        adaptive_quality.track_frame_sent(jpeg.len());
-                        debug!("SSH: Initial render produced {} byte JPEG (quality {})", jpeg.len(), quality);
-
-                        // Base64 encode and send via modern zero-allocation protocol
-                        let base64_data = base64::Engine::encode(
-                            &base64::engine::general_purpose::STANDARD,
-                            &jpeg,
+                        let (r, c) = terminal.size();
+                        let mut ctx = RenderContext::new(
+                            &renderer, &mut protocol_encoder, &mut adaptive_quality,
+                            stream_id, &to_client, &mut recorder,
                         );
-
-                        let img_instr = protocol_encoder.format_img_instruction(
-                            stream_id, 0, 0, 0, "image/jpeg",
-                        );
-                        send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                            .map_err(HandlerError::ChannelError)?;
-
-                        let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                        for instr in blob_instructions {
-                            send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                .map_err(HandlerError::ChannelError)?;
-                        }
-
-                        let sync_instr = renderer.format_sync_instruction(
-                            std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis() as u64
-                        );
-                        send_and_record(&to_client, &mut recorder, Bytes::from(sync_instr)).await
-                            .map_err(HandlerError::ChannelError)?;
-
+                        let _ts = ctx.send_screen(&terminal, r, c).await?;
                         terminal.clear_dirty();
                     } else {
                         debug!("SSH: Initial render timer fired but terminal not dirty, skipping");
                     }
                 }
 
-                // Backup render - safety net in case immediate render missed something
+                // Backup render - render when terminal content has changed.
                 _ = backup_render.tick() => {
-                    // Wait for client to acknowledge the previous frame before rendering the next.
-                    // This prevents frame pile-up on slow WebRTC connections (the primary source
-                    // of backup-render queue buildup).
-                    if let Some(ts) = sync_control.pending_timestamp() {
-                        if let Err(e) = sync_control.wait_for_client_sync(&mut from_client, ts).await {
-                            debug!("SSH: Sync flow control timeout, client may be slow: {}", e);
-                        }
-                        sync_control.clear_pending();
-                    }
-
                     if terminal.is_dirty() {
                         // Find what changed (dirty region optimization like guacd)
+                        // NOTE: find_dirty_region takes &vt100::Screen, so call it before
+                        // creating RenderContext to avoid conflicting borrows.
                         let dirty_opt = dirty_tracker.find_dirty_region(terminal.screen());
 
-                        if let Some(dirty) = dirty_opt {
-                            let total_cells = (current_rows as usize) * (current_cols as usize);
-                            let dirty_cells = dirty.cell_count();
-                            let dirty_pct = (dirty_cells * 100) / total_cells;
-
-                            // Render dirty region directly (no scroll copy optimization).
-                            // Apache guacd renders terminal updates as direct image patches,
-                            // not pixel-level copy instructions. Copy instructions can cause
-                            // visual artifacts because terminal scroll doesn't map cleanly
-                            // to canvas pixel shifts (reflow, wrapping, attributes change).
-                            {
-                                if dirty_pct == 0 {
-                                    // Edge case: dirty region is empty (shouldn't happen but be safe)
-                                    trace!("SSH: Empty dirty region (0%), skipping render");
-                                } else if dirty_pct < 30 {
-                                    // Small region - render only changed area
-                                    if dirty_pct < 5 {
-                                        trace!("SSH: Micro update: {}x{} cells ({}%) at row {}-{}, col {}-{}",
-                                            dirty.width(), dirty.height(), dirty_pct,
-                                            dirty.min_row, dirty.max_row, dirty.min_col, dirty.max_col);
-                                    } else {
-                                        trace!("SSH: Dirty region: {}x{} cells ({}%) at row {}-{}, col {}-{}",
-                                            dirty.width(), dirty.height(), dirty_pct,
-                                            dirty.min_row, dirty.max_row, dirty.min_col, dirty.max_col);
-                                    }
-
-                                    // Expand by 1 cell in all directions to cover JPEG
-                                    // compression artifacts (DCT ringing at 8x8 block
-                                    // boundaries from cursor underline rendering)
-                                    let bp_min_row = dirty.min_row.saturating_sub(1);
-                                    let bp_max_row = (dirty.max_row + 1).min(current_rows - 1);
-                                    let bp_min_col = dirty.min_col.saturating_sub(1);
-                                    let bp_max_col = (dirty.max_col + 1).min(current_cols - 1);
-
-                                    let quality = adaptive_quality.calculate_quality();
-                                    let (jpeg, x_px, y_px, _w_px, _h_px) = renderer.render_region_with_quality(
-                                        terminal.screen(),
-                                        bp_min_row,
-                                        bp_max_row,
-                                        bp_min_col,
-                                        bp_max_col,
-                                        quality,
-                                    ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                                    adaptive_quality.track_frame_sent(jpeg.len());
-
-                                    // Base64 encode and send via modern zero-allocation protocol
-                                    let base64_data = base64::Engine::encode(
-                                        &base64::engine::general_purpose::STANDARD,
-                                        &jpeg,
-                                    );
-
-                                    let img_instr = protocol_encoder.format_img_instruction(
-                                        stream_id, 0, x_px as i32, y_px as i32, "image/jpeg",
-                                    );
-                                    send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                                        .map_err(HandlerError::ChannelError)?;
-
-                                    let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                                    for instr in blob_instructions {
-                                        send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                            .map_err(HandlerError::ChannelError)?;
-                                    }
-                                } else {
-                                    // Large region - render full screen
-                                    trace!("SSH: Full screen ({}% dirty)", dirty_pct);
-
-                                    let quality = adaptive_quality.calculate_quality();
-                                    let jpeg = renderer.render_screen_with_quality(
-                                        terminal.screen(),
-                                        terminal.size().0,
-                                        terminal.size().1,
-                                        quality,
-                                    ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                                    adaptive_quality.track_frame_sent(jpeg.len());
-
-                                    // Base64 encode and send via modern zero-allocation protocol
-                                    let base64_data = base64::Engine::encode(
-                                        &base64::engine::general_purpose::STANDARD,
-                                        &jpeg,
-                                    );
-
-                                    let img_instr = protocol_encoder.format_img_instruction(
-                                        stream_id, 0, 0, 0, "image/jpeg",
-                                    );
-                                    send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                                        .map_err(HandlerError::ChannelError)?;
-
-                                    let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                                    for instr in blob_instructions {
-                                        send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                            .map_err(HandlerError::ChannelError)?;
-                                    }
-                                }
-                            }
-
-                            let backup_ts = std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis() as u64;
-                            let sync_instr = renderer.format_sync_instruction(backup_ts);
-                            send_and_record(&to_client, &mut recorder, Bytes::from(sync_instr)).await
-                                .map_err(HandlerError::ChannelError)?;
-                            sync_control.set_pending_sync(backup_ts);
-                        } else {
-                            // Dirty tracker failed to find changes (cursor movement, small updates)
-                            // Fall back to full screen render to prevent "one char behind" bug
-                            debug!("SSH: Dirty tracker returned None, rendering full screen as fallback");
-
-                            let quality = adaptive_quality.calculate_quality();
-                            let jpeg = renderer.render_screen_with_quality(
-                                terminal.screen(),
-                                terminal.size().0,
-                                terminal.size().1,
-                                quality,
-                            ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                            adaptive_quality.track_frame_sent(jpeg.len());
-                            debug!("SSH: Fallback render produced {} byte JPEG (quality {})", jpeg.len(), quality);
-
-                            // Base64 encode and send via modern zero-allocation protocol
-                            let base64_data = base64::Engine::encode(
-                                &base64::engine::general_purpose::STANDARD,
-                                &jpeg,
-                            );
-
-                            let img_instr = protocol_encoder.format_img_instruction(
-                                stream_id, 0, 0, 0, "image/jpeg",
-                            );
-                            send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                                .map_err(HandlerError::ChannelError)?;
-
-                            let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                            for instr in blob_instructions {
-                                send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                    .map_err(HandlerError::ChannelError)?;
-                            }
-
-                            let fallback_ts = std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis() as u64;
-                            let sync_instr = renderer.format_sync_instruction(fallback_ts);
-                            send_and_record(&to_client, &mut recorder, Bytes::from(sync_instr)).await
-                                .map_err(HandlerError::ChannelError)?;
-                            sync_control.set_pending_sync(fallback_ts);
-                        }
+                        let mut ctx = RenderContext::new(
+                            &renderer, &mut protocol_encoder, &mut adaptive_quality,
+                            stream_id, &to_client, &mut recorder,
+                        );
+                        // Render dirty region directly (no scroll copy optimization).
+                        // Apache guacd renders terminal updates as direct image patches,
+                        // not pixel-level copy instructions. Copy instructions can cause
+                        // visual artifacts because terminal scroll doesn't map cleanly
+                        // to canvas pixel shifts (reflow, wrapping, attributes change).
+                        let backup_ts = ctx.send_dirty(
+                            &terminal, dirty_opt, current_rows, current_cols,
+                        ).await?;
+                        sync_control.set_pending_sync(backup_ts);
 
                         terminal.clear_dirty();
                         debug!("SSH: Render complete, cleared dirty flag");
@@ -1356,137 +828,8 @@ impl ProtocolHandler for SshHandler {
                                 send_bell(&to_client, 100).await?;
                             }
 
-                            // Render immediately for responsive feedback
-                            // The dirty region optimization ensures we only send changed portions
-                            if terminal.is_dirty() {
-                                let dirty_opt = dirty_tracker.find_dirty_region(terminal.screen());
-
-                                if let Some(dirty) = dirty_opt {
-                                    // Expand dirty region by 1 cell in all directions to
-                                    // cover JPEG compression artifacts from cursor underline
-                                    // rendering. The cursor's 3px white underline creates
-                                    // DCT ringing at 8x8 block boundaries.
-                                    let render_min_row = dirty.min_row.saturating_sub(1);
-                                    let render_max_row = (dirty.max_row + 1).min(current_rows - 1);
-                                    let render_min_col = dirty.min_col.saturating_sub(1);
-                                    let render_max_col = (dirty.max_col + 1).min(current_cols - 1);
-
-                                    // Check dirty percentage to decide partial vs full render
-                                    let total_cells = (current_rows as usize) * (current_cols as usize);
-                                    let dirty_cells = dirty.cell_count();
-                                    let dirty_pct = if total_cells > 0 { (dirty_cells * 100) / total_cells } else { 100 };
-
-                                    let quality = adaptive_quality.calculate_quality();
-
-                                    if dirty_pct < 30 {
-                                        // Small change - render only the dirty region
-                                        let (jpeg, x_px, y_px, _w_px, _h_px) = renderer.render_region_with_quality(
-                                            terminal.screen(),
-                                            render_min_row,
-                                            render_max_row,
-                                            render_min_col,
-                                            render_max_col,
-                                            quality,
-                                        ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                                        adaptive_quality.track_frame_sent(jpeg.len());
-
-                                        let base64_data = base64::Engine::encode(
-                                            &base64::engine::general_purpose::STANDARD,
-                                            &jpeg,
-                                        );
-
-                                        let img_instr = protocol_encoder.format_img_instruction(
-                                            stream_id, 0, x_px as i32, y_px as i32, "image/jpeg",
-                                        );
-                                        send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                                            .map_err(HandlerError::ChannelError)?;
-
-                                        let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                                        for instr in blob_instructions {
-                                            send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                                .map_err(HandlerError::ChannelError)?;
-                                        }
-                                    } else {
-                                        // Large change (e.g., scroll) - render full screen
-                                        let jpeg = renderer.render_screen_with_quality(
-                                            terminal.screen(),
-                                            terminal.size().0,
-                                            terminal.size().1,
-                                            quality,
-                                        ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                                        adaptive_quality.track_frame_sent(jpeg.len());
-
-                                        let base64_data = base64::Engine::encode(
-                                            &base64::engine::general_purpose::STANDARD,
-                                            &jpeg,
-                                        );
-
-                                        let img_instr = protocol_encoder.format_img_instruction(
-                                            stream_id, 0, 0, 0, "image/jpeg",
-                                        );
-                                        send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                                            .map_err(HandlerError::ChannelError)?;
-
-                                        let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                                        for instr in blob_instructions {
-                                            send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                                .map_err(HandlerError::ChannelError)?;
-                                        }
-                                    }
-
-                                    let sync_instr = renderer.format_sync_instruction(
-                                        std::time::SystemTime::now()
-                                            .duration_since(std::time::UNIX_EPOCH)
-                                            .unwrap()
-                                            .as_millis() as u64
-                                    );
-                                    send_and_record(&to_client, &mut recorder, Bytes::from(sync_instr)).await
-                                        .map_err(HandlerError::ChannelError)?;
-
-                                    terminal.clear_dirty();
-                                } else {
-                                    // Dirty tracker returned None - fallback to full screen render
-                                    debug!("SSH: Dirty tracker returned None, rendering full screen");
-
-                                    let quality = adaptive_quality.calculate_quality();
-                                    let jpeg = renderer.render_screen_with_quality(
-                                        terminal.screen(),
-                                        terminal.size().0,
-                                        terminal.size().1,
-                                        quality,
-                                    ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                                    adaptive_quality.track_frame_sent(jpeg.len());
-
-                                    // Base64 encode and send via modern zero-allocation protocol
-                                    let base64_data = base64::Engine::encode(
-                                        &base64::engine::general_purpose::STANDARD,
-                                        &jpeg,
-                                    );
-
-                                    let img_instr = protocol_encoder.format_img_instruction(
-                                        stream_id, 0, 0, 0, "image/jpeg",
-                                    );
-                                    send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                                        .map_err(HandlerError::ChannelError)?;
-
-                                    let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                                    for instr in blob_instructions {
-                                        send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                            .map_err(HandlerError::ChannelError)?;
-                                    }
-
-                                    let sync_instr = renderer.format_sync_instruction(
-                                        std::time::SystemTime::now()
-                                            .duration_since(std::time::UNIX_EPOCH)
-                                            .unwrap()
-                                            .as_millis() as u64
-                                    );
-                                    send_and_record(&to_client, &mut recorder, Bytes::from(sync_instr)).await
-                                        .map_err(HandlerError::ChannelError)?;
-
-                                    terminal.clear_dirty();
-                                }
-                            }
+                            // Rendering is handled by the debounce timer above.
+                            // Rendering on every data chunk floods the channel under rapid output.
                         }
                         russh::ChannelMsg::ExitStatus { exit_status } => {
                             error!("SSH handler: SSH command exited with status: {}", exit_status);
@@ -1530,208 +873,51 @@ impl ProtocolHandler for SshHandler {
                         trace!("SSH: Received client message: {}", msg_str);
                     }
 
-                    if let Some(key_event) = parse_key_instruction(&msg_str) {
-                        trace!("SSH: Key event - keysym={} (0x{:04X}), pressed={}, ctrl={}, shift={}, alt={}",
-                            key_event.keysym, key_event.keysym, key_event.pressed,
-                            modifier_state.control, modifier_state.shift, modifier_state.alt);
-
-                        // Update modifier state (Ctrl, Shift, Alt)
-                        // Returns true if this was a modifier key (don't send to SSH)
-                        if modifier_state.update_modifier(key_event.keysym, key_event.pressed) {
-                            debug!("SSH: Modifier key updated - ctrl={}, shift={}, alt={}",
-                                modifier_state.control, modifier_state.shift, modifier_state.alt);
-                            continue;
-                        }
-
-                        // Clear any active selection overlay on key press (not release)
-                        if key_event.pressed && mouse_selection.start.is_some() {
-                            mouse_selection.reset();
-                            let clear = format_clear_selection_instructions();
-                            for instr in clear {
-                                send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                    .map_err(HandlerError::ChannelError)?;
-                            }
-                        }
-
-                        // Security: Check read-only mode
-                        // In read-only mode, only allow Ctrl+C (copy) and similar selection keys
-                        if security.read_only
-                            && !is_keyboard_event_allowed_readonly(key_event.keysym, modifier_state.control)
-                        {
-                            trace!("SSH: Keyboard input blocked (read-only mode)");
-                            continue;
-                        }
-
-                        // Handle paste shortcuts (matching guacd's behavior):
-                        // - Ctrl+Shift+V (Linux/Windows): keysym 'V' (0x56) with ctrl+shift
-                        // - Cmd+V (Mac): keysym 'v' (0x76) with meta
-                        let is_paste = key_event.pressed && (
-                            (key_event.keysym == 0x56 && modifier_state.control && modifier_state.shift) ||
-                            (key_event.keysym == 0x76 && modifier_state.meta)
+                    // Client sync ack — clear pending flow-control state.
+                    // Must be handled here (not inside backup_render arm) so it
+                    // never blocks keyboard/mouse event processing.
+                    if msg_str.starts_with("4.sync,") {
+                        sync_control.clear_pending();
+                    } else if let Some(key_event) = parse_key_instruction(&msg_str) {
+                        let key_out = handle_key_event(
+                            key_event,
+                            &mut modifier_state,
+                            &mut mouse_selection,
+                            &security,
+                            &stored_clipboard,
+                            &terminal,
+                            backspace_code,
+                            current_rows,
+                            current_cols,
+                            char_width,
+                            char_height,
                         );
 
-                        if is_paste {
-                            // Security: Check if paste is allowed
-                            if !security.is_paste_allowed() {
-                                debug!("SSH: Paste blocked (disabled or read-only mode)");
-                                continue;
-                            }
-
-                            if stored_clipboard.is_empty() {
-                                debug!("SSH: Paste shortcut pressed but clipboard is empty");
-                                continue;
-                            }
-
-                            // Check clipboard buffer size limit
-                            let max_size = security.clipboard_buffer_size;
-                            let paste_text = if stored_clipboard.len() > max_size {
-                                warn!("SSH: Clipboard truncated from {} to {} bytes", stored_clipboard.len(), max_size);
-                                &stored_clipboard[..max_size]
-                            } else {
-                                &stored_clipboard
-                            };
-
-                            debug!("SSH: Paste shortcut - Pasting {} chars from clipboard", paste_text.len());
-
-                            // Send using bracketed paste mode for safety
-                            // This prevents commands from auto-executing
-                            let mut paste_data = Vec::new();
-                            paste_data.extend_from_slice(b"\x1b[200~"); // Start bracketed paste
-                            paste_data.extend_from_slice(paste_text.as_bytes());
-                            paste_data.extend_from_slice(b"\x1b[201~"); // End bracketed paste
-
-                            channel.data(&paste_data[..]).await
-                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                            // CRITICAL: Force dirty tracker reset after large paste
-                            // Large pastes can cause dirty region tracking to fail, resulting in
-                            // partial screen rendering (black screen with only small region visible)
-                            // Reset forces next render to be full screen
-                            if paste_text.len() > 100 {
-                                debug!("SSH: Large paste detected ({}  chars), resetting dirty tracker to force full render", paste_text.len());
-                                dirty_tracker = DirtyTracker::new(current_rows, current_cols);
-                            }
-
-                            continue; // Don't send the 'V' key itself
+                        // Send client instructions (overlays, clipboard)
+                        for instr in key_out.to_client {
+                            send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
+                                .map_err(HandlerError::ChannelError)?;
                         }
 
-                        // Handle copy shortcuts - ignore them since selection already copies
-                        // - Ctrl+Shift+C (Linux/Windows): keysym 'C' (0x43) with ctrl+shift
-                        // - Cmd+C (Mac): keysym 'c' (0x63) with meta
-                        let is_copy = key_event.pressed && (
-                            (key_event.keysym == 0x43 && modifier_state.control && modifier_state.shift) ||
-                            (key_event.keysym == 0x63 && modifier_state.meta)
-                        );
-
-                        if is_copy {
-                            debug!("SSH: Copy shortcut pressed - ignoring (selection already copies)");
-                            continue;
+                        // Update local clipboard
+                        if let Some(new_cb) = key_out.new_clipboard {
+                            stored_clipboard = new_cb;
                         }
 
-                        // Handle select-all shortcut (selects entire terminal + copies to clipboard)
-                        // - Ctrl+Shift+A (Linux/Windows): keysym 'A' (0x41) with ctrl+shift
-                        // - Cmd+A (Mac): keysym 'a' (0x61) with meta
-                        let is_select_all = key_event.pressed && (
-                            (key_event.keysym == 0x41 && modifier_state.control && modifier_state.shift) ||
-                            (key_event.keysym == 0x61 && modifier_state.meta)
-                        );
-
-                        if is_select_all {
-                            let last_row = current_rows.saturating_sub(1);
-                            let last_col = current_cols.saturating_sub(1);
-
-                            // Show selection overlay (entire terminal)
-                            let overlay = format_selection_overlay_instructions(
-                                (0, 0),
-                                (last_row, last_col),
-                                char_width,
-                                char_height,
-                                current_cols,
-                                current_rows,
-                            );
-                            for instr in overlay {
-                                send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                    .map_err(HandlerError::ChannelError)?;
-                            }
-
-                            // Extract all text and send to clipboard
-                            let text = extract_selection_text(
-                                &terminal,
-                                (0, 0),
-                                (last_row, last_col),
-                                current_cols,
-                            );
-
-                            if !text.is_empty() {
-                                stored_clipboard = text.clone();
-                                info!("SSH: Select all - {} chars copied to clipboard", text.len());
-
-                                let clipboard_stream_id = 10;
-                                let clipboard_instructions = format_clipboard_instructions(&text, clipboard_stream_id);
-                                for instr in clipboard_instructions {
-                                    send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                        .map_err(HandlerError::ChannelError)?;
-                                }
-                            }
-
-                            // Clear overlay after a brief visual flash
-                            let clear = format_clear_selection_instructions();
-                            for instr in clear {
-                                send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                    .map_err(HandlerError::ChannelError)?;
-                            }
-
-                            continue;
+                        // Reset dirty tracker if requested (large paste)
+                        if key_out.reset_dirty_tracker {
+                            dirty_tracker = DirtyTracker::new(current_rows, current_cols);
                         }
 
-                        // Convert to terminal bytes with modifier state, backspace, and application cursor mode
-                        // This enables Ctrl+C (0x03), Ctrl+D (0x04), etc.
-                        // Application cursor mode is needed for vim, less, tmux to work correctly
-                        let application_cursor = terminal.is_application_cursor_mode();
-
-                        // Check if Kitty keyboard protocol is enabled
-                        let kitty_level = terminal.kitty_keyboard_level();
-
-                        // Log arrow keys to help debug mode switching
-                        if matches!(key_event.keysym, 0xFF51..=0xFF54) {
-                            trace!(
-                                "SSH: Arrow key 0x{:X} in {} mode, kitty_level={}",
-                                key_event.keysym,
-                                if application_cursor { "application" } else { "normal" },
-                                kitty_level
-                            );
-                        }
-
-                        // Use Kitty keyboard protocol if enabled, otherwise use legacy
-                        let bytes = if kitty_level > 0 {
-                            trace!("SSH: Using Kitty keyboard protocol level {}", kitty_level);
-                            x11_keysym_to_kitty_sequence(
-                                key_event.keysym,
-                                key_event.pressed,
-                                Some(&modifier_state),
-                                backspace_code,
-                                application_cursor,
-                                kitty_level,
-                            )
-                        } else {
-                            x11_keysym_to_bytes_with_modes(
-                                key_event.keysym,
-                                key_event.pressed,
-                                Some(&modifier_state),
-                                backspace_code,
-                                application_cursor,
-                            )
-                        };
-                        trace!("SSH: Key converted to {} bytes: {:?}", bytes.len(), bytes);
-                        if !bytes.is_empty() {
+                        // Send bytes to SSH channel
+                        if !key_out.to_ssh.is_empty() {
                             // Record input if enabled
                             if let Some(ref mut rec) = recorder {
                                 if recording_config.recording_include_keys {
-                                    let _ = rec.record_input(&bytes);
+                                    let _ = rec.record_input(&key_out.to_ssh);
                                 }
                             }
-
-                            channel.data(&bytes[..]).await
+                            channel.data(&key_out.to_ssh[..]).await
                                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                         }
                     } else if let Some(clipboard_text) = parse_clipboard_blob(&msg_str) {
@@ -1749,222 +935,50 @@ impl ProtocolHandler for SshHandler {
                         debug!("SSH: Clipboard stream opened - syncing clipboard state (not pasting)");
                         trace!("SSH: Clipboard instruction: {}", msg_str);
                     } else if msg_str.contains(".size,") {
-                        // Handle resize - extract exact pixel dimensions from browser
-                        // Format: "4.size,4.1057,3.768;" where args are: width, height
-                        // After ".size,": "4.1057,3.768;"
-                        if let Some(args_part) = msg_str.split_once(".size,") {
-                            // Split by comma to get: ["4.1057", "3.768;"]
-                            let parts: Vec<&str> = args_part.1.split(',').collect();
-                            if parts.len() >= 2 {
-                                // Parse width: "4.1057" -> extract "1057"
-                                if let Some((_, width_str)) = parts[0].split_once('.') {
-                                    // Parse height: "3.768;" -> extract "768" (remove trailing ;)
-                                    let height_part = parts[1].trim_end_matches(';');
-                                    if let Some((_, height_str)) = height_part.split_once('.') {
-                                        if let (Ok(new_width_px), Ok(new_height_px)) =
-                                            (width_str.parse::<u32>(), height_str.parse::<u32>()) {
-
-                                            // CRITICAL: Validate dimensions to prevent black screen
-                                            if new_width_px == 0 || new_height_px == 0 {
-                                                warn!("SSH: Ignoring resize with zero dimensions ({}x{})", new_width_px, new_height_px);
-                                                continue;
-                                            }
-
-                                            // Calculate new rows/cols using FIXED cell dimensions (guacd-style)
-                                            let new_cols = (new_width_px / char_width).clamp(20, 500) as u16;
-                                            let new_rows = (new_height_px / char_height).clamp(10, 200) as u16;
-
-                            // Skip resize if dimensions haven't changed
-                            if new_rows == current_rows && new_cols == current_cols {
-                                debug!("SSH: Ignoring resize - dimensions unchanged ({}x{} chars)", current_cols, current_rows);
-                                continue;
-                            }
-
-                                            // CRITICAL: Recalculate pixel dimensions to align with character grid
-                                            let aligned_width = new_cols as u32 * char_width;
-                                            let aligned_height = new_rows as u32 * char_height;
-
-                                            // Resize terminal emulator (preserves content via vt100's set_size)
-                                            terminal.resize(new_rows, new_cols);
-
-                                            // CRITICAL: Wait for terminal to stabilize after resize
-                                            // The vt100 parser's set_size() reformats the screen content,
-                                            // and we need to ensure all content has settled before rendering.
-                                            // This prevents the banner from being lost during the reflow.
-                                            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-
-                                            // Update current dimensions
-                                            current_rows = new_rows;
-                                            current_cols = new_cols;
-
-                                            // Recreate dirty tracker for new dimensions
-                                            dirty_tracker = DirtyTracker::new(new_rows, new_cols);
-
-                                            // Send PTY window change to SSH server
-                                            channel.window_change(new_cols as u32, new_rows as u32, 0, 0)
-                                                .await.map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                                            info!("SSH: Resize {}x{} px → {}x{} chars @ {}x{} px/cell → {}x{} px render",
-                                                new_width_px, new_height_px, new_cols, new_rows,
-                                                char_width, char_height, aligned_width, aligned_height);
-
-                                            // Record resize event
-                                            if let Some(ref mut rec) = recorder {
-                                                let _ = rec.record_resize(new_cols, new_rows);
-                                            }
-
-                                            // Send size instruction to client
-                                            let size_instr = TerminalRenderer::format_size_instruction(0, aligned_width, aligned_height);
-                                            send_and_record(&to_client, &mut recorder, Bytes::from(size_instr)).await
-                                                .map_err(HandlerError::ChannelError)?;
-
-                                            // Force full screen render after resize
-                                            let quality = adaptive_quality.calculate_quality();
-                                            let jpeg = renderer.render_screen_with_quality(
-                                                terminal.screen(),
-                                                new_rows,
-                                                new_cols,
-                                                quality,
-                                            ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                                            adaptive_quality.track_frame_sent(jpeg.len());
-                                            debug!("SSH: Resize render produced {} byte JPEG (quality {})", jpeg.len(), quality);
-
-                                            // Base64 encode and send via modern zero-allocation protocol
-                                            let base64_data = base64::Engine::encode(
-                                                &base64::engine::general_purpose::STANDARD,
-                                                &jpeg,
-                                            );
-
-                                            let img_instr = protocol_encoder.format_img_instruction(
-                                                stream_id, 0, 0, 0, "image/jpeg",
-                                            );
-                                            send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                                                .map_err(HandlerError::ChannelError)?;
-
-                                            let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                                            for instr in blob_instructions {
-                                                send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                                    .map_err(HandlerError::ChannelError)?;
-                                            }
-
-                                            let sync_instr = renderer.format_sync_instruction(
-                                                std::time::SystemTime::now()
-                                                    .duration_since(std::time::UNIX_EPOCH)
-                                                    .unwrap()
-                                                    .as_millis() as u64
-                                            );
-                                            send_and_record(&to_client, &mut recorder, Bytes::from(sync_instr)).await
-                                                .map_err(HandlerError::ChannelError)?;
-
-                                            terminal.clear_dirty();
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        handle_resize(
+                            &msg_str,
+                            &mut terminal,
+                            &mut channel,
+                            &mut dirty_tracker,
+                            &mut recorder,
+                            &renderer,
+                            &mut protocol_encoder,
+                            &mut adaptive_quality,
+                            stream_id,
+                            &to_client,
+                            char_width,
+                            char_height,
+                            &mut current_rows,
+                            &mut current_cols,
+                        ).await?;
                     } else if let Some(mouse_event) = parse_mouse_instruction(&msg_str) {
-                        debug!("SSH: Mouse event - button={}, pos=({},{}), term_mouse={}",
-                            mouse_event.button_mask, mouse_event.x_px, mouse_event.y_px,
-                            terminal.is_mouse_enabled());
+                        let mouse_out = handle_mouse_event(
+                            mouse_event,
+                            &mut mouse_selection,
+                            &terminal,
+                            &security,
+                            char_width,
+                            char_height,
+                            current_rows,
+                            current_cols,
+                            &modifier_state,
+                        );
 
-                        // Security: Check read-only mode for mouse clicks
-                        if security.read_only && !is_mouse_event_allowed_readonly(mouse_event.button_mask) {
-                            trace!("SSH: Mouse click blocked (read-only mode)");
-                            continue;
+                        // Send client instructions (overlays, clipboard)
+                        for instr in mouse_out.to_client {
+                            send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
+                                .map_err(HandlerError::ChannelError)?;
                         }
 
-                        // Handle mouse events intelligently:
-                        // 1. If terminal has mouse mode enabled (vim/tmux) - send X11 sequences
-                        // 2. Otherwise, left-click drag = text selection (copy to clipboard)
-                        // 3. Hover with no buttons = ignored (prevents garbage)
-
-                        // Check if terminal has mouse mode enabled (vim :set mouse=a, tmux mouse mode)
-                        if terminal.is_mouse_enabled() && mouse_event.button_mask != 0 {
-                            debug!("SSH: Terminal mouse mode enabled - sending X11 sequences (no selection)");
-                            // Terminal wants mouse events - send X11 sequences
-                            use guacr_terminal::mouse_event_to_x11_sequence;
-                            let mouse_seq = mouse_event_to_x11_sequence(
-                                mouse_event.x_px,
-                                mouse_event.y_px,
-                                mouse_event.button_mask as u8,
-                                char_width,
-                                char_height
-                            );
-
-                            if !mouse_seq.is_empty() {
-                                trace!("SSH: Mouse X11 sequence (button={}) at ({}, {})",
-                                    mouse_event.button_mask, mouse_event.x_px, mouse_event.y_px);
-                                channel.data(&mouse_seq[..]).await
-                                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                            }
+                        // Update local clipboard
+                        if let Some(new_cb) = mouse_out.new_clipboard {
+                            stored_clipboard = new_cb;
                         }
-                        // Try text selection (only when mouse mode is disabled)
-                        else {
-                            debug!("SSH: Terminal mouse mode disabled - handling text selection");
-                            match handle_mouse_selection(
-                                mouse_event,
-                                &mut mouse_selection,
-                                &terminal,
-                                char_width,
-                                char_height,
-                                current_cols,
-                                current_rows,
-                                modifier_state.shift, // Pass shift key state for extend selection
-                            ) {
-                                SelectionResult::InProgress(overlay_instructions) => {
-                                    // Send blue semi-transparent selection overlay
-                                    for instr in overlay_instructions {
-                                        send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                            .map_err(HandlerError::ChannelError)?;
-                                    }
-                                }
-                                SelectionResult::Complete { text: selected_text, clear_instructions } => {
-                                    info!("SSH: Selection complete - {} chars selected", selected_text.len());
 
-                                    // Security: Check if copy is allowed
-                                    if !security.is_copy_allowed() {
-                                        warn!("SSH: Selection copy blocked (copy disabled)");
-
-                                        // Still clear the overlay even if copy is blocked
-                                        for instr in clear_instructions {
-                                            send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                                .map_err(HandlerError::ChannelError)?;
-                                        }
-                                        continue;
-                                    }
-
-                                    debug!("SSH: Copying {} chars to clipboard", selected_text.len());
-
-                                    // CRITICAL: Update local clipboard immediately to avoid race condition
-                                    // If user pastes immediately after selecting, they expect the selected text
-                                    // Without this, there's a race where the clipboard blob from client arrives
-                                    // after the user has already pressed Ctrl+Shift+V
-                                    stored_clipboard = selected_text.clone();
-                                    debug!("SSH: Local clipboard updated immediately with {} chars", stored_clipboard.len());
-
-                                    // Clear the overlay
-                                    for instr in clear_instructions {
-                                        send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                            .map_err(HandlerError::ChannelError)?;
-                                    }
-
-                                    // Send to client as clipboard using shared formatter
-                                    let clipboard_stream_id = 10;
-                                    let clipboard_instructions = format_clipboard_instructions(&selected_text, clipboard_stream_id);
-
-                                    info!("SSH: Sending {} clipboard instructions for {} chars to UI", clipboard_instructions.len(), selected_text.len());
-                                    for instr in clipboard_instructions {
-                                        debug!("SSH: Sending clipboard instruction: {}", instr);
-                                        send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                            .map_err(HandlerError::ChannelError)?;
-                                    }
-                                    info!("SSH: Clipboard instructions sent successfully to UI");
-                                }
-                                SelectionResult::None => {
-                                    // No selection action (hovering, etc.) - ignore
-                                }
-                            }
+                        // Send X11 mouse sequences to SSH channel
+                        if !mouse_out.server_bytes.is_empty() {
+                            channel.data(&mouse_out.server_bytes[..]).await
+                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                         }
                     } else if let Some(pipe_instr) = parse_pipe_instruction(&msg_str) {
                         // Handle incoming pipe stream (e.g., STDIN from client)
@@ -2007,6 +1021,17 @@ impl ProtocolHandler for SshHandler {
             let _ = send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await;
         }
 
+        // Record a final sync so the recording ends on a sync instruction
+        // rather than on a mouse/key event. The ses recorder rewrites the
+        // timestamp to session-relative, so the placeholder value here
+        // doesn't matter.
+        let _ = send_and_record(
+            &to_client,
+            &mut recorder,
+            Bytes::from_static(b"4.sync,1.0;"),
+        )
+        .await;
+
         // Finalize recording
         if let Some(rec) = recorder {
             if let Err(e) = rec.finalize() {
@@ -2043,6 +1068,946 @@ impl ProtocolHandler for SshHandler {
     async fn stats(&self) -> guacr_handlers::Result<HandlerStats> {
         Ok(HandlerStats::default())
     }
+}
+
+// ---------------------------------------------------------------------------
+// Rendering helper
+// ---------------------------------------------------------------------------
+
+struct RenderContext<'a> {
+    renderer: &'a TerminalRenderer,
+    encoder: &'a mut TextProtocolEncoder,
+    adaptive_quality: &'a mut guacr_handlers::AdaptiveQuality,
+    stream_id: u32,
+    to_client: &'a mpsc::Sender<Bytes>,
+    recorder: &'a mut Option<MultiFormatRecorder>,
+}
+
+impl<'a> RenderContext<'a> {
+    fn new(
+        renderer: &'a TerminalRenderer,
+        encoder: &'a mut TextProtocolEncoder,
+        adaptive_quality: &'a mut guacr_handlers::AdaptiveQuality,
+        stream_id: u32,
+        to_client: &'a mpsc::Sender<Bytes>,
+        recorder: &'a mut Option<MultiFormatRecorder>,
+    ) -> Self {
+        Self {
+            renderer,
+            encoder,
+            adaptive_quality,
+            stream_id,
+            to_client,
+            recorder,
+        }
+    }
+
+    /// Render full terminal screen and send as JPEG. Returns sync timestamp.
+    async fn send_screen(
+        &mut self,
+        terminal: &TerminalEmulator,
+        rows: u16,
+        cols: u16,
+    ) -> guacr_handlers::Result<u64> {
+        let quality = self.adaptive_quality.calculate_quality();
+        let jpeg = self
+            .renderer
+            .render_screen_with_quality(terminal.screen(), rows, cols, quality)
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        self.adaptive_quality.track_frame_sent(jpeg.len());
+
+        let base64_data = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &jpeg);
+
+        let img_instr = self
+            .encoder
+            .format_img_instruction(self.stream_id, 0, 0, 0, "image/jpeg");
+        send_and_record(self.to_client, self.recorder, img_instr.freeze())
+            .await
+            .map_err(HandlerError::ChannelError)?;
+
+        let blob_instructions = format_chunked_blobs(self.stream_id, &base64_data, None);
+        for instr in blob_instructions {
+            send_and_record(self.to_client, self.recorder, Bytes::from(instr))
+                .await
+                .map_err(HandlerError::ChannelError)?;
+        }
+
+        let ts = guacr_terminal::current_time_millis();
+        let sync_instr = self.renderer.format_sync_instruction(ts);
+        send_and_record(self.to_client, self.recorder, Bytes::from(sync_instr))
+            .await
+            .map_err(HandlerError::ChannelError)?;
+
+        Ok(ts)
+    }
+
+    /// Render dirty region (or full screen fallback) and send as JPEG. Returns sync timestamp.
+    ///
+    /// - dirty_opt=None → full screen fallback
+    /// - dirty_pct==0 → skip render (only sync)
+    /// - dirty_pct<30 → render 1-cell-expanded region
+    /// - dirty_pct>=30 → render full screen
+    async fn send_dirty(
+        &mut self,
+        terminal: &TerminalEmulator,
+        dirty_opt: Option<DirtyRect>,
+        current_rows: u16,
+        current_cols: u16,
+    ) -> guacr_handlers::Result<u64> {
+        if let Some(dirty) = dirty_opt {
+            let total_cells = (current_rows as usize) * (current_cols as usize);
+            let dirty_cells = dirty.cell_count();
+            let dirty_pct = if total_cells > 0 {
+                (dirty_cells * 100) / total_cells
+            } else {
+                100
+            };
+
+            if dirty_pct == 0 {
+                // Edge case: dirty region is empty — only send sync
+                trace!("SSH: Empty dirty region (0%), skipping render");
+            } else if dirty_pct < 30 {
+                // Small region - render only changed area
+                if dirty_pct < 5 {
+                    trace!(
+                        "SSH: Micro update: {}x{} cells ({}%) at row {}-{}, col {}-{}",
+                        dirty.width(),
+                        dirty.height(),
+                        dirty_pct,
+                        dirty.min_row,
+                        dirty.max_row,
+                        dirty.min_col,
+                        dirty.max_col
+                    );
+                } else {
+                    trace!(
+                        "SSH: Dirty region: {}x{} cells ({}%) at row {}-{}, col {}-{}",
+                        dirty.width(),
+                        dirty.height(),
+                        dirty_pct,
+                        dirty.min_row,
+                        dirty.max_row,
+                        dirty.min_col,
+                        dirty.max_col
+                    );
+                }
+
+                // Expand by 1 cell in all directions to cover JPEG compression artifacts
+                // (DCT ringing at 8x8 block boundaries from cursor underline rendering)
+                let bp_min_row = dirty.min_row.saturating_sub(1);
+                let bp_max_row = (dirty.max_row + 1).min(current_rows - 1);
+                let bp_min_col = dirty.min_col.saturating_sub(1);
+                let bp_max_col = (dirty.max_col + 1).min(current_cols - 1);
+
+                let quality = self.adaptive_quality.calculate_quality();
+                let (jpeg, x_px, y_px, _w_px, _h_px) = self
+                    .renderer
+                    .render_region_with_quality(
+                        terminal.screen(),
+                        bp_min_row,
+                        bp_max_row,
+                        bp_min_col,
+                        bp_max_col,
+                        quality,
+                    )
+                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                self.adaptive_quality.track_frame_sent(jpeg.len());
+
+                let base64_data =
+                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &jpeg);
+
+                let img_instr = self.encoder.format_img_instruction(
+                    self.stream_id,
+                    0,
+                    x_px as i32,
+                    y_px as i32,
+                    "image/jpeg",
+                );
+                send_and_record(self.to_client, self.recorder, img_instr.freeze())
+                    .await
+                    .map_err(HandlerError::ChannelError)?;
+
+                let blob_instructions = format_chunked_blobs(self.stream_id, &base64_data, None);
+                for instr in blob_instructions {
+                    send_and_record(self.to_client, self.recorder, Bytes::from(instr))
+                        .await
+                        .map_err(HandlerError::ChannelError)?;
+                }
+            } else {
+                // Large region - render full screen
+                trace!("SSH: Full screen ({}% dirty)", dirty_pct);
+
+                let quality = self.adaptive_quality.calculate_quality();
+                let jpeg = self
+                    .renderer
+                    .render_screen_with_quality(
+                        terminal.screen(),
+                        terminal.size().0,
+                        terminal.size().1,
+                        quality,
+                    )
+                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                self.adaptive_quality.track_frame_sent(jpeg.len());
+
+                let base64_data =
+                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &jpeg);
+
+                let img_instr =
+                    self.encoder
+                        .format_img_instruction(self.stream_id, 0, 0, 0, "image/jpeg");
+                send_and_record(self.to_client, self.recorder, img_instr.freeze())
+                    .await
+                    .map_err(HandlerError::ChannelError)?;
+
+                let blob_instructions = format_chunked_blobs(self.stream_id, &base64_data, None);
+                for instr in blob_instructions {
+                    send_and_record(self.to_client, self.recorder, Bytes::from(instr))
+                        .await
+                        .map_err(HandlerError::ChannelError)?;
+                }
+            }
+
+            let ts = guacr_terminal::current_time_millis();
+            let sync_instr = self.renderer.format_sync_instruction(ts);
+            send_and_record(self.to_client, self.recorder, Bytes::from(sync_instr))
+                .await
+                .map_err(HandlerError::ChannelError)?;
+            Ok(ts)
+        } else {
+            // Dirty tracker failed to find changes (cursor movement, small updates)
+            // Fall back to full screen render to prevent "one char behind" bug
+            debug!("SSH: Dirty tracker returned None, rendering full screen as fallback");
+
+            let quality = self.adaptive_quality.calculate_quality();
+            let jpeg = self
+                .renderer
+                .render_screen_with_quality(
+                    terminal.screen(),
+                    terminal.size().0,
+                    terminal.size().1,
+                    quality,
+                )
+                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+            self.adaptive_quality.track_frame_sent(jpeg.len());
+            debug!(
+                "SSH: Fallback render produced {} byte JPEG (quality {})",
+                jpeg.len(),
+                quality
+            );
+
+            let base64_data =
+                base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &jpeg);
+
+            let img_instr =
+                self.encoder
+                    .format_img_instruction(self.stream_id, 0, 0, 0, "image/jpeg");
+            send_and_record(self.to_client, self.recorder, img_instr.freeze())
+                .await
+                .map_err(HandlerError::ChannelError)?;
+
+            let blob_instructions = format_chunked_blobs(self.stream_id, &base64_data, None);
+            for instr in blob_instructions {
+                send_and_record(self.to_client, self.recorder, Bytes::from(instr))
+                    .await
+                    .map_err(HandlerError::ChannelError)?;
+            }
+
+            let ts = guacr_terminal::current_time_millis();
+            let sync_instr = self.renderer.format_sync_instruction(ts);
+            send_and_record(self.to_client, self.recorder, Bytes::from(sync_instr))
+                .await
+                .map_err(HandlerError::ChannelError)?;
+            Ok(ts)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Authentication helper
+// ---------------------------------------------------------------------------
+
+/// Map a HandlerError to a user-facing message and status code, send the error
+/// to the client via best-effort, then return the error unchanged.
+async fn report_and_fail(to_client: &mpsc::Sender<Bytes>, err: HandlerError) -> HandlerError {
+    let (message, status_code) = match &err {
+        HandlerError::MissingParameter(p) => (
+            format!("Missing required parameter: {}", p),
+            STATUS_UPSTREAM_ERROR,
+        ),
+        HandlerError::ConnectionFailed(msg) => {
+            if msg.contains("timeout") || msg.contains("timed out") {
+                (
+                    format!("Connection timeout: {}", msg),
+                    STATUS_UPSTREAM_TIMEOUT,
+                )
+            } else {
+                (format!("Connection failed: {}", msg), STATUS_UPSTREAM_ERROR)
+            }
+        }
+        HandlerError::AuthenticationFailed(msg) => {
+            if msg.contains("Host key") || msg.contains("fingerprint") {
+                (
+                    format!("Host key verification failed: {}", msg),
+                    STATUS_UPSTREAM_ERROR,
+                )
+            } else if msg.contains("timeout") || msg.contains("timed out") {
+                (
+                    format!("Authentication timeout: {}", msg),
+                    STATUS_UPSTREAM_TIMEOUT,
+                )
+            } else {
+                (
+                    format!("Authentication failed: {}", msg),
+                    STATUS_CLIENT_UNAUTHORIZED,
+                )
+            }
+        }
+        _ => (err.to_string(), STATUS_UPSTREAM_ERROR),
+    };
+    send_error_best_effort(to_client, &message, status_code).await;
+    err
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn authenticate(
+    sh: &mut client::Handle<SshClientHandler>,
+    username: String,
+    password: Option<&String>,
+    private_key: Option<&String>,
+    passphrase: Option<&str>,
+    public_key_cert: Option<&str>,
+    auth_timeout: Duration,
+    to_client: &mpsc::Sender<Bytes>,
+) -> guacr_handlers::Result<()> {
+    let auth_result = if let Some(pwd) = password {
+        debug!("SSH handler: Authenticating with password");
+        let pwd_for_kbi = pwd.clone();
+        let password_result = tokio::time::timeout(
+            auth_timeout,
+            sh.authenticate_password(username.clone(), pwd),
+        )
+        .await
+        .map_err(|_| {
+            error!("SSH handler: Authentication timed out");
+            HandlerError::AuthenticationFailed("Authentication timed out".to_string())
+        });
+
+        // If password auth was rejected (Ok(Ok(false))), fall back to
+        // keyboard-interactive. Many SSH servers (OpenSSH default config)
+        // disable the "password" method and only allow "keyboard-interactive",
+        // which is functionally equivalent but uses a challenge-response flow.
+        // libssh2/libguac handles this transparently; we must do it explicitly.
+        match &password_result {
+            Ok(Ok(false)) => {
+                info!("SSH handler: Password auth rejected, trying keyboard-interactive");
+                tokio::time::timeout(auth_timeout, async {
+                    use russh::client::KeyboardInteractiveAuthResponse;
+                    let mut resp = sh
+                        .authenticate_keyboard_interactive_start(username.clone(), None)
+                        .await?;
+                    loop {
+                        match resp {
+                            KeyboardInteractiveAuthResponse::Success => return Ok(true),
+                            KeyboardInteractiveAuthResponse::Failure => return Ok(false),
+                            KeyboardInteractiveAuthResponse::InfoRequest { prompts, .. } => {
+                                // Respond to each prompt with the password
+                                // (standard PAM password prompt sends one prompt)
+                                let responses: Vec<String> =
+                                    prompts.iter().map(|_| pwd_for_kbi.clone()).collect();
+                                resp = sh
+                                    .authenticate_keyboard_interactive_respond(responses)
+                                    .await?;
+                            }
+                        }
+                    }
+                })
+                .await
+                .map_err(|_| {
+                    error!("SSH handler: Keyboard-interactive authentication timed out");
+                    HandlerError::AuthenticationFailed("Authentication timed out".to_string())
+                })
+            }
+            _ => password_result,
+        }
+    } else if let Some(key_pem) = private_key {
+        debug!("SSH handler: Authenticating with private key");
+
+        // Parse private key (supports OpenSSH, PEM, and PKCS#8 formats)
+        // russh_keys::decode_secret_key handles all formats and optional passphrase
+        debug!(
+            "SSH handler: Decoding private key (encrypted: {})",
+            passphrase.is_some()
+        );
+        let key_pair = match russh_keys::decode_secret_key(key_pem, passphrase) {
+            Ok(k) => k,
+            Err(e) => {
+                error!("SSH handler: Failed to decode private key: {}", e);
+                let err = if passphrase.is_some() {
+                    HandlerError::AuthenticationFailed(format!(
+                        "Invalid private key or passphrase: {}",
+                        e
+                    ))
+                } else {
+                    HandlerError::AuthenticationFailed(format!("Invalid private key format: {}", e))
+                };
+                return Err(report_and_fail(to_client, err).await);
+            }
+        };
+
+        if let Some(cert_str) = public_key_cert {
+            debug!("SSH handler: Certificate provided, using certificate-based authentication");
+
+            // Parse OpenSSH certificate
+            let certificate = match cert_str.trim().parse::<Certificate>() {
+                Ok(cert) => cert,
+                Err(e) => {
+                    error!("SSH handler: Failed to parse SSH certificate: {}", e);
+                    let err = HandlerError::AuthenticationFailed(format!(
+                        "Invalid SSH certificate format: {}",
+                        e
+                    ));
+                    return Err(report_and_fail(to_client, err).await);
+                }
+            };
+
+            debug!("SSH handler: Certificate parsed successfully, authenticating with certificate");
+            tokio::time::timeout(
+                auth_timeout,
+                sh.authenticate_openssh_cert(username.clone(), Arc::new(key_pair), certificate),
+            )
+            .await
+            .map_err(|_| {
+                error!("SSH handler: Certificate authentication timed out");
+                HandlerError::AuthenticationFailed("Authentication timed out".to_string())
+            })
+        } else {
+            debug!("SSH handler: Private key decoded successfully, authenticating with public key");
+            tokio::time::timeout(
+                auth_timeout,
+                sh.authenticate_publickey(username.clone(), Arc::new(key_pair)),
+            )
+            .await
+            .map_err(|_| {
+                error!("SSH handler: Authentication timed out");
+                HandlerError::AuthenticationFailed("Authentication timed out".to_string())
+            })
+        }
+    } else {
+        error!("SSH handler: No authentication method provided");
+        let err = HandlerError::MissingParameter("password or private_key".to_string());
+        return Err(report_and_fail(to_client, err).await);
+    };
+
+    let auth_result = match auth_result {
+        Ok(r) => r,
+        Err(e) => return Err(report_and_fail(to_client, e).await),
+    };
+
+    let auth_success = match auth_result {
+        Ok(success) => success,
+        Err(e) => {
+            error!("SSH handler: Authentication error: {}", e);
+            let err = HandlerError::AuthenticationFailed(e.to_string());
+            return Err(report_and_fail(to_client, err).await);
+        }
+    };
+
+    if !auth_success {
+        error!("SSH handler: Authentication failed - wrong credentials");
+        let err = HandlerError::AuthenticationFailed("Authentication failed".to_string());
+        return Err(report_and_fail(to_client, err).await);
+    }
+
+    info!("SSH handler: Authentication successful");
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Session channel helper
+// ---------------------------------------------------------------------------
+
+async fn open_session_channel(
+    sh: &mut client::Handle<SshClientHandler>,
+    terminal_config: &TerminalConfig,
+    rows: u16,
+    cols: u16,
+    params: &HashMap<String, String>,
+) -> guacr_handlers::Result<russh::Channel<russh::client::Msg>> {
+    let channel = sh
+        .channel_open_session()
+        .await
+        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+
+    channel
+        .request_pty(
+            false,
+            terminal_config.term_type(),
+            cols as u32,
+            rows as u32,
+            0,
+            0,
+            &[
+                (Pty::ECHO, 1),   // echo input characters
+                (Pty::ICANON, 1), // canonical (line) mode
+                (Pty::ISIG, 1),   // enable signals (Ctrl+C, Ctrl+Z)
+                (Pty::IEXTEN, 1), // enable extended input processing
+                (Pty::ICRNL, 1),  // map CR to NL on input (Enter key)
+                (Pty::OPOST, 1),  // enable output processing
+                (Pty::ONLCR, 1),  // map NL to CR+NL on output
+                (Pty::ECHOE, 1),  // echo erase character (Backspace)
+                (Pty::ECHOK, 1),  // echo kill character
+            ],
+        )
+        .await
+        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+
+    // Set environment variables (locale/timezone) before shell/command
+    // Note: Many SSH servers have AcceptEnv disabled by default, so these may be ignored
+    if let Some(locale) = params.get("locale") {
+        debug!("SSH: Setting LANG={}", locale);
+        let _ = channel.set_env(false, "LANG", locale.as_str()).await;
+    }
+    if let Some(timezone) = params.get("timezone") {
+        debug!("SSH: Setting TZ={}", timezone);
+        let _ = channel.set_env(false, "TZ", timezone.as_str()).await;
+    }
+
+    // Either execute a specific command or open interactive shell
+    if let Some(command) = params.get("command") {
+        info!("SSH: Executing command: {}", command);
+        channel
+            .exec(false, command.as_str())
+            .await
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        debug!("SSH handler: Command execution started");
+    } else {
+        channel
+            .request_shell(false)
+            .await
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        debug!("SSH handler: SSH shell established");
+    }
+
+    Ok(channel)
+}
+
+// ---------------------------------------------------------------------------
+// Banner collection helper
+// ---------------------------------------------------------------------------
+
+async fn collect_banner(
+    channel: &mut russh::Channel<russh::client::Msg>,
+    terminal: &mut TerminalEmulator,
+) -> usize {
+    // IMPORTANT: Use a longer timeout (500ms) to ensure we capture the full banner.
+    // Some SSH servers send the banner in multiple packets with delays between them.
+    // The 200ms timeout was too short and caused the banner to be cut off.
+    //
+    // Strategy:
+    // 1. Wait up to 500ms for the first packet (initial banner)
+    // 2. Then wait 200ms between subsequent packets (continuation)
+    // 3. Stop when we hit a timeout (no more data coming)
+    debug!("SSH: Checking for initial banner data...");
+    let mut banner_bytes_total = 0usize;
+    let mut first_packet = true;
+    loop {
+        let timeout_ms = if first_packet { 500 } else { 200 };
+        match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), channel.wait())
+            .await
+        {
+            Ok(Some(russh::ChannelMsg::Data { ref data })) => {
+                banner_bytes_total += data.len();
+                trace!(
+                    "SSH: Received {} bytes of initial banner data (total: {}, first_packet: {})",
+                    data.len(),
+                    banner_bytes_total,
+                    first_packet
+                );
+                if let Err(e) = terminal.process(data) {
+                    warn!("SSH: Error processing banner data: {}", e);
+                }
+                first_packet = false;
+            }
+            Ok(Some(_other)) => {
+                debug!("SSH: Received non-data message during banner check");
+            }
+            Ok(None) => {
+                warn!("SSH: Channel closed during banner check");
+                break;
+            }
+            Err(_timeout) => {
+                debug!(
+                    "SSH: Banner collection complete (timeout after {}ms, total {} bytes)",
+                    timeout_ms, banner_bytes_total
+                );
+                break;
+            }
+        }
+    }
+    banner_bytes_total
+}
+
+// ---------------------------------------------------------------------------
+// Key event helper
+// ---------------------------------------------------------------------------
+
+struct KeyEventOutput {
+    /// Instructions to send to the Guacamole client (in order)
+    to_client: Vec<String>,
+    /// Bytes to write to the SSH channel
+    to_ssh: Vec<u8>,
+    /// New clipboard content (Some if select-all was triggered)
+    new_clipboard: Option<String>,
+    /// Whether to reset dirty tracker (set by large paste >100 chars)
+    reset_dirty_tracker: bool,
+}
+
+impl KeyEventOutput {
+    fn empty() -> Self {
+        Self {
+            to_client: Vec::new(),
+            to_ssh: Vec::new(),
+            new_clipboard: None,
+            reset_dirty_tracker: false,
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn handle_key_event(
+    key_event: guacr_terminal::KeyEvent,
+    modifier_state: &mut ModifierState,
+    mouse_selection: &mut MouseSelection,
+    security: &HandlerSecuritySettings,
+    stored_clipboard: &str,
+    terminal: &TerminalEmulator,
+    backspace_code: u8,
+    current_rows: u16,
+    current_cols: u16,
+    char_width: u32,
+    char_height: u32,
+) -> KeyEventOutput {
+    trace!(
+        "SSH: Key event - keysym={} (0x{:04X}), pressed={}, ctrl={}, shift={}, alt={}",
+        key_event.keysym,
+        key_event.keysym,
+        key_event.pressed,
+        modifier_state.control,
+        modifier_state.shift,
+        modifier_state.alt
+    );
+
+    // Update modifier state (Ctrl, Shift, Alt)
+    // Returns true if this was a modifier key (don't send to SSH)
+    if modifier_state.update_modifier(key_event.keysym, key_event.pressed) {
+        debug!(
+            "SSH: Modifier key updated - ctrl={}, shift={}, alt={}",
+            modifier_state.control, modifier_state.shift, modifier_state.alt
+        );
+        return KeyEventOutput::empty();
+    }
+
+    let mut out = KeyEventOutput::empty();
+
+    // Clear any active selection overlay on key press (not release)
+    if key_event.pressed && mouse_selection.start.is_some() {
+        mouse_selection.reset();
+        let clear = format_clear_selection_instructions();
+        for instr in clear {
+            out.to_client.push(instr);
+        }
+    }
+
+    // Security: Check read-only mode
+    if security.read_only
+        && !is_keyboard_event_allowed_readonly(key_event.keysym, modifier_state.control)
+    {
+        trace!("SSH: Keyboard input blocked (read-only mode)");
+        return out;
+    }
+
+    // Handle paste shortcuts (matching guacd's behavior):
+    // - Ctrl+Shift+V (Linux/Windows): keysym 'V' (0x56) with ctrl+shift
+    // - Cmd+V (Mac): keysym 'v' (0x76) with meta
+    let is_paste = key_event.pressed
+        && ((key_event.keysym == 0x56 && modifier_state.control && modifier_state.shift)
+            || (key_event.keysym == 0x76 && modifier_state.meta));
+
+    if is_paste {
+        if !security.is_paste_allowed() {
+            debug!("SSH: Paste blocked (disabled or read-only mode)");
+            return out;
+        }
+
+        if stored_clipboard.is_empty() {
+            debug!("SSH: Paste shortcut pressed but clipboard is empty");
+            return out;
+        }
+
+        // Check clipboard buffer size limit
+        let max_size = security.clipboard_buffer_size;
+        let paste_text = if stored_clipboard.len() > max_size {
+            warn!(
+                "SSH: Clipboard truncated from {} to {} bytes",
+                stored_clipboard.len(),
+                max_size
+            );
+            &stored_clipboard[..max_size]
+        } else {
+            stored_clipboard
+        };
+
+        debug!(
+            "SSH: Paste shortcut - Pasting {} chars from clipboard",
+            paste_text.len()
+        );
+
+        // Send using bracketed paste mode for safety
+        let mut paste_data = Vec::new();
+        paste_data.extend_from_slice(b"\x1b[200~");
+        paste_data.extend_from_slice(paste_text.as_bytes());
+        paste_data.extend_from_slice(b"\x1b[201~");
+
+        // CRITICAL: Force dirty tracker reset after large paste
+        if paste_text.len() > 100 {
+            debug!(
+                "SSH: Large paste detected ({}  chars), resetting dirty tracker to force full render",
+                paste_text.len()
+            );
+            out.reset_dirty_tracker = true;
+        }
+
+        out.to_ssh = paste_data;
+        return out;
+    }
+
+    // Handle copy shortcuts - ignore them since selection already copies
+    // - Ctrl+Shift+C (Linux/Windows): keysym 'C' (0x43) with ctrl+shift
+    // - Cmd+C (Mac): keysym 'c' (0x63) with meta
+    let is_copy = key_event.pressed
+        && ((key_event.keysym == 0x43 && modifier_state.control && modifier_state.shift)
+            || (key_event.keysym == 0x63 && modifier_state.meta));
+
+    if is_copy {
+        debug!("SSH: Copy shortcut pressed - ignoring (selection already copies)");
+        return out;
+    }
+
+    // Handle select-all shortcut (selects entire terminal + copies to clipboard)
+    // - Ctrl+Shift+A (Linux/Windows): keysym 'A' (0x41) with ctrl+shift
+    // - Cmd+A (Mac): keysym 'a' (0x61) with meta
+    let is_select_all = key_event.pressed
+        && ((key_event.keysym == 0x41 && modifier_state.control && modifier_state.shift)
+            || (key_event.keysym == 0x61 && modifier_state.meta));
+
+    if is_select_all {
+        let last_row = current_rows.saturating_sub(1);
+        let last_col = current_cols.saturating_sub(1);
+
+        // Show selection overlay (entire terminal)
+        let overlay = format_selection_overlay_instructions(
+            (0, 0),
+            (last_row, last_col),
+            char_width,
+            char_height,
+            current_cols,
+            current_rows,
+        );
+        for instr in overlay {
+            out.to_client.push(instr);
+        }
+
+        // Extract all text and send to clipboard
+        let text = extract_selection_text(terminal, (0, 0), (last_row, last_col), current_cols);
+
+        if !text.is_empty() {
+            info!("SSH: Select all - {} chars copied to clipboard", text.len());
+            let clipboard_stream_id = 10;
+            let clipboard_instructions = format_clipboard_instructions(&text, clipboard_stream_id);
+            for instr in clipboard_instructions {
+                out.to_client.push(instr);
+            }
+            out.new_clipboard = Some(text);
+        }
+
+        // Clear overlay after a brief visual flash
+        let clear = format_clear_selection_instructions();
+        for instr in clear {
+            out.to_client.push(instr);
+        }
+
+        return out;
+    }
+
+    // Convert to terminal bytes with modifier state, backspace, and application cursor mode
+    let application_cursor = terminal.is_application_cursor_mode();
+    let kitty_level = terminal.kitty_keyboard_level();
+
+    // Log arrow keys to help debug mode switching
+    if matches!(key_event.keysym, 0xFF51..=0xFF54) {
+        trace!(
+            "SSH: Arrow key 0x{:X} in {} mode, kitty_level={}",
+            key_event.keysym,
+            if application_cursor {
+                "application"
+            } else {
+                "normal"
+            },
+            kitty_level
+        );
+    }
+
+    // Use Kitty keyboard protocol if enabled, otherwise use legacy
+    let bytes = if kitty_level > 0 {
+        trace!("SSH: Using Kitty keyboard protocol level {}", kitty_level);
+        x11_keysym_to_kitty_sequence(
+            key_event.keysym,
+            key_event.pressed,
+            Some(modifier_state),
+            backspace_code,
+            application_cursor,
+            kitty_level,
+        )
+    } else {
+        x11_keysym_to_bytes_with_modes(
+            key_event.keysym,
+            key_event.pressed,
+            Some(modifier_state),
+            backspace_code,
+            application_cursor,
+        )
+    };
+
+    trace!("SSH: Key converted to {} bytes: {:?}", bytes.len(), bytes);
+    out.to_ssh = bytes;
+    out
+}
+
+// ---------------------------------------------------------------------------
+// Resize helper
+// ---------------------------------------------------------------------------
+
+#[allow(clippy::too_many_arguments)]
+async fn handle_resize(
+    msg_str: &str,
+    terminal: &mut TerminalEmulator,
+    channel: &mut russh::Channel<russh::client::Msg>,
+    dirty_tracker: &mut DirtyTracker,
+    recorder: &mut Option<MultiFormatRecorder>,
+    renderer: &TerminalRenderer,
+    encoder: &mut TextProtocolEncoder,
+    adaptive_quality: &mut guacr_handlers::AdaptiveQuality,
+    stream_id: u32,
+    to_client: &mpsc::Sender<Bytes>,
+    char_width: u32,
+    char_height: u32,
+    current_rows: &mut u16,
+    current_cols: &mut u16,
+) -> guacr_handlers::Result<()> {
+    // Handle resize - extract exact pixel dimensions from browser
+    // Format: "4.size,4.1057,3.768;" where args are: width, height
+    if let Some(args_part) = msg_str.split_once(".size,") {
+        let parts: Vec<&str> = args_part.1.split(',').collect();
+        if parts.len() >= 2 {
+            if let Some((_, width_str)) = parts[0].split_once('.') {
+                let height_part = parts[1].trim_end_matches(';');
+                if let Some((_, height_str)) = height_part.split_once('.') {
+                    if let (Ok(new_width_px), Ok(new_height_px)) =
+                        (width_str.parse::<u32>(), height_str.parse::<u32>())
+                    {
+                        // CRITICAL: Validate dimensions to prevent black screen
+                        if new_width_px == 0 || new_height_px == 0 {
+                            warn!(
+                                "SSH: Ignoring resize with zero dimensions ({}x{})",
+                                new_width_px, new_height_px
+                            );
+                            return Ok(());
+                        }
+
+                        let new_cols = (new_width_px / char_width).clamp(20, 500) as u16;
+                        let new_rows = (new_height_px / char_height).clamp(10, 200) as u16;
+
+                        if new_rows == *current_rows && new_cols == *current_cols {
+                            debug!(
+                                "SSH: Ignoring resize - dimensions unchanged ({}x{} chars)",
+                                *current_cols, *current_rows
+                            );
+                            return Ok(());
+                        }
+
+                        // CRITICAL: Recalculate pixel dimensions to align with character grid
+                        let aligned_width = new_cols as u32 * char_width;
+                        let aligned_height = new_rows as u32 * char_height;
+
+                        // Resize terminal emulator (preserves content via vt100's set_size)
+                        terminal.resize(new_rows, new_cols);
+
+                        // CRITICAL: Wait for terminal to stabilize after resize
+                        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+                        // Update current dimensions
+                        *current_rows = new_rows;
+                        *current_cols = new_cols;
+
+                        // Recreate dirty tracker for new dimensions
+                        *dirty_tracker = DirtyTracker::new(new_rows, new_cols);
+
+                        // Send PTY window change to SSH server
+                        channel
+                            .window_change(new_cols as u32, new_rows as u32, 0, 0)
+                            .await
+                            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+
+                        info!(
+                            "SSH: Resize {}x{} px → {}x{} chars @ {}x{} px/cell → {}x{} px render",
+                            new_width_px,
+                            new_height_px,
+                            new_cols,
+                            new_rows,
+                            char_width,
+                            char_height,
+                            aligned_width,
+                            aligned_height
+                        );
+
+                        // Record resize event
+                        if let Some(ref mut rec) = *recorder {
+                            let _ = rec.record_resize(new_cols, new_rows);
+                        }
+
+                        // Send size instruction to client
+                        let size_instr = TerminalRenderer::format_size_instruction(
+                            0,
+                            aligned_width,
+                            aligned_height,
+                        );
+                        send_and_record(to_client, recorder, Bytes::from(size_instr))
+                            .await
+                            .map_err(HandlerError::ChannelError)?;
+
+                        // Force full screen render after resize
+                        let mut ctx = RenderContext::new(
+                            renderer,
+                            encoder,
+                            adaptive_quality,
+                            stream_id,
+                            to_client,
+                            recorder,
+                        );
+                        let _ts = ctx.send_screen(terminal, new_rows, new_cols).await?;
+                        let quality_used = adaptive_quality.calculate_quality();
+                        debug!(
+                            "SSH: Resize render produced JPEG (quality {})",
+                            quality_used
+                        );
+
+                        terminal.clear_dirty();
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Extract clipboard data from OSC 52 escape sequence

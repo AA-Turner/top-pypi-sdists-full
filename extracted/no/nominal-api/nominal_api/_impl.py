@@ -21275,6 +21275,41 @@ permanently delete it. Archived workbooks can be unarchived.
 
         return
 
+    def duplicate(self, auth_header: str, request: "scout_notebook_api_DuplicateNotebookRequest", rid: str) -> "scout_notebook_api_Notebook":
+        """Duplicates an existing workbook, copying its content (layout, charts, variables, pinned events)
+and optionally overriding metadata fields such as title, description, data scope, labels,
+and properties. Returns the newly created workbook.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'rid': quote(str(_conjure_encoder.default(rid)), safe=''),
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/notebook/{rid}/duplicate'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_notebook_api_Notebook, self._return_none_for_unknown_union_types)
+
     def get_snapshot_history(self, auth_header: str, request: "scout_notebook_api_GetSnapshotHistoryRequest") -> "scout_notebook_api_GetSnapshotHistoryResponse":
         """Retrieves the snapshot history for a given workbook. These are sorted in reverse chronological order. Results
 are limited by page size.
@@ -35134,6 +35169,64 @@ scout_chartdefinition_api_LogChannel.__qualname__ = "LogChannel"
 scout_chartdefinition_api_LogChannel.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_LogColumnTagFilters(ConjureUnionType):
+    """Tag field to filter log series data by.
+    """
+    _literal: Optional[Dict[str, List[str]]] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'literal': ConjureFieldDefinition('literal', Dict[str, List[str]])
+        }
+
+    def __init__(
+            self,
+            literal: Optional[Dict[str, List[str]]] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (literal is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if literal is not None:
+                self._literal = literal
+                self._type = 'literal'
+
+        elif type_of_union == 'literal':
+            if literal is None:
+                raise ValueError('a union value must not be None')
+            self._literal = literal
+            self._type = 'literal'
+
+    @builtins.property
+    def literal(self) -> Optional[Dict[str, List[str]]]:
+        return self._literal
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_LogColumnTagFiltersVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_LogColumnTagFiltersVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'literal' and self.literal is not None:
+            return visitor._literal(self.literal)
+
+
+scout_chartdefinition_api_LogColumnTagFilters.__name__ = "LogColumnTagFilters"
+scout_chartdefinition_api_LogColumnTagFilters.__qualname__ = "LogColumnTagFilters"
+scout_chartdefinition_api_LogColumnTagFilters.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_LogColumnTagFiltersVisitor:
+
+    @abstractmethod
+    def _literal(self, literal: Dict[str, List[str]]) -> Any:
+        pass
+
+
+scout_chartdefinition_api_LogColumnTagFiltersVisitor.__name__ = "LogColumnTagFiltersVisitor"
+scout_chartdefinition_api_LogColumnTagFiltersVisitor.__qualname__ = "LogColumnTagFiltersVisitor"
+scout_chartdefinition_api_LogColumnTagFiltersVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_LogPanelDefinition(ConjureUnionType):
     _v1: Optional["scout_chartdefinition_api_LogPanelDefinitionV1"] = None
 
@@ -35371,6 +35464,22 @@ class scout_chartdefinition_api_NeverConnectDisconnectedValues(ConjureBeanType):
 scout_chartdefinition_api_NeverConnectDisconnectedValues.__name__ = "NeverConnectDisconnectedValues"
 scout_chartdefinition_api_NeverConnectDisconnectedValues.__qualname__ = "NeverConnectDisconnectedValues"
 scout_chartdefinition_api_NeverConnectDisconnectedValues.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_NoConfigAggregation(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+        }
+
+    __slots__: List[str] = []
+
+
+
+scout_chartdefinition_api_NoConfigAggregation.__name__ = "NoConfigAggregation"
+scout_chartdefinition_api_NoConfigAggregation.__qualname__ = "NoConfigAggregation"
+scout_chartdefinition_api_NoConfigAggregation.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_NoConfigDisplayStat(ConjureBeanType):
@@ -37482,6 +37591,700 @@ scout_chartdefinition_api_StructVisualisationVisitor.__qualname__ = "StructVisua
 scout_chartdefinition_api_StructVisualisationVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_TableColumn(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', scout_channelvariables_api_ChannelVariableName),
+            'typed_config': ConjureFieldDefinition('typedConfig', OptionalTypeWrapper[scout_chartdefinition_api_TableColumnTypedConfig]),
+            'column_width': ConjureFieldDefinition('columnWidth', OptionalTypeWrapper[float])
+        }
+
+    __slots__: List[str] = ['_name', '_typed_config', '_column_width']
+
+    def __init__(self, name: str, column_width: Optional[float] = None, typed_config: Optional["scout_chartdefinition_api_TableColumnTypedConfig"] = None) -> None:
+        self._name = name
+        self._typed_config = typed_config
+        self._column_width = column_width
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def typed_config(self) -> Optional["scout_chartdefinition_api_TableColumnTypedConfig"]:
+        return self._typed_config
+
+    @builtins.property
+    def column_width(self) -> Optional[float]:
+        return self._column_width
+
+
+scout_chartdefinition_api_TableColumn.__name__ = "TableColumn"
+scout_chartdefinition_api_TableColumn.__qualname__ = "TableColumn"
+scout_chartdefinition_api_TableColumn.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnEnumAggregation(ConjureUnionType):
+    _first: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+    _last: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+    _all_distinct: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+    _count_distinct: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+    _value_counts: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'first': ConjureFieldDefinition('first', scout_chartdefinition_api_NoConfigAggregation),
+            'last': ConjureFieldDefinition('last', scout_chartdefinition_api_NoConfigAggregation),
+            'all_distinct': ConjureFieldDefinition('allDistinct', scout_chartdefinition_api_NoConfigAggregation),
+            'count_distinct': ConjureFieldDefinition('countDistinct', scout_chartdefinition_api_NoConfigAggregation),
+            'value_counts': ConjureFieldDefinition('valueCounts', scout_chartdefinition_api_NoConfigAggregation)
+        }
+
+    def __init__(
+            self,
+            first: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            last: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            all_distinct: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            count_distinct: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            value_counts: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (first is not None) + (last is not None) + (all_distinct is not None) + (count_distinct is not None) + (value_counts is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if first is not None:
+                self._first = first
+                self._type = 'first'
+            if last is not None:
+                self._last = last
+                self._type = 'last'
+            if all_distinct is not None:
+                self._all_distinct = all_distinct
+                self._type = 'allDistinct'
+            if count_distinct is not None:
+                self._count_distinct = count_distinct
+                self._type = 'countDistinct'
+            if value_counts is not None:
+                self._value_counts = value_counts
+                self._type = 'valueCounts'
+
+        elif type_of_union == 'first':
+            if first is None:
+                raise ValueError('a union value must not be None')
+            self._first = first
+            self._type = 'first'
+        elif type_of_union == 'last':
+            if last is None:
+                raise ValueError('a union value must not be None')
+            self._last = last
+            self._type = 'last'
+        elif type_of_union == 'allDistinct':
+            if all_distinct is None:
+                raise ValueError('a union value must not be None')
+            self._all_distinct = all_distinct
+            self._type = 'allDistinct'
+        elif type_of_union == 'countDistinct':
+            if count_distinct is None:
+                raise ValueError('a union value must not be None')
+            self._count_distinct = count_distinct
+            self._type = 'countDistinct'
+        elif type_of_union == 'valueCounts':
+            if value_counts is None:
+                raise ValueError('a union value must not be None')
+            self._value_counts = value_counts
+            self._type = 'valueCounts'
+
+    @builtins.property
+    def first(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._first
+
+    @builtins.property
+    def last(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._last
+
+    @builtins.property
+    def all_distinct(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._all_distinct
+
+    @builtins.property
+    def count_distinct(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._count_distinct
+
+    @builtins.property
+    def value_counts(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._value_counts
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_TableColumnEnumAggregationVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_TableColumnEnumAggregationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'first' and self.first is not None:
+            return visitor._first(self.first)
+        if self._type == 'last' and self.last is not None:
+            return visitor._last(self.last)
+        if self._type == 'allDistinct' and self.all_distinct is not None:
+            return visitor._all_distinct(self.all_distinct)
+        if self._type == 'countDistinct' and self.count_distinct is not None:
+            return visitor._count_distinct(self.count_distinct)
+        if self._type == 'valueCounts' and self.value_counts is not None:
+            return visitor._value_counts(self.value_counts)
+
+
+scout_chartdefinition_api_TableColumnEnumAggregation.__name__ = "TableColumnEnumAggregation"
+scout_chartdefinition_api_TableColumnEnumAggregation.__qualname__ = "TableColumnEnumAggregation"
+scout_chartdefinition_api_TableColumnEnumAggregation.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnEnumAggregationVisitor:
+
+    @abstractmethod
+    def _first(self, first: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+    @abstractmethod
+    def _last(self, last: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+    @abstractmethod
+    def _all_distinct(self, all_distinct: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+    @abstractmethod
+    def _count_distinct(self, count_distinct: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+    @abstractmethod
+    def _value_counts(self, value_counts: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+
+scout_chartdefinition_api_TableColumnEnumAggregationVisitor.__name__ = "TableColumnEnumAggregationVisitor"
+scout_chartdefinition_api_TableColumnEnumAggregationVisitor.__qualname__ = "TableColumnEnumAggregationVisitor"
+scout_chartdefinition_api_TableColumnEnumAggregationVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnEnumConfig(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'aggregation': ConjureFieldDefinition('aggregation', scout_chartdefinition_api_TableColumnEnumAggregation)
+        }
+
+    __slots__: List[str] = ['_aggregation']
+
+    def __init__(self, aggregation: "scout_chartdefinition_api_TableColumnEnumAggregation") -> None:
+        self._aggregation = aggregation
+
+    @builtins.property
+    def aggregation(self) -> "scout_chartdefinition_api_TableColumnEnumAggregation":
+        return self._aggregation
+
+
+scout_chartdefinition_api_TableColumnEnumConfig.__name__ = "TableColumnEnumConfig"
+scout_chartdefinition_api_TableColumnEnumConfig.__qualname__ = "TableColumnEnumConfig"
+scout_chartdefinition_api_TableColumnEnumConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnLogAggregation(ConjureUnionType):
+    _count: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'count': ConjureFieldDefinition('count', scout_chartdefinition_api_NoConfigAggregation)
+        }
+
+    def __init__(
+            self,
+            count: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (count is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if count is not None:
+                self._count = count
+                self._type = 'count'
+
+        elif type_of_union == 'count':
+            if count is None:
+                raise ValueError('a union value must not be None')
+            self._count = count
+            self._type = 'count'
+
+    @builtins.property
+    def count(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._count
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_TableColumnLogAggregationVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_TableColumnLogAggregationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'count' and self.count is not None:
+            return visitor._count(self.count)
+
+
+scout_chartdefinition_api_TableColumnLogAggregation.__name__ = "TableColumnLogAggregation"
+scout_chartdefinition_api_TableColumnLogAggregation.__qualname__ = "TableColumnLogAggregation"
+scout_chartdefinition_api_TableColumnLogAggregation.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnLogAggregationVisitor:
+
+    @abstractmethod
+    def _count(self, count: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+
+scout_chartdefinition_api_TableColumnLogAggregationVisitor.__name__ = "TableColumnLogAggregationVisitor"
+scout_chartdefinition_api_TableColumnLogAggregationVisitor.__qualname__ = "TableColumnLogAggregationVisitor"
+scout_chartdefinition_api_TableColumnLogAggregationVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnLogConfig(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'aggregation': ConjureFieldDefinition('aggregation', scout_chartdefinition_api_TableColumnLogAggregation),
+            'visible_log_fields': ConjureFieldDefinition('visibleLogFields', List[scout_chartdefinition_api_LogColumnName]),
+            'tag_filters': ConjureFieldDefinition('tagFilters', OptionalTypeWrapper[scout_chartdefinition_api_LogColumnTagFilters])
+        }
+
+    __slots__: List[str] = ['_aggregation', '_visible_log_fields', '_tag_filters']
+
+    def __init__(self, aggregation: "scout_chartdefinition_api_TableColumnLogAggregation", visible_log_fields: List[str], tag_filters: Optional["scout_chartdefinition_api_LogColumnTagFilters"] = None) -> None:
+        self._aggregation = aggregation
+        self._visible_log_fields = visible_log_fields
+        self._tag_filters = tag_filters
+
+    @builtins.property
+    def aggregation(self) -> "scout_chartdefinition_api_TableColumnLogAggregation":
+        return self._aggregation
+
+    @builtins.property
+    def visible_log_fields(self) -> List[str]:
+        return self._visible_log_fields
+
+    @builtins.property
+    def tag_filters(self) -> Optional["scout_chartdefinition_api_LogColumnTagFilters"]:
+        return self._tag_filters
+
+
+scout_chartdefinition_api_TableColumnLogConfig.__name__ = "TableColumnLogConfig"
+scout_chartdefinition_api_TableColumnLogConfig.__qualname__ = "TableColumnLogConfig"
+scout_chartdefinition_api_TableColumnLogConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnNumericAggregation(ConjureUnionType):
+    _first: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+    _last: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+    _mean: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+    _min: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+    _max: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'first': ConjureFieldDefinition('first', scout_chartdefinition_api_NoConfigAggregation),
+            'last': ConjureFieldDefinition('last', scout_chartdefinition_api_NoConfigAggregation),
+            'mean': ConjureFieldDefinition('mean', scout_chartdefinition_api_NoConfigAggregation),
+            'min': ConjureFieldDefinition('min', scout_chartdefinition_api_NoConfigAggregation),
+            'max': ConjureFieldDefinition('max', scout_chartdefinition_api_NoConfigAggregation)
+        }
+
+    def __init__(
+            self,
+            first: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            last: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            mean: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            min: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            max: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (first is not None) + (last is not None) + (mean is not None) + (min is not None) + (max is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if first is not None:
+                self._first = first
+                self._type = 'first'
+            if last is not None:
+                self._last = last
+                self._type = 'last'
+            if mean is not None:
+                self._mean = mean
+                self._type = 'mean'
+            if min is not None:
+                self._min = min
+                self._type = 'min'
+            if max is not None:
+                self._max = max
+                self._type = 'max'
+
+        elif type_of_union == 'first':
+            if first is None:
+                raise ValueError('a union value must not be None')
+            self._first = first
+            self._type = 'first'
+        elif type_of_union == 'last':
+            if last is None:
+                raise ValueError('a union value must not be None')
+            self._last = last
+            self._type = 'last'
+        elif type_of_union == 'mean':
+            if mean is None:
+                raise ValueError('a union value must not be None')
+            self._mean = mean
+            self._type = 'mean'
+        elif type_of_union == 'min':
+            if min is None:
+                raise ValueError('a union value must not be None')
+            self._min = min
+            self._type = 'min'
+        elif type_of_union == 'max':
+            if max is None:
+                raise ValueError('a union value must not be None')
+            self._max = max
+            self._type = 'max'
+
+    @builtins.property
+    def first(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._first
+
+    @builtins.property
+    def last(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._last
+
+    @builtins.property
+    def mean(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._mean
+
+    @builtins.property
+    def min(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._min
+
+    @builtins.property
+    def max(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._max
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_TableColumnNumericAggregationVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_TableColumnNumericAggregationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'first' and self.first is not None:
+            return visitor._first(self.first)
+        if self._type == 'last' and self.last is not None:
+            return visitor._last(self.last)
+        if self._type == 'mean' and self.mean is not None:
+            return visitor._mean(self.mean)
+        if self._type == 'min' and self.min is not None:
+            return visitor._min(self.min)
+        if self._type == 'max' and self.max is not None:
+            return visitor._max(self.max)
+
+
+scout_chartdefinition_api_TableColumnNumericAggregation.__name__ = "TableColumnNumericAggregation"
+scout_chartdefinition_api_TableColumnNumericAggregation.__qualname__ = "TableColumnNumericAggregation"
+scout_chartdefinition_api_TableColumnNumericAggregation.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnNumericAggregationVisitor:
+
+    @abstractmethod
+    def _first(self, first: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+    @abstractmethod
+    def _last(self, last: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+    @abstractmethod
+    def _mean(self, mean: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+    @abstractmethod
+    def _min(self, min: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+    @abstractmethod
+    def _max(self, max: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+
+scout_chartdefinition_api_TableColumnNumericAggregationVisitor.__name__ = "TableColumnNumericAggregationVisitor"
+scout_chartdefinition_api_TableColumnNumericAggregationVisitor.__qualname__ = "TableColumnNumericAggregationVisitor"
+scout_chartdefinition_api_TableColumnNumericAggregationVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnNumericConfig(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'aggregation': ConjureFieldDefinition('aggregation', scout_chartdefinition_api_TableColumnNumericAggregation)
+        }
+
+    __slots__: List[str] = ['_aggregation']
+
+    def __init__(self, aggregation: "scout_chartdefinition_api_TableColumnNumericAggregation") -> None:
+        self._aggregation = aggregation
+
+    @builtins.property
+    def aggregation(self) -> "scout_chartdefinition_api_TableColumnNumericAggregation":
+        return self._aggregation
+
+
+scout_chartdefinition_api_TableColumnNumericConfig.__name__ = "TableColumnNumericConfig"
+scout_chartdefinition_api_TableColumnNumericConfig.__qualname__ = "TableColumnNumericConfig"
+scout_chartdefinition_api_TableColumnNumericConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnRangeAggregation(ConjureUnionType):
+    _percent_true: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+    _all_distinct: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+    _value_counts: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'percent_true': ConjureFieldDefinition('percentTrue', scout_chartdefinition_api_NoConfigAggregation),
+            'all_distinct': ConjureFieldDefinition('allDistinct', scout_chartdefinition_api_NoConfigAggregation),
+            'value_counts': ConjureFieldDefinition('valueCounts', scout_chartdefinition_api_NoConfigAggregation)
+        }
+
+    def __init__(
+            self,
+            percent_true: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            all_distinct: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            value_counts: Optional["scout_chartdefinition_api_NoConfigAggregation"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (percent_true is not None) + (all_distinct is not None) + (value_counts is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if percent_true is not None:
+                self._percent_true = percent_true
+                self._type = 'percentTrue'
+            if all_distinct is not None:
+                self._all_distinct = all_distinct
+                self._type = 'allDistinct'
+            if value_counts is not None:
+                self._value_counts = value_counts
+                self._type = 'valueCounts'
+
+        elif type_of_union == 'percentTrue':
+            if percent_true is None:
+                raise ValueError('a union value must not be None')
+            self._percent_true = percent_true
+            self._type = 'percentTrue'
+        elif type_of_union == 'allDistinct':
+            if all_distinct is None:
+                raise ValueError('a union value must not be None')
+            self._all_distinct = all_distinct
+            self._type = 'allDistinct'
+        elif type_of_union == 'valueCounts':
+            if value_counts is None:
+                raise ValueError('a union value must not be None')
+            self._value_counts = value_counts
+            self._type = 'valueCounts'
+
+    @builtins.property
+    def percent_true(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._percent_true
+
+    @builtins.property
+    def all_distinct(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._all_distinct
+
+    @builtins.property
+    def value_counts(self) -> Optional["scout_chartdefinition_api_NoConfigAggregation"]:
+        return self._value_counts
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_TableColumnRangeAggregationVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_TableColumnRangeAggregationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'percentTrue' and self.percent_true is not None:
+            return visitor._percent_true(self.percent_true)
+        if self._type == 'allDistinct' and self.all_distinct is not None:
+            return visitor._all_distinct(self.all_distinct)
+        if self._type == 'valueCounts' and self.value_counts is not None:
+            return visitor._value_counts(self.value_counts)
+
+
+scout_chartdefinition_api_TableColumnRangeAggregation.__name__ = "TableColumnRangeAggregation"
+scout_chartdefinition_api_TableColumnRangeAggregation.__qualname__ = "TableColumnRangeAggregation"
+scout_chartdefinition_api_TableColumnRangeAggregation.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnRangeAggregationVisitor:
+
+    @abstractmethod
+    def _percent_true(self, percent_true: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+    @abstractmethod
+    def _all_distinct(self, all_distinct: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+    @abstractmethod
+    def _value_counts(self, value_counts: "scout_chartdefinition_api_NoConfigAggregation") -> Any:
+        pass
+
+
+scout_chartdefinition_api_TableColumnRangeAggregationVisitor.__name__ = "TableColumnRangeAggregationVisitor"
+scout_chartdefinition_api_TableColumnRangeAggregationVisitor.__qualname__ = "TableColumnRangeAggregationVisitor"
+scout_chartdefinition_api_TableColumnRangeAggregationVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnRangeConfig(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'aggregation': ConjureFieldDefinition('aggregation', scout_chartdefinition_api_TableColumnRangeAggregation)
+        }
+
+    __slots__: List[str] = ['_aggregation']
+
+    def __init__(self, aggregation: "scout_chartdefinition_api_TableColumnRangeAggregation") -> None:
+        self._aggregation = aggregation
+
+    @builtins.property
+    def aggregation(self) -> "scout_chartdefinition_api_TableColumnRangeAggregation":
+        return self._aggregation
+
+
+scout_chartdefinition_api_TableColumnRangeConfig.__name__ = "TableColumnRangeConfig"
+scout_chartdefinition_api_TableColumnRangeConfig.__qualname__ = "TableColumnRangeConfig"
+scout_chartdefinition_api_TableColumnRangeConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnTypedConfig(ConjureUnionType):
+    """Any configuration that is specific to the type in question
+    """
+    _numeric: Optional["scout_chartdefinition_api_TableColumnNumericConfig"] = None
+    _enum: Optional["scout_chartdefinition_api_TableColumnEnumConfig"] = None
+    _range: Optional["scout_chartdefinition_api_TableColumnRangeConfig"] = None
+    _log: Optional["scout_chartdefinition_api_TableColumnLogConfig"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'numeric': ConjureFieldDefinition('numeric', scout_chartdefinition_api_TableColumnNumericConfig),
+            'enum': ConjureFieldDefinition('enum', scout_chartdefinition_api_TableColumnEnumConfig),
+            'range': ConjureFieldDefinition('range', scout_chartdefinition_api_TableColumnRangeConfig),
+            'log': ConjureFieldDefinition('log', scout_chartdefinition_api_TableColumnLogConfig)
+        }
+
+    def __init__(
+            self,
+            numeric: Optional["scout_chartdefinition_api_TableColumnNumericConfig"] = None,
+            enum: Optional["scout_chartdefinition_api_TableColumnEnumConfig"] = None,
+            range: Optional["scout_chartdefinition_api_TableColumnRangeConfig"] = None,
+            log: Optional["scout_chartdefinition_api_TableColumnLogConfig"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (numeric is not None) + (enum is not None) + (range is not None) + (log is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if numeric is not None:
+                self._numeric = numeric
+                self._type = 'numeric'
+            if enum is not None:
+                self._enum = enum
+                self._type = 'enum'
+            if range is not None:
+                self._range = range
+                self._type = 'range'
+            if log is not None:
+                self._log = log
+                self._type = 'log'
+
+        elif type_of_union == 'numeric':
+            if numeric is None:
+                raise ValueError('a union value must not be None')
+            self._numeric = numeric
+            self._type = 'numeric'
+        elif type_of_union == 'enum':
+            if enum is None:
+                raise ValueError('a union value must not be None')
+            self._enum = enum
+            self._type = 'enum'
+        elif type_of_union == 'range':
+            if range is None:
+                raise ValueError('a union value must not be None')
+            self._range = range
+            self._type = 'range'
+        elif type_of_union == 'log':
+            if log is None:
+                raise ValueError('a union value must not be None')
+            self._log = log
+            self._type = 'log'
+
+    @builtins.property
+    def numeric(self) -> Optional["scout_chartdefinition_api_TableColumnNumericConfig"]:
+        return self._numeric
+
+    @builtins.property
+    def enum(self) -> Optional["scout_chartdefinition_api_TableColumnEnumConfig"]:
+        return self._enum
+
+    @builtins.property
+    def range(self) -> Optional["scout_chartdefinition_api_TableColumnRangeConfig"]:
+        return self._range
+
+    @builtins.property
+    def log(self) -> Optional["scout_chartdefinition_api_TableColumnLogConfig"]:
+        return self._log
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_TableColumnTypedConfigVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_TableColumnTypedConfigVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'numeric' and self.numeric is not None:
+            return visitor._numeric(self.numeric)
+        if self._type == 'enum' and self.enum is not None:
+            return visitor._enum(self.enum)
+        if self._type == 'range' and self.range is not None:
+            return visitor._range(self.range)
+        if self._type == 'log' and self.log is not None:
+            return visitor._log(self.log)
+
+
+scout_chartdefinition_api_TableColumnTypedConfig.__name__ = "TableColumnTypedConfig"
+scout_chartdefinition_api_TableColumnTypedConfig.__qualname__ = "TableColumnTypedConfig"
+scout_chartdefinition_api_TableColumnTypedConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TableColumnTypedConfigVisitor:
+
+    @abstractmethod
+    def _numeric(self, numeric: "scout_chartdefinition_api_TableColumnNumericConfig") -> Any:
+        pass
+
+    @abstractmethod
+    def _enum(self, enum: "scout_chartdefinition_api_TableColumnEnumConfig") -> Any:
+        pass
+
+    @abstractmethod
+    def _range(self, range: "scout_chartdefinition_api_TableColumnRangeConfig") -> Any:
+        pass
+
+    @abstractmethod
+    def _log(self, log: "scout_chartdefinition_api_TableColumnLogConfig") -> Any:
+        pass
+
+
+scout_chartdefinition_api_TableColumnTypedConfigVisitor.__name__ = "TableColumnTypedConfigVisitor"
+scout_chartdefinition_api_TableColumnTypedConfigVisitor.__qualname__ = "TableColumnTypedConfigVisitor"
+scout_chartdefinition_api_TableColumnTypedConfigVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_TemporalDecimation(ConjureBeanType):
     """Bucket points together by proximity in time.
     """
@@ -38157,6 +38960,97 @@ class scout_chartdefinition_api_TimeSeriesRow(ConjureBeanType):
 scout_chartdefinition_api_TimeSeriesRow.__name__ = "TimeSeriesRow"
 scout_chartdefinition_api_TimeSeriesRow.__qualname__ = "TimeSeriesRow"
 scout_chartdefinition_api_TimeSeriesRow.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TimeSeriesTablePanelDefinition(ConjureUnionType):
+    _v1: Optional["scout_chartdefinition_api_TimeSeriesTablePanelDefinitionV1"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'v1': ConjureFieldDefinition('v1', scout_chartdefinition_api_TimeSeriesTablePanelDefinitionV1)
+        }
+
+    def __init__(
+            self,
+            v1: Optional["scout_chartdefinition_api_TimeSeriesTablePanelDefinitionV1"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (v1 is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if v1 is not None:
+                self._v1 = v1
+                self._type = 'v1'
+
+        elif type_of_union == 'v1':
+            if v1 is None:
+                raise ValueError('a union value must not be None')
+            self._v1 = v1
+            self._type = 'v1'
+
+    @builtins.property
+    def v1(self) -> Optional["scout_chartdefinition_api_TimeSeriesTablePanelDefinitionV1"]:
+        return self._v1
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_TimeSeriesTablePanelDefinitionVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_TimeSeriesTablePanelDefinitionVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'v1' and self.v1 is not None:
+            return visitor._v1(self.v1)
+
+
+scout_chartdefinition_api_TimeSeriesTablePanelDefinition.__name__ = "TimeSeriesTablePanelDefinition"
+scout_chartdefinition_api_TimeSeriesTablePanelDefinition.__qualname__ = "TimeSeriesTablePanelDefinition"
+scout_chartdefinition_api_TimeSeriesTablePanelDefinition.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TimeSeriesTablePanelDefinitionVisitor:
+
+    @abstractmethod
+    def _v1(self, v1: "scout_chartdefinition_api_TimeSeriesTablePanelDefinitionV1") -> Any:
+        pass
+
+
+scout_chartdefinition_api_TimeSeriesTablePanelDefinitionVisitor.__name__ = "TimeSeriesTablePanelDefinitionVisitor"
+scout_chartdefinition_api_TimeSeriesTablePanelDefinitionVisitor.__qualname__ = "TimeSeriesTablePanelDefinitionVisitor"
+scout_chartdefinition_api_TimeSeriesTablePanelDefinitionVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_TimeSeriesTablePanelDefinitionV1(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
+            'columns': ConjureFieldDefinition('columns', List[scout_chartdefinition_api_TableColumn]),
+            'timestamp_column_width': ConjureFieldDefinition('timestampColumnWidth', OptionalTypeWrapper[float])
+        }
+
+    __slots__: List[str] = ['_title', '_columns', '_timestamp_column_width']
+
+    def __init__(self, columns: List["scout_chartdefinition_api_TableColumn"], timestamp_column_width: Optional[float] = None, title: Optional[str] = None) -> None:
+        self._title = title
+        self._columns = columns
+        self._timestamp_column_width = timestamp_column_width
+
+    @builtins.property
+    def title(self) -> Optional[str]:
+        return self._title
+
+    @builtins.property
+    def columns(self) -> List["scout_chartdefinition_api_TableColumn"]:
+        return self._columns
+
+    @builtins.property
+    def timestamp_column_width(self) -> Optional[float]:
+        return self._timestamp_column_width
+
+
+scout_chartdefinition_api_TimeSeriesTablePanelDefinitionV1.__name__ = "TimeSeriesTablePanelDefinitionV1"
+scout_chartdefinition_api_TimeSeriesTablePanelDefinitionV1.__qualname__ = "TimeSeriesTablePanelDefinitionV1"
+scout_chartdefinition_api_TimeSeriesTablePanelDefinitionV1.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_Trace(ConjureBeanType):
@@ -39554,6 +40448,7 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
     _plotly: Optional["scout_chartdefinition_api_PlotlyPanelDefinition"] = None
     _procedure: Optional["scout_chartdefinition_api_ProcedureVizDefinition"] = None
     _time_series: Optional["scout_chartdefinition_api_TimeSeriesChartDefinition"] = None
+    _time_series_table: Optional["scout_chartdefinition_api_TimeSeriesTablePanelDefinition"] = None
     _value_table: Optional["scout_chartdefinition_api_ValueTableDefinition"] = None
     _video: Optional["scout_chartdefinition_api_VideoVizDefinition"] = None
 
@@ -39571,6 +40466,7 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             'plotly': ConjureFieldDefinition('plotly', scout_chartdefinition_api_PlotlyPanelDefinition),
             'procedure': ConjureFieldDefinition('procedure', scout_chartdefinition_api_ProcedureVizDefinition),
             'time_series': ConjureFieldDefinition('timeSeries', scout_chartdefinition_api_TimeSeriesChartDefinition),
+            'time_series_table': ConjureFieldDefinition('timeSeriesTable', scout_chartdefinition_api_TimeSeriesTablePanelDefinition),
             'value_table': ConjureFieldDefinition('valueTable', scout_chartdefinition_api_ValueTableDefinition),
             'video': ConjureFieldDefinition('video', scout_chartdefinition_api_VideoVizDefinition)
         }
@@ -39588,12 +40484,13 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             plotly: Optional["scout_chartdefinition_api_PlotlyPanelDefinition"] = None,
             procedure: Optional["scout_chartdefinition_api_ProcedureVizDefinition"] = None,
             time_series: Optional["scout_chartdefinition_api_TimeSeriesChartDefinition"] = None,
+            time_series_table: Optional["scout_chartdefinition_api_TimeSeriesTablePanelDefinition"] = None,
             value_table: Optional["scout_chartdefinition_api_ValueTableDefinition"] = None,
             video: Optional["scout_chartdefinition_api_VideoVizDefinition"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (cartesian is not None) + (checklist is not None) + (frequency is not None) + (geo is not None) + (geo3d is not None) + (histogram is not None) + (log is not None) + (markdown is not None) + (plotly is not None) + (procedure is not None) + (time_series is not None) + (value_table is not None) + (video is not None) != 1:
+            if (cartesian is not None) + (checklist is not None) + (frequency is not None) + (geo is not None) + (geo3d is not None) + (histogram is not None) + (log is not None) + (markdown is not None) + (plotly is not None) + (procedure is not None) + (time_series is not None) + (time_series_table is not None) + (value_table is not None) + (video is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if cartesian is not None:
@@ -39629,6 +40526,9 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             if time_series is not None:
                 self._time_series = time_series
                 self._type = 'timeSeries'
+            if time_series_table is not None:
+                self._time_series_table = time_series_table
+                self._type = 'timeSeriesTable'
             if value_table is not None:
                 self._value_table = value_table
                 self._type = 'valueTable'
@@ -39691,6 +40591,11 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._time_series = time_series
             self._type = 'timeSeries'
+        elif type_of_union == 'timeSeriesTable':
+            if time_series_table is None:
+                raise ValueError('a union value must not be None')
+            self._time_series_table = time_series_table
+            self._type = 'timeSeriesTable'
         elif type_of_union == 'valueTable':
             if value_table is None:
                 raise ValueError('a union value must not be None')
@@ -39747,6 +40652,10 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
         return self._time_series
 
     @builtins.property
+    def time_series_table(self) -> Optional["scout_chartdefinition_api_TimeSeriesTablePanelDefinition"]:
+        return self._time_series_table
+
+    @builtins.property
     def value_table(self) -> Optional["scout_chartdefinition_api_ValueTableDefinition"]:
         return self._value_table
 
@@ -39779,6 +40688,8 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             return visitor._procedure(self.procedure)
         if self._type == 'timeSeries' and self.time_series is not None:
             return visitor._time_series(self.time_series)
+        if self._type == 'timeSeriesTable' and self.time_series_table is not None:
+            return visitor._time_series_table(self.time_series_table)
         if self._type == 'valueTable' and self.value_table is not None:
             return visitor._value_table(self.value_table)
         if self._type == 'video' and self.video is not None:
@@ -39834,6 +40745,10 @@ class scout_chartdefinition_api_VizDefinitionVisitor:
 
     @abstractmethod
     def _time_series(self, time_series: "scout_chartdefinition_api_TimeSeriesChartDefinition") -> Any:
+        pass
+
+    @abstractmethod
+    def _time_series_table(self, time_series_table: "scout_chartdefinition_api_TimeSeriesTablePanelDefinition") -> Any:
         pass
 
     @abstractmethod
@@ -53141,6 +54056,290 @@ scout_compute_api_DriverSeries3d.__qualname__ = "DriverSeries3d"
 scout_compute_api_DriverSeries3d.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_Duration(ConjureUnionType):
+    """A length of time. Can be constructed from literal values in various units
+or composed via arithmetic. Used for window sizes, time shifts, persistence
+thresholds, and resampling intervals.
+    """
+    _reference: Optional["scout_compute_api_Reference"] = None
+    _nanoseconds: Optional["scout_compute_api_DurationNanoseconds"] = None
+    _milliseconds: Optional["scout_compute_api_DurationMilliseconds"] = None
+    _seconds: Optional["scout_compute_api_DurationSeconds"] = None
+    _minutes: Optional["scout_compute_api_DurationMinutes"] = None
+    _hours: Optional["scout_compute_api_DurationHours"] = None
+    _days: Optional["scout_compute_api_DurationDays"] = None
+    _add: Optional["scout_compute_api_DurationAdd"] = None
+    _subtract: Optional["scout_compute_api_DurationSubtract"] = None
+    _negate: Optional["scout_compute_api_DurationNegate"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'reference': ConjureFieldDefinition('reference', scout_compute_api_Reference),
+            'nanoseconds': ConjureFieldDefinition('nanoseconds', scout_compute_api_DurationNanoseconds),
+            'milliseconds': ConjureFieldDefinition('milliseconds', scout_compute_api_DurationMilliseconds),
+            'seconds': ConjureFieldDefinition('seconds', scout_compute_api_DurationSeconds),
+            'minutes': ConjureFieldDefinition('minutes', scout_compute_api_DurationMinutes),
+            'hours': ConjureFieldDefinition('hours', scout_compute_api_DurationHours),
+            'days': ConjureFieldDefinition('days', scout_compute_api_DurationDays),
+            'add': ConjureFieldDefinition('add', scout_compute_api_DurationAdd),
+            'subtract': ConjureFieldDefinition('subtract', scout_compute_api_DurationSubtract),
+            'negate': ConjureFieldDefinition('negate', scout_compute_api_DurationNegate)
+        }
+
+    def __init__(
+            self,
+            reference: Optional["scout_compute_api_Reference"] = None,
+            nanoseconds: Optional["scout_compute_api_DurationNanoseconds"] = None,
+            milliseconds: Optional["scout_compute_api_DurationMilliseconds"] = None,
+            seconds: Optional["scout_compute_api_DurationSeconds"] = None,
+            minutes: Optional["scout_compute_api_DurationMinutes"] = None,
+            hours: Optional["scout_compute_api_DurationHours"] = None,
+            days: Optional["scout_compute_api_DurationDays"] = None,
+            add: Optional["scout_compute_api_DurationAdd"] = None,
+            subtract: Optional["scout_compute_api_DurationSubtract"] = None,
+            negate: Optional["scout_compute_api_DurationNegate"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (reference is not None) + (nanoseconds is not None) + (milliseconds is not None) + (seconds is not None) + (minutes is not None) + (hours is not None) + (days is not None) + (add is not None) + (subtract is not None) + (negate is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if reference is not None:
+                self._reference = reference
+                self._type = 'reference'
+            if nanoseconds is not None:
+                self._nanoseconds = nanoseconds
+                self._type = 'nanoseconds'
+            if milliseconds is not None:
+                self._milliseconds = milliseconds
+                self._type = 'milliseconds'
+            if seconds is not None:
+                self._seconds = seconds
+                self._type = 'seconds'
+            if minutes is not None:
+                self._minutes = minutes
+                self._type = 'minutes'
+            if hours is not None:
+                self._hours = hours
+                self._type = 'hours'
+            if days is not None:
+                self._days = days
+                self._type = 'days'
+            if add is not None:
+                self._add = add
+                self._type = 'add'
+            if subtract is not None:
+                self._subtract = subtract
+                self._type = 'subtract'
+            if negate is not None:
+                self._negate = negate
+                self._type = 'negate'
+
+        elif type_of_union == 'reference':
+            if reference is None:
+                raise ValueError('a union value must not be None')
+            self._reference = reference
+            self._type = 'reference'
+        elif type_of_union == 'nanoseconds':
+            if nanoseconds is None:
+                raise ValueError('a union value must not be None')
+            self._nanoseconds = nanoseconds
+            self._type = 'nanoseconds'
+        elif type_of_union == 'milliseconds':
+            if milliseconds is None:
+                raise ValueError('a union value must not be None')
+            self._milliseconds = milliseconds
+            self._type = 'milliseconds'
+        elif type_of_union == 'seconds':
+            if seconds is None:
+                raise ValueError('a union value must not be None')
+            self._seconds = seconds
+            self._type = 'seconds'
+        elif type_of_union == 'minutes':
+            if minutes is None:
+                raise ValueError('a union value must not be None')
+            self._minutes = minutes
+            self._type = 'minutes'
+        elif type_of_union == 'hours':
+            if hours is None:
+                raise ValueError('a union value must not be None')
+            self._hours = hours
+            self._type = 'hours'
+        elif type_of_union == 'days':
+            if days is None:
+                raise ValueError('a union value must not be None')
+            self._days = days
+            self._type = 'days'
+        elif type_of_union == 'add':
+            if add is None:
+                raise ValueError('a union value must not be None')
+            self._add = add
+            self._type = 'add'
+        elif type_of_union == 'subtract':
+            if subtract is None:
+                raise ValueError('a union value must not be None')
+            self._subtract = subtract
+            self._type = 'subtract'
+        elif type_of_union == 'negate':
+            if negate is None:
+                raise ValueError('a union value must not be None')
+            self._negate = negate
+            self._type = 'negate'
+
+    @builtins.property
+    def reference(self) -> Optional["scout_compute_api_Reference"]:
+        return self._reference
+
+    @builtins.property
+    def nanoseconds(self) -> Optional["scout_compute_api_DurationNanoseconds"]:
+        return self._nanoseconds
+
+    @builtins.property
+    def milliseconds(self) -> Optional["scout_compute_api_DurationMilliseconds"]:
+        return self._milliseconds
+
+    @builtins.property
+    def seconds(self) -> Optional["scout_compute_api_DurationSeconds"]:
+        return self._seconds
+
+    @builtins.property
+    def minutes(self) -> Optional["scout_compute_api_DurationMinutes"]:
+        return self._minutes
+
+    @builtins.property
+    def hours(self) -> Optional["scout_compute_api_DurationHours"]:
+        return self._hours
+
+    @builtins.property
+    def days(self) -> Optional["scout_compute_api_DurationDays"]:
+        return self._days
+
+    @builtins.property
+    def add(self) -> Optional["scout_compute_api_DurationAdd"]:
+        return self._add
+
+    @builtins.property
+    def subtract(self) -> Optional["scout_compute_api_DurationSubtract"]:
+        return self._subtract
+
+    @builtins.property
+    def negate(self) -> Optional["scout_compute_api_DurationNegate"]:
+        return self._negate
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_DurationVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_DurationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'reference' and self.reference is not None:
+            return visitor._reference(self.reference)
+        if self._type == 'nanoseconds' and self.nanoseconds is not None:
+            return visitor._nanoseconds(self.nanoseconds)
+        if self._type == 'milliseconds' and self.milliseconds is not None:
+            return visitor._milliseconds(self.milliseconds)
+        if self._type == 'seconds' and self.seconds is not None:
+            return visitor._seconds(self.seconds)
+        if self._type == 'minutes' and self.minutes is not None:
+            return visitor._minutes(self.minutes)
+        if self._type == 'hours' and self.hours is not None:
+            return visitor._hours(self.hours)
+        if self._type == 'days' and self.days is not None:
+            return visitor._days(self.days)
+        if self._type == 'add' and self.add is not None:
+            return visitor._add(self.add)
+        if self._type == 'subtract' and self.subtract is not None:
+            return visitor._subtract(self.subtract)
+        if self._type == 'negate' and self.negate is not None:
+            return visitor._negate(self.negate)
+
+
+scout_compute_api_Duration.__name__ = "Duration"
+scout_compute_api_Duration.__qualname__ = "Duration"
+scout_compute_api_Duration.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DurationVisitor:
+
+    @abstractmethod
+    def _reference(self, reference: "scout_compute_api_Reference") -> Any:
+        pass
+
+    @abstractmethod
+    def _nanoseconds(self, nanoseconds: "scout_compute_api_DurationNanoseconds") -> Any:
+        pass
+
+    @abstractmethod
+    def _milliseconds(self, milliseconds: "scout_compute_api_DurationMilliseconds") -> Any:
+        pass
+
+    @abstractmethod
+    def _seconds(self, seconds: "scout_compute_api_DurationSeconds") -> Any:
+        pass
+
+    @abstractmethod
+    def _minutes(self, minutes: "scout_compute_api_DurationMinutes") -> Any:
+        pass
+
+    @abstractmethod
+    def _hours(self, hours: "scout_compute_api_DurationHours") -> Any:
+        pass
+
+    @abstractmethod
+    def _days(self, days: "scout_compute_api_DurationDays") -> Any:
+        pass
+
+    @abstractmethod
+    def _add(self, add: "scout_compute_api_DurationAdd") -> Any:
+        pass
+
+    @abstractmethod
+    def _subtract(self, subtract: "scout_compute_api_DurationSubtract") -> Any:
+        pass
+
+    @abstractmethod
+    def _negate(self, negate: "scout_compute_api_DurationNegate") -> Any:
+        pass
+
+
+scout_compute_api_DurationVisitor.__name__ = "DurationVisitor"
+scout_compute_api_DurationVisitor.__qualname__ = "DurationVisitor"
+scout_compute_api_DurationVisitor.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DurationAdd(ConjureBeanType):
+    """The sum of two durations.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_Duration),
+            'right': ConjureFieldDefinition('right', scout_compute_api_Duration)
+        }
+
+    __slots__: List[str] = ['_left', '_right']
+
+    def __init__(self, left: "scout_compute_api_Duration", right: "scout_compute_api_Duration") -> None:
+        self._left = left
+        self._right = right
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_Duration":
+        """First duration.
+        """
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_Duration":
+        """Second duration.
+        """
+        return self._right
+
+
+scout_compute_api_DurationAdd.__name__ = "DurationAdd"
+scout_compute_api_DurationAdd.__qualname__ = "DurationAdd"
+scout_compute_api_DurationAdd.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_DurationConstant(ConjureUnionType):
     """A duration constant that can be a literal value or a named variable reference.
     """
@@ -53224,6 +54423,31 @@ scout_compute_api_DurationConstantVisitor.__qualname__ = "DurationConstantVisito
 scout_compute_api_DurationConstantVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_DurationDays(ConjureBeanType):
+    """Constructs a duration from a number of days.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'days': ConjureFieldDefinition('days', scout_compute_api_IntegerConstant)
+        }
+
+    __slots__: List[str] = ['_days']
+
+    def __init__(self, days: "scout_compute_api_IntegerConstant") -> None:
+        self._days = days
+
+    @builtins.property
+    def days(self) -> "scout_compute_api_IntegerConstant":
+        return self._days
+
+
+scout_compute_api_DurationDays.__name__ = "DurationDays"
+scout_compute_api_DurationDays.__qualname__ = "DurationDays"
+scout_compute_api_DurationDays.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_DurationFilterRanges(ConjureBeanType):
     """Filters a list of ranges down to only those satisfying a threshold condition on the range's duration.
     """
@@ -53265,6 +54489,195 @@ class scout_compute_api_DurationFilterRanges(ConjureBeanType):
 scout_compute_api_DurationFilterRanges.__name__ = "DurationFilterRanges"
 scout_compute_api_DurationFilterRanges.__qualname__ = "DurationFilterRanges"
 scout_compute_api_DurationFilterRanges.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DurationHours(ConjureBeanType):
+    """Constructs a duration from a number of hours.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'hours': ConjureFieldDefinition('hours', scout_compute_api_IntegerConstant)
+        }
+
+    __slots__: List[str] = ['_hours']
+
+    def __init__(self, hours: "scout_compute_api_IntegerConstant") -> None:
+        self._hours = hours
+
+    @builtins.property
+    def hours(self) -> "scout_compute_api_IntegerConstant":
+        return self._hours
+
+
+scout_compute_api_DurationHours.__name__ = "DurationHours"
+scout_compute_api_DurationHours.__qualname__ = "DurationHours"
+scout_compute_api_DurationHours.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DurationMilliseconds(ConjureBeanType):
+    """Constructs a duration from a number of milliseconds.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'milliseconds': ConjureFieldDefinition('milliseconds', scout_compute_api_IntegerConstant)
+        }
+
+    __slots__: List[str] = ['_milliseconds']
+
+    def __init__(self, milliseconds: "scout_compute_api_IntegerConstant") -> None:
+        self._milliseconds = milliseconds
+
+    @builtins.property
+    def milliseconds(self) -> "scout_compute_api_IntegerConstant":
+        return self._milliseconds
+
+
+scout_compute_api_DurationMilliseconds.__name__ = "DurationMilliseconds"
+scout_compute_api_DurationMilliseconds.__qualname__ = "DurationMilliseconds"
+scout_compute_api_DurationMilliseconds.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DurationMinutes(ConjureBeanType):
+    """Constructs a duration from a number of minutes.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'minutes': ConjureFieldDefinition('minutes', scout_compute_api_IntegerConstant)
+        }
+
+    __slots__: List[str] = ['_minutes']
+
+    def __init__(self, minutes: "scout_compute_api_IntegerConstant") -> None:
+        self._minutes = minutes
+
+    @builtins.property
+    def minutes(self) -> "scout_compute_api_IntegerConstant":
+        return self._minutes
+
+
+scout_compute_api_DurationMinutes.__name__ = "DurationMinutes"
+scout_compute_api_DurationMinutes.__qualname__ = "DurationMinutes"
+scout_compute_api_DurationMinutes.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DurationNanoseconds(ConjureBeanType):
+    """Constructs a duration from a number of nanoseconds. Limited to values within the
+32-bit integer range (~2.1 billion ns, or ~2.1 seconds). For larger durations,
+use DurationSeconds or DurationMilliseconds.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'nanoseconds': ConjureFieldDefinition('nanoseconds', scout_compute_api_IntegerConstant)
+        }
+
+    __slots__: List[str] = ['_nanoseconds']
+
+    def __init__(self, nanoseconds: "scout_compute_api_IntegerConstant") -> None:
+        self._nanoseconds = nanoseconds
+
+    @builtins.property
+    def nanoseconds(self) -> "scout_compute_api_IntegerConstant":
+        return self._nanoseconds
+
+
+scout_compute_api_DurationNanoseconds.__name__ = "DurationNanoseconds"
+scout_compute_api_DurationNanoseconds.__qualname__ = "DurationNanoseconds"
+scout_compute_api_DurationNanoseconds.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DurationNegate(ConjureBeanType):
+    """Negates a duration (reverses its sign).
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_Duration)
+        }
+
+    __slots__: List[str] = ['_input']
+
+    def __init__(self, input: "scout_compute_api_Duration") -> None:
+        self._input = input
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_Duration":
+        """The duration to negate.
+        """
+        return self._input
+
+
+scout_compute_api_DurationNegate.__name__ = "DurationNegate"
+scout_compute_api_DurationNegate.__qualname__ = "DurationNegate"
+scout_compute_api_DurationNegate.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DurationSeconds(ConjureBeanType):
+    """Constructs a duration from a number of seconds.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'seconds': ConjureFieldDefinition('seconds', scout_compute_api_IntegerConstant)
+        }
+
+    __slots__: List[str] = ['_seconds']
+
+    def __init__(self, seconds: "scout_compute_api_IntegerConstant") -> None:
+        self._seconds = seconds
+
+    @builtins.property
+    def seconds(self) -> "scout_compute_api_IntegerConstant":
+        return self._seconds
+
+
+scout_compute_api_DurationSeconds.__name__ = "DurationSeconds"
+scout_compute_api_DurationSeconds.__qualname__ = "DurationSeconds"
+scout_compute_api_DurationSeconds.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_DurationSubtract(ConjureBeanType):
+    """The difference of two durations (left minus right).
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', scout_compute_api_Duration),
+            'right': ConjureFieldDefinition('right', scout_compute_api_Duration)
+        }
+
+    __slots__: List[str] = ['_left', '_right']
+
+    def __init__(self, left: "scout_compute_api_Duration", right: "scout_compute_api_Duration") -> None:
+        self._left = left
+        self._right = right
+
+    @builtins.property
+    def left(self) -> "scout_compute_api_Duration":
+        """Duration to subtract from.
+        """
+        return self._left
+
+    @builtins.property
+    def right(self) -> "scout_compute_api_Duration":
+        """Duration to subtract.
+        """
+        return self._right
+
+
+scout_compute_api_DurationSubtract.__name__ = "DurationSubtract"
+scout_compute_api_DurationSubtract.__qualname__ = "DurationSubtract"
+scout_compute_api_DurationSubtract.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_Enum1dArraySeries(ConjureUnionType):
@@ -63588,27 +65001,27 @@ scout_compute_api_SelectNewestPointsSeries.__module__ = "nominal_api.scout_compu
 
 
 class scout_compute_api_SelectSeries(ConjureBeanType):
-    """Selects points from a source to produce a series.
+    """Selects a specific series from a time series frame (might contain multiple tag groupings).
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'source': ConjureFieldDefinition('source', scout_compute_api_Source),
+            'time_series_frame': ConjureFieldDefinition('timeSeriesFrame', scout_compute_api_TimeSeriesFrame),
             'name': ConjureFieldDefinition('name', scout_compute_api_StringConstant)
         }
 
-    __slots__: List[str] = ['_source', '_name']
+    __slots__: List[str] = ['_time_series_frame', '_name']
 
-    def __init__(self, name: "scout_compute_api_StringConstant", source: "scout_compute_api_Source") -> None:
-        self._source = source
+    def __init__(self, name: "scout_compute_api_StringConstant", time_series_frame: "scout_compute_api_TimeSeriesFrame") -> None:
+        self._time_series_frame = time_series_frame
         self._name = name
 
     @builtins.property
-    def source(self) -> "scout_compute_api_Source":
-        """Source providing the data to query
+    def time_series_frame(self) -> "scout_compute_api_TimeSeriesFrame":
+        """The time series frame providing the data to query
         """
-        return self._source
+        return self._time_series_frame
 
     @builtins.property
     def name(self) -> "scout_compute_api_StringConstant":
@@ -64319,83 +65732,6 @@ for example if the input series was Int64 and the result is a Float64.
 scout_compute_api_SinglePoint.__name__ = "SinglePoint"
 scout_compute_api_SinglePoint.__qualname__ = "SinglePoint"
 scout_compute_api_SinglePoint.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_Source(ConjureUnionType):
-    _asset: Optional["scout_compute_api_Asset"] = None
-    _dataset: Optional["scout_compute_api_Dataset"] = None
-
-    @builtins.classmethod
-    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'asset': ConjureFieldDefinition('asset', scout_compute_api_Asset),
-            'dataset': ConjureFieldDefinition('dataset', scout_compute_api_Dataset)
-        }
-
-    def __init__(
-            self,
-            asset: Optional["scout_compute_api_Asset"] = None,
-            dataset: Optional["scout_compute_api_Dataset"] = None,
-            type_of_union: Optional[str] = None
-            ) -> None:
-        if type_of_union is None:
-            if (asset is not None) + (dataset is not None) != 1:
-                raise ValueError('a union must contain a single member')
-
-            if asset is not None:
-                self._asset = asset
-                self._type = 'asset'
-            if dataset is not None:
-                self._dataset = dataset
-                self._type = 'dataset'
-
-        elif type_of_union == 'asset':
-            if asset is None:
-                raise ValueError('a union value must not be None')
-            self._asset = asset
-            self._type = 'asset'
-        elif type_of_union == 'dataset':
-            if dataset is None:
-                raise ValueError('a union value must not be None')
-            self._dataset = dataset
-            self._type = 'dataset'
-
-    @builtins.property
-    def asset(self) -> Optional["scout_compute_api_Asset"]:
-        return self._asset
-
-    @builtins.property
-    def dataset(self) -> Optional["scout_compute_api_Dataset"]:
-        return self._dataset
-
-    def accept(self, visitor) -> Any:
-        if not isinstance(visitor, scout_compute_api_SourceVisitor):
-            raise ValueError('{} is not an instance of scout_compute_api_SourceVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'asset' and self.asset is not None:
-            return visitor._asset(self.asset)
-        if self._type == 'dataset' and self.dataset is not None:
-            return visitor._dataset(self.dataset)
-
-
-scout_compute_api_Source.__name__ = "Source"
-scout_compute_api_Source.__qualname__ = "Source"
-scout_compute_api_Source.__module__ = "nominal_api.scout_compute_api"
-
-
-class scout_compute_api_SourceVisitor:
-
-    @abstractmethod
-    def _asset(self, asset: "scout_compute_api_Asset") -> Any:
-        pass
-
-    @abstractmethod
-    def _dataset(self, dataset: "scout_compute_api_Dataset") -> Any:
-        pass
-
-
-scout_compute_api_SourceVisitor.__name__ = "SourceVisitor"
-scout_compute_api_SourceVisitor.__qualname__ = "SourceVisitor"
-scout_compute_api_SourceVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_SpatialDecimateStrategy(ConjureBeanType):
@@ -65946,6 +67282,83 @@ class scout_compute_api_TimeSeriesFitOptions(ConjureBeanType):
 scout_compute_api_TimeSeriesFitOptions.__name__ = "TimeSeriesFitOptions"
 scout_compute_api_TimeSeriesFitOptions.__qualname__ = "TimeSeriesFitOptions"
 scout_compute_api_TimeSeriesFitOptions.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_TimeSeriesFrame(ConjureUnionType):
+    _asset: Optional["scout_compute_api_Asset"] = None
+    _dataset: Optional["scout_compute_api_Dataset"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'asset': ConjureFieldDefinition('asset', scout_compute_api_Asset),
+            'dataset': ConjureFieldDefinition('dataset', scout_compute_api_Dataset)
+        }
+
+    def __init__(
+            self,
+            asset: Optional["scout_compute_api_Asset"] = None,
+            dataset: Optional["scout_compute_api_Dataset"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (asset is not None) + (dataset is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if asset is not None:
+                self._asset = asset
+                self._type = 'asset'
+            if dataset is not None:
+                self._dataset = dataset
+                self._type = 'dataset'
+
+        elif type_of_union == 'asset':
+            if asset is None:
+                raise ValueError('a union value must not be None')
+            self._asset = asset
+            self._type = 'asset'
+        elif type_of_union == 'dataset':
+            if dataset is None:
+                raise ValueError('a union value must not be None')
+            self._dataset = dataset
+            self._type = 'dataset'
+
+    @builtins.property
+    def asset(self) -> Optional["scout_compute_api_Asset"]:
+        return self._asset
+
+    @builtins.property
+    def dataset(self) -> Optional["scout_compute_api_Dataset"]:
+        return self._dataset
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_compute_api_TimeSeriesFrameVisitor):
+            raise ValueError('{} is not an instance of scout_compute_api_TimeSeriesFrameVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'asset' and self.asset is not None:
+            return visitor._asset(self.asset)
+        if self._type == 'dataset' and self.dataset is not None:
+            return visitor._dataset(self.dataset)
+
+
+scout_compute_api_TimeSeriesFrame.__name__ = "TimeSeriesFrame"
+scout_compute_api_TimeSeriesFrame.__qualname__ = "TimeSeriesFrame"
+scout_compute_api_TimeSeriesFrame.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_TimeSeriesFrameVisitor:
+
+    @abstractmethod
+    def _asset(self, asset: "scout_compute_api_Asset") -> Any:
+        pass
+
+    @abstractmethod
+    def _dataset(self, dataset: "scout_compute_api_Dataset") -> Any:
+        pass
+
+
+scout_compute_api_TimeSeriesFrameVisitor.__name__ = "TimeSeriesFrameVisitor"
+scout_compute_api_TimeSeriesFrameVisitor.__qualname__ = "TimeSeriesFrameVisitor"
+scout_compute_api_TimeSeriesFrameVisitor.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_TimestampAndId(ConjureBeanType):
@@ -92545,6 +93958,101 @@ scout_notebook_api_CreateNotebookRequest.__qualname__ = "CreateNotebookRequest"
 scout_notebook_api_CreateNotebookRequest.__module__ = "nominal_api.scout_notebook_api"
 
 
+class scout_notebook_api_DuplicateNotebookRequest(ConjureBeanType):
+    """Request to duplicate a workbook. All content fields (layout, charts, contentV2, eventRefs) are
+copied from the source workbook. Metadata fields can be optionally overridden; if not provided,
+they default to the source workbook's values (except isDraft, which defaults to true).
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
+            'title_suffix': ConjureFieldDefinition('titleSuffix', OptionalTypeWrapper[str]),
+            'description': ConjureFieldDefinition('description', OptionalTypeWrapper[str]),
+            'data_scope': ConjureFieldDefinition('dataScope', OptionalTypeWrapper[scout_notebook_api_NotebookDataScope]),
+            'is_draft': ConjureFieldDefinition('isDraft', OptionalTypeWrapper[bool]),
+            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
+            'labels': ConjureFieldDefinition('labels', OptionalTypeWrapper[List[api_Label]]),
+            'properties': ConjureFieldDefinition('properties', OptionalTypeWrapper[Dict[api_PropertyName, api_PropertyValue]]),
+            'preview_image': ConjureFieldDefinition('previewImage', OptionalTypeWrapper[api_ThemeAwareImage])
+        }
+
+    __slots__: List[str] = ['_title', '_title_suffix', '_description', '_data_scope', '_is_draft', '_workspace', '_labels', '_properties', '_preview_image']
+
+    def __init__(self, workspace: str, data_scope: Optional["scout_notebook_api_NotebookDataScope"] = None, description: Optional[str] = None, is_draft: Optional[bool] = None, labels: Optional[List[str]] = None, preview_image: Optional["api_ThemeAwareImage"] = None, properties: Optional[Dict[str, str]] = None, title: Optional[str] = None, title_suffix: Optional[str] = None) -> None:
+        self._title = title
+        self._title_suffix = title_suffix
+        self._description = description
+        self._data_scope = data_scope
+        self._is_draft = is_draft
+        self._workspace = workspace
+        self._labels = labels
+        self._properties = properties
+        self._preview_image = preview_image
+
+    @builtins.property
+    def title(self) -> Optional[str]:
+        """Override the title of the duplicated workbook. If not provided, generates a copy title
+from the source using the titleSuffix.
+        """
+        return self._title
+
+    @builtins.property
+    def title_suffix(self) -> Optional[str]:
+        """Custom suffix for generating the copy title (e.g., "Run analysis").
+Defaults to "copy". Ignored if title is explicitly provided.
+        """
+        return self._title_suffix
+
+    @builtins.property
+    def description(self) -> Optional[str]:
+        """Override description. Defaults to the source workbook's description.
+        """
+        return self._description
+
+    @builtins.property
+    def data_scope(self) -> Optional["scout_notebook_api_NotebookDataScope"]:
+        """Override data scope. Defaults to the source workbook's data scope.
+        """
+        return self._data_scope
+
+    @builtins.property
+    def is_draft(self) -> Optional[bool]:
+        """Override draft status. Defaults to true.
+        """
+        return self._is_draft
+
+    @builtins.property
+    def workspace(self) -> str:
+        """The workspace for the duplicated workbook.
+        """
+        return self._workspace
+
+    @builtins.property
+    def labels(self) -> Optional[List[str]]:
+        """Override labels. Defaults to the source workbook's labels.
+        """
+        return self._labels
+
+    @builtins.property
+    def properties(self) -> Optional[Dict[str, str]]:
+        """Override properties. Defaults to the source workbook's properties.
+        """
+        return self._properties
+
+    @builtins.property
+    def preview_image(self) -> Optional["api_ThemeAwareImage"]:
+        """Override preview image. Defaults to the source workbook's preview image.
+        """
+        return self._preview_image
+
+
+scout_notebook_api_DuplicateNotebookRequest.__name__ = "DuplicateNotebookRequest"
+scout_notebook_api_DuplicateNotebookRequest.__qualname__ = "DuplicateNotebookRequest"
+scout_notebook_api_DuplicateNotebookRequest.__module__ = "nominal_api.scout_notebook_api"
+
+
 class scout_notebook_api_GetAllLabelsAndPropertiesResponse(ConjureBeanType):
 
     @builtins.classmethod
@@ -97604,6 +99112,39 @@ scout_run_api_WeakTimestampType.__qualname__ = "WeakTimestampType"
 scout_run_api_WeakTimestampType.__module__ = "nominal_api.scout_run_api"
 
 
+class scout_sandbox_api_AddDemoWorkbooksRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'notebook_rids': ConjureFieldDefinition('notebookRids', List[scout_rids_api_NotebookRid]),
+            'archive_on_label_conflict': ConjureFieldDefinition('archiveOnLabelConflict', OptionalTypeWrapper[bool])
+        }
+
+    __slots__: List[str] = ['_notebook_rids', '_archive_on_label_conflict']
+
+    def __init__(self, notebook_rids: List[str], archive_on_label_conflict: Optional[bool] = None) -> None:
+        self._notebook_rids = notebook_rids
+        self._archive_on_label_conflict = archive_on_label_conflict
+
+    @builtins.property
+    def notebook_rids(self) -> List[str]:
+        return self._notebook_rids
+
+    @builtins.property
+    def archive_on_label_conflict(self) -> Optional[bool]:
+        """When true, existing workbooks with an exact label-set match are archived
+instead of raising an error. Partial (subset/superset) conflicts always raise
+an error. Defaults to false.
+        """
+        return self._archive_on_label_conflict
+
+
+scout_sandbox_api_AddDemoWorkbooksRequest.__name__ = "AddDemoWorkbooksRequest"
+scout_sandbox_api_AddDemoWorkbooksRequest.__qualname__ = "AddDemoWorkbooksRequest"
+scout_sandbox_api_AddDemoWorkbooksRequest.__module__ = "nominal_api.scout_sandbox_api"
+
+
 class scout_sandbox_api_GetDemoWorkbooksResponse(ConjureBeanType):
 
     @builtins.classmethod
@@ -97689,6 +99230,40 @@ All endpoints validate that the provided workspace has the human-readable ID "sa
 
         _response: Response = self._request(
             'PUT',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        return
+
+    def add_demo_workbooks(self, auth_header: str, request: "scout_sandbox_api_AddDemoWorkbooksRequest", workspace_rid: str) -> None:
+        """Appends workbooks to the existing demo workbook list. If archiveOnLabelConflict is true,
+existing workbooks with an exact label-set match are archived instead of raising an error.
+Partial (subset/superset) conflicts always raise an error.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'workspaceRid': quote(str(_conjure_encoder.default(workspace_rid)), safe=''),
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v1/sandbox-workspace/{workspaceRid}/demo-workbooks'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
             self._uri + _path,
             params=_params,
             headers=_headers,
@@ -102014,6 +103589,39 @@ Internal use only.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_video_api_CreateSegmentsV2Response, self._return_none_for_unknown_union_types)
 
+    def create_stream_segments_v2(self, auth_header: str, request: "scout_video_api_CreateStreamSegmentsV2Request", stream_uuid: str) -> "scout_video_api_CreateSegmentsV2Response":
+        """Creates segments for a channel-backed live video stream. Internal use only.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'streamUuid': quote(str(_conjure_encoder.default(stream_uuid)), safe=''),
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/video/v2/videos/streams/{streamUuid}/create-segments'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_video_api_CreateSegmentsV2Response, self._return_none_for_unknown_union_types)
+
     def get_segment_by_timestamp(self, auth_header: str, request: "scout_video_api_GetSegmentByTimestampRequest", video_rid: str) -> Optional["scout_video_api_Segment"]:
         """Returns metadata for the segment within a video containing the requested absolute timestamp.
         """
@@ -103256,6 +104864,37 @@ class scout_video_api_CreateSegmentsV2Response(ConjureBeanType):
 scout_video_api_CreateSegmentsV2Response.__name__ = "CreateSegmentsV2Response"
 scout_video_api_CreateSegmentsV2Response.__qualname__ = "CreateSegmentsV2Response"
 scout_video_api_CreateSegmentsV2Response.__module__ = "nominal_api.scout_video_api"
+
+
+class scout_video_api_CreateStreamSegmentsV2Request(ConjureBeanType):
+    """Request to create live stream segments for channel-based ingestion. Internal use only.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'requests': ConjureFieldDefinition('requests', List[scout_video_api_CreateSegment]),
+            'series_uuid': ConjureFieldDefinition('seriesUuid', str)
+        }
+
+    __slots__: List[str] = ['_requests', '_series_uuid']
+
+    def __init__(self, requests: List["scout_video_api_CreateSegment"], series_uuid: str) -> None:
+        self._requests = requests
+        self._series_uuid = series_uuid
+
+    @builtins.property
+    def requests(self) -> List["scout_video_api_CreateSegment"]:
+        return self._requests
+
+    @builtins.property
+    def series_uuid(self) -> str:
+        return self._series_uuid
+
+
+scout_video_api_CreateStreamSegmentsV2Request.__name__ = "CreateStreamSegmentsV2Request"
+scout_video_api_CreateStreamSegmentsV2Request.__qualname__ = "CreateStreamSegmentsV2Request"
+scout_video_api_CreateStreamSegmentsV2Request.__module__ = "nominal_api.scout_video_api"
 
 
 class scout_video_api_CreateVideoFileRequest(ConjureBeanType):

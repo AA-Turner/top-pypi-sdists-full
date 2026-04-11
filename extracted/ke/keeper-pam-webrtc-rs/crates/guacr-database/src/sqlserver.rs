@@ -18,6 +18,9 @@ use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
 use crate::csv_export::{generate_csv_filename, CsvExporter};
 use crate::csv_import::CsvImporter;
+use crate::handler_helpers::{
+    reject_with_error, render_connection_error, render_connection_success, send_render,
+};
 use crate::query_executor::{execute_with_timing, QueryExecutor};
 use crate::recording::{
     finalize_recording, init_recording, record_error_output, record_query_input,
@@ -116,24 +119,7 @@ impl ProtocolHandler for SqlServerHandler {
             username, hostname, port
         );
 
-        // Parse display size from parameters (like SSH does)
-        let size_params = params
-            .get("size")
-            .map(|s| s.as_str())
-            .unwrap_or("1024,768,96");
-        let size_parts: Vec<&str> = size_params.split(',').collect();
-        let width: u32 = size_parts
-            .first()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(1024);
-        let height: u32 = size_parts
-            .get(1)
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(768);
-
-        // Calculate terminal dimensions (9x18 pixels per character cell)
-        let cols = (width / 9).max(80) as u16;
-        let rows = (height / 18).max(24) as u16;
+        let (width, height, cols, rows) = crate::handler_helpers::parse_display_size(&params);
 
         info!(
             "SQL Server: Display size {}x{} px → {}x{} chars",
@@ -148,6 +134,7 @@ impl ProtocolHandler for SqlServerHandler {
         };
         let mut executor = QueryExecutor::new_with_size(prompt, "sqlserver", rows, cols)
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        executor.use_binary = params.get("binary").map(|v| v == "true").unwrap_or(false);
 
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "SQLServer", cols, rows);
@@ -196,25 +183,20 @@ impl ProtocolHandler for SqlServerHandler {
                 let error_msg = format!("TCP connection failed: {}", e);
                 warn!("SQL Server: {}", error_msg);
 
-                executor
-                    .write_error(&error_msg)
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_prompt()
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                let (_, instructions) = executor
-                    .render_screen()
-                    .await
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                for instr in instructions {
-                    to_client
-                        .send(instr)
-                        .await
-                        .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                }
-
-                while from_client.recv().await.is_some() {}
+                render_connection_error(
+                    &mut executor,
+                    &to_client,
+                    &mut from_client,
+                    &error_msg,
+                    &[
+                        "Check hostname is resolvable",
+                        "Verify SQL Server is running",
+                        "Check hostname and port",
+                        "Verify network connectivity",
+                    ],
+                    &mut recorder,
+                )
+                .await?;
                 return Err(HandlerError::ConnectionFailed(error_msg));
             }
         };
@@ -223,43 +205,20 @@ impl ProtocolHandler for SqlServerHandler {
             Ok(client) => {
                 info!("SQL Server: Connected successfully");
 
-                executor
-                    .write_line("")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line(&format!("Connected to SQL Server at {}:{}", hostname, port))
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                let mut info = vec![format!("Connected to SQL Server at {}:{}", hostname, port)];
                 if let Some(db) = database {
-                    executor
-                        .write_line(&format!("Database: {}", db))
-                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+                    info.push(format!("Database: {}", db));
                 }
-                executor
-                    .write_line("Type 'help' for available commands.")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_prompt()
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                // Render the connection success screen
+                let info_refs: Vec<&str> = info.iter().map(|s| s.as_str()).collect();
                 debug!("SQL Server: Rendering initial screen with prompt");
-                let (_, instructions) = executor
-                    .render_screen()
-                    .await
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                debug!(
-                    "SQL Server: Sending {} instructions to client",
-                    instructions.len()
-                );
-                for instr in instructions {
-                    to_client
-                        .send(instr)
-                        .await
-                        .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                }
+                render_connection_success(
+                    &mut executor,
+                    &to_client,
+                    &info_refs,
+                    &security,
+                    &mut recorder,
+                )
+                .await?;
                 debug!("SQL Server: Initial screen sent successfully");
 
                 client
@@ -268,46 +227,20 @@ impl ProtocolHandler for SqlServerHandler {
                 let error_msg = format!("SQL Server connection failed: {}", e);
                 warn!("SQL Server: {}", error_msg);
 
-                executor
-                    .write_line("")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_error(&error_msg)
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("Troubleshooting:")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("  1. Check hostname and port")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("  2. Verify SQL Server is running")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("  3. Check SQL authentication is enabled")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("  4. Verify credentials")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_prompt()
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                let (_, instructions) = executor
-                    .render_screen()
-                    .await
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                for instr in instructions {
-                    to_client
-                        .send(instr)
-                        .await
-                        .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                }
-
-                while from_client.recv().await.is_some() {}
+                render_connection_error(
+                    &mut executor,
+                    &to_client,
+                    &mut from_client,
+                    &error_msg,
+                    &[
+                        "Check hostname and port",
+                        "Verify SQL Server is running",
+                        "Check SQL authentication is enabled",
+                        "Verify credentials",
+                    ],
+                    &mut recorder,
+                )
+                .await?;
                 return Err(HandlerError::ConnectionFailed(error_msg));
             }
         };
@@ -424,19 +357,7 @@ impl ProtocolHandler for SqlServerHandler {
 
                         // Check read-only mode
                         if let Err(msg) = check_query_allowed(&query, &security) {
-                            executor
-                                .write_error(&msg)
-                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                            let (_, result_instructions) = executor
-                                .render_screen()
-                                .await
-                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                            for instr in result_instructions {
-                                to_client
-                                    .send(instr)
-                                    .await
-                                    .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                            }
+                            reject_with_error(&mut executor, &to_client, &mut recorder, &msg).await?;
                             continue;
                         }
 
@@ -464,15 +385,7 @@ impl ProtocolHandler for SqlServerHandler {
                             }
                         }
 
-                        let (_, result_instructions) = executor
-                            .render_screen()
-                            .await
-                            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                        for instr in result_instructions {
-                            send_and_record(&to_client, &mut recorder, instr)
-                                .await
-                                .map_err(HandlerError::ChannelError)?;
-                        }
+                        send_render(&mut executor, &to_client, &mut recorder).await?;
                         continue;
                     }
 
@@ -636,23 +549,8 @@ async fn handle_builtin_command(
             }
             return Ok(true);
         }
-        "quit" | "exit" | ":quit" | "go quit" => {
-            executor
-                .write_line("Bye")
-                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-            let (_, instructions) = executor
-                .render_screen()
-                .await
-                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-            for instr in instructions {
-                to_client
-                    .send(instr)
-                    .await
-                    .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-            }
-            return Err(HandlerError::Disconnected(
-                "User requested disconnect".to_string(),
-            ));
+        "quit" | "exit" | ":quit" | "go quit" | "\\q" | "bye" => {
+            return Err(crate::handler_helpers::handle_quit(executor, to_client, &mut None).await);
         }
         _ => {}
     }

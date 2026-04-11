@@ -8,6 +8,8 @@ from abstra.pages import register_function
 # ============================================================
 # This template demonstrates key Page features:
 #   - @register_function: exposes Python functions to the browser
+#   - register_static(): serves local files (JS, CSS, images) with
+#     content-hashed URLs — call inside __render__ for fresh URLs
 #   - __render__(): special function that returns HTML (called on GET)
 #   - Other functions: callable from the browser via auto-generated JS
 #   - get_user() / get_query_params(): authentication and URL params
@@ -87,6 +89,16 @@ def approve_payment(payment_index: int):
 
 @register_function
 def __render__():
+    # --- Static files (uncomment to use) ---
+    # css_url = register_static("static/styles.css")
+    # js_url = register_static("static/app.js")
+    # logo_url = register_static("assets/logo.png")
+    #
+    # Then reference in your HTML with an f-string:
+    #   <link rel="stylesheet" href="{css_url}">
+    #   <script src="{js_url}"></script>
+    #   <img src="{logo_url}">
+
     return """
 <script src="https://cdn.tailwindcss.com"></script>
 <style>

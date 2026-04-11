@@ -46,23 +46,23 @@ jobs:
       matrix:
         include:
         - os: ubuntu-latest
-          pybuilds: cp3{9,10,11,12,13}-manylinux_x86_64
+          pybuilds: cp3{9,10,11,12,13,14}-manylinux_x86_64
           arch: x86_64
           id: linux
         - os: ubuntu-24.04-arm
-          pybuilds: cp3{9,10,11,12,13}-manylinux_aarch64
+          pybuilds: cp3{9,10,11,12,13,14}-manylinux_aarch64
           arch: aarch64
           id: linux_arm64
         - os: macos-latest
-          pybuilds: cp3{9,10,11,12,13}-macosx_x86_64
+          pybuilds: cp3{9,10,11,12,13,14}-macosx_x86_64
           arch: x86_64
           id: macos_x86
         - os: macos-latest
-          pybuilds: cp3{10,11,12,13}-macosx_arm64
+          pybuilds: cp3{10,11,12,13,14}-macosx_arm64
           arch: arm64
           id: macos_arm64
         - os: windows-latest
-          pybuilds: cp3{9,10,11,12,13}-win_amd64
+          pybuilds: cp3{9,10,11,12,13,14}-win_amd64
           arch: x86_64
           id: windows
 
@@ -93,7 +93,7 @@ jobs:
         uses: robinraju/release-downloader@v1.12
         name: Download latest Rust lib release
         with:
-          token: ${{ secrets.LONLAT_RETRIEVAL }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           repository: urschrei/${{ env.rustlib }}
           tag: ${{ needs.get_latest_lib_tag.outputs.tag }}
           fileName: ${{ env.filename }}
@@ -112,7 +112,7 @@ jobs:
           version: "latest"
 
       - name: Build and Test Wheels
-        uses: pypa/cibuildwheel@v3.2.1
+        uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_BUILD_FRONTEND: build[uv]
           CIBW_TEST_REQUIRES: pytest

@@ -529,11 +529,12 @@ class TestSession:
 
         subp_popen_instance = mock.Mock()
         subp_popen_instance.communicate.side_effect = KeyboardInterrupt()
-        with mock.patch(
-            "nox.popen.shutdown_process", autospec=True
-        ) as shutdown_process, mock.patch(
-            "nox.popen.subprocess.Popen",
-            new=mock.Mock(return_value=subp_popen_instance),
+        with (
+            mock.patch("nox.popen.shutdown_process", autospec=True) as shutdown_process,
+            mock.patch(
+                "nox.popen.subprocess.Popen",
+                new=mock.Mock(return_value=subp_popen_instance),
+            ),
         ):
             shutdown_process.return_value = ("", "")
 
@@ -1195,6 +1196,37 @@ class TestSessionRunner:
         runner.func = foo  # type: ignore[assignment]
         assert runner.description is None
 
+    def test_full_description_property_one_line(self) -> None:
+        def foo() -> None:
+            """Just one line"""
+
+        runner = self.make_runner()
+        runner.func = foo  # type: ignore[assignment]
+        assert runner.full_description == "Just one line"
+
+    def test_full_description_property_multi_line(self) -> None:
+        def foo() -> None:
+            """Multiline
+
+            Extra description
+            with more details
+            """
+
+        runner = self.make_runner()
+        runner.func = foo  # type: ignore[assignment]
+        assert (
+            runner.full_description
+            == "Multiline\n\nExtra description\nwith more details"
+        )
+
+    def test_full_description_property_no_doc(self) -> None:
+        def foo() -> None:
+            pass
+
+        runner = self.make_runner()
+        runner.func = foo  # type: ignore[assignment]
+        assert runner.full_description is None
+
     def test__create_venv_process_env(self) -> None:
         runner = self.make_runner()
         runner.func.python = False
@@ -1296,11 +1328,12 @@ class TestSessionRunner:
             "OPTIONAL_VENVS",
             {"uv": False, "conda": False, "mamba": False},
         )
-        with mock.patch(
-            "nox.virtualenv.VirtualEnv.create", autospec=True
-        ), pytest.raises(
-            ValueError,
-            match=r"No backends present|Only optional backends|Expected venv_backend",
+        with (
+            mock.patch("nox.virtualenv.VirtualEnv.create", autospec=True),
+            pytest.raises(
+                ValueError,
+                match=r"No backends present|Only optional backends|Expected venv_backend",
+            ),
         ):
             runner._create_venv()
 

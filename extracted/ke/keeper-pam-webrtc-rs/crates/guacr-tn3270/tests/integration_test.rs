@@ -16,6 +16,7 @@
 //! TN5250 (IBM AS/400 / IBM i): no free server exists.
 //! Use pub400.com:23 for manual TN5250 testing.
 
+use guacr_protocol::telnet::{DO, EOR, IAC, OPT_BINARY, OPT_EOR, OPT_TERMINAL_TYPE, SB, SE, WILL};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -23,17 +24,6 @@ use tokio::time::timeout;
 
 const HOST: &str = "127.0.0.1";
 const PORT: u16 = 3270;
-
-// TN3270 Telnet option bytes
-const IAC: u8 = 255;
-const WILL: u8 = 251;
-const DO: u8 = 253;
-const SB: u8 = 250;
-const SE: u8 = 240;
-const EOR: u8 = 239; // IAC EOR terminates each 3270 data record
-const OPT_BINARY: u8 = 0;
-const OPT_TERMINAL_TYPE: u8 = 24;
-const OPT_EOR: u8 = 25;
 
 /// Returns true if port 3270 is reachable on localhost.
 async fn server_available() -> bool {

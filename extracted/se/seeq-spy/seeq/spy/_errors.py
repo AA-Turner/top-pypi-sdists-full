@@ -16,10 +16,12 @@ __all__ = ['SPyDependencyNotFound', 'SPyException', 'SPyKeyboardInterrupt', 'SPy
 class SPyDependencyNotFound(Exception):
     def __init__(self, message: str,
                  dependent_identifier: Optional[str] = None,
-                 dependency_identifier: Optional[str] = None):
+                 dependency_identifier: Optional[str] = None,
+                 intentional_no_mapping: bool = False):
         super().__init__(message)
         self.dependent_identifier = dependent_identifier
         self.dependency_identifier = dependency_identifier
+        self.intentional_no_mapping = intentional_no_mapping
 
     @staticmethod
     def generate_error_string(dependency_exceptions: Dict[object, SPyDependencyNotFound]):

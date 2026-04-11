@@ -27,6 +27,8 @@ mod adaptive_pool_tests;
 #[cfg(test)]
 mod assembler_tests;
 #[cfg(test)]
+mod backpressure_tests;
+#[cfg(test)]
 mod channel_close_semantics_tests;
 #[cfg(test)]
 mod channel_tests;

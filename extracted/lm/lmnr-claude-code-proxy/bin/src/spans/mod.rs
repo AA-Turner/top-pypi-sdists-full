@@ -59,7 +59,7 @@ pub fn create_span_request(
     span_path: Vec<String>,
     input: PostMessagesRequest,
     response_info: ResponseInfo,
-    parent_tool_type: Option<SpawningToolType>,
+    nested_context: Option<NestedContext>,
 ) -> Result<ExportTraceServiceRequest, SpanError> {
     // Parse trace_id and span_id from UUID format to bytes
     let trace_id_bytes = parse_trace_id(&trace_id)?;
@@ -91,7 +91,7 @@ pub fn create_span_request(
     let mut status_message = String::new();
     let status_code = match &response_info {
         ResponseInfo::Success(_) => StatusCode::Ok,
-        ResponseInfo::Failure(status_and_body) => StatusCode::Error,
+        ResponseInfo::Failure(_) => StatusCode::Error,
     };
 
     if let ResponseInfo::Failure(status_and_body) = &response_info {
@@ -134,9 +134,24 @@ pub fn create_span_request(
     // Note: Tool spans are now created separately via SpanProcessor.complete_tool_spans()
     // which tracks tool duration properly (from tool_use in response to tool_result in next request)
     let mut attributes = extract_attributes(input, response_info);
-    if let Some(SpawningToolType::Bash) = parent_tool_type {
+    if let Some(SpawningToolType::Bash) = nested_context.clone().map(|ctx| ctx.parent_tool_type) {
         attributes.insert("lmnr.internal.cc_skip_span".to_string(), Value::Bool(true));
     }
+    if let Some(ctx) = nested_context {
+        if ctx.parent_tool_type == SpawningToolType::Task {
+            attributes.insert(
+                "lmnr.spawning_subagent.tool_use_id".to_string(),
+                Value::String(ctx.parent_tool_use_id),
+            );
+            if let Ok(span_id_str) = bytes_to_uuid_like_string(&ctx.hierarchy.span_id_bytes) {
+                attributes.insert(
+                    "lmnr.spawning_subagent.span_id".to_string(),
+                    Value::String(span_id_str),
+                );
+            }
+        }
+    }
+
     attributes.insert(
         "lmnr.span.ids_path".to_string(),
         Value::Array(ids_path.into_iter().map(|s| Value::String(s)).collect()),

@@ -32,15 +32,17 @@ class VersionedHostRequirements(object):
     """
     swagger_types = {
         'version': 'str',
-        'master': 'ClusterHostRequirementsDetails',
-        'arbiter': 'ClusterHostRequirementsDetails',
-        'worker': 'ClusterHostRequirementsDetails',
-        'sno': 'ClusterHostRequirementsDetails',
-        'edge_worker': 'ClusterHostRequirementsDetails'
+        'match_type': 'str',
+        'master': 'VersionedClusterHostRequirementsDetails',
+        'arbiter': 'VersionedClusterHostRequirementsDetails',
+        'worker': 'VersionedClusterHostRequirementsDetails',
+        'sno': 'VersionedClusterHostRequirementsDetails',
+        'edge_worker': 'VersionedClusterHostRequirementsDetails'
     }
 
     attribute_map = {
         'version': 'version',
+        'match_type': 'match_type',
         'master': 'master',
         'arbiter': 'arbiter',
         'worker': 'worker',
@@ -48,10 +50,11 @@ class VersionedHostRequirements(object):
         'edge_worker': 'edge-worker'
     }
 
-    def __init__(self, version=None, master=None, arbiter=None, worker=None, sno=None, edge_worker=None):  # noqa: E501
+    def __init__(self, version=None, match_type=None, master=None, arbiter=None, worker=None, sno=None, edge_worker=None):  # noqa: E501
         """VersionedHostRequirements - a model defined in Swagger"""  # noqa: E501
 
         self._version = None
+        self._match_type = None
         self._master = None
         self._arbiter = None
         self._worker = None
@@ -61,6 +64,8 @@ class VersionedHostRequirements(object):
 
         if version is not None:
             self.version = version
+        if match_type is not None:
+            self.match_type = match_type
         if master is not None:
             self.master = master
         if arbiter is not None:
@@ -96,13 +101,42 @@ class VersionedHostRequirements(object):
         self._version = version
 
     @property
+    def match_type(self):
+        """Gets the match_type of this VersionedHostRequirements.  # noqa: E501
+
+        Determines how the version field is matched. \"exact\" applies only to the specified version (default). \"min_version\" applies to the specified version and all later versions.  # noqa: E501
+
+        :return: The match_type of this VersionedHostRequirements.  # noqa: E501
+        :rtype: str
+        """
+        return self._match_type
+
+    @match_type.setter
+    def match_type(self, match_type):
+        """Sets the match_type of this VersionedHostRequirements.
+
+        Determines how the version field is matched. \"exact\" applies only to the specified version (default). \"min_version\" applies to the specified version and all later versions.  # noqa: E501
+
+        :param match_type: The match_type of this VersionedHostRequirements.  # noqa: E501
+        :type: str
+        """
+        allowed_values = ["exact", "min_version"]  # noqa: E501
+        if match_type not in allowed_values:
+            raise ValueError(
+                "Invalid value for `match_type` ({0}), must be one of {1}"  # noqa: E501
+                .format(match_type, allowed_values)
+            )
+
+        self._match_type = match_type
+
+    @property
     def master(self):
         """Gets the master of this VersionedHostRequirements.  # noqa: E501
 
         Master node requirements  # noqa: E501
 
         :return: The master of this VersionedHostRequirements.  # noqa: E501
-        :rtype: ClusterHostRequirementsDetails
+        :rtype: VersionedClusterHostRequirementsDetails
         """
         return self._master
 
@@ -113,7 +147,7 @@ class VersionedHostRequirements(object):
         Master node requirements  # noqa: E501
 
         :param master: The master of this VersionedHostRequirements.  # noqa: E501
-        :type: ClusterHostRequirementsDetails
+        :type: VersionedClusterHostRequirementsDetails
         """
 
         self._master = master
@@ -125,7 +159,7 @@ class VersionedHostRequirements(object):
         Arbiter node requirements  # noqa: E501
 
         :return: The arbiter of this VersionedHostRequirements.  # noqa: E501
-        :rtype: ClusterHostRequirementsDetails
+        :rtype: VersionedClusterHostRequirementsDetails
         """
         return self._arbiter
 
@@ -136,7 +170,7 @@ class VersionedHostRequirements(object):
         Arbiter node requirements  # noqa: E501
 
         :param arbiter: The arbiter of this VersionedHostRequirements.  # noqa: E501
-        :type: ClusterHostRequirementsDetails
+        :type: VersionedClusterHostRequirementsDetails
         """
 
         self._arbiter = arbiter
@@ -148,7 +182,7 @@ class VersionedHostRequirements(object):
         Worker node requirements  # noqa: E501
 
         :return: The worker of this VersionedHostRequirements.  # noqa: E501
-        :rtype: ClusterHostRequirementsDetails
+        :rtype: VersionedClusterHostRequirementsDetails
         """
         return self._worker
 
@@ -159,7 +193,7 @@ class VersionedHostRequirements(object):
         Worker node requirements  # noqa: E501
 
         :param worker: The worker of this VersionedHostRequirements.  # noqa: E501
-        :type: ClusterHostRequirementsDetails
+        :type: VersionedClusterHostRequirementsDetails
         """
 
         self._worker = worker
@@ -171,7 +205,7 @@ class VersionedHostRequirements(object):
         Single node OpenShift node requirements  # noqa: E501
 
         :return: The sno of this VersionedHostRequirements.  # noqa: E501
-        :rtype: ClusterHostRequirementsDetails
+        :rtype: VersionedClusterHostRequirementsDetails
         """
         return self._sno
 
@@ -182,7 +216,7 @@ class VersionedHostRequirements(object):
         Single node OpenShift node requirements  # noqa: E501
 
         :param sno: The sno of this VersionedHostRequirements.  # noqa: E501
-        :type: ClusterHostRequirementsDetails
+        :type: VersionedClusterHostRequirementsDetails
         """
 
         self._sno = sno
@@ -194,7 +228,7 @@ class VersionedHostRequirements(object):
         Edge Worker OpenShift node requirements  # noqa: E501
 
         :return: The edge_worker of this VersionedHostRequirements.  # noqa: E501
-        :rtype: ClusterHostRequirementsDetails
+        :rtype: VersionedClusterHostRequirementsDetails
         """
         return self._edge_worker
 
@@ -205,7 +239,7 @@ class VersionedHostRequirements(object):
         Edge Worker OpenShift node requirements  # noqa: E501
 
         :param edge_worker: The edge_worker of this VersionedHostRequirements.  # noqa: E501
-        :type: ClusterHostRequirementsDetails
+        :type: VersionedClusterHostRequirementsDetails
         """
 
         self._edge_worker = edge_worker

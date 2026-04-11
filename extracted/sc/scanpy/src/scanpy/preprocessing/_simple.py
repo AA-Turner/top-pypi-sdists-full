@@ -15,11 +15,12 @@ import numpy as np
 from anndata import AnnData
 from fast_array_utils import stats
 from fast_array_utils.conv import to_dense
+from fast_array_utils.numba import njit
 from pandas.api.types import CategoricalDtype
 from sklearn.utils import check_array, sparsefuncs
 
 from .. import logging as logg
-from .._compat import CSBase, CSRBase, DaskArray, deprecated, njit, old_positionals
+from .._compat import CSBase, CSRBase, DaskArray, deprecated, old_positionals
 from .._settings import settings as sett
 from .._utils import (
     _resolve_axis,
@@ -853,11 +854,11 @@ def sample(
     fraction: float | None = None,
     *,
     n: int | None = None,
-    rng: RNGLike | SeedLike | None = 0,
+    rng: RNGLike | SeedLike | None = None,
     copy: Literal[False] = False,
     replace: bool = False,
     axis: Literal["obs", 0, "var", 1] = "obs",
-    p: str | NDArray[np.bool_] | NDArray[np.floating] | None = None,
+    p: str | NDArray[np.bool] | NDArray[np.floating] | None = None,
 ) -> None: ...
 @overload
 def sample(
@@ -869,7 +870,7 @@ def sample(
     copy: Literal[True],
     replace: bool = False,
     axis: Literal["obs", 0, "var", 1] = "obs",
-    p: str | NDArray[np.bool_] | NDArray[np.floating] | None = None,
+    p: str | NDArray[np.bool] | NDArray[np.floating] | None = None,
 ) -> AnnData: ...
 @overload
 def sample[A: np.ndarray | CSBase | DaskArray](
@@ -881,7 +882,7 @@ def sample[A: np.ndarray | CSBase | DaskArray](
     copy: bool = False,
     replace: bool = False,
     axis: Literal["obs", 0, "var", 1] = "obs",
-    p: str | NDArray[np.bool_] | NDArray[np.floating] | None = None,
+    p: str | NDArray[np.bool] | NDArray[np.floating] | None = None,
 ) -> tuple[A, NDArray[np.int64]]: ...
 def sample(  # noqa: PLR0912
     data: AnnData | np.ndarray | CSBase | DaskArray,
@@ -892,7 +893,7 @@ def sample(  # noqa: PLR0912
     copy: bool = False,
     replace: bool = False,
     axis: Literal["obs", 0, "var", 1] = "obs",
-    p: str | NDArray[np.bool_] | NDArray[np.floating] | None = None,
+    p: str | NDArray[np.bool] | NDArray[np.floating] | None = None,
 ) -> AnnData | None | tuple[np.ndarray | CSBase | DaskArray, NDArray[np.int64]]:
     r"""Sample observations or variables with or without replacement.
 

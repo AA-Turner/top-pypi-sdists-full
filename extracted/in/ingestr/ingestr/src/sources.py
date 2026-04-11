@@ -2591,34 +2591,57 @@ class GoogleAdsSource:
         if dev_token is None or len(dev_token) == 0:
             raise MissingValueError("dev_token", "Google Ads")
 
+        client_id = params.get("client_id")
+        client_secret = params.get("client_secret")
+        refresh_token = params.get("refresh_token")
+        oauth_available = all(
+            x is not None and len(x) > 0
+            for x in [client_id, client_secret, refresh_token]
+        )
+
         credentials_path = params.get("credentials_path")
         credentials_base64 = params.get("credentials_base64")
-        credentials_available = any(
-            map(
-                lambda x: x is not None,
-                [credentials_path, credentials_base64],
-            )
+        service_account_available = any(
+            x is not None and len(x) > 0 for x in [credentials_path, credentials_base64]
         )
-        if credentials_available is False:
+
+        if not oauth_available and not service_account_available:
             raise MissingValueError(
-                "credentials_path or credentials_base64", "Google Ads"
+                "client_id/client_secret/refresh_token or credentials_path/credentials_base64",
+                "Google Ads",
             )
 
-        path = None
-        fd = None
-        if credentials_path:
-            path = credentials_path[0]
-        else:
-            (fd, path) = tempfile.mkstemp(prefix="secret-")
-            secret = base64.b64decode(credentials_base64[0])  # type: ignore
-            os.write(fd, secret)
-            os.close(fd)
+        if oauth_available and service_account_available:
+            import logging
 
-        conf = {
-            "json_key_file_path": path,
-            "use_proto_plus": True,
-            "developer_token": dev_token[0],
-        }
+            logging.warning(
+                "Both OAuth and service account credentials provided for Google Ads; using OAuth."
+            )
+
+        fd = None
+        if oauth_available:
+            conf = {
+                "client_id": client_id[0],  # type: ignore
+                "client_secret": client_secret[0],  # type: ignore
+                "refresh_token": refresh_token[0],  # type: ignore
+                "developer_token": dev_token[0],
+                "use_proto_plus": True,
+            }
+        else:
+            path = None
+            if credentials_path:
+                path = credentials_path[0]
+            else:
+                (fd, path) = tempfile.mkstemp(prefix="secret-")
+                secret = base64.b64decode(credentials_base64[0])  # type: ignore
+                os.write(fd, secret)
+                os.close(fd)
+
+            conf = {
+                "json_key_file_path": path,
+                "use_proto_plus": True,
+                "developer_token": dev_token[0],
+            }
 
         login_customer_id = params.get("login_customer_id")
         if login_customer_id:
@@ -2628,7 +2651,7 @@ class GoogleAdsSource:
             client = GoogleAdsClient.load_from_dict(conf)
         finally:
             if fd is not None:
-                os.remove(path)
+                os.remove(path)  # type: ignore
 
         return client
 
@@ -2740,13 +2763,22 @@ class LinkedInAdsSource:
 
             dimensions = fields[1].replace(" ", "").split(",")
             dimensions = [item for item in dimensions if item.strip()]
-            if (
-                "campaign" not in dimensions
-                and "creative" not in dimensions
-                and "account" not in dimensions
-            ):
+            valid_entity_dimensions = {
+                "campaign",
+                "creative",
+                "account",
+                "member_job_title",
+                "member_seniority",
+                "member_industry",
+                "member_company_size",
+                "member_company",
+            }
+            if not valid_entity_dimensions.intersection(dimensions):
                 raise ValueError(
-                    "'campaign', 'creative' or 'account' is required to connect to LinkedIn Ads, please provide at least one of these dimensions."
+                    "A valid dimension is required to connect to LinkedIn Ads. "
+                    "Please provide one of: campaign, creative, account, "
+                    "member_job_title, member_seniority, member_industry, "
+                    "member_company_size, member_company."
                 )
             if "date" not in dimensions and "month" not in dimensions:
                 raise ValueError(
@@ -2791,6 +2823,81 @@ class LinkedInAdsSource:
             access_token=access_token[0],
             start_datetime=start_datetime,
             end_datetime=end_datetime,
+        ).with_resources(table)
+
+
+class RedditAdsSource:
+    ENTITY_TABLES = [
+        "accounts",
+        "campaigns",
+        "ad_groups",
+        "ads",
+        "posts",
+        "custom_audiences",
+        "saved_audiences",
+        "pixels",
+        "funding_instruments",
+    ]
+
+    def handles_incrementality(self) -> bool:
+        return True
+
+    def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Reddit Ads takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
+        parsed_uri = urlparse(uri)
+        source_fields = parse_qs(parsed_uri.query)
+
+        access_token = source_fields.get("access_token")
+        if not access_token:
+            raise ValueError("access_token is required to connect to Reddit Ads")
+
+        account_ids = source_fields.get("account_ids")
+        if not account_ids:
+            raise ValueError("account_ids is required to connect to Reddit Ads")
+        account_ids = account_ids[0].replace(" ", "").split(",")
+
+        if table.startswith("custom:"):
+            from ingestr.src.reddit_ads.helpers import parse_custom_table
+
+            level, breakdowns, metrics = parse_custom_table(table)
+
+            interval_start = kwargs.get("interval_start")
+            interval_end = kwargs.get("interval_end")
+            start_date = (
+                ensure_pendulum_datetime(interval_start).date()
+                if interval_start
+                else pendulum.date(2020, 1, 1)
+            )
+            end_date = (
+                ensure_pendulum_datetime(interval_end).date() if interval_end else None
+            )
+
+            from ingestr.src.reddit_ads import reddit_ads_analytics_source
+
+            return reddit_ads_analytics_source(
+                access_token=access_token[0],
+                account_ids=account_ids,
+                level=level,
+                breakdowns=breakdowns,
+                metrics=metrics,
+                start_date=start_date,
+                end_date=end_date,
+            ).with_resources("custom_reports")
+
+        if table not in self.ENTITY_TABLES:
+            raise ValueError(
+                f"Unsupported table '{table}' for Reddit Ads. Valid tables: {', '.join(self.ENTITY_TABLES)} or custom:<level>,<breakdowns>:<metrics>"
+            )
+
+        from ingestr.src.reddit_ads import reddit_ads_source
+
+        return reddit_ads_source(
+            access_token=access_token[0],
+            account_ids=account_ids,
         ).with_resources(table)
 
 

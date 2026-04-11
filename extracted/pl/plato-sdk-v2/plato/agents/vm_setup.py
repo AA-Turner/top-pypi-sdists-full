@@ -28,10 +28,10 @@ from plato.cli.chronos.registry import parse_image_url, parse_package_string
 from plato.runtimes.base import RuntimeInfo, VMMetadata
 from plato.utils.subprocess import (
     VM_PATH_EXPORT,
-    build_ssh_command,
     run_local,
     run_ssh,
     run_ssh_streaming,
+    scp_content_to_vm,
 )
 
 if TYPE_CHECKING:
@@ -288,22 +288,22 @@ async def execute_agent(
 
     last_execution_span_id = ""
 
-    # Pipe instruction via stdin to avoid E2BIG
+    # Write instruction and env vars to files on the VM via scp to
+    # avoid E2BIG — the combined base64 payloads (config, instruction,
+    # runtime) can easily exceed the kernel's ARG_MAX (~128KB).
     instruction_file = "/tmp/.plato_instruction_b64"
-    ssh_write_cmd = build_ssh_command(ssh_key, hostname, extra_opts=_VM_SSH_EXTRA_OPTS)
-    ssh_write_cmd.append(f"cat > {instruction_file}")
-    proc = await asyncio.create_subprocess_exec(
-        *ssh_write_cmd,
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
+    env_file = "/tmp/.plato_agent_env"
+
+    # Build env file content: export K="V" lines
+    env_lines = [f'export {var.split("=", 1)[0]}="{var.split("=", 1)[1]}"' for var in env_vars]
+    env_file_content = "\n".join(env_lines) + "\n"
+
+    await asyncio.gather(
+        scp_content_to_vm(
+            ssh_key, hostname, instruction_file, ctx.instruction_b64.encode(), extra_opts=_VM_SSH_EXTRA_OPTS
+        ),
+        scp_content_to_vm(ssh_key, hostname, env_file, env_file_content.encode(), extra_opts=_VM_SSH_EXTRA_OPTS),
     )
-    _, write_err = await asyncio.wait_for(
-        proc.communicate(input=ctx.instruction_b64.encode()),
-        timeout=30,
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(f"Failed to write instruction file to VM: {write_err.decode()}")
 
     # Pass only the package name (without version) to the agent runner
     agent_name = parse_package_string(ctx.package)[0] if ctx.package else ""
@@ -325,11 +325,12 @@ async def execute_agent(
         otel_env_vars = otel.to_env_vars()
         logger.info("OTEL URL: %s", otel.otel_url)
 
-        all_env_vars = env_vars + otel_env_vars
-        env_exports = " ".join(f'export {k}="{v}";' for var in all_env_vars for k, v in [var.split("=", 1)])
+        # OTel vars are small — safe to inline. Large vars (config,
+        # runtime, API key) are in env_file, sourced at runtime.
+        otel_exports = " ".join(f'export {k}="{v}";' for var in otel_env_vars for k, v in [var.split("=", 1)])
         agent_cmd = (
-            f"{env_exports} {VM_PATH_EXPORT}; "
-            f'cd {workdir} && {shlex.quote(runner_path)} run{package_arg} --instruction-b64 "$(cat {instruction_file})"'
+            f"source {env_file}; {otel_exports} {VM_PATH_EXPORT}; "
+            f"cd {workdir} && {shlex.quote(runner_path)} run{package_arg} --instruction-file {instruction_file}"
         )
 
         exit_code = await run_ssh_streaming(

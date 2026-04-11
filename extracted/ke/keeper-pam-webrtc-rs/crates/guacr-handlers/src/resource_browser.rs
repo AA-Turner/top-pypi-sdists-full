@@ -19,6 +19,7 @@ use bytes::Bytes;
 use guacr_protocol::{format_chunked_blobs, format_end, format_img, format_instruction};
 use guacr_terminal::{
     Action, ColumnDef, GridEvent, GridMode, RatatuiRenderer, TerminalEmulator, TerminalRenderer,
+    CHAR_HEIGHT, CHAR_WIDTH, JPEG_QUALITY,
 };
 use log::{debug, error, info, warn};
 use std::collections::HashMap;
@@ -36,16 +37,9 @@ const KEYSYM_D_LOWER: u32 = 0x0064;
 // -- Stream ID starts at 1 (stream 0 is reserved in Guacamole protocol) --
 pub(crate) const INITIAL_STREAM_ID: u32 = 1;
 
-// -- JPEG quality for spreadsheet renders (matches terminal handlers) --
-const JPEG_QUALITY: u8 = 85;
-
 // -- Default display dimensions --
 pub(crate) const DEFAULT_WIDTH: u32 = 1024;
 pub(crate) const DEFAULT_HEIGHT: u32 = 768;
-
-// -- Character cell size (matches ResourceBrowserGrid and TerminalRenderer) --
-const CHAR_WIDTH: u32 = 9;
-const CHAR_HEIGHT: u32 = 18;
 
 /// Result of executing an action on a resource row.
 pub enum ActionResult {

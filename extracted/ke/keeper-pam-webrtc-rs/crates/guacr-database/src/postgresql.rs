@@ -18,6 +18,9 @@ use guacr_threat_detection::{SessionGuard, ThreatDetector};
 
 use crate::csv_export::{generate_csv_filename, CsvExporter};
 use crate::csv_import::CsvImporter;
+use crate::handler_helpers::{
+    reject_with_error, render_connection_error, render_connection_success, send_render,
+};
 use crate::query_executor::{execute_with_timing, QueryExecutor};
 use crate::recording::{
     finalize_recording, init_recording, record_error_output, record_query_input,
@@ -73,7 +76,7 @@ impl PostgreSqlHandler {
 #[async_trait]
 impl ProtocolHandler for PostgreSqlHandler {
     fn name(&self) -> &str {
-        "postgresql"
+        "postgres"
     }
 
     fn as_event_based(&self) -> Option<&dyn EventBasedHandler> {
@@ -125,24 +128,7 @@ impl ProtocolHandler for PostgreSqlHandler {
             username, hostname, port, database
         );
 
-        // Parse display size from parameters (like SSH does)
-        let size_params = params
-            .get("size")
-            .map(|s| s.as_str())
-            .unwrap_or("1024,768,96");
-        let size_parts: Vec<&str> = size_params.split(',').collect();
-        let width: u32 = size_parts
-            .first()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(1024);
-        let height: u32 = size_parts
-            .get(1)
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(768);
-
-        // Calculate terminal dimensions (9x18 pixels per character cell)
-        let cols = (width / 9).max(80) as u16;
-        let rows = (height / 18).max(24) as u16;
+        let (width, height, cols, rows) = crate::handler_helpers::parse_display_size(&params);
 
         info!(
             "PostgreSQL: Display size {}x{} px → {}x{} chars",
@@ -157,6 +143,7 @@ impl ProtocolHandler for PostgreSqlHandler {
         };
         let mut executor = QueryExecutor::new_with_size(prompt, "postgresql", rows, cols)
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        executor.use_binary = params.get("binary").map(|v| v == "true").unwrap_or(false);
 
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "PostgreSQL", cols, rows);
@@ -206,53 +193,20 @@ impl ProtocolHandler for PostgreSqlHandler {
             Ok(pool) => {
                 info!("PostgreSQL: Connected successfully");
 
-                executor
-                    .write_line("")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line(&format!("Connected to PostgreSQL at {}:{}", hostname, port))
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line(&format!("Database: {}", database))
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                // Show security status
-                if security.base.read_only {
-                    executor
-                        .write_line("Mode: READ-ONLY (modifications disabled)")
-                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                }
-                if security.disable_csv_export {
-                    executor
-                        .write_line("COPY TO: DISABLED")
-                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                }
-
-                executor
-                    .write_line("Type 'help' for available commands.")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_prompt()
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                // Render the connection success screen
+                let info = [
+                    format!("Connected to PostgreSQL at {}:{}", hostname, port),
+                    format!("Database: {}", database),
+                ];
+                let info_refs: Vec<&str> = info.iter().map(|s| s.as_str()).collect();
                 debug!("PostgreSQL: Rendering initial screen with prompt");
-                let (_, instructions) = executor
-                    .render_screen()
-                    .await
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                debug!(
-                    "PostgreSQL: Sending {} instructions to client",
-                    instructions.len()
-                );
-                for instr in instructions {
-                    to_client
-                        .send(instr)
-                        .await
-                        .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                }
+                render_connection_success(
+                    &mut executor,
+                    &to_client,
+                    &info_refs,
+                    &security,
+                    &mut recorder,
+                )
+                .await?;
                 debug!("PostgreSQL: Initial screen sent successfully");
 
                 pool
@@ -261,46 +215,20 @@ impl ProtocolHandler for PostgreSqlHandler {
                 let error_msg = format!("Connection failed: {}", e);
                 warn!("PostgreSQL: {}", error_msg);
 
-                executor
-                    .write_line("")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_error(&error_msg)
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("Troubleshooting:")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("  1. Check hostname is resolvable")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("  2. Verify PostgreSQL server is running")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("  3. Check pg_hba.conf allows connections")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_line("  4. Verify credentials are correct")
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                executor
-                    .write_prompt()
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                let (_, instructions) = executor
-                    .render_screen()
-                    .await
-                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                for instr in instructions {
-                    to_client
-                        .send(instr)
-                        .await
-                        .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                }
-
-                while from_client.recv().await.is_some() {}
+                render_connection_error(
+                    &mut executor,
+                    &to_client,
+                    &mut from_client,
+                    &error_msg,
+                    &[
+                        "Check hostname is resolvable",
+                        "Verify PostgreSQL server is running",
+                        "Check pg_hba.conf allows connections",
+                        "Verify credentials are correct",
+                    ],
+                    &mut recorder,
+                )
+                .await?;
                 return Err(HandlerError::ConnectionFailed(error_msg));
             }
         };
@@ -419,19 +347,7 @@ impl ProtocolHandler for PostgreSqlHandler {
                         // Check for COPY TO (export)
                         if is_postgres_copy_out(&query) {
                             if let Err(msg) = check_csv_export_allowed(&security) {
-                                executor
-                                    .write_error(&msg)
-                                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                                let (_, result_instructions) = executor
-                                    .render_screen()
-                                    .await
-                                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                                for instr in result_instructions {
-                                    to_client
-                                        .send(instr)
-                                        .await
-                                        .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                                }
+                                reject_with_error(&mut executor, &to_client, &mut recorder, &msg).await?;
                                 continue;
                             }
                         }
@@ -439,38 +355,14 @@ impl ProtocolHandler for PostgreSqlHandler {
                         // Check for COPY FROM (import)
                         if is_postgres_copy_in(&query) {
                             if let Err(msg) = check_csv_import_allowed(&security) {
-                                executor
-                                    .write_error(&msg)
-                                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                                let (_, result_instructions) = executor
-                                    .render_screen()
-                                    .await
-                                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                                for instr in result_instructions {
-                                    to_client
-                                        .send(instr)
-                                        .await
-                                        .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                                }
+                                reject_with_error(&mut executor, &to_client, &mut recorder, &msg).await?;
                                 continue;
                             }
                         }
 
                         // Check read-only mode
                         if let Err(msg) = check_query_allowed(&query, &security) {
-                            executor
-                                .write_error(&msg)
-                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                            let (_, result_instructions) = executor
-                                .render_screen()
-                                .await
-                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                            for instr in result_instructions {
-                                to_client
-                                    .send(instr)
-                                    .await
-                                    .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-                            }
+                            reject_with_error(&mut executor, &to_client, &mut recorder, &msg).await?;
                             continue;
                         }
 
@@ -507,15 +399,7 @@ impl ProtocolHandler for PostgreSqlHandler {
                             }
                         }
 
-                        let (_, result_instructions) = executor
-                            .render_screen()
-                            .await
-                            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-                        for instr in result_instructions {
-                            send_and_record(&to_client, &mut recorder, instr)
-                                .await
-                                .map_err(HandlerError::ChannelError)?;
-                        }
+                        send_render(&mut executor, &to_client, &mut recorder).await?;
                         continue;
                     }
 
@@ -725,23 +609,8 @@ async fn handle_builtin_command(
             }
             return Ok(true);
         }
-        "quit" | "exit" | "\\q" => {
-            executor
-                .write_line("Bye")
-                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-            let (_, instructions) = executor
-                .render_screen()
-                .await
-                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-            for instr in instructions {
-                to_client
-                    .send(instr)
-                    .await
-                    .map_err(|e| HandlerError::ChannelError(e.to_string()))?;
-            }
-            return Err(HandlerError::Disconnected(
-                "User requested disconnect".to_string(),
-            ));
+        "quit" | "exit" | "\\q" | "bye" => {
+            return Err(crate::handler_helpers::handle_quit(executor, to_client, &mut None).await);
         }
         _ => {}
     }
@@ -1003,7 +872,7 @@ async fn handle_csv_import(
 #[async_trait]
 impl EventBasedHandler for PostgreSqlHandler {
     fn name(&self) -> &str {
-        "postgresql"
+        "postgres"
     }
 
     async fn connect_with_events(

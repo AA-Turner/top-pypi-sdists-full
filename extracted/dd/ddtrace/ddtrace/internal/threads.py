@@ -98,10 +98,8 @@ class ThreadRestartTimer(PeriodicThread):
             # in between forks.
             if monotonic_ns() >= self._timestamp:  # 100ms
                 for thread in _threads_to_restart_after_fork.copy():
-                    if isinstance(thread, ThreadRestartTimer):
-                        # Skip any ThreadRestartTimer instance,
-                        # to avoid restarting orphaned timer instances that were
-                        # caught in periodic_threads during a fork.
+                    if thread is self:
+                        # This has already been restarted by the after-fork hook.
                         continue
                     log.debug("Restarting thread %s after fork", thread.name)
                     thread._after_fork(force=True)

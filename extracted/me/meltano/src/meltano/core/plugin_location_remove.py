@@ -52,7 +52,7 @@ class PluginLocationRemoveManager(ABC):
 
     @property
     def plugin_removed(self) -> bool:
-        """Wether or not the plugin was successfully removed.
+        """Whether or not the plugin was successfully removed.
 
         Returns:
             True if the plugin was successfully removed, False otherwise.
@@ -61,7 +61,7 @@ class PluginLocationRemoveManager(ABC):
 
     @property
     def plugin_not_found(self) -> bool:
-        """Wether or not the plugin was not found to remove.
+        """Whether or not the plugin was not found to remove.
 
         Returns:
             True if the plugin was not found, False otherwise.
@@ -70,7 +70,7 @@ class PluginLocationRemoveManager(ABC):
 
     @property
     def plugin_error(self) -> bool:
-        """Wether or not an error was encountered the plugin removal process.
+        """Whether or not an error was encountered the plugin removal process.
 
         Returns:
             True if an error was encountered, False otherwise.
@@ -150,7 +150,7 @@ class LockedDefinitionRemoveManager(PluginLocationRemoveManager):
             plugin: The plugin to remove.
             project: The Meltano project.
         """
-        lockfile_dir = project.root_plugins_dir(plugin.type)  # type: ignore[deprecated]
+        lockfile_dir = project.dirs.root_plugins(plugin.type)
         glob_expr = f"{plugin.name}*.lock"
         super().__init__(
             plugin,
@@ -186,7 +186,7 @@ class InstallationRemoveManager(PluginLocationRemoveManager):
             plugin: The plugin to remove.
             project: The Meltano project.
         """
-        path = project.plugin_dir(plugin, make_dirs=False)  # type: ignore[deprecated]
+        path = project.dirs.plugin(plugin, make_dirs=False)
         super().__init__(plugin, str(path.parent.relative_to(project.root)))
         self.path = path
 

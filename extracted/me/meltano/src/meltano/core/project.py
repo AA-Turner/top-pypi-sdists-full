@@ -16,7 +16,7 @@ import structlog
 from dotenv import dotenv_values
 
 from meltano.core import yaml
-from meltano.core._compat import MeltanoInternalDeprecationWarning, deprecated
+from meltano.core._compat import deprecated
 from meltano.core.config_service import ConfigService
 from meltano.core.environment import Environment
 from meltano.core.error import (
@@ -261,6 +261,7 @@ class Project:
             else:
                 raise
 
+        project.dirs.ensure_system_files()
         logger.debug("Activated project at %s", project.root)
 
         # set the default project
@@ -374,7 +375,7 @@ class Project:
             meltano_config = MeltanoFile.parse(self.project_files.load())
             yield meltano_config
             try:
-                self.project_files.update(meltano_config.canonical())  # type: ignore[arg-type]
+                self.project_files.update(meltano_config.canonical())  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
             except Exception as err:  # pragma: no cover
                 logger.critical("Could not update meltano.yml: %s", err)
                 raise
@@ -383,7 +384,7 @@ class Project:
 
     @deprecated(
         "Use `dirs.root_dir` instead.",
-        category=MeltanoInternalDeprecationWarning,
+        category=DeprecationWarning,
     )
     def root_dir(self, *joinpaths: StrPath) -> Path:
         """Return the root directory of this project, optionally joined with path.
@@ -421,13 +422,13 @@ class Project:
         return self.root.joinpath(".env")
 
     @cached_property
-    def dotenv_env(self) -> dict[str, str | None]:
+    def dotenv_env(self) -> dict[str, str]:
         """Get values from this project's .env file.
 
         Returns:
-            values found in this project's .env file
+            Values found in this project's .env file, with None values filtered out.
         """
-        return dotenv_values(self.dotenv)
+        return {k: v for k, v in dotenv_values(self.dotenv).items() if v is not None}
 
     def activate_environment(self, name: str) -> None:
         """Activate a Meltano environment.
@@ -466,7 +467,7 @@ class Project:
 
     @deprecated(
         "Use `dirs.meltano` instead.",
-        category=MeltanoInternalDeprecationWarning,
+        category=DeprecationWarning,
     )
     @makedirs
     def meltano_dir(self, *joinpaths: StrPath, make_dirs: bool = True) -> Path:
@@ -483,7 +484,7 @@ class Project:
 
     @deprecated(
         "Use `dirs.venvs` instead.",
-        category=MeltanoInternalDeprecationWarning,
+        category=DeprecationWarning,
     )
     @makedirs
     def venvs_dir(self, *prefixes: StrPath, make_dirs: bool = True) -> Path:
@@ -500,7 +501,7 @@ class Project:
 
     @deprecated(
         "Use `dirs.run` instead.",
-        category=MeltanoInternalDeprecationWarning,
+        category=DeprecationWarning,
     )
     @makedirs
     def run_dir(self, *joinpaths: StrPath, make_dirs: bool = True) -> Path:
@@ -517,7 +518,7 @@ class Project:
 
     @deprecated(
         "Use `dirs.logs` instead.",
-        category=MeltanoInternalDeprecationWarning,
+        category=DeprecationWarning,
     )
     @makedirs
     def logs_dir(self, *joinpaths: StrPath, make_dirs: bool = True) -> Path:
@@ -534,7 +535,7 @@ class Project:
 
     @deprecated(
         "Use `dirs.job` instead.",
-        category=MeltanoInternalDeprecationWarning,
+        category=DeprecationWarning,
     )
     @makedirs
     def job_dir(
@@ -557,7 +558,7 @@ class Project:
 
     @deprecated(
         "Use `dirs.job_logs` instead.",
-        category=MeltanoInternalDeprecationWarning,
+        category=DeprecationWarning,
     )
     @makedirs
     def job_logs_dir(
@@ -580,7 +581,7 @@ class Project:
 
     @deprecated(
         "Use `dirs.plugin` instead.",
-        category=MeltanoInternalDeprecationWarning,
+        category=DeprecationWarning,
     )
     @makedirs
     def plugin_dir(
@@ -603,7 +604,7 @@ class Project:
 
     @deprecated(
         "Use `dirs.root_plugins` instead.",
-        category=MeltanoInternalDeprecationWarning,
+        category=DeprecationWarning,
     )
     @makedirs
     def root_plugins_dir(self, *joinpaths: StrPath, make_dirs: bool = True) -> Path:
@@ -620,7 +621,7 @@ class Project:
 
     @deprecated(
         "Use `dirs.plugin_lock_path` instead.",
-        category=MeltanoInternalDeprecationWarning,
+        category=DeprecationWarning,
     )
     @makedirs
     def plugin_lock_path(

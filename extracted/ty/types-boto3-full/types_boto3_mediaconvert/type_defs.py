@@ -705,6 +705,8 @@ __all__ = (
     "MsSmoothEncryptionSettingsTypeDef",
     "MsSmoothGroupSettingsOutputTypeDef",
     "MsSmoothGroupSettingsTypeDef",
+    "MultiViewInputTypeDef",
+    "MultiViewSettingsTypeDef",
     "MxfSettingsTypeDef",
     "MxfXavcProfileSettingsTypeDef",
     "NexGuardFileMarkerSettingsTypeDef",
@@ -1889,6 +1891,10 @@ class MsSmoothAdditionalManifestTypeDef(TypedDict):
     SelectedOutputs: NotRequired[Sequence[str]]
 
 
+class MultiViewInputTypeDef(TypedDict):
+    FileInput: NotRequired[str]
+
+
 class MxfXavcProfileSettingsTypeDef(TypedDict):
     DurationMode: NotRequired[MxfXavcDurationModeType]
     MaxAncDataSize: NotRequired[int]
@@ -2841,6 +2847,10 @@ class MotionImageInserterTypeDef(TypedDict):
     StartTime: NotRequired[str]
 
 
+class MultiViewSettingsTypeDef(TypedDict):
+    Input: NotRequired[MultiViewInputTypeDef]
+
+
 class MxfSettingsTypeDef(TypedDict):
     AfdSignaling: NotRequired[MxfAfdSignalingType]
     Profile: NotRequired[MxfProfileType]
@@ -3558,6 +3568,7 @@ class VideoDescriptionTypeDef(TypedDict):
 class ContainerTypeDef(TypedDict):
     Duration: NotRequired[float]
     Format: NotRequired[FormatType]
+    StartTimecode: NotRequired[str]
     Tracks: NotRequired[list[TrackTypeDef]]
 
 
@@ -3726,6 +3737,7 @@ class InputOutputTypeDef(TypedDict):
     ImageInserter: NotRequired[ImageInserterOutputTypeDef]
     InputClippings: NotRequired[list[InputClippingTypeDef]]
     InputScanType: NotRequired[InputScanTypeType]
+    MultiViewSettings: NotRequired[list[MultiViewSettingsTypeDef]]
     Position: NotRequired[RectangleTypeDef]
     ProgramNumber: NotRequired[int]
     PsiControl: NotRequired[InputPsiControlType]
@@ -3754,6 +3766,7 @@ class InputTemplateOutputTypeDef(TypedDict):
     ImageInserter: NotRequired[ImageInserterOutputTypeDef]
     InputClippings: NotRequired[list[InputClippingTypeDef]]
     InputScanType: NotRequired[InputScanTypeType]
+    MultiViewSettings: NotRequired[list[MultiViewSettingsTypeDef]]
     Position: NotRequired[RectangleTypeDef]
     ProgramNumber: NotRequired[int]
     PsiControl: NotRequired[InputPsiControlType]
@@ -3779,6 +3792,7 @@ class InputTemplateTypeDef(TypedDict):
     ImageInserter: NotRequired[ImageInserterTypeDef]
     InputClippings: NotRequired[Sequence[InputClippingTypeDef]]
     InputScanType: NotRequired[InputScanTypeType]
+    MultiViewSettings: NotRequired[Sequence[MultiViewSettingsTypeDef]]
     Position: NotRequired[RectangleTypeDef]
     ProgramNumber: NotRequired[int]
     PsiControl: NotRequired[InputPsiControlType]
@@ -3806,6 +3820,7 @@ class InputTypeDef(TypedDict):
     ImageInserter: NotRequired[ImageInserterTypeDef]
     InputClippings: NotRequired[Sequence[InputClippingTypeDef]]
     InputScanType: NotRequired[InputScanTypeType]
+    MultiViewSettings: NotRequired[Sequence[MultiViewSettingsTypeDef]]
     Position: NotRequired[RectangleTypeDef]
     ProgramNumber: NotRequired[int]
     PsiControl: NotRequired[InputPsiControlType]

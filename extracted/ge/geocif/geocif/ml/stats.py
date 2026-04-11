@@ -268,7 +268,7 @@ def add_statistics(
         available_seasons = set(df_fewsnet.loc[country_crop_mask, "season_name"].unique())
 
         def _resolve_season_filter(season_num):
-            """Pick the hvstat season_name for a given CEI season number."""
+            """Pick the hvstat season_name for a given CID season number."""
             if season_num == 1:
                 for name in PRIMARY_SEASON_NAMES:
                     if name in available_seasons:

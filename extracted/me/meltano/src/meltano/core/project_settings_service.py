@@ -63,7 +63,7 @@ class ProjectSettingsService(SettingsService):
             **self.env_override,
         }
 
-        self.config_override = {  # type: ignore[misc]
+        self.config_override = {  # type: ignore[misc]  # ty:ignore[invalid-attribute-access]
             **self.__class__.config_override,
             **self.config_override,
         }
@@ -101,7 +101,7 @@ class ProjectSettingsService(SettingsService):
             project_id = None
 
         if project_id is None:
-            analytics_path = self.project.meltano_dir() / "analytics.json"  # type: ignore[deprecated]
+            analytics_path = self.project.dirs.meltano() / "analytics.json"
             try:
                 with analytics_path.open() as analytics_json_file:
                     project_id = json.load(analytics_json_file)["project_id"]

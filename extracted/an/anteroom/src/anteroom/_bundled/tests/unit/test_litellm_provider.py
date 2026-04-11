@@ -1004,3 +1004,119 @@ class TestLiteLLMInterface:
         assert hasattr(svc, "generate_title")
         assert hasattr(svc, "complete")
         assert hasattr(svc, "validate_connection")
+
+
+# ---------------------------------------------------------------------------
+# Pre-flight validation tests (#1344)
+# ---------------------------------------------------------------------------
+
+
+class TestPreflightValidation:
+    @pytest.mark.asyncio
+    async def test_stream_chat_rejects_assistant_first_anthropic_route(self) -> None:
+        """stream_chat yields request_invalid for Anthropic routes with assistant-first."""
+        svc = _make_service(_make_config(model="anthropic/claude-sonnet-4-20250514"))
+        messages = [{"role": "assistant", "content": "oops"}]
+        events: list[dict[str, Any]] = []
+        async for event in svc.stream_chat(messages):
+            events.append(event)
+
+        error_events = [e for e in events if e["event"] == "error"]
+        assert len(error_events) == 1
+        assert error_events[0]["data"]["code"] == "request_invalid"
+        assert error_events[0]["data"]["retryable"] is False
+        assert error_events[0]["data"]["provider"] == "litellm"
+        assert "role='assistant'" in error_events[0]["data"]["message"]
+        # SDK must not have been called
+        _mock_litellm_module.acompletion.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_rejects_assistant_first_bedrock_route(self) -> None:
+        """stream_chat yields request_invalid for Bedrock routes with assistant-first."""
+        svc = _make_service(_make_config(model="bedrock/anthropic.claude-v2"))
+        messages = [{"role": "assistant", "content": "oops"}]
+        events: list[dict[str, Any]] = []
+        async for event in svc.stream_chat(messages):
+            events.append(event)
+
+        error_events = [e for e in events if e["event"] == "error"]
+        assert len(error_events) == 1
+        assert error_events[0]["data"]["code"] == "request_invalid"
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_does_not_validate_openai_route(self) -> None:
+        """OpenAI routes accept any message ordering — no first-message validation."""
+        svc = _make_service(_make_config(model="openai/gpt-4o"))
+
+        # Set up mock to return a valid stream
+        chunk = MagicMock()
+        chunk.usage = None
+        chunk.choices = [MagicMock()]
+        chunk.choices[0].delta = MagicMock()
+        chunk.choices[0].delta.content = "Hi"
+        chunk.choices[0].delta.tool_calls = None
+        chunk.choices[0].finish_reason = "stop"
+        _mock_litellm_module.acompletion = AsyncMock(return_value=_AsyncChunkIterator([chunk]))
+
+        messages = [{"role": "assistant", "content": "I go first"}]
+        events: list[dict[str, Any]] = []
+        async for event in svc.stream_chat(messages):
+            events.append(event)
+
+        # Should NOT have a request_invalid error
+        assert not any(e["event"] == "error" and e["data"].get("code") == "request_invalid" for e in events)
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_rejects_bedrock_tools_without_confirmation(self) -> None:
+        """Bedrock + tools + unconfirmed triggers bedrock_tool_route rule."""
+        svc = _make_service(_make_config(model="bedrock/anthropic.claude-v2", litellm_bedrock_tools_confirmed=False))
+        messages = [{"role": "user", "content": "Hi"}]
+        tools = [{"type": "function", "function": {"name": "test", "parameters": {}}}]
+        events: list[dict[str, Any]] = []
+        async for event in svc.stream_chat(messages, tools=tools):
+            events.append(event)
+
+        error_events = [e for e in events if e["event"] == "error"]
+        assert len(error_events) == 1
+        assert error_events[0]["data"]["code"] == "request_invalid"
+        assert "litellm_bedrock_tools_confirmed" in error_events[0]["data"]["message"]
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_allows_bedrock_tools_when_confirmed(self) -> None:
+        """Bedrock + tools + confirmed=True passes validation."""
+        svc = _make_service(_make_config(model="bedrock/anthropic.claude-v2", litellm_bedrock_tools_confirmed=True))
+
+        chunk = MagicMock()
+        chunk.usage = None
+        chunk.choices = [MagicMock()]
+        chunk.choices[0].delta = MagicMock()
+        chunk.choices[0].delta.content = "Hi"
+        chunk.choices[0].delta.tool_calls = None
+        chunk.choices[0].finish_reason = "stop"
+        _mock_litellm_module.acompletion = AsyncMock(return_value=_AsyncChunkIterator([chunk]))
+
+        messages = [{"role": "user", "content": "Hi"}]
+        tools = [{"type": "function", "function": {"name": "test", "parameters": {}}}]
+        events: list[dict[str, Any]] = []
+        async for event in svc.stream_chat(messages, tools=tools):
+            events.append(event)
+
+        assert not any(e["event"] == "error" and e["data"].get("code") == "request_invalid" for e in events)
+
+    @pytest.mark.asyncio
+    async def test_complete_validates_anthropic_route(self) -> None:
+        """complete() with Anthropic route raises on assistant-first."""
+        svc = _make_service(_make_config(model="anthropic/claude-sonnet-4-20250514"))
+        messages = [{"role": "assistant", "content": "oops"}]
+        # complete() catches Exception and returns None
+        result = await svc.complete(messages)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_complete_with_usage_validates_anthropic_route(self) -> None:
+        """complete_with_usage() with Anthropic route raises on assistant-first."""
+        svc = _make_service(_make_config(model="anthropic/claude-sonnet-4-20250514"))
+        messages = [{"role": "assistant", "content": "oops"}]
+        # complete_with_usage catches Exception and re-raises
+        with pytest.raises(Exception):
+            await svc.complete_with_usage(messages)

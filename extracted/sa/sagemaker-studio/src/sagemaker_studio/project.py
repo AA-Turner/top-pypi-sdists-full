@@ -206,12 +206,14 @@ class Project:
         Returns:
             str: The IAM role ARN.
         """
-        project_iam_connection = self._get_iam_connection_name()
-        connection = self.connection(name=project_iam_connection)
-        project_role = connection.iam_role
-        if not project_role:
-            raise RuntimeError("Could not find project iam role")
-        return project_role
+        if not hasattr(self, "_cached_iam_role"):
+            project_iam_connection = self._get_iam_connection_name()
+            connection = self.connection(name=project_iam_connection)
+            project_role = connection.iam_role
+            if not project_role:
+                raise RuntimeError("Could not find project iam role")
+            self._cached_iam_role = project_role
+        return self._cached_iam_role
 
     @property
     def user_id(self) -> str:

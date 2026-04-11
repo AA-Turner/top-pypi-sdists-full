@@ -14,6 +14,8 @@
 
 mod adaptive_quality;
 mod connection;
+pub mod params;
+pub use params::{parse_image_formats, parse_sftp_config, ConnectionParameters, SftpConfig};
 mod cursor;
 mod drag_detector;
 mod error;
@@ -29,6 +31,7 @@ pub mod resource_browser;
 mod security;
 mod session;
 mod sync_control;
+pub mod terminal_mouse;
 mod throughput;
 pub mod video;
 
@@ -121,6 +124,7 @@ pub use session::{
     record_client_input, send_and_record, send_bell, send_disconnect, send_name, send_ready,
 };
 pub use sync_control::SyncFlowControl;
+pub use terminal_mouse::{handle_mouse_event, MouseEventOutput};
 pub use throughput::ThroughputTracker;
 pub use video::{EncodedFrame, VideoOutput};
 

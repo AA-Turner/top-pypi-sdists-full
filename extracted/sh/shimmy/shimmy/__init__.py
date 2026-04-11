@@ -1,4 +1,5 @@
 """API for converting popular non-gymnasium environments to a gymnasium compatible environment."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -77,7 +78,7 @@ __all__ = [
 ]
 
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 
 
 try:

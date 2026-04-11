@@ -43,6 +43,10 @@ from snowflake.snowpark_connect.config import (
     global_config,
 )
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
+from snowflake.snowpark_connect.date_time_format_mapping import (
+    convert_java_datetime_format_for_fileformat,
+    convert_java_datetime_format_to_python,
+)
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.read.map_read import JsonReaderConfig
@@ -117,6 +121,74 @@ _json_file_format_allowed_options = {
 }
 
 
+# Tokens that exist in Snowflake format but not in Java SimpleDateFormat.
+# If a format string contains any of these, it's likely already in Snowflake format.
+_SNOWFLAKE_SPECIFIC_TOKENS = frozenset(
+    {
+        "HH24",
+        "HH12",
+        "MI",  # Snowflake minutes (Java uses mm)
+        "FF",
+        "FF1",
+        "FF2",
+        "FF3",
+        "FF4",
+        "FF5",
+        "FF6",
+        "FF7",
+        "FF8",
+        "FF9",
+        "TZH",
+        "TZM",
+        "TZD",
+        "MON",  # Snowflake abbreviated month (Java uses MMM)
+        "DY",  # Snowflake day abbreviation (Java uses E/EE/EEE)
+    }
+)
+
+
+def _is_likely_snowflake_format(format_value: str) -> bool:
+    """Check if a format string appears to already be in Snowflake format.
+
+    This helps avoid double-conversion when users pass Snowflake format strings
+    instead of Java SimpleDateFormat strings.
+    """
+    upper_format = format_value.upper()
+    return any(token in upper_format for token in _SNOWFLAKE_SPECIFIC_TOKENS)
+
+
+def _try_convert_java_datetime_format(
+    format_value: str,
+    converter: typing.Callable[[str], str],
+    format_type: str = "datetime",
+) -> str:
+    """Try to convert a Java datetime format string using the provided converter.
+
+    If conversion fails or if the format appears to already be in Snowflake format,
+    return the original format value.
+
+    Args:
+        format_value: The Java format string to convert
+        converter: The conversion function to use
+        format_type: Type of format for logging (e.g., "date", "timestamp")
+
+    Returns:
+        Converted format string, or original if conversion fails or not needed
+    """
+    # Skip conversion if the format already appears to be in Snowflake format
+    if _is_likely_snowflake_format(format_value):
+        return format_value
+
+    try:
+        return converter(format_value)
+    except (ValueError, KeyError) as e:
+        logger.warning(
+            f"Failed to convert Java {format_type} format '{format_value}': {e}. "
+            "Using original format."
+        )
+        return format_value
+
+
 def _parse_json_snowpark_options(
     snowpark_options: dict[str, typing.Any]
 ) -> dict[str, typing.Any]:
@@ -133,6 +205,20 @@ def _parse_json_snowpark_options(
     for key, value in snowpark_options.items():
         upper_key = key.upper()
         if upper_key in _json_file_format_allowed_options:
+            # Convert Java/Spark date and timestamp format strings to Snowflake equivalents.
+            # Spark uses Java SimpleDateFormat patterns (e.g. yyyyMMdd) while
+            # Snowflake uses its own tokens (YYYYMMDD).
+            # Skip conversion for "auto" - it's a special Snowflake keyword for auto-detection.
+            if (
+                upper_key in ("DATE_FORMAT", "TIMESTAMP_FORMAT")
+                and value
+                and str(value).lower() != "auto"
+            ):
+                value = _try_convert_java_datetime_format(
+                    value,
+                    convert_java_datetime_format_for_fileformat,
+                    "date" if upper_key == "DATE_FORMAT" else "timestamp",
+                )
             file_format_options[upper_key] = value
 
     return file_format_options
@@ -538,6 +624,7 @@ def read_single_bz2_file(
 def _build_json_typed_transformations(
     schema: StructType,
     session: snowpark.Session,
+    file_format_options: dict[str, typing.Any] | None = None,
 ) -> tuple[list[str], list["snowpark.Column"]]:
     """Build COPY INTO transformations that cast JSON fields to typed columns.
 
@@ -549,6 +636,7 @@ def _build_json_typed_transformations(
         schema: The target schema with fully typed fields (including nested
             StructType, ArrayType, MapType).
         session: The Snowpark session (used to check TRY_CAST PERMISSIVE support).
+        file_format_options: Dictionary of file format options (DATE_FORMAT, TIMESTAMP_FORMAT).
 
     Returns:
         ``(target_columns, transformations)`` where *target_columns* is a list
@@ -556,6 +644,13 @@ def _build_json_typed_transformations(
         Column objects with the appropriate casts.
     """
     from snowflake.snowpark.functions import sql_expr
+
+    date_format = (
+        file_format_options.get("DATE_FORMAT") if file_format_options else None
+    )
+    timestamp_format = (
+        file_format_options.get("TIMESTAMP_FORMAT") if file_format_options else None
+    )
 
     f_generate = (
         _generate_json_path_reference
@@ -568,7 +663,12 @@ def _build_json_typed_transformations(
 
     for field in schema.fields:
         target_cols.append(field.name)
-        cast_expr = f_generate(f"$1:{field.name}", field.datatype)
+        cast_expr = f_generate(
+            f"$1:{field.name}",
+            field.datatype,
+            date_format=date_format,
+            timestamp_format=timestamp_format,
+        )
         transforms.append(sql_expr(cast_expr).alias(field.name))
 
     return target_cols, transforms
@@ -645,7 +745,7 @@ def read_normal_json_files(
             final_schema = relax_json_types(final_schema)
 
         target_cols, typed_transforms = _build_json_typed_transformations(
-            final_schema, session
+            final_schema, session, file_format_options
         )
 
         _load_file_with_copy_into(
@@ -1196,7 +1296,11 @@ def _generate_snowflake_type_signature(data_type: DataType) -> str:
 
 
 def _generate_json_path_reference(
-    json_path: str, data_type: DataType, is_root: bool = False
+    json_path: str,
+    data_type: DataType,
+    is_root: bool = False,
+    date_format: str | None = None,
+    timestamp_format: str | None = None,
 ) -> str:
     """
     Generate a JSON path reference with appropriate casting for nested fields.
@@ -1215,11 +1319,24 @@ def _generate_json_path_reference(
     Args:
         json_path: The JSON path to the field (e.g., "field_name:a.b.field")
         data_type: The DataType of the field
+        is_root: Whether this is a root-level field
+        date_format: Optional Snowflake date format string (e.g., "YYYYMMDD")
+        timestamp_format: Optional Snowflake timestamp format string
     """
     if isinstance(data_type, (StructType, ArrayType, MapType)):
         return f"TRY_CAST({json_path} AS {_generate_snowflake_type_signature(data_type)} PERMISSIVE)"
     elif isinstance(data_type, StringType):
         return f"TO_VARCHAR({json_path})"
+    elif isinstance(data_type, DateType) and date_format and date_format != "auto":
+        # Use TRY_TO_DATE with explicit format for custom date formats
+        return f"TRY_TO_DATE(TO_VARCHAR({json_path}), '{date_format}')"
+    elif (
+        isinstance(data_type, TimestampType)
+        and timestamp_format
+        and timestamp_format != "auto"
+    ):
+        # Use TRY_TO_TIMESTAMP with explicit format for custom timestamp formats
+        return f"TRY_TO_TIMESTAMP(TO_VARCHAR({json_path}), '{timestamp_format}')"
     else:
         return (
             json_path
@@ -1229,7 +1346,11 @@ def _generate_json_path_reference(
 
 
 def _generate_json_path_reference_legacy(
-    json_path: str, data_type: DataType, is_root: bool = False
+    json_path: str,
+    data_type: DataType,
+    is_root: bool = False,
+    date_format: str | None = None,
+    timestamp_format: str | None = None,
 ) -> str:
     """
     Generate a JSON path reference with appropriate casting for nested fields.
@@ -1251,6 +1372,9 @@ def _generate_json_path_reference_legacy(
     Args:
         json_path: The JSON path to the field (e.g., "field_name:a.b.field")
         data_type: The DataType of the field
+        is_root: Whether this is a root-level field
+        date_format: Optional Snowflake date format string (not used in legacy)
+        timestamp_format: Optional Snowflake timestamp format string (not used in legacy)
     """
 
     variant_suffix = "::VARIANT" if not is_root else ""
@@ -1280,6 +1404,18 @@ def _generate_json_path_reference_legacy(
 
     elif isinstance(data_type, StringType):
         return f"TO_VARCHAR({json_path})"
+
+    elif isinstance(data_type, DateType) and date_format and date_format != "auto":
+        # Use TRY_TO_DATE with explicit format for custom date formats
+        return f"TRY_TO_DATE(TO_VARCHAR({json_path}), '{date_format}')"
+
+    elif (
+        isinstance(data_type, TimestampType)
+        and timestamp_format
+        and timestamp_format != "auto"
+    ):
+        # Use TRY_TO_TIMESTAMP with explicit format for custom timestamp formats
+        return f"TRY_TO_TIMESTAMP(TO_VARCHAR({json_path}), '{timestamp_format}')"
 
     else:
         return (
@@ -1390,9 +1526,13 @@ def construct_row_by_schema(
                 )
         return result
     elif isinstance(schema, DateType):
-        return cast_to_match_snowpark_type(
-            schema, content, snowpark_options.get("DATE_FORMAT")
-        )
+        # Convert Java date format to Python strptime format for local processing
+        date_format = snowpark_options.get("DATE_FORMAT")
+        if date_format and date_format != "auto":
+            date_format = _try_convert_java_datetime_format(
+                date_format, convert_java_datetime_format_to_python, "date"
+            )
+        return cast_to_match_snowpark_type(schema, content, date_format)
 
     return cast_to_match_snowpark_type(schema, content)
 

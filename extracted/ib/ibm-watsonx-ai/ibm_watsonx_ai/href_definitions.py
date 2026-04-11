@@ -274,6 +274,17 @@ GATEWAY_CHAT_COMPLETIONS = "{}/ml/gateway/v1/chat/completions"
 GATEWAY_RATE_LIMITS = "{}/ml/gateway/v1/rate-limits"
 GATEWAY_RATE_LIMIT = "{}/ml/gateway/v1/rate-limits/{}"
 
+
+# BATCH INFERENCE
+BATCHES = "{}/ml/v1/batches"
+BATCH = "{}/ml/v1/batches/{}"
+BATCH_CANCEL = "{}/ml/v1/batches/{}/cancel"
+
+# FILES (BATCH FILES)
+FILES = "{}/ml/v1/files"
+FILE = "{}/ml/v1/files/{}"
+FILE_CONTENT = "{}/ml/v1/files/{}/content"
+
 WSD_DBDRIVERS = "{}dbdrivers"
 WSD_DBDRIVER_FILE = "{}dbdrivers/{}"
 WSD_DBDRIVER_SIGNED = "{}dbdrivers/{}/signed"
@@ -1088,6 +1099,24 @@ class HrefDefinitions:
 
     def get_gateway_rate_limit_href(self, rate_limit_id: str) -> str:
         return GATEWAY_RATE_LIMIT.format(self.url, rate_limit_id)
+
+    def get_batches_href(self) -> str:
+        return BATCHES.format(self.url)
+
+    def get_batch_href(self, batch_id: str) -> str:
+        return BATCH.format(self.url, batch_id)
+
+    def get_batch_cancel_href(self, batch_id: str) -> str:
+        return BATCH_CANCEL.format(self.url, batch_id)
+
+    def get_files_href(self) -> str:
+        return FILES.format(self.url)
+
+    def get_file_href(self, file_id: str) -> str:
+        return FILE.format(self.url, file_id)
+
+    def get_file_content_href(self, file_id: str) -> str:
+        return FILE_CONTENT.format(self.url, file_id)
 
     def get_wsd_dbdrivers_href(self) -> str:
         return WSD_DBDRIVERS.format(self.get_wsd_model_attachment_href())

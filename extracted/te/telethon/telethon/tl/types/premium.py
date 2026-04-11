@@ -100,7 +100,7 @@ class BoostsStatus(TLObject):
         }
 
     def _bytes(self):
-        assert ((self.my_boost or self.my_boost is not None) and (self.my_boost_slots or self.my_boost_slots is not None)) or ((self.my_boost is None or self.my_boost is False) and (self.my_boost_slots is None or self.my_boost_slots is False)), 'my_boost, my_boost_slots parameters must all be False-y (like None) or all me True-y'
+        assert ((self.my_boost or self.my_boost is not None) and (self.my_boost_slots or self.my_boost_slots is not None)) or ((self.my_boost is None or self.my_boost is False) and (self.my_boost_slots is None or self.my_boost_slots is False)), 'my_boost, my_boost_slots parameters must all be False-y (like None) or all be True-y'
         return b''.join((
             b'zBYI',
             struct.pack('<I', (0 if self.my_boost is None or self.my_boost is False else 4) | (0 if self.gift_boosts is None or self.gift_boosts is False else 16) | (0 if self.next_level_boosts is None or self.next_level_boosts is False else 1) | (0 if self.premium_audience is None or self.premium_audience is False else 2) | (0 if self.prepaid_giveaways is None or self.prepaid_giveaways is False else 8) | (0 if self.my_boost_slots is None or self.my_boost_slots is False else 4)),

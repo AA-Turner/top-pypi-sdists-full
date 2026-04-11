@@ -229,11 +229,12 @@ async def test_tls_autodetect_empty_peek():
         side_effect=lambda name, **kw: mock_sock if name == "socket" else None
     )
     proto._transport = transport
+    proto._detect_timer = MagicMock()
 
     dup_sock = MagicMock()
     dup_sock.recv.return_value = b""
     with patch("socket.fromfd", return_value=dup_sock):
-        proto._detect_tls()
+        proto._try_peek()
 
     transport.close.assert_called_once()
 
@@ -251,6 +252,68 @@ async def test_tls_upgrade_handshake_failure():
         await proto._upgrade_to_tls()
 
     transport.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_tls_clienthello_rejected_without_ssl(caplog):
+    """TLS ClientHello on a plain server logs a warning and closes."""
+    server = TelnetServer(encoding=False, connect_maxwait=0.01)
+    closed = []
+
+    class FakeTransport:
+        def get_extra_info(self, name, default=None):
+            if name == "peername":
+                return ("10.0.0.1", 4444)
+            return default
+
+        def write(self, data):
+            pass
+
+        def is_closing(self):
+            return False
+
+        def close(self):
+            closed.append(True)
+
+    server.connection_made(FakeTransport())
+
+    # TLS ClientHello record: content_type=0x16, version=TLS 1.0
+    clienthello = b"\x16\x03\x01\x00\x05hello"
+    with caplog.at_level(logging.WARNING, logger="telnetlib3.server"):
+        server.data_received(clienthello)
+
+    assert len(closed) == 1
+    assert "TLS ClientHello" in caplog.text
+    assert "10.0.0.1" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_tls_clienthello_check_only_first_data():
+    """The TLS check only fires on the first data_received call."""
+    server = TelnetServer(encoding=False, connect_maxwait=0.01)
+
+    class FakeTransport:
+        def get_extra_info(self, name, default=None):
+            if name == "peername":
+                return ("127.0.0.1", 9999)
+            return default
+
+        def write(self, data):
+            pass
+
+        def is_closing(self):
+            return False
+
+        def close(self):
+            pass
+
+    server.connection_made(FakeTransport())
+
+    # First call with normal telnet data
+    server.data_received(b"\xff\xfb\x18")
+    # Second call starting with 0x16 should NOT trigger TLS rejection
+    server.data_received(b"\x16some data")
+    assert server._tls_checked is True
 
 
 @pytest.mark.asyncio
@@ -396,3 +459,41 @@ async def test_data_received_no_iac_batch():
     data = b"plain text no iac"
     server.data_received(data)
     assert bytes(server.reader._buffer).endswith(data)
+
+
+@pytest.mark.parametrize(
+    "ssl_obj,expect_log",
+    [
+        pytest.param(None, False, id="no_tls"),
+        pytest.param(
+            type(
+                "SSL",
+                (),
+                {"version": lambda self: "TLSv1.3", "cipher": lambda self: ("AES", "TLSv1.3", 256)},
+            )(),
+            True,
+            id="tls_with_cipher",
+        ),
+        pytest.param(
+            type("SSL", (), {"version": lambda self: None, "cipher": lambda self: None})(),
+            True,
+            id="tls_no_cipher",
+        ),
+    ],
+)
+def test_log_tls_info(ssl_obj, expect_log, caplog):
+    from telnetlib3._base import TelnetProtocolBase
+
+    proto = TelnetProtocolBase.__new__(TelnetProtocolBase)
+    proto._extra = {}
+    proto._transport = MagicMock()
+    proto._transport.get_extra_info = lambda name, default=None: (
+        ssl_obj if name == "ssl_object" else default
+    )
+    log = logging.getLogger("test_tls_info")
+    with caplog.at_level(logging.DEBUG, logger="test_tls_info"):
+        proto._log_tls_info(log)
+    tls_msgs = [r for r in caplog.records if "TLS handshake" in r.message]
+    assert bool(tls_msgs) == expect_log
+    if ssl_obj and ssl_obj.cipher():
+        assert "AES" in tls_msgs[0].message

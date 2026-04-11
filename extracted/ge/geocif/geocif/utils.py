@@ -819,7 +819,7 @@ def display_run_summary(title, params, wait=20):
     Print a rich-formatted summary of run parameters, then wait.
 
     Args:
-        title: Header string (e.g. "GeoCIF ML Runner" or "CEI Indices Runner")
+        title: Header string (e.g. "GeoCIF ML Runner" or "CID Indices Runner")
         params: list of (label, value) tuples to display
         wait: seconds to wait before starting (0 to skip)
     """

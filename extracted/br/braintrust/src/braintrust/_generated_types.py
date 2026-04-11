@@ -2082,12 +2082,28 @@ class Role(TypedDict):
 
 class RunEvalData(TypedDict):
     dataset_id: str
+    dataset_version: NotRequired[str | None]
+    """
+    The version of the dataset to evaluate
+    """
+    dataset_environment: NotRequired[str | None]
+    """
+    The environment tag that resolves to the dataset version to evaluate
+    """
     _internal_btql: NotRequired[Mapping[str, Any] | None]
 
 
 class RunEvalData1(TypedDict):
     project_name: str
     dataset_name: str
+    dataset_version: NotRequired[str | None]
+    """
+    The version of the dataset to evaluate
+    """
+    dataset_environment: NotRequired[str | None]
+    """
+    The environment tag that resolves to the dataset version to evaluate
+    """
     _internal_btql: NotRequired[Mapping[str, Any] | None]
 
 
@@ -2626,6 +2642,7 @@ class ViewOptionsViewOptions1(TypedDict):
     rowHeight: NotRequired[str | None]
     tallGroupRows: NotRequired[bool | None]
     layout: NotRequired[str | None]
+    topicMapReportKey: NotRequired[str | None]
     chartHeight: NotRequired[float | None]
     excludedMeasures: NotRequired[Sequence[ViewOptionsViewOptions1ExcludedMeasure] | None]
     yMetric: NotRequired[ViewOptionsViewOptions1YMetric | None]
@@ -2638,6 +2655,7 @@ class ViewOptionsViewOptions1(TypedDict):
     chartAnnotations: NotRequired[Sequence[ViewOptionsViewOptions1ChartAnnotation] | None]
     timeRangeFilter: NotRequired[str | ViewOptionsViewOptions1TimeRangeFilter | None]
     queryShape: NotRequired[Literal['traces', 'spans'] | None]
+    cluster: NotRequired[str | None]
     freezeColumns: NotRequired[bool | None]
 
 

@@ -25,6 +25,7 @@ from arthur_client.api_bindings.models.compliance_rule_status_filter import Comp
 from arthur_client.api_bindings.models.compliance_rule_type import ComplianceRuleType
 from arthur_client.api_bindings.models.compliance_status import ComplianceStatus
 from arthur_client.api_bindings.models.create_policy_assignments_request import CreatePolicyAssignmentsRequest
+from arthur_client.api_bindings.models.infinite_resource_list_compliance_row import InfiniteResourceListComplianceRow
 from arthur_client.api_bindings.models.jobs_batch import JobsBatch
 from arthur_client.api_bindings.models.patch_policy import PatchPolicy
 from arthur_client.api_bindings.models.patch_policy_alert_rule import PatchPolicyAlertRule
@@ -6836,6 +6837,412 @@ class PoliciesV1Api:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/api/v1/policies/{policy_id}/attestation_rules',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def list_policy_compliance_history(
+        self,
+        policy_id: StrictStr,
+        compliance_status: Annotated[Optional[ComplianceRuleStatusFilter], Field(description="Filter by rule compliance status: 'COMPLIANT' or 'NON_COMPLIANT'.")] = None,
+        model_id: Annotated[Optional[StrictStr], Field(description="Filter to a specific model.")] = None,
+        rule_type: Annotated[Optional[ComplianceRuleType], Field(description="Filter by rule type: 'alert_rule' or 'attestation_rule'.")] = None,
+        rule_id: Annotated[Optional[StrictStr], Field(description="Filter to rows for a specific rule.")] = None,
+        sort: Annotated[Optional[StrictStr], Field(description="Sort field: rule_name, rule_type, compliance_status, updated_at, created_at.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="Sort order: asc or desc.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> InfiniteResourceListComplianceRow:
+        """List Policy Compliance History
+
+        Returns the full rule compliance evaluation history for a policy. Requires policy_list_compliance_history permission.
+
+        :param policy_id: (required)
+        :type policy_id: str
+        :param compliance_status: Filter by rule compliance status: 'COMPLIANT' or 'NON_COMPLIANT'.
+        :type compliance_status: ComplianceRuleStatusFilter
+        :param model_id: Filter to a specific model.
+        :type model_id: str
+        :param rule_type: Filter by rule type: 'alert_rule' or 'attestation_rule'.
+        :type rule_type: ComplianceRuleType
+        :param rule_id: Filter to rows for a specific rule.
+        :type rule_id: str
+        :param sort: Sort field: rule_name, rule_type, compliance_status, updated_at, created_at.
+        :type sort: str
+        :param order: Sort order: asc or desc.
+        :type order: SortOrder
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_policy_compliance_history_serialize(
+            policy_id=policy_id,
+            compliance_status=compliance_status,
+            model_id=model_id,
+            rule_type=rule_type,
+            rule_id=rule_id,
+            sort=sort,
+            order=order,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "InfiniteResourceListComplianceRow",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_policy_compliance_history_with_http_info(
+        self,
+        policy_id: StrictStr,
+        compliance_status: Annotated[Optional[ComplianceRuleStatusFilter], Field(description="Filter by rule compliance status: 'COMPLIANT' or 'NON_COMPLIANT'.")] = None,
+        model_id: Annotated[Optional[StrictStr], Field(description="Filter to a specific model.")] = None,
+        rule_type: Annotated[Optional[ComplianceRuleType], Field(description="Filter by rule type: 'alert_rule' or 'attestation_rule'.")] = None,
+        rule_id: Annotated[Optional[StrictStr], Field(description="Filter to rows for a specific rule.")] = None,
+        sort: Annotated[Optional[StrictStr], Field(description="Sort field: rule_name, rule_type, compliance_status, updated_at, created_at.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="Sort order: asc or desc.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[InfiniteResourceListComplianceRow]:
+        """List Policy Compliance History
+
+        Returns the full rule compliance evaluation history for a policy. Requires policy_list_compliance_history permission.
+
+        :param policy_id: (required)
+        :type policy_id: str
+        :param compliance_status: Filter by rule compliance status: 'COMPLIANT' or 'NON_COMPLIANT'.
+        :type compliance_status: ComplianceRuleStatusFilter
+        :param model_id: Filter to a specific model.
+        :type model_id: str
+        :param rule_type: Filter by rule type: 'alert_rule' or 'attestation_rule'.
+        :type rule_type: ComplianceRuleType
+        :param rule_id: Filter to rows for a specific rule.
+        :type rule_id: str
+        :param sort: Sort field: rule_name, rule_type, compliance_status, updated_at, created_at.
+        :type sort: str
+        :param order: Sort order: asc or desc.
+        :type order: SortOrder
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_policy_compliance_history_serialize(
+            policy_id=policy_id,
+            compliance_status=compliance_status,
+            model_id=model_id,
+            rule_type=rule_type,
+            rule_id=rule_id,
+            sort=sort,
+            order=order,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "InfiniteResourceListComplianceRow",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_policy_compliance_history_without_preload_content(
+        self,
+        policy_id: StrictStr,
+        compliance_status: Annotated[Optional[ComplianceRuleStatusFilter], Field(description="Filter by rule compliance status: 'COMPLIANT' or 'NON_COMPLIANT'.")] = None,
+        model_id: Annotated[Optional[StrictStr], Field(description="Filter to a specific model.")] = None,
+        rule_type: Annotated[Optional[ComplianceRuleType], Field(description="Filter by rule type: 'alert_rule' or 'attestation_rule'.")] = None,
+        rule_id: Annotated[Optional[StrictStr], Field(description="Filter to rows for a specific rule.")] = None,
+        sort: Annotated[Optional[StrictStr], Field(description="Sort field: rule_name, rule_type, compliance_status, updated_at, created_at.")] = None,
+        order: Annotated[Optional[SortOrder], Field(description="Sort order: asc or desc.")] = None,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
+        page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """List Policy Compliance History
+
+        Returns the full rule compliance evaluation history for a policy. Requires policy_list_compliance_history permission.
+
+        :param policy_id: (required)
+        :type policy_id: str
+        :param compliance_status: Filter by rule compliance status: 'COMPLIANT' or 'NON_COMPLIANT'.
+        :type compliance_status: ComplianceRuleStatusFilter
+        :param model_id: Filter to a specific model.
+        :type model_id: str
+        :param rule_type: Filter by rule type: 'alert_rule' or 'attestation_rule'.
+        :type rule_type: ComplianceRuleType
+        :param rule_id: Filter to rows for a specific rule.
+        :type rule_id: str
+        :param sort: Sort field: rule_name, rule_type, compliance_status, updated_at, created_at.
+        :type sort: str
+        :param order: Sort order: asc or desc.
+        :type order: SortOrder
+        :param page: The page to return starting from 1 up to total_pages.
+        :type page: int
+        :param page_size: The number of records per page. The max is 1000.
+        :type page_size: int
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._list_policy_compliance_history_serialize(
+            policy_id=policy_id,
+            compliance_status=compliance_status,
+            model_id=model_id,
+            rule_type=rule_type,
+            rule_id=rule_id,
+            sort=sort,
+            order=order,
+            page=page,
+            page_size=page_size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "InfiniteResourceListComplianceRow",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _list_policy_compliance_history_serialize(
+        self,
+        policy_id,
+        compliance_status,
+        model_id,
+        rule_type,
+        rule_id,
+        sort,
+        order,
+        page,
+        page_size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if policy_id is not None:
+            _path_params['policy_id'] = policy_id
+        # process the query parameters
+        if compliance_status is not None:
+            
+            _query_params.append(('compliance_status', compliance_status.value))
+            
+        if model_id is not None:
+            
+            _query_params.append(('model_id', model_id))
+            
+        if rule_type is not None:
+            
+            _query_params.append(('rule_type', rule_type.value))
+            
+        if rule_id is not None:
+            
+            _query_params.append(('rule_id', rule_id))
+            
+        if sort is not None:
+            
+            _query_params.append(('sort', sort))
+            
+        if order is not None:
+            
+            _query_params.append(('order', order.value))
+            
+        if page is not None:
+            
+            _query_params.append(('page', page))
+            
+        if page_size is not None:
+            
+            _query_params.append(('page_size', page_size))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/policies/{policy_id}/compliance_history',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

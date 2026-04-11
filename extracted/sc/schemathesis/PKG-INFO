@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schemathesis
-Version: 4.15.0
+Version: 4.15.1
 Summary: Property-based testing framework for Open API and GraphQL based apps
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -204,6 +204,11 @@ Used by teams at **[Spotify](https://github.com/backstage/backstage)**, **[WordP
 - Code & API schema coverage achieved
 - Issues found with detailed categorization
 - Performance across different fuzzing strategies
+
+## Reporting
+
+- **[Allure](https://schemathesis.readthedocs.io/en/stable/guides/allure/)** — Rich visual reports with per-operation results, failure steps, and curl reproduction commands
+- **[JUnit XML](https://schemathesis.readthedocs.io/en/stable/guides/cicd/)** — For GitHub Actions, GitLab CI, Jenkins, and any CI tool that consumes JUnit
 
 ## Documentation
 

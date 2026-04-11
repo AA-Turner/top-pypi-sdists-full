@@ -360,6 +360,27 @@ async def run_send_followup(
             f"Use send_message(action='reply') to respond."
         )
 
+    # ── Step 5c: Load warm-up engagement history ──
+    engagement_history: list[dict] = []
+    try:
+        def _fetch_engagements(oid: str) -> list[dict]:
+            from ..db.schema import get_db as _get_db_eng
+            _eng_db = _get_db_eng()
+            rows = _eng_db.execute(
+                "SELECT action_type, post_text, text, reaction_type, created_at "
+                "FROM engagements WHERE outreach_id = ? AND status IN ('sent', 'verified') "
+                "ORDER BY created_at ASC",
+                (oid,),
+            ).fetchall()
+            _eng_db.close()
+            return [dict(r) for r in rows]
+
+        engagement_history = await run_db(_fetch_engagements, outreach_id)
+        if engagement_history:
+            logger.info("Loaded %d engagements for outreach %s", len(engagement_history), outreach_id[:8])
+    except Exception as e:
+        logger.debug("Engagement history load skipped: %s", e)
+
     # ── Step 6: Generate follow-up message ──
     sender_profile = await db.get_setting("profile", {})
     voice_signature = await db.get_setting("voice_signature", {})
@@ -424,6 +445,7 @@ async def run_send_followup(
             prospect_analysis=prospect_analysis,
             campaign_ctx=campaign_ctx,
             outreach_id=outreach_id,
+            engagement_history=engagement_history,
         )
         message = result.get("message", "")
         reasoning = result.get("reasoning", {})

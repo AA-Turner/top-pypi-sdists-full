@@ -45,6 +45,7 @@ pub(crate) async fn setup_channel_for_data_channel(
     data_channel: &WebRTCDataChannel,
     peer_connection: &crate::webrtc_core::WebRTCPeerConnection,
     label: String,
+    tube_id: String,
     timeouts: Option<TunnelTimeouts>,
     protocol_settings: HashMap<String, serde_json::Value>,
     server_mode: bool,
@@ -72,6 +73,7 @@ pub(crate) async fn setup_channel_for_data_channel(
         rx_from_dc: rx,
         tx_from_dc: tx_from_dc.clone(),
         channel_id: label.clone(),
+        tube_id,
         timeouts,
         protocol_settings,
         server_mode,
@@ -133,8 +135,11 @@ pub(crate) async fn setup_channel_for_data_channel(
 
             if let Some(tx) = tx_holder.lock().as_ref() {
                 if let Err(_e) = tx.send(message_bytes) {
-                    error!(
-                        "Channel: Failed to send message to MPSC channel for processing (channel_id: {})",
+                    // Receiver dropped — channel run loop already exited.
+                    // This is expected during rapid close/reopen cycles when data
+                    // arrives in flight after teardown.  Not a real error.
+                    debug!(
+                        "Channel: Data arrived after channel closed, dropping (channel_id: {})",
                         label_clone
                     );
                 }

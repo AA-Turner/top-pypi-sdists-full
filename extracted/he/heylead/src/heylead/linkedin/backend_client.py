@@ -3181,10 +3181,11 @@ class BackendClient:
         campaign_context: dict[str, Any],
         conversation_history: list[dict[str, Any]],
         followup_number: int = 1,
+        engagement_history: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Generate a follow-up DM via the backend LLM proxy."""
         url = f"{self.base_url}/api/v1/llm/generate-followup"
-        payload = {
+        payload: dict[str, Any] = {
             "sender": sender,
             "prospect": prospect,
             "voice": voice,
@@ -3192,6 +3193,8 @@ class BackendClient:
             "conversation_history": conversation_history,
             "followup_number": followup_number,
         }
+        if engagement_history:
+            payload["engagement_history"] = engagement_history
         try:
             resp = await self._client.post(url, json=payload, headers=self._headers())
         except (httpx.ConnectError, httpx.TimeoutException) as e:

@@ -22,11 +22,13 @@
 #
 
 
+import inspect
 import os
 import sys
 import tempfile
 import threading
 from concurrent import futures
+from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
@@ -143,7 +145,9 @@ from snowflake.snowpark_connect.utils.snowpark_connect_logging import (
     logger,
 )
 from snowflake.snowpark_connect.utils.spark_session_cache import (
+    ArtifactStore,
     clear_spark_session_cache,
+    get_spark_session_cache,
 )
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -670,7 +674,9 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
         response: dict[str, proto_base.AddArtifactsResponse.ArtifactSummary] = {}
         artifact_hashes_to_cache: set[ArtifactKey] = set()
 
-        def _try_handle_local_relation(artifact_name: str, data: bytes):
+        def _try_handle_local_relation(
+            artifact_name: str, data: bytes, artifacts_store: ArtifactStore
+        ):
             """
             Attempt to deserialize the artifact data to a LocalRelation protobuf message.
             LocalRelation messages represent in-memory data that should be materialized
@@ -684,15 +690,14 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
             )  # heuristic to identify local relations
 
             def _handle_regular_artifact():
-                artifact = write_artifact(
+                filepath = write_artifact(
                     session,
                     get_spark_session_id(),
                     artifact_name,
                     data,
                     overwrite=True,
                 )
-                with session._filenames_lock:
-                    session._filenames[get_spark_session_id()][artifact_name] = artifact
+                artifacts_store.set_filename(artifact_name, filepath)
 
             if is_likely_local_relation:
                 try:
@@ -727,9 +732,7 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
             clear_context_data()
             set_spark_session_id(request.session_id)
             set_spark_version(request.client_type)
-            with session._filenames_lock:
-                if request.session_id not in session._filenames:
-                    session._filenames[request.session_id] = {}
+            artifacts_store = get_spark_session_cache().artifacts_store
 
             match request.WhichOneof("payload"):
                 case "begin_chunk":
@@ -742,30 +745,22 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
                             current_name, request.begin_chunk.initial_chunk.data
                         ),
                     }
-                    with session._filenames_lock:
-                        assert (
-                            current_name not in session._filenames[request.session_id]
-                        ), "Duplicate artifact name found."
+                    artifacts_store.assert_no_duplicate_filename(current_name)
 
                     if current_name.startswith("cache/"):
                         current_chunk["cache"] = bytearray(
                             request.begin_chunk.initial_chunk.data
                         )
                     else:
-                        artifact = write_artifact(
+                        filepath = write_artifact(
                             session,
                             get_spark_session_id(),
                             current_name,
                             request.begin_chunk.initial_chunk.data,
                             overwrite=True,
                         )
-                        with session._filenames_lock:
-                            session._filenames[request.session_id][
-                                current_name
-                            ] = artifact
-                    # cache current chunk
-                    with session._current_chunk_lock:
-                        session._current_chunk[request.session_id] = current_chunk
+                        artifacts_store.set_filename(current_name, filepath)
+                    artifacts_store.set_current_chunk(current_chunk)
                     response[
                         current_name
                     ] = proto_base.AddArtifactsResponse.ArtifactSummary(
@@ -776,17 +771,13 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
                         ),
                     )
                 case "chunk":
-                    # retrieve current chunk
-                    with session._current_chunk_lock:
-                        if request.session_id not in session._current_chunk:
-                            exception = ValueError(
-                                f"Received 'chunk' for session_id '{request.session_id}' without a prior 'begin_chunk'."
-                            )
-                            attach_custom_error_code(
-                                exception, ErrorCodes.INTERNAL_ERROR
-                            )
-                            raise exception
-                        current_chunk = session._current_chunk[request.session_id]
+                    current_chunk = artifacts_store.get_current_chunk()
+                    if current_chunk is None:
+                        exception = ValueError(
+                            f"Received 'chunk' for session_id '{request.session_id}' without a prior 'begin_chunk'."
+                        )
+                        attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
+                        raise exception
 
                     current_name = current_chunk["name"]
                     current_chunk["current_chunk_index"] += 1
@@ -799,46 +790,33 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
                     if current_name.startswith("cache/"):
                         current_chunk["cache"].extend(request.chunk.data)
                     else:
-                        artifact = write_artifact(
+                        filepath = write_artifact(
                             session,
                             get_spark_session_id(),
                             current_name,
                             request.chunk.data,
                         )
-                        with session._filenames_lock:
-                            assert (
-                                session._filenames[request.session_id][current_name]
-                                == artifact
-                            ), "Artifact staging error."
+                        artifacts_store.assert_filename_matches(current_name, filepath)
 
                     if (
                         current_chunk["current_chunk_index"]
                         == current_chunk["num_chunks"]
                     ):
-                        # all chunks are ready
                         if current_name.startswith("cache/"):
                             _try_handle_local_relation(
-                                current_name, bytes(current_chunk["cache"])
+                                current_name,
+                                bytes(current_chunk["cache"]),
+                                artifacts_store,
                             )
-                        is_cached_artifact = False
-                        with session._artifact_hash_cache_lock:
-                            cache_keys = session._artifact_hash_cache.get(
-                                get_spark_session_id(), set()
-                            )
-                            is_cached_artifact = artifact_key in cache_keys
 
-                        if is_cached_artifact:
-                            with session._filenames_lock:
-                                Path(
-                                    session._filenames[request.session_id][current_name]
-                                ).unlink(missing_ok=True)
-                                del session._filenames[request.session_id][current_name]
+                        if artifacts_store.is_cached(artifact_key):
+                            removed = artifacts_store.remove_filename(current_name)
+                            if removed:
+                                Path(removed).unlink(missing_ok=True)
                         else:
                             artifact_hashes_to_cache.add(artifact_key)
 
-                        with session._current_chunk_lock:
-                            # remove current chunk from session
-                            del session._current_chunk[request.session_id]
+                        artifacts_store.set_current_chunk(None)
 
                     response[
                         current_name
@@ -854,25 +832,14 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
                     for artifact in request.batch.artifacts:
                         data = artifact.data.data
                         artifact_key = generate_artifact_key(artifact.name, data)
-                        is_cached_artifact = False
-                        with session._artifact_hash_cache_lock:
-                            cache_keys = session._artifact_hash_cache.get(
-                                get_spark_session_id(), set()
-                            )
-                            is_cached_artifact = artifact_key in cache_keys
-                        if is_cached_artifact:
-                            with session._filenames_lock:
-                                filepath = session._filenames[request.session_id].get(
-                                    artifact.name
-                                )
-                                if filepath:
-                                    # Filepath is stored in second field of the metadata tuple
-                                    Path(filepath).unlink(missing_ok=True)
-                                    del session._filenames[request.session_id][
-                                        artifact.name
-                                    ]
+                        if artifacts_store.is_cached(artifact_key):
+                            removed = artifacts_store.remove_filename(artifact.name)
+                            if removed:
+                                Path(removed).unlink(missing_ok=True)
                         else:
-                            _try_handle_local_relation(artifact.name, data)
+                            _try_handle_local_relation(
+                                artifact.name, data, artifacts_store
+                            )
                             artifact_hashes_to_cache.add(artifact_key)
 
                         response[
@@ -895,15 +862,16 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
         # if current chunk is still not finished, just return here
         # This should only happen in TCM since we have to send request via rest one by one so current chunk cannot be
         # finished in one iteration
-        with session._current_chunk_lock:
-            if request.session_id in session._current_chunk:
-                return proto_base.AddArtifactsResponse(
-                    artifacts=list(response.values())
-                )
+        if artifacts_store.has_current_chunk():
+            return proto_base.AddArtifactsResponse(artifacts=list(response.values()))
 
         class_files: dict[str, str] = {}
-        with session._filenames_lock:
-            for (name, filepath) in session._filenames[get_spark_session_id()].items():
+        spark_session_id = get_spark_session_id()
+
+        with artifacts_store.writer() as artifact_writer:
+            pending_artifacts = artifact_writer.drain_filenames()
+
+            for name, filepath in pending_artifacts.items():
                 if name.endswith(".class"):
                     # name is <dir>/<package>/<class_name>
                     # we don't need the dir name, but require the package, so only remove dir
@@ -925,49 +893,34 @@ class SnowflakeConnectServicer(proto_base_grpc.SparkConnectServiceServicer):
 
                 # Add only files marked to be used in user generated Python UDFs.
                 cached_name = f"{session.get_session_stage()}/{filepath.split('/')[-1]}"
-                if (
-                    not name.startswith("pyfiles")
-                    and cached_name in session._python_files
+                if not name.startswith("pyfiles") and artifact_writer.has_python_file(
+                    cached_name
                 ):
-                    session._python_files.remove(cached_name)
+                    artifact_writer.remove_python_file(cached_name)
                 elif name.startswith("pyfiles"):
-                    session._python_files.add(cached_name)
+                    artifact_writer.add_python_file(cached_name)
 
                 if name.startswith("jars/"):
-                    session._artifact_jars.add(cached_name)
+                    artifact_writer.add_jar(cached_name)
                     # Recreate the Java procedure to reload jars
                     set_java_udf_creator_initialized_state(False)
                 elif not name.startswith("pyfiles"):
-                    session._import_files.add(cached_name)
+                    artifact_writer.add_import_file(cached_name)
 
                 # Remove temporary stored files which are put on the stage
                 os.remove(filepath)
 
             if class_files:
                 jar_name = write_class_files_to_stage(
-                    session, get_spark_session_id(), class_files
+                    session, spark_session_id, class_files
                 )
-                session._artifact_jars.add(jar_name)
+                artifact_writer.add_jar(jar_name)
 
-            if any(
-                not name.startswith("cache")
-                for name in session._filenames[get_spark_session_id()].keys()
-            ):
+            if any(not name.startswith("cache") for name in pending_artifacts.keys()):
                 clear_spark_session_cache(get_spark_session_id())
 
-            # clear filenames for this session
-            session._filenames[get_spark_session_id()] = {}
-
         if artifact_hashes_to_cache:
-            with session._artifact_hash_cache_lock:
-                if get_spark_session_id() in session._artifact_hash_cache:
-                    session._artifact_hash_cache[get_spark_session_id()].update(
-                        artifact_hashes_to_cache
-                    )
-                else:
-                    session._artifact_hash_cache[
-                        get_spark_session_id()
-                    ] = artifact_hashes_to_cache
+            artifacts_store.cache_hashes(artifact_hashes_to_cache)
 
         return proto_base.AddArtifactsResponse(artifacts=list(response.values()))
 
@@ -1399,6 +1352,30 @@ def _is_running_in_snowpark_submit() -> bool:
     return os.getenv("SNOWPARK_SUBMIT_JOB") == "true"
 
 
+def _get_default_app_name() -> str:
+    """Derive a default app name from the caller's filename and current timestamp.
+
+    Walks the call stack to find the first frame outside the snowpark_connect
+    package.  If that frame's filename ends with ``.py`` or ``.ipynb``, uses it
+    as the app name prefix; otherwise falls back to a generic label.
+    """
+    timestamp = datetime.now().strftime("%I:%M:%S%p %m/%d/%y")
+    frame = inspect.currentframe()
+    try:
+        caller = frame
+        while caller is not None:
+            filename = caller.f_code.co_filename
+            if "snowpark_connect" not in filename:
+                basename = os.path.basename(filename)
+                if basename.endswith((".py", ".ipynb")):
+                    return f"{basename} - {timestamp}"
+                break
+            caller = caller.f_back
+    finally:
+        del frame
+    return f"Snowpark Connect Session - {timestamp}"
+
+
 def init_spark_session(
     conf: SparkConf = None,
     connection_parameters: Optional[Dict[str, str]] = None,
@@ -1415,10 +1392,20 @@ def init_spark_session(
             resolver will determine which connection to use from connections.toml.
             Not supported inside snowpark-submit jobs.
         app_name (str): Optional application name to register with the Snowflake session.
+            If not provided, a default is derived from the caller's filename and timestamp.
 
     Returns:
         A new SparkSession connected to the Snowpark Connect server.
     """
+    if app_name is None:
+        try:
+            app_name = _get_default_app_name()
+        except Exception:
+            app_name = (
+                f"Snowpark Connect Session"
+                f" - {datetime.now().strftime('%I:%M:%S%p %m/%d/%y')}"
+            )
+
     if _is_running_in_snowpark_submit():
         # Running inside snowpark-submit - use existing Spark session.
         # The server container already has its own Snowflake connection

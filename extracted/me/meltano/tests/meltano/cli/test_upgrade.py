@@ -19,6 +19,8 @@ if t.TYPE_CHECKING:
 
     from click.testing import CliRunner
 
+    from meltano.core.project import Project
+
 
 class TestCliUpgrade:
     @pytest.mark.usefixtures("project")
@@ -155,7 +157,7 @@ class TestCliUpgrade:
 
     @pytest.mark.order(before="test_upgrade_files_glob_path")
     @pytest.mark.usefixtures("session")
-    def test_upgrade_files(self, project, cli_runner: CliRunner) -> None:
+    def test_upgrade_files(self, project: Project, cli_runner: CliRunner) -> None:
         if platform.system() == "Windows":
             pytest.xfail(
                 "Fails on Windows: https://github.com/meltano/meltano/issues/3444",
@@ -171,7 +173,7 @@ class TestCliUpgrade:
         assert_cli_runner(result)
 
         # Don't update file if unchanged
-        file_path = project.root_dir("orchestrate/dags/meltano.py")
+        file_path = project.dirs.root_dir("orchestrate/dags/meltano.py")
         file_content = file_path.read_text()
 
         result = cli_runner.invoke(cli, ["upgrade", "files"])
@@ -186,7 +188,7 @@ class TestCliUpgrade:
         file_path.write_text("Overwritten!")
 
         # The behavior being tested assumes that the file is not locked.
-        shutil.rmtree(project.root_dir("plugins/files"), ignore_errors=True)
+        shutil.rmtree(project.dirs.root_dir("plugins/files"), ignore_errors=True)
         result = cli_runner.invoke(cli, ["upgrade", "files"])
         output = result.stdout + result.stderr
         assert_cli_runner(result)
@@ -249,7 +251,11 @@ class TestCliUpgrade:
         assert "Updated orchestrate/dags/meltano.py" in output
 
     @pytest.mark.usefixtures("session")
-    def test_upgrade_files_glob_path(self, project, cli_runner: CliRunner) -> None:
+    def test_upgrade_files_glob_path(
+        self,
+        project: Project,
+        cli_runner: CliRunner,
+    ) -> None:
         if platform.system() == "Windows":
             pytest.xfail(
                 "Fails on Windows: https://github.com/meltano/meltano/issues/3444",
@@ -258,7 +264,7 @@ class TestCliUpgrade:
         result = cli_runner.invoke(cli, ["add", "--plugin-type=files", "airflow"])
         assert_cli_runner(result)
 
-        file_path = project.root_dir("orchestrate/dags/meltano.py")
+        file_path = project.dirs.root_dir("orchestrate/dags/meltano.py")
         file_path.write_text("Overwritten!")
 
         # override airflow--meltano.lock update extra config
@@ -292,7 +298,14 @@ class TestCliUpgrade:
 
     @mock_aws
     @pytest.mark.usefixtures("project")
-    def test_upgrade_state(self, cli_runner, monkeypatch) -> None:
+    def test_upgrade_state(
+        self,
+        cli_runner: CliRunner,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+        monkeypatch.delenv("AWS_PROFILE", raising=False)
+
         state_ids = [f"dev:tap-{i}-to-target-{i}" for i in range(10)]
         conn = boto3.resource("s3", region_name="us-east-1")
         bucket = conn.create_bucket(Bucket="test-state-bucket")

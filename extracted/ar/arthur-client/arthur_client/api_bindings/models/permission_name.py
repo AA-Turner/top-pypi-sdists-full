@@ -192,6 +192,7 @@ class PermissionName(str, Enum):
     POLICY_DELETE = 'policy_delete'
     POLICY_LIST_ASSIGNMENTS = 'policy_list_assignments'
     POLICY_CHECK_COMPLIANCE = 'policy_check_compliance'
+    POLICY_LIST_COMPLIANCE_HISTORY = 'policy_list_compliance_history'
     POLICY_LIST_ALERT_RULES = 'policy_list_alert_rules'
     POLICY_CREATE_ALERT_RULE = 'policy_create_alert_rule'
     POLICY_ALERT_RULE_READ = 'policy_alert_rule_read'

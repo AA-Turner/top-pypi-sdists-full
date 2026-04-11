@@ -2,6 +2,7 @@ from __future__ import annotations  # noqa: D100
 
 import json
 import logging
+import sys
 import typing as t
 from textwrap import dedent
 
@@ -13,6 +14,11 @@ from meltano.core.constants import LOG_PARSER_SINGER_SDK
 from meltano.core.plugin import BasePlugin
 from meltano.core.setting_definition import SettingDefinition, json_dumps
 from meltano.core.utils import nest_object, uuid7
+
+if sys.version_info >= (3, 12):
+    from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
 
 if t.TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -26,11 +32,10 @@ def _get_sdk_logging(
     *,
     level: str,
     formatter: dict[str, t.Any],
-    disable_existing_loggers: bool = False,
 ) -> dict[str, t.Any]:
     return {
         "version": 1,
-        "disable_existing_loggers": disable_existing_loggers,
+        "disable_existing_loggers": False,
         "formatters": {
             "singer_formatter": formatter,
         },
@@ -68,8 +73,9 @@ class SingerPlugin(BasePlugin):
         # errors from Canonical.
         self._instance_uuid: str | None = None
 
-    def process_config(self, flat_config: dict) -> dict:  # noqa: D102
-        non_null_config = {k: v for k, v in flat_config.items() if v is not None}
+    @override
+    def process_config(self, config: dict) -> dict:
+        non_null_config = {k: v for k, v in config.items() if v is not None}
         processed_config = nest_object(non_null_config)
         # Result at this point will contain duplicate entries for nested config
         # options. We need to pop those redundant entries recursively.
@@ -147,23 +153,19 @@ class SingerPlugin(BasePlugin):
         log_parser = plugin_invoker.get_log_parser()
 
         # https://sdk.meltano.com/en/v0.49.1/implementation/logging.html
-        if log_parser == LOG_PARSER_SINGER_SDK:
-            # Structured logging configuration
-            formatter = {"()": "singer_sdk.logging.StructuredFormatter"}
-            disable_existing_loggers = True
-        else:
-            # Default logging configuration
-            formatter = {"format": "%(message)s"}
-            disable_existing_loggers = False
-
-        logging_config = _get_sdk_logging(
-            level=log_level,
-            formatter=formatter,
-            disable_existing_loggers=disable_existing_loggers,
+        formatter = (
+            {"()": "singer_sdk.logging.StructuredFormatter"}  # Structured logging
+            if log_parser == LOG_PARSER_SINGER_SDK
+            else {"format": "%(message)s"}  # Default logging configuration
         )
 
         async with await anyio.open_file(singer_sdk_logging, mode="w") as f:
-            await f.write(json.dumps(logging_config, indent=2))
+            await f.write(
+                json.dumps(
+                    _get_sdk_logging(level=log_level, formatter=formatter),
+                    indent=2,
+                )
+            )
 
         # https://github.com/transferwise/pipelinewise-singer-python/blob/da64a10cdbcad48ab373d4dab3d9e6dd6f58556b/singer/logger.py#L9C9-L9C26
         async with await anyio.open_file(pipelinewise_logging, mode="w") as f:

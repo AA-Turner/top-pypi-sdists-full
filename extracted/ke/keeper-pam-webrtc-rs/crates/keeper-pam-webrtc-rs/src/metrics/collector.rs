@@ -319,6 +319,36 @@ impl MetricsCollector {
         }
     }
 
+    /// Record one SCTP backpressure pause from the outbound task.
+    ///
+    /// Called each time the outbound loop detects `sctp_buffered > SCTP_HIGH_WATER`
+    /// and waits for `on_buffered_amount_low`. `pause_us` is the wall-clock wait
+    /// duration; `peak_sctp_bytes` is the buffer depth at pause entry.
+    pub fn record_backpressure_pause(
+        &self,
+        conversation_id: &str,
+        pause_us: u64,
+        peak_sctp_bytes: usize,
+    ) {
+        if let Ok(states) = self.connection_states.read() {
+            if let Some(state) = states.get(conversation_id) {
+                state
+                    .atomic_counters
+                    .record_pacing_pause(pause_us, peak_sctp_bytes);
+            }
+        }
+    }
+
+    /// Read pacing counters for a connection without going through the aggregation cycle.
+    /// Returns `(pauses, total_paused_us, peak_sctp_bytes)`, or `None` if not registered.
+    pub fn get_pacing_stats(&self, conversation_id: &str) -> Option<(u64, u64, usize)> {
+        self.connection_states
+            .read()
+            .ok()?
+            .get(conversation_id)
+            .map(|s| s.atomic_counters.pacing_snapshot())
+    }
+
     /// Update ICE gathering start time
     pub fn update_ice_gathering_start(&self, conversation_id: &str, timestamp_ms: f64) {
         if let Ok(mut states) = self.connection_states.write() {

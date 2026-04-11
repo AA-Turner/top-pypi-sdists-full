@@ -1,6 +1,6 @@
 [project]
 name = "jcodemunch-mcp"
-version = "1.24.1"
+version = "1.32.1"
 description = "Token-efficient MCP server for source code exploration via tree-sitter AST parsing"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -30,7 +30,8 @@ dbt = ["pyyaml>=6.0"]
 http = ["uvicorn>=0.20.0", "starlette>=0.27.0", "anyio>=4.0.0"]
 watch = ["watchfiles>=1.0.0"]
 semantic = ["sentence-transformers>=2.2.0"]
-all = ["anthropic>=0.40.0", "google-generativeai>=0.8.0", "openai>=1.0.0", "pyyaml>=6.0", "uvicorn>=0.20.0", "starlette>=0.27.0", "anyio>=4.0.0", "watchfiles>=1.0.0", "sentence-transformers>=2.2.0"]
+local-embed = ["onnxruntime>=1.16.0"]
+all = ["anthropic>=0.40.0", "google-generativeai>=0.8.0", "openai>=1.0.0", "pyyaml>=6.0", "uvicorn>=0.20.0", "starlette>=0.27.0", "anyio>=4.0.0", "watchfiles>=1.0.0", "sentence-transformers>=2.2.0", "onnxruntime>=1.16.0"]
 
 
 [project.scripts]
@@ -44,7 +45,7 @@ build-backend = "hatchling.build"
 packages = ["src/jcodemunch_mcp"]
 
 [tool.hatch.build.targets.sdist]
-exclude = [".claude/"]
+exclude = [".claude/", "index.php"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

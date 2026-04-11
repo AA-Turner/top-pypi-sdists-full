@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nox
-Version: 2026.2.9
+Version: 2026.4.10
 Summary: Flexible test automation.
 Project-URL: bug-tracker, https://github.com/wntrblm/nox/issues
 Project-URL: documentation, https://nox.thea.codes
@@ -19,7 +19,6 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,7 +26,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: argcomplete<4,>=1.9.4
 Requires-Dist: attrs>=24.1
 Requires-Dist: colorlog<7,>=2.6.1
@@ -40,7 +39,6 @@ Requires-Dist: virtualenv>=20.15; python_version >= '3.10'
 Provides-Extra: pbs
 Requires-Dist: pbs-installer[all]>=2025.1.6; extra == 'pbs'
 Provides-Extra: tox-to-nox
-Requires-Dist: importlib-resources; (python_version < '3.9') and extra == 'tox-to-nox'
 Requires-Dist: jinja2; extra == 'tox-to-nox'
 Requires-Dist: tox>=4; extra == 'tox-to-nox'
 Provides-Extra: uv
@@ -114,6 +112,12 @@ python3 -m pip install --user nox
 
 ```shell
 nox -l/--list
+```
+
+### Get help on a particular session (if it has a docstring)
+
+```shell
+nox --usage test
 ```
 
 ### Run all sessions

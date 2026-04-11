@@ -505,6 +505,7 @@ def build_context_block(
     max_chars: int = 200,
     news_context: str | None = None,
     previously_used: str | None = None,
+    engagement_history: str | None = None,
 ) -> dict[str, str]:
     """Build the complete variable dict mapping HeyLead data → v63 variable names.
 
@@ -562,6 +563,8 @@ def build_context_block(
         "news_context": news_context or "",
         # Conversation memory (from memory_json, Sprint 16)
         "previously_used": previously_used or "",
+        # Warm-up engagement history (comments, likes on prospect's posts)
+        "engagement_history": engagement_history or "",
         # Language detection — reply in the same language the prospect uses
         "language_rule": _detect_conversation_language(history),
         # Conversation stage — how many prospect replies we've received

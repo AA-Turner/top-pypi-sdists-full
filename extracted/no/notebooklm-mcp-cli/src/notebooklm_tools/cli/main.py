@@ -260,7 +260,9 @@ def login_callback(
             )
 
             if not is_wsl():
-                console.print("[yellow]Warning:[/yellow] --wsl flag used but not in WSL environment. Ignoring.")
+                console.print(
+                    "[yellow]Warning:[/yellow] --wsl flag used but not in WSL environment. Ignoring."
+                )
             else:
                 from notebooklm_tools.utils.wsl import DEFAULT_WSL_CDP_PORT
 
@@ -282,19 +284,29 @@ def login_callback(
 
                 if not check_firewall_rule(wsl_port):
                     console.print("\n[yellow]Windows Firewall Setup Required[/yellow]")
-                    console.print(f"\nA firewall rule is needed to allow WSL to connect to Windows Chrome on port {wsl_port}.")
-                    console.print("\n[bold]Step 1:[/bold] Open [cyan]Windows PowerShell as Administrator[/cyan] and run:")
-                    console.print(f'\n  New-NetFirewallRule -DisplayName "NotebookLM-CDP-{wsl_port}" -Direction Inbound -Action Allow -Protocol TCP -LocalPort {wsl_port} -RemoteAddress LocalSubnet\n')
-                    console.print("[bold]Step 2:[/bold] After running the command above, press [bold]Enter[/bold] here to continue...")
-                    
+                    console.print(
+                        f"\nA firewall rule is needed to allow WSL to connect to Windows Chrome on port {wsl_port}."
+                    )
+                    console.print(
+                        "\n[bold]Step 1:[/bold] Open [cyan]Windows PowerShell as Administrator[/cyan] and run:"
+                    )
+                    console.print(
+                        f'\n  New-NetFirewallRule -DisplayName "NotebookLM-CDP-{wsl_port}" -Direction Inbound -Action Allow -Protocol TCP -LocalPort {wsl_port} -RemoteAddress LocalSubnet\n'
+                    )
+                    console.print(
+                        "[bold]Step 2:[/bold] After running the command above, press [bold]Enter[/bold] here to continue..."
+                    )
+
                     # Simple wait for Enter
                     input()
-                    
+
                     # Re-check if rule was created
                     if check_firewall_rule(wsl_port):
                         console.print("[green]✓[/green] Firewall rule detected!")
                     else:
-                        console.print("[yellow]Warning:[/yellow] Rule not yet detected, but will attempt to continue...")
+                        console.print(
+                            "[yellow]Warning:[/yellow] Rule not yet detected, but will attempt to continue..."
+                        )
                     console.print()
                 else:
                     console.print("[dim]Windows Firewall: rule exists[/dim]")

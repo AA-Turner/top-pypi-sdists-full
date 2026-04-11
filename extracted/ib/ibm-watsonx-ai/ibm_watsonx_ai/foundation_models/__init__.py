@@ -3,6 +3,7 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
+from ibm_watsonx_ai.foundation_models.batch_inference import BatchInference
 from ibm_watsonx_ai.foundation_models.embeddings import Embeddings
 from ibm_watsonx_ai.foundation_models.inference import (
     AudioModelInference,
@@ -40,4 +41,5 @@ __all__ = [
     "ILabTuner",
     "Model",
     "PromptTuner",
+    "BatchInference",
 ]

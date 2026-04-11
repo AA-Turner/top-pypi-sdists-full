@@ -14,7 +14,7 @@ class WeasyTemplateViewTestCase(SimpleTestCase):
 
     # why lambda? why not just new?
     # https://stackoverflow.com/q/55197479/652457
-    @mock.patch('weasyprint.open', new_callable=lambda: mock.mock_open(read_data=b''))
+    @mock.patch('weasyprint.urls.open', new_callable=lambda: mock.mock_open(read_data=b''))  # noqa: E501
     def test_get_pdf_download_and_options(self, mock_open):
         response = self.client.get('/pdf/download/')
         self.assertEqual(response.status_code, 200)

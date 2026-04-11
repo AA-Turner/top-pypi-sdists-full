@@ -255,7 +255,7 @@ class BaseConnection(observer.Observable):
 
         # prints a debug message about the upgrading of the connection that is
         # going to be performed for the current connection
-        self.owner.debug("Upgrading '%s' into an SSL connection ..." % self.id)
+        self.owner.debug("Upgrading '%s' into an SSL connection ...", self.id)
 
         # sets the SSL flag of the current connection as the connection is now
         # going to be considered as SSL oriented and then sets the upgrading flag
@@ -277,11 +277,11 @@ class BaseConnection(observer.Observable):
         # prints some debug information about the files that are going to be used for
         # the SSL based connection upgrade, this is mainly for debugging purposes
         if key_file:
-            self.owner.debug("Using '%s' as key file" % key_file)
+            self.owner.debug("Using '%s' as key file", key_file)
         if cer_file:
-            self.owner.debug("Using '%s' as certificate file" % cer_file)
+            self.owner.debug("Using '%s' as certificate file", cer_file)
         if ca_file:
-            self.owner.debug("Using '%s' as certificate authority file" % ca_file)
+            self.owner.debug("Using '%s' as certificate authority file", ca_file)
 
         # removes the "old" association socket association for the connection and
         # unsubscribes the "old" socket from the complete set of events, this should
@@ -653,6 +653,7 @@ class BaseConnection(observer.Observable):
 
     def info_dict(self, full=False):
         info = dict(
+            cls=self.__class__.__name__,
             status=self.status,
             id=self.id,
             connecting=self.connecting,
@@ -663,6 +664,11 @@ class BaseConnection(observer.Observable):
             wready=self.wready,
             pending_s=self.pending_s,
             restored_s=self.restored_s,
+            has_starter=self._has_starter,
+            starters_count=len(self.starters),
+            socket_fileno=self._safe_fileno,
+            proxy_pending=getattr(self, "_proxy_pending", None),
+            is_base=getattr(self, "_base", False),
         )
         return info
 
@@ -984,6 +990,17 @@ class BaseConnection(observer.Observable):
 
         self.owner.writes((self.socket,), state=False)
 
+    @property
+    def _has_starter(self):
+        return not self._starter == None
+
+    @property
+    def _safe_fileno(self):
+        try:
+            return self.socket.fileno() if self.socket else None
+        except Exception:
+            return -1
+
 
 class DiagConnection(BaseConnection):
 
@@ -1028,6 +1045,9 @@ class DiagConnection(BaseConnection):
         return delta_s
 
     def _resolve(self, address):
+        if address == None:
+            return None
+
         import netius.common
 
         ip, _port = address

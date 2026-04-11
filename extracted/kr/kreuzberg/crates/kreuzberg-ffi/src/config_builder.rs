@@ -14,7 +14,7 @@ use kreuzberg::core::config::LayoutDetectionConfig;
 #[cfg(feature = "tree-sitter")]
 use kreuzberg::core::config::TreeSitterConfig;
 use kreuzberg::core::config::{
-    AccelerationConfig, ChunkingConfig, ContentFilterConfig, ExtractionConfig, ImageExtractionConfig,
+    AccelerationConfig, ChunkingConfig, ContentFilterConfig, ExtractionConfig, HtmlOutputConfig, ImageExtractionConfig,
     LanguageDetectionConfig, OcrConfig, PdfConfig, PostProcessorConfig,
 };
 use std::ffi::{CStr, c_char};
@@ -128,6 +128,13 @@ impl ConfigBuilder {
         let cf_config: ContentFilterConfig =
             serde_json::from_str(cf_json).map_err(|e| format!("Failed to parse content filter config JSON: {}", e))?;
         self.config.content_filter = Some(cf_config);
+        Ok(())
+    }
+
+    fn set_html_output_from_json(&mut self, json: &str) -> Result<(), String> {
+        let html_output_config: HtmlOutputConfig =
+            serde_json::from_str(json).map_err(|e| format!("Failed to parse HTML output config JSON: {}", e))?;
+        self.config.html_output = Some(html_output_config);
         Ok(())
     }
 
@@ -854,6 +861,59 @@ pub unsafe extern "C" fn kreuzberg_config_builder_set_content_filter(
     })
 }
 
+/// Set HTML output configuration from JSON.
+///
+/// # Arguments
+///
+/// * `builder` - Non-null pointer to ConfigBuilder
+/// * `html_output_json` - JSON string for HTML output config
+///
+/// # Returns
+///
+/// 0 on success, -1 on error (check kreuzberg_last_error)
+///
+/// # Safety
+///
+/// This function is meant to be called from C/FFI code. The caller must ensure:
+/// - `builder` must be a valid, non-null pointer previously returned by `kreuzberg_config_builder_new`
+/// - The pointer must be properly aligned and point to a valid ConfigBuilder instance
+/// - `html_output_json` must be a valid, non-null pointer to a null-terminated UTF-8 string
+/// - The string pointer must remain valid for the duration of the function call
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn kreuzberg_config_builder_set_html_output(
+    builder: *mut ConfigBuilder,
+    html_output_json: *const c_char,
+) -> i32 {
+    ffi_panic_guard_i32!("kreuzberg_config_builder_set_html_output", {
+        if builder.is_null() {
+            set_last_error("ConfigBuilder pointer cannot be NULL".to_string());
+            return -1;
+        }
+        if html_output_json.is_null() {
+            set_last_error("HTML output JSON cannot be NULL".to_string());
+            return -1;
+        }
+
+        clear_last_error();
+
+        let json_str = match unsafe { CStr::from_ptr(html_output_json) }.to_str() {
+            Ok(s) => s,
+            Err(e) => {
+                set_last_error(format!("Invalid UTF-8 in HTML output JSON: {}", e));
+                return -1;
+            }
+        };
+
+        match unsafe { (*builder).set_html_output_from_json(json_str) } {
+            Ok(()) => 0,
+            Err(e) => {
+                set_last_error(e);
+                -1
+            }
+        }
+    })
+}
+
 /// Build the final ExtractionConfig and consume the builder.
 ///
 /// After calling this function, the builder pointer is invalid and must not be used.
@@ -1018,6 +1078,32 @@ mod tests {
             assert!(!cf.include_footers);
             assert!(cf.strip_repeating_text);
             assert!(!cf.include_watermarks);
+
+            // Clean up
+            let _ = Box::from_raw(config);
+        }
+    }
+
+    #[test]
+    fn test_builder_with_html_output() {
+        unsafe {
+            let builder = kreuzberg_config_builder_new();
+            assert!(!builder.is_null());
+
+            let html_json = CString::new(
+                r#"{"theme":"github","class_prefix":"kb-","embed_css":true,"css":".kb-p { color: red; }"}"#,
+            )
+            .unwrap();
+            let result = kreuzberg_config_builder_set_html_output(builder, html_json.as_ptr());
+            assert_eq!(result, 0);
+
+            let config = kreuzberg_config_builder_build(builder);
+            assert!(!config.is_null());
+
+            assert!((*config).html_output.is_some());
+            let ho = (*config).html_output.as_ref().unwrap();
+            assert_eq!(ho.css.as_deref(), Some(".kb-p { color: red; }"));
+            assert!(ho.embed_css);
 
             // Clean up
             let _ = Box::from_raw(config);

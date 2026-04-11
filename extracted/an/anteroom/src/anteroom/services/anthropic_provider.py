@@ -12,6 +12,7 @@ from ..config import AIConfig
 from .async_tasks import cancel_task
 from .egress_allowlist import check_egress_allowed
 from .error_sanitizer import sanitize_provider_error
+from .provider_validation import ProviderRequestError, validate_first_message_user
 from .token_provider import TokenProvider, TokenProviderError
 
 logger = logging.getLogger(__name__)
@@ -171,6 +172,19 @@ class AnthropicService:
             logger.exception("Token refresh failed")
             return False
 
+    def _validate_request(self, anthropic_messages: list[dict[str, Any]]) -> None:
+        """Pre-flight validation for the Anthropic provider.
+
+        Called after ``_convert_messages`` (which extracts system messages),
+        so the list should never contain system roles.
+        """
+        validate_first_message_user(
+            anthropic_messages,
+            allow_leading_system=False,
+            provider="anthropic",
+            model=self.config.model,
+        )
+
     async def stream_chat(
         self,
         messages: list[dict[str, Any]],
@@ -185,6 +199,12 @@ class AnthropicService:
 
         full_messages = [{"role": "system", "content": system_content}] + messages
         system_prompt, anthropic_messages = _convert_messages(full_messages)
+
+        try:
+            self._validate_request(anthropic_messages)
+        except ProviderRequestError as exc:
+            yield exc.to_error_event()
+            return
 
         kwargs: dict[str, Any] = {
             "model": self.config.model,
@@ -560,6 +580,8 @@ class AnthropicService:
 
     async def generate_title(self, user_message: str) -> str:
         try:
+            anthropic_messages = [{"role": "user", "content": user_message}]
+            self._validate_request(anthropic_messages)
             response = await self.client.messages.create(
                 model=self.config.model,
                 max_tokens=20,
@@ -567,7 +589,7 @@ class AnthropicService:
                     "Generate a short title (3-6 words) for a conversation that starts"
                     " with the following message. Return only the title, no quotes or punctuation."
                 ),
-                messages=[{"role": "user", "content": user_message}],
+                messages=anthropic_messages,
             )
             text = response.content[0].text if response.content else "New Conversation"
             return text.strip().strip('"').strip("'")
@@ -577,10 +599,12 @@ class AnthropicService:
 
     async def validate_connection(self, _token_refreshed: bool = False) -> tuple[bool, str, list[str]]:
         try:
+            anthropic_messages = [{"role": "user", "content": "Hi"}]
+            self._validate_request(anthropic_messages)
             await self.client.messages.create(
                 model=self.config.model,
                 max_tokens=5,
-                messages=[{"role": "user", "content": "Hi"}],
+                messages=anthropic_messages,
             )
             return True, "Connected successfully", [self.config.model]
         except AnthropicAuthError:
@@ -605,6 +629,7 @@ class AnthropicService:
     ) -> str | None:
         try:
             _, anthropic_messages = _convert_messages(messages)
+            self._validate_request(anthropic_messages)
             response = await self.client.messages.create(
                 model=self.config.model,
                 max_tokens=max_completion_tokens,
@@ -634,6 +659,7 @@ class AnthropicService:
         """
         try:
             system_prompt, anthropic_messages = _convert_messages(messages)
+            self._validate_request(anthropic_messages)
             kwargs: dict[str, Any] = {
                 "model": self.config.model,
                 "max_tokens": max_completion_tokens,

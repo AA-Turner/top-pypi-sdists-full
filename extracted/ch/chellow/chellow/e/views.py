@@ -1371,13 +1371,12 @@ def dc_contract_properties_edit_post(dc_contract_id):
 
 @e.route("/dc_contracts/<int:dc_contract_id>/edit")
 def dc_contract_edit_get(dc_contract_id):
-    parties = (
-        g.sess.query(Party)
+    parties = g.sess.scalars(
+        select(Party)
         .join(MarketRole)
         .join(Participant)
-        .filter(MarketRole.code == "C")
+        .where(MarketRole.code.in_(DC_MARKET_ROLE_CODES))
         .order_by(Participant.code)
-        .all()
     )
     dc_contract = Contract.get_dc_by_id(g.sess, dc_contract_id)
     initial_date = utc_datetime_now()
@@ -1438,7 +1437,7 @@ def dc_contract_edit_post(contract_id):
                 g.sess.query(Party)
                 .join(MarketRole)
                 .join(Participant)
-                .filter(MarketRole.code == "C")
+                .filter(MarketRole.code.in_(DC_MARKET_ROLE_CODES))
                 .order_by(Participant.code)
                 .all()
             )
@@ -2242,7 +2241,7 @@ def era_edit_form_get(era_id):
                 Contract.finish_rate_script_id == RateScriptAliasFinish.id,
             )
             .where(
-                MarketRole.code.in_(("C", "D")),
+                MarketRole.code.in_(DC_MARKET_ROLE_CODES),
                 start_date >= RateScriptAliasStart.start_date,
             )
             .order_by(Contract.name)
@@ -2294,6 +2293,12 @@ def era_edit_form_get(era_id):
             pc = Pc.get_by_code(g.sess, "00")
         else:
             pc = Pc.get_by_id(g.sess, pc_id)
+
+        dtc_meter_type_id = req_int_none("dtc_meter_type_id")
+        if dtc_meter_type_id is None:
+            dtc_meter_type = None
+        else:
+            dtc_meter_type = DtcMeterType.get_by_id(g.sess, dtc_meter_type_id)
 
         dno = era.supply.dno
 
@@ -2502,6 +2507,7 @@ def era_edit_form_get(era_id):
             imp_llfcs=imp_llfcs,
             exp_llfcs=exp_llfcs,
             dtc_meter_types=dtc_meter_types,
+            dtc_meter_type=dtc_meter_type,
         )
     except BadRequest as e:
         g.sess.rollback()
@@ -3585,7 +3591,6 @@ def mop_contract_edit_get(contract_id):
         .join(Participant)
         .where(MarketRole.code.in_(MOP_MARKET_ROLE_CODES))
         .order_by(Participant.code)
-        .all()
     )
     initial_date = utc_datetime_now()
     contract = Contract.get_mop_by_id(g.sess, contract_id)
@@ -4035,7 +4040,7 @@ def mop_contract_add_post():
         name = req_str("name")
         start_date = req_date("start")
         party = Party.get_mop_by_id(g.sess, party_id)
-        contract = party.insert_contract(g.sess, name, "{}", {}, start_date, None, {})
+        contract = party.insert_contract(g.sess, name, "", {}, start_date, None, {})
         g.sess.commit()
         return chellow_redirect(f"/mop_contracts/{contract.id}", 303)
     except BadRequest as e:
@@ -5039,8 +5044,8 @@ def em_totals(site_id):
     if "mem_id" in request.values:
         print("found mem id")
         mem_id = req_int("mem_id")
-        site_info = chellow.dloads.get_mem_val(mem_id)
-        print(f"sit einfo {site_info}")
+        site_info = chellow.dloads.get_mem_val(mem_id).copy()
+        print(f"sit einfo status {site_info.get('status')}")
 
         status_code = 200 if site_info["status"] == "running" else 286
         print(f"status code {status_code}")
@@ -5201,6 +5206,12 @@ def site_add_e_supply_form_get(site_id):
         else:
             pc = Pc.get_by_id(g.sess, pc_id)
 
+        dtc_meter_type_id = req_int_none("dtc_meter_type_id")
+        if dtc_meter_type_id is None:
+            dtc_meter_type = None
+        else:
+            dtc_meter_type = DtcMeterType.get_by_id(g.sess, dtc_meter_type_id)
+
         participant = dno.participant
 
         if pc.code == "00":
@@ -5352,6 +5363,7 @@ def site_add_e_supply_form_get(site_id):
             imp_llfcs=imp_llfcs,
             exp_llfcs=exp_llfcs,
             dtc_meter_types=dtc_meter_types,
+            dtc_meter_type=dtc_meter_type,
         )
     except BadRequest as e:
         g.sess.rollback()

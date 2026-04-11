@@ -208,13 +208,13 @@ def get_stage_information_dict(stage_str, method):
 
     parts = stage_str.split("_")
     # Find where numeric stage numbers begin.
-    # AEF_N has a numeric band suffix that is part of the CEI name, so skip it.
+    # AEF_N has a numeric band suffix that is part of the CID name, so skip it.
     skip = 2 if parts[0] == "AEF" else 1
     first_stage_idx = next(
         (i for i in range(skip, len(parts)) if parts[i].isdigit()),
         len(parts),
     )
-    cei = "_".join(parts[:first_stage_idx])
+    cid = "_".join(parts[:first_stage_idx])
     stage_parts = parts[first_stage_idx:]
     start_stage = stage_parts[0] if stage_parts else "0"
     end_stage = stage_parts[-1] if stage_parts else "0"
@@ -235,10 +235,10 @@ def get_stage_information_dict(stage_str, method):
         else:
             fldas_lead = 0
 
-    # Exclude cei from the stage_str string
+    # Exclude cid from the stage_str string
     stage_info["Stage_ID"] = "_".join(stage_parts)
 
-    stage_info["CEI"] = cei
+    stage_info["CID"] = cid
     stage_info["Stage Range"] = "_".join([start_stage, end_stage])
 
     stage_info["Starting Stage"] = int(start_stage)
@@ -293,16 +293,16 @@ def update_feature_names(df, method):
         # FLDAS-Forecast V2 STM §6.1.1 and Figures 23-29).
         fldas_lead = None
 
-        # AEF_N has a numeric band suffix that is part of the CEI name
+        # AEF_N has a numeric band suffix that is part of the CID name
         if parts[0] == "AEF" and len(parts) >= 2:
-            cei = "_".join(parts[:2])  # AEF_1, AEF_2, ...
+            cid = "_".join(parts[:2])  # AEF_1, AEF_2, ...
             stage_parts = parts[2:]
         elif parts[0] == "MEAN" and len(parts) >= 2 and parts[1] == "FLDAS":
             # MEAN_FLDAS_SoilMoist_tavg_LEAD0_1_2_3
-            # Find LEADn token to split CEI name from stage numbers
+            # Find LEADn token to split CID name from stage numbers
             lead_idx = next((i for i, p in enumerate(parts) if p.startswith("LEAD")), None)
             if lead_idx is not None:
-                cei = "_".join(parts[:lead_idx + 1])
+                cid = "_".join(parts[:lead_idx + 1])
                 stage_parts = parts[lead_idx + 1:]
                 # Extract integer lead from "LEAD3" -> 3 so the label can
                 # shift by the forecast-target offset.
@@ -311,14 +311,14 @@ def update_feature_names(df, method):
                 except ValueError:
                     fldas_lead = 0
             else:
-                cei = "_".join(parts[:2])
+                cid = "_".join(parts[:2])
                 stage_parts = parts[2:]
                 fldas_lead = 0
         elif len(parts) >= 2 and parts[1].isdigit():
-            cei = parts[0]
+            cid = parts[0]
             stage_parts = parts[1:]
         elif len(parts) >= 3:
-            cei = "_".join(parts[:2])
+            cid = "_".join(parts[:2])
             stage_parts = parts[2:]
         else:
             continue
@@ -364,10 +364,10 @@ def update_feature_names(df, method):
             start_stage = stage_dict[(((int(start_stage) - 1)) % n) + 1]
             end_stage = stage_dict_end[(((int(end_stage) - 1)) % n) + 1]
 
-        new_column_name = f"{cei} {start_stage}-{end_stage}"
+        new_column_name = f"{cid} {start_stage}-{end_stage}"
 
         # Saving the result in the dictionary
-        stages_info[element] = (cei, start_stage, end_stage, new_column_name)
+        stages_info[element] = (cid, start_stage, end_stage, new_column_name)
 
     # For each column in df, check if it exists in stages_info, and
     # replace it with the new column name

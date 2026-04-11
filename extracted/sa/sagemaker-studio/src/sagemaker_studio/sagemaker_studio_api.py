@@ -110,6 +110,10 @@ class SageMakerStudioAPI:
             "project_identifier"
         ) or self._utils._get_project_id(self.datazone_api)
 
+        execution_config.datazone_endpoint = execution_overrides.get(
+            "datazone_endpoint"
+        ) or self._utils._get_datazone_endpoint(self.default_region)
+
         execution_config.datazone_domain_region = (
             execution_overrides.get("datazone_domain_region") or self._utils._get_domain_region()
         )

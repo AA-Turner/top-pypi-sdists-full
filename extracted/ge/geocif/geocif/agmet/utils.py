@@ -62,6 +62,18 @@ dict_vars = {
         "Temperatura Máxima",
     ],
     "daymet_prcp": ["Precipitation", "mm", "Precipitation: Daymet V4", ""],
+    "chirts_era5_tmin": [
+        "Min. Temperature",
+        r"$^\circ$C",
+        "Temperature: CHIRTS-ERA5",
+        "Temperatura Mínima",
+    ],
+    "chirts_era5_tmax": [
+        "Max. Temperature",
+        r"$^\circ$C",
+        "Temperature: CHIRTS-ERA5",
+        "Temperatura Máxima",
+    ],
     "soil_moisture_as1": ["Soil moisture (surface)", "mm", "", "Humedad Superficial"],
     "soil_moisture_as2": ["Soil moisture (sub-surface)", "mm", "", ""],
     "nsidc_surface": ["Soil moisture (surface)", "mm", "", "Humedad Superficial"],

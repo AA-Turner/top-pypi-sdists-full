@@ -25,6 +25,7 @@ class TeamSyncGroupMappingArgs:
                  groups: Optional[pulumi.Input[Sequence[pulumi.Input['TeamSyncGroupMappingGroupArgs']]]] = None):
         """
         The set of arguments for constructing a TeamSyncGroupMapping resource.
+
         :param pulumi.Input[_builtins.str] team_slug: Slug of the team
         :param pulumi.Input[Sequence[pulumi.Input['TeamSyncGroupMappingGroupArgs']]] groups: An Array of GitHub Identity Provider Groups (or empty []).  Each `group` block consists of the fields documented below.
                ___
@@ -71,6 +72,7 @@ class _TeamSyncGroupMappingState:
                  team_slug: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering TeamSyncGroupMapping resources.
+
         :param pulumi.Input[Sequence[pulumi.Input['TeamSyncGroupMappingGroupArgs']]] groups: An Array of GitHub Identity Provider Groups (or empty []).  Each `group` block consists of the fields documented below.
                ___
                
@@ -145,11 +147,11 @@ class TeamSyncGroupMapping(pulumi.CustomResource):
 
         example_groups = github.get_organization_team_sync_groups()
         example_group_mapping = github.TeamSyncGroupMapping("example_group_mapping",
-            groups=[{"key": k, "value": v} for k, v in [g for g in example_groups.groups if g.group_name == "some_team_group"]].apply(lambda entries: [{
-                "groupId": entry["value"].group_id,
-                "groupName": entry["value"].group_name,
-                "groupDescription": entry["value"].group_description,
-            } for entry in entries]),
+            groups=[{"key": k, "value": v} for k, v in [g for g in example_groups.groups if g.group_name == "some_team_group"].items()].apply(lambda entries: [github.TeamSyncGroupMappingGroupArgs(
+                group_id=entry["value"].group_id,
+                group_name=entry["value"].group_name,
+                group_description=entry["value"].group_description,
+            ) for entry in entries]),
             team_slug="example")
         ```
 
@@ -160,6 +162,7 @@ class TeamSyncGroupMapping(pulumi.CustomResource):
         ```sh
         $ pulumi import github:index/teamSyncGroupMapping:TeamSyncGroupMapping example some_team
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -190,11 +193,11 @@ class TeamSyncGroupMapping(pulumi.CustomResource):
 
         example_groups = github.get_organization_team_sync_groups()
         example_group_mapping = github.TeamSyncGroupMapping("example_group_mapping",
-            groups=[{"key": k, "value": v} for k, v in [g for g in example_groups.groups if g.group_name == "some_team_group"]].apply(lambda entries: [{
-                "groupId": entry["value"].group_id,
-                "groupName": entry["value"].group_name,
-                "groupDescription": entry["value"].group_description,
-            } for entry in entries]),
+            groups=[{"key": k, "value": v} for k, v in [g for g in example_groups.groups if g.group_name == "some_team_group"].items()].apply(lambda entries: [github.TeamSyncGroupMappingGroupArgs(
+                group_id=entry["value"].group_id,
+                group_name=entry["value"].group_name,
+                group_description=entry["value"].group_description,
+            ) for entry in entries]),
             team_slug="example")
         ```
 
@@ -205,6 +208,7 @@ class TeamSyncGroupMapping(pulumi.CustomResource):
         ```sh
         $ pulumi import github:index/teamSyncGroupMapping:TeamSyncGroupMapping example some_team
         ```
+
 
         :param str resource_name: The name of the resource.
         :param TeamSyncGroupMappingArgs args: The arguments to use to populate this resource's properties.

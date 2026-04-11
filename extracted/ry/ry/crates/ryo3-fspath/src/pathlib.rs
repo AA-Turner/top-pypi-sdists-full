@@ -1,8 +1,9 @@
 //! Pathlib utilities
+use std::path::Path;
+
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use pyo3::types::PyType;
-use std::path::Path;
 
 /// Deprecated
 /// builtin conversion added to pyo3 in version 0.24.0

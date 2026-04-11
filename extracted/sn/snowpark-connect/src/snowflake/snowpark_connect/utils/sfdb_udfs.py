@@ -34,3 +34,6 @@ luhn_check = f"{_SPARKLE_SCHEMA}.LUHN_CHECK"
 
 # BITMAP_COUNT(col BINARY) -> BIGINT
 bitmap_count = f"{_SPARKLE_SCHEMA}.BITMAP_COUNT"
+
+# BIN_LONG(col BIGINT) -> VARCHAR
+bin_long = f"{_SPARKLE_SCHEMA}.BIN_LONG"

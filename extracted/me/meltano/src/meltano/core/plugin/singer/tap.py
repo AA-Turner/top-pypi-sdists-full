@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import asyncio.subprocess
 import json
-import logging
 import shutil
 import sys
 import typing as t
@@ -66,6 +65,16 @@ async def _stream_redirect(
         data = await stream.readline()
         for file_like_obj in file_like_objs:
             file_like_obj.write(data.decode(encoding) if write_str else data)
+
+
+class _TextIOWriter:
+    """Adapter to use a text IO stream as a SubprocessOutputWriter."""
+
+    def __init__(self, buffer: t.IO[str]) -> None:
+        self._buffer = buffer
+
+    def writeline(self, line: str) -> None:
+        self._buffer.write(line)
 
 
 def config_metadata_rules(config: dict[str, t.Any]) -> list[MetadataRule]:
@@ -280,7 +289,7 @@ class SingerTap(SingerPlugin):
         # the `state.json` is stored in a state backend
         if state := self.get_singer_state(
             project=elt_context.project,
-            session=elt_context.session,  # type: ignore[arg-type]
+            session=elt_context.session,  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
             job_name=elt_context.job.job_name,
         ):
             with state_path.open("w") as state_file:
@@ -305,18 +314,18 @@ class SingerTap(SingerPlugin):
         Returns:
             the state for the given job
         """
-        state_service = StateService(project=project, session=session)
-        try:
-            state = state_service.get_state(job_name)
-        except Exception as err:  # pragma: no cover
-            logger.error(  # noqa: TRY400
-                err.args[0],
-                state_backend=state_service.state_store_manager.label,
-            )
-            msg = "Failed to retrieve state"
-            raise PluginExecutionError(msg) from err
+        with StateService(project=project, session=session) as state_service:
+            try:
+                state = state_service.get_state(job_name)
+            except Exception as err:  # pragma: no cover
+                logger.error(  # noqa: TRY400
+                    err.args[0],
+                    state_backend=state_service.state_store_manager.label,
+                )
+                msg = "Failed to retrieve state"
+                raise PluginExecutionError(msg) from err
 
-        return state.get(SINGER_STATE_KEY)
+            return state.get(SINGER_STATE_KEY)
 
     @hook("before_invoke")
     async def discover_catalog_hook(
@@ -453,27 +462,19 @@ class SingerTap(SingerPlugin):
                         asyncio.ensure_future(_stream_redirect(handle.stdout, catalog)),
                         asyncio.ensure_future(handle.wait()),
                     ]
-                    if (
-                        plugin_invoker.stderr_logger.isEnabledFor(logging.DEBUG)
-                        and handle.stderr is not None
-                    ):
+                    if handle.stderr is not None:
                         out = OutputLogger("discovery.log").out(
                             self.name,
                             plugin_invoker.stderr_logger.bind(type="discovery"),
                             log_parser=plugin_invoker.get_log_parser(),
                         )
-                        future = capture_subprocess_output(handle.stderr, out)
-                        invoke_futures.append(asyncio.ensure_future(future))
-                    else:
-                        invoke_futures.append(
-                            asyncio.ensure_future(
-                                _stream_redirect(
-                                    handle.stderr,
-                                    stderr_buff,
-                                    write_str=True,
-                                ),
-                            ),
+                        stderr_writer = _TextIOWriter(stderr_buff)
+                        future = capture_subprocess_output(
+                            handle.stderr,
+                            out,
+                            stderr_writer,
                         )
+                        invoke_futures.append(asyncio.ensure_future(future))
                     done, _ = await asyncio.wait(
                         invoke_futures,
                         return_when=asyncio.ALL_COMPLETED,
@@ -482,14 +483,14 @@ class SingerTap(SingerPlugin):
                         future for future in done if future.exception() is not None
                     ]:
                         failed_future = failed.pop()
-                        raise failed_future.exception()  # type: ignore[misc]  # noqa: TRY301
+                        raise failed_future.exception()  # type: ignore[misc]  # noqa: TRY301  # ty:ignore[invalid-raise]
                 exit_code = handle.returncode
             except Exception:
-                catalog_path.unlink()
+                catalog_path.unlink()  # noqa: ASYNC240
                 raise
 
             if exit_code != 0:
-                catalog_path.unlink()
+                catalog_path.unlink()  # noqa: ASYNC240
                 stderr_buff.seek(0)
                 raise PluginExecutionError(  # noqa: TRY003
                     "Catalog discovery failed: command "  # noqa: EM102
@@ -507,7 +508,7 @@ class SingerTap(SingerPlugin):
 
         Args:
             plugin_invoker: the plugin invoker running
-            exec_args: the argumnets to pass to the tap
+            exec_args: the arguments to pass to the tap
 
         Returns:
             None
@@ -528,7 +529,7 @@ class SingerTap(SingerPlugin):
 
         Args:
             plugin_invoker: the plugin invoker running
-            exec_args: the argumnets to pass to the tap
+            exec_args: the arguments to pass to the tap
 
         Returns:
             None
@@ -573,11 +574,11 @@ class SingerTap(SingerPlugin):
                 catalog = json.load(catalog_file)
 
             if schema_rules:
-                SchemaExecutor(schema_rules).visit(catalog)  # type: ignore[attr-defined]
+                SchemaExecutor(schema_rules).visit(catalog)  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
 
             if metadata_rules:
                 self.warn_property_not_found(metadata_rules, catalog)
-                MetadataExecutor(metadata_rules).visit(catalog)  # type: ignore[attr-defined]
+                MetadataExecutor(metadata_rules).visit(catalog)  # type: ignore[attr-defined]  # ty:ignore[unresolved-attribute]
 
             with catalog_path.open("w") as catalog_f:
                 catalog_f.write(json_dumps(catalog, indent=2))

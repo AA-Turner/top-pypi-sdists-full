@@ -6,6 +6,7 @@
 #include <cstring>
 #include <stddef.h>
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <memory>
@@ -335,8 +336,8 @@ typedef struct periodic_thread
 
     PyObject* _ddtrace_profiling_ignore;
 
-    bool _stopping;
-    bool _skip_shutdown;
+    std::atomic<bool> _stopping;
+    std::atomic<bool> _skip_shutdown;
 
     module_state* _state;
 
@@ -718,10 +719,6 @@ PeriodicThread__after_fork(PeriodicThread* self, PyObject* args, PyObject* kwarg
     // joinable() is always false here. No OS call needed on the inherited handle.
 
     if (should_restart) {
-        // Clean up any potentially bad state post-fork
-        if (self->_thread != nullptr && self->_thread->joinable())
-            self->_thread->detach();
-
         self->_thread = nullptr;
 
         self->_started->clear();

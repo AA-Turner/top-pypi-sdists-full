@@ -17,6 +17,7 @@ import pytest_mock
 
 from packaging.version import Version
 
+import build
 import build.env
 
 
@@ -27,20 +28,38 @@ MISSING_UV = importlib.util.find_spec('uv') is None and not shutil.which('uv')
 MISSING_VIRTUALENV = importlib.util.find_spec('virtualenv') is None
 
 
-@pytest.mark.isolated
-def test_isolation():
-    subprocess.check_call([sys.executable, '-c', 'import build.env'])
+def test_make_extra_environ_overrides_pythonpath() -> None:
     with build.env.DefaultIsolatedEnv() as env:
-        with pytest.raises(subprocess.CalledProcessError):
-            debug = 'import sys; import os; print(os.linesep.join(sys.path));'
-            subprocess.check_call([env.python_executable, '-c', f'{debug} import build.env'])
+        extra = env.make_extra_environ()
+        assert extra['PYTHONPATH'] == ''
+        assert env._env_backend.scripts_dir in extra['PATH']
+
+
+def test_uv_install_strips_pythonpath(
+    mocker: pytest_mock.MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv('PYTHONPATH', '/some/leaky/path')
+    run_subprocess = mocker.patch('build.env.run_subprocess')
+    with build.env.DefaultIsolatedEnv(installer='uv') as env:
+        env.install(['some-package'])
+    (install_call,) = run_subprocess.call_args_list
+    assert 'PYTHONPATH' not in install_call.kwargs['env']
+
+
+@pytest.mark.isolated
+def test_isolation() -> None:
+    subprocess.check_call([sys.executable, '-c', 'import build.env'])
+    debug = 'import sys; import os; print(os.linesep.join(sys.path));'
+    with build.env.DefaultIsolatedEnv() as env, pytest.raises(subprocess.CalledProcessError):
+        subprocess.check_call([env.python_executable, '-c', f'{debug} import build.env'])
 
 
 @pytest.mark.skipif(IS_PYPY, reason='PyPy3 uses get path to create and provision venv')
 @pytest.mark.skipif(sys.platform != 'darwin', reason='workaround for Apple Python')
-def test_can_get_venv_paths_with_conflicting_default_scheme(
+def test_can_get_venv_paths_with_conflicting_default_scheme(  # pragma: no cover -- skipped on PyPy and non-darwin
     mocker: pytest_mock.MockerFixture,
-):
+) -> None:
     get_scheme_names = mocker.patch('sysconfig.get_scheme_names', return_value=('osx_framework_library',))
     with build.env.DefaultIsolatedEnv():
         pass
@@ -52,9 +71,9 @@ SCHEME_NAMES = sysconfig.get_scheme_names()
 
 @pytest.mark.skipif('posix_local' not in SCHEME_NAMES, reason='workaround for Debian/Ubuntu Python')
 @pytest.mark.skipif('venv' in SCHEME_NAMES, reason='different call if venv is in scheme names')
-def test_can_get_venv_paths_with_posix_local_default_scheme(
+def test_can_get_venv_paths_with_posix_local_default_scheme(  # pragma: no cover
     mocker: pytest_mock.MockerFixture,
-):
+) -> None:
     get_paths = mocker.spy(sysconfig, 'get_paths')
     # We should never call this, but we patch it to ensure failure if we do
     get_default_scheme = mocker.patch('sysconfig.get_default_scheme', return_value='posix_local')
@@ -66,40 +85,42 @@ def test_can_get_venv_paths_with_posix_local_default_scheme(
 
 def test_venv_executable_missing_post_creation(
     mocker: pytest_mock.MockerFixture,
-):
+) -> None:
     venv_create = mocker.patch('venv.EnvBuilder.create')
-    with pytest.raises(RuntimeError, match=r'Virtual environment creation failed, executable .* missing'):
-        with build.env.DefaultIsolatedEnv():
-            pass
+    with (
+        pytest.raises(RuntimeError, match=r'Virtual environment creation failed, executable .* missing'),
+        build.env.DefaultIsolatedEnv(),
+    ):
+        raise AssertionError
     assert venv_create.call_count == 1
 
 
 @typing.no_type_check
-def test_isolated_env_abstract():
+def test_isolated_env_abstract() -> None:
     with pytest.raises(TypeError):
         build.env.IsolatedEnv()
 
     class PartialEnv(build.env.IsolatedEnv):
         @property
-        def executable(self):
+        def executable(self) -> None:
             raise NotImplementedError
 
     with pytest.raises(TypeError):
         PartialEnv()
 
-    class PartialEnv(build.env.IsolatedEnv):
-        def make_extra_environ(self):
+    class PartialEnv2(build.env.IsolatedEnv):
+        def make_extra_environ(self) -> None:
             raise NotImplementedError
 
     with pytest.raises(TypeError):
-        PartialEnv()
+        PartialEnv2()
 
 
 @pytest.mark.pypy3323bug
 def test_isolated_env_log(
     caplog: pytest.LogCaptureFixture,
     mocker: pytest_mock.MockerFixture,
-):
+) -> None:
     caplog.set_level(logging.DEBUG)
     mocker.patch('build.env.run_subprocess')
 
@@ -108,13 +129,14 @@ def test_isolated_env_log(
 
     assert [(record.levelname, record.message) for record in caplog.records] == [
         ('INFO', 'Creating isolated environment: venv+pip...'),
-        ('INFO', 'Installing packages in isolated environment:\n- something'),
+        ('INFO', 'Installing packages in isolated environment:'),
+        ('INFO', '- something'),
     ]
 
 
 @pytest.mark.isolated
 @pytest.mark.usefixtures('local_pip')
-def test_default_pip_is_never_too_old():
+def test_default_pip_is_never_too_old() -> None:
     with build.env.DefaultIsolatedEnv() as env:
         version = subprocess.check_output(
             [env.python_executable, '-c', 'import pip; print(pip.__version__, end="")'],
@@ -131,7 +153,7 @@ def test_pip_needs_upgrade_mac_os_11(
     mocker: pytest_mock.MockerFixture,
     pip_version: str,
     arch: str,
-):
+) -> None:
     run_subprocess = mocker.patch('build.env.run_subprocess')
     mocker.patch('platform.system', return_value='Darwin')
     mocker.patch('platform.mac_ver', return_value=('11.0', ('', '', ''), arch))
@@ -142,12 +164,19 @@ def test_pip_needs_upgrade_mac_os_11(
     with build.env.DefaultIsolatedEnv() as env:
         if Version(pip_version) < Version(min_pip_version):
             assert run_subprocess.call_args_list == [
-                mocker.call([env.python_executable, '-Im', 'pip', 'install', f'pip>={min_pip_version}']),
-                mocker.call([env.python_executable, '-Im', 'pip', 'uninstall', '-y', 'setuptools']),
+                mocker.call(
+                    [env.python_executable, '-Im', 'pip', 'install', '--no-input', f'pip>={min_pip_version}'],
+                    env=mocker.ANY,
+                ),
+                mocker.call(
+                    [env.python_executable, '-Im', 'pip', 'uninstall', '--no-input', '-y', 'setuptools'],
+                    env=mocker.ANY,
+                ),
             ]
         else:
             run_subprocess.assert_called_once_with(
-                [env.python_executable, '-Im', 'pip', 'uninstall', '-y', 'setuptools'],
+                [env.python_executable, '-Im', 'pip', 'uninstall', '--no-input', '-y', 'setuptools'],
+                env=mocker.ANY,
             )
 
 
@@ -155,11 +184,11 @@ def test_pip_needs_upgrade_mac_os_11(
 def test_venv_symlink(
     mocker: pytest_mock.MockerFixture,
     has_symlink: bool,
-):
+) -> None:
     if has_symlink:
         mocker.patch('os.symlink')
         mocker.patch('os.unlink')
-    else:
+    else:  # pragma: win32 cover
         mocker.patch('os.symlink', side_effect=OSError())
 
     # Cache must be cleared to rerun
@@ -172,8 +201,9 @@ def test_venv_symlink(
 
 def test_install_short_circuits(
     mocker: pytest_mock.MockerFixture,
-):
+) -> None:
     with build.env.DefaultIsolatedEnv() as env:
+        assert env.path
         install_dependencies = mocker.patch.object(env._env_backend, 'install_dependencies')
 
         env.install([])
@@ -190,8 +220,8 @@ def test_default_impl_install_cmd_well_formed(
     mocker: pytest_mock.MockerFixture,
     verbosity: int,
     constraints: list[str],
-):
-    mocker.patch.object(build.env._ctx, 'verbosity', verbosity)
+) -> None:
+    mocker.patch.object(build.env._ctx, 'verbosity', verbosity)  # type: ignore[attr-defined]
 
     with build.env.DefaultIsolatedEnv() as env:
         run_subprocess = mocker.patch('build.env.run_subprocess')
@@ -208,10 +238,12 @@ def test_default_impl_install_cmd_well_formed(
                 '--use-pep517',
                 '--no-warn-script-location',
                 '--no-compile',
+                '--no-input',
                 '-r',
                 mocker.ANY,
                 *(['-c', mocker.ANY] if constraints else []),
-            ]
+            ],
+            env=mocker.ANY,
         )
 
 
@@ -219,12 +251,12 @@ def test_default_impl_install_cmd_well_formed(
 @pytest.mark.parametrize('constraints', [[], ['foo']])
 @pytest.mark.skipif(IS_PYPY, reason='uv cannot find PyPy executable')
 @pytest.mark.skipif(MISSING_UV, reason='uv executable not found')
-def test_uv_impl_install_cmd_well_formed(
+def test_uv_impl_install_cmd_well_formed(  # pragma: no cover -- uv tests are skipped on PyPy, covered on CPython
     mocker: pytest_mock.MockerFixture,
     verbosity: int,
     constraints: list[str],
-):
-    mocker.patch.object(build.env._ctx, 'verbosity', verbosity)
+) -> None:
+    mocker.patch.object(build.env._ctx, 'verbosity', verbosity)  # type: ignore[attr-defined]
 
     with build.env.DefaultIsolatedEnv(installer='uv') as env:
         run_subprocess = mocker.patch('build.env.run_subprocess')
@@ -278,7 +310,7 @@ def test_uv_impl_install_cmd_well_formed(
 def test_venv_creation(
     installer: build.env.Installer,
     env_backend_display_name: str,
-):
+) -> None:
     with build.env.DefaultIsolatedEnv(installer=installer) as env:
         assert env._env_backend.display_name == env_backend_display_name
 
@@ -300,7 +332,7 @@ def test_venv_creation(
 def test_requirement_installation(
     package_test_flit: str,
     installer: build.env.Installer,
-):
+) -> None:
     with build.env.DefaultIsolatedEnv(installer=installer) as env:
         env.install([f'test-flit @ {Path(package_test_flit).as_uri()}'])
 
@@ -309,23 +341,235 @@ def test_requirement_installation(
 def test_external_uv_detection_success(
     caplog: pytest.LogCaptureFixture,
     mocker: pytest_mock.MockerFixture,
-):
+) -> None:
     mocker.patch.dict(sys.modules, {'uv': None})
 
     with build.env.DefaultIsolatedEnv(installer='uv'):
         pass
 
-    assert any(
-        r.message == f'Using external uv from {shutil.which("uv", path=sysconfig.get_path("scripts"))}' for r in caplog.records
-    )
+    assert any(r.message == f'Using external uv from {shutil.which("uv")}' for r in caplog.records)
 
 
 def test_external_uv_detection_failure(
     mocker: pytest_mock.MockerFixture,
-):
+) -> None:
     mocker.patch.dict(sys.modules, {'uv': None})
     mocker.patch('shutil.which', return_value=None)
 
-    with pytest.raises(RuntimeError, match='uv executable not found'):
-        with build.env.DefaultIsolatedEnv(installer='uv'):
-            pass
+    with pytest.raises(RuntimeError, match='uv executable not found'), build.env.DefaultIsolatedEnv(installer='uv'):
+        raise AssertionError
+
+
+def test_get_minimum_pip_version_non_darwin(
+    mocker: pytest_mock.MockerFixture,
+) -> None:
+    mocker.patch('platform.system', return_value='Linux')
+    assert build.env._PipBackend._get_minimum_pip_version_str() == '19.1.0'
+
+
+def test_get_minimum_pip_version_old_darwin(
+    mocker: pytest_mock.MockerFixture,
+) -> None:
+    mocker.patch('platform.system', return_value='Darwin')
+    mocker.patch('platform.mac_ver', return_value=('10.15', ('', '', ''), 'x86_64'))
+    assert build.env._PipBackend._get_minimum_pip_version_str() == '19.1.0'
+
+
+@pytest.mark.parametrize(
+    ('version', 'has_no_wheel'),
+    [
+        pytest.param('20.30.0', True, id='old'),
+        pytest.param('20.31.0', False, id='new'),
+    ],
+)
+def test_virtualenv_no_wheel_flag(
+    mocker: pytest_mock.MockerFixture,
+    version: str,
+    has_no_wheel: bool,
+) -> None:
+    mocker.patch.object(build.env._PipBackend, '_has_valid_outer_pip', None)
+    mocker.patch.object(build.env._PipBackend, '_has_virtualenv', True)
+
+    mocker.patch('build._compat.importlib.metadata.version', return_value=version)
+    cli_run = mocker.patch('virtualenv.cli_run')
+    cli_run.return_value = SimpleNamespace(creator=SimpleNamespace(exe=Path('/fake/python'), script_dir=Path('/fake/scripts')))
+
+    backend = build.env._PipBackend()
+    backend.create('/some/path')
+
+    call_args = cli_run.call_args[0][0]
+    assert ('--no-wheel' in call_args) is has_no_wheel
+
+
+def test_install_dependencies_with_outer_pip(
+    mocker: pytest_mock.MockerFixture,
+) -> None:
+    mocker.patch.object(build.env._PipBackend, '_has_valid_outer_pip', True)
+
+    run_subprocess = mocker.patch('build.env.run_subprocess')
+
+    with build.env.DefaultIsolatedEnv() as env:
+        env.install(['some-package'])
+
+    cmd = run_subprocess.call_args_list[-1][0][0]
+    assert cmd[:4] == [sys.executable, '-m', 'pip', '--python']
+
+
+def test_find_executable_osx_framework_scheme(
+    mocker: pytest_mock.MockerFixture,
+) -> None:
+    mocker.patch('sysconfig.get_scheme_names', return_value=('osx_framework_library', 'posix_prefix'))
+    get_paths = mocker.patch(
+        'sysconfig.get_paths',
+        return_value={
+            'scripts': '/fake/bin',
+            'purelib': '/fake/lib',
+        },
+    )
+    mocker.patch('os.path.exists', return_value=True)
+
+    _exe, scripts, _purelib = build.env._find_executable_and_scripts('/fake/venv')
+
+    get_paths.assert_called_once_with(scheme='posix_prefix', vars=mocker.ANY)
+    assert scripts == '/fake/bin'
+
+
+def test_find_executable_posix_local_scheme(
+    mocker: pytest_mock.MockerFixture,
+) -> None:
+    mocker.patch('sysconfig.get_scheme_names', return_value=('posix_local', 'posix_prefix'))
+    get_paths = mocker.patch(
+        'sysconfig.get_paths',
+        return_value={
+            'scripts': '/fake/bin',
+            'purelib': '/fake/lib',
+        },
+    )
+    mocker.patch('os.path.exists', return_value=True)
+
+    _exe, scripts, _purelib = build.env._find_executable_and_scripts('/fake/venv')
+
+    get_paths.assert_called_once_with(scheme='posix_prefix', vars=mocker.ANY)
+    assert scripts == '/fake/bin'
+
+
+def test_find_executable_fallback_scheme(
+    mocker: pytest_mock.MockerFixture,
+) -> None:
+    mocker.patch('sysconfig.get_scheme_names', return_value=('posix_prefix',))
+    get_paths = mocker.patch(
+        'sysconfig.get_paths',
+        return_value={
+            'scripts': '/fake/bin',
+            'purelib': '/fake/lib',
+        },
+    )
+    mocker.patch('os.path.exists', return_value=True)
+
+    _exe, scripts, _purelib = build.env._find_executable_and_scripts('/fake/venv')
+
+    get_paths.assert_called_once_with(vars=mocker.ANY)
+    assert scripts == '/fake/bin'
+
+
+def test_has_dependency_missing() -> None:
+    assert build.env._has_dependency('nonexistent_package_xyz_123') is None
+
+
+@pytest.mark.usefixtures('local_pip')
+def test_venv_creation_no_setuptools(
+    mocker: pytest_mock.MockerFixture,
+) -> None:
+    original = build.env._has_dependency
+
+    def no_setuptools(name: str, min_ver: str | None = None, /, **kwargs: object) -> object:
+        if name == 'setuptools':
+            return None
+        return original(name, min_ver, **kwargs)
+
+    mocker.patch('build.env._has_dependency', side_effect=no_setuptools)
+    run_subprocess = mocker.patch('build.env.run_subprocess')
+
+    with build.env.DefaultIsolatedEnv() as env:
+        assert env.python_executable
+
+    assert all('setuptools' not in str(c) for c in run_subprocess.call_args_list)
+
+
+def test_has_keyring_cli_found(mocker: pytest_mock.MockerFixture) -> None:
+    mocker.patch('shutil.which', return_value='/usr/bin/keyring')
+    assert build.env._has_keyring_cli() is True
+
+
+def test_has_keyring_cli_missing(mocker: pytest_mock.MockerFixture) -> None:
+    mocker.patch('shutil.which', return_value=None)
+    assert build.env._has_keyring_cli() is False
+
+
+def test_pip_env_with_keyring(mocker: pytest_mock.MockerFixture) -> None:
+    mocker.patch('shutil.which', return_value='/usr/bin/keyring')
+
+    result = build.env._pip_env()
+
+    assert result is not None
+    assert result['PIP_KEYRING_PROVIDER'] == 'subprocess'
+
+
+def test_pip_env_without_keyring(mocker: pytest_mock.MockerFixture) -> None:
+    mocker.patch('shutil.which', return_value=None)
+    assert build.env._pip_env() is None
+
+
+def test_pip_env_respects_existing_env_var(
+    mocker: pytest_mock.MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mocker.patch('shutil.which', return_value='/usr/bin/keyring')
+    monkeypatch.setenv('PIP_KEYRING_PROVIDER', 'import')
+    assert build.env._pip_env() is None
+
+
+@pytest.mark.usefixtures('local_pip')
+def test_install_dependencies_passes_keyring_env(
+    mocker: pytest_mock.MockerFixture,
+) -> None:
+    mocker.patch('shutil.which', return_value='/usr/bin/keyring')
+
+    with build.env.DefaultIsolatedEnv() as env:
+        run_subprocess = mocker.patch('build.env.run_subprocess')
+        env.install(['some-package'])
+
+    (install_call,) = run_subprocess.call_args_list
+    assert install_call.kwargs['env']['PIP_KEYRING_PROVIDER'] == 'subprocess'
+
+
+@pytest.mark.skipif(IS_PYPY, reason='uv cannot find PyPy executable')
+@pytest.mark.skipif(MISSING_UV, reason='uv executable not found')
+def test_uv_install_dependencies_passes_keyring_env(  # pragma: no cover -- uv tests are skipped on PyPy
+    mocker: pytest_mock.MockerFixture,
+) -> None:
+    mocker.patch('shutil.which', return_value='/usr/bin/keyring')
+
+    with build.env.DefaultIsolatedEnv(installer='uv') as env:
+        run_subprocess = mocker.patch('build.env.run_subprocess')
+        env.install(['some-package'])
+
+    (install_call,) = run_subprocess.call_args_list
+    assert install_call.kwargs['env']['UV_KEYRING_PROVIDER'] == 'subprocess'
+
+
+@pytest.mark.skipif(IS_PYPY, reason='uv cannot find PyPy executable')
+@pytest.mark.skipif(MISSING_UV, reason='uv executable not found')
+def test_uv_install_respects_existing_keyring_env(  # pragma: no cover -- uv tests are skipped on PyPy
+    mocker: pytest_mock.MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mocker.patch('shutil.which', return_value='/usr/bin/keyring')
+    monkeypatch.setenv('UV_KEYRING_PROVIDER', 'disabled')
+
+    with build.env.DefaultIsolatedEnv(installer='uv') as env:
+        run_subprocess = mocker.patch('build.env.run_subprocess')
+        env.install(['some-package'])
+
+    (install_call,) = run_subprocess.call_args_list
+    assert install_call.kwargs['env']['UV_KEYRING_PROVIDER'] == 'disabled'

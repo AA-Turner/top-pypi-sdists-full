@@ -1,6 +1,5 @@
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString};
-use pyo3::{IntoPyObject, Python};
 
 use crate::pystring::pystring_fast_new_ascii;
 

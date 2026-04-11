@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stats-can
-Version: 3.1.0
+Version: 3.2.0
 Summary: Read StatsCan data into python, mostly pandas dataframes
 Keywords: statistics,Canada,data,API
 Author: Ian Preston

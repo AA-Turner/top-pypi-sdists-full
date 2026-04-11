@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.47.9
+Version: 4.48.0
 Summary: A complete web automation framework for end-to-end testing.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -74,7 +74,7 @@ Requires-Dist: fasteners>=0.20
 Requires-Dist: mycdp>=1.3.7
 Requires-Dist: pynose>=1.5.5
 Requires-Dist: platformdirs~=4.4.0; python_version < "3.10"
-Requires-Dist: platformdirs>=4.9.4; python_version >= "3.10"
+Requires-Dist: platformdirs>=4.9.6; python_version >= "3.10"
 Requires-Dist: typing-extensions>=4.15.0
 Requires-Dist: sbvirtualdisplay>=1.4.0
 Requires-Dist: MarkupSafe>=3.0.3
@@ -89,7 +89,7 @@ Requires-Dist: pyreadline3>=3.5.4; platform_system == "Windows"
 Requires-Dist: tabcompleter>=1.4.0
 Requires-Dist: pdbp>=1.8.2
 Requires-Dist: idna>=3.11
-Requires-Dist: charset-normalizer<4,>=3.4.6
+Requires-Dist: charset-normalizer<4,>=3.4.7
 Requires-Dist: urllib3<2,>=1.26.20; python_version < "3.10"
 Requires-Dist: urllib3<3,>=1.26.20; python_version >= "3.10"
 Requires-Dist: requests~=2.32.5; python_version < "3.10"
@@ -104,10 +104,9 @@ Requires-Dist: wsproto==1.2.0; python_version < "3.10"
 Requires-Dist: wsproto~=1.3.2; python_version >= "3.10"
 Requires-Dist: websocket-client~=1.9.0
 Requires-Dist: selenium==4.32.0; python_version < "3.10"
-Requires-Dist: selenium==4.41.0; python_version >= "3.10"
+Requires-Dist: selenium==4.43.0; python_version >= "3.10"
 Requires-Dist: cssselect==1.3.0; python_version < "3.10"
 Requires-Dist: cssselect<2,>=1.4.0; python_version >= "3.10"
-Requires-Dist: nest-asyncio==1.6.0
 Requires-Dist: sortedcontainers==2.4.0
 Requires-Dist: execnet==2.1.1; python_version < "3.10"
 Requires-Dist: execnet==2.1.2; python_version >= "3.10"
@@ -115,7 +114,7 @@ Requires-Dist: iniconfig==2.1.0; python_version < "3.10"
 Requires-Dist: iniconfig==2.3.0; python_version >= "3.10"
 Requires-Dist: pluggy==1.6.0
 Requires-Dist: pytest==8.4.2; python_version < "3.11"
-Requires-Dist: pytest==9.0.2; python_version >= "3.11"
+Requires-Dist: pytest==9.0.3; python_version >= "3.11"
 Requires-Dist: pytest-html==4.0.2
 Requires-Dist: pytest-metadata==3.1.1
 Requires-Dist: pytest-ordering==0.6
@@ -154,13 +153,13 @@ Requires-Dist: mss==10.1.0; extra == "mss"
 Provides-Extra: pdfminer
 Requires-Dist: pdfminer.six==20251107; python_version < "3.10" and extra == "pdfminer"
 Requires-Dist: pdfminer.six==20260107; python_version >= "3.10" and extra == "pdfminer"
-Requires-Dist: cryptography==46.0.6; extra == "pdfminer"
+Requires-Dist: cryptography==46.0.7; extra == "pdfminer"
 Requires-Dist: cffi==2.0.0; extra == "pdfminer"
 Requires-Dist: pycparser==2.23; python_version < "3.10" and extra == "pdfminer"
 Requires-Dist: pycparser==3.0; python_version >= "3.10" and extra == "pdfminer"
 Provides-Extra: pillow
 Requires-Dist: Pillow>=11.3.0; python_version < "3.10" and extra == "pillow"
-Requires-Dist: Pillow>=12.1.1; python_version >= "3.10" and extra == "pillow"
+Requires-Dist: Pillow>=12.2.0; python_version >= "3.10" and extra == "pillow"
 Provides-Extra: pip-system-certs
 Requires-Dist: pip-system-certs==4.0; platform_system == "Windows" and extra == "pip-system-certs"
 Provides-Extra: proxy
@@ -818,8 +817,6 @@ import time; time.sleep(3)  # Do nothing for 3 seconds.
 🔵 **Debug Mode** with Python's built-in **[pdb](https://docs.python.org/3/library/pdb.html)** library helps you debug tests:
 
 ```python
-import pdb; pdb.set_trace()
-import pytest; pytest.set_trace()
 breakpoint()  # Shortcut for "import pdb; pdb.set_trace()"
 ```
 

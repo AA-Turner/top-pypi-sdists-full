@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydocket
-Version: 0.18.2
+Version: 0.19.0
 Summary: A distributed background task system for Python functions
 Project-URL: Homepage, https://docket.lol/
 Project-URL: Documentation, https://docket.lol/en/latest/
@@ -31,7 +31,7 @@ Requires-Python: >=3.10
 Requires-Dist: cloudpickle>=3.1.1
 Requires-Dist: cronsim>=2.6
 Requires-Dist: exceptiongroup>=1.2.0; python_version < '3.11'
-Requires-Dist: fakeredis[lua]>=2.32.1
+Requires-Dist: fakeredis[lua]>=2.35.0
 Requires-Dist: opentelemetry-api>=1.33.0
 Requires-Dist: prometheus-client>=0.21.1
 Requires-Dist: py-key-value-aio[memory,redis]>=0.3.0
@@ -178,4 +178,4 @@ uv run zensical serve
 ```
 
 This will start a local preview server. The docs are built with
-[Zensical](https://zensical.dev/) and configured in `mkdocs.yml`.
+[Zensical](https://zensical.org/) and configured in `mkdocs.yml`.

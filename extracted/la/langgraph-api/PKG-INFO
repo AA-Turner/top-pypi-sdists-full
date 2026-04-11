@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-api
-Version: 0.7.99
+Version: 0.7.100
 Author-email: Will Fu-Hinthorn <will@langchain.dev>, Josh Rogers <josh@langchain.dev>, Parker Rule <parker@langchain.dev>
 License: Elastic-2.0
 License-File: LICENSE
@@ -10,6 +10,7 @@ Requires-Dist: cryptography<47.0,>=42.0.0
 Requires-Dist: grpcio-health-checking<1.79.0,>=1.78.0
 Requires-Dist: grpcio-tools==1.78.0
 Requires-Dist: grpcio<1.79.0,>=1.78.0
+Requires-Dist: httptools>=0.5.0; platform_system != 'Windows'
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: jsonschema-rs<0.45,>=0.20.0
 Requires-Dist: langchain-core>=0.3.64
@@ -18,9 +19,9 @@ Requires-Dist: langgraph-runtime-inmem<0.28.0,>=0.27.0
 Requires-Dist: langgraph-sdk>=0.3.5
 Requires-Dist: langgraph<2,>=0.4.10
 Requires-Dist: langsmith[otel]>=0.6.3
-Requires-Dist: opentelemetry-api>=1.37.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.37.0
-Requires-Dist: opentelemetry-sdk>=1.37.0
+Requires-Dist: opentelemetry-api>=0.0.1
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=0.0.1
+Requires-Dist: opentelemetry-sdk>=0.0.1
 Requires-Dist: orjson>=3.9.7
 Requires-Dist: protobuf<7.0.0,>=6.32.1
 Requires-Dist: pyjwt>=2.9.0
@@ -31,6 +32,7 @@ Requires-Dist: tenacity>=8.0.0
 Requires-Dist: truststore>=0.1
 Requires-Dist: uuid-utils>=0.12.0
 Requires-Dist: uvicorn>=0.26.0
+Requires-Dist: uvloop>=0.18.0; platform_system != 'Windows'
 Requires-Dist: watchfiles>=0.13
 Requires-Dist: zstandard>=0.23.0
 Description-Content-Type: text/markdown

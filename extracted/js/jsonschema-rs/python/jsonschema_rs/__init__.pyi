@@ -454,7 +454,7 @@ class Draft202012Validator:
 Validator: TypeAlias = Draft4Validator | Draft6Validator | Draft7Validator | Draft201909Validator | Draft202012Validator
 
 def validator_for(
-    schema: _SchemaT,
+    schema: _SchemaT | str,
     formats: dict[str, _FormatFunc] | None = None,
     validate_formats: bool | None = None,
     ignore_unknown_formats: bool = True,
@@ -471,6 +471,45 @@ def validator_for(
 
     Automatically detects the JSON Schema draft from the $schema keyword.
     Returns a Draft-specific validator instance.
+    """
+    ...
+
+class ValidatorMap:
+    """Map of compiled validators keyed by URI-fragment JSON pointer.
+
+    Obtained via :func:`validator_map_for`. Use it to validate instances against
+    named subschemas identified by JSON pointer (e.g. ``"#/$defs/User"``).
+    """
+
+    def get(self, pointer: str) -> Validator | None:
+        """Return the validator for *pointer*, or ``None`` if not found."""
+        ...
+
+    def __getitem__(self, pointer: str) -> Validator:
+        """Return the validator for *pointer*, raising ``KeyError`` if not found."""
+        ...
+
+    def __contains__(self, pointer: object) -> bool: ...
+    def keys(self) -> list[str]: ...
+    def __len__(self) -> int: ...
+
+def validator_map_for(
+    schema: _SchemaT | str,
+    formats: dict[str, _FormatFunc] | None = None,
+    validate_formats: bool | None = None,
+    ignore_unknown_formats: bool = True,
+    retriever: RetrieverProtocol | None = None,
+    registry: Registry | None = None,
+    mask: str | None = None,
+    base_uri: str | None = None,
+    pattern_options: PatternOptionsType | None = None,
+    email_options: EmailOptions | None = None,
+    http_options: HttpOptions | None = None,
+    keywords: dict[str, type[KeywordValidator]] | None = None,
+) -> ValidatorMap:
+    """Compile all subschemas in *schema* into a map keyed by URI-fragment JSON pointer.
+
+    The root schema is always included as ``"#"``.
     """
     ...
 
@@ -492,7 +531,24 @@ def bundle(
     """
     ...
 
-def validator_cls_for(schema: _SchemaT) -> type[Validator]:
+def dereference(
+    schema: _SchemaT,
+    /,
+    *,
+    retriever: RetrieverProtocol | None = None,
+    registry: Registry | None = None,
+    draft: int | None = None,
+    base_uri: str | None = None,
+) -> _SchemaT:
+    """Recursively inline all $ref values in a JSON Schema.
+
+    Circular references are left in place as `$ref` strings.
+
+    Raises ReferencingError if any $ref cannot be resolved.
+    """
+    ...
+
+def validator_cls_for(schema: _SchemaT | str) -> type[Validator]:
     """Detect the JSON Schema draft for a schema and return the corresponding validator class.
 
     Draft is detected automatically from the $schema field. Defaults to Draft202012Validator.
@@ -506,7 +562,23 @@ class Registry:
         draft: int | None = None,
         retriever: RetrieverProtocol | None = None,
     ) -> None: ...
+    def resolver(self, base_uri: str) -> Resolver: ...
     def __repr__(self) -> str: ...
+
+class Resolver:
+    @property
+    def base_uri(self) -> str: ...
+    @property
+    def dynamic_scope(self) -> tuple[str, ...]: ...
+    def lookup(self, reference: str) -> Resolved: ...
+
+class Resolved:
+    @property
+    def contents(self) -> JSONType: ...
+    @property
+    def resolver(self) -> Resolver: ...
+    @property
+    def draft(self) -> int: ...
 
 class _Meta:
     def is_valid(self, schema: _SchemaT, registry: Registry | None = None) -> bool: ...

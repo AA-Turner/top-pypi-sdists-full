@@ -5,10 +5,11 @@ Display 3D models (GLTF, GLB, OBJ, STL, PLY, FBX) with interactive orbit control
 
 from __future__ import annotations
 
+from datetime import date
 from functools import cache
 from io import BufferedReader, BytesIO, RawIOBase
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import streamlit as st
 import streamlit.components.v2
@@ -17,6 +18,8 @@ from streamlit import runtime
 from streamlit_extras import extra
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from streamlit.delta_generator import DeltaGenerator
 
 
@@ -71,9 +74,12 @@ def _add_to_media_file_manager(data: bytes, mime_type: str) -> str:
         coordinates = st._main._get_delta_path_str()
     except Exception:
         media_mgr = rt.media_file_mgr
-        # Fallback: try calling without explicit coordinates (if supported).
+        # Fallback: try calling without explicit coordinates (if supported in older Streamlit).
+        # Cast bypasses type checker - this call is intentionally incorrect and will fail
+        # with TypeError on current Streamlit versions, caught by the except block below.
         try:
-            return media_mgr.add(data, mime_type)  # type: ignore[call-arg]
+            add_fn = cast("Callable[[bytes, str], str]", media_mgr.add)
+            return add_fn(data, mime_type)
         except TypeError as exc:
             msg = (
                 "Incompatible Streamlit version detected: unable to access "
@@ -258,6 +264,7 @@ __title__ = "Three.js 3D Viewer"
 __desc__ = "Display 3D models (GLTF, GLB, OBJ, STL, PLY, FBX) with interactive orbit controls using Three.js."
 __icon__ = "🎮"
 __author__ = "Lukas Masuch"
+__created_at__ = date(2026, 3, 25)
 __examples__ = [example_basic, example_with_options]
 
 

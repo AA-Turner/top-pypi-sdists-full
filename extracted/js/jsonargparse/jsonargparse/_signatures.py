@@ -19,9 +19,9 @@ from ._common import (
 from ._namespace import Namespace
 from ._optionals import attrs_support, get_doc_short_description, is_attrs_class, is_pydantic_model
 from ._parameter_resolvers import ParamData, get_parameter_origins, get_signature_parameters
+from ._required import set_required
 from ._typehints import (
     ActionTypeHint,
-    LazyInitBaseClass,
     callable_instances,
     get_subclass_names,
     is_list_pathlike,
@@ -30,7 +30,7 @@ from ._typehints import (
     sequence_origin_types,
 )
 from ._util import NoneType, get_import_path, get_private_kwargs, get_typehint_origin, iter_to_set_str
-from .typing import register_pydantic_type
+from .typing import _LazyInitBaseClass, register_pydantic_type
 
 __all__ = ["SignatureArguments"]
 
@@ -48,7 +48,7 @@ class SignatureArguments(LoggerProperty):
         nested_key: Optional[str] = None,
         as_group: bool = True,
         as_positional: bool = False,
-        default: Optional[Union[dict, Namespace, LazyInitBaseClass, type]] = None,
+        default: Optional[Union[dict, Namespace, type]] = None,
         skip: Optional[set[Union[str, int]]] = None,
         instantiate: bool = True,
         fail_untyped: bool = True,
@@ -82,7 +82,7 @@ class SignatureArguments(LoggerProperty):
             raise ValueError(f"Expected 'theclass' parameter to be a class type, got: {theclass}")
         if not (
             isinstance(default, (NoneType, dict, Namespace))
-            or (isinstance(default, LazyInitBaseClass) and isinstance(default, unaliased_class_type))
+            or (isinstance(default, _LazyInitBaseClass) and isinstance(default, unaliased_class_type))
             or (
                 not is_final_class(default.__class__)
                 and is_subclasses_disabled(default.__class__)
@@ -117,7 +117,7 @@ class SignatureArguments(LoggerProperty):
             skip = skip or set()
             prefix = nested_key + "." if nested_key else ""
             defaults = default
-            if isinstance(default, LazyInitBaseClass):
+            if isinstance(default, _LazyInitBaseClass):
                 defaults = default.lazy_get_init_args().as_dict()
             elif is_convertible_to_dict(default.__class__):
                 defaults = convert_to_dict(default)
@@ -345,16 +345,13 @@ class SignatureArguments(LoggerProperty):
         if kind == kinds.POSITIONAL_ONLY:
             is_required = True  # Always required
             is_non_positional = False  # Can be positional
-        elif kind == kinds.POSITIONAL_OR_KEYWORD:
-            is_required = default == inspect_empty  # Required if no default
-            is_non_positional = False  # Can be positional
         elif kind == kinds.KEYWORD_ONLY:
             is_required = default == inspect_empty  # Required if no default
             is_non_positional = True  # Must use --flag style
-        elif kind is None:
-            # programmatically created parameters without kind
+        elif kind in {kinds.POSITIONAL_OR_KEYWORD, None}:
+            # POSITIONAL_OR_KEYWORD or programmatically created parameters without kind
             is_required = default == inspect_empty  # Required if no default
-            is_non_positional = False  # Can be positional (preserve old behavior)
+            is_non_positional = False  # Can be positional
         else:
             raise RuntimeError(f"The code should never reach here: kind={kind}")  # pragma: no cover
         src = get_parameter_origins(param.component, param.parent)
@@ -386,6 +383,7 @@ class SignatureArguments(LoggerProperty):
         elif not as_positional or is_non_positional:
             kwargs["required"] = True
         is_subclass_typehint = False
+        nested_skip: set[str] = set()
         subclasses_disabled = is_subclasses_disabled(annotation)
         dest = (nested_key + "." if nested_key else "") + name
         args = [dest if is_required and as_positional and not is_non_positional else "--" + dest]
@@ -407,18 +405,17 @@ class SignatureArguments(LoggerProperty):
         elif annotation != inspect_empty:
             try:
                 is_subclass_typehint = ActionTypeHint.is_subclass_typehint(annotation, all_subtypes=False)
+                is_return_subclass_typehint = ActionTypeHint.is_return_subclass_typehint(annotation)
                 kwargs["type"] = annotation
                 sub_add_kwargs: dict = {"fail_untyped": fail_untyped, "sub_configs": sub_configs}
-                if is_subclass_typehint:
+                if is_subclass_typehint or is_return_subclass_typehint:
                     prefix = f"{name}.init_args."
-                    subclass_skip = {s[len(prefix) :] for s in skip or [] if s.startswith(prefix)}
-                    sub_add_kwargs["skip"] = subclass_skip
+                    nested_skip = {s[len(prefix) :] for s in skip or [] if s.startswith(prefix)}
+                    sub_add_kwargs["skip"] = nested_skip
                 else:
                     register_pydantic_type(annotation)
                 enable_path = sub_configs and (
-                    is_subclass_typehint
-                    or ActionTypeHint.is_return_subclass_typehint(annotation)
-                    or is_list_pathlike(annotation)
+                    is_subclass_typehint or is_return_subclass_typehint or is_list_pathlike(annotation)
                 )
                 args = ActionTypeHint.prepare_add_argument(
                     args=args,
@@ -442,8 +439,8 @@ class SignatureArguments(LoggerProperty):
                 action = container.add_argument(*args, **kwargs)
             if action is not None:  # None when class without any parameters
                 action.sub_add_kwargs = sub_add_kwargs
-                if is_subclass_typehint and len(subclass_skip) > 0:
-                    action.sub_add_kwargs["skip"] = subclass_skip
+                if nested_skip:
+                    action.sub_add_kwargs["skip"] = nested_skip
             added_args.append(dest)
         elif is_required and fail_untyped:
             raise ValueError(
@@ -537,7 +534,7 @@ class SignatureArguments(LoggerProperty):
         if required:
             if nested_key is None:
                 raise ValueError("A nested_key is mandatory to make required.")
-            self.required_args.add(nested_key)
+            set_required(self, nested_key)
 
         group = self
         if as_group:

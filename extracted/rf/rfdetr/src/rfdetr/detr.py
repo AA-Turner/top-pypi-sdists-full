@@ -142,8 +142,19 @@ def _load_pretrain_weights_into(nn_model: torch.nn.Module, args: Any) -> List[st
 
     validate_checkpoint_compatibility(checkpoint, args)
 
+    user_set_num_classes = "num_classes" in getattr(args, "model_fields_set", set())
+    default_num_classes = getattr(type(args), "model_fields", {}).get("num_classes")
+    default_num_classes = getattr(default_num_classes, "default", 90)
+    num_classes = args.num_classes
+    user_overrode_default_num_classes = user_set_num_classes and num_classes != default_num_classes
+
     checkpoint_num_classes = checkpoint["model"]["class_embed.bias"].shape[0]
-    if checkpoint_num_classes != args.num_classes + 1:
+    configured_num_classes_plus_bg = num_classes + 1
+    if checkpoint_num_classes != configured_num_classes_plus_bg:
+        if checkpoint_num_classes < configured_num_classes_plus_bg and not user_overrode_default_num_classes:
+            num_classes = checkpoint_num_classes - 1
+            configured_num_classes_plus_bg = checkpoint_num_classes
+            args.num_classes = num_classes
         # Temporarily align the detection head size with the checkpoint so
         # that state_dict loading succeeds even when the configured
         # num_classes differs from the checkpoint.
@@ -159,8 +170,11 @@ def _load_pretrain_weights_into(nn_model: torch.nn.Module, args: Any) -> List[st
 
     # Only reinitialize back to configured size when intentionally reducing a
     # larger pretrain checkpoint to fewer task-specific classes.
-    if args.num_classes + 1 < checkpoint_num_classes:
-        nn_model.reinitialize_detection_head(args.num_classes + 1)
+    if checkpoint_num_classes < configured_num_classes_plus_bg and user_overrode_default_num_classes:
+        nn_model.reinitialize_detection_head(configured_num_classes_plus_bg)
+
+    if num_classes + 1 < checkpoint_num_classes:
+        nn_model.reinitialize_detection_head(num_classes + 1)
 
     return class_names
 
@@ -192,17 +206,23 @@ def _apply_lora_to(nn_model: torch.nn.Module) -> None:
     nn_model.backbone[0].encoder = get_peft_model(nn_model.backbone[0].encoder, lora_config)
 
 
-def _build_model_context(model_config: ModelConfig) -> "ModelContext":
+def _build_model_context(model_config: ModelConfig) -> ModelContext:
     """Build a ModelContext from ModelConfig without using legacy main.py:Model.
 
     Replicates ``Model.__init__`` logic: builds the nn.Module, optionally loads
-    pretrain weights and applies LoRA, then moves the model to the target device.
+    pretrain weights and applies LoRA.  The model is intentionally kept on CPU;
+    :func:`_ensure_model_on_device` in ``detr.py`` performs the deferred
+    ``.to(device)`` on the first ``predict()`` / ``export()`` /
+    ``optimize_for_inference()`` call.  Keeping construction CPU-only prevents
+    CUDA initialisation during ``__init__``, which would block DDP strategies
+    (``ddp_notebook``, ``ddp_spawn``) from spawning child processes in notebook
+    environments.
 
     Args:
         model_config: Architecture configuration.
 
     Returns:
-        Fully initialised ModelContext ready for inference or training.
+        ModelContext with the model on CPU, ready for lazy device placement.
     """
     from rfdetr._namespace import build_namespace
 
@@ -219,7 +239,11 @@ def _build_model_context(model_config: ModelConfig) -> "ModelContext":
         _apply_lora_to(nn_model)
 
     device = torch.device(args.device)
-    nn_model = nn_model.to(device)
+    # Keep the model on CPU here; predict() / export() / optimize_for_inference()
+    # will lazily move it to the target device on first use.  Eagerly calling
+    # .to("cuda") would initialise the CUDA runtime during __init__(), which
+    # prevents DDP strategies (ddp_notebook, ddp_spawn) from forking/spawning
+    # child processes in notebook environments.
     postprocess = PostProcess(num_select=args.num_select)
 
     return ModelContext(
@@ -318,6 +342,28 @@ def _resolve_patch_size(patch_size: int | None, model_config: object, caller: st
     return patch_size
 
 
+def _ensure_model_on_device(model_ctx: Any) -> None:
+    """Move model weights to the target device recorded in *model_ctx*.
+
+    ``_build_model_context`` intentionally keeps the ``nn.Module`` on CPU so
+    that ``RFDETR.__init__`` does not initialise CUDA (which would prevent DDP
+    strategies from forking in notebook environments).  This helper performs
+    the deferred ``.to(device)`` on first use.
+
+    It is safe to call on duck-typed stand-ins (e.g. ``SimpleNamespace``); the
+    function silently returns when the expected attributes are missing.
+    """
+    target = getattr(model_ctx, "device", None)
+    inner = getattr(model_ctx, "model", None)
+    if target is None or inner is None or not hasattr(inner, "parameters"):
+        return
+    if isinstance(target, str):
+        target = torch.device(target)
+    first_param = next(inner.parameters(), None)
+    if first_param is not None and first_param.device != target:
+        model_ctx.model = inner.to(target)
+
+
 class RFDETR:
     """The base RF-DETR class implements the core methods for training RF-DETR models,
     running inference on the models, optimising models, and uploading trained
@@ -399,9 +445,20 @@ class RFDETR:
         """Train an RF-DETR model via the PyTorch Lightning stack.
 
         All keyword arguments are forwarded to :meth:`get_train_config` to build
-        a :class:`~rfdetr.config.TrainConfig`.  Several legacy kwargs are absorbed
-        so existing call-sites do not break:
+        a :class:`~rfdetr.config.TrainConfig`.  Several kwargs are absorbed and
+        handled specially so that existing call-sites do not break:
 
+        * ``resolution`` — updates the model's input resolution by mutating
+          :attr:`model_config.resolution` in place before the train config is
+          built. This change persists on :attr:`model_config` after
+          :meth:`train` returns. The value must be a positive integer divisible
+          by ``patch_size * num_windows`` for the model variant; a
+          :class:`ValueError` is raised otherwise.
+          :attr:`model_config.positional_encoding_size` is also updated when
+          the config derives it formulaically (``PE == resolution //
+          patch_size``); configs with a pretrained-specific PE value (e.g.
+          ``RFDETRBase`` uses DINOv2's PE=37 at 560 px) are left unchanged to
+          preserve checkpoint compatibility.
         * ``device`` — normalized via :class:`torch.device` and mapped to PyTorch
           Lightning trainer arguments. ``"cpu"`` becomes ``accelerator="cpu"``;
           ``"cuda"`` and ``"cuda:N"`` become ``accelerator="gpu"`` and optionally
@@ -422,6 +479,8 @@ class RFDETR:
         Raises:
             ImportError: If training dependencies are not installed. Install with
                 ``pip install "rfdetr[train,loggers]"``.
+            ValueError: If ``resolution`` is not a positive integer or is not
+                divisible by ``patch_size * num_windows`` for the model variant.
 
         """
         # Both imports are grouped in a single try block because they both live in
@@ -473,8 +532,60 @@ class RFDETR:
                 stacklevel=2,
             )
 
+        # Apply resolution override to model_config before building the train config.
+        # resolution is a ModelConfig field, not a TrainConfig field, so we pop it
+        # here to avoid it being silently ignored by TrainConfig.
+        _resolution = kwargs.pop("resolution", None)
+        if _resolution is not None:
+            if isinstance(_resolution, bool):
+                raise ValueError("resolution must be a positive integer")
+            try:
+                _resolution = operator.index(_resolution)
+            except TypeError as error:
+                raise ValueError("resolution must be a positive integer") from error
+            if _resolution <= 0:
+                raise ValueError("resolution must be a positive integer")
+            block_size = self.model_config.patch_size * self.model_config.num_windows
+            if _resolution % block_size != 0:
+                raise ValueError(
+                    f"resolution={_resolution} is not divisible by "
+                    f"patch_size ({self.model_config.patch_size}) * num_windows "
+                    f"({self.model_config.num_windows}) = {block_size}. "
+                    f"Choose a resolution that is a multiple of {block_size}."
+                )
+            # Smart PE update: only recompute positional_encoding_size when the
+            # current config derives it formulaically (PE == resolution // patch_size).
+            # Configs with a pretrained-specific PE (e.g. RFDETRBase uses DINOv2's
+            # PE=37 at 518 px, training at 560 px) must not have PE silently changed
+            # — doing so causes shape mismatches when loading pretrained checkpoints.
+            _current_pe = self.model_config.positional_encoding_size
+            _derived_pe = self.model_config.resolution // self.model_config.patch_size
+            if _current_pe == _derived_pe:
+                # Formula-derived: update PE proportionally to the new resolution.
+                new_pe = _resolution // self.model_config.patch_size
+                self.model_config.positional_encoding_size = new_pe
+            else:
+                # Pretrained-specific PE; leave it unchanged.
+                new_pe = _current_pe
+            self.model_config.resolution = _resolution
+
+            # Keep the cached inference/export context in sync with model_config so
+            # predict()/export()/deployment all see the same resolution metadata.
+            if hasattr(self, "model") and self.model is not None:
+                if hasattr(self.model, "resolution"):
+                    self.model.resolution = _resolution
+                model_args = getattr(self.model, "args", None)
+                if model_args is not None:
+                    if hasattr(model_args, "resolution"):
+                        model_args.resolution = _resolution
+                    if hasattr(model_args, "positional_encoding_size"):
+                        model_args.positional_encoding_size = new_pe
         config = self.get_train_config(**kwargs)
         if config.batch_size == "auto":
+            # Auto-batch probing runs forward/backward on the actual model, which
+            # must be on the target device (typically CUDA).  Lazy placement keeps
+            # the model on CPU until first use — move it now.
+            _ensure_model_on_device(self.model)
             auto_batch = resolve_auto_batch_config(
                 model_context=self.model,
                 model_config=self.model_config,
@@ -498,6 +609,25 @@ class RFDETR:
 
         module = RFDETRModelModule(self.model_config, config)
         datamodule = RFDETRDataModule(self.model_config, config)
+
+        # Guard with LOCAL_RANK env var rather than is_main_process() because torch.distributed
+        # is not yet initialized here (it is set up inside trainer.fit()).  In Lightning DDP
+        # subprocesses, LOCAL_RANK is set by the launcher before the subprocess calls train(),
+        # so this correctly identifies rank 0 even before dist.init_process_group() runs.
+        if config.save_dataset_grids and os.environ.get("LOCAL_RANK", "0") == "0":
+            try:
+                from rfdetr.datasets.save_grids import DatasetGridSaver
+
+                datamodule.setup("fit")
+                grids_output_dir = Path(config.output_dir) / "dataset_grids"
+                DatasetGridSaver(datamodule.train_dataloader(), grids_output_dir, dataset_type="train").save_grid()
+                DatasetGridSaver(datamodule.val_dataloader(), grids_output_dir, dataset_type="val").save_grid()
+            except Exception:
+                logger.warning(
+                    "Failed to save dataset grids; training will continue without them.",
+                    exc_info=True,
+                )
+
         trainer_kwargs = {"accelerator": _accelerator}
         if _devices is not None:
             trainer_kwargs["devices"] = _devices
@@ -557,6 +687,7 @@ class RFDETR:
         # Clear any previously optimized state before starting a new optimization run.
         self.remove_optimized_model()
 
+        _ensure_model_on_device(self.model)
         device = self.model.device
         cuda_ctx = torch.cuda.device(device) if device.type == "cuda" else contextlib.nullcontext()
 
@@ -949,7 +1080,17 @@ class RFDETR:
 
         Returns:
             A single or multiple Detections objects, each containing bounding box
-            coordinates, confidence scores, and class IDs.
+            coordinates, confidence scores, and class IDs.  The ``data`` dict of
+            each :class:`~supervision.Detections` object contains:
+
+            * ``"class_name"`` – ``np.ndarray`` of string class names corresponding
+              to each detection (``class_names[class_id]``).  Class IDs are always
+              0-indexed; ``class_names[0]`` is the first class regardless of the
+              original dataset format (COCO category IDs are remapped to 0-based
+              indices during training).
+            * ``"source_image"`` – the original input image (only present when
+              ``include_source_image=True``, which is the default).
+            * ``"source_shape"`` – ``(height, width)`` tuple of the source image dimensions.
 
         Raises:
             ValueError: If ``shape`` cannot be unpacked as a two-element sequence,
@@ -961,6 +1102,8 @@ class RFDETR:
 
         """
         import supervision as sv
+
+        _ensure_model_on_device(self.model)
 
         patch_size = _resolve_patch_size(patch_size, self.model_config, "predict")
         num_windows = getattr(self.model_config, "num_windows", 1)
@@ -1074,6 +1217,8 @@ class RFDETR:
             target_sizes = torch.tensor(orig_sizes, device=self.model.device)
             results = self.model.postprocess(predictions, target_sizes=target_sizes)
 
+        model_class_names = self.class_names
+        n = len(model_class_names)
         detections_list = []
         for i, result in enumerate(results):
             scores = result["scores"]
@@ -1104,6 +1249,23 @@ class RFDETR:
 
             detections.data["source_image"] = source_images[i]
             detections.data["source_shape"] = orig_sizes[i]
+
+            # Attach class names so callers can map class_id → name without a
+            # separate lookup.  class_id is always 0-indexed regardless of the
+            # original dataset format (COCO category IDs are remapped during
+            # training), so class_names[class_id] is the correct mapping.
+            # Always set data["class_name"] for a consistent interface.
+            class_ids = detections.class_id if detections.class_id is not None else np.array([], dtype=int)
+            oob_ids = [cid for cid in class_ids if not (0 <= cid < n)]
+            if oob_ids:
+                logger.warning_once(
+                    "predict() encountered class_id values out of range [0, %d): %s — mapping to empty string",
+                    n,
+                    oob_ids[:5],
+                )
+            detections.data["class_name"] = np.array(
+                [model_class_names[cid] if 0 <= cid < n else "" for cid in class_ids], dtype=object
+            )
 
             detections_list.append(detections)
 

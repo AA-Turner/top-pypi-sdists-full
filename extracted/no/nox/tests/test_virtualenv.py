@@ -142,6 +142,64 @@ def test_process_env_create() -> None:
         nox.virtualenv.ProcessEnv()  # type: ignore[abstract]
 
 
+def test_process_env_get_env_with_bin_paths() -> None:
+    penv = nox.virtualenv.PassthroughEnv(bin_paths=["/test/bin"])
+    env = penv._get_env({})
+    path = env.get("PATH")
+    assert path
+    assert "/test/bin" in path
+
+
+def test_process_env_get_env_exclude_outer() -> None:
+    penv = nox.virtualenv.PassthroughEnv(bin_paths=["/test/bin"], env={"TEST": "value"})
+    env = penv._get_env({}, include_outer_env=False)
+    assert env["TEST"] == "value"
+    assert env["PATH"] == "/test/bin"
+
+
+def test_ensure_gitignore_creates_file(tmp_path: Path) -> None:
+    envdir = tmp_path.joinpath(".nox")
+    location = envdir.joinpath("session")
+
+    nox.virtualenv._ensure_gitignore(location.parent)
+
+    assert envdir.joinpath(".gitignore").read_text(encoding="utf-8") == "*\n"
+
+
+def test_ensure_cachedir_tag_creates_file(tmp_path: Path) -> None:
+    envdir = tmp_path.joinpath(".nox")
+    location = envdir.joinpath("session")
+
+    nox.virtualenv._ensure_cachedir_tag(location.parent)
+
+    assert (
+        envdir.joinpath("CACHEDIR.TAG").read_text(encoding="utf-8")
+        == "Signature: 8a477f597d28d172789f06886806bc55\n"
+    )
+
+
+def test_ensure_parent_gitignore_keeps_existing_file(tmp_path: Path) -> None:
+    envdir = tmp_path.joinpath(".nox")
+    envdir.mkdir()
+    gitignore = envdir.joinpath(".gitignore")
+    gitignore.write_text("!keep\n", encoding="utf-8")
+
+    nox.virtualenv._ensure_gitignore(envdir)
+
+    assert gitignore.read_text(encoding="utf-8") == "!keep\n"
+
+
+def test_ensure_parent_cachedir_tag_keeps_existing_file(tmp_path: Path) -> None:
+    envdir = tmp_path.joinpath(".nox")
+    envdir.mkdir()
+    cachedir_tag = envdir.joinpath("CACHEDIR.TAG")
+    cachedir_tag.write_text("!keep\n", encoding="utf-8")
+
+    nox.virtualenv._ensure_cachedir_tag(envdir)
+
+    assert cachedir_tag.read_text(encoding="utf-8") == "!keep\n"
+
+
 def test_invalid_venv_create(
     make_one: Callable[
         ..., tuple[nox.virtualenv.VirtualEnv | nox.virtualenv.ProcessEnv, Path]
@@ -149,6 +207,100 @@ def test_invalid_venv_create(
 ) -> None:
     with pytest.raises(ValueError, match="venv_backend 'invalid' not recognized"):
         make_one(venv_backend="invalid")
+
+
+def test_get_virtualenv_invalid_backend(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="Expected venv_backend one of"):
+        nox.virtualenv.get_virtualenv(
+            "invalid",
+            download_python="auto",
+            envdir=str(tmp_path),
+            reuse_existing=False,
+        )
+
+
+def test_get_virtualenv_fallback_to_available_backend(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Force optional backends to be unavailable so fallback behavior is deterministic.
+    monkeypatch.setattr(
+        nox.virtualenv,
+        "OPTIONAL_VENVS",
+        {"conda": False, "mamba": False, "micromamba": False, "uv": False},
+    )
+    venv = nox.virtualenv.get_virtualenv(
+        "conda",
+        "mamba",
+        "venv",
+        download_python="auto",
+        envdir=str(tmp_path),
+        reuse_existing=False,
+    )
+    assert isinstance(venv, nox.virtualenv.VirtualEnv)
+    assert venv.venv_backend == "venv"
+
+
+def test_get_virtualenv_no_backends_available(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Simulate no optional backends present.
+    monkeypatch.setattr(
+        nox.virtualenv,
+        "OPTIONAL_VENVS",
+        {"conda": False, "mamba": False, "micromamba": False, "uv": False},
+    )
+    with pytest.raises(ValueError, match="No backends present"):
+        nox.virtualenv.get_virtualenv(
+            "conda",
+            "mamba",
+            download_python="auto",
+            envdir=str(tmp_path),
+            reuse_existing=False,
+        )
+
+
+def test_get_virtualenv_none_backend(
+    tmp_path: Path,
+) -> None:
+    venv = nox.virtualenv.get_virtualenv(
+        "none",
+        download_python="auto",
+        envdir=str(tmp_path),
+        reuse_existing=False,
+    )
+    assert isinstance(venv, nox.virtualenv.ProcessEnv)
+
+
+def test_get_virtualenv_interpreter_false(
+    tmp_path: Path,
+) -> None:
+    venv = nox.virtualenv.get_virtualenv(
+        "venv",
+        download_python="auto",
+        envdir=str(tmp_path),
+        reuse_existing=False,
+        interpreter=False,
+    )
+    assert isinstance(venv, nox.virtualenv.ProcessEnv)
+
+
+def test_get_virtualenv_non_optional_fallback(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        ValueError, match=r"Only optional backends.*may have a fallback"
+    ):
+        nox.virtualenv.get_virtualenv(
+            "venv",
+            "uv",
+            download_python="auto",
+            envdir=str(tmp_path),
+            reuse_existing=False,
+        )
 
 
 def test_condaenv_constructor_defaults(
@@ -537,6 +689,35 @@ def test_create_reuse_environment_with_different_interpreter(
 
     assert not reused
     assert not location.joinpath("marker").exists()
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Uses POSIX symlinks.")
+@pytest.mark.parametrize(
+    "venv_backend",
+    [
+        "venv",
+        "virtualenv",
+        pytest.param("uv", marks=has_uv),
+    ],
+)
+def test_create_reuse_environment_with_broken_interpreter_symlink(
+    make_one: Callable[..., tuple[VirtualEnv | ProcessEnv, Path]],
+    venv_backend: str,
+) -> None:
+    venv, location = make_one(reuse_existing=True, venv_backend=venv_backend)
+    venv.create()
+
+    marker = location.joinpath("marker")
+    marker.touch()
+
+    python = location.joinpath("bin", "python")
+    python.unlink()
+    python.symlink_to("/definitely/missing/python")
+
+    reused = not venv.create()
+
+    assert not reused
+    assert not marker.exists()
 
 
 @has_uv
@@ -1554,8 +1735,9 @@ def test_download_python_failed_install(
         download_python=download_python,
     )
 
-    with mock.patch.object(shutil, "which", return_value=None) as _, pytest.raises(
-        nox.virtualenv.InterpreterNotFound
+    with (
+        mock.patch.object(shutil, "which", return_value=None) as _,
+        pytest.raises(nox.virtualenv.InterpreterNotFound),
     ):
         _ = venv._resolved_interpreter
 

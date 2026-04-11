@@ -330,6 +330,7 @@ class AsyncChronos:
         world_config: dict[str, Any] | None = None,
         runtime_artifact_id: str | None = None,
         tags: list[str] | None = None,
+        parent_session_id: str | None = None,
     ) -> ChronosSession:
         """Launch a new Chronos job.
 
@@ -339,6 +340,8 @@ class AsyncChronos:
             world_config: Configuration passed to the world runner.
             runtime_artifact_id: Optional runtime artifact ID for cached environment.
             tags: Optional tags for organizing sessions (use '.' for hierarchy).
+            parent_session_id: Parent session ID for nested sessions. If None,
+                auto-detected from SESSION_ID environment variable.
 
         Returns:
             ChronosSession for monitoring and managing the job.
@@ -353,6 +356,9 @@ class AsyncChronos:
                 tags=["project.my_project", "env.dev"],
             )
         """
+        if parent_session_id is None:
+            parent_session_id = os.environ.get("SESSION_ID")
+
         # Normalize tags
         normalized_tags = None
         if tags:
@@ -364,6 +370,7 @@ class AsyncChronos:
                 config=world_config,
             ),
             tags=normalized_tags,
+            parent_session_id=parent_session_id,
         )
 
         response: LaunchJobResponse = await launch_job.asyncio(

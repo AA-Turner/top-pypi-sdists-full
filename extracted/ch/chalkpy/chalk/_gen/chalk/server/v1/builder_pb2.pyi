@@ -134,17 +134,20 @@ class IndexDeploymentRequest(_message.Message):
         "shadow_force_venv_rebuild",
         "shadow_skip_handle_conversion_errors",
         "shadow",
+        "shadow_run_id",
     )
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DRY_RUN_FIELD_NUMBER: _ClassVar[int]
     SHADOW_FORCE_VENV_REBUILD_FIELD_NUMBER: _ClassVar[int]
     SHADOW_SKIP_HANDLE_CONVERSION_ERRORS_FIELD_NUMBER: _ClassVar[int]
     SHADOW_FIELD_NUMBER: _ClassVar[int]
+    SHADOW_RUN_ID_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     dry_run: bool
     shadow_force_venv_rebuild: bool
     shadow_skip_handle_conversion_errors: bool
     shadow: bool
+    shadow_run_id: str
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
@@ -152,6 +155,7 @@ class IndexDeploymentRequest(_message.Message):
         shadow_force_venv_rebuild: bool = ...,
         shadow_skip_handle_conversion_errors: bool = ...,
         shadow: bool = ...,
+        shadow_run_id: _Optional[str] = ...,
     ) -> None: ...
 
 class IndexDeploymentResponse(_message.Message):

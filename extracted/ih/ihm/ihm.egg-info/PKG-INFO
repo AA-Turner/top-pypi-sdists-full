@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ihm
-Version: 2.9
+Version: 2.10
 Summary: Package for handling IHM mmCIF and BinaryCIF files
 Home-page: https://github.com/ihmwg/python-ihm
 Author: Ben Webb

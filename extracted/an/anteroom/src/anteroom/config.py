@@ -278,6 +278,7 @@ class AIConfig:
     block_localhost_api: bool = False  # when True, reject loopback/localhost base_url
     provider: str = "openai"  # "openai", "anthropic", or "litellm"
     max_output_tokens: int = 4096  # required by Anthropic; used as max_tokens for Anthropic provider
+    litellm_bedrock_tools_confirmed: bool = False  # opt-in for Bedrock tool calling via LiteLLM
 
 
 @dataclass
@@ -1248,6 +1249,12 @@ def load_config(
     except (ValueError, TypeError):
         max_output_tokens = 4096
 
+    _raw_bedrock_confirmed = ai_raw.get(
+        "litellm_bedrock_tools_confirmed",
+        os.environ.get("AI_CHAT_LITELLM_BEDROCK_TOOLS_CONFIRMED", "false"),
+    )
+    litellm_bedrock_tools_confirmed = str(_raw_bedrock_confirmed).lower() not in ("false", "0", "no")
+
     _raw_allowed_domains = ai_raw.get("allowed_domains", [])
     if not isinstance(_raw_allowed_domains, list):
         _raw_allowed_domains = []
@@ -1294,6 +1301,7 @@ def load_config(
         block_localhost_api=block_localhost_api,
         provider=provider,
         max_output_tokens=max_output_tokens,
+        litellm_bedrock_tools_confirmed=litellm_bedrock_tools_confirmed,
     )
 
     app_raw = raw.get("app", {})

@@ -19,21 +19,21 @@ from seeq.spy.workbooks._workbook import Workbook, WorkbookList
 
 @Status.top_level_spy_function()
 def pull(
-    workbooks_df: Union[pd.DataFrame, str],
-    *,
-    include_referenced_workbooks: bool = True,
-    include_inventory: bool = True,
-    include_annotations: bool = True,
-    include_images: bool = True,
-    include_rendered_content: bool = False,
-    include_access_control: bool = True,
-    include_archived: Optional[bool] = None,
-    specific_worksheet_ids: Optional[List[str]] = None,
-    as_template_with_label: Optional[str] = None,
-    errors: Optional[str] = None,
-    quiet: Optional[bool] = None,
-    status: Optional[Status] = None,
-    session: Optional[Session] = None
+        workbooks_df: Union[pd.DataFrame, str],
+        *,
+        include_referenced_workbooks: bool = True,
+        include_inventory: bool = True,
+        include_annotations: bool = True,
+        include_images: bool = True,
+        include_rendered_content: bool = False,
+        include_access_control: bool = True,
+        include_archived: Optional[bool] = None,
+        specific_worksheet_ids: Optional[List[str]] = None,
+        as_template_with_label: Optional[str] = None,
+        errors: Optional[str] = None,
+        quiet: Optional[bool] = None,
+        status: Optional[Status] = None,
+        session: Optional[Session] = None
 ) -> Optional[WorkbookList]:
     """
     Pulls the definitions for each workbook specified by workbooks_df into
@@ -279,13 +279,12 @@ def do_pull(workbooks: Union[pd.DataFrame, str], *, status: Status, session: Ses
 
                     if include_referenced_workbooks:
                         for workbook_id, workstep_tuples in workbook.referenced_workbooks.items():
-                            _add_if_necessary(workbook_id, workstep_tuples, workbooks_to_pull, workbooks_pulled, phase,
-                                              pull_info, status, session)
+                            _add_if_necessary(workbook_id, workbook, workstep_tuples, workbooks_to_pull,
+                                              workbooks_pulled, phase, pull_info, status, session)
 
-                        for workbook_id, workstep_tuples in \
-                                workbook.find_workbook_links(session, status).items():
-                            _add_if_necessary(workbook_id, workstep_tuples, workbooks_to_pull, workbooks_pulled, phase,
-                                              pull_info, status, session)
+                        for workbook_id, workstep_tuples in workbook.find_workbook_links(session, status).items():
+                            _add_if_necessary(workbook_id, workbook, workstep_tuples, workbooks_to_pull,
+                                              workbooks_pulled, phase, pull_info, status, session)
 
                     yield workbook
 
@@ -344,8 +343,8 @@ def _initialize_status_df(initial_df):
     return status_df
 
 
-def _add_if_necessary(workbook_id, workstep_tuples, workbooks_to_pull, workbooks_pulled, phase, pull_info, status,
-                      session):
+def _add_if_necessary(workbook_id, referencing_workbook: Workbook, workstep_tuples, workbooks_to_pull,
+                      workbooks_pulled, phase, pull_info, status, session):
     if workbook_id not in workbooks_to_pull:
         search_df = spy.workbooks.search({'ID': workbook_id},
                                          status=status.create_inner(
@@ -354,6 +353,9 @@ def _add_if_necessary(workbook_id, workstep_tuples, workbooks_to_pull, workbooks
         if len(search_df) == 0:
             # Workbook with this ID not found, probably as a result of a tool making an
             # invalid link in a Journal or Topic Document.
+            status.log(f'{referencing_workbook} references workbook {workbook_id} but a workbook with that ID was not '
+                       f'found, probably as a result of a tool making an invalid link in a Journal or Topic Document',
+                       level=logging.ERROR)
             return
 
         workbook_type_to_add = _common.get(search_df.iloc[0], 'Workbook Type')
@@ -369,6 +371,8 @@ def _add_if_necessary(workbook_id, workstep_tuples, workbooks_to_pull, workbooks
             worksteps=set()
         )
 
+        status.log(f'{referencing_workbook} references workbook {workbook_id}, added to pull list because '
+                   f'include_referenced_workbooks=True')
         to_add_df = _initialize_status_df(search_df)
         status.df = pd.concat([status.df, to_add_df], ignore_index=True)
 

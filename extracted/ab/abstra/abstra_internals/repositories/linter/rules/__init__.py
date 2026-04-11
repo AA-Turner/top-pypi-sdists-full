@@ -6,12 +6,15 @@ from abstra_internals.repositories.linter.models import LinterRule
 from .big_py_files import BigPyFiles
 from .conflicting_name import ConflictingName
 from .conflicting_path import ConflictingPath
+from .css_syntax import CssSyntax
 from .deprecated_functions import DeprecatedFunctionUsage
 from .duplicate_package_in_requirements import DuplicatePackagesInRequirements
 from .env_in_bundle import EnvInBundle
 from .file_outside_project import FileOutsideProjectRoot
+from .html_syntax import HtmlSyntax
 from .imports_requirements_analyzer import ImportsRequirementsAnalyzer
 from .invalid_package_in_requirements import InvalidPackageInRequirements
+from .js_syntax import JsSyntax
 from .local_package_in_requirements import LocalPackageInRequirements
 from .missing_abstra_in_requirements import MissingAbstraInRequirements
 from .missing_entrypoint import MissingEntrypoint
@@ -23,6 +26,7 @@ from .send_task_without_transition import SendTaskWithoutTransition
 from .syntax_errors import SyntaxErrors
 from .type_checking import TypeCheckingRule
 from .venv_in_bundle import VenvInBundle
+from .vulnerable_dependencies import VulnerableRequirements
 
 # --- Rule instances (shared across groups) ---
 
@@ -45,6 +49,10 @@ _missing_entrypoint = MissingEntrypoint()
 _env_in_bundle = EnvInBundle()
 _venv_in_bundle = VenvInBundle()
 _imports_analyzer = ImportsRequirementsAnalyzer()
+_vulnerable_requirements = VulnerableRequirements()
+_html_syntax = HtmlSyntax()
+_css_syntax = CssSyntax()
+_js_syntax = JsSyntax()
 
 _new_version: List[LinterRule] = []
 if not os.getenv("ABSTRA_RUNNING_IN_BUNDLED_APP"):
@@ -74,6 +82,7 @@ run_after_requirements_change: List[LinterRule] = [
     _local_package,
     _missing_abstra,
     _psycopg2,
+    _vulnerable_requirements,
 ]
 
 run_after_abstra_json_change: List[LinterRule] = [
@@ -96,6 +105,18 @@ run_after_package_install: List[LinterRule] = [
     *_new_version,
 ]
 
+run_after_html_change: List[LinterRule] = [
+    _html_syntax,
+]
+
+run_after_css_change: List[LinterRule] = [
+    _css_syntax,
+]
+
+run_after_js_change: List[LinterRule] = [
+    _js_syntax,
+]
+
 # All rules — used for full checks (deploy, initial load)
 _all_groups = [
     run_after_py_change,
@@ -103,6 +124,9 @@ _all_groups = [
     run_after_abstra_json_change,
     run_after_env_or_gitignore_change,
     run_after_package_install,
+    run_after_html_change,
+    run_after_css_change,
+    run_after_js_change,
 ]
 _seen_names: set[str] = set()
 rules: List[LinterRule] = []

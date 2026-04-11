@@ -40,6 +40,19 @@ from snowflake.snowpark.exceptions import SnowparkClientException, SnowparkSQLEx
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_mapping import ERROR_MAPPINGS_JSON
 
+
+class UnsupportedCharsetException(PySparkException):
+    """
+    Exception raised when an unsupported charset is specified.
+
+    This mimics Java's java.nio.charset.UnsupportedCharsetException for Spark compatibility.
+    """
+
+    def __init__(self, charset_name: str) -> None:
+        self.charset_name = charset_name
+        super().__init__(charset_name)
+
+
 # Limit size of serialized status payloads to ~3 KB to stay below typical 8 KB
 # header/metadata limits (e.g., HTTP/2 / gRPC) and leave room for overhead.
 STATUS_SIZE_LIMIT = 3250
@@ -64,6 +77,7 @@ SPARK_PYTHON_TO_JAVA_EXCEPTION = {
     PythonException: "org.apache.spark.api.python.PythonException",
     UnsupportedOperationException: "java.lang.UnsupportedOperationException",
     TempTableAlreadyExistsException: "org.apache.spark.sql.catalyst.analysis.TempTableAlreadyExistsException",
+    UnsupportedCharsetException: "java.nio.charset.UnsupportedCharsetException",
 }
 
 TABLE_OR_VIEW_NOT_FOUND_ERROR_CLASS = "TABLE_OR_VIEW_NOT_FOUND"

@@ -828,7 +828,8 @@ class Workbook(ItemWithOwnerAndAcl):
             except KeyboardInterrupt:
                 raise
             except SPyDependencyNotFound as e:
-                self._push_context.status.on_error(e)
+                if not e.intentional_no_mapping:
+                    self._push_context.status.on_error(e)
             except Exception:
                 # Note: This universal catch is more permissive than the newer CRAB-30955 error handling so this
                 #  is kept for backwards compatibility
@@ -894,8 +895,13 @@ class Workbook(ItemWithOwnerAndAcl):
             elif _common.is_guid(_old_id):
                 _missing = self.item_inventory.get(_old_id)
                 _friendly = str(_missing) if _missing is not None else _old_id
-                raise SPyDependencyNotFound(
-                    f'Formula dependency ${_key}={_friendly} not found/mapped/pushed', item_id, _old_id)
+                if _old_id in self._push_context.intentional_no_mappings:
+                    raise SPyDependencyNotFound(
+                        f'Formula dependency ${_key}={_friendly} intentionally not found/mapped/pushed',
+                        item_id, _old_id, intentional_no_mapping=True)
+                else:
+                    raise SPyDependencyNotFound(
+                        f'Formula dependency ${_key}={_friendly} not found/mapped/pushed', item_id, _old_id)
 
         data_id_maps = dict()
         for item_id, item_dict in metadata_to_push.items():
@@ -942,10 +948,18 @@ class Workbook(ItemWithOwnerAndAcl):
                 new_metadata[item_id] = copy.deepcopy(new_dict)
             except SPyDependencyNotFound as e:
                 item_map.log(item_id, str(e))
-                dependency_problems[item_id] = SPyDependencyNotFound(
-                    f'{_common.repr_from_row(self.item_inventory[item_id])}: {e}',
-                    e.dependent_identifier,
-                    e.dependency_identifier)
+                if e.intentional_no_mapping:
+                    # Log at WARN level for items that depend on intentionally unmapped items
+                    self._push_context.status.log(
+                        f'{_common.repr_from_row(self.item_inventory[item_id])}: {e}\n'
+                        f'Item will not be pushed because it depends on an item that was intentionally not mapped.',
+                        level=logging.WARNING)
+                else:
+                    # Keep track of unintentional dependency problems for error reporting
+                    dependency_problems[item_id] = SPyDependencyNotFound(
+                        f'{_common.repr_from_row(self.item_inventory[item_id])}: {e}',
+                        e.dependent_identifier,
+                        e.dependency_identifier)
 
         if len(dependency_problems) > 0:
             self._push_context.status.on_error(SPyDependencyNotFound.generate_error_string(dependency_problems))

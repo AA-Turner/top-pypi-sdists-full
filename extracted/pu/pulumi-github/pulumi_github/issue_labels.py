@@ -25,6 +25,7 @@ class IssueLabelsArgs:
                  labels: Optional[pulumi.Input[Sequence[pulumi.Input['IssueLabelsLabelArgs']]]] = None):
         """
         The set of arguments for constructing a IssueLabels resource.
+
         :param pulumi.Input[_builtins.str] repository: The GitHub repository
         :param pulumi.Input[Sequence[pulumi.Input['IssueLabelsLabelArgs']]] labels: List of labels
         """
@@ -64,6 +65,7 @@ class _IssueLabelsState:
                  repository: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering IssueLabels resources.
+
         :param pulumi.Input[Sequence[pulumi.Input['IssueLabelsLabelArgs']]] labels: List of labels
         :param pulumi.Input[_builtins.str] repository: The GitHub repository
         """
@@ -107,6 +109,19 @@ class IssueLabels(pulumi.CustomResource):
                  repository: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        Provides GitHub issue labels resource.
+
+        This resource allows you to create and manage issue labels within your
+        GitHub organization.
+
+        > Note: IssueLabels cannot be used in conjunction with IssueLabel or they will fight over what your policy should be.
+
+        This resource is authoritative. For adding a label to a repo in a non-authoritative manner, use IssueLabel instead.
+
+        If you change the case of a label's name, its' color, or description, this resource will edit the existing label to match the new values. However, if you change the name of a label, this resource will create a new label with the new name and delete the old label. Beware that this will remove the label from any issues it was previously attached to.
+
+        > **Note:** When a repository is archived, Terraform will skip deletion of issue labels to avoid API errors, as archived repositories are read-only. The labels will be removed from Terraform state without attempting to delete them from GitHub.
+
         ## Example Usage
 
         ```python
@@ -135,6 +150,7 @@ class IssueLabels(pulumi.CustomResource):
         ```sh
         $ pulumi import github:index/issueLabels:IssueLabels test_repo test_repo
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -148,6 +164,19 @@ class IssueLabels(pulumi.CustomResource):
                  args: IssueLabelsArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        Provides GitHub issue labels resource.
+
+        This resource allows you to create and manage issue labels within your
+        GitHub organization.
+
+        > Note: IssueLabels cannot be used in conjunction with IssueLabel or they will fight over what your policy should be.
+
+        This resource is authoritative. For adding a label to a repo in a non-authoritative manner, use IssueLabel instead.
+
+        If you change the case of a label's name, its' color, or description, this resource will edit the existing label to match the new values. However, if you change the name of a label, this resource will create a new label with the new name and delete the old label. Beware that this will remove the label from any issues it was previously attached to.
+
+        > **Note:** When a repository is archived, Terraform will skip deletion of issue labels to avoid API errors, as archived repositories are read-only. The labels will be removed from Terraform state without attempting to delete them from GitHub.
+
         ## Example Usage
 
         ```python
@@ -176,6 +205,7 @@ class IssueLabels(pulumi.CustomResource):
         ```sh
         $ pulumi import github:index/issueLabels:IssueLabels test_repo test_repo
         ```
+
 
         :param str resource_name: The name of the resource.
         :param IssueLabelsArgs args: The arguments to use to populate this resource's properties.

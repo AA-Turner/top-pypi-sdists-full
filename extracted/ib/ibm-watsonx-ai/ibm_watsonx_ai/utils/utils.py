@@ -17,6 +17,7 @@ import shutil
 import sys
 import tarfile
 import urllib
+from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum as _StrEnum
@@ -799,17 +800,20 @@ def next_resource_generator(
         if "http" not in next_href:
             next_href = f"{url}/{next_href}"
 
-        response = client.httpx_client.get(
-            url=next_href,
-            headers=client._get_headers(),
-            params=(params if params is not None else client._params()),
-        )
+        has_query = bool(urllib.parse.urlparse(next_href).query)
 
-        next_href, resources = _handle_next_details_response(
-            response, _all, _filter_func, _silent_response_logging
-        )
-
-        yield resources
+        request_params = None if has_query else (params or client._params())
+        with closing(
+            client.httpx_client.get(
+                url=next_href,
+                headers=client._get_headers(),
+                params=request_params,
+            )
+        ) as response:
+            next_href, resources = _handle_next_details_response(
+                response, _all, _filter_func, _silent_response_logging
+            )
+            yield resources
 
 
 async def anext_resource_generator(
@@ -1250,12 +1254,25 @@ def content_type_for(
     return mime or default
 
 
-def get_filename_from_asset_details(asset_details: dict) -> str | None:
-    """Return filename from asset details."""
-    filename = asset_details["metadata"].get("resource_key") or asset_details[
-        "metadata"
-    ].get("attachment_name")
-    return filename.split("/")[-1] if filename else None
+def get_document_path_from_asset_details(asset_details: dict) -> str | None:
+    """Return document path from asset details.
+
+    If catalog_id and asset_id are present in metadata, returns "catalog_id/asset_id/filename",
+    otherwise returns just the filename (from resource_key or attachment_name).
+    """
+    metadata = asset_details.get("metadata", {})
+
+    catalog_id = metadata.get("catalog_id")
+    asset_id = metadata.get("asset_id")
+    filename = metadata.get("resource_key") or metadata.get("attachment_name")
+
+    if not filename:
+        return None
+
+    if catalog_id and asset_id:
+        return f"{catalog_id}/{asset_id}/{filename}"
+
+    return filename
 
 
 GOV_CLOUD_CONSENT_FORMULA = """

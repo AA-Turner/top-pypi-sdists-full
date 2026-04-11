@@ -53,10 +53,6 @@
 //!    - mode:      Trunc
 //!    - increment: 1
 
-use crate::ry_datetime::RyDateTime;
-use crate::ry_time::RyTime;
-use crate::ry_zoned::RyZoned;
-use crate::{JiffRoundMode, JiffUnit, RyDate, RyTimestamp};
 use jiff::TimestampDifference;
 use jiff::civil::{DateDifference, DateTimeDifference, TimeDifference};
 use pyo3::prelude::*;
@@ -64,6 +60,11 @@ use pyo3::types::{PyDict, PyTuple};
 use pyo3::{IntoPyObjectExt, intern};
 use ryo3_core::PyAsciiString;
 use ryo3_macro_rules::py_type_err;
+
+use crate::ry_datetime::RyDateTime;
+use crate::ry_time::RyTime;
+use crate::ry_zoned::RyZoned;
+use crate::{JiffRoundMode, JiffUnit, RyDate, RyTimestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct DifferenceOptions {
@@ -112,8 +113,8 @@ impl RyDateDifference {
             date,
             *,
             smallest = JiffUnit::DAY,
-            largest=None,
-            mode=JiffRoundMode::TRUNC,
+            largest = None,
+            mode = JiffRoundMode::TRUNC,
             increment = 1
         ),
     )]
@@ -352,9 +353,9 @@ impl RyDateTimeDifference {
         signature = (
             datetime,
             *,
-            smallest=JiffUnit::NANOSECOND,
-            largest=None,
-            mode=JiffRoundMode::TRUNC,
+            smallest = JiffUnit::NANOSECOND,
+            largest = None,
+            mode = JiffRoundMode::TRUNC,
             increment = 1
         ),
     )]
@@ -581,10 +582,10 @@ impl RyTimeDifference {
         signature = (
             time,
             *,
-            smallest=JiffUnit::NANOSECOND,
-            largest=None,
-            mode=JiffRoundMode::TRUNC,
-            increment=1
+            smallest = JiffUnit::NANOSECOND,
+            largest = None,
+            mode = JiffRoundMode::TRUNC,
+            increment = 1
         ),
     )]
     #[must_use]
@@ -827,10 +828,10 @@ impl RyTimestampDifference {
         signature = (
             timestamp,
             *,
-            smallest=JiffUnit::NANOSECOND,
-            largest=None,
-            mode=JiffRoundMode::TRUNC,
-            increment=1
+            smallest = JiffUnit::NANOSECOND,
+            largest = None,
+            mode = JiffRoundMode::TRUNC,
+            increment = 1
         ),
     )]
     #[must_use]
@@ -1064,10 +1065,10 @@ impl RyZonedDifference {
         signature = (
             zoned,
             *,
-            smallest=JiffUnit::NANOSECOND,
-            largest=None,
-            mode=JiffRoundMode::TRUNC,
-            increment=1
+            smallest = JiffUnit::NANOSECOND,
+            largest = None,
+            mode = JiffRoundMode::TRUNC,
+            increment = 1
         ),
     )]
     #[must_use]

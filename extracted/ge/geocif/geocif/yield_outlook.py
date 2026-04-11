@@ -322,7 +322,7 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook):
             .groupby("Region", as_index=False)["MAPE"].mean()
         )
         diag.mape_bar_chart(df_mape, title, dir_plots,
-                            f"mape_{country}_{crop}_{model}.png")
+                            f"mape_bar_{country}_{crop}_{model}.png")
 
         # MAPE choropleth map
         df_mape["Country Region"] = (
@@ -397,24 +397,28 @@ def _generate_outlook_map(
 
 
 def run(path_config_files=None, current_year=None, n_years=None, aggregation=None,
-        reuse_db=None, use_latest_stage=True, fdw_export=False):
+        reuse_db=None, use_latest_stage=True, fdw_export=False, since_year=None):
     """Main entry point for yield outlook map generation.
 
-    1. Override forecast_seasons to cover [current_year - n_years, ..., current_year]
+    1. Override forecast_seasons to cover [since_year, ..., current_year]
     2. Run the ML pipeline via gc.execute_models()
     3. Query predictions from the database
-    4. Compute outlook index per region
+    4. Compute outlook index per region (using n_years window)
     5. Generate diverging choropleth maps and CSV
     6. Optionally export FDW forecast CSV (fdw_export=True)
 
     Args:
         path_config_files: List of config file paths.
         current_year: Forecast year (default: this year).
-        n_years: Number of historical years for comparison (default: config or 10).
+        n_years: Number of historical years for the outlook index hindcast
+            comparison window (default: config ``outlook_n_years`` or 10).
         aggregation: 'mean' or 'median' (default: config or 'mean').
         reuse_db: Path to existing outlook DB to skip ML and regenerate maps only.
         use_latest_stage: If True (default), use latest available stage per
             region+year. Handles mismatched stage names across years/countries.
+        since_year: Start year for ML execution (default: config
+            ``outlook_since_year`` or 2005).  Controls how far back the ML
+            pipeline runs; ``n_years`` still controls the outlook index window.
     """
     if path_config_files is None:
         path_config_files = [Path("../config/geocif.txt")]
@@ -428,6 +432,8 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         aggregation = parser.get("ML", "outlook_aggregation", fallback="mean")
     if current_year is None:
         current_year = ar.utcnow().to("America/New_York").year
+    if since_year is None:
+        since_year = parser.getint("ML", "outlook_since_year", fallback=2005)
 
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
     experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
@@ -441,8 +447,8 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         outlook_db = reuse_path.name
         logger.info("Reusing existing outlook DB: %s", reuse_path)
     else:
-        # ---- Step 1: Run ML pipeline for all needed years ----
-        outlook_seasons = list(range(current_year - n_years, current_year + 1))
+        # ---- Step 1: Run ML pipeline for all years since since_year ----
+        outlook_seasons = list(range(since_year, current_year + 1))
         originals = {}
         for country in countries:
             originals[country] = parser.get(country, "forecast_seasons")
@@ -461,7 +467,8 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         params = [
             ("Countries", countries),
             ("Forecast year", str(current_year)),
-            ("Lookback years", str(n_years)),
+            ("Since year", str(since_year)),
+            ("Outlook index window", f"{n_years} years"),
             ("Seasons", f"{outlook_seasons[0]}-{outlook_seasons[-1]}"),
             ("Aggregation", aggregation),
             ("Pooled", str(pool_countries_flag)),

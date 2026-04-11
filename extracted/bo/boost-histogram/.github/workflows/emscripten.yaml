@@ -24,12 +24,12 @@ jobs:
           submodules: true
           fetch-depth: 0
 
-      - uses: pypa/cibuildwheel@v3.3
+      - uses: pypa/cibuildwheel@v3.4
         env:
           CIBW_PLATFORM: pyodide
 
       - name: Upload wheels
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: pyodide-wheel
           path: wheelhouse/*.whl

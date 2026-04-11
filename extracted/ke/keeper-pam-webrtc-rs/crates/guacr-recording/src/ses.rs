@@ -17,7 +17,7 @@ use std::io::Write;
 use std::time::Instant;
 
 use crate::config::{find_unique_path, RecordingConfig};
-use crate::helpers::{extract_opcode, inject_timestamp, is_drawing_instruction};
+use crate::helpers::{extract_opcode, is_drawing_instruction};
 
 /// Recording direction (for .ses format)
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -93,6 +93,11 @@ pub struct GuacamoleSesRecorder {
     start_time: Instant,
     config: RecordingConfig,
     last_sync_ms: u64,
+    /// Last sync timestamp acknowledged by the client, in Guacamole-encoded form
+    /// (e.g. "13.1775238357469"). Written as the second arg of server sync instructions
+    /// to match guacd recording format. Defaults to "1.0" (value "0") before any
+    /// client ack is received.
+    last_client_sync_encoded: String,
 }
 
 impl GuacamoleSesRecorder {
@@ -129,6 +134,7 @@ impl GuacamoleSesRecorder {
             start_time: Instant::now(),
             config: config.clone(),
             last_sync_ms: 0,
+            last_client_sync_encoded: "1.0".to_string(),
         })
     }
 
@@ -168,24 +174,64 @@ impl GuacamoleSesRecorder {
             return Ok(()); // Skip key events unless explicitly enabled
         }
 
-        // For client-to-server mouse/key, inject a timestamp argument
-        // so guacenc can replay input events with correct timing.
+        // Client-to-server instructions
         if direction == RecordingDirection::ClientToServer {
             let opcode = extract_opcode(&instr_str);
+
+            // Capture client sync ack — store as a session-relative timestamp
+            // so it matches the relative server timestamps written to the file.
+            if opcode == "sync" {
+                let relative_ts = self.start_time.elapsed().as_millis() as u64;
+                let ts_str = relative_ts.to_string();
+                self.last_client_sync_encoded = format!("{}.{}", ts_str.len(), ts_str);
+                // Client sync instructions are not written to the recording.
+                return Ok(());
+            }
+
+            // For mouse/key, inject a session-relative timestamp so guacenc can
+            // replay with correct timing. Must use the same session-relative scale
+            // as sync timestamps (self.start_time.elapsed()), NOT Unix epoch time.
+            // Mixing absolute epoch timestamps with session-relative sync timestamps
+            // causes the player to see billion-millisecond deltas and loop.
             if opcode == "mouse" || opcode == "key" {
-                let timestamped = inject_timestamp(&instr_str);
-                self.writer.write_all(timestamped.as_bytes())?;
-                if !timestamped.ends_with('\n') {
-                    self.writer.write_all(b"\n")?;
-                }
+                let relative_ts = self.start_time.elapsed().as_millis() as u64;
+                let ts_str = relative_ts.to_string();
+                // Write original bytes up to (not including) the trailing ';', then
+                // append the timestamp argument and close — avoids copying the whole
+                // instruction into a new String.
+                let raw = instruction.as_ref();
+                let body = raw.strip_suffix(b";").unwrap_or(raw);
+                self.writer.write_all(body)?;
+                let suffix = format!(",{}.{};\n", ts_str.len(), ts_str);
+                self.writer.write_all(suffix.as_bytes())?;
                 return self.maybe_flush();
             }
+        }
+
+        // Server-to-client sync: rewrite the timestamp to be session-relative
+        // (milliseconds since recording started) and append the last client sync
+        // timestamp as the second argument — matching guacd recording format exactly.
+        // guacd: "4.sync,<relative_server_ts>,<relative_client_ts>;"
+        // Absolute Unix-epoch timestamps confuse Keeper's player (it uses ts deltas
+        // for playback timing; epoch values make the session appear thousands of
+        // seconds long).
+        if extract_opcode(&instr_str) == "sync" && direction == RecordingDirection::ServerToClient {
+            let relative_ts = self.start_time.elapsed().as_millis() as u64;
+            let ts_str = relative_ts.to_string();
+            let modified = format!(
+                "4.sync,{}.{},{};",
+                ts_str.len(),
+                ts_str,
+                self.last_client_sync_encoded
+            );
+            self.writer.write_all(modified.as_bytes())?;
+            self.writer.write_all(b"\n")?;
+            return self.maybe_flush();
         }
 
         // Write the raw instruction (Guacamole protocol format)
         self.writer.write_all(instruction)?;
 
-        // Ensure newline for readability (matches guacd behavior)
         if !instruction.ends_with(b"\n") {
             self.writer.write_all(b"\n")?;
         }

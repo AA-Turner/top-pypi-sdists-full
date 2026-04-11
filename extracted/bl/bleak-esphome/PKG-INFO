@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bleak-esphome
-Version: 3.7.1
+Version: 3.7.3
 Summary: Bleak backend of ESPHome
 License: MIT
 License-File: LICENSE

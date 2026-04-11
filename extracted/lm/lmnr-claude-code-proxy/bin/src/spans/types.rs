@@ -148,6 +148,8 @@ pub struct PendingToolSpan {
     pub tool_input: Value,
     pub nested_prompt: Option<String>,
     pub preset_span_id_bytes: Option<Vec<u8>>,
+    pub spawning_tool_use_id: Option<String>,
+    pub spawning_span_id_bytes: Option<Vec<u8>>,
 }
 
 /// Completed tool span ready to be sent
@@ -164,6 +166,8 @@ pub struct CompletedToolSpan {
     pub tool_input: Value,
     pub tool_output: Option<String>,
     pub is_error: bool,
+    pub spawning_tool_use_id: Option<String>,
+    pub spawning_span_id_bytes: Option<Vec<u8>>,
 }
 
 /// Completed spawning tool span (Task, WebSearch, Bash finished)
@@ -181,6 +185,8 @@ pub struct CompletedSpawningToolSpan {
     pub description: Option<String>,
     pub prompt: String,
     pub tool_output: Option<String>,
+    pub spawning_tool_use_id: Option<String>,
+    pub spawning_span_id_bytes: Option<Vec<u8>>,
 }
 
 /// Helper to extract tool output from ToolResultContent

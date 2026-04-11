@@ -210,6 +210,7 @@ impl SpanProcessor {
     pub fn register_spawning_tools_as_pending(
         &self,
         response: &MessageResponse,
+        nested_context: Option<&NestedContext>,
         ctx: &RegistrationContext,
     ) {
         for block in &response.content {
@@ -253,6 +254,9 @@ impl SpanProcessor {
                     tool_input: input.clone(),
                     nested_prompt: None,
                     preset_span_id_bytes: preset_span_id,
+                    spawning_tool_use_id: nested_context.map(|ctx| ctx.parent_tool_use_id.clone()),
+                    spawning_span_id_bytes: nested_context
+                        .map(|ctx| ctx.hierarchy.span_id_bytes.clone()),
                 };
 
                 self.pending_tool_spans.insert(id.clone(), pending_tool);
@@ -292,6 +296,9 @@ impl SpanProcessor {
                 tool_input: input.clone(),
                 nested_prompt: nested_context.map(|ctx| ctx.prompt.clone()),
                 preset_span_id_bytes: None,
+                spawning_tool_use_id: nested_context.map(|ctx| ctx.parent_tool_use_id.clone()),
+                spawning_span_id_bytes: nested_context
+                    .map(|ctx| ctx.hierarchy.span_id_bytes.clone()),
             };
 
             self.pending_tool_spans.insert(id.clone(), pending_tool);
@@ -372,6 +379,9 @@ impl SpanProcessor {
                     tool_input: tool_input.clone(),
                     tool_output,
                     is_error: false,
+                    spawning_span_id_bytes: nested_context
+                        .map(|ctx| ctx.hierarchy.span_id_bytes.clone()),
+                    spawning_tool_use_id: nested_context.map(|ctx| ctx.parent_tool_use_id.clone()),
                 });
             }
         }
@@ -452,6 +462,8 @@ impl SpanProcessor {
                                 tool_input: pending.tool_input,
                                 tool_output,
                                 is_error: is_error.unwrap_or(false),
+                                spawning_span_id_bytes: pending.spawning_span_id_bytes,
+                                spawning_tool_use_id: pending.spawning_tool_use_id,
                             });
                         }
                     }
@@ -527,6 +539,8 @@ impl SpanProcessor {
                                 description,
                                 prompt: prompt.clone(),
                                 tool_output,
+                                spawning_span_id_bytes: pending.spawning_span_id_bytes,
+                                spawning_tool_use_id: pending.spawning_tool_use_id,
                             });
 
                             // Clean up nested context entries and pending spawning tools

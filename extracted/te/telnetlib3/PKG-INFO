@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: telnetlib3
-Version: 4.0.1
+Version: 4.0.2
 Summary:  Python Telnet server and client CLI and Protocol library
 Project-URL: Homepage, https://github.com/jquast/telnetlib3
 Project-URL: Documentation, https://telnetlib3.readthedocs.io
@@ -33,7 +33,7 @@ Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme; extra == 'docs'
 Requires-Dist: sphinx>3; extra == 'docs'
 Provides-Extra: extras
-Requires-Dist: prettytable; extra == 'extras'
+Requires-Dist: prettytable<4,>=3.17; extra == 'extras'
 Requires-Dist: ucs-detect<3,>=2; extra == 'extras'
 Description-Content-Type: text/x-rst
 

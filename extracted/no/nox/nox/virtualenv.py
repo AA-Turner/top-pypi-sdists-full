@@ -242,6 +242,36 @@ def pbs_install_python(python_version: str) -> str | None:
 HAS_UV, UV, UV_VERSION = find_uv()
 
 
+def _ensure_gitignore(envdir: Path) -> None:
+    """Ensure the shared environment directory has a broad gitignore."""
+    envdir.mkdir(parents=True, exist_ok=True)
+
+    gitignore = envdir.joinpath(".gitignore")
+    if gitignore.exists():
+        return
+
+    try:
+        gitignore.write_text("*\n", encoding="utf-8")
+    except OSError:  # pragma: no cover
+        logger.debug(f"Failed to write {gitignore!s}")
+
+
+def _ensure_cachedir_tag(envdir: Path) -> None:
+    """Ensure the shared environment directory has a CACHEDIR.TAG"""
+    envdir.mkdir(parents=True, exist_ok=True)
+
+    cachedir_tag = envdir.joinpath("CACHEDIR.TAG")
+    if cachedir_tag.exists():
+        return
+
+    try:
+        cachedir_tag.write_text(
+            "Signature: 8a477f597d28d172789f06886806bc55\n", encoding="utf-8"
+        )
+    except OSError:  # pragma: no cover
+        logger.debug(f"Failed to write {cachedir_tag!s}")
+
+
 class InterpreterNotFound(OSError):
     def __init__(self, interpreter: str) -> None:
         super().__init__(f"Python interpreter {interpreter} not found")
@@ -313,9 +343,11 @@ class ProcessEnv(abc.ABC):
         if include_outer_env:
             computed_env = {**os.environ, **computed_env}
         if self.bin_paths:
-            computed_env["PATH"] = os.pathsep.join(
-                [*self.bin_paths, computed_env.get("PATH") or ""]
-            )
+            path_parts = [*self.bin_paths]
+            prior_path = computed_env.get("PATH")
+            if prior_path:
+                path_parts.append(prior_path)
+            computed_env["PATH"] = os.pathsep.join(path_parts)
         return computed_env
 
 
@@ -494,6 +526,10 @@ class CondaEnv(ProcessEnv):
 
     def create(self) -> bool:
         """Create the conda env."""
+        nox_dir = Path(self.location).parent
+        _ensure_gitignore(nox_dir)
+        _ensure_cachedir_tag(nox_dir)
+
         if not self._clean_location():
             logger.debug(f"Reusing existing conda env at {self.location_name}.")
 
@@ -595,7 +631,11 @@ class VirtualEnv(ProcessEnv):
         if venv_backend not in {"virtualenv", "venv", "uv"}:
             msg = f"venv_backend {venv_backend!r} not recognized"
             raise ValueError(msg)
-        super().__init__(env={"VIRTUAL_ENV": self.location, "CONDA_PREFIX": None})
+        env = {"VIRTUAL_ENV": self.location, "CONDA_PREFIX": None}
+        if self._venv_backend == "uv":
+            env["UV_PROJECT_ENVIRONMENT"] = self.location
+            env["UV_PYTHON"] = self.location
+        super().__init__(env=env)
 
     def _clean_location(self) -> bool:
         """Deletes any existing virtual environment"""
@@ -603,12 +643,30 @@ class VirtualEnv(ProcessEnv):
             if (
                 self.reuse_existing
                 and self._check_reused_environment_type()
+                and self._check_reused_environment_links()
                 and self._check_reused_environment_interpreter()
             ):
                 return False
             # uv clears it for us, and it balks at files left around
             if self.venv_backend != "uv":
                 shutil.rmtree(self.location, ignore_errors=True)
+        return True
+
+    def _check_reused_environment_links(self) -> bool:
+        """Check that interpreter links in the reused environment are not broken."""
+        bin_dir = self.bin
+        names = (
+            ["python.exe"]
+            if _PLATFORM.startswith("win") and not _IS_MINGW
+            else ["python", "python3"]
+        )
+
+        for name in names:
+            path = os.path.join(bin_dir, name)
+            # ``lexists`` catches broken symlinks, ``exists`` verifies the target.
+            if os.path.lexists(path) and not os.path.exists(path):
+                return False
+
         return True
 
     def _read_pyvenv_cfg(self) -> dict[str, str] | None:
@@ -775,6 +833,10 @@ class VirtualEnv(ProcessEnv):
 
     def create(self) -> bool:
         """Create the virtualenv or venv."""
+        nox_dir = Path(self.location).parent
+        _ensure_gitignore(nox_dir)
+        _ensure_cachedir_tag(nox_dir)
+
         if not self._clean_location():
             logger.debug(
                 f"Reusing existing virtual environment at {self.location_name}."

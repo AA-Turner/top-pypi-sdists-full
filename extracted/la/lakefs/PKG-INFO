@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lakefs
-Version: 0.15.0
+Version: 0.16.0
 Summary: lakeFS Python SDK Wrapper
 Author-email: Treeverse <services@treeverse.io>
 License-Expression: Apache-2.0
@@ -13,7 +13,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Version Control
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: lakefs-sdk<2,>=1.50
 Requires-Dist: pyyaml~=6.0.1
@@ -31,7 +31,7 @@ lakeFS High Level SDK for Python, provides developers with the following feature
 
 ## Requirements
 
-Python 3.9+
+Python 3.10+
 
 ## Installation & Usage
 
@@ -142,4 +142,4 @@ See [testing documentation](https://github.com/treeverse/lakeFS/blob/master/clie
 services@treeverse.io
 
 [git-spec-rev]:  https://git-scm.com/docs/git-rev-parse#_specifying_revisions
-[lakefs-spec-ref]:  https://docs.lakefs.io/understand/model.html#ref-expressions
+[lakefs-spec-ref]:  https://community.lakefs.io/understand/model.html#ref-expressions

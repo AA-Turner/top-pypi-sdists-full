@@ -28,38 +28,6 @@ from seeq.spy.workbooks._workbook import Workbook, WorkbookList, DatasourceMapLi
 MAX_PUSH_ERRORS_TO_DISPLAY = 10
 
 
-def _format_workbook_push_errors(push_errors: set, context: WorkbookPushContext, status: Status) -> str:
-    sorted_errors = sorted(list(push_errors))
-    errors_remaining_budget = MAX_PUSH_ERRORS_TO_DISPLAY - context.errors_displayed_count
-
-    if errors_remaining_budget > 0:
-        errors_to_display = sorted_errors[:errors_remaining_budget]
-        context.errors_displayed_count += len(errors_to_display)
-
-        errors_str = '\n'.join(errors_to_display)
-
-        total_undisplayed = len(sorted_errors) - len(errors_to_display)
-        if total_undisplayed > 0 or context.errors_displayed_count >= MAX_PUSH_ERRORS_TO_DISPLAY:
-            if status.log_filename is not None:
-                additional_message = (
-                    f'\n\n{total_undisplayed} additional error(s) from this workbook not shown above. '
-                    f'Check the log file for all errors: {status.log_filename}')
-            else:
-                additional_message = (
-                    f'\n\n{total_undisplayed} additional error(s) from this workbook not shown above. '
-                    f'To see all errors, specify a log file by setting verbose=True')
-            errors_str += additional_message
-
-        return errors_str
-    else:
-        if status.log_filename is not None:
-            return (f'{len(sorted_errors)} error(s) occurred but error display limit reached. '
-                    f'Check the log file for all errors: {status.log_filename}')
-        else:
-            return (f'{len(sorted_errors)} error(s) occurred but error display limit reached. '
-                    f'To see all errors, specify a log file by setting verbose=True')
-
-
 @Status.top_level_spy_function()
 def push(
         workbooks: Union[Workbook, List[Workbook], WorkbookList],
@@ -616,7 +584,8 @@ def push(
                     status.put('Time', datetime.timedelta(0))
                     status.put('Errors', 0)
                     status.put('Result', f'Need dependency: {str(e)}')
-                    dependencies_not_found.append(str(e))
+                    if not e.intentional_no_mapping:
+                        dependencies_not_found.append(str(e))
 
             except ApiException as e:
                 raise SPyRuntimeError(_common.format_exception(e)) from e
@@ -694,11 +663,40 @@ def push(
 
     output_df = status.df.copy()
 
-    status.log(
-        f'Workbook URLs:\n' +
-        '\n'.join([f'"{row.get("Name")}": {row.get("URL")}' for row in output_df.to_dict(orient='records')])
-    )
+    status.log(f'Final results:\n{output_df.to_string(index=False)}')
 
     _common.put_properties_on_df(output_df, output_df_properties)
 
     return output_df
+
+
+def _format_workbook_push_errors(push_errors: set, context: WorkbookPushContext, status: Status) -> str:
+    sorted_errors = sorted(list(push_errors))
+    errors_remaining_budget = MAX_PUSH_ERRORS_TO_DISPLAY - context.errors_displayed_count
+
+    if errors_remaining_budget > 0:
+        errors_to_display = sorted_errors[:errors_remaining_budget]
+        context.errors_displayed_count += len(errors_to_display)
+
+        errors_str = '\n'.join(errors_to_display)
+
+        total_undisplayed = len(sorted_errors) - len(errors_to_display)
+        if total_undisplayed > 0 or context.errors_displayed_count >= MAX_PUSH_ERRORS_TO_DISPLAY:
+            if status.log_filename is not None:
+                additional_message = (
+                    f'\n\n{total_undisplayed} additional error(s) from this workbook not shown above. '
+                    f'Check the log file for all errors: {status.log_filename}')
+            else:
+                additional_message = (
+                    f'\n\n{total_undisplayed} additional error(s) from this workbook not shown above. '
+                    f'To see all errors, specify a log file by setting verbose=True')
+            errors_str += additional_message
+
+        return errors_str
+    else:
+        if status.log_filename is not None:
+            return (f'{len(sorted_errors)} error(s) occurred but error display limit reached. '
+                    f'Check the log file for all errors: {status.log_filename}')
+        else:
+            return (f'{len(sorted_errors)} error(s) occurred but error display limit reached. '
+                    f'To see all errors, specify a log file by setting verbose=True')

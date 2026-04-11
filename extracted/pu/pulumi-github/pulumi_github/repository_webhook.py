@@ -28,6 +28,7 @@ class RepositoryWebhookArgs:
                  etag: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a RepositoryWebhook resource.
+
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] events: A list of events which should trigger the webhook. See a list of [available events](https://developer.github.com/v3/activity/events/types/).
         :param pulumi.Input[_builtins.str] repository: The repository of the webhook.
         :param pulumi.Input[_builtins.bool] active: Indicate if the webhook should receive events. Defaults to `true`.
@@ -111,6 +112,7 @@ class _RepositoryWebhookState:
                  url: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering RepositoryWebhook resources.
+
         :param pulumi.Input[_builtins.bool] active: Indicate if the webhook should receive events. Defaults to `true`.
         :param pulumi.Input['RepositoryWebhookConfigurationArgs'] configuration: Configuration block for the webhook. Detailed below.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] events: A list of events which should trigger the webhook. See a list of [available events](https://developer.github.com/v3/activity/events/types/).
@@ -213,6 +215,11 @@ class RepositoryWebhook(pulumi.CustomResource):
                  repository: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        This resource allows you to create and manage webhooks for repositories within your
+        GitHub organization or personal account.
+
+        > **Note on Archived Repositories**: When a repository is archived, GitHub makes it read-only, preventing webhook modifications. If you attempt to destroy resources associated with archived repositories, the provider will gracefully handle the operation by logging an informational message and removing the resource from Terraform state without attempting to modify the archived repository.
+
         ## Example Usage
 
         ```python
@@ -245,7 +252,9 @@ class RepositoryWebhook(pulumi.CustomResource):
         ```sh
         $ pulumi import github:index/repositoryWebhook:RepositoryWebhook terraform terraform/11235813
         ```
+
         If secret is populated in the webhook's configuration, the value will be imported as "********".
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -261,6 +270,11 @@ class RepositoryWebhook(pulumi.CustomResource):
                  args: RepositoryWebhookArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        This resource allows you to create and manage webhooks for repositories within your
+        GitHub organization or personal account.
+
+        > **Note on Archived Repositories**: When a repository is archived, GitHub makes it read-only, preventing webhook modifications. If you attempt to destroy resources associated with archived repositories, the provider will gracefully handle the operation by logging an informational message and removing the resource from Terraform state without attempting to modify the archived repository.
+
         ## Example Usage
 
         ```python
@@ -293,7 +307,9 @@ class RepositoryWebhook(pulumi.CustomResource):
         ```sh
         $ pulumi import github:index/repositoryWebhook:RepositoryWebhook terraform terraform/11235813
         ```
+
         If secret is populated in the webhook's configuration, the value will be imported as "********".
+
 
         :param str resource_name: The name of the resource.
         :param RepositoryWebhookArgs args: The arguments to use to populate this resource's properties.

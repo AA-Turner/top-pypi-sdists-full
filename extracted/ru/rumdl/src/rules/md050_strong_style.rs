@@ -246,35 +246,9 @@ impl Rule for MD050StrongStyle {
         let html_code_ranges = Self::compute_html_code_ranges(&html_tags);
 
         let target_style = match self.config.style {
-            StrongStyle::Consistent => {
-                // Cheap style detection: count ** vs __ from parsed spans without
-                // expensive skip checking. A few false positives from spans in code/links
-                // won't affect the majority vote in real documents.
-                let mut asterisk_count = 0usize;
-                let mut underscore_count = 0usize;
-                for span in spans {
-                    if span.end - span.start < 4 {
-                        continue;
-                    }
-                    match span_style(span) {
-                        StrongStyle::Asterisk => asterisk_count += 1,
-                        StrongStyle::Underscore => underscore_count += 1,
-                        StrongStyle::Consistent => {}
-                    }
-                }
-                match (asterisk_count, underscore_count) {
-                    (0, 0) => StrongStyle::Asterisk,
-                    (_, 0) => StrongStyle::Asterisk,
-                    (0, _) => StrongStyle::Underscore,
-                    (a, u) => {
-                        if a >= u {
-                            StrongStyle::Asterisk
-                        } else {
-                            StrongStyle::Underscore
-                        }
-                    }
-                }
-            }
+            StrongStyle::Consistent => self
+                .detect_style_from_spans(ctx, &html_tags, &html_code_ranges, spans)
+                .unwrap_or(StrongStyle::Asterisk),
             _ => self.config.style,
         };
 
@@ -340,46 +314,17 @@ impl Rule for MD050StrongStyle {
     }
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
-        let content = ctx.content;
-
-        let spans = &ctx.strong_spans;
-        let html_tags = ctx.html_tags();
-
-        let html_code_ranges = Self::compute_html_code_ranges(&html_tags);
-
-        let target_style = match self.config.style {
-            StrongStyle::Consistent => self
-                .detect_style_from_spans(ctx, &html_tags, &html_code_ranges, spans)
-                .unwrap_or(StrongStyle::Asterisk),
-            _ => self.config.style,
-        };
-
-        // Collect spans that need fixing (wrong style and not in a skip context)
-        let matches: Vec<std::ops::Range<usize>> = spans
-            .iter()
-            .filter(|span| span.end - span.start >= 4)
-            .filter(|span| span_style(span) != target_style)
-            .filter(|span| !self.should_skip_span(ctx, &html_tags, &html_code_ranges, span.start))
-            .filter(|span| {
-                let (line_num, _) = ctx.offset_to_line_col(span.start);
-                !ctx.inline_config().is_rule_disabled(self.name(), line_num)
-            })
-            .map(|span| span.start..span.end)
-            .collect();
-
-        // Process matches in reverse order to maintain correct indices
-        let mut result = content.to_string();
-        for range in matches.into_iter().rev() {
-            let text = &result[range.start + 2..range.end - 2];
-            let replacement = match target_style {
-                StrongStyle::Asterisk => format!("**{text}**"),
-                StrongStyle::Underscore => format!("__{text}__"),
-                StrongStyle::Consistent => format!("**{text}**"),
-            };
-            result.replace_range(range, &replacement);
+        if self.should_skip(ctx) {
+            return Ok(ctx.content.to_string());
         }
-
-        Ok(result)
+        let warnings = self.check(ctx)?;
+        if warnings.is_empty() {
+            return Ok(ctx.content.to_string());
+        }
+        let warnings =
+            crate::utils::fix_utils::filter_warnings_by_inline_config(warnings, ctx.inline_config(), self.name());
+        crate::utils::fix_utils::apply_warning_fixes(ctx.content, &warnings)
+            .map_err(crate::rule::LintError::InvalidInput)
     }
 
     /// Check if this rule should be skipped

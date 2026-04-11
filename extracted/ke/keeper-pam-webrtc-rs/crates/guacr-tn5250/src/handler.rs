@@ -12,11 +12,18 @@ use async_trait::async_trait;
 use base64::Engine as _;
 use bytes::Bytes;
 use guacr_handlers::{
-    connect_tcp_with_timeout, send_disconnect, send_name, send_ready, HandlerError, HandlerStats,
-    HealthStatus, ProtocolHandler, VideoOutput,
+    connect_tcp_with_timeout, send_disconnect, send_name, send_ready, ConnectionParameters,
+    HandlerError, HandlerStats, HealthStatus, ProtocolHandler, VideoOutput,
 };
-use guacr_protocol::{format_chunked_blobs, format_instruction, TextProtocolEncoder};
-use guacr_terminal::{parse_key_instruction, TerminalRenderer};
+use guacr_protocol::{
+    format_chunked_blobs, format_instruction,
+    telnet::{extract_record, DO, EOR, IAC, OPT_BINARY, OPT_EOR, OPT_TERMINAL_TYPE, SB, SE, WILL},
+    TextProtocolEncoder,
+};
+use guacr_terminal::{
+    current_time_millis, parse_key_instruction, TerminalRenderer, CHAR_HEIGHT, CHAR_WIDTH,
+    DEFAULT_COLS, DEFAULT_ROWS, JPEG_QUALITY, RENDER_INTERVAL_MS,
+};
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -28,26 +35,6 @@ use crate::datastream::{
 };
 use crate::renderer;
 use crate::screen::ScreenBuffer5250;
-
-const CHAR_WIDTH: u32 = 9;
-const CHAR_HEIGHT: u32 = 18;
-const JPEG_QUALITY: u8 = 85;
-const RENDER_INTERVAL_MS: u64 = 33; // 30 FPS
-
-// Standard AS/400 screen sizes
-const DEFAULT_ROWS: u16 = 24;
-const DEFAULT_COLS: u16 = 80;
-
-// Telnet framing (identical to TN3270)
-pub(crate) const IAC: u8 = 0xFF;
-const WILL: u8 = 0xFB;
-const DO: u8 = 0xFD;
-const SB: u8 = 0xFA;
-const SE: u8 = 0xF0;
-pub(crate) const EOR: u8 = 0xEF;
-const OPT_BINARY: u8 = 0x00;
-const OPT_TERMINAL_TYPE: u8 = 0x18;
-const OPT_EOR: u8 = 0x19;
 
 // 5250 SBA (Set Buffer Address) order byte used when building inbound records
 const SBA_ORDER: u8 = 0x11;
@@ -81,14 +68,9 @@ impl ProtocolHandler for Tn5250Handler {
         mut from_client: mpsc::Receiver<Bytes>,
         _video_tx: Option<Arc<dyn VideoOutput>>,
     ) -> guacr_handlers::Result<()> {
-        let hostname = params
-            .get("hostname")
-            .ok_or_else(|| HandlerError::ConnectionFailed("Missing hostname".to_string()))?
-            .clone();
-        let port: u16 = params
-            .get("port")
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(23); // AS/400 TN5250 default port
+        let conn = ConnectionParameters::from_params(&params, 23u16)?;
+        let hostname = conn.hostname;
+        let port = conn.port;
 
         // AS/400 standard sizes: 24×80 or 27×132 (enhanced model)
         let (rows, cols) = match params.get("model").map(|s| s.as_str()) {
@@ -219,11 +201,7 @@ impl ProtocolHandler for Tn5250Handler {
                     }
                     stream_id += 1;
 
-                    let ts = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_millis()
-                        .to_string();
+                    let ts = current_time_millis().to_string();
                     let _ = to_client.send(Bytes::from(format_instruction("sync", &[&ts]))).await;
                 }
 
@@ -358,54 +336,4 @@ fn build_aid_response(screen: &ScreenBuffer5250, aid: u8) -> Vec<u8> {
     }
 
     build_response_record(&payload)
-}
-
-// ---------------------------------------------------------------------------
-// TN5250 record framing (identical to TN3270)
-// ---------------------------------------------------------------------------
-
-pub(crate) fn extract_record(buf: &mut Vec<u8>) -> Option<Vec<u8>> {
-    let mut record = Vec::new();
-    let mut i = 0;
-
-    while i < buf.len() {
-        if buf[i] != IAC {
-            record.push(buf[i]);
-            i += 1;
-            continue;
-        }
-        if i + 1 >= buf.len() {
-            return None;
-        }
-        match buf[i + 1] {
-            EOR => {
-                buf.drain(..i + 2);
-                return Some(record);
-            }
-            IAC => {
-                record.push(IAC);
-                i += 2;
-            }
-            SB => {
-                i += 2;
-                loop {
-                    if i + 1 >= buf.len() {
-                        return None;
-                    }
-                    if buf[i] == IAC && buf[i + 1] == SE {
-                        i += 2;
-                        break;
-                    }
-                    i += 1;
-                }
-            }
-            _ => {
-                if i + 2 >= buf.len() {
-                    return None;
-                }
-                i += 3;
-            }
-        }
-    }
-    None
 }

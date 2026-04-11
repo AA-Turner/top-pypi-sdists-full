@@ -19,7 +19,6 @@ from mergify_cli.stack import list as stack_list_mod
 from mergify_cli.stack import new as stack_new_mod
 from mergify_cli.stack import open as stack_open_mod
 from mergify_cli.stack import push as stack_push_mod
-from mergify_cli.stack import session as stack_session_mod
 from mergify_cli.stack import setup as stack_setup_mod
 from mergify_cli.stack import skill as stack_skill_mod
 
@@ -143,55 +142,6 @@ def _print_hooks_status(status: dict[str, Any]) -> None:
 
         console.print()
 
-    # Claude hooks section
-    console.print("Claude Hooks Status:\n")
-    claude_hooks = status["claude_hooks"]
-
-    for script_name, script_info in claude_hooks["scripts"].items():
-        console.print(f"  {script_name}:")
-        if script_info["installed"]:
-            if script_info["needs_update"]:
-                console.print(
-                    f"    Script: [yellow]needs update[/] ({script_info['path']})",
-                )
-                needs_setup = True
-            else:
-                console.print(
-                    f"    Script: [green]up to date[/] ({script_info['path']})",
-                )
-        else:
-            console.print("    Script: [red]not installed[/]")
-            needs_setup = True
-        console.print()
-
-    console.print("  settings.json:")
-    if claude_hooks["settings_installed"]:
-        console.print(
-            f"    Hook: [green]configured[/] ({claude_hooks['settings_path']})",
-        )
-    else:
-        console.print("    Hook: [red]not configured[/]")
-        needs_setup = True
-    console.print()
-
-    # Skill stub section
-    skill_stub = claude_hooks["skill_stub"]
-    console.print("  skill stub:")
-    if skill_stub["installed"]:
-        if skill_stub["needs_update"]:
-            console.print(
-                f"    Status: [yellow]needs update[/] ({skill_stub['path']})",
-            )
-            needs_setup = True
-        else:
-            console.print(
-                f"    Status: [green]up to date[/] ({skill_stub['path']})",
-            )
-    else:
-        console.print("    Status: [red]not installed[/]")
-        needs_setup = True
-    console.print()
-
     if needs_setup or needs_force:
         console.print("Run 'mergify stack hooks --setup' to install/upgrade hooks.")
         if needs_force:
@@ -215,16 +165,10 @@ def _print_hooks_status(status: dict[str, Any]) -> None:
     is_flag=True,
     help="Force reinstall wrappers (use with --setup)",
 )
-@click.option(
-    "--global",
-    "global_install",
-    is_flag=True,
-    help="Also install AI skill stub globally (~/.claude/skills/)",
-)
 @utils.run_with_asyncio
-async def hooks(*, do_setup: bool, force: bool, global_install: bool) -> None:
+async def hooks(*, do_setup: bool, force: bool) -> None:
     if do_setup:
-        await stack_setup_mod.stack_setup(force=force, global_install=global_install)
+        await stack_setup_mod.stack_setup(force=force)
     else:
         status = await stack_setup_mod.get_hooks_status()
         _print_hooks_status(status)
@@ -242,19 +186,13 @@ async def hooks(*, do_setup: bool, force: bool, global_install: bool) -> None:
     is_flag=True,
     help="Check status only (use 'stack hooks' instead)",
 )
-@click.option(
-    "--global",
-    "global_install",
-    is_flag=True,
-    help="Also install AI skill stub globally (~/.claude/skills/)",
-)
 @utils.run_with_asyncio
-async def setup(*, force: bool, check: bool, global_install: bool) -> None:
+async def setup(*, force: bool, check: bool) -> None:
     if check:
         status = await stack_setup_mod.get_hooks_status()
         _print_hooks_status(status)
     else:
-        await stack_setup_mod.stack_setup(force=force, global_install=global_install)
+        await stack_setup_mod.stack_setup(force=force)
 
 
 @stack.command(help="Edit the stack history")
@@ -442,13 +380,29 @@ async def checkout(
     ctx: click.Context,
     *,
     author: str | None,
-    repository: str,
+    repository: str | None,
     branch: str,
     branch_prefix: str | None,
     dry_run: bool,
     trunk: tuple[str, str],
 ) -> None:
-    user, repo = repository.split("/")
+    remote, _base_branch = trunk
+    if repository is not None:
+        repository_parts = repository.split("/", maxsplit=1)
+        if (
+            len(repository_parts) != 2
+            or not repository_parts[0]
+            or not repository_parts[1]
+        ):
+            raise click.BadParameter(
+                "Repository must be in the format 'owner/repo'",
+                param_hint="--repository",
+            )
+        user, repo = repository_parts
+    else:
+        user, repo = utils.get_slug(
+            await utils.git("config", "--get", f"remote.{remote}.url"),
+        )
     await stack_checkout_mod.stack_checkout(
         ctx.obj["github_server"],
         ctx.obj["token"],
@@ -470,33 +424,6 @@ async def github_action_auto_rebase(ctx: click.Context) -> None:
         ctx.obj["github_server"],
         ctx.obj["token"],
     )
-
-
-@stack.command(help="Get Claude session ID from a commit")
-@click.option(
-    "--commit",
-    "-c",
-    default="HEAD",
-    help="Commit to extract session ID from (default: HEAD)",
-)
-@click.option(
-    "--launch",
-    "-l",
-    is_flag=True,
-    help="Launch Claude with the extracted session ID",
-)
-@utils.run_with_asyncio
-async def session(*, commit: str, launch: bool) -> None:
-    """Extract and optionally launch Claude session from commit."""
-    session_id = await stack_session_mod.get_session_id_from_commit(commit)
-    if session_id is None:
-        console.print(f"No Claude-Session-Id found in commit {commit}", style="yellow")
-        return
-
-    console.print(f"Claude-Session-Id: {session_id}")
-
-    if launch:
-        stack_session_mod.launch_claude_session(session_id)
 
 
 @stack.command(help="Output the AI skill for the Mergify stack workflow")

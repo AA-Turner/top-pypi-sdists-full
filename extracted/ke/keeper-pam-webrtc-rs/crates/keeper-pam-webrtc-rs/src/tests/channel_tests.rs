@@ -96,6 +96,7 @@ async fn test_server_mode_data_flow() -> Result<()> {
         rx_from_dc,
         tx_from_dc: Arc::new(Mutex::new(Some(tx_to_channel))),
         channel_id: "test_server_mode".to_string(),
+        tube_id: "test-tube".to_string(),
         timeouts: None,                                        // default timeouts
         protocol_settings: settings,                           // protocol_settings
         server_mode: true,                                     // server_mode=true
@@ -290,6 +291,7 @@ async fn test_client_mode_data_flow() -> Result<()> {
         rx_from_dc,
         tx_from_dc: Arc::new(Mutex::new(Some(tx_to_channel.clone()))),
         channel_id: "test_client_mode".to_string(),
+        tube_id: "test-tube".to_string(),
         timeouts: None,                                        // default timeouts
         protocol_settings: settings,                           // protocol_settings
         server_mode: false,                                    // server_mode=false

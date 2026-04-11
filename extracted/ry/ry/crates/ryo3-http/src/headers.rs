@@ -1,14 +1,15 @@
-use crate::http_types::{PyHttpHeaderName, PyHttpHeaderValue, PyHttpHeaderValueRef};
-use crate::py_conversions::{header_name_to_pystring, header_value_to_pystring};
-use crate::{PyHeadersLike, PyHttpHeaderMap};
+use std::fmt::Display;
+use std::ops::Deref;
+use std::sync::{Arc, RwLockReadGuard, RwLockWriteGuard};
+
 use http::header::HeaderMap;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyString, PyTuple};
 use ryo3_core::{RyRwLock, py_runtime_error};
-use std::fmt::Display;
-use std::ops::Deref;
-use std::sync::Arc;
-use std::sync::{RwLockReadGuard, RwLockWriteGuard};
+
+use crate::http_types::{PyHttpHeaderName, PyHttpHeaderValue, PyHttpHeaderValueRef};
+use crate::py_conversions::{header_name_to_pystring, header_value_to_pystring};
+use crate::{PyHeadersLike, PyHttpHeaderMap};
 
 #[pyclass(name = "Headers", frozen, immutable_type, mapping, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
@@ -381,7 +382,7 @@ impl PyHeaders {
     }
 
     #[cfg(feature = "json")]
-    #[pyo3(signature = (*, fmt=false))]
+    #[pyo3(signature = (*, fmt = false))]
     fn stringify(&self, fmt: bool) -> PyResult<String> {
         use ryo3_core::py_value_error;
         let inner = self.read();

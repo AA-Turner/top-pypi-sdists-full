@@ -122,5 +122,6 @@ class ExecutionConfig(BaseClientConfig):
     local_execution_client: Optional[ExecutionClient] = None
     domain_identifier: Optional[str] = None
     project_identifier: Optional[str] = None
+    datazone_endpoint: Optional[str] = None
     datazone_domain_region: Optional[str] = None
     project_s3_path: Optional[str] = None

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "modelcif"
-version = "1.6"
+version = "1.7"
 requires-python = ">=3.6"
 authors = [
     {name="Ben Webb", email="benmwebb@gmail.com"}
@@ -18,7 +18,7 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering",
 ]
-dependencies = ['ihm>=2.6']
+dependencies = ['ihm>=2.10']
 
 [project.urls]
 homepage = 'https://github.com/ihmwg/python-modelcif'

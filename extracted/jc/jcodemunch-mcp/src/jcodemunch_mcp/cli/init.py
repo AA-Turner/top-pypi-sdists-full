@@ -108,6 +108,14 @@ _ENFORCEMENT_HOOKS = {
         "matcher": "",
         "hooks": [{"type": "command", "command": "jcodemunch-mcp hook-precompact"}],
     }],
+    "TaskCompleted": [{
+        "matcher": "",
+        "hooks": [{"type": "command", "command": "jcodemunch-mcp hook-taskcomplete"}],
+    }],
+    "SubagentStart": [{
+        "matcher": "",
+        "hooks": [{"type": "command", "command": "jcodemunch-mcp hook-subagent-start"}],
+    }],
 }
 
 # Cursor rules use MDC format (frontmatter + markdown).

@@ -327,7 +327,7 @@ if __name__ == "__main__":
         loaded_config = json.load(file)
         logging.config.dictConfig(loaded_config)
     try:
-        import uvloop  # type: ignore[unresolved-import]
+        import uvloop
 
         uvloop.install()
     except ImportError:

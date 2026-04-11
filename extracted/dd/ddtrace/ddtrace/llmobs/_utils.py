@@ -306,7 +306,9 @@ def safe_json(obj, ensure_ascii=True):
         # Pydantic v1
         elif hasattr(obj, "__fields__") and hasattr(obj, "dict") and callable(obj.dict):
             obj = obj.dict()
-        return json.dumps(obj, ensure_ascii=ensure_ascii, skipkeys=True, default=_unserializable_default_repr)
+        return json.dumps(
+            obj, ensure_ascii=ensure_ascii, sort_keys=True, skipkeys=True, default=_unserializable_default_repr
+        )
     except Exception:
         log.error("Failed to serialize object to JSON.", exc_info=True)
 
@@ -537,6 +539,16 @@ def enforce_message_role(messages: list[Message]) -> list[Message]:
     for message in messages:
         message.setdefault("role", "")
     return messages
+
+
+def validate_tags_list(tags: list[str]) -> None:
+    if not isinstance(tags, list):
+        raise TypeError("Tags must be a list of strings")
+    for tag in tags:
+        if not isinstance(tag, str):
+            raise TypeError("Each tag must be a string")
+        if ":" not in tag:
+            raise ValueError(f"Tag '{tag}' is malformed. Tags must be in 'key:value' format (e.g., 'env:prod').")
 
 
 def convert_tags_dict_to_list(tags: dict[str, str]) -> list[str]:

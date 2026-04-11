@@ -5637,6 +5637,10 @@ class Byte(System.IComparable[int], System.IConvertible, System.ISpanFormattable
         ...
 
     @staticmethod
+    def log_10(value: int) -> int:
+        ...
+
+    @staticmethod
     def log_2(value: int) -> int:
         ...
 
@@ -6316,6 +6320,10 @@ class Int32(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
 
     @staticmethod
     def leading_zero_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def log_10(value: int) -> int:
         ...
 
     @staticmethod
@@ -8176,6 +8184,10 @@ class Int128(System.Numerics.ISignedNumber[System_Int128], System.IUtf8SpanForma
         ...
 
     @staticmethod
+    def log_10(value: System.Int128) -> System.Int128:
+        ...
+
+    @staticmethod
     def log_2(value: System.Int128) -> System.Int128:
         ...
 
@@ -8428,6 +8440,10 @@ class Int64(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
 
     @staticmethod
     def leading_zero_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def log_10(value: int) -> int:
         ...
 
     @staticmethod
@@ -9952,6 +9968,10 @@ class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanF
         ...
 
     @staticmethod
+    def log_10(value: System.UInt128) -> System.UInt128:
+        ...
+
+    @staticmethod
     def log_2(value: System.UInt128) -> System.UInt128:
         ...
 
@@ -10979,6 +10999,10 @@ class SByte(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
 
     @staticmethod
     def leading_zero_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def log_10(value: int) -> int:
         ...
 
     @staticmethod
@@ -12547,6 +12571,10 @@ class UInt64(System.IComparable[int], System.IConvertible, System.ISpanFormattab
         ...
 
     @staticmethod
+    def log_10(value: int) -> int:
+        ...
+
+    @staticmethod
     def log_2(value: int) -> int:
         ...
 
@@ -13557,6 +13585,10 @@ class UInt32(System.IComparable[int], System.IConvertible, System.ISpanFormattab
         ...
 
     @staticmethod
+    def log_10(value: int) -> int:
+        ...
+
+    @staticmethod
     def log_2(value: int) -> int:
         ...
 
@@ -14005,6 +14037,10 @@ class UInt16(System.IComparable[int], System.IConvertible, System.ISpanFormattab
         ...
 
     @staticmethod
+    def log_10(value: int) -> int:
+        ...
+
+    @staticmethod
     def log_2(value: int) -> int:
         ...
 
@@ -14324,6 +14360,10 @@ class UIntPtr(System.IEquatable[System_UIntPtr], System.IComparable[System_UIntP
 
     @staticmethod
     def leading_zero_count(value: System.UIntPtr) -> System.UIntPtr:
+        ...
+
+    @staticmethod
+    def log_10(value: System.UIntPtr) -> System.UIntPtr:
         ...
 
     @staticmethod
@@ -14869,6 +14909,10 @@ class IntPtr(System.IEquatable[System_IntPtr], System.IComparable[System_IntPtr]
 
     @staticmethod
     def leading_zero_count(value: System.IntPtr) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def log_10(value: System.IntPtr) -> System.IntPtr:
         ...
 
     @staticmethod
@@ -16821,6 +16865,10 @@ class Int16(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
 
     @staticmethod
     def leading_zero_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    def log_10(value: int) -> int:
         ...
 
     @staticmethod

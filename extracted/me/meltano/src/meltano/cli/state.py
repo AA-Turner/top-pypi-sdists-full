@@ -95,7 +95,7 @@ def state_service_from_state_id(project: Project, state_id: str) -> StateService
             project.activate_environment(match["env"])
             blocks = [match["tap"], match["target"]]
             parser = BlockParser(logger, project, blocks)
-            return next(parser.find_blocks()).state_service  # type: ignore[union-attr]
+            return next(parser.find_blocks()).state_service  # type: ignore[union-attr]  # ty:ignore[unresolved-attribute]
         except Exception:  # noqa: BLE001
             logger.warning("No plugins found for provided state_id.")
     # If provided state_id does not match convention (i.e., run via "meltano el"),
@@ -119,7 +119,7 @@ def meltano_state(project: Project, ctx: click.Context) -> None:
     """  # noqa: D301
     _, sessionmaker = project_engine(project)
     session = sessionmaker(future=True)
-    ctx.obj[STATE_SERVICE_KEY] = StateService(project, session)
+    ctx.obj[STATE_SERVICE_KEY] = ctx.with_resource(StateService(project, session))
 
 
 @meltano_state.command(cls=InstrumentedCmd, name="list")
@@ -255,18 +255,6 @@ def merge_state(
     )
 
 
-def _read_state_from_file(
-    ctx: click.Context,
-    param: click.Option,  # noqa: ARG001
-    value: Path | None,
-) -> None:
-    if value is None:
-        return
-
-    with value.open() as state_f:
-        ctx.params["state"] = state_f.read()
-
-
 @meltano_state.command(cls=InstrumentedCmd, name="set")
 @prompt_for_confirmation(
     prompt="This will overwrite the state's current value. Continue?",
@@ -274,8 +262,6 @@ def _read_state_from_file(
 @click.option(
     "--input-file",
     type=click.Path(exists=True, path_type=Path),
-    callback=_read_state_from_file,
-    expose_value=False,
     help="Set state from json file containing Singer state.",
 )
 @click.option(
@@ -292,20 +278,28 @@ def set_state(
     project: Project,
     state_id: str,
     state: str,
+    input_file: Path | None,
     no_validate: bool,  # noqa: FBT001
 ) -> None:
     """Set state."""
-    state_service: StateService = (
-        state_service_from_state_id(project, state_id) or ctx.obj[STATE_SERVICE_KEY]
-    )
+    mutually_exclusive_options = {
+        "--input-file": input_file,
+        "STATE": state,
+    }
+    if not reduce(xor, (bool(x) for x in mutually_exclusive_options.values())):
+        raise MutuallyExclusiveOptionsError(*mutually_exclusive_options)
+    if input_file:
+        with input_file.open() as state_f:
+            state = state_f.read()
 
     if no_validate:
         logger.warning(
             "Skipping state validation. Invalid state may cause issues in future runs.",
         )
 
-    state = state or ""
-
+    state_service: StateService = (
+        state_service_from_state_id(project, state_id) or ctx.obj[STATE_SERVICE_KEY]
+    )
     try:
         state_service.set_state(state_id, state, validate=not no_validate)
     except json.JSONDecodeError as e:

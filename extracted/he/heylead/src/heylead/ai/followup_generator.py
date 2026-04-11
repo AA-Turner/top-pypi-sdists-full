@@ -101,6 +101,8 @@ Relevance: {relevance_hook}
 ## CONVERSATION HISTORY (oldest first)
 {conversation_history}
 
+{engagement_section}
+
 ## FOLLOW-UP NUMBER: {followup_number}
 (1 = first follow-up after connection accepted, 2 = second, etc.)
 
@@ -152,6 +154,43 @@ def _format_conversation_history(messages: list[dict]) -> str:
     return "\n".join(lines) if lines else "No previous messages."
 
 
+def _format_engagement_history(engagements: list[dict[str, Any]] | None) -> str:
+    """Format warm-up engagements (comments, likes) for prompt injection."""
+    if not engagements:
+        return ""
+    lines = []
+    for eng in engagements:
+        action = eng.get("action_type", "unknown")
+        post_text = (eng.get("post_text") or "").strip()
+        # Truncate long post text to a short summary
+        if len(post_text) > 120:
+            post_text = post_text[:117] + "..."
+        if action == "comment":
+            comment_text = (eng.get("text") or "").strip()
+            if post_text and comment_text:
+                lines.append(f'- [Comment] on post about "{post_text}": "{comment_text}"')
+            elif comment_text:
+                lines.append(f'- [Comment]: "{comment_text}"')
+        elif action == "react":
+            reaction = eng.get("reaction_type", "LIKE")
+            if post_text:
+                lines.append(f'- [{reaction}] on post about "{post_text}"')
+            else:
+                lines.append(f"- [{reaction}] on their post")
+        elif action in ("follow", "endorse", "profile_view"):
+            lines.append(f"- [{action.replace('_', ' ').title()}] on their profile")
+    if not lines:
+        return ""
+    header = (
+        "## PRIOR WARM-UP ENGAGEMENTS (things you already did on their posts)\n"
+        + "\n".join(lines)
+        + "\n\nIMPORTANT: Reference these interactions naturally — "
+        "they are shared context the prospect may remember. "
+        "Use them as an opener or bridge to the conversation."
+    )
+    return header
+
+
 def _build_intelligence_text(prospect_analysis: dict[str, Any] | None) -> str:
     """Build a prospect intelligence text block for prompt injection."""
     if not prospect_analysis:
@@ -185,6 +224,7 @@ async def generate_followup(
     prospect_analysis: dict[str, Any] | None = None,
     campaign_ctx: dict[str, Any] | None = None,
     outreach_id: str = "",
+    engagement_history: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Generate a personalized LinkedIn follow-up DM.
 
@@ -201,6 +241,7 @@ async def generate_followup(
         prospect_analysis: Optional prospect analysis results
         campaign_ctx: Optional campaign context (offerings, case_studies, social_proofs)
         outreach_id: Optional outreach ID for loading conversation memory
+        engagement_history: Optional list of warm-up engagements (comments, likes)
 
     Returns:
         Dict with "message" (str), "reasoning" (dict or str), and
@@ -219,6 +260,7 @@ async def generate_followup(
                 campaign_context=campaign_context,
                 conversation_history=conversation_history,
                 followup_number=followup_number,
+                engagement_history=engagement_history,
             )
         finally:
             await client.close()
@@ -234,12 +276,13 @@ async def generate_followup(
         return await _generate_v63(
             prospect, sender_profile, voice_signature, campaign_context,
             conversation_history, followup_number, prospect_analysis, campaign_ctx,
-            outreach_id,
+            outreach_id, engagement_history,
         )
     else:
         return await _generate_legacy(
             prospect, sender_profile, voice_signature, campaign_context,
             conversation_history, followup_number, prospect_analysis,
+            engagement_history,
         )
 
 
@@ -253,11 +296,13 @@ async def _generate_v63(
     prospect_analysis: dict[str, Any] | None,
     campaign_ctx: dict[str, Any] | None,
     outreach_id: str = "",
+    engagement_history: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Generate using v63's 2-stage pipeline: Reasoning → Message → Memory."""
     logger.info("Using v63 2-stage pipeline for follow-up #%d", followup_number)
 
     max_chars = FOLLOWUP_MAX_CHARS
+    engagement_text = _format_engagement_history(engagement_history)
     ctx = build_context_block(
         sender=sender_profile,
         prospect=prospect,
@@ -267,6 +312,7 @@ async def _generate_v63(
         history=conversation_history,
         analysis=prospect_analysis,
         max_chars=max_chars,
+        engagement_history=engagement_text,
     )
 
     # ── Load conversation memory (anti-repetition) ──
@@ -422,6 +468,7 @@ async def _generate_legacy(
     conversation_history: list[dict[str, Any]],
     followup_number: int,
     prospect_analysis: dict[str, Any] | None,
+    engagement_history: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Generate using legacy single-stage prompt (fallback)."""
     logger.info("Using legacy prompts for follow-up #%d (v63 not found)", followup_number)
@@ -449,6 +496,7 @@ async def _generate_legacy(
     else:
         booking_link_section = "No booking link configured."
 
+    engagement_text = _format_engagement_history(engagement_history)
     prompt = FOLLOWUP_PROMPT_LEGACY.format(
         sender_name=sender_profile.get("name", ""),
         sender_title=sender_profile.get("title", ""),
@@ -466,6 +514,7 @@ async def _generate_legacy(
         relevance_hook=campaign_context.get("relevance_hook", ""),
         booking_link_section=booking_link_section,
         conversation_history=_format_conversation_history(conversation_history),
+        engagement_section=engagement_text,
         followup_number=followup_number,
     )
 

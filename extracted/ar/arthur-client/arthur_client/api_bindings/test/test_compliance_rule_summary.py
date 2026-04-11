@@ -36,6 +36,7 @@ class TestComplianceRuleSummary(unittest.TestCase):
         if include_optional:
             return ComplianceRuleSummary(
                 id = '',
+                materialized_rule_id = '',
                 name = ''
             )
         else:

@@ -770,6 +770,14 @@ __all__ = [
     'URLMapDefaultCustomErrorResponsePolicy',
     'URLMapDefaultCustomErrorResponsePolicyErrorResponseRule',
     'URLMapDefaultRouteAction',
+    'URLMapDefaultRouteActionCachePolicy',
+    'URLMapDefaultRouteActionCachePolicyCacheKeyPolicy',
+    'URLMapDefaultRouteActionCachePolicyClientTtl',
+    'URLMapDefaultRouteActionCachePolicyDefaultTtl',
+    'URLMapDefaultRouteActionCachePolicyMaxTtl',
+    'URLMapDefaultRouteActionCachePolicyNegativeCachingPolicy',
+    'URLMapDefaultRouteActionCachePolicyNegativeCachingPolicyTtl',
+    'URLMapDefaultRouteActionCachePolicyServeWhileStale',
     'URLMapDefaultRouteActionCorsPolicy',
     'URLMapDefaultRouteActionFaultInjectionPolicy',
     'URLMapDefaultRouteActionFaultInjectionPolicyAbort',
@@ -794,6 +802,14 @@ __all__ = [
     'URLMapPathMatcherDefaultCustomErrorResponsePolicy',
     'URLMapPathMatcherDefaultCustomErrorResponsePolicyErrorResponseRule',
     'URLMapPathMatcherDefaultRouteAction',
+    'URLMapPathMatcherDefaultRouteActionCachePolicy',
+    'URLMapPathMatcherDefaultRouteActionCachePolicyCacheKeyPolicy',
+    'URLMapPathMatcherDefaultRouteActionCachePolicyClientTtl',
+    'URLMapPathMatcherDefaultRouteActionCachePolicyDefaultTtl',
+    'URLMapPathMatcherDefaultRouteActionCachePolicyMaxTtl',
+    'URLMapPathMatcherDefaultRouteActionCachePolicyNegativeCachingPolicy',
+    'URLMapPathMatcherDefaultRouteActionCachePolicyNegativeCachingPolicyTtl',
+    'URLMapPathMatcherDefaultRouteActionCachePolicyServeWhileStale',
     'URLMapPathMatcherDefaultRouteActionCorsPolicy',
     'URLMapPathMatcherDefaultRouteActionFaultInjectionPolicy',
     'URLMapPathMatcherDefaultRouteActionFaultInjectionPolicyAbort',
@@ -817,6 +833,14 @@ __all__ = [
     'URLMapPathMatcherPathRuleCustomErrorResponsePolicy',
     'URLMapPathMatcherPathRuleCustomErrorResponsePolicyErrorResponseRule',
     'URLMapPathMatcherPathRuleRouteAction',
+    'URLMapPathMatcherPathRuleRouteActionCachePolicy',
+    'URLMapPathMatcherPathRuleRouteActionCachePolicyCacheKeyPolicy',
+    'URLMapPathMatcherPathRuleRouteActionCachePolicyClientTtl',
+    'URLMapPathMatcherPathRuleRouteActionCachePolicyDefaultTtl',
+    'URLMapPathMatcherPathRuleRouteActionCachePolicyMaxTtl',
+    'URLMapPathMatcherPathRuleRouteActionCachePolicyNegativeCachingPolicy',
+    'URLMapPathMatcherPathRuleRouteActionCachePolicyNegativeCachingPolicyTtl',
+    'URLMapPathMatcherPathRuleRouteActionCachePolicyServeWhileStale',
     'URLMapPathMatcherPathRuleRouteActionCorsPolicy',
     'URLMapPathMatcherPathRuleRouteActionFaultInjectionPolicy',
     'URLMapPathMatcherPathRuleRouteActionFaultInjectionPolicyAbort',
@@ -848,6 +872,14 @@ __all__ = [
     'URLMapPathMatcherRouteRuleMatchRuleMetadataFilterFilterLabel',
     'URLMapPathMatcherRouteRuleMatchRuleQueryParameterMatch',
     'URLMapPathMatcherRouteRuleRouteAction',
+    'URLMapPathMatcherRouteRuleRouteActionCachePolicy',
+    'URLMapPathMatcherRouteRuleRouteActionCachePolicyCacheKeyPolicy',
+    'URLMapPathMatcherRouteRuleRouteActionCachePolicyClientTtl',
+    'URLMapPathMatcherRouteRuleRouteActionCachePolicyDefaultTtl',
+    'URLMapPathMatcherRouteRuleRouteActionCachePolicyMaxTtl',
+    'URLMapPathMatcherRouteRuleRouteActionCachePolicyNegativeCachingPolicy',
+    'URLMapPathMatcherRouteRuleRouteActionCachePolicyNegativeCachingPolicyTtl',
+    'URLMapPathMatcherRouteRuleRouteActionCachePolicyServeWhileStale',
     'URLMapPathMatcherRouteRuleRouteActionCorsPolicy',
     'URLMapPathMatcherRouteRuleRouteActionFaultInjectionPolicy',
     'URLMapPathMatcherRouteRuleRouteActionFaultInjectionPolicyAbort',
@@ -10458,7 +10490,7 @@ class ImageGuestOsFeature(dict):
                  type: _builtins.str):
         """
         :param _builtins.str type: The type of supported feature. Read [Enabling guest operating system features](https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features) to see a list of available options.
-               Possible values are: `MULTI_IP_SUBNET`, `SECURE_BOOT`, `SEV_CAPABLE`, `UEFI_COMPATIBLE`, `VIRTIO_SCSI_MULTIQUEUE`, `WINDOWS`, `GVNIC`, `IDPF`, `SEV_LIVE_MIGRATABLE`, `SEV_SNP_CAPABLE`, `SUSPEND_RESUME_COMPATIBLE`, `TDX_CAPABLE`, `SEV_LIVE_MIGRATABLE_V2`.
+               Possible values are: `MULTI_IP_SUBNET`, `SECURE_BOOT`, `SEV_CAPABLE`, `UEFI_COMPATIBLE`, `VIRTIO_SCSI_MULTIQUEUE`, `WINDOWS`, `GVNIC`, `IDPF`, `SEV_LIVE_MIGRATABLE`, `SEV_SNP_CAPABLE`, `SUSPEND_RESUME_COMPATIBLE`, `TDX_CAPABLE`, `SEV_LIVE_MIGRATABLE_V2`, `SNP_SVSM_CAPABLE`.
         """
         pulumi.set(__self__, "type", type)
 
@@ -10467,7 +10499,7 @@ class ImageGuestOsFeature(dict):
     def type(self) -> _builtins.str:
         """
         The type of supported feature. Read [Enabling guest operating system features](https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features) to see a list of available options.
-        Possible values are: `MULTI_IP_SUBNET`, `SECURE_BOOT`, `SEV_CAPABLE`, `UEFI_COMPATIBLE`, `VIRTIO_SCSI_MULTIQUEUE`, `WINDOWS`, `GVNIC`, `IDPF`, `SEV_LIVE_MIGRATABLE`, `SEV_SNP_CAPABLE`, `SUSPEND_RESUME_COMPATIBLE`, `TDX_CAPABLE`, `SEV_LIVE_MIGRATABLE_V2`.
+        Possible values are: `MULTI_IP_SUBNET`, `SECURE_BOOT`, `SEV_CAPABLE`, `UEFI_COMPATIBLE`, `VIRTIO_SCSI_MULTIQUEUE`, `WINDOWS`, `GVNIC`, `IDPF`, `SEV_LIVE_MIGRATABLE`, `SEV_SNP_CAPABLE`, `SUSPEND_RESUME_COMPATIBLE`, `TDX_CAPABLE`, `SEV_LIVE_MIGRATABLE_V2`, `SNP_SVSM_CAPABLE`.
         """
         return pulumi.get(self, "type")
 
@@ -31731,7 +31763,7 @@ class RegionDiskGuestOsFeature(dict):
                  type: _builtins.str):
         """
         :param _builtins.str type: The type of supported feature. Read [Enabling guest operating system features](https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features) to see a list of available options.
-               Possible values are: `MULTI_IP_SUBNET`, `SECURE_BOOT`, `SEV_CAPABLE`, `UEFI_COMPATIBLE`, `VIRTIO_SCSI_MULTIQUEUE`, `WINDOWS`, `GVNIC`, `SEV_LIVE_MIGRATABLE`, `SEV_SNP_CAPABLE`, `SUSPEND_RESUME_COMPATIBLE`, `TDX_CAPABLE`.
+               Possible values are: `MULTI_IP_SUBNET`, `SECURE_BOOT`, `SEV_CAPABLE`, `UEFI_COMPATIBLE`, `VIRTIO_SCSI_MULTIQUEUE`, `WINDOWS`, `GVNIC`, `SEV_LIVE_MIGRATABLE`, `SEV_SNP_CAPABLE`, `SUSPEND_RESUME_COMPATIBLE`, `TDX_CAPABLE`, `SEV_LIVE_MIGRATABLE_V2`, `SNP_SVSM_CAPABLE`.
         """
         pulumi.set(__self__, "type", type)
 
@@ -31740,7 +31772,7 @@ class RegionDiskGuestOsFeature(dict):
     def type(self) -> _builtins.str:
         """
         The type of supported feature. Read [Enabling guest operating system features](https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features) to see a list of available options.
-        Possible values are: `MULTI_IP_SUBNET`, `SECURE_BOOT`, `SEV_CAPABLE`, `UEFI_COMPATIBLE`, `VIRTIO_SCSI_MULTIQUEUE`, `WINDOWS`, `GVNIC`, `SEV_LIVE_MIGRATABLE`, `SEV_SNP_CAPABLE`, `SUSPEND_RESUME_COMPATIBLE`, `TDX_CAPABLE`.
+        Possible values are: `MULTI_IP_SUBNET`, `SECURE_BOOT`, `SEV_CAPABLE`, `UEFI_COMPATIBLE`, `VIRTIO_SCSI_MULTIQUEUE`, `WINDOWS`, `GVNIC`, `SEV_LIVE_MIGRATABLE`, `SEV_SNP_CAPABLE`, `SUSPEND_RESUME_COMPATIBLE`, `TDX_CAPABLE`, `SEV_LIVE_MIGRATABLE_V2`, `SNP_SVSM_CAPABLE`.
         """
         return pulumi.get(self, "type")
 
@@ -57287,7 +57319,9 @@ class URLMapDefaultRouteAction(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "corsPolicy":
+        if key == "cachePolicy":
+            suggest = "cache_policy"
+        elif key == "corsPolicy":
             suggest = "cors_policy"
         elif key == "faultInjectionPolicy":
             suggest = "fault_injection_policy"
@@ -57314,6 +57348,7 @@ class URLMapDefaultRouteAction(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 cache_policy: Optional['outputs.URLMapDefaultRouteActionCachePolicy'] = None,
                  cors_policy: Optional['outputs.URLMapDefaultRouteActionCorsPolicy'] = None,
                  fault_injection_policy: Optional['outputs.URLMapDefaultRouteActionFaultInjectionPolicy'] = None,
                  max_stream_duration: Optional['outputs.URLMapDefaultRouteActionMaxStreamDuration'] = None,
@@ -57323,6 +57358,12 @@ class URLMapDefaultRouteAction(dict):
                  url_rewrite: Optional['outputs.URLMapDefaultRouteActionUrlRewrite'] = None,
                  weighted_backend_services: Optional[Sequence['outputs.URLMapDefaultRouteActionWeightedBackendService']] = None):
         """
+        :param 'URLMapDefaultRouteActionCachePolicyArgs' cache_policy: (Optional, Beta)
+               Specifies the cache policy configuration for matched traffic. Available
+               only for Global EXTERNAL_MANAGED load balancer schemes. At least one
+               property must be specified. This policy cannot be specified if any target
+               backend has Identity-Aware Proxy enabled.
+               Structure is documented below.
         :param 'URLMapDefaultRouteActionCorsPolicyArgs' cors_policy: The specification for allowing client side cross-origin requests. Please see
                [W3C Recommendation for Cross Origin Resource Sharing](https://www.w3.org/TR/cors/)
                Structure is documented below.
@@ -57359,6 +57400,8 @@ class URLMapDefaultRouteAction(dict):
                additional settings specified in this HttpRouteAction.
                Structure is documented below.
         """
+        if cache_policy is not None:
+            pulumi.set(__self__, "cache_policy", cache_policy)
         if cors_policy is not None:
             pulumi.set(__self__, "cors_policy", cors_policy)
         if fault_injection_policy is not None:
@@ -57375,6 +57418,19 @@ class URLMapDefaultRouteAction(dict):
             pulumi.set(__self__, "url_rewrite", url_rewrite)
         if weighted_backend_services is not None:
             pulumi.set(__self__, "weighted_backend_services", weighted_backend_services)
+
+    @_builtins.property
+    @pulumi.getter(name="cachePolicy")
+    def cache_policy(self) -> Optional['outputs.URLMapDefaultRouteActionCachePolicy']:
+        """
+        (Optional, Beta)
+        Specifies the cache policy configuration for matched traffic. Available
+        only for Global EXTERNAL_MANAGED load balancer schemes. At least one
+        property must be specified. This policy cannot be specified if any target
+        backend has Identity-Aware Proxy enabled.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "cache_policy")
 
     @_builtins.property
     @pulumi.getter(name="corsPolicy")
@@ -57466,6 +57522,697 @@ class URLMapDefaultRouteAction(dict):
         Structure is documented below.
         """
         return pulumi.get(self, "weighted_backend_services")
+
+
+@pulumi.output_type
+class URLMapDefaultRouteActionCachePolicy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "cacheBypassRequestHeaderNames":
+            suggest = "cache_bypass_request_header_names"
+        elif key == "cacheKeyPolicy":
+            suggest = "cache_key_policy"
+        elif key == "cacheMode":
+            suggest = "cache_mode"
+        elif key == "clientTtl":
+            suggest = "client_ttl"
+        elif key == "defaultTtl":
+            suggest = "default_ttl"
+        elif key == "maxTtl":
+            suggest = "max_ttl"
+        elif key == "negativeCaching":
+            suggest = "negative_caching"
+        elif key == "negativeCachingPolicies":
+            suggest = "negative_caching_policies"
+        elif key == "requestCoalescing":
+            suggest = "request_coalescing"
+        elif key == "serveWhileStale":
+            suggest = "serve_while_stale"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in URLMapDefaultRouteActionCachePolicy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        URLMapDefaultRouteActionCachePolicy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        URLMapDefaultRouteActionCachePolicy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 cache_bypass_request_header_names: Optional[Sequence[_builtins.str]] = None,
+                 cache_key_policy: Optional['outputs.URLMapDefaultRouteActionCachePolicyCacheKeyPolicy'] = None,
+                 cache_mode: Optional[_builtins.str] = None,
+                 client_ttl: Optional['outputs.URLMapDefaultRouteActionCachePolicyClientTtl'] = None,
+                 default_ttl: Optional['outputs.URLMapDefaultRouteActionCachePolicyDefaultTtl'] = None,
+                 max_ttl: Optional['outputs.URLMapDefaultRouteActionCachePolicyMaxTtl'] = None,
+                 negative_caching: Optional[_builtins.bool] = None,
+                 negative_caching_policies: Optional[Sequence['outputs.URLMapDefaultRouteActionCachePolicyNegativeCachingPolicy']] = None,
+                 request_coalescing: Optional[_builtins.bool] = None,
+                 serve_while_stale: Optional['outputs.URLMapDefaultRouteActionCachePolicyServeWhileStale'] = None):
+        """
+        :param Sequence[_builtins.str] cache_bypass_request_header_names: Bypass the cache when the specified request headers are matched by name,
+               e.g. Pragma or Authorization headers. Values are case-insensitive. Up to 5
+               header names can be specified. The cache is bypassed for all cacheMode
+               values.
+        :param 'URLMapDefaultRouteActionCachePolicyCacheKeyPolicyArgs' cache_key_policy: The cache key configuration. If not specified, the default behavior depends
+               on the backend type: for Backend Services, the complete request URI is
+               used; for Backend Buckets, the request URI is used without the protocol or
+               host, and only query parameters known to Cloud Storage are included.
+               Structure is documented below.
+        :param _builtins.str cache_mode: Specifies the cache setting for all responses from this route. If not
+               specified, Cloud CDN uses CACHE_ALL_STATIC mode.
+               Possible values are: `USE_ORIGIN_HEADERS`, `FORCE_CACHE_ALL`, `CACHE_ALL_STATIC`.
+        :param 'URLMapDefaultRouteActionCachePolicyClientTtlArgs' client_ttl: Specifies a separate client (e.g. browser client) maximum TTL for cached
+               content. This is used to clamp the max-age (or Expires) value sent to the
+               client. With FORCE_CACHE_ALL, the lesser of clientTtl and defaultTtl
+               is used for the response max-age directive, along with a "public"
+               directive. For cacheable content in CACHE_ALL_STATIC mode, clientTtl
+               clamps the max-age from the origin (if specified), or else sets the
+               response max-age directive to the lesser of the clientTtl and defaultTtl,
+               and also ensures a "public" cache-control directive is present. The maximum
+               allowed value is 31,622,400s (1 year). If not specified, Cloud CDN uses
+               3600s (1 hour) for CACHE_ALL_STATIC mode. Cannot exceed maxTtl.
+               Cannot be specified when cacheMode is USE_ORIGIN_HEADERS.
+               Structure is documented below.
+        :param 'URLMapDefaultRouteActionCachePolicyDefaultTtlArgs' default_ttl: Specifies the default TTL for cached content for responses that do not have
+               an existing valid TTL (max-age or s-maxage). Setting a TTL of "0" means
+               "always revalidate". The value of defaultTtl cannot be set to a value
+               greater than that of maxTtl. When the cacheMode is set to
+               FORCE_CACHE_ALL, the defaultTtl will overwrite the TTL set in all
+               responses. The maximum allowed value is 31,622,400s (1 year). Infrequently
+               accessed objects may be evicted from the cache before the defined TTL. If
+               not specified, Cloud CDN uses 3600s (1 hour) for CACHE_ALL_STATIC and
+               FORCE_CACHE_ALL modes. Cannot be specified when cacheMode is
+               USE_ORIGIN_HEADERS.
+               Structure is documented below.
+        :param 'URLMapDefaultRouteActionCachePolicyMaxTtlArgs' max_ttl: Specifies the maximum allowed TTL for cached content. Cache directives that
+               attempt to set a max-age or s-maxage higher than this, or an Expires header
+               more than maxTtl seconds in the future will be capped at the value of
+               maxTtl, as if it were the value of an s-maxage Cache-Control directive.
+               Headers sent to the client will not be modified. Setting a TTL of "0" means
+               "always revalidate". The maximum allowed value is 31,622,400s (1 year).
+               Infrequently accessed objects may be evicted from the cache before the
+               defined TTL. If not specified, Cloud CDN uses 86400s (1 day) for
+               CACHE_ALL_STATIC mode. Can be specified only for CACHE_ALL_STATIC cache
+               mode.
+               Structure is documented below.
+        :param _builtins.bool negative_caching: Negative caching allows per-status code TTLs to be set, in order to apply
+               fine-grained caching for common errors or redirects. This can reduce the
+               load on your origin and improve end-user experience by reducing response
+               latency. When the cacheMode is set to CACHE_ALL_STATIC or
+               USE_ORIGIN_HEADERS, negative caching applies to responses with the
+               specified response code that lack any Cache-Control, Expires, or
+               Pragma: no-cache directives. When the cacheMode is set to
+               FORCE_CACHE_ALL, negative caching applies to all responses with the
+               specified response code, and overrides any caching headers. By default,
+               Cloud CDN applies the following TTLs to these HTTP status codes:
+               * 300 (Multiple Choice), 301, 308 (Permanent Redirects): 10m
+               * 404 (Not Found), 410 (Gone), 451 (Unavailable For Legal Reasons): 120s
+               * 405 (Method Not Found), 501 (Not Implemented): 60s
+               These defaults can be overridden in negativeCachingPolicy. If not
+               specified, Cloud CDN applies negative caching by default.
+        :param Sequence['URLMapDefaultRouteActionCachePolicyNegativeCachingPolicyArgs'] negative_caching_policies: Sets a cache TTL for the specified HTTP status code. negativeCaching
+               must be enabled to configure negativeCachingPolicy. Omitting the policy
+               and leaving negativeCaching enabled will use Cloud CDN's default cache
+               TTLs. Note that when specifying an explicit negativeCachingPolicy, you
+               should take care to specify a cache TTL for all response codes that you
+               wish to cache. Cloud CDN will not apply any default negative caching when
+               a policy exists.
+               Structure is documented below.
+        :param _builtins.bool request_coalescing: If true then Cloud CDN will combine multiple concurrent cache fill
+               requests into a small number of requests to the origin. If not specified,
+               Cloud CDN applies request coalescing by default.
+        :param 'URLMapDefaultRouteActionCachePolicyServeWhileStaleArgs' serve_while_stale: Serve existing content from the cache (if available) when revalidating
+               content with the origin, or when an error is encountered when refreshing
+               the cache. This setting defines the default "max-stale" duration for any
+               cached responses that do not specify a max-stale directive. Stale
+               responses that exceed the TTL configured here will not be served. The
+               default limit (max-stale) is 86400s (1 day), which will allow stale
+               content to be served up to this limit beyond the max-age (or s-maxage) of
+               a cached response. The maximum allowed value is 604800 (1 week). Set this
+               to zero (0) to disable serve-while-stale.
+               Structure is documented below.
+        """
+        if cache_bypass_request_header_names is not None:
+            pulumi.set(__self__, "cache_bypass_request_header_names", cache_bypass_request_header_names)
+        if cache_key_policy is not None:
+            pulumi.set(__self__, "cache_key_policy", cache_key_policy)
+        if cache_mode is not None:
+            pulumi.set(__self__, "cache_mode", cache_mode)
+        if client_ttl is not None:
+            pulumi.set(__self__, "client_ttl", client_ttl)
+        if default_ttl is not None:
+            pulumi.set(__self__, "default_ttl", default_ttl)
+        if max_ttl is not None:
+            pulumi.set(__self__, "max_ttl", max_ttl)
+        if negative_caching is not None:
+            pulumi.set(__self__, "negative_caching", negative_caching)
+        if negative_caching_policies is not None:
+            pulumi.set(__self__, "negative_caching_policies", negative_caching_policies)
+        if request_coalescing is not None:
+            pulumi.set(__self__, "request_coalescing", request_coalescing)
+        if serve_while_stale is not None:
+            pulumi.set(__self__, "serve_while_stale", serve_while_stale)
+
+    @_builtins.property
+    @pulumi.getter(name="cacheBypassRequestHeaderNames")
+    def cache_bypass_request_header_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Bypass the cache when the specified request headers are matched by name,
+        e.g. Pragma or Authorization headers. Values are case-insensitive. Up to 5
+        header names can be specified. The cache is bypassed for all cacheMode
+        values.
+        """
+        return pulumi.get(self, "cache_bypass_request_header_names")
+
+    @_builtins.property
+    @pulumi.getter(name="cacheKeyPolicy")
+    def cache_key_policy(self) -> Optional['outputs.URLMapDefaultRouteActionCachePolicyCacheKeyPolicy']:
+        """
+        The cache key configuration. If not specified, the default behavior depends
+        on the backend type: for Backend Services, the complete request URI is
+        used; for Backend Buckets, the request URI is used without the protocol or
+        host, and only query parameters known to Cloud Storage are included.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "cache_key_policy")
+
+    @_builtins.property
+    @pulumi.getter(name="cacheMode")
+    def cache_mode(self) -> Optional[_builtins.str]:
+        """
+        Specifies the cache setting for all responses from this route. If not
+        specified, Cloud CDN uses CACHE_ALL_STATIC mode.
+        Possible values are: `USE_ORIGIN_HEADERS`, `FORCE_CACHE_ALL`, `CACHE_ALL_STATIC`.
+        """
+        return pulumi.get(self, "cache_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="clientTtl")
+    def client_ttl(self) -> Optional['outputs.URLMapDefaultRouteActionCachePolicyClientTtl']:
+        """
+        Specifies a separate client (e.g. browser client) maximum TTL for cached
+        content. This is used to clamp the max-age (or Expires) value sent to the
+        client. With FORCE_CACHE_ALL, the lesser of clientTtl and defaultTtl
+        is used for the response max-age directive, along with a "public"
+        directive. For cacheable content in CACHE_ALL_STATIC mode, clientTtl
+        clamps the max-age from the origin (if specified), or else sets the
+        response max-age directive to the lesser of the clientTtl and defaultTtl,
+        and also ensures a "public" cache-control directive is present. The maximum
+        allowed value is 31,622,400s (1 year). If not specified, Cloud CDN uses
+        3600s (1 hour) for CACHE_ALL_STATIC mode. Cannot exceed maxTtl.
+        Cannot be specified when cacheMode is USE_ORIGIN_HEADERS.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "client_ttl")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultTtl")
+    def default_ttl(self) -> Optional['outputs.URLMapDefaultRouteActionCachePolicyDefaultTtl']:
+        """
+        Specifies the default TTL for cached content for responses that do not have
+        an existing valid TTL (max-age or s-maxage). Setting a TTL of "0" means
+        "always revalidate". The value of defaultTtl cannot be set to a value
+        greater than that of maxTtl. When the cacheMode is set to
+        FORCE_CACHE_ALL, the defaultTtl will overwrite the TTL set in all
+        responses. The maximum allowed value is 31,622,400s (1 year). Infrequently
+        accessed objects may be evicted from the cache before the defined TTL. If
+        not specified, Cloud CDN uses 3600s (1 hour) for CACHE_ALL_STATIC and
+        FORCE_CACHE_ALL modes. Cannot be specified when cacheMode is
+        USE_ORIGIN_HEADERS.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "default_ttl")
+
+    @_builtins.property
+    @pulumi.getter(name="maxTtl")
+    def max_ttl(self) -> Optional['outputs.URLMapDefaultRouteActionCachePolicyMaxTtl']:
+        """
+        Specifies the maximum allowed TTL for cached content. Cache directives that
+        attempt to set a max-age or s-maxage higher than this, or an Expires header
+        more than maxTtl seconds in the future will be capped at the value of
+        maxTtl, as if it were the value of an s-maxage Cache-Control directive.
+        Headers sent to the client will not be modified. Setting a TTL of "0" means
+        "always revalidate". The maximum allowed value is 31,622,400s (1 year).
+        Infrequently accessed objects may be evicted from the cache before the
+        defined TTL. If not specified, Cloud CDN uses 86400s (1 day) for
+        CACHE_ALL_STATIC mode. Can be specified only for CACHE_ALL_STATIC cache
+        mode.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "max_ttl")
+
+    @_builtins.property
+    @pulumi.getter(name="negativeCaching")
+    def negative_caching(self) -> Optional[_builtins.bool]:
+        """
+        Negative caching allows per-status code TTLs to be set, in order to apply
+        fine-grained caching for common errors or redirects. This can reduce the
+        load on your origin and improve end-user experience by reducing response
+        latency. When the cacheMode is set to CACHE_ALL_STATIC or
+        USE_ORIGIN_HEADERS, negative caching applies to responses with the
+        specified response code that lack any Cache-Control, Expires, or
+        Pragma: no-cache directives. When the cacheMode is set to
+        FORCE_CACHE_ALL, negative caching applies to all responses with the
+        specified response code, and overrides any caching headers. By default,
+        Cloud CDN applies the following TTLs to these HTTP status codes:
+        * 300 (Multiple Choice), 301, 308 (Permanent Redirects): 10m
+        * 404 (Not Found), 410 (Gone), 451 (Unavailable For Legal Reasons): 120s
+        * 405 (Method Not Found), 501 (Not Implemented): 60s
+        These defaults can be overridden in negativeCachingPolicy. If not
+        specified, Cloud CDN applies negative caching by default.
+        """
+        return pulumi.get(self, "negative_caching")
+
+    @_builtins.property
+    @pulumi.getter(name="negativeCachingPolicies")
+    def negative_caching_policies(self) -> Optional[Sequence['outputs.URLMapDefaultRouteActionCachePolicyNegativeCachingPolicy']]:
+        """
+        Sets a cache TTL for the specified HTTP status code. negativeCaching
+        must be enabled to configure negativeCachingPolicy. Omitting the policy
+        and leaving negativeCaching enabled will use Cloud CDN's default cache
+        TTLs. Note that when specifying an explicit negativeCachingPolicy, you
+        should take care to specify a cache TTL for all response codes that you
+        wish to cache. Cloud CDN will not apply any default negative caching when
+        a policy exists.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "negative_caching_policies")
+
+    @_builtins.property
+    @pulumi.getter(name="requestCoalescing")
+    def request_coalescing(self) -> Optional[_builtins.bool]:
+        """
+        If true then Cloud CDN will combine multiple concurrent cache fill
+        requests into a small number of requests to the origin. If not specified,
+        Cloud CDN applies request coalescing by default.
+        """
+        return pulumi.get(self, "request_coalescing")
+
+    @_builtins.property
+    @pulumi.getter(name="serveWhileStale")
+    def serve_while_stale(self) -> Optional['outputs.URLMapDefaultRouteActionCachePolicyServeWhileStale']:
+        """
+        Serve existing content from the cache (if available) when revalidating
+        content with the origin, or when an error is encountered when refreshing
+        the cache. This setting defines the default "max-stale" duration for any
+        cached responses that do not specify a max-stale directive. Stale
+        responses that exceed the TTL configured here will not be served. The
+        default limit (max-stale) is 86400s (1 day), which will allow stale
+        content to be served up to this limit beyond the max-age (or s-maxage) of
+        a cached response. The maximum allowed value is 604800 (1 week). Set this
+        to zero (0) to disable serve-while-stale.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "serve_while_stale")
+
+
+@pulumi.output_type
+class URLMapDefaultRouteActionCachePolicyCacheKeyPolicy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "excludedQueryParameters":
+            suggest = "excluded_query_parameters"
+        elif key == "includeHost":
+            suggest = "include_host"
+        elif key == "includeProtocol":
+            suggest = "include_protocol"
+        elif key == "includeQueryString":
+            suggest = "include_query_string"
+        elif key == "includedCookieNames":
+            suggest = "included_cookie_names"
+        elif key == "includedHeaderNames":
+            suggest = "included_header_names"
+        elif key == "includedQueryParameters":
+            suggest = "included_query_parameters"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in URLMapDefaultRouteActionCachePolicyCacheKeyPolicy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        URLMapDefaultRouteActionCachePolicyCacheKeyPolicy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        URLMapDefaultRouteActionCachePolicyCacheKeyPolicy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 excluded_query_parameters: Optional[Sequence[_builtins.str]] = None,
+                 include_host: Optional[_builtins.bool] = None,
+                 include_protocol: Optional[_builtins.bool] = None,
+                 include_query_string: Optional[_builtins.bool] = None,
+                 included_cookie_names: Optional[Sequence[_builtins.str]] = None,
+                 included_header_names: Optional[Sequence[_builtins.str]] = None,
+                 included_query_parameters: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] excluded_query_parameters: Names of query string parameters to exclude in cache keys. All other
+               parameters will be included. Either specify excludedQueryParameters
+               or includedQueryParameters, not both. '&' and '=' will be percent
+               encoded and not treated as delimiters. Note: This field applies to
+               routes that use backend services. Attempting to set it on a route that
+               points exclusively to Backend Buckets will result in a configuration
+               error. For routes that point to a Backend Bucket, use
+               includedQueryParameters to define which parameters should be part of
+               the cache key.
+        :param _builtins.bool include_host: If true, requests to different hosts will be cached separately. Note:
+               This setting is only applicable to routes that use a Backend Service.
+               It does not affect requests served by a Backend Bucket, as the host is
+               never included in a Backend Bucket's cache key. Attempting to set it on
+               a route that points exclusively to Backend Buckets will result in a
+               configuration error.
+        :param _builtins.bool include_protocol: If true, http and https requests will be cached separately. Note: This
+               setting is only applicable to routes that use a Backend Service. It
+               does not affect requests served by a Backend Bucket, as the protocol is
+               never included in a Backend Bucket's cache key. Attempting to set on a
+               route that points exclusively to Backend Buckets will result in a
+               configuration error.
+        :param _builtins.bool include_query_string: If true, include query string parameters in the cache key according to
+               includedQueryParameters and excludedQueryParameters. If neither is
+               set, the entire query string will be included. If false, the query
+               string will be excluded from the cache key entirely. Note: This field
+               applies to routes that use backend services. Attempting to set it on a
+               route that points exclusively to Backend Buckets will result in a
+               configuration error. For routes that point to a Backend Bucket, use
+               includedQueryParameters to define which parameters should be part of
+               the cache key.
+        :param Sequence[_builtins.str] included_cookie_names: Allows HTTP cookies (by name) to be used in the cache key. The
+               name=value pair will be used in the cache key Cloud CDN generates.
+               Note: This setting is only applicable to routes that use a Backend
+               Service. It does not affect requests served by a Backend Bucket.
+               Attempting to set it on a route that points exclusively to Backend
+               Buckets will result in a configuration error. Up to 5 cookie names can
+               be specified.
+        :param Sequence[_builtins.str] included_header_names: Allows HTTP request headers (by name) to be used in the cache key.
+        :param Sequence[_builtins.str] included_query_parameters: Names of query string parameters to include in cache keys. All other
+               parameters will be excluded. Either specify includedQueryParameters
+               or excludedQueryParameters, not both. '&' and '=' will be percent
+               encoded and not treated as delimiters.
+        """
+        if excluded_query_parameters is not None:
+            pulumi.set(__self__, "excluded_query_parameters", excluded_query_parameters)
+        if include_host is not None:
+            pulumi.set(__self__, "include_host", include_host)
+        if include_protocol is not None:
+            pulumi.set(__self__, "include_protocol", include_protocol)
+        if include_query_string is not None:
+            pulumi.set(__self__, "include_query_string", include_query_string)
+        if included_cookie_names is not None:
+            pulumi.set(__self__, "included_cookie_names", included_cookie_names)
+        if included_header_names is not None:
+            pulumi.set(__self__, "included_header_names", included_header_names)
+        if included_query_parameters is not None:
+            pulumi.set(__self__, "included_query_parameters", included_query_parameters)
+
+    @_builtins.property
+    @pulumi.getter(name="excludedQueryParameters")
+    def excluded_query_parameters(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Names of query string parameters to exclude in cache keys. All other
+        parameters will be included. Either specify excludedQueryParameters
+        or includedQueryParameters, not both. '&' and '=' will be percent
+        encoded and not treated as delimiters. Note: This field applies to
+        routes that use backend services. Attempting to set it on a route that
+        points exclusively to Backend Buckets will result in a configuration
+        error. For routes that point to a Backend Bucket, use
+        includedQueryParameters to define which parameters should be part of
+        the cache key.
+        """
+        return pulumi.get(self, "excluded_query_parameters")
+
+    @_builtins.property
+    @pulumi.getter(name="includeHost")
+    def include_host(self) -> Optional[_builtins.bool]:
+        """
+        If true, requests to different hosts will be cached separately. Note:
+        This setting is only applicable to routes that use a Backend Service.
+        It does not affect requests served by a Backend Bucket, as the host is
+        never included in a Backend Bucket's cache key. Attempting to set it on
+        a route that points exclusively to Backend Buckets will result in a
+        configuration error.
+        """
+        return pulumi.get(self, "include_host")
+
+    @_builtins.property
+    @pulumi.getter(name="includeProtocol")
+    def include_protocol(self) -> Optional[_builtins.bool]:
+        """
+        If true, http and https requests will be cached separately. Note: This
+        setting is only applicable to routes that use a Backend Service. It
+        does not affect requests served by a Backend Bucket, as the protocol is
+        never included in a Backend Bucket's cache key. Attempting to set on a
+        route that points exclusively to Backend Buckets will result in a
+        configuration error.
+        """
+        return pulumi.get(self, "include_protocol")
+
+    @_builtins.property
+    @pulumi.getter(name="includeQueryString")
+    def include_query_string(self) -> Optional[_builtins.bool]:
+        """
+        If true, include query string parameters in the cache key according to
+        includedQueryParameters and excludedQueryParameters. If neither is
+        set, the entire query string will be included. If false, the query
+        string will be excluded from the cache key entirely. Note: This field
+        applies to routes that use backend services. Attempting to set it on a
+        route that points exclusively to Backend Buckets will result in a
+        configuration error. For routes that point to a Backend Bucket, use
+        includedQueryParameters to define which parameters should be part of
+        the cache key.
+        """
+        return pulumi.get(self, "include_query_string")
+
+    @_builtins.property
+    @pulumi.getter(name="includedCookieNames")
+    def included_cookie_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Allows HTTP cookies (by name) to be used in the cache key. The
+        name=value pair will be used in the cache key Cloud CDN generates.
+        Note: This setting is only applicable to routes that use a Backend
+        Service. It does not affect requests served by a Backend Bucket.
+        Attempting to set it on a route that points exclusively to Backend
+        Buckets will result in a configuration error. Up to 5 cookie names can
+        be specified.
+        """
+        return pulumi.get(self, "included_cookie_names")
+
+    @_builtins.property
+    @pulumi.getter(name="includedHeaderNames")
+    def included_header_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Allows HTTP request headers (by name) to be used in the cache key.
+        """
+        return pulumi.get(self, "included_header_names")
+
+    @_builtins.property
+    @pulumi.getter(name="includedQueryParameters")
+    def included_query_parameters(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Names of query string parameters to include in cache keys. All other
+        parameters will be excluded. Either specify includedQueryParameters
+        or excludedQueryParameters, not both. '&' and '=' will be percent
+        encoded and not treated as delimiters.
+        """
+        return pulumi.get(self, "included_query_parameters")
+
+
+@pulumi.output_type
+class URLMapDefaultRouteActionCachePolicyClientTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapDefaultRouteActionCachePolicyDefaultTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapDefaultRouteActionCachePolicyMaxTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapDefaultRouteActionCachePolicyNegativeCachingPolicy(dict):
+    def __init__(__self__, *,
+                 code: Optional[_builtins.int] = None,
+                 ttl: Optional['outputs.URLMapDefaultRouteActionCachePolicyNegativeCachingPolicyTtl'] = None):
+        """
+        :param _builtins.int code: The HTTP status code to define a TTL against. Only HTTP status codes
+               300, 301, 302, 307, 308, 404, 405, 410, 421, 451 and 501 can be
+               specified as values, and you cannot specify a status code more than
+               once.
+        :param 'URLMapDefaultRouteActionCachePolicyNegativeCachingPolicyTtlArgs' ttl: The TTL (in seconds) for which to cache responses with the
+               corresponding status code. The maximum allowed value is 1800s (30
+               minutes). Infrequently accessed objects may be evicted from the cache
+               before the defined TTL.
+               Structure is documented below.
+        """
+        if code is not None:
+            pulumi.set(__self__, "code", code)
+        if ttl is not None:
+            pulumi.set(__self__, "ttl", ttl)
+
+    @_builtins.property
+    @pulumi.getter
+    def code(self) -> Optional[_builtins.int]:
+        """
+        The HTTP status code to define a TTL against. Only HTTP status codes
+        300, 301, 302, 307, 308, 404, 405, 410, 421, 451 and 501 can be
+        specified as values, and you cannot specify a status code more than
+        once.
+        """
+        return pulumi.get(self, "code")
+
+    @_builtins.property
+    @pulumi.getter
+    def ttl(self) -> Optional['outputs.URLMapDefaultRouteActionCachePolicyNegativeCachingPolicyTtl']:
+        """
+        The TTL (in seconds) for which to cache responses with the
+        corresponding status code. The maximum allowed value is 1800s (30
+        minutes). Infrequently accessed objects may be evicted from the cache
+        before the defined TTL.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "ttl")
+
+
+@pulumi.output_type
+class URLMapDefaultRouteActionCachePolicyNegativeCachingPolicyTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapDefaultRouteActionCachePolicyServeWhileStale(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
 
 
 @pulumi.output_type
@@ -59176,7 +59923,9 @@ class URLMapPathMatcherDefaultRouteAction(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "corsPolicy":
+        if key == "cachePolicy":
+            suggest = "cache_policy"
+        elif key == "corsPolicy":
             suggest = "cors_policy"
         elif key == "faultInjectionPolicy":
             suggest = "fault_injection_policy"
@@ -59203,6 +59952,7 @@ class URLMapPathMatcherDefaultRouteAction(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 cache_policy: Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicy'] = None,
                  cors_policy: Optional['outputs.URLMapPathMatcherDefaultRouteActionCorsPolicy'] = None,
                  fault_injection_policy: Optional['outputs.URLMapPathMatcherDefaultRouteActionFaultInjectionPolicy'] = None,
                  max_stream_duration: Optional['outputs.URLMapPathMatcherDefaultRouteActionMaxStreamDuration'] = None,
@@ -59212,6 +59962,12 @@ class URLMapPathMatcherDefaultRouteAction(dict):
                  url_rewrite: Optional['outputs.URLMapPathMatcherDefaultRouteActionUrlRewrite'] = None,
                  weighted_backend_services: Optional[Sequence['outputs.URLMapPathMatcherDefaultRouteActionWeightedBackendService']] = None):
         """
+        :param 'URLMapPathMatcherDefaultRouteActionCachePolicyArgs' cache_policy: (Optional, Beta)
+               Specifies the cache policy configuration for matched traffic. Available
+               only for Global EXTERNAL_MANAGED load balancer schemes. At least one
+               property must be specified. This policy cannot be specified if any target
+               backend has Identity-Aware Proxy enabled.
+               Structure is documented below.
         :param 'URLMapPathMatcherDefaultRouteActionCorsPolicyArgs' cors_policy: The specification for allowing client side cross-origin requests. Please see
                [W3C Recommendation for Cross Origin Resource Sharing](https://www.w3.org/TR/cors/)
                Structure is documented below.
@@ -59248,6 +60004,8 @@ class URLMapPathMatcherDefaultRouteAction(dict):
                additional settings specified in this HttpRouteAction.
                Structure is documented below.
         """
+        if cache_policy is not None:
+            pulumi.set(__self__, "cache_policy", cache_policy)
         if cors_policy is not None:
             pulumi.set(__self__, "cors_policy", cors_policy)
         if fault_injection_policy is not None:
@@ -59264,6 +60022,19 @@ class URLMapPathMatcherDefaultRouteAction(dict):
             pulumi.set(__self__, "url_rewrite", url_rewrite)
         if weighted_backend_services is not None:
             pulumi.set(__self__, "weighted_backend_services", weighted_backend_services)
+
+    @_builtins.property
+    @pulumi.getter(name="cachePolicy")
+    def cache_policy(self) -> Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicy']:
+        """
+        (Optional, Beta)
+        Specifies the cache policy configuration for matched traffic. Available
+        only for Global EXTERNAL_MANAGED load balancer schemes. At least one
+        property must be specified. This policy cannot be specified if any target
+        backend has Identity-Aware Proxy enabled.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "cache_policy")
 
     @_builtins.property
     @pulumi.getter(name="corsPolicy")
@@ -59355,6 +60126,697 @@ class URLMapPathMatcherDefaultRouteAction(dict):
         Structure is documented below.
         """
         return pulumi.get(self, "weighted_backend_services")
+
+
+@pulumi.output_type
+class URLMapPathMatcherDefaultRouteActionCachePolicy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "cacheBypassRequestHeaderNames":
+            suggest = "cache_bypass_request_header_names"
+        elif key == "cacheKeyPolicy":
+            suggest = "cache_key_policy"
+        elif key == "cacheMode":
+            suggest = "cache_mode"
+        elif key == "clientTtl":
+            suggest = "client_ttl"
+        elif key == "defaultTtl":
+            suggest = "default_ttl"
+        elif key == "maxTtl":
+            suggest = "max_ttl"
+        elif key == "negativeCaching":
+            suggest = "negative_caching"
+        elif key == "negativeCachingPolicies":
+            suggest = "negative_caching_policies"
+        elif key == "requestCoalescing":
+            suggest = "request_coalescing"
+        elif key == "serveWhileStale":
+            suggest = "serve_while_stale"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in URLMapPathMatcherDefaultRouteActionCachePolicy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        URLMapPathMatcherDefaultRouteActionCachePolicy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        URLMapPathMatcherDefaultRouteActionCachePolicy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 cache_bypass_request_header_names: Optional[Sequence[_builtins.str]] = None,
+                 cache_key_policy: Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyCacheKeyPolicy'] = None,
+                 cache_mode: Optional[_builtins.str] = None,
+                 client_ttl: Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyClientTtl'] = None,
+                 default_ttl: Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyDefaultTtl'] = None,
+                 max_ttl: Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyMaxTtl'] = None,
+                 negative_caching: Optional[_builtins.bool] = None,
+                 negative_caching_policies: Optional[Sequence['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyNegativeCachingPolicy']] = None,
+                 request_coalescing: Optional[_builtins.bool] = None,
+                 serve_while_stale: Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyServeWhileStale'] = None):
+        """
+        :param Sequence[_builtins.str] cache_bypass_request_header_names: Bypass the cache when the specified request headers are matched by name,
+               e.g. Pragma or Authorization headers. Values are case-insensitive. Up to 5
+               header names can be specified. The cache is bypassed for all cacheMode
+               values.
+        :param 'URLMapPathMatcherDefaultRouteActionCachePolicyCacheKeyPolicyArgs' cache_key_policy: The cache key configuration. If not specified, the default behavior depends
+               on the backend type: for Backend Services, the complete request URI is
+               used; for Backend Buckets, the request URI is used without the protocol or
+               host, and only query parameters known to Cloud Storage are included.
+               Structure is documented below.
+        :param _builtins.str cache_mode: Specifies the cache setting for all responses from this route. If not
+               specified, Cloud CDN uses CACHE_ALL_STATIC mode.
+               Possible values are: `USE_ORIGIN_HEADERS`, `FORCE_CACHE_ALL`, `CACHE_ALL_STATIC`.
+        :param 'URLMapPathMatcherDefaultRouteActionCachePolicyClientTtlArgs' client_ttl: Specifies a separate client (e.g. browser client) maximum TTL for cached
+               content. This is used to clamp the max-age (or Expires) value sent to the
+               client. With FORCE_CACHE_ALL, the lesser of clientTtl and defaultTtl
+               is used for the response max-age directive, along with a "public"
+               directive. For cacheable content in CACHE_ALL_STATIC mode, clientTtl
+               clamps the max-age from the origin (if specified), or else sets the
+               response max-age directive to the lesser of the clientTtl and defaultTtl,
+               and also ensures a "public" cache-control directive is present. The maximum
+               allowed value is 31,622,400s (1 year). If not specified, Cloud CDN uses
+               3600s (1 hour) for CACHE_ALL_STATIC mode. Cannot exceed maxTtl.
+               Cannot be specified when cacheMode is USE_ORIGIN_HEADERS.
+               Structure is documented below.
+        :param 'URLMapPathMatcherDefaultRouteActionCachePolicyDefaultTtlArgs' default_ttl: Specifies the default TTL for cached content for responses that do not have
+               an existing valid TTL (max-age or s-maxage). Setting a TTL of "0" means
+               "always revalidate". The value of defaultTtl cannot be set to a value
+               greater than that of maxTtl. When the cacheMode is set to
+               FORCE_CACHE_ALL, the defaultTtl will overwrite the TTL set in all
+               responses. The maximum allowed value is 31,622,400s (1 year). Infrequently
+               accessed objects may be evicted from the cache before the defined TTL. If
+               not specified, Cloud CDN uses 3600s (1 hour) for CACHE_ALL_STATIC and
+               FORCE_CACHE_ALL modes. Cannot be specified when cacheMode is
+               USE_ORIGIN_HEADERS.
+               Structure is documented below.
+        :param 'URLMapPathMatcherDefaultRouteActionCachePolicyMaxTtlArgs' max_ttl: Specifies the maximum allowed TTL for cached content. Cache directives that
+               attempt to set a max-age or s-maxage higher than this, or an Expires header
+               more than maxTtl seconds in the future will be capped at the value of
+               maxTtl, as if it were the value of an s-maxage Cache-Control directive.
+               Headers sent to the client will not be modified. Setting a TTL of "0" means
+               "always revalidate". The maximum allowed value is 31,622,400s (1 year).
+               Infrequently accessed objects may be evicted from the cache before the
+               defined TTL. If not specified, Cloud CDN uses 86400s (1 day) for
+               CACHE_ALL_STATIC mode. Can be specified only for CACHE_ALL_STATIC cache
+               mode.
+               Structure is documented below.
+        :param _builtins.bool negative_caching: Negative caching allows per-status code TTLs to be set, in order to apply
+               fine-grained caching for common errors or redirects. This can reduce the
+               load on your origin and improve end-user experience by reducing response
+               latency. When the cacheMode is set to CACHE_ALL_STATIC or
+               USE_ORIGIN_HEADERS, negative caching applies to responses with the
+               specified response code that lack any Cache-Control, Expires, or
+               Pragma: no-cache directives. When the cacheMode is set to
+               FORCE_CACHE_ALL, negative caching applies to all responses with the
+               specified response code, and overrides any caching headers. By default,
+               Cloud CDN applies the following TTLs to these HTTP status codes:
+               * 300 (Multiple Choice), 301, 308 (Permanent Redirects): 10m
+               * 404 (Not Found), 410 (Gone), 451 (Unavailable For Legal Reasons): 120s
+               * 405 (Method Not Found), 501 (Not Implemented): 60s
+               These defaults can be overridden in negativeCachingPolicy. If not
+               specified, Cloud CDN applies negative caching by default.
+        :param Sequence['URLMapPathMatcherDefaultRouteActionCachePolicyNegativeCachingPolicyArgs'] negative_caching_policies: Sets a cache TTL for the specified HTTP status code. negativeCaching
+               must be enabled to configure negativeCachingPolicy. Omitting the policy
+               and leaving negativeCaching enabled will use Cloud CDN's default cache
+               TTLs. Note that when specifying an explicit negativeCachingPolicy, you
+               should take care to specify a cache TTL for all response codes that you
+               wish to cache. Cloud CDN will not apply any default negative caching when
+               a policy exists.
+               Structure is documented below.
+        :param _builtins.bool request_coalescing: If true then Cloud CDN will combine multiple concurrent cache fill
+               requests into a small number of requests to the origin. If not specified,
+               Cloud CDN applies request coalescing by default.
+        :param 'URLMapPathMatcherDefaultRouteActionCachePolicyServeWhileStaleArgs' serve_while_stale: Serve existing content from the cache (if available) when revalidating
+               content with the origin, or when an error is encountered when refreshing
+               the cache. This setting defines the default "max-stale" duration for any
+               cached responses that do not specify a max-stale directive. Stale
+               responses that exceed the TTL configured here will not be served. The
+               default limit (max-stale) is 86400s (1 day), which will allow stale
+               content to be served up to this limit beyond the max-age (or s-maxage) of
+               a cached response. The maximum allowed value is 604800 (1 week). Set this
+               to zero (0) to disable serve-while-stale.
+               Structure is documented below.
+        """
+        if cache_bypass_request_header_names is not None:
+            pulumi.set(__self__, "cache_bypass_request_header_names", cache_bypass_request_header_names)
+        if cache_key_policy is not None:
+            pulumi.set(__self__, "cache_key_policy", cache_key_policy)
+        if cache_mode is not None:
+            pulumi.set(__self__, "cache_mode", cache_mode)
+        if client_ttl is not None:
+            pulumi.set(__self__, "client_ttl", client_ttl)
+        if default_ttl is not None:
+            pulumi.set(__self__, "default_ttl", default_ttl)
+        if max_ttl is not None:
+            pulumi.set(__self__, "max_ttl", max_ttl)
+        if negative_caching is not None:
+            pulumi.set(__self__, "negative_caching", negative_caching)
+        if negative_caching_policies is not None:
+            pulumi.set(__self__, "negative_caching_policies", negative_caching_policies)
+        if request_coalescing is not None:
+            pulumi.set(__self__, "request_coalescing", request_coalescing)
+        if serve_while_stale is not None:
+            pulumi.set(__self__, "serve_while_stale", serve_while_stale)
+
+    @_builtins.property
+    @pulumi.getter(name="cacheBypassRequestHeaderNames")
+    def cache_bypass_request_header_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Bypass the cache when the specified request headers are matched by name,
+        e.g. Pragma or Authorization headers. Values are case-insensitive. Up to 5
+        header names can be specified. The cache is bypassed for all cacheMode
+        values.
+        """
+        return pulumi.get(self, "cache_bypass_request_header_names")
+
+    @_builtins.property
+    @pulumi.getter(name="cacheKeyPolicy")
+    def cache_key_policy(self) -> Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyCacheKeyPolicy']:
+        """
+        The cache key configuration. If not specified, the default behavior depends
+        on the backend type: for Backend Services, the complete request URI is
+        used; for Backend Buckets, the request URI is used without the protocol or
+        host, and only query parameters known to Cloud Storage are included.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "cache_key_policy")
+
+    @_builtins.property
+    @pulumi.getter(name="cacheMode")
+    def cache_mode(self) -> Optional[_builtins.str]:
+        """
+        Specifies the cache setting for all responses from this route. If not
+        specified, Cloud CDN uses CACHE_ALL_STATIC mode.
+        Possible values are: `USE_ORIGIN_HEADERS`, `FORCE_CACHE_ALL`, `CACHE_ALL_STATIC`.
+        """
+        return pulumi.get(self, "cache_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="clientTtl")
+    def client_ttl(self) -> Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyClientTtl']:
+        """
+        Specifies a separate client (e.g. browser client) maximum TTL for cached
+        content. This is used to clamp the max-age (or Expires) value sent to the
+        client. With FORCE_CACHE_ALL, the lesser of clientTtl and defaultTtl
+        is used for the response max-age directive, along with a "public"
+        directive. For cacheable content in CACHE_ALL_STATIC mode, clientTtl
+        clamps the max-age from the origin (if specified), or else sets the
+        response max-age directive to the lesser of the clientTtl and defaultTtl,
+        and also ensures a "public" cache-control directive is present. The maximum
+        allowed value is 31,622,400s (1 year). If not specified, Cloud CDN uses
+        3600s (1 hour) for CACHE_ALL_STATIC mode. Cannot exceed maxTtl.
+        Cannot be specified when cacheMode is USE_ORIGIN_HEADERS.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "client_ttl")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultTtl")
+    def default_ttl(self) -> Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyDefaultTtl']:
+        """
+        Specifies the default TTL for cached content for responses that do not have
+        an existing valid TTL (max-age or s-maxage). Setting a TTL of "0" means
+        "always revalidate". The value of defaultTtl cannot be set to a value
+        greater than that of maxTtl. When the cacheMode is set to
+        FORCE_CACHE_ALL, the defaultTtl will overwrite the TTL set in all
+        responses. The maximum allowed value is 31,622,400s (1 year). Infrequently
+        accessed objects may be evicted from the cache before the defined TTL. If
+        not specified, Cloud CDN uses 3600s (1 hour) for CACHE_ALL_STATIC and
+        FORCE_CACHE_ALL modes. Cannot be specified when cacheMode is
+        USE_ORIGIN_HEADERS.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "default_ttl")
+
+    @_builtins.property
+    @pulumi.getter(name="maxTtl")
+    def max_ttl(self) -> Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyMaxTtl']:
+        """
+        Specifies the maximum allowed TTL for cached content. Cache directives that
+        attempt to set a max-age or s-maxage higher than this, or an Expires header
+        more than maxTtl seconds in the future will be capped at the value of
+        maxTtl, as if it were the value of an s-maxage Cache-Control directive.
+        Headers sent to the client will not be modified. Setting a TTL of "0" means
+        "always revalidate". The maximum allowed value is 31,622,400s (1 year).
+        Infrequently accessed objects may be evicted from the cache before the
+        defined TTL. If not specified, Cloud CDN uses 86400s (1 day) for
+        CACHE_ALL_STATIC mode. Can be specified only for CACHE_ALL_STATIC cache
+        mode.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "max_ttl")
+
+    @_builtins.property
+    @pulumi.getter(name="negativeCaching")
+    def negative_caching(self) -> Optional[_builtins.bool]:
+        """
+        Negative caching allows per-status code TTLs to be set, in order to apply
+        fine-grained caching for common errors or redirects. This can reduce the
+        load on your origin and improve end-user experience by reducing response
+        latency. When the cacheMode is set to CACHE_ALL_STATIC or
+        USE_ORIGIN_HEADERS, negative caching applies to responses with the
+        specified response code that lack any Cache-Control, Expires, or
+        Pragma: no-cache directives. When the cacheMode is set to
+        FORCE_CACHE_ALL, negative caching applies to all responses with the
+        specified response code, and overrides any caching headers. By default,
+        Cloud CDN applies the following TTLs to these HTTP status codes:
+        * 300 (Multiple Choice), 301, 308 (Permanent Redirects): 10m
+        * 404 (Not Found), 410 (Gone), 451 (Unavailable For Legal Reasons): 120s
+        * 405 (Method Not Found), 501 (Not Implemented): 60s
+        These defaults can be overridden in negativeCachingPolicy. If not
+        specified, Cloud CDN applies negative caching by default.
+        """
+        return pulumi.get(self, "negative_caching")
+
+    @_builtins.property
+    @pulumi.getter(name="negativeCachingPolicies")
+    def negative_caching_policies(self) -> Optional[Sequence['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyNegativeCachingPolicy']]:
+        """
+        Sets a cache TTL for the specified HTTP status code. negativeCaching
+        must be enabled to configure negativeCachingPolicy. Omitting the policy
+        and leaving negativeCaching enabled will use Cloud CDN's default cache
+        TTLs. Note that when specifying an explicit negativeCachingPolicy, you
+        should take care to specify a cache TTL for all response codes that you
+        wish to cache. Cloud CDN will not apply any default negative caching when
+        a policy exists.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "negative_caching_policies")
+
+    @_builtins.property
+    @pulumi.getter(name="requestCoalescing")
+    def request_coalescing(self) -> Optional[_builtins.bool]:
+        """
+        If true then Cloud CDN will combine multiple concurrent cache fill
+        requests into a small number of requests to the origin. If not specified,
+        Cloud CDN applies request coalescing by default.
+        """
+        return pulumi.get(self, "request_coalescing")
+
+    @_builtins.property
+    @pulumi.getter(name="serveWhileStale")
+    def serve_while_stale(self) -> Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyServeWhileStale']:
+        """
+        Serve existing content from the cache (if available) when revalidating
+        content with the origin, or when an error is encountered when refreshing
+        the cache. This setting defines the default "max-stale" duration for any
+        cached responses that do not specify a max-stale directive. Stale
+        responses that exceed the TTL configured here will not be served. The
+        default limit (max-stale) is 86400s (1 day), which will allow stale
+        content to be served up to this limit beyond the max-age (or s-maxage) of
+        a cached response. The maximum allowed value is 604800 (1 week). Set this
+        to zero (0) to disable serve-while-stale.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "serve_while_stale")
+
+
+@pulumi.output_type
+class URLMapPathMatcherDefaultRouteActionCachePolicyCacheKeyPolicy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "excludedQueryParameters":
+            suggest = "excluded_query_parameters"
+        elif key == "includeHost":
+            suggest = "include_host"
+        elif key == "includeProtocol":
+            suggest = "include_protocol"
+        elif key == "includeQueryString":
+            suggest = "include_query_string"
+        elif key == "includedCookieNames":
+            suggest = "included_cookie_names"
+        elif key == "includedHeaderNames":
+            suggest = "included_header_names"
+        elif key == "includedQueryParameters":
+            suggest = "included_query_parameters"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in URLMapPathMatcherDefaultRouteActionCachePolicyCacheKeyPolicy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        URLMapPathMatcherDefaultRouteActionCachePolicyCacheKeyPolicy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        URLMapPathMatcherDefaultRouteActionCachePolicyCacheKeyPolicy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 excluded_query_parameters: Optional[Sequence[_builtins.str]] = None,
+                 include_host: Optional[_builtins.bool] = None,
+                 include_protocol: Optional[_builtins.bool] = None,
+                 include_query_string: Optional[_builtins.bool] = None,
+                 included_cookie_names: Optional[Sequence[_builtins.str]] = None,
+                 included_header_names: Optional[Sequence[_builtins.str]] = None,
+                 included_query_parameters: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] excluded_query_parameters: Names of query string parameters to exclude in cache keys. All other
+               parameters will be included. Either specify excludedQueryParameters
+               or includedQueryParameters, not both. '&' and '=' will be percent
+               encoded and not treated as delimiters. Note: This field applies to
+               routes that use backend services. Attempting to set it on a route that
+               points exclusively to Backend Buckets will result in a configuration
+               error. For routes that point to a Backend Bucket, use
+               includedQueryParameters to define which parameters should be part of
+               the cache key.
+        :param _builtins.bool include_host: If true, requests to different hosts will be cached separately. Note:
+               This setting is only applicable to routes that use a Backend Service.
+               It does not affect requests served by a Backend Bucket, as the host is
+               never included in a Backend Bucket's cache key. Attempting to set it on
+               a route that points exclusively to Backend Buckets will result in a
+               configuration error.
+        :param _builtins.bool include_protocol: If true, http and https requests will be cached separately. Note: This
+               setting is only applicable to routes that use a Backend Service. It
+               does not affect requests served by a Backend Bucket, as the protocol is
+               never included in a Backend Bucket's cache key. Attempting to set on a
+               route that points exclusively to Backend Buckets will result in a
+               configuration error.
+        :param _builtins.bool include_query_string: If true, include query string parameters in the cache key according to
+               includedQueryParameters and excludedQueryParameters. If neither is
+               set, the entire query string will be included. If false, the query
+               string will be excluded from the cache key entirely. Note: This field
+               applies to routes that use backend services. Attempting to set it on a
+               route that points exclusively to Backend Buckets will result in a
+               configuration error. For routes that point to a Backend Bucket, use
+               includedQueryParameters to define which parameters should be part of
+               the cache key.
+        :param Sequence[_builtins.str] included_cookie_names: Allows HTTP cookies (by name) to be used in the cache key. The
+               name=value pair will be used in the cache key Cloud CDN generates.
+               Note: This setting is only applicable to routes that use a Backend
+               Service. It does not affect requests served by a Backend Bucket.
+               Attempting to set it on a route that points exclusively to Backend
+               Buckets will result in a configuration error. Up to 5 cookie names can
+               be specified.
+        :param Sequence[_builtins.str] included_header_names: Allows HTTP request headers (by name) to be used in the cache key.
+        :param Sequence[_builtins.str] included_query_parameters: Names of query string parameters to include in cache keys. All other
+               parameters will be excluded. Either specify includedQueryParameters
+               or excludedQueryParameters, not both. '&' and '=' will be percent
+               encoded and not treated as delimiters.
+        """
+        if excluded_query_parameters is not None:
+            pulumi.set(__self__, "excluded_query_parameters", excluded_query_parameters)
+        if include_host is not None:
+            pulumi.set(__self__, "include_host", include_host)
+        if include_protocol is not None:
+            pulumi.set(__self__, "include_protocol", include_protocol)
+        if include_query_string is not None:
+            pulumi.set(__self__, "include_query_string", include_query_string)
+        if included_cookie_names is not None:
+            pulumi.set(__self__, "included_cookie_names", included_cookie_names)
+        if included_header_names is not None:
+            pulumi.set(__self__, "included_header_names", included_header_names)
+        if included_query_parameters is not None:
+            pulumi.set(__self__, "included_query_parameters", included_query_parameters)
+
+    @_builtins.property
+    @pulumi.getter(name="excludedQueryParameters")
+    def excluded_query_parameters(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Names of query string parameters to exclude in cache keys. All other
+        parameters will be included. Either specify excludedQueryParameters
+        or includedQueryParameters, not both. '&' and '=' will be percent
+        encoded and not treated as delimiters. Note: This field applies to
+        routes that use backend services. Attempting to set it on a route that
+        points exclusively to Backend Buckets will result in a configuration
+        error. For routes that point to a Backend Bucket, use
+        includedQueryParameters to define which parameters should be part of
+        the cache key.
+        """
+        return pulumi.get(self, "excluded_query_parameters")
+
+    @_builtins.property
+    @pulumi.getter(name="includeHost")
+    def include_host(self) -> Optional[_builtins.bool]:
+        """
+        If true, requests to different hosts will be cached separately. Note:
+        This setting is only applicable to routes that use a Backend Service.
+        It does not affect requests served by a Backend Bucket, as the host is
+        never included in a Backend Bucket's cache key. Attempting to set it on
+        a route that points exclusively to Backend Buckets will result in a
+        configuration error.
+        """
+        return pulumi.get(self, "include_host")
+
+    @_builtins.property
+    @pulumi.getter(name="includeProtocol")
+    def include_protocol(self) -> Optional[_builtins.bool]:
+        """
+        If true, http and https requests will be cached separately. Note: This
+        setting is only applicable to routes that use a Backend Service. It
+        does not affect requests served by a Backend Bucket, as the protocol is
+        never included in a Backend Bucket's cache key. Attempting to set on a
+        route that points exclusively to Backend Buckets will result in a
+        configuration error.
+        """
+        return pulumi.get(self, "include_protocol")
+
+    @_builtins.property
+    @pulumi.getter(name="includeQueryString")
+    def include_query_string(self) -> Optional[_builtins.bool]:
+        """
+        If true, include query string parameters in the cache key according to
+        includedQueryParameters and excludedQueryParameters. If neither is
+        set, the entire query string will be included. If false, the query
+        string will be excluded from the cache key entirely. Note: This field
+        applies to routes that use backend services. Attempting to set it on a
+        route that points exclusively to Backend Buckets will result in a
+        configuration error. For routes that point to a Backend Bucket, use
+        includedQueryParameters to define which parameters should be part of
+        the cache key.
+        """
+        return pulumi.get(self, "include_query_string")
+
+    @_builtins.property
+    @pulumi.getter(name="includedCookieNames")
+    def included_cookie_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Allows HTTP cookies (by name) to be used in the cache key. The
+        name=value pair will be used in the cache key Cloud CDN generates.
+        Note: This setting is only applicable to routes that use a Backend
+        Service. It does not affect requests served by a Backend Bucket.
+        Attempting to set it on a route that points exclusively to Backend
+        Buckets will result in a configuration error. Up to 5 cookie names can
+        be specified.
+        """
+        return pulumi.get(self, "included_cookie_names")
+
+    @_builtins.property
+    @pulumi.getter(name="includedHeaderNames")
+    def included_header_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Allows HTTP request headers (by name) to be used in the cache key.
+        """
+        return pulumi.get(self, "included_header_names")
+
+    @_builtins.property
+    @pulumi.getter(name="includedQueryParameters")
+    def included_query_parameters(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Names of query string parameters to include in cache keys. All other
+        parameters will be excluded. Either specify includedQueryParameters
+        or excludedQueryParameters, not both. '&' and '=' will be percent
+        encoded and not treated as delimiters.
+        """
+        return pulumi.get(self, "included_query_parameters")
+
+
+@pulumi.output_type
+class URLMapPathMatcherDefaultRouteActionCachePolicyClientTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapPathMatcherDefaultRouteActionCachePolicyDefaultTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapPathMatcherDefaultRouteActionCachePolicyMaxTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapPathMatcherDefaultRouteActionCachePolicyNegativeCachingPolicy(dict):
+    def __init__(__self__, *,
+                 code: Optional[_builtins.int] = None,
+                 ttl: Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyNegativeCachingPolicyTtl'] = None):
+        """
+        :param _builtins.int code: The HTTP status code to define a TTL against. Only HTTP status codes
+               300, 301, 302, 307, 308, 404, 405, 410, 421, 451 and 501 can be
+               specified as values, and you cannot specify a status code more than
+               once.
+        :param 'URLMapPathMatcherDefaultRouteActionCachePolicyNegativeCachingPolicyTtlArgs' ttl: The TTL (in seconds) for which to cache responses with the
+               corresponding status code. The maximum allowed value is 1800s (30
+               minutes). Infrequently accessed objects may be evicted from the cache
+               before the defined TTL.
+               Structure is documented below.
+        """
+        if code is not None:
+            pulumi.set(__self__, "code", code)
+        if ttl is not None:
+            pulumi.set(__self__, "ttl", ttl)
+
+    @_builtins.property
+    @pulumi.getter
+    def code(self) -> Optional[_builtins.int]:
+        """
+        The HTTP status code to define a TTL against. Only HTTP status codes
+        300, 301, 302, 307, 308, 404, 405, 410, 421, 451 and 501 can be
+        specified as values, and you cannot specify a status code more than
+        once.
+        """
+        return pulumi.get(self, "code")
+
+    @_builtins.property
+    @pulumi.getter
+    def ttl(self) -> Optional['outputs.URLMapPathMatcherDefaultRouteActionCachePolicyNegativeCachingPolicyTtl']:
+        """
+        The TTL (in seconds) for which to cache responses with the
+        corresponding status code. The maximum allowed value is 1800s (30
+        minutes). Infrequently accessed objects may be evicted from the cache
+        before the defined TTL.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "ttl")
+
+
+@pulumi.output_type
+class URLMapPathMatcherDefaultRouteActionCachePolicyNegativeCachingPolicyTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapPathMatcherDefaultRouteActionCachePolicyServeWhileStale(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
 
 
 @pulumi.output_type
@@ -60917,7 +62379,9 @@ class URLMapPathMatcherPathRuleRouteAction(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "corsPolicy":
+        if key == "cachePolicy":
+            suggest = "cache_policy"
+        elif key == "corsPolicy":
             suggest = "cors_policy"
         elif key == "faultInjectionPolicy":
             suggest = "fault_injection_policy"
@@ -60944,6 +62408,7 @@ class URLMapPathMatcherPathRuleRouteAction(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 cache_policy: Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicy'] = None,
                  cors_policy: Optional['outputs.URLMapPathMatcherPathRuleRouteActionCorsPolicy'] = None,
                  fault_injection_policy: Optional['outputs.URLMapPathMatcherPathRuleRouteActionFaultInjectionPolicy'] = None,
                  max_stream_duration: Optional['outputs.URLMapPathMatcherPathRuleRouteActionMaxStreamDuration'] = None,
@@ -60953,6 +62418,12 @@ class URLMapPathMatcherPathRuleRouteAction(dict):
                  url_rewrite: Optional['outputs.URLMapPathMatcherPathRuleRouteActionUrlRewrite'] = None,
                  weighted_backend_services: Optional[Sequence['outputs.URLMapPathMatcherPathRuleRouteActionWeightedBackendService']] = None):
         """
+        :param 'URLMapPathMatcherPathRuleRouteActionCachePolicyArgs' cache_policy: (Optional, Beta)
+               Specifies the cache policy configuration for matched traffic. Available
+               only for Global EXTERNAL_MANAGED load balancer schemes. At least one
+               property must be specified. This policy cannot be specified if any target
+               backend has Identity-Aware Proxy enabled.
+               Structure is documented below.
         :param 'URLMapPathMatcherPathRuleRouteActionCorsPolicyArgs' cors_policy: The specification for allowing client side cross-origin requests. Please see W3C
                Recommendation for Cross Origin Resource Sharing
                Structure is documented below.
@@ -60995,6 +62466,8 @@ class URLMapPathMatcherPathRuleRouteAction(dict):
                HttpRouteAction.
                Structure is documented below.
         """
+        if cache_policy is not None:
+            pulumi.set(__self__, "cache_policy", cache_policy)
         if cors_policy is not None:
             pulumi.set(__self__, "cors_policy", cors_policy)
         if fault_injection_policy is not None:
@@ -61011,6 +62484,19 @@ class URLMapPathMatcherPathRuleRouteAction(dict):
             pulumi.set(__self__, "url_rewrite", url_rewrite)
         if weighted_backend_services is not None:
             pulumi.set(__self__, "weighted_backend_services", weighted_backend_services)
+
+    @_builtins.property
+    @pulumi.getter(name="cachePolicy")
+    def cache_policy(self) -> Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicy']:
+        """
+        (Optional, Beta)
+        Specifies the cache policy configuration for matched traffic. Available
+        only for Global EXTERNAL_MANAGED load balancer schemes. At least one
+        property must be specified. This policy cannot be specified if any target
+        backend has Identity-Aware Proxy enabled.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "cache_policy")
 
     @_builtins.property
     @pulumi.getter(name="corsPolicy")
@@ -61108,6 +62594,697 @@ class URLMapPathMatcherPathRuleRouteAction(dict):
         Structure is documented below.
         """
         return pulumi.get(self, "weighted_backend_services")
+
+
+@pulumi.output_type
+class URLMapPathMatcherPathRuleRouteActionCachePolicy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "cacheBypassRequestHeaderNames":
+            suggest = "cache_bypass_request_header_names"
+        elif key == "cacheKeyPolicy":
+            suggest = "cache_key_policy"
+        elif key == "cacheMode":
+            suggest = "cache_mode"
+        elif key == "clientTtl":
+            suggest = "client_ttl"
+        elif key == "defaultTtl":
+            suggest = "default_ttl"
+        elif key == "maxTtl":
+            suggest = "max_ttl"
+        elif key == "negativeCaching":
+            suggest = "negative_caching"
+        elif key == "negativeCachingPolicies":
+            suggest = "negative_caching_policies"
+        elif key == "requestCoalescing":
+            suggest = "request_coalescing"
+        elif key == "serveWhileStale":
+            suggest = "serve_while_stale"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in URLMapPathMatcherPathRuleRouteActionCachePolicy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        URLMapPathMatcherPathRuleRouteActionCachePolicy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        URLMapPathMatcherPathRuleRouteActionCachePolicy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 cache_bypass_request_header_names: Optional[Sequence[_builtins.str]] = None,
+                 cache_key_policy: Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyCacheKeyPolicy'] = None,
+                 cache_mode: Optional[_builtins.str] = None,
+                 client_ttl: Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyClientTtl'] = None,
+                 default_ttl: Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyDefaultTtl'] = None,
+                 max_ttl: Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyMaxTtl'] = None,
+                 negative_caching: Optional[_builtins.bool] = None,
+                 negative_caching_policies: Optional[Sequence['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyNegativeCachingPolicy']] = None,
+                 request_coalescing: Optional[_builtins.bool] = None,
+                 serve_while_stale: Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyServeWhileStale'] = None):
+        """
+        :param Sequence[_builtins.str] cache_bypass_request_header_names: Bypass the cache when the specified request headers are matched by name,
+               e.g. Pragma or Authorization headers. Values are case-insensitive. Up to 5
+               header names can be specified. The cache is bypassed for all cacheMode
+               values.
+        :param 'URLMapPathMatcherPathRuleRouteActionCachePolicyCacheKeyPolicyArgs' cache_key_policy: The cache key configuration. If not specified, the default behavior depends
+               on the backend type: for Backend Services, the complete request URI is
+               used; for Backend Buckets, the request URI is used without the protocol or
+               host, and only query parameters known to Cloud Storage are included.
+               Structure is documented below.
+        :param _builtins.str cache_mode: Specifies the cache setting for all responses from this route. If not
+               specified, Cloud CDN uses CACHE_ALL_STATIC mode.
+               Possible values are: `USE_ORIGIN_HEADERS`, `FORCE_CACHE_ALL`, `CACHE_ALL_STATIC`.
+        :param 'URLMapPathMatcherPathRuleRouteActionCachePolicyClientTtlArgs' client_ttl: Specifies a separate client (e.g. browser client) maximum TTL for cached
+               content. This is used to clamp the max-age (or Expires) value sent to the
+               client. With FORCE_CACHE_ALL, the lesser of clientTtl and defaultTtl
+               is used for the response max-age directive, along with a "public"
+               directive. For cacheable content in CACHE_ALL_STATIC mode, clientTtl
+               clamps the max-age from the origin (if specified), or else sets the
+               response max-age directive to the lesser of the clientTtl and defaultTtl,
+               and also ensures a "public" cache-control directive is present. The maximum
+               allowed value is 31,622,400s (1 year). If not specified, Cloud CDN uses
+               3600s (1 hour) for CACHE_ALL_STATIC mode. Cannot exceed maxTtl.
+               Cannot be specified when cacheMode is USE_ORIGIN_HEADERS.
+               Structure is documented below.
+        :param 'URLMapPathMatcherPathRuleRouteActionCachePolicyDefaultTtlArgs' default_ttl: Specifies the default TTL for cached content for responses that do not have
+               an existing valid TTL (max-age or s-maxage). Setting a TTL of "0" means
+               "always revalidate". The value of defaultTtl cannot be set to a value
+               greater than that of maxTtl. When the cacheMode is set to
+               FORCE_CACHE_ALL, the defaultTtl will overwrite the TTL set in all
+               responses. The maximum allowed value is 31,622,400s (1 year). Infrequently
+               accessed objects may be evicted from the cache before the defined TTL. If
+               not specified, Cloud CDN uses 3600s (1 hour) for CACHE_ALL_STATIC and
+               FORCE_CACHE_ALL modes. Cannot be specified when cacheMode is
+               USE_ORIGIN_HEADERS.
+               Structure is documented below.
+        :param 'URLMapPathMatcherPathRuleRouteActionCachePolicyMaxTtlArgs' max_ttl: Specifies the maximum allowed TTL for cached content. Cache directives that
+               attempt to set a max-age or s-maxage higher than this, or an Expires header
+               more than maxTtl seconds in the future will be capped at the value of
+               maxTtl, as if it were the value of an s-maxage Cache-Control directive.
+               Headers sent to the client will not be modified. Setting a TTL of "0" means
+               "always revalidate". The maximum allowed value is 31,622,400s (1 year).
+               Infrequently accessed objects may be evicted from the cache before the
+               defined TTL. If not specified, Cloud CDN uses 86400s (1 day) for
+               CACHE_ALL_STATIC mode. Can be specified only for CACHE_ALL_STATIC cache
+               mode.
+               Structure is documented below.
+        :param _builtins.bool negative_caching: Negative caching allows per-status code TTLs to be set, in order to apply
+               fine-grained caching for common errors or redirects. This can reduce the
+               load on your origin and improve end-user experience by reducing response
+               latency. When the cacheMode is set to CACHE_ALL_STATIC or
+               USE_ORIGIN_HEADERS, negative caching applies to responses with the
+               specified response code that lack any Cache-Control, Expires, or
+               Pragma: no-cache directives. When the cacheMode is set to
+               FORCE_CACHE_ALL, negative caching applies to all responses with the
+               specified response code, and overrides any caching headers. By default,
+               Cloud CDN applies the following TTLs to these HTTP status codes:
+               * 300 (Multiple Choice), 301, 308 (Permanent Redirects): 10m
+               * 404 (Not Found), 410 (Gone), 451 (Unavailable For Legal Reasons): 120s
+               * 405 (Method Not Found), 501 (Not Implemented): 60s
+               These defaults can be overridden in negativeCachingPolicy. If not
+               specified, Cloud CDN applies negative caching by default.
+        :param Sequence['URLMapPathMatcherPathRuleRouteActionCachePolicyNegativeCachingPolicyArgs'] negative_caching_policies: Sets a cache TTL for the specified HTTP status code. negativeCaching
+               must be enabled to configure negativeCachingPolicy. Omitting the policy
+               and leaving negativeCaching enabled will use Cloud CDN's default cache
+               TTLs. Note that when specifying an explicit negativeCachingPolicy, you
+               should take care to specify a cache TTL for all response codes that you
+               wish to cache. Cloud CDN will not apply any default negative caching when
+               a policy exists.
+               Structure is documented below.
+        :param _builtins.bool request_coalescing: If true then Cloud CDN will combine multiple concurrent cache fill
+               requests into a small number of requests to the origin. If not specified,
+               Cloud CDN applies request coalescing by default.
+        :param 'URLMapPathMatcherPathRuleRouteActionCachePolicyServeWhileStaleArgs' serve_while_stale: Serve existing content from the cache (if available) when revalidating
+               content with the origin, or when an error is encountered when refreshing
+               the cache. This setting defines the default "max-stale" duration for any
+               cached responses that do not specify a max-stale directive. Stale
+               responses that exceed the TTL configured here will not be served. The
+               default limit (max-stale) is 86400s (1 day), which will allow stale
+               content to be served up to this limit beyond the max-age (or s-maxage) of
+               a cached response. The maximum allowed value is 604800 (1 week). Set this
+               to zero (0) to disable serve-while-stale.
+               Structure is documented below.
+        """
+        if cache_bypass_request_header_names is not None:
+            pulumi.set(__self__, "cache_bypass_request_header_names", cache_bypass_request_header_names)
+        if cache_key_policy is not None:
+            pulumi.set(__self__, "cache_key_policy", cache_key_policy)
+        if cache_mode is not None:
+            pulumi.set(__self__, "cache_mode", cache_mode)
+        if client_ttl is not None:
+            pulumi.set(__self__, "client_ttl", client_ttl)
+        if default_ttl is not None:
+            pulumi.set(__self__, "default_ttl", default_ttl)
+        if max_ttl is not None:
+            pulumi.set(__self__, "max_ttl", max_ttl)
+        if negative_caching is not None:
+            pulumi.set(__self__, "negative_caching", negative_caching)
+        if negative_caching_policies is not None:
+            pulumi.set(__self__, "negative_caching_policies", negative_caching_policies)
+        if request_coalescing is not None:
+            pulumi.set(__self__, "request_coalescing", request_coalescing)
+        if serve_while_stale is not None:
+            pulumi.set(__self__, "serve_while_stale", serve_while_stale)
+
+    @_builtins.property
+    @pulumi.getter(name="cacheBypassRequestHeaderNames")
+    def cache_bypass_request_header_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Bypass the cache when the specified request headers are matched by name,
+        e.g. Pragma or Authorization headers. Values are case-insensitive. Up to 5
+        header names can be specified. The cache is bypassed for all cacheMode
+        values.
+        """
+        return pulumi.get(self, "cache_bypass_request_header_names")
+
+    @_builtins.property
+    @pulumi.getter(name="cacheKeyPolicy")
+    def cache_key_policy(self) -> Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyCacheKeyPolicy']:
+        """
+        The cache key configuration. If not specified, the default behavior depends
+        on the backend type: for Backend Services, the complete request URI is
+        used; for Backend Buckets, the request URI is used without the protocol or
+        host, and only query parameters known to Cloud Storage are included.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "cache_key_policy")
+
+    @_builtins.property
+    @pulumi.getter(name="cacheMode")
+    def cache_mode(self) -> Optional[_builtins.str]:
+        """
+        Specifies the cache setting for all responses from this route. If not
+        specified, Cloud CDN uses CACHE_ALL_STATIC mode.
+        Possible values are: `USE_ORIGIN_HEADERS`, `FORCE_CACHE_ALL`, `CACHE_ALL_STATIC`.
+        """
+        return pulumi.get(self, "cache_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="clientTtl")
+    def client_ttl(self) -> Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyClientTtl']:
+        """
+        Specifies a separate client (e.g. browser client) maximum TTL for cached
+        content. This is used to clamp the max-age (or Expires) value sent to the
+        client. With FORCE_CACHE_ALL, the lesser of clientTtl and defaultTtl
+        is used for the response max-age directive, along with a "public"
+        directive. For cacheable content in CACHE_ALL_STATIC mode, clientTtl
+        clamps the max-age from the origin (if specified), or else sets the
+        response max-age directive to the lesser of the clientTtl and defaultTtl,
+        and also ensures a "public" cache-control directive is present. The maximum
+        allowed value is 31,622,400s (1 year). If not specified, Cloud CDN uses
+        3600s (1 hour) for CACHE_ALL_STATIC mode. Cannot exceed maxTtl.
+        Cannot be specified when cacheMode is USE_ORIGIN_HEADERS.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "client_ttl")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultTtl")
+    def default_ttl(self) -> Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyDefaultTtl']:
+        """
+        Specifies the default TTL for cached content for responses that do not have
+        an existing valid TTL (max-age or s-maxage). Setting a TTL of "0" means
+        "always revalidate". The value of defaultTtl cannot be set to a value
+        greater than that of maxTtl. When the cacheMode is set to
+        FORCE_CACHE_ALL, the defaultTtl will overwrite the TTL set in all
+        responses. The maximum allowed value is 31,622,400s (1 year). Infrequently
+        accessed objects may be evicted from the cache before the defined TTL. If
+        not specified, Cloud CDN uses 3600s (1 hour) for CACHE_ALL_STATIC and
+        FORCE_CACHE_ALL modes. Cannot be specified when cacheMode is
+        USE_ORIGIN_HEADERS.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "default_ttl")
+
+    @_builtins.property
+    @pulumi.getter(name="maxTtl")
+    def max_ttl(self) -> Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyMaxTtl']:
+        """
+        Specifies the maximum allowed TTL for cached content. Cache directives that
+        attempt to set a max-age or s-maxage higher than this, or an Expires header
+        more than maxTtl seconds in the future will be capped at the value of
+        maxTtl, as if it were the value of an s-maxage Cache-Control directive.
+        Headers sent to the client will not be modified. Setting a TTL of "0" means
+        "always revalidate". The maximum allowed value is 31,622,400s (1 year).
+        Infrequently accessed objects may be evicted from the cache before the
+        defined TTL. If not specified, Cloud CDN uses 86400s (1 day) for
+        CACHE_ALL_STATIC mode. Can be specified only for CACHE_ALL_STATIC cache
+        mode.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "max_ttl")
+
+    @_builtins.property
+    @pulumi.getter(name="negativeCaching")
+    def negative_caching(self) -> Optional[_builtins.bool]:
+        """
+        Negative caching allows per-status code TTLs to be set, in order to apply
+        fine-grained caching for common errors or redirects. This can reduce the
+        load on your origin and improve end-user experience by reducing response
+        latency. When the cacheMode is set to CACHE_ALL_STATIC or
+        USE_ORIGIN_HEADERS, negative caching applies to responses with the
+        specified response code that lack any Cache-Control, Expires, or
+        Pragma: no-cache directives. When the cacheMode is set to
+        FORCE_CACHE_ALL, negative caching applies to all responses with the
+        specified response code, and overrides any caching headers. By default,
+        Cloud CDN applies the following TTLs to these HTTP status codes:
+        * 300 (Multiple Choice), 301, 308 (Permanent Redirects): 10m
+        * 404 (Not Found), 410 (Gone), 451 (Unavailable For Legal Reasons): 120s
+        * 405 (Method Not Found), 501 (Not Implemented): 60s
+        These defaults can be overridden in negativeCachingPolicy. If not
+        specified, Cloud CDN applies negative caching by default.
+        """
+        return pulumi.get(self, "negative_caching")
+
+    @_builtins.property
+    @pulumi.getter(name="negativeCachingPolicies")
+    def negative_caching_policies(self) -> Optional[Sequence['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyNegativeCachingPolicy']]:
+        """
+        Sets a cache TTL for the specified HTTP status code. negativeCaching
+        must be enabled to configure negativeCachingPolicy. Omitting the policy
+        and leaving negativeCaching enabled will use Cloud CDN's default cache
+        TTLs. Note that when specifying an explicit negativeCachingPolicy, you
+        should take care to specify a cache TTL for all response codes that you
+        wish to cache. Cloud CDN will not apply any default negative caching when
+        a policy exists.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "negative_caching_policies")
+
+    @_builtins.property
+    @pulumi.getter(name="requestCoalescing")
+    def request_coalescing(self) -> Optional[_builtins.bool]:
+        """
+        If true then Cloud CDN will combine multiple concurrent cache fill
+        requests into a small number of requests to the origin. If not specified,
+        Cloud CDN applies request coalescing by default.
+        """
+        return pulumi.get(self, "request_coalescing")
+
+    @_builtins.property
+    @pulumi.getter(name="serveWhileStale")
+    def serve_while_stale(self) -> Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyServeWhileStale']:
+        """
+        Serve existing content from the cache (if available) when revalidating
+        content with the origin, or when an error is encountered when refreshing
+        the cache. This setting defines the default "max-stale" duration for any
+        cached responses that do not specify a max-stale directive. Stale
+        responses that exceed the TTL configured here will not be served. The
+        default limit (max-stale) is 86400s (1 day), which will allow stale
+        content to be served up to this limit beyond the max-age (or s-maxage) of
+        a cached response. The maximum allowed value is 604800 (1 week). Set this
+        to zero (0) to disable serve-while-stale.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "serve_while_stale")
+
+
+@pulumi.output_type
+class URLMapPathMatcherPathRuleRouteActionCachePolicyCacheKeyPolicy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "excludedQueryParameters":
+            suggest = "excluded_query_parameters"
+        elif key == "includeHost":
+            suggest = "include_host"
+        elif key == "includeProtocol":
+            suggest = "include_protocol"
+        elif key == "includeQueryString":
+            suggest = "include_query_string"
+        elif key == "includedCookieNames":
+            suggest = "included_cookie_names"
+        elif key == "includedHeaderNames":
+            suggest = "included_header_names"
+        elif key == "includedQueryParameters":
+            suggest = "included_query_parameters"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in URLMapPathMatcherPathRuleRouteActionCachePolicyCacheKeyPolicy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        URLMapPathMatcherPathRuleRouteActionCachePolicyCacheKeyPolicy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        URLMapPathMatcherPathRuleRouteActionCachePolicyCacheKeyPolicy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 excluded_query_parameters: Optional[Sequence[_builtins.str]] = None,
+                 include_host: Optional[_builtins.bool] = None,
+                 include_protocol: Optional[_builtins.bool] = None,
+                 include_query_string: Optional[_builtins.bool] = None,
+                 included_cookie_names: Optional[Sequence[_builtins.str]] = None,
+                 included_header_names: Optional[Sequence[_builtins.str]] = None,
+                 included_query_parameters: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] excluded_query_parameters: Names of query string parameters to exclude in cache keys. All other
+               parameters will be included. Either specify excludedQueryParameters
+               or includedQueryParameters, not both. '&' and '=' will be percent
+               encoded and not treated as delimiters. Note: This field applies to
+               routes that use backend services. Attempting to set it on a route that
+               points exclusively to Backend Buckets will result in a configuration
+               error. For routes that point to a Backend Bucket, use
+               includedQueryParameters to define which parameters should be part of
+               the cache key.
+        :param _builtins.bool include_host: If true, requests to different hosts will be cached separately. Note:
+               This setting is only applicable to routes that use a Backend Service.
+               It does not affect requests served by a Backend Bucket, as the host is
+               never included in a Backend Bucket's cache key. Attempting to set it on
+               a route that points exclusively to Backend Buckets will result in a
+               configuration error.
+        :param _builtins.bool include_protocol: If true, http and https requests will be cached separately. Note: This
+               setting is only applicable to routes that use a Backend Service. It
+               does not affect requests served by a Backend Bucket, as the protocol is
+               never included in a Backend Bucket's cache key. Attempting to set on a
+               route that points exclusively to Backend Buckets will result in a
+               configuration error.
+        :param _builtins.bool include_query_string: If true, include query string parameters in the cache key according to
+               includedQueryParameters and excludedQueryParameters. If neither is
+               set, the entire query string will be included. If false, the query
+               string will be excluded from the cache key entirely. Note: This field
+               applies to routes that use backend services. Attempting to set it on a
+               route that points exclusively to Backend Buckets will result in a
+               configuration error. For routes that point to a Backend Bucket, use
+               includedQueryParameters to define which parameters should be part of
+               the cache key.
+        :param Sequence[_builtins.str] included_cookie_names: Allows HTTP cookies (by name) to be used in the cache key. The
+               name=value pair will be used in the cache key Cloud CDN generates.
+               Note: This setting is only applicable to routes that use a Backend
+               Service. It does not affect requests served by a Backend Bucket.
+               Attempting to set it on a route that points exclusively to Backend
+               Buckets will result in a configuration error. Up to 5 cookie names can
+               be specified.
+        :param Sequence[_builtins.str] included_header_names: Allows HTTP request headers (by name) to be used in the cache key.
+        :param Sequence[_builtins.str] included_query_parameters: Names of query string parameters to include in cache keys. All other
+               parameters will be excluded. Either specify includedQueryParameters
+               or excludedQueryParameters, not both. '&' and '=' will be percent
+               encoded and not treated as delimiters.
+        """
+        if excluded_query_parameters is not None:
+            pulumi.set(__self__, "excluded_query_parameters", excluded_query_parameters)
+        if include_host is not None:
+            pulumi.set(__self__, "include_host", include_host)
+        if include_protocol is not None:
+            pulumi.set(__self__, "include_protocol", include_protocol)
+        if include_query_string is not None:
+            pulumi.set(__self__, "include_query_string", include_query_string)
+        if included_cookie_names is not None:
+            pulumi.set(__self__, "included_cookie_names", included_cookie_names)
+        if included_header_names is not None:
+            pulumi.set(__self__, "included_header_names", included_header_names)
+        if included_query_parameters is not None:
+            pulumi.set(__self__, "included_query_parameters", included_query_parameters)
+
+    @_builtins.property
+    @pulumi.getter(name="excludedQueryParameters")
+    def excluded_query_parameters(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Names of query string parameters to exclude in cache keys. All other
+        parameters will be included. Either specify excludedQueryParameters
+        or includedQueryParameters, not both. '&' and '=' will be percent
+        encoded and not treated as delimiters. Note: This field applies to
+        routes that use backend services. Attempting to set it on a route that
+        points exclusively to Backend Buckets will result in a configuration
+        error. For routes that point to a Backend Bucket, use
+        includedQueryParameters to define which parameters should be part of
+        the cache key.
+        """
+        return pulumi.get(self, "excluded_query_parameters")
+
+    @_builtins.property
+    @pulumi.getter(name="includeHost")
+    def include_host(self) -> Optional[_builtins.bool]:
+        """
+        If true, requests to different hosts will be cached separately. Note:
+        This setting is only applicable to routes that use a Backend Service.
+        It does not affect requests served by a Backend Bucket, as the host is
+        never included in a Backend Bucket's cache key. Attempting to set it on
+        a route that points exclusively to Backend Buckets will result in a
+        configuration error.
+        """
+        return pulumi.get(self, "include_host")
+
+    @_builtins.property
+    @pulumi.getter(name="includeProtocol")
+    def include_protocol(self) -> Optional[_builtins.bool]:
+        """
+        If true, http and https requests will be cached separately. Note: This
+        setting is only applicable to routes that use a Backend Service. It
+        does not affect requests served by a Backend Bucket, as the protocol is
+        never included in a Backend Bucket's cache key. Attempting to set on a
+        route that points exclusively to Backend Buckets will result in a
+        configuration error.
+        """
+        return pulumi.get(self, "include_protocol")
+
+    @_builtins.property
+    @pulumi.getter(name="includeQueryString")
+    def include_query_string(self) -> Optional[_builtins.bool]:
+        """
+        If true, include query string parameters in the cache key according to
+        includedQueryParameters and excludedQueryParameters. If neither is
+        set, the entire query string will be included. If false, the query
+        string will be excluded from the cache key entirely. Note: This field
+        applies to routes that use backend services. Attempting to set it on a
+        route that points exclusively to Backend Buckets will result in a
+        configuration error. For routes that point to a Backend Bucket, use
+        includedQueryParameters to define which parameters should be part of
+        the cache key.
+        """
+        return pulumi.get(self, "include_query_string")
+
+    @_builtins.property
+    @pulumi.getter(name="includedCookieNames")
+    def included_cookie_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Allows HTTP cookies (by name) to be used in the cache key. The
+        name=value pair will be used in the cache key Cloud CDN generates.
+        Note: This setting is only applicable to routes that use a Backend
+        Service. It does not affect requests served by a Backend Bucket.
+        Attempting to set it on a route that points exclusively to Backend
+        Buckets will result in a configuration error. Up to 5 cookie names can
+        be specified.
+        """
+        return pulumi.get(self, "included_cookie_names")
+
+    @_builtins.property
+    @pulumi.getter(name="includedHeaderNames")
+    def included_header_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Allows HTTP request headers (by name) to be used in the cache key.
+        """
+        return pulumi.get(self, "included_header_names")
+
+    @_builtins.property
+    @pulumi.getter(name="includedQueryParameters")
+    def included_query_parameters(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Names of query string parameters to include in cache keys. All other
+        parameters will be excluded. Either specify includedQueryParameters
+        or excludedQueryParameters, not both. '&' and '=' will be percent
+        encoded and not treated as delimiters.
+        """
+        return pulumi.get(self, "included_query_parameters")
+
+
+@pulumi.output_type
+class URLMapPathMatcherPathRuleRouteActionCachePolicyClientTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapPathMatcherPathRuleRouteActionCachePolicyDefaultTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapPathMatcherPathRuleRouteActionCachePolicyMaxTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapPathMatcherPathRuleRouteActionCachePolicyNegativeCachingPolicy(dict):
+    def __init__(__self__, *,
+                 code: Optional[_builtins.int] = None,
+                 ttl: Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyNegativeCachingPolicyTtl'] = None):
+        """
+        :param _builtins.int code: The HTTP status code to define a TTL against. Only HTTP status codes
+               300, 301, 302, 307, 308, 404, 405, 410, 421, 451 and 501 can be
+               specified as values, and you cannot specify a status code more than
+               once.
+        :param 'URLMapPathMatcherPathRuleRouteActionCachePolicyNegativeCachingPolicyTtlArgs' ttl: The TTL (in seconds) for which to cache responses with the
+               corresponding status code. The maximum allowed value is 1800s (30
+               minutes). Infrequently accessed objects may be evicted from the cache
+               before the defined TTL.
+               Structure is documented below.
+        """
+        if code is not None:
+            pulumi.set(__self__, "code", code)
+        if ttl is not None:
+            pulumi.set(__self__, "ttl", ttl)
+
+    @_builtins.property
+    @pulumi.getter
+    def code(self) -> Optional[_builtins.int]:
+        """
+        The HTTP status code to define a TTL against. Only HTTP status codes
+        300, 301, 302, 307, 308, 404, 405, 410, 421, 451 and 501 can be
+        specified as values, and you cannot specify a status code more than
+        once.
+        """
+        return pulumi.get(self, "code")
+
+    @_builtins.property
+    @pulumi.getter
+    def ttl(self) -> Optional['outputs.URLMapPathMatcherPathRuleRouteActionCachePolicyNegativeCachingPolicyTtl']:
+        """
+        The TTL (in seconds) for which to cache responses with the
+        corresponding status code. The maximum allowed value is 1800s (30
+        minutes). Infrequently accessed objects may be evicted from the cache
+        before the defined TTL.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "ttl")
+
+
+@pulumi.output_type
+class URLMapPathMatcherPathRuleRouteActionCachePolicyNegativeCachingPolicyTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapPathMatcherPathRuleRouteActionCachePolicyServeWhileStale(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
 
 
 @pulumi.output_type
@@ -63497,7 +65674,9 @@ class URLMapPathMatcherRouteRuleRouteAction(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "corsPolicy":
+        if key == "cachePolicy":
+            suggest = "cache_policy"
+        elif key == "corsPolicy":
             suggest = "cors_policy"
         elif key == "faultInjectionPolicy":
             suggest = "fault_injection_policy"
@@ -63524,6 +65703,7 @@ class URLMapPathMatcherRouteRuleRouteAction(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 cache_policy: Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicy'] = None,
                  cors_policy: Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCorsPolicy'] = None,
                  fault_injection_policy: Optional['outputs.URLMapPathMatcherRouteRuleRouteActionFaultInjectionPolicy'] = None,
                  max_stream_duration: Optional['outputs.URLMapPathMatcherRouteRuleRouteActionMaxStreamDuration'] = None,
@@ -63533,6 +65713,12 @@ class URLMapPathMatcherRouteRuleRouteAction(dict):
                  url_rewrite: Optional['outputs.URLMapPathMatcherRouteRuleRouteActionUrlRewrite'] = None,
                  weighted_backend_services: Optional[Sequence['outputs.URLMapPathMatcherRouteRuleRouteActionWeightedBackendService']] = None):
         """
+        :param 'URLMapPathMatcherRouteRuleRouteActionCachePolicyArgs' cache_policy: (Optional, Beta)
+               Specifies the cache policy configuration for matched traffic. Available
+               only for Global EXTERNAL_MANAGED load balancer schemes. At least one
+               property must be specified. This policy cannot be specified if any target
+               backend has Identity-Aware Proxy enabled.
+               Structure is documented below.
         :param 'URLMapPathMatcherRouteRuleRouteActionCorsPolicyArgs' cors_policy: The specification for allowing client side cross-origin requests. Please see W3C
                Recommendation for Cross Origin Resource Sharing
                Structure is documented below.
@@ -63575,6 +65761,8 @@ class URLMapPathMatcherRouteRuleRouteAction(dict):
                HttpRouteAction.
                Structure is documented below.
         """
+        if cache_policy is not None:
+            pulumi.set(__self__, "cache_policy", cache_policy)
         if cors_policy is not None:
             pulumi.set(__self__, "cors_policy", cors_policy)
         if fault_injection_policy is not None:
@@ -63591,6 +65779,19 @@ class URLMapPathMatcherRouteRuleRouteAction(dict):
             pulumi.set(__self__, "url_rewrite", url_rewrite)
         if weighted_backend_services is not None:
             pulumi.set(__self__, "weighted_backend_services", weighted_backend_services)
+
+    @_builtins.property
+    @pulumi.getter(name="cachePolicy")
+    def cache_policy(self) -> Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicy']:
+        """
+        (Optional, Beta)
+        Specifies the cache policy configuration for matched traffic. Available
+        only for Global EXTERNAL_MANAGED load balancer schemes. At least one
+        property must be specified. This policy cannot be specified if any target
+        backend has Identity-Aware Proxy enabled.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "cache_policy")
 
     @_builtins.property
     @pulumi.getter(name="corsPolicy")
@@ -63688,6 +65889,697 @@ class URLMapPathMatcherRouteRuleRouteAction(dict):
         Structure is documented below.
         """
         return pulumi.get(self, "weighted_backend_services")
+
+
+@pulumi.output_type
+class URLMapPathMatcherRouteRuleRouteActionCachePolicy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "cacheBypassRequestHeaderNames":
+            suggest = "cache_bypass_request_header_names"
+        elif key == "cacheKeyPolicy":
+            suggest = "cache_key_policy"
+        elif key == "cacheMode":
+            suggest = "cache_mode"
+        elif key == "clientTtl":
+            suggest = "client_ttl"
+        elif key == "defaultTtl":
+            suggest = "default_ttl"
+        elif key == "maxTtl":
+            suggest = "max_ttl"
+        elif key == "negativeCaching":
+            suggest = "negative_caching"
+        elif key == "negativeCachingPolicies":
+            suggest = "negative_caching_policies"
+        elif key == "requestCoalescing":
+            suggest = "request_coalescing"
+        elif key == "serveWhileStale":
+            suggest = "serve_while_stale"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in URLMapPathMatcherRouteRuleRouteActionCachePolicy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        URLMapPathMatcherRouteRuleRouteActionCachePolicy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        URLMapPathMatcherRouteRuleRouteActionCachePolicy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 cache_bypass_request_header_names: Optional[Sequence[_builtins.str]] = None,
+                 cache_key_policy: Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyCacheKeyPolicy'] = None,
+                 cache_mode: Optional[_builtins.str] = None,
+                 client_ttl: Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyClientTtl'] = None,
+                 default_ttl: Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyDefaultTtl'] = None,
+                 max_ttl: Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyMaxTtl'] = None,
+                 negative_caching: Optional[_builtins.bool] = None,
+                 negative_caching_policies: Optional[Sequence['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyNegativeCachingPolicy']] = None,
+                 request_coalescing: Optional[_builtins.bool] = None,
+                 serve_while_stale: Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyServeWhileStale'] = None):
+        """
+        :param Sequence[_builtins.str] cache_bypass_request_header_names: Bypass the cache when the specified request headers are matched by name,
+               e.g. Pragma or Authorization headers. Values are case-insensitive. Up to 5
+               header names can be specified. The cache is bypassed for all cacheMode
+               values.
+        :param 'URLMapPathMatcherRouteRuleRouteActionCachePolicyCacheKeyPolicyArgs' cache_key_policy: The cache key configuration. If not specified, the default behavior depends
+               on the backend type: for Backend Services, the complete request URI is
+               used; for Backend Buckets, the request URI is used without the protocol or
+               host, and only query parameters known to Cloud Storage are included.
+               Structure is documented below.
+        :param _builtins.str cache_mode: Specifies the cache setting for all responses from this route. If not
+               specified, Cloud CDN uses CACHE_ALL_STATIC mode.
+               Possible values are: `USE_ORIGIN_HEADERS`, `FORCE_CACHE_ALL`, `CACHE_ALL_STATIC`.
+        :param 'URLMapPathMatcherRouteRuleRouteActionCachePolicyClientTtlArgs' client_ttl: Specifies a separate client (e.g. browser client) maximum TTL for cached
+               content. This is used to clamp the max-age (or Expires) value sent to the
+               client. With FORCE_CACHE_ALL, the lesser of clientTtl and defaultTtl
+               is used for the response max-age directive, along with a "public"
+               directive. For cacheable content in CACHE_ALL_STATIC mode, clientTtl
+               clamps the max-age from the origin (if specified), or else sets the
+               response max-age directive to the lesser of the clientTtl and defaultTtl,
+               and also ensures a "public" cache-control directive is present. The maximum
+               allowed value is 31,622,400s (1 year). If not specified, Cloud CDN uses
+               3600s (1 hour) for CACHE_ALL_STATIC mode. Cannot exceed maxTtl.
+               Cannot be specified when cacheMode is USE_ORIGIN_HEADERS.
+               Structure is documented below.
+        :param 'URLMapPathMatcherRouteRuleRouteActionCachePolicyDefaultTtlArgs' default_ttl: Specifies the default TTL for cached content for responses that do not have
+               an existing valid TTL (max-age or s-maxage). Setting a TTL of "0" means
+               "always revalidate". The value of defaultTtl cannot be set to a value
+               greater than that of maxTtl. When the cacheMode is set to
+               FORCE_CACHE_ALL, the defaultTtl will overwrite the TTL set in all
+               responses. The maximum allowed value is 31,622,400s (1 year). Infrequently
+               accessed objects may be evicted from the cache before the defined TTL. If
+               not specified, Cloud CDN uses 3600s (1 hour) for CACHE_ALL_STATIC and
+               FORCE_CACHE_ALL modes. Cannot be specified when cacheMode is
+               USE_ORIGIN_HEADERS.
+               Structure is documented below.
+        :param 'URLMapPathMatcherRouteRuleRouteActionCachePolicyMaxTtlArgs' max_ttl: Specifies the maximum allowed TTL for cached content. Cache directives that
+               attempt to set a max-age or s-maxage higher than this, or an Expires header
+               more than maxTtl seconds in the future will be capped at the value of
+               maxTtl, as if it were the value of an s-maxage Cache-Control directive.
+               Headers sent to the client will not be modified. Setting a TTL of "0" means
+               "always revalidate". The maximum allowed value is 31,622,400s (1 year).
+               Infrequently accessed objects may be evicted from the cache before the
+               defined TTL. If not specified, Cloud CDN uses 86400s (1 day) for
+               CACHE_ALL_STATIC mode. Can be specified only for CACHE_ALL_STATIC cache
+               mode.
+               Structure is documented below.
+        :param _builtins.bool negative_caching: Negative caching allows per-status code TTLs to be set, in order to apply
+               fine-grained caching for common errors or redirects. This can reduce the
+               load on your origin and improve end-user experience by reducing response
+               latency. When the cacheMode is set to CACHE_ALL_STATIC or
+               USE_ORIGIN_HEADERS, negative caching applies to responses with the
+               specified response code that lack any Cache-Control, Expires, or
+               Pragma: no-cache directives. When the cacheMode is set to
+               FORCE_CACHE_ALL, negative caching applies to all responses with the
+               specified response code, and overrides any caching headers. By default,
+               Cloud CDN applies the following TTLs to these HTTP status codes:
+               * 300 (Multiple Choice), 301, 308 (Permanent Redirects): 10m
+               * 404 (Not Found), 410 (Gone), 451 (Unavailable For Legal Reasons): 120s
+               * 405 (Method Not Found), 501 (Not Implemented): 60s
+               These defaults can be overridden in negativeCachingPolicy. If not
+               specified, Cloud CDN applies negative caching by default.
+        :param Sequence['URLMapPathMatcherRouteRuleRouteActionCachePolicyNegativeCachingPolicyArgs'] negative_caching_policies: Sets a cache TTL for the specified HTTP status code. negativeCaching
+               must be enabled to configure negativeCachingPolicy. Omitting the policy
+               and leaving negativeCaching enabled will use Cloud CDN's default cache
+               TTLs. Note that when specifying an explicit negativeCachingPolicy, you
+               should take care to specify a cache TTL for all response codes that you
+               wish to cache. Cloud CDN will not apply any default negative caching when
+               a policy exists.
+               Structure is documented below.
+        :param _builtins.bool request_coalescing: If true then Cloud CDN will combine multiple concurrent cache fill
+               requests into a small number of requests to the origin. If not specified,
+               Cloud CDN applies request coalescing by default.
+        :param 'URLMapPathMatcherRouteRuleRouteActionCachePolicyServeWhileStaleArgs' serve_while_stale: Serve existing content from the cache (if available) when revalidating
+               content with the origin, or when an error is encountered when refreshing
+               the cache. This setting defines the default "max-stale" duration for any
+               cached responses that do not specify a max-stale directive. Stale
+               responses that exceed the TTL configured here will not be served. The
+               default limit (max-stale) is 86400s (1 day), which will allow stale
+               content to be served up to this limit beyond the max-age (or s-maxage) of
+               a cached response. The maximum allowed value is 604800 (1 week). Set this
+               to zero (0) to disable serve-while-stale.
+               Structure is documented below.
+        """
+        if cache_bypass_request_header_names is not None:
+            pulumi.set(__self__, "cache_bypass_request_header_names", cache_bypass_request_header_names)
+        if cache_key_policy is not None:
+            pulumi.set(__self__, "cache_key_policy", cache_key_policy)
+        if cache_mode is not None:
+            pulumi.set(__self__, "cache_mode", cache_mode)
+        if client_ttl is not None:
+            pulumi.set(__self__, "client_ttl", client_ttl)
+        if default_ttl is not None:
+            pulumi.set(__self__, "default_ttl", default_ttl)
+        if max_ttl is not None:
+            pulumi.set(__self__, "max_ttl", max_ttl)
+        if negative_caching is not None:
+            pulumi.set(__self__, "negative_caching", negative_caching)
+        if negative_caching_policies is not None:
+            pulumi.set(__self__, "negative_caching_policies", negative_caching_policies)
+        if request_coalescing is not None:
+            pulumi.set(__self__, "request_coalescing", request_coalescing)
+        if serve_while_stale is not None:
+            pulumi.set(__self__, "serve_while_stale", serve_while_stale)
+
+    @_builtins.property
+    @pulumi.getter(name="cacheBypassRequestHeaderNames")
+    def cache_bypass_request_header_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Bypass the cache when the specified request headers are matched by name,
+        e.g. Pragma or Authorization headers. Values are case-insensitive. Up to 5
+        header names can be specified. The cache is bypassed for all cacheMode
+        values.
+        """
+        return pulumi.get(self, "cache_bypass_request_header_names")
+
+    @_builtins.property
+    @pulumi.getter(name="cacheKeyPolicy")
+    def cache_key_policy(self) -> Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyCacheKeyPolicy']:
+        """
+        The cache key configuration. If not specified, the default behavior depends
+        on the backend type: for Backend Services, the complete request URI is
+        used; for Backend Buckets, the request URI is used without the protocol or
+        host, and only query parameters known to Cloud Storage are included.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "cache_key_policy")
+
+    @_builtins.property
+    @pulumi.getter(name="cacheMode")
+    def cache_mode(self) -> Optional[_builtins.str]:
+        """
+        Specifies the cache setting for all responses from this route. If not
+        specified, Cloud CDN uses CACHE_ALL_STATIC mode.
+        Possible values are: `USE_ORIGIN_HEADERS`, `FORCE_CACHE_ALL`, `CACHE_ALL_STATIC`.
+        """
+        return pulumi.get(self, "cache_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="clientTtl")
+    def client_ttl(self) -> Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyClientTtl']:
+        """
+        Specifies a separate client (e.g. browser client) maximum TTL for cached
+        content. This is used to clamp the max-age (or Expires) value sent to the
+        client. With FORCE_CACHE_ALL, the lesser of clientTtl and defaultTtl
+        is used for the response max-age directive, along with a "public"
+        directive. For cacheable content in CACHE_ALL_STATIC mode, clientTtl
+        clamps the max-age from the origin (if specified), or else sets the
+        response max-age directive to the lesser of the clientTtl and defaultTtl,
+        and also ensures a "public" cache-control directive is present. The maximum
+        allowed value is 31,622,400s (1 year). If not specified, Cloud CDN uses
+        3600s (1 hour) for CACHE_ALL_STATIC mode. Cannot exceed maxTtl.
+        Cannot be specified when cacheMode is USE_ORIGIN_HEADERS.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "client_ttl")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultTtl")
+    def default_ttl(self) -> Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyDefaultTtl']:
+        """
+        Specifies the default TTL for cached content for responses that do not have
+        an existing valid TTL (max-age or s-maxage). Setting a TTL of "0" means
+        "always revalidate". The value of defaultTtl cannot be set to a value
+        greater than that of maxTtl. When the cacheMode is set to
+        FORCE_CACHE_ALL, the defaultTtl will overwrite the TTL set in all
+        responses. The maximum allowed value is 31,622,400s (1 year). Infrequently
+        accessed objects may be evicted from the cache before the defined TTL. If
+        not specified, Cloud CDN uses 3600s (1 hour) for CACHE_ALL_STATIC and
+        FORCE_CACHE_ALL modes. Cannot be specified when cacheMode is
+        USE_ORIGIN_HEADERS.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "default_ttl")
+
+    @_builtins.property
+    @pulumi.getter(name="maxTtl")
+    def max_ttl(self) -> Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyMaxTtl']:
+        """
+        Specifies the maximum allowed TTL for cached content. Cache directives that
+        attempt to set a max-age or s-maxage higher than this, or an Expires header
+        more than maxTtl seconds in the future will be capped at the value of
+        maxTtl, as if it were the value of an s-maxage Cache-Control directive.
+        Headers sent to the client will not be modified. Setting a TTL of "0" means
+        "always revalidate". The maximum allowed value is 31,622,400s (1 year).
+        Infrequently accessed objects may be evicted from the cache before the
+        defined TTL. If not specified, Cloud CDN uses 86400s (1 day) for
+        CACHE_ALL_STATIC mode. Can be specified only for CACHE_ALL_STATIC cache
+        mode.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "max_ttl")
+
+    @_builtins.property
+    @pulumi.getter(name="negativeCaching")
+    def negative_caching(self) -> Optional[_builtins.bool]:
+        """
+        Negative caching allows per-status code TTLs to be set, in order to apply
+        fine-grained caching for common errors or redirects. This can reduce the
+        load on your origin and improve end-user experience by reducing response
+        latency. When the cacheMode is set to CACHE_ALL_STATIC or
+        USE_ORIGIN_HEADERS, negative caching applies to responses with the
+        specified response code that lack any Cache-Control, Expires, or
+        Pragma: no-cache directives. When the cacheMode is set to
+        FORCE_CACHE_ALL, negative caching applies to all responses with the
+        specified response code, and overrides any caching headers. By default,
+        Cloud CDN applies the following TTLs to these HTTP status codes:
+        * 300 (Multiple Choice), 301, 308 (Permanent Redirects): 10m
+        * 404 (Not Found), 410 (Gone), 451 (Unavailable For Legal Reasons): 120s
+        * 405 (Method Not Found), 501 (Not Implemented): 60s
+        These defaults can be overridden in negativeCachingPolicy. If not
+        specified, Cloud CDN applies negative caching by default.
+        """
+        return pulumi.get(self, "negative_caching")
+
+    @_builtins.property
+    @pulumi.getter(name="negativeCachingPolicies")
+    def negative_caching_policies(self) -> Optional[Sequence['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyNegativeCachingPolicy']]:
+        """
+        Sets a cache TTL for the specified HTTP status code. negativeCaching
+        must be enabled to configure negativeCachingPolicy. Omitting the policy
+        and leaving negativeCaching enabled will use Cloud CDN's default cache
+        TTLs. Note that when specifying an explicit negativeCachingPolicy, you
+        should take care to specify a cache TTL for all response codes that you
+        wish to cache. Cloud CDN will not apply any default negative caching when
+        a policy exists.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "negative_caching_policies")
+
+    @_builtins.property
+    @pulumi.getter(name="requestCoalescing")
+    def request_coalescing(self) -> Optional[_builtins.bool]:
+        """
+        If true then Cloud CDN will combine multiple concurrent cache fill
+        requests into a small number of requests to the origin. If not specified,
+        Cloud CDN applies request coalescing by default.
+        """
+        return pulumi.get(self, "request_coalescing")
+
+    @_builtins.property
+    @pulumi.getter(name="serveWhileStale")
+    def serve_while_stale(self) -> Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyServeWhileStale']:
+        """
+        Serve existing content from the cache (if available) when revalidating
+        content with the origin, or when an error is encountered when refreshing
+        the cache. This setting defines the default "max-stale" duration for any
+        cached responses that do not specify a max-stale directive. Stale
+        responses that exceed the TTL configured here will not be served. The
+        default limit (max-stale) is 86400s (1 day), which will allow stale
+        content to be served up to this limit beyond the max-age (or s-maxage) of
+        a cached response. The maximum allowed value is 604800 (1 week). Set this
+        to zero (0) to disable serve-while-stale.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "serve_while_stale")
+
+
+@pulumi.output_type
+class URLMapPathMatcherRouteRuleRouteActionCachePolicyCacheKeyPolicy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "excludedQueryParameters":
+            suggest = "excluded_query_parameters"
+        elif key == "includeHost":
+            suggest = "include_host"
+        elif key == "includeProtocol":
+            suggest = "include_protocol"
+        elif key == "includeQueryString":
+            suggest = "include_query_string"
+        elif key == "includedCookieNames":
+            suggest = "included_cookie_names"
+        elif key == "includedHeaderNames":
+            suggest = "included_header_names"
+        elif key == "includedQueryParameters":
+            suggest = "included_query_parameters"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in URLMapPathMatcherRouteRuleRouteActionCachePolicyCacheKeyPolicy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        URLMapPathMatcherRouteRuleRouteActionCachePolicyCacheKeyPolicy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        URLMapPathMatcherRouteRuleRouteActionCachePolicyCacheKeyPolicy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 excluded_query_parameters: Optional[Sequence[_builtins.str]] = None,
+                 include_host: Optional[_builtins.bool] = None,
+                 include_protocol: Optional[_builtins.bool] = None,
+                 include_query_string: Optional[_builtins.bool] = None,
+                 included_cookie_names: Optional[Sequence[_builtins.str]] = None,
+                 included_header_names: Optional[Sequence[_builtins.str]] = None,
+                 included_query_parameters: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] excluded_query_parameters: Names of query string parameters to exclude in cache keys. All other
+               parameters will be included. Either specify excludedQueryParameters
+               or includedQueryParameters, not both. '&' and '=' will be percent
+               encoded and not treated as delimiters. Note: This field applies to
+               routes that use backend services. Attempting to set it on a route that
+               points exclusively to Backend Buckets will result in a configuration
+               error. For routes that point to a Backend Bucket, use
+               includedQueryParameters to define which parameters should be part of
+               the cache key.
+        :param _builtins.bool include_host: If true, requests to different hosts will be cached separately. Note:
+               This setting is only applicable to routes that use a Backend Service.
+               It does not affect requests served by a Backend Bucket, as the host is
+               never included in a Backend Bucket's cache key. Attempting to set it on
+               a route that points exclusively to Backend Buckets will result in a
+               configuration error.
+        :param _builtins.bool include_protocol: If true, http and https requests will be cached separately. Note: This
+               setting is only applicable to routes that use a Backend Service. It
+               does not affect requests served by a Backend Bucket, as the protocol is
+               never included in a Backend Bucket's cache key. Attempting to set on a
+               route that points exclusively to Backend Buckets will result in a
+               configuration error.
+        :param _builtins.bool include_query_string: If true, include query string parameters in the cache key according to
+               includedQueryParameters and excludedQueryParameters. If neither is
+               set, the entire query string will be included. If false, the query
+               string will be excluded from the cache key entirely. Note: This field
+               applies to routes that use backend services. Attempting to set it on a
+               route that points exclusively to Backend Buckets will result in a
+               configuration error. For routes that point to a Backend Bucket, use
+               includedQueryParameters to define which parameters should be part of
+               the cache key.
+        :param Sequence[_builtins.str] included_cookie_names: Allows HTTP cookies (by name) to be used in the cache key. The
+               name=value pair will be used in the cache key Cloud CDN generates.
+               Note: This setting is only applicable to routes that use a Backend
+               Service. It does not affect requests served by a Backend Bucket.
+               Attempting to set it on a route that points exclusively to Backend
+               Buckets will result in a configuration error. Up to 5 cookie names can
+               be specified.
+        :param Sequence[_builtins.str] included_header_names: Allows HTTP request headers (by name) to be used in the cache key.
+        :param Sequence[_builtins.str] included_query_parameters: Names of query string parameters to include in cache keys. All other
+               parameters will be excluded. Either specify includedQueryParameters
+               or excludedQueryParameters, not both. '&' and '=' will be percent
+               encoded and not treated as delimiters.
+        """
+        if excluded_query_parameters is not None:
+            pulumi.set(__self__, "excluded_query_parameters", excluded_query_parameters)
+        if include_host is not None:
+            pulumi.set(__self__, "include_host", include_host)
+        if include_protocol is not None:
+            pulumi.set(__self__, "include_protocol", include_protocol)
+        if include_query_string is not None:
+            pulumi.set(__self__, "include_query_string", include_query_string)
+        if included_cookie_names is not None:
+            pulumi.set(__self__, "included_cookie_names", included_cookie_names)
+        if included_header_names is not None:
+            pulumi.set(__self__, "included_header_names", included_header_names)
+        if included_query_parameters is not None:
+            pulumi.set(__self__, "included_query_parameters", included_query_parameters)
+
+    @_builtins.property
+    @pulumi.getter(name="excludedQueryParameters")
+    def excluded_query_parameters(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Names of query string parameters to exclude in cache keys. All other
+        parameters will be included. Either specify excludedQueryParameters
+        or includedQueryParameters, not both. '&' and '=' will be percent
+        encoded and not treated as delimiters. Note: This field applies to
+        routes that use backend services. Attempting to set it on a route that
+        points exclusively to Backend Buckets will result in a configuration
+        error. For routes that point to a Backend Bucket, use
+        includedQueryParameters to define which parameters should be part of
+        the cache key.
+        """
+        return pulumi.get(self, "excluded_query_parameters")
+
+    @_builtins.property
+    @pulumi.getter(name="includeHost")
+    def include_host(self) -> Optional[_builtins.bool]:
+        """
+        If true, requests to different hosts will be cached separately. Note:
+        This setting is only applicable to routes that use a Backend Service.
+        It does not affect requests served by a Backend Bucket, as the host is
+        never included in a Backend Bucket's cache key. Attempting to set it on
+        a route that points exclusively to Backend Buckets will result in a
+        configuration error.
+        """
+        return pulumi.get(self, "include_host")
+
+    @_builtins.property
+    @pulumi.getter(name="includeProtocol")
+    def include_protocol(self) -> Optional[_builtins.bool]:
+        """
+        If true, http and https requests will be cached separately. Note: This
+        setting is only applicable to routes that use a Backend Service. It
+        does not affect requests served by a Backend Bucket, as the protocol is
+        never included in a Backend Bucket's cache key. Attempting to set on a
+        route that points exclusively to Backend Buckets will result in a
+        configuration error.
+        """
+        return pulumi.get(self, "include_protocol")
+
+    @_builtins.property
+    @pulumi.getter(name="includeQueryString")
+    def include_query_string(self) -> Optional[_builtins.bool]:
+        """
+        If true, include query string parameters in the cache key according to
+        includedQueryParameters and excludedQueryParameters. If neither is
+        set, the entire query string will be included. If false, the query
+        string will be excluded from the cache key entirely. Note: This field
+        applies to routes that use backend services. Attempting to set it on a
+        route that points exclusively to Backend Buckets will result in a
+        configuration error. For routes that point to a Backend Bucket, use
+        includedQueryParameters to define which parameters should be part of
+        the cache key.
+        """
+        return pulumi.get(self, "include_query_string")
+
+    @_builtins.property
+    @pulumi.getter(name="includedCookieNames")
+    def included_cookie_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Allows HTTP cookies (by name) to be used in the cache key. The
+        name=value pair will be used in the cache key Cloud CDN generates.
+        Note: This setting is only applicable to routes that use a Backend
+        Service. It does not affect requests served by a Backend Bucket.
+        Attempting to set it on a route that points exclusively to Backend
+        Buckets will result in a configuration error. Up to 5 cookie names can
+        be specified.
+        """
+        return pulumi.get(self, "included_cookie_names")
+
+    @_builtins.property
+    @pulumi.getter(name="includedHeaderNames")
+    def included_header_names(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Allows HTTP request headers (by name) to be used in the cache key.
+        """
+        return pulumi.get(self, "included_header_names")
+
+    @_builtins.property
+    @pulumi.getter(name="includedQueryParameters")
+    def included_query_parameters(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        Names of query string parameters to include in cache keys. All other
+        parameters will be excluded. Either specify includedQueryParameters
+        or excludedQueryParameters, not both. '&' and '=' will be percent
+        encoded and not treated as delimiters.
+        """
+        return pulumi.get(self, "included_query_parameters")
+
+
+@pulumi.output_type
+class URLMapPathMatcherRouteRuleRouteActionCachePolicyClientTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapPathMatcherRouteRuleRouteActionCachePolicyDefaultTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapPathMatcherRouteRuleRouteActionCachePolicyMaxTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapPathMatcherRouteRuleRouteActionCachePolicyNegativeCachingPolicy(dict):
+    def __init__(__self__, *,
+                 code: Optional[_builtins.int] = None,
+                 ttl: Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyNegativeCachingPolicyTtl'] = None):
+        """
+        :param _builtins.int code: The HTTP status code to define a TTL against. Only HTTP status codes
+               300, 301, 302, 307, 308, 404, 405, 410, 421, 451 and 501 can be
+               specified as values, and you cannot specify a status code more than
+               once.
+        :param 'URLMapPathMatcherRouteRuleRouteActionCachePolicyNegativeCachingPolicyTtlArgs' ttl: The TTL (in seconds) for which to cache responses with the
+               corresponding status code. The maximum allowed value is 1800s (30
+               minutes). Infrequently accessed objects may be evicted from the cache
+               before the defined TTL.
+               Structure is documented below.
+        """
+        if code is not None:
+            pulumi.set(__self__, "code", code)
+        if ttl is not None:
+            pulumi.set(__self__, "ttl", ttl)
+
+    @_builtins.property
+    @pulumi.getter
+    def code(self) -> Optional[_builtins.int]:
+        """
+        The HTTP status code to define a TTL against. Only HTTP status codes
+        300, 301, 302, 307, 308, 404, 405, 410, 421, 451 and 501 can be
+        specified as values, and you cannot specify a status code more than
+        once.
+        """
+        return pulumi.get(self, "code")
+
+    @_builtins.property
+    @pulumi.getter
+    def ttl(self) -> Optional['outputs.URLMapPathMatcherRouteRuleRouteActionCachePolicyNegativeCachingPolicyTtl']:
+        """
+        The TTL (in seconds) for which to cache responses with the
+        corresponding status code. The maximum allowed value is 1800s (30
+        minutes). Infrequently accessed objects may be evicted from the cache
+        before the defined TTL.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "ttl")
+
+
+@pulumi.output_type
+class URLMapPathMatcherRouteRuleRouteActionCachePolicyNegativeCachingPolicyTtl(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
+
+
+@pulumi.output_type
+class URLMapPathMatcherRouteRuleRouteActionCachePolicyServeWhileStale(dict):
+    def __init__(__self__, *,
+                 seconds: _builtins.str,
+                 nanos: Optional[_builtins.int] = None):
+        """
+        :param _builtins.str seconds: Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        :param _builtins.int nanos: Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        pulumi.set(__self__, "seconds", seconds)
+        if nanos is not None:
+            pulumi.set(__self__, "nanos", nanos)
+
+    @_builtins.property
+    @pulumi.getter
+    def seconds(self) -> _builtins.str:
+        """
+        Span of time at a resolution of a second. Must be from 0 to 315,576,000,000 inclusive.
+        """
+        return pulumi.get(self, "seconds")
+
+    @_builtins.property
+    @pulumi.getter
+    def nanos(self) -> Optional[_builtins.int]:
+        """
+        Span of time that's a fraction of a second at nanosecond resolution.
+        """
+        return pulumi.get(self, "nanos")
 
 
 @pulumi.output_type
@@ -76732,7 +79624,7 @@ class GetRegionDiskGuestOsFeatureResult(dict):
     def __init__(__self__, *,
                  type: _builtins.str):
         """
-        :param _builtins.str type: The type of supported feature. Read [Enabling guest operating system features](https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features) to see a list of available options. Possible values: ["MULTI_IP_SUBNET", "SECURE_BOOT", "SEV_CAPABLE", "UEFI_COMPATIBLE", "VIRTIO_SCSI_MULTIQUEUE", "WINDOWS", "GVNIC", "SEV_LIVE_MIGRATABLE", "SEV_SNP_CAPABLE", "SUSPEND_RESUME_COMPATIBLE", "TDX_CAPABLE"]
+        :param _builtins.str type: The type of supported feature. Read [Enabling guest operating system features](https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features) to see a list of available options. Possible values: ["MULTI_IP_SUBNET", "SECURE_BOOT", "SEV_CAPABLE", "UEFI_COMPATIBLE", "VIRTIO_SCSI_MULTIQUEUE", "WINDOWS", "GVNIC", "SEV_LIVE_MIGRATABLE", "SEV_SNP_CAPABLE", "SUSPEND_RESUME_COMPATIBLE", "TDX_CAPABLE", "SEV_LIVE_MIGRATABLE_V2", "SNP_SVSM_CAPABLE"]
         """
         pulumi.set(__self__, "type", type)
 
@@ -76740,7 +79632,7 @@ class GetRegionDiskGuestOsFeatureResult(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        The type of supported feature. Read [Enabling guest operating system features](https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features) to see a list of available options. Possible values: ["MULTI_IP_SUBNET", "SECURE_BOOT", "SEV_CAPABLE", "UEFI_COMPATIBLE", "VIRTIO_SCSI_MULTIQUEUE", "WINDOWS", "GVNIC", "SEV_LIVE_MIGRATABLE", "SEV_SNP_CAPABLE", "SUSPEND_RESUME_COMPATIBLE", "TDX_CAPABLE"]
+        The type of supported feature. Read [Enabling guest operating system features](https://cloud.google.com/compute/docs/images/create-delete-deprecate-private-images#guest-os-features) to see a list of available options. Possible values: ["MULTI_IP_SUBNET", "SECURE_BOOT", "SEV_CAPABLE", "UEFI_COMPATIBLE", "VIRTIO_SCSI_MULTIQUEUE", "WINDOWS", "GVNIC", "SEV_LIVE_MIGRATABLE", "SEV_SNP_CAPABLE", "SUSPEND_RESUME_COMPATIBLE", "TDX_CAPABLE", "SEV_LIVE_MIGRATABLE_V2", "SNP_SVSM_CAPABLE"]
         """
         return pulumi.get(self, "type")
 

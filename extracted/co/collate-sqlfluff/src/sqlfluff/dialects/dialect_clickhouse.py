@@ -1177,7 +1177,9 @@ class CreateTableStatementSegment(ansi.CreateTableStatementSegment):
                         # Column definition may be missing if using AS SELECT
                         optional=True,
                     ),
-                    Ref("TableEngineSegment"),
+                    # ENGINE is optional; falls back to `default_table_engine` setting.
+                    # https://clickhouse.com/docs/en/operations/settings/settings#default_table_engine
+                    Ref("TableEngineSegment", optional=True),
                     # CREATE TABLE (...) AS SELECT:
                     Sequence(
                         "AS",

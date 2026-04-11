@@ -591,6 +591,7 @@ impl Tube {
                     &data_channel,
                     &peer_connection_for_channel,
                     rtc_data_channel_label.clone(),
+                    tube.id.clone(),
                     None,
                     protocol_settings_for_channel_setup,
                     current_server_mode,
@@ -705,6 +706,7 @@ impl Tube {
 
                     // Clone the Arc so we can access it after run() consumes the channel
                     let close_reason_arc = owned_channel.channel_close_reason.clone();
+                    let close_message_arc = owned_channel.channel_close_message.clone();
                     let control_connection_closed = owned_channel.control_connection_closed.clone();
                     let active_protocol = owned_channel.active_protocol;
                     debug!("on_data_channel: About to call channel.run() (tube_id: {}, channel_label: {})", tube_id_for_log, label_clone_for_run);
@@ -712,6 +714,7 @@ impl Tube {
                     debug!("on_data_channel: channel.run() completed with result: {:?} (tube_id: {}, channel_label: {})", run_result.as_ref().map(|_| "Ok").map_err(|e| format!("{:?}", e)), tube_id_for_log, label_clone_for_run);
                     // Get the close reason after run completes - use try_lock to avoid blocking
                     let close_reason = close_reason_arc.try_lock().ok().and_then(|guard| *guard);
+                    let close_message = close_message_arc.try_lock().ok().and_then(|guard| guard.clone());
                     debug!("on_data_channel: Retrieved close_reason: {:?} (tube_id: {}, channel_label: {})", close_reason, tube_id_for_log, label_clone_for_run);
 
                     let outcome_details: String = match &run_result {
@@ -729,18 +732,29 @@ impl Tube {
                         }
                     };
 
-                    if is_terminal_channel_close(
+                    let sent_close_callback = if is_terminal_channel_close(
                         active_protocol,
                         control_connection_closed.load(std::sync::atomic::Ordering::Acquire),
                         close_reason,
                     ) {
-                        if let Err(e) = tube_arc.send_connection_close_callback(&label_clone_for_run).await {
-                            warn!("Failed to send connection_close callback: {} (tube_id: {}, channel_label: {})", e, tube_id_for_log, label_clone_for_run);
+                        match tube_arc.send_connection_close_callback(&label_clone_for_run).await {
+                            Ok(actually_sent) => actually_sent,
+                            Err(e) => {
+                                warn!("Failed to send connection_close callback: {} (tube_id: {}, channel_label: {})", e, tube_id_for_log, label_clone_for_run);
+                                false
+                            }
                         }
-                    }
+                    } else {
+                        false
+                    };
 
-                    // Deregister the channel from the tube
-                    tube_arc.deregister_channel(&label_clone_for_run).await;
+                    // Deregister the channel from the tube.
+                    // Pass sent_close_callback so deregister_channel knows whether
+                    // Python was already notified.  If it was, Python owns the decision
+                    // to close the tube; if not, deregister_channel auto-closes to
+                    // prevent zombie tubes (e.g. pam t diagnose probes that never send
+                    // an explicit CloseConnection).
+                    tube_arc.deregister_channel(&label_clone_for_run, sent_close_callback).await;
 
                     // Remove shutdown signal for this channel
                     tube_arc.remove_channel_shutdown_signal(&label_clone_for_run).await;
@@ -765,6 +779,10 @@ impl Tube {
                                     "is_critical": reason.is_critical(),
                                     "is_retryable": reason.is_retryable(),
                                 });
+                            }
+                            // Add guacd error message if present (database/SSH auth failures, etc.)
+                            if let Some(ref msg) = close_message {
+                                signal_json["error_message"] = serde_json::json!(msg);
                             }
                             let signal_data = signal_json.to_string();
 
@@ -1255,6 +1273,7 @@ impl Tube {
             data_channel,
             &peer_connection,
             name.to_string(),
+            self.id.clone(),
             timeouts,
             protocol_settings.clone(), // protocol_settings is already cloned if needed by the caller or passed as value
             self.is_server_mode_context,
@@ -1388,11 +1407,13 @@ impl Tube {
 
             // Clone the Arc so we can access it after run() consumes the channel
             let close_reason_arc = owned_channel.channel_close_reason.clone();
+            let close_message_arc = owned_channel.channel_close_message.clone();
             let control_connection_closed = owned_channel.control_connection_closed.clone();
             let active_protocol = owned_channel.active_protocol;
             let run_result = owned_channel.run().await;
             // Get the close reason after run completes - use try_lock to avoid blocking
             let close_reason = close_reason_arc.try_lock().ok().and_then(|guard| *guard);
+            let close_message = close_message_arc.try_lock().ok().and_then(|guard| guard.clone());
 
             let outcome_details: String = match &run_result {
                 Ok(()) => {
@@ -1409,18 +1430,24 @@ impl Tube {
                 }
             };
 
-            if is_terminal_channel_close(
+            let sent_close_callback = if is_terminal_channel_close(
                 active_protocol,
                 control_connection_closed.load(std::sync::atomic::Ordering::Acquire),
                 close_reason,
             ) {
-                if let Err(e) = tube_arc.send_connection_close_callback(&name_clone).await {
-                    warn!("Failed to send connection_close callback: {} (tube_id: {}, channel_name: {})", e, tube_id_for_spawn, name_clone);
+                match tube_arc.send_connection_close_callback(&name_clone).await {
+                    Ok(actually_sent) => actually_sent,
+                    Err(e) => {
+                        warn!("Failed to send connection_close callback: {} (tube_id: {}, channel_name: {})", e, tube_id_for_spawn, name_clone);
+                        false
+                    }
                 }
-            }
+            } else {
+                false
+            };
 
             // Deregister the channel from the tube
-            tube_arc.deregister_channel(&name_clone).await;
+            tube_arc.deregister_channel(&name_clone, sent_close_callback).await;
 
             // Remove shutdown signal for this channel
             tube_arc.remove_channel_shutdown_signal(&name_clone).await;
@@ -1445,6 +1472,10 @@ impl Tube {
                             "is_critical": reason.is_critical(),
                             "is_retryable": reason.is_retryable(),
                         });
+                    }
+                    // Add guacd error message if present (database/SSH auth failures, etc.)
+                    if let Some(ref msg) = close_message {
+                        signal_json["error_message"] = serde_json::json!(msg);
                     }
                     let signal_data = signal_json.to_string();
 
@@ -1618,18 +1649,12 @@ impl Tube {
 
         if let Some(pc_arc) = pc.as_ref() {
             // Call the unified (now pub(crate)) method in WebRTCPeerConnection
+            // create_description_with_checks handles set_local_description internally for
+            // both trickle and non-trickle ICE.  For trickle ICE it sets the local description
+            // with the original (unpatched) SDP and returns the patched version.  For
+            // non-trickle ICE it sets local description before gathering then returns the
+            // gathered+patched SDP.  Either way, local description is already set here.
             let sdp = pc_arc.create_description_with_checks(is_offer).await?;
-
-            // If using trickle ICE, we still need to set the local description here with the initial SDP.
-            // For non-trickle ICE, create_description_with_checks (via generate_sdp_and_maybe_gather_ice)
-            // already handled setting the local description.
-            if pc_arc.trickle_ice {
-                // trickle_ice was made pub(crate) by the user
-                debug!("Trickle ICE: Setting local description in Tube::create_session_description (tube_id: {})", self.id);
-                pc_arc.set_local_description(sdp.clone(), !is_offer).await?;
-            } else {
-                debug!("Non-trickle ICE: Local description already set and finalized. Skipping redundant set_local_description in Tube. (tube_id: {})", self.id);
-            }
 
             Ok(sdp)
         } else {
@@ -1708,22 +1733,102 @@ impl Tube {
     }
 
     // Deregister a channel from this tube
-    pub async fn deregister_channel(&self, channel_name: &str) {
-        let mut channels_guard = self.active_channels.write().await;
-        if channels_guard.remove(channel_name).is_some() {
-            // Unregister connection from metrics system
-            crate::metrics::METRICS_COLLECTOR.unregister_connection(channel_name);
-            debug!(
-                "Unregistered channel from metrics system (tube_id: {}, channel_name: {})",
-                self.id, channel_name
-            );
+    /// `sent_close_callback` is true when `send_connection_close_callback` was called
+    /// for this channel — meaning Python was already notified and owns the decision to
+    /// close the tube.  When false, Python has no signal and we auto-close to prevent
+    /// zombie tubes (e.g. probe connections that close without an explicit conn_no=0
+    /// CloseConnection message).
+    pub async fn deregister_channel(&self, channel_name: &str, sent_close_callback: bool) {
+        let remaining;
+        {
+            let mut channels_guard = self.active_channels.write().await;
+            if channels_guard.remove(channel_name).is_some() {
+                // Unregister connection from metrics system
+                crate::metrics::METRICS_COLLECTOR.unregister_connection(channel_name);
+                debug!(
+                    "Unregistered channel from metrics system (tube_id: {}, channel_name: {})",
+                    self.id, channel_name
+                );
 
-            info!(
-                "Deregistered channel from tube (tube_id: {}, channel_name: {})",
-                self.id, channel_name
-            );
-        } else {
-            debug!("Attempted to deregister channel that wasn't registered (tube_id: {}, channel_name: {})", self.id, channel_name);
+                info!(
+                    "Deregistered channel from tube (tube_id: {}, channel_name: {})",
+                    self.id, channel_name
+                );
+                remaining = channels_guard.len();
+            } else {
+                debug!("Attempted to deregister channel that wasn't registered (tube_id: {}, channel_name: {})", self.id, channel_name);
+                return;
+            }
+        } // release active_channels lock
+
+        // When the last channel deregisters and the peer connection is still Connected,
+        // auto-close the tube to prevent zombie tubes — but ONLY when the close callback
+        // was not sent.  If sent_close_callback is true Python was already notified and
+        // will close the tube itself; auto-closing here would race with that and cause
+        // "Server tube should exist" failures in explicit close_connection scenarios.
+        if remaining == 0 && !sent_close_callback {
+            let should_close = {
+                let pc_arc = self.peer_connection.load();
+                if let Some(pc) = pc_arc.as_ref() {
+                    let already_closing = pc.is_closing.load(std::sync::atomic::Ordering::Acquire);
+                    let state = pc.peer_connection.connection_state();
+                    use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
+                    // Auto-close when the connection is in a terminal or stable state:
+                    //   Connected — normal case: probe tubes, explicit-close races
+                    //   Failed    — ICE gave up after timeout (e.g. browser navigated away
+                    //               ungracefully); tube is a zombie, safe to close
+                    //   Closed    — clean WebRTC close; definitely done
+                    //
+                    // Do NOT close for Disconnected — ICE restart may be in progress and
+                    // a new channel will arrive once it reconnects.  The spawned re-check
+                    // guard handles the rare race where ICE reconnects between deregister
+                    // and the spawn, but cannot handle the case where reconnect takes
+                    // several seconds (which is typical for ICE restart).
+                    let should_auto_close = matches!(
+                        state,
+                        RTCPeerConnectionState::Connected
+                            | RTCPeerConnectionState::Failed
+                            | RTCPeerConnectionState::Closed
+                    );
+                    !already_closing && should_auto_close
+                } else {
+                    false
+                }
+            };
+
+            if should_close {
+                let tube_id = self.id.clone();
+                info!(
+                    "Last channel deregistered on a terminal/active tube — auto-closing to prevent zombie (tube_id: {})",
+                    tube_id
+                );
+                tokio::spawn(async move {
+                    // Re-check that channels are still empty before proceeding; a new channel
+                    // from ICE restart could have arrived between deregister and this spawn.
+                    if let Some(tube) = crate::tube_registry::REGISTRY.get_tube_fast(&tube_id) {
+                        let still_empty = tube.active_channels.read().await.is_empty();
+                        if still_empty {
+                            if let Err(e) = crate::tube_registry::REGISTRY
+                                .close_tube(
+                                    &tube_id,
+                                    Some(crate::tube_protocol::CloseConnectionReason::Normal),
+                                )
+                                .await
+                            {
+                                warn!(
+                                    "Auto-close of zombie tube failed: {} (tube_id: {})",
+                                    e, tube_id
+                                );
+                            }
+                        } else {
+                            debug!(
+                                "Auto-close cancelled — new channel arrived after deregister (tube_id: {})",
+                                tube_id
+                            );
+                        }
+                    }
+                });
+            }
         }
     }
 
@@ -1802,36 +1907,41 @@ impl Tube {
         }
     }
 
-    // Send connection_close callback for a specific channel
-    pub async fn send_connection_close_callback(&self, channel_name: &str) -> Result<()> {
-        // Check if recordings are enabled for this channel - skip if recordings are enabled
+    // Send connection_close callback for a specific channel.
+    // Returns Ok(true) when Python was notified or when cleanup is managed elsewhere
+    // (recordings, already-closing, server-mode). Returns Ok(false) when credentials are
+    // missing and Python could not be reached — callers should allow auto-close in that case.
+    pub async fn send_connection_close_callback(&self, channel_name: &str) -> Result<bool> {
+        // Recordings enabled: the recording system manages cleanup; Python is handled.
         let should_skip = {
             let channels_guard = self.active_channels.read().await;
             if let Some(metadata) = channels_guard.get(channel_name) {
                 metadata.recordings_enabled
             } else {
-                false // If channel not found, don't skip
+                false
             }
         };
 
         if should_skip {
             debug!("Skipping connection_close callback - recordings are enabled for this channel (tube_id: {}, channel_name: {})", self.id, channel_name);
-            return Ok(());
+            return Ok(true);
         }
 
-        // Check if this tube/connection is already closed/closing to prevent duplicate callbacks
+        // Tube already closing: cleanup already in motion, no need to notify again.
         let current_status = *self.status.read().await;
         if matches!(
             current_status,
             TubeStatus::Closing | TubeStatus::Closed | TubeStatus::Failed
         ) {
             debug!("Skipping connection_close callback - tube already closed/closing/failed (tube_id: {}, channel_name: {}, status: {:?})", self.id, channel_name, current_status);
-            return Ok(());
+            return Ok(true);
         }
 
+        // Server mode: no Python notification needed; tube lifecycle managed by server.
         if self.is_server_mode_context {
-            return Ok(());
+            return Ok(true);
         }
+
         let channels_guard = self.active_channels.read().await;
         if let Some(metadata) = channels_guard.get(channel_name) {
             if let (Some(ref ksm_config), Some(ref callback_token)) =
@@ -1839,10 +1949,10 @@ impl Tube {
             {
                 let client_version = &metadata.client_version;
 
-                // Skip if in test mode
+                // Test mode: skip network call but treat as handled.
                 if ksm_config.starts_with("TEST_MODE_KSM_CONFIG_") {
                     debug!("TEST MODE: Skipping connection_close callback (tube_id: {}, channel_name: {})", self.id, channel_name);
-                    return Ok(());
+                    return Ok(true);
                 }
 
                 debug!(
@@ -1866,7 +1976,7 @@ impl Tube {
                 {
                     Ok(_) => {
                         debug!("Connection close callback sent successfully (tube_id: {}, channel_name: {})", self.id, channel_name);
-                        Ok(())
+                        Ok(true)
                     }
                     Err(e) => {
                         error!("Error sending connection close callback: {} (tube_id: {}, channel_name: {})", e, self.id, channel_name);
@@ -1874,12 +1984,14 @@ impl Tube {
                     }
                 }
             } else {
+                // Missing credentials: Python cannot be reached; allow auto-close.
                 warn!("Channel missing ksm_config or callback_token for connection_close callback (tube_id: {}, channel_name: {})", self.id, channel_name);
-                Ok(())
+                Ok(false)
             }
         } else {
+            // Channel already deregistered; allow auto-close.
             debug!("Channel not found when trying to send connection_close callback (tube_id: {}, channel_name: {})", self.id, channel_name);
-            Ok(())
+            Ok(false)
         }
     }
 
@@ -2038,6 +2150,19 @@ impl Tube {
             "Tube {} explicit close starting (reason: {:?})",
             tube_id, close_reason
         );
+
+        // 0. Mark the WebRTC peer connection as intentionally closing before anything else.
+        // The on_peer_connection_state_change Disconnected handler checks this flag before
+        // starting the 30-second ICE restart wait (webrtc_core.rs:1952, 1969). Without this,
+        // an ICE Disconnected event that fires concurrently (e.g. browser closed before
+        // close_tube() was called) races with the explicit close and delays cleanup by 30s.
+        {
+            let pc_arc = self.peer_connection.load();
+            if let Some(pc) = pc_arc.as_ref() {
+                pc.is_closing
+                    .store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
 
         // 1. Stop keepalive task to prevent spurious activity during shutdown
         if let Ok(mut task_guard) = self.keepalive_task.try_lock() {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tickflow
-Version: 0.1.18
+Version: 0.1.19
 Summary: TickFlow Python Client
 Author: TickFlow Team
 License: MIT
@@ -27,9 +27,12 @@ Provides-Extra: pandas
 Requires-Dist: pandas>=1.5.0; extra == "pandas"
 Provides-Extra: progress
 Requires-Dist: tqdm>=4.60.0; extra == "progress"
+Provides-Extra: realtime
+Requires-Dist: websockets>=13.0; extra == "realtime"
 Provides-Extra: all
 Requires-Dist: pandas>=1.5.0; extra == "all"
 Requires-Dist: tqdm>=4.60.0; extra == "all"
+Requires-Dist: websockets>=13.0; extra == "all"
 
 # TickFlow Python SDK
 

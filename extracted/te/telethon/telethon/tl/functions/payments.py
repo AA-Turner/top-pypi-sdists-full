@@ -6,7 +6,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeDataJSON, TypeInputCheckPasswordSRP, TypeInputInvoice, TypeInputMedia, TypeInputPaymentCredentials, TypeInputPeer, TypeInputSavedStarGift, TypeInputStarsTransaction, TypeInputStorePaymentPurpose, TypeInputUser, TypePaymentRequestedInfo, TypeStarGiftAttributeId, TypeStarsAmount
+    from ...tl.types import TypeDataJSON, TypeInputCheckPasswordSRP, TypeInputInvoice, TypeInputMedia, TypeInputPaymentCredentials, TypeInputPeer, TypeInputSavedStarGift, TypeInputStarGiftAuction, TypeInputStarsTransaction, TypeInputStorePaymentPurpose, TypeInputUser, TypePaymentRequestedInfo, TypeStarGiftAttributeId, TypeStarsAmount
 
 
 
@@ -369,6 +369,39 @@ class ConvertStarGiftRequest(TLRequest):
         return cls(stargift=_stargift)
 
 
+class CraftStarGiftRequest(TLRequest):
+    CONSTRUCTOR_ID = 0xb0f9684f
+    SUBCLASS_OF_ID = 0x8af52aac
+
+    def __init__(self, stargift: List['TypeInputSavedStarGift']):
+        """
+        :returns Updates: Instance of either UpdatesTooLong, UpdateShortMessage, UpdateShortChatMessage, UpdateShort, UpdatesCombined, Updates, UpdateShortSentMessage.
+        """
+        self.stargift = stargift
+
+    def to_dict(self):
+        return {
+            '_': 'CraftStarGiftRequest',
+            'stargift': [] if self.stargift is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.stargift]
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'Oh\xf9\xb0',
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.stargift)),b''.join(x._bytes() for x in self.stargift),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        reader.read_int()
+        _stargift = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _stargift.append(_x)
+
+        return cls(stargift=_stargift)
+
+
 class CreateStarGiftCollectionRequest(TLRequest):
     CONSTRUCTOR_ID = 0x1f4a0e87
     SUBCLASS_OF_ID = 0x43e0cb4a
@@ -645,7 +678,7 @@ class GetConnectedStarRefBotsRequest(TLRequest):
         }
 
     def _bytes(self):
-        assert ((self.offset_date or self.offset_date is not None) and (self.offset_link or self.offset_link is not None)) or ((self.offset_date is None or self.offset_date is False) and (self.offset_link is None or self.offset_link is False)), 'offset_date, offset_link parameters must all be False-y (like None) or all me True-y'
+        assert ((self.offset_date or self.offset_date is not None) and (self.offset_link or self.offset_link is not None)) or ((self.offset_date is None or self.offset_date is False) and (self.offset_link is None or self.offset_link is False)), 'offset_date, offset_link parameters must all be False-y (like None) or all be True-y'
         return b''.join((
             b'S\xa5iX',
             struct.pack('<I', (0 if self.offset_date is None or self.offset_date is False else 4) | (0 if self.offset_link is None or self.offset_link is False else 4)),
@@ -670,6 +703,42 @@ class GetConnectedStarRefBotsRequest(TLRequest):
             _offset_link = None
         _limit = reader.read_int()
         return cls(peer=_peer, limit=_limit, offset_date=_offset_date, offset_link=_offset_link)
+
+
+class GetCraftStarGiftsRequest(TLRequest):
+    CONSTRUCTOR_ID = 0xfd05dd00
+    SUBCLASS_OF_ID = 0xd5112897
+
+    def __init__(self, gift_id: int, offset: str, limit: int):
+        """
+        :returns payments.SavedStarGifts: Instance of SavedStarGifts.
+        """
+        self.gift_id = gift_id
+        self.offset = offset
+        self.limit = limit
+
+    def to_dict(self):
+        return {
+            '_': 'GetCraftStarGiftsRequest',
+            'gift_id': self.gift_id,
+            'offset': self.offset,
+            'limit': self.limit
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\x00\xdd\x05\xfd',
+            struct.pack('<q', self.gift_id),
+            self.serialize_bytes(self.offset),
+            struct.pack('<i', self.limit),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _gift_id = reader.read_long()
+        _offset = reader.tgread_string()
+        _limit = reader.read_int()
+        return cls(gift_id=_gift_id, offset=_offset, limit=_limit)
 
 
 class GetGiveawayInfoRequest(TLRequest):
@@ -822,7 +891,7 @@ class GetResaleStarGiftsRequest(TLRequest):
     CONSTRUCTOR_ID = 0x7a5fa236
     SUBCLASS_OF_ID = 0xb2dbb7e3
 
-    def __init__(self, gift_id: int, offset: str, limit: int, sort_by_price: Optional[bool]=None, sort_by_num: Optional[bool]=None, attributes_hash: Optional[int]=None, attributes: Optional[List['TypeStarGiftAttributeId']]=None):
+    def __init__(self, gift_id: int, offset: str, limit: int, sort_by_price: Optional[bool]=None, sort_by_num: Optional[bool]=None, for_craft: Optional[bool]=None, stars_only: Optional[bool]=None, attributes_hash: Optional[int]=None, attributes: Optional[List['TypeStarGiftAttributeId']]=None):
         """
         :returns payments.ResaleStarGifts: Instance of ResaleStarGifts.
         """
@@ -831,6 +900,8 @@ class GetResaleStarGiftsRequest(TLRequest):
         self.limit = limit
         self.sort_by_price = sort_by_price
         self.sort_by_num = sort_by_num
+        self.for_craft = for_craft
+        self.stars_only = stars_only
         self.attributes_hash = attributes_hash
         self.attributes = attributes
 
@@ -842,6 +913,8 @@ class GetResaleStarGiftsRequest(TLRequest):
             'limit': self.limit,
             'sort_by_price': self.sort_by_price,
             'sort_by_num': self.sort_by_num,
+            'for_craft': self.for_craft,
+            'stars_only': self.stars_only,
             'attributes_hash': self.attributes_hash,
             'attributes': [] if self.attributes is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.attributes]
         }
@@ -849,7 +922,7 @@ class GetResaleStarGiftsRequest(TLRequest):
     def _bytes(self):
         return b''.join((
             b'6\xa2_z',
-            struct.pack('<I', (0 if self.sort_by_price is None or self.sort_by_price is False else 2) | (0 if self.sort_by_num is None or self.sort_by_num is False else 4) | (0 if self.attributes_hash is None or self.attributes_hash is False else 1) | (0 if self.attributes is None or self.attributes is False else 8)),
+            struct.pack('<I', (0 if self.sort_by_price is None or self.sort_by_price is False else 2) | (0 if self.sort_by_num is None or self.sort_by_num is False else 4) | (0 if self.for_craft is None or self.for_craft is False else 16) | (0 if self.stars_only is None or self.stars_only is False else 32) | (0 if self.attributes_hash is None or self.attributes_hash is False else 1) | (0 if self.attributes is None or self.attributes is False else 8)),
             b'' if self.attributes_hash is None or self.attributes_hash is False else (struct.pack('<q', self.attributes_hash)),
             struct.pack('<q', self.gift_id),
             b'' if self.attributes is None or self.attributes is False else b''.join((b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.attributes)),b''.join(x._bytes() for x in self.attributes))),
@@ -863,6 +936,8 @@ class GetResaleStarGiftsRequest(TLRequest):
 
         _sort_by_price = bool(flags & 2)
         _sort_by_num = bool(flags & 4)
+        _for_craft = bool(flags & 16)
+        _stars_only = bool(flags & 32)
         if flags & 1:
             _attributes_hash = reader.read_long()
         else:
@@ -879,7 +954,7 @@ class GetResaleStarGiftsRequest(TLRequest):
             _attributes = None
         _offset = reader.tgread_string()
         _limit = reader.read_int()
-        return cls(gift_id=_gift_id, offset=_offset, limit=_limit, sort_by_price=_sort_by_price, sort_by_num=_sort_by_num, attributes_hash=_attributes_hash, attributes=_attributes)
+        return cls(gift_id=_gift_id, offset=_offset, limit=_limit, sort_by_price=_sort_by_price, sort_by_num=_sort_by_num, for_craft=_for_craft, stars_only=_stars_only, attributes_hash=_attributes_hash, attributes=_attributes)
 
 
 class GetSavedInfoRequest(TLRequest):
@@ -1010,6 +1085,94 @@ class GetSavedStarGiftsRequest(TLRequest):
         return cls(peer=_peer, offset=_offset, limit=_limit, exclude_unsaved=_exclude_unsaved, exclude_saved=_exclude_saved, exclude_unlimited=_exclude_unlimited, exclude_unique=_exclude_unique, sort_by_value=_sort_by_value, exclude_upgradable=_exclude_upgradable, exclude_unupgradable=_exclude_unupgradable, peer_color_available=_peer_color_available, exclude_hosted=_exclude_hosted, collection_id=_collection_id)
 
 
+class GetStarGiftActiveAuctionsRequest(TLRequest):
+    CONSTRUCTOR_ID = 0xa5d0514d
+    SUBCLASS_OF_ID = 0x917dd0c7
+
+    def __init__(self, hash: int):
+        """
+        :returns payments.StarGiftActiveAuctions: Instance of either StarGiftActiveAuctionsNotModified, StarGiftActiveAuctions.
+        """
+        self.hash = hash
+
+    def to_dict(self):
+        return {
+            '_': 'GetStarGiftActiveAuctionsRequest',
+            'hash': self.hash
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'MQ\xd0\xa5',
+            struct.pack('<q', self.hash),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _hash = reader.read_long()
+        return cls(hash=_hash)
+
+
+class GetStarGiftAuctionAcquiredGiftsRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x6ba2cbec
+    SUBCLASS_OF_ID = 0xa7080a1b
+
+    def __init__(self, gift_id: int):
+        """
+        :returns payments.StarGiftAuctionAcquiredGifts: Instance of StarGiftAuctionAcquiredGifts.
+        """
+        self.gift_id = gift_id
+
+    def to_dict(self):
+        return {
+            '_': 'GetStarGiftAuctionAcquiredGiftsRequest',
+            'gift_id': self.gift_id
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xec\xcb\xa2k',
+            struct.pack('<q', self.gift_id),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _gift_id = reader.read_long()
+        return cls(gift_id=_gift_id)
+
+
+class GetStarGiftAuctionStateRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x5c9ff4d6
+    SUBCLASS_OF_ID = 0x1a318599
+
+    def __init__(self, auction: 'TypeInputStarGiftAuction', version: int):
+        """
+        :returns payments.StarGiftAuctionState: Instance of StarGiftAuctionState.
+        """
+        self.auction = auction
+        self.version = version
+
+    def to_dict(self):
+        return {
+            '_': 'GetStarGiftAuctionStateRequest',
+            'auction': self.auction.to_dict() if isinstance(self.auction, TLObject) else self.auction,
+            'version': self.version
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xd6\xf4\x9f\\',
+            self.auction._bytes(),
+            struct.pack('<i', self.version),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _auction = reader.tgread_object()
+        _version = reader.read_int()
+        return cls(auction=_auction, version=_version)
+
+
 class GetStarGiftCollectionsRequest(TLRequest):
     CONSTRUCTOR_ID = 0x981b91dd
     SUBCLASS_OF_ID = 0xf01721ec
@@ -1043,6 +1206,34 @@ class GetStarGiftCollectionsRequest(TLRequest):
         _peer = reader.tgread_object()
         _hash = reader.read_long()
         return cls(peer=_peer, hash=_hash)
+
+
+class GetStarGiftUpgradeAttributesRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x6d038b58
+    SUBCLASS_OF_ID = 0xf46acef
+
+    def __init__(self, gift_id: int):
+        """
+        :returns payments.StarGiftUpgradeAttributes: Instance of StarGiftUpgradeAttributes.
+        """
+        self.gift_id = gift_id
+
+    def to_dict(self):
+        return {
+            '_': 'GetStarGiftUpgradeAttributesRequest',
+            'gift_id': self.gift_id
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'X\x8b\x03m',
+            struct.pack('<q', self.gift_id),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _gift_id = reader.read_long()
+        return cls(gift_id=_gift_id)
 
 
 class GetStarGiftUpgradePreviewRequest(TLRequest):
@@ -1731,6 +1922,40 @@ class ReorderStarGiftCollectionsRequest(TLRequest):
         return cls(peer=_peer, order=_order)
 
 
+class ResolveStarGiftOfferRequest(TLRequest):
+    CONSTRUCTOR_ID = 0xe9ce781c
+    SUBCLASS_OF_ID = 0x8af52aac
+
+    def __init__(self, offer_msg_id: int, decline: Optional[bool]=None):
+        """
+        :returns Updates: Instance of either UpdatesTooLong, UpdateShortMessage, UpdateShortChatMessage, UpdateShort, UpdatesCombined, Updates, UpdateShortSentMessage.
+        """
+        self.offer_msg_id = offer_msg_id
+        self.decline = decline
+
+    def to_dict(self):
+        return {
+            '_': 'ResolveStarGiftOfferRequest',
+            'offer_msg_id': self.offer_msg_id,
+            'decline': self.decline
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\x1cx\xce\xe9',
+            struct.pack('<I', (0 if self.decline is None or self.decline is False else 1)),
+            struct.pack('<i', self.offer_msg_id),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        flags = reader.read_int()
+
+        _decline = bool(flags & 1)
+        _offer_msg_id = reader.read_int()
+        return cls(offer_msg_id=_offer_msg_id, decline=_decline)
+
+
 class SaveStarGiftRequest(TLRequest):
     CONSTRUCTOR_ID = 0x2a2a697c
     SUBCLASS_OF_ID = 0xf5b399ac
@@ -1823,6 +2048,63 @@ class SendPaymentFormRequest(TLRequest):
         else:
             _tip_amount = None
         return cls(form_id=_form_id, invoice=_invoice, credentials=_credentials, requested_info_id=_requested_info_id, shipping_option_id=_shipping_option_id, tip_amount=_tip_amount)
+
+
+class SendStarGiftOfferRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x8fb86b41
+    SUBCLASS_OF_ID = 0x8af52aac
+
+    def __init__(self, peer: 'TypeInputPeer', slug: str, price: 'TypeStarsAmount', duration: int, random_id: int=None, allow_paid_stars: Optional[int]=None):
+        """
+        :returns Updates: Instance of either UpdatesTooLong, UpdateShortMessage, UpdateShortChatMessage, UpdateShort, UpdatesCombined, Updates, UpdateShortSentMessage.
+        """
+        self.peer = peer
+        self.slug = slug
+        self.price = price
+        self.duration = duration
+        self.random_id = random_id if random_id is not None else int.from_bytes(os.urandom(8), 'big', signed=True)
+        self.allow_paid_stars = allow_paid_stars
+
+    async def resolve(self, client, utils):
+        self.peer = utils.get_input_peer(await client.get_input_entity(self.peer))
+
+    def to_dict(self):
+        return {
+            '_': 'SendStarGiftOfferRequest',
+            'peer': self.peer.to_dict() if isinstance(self.peer, TLObject) else self.peer,
+            'slug': self.slug,
+            'price': self.price.to_dict() if isinstance(self.price, TLObject) else self.price,
+            'duration': self.duration,
+            'random_id': self.random_id,
+            'allow_paid_stars': self.allow_paid_stars
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'Ak\xb8\x8f',
+            struct.pack('<I', (0 if self.allow_paid_stars is None or self.allow_paid_stars is False else 1)),
+            self.peer._bytes(),
+            self.serialize_bytes(self.slug),
+            self.price._bytes(),
+            struct.pack('<i', self.duration),
+            struct.pack('<q', self.random_id),
+            b'' if self.allow_paid_stars is None or self.allow_paid_stars is False else (struct.pack('<q', self.allow_paid_stars)),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        flags = reader.read_int()
+
+        _peer = reader.tgread_object()
+        _slug = reader.tgread_string()
+        _price = reader.tgread_object()
+        _duration = reader.read_int()
+        _random_id = reader.read_long()
+        if flags & 1:
+            _allow_paid_stars = reader.read_long()
+        else:
+            _allow_paid_stars = None
+        return cls(peer=_peer, slug=_slug, price=_price, duration=_duration, random_id=_random_id, allow_paid_stars=_allow_paid_stars)
 
 
 class SendStarsFormRequest(TLRequest):

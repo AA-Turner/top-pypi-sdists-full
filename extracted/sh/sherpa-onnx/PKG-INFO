@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sherpa_onnx
-Version: 1.12.36
+Version: 1.12.37
 Home-page: https://github.com/k2-fsa/sherpa-onnx
 Author: The sherpa-onnx development team
 Author-email: dpovey@gmail.com

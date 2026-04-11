@@ -8,6 +8,7 @@ from ._common import parser_context
 from ._core import ArgumentParser
 from ._loaders_dumpers import get_loader_exceptions, load_value
 from ._optionals import _get_config_read_mode
+from ._required import clear_required, iter_required_keys
 from ._typehints import is_subclass_spec, resolve_class_path_by_name
 from ._util import import_object
 
@@ -32,9 +33,9 @@ class FromConfigMixin:
            based on a config file or dict.
 
     Attributes:
-        ``__from_config_init_defaults__``: Optional path to a config file for
+        __from_config_init_defaults__: Optional path to a config file for
             overriding ``__init__`` defaults.
-        ``__from_config_parser_kwargs__``: Additional kwargs to pass to the
+        __from_config_parser_kwargs__: Additional kwargs to pass to the
             ArgumentParser used for parsing configs.
     """
 
@@ -83,10 +84,8 @@ def _parse_class_kwargs_from_config(cls: Type[T], config: Union[str, PathLike, d
         config = {**config.get("init_args", {}), **config.get("dict_kwargs", {})}
 
     parser.add_class_arguments(cls)
-    for required in parser.required_args:
-        action = next((a for a in parser._actions if a.dest == required), None)
-        action._required = False  # type: ignore[union-attr]
-    parser.required_args.clear()
+    for required in iter_required_keys(parser):
+        clear_required(parser, required)
     cfg = parser.parse_object(config, defaults=False)
     return parser.instantiate_classes(cfg).as_dict(), cls
 

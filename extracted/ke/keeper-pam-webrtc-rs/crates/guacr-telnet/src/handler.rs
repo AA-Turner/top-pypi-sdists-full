@@ -3,7 +3,6 @@ use bytes::Bytes;
 use guacr_handlers::{
     // Connection utilities (timeout, keep-alive)
     connect_tcp_with_timeout,
-    is_keyboard_event_allowed_readonly,
     is_mouse_event_allowed_readonly,
     parse_blob_instruction,
     parse_end_instruction,
@@ -18,6 +17,7 @@ use guacr_handlers::{
     send_error_best_effort,
     send_name,
     send_ready,
+    ConnectionParameters,
     // Cursor
     CursorManager,
     EventBasedHandler,
@@ -40,13 +40,13 @@ use guacr_handlers::{
     PIPE_NAME_STDIN,
     PIPE_STREAM_STDOUT,
 };
-use guacr_protocol::{format_chunked_blobs, TextProtocolEncoder};
+use guacr_protocol::TextProtocolEncoder;
 use guacr_recorder::build_terminal_sink;
 use guacr_terminal::{
     format_clipboard_instructions, handle_mouse_selection, mouse_event_to_x11_sequence,
-    parse_clipboard_blob, parse_key_instruction, parse_mouse_instruction,
-    x11_keysym_to_bytes_with_backspace, x11_keysym_to_kitty_sequence, DirtyTracker, ModifierState,
-    MouseSelection, SelectionResult, TerminalConfig, TerminalEmulator, TerminalRenderer,
+    parse_clipboard_blob, parse_key_instruction, parse_mouse_instruction, DirtyTracker,
+    ModifierState, MouseSelection, SelectionResult, TerminalConfig, TerminalEmulator,
+    TerminalRenderer,
 };
 #[cfg(feature = "threat-detection")]
 use log::error;
@@ -107,6 +107,404 @@ impl TelnetHandler {
         Self::new(TelnetConfig::default())
     }
 }
+
+// ---------------------------------------------------------------------------
+// Render context helper
+// ---------------------------------------------------------------------------
+
+struct TelnetRenderContext<'a> {
+    renderer: &'a guacr_terminal::TerminalRenderer,
+    encoder: &'a mut guacr_protocol::TextProtocolEncoder,
+    stream_id: u32,
+    to_client: &'a tokio::sync::mpsc::Sender<bytes::Bytes>,
+    recorder: &'a mut Option<guacr_handlers::MultiFormatRecorder>,
+}
+
+impl<'a> TelnetRenderContext<'a> {
+    fn new(
+        renderer: &'a guacr_terminal::TerminalRenderer,
+        encoder: &'a mut guacr_protocol::TextProtocolEncoder,
+        stream_id: u32,
+        to_client: &'a tokio::sync::mpsc::Sender<bytes::Bytes>,
+        recorder: &'a mut Option<guacr_handlers::MultiFormatRecorder>,
+    ) -> Self {
+        Self {
+            renderer,
+            encoder,
+            stream_id,
+            to_client,
+            recorder,
+        }
+    }
+
+    async fn send_dirty(
+        &mut self,
+        terminal: &guacr_terminal::TerminalEmulator,
+        dirty_opt: Option<guacr_terminal::DirtyRect>,
+        rows: u16,
+        cols: u16,
+    ) -> guacr_handlers::Result<()> {
+        use base64::Engine;
+        use bytes::Bytes;
+        use guacr_handlers::{send_and_record, HandlerError};
+        use guacr_protocol::format_chunked_blobs;
+
+        const CHAR_W: u32 = 19;
+        const CHAR_H: u32 = 38;
+
+        if let Some(dirty) = dirty_opt {
+            let total_cells = (rows as usize) * (cols as usize);
+            let dirty_cells = dirty.cell_count();
+            let dirty_pct = (dirty_cells * 100) / total_cells;
+
+            // Check if this is a scroll operation
+            if let Some((scroll_dir, scroll_lines)) = dirty.is_scroll(rows, cols) {
+                if scroll_dir == 1 {
+                    // Scroll up: copy rows 1..N to rows 0..N-1, render new bottom line(s)
+                    trace!(
+                        "Telnet: Scroll up {} lines (copy optimization)",
+                        scroll_lines
+                    );
+
+                    let copy_instr = guacr_terminal::TerminalRenderer::format_copy_instruction(
+                        scroll_lines,        // src_row
+                        0,                   // src_col
+                        cols,                // width_chars
+                        rows - scroll_lines, // height_chars
+                        0,                   // dst_row
+                        0,                   // dst_col
+                        CHAR_W,              // char_width
+                        CHAR_H,              // char_height
+                        0,                   // layer
+                    );
+                    send_and_record(self.to_client, self.recorder, Bytes::from(copy_instr))
+                        .await
+                        .map_err(HandlerError::ChannelError)?;
+
+                    // Render only the new bottom line(s)
+                    // Expand by 1 cell in all directions for JPEG artifacts
+                    let r_min_row = dirty.min_row.saturating_sub(1);
+                    let r_max_row = (dirty.max_row + 1).min(rows - 1);
+                    let r_min_col = dirty.min_col.saturating_sub(1);
+                    let r_max_col = (dirty.max_col + 1).min(cols - 1);
+
+                    let (jpeg, x_px, y_px, _, _) = self
+                        .renderer
+                        .render_region(
+                            terminal.screen(),
+                            r_min_row,
+                            r_max_row,
+                            r_min_col,
+                            r_max_col,
+                        )
+                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+
+                    let base64_data = base64::engine::general_purpose::STANDARD.encode(&jpeg);
+
+                    let img_instr = self.encoder.format_img_instruction(
+                        self.stream_id,
+                        0,
+                        x_px as i32,
+                        y_px as i32,
+                        "image/jpeg",
+                    );
+                    send_and_record(self.to_client, self.recorder, img_instr.freeze())
+                        .await
+                        .map_err(HandlerError::ChannelError)?;
+
+                    let blob_instructions =
+                        format_chunked_blobs(self.stream_id, &base64_data, None);
+                    for instr in blob_instructions {
+                        send_and_record(self.to_client, self.recorder, Bytes::from(instr))
+                            .await
+                            .map_err(HandlerError::ChannelError)?;
+                    }
+                } else {
+                    // Scroll down: render full screen
+                    let jpeg = self
+                        .renderer
+                        .render_screen(terminal.screen(), terminal.size().0, terminal.size().1)
+                        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+
+                    let base64_data = base64::engine::general_purpose::STANDARD.encode(&jpeg);
+
+                    let img_instr =
+                        self.encoder
+                            .format_img_instruction(self.stream_id, 0, 0, 0, "image/jpeg");
+                    send_and_record(self.to_client, self.recorder, img_instr.freeze())
+                        .await
+                        .map_err(HandlerError::ChannelError)?;
+
+                    let blob_instructions =
+                        format_chunked_blobs(self.stream_id, &base64_data, None);
+                    for instr in blob_instructions {
+                        send_and_record(self.to_client, self.recorder, Bytes::from(instr))
+                            .await
+                            .map_err(HandlerError::ChannelError)?;
+                    }
+                }
+            } else if dirty_pct < 30 {
+                // Partial update: render only dirty region
+                trace!(
+                    "Telnet: Partial update: {}% dirty ({} cells)",
+                    dirty_pct,
+                    dirty_cells
+                );
+
+                // Expand by 1 cell in all directions for JPEG artifacts
+                let r_min_row = dirty.min_row.saturating_sub(1);
+                let r_max_row = (dirty.max_row + 1).min(rows - 1);
+                let r_min_col = dirty.min_col.saturating_sub(1);
+                let r_max_col = (dirty.max_col + 1).min(cols - 1);
+
+                let (jpeg, x_px, y_px, _, _) = self
+                    .renderer
+                    .render_region(
+                        terminal.screen(),
+                        r_min_row,
+                        r_max_row,
+                        r_min_col,
+                        r_max_col,
+                    )
+                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+
+                let base64_data = base64::engine::general_purpose::STANDARD.encode(&jpeg);
+
+                let img_instr = self.encoder.format_img_instruction(
+                    self.stream_id,
+                    0,
+                    x_px as i32,
+                    y_px as i32,
+                    "image/jpeg",
+                );
+                send_and_record(self.to_client, self.recorder, img_instr.freeze())
+                    .await
+                    .map_err(HandlerError::ChannelError)?;
+
+                let blob_instructions = format_chunked_blobs(self.stream_id, &base64_data, None);
+                for instr in blob_instructions {
+                    send_and_record(self.to_client, self.recorder, Bytes::from(instr))
+                        .await
+                        .map_err(HandlerError::ChannelError)?;
+                }
+            } else {
+                // Large update (>= 30% dirty): render full screen
+                trace!("Telnet: Full screen update: {}% dirty", dirty_pct);
+
+                let jpeg = self
+                    .renderer
+                    .render_screen(terminal.screen(), terminal.size().0, terminal.size().1)
+                    .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+
+                let base64_data = base64::engine::general_purpose::STANDARD.encode(&jpeg);
+
+                let img_instr =
+                    self.encoder
+                        .format_img_instruction(self.stream_id, 0, 0, 0, "image/jpeg");
+                send_and_record(self.to_client, self.recorder, img_instr.freeze())
+                    .await
+                    .map_err(HandlerError::ChannelError)?;
+
+                let blob_instructions = format_chunked_blobs(self.stream_id, &base64_data, None);
+                for instr in blob_instructions {
+                    send_and_record(self.to_client, self.recorder, Bytes::from(instr))
+                        .await
+                        .map_err(HandlerError::ChannelError)?;
+                }
+            }
+        } else {
+            // Full screen update (no dirty region info)
+            let jpeg = self
+                .renderer
+                .render_screen(terminal.screen(), terminal.size().0, terminal.size().1)
+                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+
+            let base64_data = base64::engine::general_purpose::STANDARD.encode(&jpeg);
+
+            let img_instr =
+                self.encoder
+                    .format_img_instruction(self.stream_id, 0, 0, 0, "image/jpeg");
+            send_and_record(self.to_client, self.recorder, img_instr.freeze())
+                .await
+                .map_err(HandlerError::ChannelError)?;
+
+            let blob_instructions = format_chunked_blobs(self.stream_id, &base64_data, None);
+            for instr in blob_instructions {
+                send_and_record(self.to_client, self.recorder, Bytes::from(instr))
+                    .await
+                    .map_err(HandlerError::ChannelError)?;
+            }
+        }
+
+        // Frame boundary marker
+        let sync_instr = self
+            .renderer
+            .format_sync_instruction(guacr_terminal::current_time_millis());
+        send_and_record(
+            self.to_client,
+            self.recorder,
+            bytes::Bytes::from(sync_instr),
+        )
+        .await
+        .map_err(HandlerError::ChannelError)?;
+
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Key event helper
+// ---------------------------------------------------------------------------
+
+struct TelnetKeyOutput {
+    /// Bytes to write to the telnet server (empty if nothing to send)
+    server_bytes: Vec<u8>,
+    /// Whether to reset the dirty tracker (large paste > 100 chars)
+    reset_dirty_tracker: bool,
+    /// Updated clipboard if paste occurred (to surface the paste_text used)
+    /// None means no change to stored_clipboard
+    new_clipboard: Option<String>,
+}
+
+fn handle_key_event(
+    key_event: guacr_terminal::KeyEvent,
+    modifier_state: &mut guacr_terminal::ModifierState,
+    security: &guacr_handlers::HandlerSecuritySettings,
+    stored_clipboard: &str,
+    terminal: &guacr_terminal::TerminalEmulator,
+    backspace_code: u8,
+) -> Option<TelnetKeyOutput> {
+    use guacr_handlers::is_keyboard_event_allowed_readonly;
+    use guacr_terminal::{x11_keysym_to_bytes_with_backspace, x11_keysym_to_kitty_sequence};
+
+    // Update modifier state; return None (skip) if this is a modifier key alone
+    if modifier_state.update_modifier(key_event.keysym, key_event.pressed) {
+        return None;
+    }
+
+    // Security: Check read-only mode
+    if security.read_only
+        && !is_keyboard_event_allowed_readonly(key_event.keysym, modifier_state.control)
+    {
+        trace!("Telnet: Keyboard input blocked (read-only mode)");
+        return None;
+    }
+
+    // Handle paste shortcuts (matching guacd's behavior):
+    // - Ctrl+Shift+V (Linux/Windows): keysym 'V' (0x56) with ctrl+shift
+    // - Cmd+V (Mac): keysym 'v' (0x76) with meta
+    let is_paste = key_event.pressed
+        && ((key_event.keysym == 0x56 && modifier_state.control && modifier_state.shift)
+            || (key_event.keysym == 0x76 && modifier_state.meta));
+
+    if is_paste {
+        // Security: Check if paste is allowed
+        if !security.is_paste_allowed() {
+            debug!("Telnet: Paste blocked (disabled or read-only mode)");
+            return None;
+        }
+
+        if stored_clipboard.is_empty() {
+            debug!("Telnet: Paste shortcut pressed but clipboard is empty");
+            return None;
+        }
+
+        // Check clipboard buffer size limit
+        let max_size = security.clipboard_buffer_size;
+        let paste_text = if stored_clipboard.len() > max_size {
+            warn!(
+                "Telnet: Clipboard truncated from {} to {} bytes",
+                stored_clipboard.len(),
+                max_size
+            );
+            &stored_clipboard[..max_size]
+        } else {
+            stored_clipboard
+        };
+
+        debug!(
+            "Telnet: Paste shortcut - Pasting {} chars from clipboard",
+            paste_text.len()
+        );
+
+        // Send using bracketed paste mode for safety
+        let mut paste_data = Vec::new();
+        paste_data.extend_from_slice(b"\x1b[200~"); // Start bracketed paste
+        paste_data.extend_from_slice(paste_text.as_bytes());
+        paste_data.extend_from_slice(b"\x1b[201~"); // End bracketed paste
+
+        // CRITICAL: Force dirty tracker reset after large paste
+        // Large pastes can cause dirty region tracking to fail, resulting in
+        // partial screen rendering (black screen with only small region visible)
+        // Reset forces next render to be full screen
+        let reset_dirty_tracker = if paste_text.len() > 100 {
+            debug!(
+                "Telnet: Large paste detected ({} chars), resetting dirty tracker to force full render",
+                paste_text.len()
+            );
+            true
+        } else {
+            false
+        };
+
+        return Some(TelnetKeyOutput {
+            server_bytes: paste_data,
+            reset_dirty_tracker,
+            new_clipboard: None,
+        });
+    }
+
+    // Handle copy shortcuts - ignore them since selection already copies
+    // - Ctrl+Shift+C (Linux/Windows): keysym 'C' (0x43) with ctrl+shift
+    // - Cmd+C (Mac): keysym 'c' (0x63) with meta
+    let is_copy = key_event.pressed
+        && ((key_event.keysym == 0x43 && modifier_state.control && modifier_state.shift)
+            || (key_event.keysym == 0x63 && modifier_state.meta));
+
+    if is_copy {
+        debug!("Telnet: Copy shortcut pressed - ignoring (selection already copies)");
+        return None;
+    }
+
+    // Check if Kitty keyboard protocol is enabled
+    let kitty_level = terminal.kitty_keyboard_level();
+
+    // Convert to terminal bytes with current modifier state and configured backspace
+    // Use Kitty keyboard protocol if enabled, otherwise use legacy
+    let bytes = if kitty_level > 0 {
+        trace!(
+            "Telnet: Using Kitty keyboard protocol level {}",
+            kitty_level
+        );
+        x11_keysym_to_kitty_sequence(
+            key_event.keysym,
+            key_event.pressed,
+            Some(modifier_state),
+            backspace_code,
+            false, // Telnet doesn't use application cursor mode
+            kitty_level,
+        )
+    } else {
+        x11_keysym_to_bytes_with_backspace(
+            key_event.keysym,
+            key_event.pressed,
+            Some(modifier_state),
+            backspace_code,
+        )
+    };
+
+    if bytes.is_empty() {
+        return None;
+    }
+
+    Some(TelnetKeyOutput {
+        server_bytes: bytes,
+        reset_dirty_tracker: false,
+        new_clipboard: None,
+    })
+}
+
+// ---------------------------------------------------------------------------
 
 #[async_trait]
 impl ProtocolHandler for TelnetHandler {
@@ -171,14 +569,9 @@ impl ProtocolHandler for TelnetHandler {
         );
 
         // Extract connection parameters
-        let hostname = params
-            .get("hostname")
-            .ok_or_else(|| HandlerError::MissingParameter("hostname".to_string()))?;
-
-        let port: u16 = params
-            .get("port")
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(self.config.default_port);
+        let conn = ConnectionParameters::from_params(&params, self.config.default_port)?;
+        let hostname = conn.hostname;
+        let port = conn.port;
 
         // IMPORTANT: Always use DEFAULT size during initialization (like guacd does)
         // The client will send a resize instruction with actual browser dimensions after handshake
@@ -520,114 +913,28 @@ impl ProtocolHandler for TelnetHandler {
                     let msg_str = String::from_utf8_lossy(&msg);
 
                     if let Some(key_event) = parse_key_instruction(&msg_str) {
-                        // Update modifier state if this is a modifier key
-                        if modifier_state.update_modifier(key_event.keysym, key_event.pressed) {
-                            // Don't send anything for modifier keys alone
+                        let Some(key_out) = handle_key_event(
+                            key_event,
+                            &mut modifier_state,
+                            &security,
+                            &stored_clipboard,
+                            &terminal,
+                            backspace_code,
+                        ) else {
                             continue;
-                        }
-
-                        // Security: Check read-only mode
-                        if security.read_only
-                            && !is_keyboard_event_allowed_readonly(key_event.keysym, modifier_state.control)
-                        {
-                            trace!("Telnet: Keyboard input blocked (read-only mode)");
-                            continue;
-                        }
-
-                        // Handle paste shortcuts (matching guacd's behavior):
-                        // - Ctrl+Shift+V (Linux/Windows): keysym 'V' (0x56) with ctrl+shift
-                        // - Cmd+V (Mac): keysym 'v' (0x76) with meta
-                        let is_paste = key_event.pressed && (
-                            (key_event.keysym == 0x56 && modifier_state.control && modifier_state.shift) ||
-                            (key_event.keysym == 0x76 && modifier_state.meta)
-                        );
-
-                        if is_paste {
-                            // Security: Check if paste is allowed
-                            if !security.is_paste_allowed() {
-                                debug!("Telnet: Paste blocked (disabled or read-only mode)");
-                                continue;
-                            }
-
-                            if stored_clipboard.is_empty() {
-                                debug!("Telnet: Paste shortcut pressed but clipboard is empty");
-                                continue;
-                            }
-
-                            // Check clipboard buffer size limit
-                            let max_size = security.clipboard_buffer_size;
-                            let paste_text = if stored_clipboard.len() > max_size {
-                                warn!("Telnet: Clipboard truncated from {} to {} bytes", stored_clipboard.len(), max_size);
-                                &stored_clipboard[..max_size]
-                            } else {
-                                &stored_clipboard
-                            };
-
-                            debug!("Telnet: Paste shortcut - Pasting {} chars from clipboard", paste_text.len());
-
-                            // Send using bracketed paste mode for safety
-                            let mut paste_data = Vec::new();
-                            paste_data.extend_from_slice(b"\x1b[200~"); // Start bracketed paste
-                            paste_data.extend_from_slice(paste_text.as_bytes());
-                            paste_data.extend_from_slice(b"\x1b[201~"); // End bracketed paste
-
-                            write_half.write_all(&paste_data[..]).await
-                                .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                            // CRITICAL: Force dirty tracker reset after large paste
-                            // Large pastes can cause dirty region tracking to fail, resulting in
-                            // partial screen rendering (black screen with only small region visible)
-                            // Reset forces next render to be full screen
-                            if paste_text.len() > 100 {
-                                debug!("Telnet: Large paste detected ({} chars), resetting dirty tracker to force full render", paste_text.len());
-                                dirty_tracker = DirtyTracker::new(rows, cols);
-                            }
-
-                            continue; // Don't send the 'V' key itself
-                        }
-
-                        // Handle copy shortcuts - ignore them since selection already copies
-                        // - Ctrl+Shift+C (Linux/Windows): keysym 'C' (0x43) with ctrl+shift
-                        // - Cmd+C (Mac): keysym 'c' (0x63) with meta
-                        let is_copy = key_event.pressed && (
-                            (key_event.keysym == 0x43 && modifier_state.control && modifier_state.shift) ||
-                            (key_event.keysym == 0x63 && modifier_state.meta)
-                        );
-
-                        if is_copy {
-                            debug!("Telnet: Copy shortcut pressed - ignoring (selection already copies)");
-                            continue;
-                        }
-
-                        // Check if Kitty keyboard protocol is enabled
-                        let kitty_level = terminal.kitty_keyboard_level();
-
-                        // Convert to terminal bytes with current modifier state and configured backspace
-                        // Use Kitty keyboard protocol if enabled, otherwise use legacy
-                        let bytes = if kitty_level > 0 {
-                            trace!("Telnet: Using Kitty keyboard protocol level {}", kitty_level);
-                            x11_keysym_to_kitty_sequence(
-                                key_event.keysym,
-                                key_event.pressed,
-                                Some(&modifier_state),
-                                backspace_code,
-                                false, // Telnet doesn't use application cursor mode
-                                kitty_level,
-                            )
-                        } else {
-                            x11_keysym_to_bytes_with_backspace(
-                                key_event.keysym,
-                                key_event.pressed,
-                                Some(&modifier_state),
-                                backspace_code,
-                            )
                         };
-                        if !bytes.is_empty() {
+                        if key_out.reset_dirty_tracker {
+                            dirty_tracker = DirtyTracker::new(rows, cols);
+                        }
+                        if let Some(clip) = key_out.new_clipboard {
+                            stored_clipboard = clip;
+                        }
+                        if !key_out.server_bytes.is_empty() {
                             // Threat detection: Analyze live keyboard input before sending to server
                             #[cfg(feature = "threat-detection")]
                             if let Some(ref detector) = threat_detector {
-                                if let Ok(keystroke_sequence) = String::from_utf8(bytes.clone()) {
-                                    match detector.analyze_keystroke_sequence(&session_id, &keystroke_sequence, &username_for_threat, &hostname_for_threat, "telnet").await {
+                                if let Ok(seq) = String::from_utf8(key_out.server_bytes.clone()) {
+                                    match detector.analyze_keystroke_sequence(&session_id, &seq, &username_for_threat, &hostname_for_threat, "telnet").await {
                                         Ok(threat) => {
                                             if threat.should_terminate() {
                                                 error!("Telnet: TERMINATING SESSION due to threat in keyboard input: {}", threat.description);
@@ -646,15 +953,13 @@ impl ProtocolHandler for TelnetHandler {
                                     }
                                 }
                             }
-
                             // Record input if enabled
                             if let Some(ref mut rec) = recorder {
                                 if recording_config.recording_include_keys {
-                                    let _ = rec.record_input(&bytes);
+                                    let _ = rec.record_input(&key_out.server_bytes);
                                 }
                             }
-
-                            write_half.write_all(&bytes).await
+                            write_half.write_all(&key_out.server_bytes).await
                                 .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
                         }
                     } else if msg_str.contains(".clipboard,") {
@@ -797,193 +1102,15 @@ impl ProtocolHandler for TelnetHandler {
                 // Debounce tick - render if screen changed (ported from SSH)
                 _ = debounce.tick() => {
                     if terminal.is_dirty() {
-                        // Find what changed (dirty region optimization)
-                        if let Some(dirty) = dirty_tracker.find_dirty_region(terminal.screen()) {
-                            let total_cells = (rows as usize) * (cols as usize);
-                            let dirty_cells = dirty.cell_count();
-                            let dirty_pct = (dirty_cells * 100) / total_cells;
-
-                            // Check if this is a scroll operation
-                            if let Some((scroll_dir, scroll_lines)) = dirty.is_scroll(rows, cols) {
-                                if scroll_dir == 1 {
-                                    // Scroll up: copy rows 1..N to rows 0..N-1, render new bottom line(s)
-                                    trace!("Telnet: Scroll up {} lines (copy optimization)", scroll_lines);
-
-                                    // Get character dimensions from renderer
-                                    const CHAR_W: u32 = 19;
-                                    const CHAR_H: u32 = 38;
-
-                                    let copy_instr = TerminalRenderer::format_copy_instruction(
-                                        scroll_lines,  // src_row
-                                        0,             // src_col
-                                        cols,          // width_chars
-                                        rows - scroll_lines, // height_chars
-                                        0,             // dst_row
-                                        0,             // dst_col
-                                        CHAR_W,        // char_width
-                                        CHAR_H,        // char_height
-                                        0,             // layer
-                                    );
-                                    send_and_record(&to_client, &mut recorder, Bytes::from(copy_instr)).await
-                                        .map_err(HandlerError::ChannelError)?;
-
-                                    // Render only the new bottom line(s)
-                                    // Expand by 1 cell in all directions for JPEG artifacts
-                                    let r_min_row = dirty.min_row.saturating_sub(1);
-                                    let r_max_row = (dirty.max_row + 1).min(rows - 1);
-                                    let r_min_col = dirty.min_col.saturating_sub(1);
-                                    let r_max_col = (dirty.max_col + 1).min(cols - 1);
-
-                                    let (jpeg, x_px, y_px, _, _) = renderer.render_region(
-                                        terminal.screen(),
-                                        r_min_row,
-                                        r_max_row,
-                                        r_min_col,
-                                        r_max_col,
-                                    ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                                    // Base64 encode and send via modern zero-allocation protocol
-                                    let base64_data = base64::Engine::encode(
-                                        &base64::engine::general_purpose::STANDARD,
-                                        &jpeg,
-                                    );
-
-                                    let img_instr = protocol_encoder.format_img_instruction(
-                                        stream_id, 0, x_px as i32, y_px as i32, "image/jpeg",
-                                    );
-                                    send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                                        .map_err(HandlerError::ChannelError)?;
-
-                                    let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                                    for instr in blob_instructions {
-                                        send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                            .map_err(HandlerError::ChannelError)?;
-                                    }
-                                } else {
-                                    // Scroll down: render full screen
-                                    let jpeg = renderer.render_screen(
-                                        terminal.screen(),
-                                        terminal.size().0,
-                                        terminal.size().1,
-                                    ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                                    // Base64 encode and send via modern zero-allocation protocol
-                                    let base64_data = base64::Engine::encode(
-                                        &base64::engine::general_purpose::STANDARD,
-                                        &jpeg,
-                                    );
-
-                                    let img_instr = protocol_encoder.format_img_instruction(
-                                        stream_id, 0, 0, 0, "image/jpeg",
-                                    );
-                                    send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                                        .map_err(HandlerError::ChannelError)?;
-
-                                    let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                                    for instr in blob_instructions {
-                                        send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                            .map_err(HandlerError::ChannelError)?;
-                                    }
-                                }
-                            } else if dirty_pct < 30 {
-                                // Partial update: render only dirty region
-                                trace!("Telnet: Partial update: {}% dirty ({} cells)", dirty_pct, dirty_cells);
-
-                                // Expand by 1 cell in all directions for JPEG artifacts
-                                let r_min_row = dirty.min_row.saturating_sub(1);
-                                let r_max_row = (dirty.max_row + 1).min(rows - 1);
-                                let r_min_col = dirty.min_col.saturating_sub(1);
-                                let r_max_col = (dirty.max_col + 1).min(cols - 1);
-
-                                let (jpeg, x_px, y_px, _, _) = renderer.render_region(
-                                    terminal.screen(),
-                                    r_min_row,
-                                    r_max_row,
-                                    r_min_col,
-                                    r_max_col,
-                                ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                                // Base64 encode and send via modern zero-allocation protocol
-                                let base64_data = base64::Engine::encode(
-                                    &base64::engine::general_purpose::STANDARD,
-                                    &jpeg,
-                                );
-
-                                let img_instr = protocol_encoder.format_img_instruction(
-                                    stream_id, 0, x_px as i32, y_px as i32, "image/jpeg",
-                                );
-                                send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                                    .map_err(HandlerError::ChannelError)?;
-
-                                let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                                for instr in blob_instructions {
-                                    send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                        .map_err(HandlerError::ChannelError)?;
-                                }
-                            } else {
-                                // Large update (>= 30% dirty): render full screen
-                                trace!("Telnet: Full screen update: {}% dirty", dirty_pct);
-
-                                let jpeg = renderer.render_screen(
-                                    terminal.screen(),
-                                    terminal.size().0,
-                                    terminal.size().1,
-                                ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                                let base64_data = base64::Engine::encode(
-                                    &base64::engine::general_purpose::STANDARD,
-                                    &jpeg,
-                                );
-
-                                let img_instr = protocol_encoder.format_img_instruction(
-                                    stream_id, 0, 0, 0, "image/jpeg",
-                                );
-                                send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                                    .map_err(HandlerError::ChannelError)?;
-
-                                let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                                for instr in blob_instructions {
-                                    send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                        .map_err(HandlerError::ChannelError)?;
-                                }
-                            }
-                        } else {
-                            // Full screen update
-                            let jpeg = renderer.render_screen(
-                                terminal.screen(),
-                                terminal.size().0,
-                                terminal.size().1,
-                            ).map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
-
-                            // Base64 encode and send via modern zero-allocation protocol
-                            let base64_data = base64::Engine::encode(
-                                &base64::engine::general_purpose::STANDARD,
-                                &jpeg,
-                            );
-
-                            let img_instr = protocol_encoder.format_img_instruction(
-                                stream_id, 0, 0, 0, "image/jpeg",
-                            );
-                            send_and_record(&to_client, &mut recorder, img_instr.freeze()).await
-                                .map_err(HandlerError::ChannelError)?;
-
-                            let blob_instructions = format_chunked_blobs(stream_id, &base64_data, None);
-                            for instr in blob_instructions {
-                                send_and_record(&to_client, &mut recorder, Bytes::from(instr)).await
-                                    .map_err(HandlerError::ChannelError)?;
-                            }
-                        }
-
-                        // Frame boundary marker
-                        let sync_instr = renderer.format_sync_instruction(
-                            std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap()
-                                .as_millis() as u64
+                        let dirty_opt = dirty_tracker.find_dirty_region(terminal.screen());
+                        let mut ctx = TelnetRenderContext::new(
+                            &renderer,
+                            &mut protocol_encoder,
+                            stream_id,
+                            &to_client,
+                            &mut recorder,
                         );
-                        send_and_record(&to_client, &mut recorder, Bytes::from(sync_instr)).await
-                            .map_err(HandlerError::ChannelError)?;
-
+                        ctx.send_dirty(&terminal, dirty_opt, rows, cols).await?;
                         terminal.clear_dirty();
                     }
                 }
@@ -1000,6 +1127,15 @@ impl ProtocolHandler for TelnetHandler {
         for instr in end_instructions {
             let _ = to_client.send(Bytes::from(instr)).await;
         }
+
+        // Record a final sync so the recording ends on a sync instruction
+        // rather than on a mouse/key event.
+        let _ = send_and_record(
+            &to_client,
+            &mut recorder,
+            Bytes::from_static(b"4.sync,1.0;"),
+        )
+        .await;
 
         // Finalize recording
         if let Some(rec) = recorder {

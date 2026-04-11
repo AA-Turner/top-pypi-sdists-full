@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: firebirdsql
-Version: 1.4.2
+Version: 1.4.3
 Summary: Firebird RDBMS bindings for python.
 Author-email: Hajime Nakagami <nakagami@gmail.com>
 Project-URL: Project, https://github.com/nakagami/pyfirebirdsql/
@@ -12,7 +12,6 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Database
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Dynamic: license-file
 
 ================
 PyfirebirdSQL

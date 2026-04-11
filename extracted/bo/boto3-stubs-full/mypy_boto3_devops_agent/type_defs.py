@@ -161,6 +161,8 @@ __all__ = (
     "MCPServerAuthorizationConfigTypeDef",
     "MCPServerAuthorizationDiscoveryConfigTypeDef",
     "MCPServerBearerTokenConfigTypeDef",
+    "MCPServerConfigurationOutputTypeDef",
+    "MCPServerConfigurationTypeDef",
     "MCPServerDetailsTypeDef",
     "MCPServerGrafanaConfigurationOutputTypeDef",
     "MCPServerGrafanaConfigurationTypeDef",
@@ -706,6 +708,14 @@ class MCPServerOAuthClientCredentialsConfigTypeDef(TypedDict):
     clientName: NotRequired[str]
     exchangeParameters: NotRequired[Mapping[str, str]]
     scopes: NotRequired[Sequence[str]]
+
+
+class MCPServerConfigurationOutputTypeDef(TypedDict):
+    tools: list[str]
+
+
+class MCPServerConfigurationTypeDef(TypedDict):
+    tools: Sequence[str]
 
 
 class MCPServerGrafanaConfigurationOutputTypeDef(TypedDict):
@@ -1508,7 +1518,10 @@ class ServiceConfigurationOutputTypeDef(TypedDict):
     dynatrace: NotRequired[DynatraceConfigurationOutputTypeDef]
     servicenow: NotRequired[ServiceNowConfigurationOutputTypeDef]
     mcpservernewrelic: NotRequired[MCPServerNewRelicConfigurationTypeDef]
+    mcpserverdatadog: NotRequired[dict[str, Any]]
+    mcpserver: NotRequired[MCPServerConfigurationOutputTypeDef]
     gitlab: NotRequired[GitLabConfigurationTypeDef]
+    mcpserversplunk: NotRequired[dict[str, Any]]
     eventChannel: NotRequired[dict[str, Any]]
     azure: NotRequired[AzureConfigurationTypeDef]
     azuredevops: NotRequired[AzureDevOpsConfigurationTypeDef]
@@ -1524,7 +1537,10 @@ class ServiceConfigurationTypeDef(TypedDict):
     dynatrace: NotRequired[DynatraceConfigurationTypeDef]
     servicenow: NotRequired[ServiceNowConfigurationTypeDef]
     mcpservernewrelic: NotRequired[MCPServerNewRelicConfigurationTypeDef]
+    mcpserverdatadog: NotRequired[Mapping[str, Any]]
+    mcpserver: NotRequired[MCPServerConfigurationTypeDef]
     gitlab: NotRequired[GitLabConfigurationTypeDef]
+    mcpserversplunk: NotRequired[Mapping[str, Any]]
     eventChannel: NotRequired[Mapping[str, Any]]
     azure: NotRequired[AzureConfigurationTypeDef]
     azuredevops: NotRequired[AzureDevOpsConfigurationTypeDef]

@@ -3,7 +3,8 @@
 // Uses ratatui TestBackend as a layout engine and fontdue (via RatatuiRenderer)
 // to produce a JPEG with real text — the same pipeline as the database handler.
 
-use guacr_terminal::{RatatuiRenderer, TerminalError};
+pub(crate) use guacr_terminal::CHAR_HEIGHT;
+use guacr_terminal::{RatatuiRenderer, TerminalError, CHAR_WIDTH};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
@@ -12,9 +13,6 @@ use ratatui::{
         Table, TableState,
     },
 };
-
-const CHAR_WIDTH: u32 = 9;
-pub(crate) const CHAR_HEIGHT: u32 = 18;
 
 // Ratatui layout (rows from top):
 //   0-2  : path bar block (Constraint::Length(3))

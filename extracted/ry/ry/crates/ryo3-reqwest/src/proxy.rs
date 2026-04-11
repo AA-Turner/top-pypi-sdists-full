@@ -1,9 +1,7 @@
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 use ryo3_http::PyHeaders;
-use ryo3_macro_rules::py_type_err;
-use ryo3_macro_rules::py_value_err;
-use ryo3_macro_rules::py_value_error;
+use ryo3_macro_rules::{py_type_err, py_value_err, py_value_error};
 use ryo3_url::UrlLike;
 
 #[pyclass(name = "Proxy", frozen, immutable_type, skip_from_py_object)]
@@ -102,7 +100,7 @@ impl<'a, 'py> FromPyObject<'a, 'py> for ProxyKwargs {
         let py = obj.py();
         let basic_auth = d
             .get_item(pyo3::intern!(py, "basic_auth"))?
-            .map(|ba| ba.extract::<(String, String)>())
+            .map(|ba| ba.extract::<(String, String)>()) // typos:ignore
             .transpose()?;
         let no_proxy = d
             .get_item(pyo3::intern!(py, "no_proxy"))?

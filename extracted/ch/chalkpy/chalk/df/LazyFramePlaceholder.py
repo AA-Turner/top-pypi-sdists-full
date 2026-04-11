@@ -865,7 +865,7 @@ class LazyFramePlaceholder:
         >>> # result contains all 5 rows from df1, df2, and df3, in any order
         """
 
-        return self._construct(self_dataframe=self, function_name="union_all", others=others)
+        return self._construct(self_dataframe=self, function_name="union_all", args=others)
 
     def union(self, other: "LazyFramePlaceholder") -> "LazyFramePlaceholder":
         """Combine this DataFrame with another by stacking rows.
@@ -903,7 +903,7 @@ class LazyFramePlaceholder:
         union_all : Union with multiple DataFrames at once.
         """
 
-        return self._construct(self_dataframe=self, function_name="union", other=other)
+        return self._construct(self_dataframe=self, function_name="union", args=(other,))
 
     def project(self, columns: typing.Mapping[str, Underscore | typing.Any]) -> "LazyFramePlaceholder":
         """Project to a new set of columns using expressions.

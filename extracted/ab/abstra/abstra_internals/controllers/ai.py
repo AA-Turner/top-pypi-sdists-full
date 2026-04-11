@@ -85,7 +85,7 @@ class AiController:
     def _save_file_to_project(
         self,
         file_name: str,
-        file_content: str,
+        file_content: Optional[str],
         conversation_id: str,
     ) -> Optional[str]:
         """Save an uploaded file to .abstra/ai_uploads/{conversation_id}/.
@@ -103,8 +103,10 @@ class AiController:
 
             os.makedirs(full_path.parent, exist_ok=True)
 
-            file_bytes = base64.b64decode(file_content)
-            full_path.write_bytes(file_bytes)
+            if file_content is None:
+                full_path.write_bytes(b"")
+            else:
+                full_path.write_bytes(base64.b64decode(file_content))
 
             return relative_path
         except Exception as e:
@@ -134,6 +136,14 @@ class AiController:
     ) -> List[CloudApiCliAiV2StreamRequestContentItem]:
         processed_items = []
         path_info = f" (saved to project at: {saved_path})" if saved_path else ""
+        if pdf_file.file_content is None:
+            processed_items.append(
+                CloudApiCliAiV2StreamRequestContentItemAssistantTextInput(
+                    type="text",
+                    text=f"[PDF Document: {pdf_file.file_name} - empty]{path_info}",
+                )
+            )
+            return processed_items
         try:
             pdf_bytes = base64.b64decode(pdf_file.file_content)
             images = self._extract_pdf_images(pdf_bytes)
@@ -213,6 +223,11 @@ class AiController:
         path_info = f" (saved to project at: {saved_path})" if saved_path else ""
         if ext not in self._TEXT_EXTENSIONS:
             return item
+        if item.file_content is None:
+            return CloudApiCliAiV2StreamRequestContentItemAssistantTextInput(
+                type="text",
+                text=f"[File: {item.file_name} - empty]{path_info}",
+            )
         try:
             text = base64.b64decode(item.file_content).decode("utf-8")
             return CloudApiCliAiV2StreamRequestContentItemAssistantTextInput(
@@ -241,39 +256,21 @@ class AiController:
                 processed_content.append(item)
                 continue
 
+            # Save all files to .abstra/ai_uploads/
             saved_path = self._save_file_to_project(
-                item.file_name, item.file_content, conversation_id
+                item.file_name,
+                item.file_content or "",
+                conversation_id,
             )
 
-            if not item.file_name.lower().endswith(".pdf"):
-                processed = self._try_decode_text_file(item, saved_path)
-                if saved_path and isinstance(
-                    processed,
-                    CloudApiCliAiV2StreamRequestContentItemAssistantFileInput,
-                ):
-                    processed_content.append(
-                        CloudApiCliAiV2StreamRequestContentItemAssistantTextInput(
-                            type="text",
-                            text=f"[File: {item.file_name}] (saved to project at: {saved_path})",
-                        )
-                    )
-                processed_content.append(processed)
-                continue
-
-            try:
-                processed_pdf_items = self._process_pdf_content(item, saved_path)
-                processed_content.extend(processed_pdf_items)
-            except Exception as e:
-                print(f"Error extracting PDF images: {e}")
-                path_info = (
-                    f" (saved to project at: {saved_path})" if saved_path else ""
+            # All files: send filePath only, AI reads via tool when needed
+            processed_content.append(
+                CloudApiCliAiV2StreamRequestContentItemAssistantFileInput(
+                    type="file",
+                    file_name=item.file_name,
+                    file_path=saved_path,
                 )
-                processed_content.append(
-                    CloudApiCliAiV2StreamRequestContentItemAssistantTextInput(
-                        type="text",
-                        text=f"[PDF Document: {item.file_name}]{path_info}\nNote: Could not extract images from this PDF.",
-                    )
-                )
+            )
 
         return processed_content
 
@@ -294,10 +291,6 @@ class AiController:
                     context={
                         **body.context,
                         "libVersion": str(get_local_package_version()),
-                        "knownIssues": [
-                            i.to_dict()
-                            for i in self.repos.linter.find_issues_in_codebase()
-                        ],
                     },
                     secret_key=get_tunnel_secret_key(),
                     tunnel_session_path=get_session_path(),

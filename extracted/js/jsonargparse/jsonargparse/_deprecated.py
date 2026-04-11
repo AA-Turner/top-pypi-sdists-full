@@ -345,7 +345,7 @@ class ActionPathList(Action):
                         try:
                             path_list[num] = self._type(val)
                         except TypeError as ex:
-                            raise TypeError(f"Path number {num+1} in list {path_list_file}, {ex}") from ex
+                            raise TypeError(f"Path number {num + 1} in list {path_list_file}, {ex}") from ex
                 finally:
                     os.chdir(cwd)
                 value += path_list
@@ -686,6 +686,10 @@ def deprecated_module(module_name, mappings=None):
         new_module = f"_{module_name}"
         if mappings and name in mappings:
             new_module, name = mappings[name]
+        if module_name == "typehints" and name == "lazy_instance":
+            from jsonargparse.typing import lazy_instance
+
+            return lazy_instance
         return getattr(import_module(f"jsonargparse.{new_module}"), name)
 
     module.__getattr__ = __getattr__

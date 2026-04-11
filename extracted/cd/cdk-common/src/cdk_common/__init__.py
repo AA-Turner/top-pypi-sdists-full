@@ -5984,6 +5984,42 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AMAZON_S3_EXPRESS_READ_ONLY_ACCESS = "AMAZON_S3_EXPRESS_READ_ONLY_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_S3_EXPRESS_FULL_ACCESS = "AMAZON_S3_EXPRESS_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_S3_FILES_FULL_ACCESS = "AMAZON_S3_FILES_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_S3_FILES_READ_ONLY_ACCESS = "AMAZON_S3_FILES_READ_ONLY_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_S3_FILES_CLIENT_READ_WRITE_ACCESS = "AMAZON_S3_FILES_CLIENT_READ_WRITE_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_S3_FILES_CLIENT_FULL_ACCESS = "AMAZON_S3_FILES_CLIENT_FULL_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_S3_FILES_CLIENT_READ_ONLY_ACCESS = "AMAZON_S3_FILES_CLIENT_READ_ONLY_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_S3_FILES_CSI_DRIVER_POLICY = "AMAZON_S3_FILES_CSI_DRIVER_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AMAZON_SAGE_MAKER_CAPACITY_RESERVATION_SERVICE_ROLE_POLICY = "AMAZON_SAGE_MAKER_CAPACITY_RESERVATION_SERVICE_ROLE_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

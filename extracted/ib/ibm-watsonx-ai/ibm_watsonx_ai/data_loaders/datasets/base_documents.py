@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections import Counter
 from copy import copy
 from typing import TYPE_CHECKING, Any, Callable, Iterator
 from warnings import warn
@@ -17,10 +18,16 @@ from ibm_watsonx_ai.data_loaders.text_loader import (
     _asynch_download,
     _prepare_iterator,
 )
-from ibm_watsonx_ai.helpers import ContainerLocation
+from ibm_watsonx_ai.helpers import (
+    AssetLocation,
+    ContainerLocation,
+    NFSLocation,
+    RemoteFileStorageLocation,
+    S3Location,
+)
 from ibm_watsonx_ai.helpers.connections import DataConnection
 from ibm_watsonx_ai.helpers.remote_document import RemoteDocument
-from ibm_watsonx_ai.utils import get_filename_from_asset_details
+from ibm_watsonx_ai.utils import get_document_path_from_asset_details
 from ibm_watsonx_ai.utils.autoai.enums import DocumentsSamplingTypes, SamplingTypes
 from ibm_watsonx_ai.utils.autoai.errors import (
     CannotGetFilename,
@@ -67,13 +74,6 @@ class BaseDocumentsIterableDataset(IterableDataset):
         error_callback: Callable[[str, Exception], None] | None = None,
         **kwargs: Any,
     ) -> None:
-        from ibm_watsonx_ai.helpers import (
-            AssetLocation,
-            NFSLocation,
-            RemoteFileStorageLocation,
-            S3Location,
-        )
-
         IterableDataset.__init__(self)
         self.enable_sampling = enable_sampling
         self.sample_size_limit = sample_size_limit
@@ -89,36 +89,68 @@ class BaseDocumentsIterableDataset(IterableDataset):
 
         api_client = kwargs.get("api_client", kwargs.get("_api_client"))
 
+        self._fill_missing_api_client(connections, api_client)
+
+        data_asset_id_name_mapping = self._build_asset_mapping(connections)
+
+        self.remote_documents = self._build_remote_documents(
+            connections, include_subfolders, data_asset_id_name_mapping
+        )
+
+        self._validate_unique_document_ids(self.remote_documents)
+
+        self.last_exception: Exception | None = None
+
+    @staticmethod
+    def _fill_missing_api_client(
+        connections: list[DataConnection], api_client: Any
+    ) -> None:
+        """Fill missing API client in connections that don't have one."""
         if api_client is not None:
             for conn in connections:
                 if conn._api_client is None:
                     conn.set_client(api_client)
 
-        set_of_api_clients = set([conn._api_client for conn in connections])
+    @staticmethod
+    def _build_asset_mapping(connections: list[DataConnection]) -> dict[str, str]:
+        """Build mapping of asset IDs to filenames."""
         data_asset_id_name_mapping = {}
 
         if any(isinstance(conn.location, AssetLocation) for conn in connections):
-            for client in set_of_api_clients:
+            api_clients = {conn._api_client for conn in connections}
+            for client in api_clients:
                 for res in client.data_assets.get_details(get_all=True)["resources"]:
-                    if (filename := get_filename_from_asset_details(res)) is None:
+                    if (filename := get_document_path_from_asset_details(res)) is None:
                         raise CannotGetFilename()
                     data_asset_id_name_mapping[res["metadata"]["asset_id"]] = filename
 
-        def get_document_id(conn: DataConnection) -> str | None:
-            if isinstance(conn.location, AssetLocation):
-                if conn.location.id in data_asset_id_name_mapping:
-                    return data_asset_id_name_mapping.get(conn.location.id)
-                else:
-                    raise WMLClientError(
-                        f"The asset{f' {conn.id}' if hasattr(conn, 'id') and conn.id else ''} with id {conn.location.id} could not be found."
-                    )
-            else:
-                try:
-                    return conn._get_filename()
-                except DirectoryHasNoFilename:
-                    raise FolderDownloadNotSupported()
+        return data_asset_id_name_mapping
 
-        self.remote_documents = []
+    @staticmethod
+    def _resolve_document_id(
+        conn: DataConnection, data_asset_id_name_mapping: dict[str, str]
+    ) -> str:
+        """Resolve document ID for a connection using asset mapping or connection's method."""
+        if isinstance(conn.location, AssetLocation):
+            if conn.location.id in data_asset_id_name_mapping:
+                return data_asset_id_name_mapping[conn.location.id]
+            raise WMLClientError(
+                f"The asset{f' {conn.id}' if hasattr(conn, 'id') and conn.id else ''} with id {conn.location.id} could not be found."
+            )
+        else:
+            try:
+                return conn._get_document_id()
+            except DirectoryHasNoFilename:
+                raise FolderDownloadNotSupported()
+
+    def _build_remote_documents(
+        self,
+        connections: list[DataConnection],
+        include_subfolders: bool,
+        data_asset_id_name_mapping: dict[str, str],
+    ) -> list[RemoteDocument]:
+        """Build list of remote documents from connections."""
+        remote_documents = []
 
         for connection in connections:
             if isinstance(
@@ -128,27 +160,45 @@ class BaseDocumentsIterableDataset(IterableDataset):
                 document_connections = connection._get_connections_from_folder(
                     recursive=include_subfolders
                 )
-                self.remote_documents.extend(
+                remote_documents.extend(
                     [
-                        RemoteDocument(connection=c, document_id=get_document_id(c))
+                        RemoteDocument(
+                            connection=c,
+                            document_id=self._resolve_document_id(
+                                c, data_asset_id_name_mapping
+                            ),
+                        )
                         for c in document_connections
                     ]
                 )
             else:
-                self.remote_documents.append(
+                remote_documents.append(
                     RemoteDocument(
-                        connection=connection, document_id=get_document_id(connection)
+                        connection=connection,
+                        document_id=self._resolve_document_id(
+                            connection, data_asset_id_name_mapping
+                        ),
                     )
                 )
 
-        if len(set(doc.document_id for doc in self.remote_documents)) < len(
-            self.remote_documents
-        ):
-            raise WMLClientError(
-                "Not unique document file names passed in connections."
-            )
+        return remote_documents
 
-        self.last_exception: Exception | None = None
+    @staticmethod
+    def _validate_unique_document_ids(remote_documents: list[RemoteDocument]) -> None:
+        """Validate that all document IDs are unique."""
+        doc_id_counts = Counter(doc.document_id for doc in remote_documents)
+        duplicates = {
+            doc_id: count for doc_id, count in doc_id_counts.items() if count > 1
+        }
+
+        if duplicates:
+            duplicate_details = ", ".join(
+                f"'{doc_id}' ({count}x)" for doc_id, count in duplicates.items()
+            )
+            raise WMLClientError(
+                f"Duplicate document identifiers found: {duplicate_details}. "
+                "Each document must have a unique identifier."
+            )
 
     def _set_size_limit(self, size_limit: int) -> None:
         """If non-default value of total_size_limit was not passed,
@@ -198,15 +248,52 @@ class BaseDocumentsIterableDataset(IterableDataset):
         :return: list of sampled documents
         :rtype: list[RemoteDocument]
         """
+        doc_basenames = {
+            doc.document_id: os.path.basename(doc.document_id)
+            for doc in remote_documents
+        }
+
+        def _is_benchmark_document(
+            doc: RemoteDocument, benchmark_ids: list[str]
+        ) -> bool:
+            """Check if document matches any benchmark ID (exact match or filename match)."""
+            # Try exact match first (new flow with full paths)
+            if doc.document_id in benchmark_ids:
+                return True
+
+            # Fall back to filename matching (old flow - backward compatibility)
+            return doc_basenames[doc.document_id] in benchmark_ids
+
         sampled_documents = []
         benchmark_documents = [
-            doc for doc in remote_documents if doc.document_id in benchmark_document_ids
+            doc
+            for doc in remote_documents
+            if _is_benchmark_document(doc, benchmark_document_ids)
         ]
         non_benchmark_documents = [
             doc
             for doc in remote_documents
-            if doc.document_id not in benchmark_document_ids
+            if not _is_benchmark_document(doc, benchmark_document_ids)
         ]
+
+        # Check for ambiguous filename matches and log warnings
+        for benchmark_id in benchmark_document_ids:
+            # If benchmark_id doesn't contain path separator, it might be just a filename
+            if os.sep not in benchmark_id and (
+                os.altsep is None or os.altsep not in benchmark_id
+            ):
+                matching_docs = [
+                    doc
+                    for doc in benchmark_documents
+                    if doc_basenames[doc.document_id] == benchmark_id
+                ]
+                if len(matching_docs) > 1:
+                    matched_paths = [doc.document_id for doc in matching_docs]
+                    logger.warning(
+                        f"Benchmark document ID '{benchmark_id}' matched multiple documents: "
+                        f"{matched_paths}. All matching documents will be included as benchmark documents. "
+                        f"To avoid ambiguity, consider using full paths in benchmark_document_ids."
+                    )
 
         sampled_documents.extend(benchmark_documents)
         sampled_documents.extend(non_benchmark_documents)

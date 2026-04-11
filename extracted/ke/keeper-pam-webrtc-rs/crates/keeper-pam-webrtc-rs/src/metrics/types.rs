@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::Duration;
 
 /// Connection quality assessment
@@ -433,6 +433,12 @@ pub struct AtomicMetrics {
     pub bytes_received: AtomicU64,
     pub error_count: AtomicU64,
     pub retry_count: AtomicU64,
+    /// Number of times the outbound task paused because the SCTP buffer exceeded SCTP_HIGH_WATER.
+    pub pacing_pauses: AtomicU64,
+    /// Cumulative microseconds spent waiting for the SCTP buffer to drain.
+    pub pacing_paused_us: AtomicU64,
+    /// Highest SCTP send-buffer depth observed (bytes). Snapshot taken at each pause entry.
+    pub peak_sctp_buffered: AtomicUsize,
 }
 
 impl AtomicMetrics {
@@ -445,7 +451,38 @@ impl AtomicMetrics {
             bytes_received: AtomicU64::new(0),
             error_count: AtomicU64::new(0),
             retry_count: AtomicU64::new(0),
+            pacing_pauses: AtomicU64::new(0),
+            pacing_paused_us: AtomicU64::new(0),
+            peak_sctp_buffered: AtomicUsize::new(0),
         }
+    }
+
+    /// Record one SCTP backpressure pause event.
+    pub fn record_pacing_pause(&self, pause_us: u64, peak_bytes: usize) {
+        self.pacing_pauses.fetch_add(1, Ordering::Relaxed);
+        self.pacing_paused_us.fetch_add(pause_us, Ordering::Relaxed);
+        // Relaxed CAS loop to track the high-water mark.
+        let mut current = self.peak_sctp_buffered.load(Ordering::Relaxed);
+        while peak_bytes > current {
+            match self.peak_sctp_buffered.compare_exchange_weak(
+                current,
+                peak_bytes,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break,
+                Err(actual) => current = actual,
+            }
+        }
+    }
+
+    /// Snapshot of pacing counters: (pauses, total_paused_us, peak_sctp_bytes).
+    pub fn pacing_snapshot(&self) -> (u64, u64, usize) {
+        (
+            self.pacing_pauses.load(Ordering::Relaxed),
+            self.pacing_paused_us.load(Ordering::Relaxed),
+            self.peak_sctp_buffered.load(Ordering::Relaxed),
+        )
     }
 
     pub fn increment_messages_sent(&self) {

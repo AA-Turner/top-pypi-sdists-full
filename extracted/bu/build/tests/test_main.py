@@ -10,7 +10,10 @@ import pathlib
 import re
 import subprocess
 import sys
+import unittest.mock
 import venv
+
+from typing import Any
 
 import pytest
 import pytest_mock
@@ -256,7 +259,13 @@ ANSI_STRIP = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
         ),
     ],
 )
-def test_parse_args(mocker, cli_args, build_args, build_kwargs, hook):
+def test_parse_args(
+    mocker: pytest_mock.MockerFixture,
+    cli_args: list[str],
+    build_args: tuple[Any, Any],
+    build_kwargs: dict[str, Any],
+    hook: str,
+) -> None:
     build_package = mocker.patch('build.__main__.build_package', return_value=['something'])
     build_package_via_sdist = mocker.patch('build.__main__.build_package_via_sdist', return_value=['something'])
 
@@ -271,17 +280,16 @@ def test_parse_args(mocker, cli_args, build_args, build_kwargs, hook):
         raise ValueError(msg)
 
 
-def test_prog():
+def test_prog() -> None:
     out = io.StringIO()
 
-    with pytest.raises(SystemExit):
-        with contextlib.redirect_stdout(out):
-            build.__main__.main(['--help'], prog='something')
+    with pytest.raises(SystemExit), contextlib.redirect_stdout(out):
+        build.__main__.main(['--help'], prog='something')
 
     assert out.getvalue().startswith('usage: something [-h]')
 
 
-def test_version(capsys):
+def test_version(capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit):
         build.__main__.main(['--version'])
     out, _ = capsys.readouterr()
@@ -289,7 +297,7 @@ def test_version(capsys):
 
 
 @pytest.mark.isolated
-def test_build_isolated(mocker, package_test_flit):
+def test_build_isolated(mocker: pytest_mock.MockerFixture, package_test_flit: str) -> None:
     build_cmd = mocker.patch('build.ProjectBuilder.build', return_value='something')
     required_cmd = mocker.patch(
         'build.ProjectBuilder.get_requires_for_build',
@@ -310,7 +318,7 @@ def test_build_isolated(mocker, package_test_flit):
     build_cmd.assert_called_with('sdist', '.', None)
 
 
-def test_build_no_isolation_check_deps_empty(mocker, package_test_flit):
+def test_build_no_isolation_check_deps_empty(mocker: pytest_mock.MockerFixture, package_test_flit: str) -> None:
     # check_dependencies = []
     build_cmd = mocker.patch('build.ProjectBuilder.build', return_value='something')
     mocker.patch('build.ProjectBuilder.check_dependencies', return_value=[])
@@ -320,14 +328,95 @@ def test_build_no_isolation_check_deps_empty(mocker, package_test_flit):
     build_cmd.assert_called_with('sdist', '.', None)
 
 
+def test_build_package_passes_config_settings_to_build(mocker: pytest_mock.MockerFixture, package_test_flit: str) -> None:
+    build_cmd = mocker.patch(
+        'build.__main__._build',
+        side_effect=[
+            os.path.join('dist', 'test_flit-1.0.0.tar.gz'),
+            os.path.join('dist', 'test_flit-1.0.0-py3-none-any.whl'),
+        ],
+    )
+    config_settings = {'--flag': 'value'}
+
+    built = build.__main__.build_package(
+        package_test_flit,
+        '.',
+        ['sdist', 'wheel'],
+        config_settings=config_settings,
+        isolation=False,
+        skip_dependency_check=True,
+        dependency_constraints_txt=pathlib.Path('constraints.txt'),
+        installer='uv',
+    )
+
+    assert built == ['test_flit-1.0.0.tar.gz', 'test_flit-1.0.0-py3-none-any.whl']
+    build_cmd.assert_has_calls(
+        [
+            unittest.mock.call(
+                False, package_test_flit, '.', 'sdist', config_settings, True, pathlib.Path('constraints.txt'), 'uv'
+            ),
+            unittest.mock.call(
+                False, package_test_flit, '.', 'wheel', config_settings, True, pathlib.Path('constraints.txt'), 'uv'
+            ),
+        ]
+    )
+
+
+def test_build_package_via_sdist_passes_config_settings_to_build(mocker: pytest_mock.MockerFixture) -> None:
+    build_cmd = mocker.patch(
+        'build.__main__._build',
+        side_effect=[
+            os.path.join('dist', 'demo-1.0.0.tar.gz'),
+            os.path.join('dist', 'demo-1.0.0-py3-none-any.whl'),
+        ],
+    )
+    mocker.patch('build.__main__.tempfile.mkdtemp', return_value='temp-sdist-dir')
+    mocker.patch('build.__main__.shutil.rmtree')
+    tar_open = mocker.patch('build._compat.tarfile.TarFile.open')
+    mocker.patch('build.__main__._ctx.log')
+    config_settings = {'--flag': 'value'}
+
+    built = build.__main__.build_package_via_sdist(
+        'src',
+        'dist',
+        ['wheel'],
+        config_settings=config_settings,
+        isolation=False,
+        skip_dependency_check=True,
+        dependency_constraints_txt=pathlib.Path('constraints.txt'),
+        installer='uv',
+    )
+
+    assert built == ['demo-1.0.0.tar.gz', 'demo-1.0.0-py3-none-any.whl']
+    tar_open.return_value.__enter__.return_value.extractall.assert_called_once_with('temp-sdist-dir')
+    build_cmd.assert_has_calls(
+        [
+            unittest.mock.call(False, 'src', 'dist', 'sdist', config_settings, True, pathlib.Path('constraints.txt'), 'uv'),
+            unittest.mock.call(
+                False,
+                os.path.join('temp-sdist-dir', 'demo-1.0.0'),
+                'dist',
+                'wheel',
+                config_settings,
+                True,
+                pathlib.Path('constraints.txt'),
+                'uv',
+            ),
+        ]
+    )
+    build.__main__.shutil.rmtree.assert_called_once_with('temp-sdist-dir', ignore_errors=True)  # type: ignore[attr-defined]
+
+
 @pytest.mark.parametrize(
-    ['missing_deps', 'output'],
+    ('missing_deps', 'output'),
     [
         ([('foo',)], '\n\tfoo'),
-        ([('foo',), ('bar', 'baz', 'qux')], '\n\tfoo\n\tbar\n\tbaz -> qux'),
+        ([('foo',), ('bar', 'baz', 'qux')], '\n\tfoo\n\tbar -> baz -> qux'),
     ],
 )
-def test_build_no_isolation_with_check_deps(mocker, package_test_flit, missing_deps, output):
+def test_build_no_isolation_with_check_deps(
+    mocker: pytest_mock.MockerFixture, package_test_flit: str, missing_deps: list[tuple[str, ...]], output: str
+) -> None:
     error = mocker.patch('build.__main__._error')
     build_cmd = mocker.patch('build.ProjectBuilder.build', return_value='something')
     mocker.patch('build.ProjectBuilder.check_dependencies', return_value=missing_deps)
@@ -339,14 +428,14 @@ def test_build_no_isolation_with_check_deps(mocker, package_test_flit, missing_d
 
 
 @pytest.mark.parametrize(
-    ['cli_args', 'err_msg'],
+    ('cli_args', 'err_msg'),
     [
         (['-Cone=1', '--config-json={"two": 2}'], 'not allowed with argument'),
         (['--config-json={"two": 2'], 'Invalid JSON in --config-json'),
         (['--config-json=[1]'], '--config-json must contain a JSON object'),
     ],
 )
-def test_config_json_errors(cli_args, err_msg, capsys):
+def test_config_json_errors(cli_args: list[str], err_msg: str, capsys: pytest.CaptureFixture[str]) -> None:
     with pytest.raises(SystemExit):
         build.__main__.main(cli_args)
 
@@ -355,7 +444,7 @@ def test_config_json_errors(cli_args, err_msg, capsys):
 
 
 @pytest.mark.isolated
-def test_build_raises_build_exception(mocker, package_test_flit):
+def test_build_raises_build_exception(mocker: pytest_mock.MockerFixture, package_test_flit: str) -> None:
     mocker.patch('build.ProjectBuilder.get_requires_for_build', side_effect=build.BuildException)
     mocker.patch('build.env.DefaultIsolatedEnv.install')
 
@@ -364,7 +453,7 @@ def test_build_raises_build_exception(mocker, package_test_flit):
 
 
 @pytest.mark.isolated
-def test_build_raises_build_backend_exception(mocker, package_test_flit):
+def test_build_raises_build_backend_exception(mocker: pytest_mock.MockerFixture, package_test_flit: str) -> None:
     mocker.patch('build.ProjectBuilder.get_requires_for_build', side_effect=build.BuildBackendException(Exception('a')))
     mocker.patch('build.env.DefaultIsolatedEnv.install')
 
@@ -375,7 +464,7 @@ def test_build_raises_build_backend_exception(mocker, package_test_flit):
 
 @pytest.mark.network
 @pytest.mark.pypy3323bug
-def test_build_package(tmp_dir, package_test_setuptools):
+def test_build_package(tmp_dir: str, package_test_setuptools: str) -> None:
     build.__main__.build_package(package_test_setuptools, tmp_dir, ['sdist', 'wheel'])
 
     assert sorted(os.listdir(tmp_dir)) == [
@@ -386,7 +475,7 @@ def test_build_package(tmp_dir, package_test_setuptools):
 
 @pytest.mark.network
 @pytest.mark.pypy3323bug
-def test_build_package_via_sdist(tmp_dir, package_test_setuptools):
+def test_build_package_via_sdist(tmp_dir: str, package_test_setuptools: str) -> None:
     build.__main__.build_package_via_sdist(package_test_setuptools, tmp_dir, ['wheel'])
 
     assert sorted(os.listdir(tmp_dir)) == [
@@ -396,18 +485,20 @@ def test_build_package_via_sdist(tmp_dir, package_test_setuptools):
 
 
 @pytest.mark.pypy3323bug
-def test_build_package_via_sdist_incomplete_sdist(tmp_dir, package_test_cant_build_via_sdist):
+def test_build_package_via_sdist_incomplete_sdist(tmp_dir: str, package_test_cant_build_via_sdist: str) -> None:
     with pytest.raises(build.BuildBackendException):
         build.__main__.build_package_via_sdist(package_test_cant_build_via_sdist, tmp_dir, ['wheel'])
 
 
-def test_build_package_via_sdist_invalid_distribution(tmp_dir, package_test_setuptools):
+def test_build_package_via_sdist_invalid_distribution(tmp_dir: str, package_test_setuptools: str) -> None:
     with pytest.raises(ValueError, match='Only binary distributions are allowed but sdist was specified'):
         build.__main__.build_package_via_sdist(package_test_setuptools, tmp_dir, ['sdist'])
 
 
 @pytest.mark.isolated
-def test_build_package_with_constraints(mocker: pytest_mock.MockerFixture, tmp_path: pathlib.Path, package_test_flit):
+def test_build_package_with_constraints(
+    mocker: pytest_mock.MockerFixture, tmp_path: pathlib.Path, package_test_flit: str
+) -> None:
     install = mocker.patch('build.env.DefaultIsolatedEnv.install')
 
     constraints_txt_path = tmp_path.joinpath('constraints.txt')
@@ -525,7 +616,9 @@ foo==wot
     ],
 )
 @pytest.mark.flaky(reruns=5)
-def test_logging_output(package_test_setuptools, tmp_dir, capsys, args, output):
+def test_logging_output(
+    package_test_setuptools: str, tmp_dir: str, capsys: pytest.CaptureFixture[str], args: list[str], output: list[str]
+) -> None:
     build.__main__.main([package_test_setuptools, '-o', tmp_dir, *args])
     _, stderr = capsys.readouterr()
     assert set(stderr.splitlines()) <= set(output)
@@ -560,20 +653,18 @@ def test_logging_output(package_test_setuptools, tmp_dir, capsys, args, output):
 )
 @pytest.mark.usefixtures('local_pip')
 def test_logging_output_env_subprocess_error(
-    mocker,
-    monkeypatch,
-    package_test_invalid_requirements,
-    tmp_dir,
-    capsys: pytest.CaptureFixture,
-    color,
-    stderr_body,
-    stderr_error,
-):
-    try:
+    mocker: pytest_mock.MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    package_test_invalid_requirements: str,
+    tmp_dir: str,
+    capsys: pytest.CaptureFixture[str],
+    color: bool,
+    stderr_body: list[str],
+    stderr_error: str,
+) -> None:
+    with contextlib.suppress(ModuleNotFoundError):  # colorama might not be available
         # do not inject hook to have clear output on capsys
         mocker.patch('colorama.init')
-    except ModuleNotFoundError:  # colorama might not be available
-        pass
 
     monkeypatch.delenv('NO_COLOR', raising=False)
     monkeypatch.setenv('FORCE_COLOR' if color else 'NO_COLOR', '')
@@ -601,7 +692,13 @@ def test_logging_output_env_subprocess_error(
         (True, {'FORCE_COLOR': ''}, build.__main__._COLORS),
     ],
 )
-def test_colors(mocker, monkeypatch, tty, env, colors):
+def test_colors(
+    mocker: pytest_mock.MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    tty: bool,
+    env: dict[str, str],
+    colors: dict[str, object],
+) -> None:
     mocker.patch('sys.stdout.isatty', return_value=tty)
     for key, value in env.items():
         monkeypatch.setenv(key, value)
@@ -611,7 +708,7 @@ def test_colors(mocker, monkeypatch, tty, env, colors):
     assert build.__main__._styles.get() == colors
 
 
-def test_colors_conflict(monkeypatch):
+def test_colors_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
     with monkeypatch.context() as m:
         m.setenv('NO_COLOR', '')
         m.setenv('FORCE_COLOR', '')
@@ -625,8 +722,10 @@ def test_colors_conflict(monkeypatch):
         assert build.__main__._styles.get() == build.__main__._NO_COLORS
 
 
-def test_logging_output_venv_failure(monkeypatch, package_test_flit, tmp_dir, capsys):
-    def raise_called_process_err(*args, **kwargs):
+def test_logging_output_venv_failure(
+    monkeypatch: pytest.MonkeyPatch, package_test_flit: str, tmp_dir: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def raise_called_process_err(*_args: object, **_kwargs: object) -> None:
         raise subprocess.CalledProcessError(1, ['test', 'args'], b'stdoutput', b'stderror')
 
     monkeypatch.setattr(venv.EnvBuilder, 'create', raise_called_process_err)
@@ -652,12 +751,12 @@ ERROR Failed to create venv. Maybe try installing virtualenv.
 @pytest.mark.contextvars
 @pytest.mark.network
 def test_verbose_logging_output(
-    subtests: pytest.Subtests,
-    capfd: pytest.CaptureFixture,
-    monkeypatch,
-    tmp_dir,
-    package_test_setuptools,
-):
+    subtests: Any,
+    capfd: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_dir: str,
+    package_test_setuptools: str,
+) -> None:
     monkeypatch.setenv('NO_COLOR', '')
 
     no_of_lines = -1
@@ -676,9 +775,9 @@ def test_verbose_logging_output(
 
 
 def test_metadata_json_output(
-    capsys: pytest.CaptureFixture,
-    package_test_setuptools,
-):
+    capsys: pytest.CaptureFixture[str],
+    package_test_setuptools: str,
+) -> None:
     build.__main__.main([package_test_setuptools, '--metadata', '-n'])
 
     stdout = capsys.readouterr().out
@@ -686,3 +785,99 @@ def test_metadata_json_output(
     # Name normalised in old versions of setuptools.
     assert metadata['name'] in {'test_setuptools', 'test-setuptools'}
     assert metadata['version'] == '1.0.0'
+
+
+def test_setup_cli_windows_colorama_available(mocker: pytest_mock.MockerFixture) -> None:
+    mocker.patch('platform.system', return_value='Windows')
+    colorama = mocker.MagicMock()
+    mocker.patch.dict('sys.modules', {'colorama': colorama})
+    build.__main__._setup_cli(verbosity=0)
+    colorama.init.assert_called_once()
+
+
+def test_setup_cli_windows_colorama_missing(mocker: pytest_mock.MockerFixture) -> None:
+    mocker.patch('platform.system', return_value='Windows')
+    mocker.patch.dict('sys.modules', {'colorama': None})
+    build.__main__._setup_cli(verbosity=0)
+
+
+def test_setup_cli_non_windows(mocker: pytest_mock.MockerFixture) -> None:
+    mocker.patch('platform.system', return_value='Linux')
+    build.__main__._setup_cli(verbosity=0)
+
+
+def test_metadata_with_distributions_error() -> None:
+    with pytest.raises(SystemExit):
+        build.__main__.main(['--metadata', '--sdist'])
+
+
+def test_entrypoint(mocker: pytest_mock.MockerFixture) -> None:
+    main = mocker.patch('build.__main__.main')
+    build.__main__.entrypoint()
+    main.assert_called_once_with(sys.argv[1:])
+
+
+def test_handle_build_error_build_backend_exception(mocker: pytest_mock.MockerFixture) -> None:
+    mocker.patch('build.__main__._error', side_effect=SystemExit(1))
+
+    exc = ValueError('test error')
+    try:
+        raise exc
+    except ValueError:
+        exc_info = sys.exc_info()
+
+    with pytest.raises(SystemExit), build.__main__._handle_build_error():
+        raise build.BuildBackendException(exc, exc_info=exc_info)
+
+
+def test_log_unknown_kind(mocker: pytest_mock.MockerFixture) -> None:
+    mocker.patch('build.__main__._cprint')
+    log = build.__main__._make_logger()
+    log('message', kind=('unknown',))
+
+
+def test_build_no_isolation_skip_dependency_check(mocker: pytest_mock.MockerFixture, package_test_flit: str) -> None:
+    build_cmd = mocker.patch('build.ProjectBuilder.build', return_value='something')
+    build.__main__.build_package(package_test_flit, '.', ['sdist'], isolation=False, skip_dependency_check=True)
+    build_cmd.assert_called_with('sdist', '.', None)
+
+
+def test_build_package_via_sdist_empty_distributions(mocker: pytest_mock.MockerFixture) -> None:
+    mocker.patch(
+        'build.__main__._build',
+        return_value=os.path.join('dist', 'demo-1.0.0.tar.gz'),
+    )
+    result = build.__main__.build_package_via_sdist('src', 'dist', [])
+    assert result == ['demo-1.0.0.tar.gz']
+
+
+def test_parse_config_settings_triple_duplicate() -> None:
+    result = build.__main__._parse_config_settings(['--flag=a', '--flag=b', '--flag=c'])
+    assert result == {'--flag': ['a', 'b', 'c']}
+
+
+def test_build_metadata_runner_without_extra_environ(
+    mocker: pytest_mock.MockerFixture,
+    tmp_path: pathlib.Path,
+    package_test_setuptools: str,
+) -> None:
+    captured_runners: list[Any] = []
+
+    @contextlib.contextmanager
+    def fake_bootstrap(*_args: object, **kwargs: object) -> Any:
+        captured_runners.append(kwargs['runner'])
+        builder = mocker.MagicMock()
+        metadata_dir = tmp_path / 'metadata'
+        metadata_dir.mkdir()
+        (metadata_dir / 'METADATA').write_bytes(b'Metadata-Version: 2.2\nName: test\nVersion: 1.0\n')
+        builder.metadata_path.return_value = str(metadata_dir)
+        yield builder
+
+    mocker.patch('build.__main__._bootstrap_build_env', side_effect=fake_bootstrap)
+    ctx_run = mocker.patch('build.__main__._ctx.run_subprocess')
+
+    build.__main__._build_metadata(package_test_setuptools, '.', ['wheel'], isolation=False, skip_dependency_check=True)
+
+    assert captured_runners
+    captured_runners[0](['echo', 'test'])
+    ctx_run.assert_called_once_with(['echo', 'test'], None, mocker.ANY)

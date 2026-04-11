@@ -1208,6 +1208,8 @@ class ConnectionModelType(sgqlc.types.Enum):
     * `CLICKHOUSE`None
     * `CONFLUENT_KAFKA`None
     * `CONFLUENT_KAFKA_CONNECT`None
+    * `CUSTOM_CONNECTOR`None
+    * `CUSTOM_INTEGRATION`None
     * `DATABRICKS_METASTORE_SQL_WAREHOUSE`None
     * `DATABRICKS_SQL_WAREHOUSE`None
     * `DB2`None
@@ -1260,6 +1262,8 @@ class ConnectionModelType(sgqlc.types.Enum):
         "CLICKHOUSE",
         "CONFLUENT_KAFKA",
         "CONFLUENT_KAFKA_CONNECT",
+        "CUSTOM_CONNECTOR",
+        "CUSTOM_INTEGRATION",
         "DATABRICKS_METASTORE_SQL_WAREHOUSE",
         "DATABRICKS_SQL_WAREHOUSE",
         "DB2",
@@ -2254,6 +2258,7 @@ class EntitlementTypes(sgqlc.types.Enum):
     * `API_CALLS`None
     * `AUDIT_LOGGING`None
     * `AUTH_GROUP_CONNECTION_RESTRICTION`None
+    * `CUSTOM_CONNECTOR`None
     * `DATA_LAKES`None
     * `DATA_MESH`None
     * `EDW`None
@@ -2276,6 +2281,7 @@ class EntitlementTypes(sgqlc.types.Enum):
         "API_CALLS",
         "AUDIT_LOGGING",
         "AUTH_GROUP_CONNECTION_RESTRICTION",
+        "CUSTOM_CONNECTOR",
         "DATA_LAKES",
         "DATA_MESH",
         "EDW",
@@ -6662,6 +6668,7 @@ class WarehouseModelConnectionType(sgqlc.types.Enum):
 
     * `BIGQUERY`: BigQuery
     * `CLICKHOUSE`: ClickHouse
+    * `CUSTOM_CONNECTOR`: Custom Connector
     * `CUSTOM_INTEGRATION`: Custom Integration
     * `DATA_LAKE`: Data Lake
     * `DB2`: Db2
@@ -6686,6 +6693,7 @@ class WarehouseModelConnectionType(sgqlc.types.Enum):
     __choices__ = (
         "BIGQUERY",
         "CLICKHOUSE",
+        "CUSTOM_CONNECTOR",
         "CUSTOM_INTEGRATION",
         "DATA_LAKE",
         "DB2",
@@ -14926,6 +14934,18 @@ class AddConnectionMutation(sgqlc.types.Type):
     connection = sgqlc.types.Field("Connection", graphql_name="connection")
 
 
+class AddCustomConnector(sgqlc.types.Type):
+    """Add a connection for a custom connector type. Creates a warehouse,
+    connection, and schedules jobs based on the custom type's manifest
+    capabilities. Requires a credentials key from testCustomConnector
+    with validationName='save_credentials'.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("connection",)
+    connection = sgqlc.types.Field("Connection", graphql_name="connection")
+
+
 class AddDatabricksConnectionMutation(sgqlc.types.Type):
     """Add a databricks connection and setup any associated jobs. Creates
     a warehouse if not specified
@@ -19198,7 +19218,10 @@ class Connection(sgqlc.types.relay.Connection):
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
     type = sgqlc.types.Field(sgqlc.types.non_null(ConnectionModelType), graphql_name="type")
-    """Connection type identifier"""
+    """Connection type identifier. Returns CUSTOM_CONNECTOR for custom
+    connector types — use resolvedConnectionType for the specific
+    custom type ID.
+    """
 
     subtype = sgqlc.types.Field(String, graphql_name="subtype")
     """Subtype of a plugin connection"""
@@ -20420,17 +20443,6 @@ class CreateOrUpdateAgentMetricMonitor(sgqlc.types.Type):
     transforms)
     """
 
-    __schema__ = schema
-    __field_names__ = ("agent_monitor", "queries")
-    agent_monitor = sgqlc.types.Field("MetricMonitoring", graphql_name="agentMonitor")
-
-    queries = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="queries"
-    )
-    """SQL queries that will be run by the monitor on each execution."""
-
-
-class CreateOrUpdateAgentMonitor(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("agent_monitor", "queries")
     agent_monitor = sgqlc.types.Field("MetricMonitoring", graphql_name="agentMonitor")
@@ -31994,6 +32006,9 @@ class Mutation(sgqlc.types.Type):
         "revoke_customer_mcp_server_authorization",
         "create_fig",
         "create_or_update_custom_integration",
+        "test_custom_connector",
+        "add_custom_connector",
+        "update_custom_connector",
         "create_or_update_custom_dashboard",
         "create_or_update_custom_dashboard_from_json",
         "delete_custom_dashboard",
@@ -32310,7 +32325,6 @@ class Mutation(sgqlc.types.Type):
         "pause_monitor_bootstrap",
         "create_or_update_comparison_monitor",
         "create_or_update_metric_monitor",
-        "create_or_update_agent_monitor",
         "create_or_update_agent_metric_monitor",
         "create_or_update_agent_evaluation_monitor",
         "create_or_update_json_schema_monitor",
@@ -33032,6 +33046,125 @@ class Mutation(sgqlc.types.Type):
     * `name` (`String!`): Display name for the integration.
     * `query_logs` (`CapabilityConfigInput`): Query logs capability
       configuration. Null to skip.
+    """
+
+    test_custom_connector = sgqlc.types.Field(
+        "TestCustomConnector",
+        graphql_name="testCustomConnector",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_details",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(SelfHostedCredentialsConnectionDetails),
+                        graphql_name="connectionDetails",
+                        default=None,
+                    ),
+                ),
+                (
+                    "validation_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="validationName", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Test or save self-hosted credentials for a custom
+    connector type.
+
+    Arguments:
+
+    * `connection_details`
+      (`SelfHostedCredentialsConnectionDetails!`): Self-hosted
+      credential parameters.
+    * `validation_name` (`String!`): Name of the validation test to
+      run. Use 'save_credentials' to persist and receive a key.
+    """
+
+    add_custom_connector = sgqlc.types.Field(
+        AddCustomConnector,
+        graphql_name="addCustomConnector",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_name",
+                    sgqlc.types.Arg(String, graphql_name="connectionName", default=None),
+                ),
+                (
+                    "connection_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="connectionType", default=None
+                    ),
+                ),
+                (
+                    "job_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="jobTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "key",
+                    sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name="key", default=None),
+                ),
+                ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="warehouseUuid", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) Add a connection for a custom connector type.
+
+    Arguments:
+
+    * `connection_name` (`String`): Friendly name for the connection.
+    * `connection_type` (`String!`): Custom connector connection type
+      ID.
+    * `job_types` (`[String!]`): Override default job types from the
+      manifest.
+    * `key` (`String!`): Credentials key from testCustomConnector.
+    * `name` (`String`): Friendly name for the warehouse.
+    * `warehouse_uuid` (`UUID`): Add the connection to an existing
+      warehouse instead of creating a new one.
+    """
+
+    update_custom_connector = sgqlc.types.Field(
+        "UpdateCustomConnector",
+        graphql_name="updateCustomConnector",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "changes",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(SelfHostedCredentialsConnectionDetails),
+                        graphql_name="changes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+                ("replace", sgqlc.types.Arg(Boolean, graphql_name="replace", default=False)),
+            )
+        ),
+    )
+    """(experimental) Update credentials for an existing custom connector
+    connection.
+
+    Arguments:
+
+    * `changes` (`SelfHostedCredentialsConnectionDetails!`): Updated
+      self-hosted credential parameters.
+    * `connection_id` (`UUID!`): UUID of the connection to update.
+    * `replace` (`Boolean`): Set true to replace credentials.
+      Otherwise merges. (default: `false`)
     """
 
     create_or_update_custom_dashboard = sgqlc.types.Field(
@@ -45687,216 +45820,6 @@ class Mutation(sgqlc.types.Type):
       query
     """
 
-    create_or_update_agent_monitor = sgqlc.types.Field(
-        CreateOrUpdateAgentMonitor,
-        graphql_name="createOrUpdateAgentMonitor",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "agent_span_filters",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(
-                            sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilterInput))
-                        ),
-                        graphql_name="agentSpanFilters",
-                        default=None,
-                    ),
-                ),
-                (
-                    "aggregate_by",
-                    sgqlc.types.Arg(
-                        MonitorAggTimeInterval, graphql_name="aggregateBy", default="HOUR"
-                    ),
-                ),
-                (
-                    "alert_conditions",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(
-                            sgqlc.types.list_of(sgqlc.types.non_null(MetricAlertConditionInput))
-                        ),
-                        graphql_name="alertConditions",
-                        default=None,
-                    ),
-                ),
-                (
-                    "audiences",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
-                        graphql_name="audiences",
-                        default=None,
-                    ),
-                ),
-                (
-                    "collection_lag_hours",
-                    sgqlc.types.Arg(Int, graphql_name="collectionLagHours", default=0),
-                ),
-                ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
-                (
-                    "data_quality_dimension",
-                    sgqlc.types.Arg(String, graphql_name="dataQualityDimension", default=None),
-                ),
-                (
-                    "data_source",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DataSourceUnionInput),
-                        graphql_name="dataSource",
-                        default=None,
-                    ),
-                ),
-                (
-                    "description",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="description", default=None
-                    ),
-                ),
-                (
-                    "domain_uuids",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
-                        graphql_name="domainUuids",
-                        default=None,
-                    ),
-                ),
-                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
-                (
-                    "dw_id",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
-                ),
-                (
-                    "fail_on_reset",
-                    sgqlc.types.Arg(Boolean, graphql_name="failOnReset", default=False),
-                ),
-                (
-                    "failure_audiences",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
-                        graphql_name="failureAudiences",
-                        default=None,
-                    ),
-                ),
-                (
-                    "filters",
-                    sgqlc.types.Arg(FilterGroupInput, graphql_name="filters", default=None),
-                ),
-                (
-                    "high_segment_count",
-                    sgqlc.types.Arg(Boolean, graphql_name="highSegmentCount", default=False),
-                ),
-                ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
-                ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
-                (
-                    "sampling_config",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(MonitorSamplingConfigInput),
-                        graphql_name="samplingConfig",
-                        default=None,
-                    ),
-                ),
-                (
-                    "schedule_config",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(ScheduleConfigInput),
-                        graphql_name="scheduleConfig",
-                        default=None,
-                    ),
-                ),
-                (
-                    "segment_count_hint",
-                    sgqlc.types.Arg(Int, graphql_name="segmentCountHint", default=None),
-                ),
-                (
-                    "segments",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(FilterValueUnionInput)),
-                        graphql_name="segments",
-                        default=None,
-                    ),
-                ),
-                (
-                    "sensitivity",
-                    sgqlc.types.Arg(SensitivityLevels, graphql_name="sensitivity", default=None),
-                ),
-                ("skip_reset", sgqlc.types.Arg(Boolean, graphql_name="skipReset", default=False)),
-                (
-                    "tags",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(TagKeyValuePairInput)),
-                        graphql_name="tags",
-                        default=None,
-                    ),
-                ),
-                (
-                    "time_bucketed",
-                    sgqlc.types.Arg(Boolean, graphql_name="timeBucketed", default=True),
-                ),
-                ("uuid", sgqlc.types.Arg(UUID, graphql_name="uuid", default=None)),
-            )
-        ),
-    )
-    """(experimental) Create or update an Agent monitor
-
-    Arguments:
-
-    * `agent_span_filters` (`[AgentSpanFilterInput!]!`): Filter by
-      agent span fields (agent, workflow, task, span_name)
-    * `aggregate_by` (`MonitorAggTimeInterval`): Aggregation time
-      interval. When not using a hourly interval, the timecomponent of
-      the event timestamp should be ignored. (default: `"HOUR"`)
-    * `alert_conditions` (`[MetricAlertConditionInput!]!`): Alert
-      conditions.
-    * `audiences` (`[String!]`): The monitor notification audiences
-    * `collection_lag_hours` (`Int`): Collection lag in hours (for the
-      provided timestamp) (default: `0`)
-    * `connection_id` (`UUID`): Specify a connection (e.g. query-
-      engine) to use
-    * `data_quality_dimension` (`String`): Data quality dimension.
-    * `data_source` (`DataSourceUnionInput!`)None
-    * `description` (`String!`): Used as the name in the UI
-    * `domain_uuids` (`[UUID!]`): Please provide one and only one
-      valid domain uuid.
-    * `dry_run` (`Boolean`): Dry run the monitor creation or update
-      and return the MaC YAML and queries. (default: `false`)
-    * `dw_id` (`UUID!`): Warehouse the monitor will be run on.
-    * `fail_on_reset` (`Boolean`): Return an error if the update is a
-      significant change that would require a monitor reset. (default:
-      `false`)
-    * `failure_audiences` (`[String!]`): The monitor notification
-      audiences for failures
-    * `filters` (`FilterGroupInput`): Structured SQL filtering
-      conditions to apply to query
-    * `high_segment_count` (`Boolean`): Flag to apply additional
-      limits which increase the supported segment count (default:
-      `false`)
-    * `notes` (`String`): Additional context for the monitor (default:
-      `""`)
-    * `priority` (`String`): The default priority for alerts involving
-      this monitor
-    * `sampling_config` (`MonitorSamplingConfigInput!`): Sampling
-      configuration: either percentage or fixed count
-    * `schedule_config` (`ScheduleConfigInput!`): Schedule of monitor
-    * `segment_count_hint` (`Int`): Segment count when then monitor
-      was created. Can be returned as the segment count for the
-      monitor when no successful execution has yet occurred, and a
-      fresh segment count is not available. This allows the UI to
-      properly validate the monitor configuration and avoid creating
-      monitors that will fail when they are created due too many
-      metric combinations.
-    * `segments` (`[FilterValueUnionInput!]`): Segments
-    * `sensitivity` (`SensitivityLevels`): Sensitivity for automated
-      thresholds.
-    * `skip_reset` (`Boolean`): Do not reset monitor if the update is
-      a significant change that would normally cause the monitor to be
-      reset. Learned model might not match the new monitor
-      configuration and false positives might be detected for up to 35
-      days (default: `false`)
-    * `tags` (`[TagKeyValuePairInput!]`): The monitor tags.
-    * `time_bucketed` (`Boolean`): Whether to use time bucketing
-      (True) or all rows (False). When False, aggregate_by is ignored
-      and no time axis is used. (default: `true`)
-    * `uuid` (`UUID`): UUID of the monitor. If specified, it means the
-      request is for update
-    """
-
     create_or_update_agent_metric_monitor = sgqlc.types.Field(
         CreateOrUpdateAgentMetricMonitor,
         graphql_name="createOrUpdateAgentMetricMonitor",
@@ -45996,6 +45919,7 @@ class Mutation(sgqlc.types.Type):
                     "is_agent_trace_aggregation",
                     sgqlc.types.Arg(Boolean, graphql_name="isAgentTraceAggregation", default=False),
                 ),
+                ("is_draft", sgqlc.types.Arg(Boolean, graphql_name="isDraft", default=False)),
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -46076,6 +46000,8 @@ class Mutation(sgqlc.types.Type):
     * `is_agent_trace_aggregation` (`Boolean`): If true, aggregates
       spans by trace_id for trace-level metrics. Default (false)
       returns span-level data. (default: `false`)
+    * `is_draft` (`Boolean`): Make target a draft monitor. (default:
+      `false`)
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
     * `priority` (`String`): The default priority for alerts involving
@@ -46199,6 +46125,7 @@ class Mutation(sgqlc.types.Type):
                     "high_segment_count",
                     sgqlc.types.Arg(Boolean, graphql_name="highSegmentCount", default=False),
                 ),
+                ("is_draft", sgqlc.types.Arg(Boolean, graphql_name="isDraft", default=False)),
                 ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
@@ -46283,6 +46210,8 @@ class Mutation(sgqlc.types.Type):
       conditions to apply to query
     * `high_segment_count` (`Boolean`): Flag to apply additional
       limits which increase the supported segment count (default:
+      `false`)
+    * `is_draft` (`Boolean`): Make target a draft monitor. (default:
       `false`)
     * `notes` (`String`): Additional context for the monitor (default:
       `""`)
@@ -80406,6 +80335,26 @@ class TestCredentialsV2Response(sgqlc.types.Type):
     """Optional additional data about the validations that were run."""
 
 
+class TestCustomConnector(sgqlc.types.Type):
+    """Test or save self-hosted credentials for a custom connector type.
+    Uses the agent's data collector for validation. Pass
+    validationName='save_credentials' to persist credentials and
+    receive a key for use with addCustomConnector.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("key", "validation_result")
+    key = sgqlc.types.Field(String, graphql_name="key")
+    """Credentials key returned when validationName is
+    'save_credentials'. Pass this to addCustomConnector.
+    """
+
+    validation_result = sgqlc.types.Field(
+        TestCredentialsV2Response, graphql_name="validationResult"
+    )
+    """Result of the validation."""
+
+
 class TestCustomerMcpServerConnection(sgqlc.types.relay.Connection):
     """Test connectivity to a customer MCP server"""
 
@@ -82546,6 +82495,20 @@ class UpdateCredentialsV2Result(sgqlc.types.Type):
     """Temporary credentials key to be used to persist these credentials
     if desired.
     """
+
+
+class UpdateCustomConnector(sgqlc.types.Type):
+    """Update self-hosted credentials for an existing custom connector
+    connection. Merges or replaces credentials on the connection.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success", "key")
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    """Whether the update succeeded."""
+
+    key = sgqlc.types.Field(String, graphql_name="key")
+    """New credentials key after update."""
 
 
 class UpdateCustomDashboardWidgetOrdering(sgqlc.types.Type):

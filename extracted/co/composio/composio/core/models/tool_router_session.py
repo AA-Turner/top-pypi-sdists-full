@@ -18,6 +18,9 @@ from composio_client.types.tool_router.session_execute_response import (
 from composio_client.types.tool_router.session_proxy_execute_response import (
     SessionProxyExecuteResponse,
 )
+from composio_client.types.tool_router.session_search_response import (
+    SessionSearchResponse,
+)
 
 from composio.client import HttpClient
 from composio.core.models.connected_accounts import ConnectionRequest
@@ -38,7 +41,10 @@ from composio.core.provider import TTool, TToolCollection
 from composio.core.provider.base import BaseProvider
 
 if t.TYPE_CHECKING:
-    from composio.core.models.tool_router import ToolRouterSessionExperimental
+    from composio.core.models.tool_router import (
+        ToolRouterSessionExperimental,
+        ToolkitConnectionsDetails,
+    )
 
 COMPOSIO_MULTI_EXECUTE_TOOL = "COMPOSIO_MULTI_EXECUTE_TOOL"
 MAX_PARALLEL_WORKERS = 5
@@ -57,6 +63,13 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
         mcp: MCP server configuration
         experimental: Experimental features (files, assistive prompt, etc.)
     """
+
+    #: Unique session identifier.
+    session_id: str
+    #: MCP server configuration for this session.
+    mcp: t.Any
+    #: Experimental capabilities available on this session.
+    experimental: "ToolRouterSessionExperimental"
 
     def __init__(
         self,
@@ -373,16 +386,21 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
         toolkit: str,
         *,
         callback_url: t.Optional[str] = None,
+        alias: t.Optional[str] = None,
     ) -> ConnectionRequest:
         """
         Authorize a toolkit for the user and get a connection request.
 
         Initiates the OAuth flow and returns a ConnectionRequest with redirect URL.
+
+        :param alias: Human-readable alias for the connection. Must be unique
+            per userId and toolkit within the project.
         """
         response = self._client.tool_router.session.link(
             session_id=self.session_id,
             toolkit=toolkit,
             callback_url=callback_url if callback_url else omit,
+            alias=alias if alias is not None else omit,
         )
         return ConnectionRequest(
             id=response.connected_account_id,
@@ -399,7 +417,7 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
         limit: t.Optional[int] = None,
         is_connected: t.Optional[bool] = None,
         search: t.Optional[str] = None,
-    ) -> t.Any:
+    ) -> ToolkitConnectionsDetails:
         """
         Get toolkit connection states for the session.
         """
@@ -480,7 +498,7 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
         *,
         query: str,
         model: t.Optional[str] = None,
-    ) -> t.Any:
+    ) -> SessionSearchResponse:
         """
         Search for tools by semantic use case.
 

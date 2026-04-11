@@ -170,40 +170,26 @@ impl Rule for MD056TableColumnCount {
                 continue; // Skip invalid tables
             }
 
-            // Build the whole-table fix once for all warnings in this table
-            // This ensures that applying Quick Fix on any row fixes the entire table
-            let table_start_line = table_block.start_line + 1; // Convert to 1-indexed
-            let table_end_line = table_block.end_line + 1; // Convert to 1-indexed
-
-            // Build the complete fixed table content
-            let mut fixed_table_lines: Vec<String> = Vec::with_capacity(all_line_indices.len());
-            for (i, &line_idx) in all_line_indices.iter().enumerate() {
-                let line = lines[line_idx];
-                let row_content = TableUtils::extract_table_row_content(line, table_block, i);
-                let fixed_line = self
-                    .fix_table_row_content(row_content, expected_count, flavor, table_block, i, line)
-                    .unwrap_or_else(|| line.to_string());
-                if line_idx < lines.len() - 1 {
-                    fixed_table_lines.push(format!("{fixed_line}\n"));
-                } else {
-                    fixed_table_lines.push(fixed_line);
-                }
-            }
-            let table_replacement = fixed_table_lines.concat();
-            let table_range = ctx.line_index.multi_line_range(table_start_line, table_end_line);
-
-            // Check all rows in the table
+            // Check each row and emit a per-row fix. Per-row fixes ensure that
+            // inline-disabling one row does not cause the fix on another row to
+            // overwrite the disabled row's content.
             for (i, &line_idx) in all_line_indices.iter().enumerate() {
                 let line = lines[line_idx];
                 let row_content = TableUtils::extract_table_row_content(line, table_block, i);
                 let count = TableUtils::count_cells_with_flavor(row_content, flavor);
 
                 if count > 0 && count != expected_count {
-                    // Calculate precise character range for the entire table row
                     let (start_line, start_col, end_line, end_col) = calculate_line_range(line_idx + 1, line);
 
-                    // Each warning uses the same whole-table fix
-                    // This ensures Quick Fix on any row fixes the entire table
+                    // Build a per-row fix so inline-disabled rows are not
+                    // overwritten by fixes on other rows in the same table.
+                    let fixed_line = self
+                        .fix_table_row_content(row_content, expected_count, flavor, table_block, i, line)
+                        .unwrap_or_else(|| line.to_string());
+                    let row_range =
+                        ctx.line_index
+                            .line_col_to_byte_range_with_length(line_idx + 1, 1, line.chars().count());
+
                     warnings.push(LintWarning {
                         rule_name: Some(self.name().to_string()),
                         message: format!("Table row has {count} cells, but expected {expected_count}"),
@@ -213,8 +199,8 @@ impl Rule for MD056TableColumnCount {
                         end_column: end_col,
                         severity: Severity::Warning,
                         fix: Some(Fix {
-                            range: table_range.clone(),
-                            replacement: table_replacement.clone(),
+                            range: row_range,
+                            replacement: fixed_line,
                         }),
                     });
                 }
@@ -225,50 +211,16 @@ impl Rule for MD056TableColumnCount {
     }
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
-        let content = ctx.content;
-        let flavor = ctx.flavor;
-        let lines = ctx.raw_lines();
-        let table_blocks = &ctx.table_blocks;
-
-        let mut result_lines: Vec<String> = lines.iter().map(|&s| s.to_string()).collect();
-
-        for table_block in table_blocks {
-            // Collect all table lines
-            let all_line_indices: Vec<usize> = std::iter::once(table_block.header_line)
-                .chain(std::iter::once(table_block.delimiter_line))
-                .chain(table_block.content_lines.iter().copied())
-                .collect();
-
-            // Determine expected column count from header row (strip list/blockquote prefix first)
-            let header_content = TableUtils::extract_table_row_content(lines[table_block.header_line], table_block, 0);
-            let expected_count = TableUtils::count_cells_with_flavor(header_content, flavor);
-
-            if expected_count == 0 {
-                continue; // Skip invalid tables
-            }
-
-            // Fix all rows in the table
-            for (i, &line_idx) in all_line_indices.iter().enumerate() {
-                let line_num = line_idx + 1;
-                if ctx.inline_config().is_rule_disabled(self.name(), line_num) {
-                    continue;
-                }
-                let line = lines[line_idx];
-                let row_content = TableUtils::extract_table_row_content(line, table_block, i);
-                if let Some(fixed_line) =
-                    self.fix_table_row_content(row_content, expected_count, flavor, table_block, i, line)
-                {
-                    result_lines[line_idx] = fixed_line;
-                }
-            }
+        if self.should_skip(ctx) {
+            return Ok(ctx.content.to_string());
         }
-
-        let mut fixed = result_lines.join("\n");
-        // Preserve trailing newline if original content had one
-        if content.ends_with('\n') && !fixed.ends_with('\n') {
-            fixed.push('\n');
+        let warnings = self.check(ctx)?;
+        if warnings.is_empty() {
+            return Ok(ctx.content.to_string());
         }
-        Ok(fixed)
+        let warnings =
+            crate::utils::fix_utils::filter_warnings_by_inline_config(warnings, ctx.inline_config(), self.name());
+        crate::utils::fix_utils::apply_warning_fixes(ctx.content, &warnings).map_err(LintError::InvalidInput)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -661,5 +613,49 @@ Some text in between.
         assert!(fixed.lines().nth(2).unwrap().starts_with("> "));
         assert!(fixed.contains("> | 1 | 2 |"));
         assert!(!fixed.contains("| 3 |"));
+    }
+
+    // === Roundtrip safety tests ===
+
+    fn assert_fix_roundtrip(content: &str) {
+        let rule = MD056TableColumnCount;
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+        let ctx2 = LintContext::new(&fixed, crate::config::MarkdownFlavor::Standard, None);
+        let remaining = rule.check(&ctx2).unwrap();
+        assert!(
+            remaining.is_empty(),
+            "After fix(), check() should find 0 violations.\nOriginal: {content:?}\nFixed: {fixed:?}\nRemaining: {remaining:?}"
+        );
+    }
+
+    #[test]
+    fn test_roundtrip_too_few_columns() {
+        assert_fix_roundtrip("| A | B | C |\n|---|---|---|\n| 1 | 2 |");
+    }
+
+    #[test]
+    fn test_roundtrip_too_many_columns() {
+        assert_fix_roundtrip("| A | B |\n|---|---|\n| 1 | 2 | 3 | 4 |");
+    }
+
+    #[test]
+    fn test_roundtrip_with_trailing_newline() {
+        assert_fix_roundtrip("| A | B | C |\n|---|---|---|\n| 1 | 2 |\n");
+    }
+
+    #[test]
+    fn test_roundtrip_blockquote_table() {
+        assert_fix_roundtrip("> | A | B | C |\n> |---|---|---|\n> | 1 | 2 |");
+    }
+
+    #[test]
+    fn test_roundtrip_clean_table() {
+        assert_fix_roundtrip("| A | B |\n|---|---|\n| 1 | 2 |");
+    }
+
+    #[test]
+    fn test_roundtrip_multiple_tables() {
+        assert_fix_roundtrip("| A | B |\n|---|---|\n| 1 | 2 |\n\nText\n\n| C | D | E |\n|---|---|---|\n| 3 | 4 |");
     }
 }

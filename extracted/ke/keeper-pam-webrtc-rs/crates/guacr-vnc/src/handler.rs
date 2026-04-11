@@ -36,7 +36,7 @@ use guacr_handlers::{
     VideoOutput,
     DEFAULT_KEEPALIVE_INTERVAL_SECS,
 };
-use guacr_protocol::{BinaryEncoder, GuacamoleParser};
+use guacr_protocol::{format_chunked_blobs, format_img, format_instruction, GuacamoleParser};
 use guacr_terminal::{
     CopyDetector, FrameBuffer, ScrollDetector, ScrollDirection, SoftwareH264Encoder,
 };
@@ -257,17 +257,11 @@ impl VncSettings {
         params: &HashMap<String, String>,
         defaults: &VncConfig,
     ) -> Result<Self, String> {
-        let hostname = params
-            .get("hostname")
-            .ok_or_else(|| "Missing required parameter: hostname".to_string())?
-            .clone();
-
-        let port: u16 = params
-            .get("port")
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(defaults.default_port);
-
-        let password = params.get("password").cloned();
+        let conn = guacr_handlers::ConnectionParameters::from_params(params, defaults.default_port)
+            .map_err(|e| e.to_string())?;
+        let hostname = conn.hostname;
+        let port = conn.port;
+        let password = conn.password;
 
         // IMPORTANT: Always use DEFAULT size during initialization (like guacd does)
         // The client will send a resize instruction with actual browser dimensions after handshake
@@ -314,18 +308,7 @@ impl VncSettings {
             .clamp(1, 60);
 
         // Parse client image format support
-        let supported_formats = params
-            .get("image")
-            .map(|s| s.split(',').map(|f| f.trim()).collect::<Vec<_>>())
-            .unwrap_or_else(|| vec!["image/png"]);
-
-        let supports_webp = supported_formats.iter().any(|f| f.contains("webp"));
-        let supports_jpeg = supported_formats.iter().any(|f| f.contains("jpeg"));
-
-        info!(
-            "VNC: Client image support - WebP: {}, JPEG: {}, formats: {:?}",
-            supports_webp, supports_jpeg, supported_formats
-        );
+        let (supports_webp, supports_jpeg) = guacr_handlers::parse_image_formats(params, "VNC");
 
         info!(
             "VNC: Image encoding - use_jpeg={}, quality={}, frame_rate={} FPS",
@@ -341,55 +324,7 @@ impl VncSettings {
             sftp_private_key,
             sftp_private_key_passphrase,
             sftp_port,
-        ) = {
-            let enable_sftp = params
-                .get("enableSftp")
-                .or_else(|| params.get("enable_sftp"))
-                .map(|v| v == "true")
-                .unwrap_or(false);
-
-            if enable_sftp {
-                let hostname = params
-                    .get("sftphostname")
-                    .or_else(|| params.get("sftp_hostname"))
-                    .ok_or_else(|| "sftphostname required when enableSftp=true".to_string())?
-                    .clone();
-                let username = params
-                    .get("sftpusername")
-                    .or_else(|| params.get("sftp_username"))
-                    .ok_or_else(|| "sftpusername required when enableSftp=true".to_string())?
-                    .clone();
-                let password = params
-                    .get("sftppassword")
-                    .or_else(|| params.get("sftp_password"))
-                    .cloned();
-                let private_key = params
-                    .get("sftpprivatekey")
-                    .or_else(|| params.get("sftp_private_key"))
-                    .cloned();
-                let passphrase = params
-                    .get("sftppassphrase")
-                    .or_else(|| params.get("sftp_private_key_passphrase"))
-                    .cloned();
-                let port = params
-                    .get("sftpport")
-                    .or_else(|| params.get("sftp_port"))
-                    .and_then(|p| p.parse().ok())
-                    .unwrap_or(22);
-
-                (
-                    enable_sftp,
-                    Some(hostname),
-                    Some(username),
-                    password,
-                    private_key,
-                    passphrase,
-                    port,
-                )
-            } else {
-                (false, None, None, None, None, None, 22)
-            }
-        };
+        ) = guacr_handlers::parse_sftp_config(params).map_err(|e| e.to_string())?;
 
         info!(
             "VNC Settings: {}:{}, {}x{}, read_only={}",
@@ -435,7 +370,6 @@ impl VncSettings {
 /// VNC client wrapper for VNC connections
 struct VncClient {
     framebuffer: FrameBuffer,
-    binary_encoder: BinaryEncoder,
     stream_id: u32,
     width: u32,
     height: u32,
@@ -523,7 +457,6 @@ impl VncClient {
 
         Self {
             framebuffer: FrameBuffer::new(width, height),
-            binary_encoder: BinaryEncoder::new(),
             stream_id: 1,
             width,
             height,
@@ -650,21 +583,13 @@ impl VncClient {
         .await
     }
 
-    /// Send Bytes to client and record (if recording is enabled)
-    async fn send_and_record_bytes(&mut self, bytes: Bytes) -> Result<(), String> {
-        shared_send_and_record(&self.to_client, &mut self.recorder, bytes).await
-    }
-
     /// Record client input instruction (if recording is enabled)
     fn record_client_input(&mut self, instruction: &Bytes) {
         shared_record_client_input(&mut self.recorder, instruction);
     }
 
     async fn send_sync(&mut self) -> Result<(), String> {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
+        let timestamp = guacr_terminal::current_time_millis();
 
         let sync_instr = format!("4.sync,{}.{};", timestamp.to_string().len(), timestamp);
 
@@ -785,8 +710,11 @@ impl VncClient {
             .await
             .map_err(|e| e.to_string())?;
 
-        let size_instr = self.binary_encoder.encode_size(0, self.width, self.height);
-        self.send_and_record_bytes(size_instr).await?;
+        let size_instr = format_instruction(
+            "size",
+            &["0", &self.width.to_string(), &self.height.to_string()],
+        );
+        self.send_and_record(&size_instr).await?;
 
         // Set initial cursor to pointer (matches KCM/guacamole behavior)
         if !self.read_only {
@@ -808,8 +736,14 @@ impl VncClient {
         #[cfg(feature = "sftp")]
         if let Some(settings) = settings {
             if settings.enable_sftp {
-                let sftp_hostname = settings.sftp_hostname.as_ref().unwrap();
-                let sftp_username = settings.sftp_username.as_ref().unwrap();
+                let sftp_hostname = settings
+                    .sftp_hostname
+                    .as_ref()
+                    .ok_or_else(|| "SFTP enabled but sftp_hostname missing".to_string())?;
+                let sftp_username = settings
+                    .sftp_username
+                    .as_ref()
+                    .ok_or_else(|| "SFTP enabled but sftp_username missing".to_string())?;
                 match crate::sftp_integration::establish_sftp_session(
                     sftp_hostname,
                     settings.sftp_port,
@@ -1112,133 +1046,289 @@ impl VncClient {
         Ok(())
     }
 
-    async fn handle_framebuffer_rectangle(
+    /// Encode a framebuffer region and send it as a Guacamole image instruction.
+    async fn encode_and_send_region(
         &mut self,
-        rect: crate::vnc_protocol::VncRectangle,
+        frect: guacr_terminal::FrameRect,
     ) -> Result<(), String> {
-        // Check for cursor pseudo-encoding (-239 = Rich Cursor, -240 = X Cursor)
-        if rect.encoding == crate::vnc_protocol::encodings::CURSOR
-            || rect.encoding == crate::vnc_protocol::encodings::X_CURSOR
-        {
-            return self.handle_cursor_update(rect).await;
+        use base64::Engine;
+        let (encoded, fmt) = self.encode_region(frect)?;
+        self.adaptive_quality.track_frame_sent(encoded.len());
+        let mimetype = match fmt {
+            1 => "image/jpeg",
+            2 => "image/webp",
+            _ => "image/png",
+        };
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&encoded);
+        let img_instr = format_img(
+            self.stream_id,
+            14,
+            0,
+            mimetype,
+            frect.x as i32,
+            frect.y as i32,
+        );
+        self.send_and_record(&img_instr).await?;
+        for chunk in format_chunked_blobs(self.stream_id, &b64, None) {
+            self.send_and_record(&chunk).await?;
         }
+        self.stream_id = self.stream_id.wrapping_add(1);
+        Ok(())
+    }
 
-        // Handle CopyRect encoding: copy pixels within the framebuffer and emit a
-        // Guacamole copy instruction instead of encoding image data.
-        if rect.encoding == crate::vnc_protocol::encodings::COPYRECT {
-            let src_x = rect.src_x as u32;
-            let src_y = rect.src_y as u32;
-            let dst_x = rect.x as u32;
-            let dst_y = rect.y as u32;
-            let width = rect.width as u32;
-            let height = rect.height as u32;
+    /// Handle CopyRect encoding: copy pixels within the framebuffer and emit a
+    /// Guacamole copy instruction instead of encoding image data.
+    async fn handle_copyrect(
+        &mut self,
+        rect: &crate::vnc_protocol::VncRectangle,
+    ) -> Result<(), String> {
+        let src_x = rect.src_x as u32;
+        let src_y = rect.src_y as u32;
+        let dst_x = rect.x as u32;
+        let dst_y = rect.y as u32;
+        let width = rect.width as u32;
+        let height = rect.height as u32;
 
-            // Update the local framebuffer so future operations have correct pixel state
-            self.framebuffer
-                .copy_region(src_x, src_y, dst_x, dst_y, width, height);
+        // Update the local framebuffer so future operations have correct pixel state
+        self.framebuffer
+            .copy_region(src_x, src_y, dst_x, dst_y, width, height);
 
-            // Notify drag detector of update size (same as other paths)
-            self.drag_detector.notify_graphics_update(width, height);
+        // Notify drag detector of update size (same as other paths)
+        self.drag_detector.notify_graphics_update(width, height);
 
-            // Emit Guacamole copy instruction (no image encoding needed)
-            let copy_instr =
-                guacr_protocol::format_copy(0, src_x, src_y, width, height, 12, 0, dst_x, dst_y);
-            self.send_and_record(&copy_instr).await?;
-            self.send_sync().await?;
+        // Emit Guacamole copy instruction (no image encoding needed)
+        let copy_instr =
+            guacr_protocol::format_copy(0, src_x, src_y, width, height, 12, 0, dst_x, dst_y);
+        self.send_and_record(&copy_instr).await?;
+        self.send_sync().await?;
 
-            self.framebuffer.clear_dirty();
-            return Ok(());
-        }
+        self.framebuffer.clear_dirty();
+        Ok(())
+    }
 
-        // Handle Tight JPEG subtype: forward the server's JPEG bytes directly.
-        // Zero re-encoding overhead — the server already compressed the pixels.
-        if let crate::vnc_protocol::VncPixelData::TightJpeg(ref jpeg_bytes) = rect.pixel_data {
-            if !jpeg_bytes.is_empty() {
-                // Decode JPEG to update local framebuffer (for scroll/drag detection)
-                match image::load_from_memory(jpeg_bytes) {
-                    Ok(img) => {
-                        let rgba = img.to_rgba8();
-                        self.framebuffer.update_region(
-                            rect.x as u32,
-                            rect.y as u32,
-                            rect.width as u32,
-                            rect.height as u32,
-                            &rgba,
-                        );
-                    }
-                    Err(e) => warn!("VNC: Failed to decode Tight JPEG for framebuffer: {}", e),
-                }
-                self.adaptive_quality.track_frame_sent(jpeg_bytes.len());
-                self.drag_detector
-                    .notify_graphics_update(rect.width as u32, rect.height as u32);
-                let msg = self.binary_encoder.encode_image(
-                    self.stream_id,
-                    0,
-                    rect.x as i32,
-                    rect.y as i32,
-                    rect.width,
-                    rect.height,
-                    1, // JPEG
-                    Bytes::from(jpeg_bytes.clone()),
-                );
-                self.send_and_record_bytes(msg).await?;
-                self.send_sync().await?;
-                self.framebuffer.clear_dirty();
-                return Ok(());
-            }
-        }
+    /// Handle Tight JPEG subtype: forward the server's JPEG bytes directly.
+    /// Zero re-encoding overhead — the server already compressed the pixels.
+    async fn handle_tight_jpeg(
+        &mut self,
+        rect: &crate::vnc_protocol::VncRectangle,
+    ) -> Result<(), String> {
+        let jpeg_bytes = match &rect.pixel_data {
+            crate::vnc_protocol::VncPixelData::TightJpeg(b) => b.clone(),
+            _ => return Ok(()),
+        };
 
-        // Handle Tight FillRect: update framebuffer and encode the solid-color region.
-        if let crate::vnc_protocol::VncPixelData::Fill(r, g, b) = rect.pixel_data {
-            let pixel_count = rect.width as usize * rect.height as usize;
-            let mut rgba_fill = vec![0u8; pixel_count * 4];
-            for i in 0..pixel_count {
-                rgba_fill[i * 4] = r;
-                rgba_fill[i * 4 + 1] = g;
-                rgba_fill[i * 4 + 2] = b;
-                rgba_fill[i * 4 + 3] = 255;
-            }
-            if let Some(img) =
-                image::RgbaImage::from_raw(rect.width as u32, rect.height as u32, rgba_fill)
-            {
+        // Decode JPEG to update local framebuffer (for scroll/drag detection)
+        match image::load_from_memory(&jpeg_bytes) {
+            Ok(img) => {
+                let rgba = img.to_rgba8();
                 self.framebuffer.update_region(
                     rect.x as u32,
                     rect.y as u32,
                     rect.width as u32,
                     rect.height as u32,
-                    &img,
+                    &rgba,
                 );
             }
-            self.drag_detector
-                .notify_graphics_update(rect.width as u32, rect.height as u32);
-            let frect = guacr_terminal::FrameRect {
-                x: rect.x as u32,
-                y: rect.y as u32,
-                width: rect.width as u32,
-                height: rect.height as u32,
-            };
-            let (encoded, fmt) = self.encode_region(frect)?;
-            self.adaptive_quality.track_frame_sent(encoded.len());
-            let msg = self.binary_encoder.encode_image(
-                self.stream_id,
-                0,
-                rect.x as i32,
-                rect.y as i32,
-                rect.width,
-                rect.height,
-                fmt,
-                Bytes::from(encoded),
+            Err(e) => warn!("VNC: Failed to decode Tight JPEG for framebuffer: {}", e),
+        }
+        self.adaptive_quality.track_frame_sent(jpeg_bytes.len());
+        self.drag_detector
+            .notify_graphics_update(rect.width as u32, rect.height as u32);
+        use base64::Engine;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&jpeg_bytes);
+        let img_instr = format_img(
+            self.stream_id,
+            14,
+            0,
+            "image/jpeg",
+            rect.x as i32,
+            rect.y as i32,
+        );
+        self.send_and_record(&img_instr).await?;
+        for chunk in format_chunked_blobs(self.stream_id, &b64, None) {
+            self.send_and_record(&chunk).await?;
+        }
+        self.stream_id = self.stream_id.wrapping_add(1);
+        self.send_sync().await?;
+        self.framebuffer.clear_dirty();
+        Ok(())
+    }
+
+    /// Handle Tight FillRect: update framebuffer and encode the solid-color region.
+    async fn handle_tight_fill(
+        &mut self,
+        rect: &crate::vnc_protocol::VncRectangle,
+        r: u8,
+        g: u8,
+        b: u8,
+    ) -> Result<(), String> {
+        let pixel_count = rect.width as usize * rect.height as usize;
+        let mut rgba_fill = vec![0u8; pixel_count * 4];
+        for i in 0..pixel_count {
+            rgba_fill[i * 4] = r;
+            rgba_fill[i * 4 + 1] = g;
+            rgba_fill[i * 4 + 2] = b;
+            rgba_fill[i * 4 + 3] = 255;
+        }
+        if let Some(img) =
+            image::RgbaImage::from_raw(rect.width as u32, rect.height as u32, rgba_fill)
+        {
+            self.framebuffer.update_region(
+                rect.x as u32,
+                rect.y as u32,
+                rect.width as u32,
+                rect.height as u32,
+                &img,
             );
-            self.send_and_record_bytes(msg).await?;
-            self.send_sync().await?;
-            self.framebuffer.clear_dirty();
-            return Ok(());
+        }
+        self.drag_detector
+            .notify_graphics_update(rect.width as u32, rect.height as u32);
+        let frect = guacr_terminal::FrameRect {
+            x: rect.x as u32,
+            y: rect.y as u32,
+            width: rect.width as u32,
+            height: rect.height as u32,
+        };
+        self.encode_and_send_region(frect).await?;
+        self.send_sync().await?;
+        self.framebuffer.clear_dirty();
+        Ok(())
+    }
+
+    /// Handle active drag: emit a copy instruction for the dragged region and encode
+    /// the exposed edge strips. Returns `Ok(true)` if the drag was handled (caller
+    /// should return), `Ok(false)` if no actionable drag delta was present.
+    async fn handle_drag_copy(&mut self, dx: i32, dy: i32) -> Result<bool, String> {
+        if dx == 0 && dy == 0 {
+            return Ok(false);
         }
 
-        if rect.pixels.is_empty() {
-            return Ok(());
+        debug!("VNC: Drag detected - sending copy delta ({}, {})", dx, dy);
+
+        let src_x = dx.max(0) as u32;
+        let src_y = dy.max(0) as u32;
+        let dst_x = (-dx).max(0) as u32;
+        let dst_y = (-dy).max(0) as u32;
+        let copy_w = self.width.saturating_sub(dx.unsigned_abs());
+        let copy_h = self.height.saturating_sub(dy.unsigned_abs());
+
+        if copy_w > 0 && copy_h > 0 {
+            let copy_instr = guacr_protocol::format_copy(
+                0, src_x, src_y, copy_w, copy_h, 12, // GUAC_COMP_SRC
+                0, dst_x, dst_y,
+            );
+            self.send_and_record(&copy_instr).await?;
         }
 
+        // Encode exposed edge strips
+        if dx.unsigned_abs() > 0 {
+            let strip_x = if dx > 0 {
+                self.width.saturating_sub(dx as u32)
+            } else {
+                0
+            };
+            let strip_w = dx.unsigned_abs().min(self.width);
+            self.encode_and_send_region(guacr_terminal::FrameRect {
+                x: strip_x,
+                y: 0,
+                width: strip_w,
+                height: self.height,
+            })
+            .await?;
+        }
+
+        if dy.unsigned_abs() > 0 {
+            let strip_y = if dy > 0 {
+                self.height.saturating_sub(dy as u32)
+            } else {
+                0
+            };
+            let strip_h = dy.unsigned_abs().min(self.height);
+            self.encode_and_send_region(guacr_terminal::FrameRect {
+                x: 0,
+                y: strip_y,
+                width: self.width,
+                height: strip_h,
+            })
+            .await?;
+        }
+
+        self.send_sync().await?;
+        self.framebuffer.clear_dirty();
+        Ok(true)
+    }
+
+    /// Handle a detected scroll operation: emit transfer + new-region image instructions.
+    async fn handle_scroll(
+        &mut self,
+        scroll_op: guacr_terminal::ScrollOperation,
+    ) -> Result<(), String> {
+        trace!(
+            "VNC: Detected scroll {:?} by {} pixels",
+            scroll_op.direction,
+            scroll_op.pixels
+        );
+
+        match scroll_op.direction {
+            ScrollDirection::Up => {
+                let copy_instr = guacr_protocol::format_transfer(
+                    0,
+                    0,
+                    scroll_op.pixels,
+                    self.width,
+                    self.height - scroll_op.pixels,
+                    12,
+                    0,
+                    0,
+                    0,
+                );
+                self.send_and_record(&copy_instr).await?;
+
+                let new_region_y = self.height - scroll_op.pixels;
+                self.encode_and_send_region(guacr_terminal::FrameRect {
+                    x: 0,
+                    y: new_region_y,
+                    width: self.width,
+                    height: scroll_op.pixels,
+                })
+                .await?;
+                self.send_sync().await?;
+            }
+            ScrollDirection::Down => {
+                let copy_instr = guacr_protocol::format_transfer(
+                    0,
+                    0,
+                    0,
+                    self.width,
+                    self.height - scroll_op.pixels,
+                    12,
+                    0,
+                    0,
+                    scroll_op.pixels,
+                );
+                self.send_and_record(&copy_instr).await?;
+
+                self.encode_and_send_region(guacr_terminal::FrameRect {
+                    x: 0,
+                    y: 0,
+                    width: self.width,
+                    height: scroll_op.pixels,
+                })
+                .await?;
+                self.send_sync().await?;
+            }
+        }
+
+        self.framebuffer.clear_dirty();
+        Ok(())
+    }
+
+    /// Handle raw pixel data: convert RGB→RGBA, update the framebuffer, run
+    /// drag/scroll optimizations, and encode dirty rects as Guacamole images.
+    async fn handle_raw_pixels(
+        &mut self,
+        rect: &crate::vnc_protocol::VncRectangle,
+    ) -> Result<(), String> {
         let mut rgba_vec = vec![0u8; (rect.width as u32 * rect.height as u32 * 4) as usize];
 
         for i in 0..(rect.width as usize * rect.height as usize) {
@@ -1282,81 +1372,7 @@ impl VncClient {
         // Check for active drag (copy-based optimization, shared with RDP)
         if self.drag_detector.is_dragging() {
             let (dx, dy) = self.drag_detector.drag_delta();
-            if dx != 0 || dy != 0 {
-                debug!("VNC: Drag detected - sending copy delta ({}, {})", dx, dy);
-
-                let src_x = dx.max(0) as u32;
-                let src_y = dy.max(0) as u32;
-                let dst_x = (-dx).max(0) as u32;
-                let dst_y = (-dy).max(0) as u32;
-                let copy_w = self.width.saturating_sub(dx.unsigned_abs());
-                let copy_h = self.height.saturating_sub(dy.unsigned_abs());
-
-                if copy_w > 0 && copy_h > 0 {
-                    let copy_instr = guacr_protocol::format_copy(
-                        0, src_x, src_y, copy_w, copy_h, 12, // GUAC_COMP_SRC
-                        0, dst_x, dst_y,
-                    );
-                    self.send_and_record(&copy_instr).await?;
-                }
-
-                // Encode exposed edge strips
-                if dx.unsigned_abs() > 0 {
-                    let strip_x = if dx > 0 {
-                        self.width.saturating_sub(dx as u32)
-                    } else {
-                        0
-                    };
-                    let strip_w = dx.unsigned_abs().min(self.width);
-                    let (strip_data, fmt) = self.encode_region(guacr_terminal::FrameRect {
-                        x: strip_x,
-                        y: 0,
-                        width: strip_w,
-                        height: self.height,
-                    })?;
-                    self.adaptive_quality.track_frame_sent(strip_data.len());
-                    let msg = self.binary_encoder.encode_image(
-                        self.stream_id,
-                        0,
-                        strip_x as i32,
-                        0,
-                        strip_w as u16,
-                        self.height as u16,
-                        fmt,
-                        Bytes::from(strip_data),
-                    );
-                    self.send_and_record_bytes(msg).await?;
-                }
-
-                if dy.unsigned_abs() > 0 {
-                    let strip_y = if dy > 0 {
-                        self.height.saturating_sub(dy as u32)
-                    } else {
-                        0
-                    };
-                    let strip_h = dy.unsigned_abs().min(self.height);
-                    let (strip_data, fmt) = self.encode_region(guacr_terminal::FrameRect {
-                        x: 0,
-                        y: strip_y,
-                        width: self.width,
-                        height: strip_h,
-                    })?;
-                    self.adaptive_quality.track_frame_sent(strip_data.len());
-                    let msg = self.binary_encoder.encode_image(
-                        self.stream_id,
-                        0,
-                        0,
-                        strip_y as i32,
-                        self.width as u16,
-                        strip_h as u16,
-                        fmt,
-                        Bytes::from(strip_data),
-                    );
-                    self.send_and_record_bytes(msg).await?;
-                }
-
-                self.send_sync().await?;
-                self.framebuffer.clear_dirty();
+            if self.handle_drag_copy(dx, dy).await? {
                 return Ok(());
             }
         }
@@ -1369,87 +1385,7 @@ impl VncClient {
         // Check for scroll operation (shared with RDP)
         let framebuffer_pixels = self.framebuffer.get_all_pixels();
         if let Some(scroll_op) = self.scroll_detector.detect_scroll(&framebuffer_pixels) {
-            trace!(
-                "VNC: Detected scroll {:?} by {} pixels",
-                scroll_op.direction,
-                scroll_op.pixels
-            );
-
-            match scroll_op.direction {
-                ScrollDirection::Up => {
-                    let copy_instr = guacr_protocol::format_transfer(
-                        0,
-                        0,
-                        scroll_op.pixels,
-                        self.width,
-                        self.height - scroll_op.pixels,
-                        12,
-                        0,
-                        0,
-                        0,
-                    );
-                    self.send_and_record(&copy_instr).await?;
-
-                    let new_region_y = self.height - scroll_op.pixels;
-                    let (new_region_data, fmt) = self.encode_region(guacr_terminal::FrameRect {
-                        x: 0,
-                        y: new_region_y,
-                        width: self.width,
-                        height: scroll_op.pixels,
-                    })?;
-                    self.adaptive_quality
-                        .track_frame_sent(new_region_data.len());
-                    let msg = self.binary_encoder.encode_image(
-                        self.stream_id,
-                        0,
-                        0,
-                        new_region_y as i32,
-                        self.width as u16,
-                        scroll_op.pixels as u16,
-                        fmt,
-                        Bytes::from(new_region_data),
-                    );
-                    self.send_and_record_bytes(msg).await?;
-                    self.send_sync().await?;
-                }
-                ScrollDirection::Down => {
-                    let copy_instr = guacr_protocol::format_transfer(
-                        0,
-                        0,
-                        0,
-                        self.width,
-                        self.height - scroll_op.pixels,
-                        12,
-                        0,
-                        0,
-                        scroll_op.pixels,
-                    );
-                    self.send_and_record(&copy_instr).await?;
-
-                    let (new_region_data, fmt) = self.encode_region(guacr_terminal::FrameRect {
-                        x: 0,
-                        y: 0,
-                        width: self.width,
-                        height: scroll_op.pixels,
-                    })?;
-                    self.adaptive_quality
-                        .track_frame_sent(new_region_data.len());
-                    let msg = self.binary_encoder.encode_image(
-                        self.stream_id,
-                        0,
-                        0,
-                        0,
-                        self.width as u16,
-                        scroll_op.pixels as u16,
-                        fmt,
-                        Bytes::from(new_region_data),
-                    );
-                    self.send_and_record_bytes(msg).await?;
-                    self.send_sync().await?;
-                }
-            }
-
-            self.framebuffer.clear_dirty();
+            self.handle_scroll(scroll_op).await?;
             return Ok(());
         }
 
@@ -1457,21 +1393,30 @@ impl VncClient {
         // CopyDetector cell-based tiling is disabled: it fragments large updates
         // into hundreds of small tiles, causing visual artifacts during drag
         // and overwhelming the client with instruction volume.
+        use base64::Engine;
         let mut total_bytes = 0;
         for dirty in &dirty_rects {
             let (encoded_data, fmt) = self.encode_region(*dirty)?;
             total_bytes += encoded_data.len();
-            let msg = self.binary_encoder.encode_image(
+            let mimetype = match fmt {
+                1 => "image/jpeg",
+                2 => "image/webp",
+                _ => "image/png",
+            };
+            let b64 = base64::engine::general_purpose::STANDARD.encode(&encoded_data);
+            let img_instr = format_img(
                 self.stream_id,
+                14,
                 0,
+                mimetype,
                 dirty.x as i32,
                 dirty.y as i32,
-                dirty.width as u16,
-                dirty.height as u16,
-                fmt,
-                Bytes::from(encoded_data),
             );
-            self.send_and_record_bytes(msg).await?;
+            self.send_and_record(&img_instr).await?;
+            for chunk in format_chunked_blobs(self.stream_id, &b64, None) {
+                self.send_and_record(&chunk).await?;
+            }
+            self.stream_id = self.stream_id.wrapping_add(1);
         }
 
         if total_bytes > 0 {
@@ -1481,5 +1426,42 @@ impl VncClient {
         self.framebuffer.clear_dirty();
 
         Ok(())
+    }
+
+    async fn handle_framebuffer_rectangle(
+        &mut self,
+        rect: crate::vnc_protocol::VncRectangle,
+    ) -> Result<(), String> {
+        // Check for cursor pseudo-encoding (-239 = Rich Cursor, -240 = X Cursor)
+        if rect.encoding == crate::vnc_protocol::encodings::CURSOR
+            || rect.encoding == crate::vnc_protocol::encodings::X_CURSOR
+        {
+            return self.handle_cursor_update(rect).await;
+        }
+
+        // CopyRect encoding
+        if rect.encoding == crate::vnc_protocol::encodings::COPYRECT {
+            return self.handle_copyrect(&rect).await;
+        }
+
+        // Tight JPEG subtype: forward the server's JPEG bytes directly
+        if let crate::vnc_protocol::VncPixelData::TightJpeg(ref jpeg_bytes) = rect.pixel_data {
+            if !jpeg_bytes.is_empty() {
+                return self.handle_tight_jpeg(&rect).await;
+            }
+        }
+
+        // Tight FillRect: solid-color region
+        if let crate::vnc_protocol::VncPixelData::Fill(r, g, b) = rect.pixel_data {
+            return self.handle_tight_fill(&rect, r, g, b).await;
+        }
+
+        // Empty pixel data — nothing to do
+        if rect.pixels.is_empty() {
+            return Ok(());
+        }
+
+        // Raw pixels path
+        self.handle_raw_pixels(&rect).await
     }
 }

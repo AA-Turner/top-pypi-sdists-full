@@ -27,14 +27,11 @@ mod webrtc_circuit_breaker;
 mod webrtc_data_channel;
 mod webrtc_errors;
 mod webrtc_network_monitor;
-mod webrtc_quality_manager;
-
 pub use tube::*;
 pub use video_sender::VideoSender;
 pub use webrtc_core::*;
 pub use webrtc_errors::*;
 pub use webrtc_network_monitor::{ConnectionMigrator, NetworkMonitor};
-pub use webrtc_quality_manager::{AdaptiveQualityManager, CongestionLevel, QualityManagerConfig};
 
 #[cfg(feature = "builtin-handlers")]
 pub use handler_integration::{create_handler_registry, invoke_handler};

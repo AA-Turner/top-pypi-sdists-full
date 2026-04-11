@@ -94,6 +94,7 @@ __all__ = (
     "GetResponderGatewayRequestWaitTypeDef",
     "GetResponderGatewayResponseTypeDef",
     "HeaderTagActionTypeDef",
+    "HealthCheckConfigTypeDef",
     "LinkApplicationLogConfigurationTypeDef",
     "LinkApplicationLogSamplingTypeDef",
     "LinkAttributesOutputTypeDef",
@@ -166,13 +167,15 @@ class HeaderTagActionTypeDef(TypedDict):
 class NoBidActionTypeDef(TypedDict):
     noBidReasonCode: NotRequired[int]
 
-class AutoScalingGroupsConfigurationOutputTypeDef(TypedDict):
-    autoScalingGroupNames: list[str]
-    roleArn: str
-
-class AutoScalingGroupsConfigurationTypeDef(TypedDict):
-    autoScalingGroupNames: Sequence[str]
-    roleArn: str
+class HealthCheckConfigTypeDef(TypedDict):
+    port: int
+    path: str
+    protocol: NotRequired[ProtocolType]
+    timeoutMs: NotRequired[int]
+    intervalSeconds: NotRequired[int]
+    statusCodeMatcher: NotRequired[str]
+    healthyThresholdCount: NotRequired[int]
+    unhealthyThresholdCount: NotRequired[int]
 
 class CreateRequesterGatewayRequestTypeDef(TypedDict):
     vpcId: str
@@ -410,20 +413,22 @@ class ActionTypeDef(TypedDict):
     noBid: NotRequired[NoBidActionTypeDef]
     headerTag: NotRequired[HeaderTagActionTypeDef]
 
+class AutoScalingGroupsConfigurationOutputTypeDef(TypedDict):
+    autoScalingGroupNames: list[str]
+    roleArn: str
+    healthCheckConfig: NotRequired[HealthCheckConfigTypeDef]
+
+class AutoScalingGroupsConfigurationTypeDef(TypedDict):
+    autoScalingGroupNames: Sequence[str]
+    roleArn: str
+    healthCheckConfig: NotRequired[HealthCheckConfigTypeDef]
+
 class CreateResponderGatewayResponseTypeDef(TypedDict):
     gatewayId: str
     status: ResponderGatewayStatusType
     listenerConfig: ListenerConfigOutputTypeDef
     externalInboundEndpoint: str
     ResponseMetadata: ResponseMetadataTypeDef
-
-class ManagedEndpointConfigurationOutputTypeDef(TypedDict):
-    autoScalingGroups: NotRequired[AutoScalingGroupsConfigurationOutputTypeDef]
-    eksEndpoints: NotRequired[EksEndpointsConfigurationTypeDef]
-
-class ManagedEndpointConfigurationTypeDef(TypedDict):
-    autoScalingGroups: NotRequired[AutoScalingGroupsConfigurationTypeDef]
-    eksEndpoints: NotRequired[EksEndpointsConfigurationTypeDef]
 
 class FilterOutputTypeDef(TypedDict):
     criteria: list[FilterCriterionOutputTypeDef]
@@ -507,6 +512,28 @@ TrustStoreConfigurationUnionTypeDef = Union[
     TrustStoreConfigurationTypeDef, TrustStoreConfigurationOutputTypeDef
 ]
 
+class ManagedEndpointConfigurationOutputTypeDef(TypedDict):
+    autoScalingGroups: NotRequired[AutoScalingGroupsConfigurationOutputTypeDef]
+    eksEndpoints: NotRequired[EksEndpointsConfigurationTypeDef]
+
+class ManagedEndpointConfigurationTypeDef(TypedDict):
+    autoScalingGroups: NotRequired[AutoScalingGroupsConfigurationTypeDef]
+    eksEndpoints: NotRequired[EksEndpointsConfigurationTypeDef]
+
+class OpenRtbAttributeModuleParametersOutputTypeDef(TypedDict):
+    filterType: FilterTypeType
+    filterConfiguration: list[FilterOutputTypeDef]
+    action: ActionTypeDef
+    holdbackPercentage: float
+
+class FilterTypeDef(TypedDict):
+    criteria: Sequence[FilterCriterionUnionTypeDef]
+
+class LinkLogSettingsTypeDef(TypedDict):
+    applicationLogs: LinkApplicationLogConfigurationTypeDef
+
+LinkAttributesUnionTypeDef = Union[LinkAttributesTypeDef, LinkAttributesOutputTypeDef]
+
 class GetResponderGatewayResponseTypeDef(TypedDict):
     vpcId: str
     subnetIds: list[str]
@@ -533,46 +560,6 @@ class GetResponderGatewayResponseTypeDef(TypedDict):
 ManagedEndpointConfigurationUnionTypeDef = Union[
     ManagedEndpointConfigurationTypeDef, ManagedEndpointConfigurationOutputTypeDef
 ]
-
-class OpenRtbAttributeModuleParametersOutputTypeDef(TypedDict):
-    filterType: FilterTypeType
-    filterConfiguration: list[FilterOutputTypeDef]
-    action: ActionTypeDef
-    holdbackPercentage: float
-
-class FilterTypeDef(TypedDict):
-    criteria: Sequence[FilterCriterionUnionTypeDef]
-
-class LinkLogSettingsTypeDef(TypedDict):
-    applicationLogs: LinkApplicationLogConfigurationTypeDef
-
-LinkAttributesUnionTypeDef = Union[LinkAttributesTypeDef, LinkAttributesOutputTypeDef]
-
-class CreateResponderGatewayRequestTypeDef(TypedDict):
-    vpcId: str
-    subnetIds: Sequence[str]
-    securityGroupIds: Sequence[str]
-    port: int
-    protocol: ProtocolType
-    clientToken: str
-    domainName: NotRequired[str]
-    listenerConfig: NotRequired[ListenerConfigUnionTypeDef]
-    trustStoreConfiguration: NotRequired[TrustStoreConfigurationUnionTypeDef]
-    managedEndpointConfiguration: NotRequired[ManagedEndpointConfigurationUnionTypeDef]
-    description: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-    gatewayType: NotRequired[GatewayTypeType]
-
-class UpdateResponderGatewayRequestTypeDef(TypedDict):
-    port: int
-    protocol: ProtocolType
-    clientToken: str
-    gatewayId: str
-    domainName: NotRequired[str]
-    listenerConfig: NotRequired[ListenerConfigUnionTypeDef]
-    trustStoreConfiguration: NotRequired[TrustStoreConfigurationUnionTypeDef]
-    managedEndpointConfiguration: NotRequired[ManagedEndpointConfigurationUnionTypeDef]
-    description: NotRequired[str]
 
 class ModuleParametersOutputTypeDef(TypedDict):
     noBid: NotRequired[NoBidModuleParametersTypeDef]
@@ -617,6 +604,32 @@ class CreateOutboundExternalLinkRequestTypeDef(TypedDict):
     logSettings: LinkLogSettingsTypeDef
     attributes: NotRequired[LinkAttributesUnionTypeDef]
     tags: NotRequired[Mapping[str, str]]
+
+class CreateResponderGatewayRequestTypeDef(TypedDict):
+    vpcId: str
+    subnetIds: Sequence[str]
+    securityGroupIds: Sequence[str]
+    port: int
+    protocol: ProtocolType
+    clientToken: str
+    domainName: NotRequired[str]
+    listenerConfig: NotRequired[ListenerConfigUnionTypeDef]
+    trustStoreConfiguration: NotRequired[TrustStoreConfigurationUnionTypeDef]
+    managedEndpointConfiguration: NotRequired[ManagedEndpointConfigurationUnionTypeDef]
+    description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+    gatewayType: NotRequired[GatewayTypeType]
+
+class UpdateResponderGatewayRequestTypeDef(TypedDict):
+    port: int
+    protocol: ProtocolType
+    clientToken: str
+    gatewayId: str
+    domainName: NotRequired[str]
+    listenerConfig: NotRequired[ListenerConfigUnionTypeDef]
+    trustStoreConfiguration: NotRequired[TrustStoreConfigurationUnionTypeDef]
+    managedEndpointConfiguration: NotRequired[ManagedEndpointConfigurationUnionTypeDef]
+    description: NotRequired[str]
 
 class ModuleConfigurationOutputTypeDef(TypedDict):
     name: str

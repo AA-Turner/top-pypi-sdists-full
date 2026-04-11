@@ -1,13 +1,6 @@
-use crate::RySignedDuration;
-use crate::RySpan;
-use crate::RyTimeZone;
-use crate::RyZoned;
-use crate::difference::{RyTimestampDifference, TimestampDifferenceArg};
-use crate::round::RyTimestampRound;
-use crate::series::RyTimestampSeries;
-use crate::spanish::Spanish;
-use crate::util::SpanKwargs;
-use crate::{JiffRoundMode, JiffUnit, RyDate, RyDateTime, RyISOWeekDate, RyOffset, RyTime};
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::ops::Sub;
+
 use jiff::tz::TimeZone;
 use jiff::{Timestamp, TimestampRound, Zoned};
 use pyo3::basic::CompareOp;
@@ -16,8 +9,16 @@ use pyo3::types::PyTuple;
 use pyo3::{BoundObject, IntoPyObjectExt};
 use ryo3_core::{PyAsciiString, map_py_overflow_err, map_py_value_err};
 use ryo3_macro_rules::{any_repr, py_type_err};
-use std::hash::{DefaultHasher, Hash, Hasher};
-use std::ops::Sub;
+
+use crate::difference::{RyTimestampDifference, TimestampDifferenceArg};
+use crate::round::RyTimestampRound;
+use crate::series::RyTimestampSeries;
+use crate::spanish::Spanish;
+use crate::util::SpanKwargs;
+use crate::{
+    JiffRoundMode, JiffUnit, RyDate, RyDateTime, RyISOWeekDate, RyOffset, RySignedDuration, RySpan,
+    RyTime, RyTimeZone, RyZoned,
+};
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
@@ -193,15 +194,15 @@ impl RyTimestamp {
 
     #[expect(clippy::too_many_arguments)]
     #[pyo3(
-        signature=(
-            other=None,
+        signature = (
+            other = None,
             /, *,
-            hours=0,
-            minutes=0,
-            seconds=0,
-            milliseconds=0,
-            microseconds=0,
-            nanoseconds=0
+            hours = 0,
+            minutes = 0,
+            seconds = 0,
+            milliseconds = 0,
+            microseconds = 0,
+            nanoseconds = 0
         )
     )]
     fn add(
@@ -240,15 +241,15 @@ impl RyTimestamp {
 
     #[expect(clippy::too_many_arguments)]
     #[pyo3(
-        signature=(
-            other=None,
+        signature = (
+            other = None,
             /, *,
-            hours=0,
-            minutes=0,
-            seconds=0,
-            milliseconds=0,
-            microseconds=0,
-            nanoseconds=0
+            hours = 0,
+            minutes = 0,
+            seconds = 0,
+            milliseconds = 0,
+            microseconds = 0,
+            nanoseconds = 0
         )
     )]
     fn sub<'py>(
@@ -404,7 +405,14 @@ impl RyTimestamp {
     }
 
     #[pyo3(
-        signature = (ts, *, smallest=JiffUnit::NANOSECOND, largest=None, mode=JiffRoundMode::TRUNC, increment=1),
+        signature = (
+            ts,
+            *,
+            smallest = JiffUnit::NANOSECOND,
+            largest = None,
+            mode = JiffRoundMode::TRUNC,
+            increment = 1
+        ),
         text_signature = "(self, other, *, smallest=\"nanosecond\", largest=None, mode=\"trunc\", increment=1)"
     )]
     fn since(
@@ -423,7 +431,14 @@ impl RyTimestamp {
     }
 
     #[pyo3(
-        signature = (ts, *, smallest=JiffUnit::NANOSECOND, largest=None, mode=JiffRoundMode::TRUNC, increment=1),
+        signature = (
+            ts,
+            *,
+            smallest = JiffUnit::NANOSECOND,
+            largest = None,
+            mode = JiffRoundMode::TRUNC,
+            increment = 1
+        ),
         text_signature = "(self, other, *, smallest=\"nanosecond\", largest=None, mode=\"trunc\", increment=1)"
     )]
     fn until(
@@ -470,10 +485,10 @@ impl RyTimestamp {
 
     #[pyo3(
         signature = (
-            smallest=JiffUnit::NANOSECOND,
+            smallest = JiffUnit::NANOSECOND,
             *,
-            mode=JiffRoundMode::HALF_EXPAND,
-            increment=1
+            mode = JiffRoundMode::HALF_EXPAND,
+            increment = 1
         ),
         text_signature = "(self, smallest=\"nanosecond\", *, mode=\"half-expand\", increment=1)"
     )]

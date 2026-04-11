@@ -21,7 +21,7 @@ import functools
 import itertools
 import os
 import sys
-from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 import argcomplete
 
@@ -30,7 +30,7 @@ from nox.tasks import discover_manifest, filter_manifest, load_nox_module
 from nox.virtualenv import ALL_VENVS
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
     from nox._option_set import NoxOptions
 
@@ -365,6 +365,13 @@ options.add_options(
         help="List all available sessions and exit.",
     ),
     _option_set.Option(
+        "usage",
+        "--usage",
+        group=options.groups["sessions"],
+        nargs=1,
+        help="Print the full docstring of a given session and exit. Raises if there is no docstring.",
+    ),
+    _option_set.Option(
         "json",
         "--json",
         group=options.groups["sessions"],
@@ -648,7 +655,10 @@ options.add_options(
         "--forcecolor",
         "--force-color",
         group=options.groups["reporting"],
-        default=lambda: "FORCE_COLOR" in os.environ,
+        default=lambda: (
+            os.environ.get("FORCE_COLOR", "").lower()
+            not in {"", "0", "false", "no", "off"}
+        ),
         action="store_true",
         help="Force color output, even if stdout is not an interactive terminal.",
     ),

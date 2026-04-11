@@ -1,4 +1,4 @@
-// guacr-protocol: Guacamole protocol instruction formatting
+// guacr-protocol: Guacamole protocol instruction formatting and Telnet constants
 //
 // Provides utilities for formatting Guacamole protocol instructions
 // according to the official Apache Guacamole protocol specification.
@@ -10,6 +10,7 @@ pub(crate) mod layers;
 pub(crate) mod parser;
 pub mod streaming;
 pub(crate) mod streams;
+pub mod telnet;
 pub(crate) mod text_optimized;
 
 pub use advanced::{
@@ -36,9 +37,8 @@ pub use advanced::{
     STATUS_UPSTREAM_UNAVAILABLE,
 };
 pub use binary::{
-    BinaryEncoder, Opcode, BINARY_PROTOCOL_OVERHEAD, FLAG_COMPRESSED, FLAG_ENCRYPTED,
-    FLAG_FIRST_FRAGMENT, FLAG_FRAGMENTED, FLAG_LAST_FRAGMENT, FRAME_PROTOCOL_OVERHEAD,
-    MAX_ENCODER_FRAME_SIZE, MAX_SAFE_PAYLOAD_SIZE, TOTAL_PROTOCOL_OVERHEAD,
+    BinaryEncoder, ImageFormat, Opcode, BINARY_PROTOCOL_OVERHEAD, FLAG_COMPRESSED, FLAG_ENCRYPTED,
+    FRAME_PROTOCOL_OVERHEAD, MAX_SAFE_PAYLOAD_SIZE, TOTAL_PROTOCOL_OVERHEAD,
 };
 pub use drawing::*;
 pub use layers::*;

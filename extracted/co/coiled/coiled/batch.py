@@ -55,6 +55,7 @@ def run(
     command_as_script: bool | None = None,
     ignore_container_entrypoint: bool | None = None,
     job_timeout: str | None = None,
+    max_retries: int | None = None,
     logger=None,
 ) -> dict:
     """Submit a batch job to run on Coiled.
@@ -125,6 +126,7 @@ def run(
         command_as_script=command_as_script,
         ignore_container_entrypoint=ignore_container_entrypoint,
         job_timeout=job_timeout,
+        max_retries=max_retries,
         logger=logger,
     )
 

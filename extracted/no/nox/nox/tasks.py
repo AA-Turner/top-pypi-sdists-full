@@ -19,7 +19,8 @@ import importlib.util
 import json
 import os
 import sys
-from typing import TYPE_CHECKING, Sequence, TypeVar
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, TypeVar
 
 from colorlog.escape_codes import parse_colors
 
@@ -196,16 +197,17 @@ def filter_manifest(manifest: Manifest, global_config: Namespace) -> Manifest | 
     # Filter by the name of any explicit sessions.
     # This can raise KeyError if a specified session does not exist;
     # log this if it happens. The sessions does not come from the Noxfile
-    # if keywords is not empty.
-    if global_config.sessions is None:
-        manifest.filter_by_default()
-    else:
-        try:
-            manifest.filter_by_name(global_config.sessions)
-        except KeyError as exc:
-            logger.error("Error while collecting sessions.")
-            logger.error(exc.args[0])
-            return 3
+    # if keywords is not empty or tags are supplied.
+    if global_config.tags is None and not global_config.keywords:
+        if global_config.sessions is None:
+            manifest.filter_by_default()
+        else:
+            try:
+                manifest.filter_by_name(global_config.sessions)
+            except KeyError as exc:
+                logger.error("Error while collecting sessions.")
+                logger.error(exc.args[0])
+                return 3
 
     if not manifest and not global_config.list_sessions:
         print("No sessions selected. Please select a session with -s <session name>.\n")
@@ -332,6 +334,44 @@ def honor_list_request(manifest: Manifest, global_config: Namespace) -> Manifest
     else:
         _produce_listing(manifest, global_config)
 
+    return 0
+
+
+def honor_usage_request(manifest: Manifest, global_config: Namespace) -> Manifest | int:
+    """If --usage was passed, print the full docstring of the session and exit.
+    Raise an error if the session does not exist or has no docstring to print.
+
+    Args:
+        manifest (~.Manifest): The manifest of sessions to be run.
+        global_config (~nox.main.GlobalConfig): The global configuration.
+
+    Returns:
+        Union[~.Manifest,int]: ``0`` if usage is printed,
+            the manifest otherwise (to be sent to the next task).
+    """
+    if not global_config.usage:
+        return manifest
+
+    name = global_config.usage[0]
+
+    # Search all sessions, not just the filtered queue, so that
+    # non-default sessions can also be looked up.
+    session = None
+    for _ in manifest._all_sessions:
+        if _.name == name or name in _.signatures:
+            session = _
+            break
+
+    if session is None:
+        logger.error("Session %s not found.", name)
+        return 1
+
+    full_description = session.full_description
+    if full_description is None:
+        logger.error("Session %s has no docstring.", name)
+        return 1
+
+    print(full_description)
     return 0
 
 

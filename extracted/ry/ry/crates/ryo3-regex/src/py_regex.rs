@@ -1,7 +1,10 @@
-use crate::py_regex_options::PyRegexOptions;
-use pyo3::{IntoPyObjectExt, prelude::*};
-use regex::{Regex, RegexBuilder};
 use std::borrow::{Borrow, Cow};
+
+use pyo3::IntoPyObjectExt;
+use pyo3::prelude::*;
+use regex::{Regex, RegexBuilder};
+
+use crate::py_regex_options::PyRegexOptions;
 
 #[pyclass(name = "Regex", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]

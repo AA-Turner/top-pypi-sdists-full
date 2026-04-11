@@ -48,12 +48,16 @@ def _is_init_file(file_path: str) -> bool:
 def _is_test_file(file_path: str) -> bool:
     fp = file_path.replace("\\", "/")
     fn = fp.rsplit("/", 1)[-1]
+    base = fn.rsplit(".", 1)[0] if "." in fn else fn
     return (
         "/tests/" in fp
         or "/test/" in fp
+        or "/__tests__/" in fp
         or fn.startswith("test_")
         or fn.endswith("_test.py")
         or fn == "conftest.py"
+        or base.endswith(".spec")    # foo.spec.ts, foo.spec.js
+        or base.endswith(".test")    # foo.test.ts, foo.test.js
     )
 
 

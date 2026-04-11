@@ -888,3 +888,94 @@ class TestErrorHandling:
             assert len(error_events) == 1
             assert "unable to complete inference" in error_events[0]["data"]["message"]
             assert error_events[0]["data"]["code"] == "bad_request"
+
+
+# ---------------------------------------------------------------------------
+# Pre-flight validation tests (#1344)
+# ---------------------------------------------------------------------------
+
+
+@requires_anthropic
+class TestPreflightValidation:
+    @pytest.fixture
+    def mock_service(self):
+        with (
+            patch("anteroom.services.anthropic_provider.anthropic") as mock_anthropic,
+            patch("anteroom.services.anthropic_provider.HAS_ANTHROPIC", True),
+        ):
+            config = _make_config()
+            from anteroom.services.anthropic_provider import AnthropicService
+
+            svc = AnthropicService(config)
+            yield svc, mock_anthropic
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_rejects_assistant_first(self, mock_service):
+        """stream_chat yields a request_invalid error when the first
+        non-system message is assistant."""
+        svc, mock_anthropic = mock_service
+
+        messages = [{"role": "assistant", "content": "I started talking"}]
+        events = []
+        async for event in svc.stream_chat(messages):
+            events.append(event)
+
+        error_events = [e for e in events if e["event"] == "error"]
+        assert len(error_events) == 1
+        assert error_events[0]["data"]["code"] == "request_invalid"
+        assert error_events[0]["data"]["retryable"] is False
+        assert error_events[0]["data"]["provider"] == "anthropic"
+        assert "role='assistant'" in error_events[0]["data"]["message"]
+        # SDK must not have been called
+        mock_anthropic.AsyncAnthropic.return_value.messages.stream.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_passes_valid_history(self, mock_service):
+        """stream_chat does not block a valid user-first history."""
+        svc, _ = mock_service
+
+        text_delta = MagicMock()
+        text_delta.type = "content_block_delta"
+        text_delta.delta = MagicMock()
+        text_delta.delta.type = "text_delta"
+        text_delta.delta.text = "Hello"
+
+        msg_delta = MagicMock()
+        msg_delta.type = "message_delta"
+        msg_delta.delta = MagicMock()
+        msg_delta.delta.stop_reason = "end_turn"
+        msg_delta.usage = MagicMock()
+        msg_delta.usage.output_tokens = 1
+
+        svc.client.messages.stream = MagicMock(return_value=_make_mock_stream_context([text_delta, msg_delta]))
+
+        events = []
+        async for event in svc.stream_chat([{"role": "user", "content": "Hi"}]):
+            events.append(event)
+
+        assert any(e["event"] == "done" for e in events)
+        assert not any(e["event"] == "error" and e["data"].get("code") == "request_invalid" for e in events)
+
+    @pytest.mark.asyncio
+    async def test_complete_raises_on_assistant_first(self, mock_service):
+        """complete() propagates ProviderRequestError via the except Exception path."""
+        svc, mock_anthropic = mock_service
+
+        messages = [{"role": "assistant", "content": "oops"}]
+        result = await svc.complete(messages)
+        # complete() catches Exception and returns None
+        assert result is None
+        mock_anthropic.AsyncAnthropic.return_value.messages.create.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_complete_with_usage_raises_on_assistant_first(self, mock_service):
+        """complete_with_usage() propagates ProviderRequestError."""
+        svc, mock_anthropic = mock_service
+
+        messages = [{"role": "assistant", "content": "oops"}]
+        # complete_with_usage catches Exception and re-raises or returns
+        # The ProviderRequestError will be caught by the except AnthropicAuthError
+        # branch first? No — it's not an AnthropicAuthError. It falls to except Exception.
+        # In the current code, except Exception re-raises for complete_with_usage.
+        with pytest.raises(Exception):
+            await svc.complete_with_usage(messages)

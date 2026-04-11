@@ -25,6 +25,7 @@ class RepositoryCollaboratorArgs:
                  permission_diff_suppression: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         The set of arguments for constructing a RepositoryCollaborator resource.
+
         :param pulumi.Input[_builtins.str] repository: The GitHub repository
                
                > Note: The owner of the repository can be passed as part of the repository name  e.g. `owner-org-name/repo-name`. If owner is not supplied as part of the repository name, it may also be supplied by setting the environment variable `GITHUB_OWNER`.
@@ -104,6 +105,7 @@ class _RepositoryCollaboratorState:
                  username: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Input properties used for looking up and filtering RepositoryCollaborator resources.
+
         :param pulumi.Input[_builtins.str] invitation_id: ID of the invitation to be used in `UserInvitationAccepter`
         :param pulumi.Input[_builtins.str] permission: The permission of the outside collaborator for the repository.
                Must be one of `pull`, `push`, `maintain`, `triage` or `admin` or the name of an existing [custom repository role](https://docs.github.com/en/enterprise-cloud@latest/organizations/managing-peoples-access-to-your-organization-with-roles/managing-custom-repository-roles-for-an-organization) within the organization for organization-owned repositories.
@@ -202,6 +204,33 @@ class RepositoryCollaborator(pulumi.CustomResource):
                  username: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        Provides a GitHub repository collaborator resource.
+
+        > Note: RepositoryCollaborator cannot be used in conjunction with RepositoryCollaborators or
+        they will fight over what your policy should be.
+
+        This resource allows you to add/remove collaborators from repositories in your
+        organization or personal account. For organization repositories, collaborators can
+        have explicit (and differing levels of) read, write, or administrator access to
+        specific repositories, without giving the user full organization membership.
+        For personal repositories, collaborators can only be granted write
+        (implicitly includes read) permission.
+
+        When applied, an invitation will be sent to the user to become a collaborator
+        on a repository. When destroyed, either the invitation will be cancelled or the
+        collaborator will be removed from the repository.
+
+        > **Note on Archived Repositories**: When a repository is archived, GitHub makes it read-only, preventing collaborator modifications. If you attempt to destroy resources associated with archived repositories, the provider will gracefully handle the operation by logging an informational message and removing the resource from Terraform state without attempting to modify the archived repository.
+
+        This resource is non-authoritative, for managing ALL collaborators of a repo, use RepositoryCollaborators
+        instead.
+
+        Further documentation on GitHub collaborators:
+
+        - [Adding outside collaborators to your personal repositories](https://help.github.com/en/github/setting-up-and-managing-your-github-user-account/managing-access-to-your-personal-repositories)
+        - [Adding outside collaborators to repositories in your organization](https://help.github.com/articles/adding-outside-collaborators-to-repositories-in-your-organization/)
+        - [Converting an organization member to an outside collaborator](https://help.github.com/articles/converting-an-organization-member-to-an-outside-collaborator/)
+
         ## Example Usage
 
         ```python
@@ -222,6 +251,7 @@ class RepositoryCollaborator(pulumi.CustomResource):
         ```sh
         $ pulumi import github:index/repositoryCollaborator:RepositoryCollaborator collaborator terraform:someuser
         ```
+
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -241,6 +271,33 @@ class RepositoryCollaborator(pulumi.CustomResource):
                  args: RepositoryCollaboratorArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        Provides a GitHub repository collaborator resource.
+
+        > Note: RepositoryCollaborator cannot be used in conjunction with RepositoryCollaborators or
+        they will fight over what your policy should be.
+
+        This resource allows you to add/remove collaborators from repositories in your
+        organization or personal account. For organization repositories, collaborators can
+        have explicit (and differing levels of) read, write, or administrator access to
+        specific repositories, without giving the user full organization membership.
+        For personal repositories, collaborators can only be granted write
+        (implicitly includes read) permission.
+
+        When applied, an invitation will be sent to the user to become a collaborator
+        on a repository. When destroyed, either the invitation will be cancelled or the
+        collaborator will be removed from the repository.
+
+        > **Note on Archived Repositories**: When a repository is archived, GitHub makes it read-only, preventing collaborator modifications. If you attempt to destroy resources associated with archived repositories, the provider will gracefully handle the operation by logging an informational message and removing the resource from Terraform state without attempting to modify the archived repository.
+
+        This resource is non-authoritative, for managing ALL collaborators of a repo, use RepositoryCollaborators
+        instead.
+
+        Further documentation on GitHub collaborators:
+
+        - [Adding outside collaborators to your personal repositories](https://help.github.com/en/github/setting-up-and-managing-your-github-user-account/managing-access-to-your-personal-repositories)
+        - [Adding outside collaborators to repositories in your organization](https://help.github.com/articles/adding-outside-collaborators-to-repositories-in-your-organization/)
+        - [Converting an organization member to an outside collaborator](https://help.github.com/articles/converting-an-organization-member-to-an-outside-collaborator/)
+
         ## Example Usage
 
         ```python
@@ -261,6 +318,7 @@ class RepositoryCollaborator(pulumi.CustomResource):
         ```sh
         $ pulumi import github:index/repositoryCollaborator:RepositoryCollaborator collaborator terraform:someuser
         ```
+
 
         :param str resource_name: The name of the resource.
         :param RepositoryCollaboratorArgs args: The arguments to use to populate this resource's properties.

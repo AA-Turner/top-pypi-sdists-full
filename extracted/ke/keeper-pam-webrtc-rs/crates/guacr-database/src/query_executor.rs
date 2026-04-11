@@ -1,17 +1,17 @@
 // Database query executor with ratatui-based result rendering
 // Unified executor for all database handlers
 
-const CHAR_WIDTH: u32 = 9;
-const CHAR_HEIGHT: u32 = 18;
-
 use crate::ratatui_db_ui::{AppFocus, DatabaseRatatuiApp};
 use crate::{DatabaseError, Result};
 use bytes::Bytes;
 use guacr_handlers::{send_name, send_ready, CursorManager, HandlerError, StandardCursor};
-use guacr_protocol::{format_chunked_blobs, GuacamoleParser, TextProtocolEncoder};
+use guacr_protocol::{
+    format_chunked_blobs, BinaryEncoder, GuacamoleParser, ImageFormat, TextProtocolEncoder,
+};
 use guacr_terminal::{
     format_clear_selection_instructions, format_clipboard_instructions, parse_mouse_instruction,
     QueryResult, RatatuiRenderer, SelectionResult, TerminalInputHandler, TerminalRenderer,
+    CHAR_HEIGHT, CHAR_WIDTH,
 };
 use std::time::Instant;
 use tokio::sync::mpsc;
@@ -44,6 +44,12 @@ pub struct QueryExecutor {
     // Zero-allocation protocol encoder (shared scratch buffer)
     protocol_encoder: TextProtocolEncoder,
 
+    // Binary protocol encoder — reused across frames to avoid per-frame allocation
+    binary_encoder: BinaryEncoder,
+
+    // When true, render_screen sends a binary IMAGE message instead of base64 blobs
+    pub use_binary: bool,
+
     // Dirty flag: true when content changed since last render_screen call.
     // Prevents the 60fps debounce from re-encoding identical frames.
     dirty: bool,
@@ -75,6 +81,8 @@ impl QueryExecutor {
             prompt_template: prompt.to_string(),
             input_handler: TerminalInputHandler::new_with_scrollback(rows, cols, 1000),
             protocol_encoder: TextProtocolEncoder::new(),
+            binary_encoder: BinaryEncoder::new(),
+            use_binary: false,
             dirty: true, // render on first tick
         })
     }
@@ -352,7 +360,14 @@ impl QueryExecutor {
         self.dirty
     }
 
-    /// Render terminal screen and return Guacamole instructions
+    /// Render terminal screen and return protocol instructions.
+    ///
+    /// Binary mode: dirty-region detection (like SSH/Telnet). Only the rows that changed
+    /// since the last render are sent. If the dirty region spans more than half the screen
+    /// it is split into two tiles, each with its own sync — keeping each JPEG under the
+    /// 64KB WebRTC SCTP hard limit and matching how the client handles IMAGE+sync pairs.
+    ///
+    /// Text mode: img + base64 blobs (32KB chunks) + end + sync.
     pub async fn render_screen(&mut self) -> Result<(bool, Vec<Bytes>)> {
         // Sync continuation state to app before rendering
         self.app.in_continuation = self.in_continuation;
@@ -363,31 +378,113 @@ impl QueryExecutor {
             .draw(|f| app.render(f))
             .map_err(|e| DatabaseError::QueryError(format!("Render error: {}", e)))?;
 
-        let jpeg = self
-            .ratatui
-            .render_to_jpeg(85)
-            .map_err(|e| DatabaseError::QueryError(format!("JPEG error: {}", e)))?;
+        let instructions = if self.use_binary {
+            let (rows, cols) = self.size();
+            let width_px = (cols as u32 * CHAR_WIDTH) as u16;
 
-        let base64_data = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &jpeg);
+            // Dirty detection: compare fresh buffer against prev_buffer snapshot.
+            // Must happen before any render_region_to_jpeg call (which updates prev_buffer).
+            let (dirty_min, dirty_max) = self.ratatui.find_dirty_rows();
 
-        let img_instr =
-            self.protocol_encoder
-                .format_img_instruction(self.stream_id, 0, 0, 0, "image/jpeg");
-        let blob_instructions = format_chunked_blobs(self.stream_id, &base64_data, None);
+            if dirty_min > dirty_max {
+                // Nothing changed in the ratatui buffer — nothing to send.
+                self.dirty = false;
+                return Ok((true, vec![]));
+            }
 
-        let mut instructions = Vec::with_capacity(1 + blob_instructions.len() + 1);
-        instructions.push(img_instr.freeze());
-        instructions.extend(blob_instructions.into_iter().map(Bytes::from));
+            let dirty_rows = dirty_max - dirty_min + 1;
 
-        let timestamp_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
-        let sync_instr = self
-            .ratatui
-            .font_renderer
-            .format_sync_instruction(timestamp_ms);
-        instructions.push(Bytes::from(sync_instr));
+            // Half-screen height at Q85 renders to ~half the full-screen JPEG size.
+            // For 1862×1358: full ≈107KB, half ≈54KB — under the 64KB SCTP limit.
+            // Dirty regions ≤ half the screen: one IMAGE + one sync.
+            // Larger regions: two tiles, two syncs (client treats each pair independently).
+            let mut instrs = Vec::with_capacity(4);
+
+            if dirty_rows <= rows / 2 {
+                let (jpeg, y_px) = self
+                    .ratatui
+                    .render_region_to_jpeg(dirty_min, dirty_max, 85)
+                    .map_err(|e| DatabaseError::QueryError(format!("JPEG error: {}", e)))?;
+                let h_px = dirty_rows as u32 * CHAR_HEIGHT;
+                instrs.push(self.binary_encoder.encode_image(
+                    0,
+                    y_px as u16,
+                    width_px,
+                    h_px as u16,
+                    ImageFormat::Jpeg as u8,
+                    Bytes::from(jpeg),
+                ));
+                let ts = guacr_terminal::current_time_millis();
+                instrs.push(Bytes::from(
+                    self.ratatui.font_renderer.format_sync_instruction(ts),
+                ));
+            } else {
+                let mid = dirty_min + dirty_rows / 2;
+
+                let (top_jpeg, top_y) = self
+                    .ratatui
+                    .render_region_to_jpeg(dirty_min, mid - 1, 85)
+                    .map_err(|e| DatabaseError::QueryError(format!("JPEG error: {}", e)))?;
+                let top_h = (mid - dirty_min) as u32 * CHAR_HEIGHT;
+                instrs.push(self.binary_encoder.encode_image(
+                    0,
+                    top_y as u16,
+                    width_px,
+                    top_h as u16,
+                    ImageFormat::Jpeg as u8,
+                    Bytes::from(top_jpeg),
+                ));
+                let ts1 = guacr_terminal::current_time_millis();
+                instrs.push(Bytes::from(
+                    self.ratatui.font_renderer.format_sync_instruction(ts1),
+                ));
+
+                let (bot_jpeg, bot_y) = self
+                    .ratatui
+                    .render_region_to_jpeg(mid, dirty_max, 85)
+                    .map_err(|e| DatabaseError::QueryError(format!("JPEG error: {}", e)))?;
+                let bot_h = (dirty_max - mid + 1) as u32 * CHAR_HEIGHT;
+                instrs.push(self.binary_encoder.encode_image(
+                    0,
+                    bot_y as u16,
+                    width_px,
+                    bot_h as u16,
+                    ImageFormat::Jpeg as u8,
+                    Bytes::from(bot_jpeg),
+                ));
+                let ts2 = guacr_terminal::current_time_millis();
+                instrs.push(Bytes::from(
+                    self.ratatui.font_renderer.format_sync_instruction(ts2),
+                ));
+            }
+
+            instrs
+        } else {
+            let jpeg = self
+                .ratatui
+                .render_to_jpeg(85)
+                .map_err(|e| DatabaseError::QueryError(format!("JPEG error: {}", e)))?;
+            let timestamp_ms = guacr_terminal::current_time_millis();
+            let sync_instr = self
+                .ratatui
+                .font_renderer
+                .format_sync_instruction(timestamp_ms);
+            let base64_data =
+                base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &jpeg);
+            let img_instr =
+                self.protocol_encoder
+                    .format_img_instruction(self.stream_id, 0, 0, 0, "image/jpeg");
+            // 32KB base64 chunks: ~4 blobs per frame instead of ~21 with 6KB chunks,
+            // cutting WebRTC sends from ~23 down to ~7 per frame. Each blob stays well
+            // under the 64KB SCTP limit (32768 bytes base64 + ~40 bytes overhead).
+            let blob_instructions = format_chunked_blobs(self.stream_id, &base64_data, Some(32768));
+
+            let mut instrs = Vec::with_capacity(1 + blob_instructions.len() + 1);
+            instrs.push(img_instr.freeze());
+            instrs.extend(blob_instructions.into_iter().map(Bytes::from));
+            instrs.push(Bytes::from(sync_instr));
+            instrs
+        };
 
         self.dirty = false;
         Ok((true, instructions))

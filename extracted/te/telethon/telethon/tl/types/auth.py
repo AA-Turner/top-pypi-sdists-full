@@ -5,7 +5,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeUser
+    from ...tl.types import TypeDataJSON, TypeUser
     from ...tl.types.help import TypeTermsOfService
     from ...tl.types.auth import TypeAuthorization, TypeCodeType, TypeSentCodeType
 
@@ -36,7 +36,7 @@ class Authorization(TLObject):
         }
 
     def _bytes(self):
-        assert ((self.setup_password_required or self.setup_password_required is not None) and (self.otherwise_relogin_days or self.otherwise_relogin_days is not None)) or ((self.setup_password_required is None or self.setup_password_required is False) and (self.otherwise_relogin_days is None or self.otherwise_relogin_days is False)), 'setup_password_required, otherwise_relogin_days parameters must all be False-y (like None) or all me True-y'
+        assert ((self.setup_password_required or self.setup_password_required is not None) and (self.otherwise_relogin_days or self.otherwise_relogin_days is not None)) or ((self.setup_password_required is None or self.setup_password_required is False) and (self.otherwise_relogin_days is None or self.otherwise_relogin_days is False)), 'setup_password_required, otherwise_relogin_days parameters must all be False-y (like None) or all be True-y'
         return b''.join((
             b'\xd4\xc0\xa2.',
             struct.pack('<I', (0 if self.setup_password_required is None or self.setup_password_required is False else 2) | (0 if self.otherwise_relogin_days is None or self.otherwise_relogin_days is False else 2) | (0 if self.tmp_sessions is None or self.tmp_sessions is False else 1) | (0 if self.future_auth_token is None or self.future_auth_token is False else 4)),
@@ -354,6 +354,34 @@ class LoginTokenSuccess(TLObject):
         return cls(authorization=_authorization)
 
 
+class PasskeyLoginOptions(TLObject):
+    CONSTRUCTOR_ID = 0xe2037789
+    SUBCLASS_OF_ID = 0xd9793032
+
+    def __init__(self, options: 'TypeDataJSON'):
+        """
+        Constructor for auth.PasskeyLoginOptions: Instance of PasskeyLoginOptions.
+        """
+        self.options = options
+
+    def to_dict(self):
+        return {
+            '_': 'PasskeyLoginOptions',
+            'options': self.options.to_dict() if isinstance(self.options, TLObject) else self.options
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\x89w\x03\xe2',
+            self.options._bytes(),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _options = reader.tgread_object()
+        return cls(options=_options)
+
+
 class PasswordRecovery(TLObject):
     CONSTRUCTOR_ID = 0x137948a5
     SUBCLASS_OF_ID = 0xfa72d43a
@@ -645,8 +673,8 @@ class SentCodeTypeFirebaseSms(TLObject):
         }
 
     def _bytes(self):
-        assert ((self.play_integrity_project_id or self.play_integrity_project_id is not None) and (self.play_integrity_nonce or self.play_integrity_nonce is not None)) or ((self.play_integrity_project_id is None or self.play_integrity_project_id is False) and (self.play_integrity_nonce is None or self.play_integrity_nonce is False)), 'play_integrity_project_id, play_integrity_nonce parameters must all be False-y (like None) or all me True-y'
-        assert ((self.receipt or self.receipt is not None) and (self.push_timeout or self.push_timeout is not None)) or ((self.receipt is None or self.receipt is False) and (self.push_timeout is None or self.push_timeout is False)), 'receipt, push_timeout parameters must all be False-y (like None) or all me True-y'
+        assert ((self.play_integrity_project_id or self.play_integrity_project_id is not None) and (self.play_integrity_nonce or self.play_integrity_nonce is not None)) or ((self.play_integrity_project_id is None or self.play_integrity_project_id is False) and (self.play_integrity_nonce is None or self.play_integrity_nonce is False)), 'play_integrity_project_id, play_integrity_nonce parameters must all be False-y (like None) or all be True-y'
+        assert ((self.receipt or self.receipt is not None) and (self.push_timeout or self.push_timeout is not None)) or ((self.receipt is None or self.receipt is False) and (self.push_timeout is None or self.push_timeout is False)), 'receipt, push_timeout parameters must all be False-y (like None) or all be True-y'
         return b''.join((
             b'6\xd7\x9f\x00',
             struct.pack('<I', (0 if self.nonce is None or self.nonce is False else 1) | (0 if self.play_integrity_project_id is None or self.play_integrity_project_id is False else 4) | (0 if self.play_integrity_nonce is None or self.play_integrity_nonce is False else 4) | (0 if self.receipt is None or self.receipt is False else 2) | (0 if self.push_timeout is None or self.push_timeout is False else 2)),

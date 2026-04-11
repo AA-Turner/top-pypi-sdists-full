@@ -347,15 +347,10 @@ impl RdpSettings {
         params: &HashMap<String, String>,
         defaults: &RdpConfig,
     ) -> Result<Self, String> {
-        let hostname = params
-            .get("hostname")
-            .ok_or_else(|| "Missing required parameter: hostname".to_string())?
-            .clone();
-
-        let port: u16 = params
-            .get("port")
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(defaults.default_port);
+        let conn = guacr_handlers::ConnectionParameters::from_params(params, defaults.default_port)
+            .map_err(|e| e.to_string())?;
+        let hostname = conn.hostname;
+        let port = conn.port;
 
         let username = params
             .get("username")
@@ -447,18 +442,7 @@ impl RdpSettings {
             .clamp(1, 100);
 
         // Parse client image format support
-        let supported_formats = params
-            .get("image")
-            .map(|s| s.split(',').map(|f| f.trim()).collect::<Vec<_>>())
-            .unwrap_or_else(|| vec!["image/png"]);
-
-        let supports_webp = supported_formats.iter().any(|f| f.contains("webp"));
-        let supports_jpeg = supported_formats.iter().any(|f| f.contains("jpeg"));
-
-        info!(
-            "RDP: Client image support - WebP: {}, JPEG: {}, formats: {:?}",
-            supports_webp, supports_jpeg, supported_formats
-        );
+        let (supports_webp, supports_jpeg) = guacr_handlers::parse_image_formats(params, "RDP");
 
         // Parse security settings (includes connection timeout)
         let security = HandlerSecuritySettings::from_params(params);
@@ -484,55 +468,7 @@ impl RdpSettings {
             sftp_private_key,
             sftp_private_key_passphrase,
             sftp_port,
-        ) = {
-            let enable_sftp = params
-                .get("enableSftp")
-                .or_else(|| params.get("enable_sftp"))
-                .map(|v| v == "true")
-                .unwrap_or(false);
-
-            if enable_sftp {
-                let hostname = params
-                    .get("sftphostname")
-                    .or_else(|| params.get("sftp_hostname"))
-                    .ok_or_else(|| "sftphostname required when enableSftp=true".to_string())?
-                    .clone();
-                let username = params
-                    .get("sftpusername")
-                    .or_else(|| params.get("sftp_username"))
-                    .ok_or_else(|| "sftpusername required when enableSftp=true".to_string())?
-                    .clone();
-                let password = params
-                    .get("sftppassword")
-                    .or_else(|| params.get("sftp_password"))
-                    .cloned();
-                let private_key = params
-                    .get("sftpprivatekey")
-                    .or_else(|| params.get("sftp_private_key"))
-                    .cloned();
-                let passphrase = params
-                    .get("sftppassphrase")
-                    .or_else(|| params.get("sftp_private_key_passphrase"))
-                    .cloned();
-                let port = params
-                    .get("sftpport")
-                    .or_else(|| params.get("sftp_port"))
-                    .and_then(|p| p.parse().ok())
-                    .unwrap_or(22);
-
-                (
-                    enable_sftp,
-                    Some(hostname),
-                    Some(username),
-                    password,
-                    private_key,
-                    passphrase,
-                    port,
-                )
-            } else {
-                (false, None, None, None, None, None, 22)
-            }
-        };
+        ) = guacr_handlers::parse_sftp_config(params).map_err(|e| e.to_string())?;
 
         let enable_drive = params
             .get("enable-drive")
@@ -1562,42 +1498,20 @@ impl IronRdpSession {
                                         debug!("RDP: GraphicsUpdate received - rect: {:?}, image size: {}x{}",
                                             rect, image.width(), image.height());
 
-                                        // Debug: Check image data
-                                        let sample_size = std::cmp::min(100, image.data().len());
-                                        let sample_pixels = &image.data()[0..sample_size];
-                                        let all_zeros = sample_pixels.iter().all(|&b| b == 0);
-
-                                        // Skip all-zeros frames ONLY if:
-                                        // 1. It's the first frame (initial connection artifact), OR
-                                        // 2. The rectangle is invalid (0x0 size)
+                                        // Skip zero-size rects (cursor-move-only no-ops from IronRDP).
+                                        // Do NOT skip based on pixel content: a dark/black desktop
+                                        // starts with zero bytes and must still be rendered.
                                         let is_invalid_rect = rect.right == 0 || rect.bottom == 0;
-                                        let should_skip = all_zeros && (!self.first_frame_sent || is_invalid_rect);
 
-                                        if should_skip {
-                                            warn!("RDP: Skipping all-zeros frame (first_frame={}, invalid_rect={})",
-                                                !self.first_frame_sent, is_invalid_rect);
-                                            // IronRDP sometimes sends all-zeros on initial connection or with 0x0 rects
-                                            // Skip these to avoid black screen artifacts
+                                        if is_invalid_rect {
+                                            trace!("RDP: Skipping zero-size rect (cursor-only update)");
+                                        } else if self.egfx_active.load(Ordering::Acquire) {
+                                            // EGFX passthrough: GPU-encoded H.264 frames are queued
+                                            // by EgfxPassthroughHandler and drained after this loop.
                                         } else {
-                                            if log::log_enabled!(log::Level::Debug) {
-                                                let all_same = sample_pixels.windows(4).all(|w| w == &sample_pixels[0..4]);
-                                                if all_same {
-                                                    debug!("RDP: Image appears solid color: RGBA({},{},{},{})",
-                                                        sample_pixels[0], sample_pixels[1], sample_pixels[2], sample_pixels[3]);
-                                                } else {
-                                                    trace!("RDP: Image has varied pixel data (first 4 pixels: {:?})",
-                                                        &sample_pixels[0..std::cmp::min(16, sample_size)]);
-                                                }
-                                            }
-
-                                            if self.egfx_active.load(Ordering::Acquire) {
-                                                // EGFX passthrough: GPU-encoded H.264 frames are queued
-                                                // by EgfxPassthroughHandler and drained after this loop.
-                                            } else {
-                                                // JPEG dirty-rect: GuacamoleOnly sessions and all
-                                                // sessions before EGFX activates (including xrdp).
-                                                self.send_graphics_update_with_rect(&image, rect).await?;
-                                            }
+                                            // JPEG dirty-rect: GuacamoleOnly sessions and all
+                                            // sessions before EGFX activates (including xrdp).
+                                            self.send_graphics_update_with_rect(&image, rect).await?;
                                         }
 
                                         if !self.first_frame_sent {
@@ -1925,10 +1839,7 @@ impl IronRdpSession {
                 }
 
                 // Send sync
-                let timestamp = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64;
+                let timestamp = guacr_terminal::current_time_millis();
                 let sync_instr = format!("4.sync,{}.{};", timestamp.to_string().len(), timestamp);
                 self.send_and_record(&sync_instr).await?;
                 self.sync_control.set_pending_sync(timestamp);
@@ -2001,10 +1912,7 @@ impl IronRdpSession {
             }
 
             // Send sync instruction
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis() as u64;
+            let timestamp = guacr_terminal::current_time_millis();
             let sync_instr = format!("4.sync,{}.{};", timestamp.to_string().len(), timestamp);
             self.send_and_record(&sync_instr).await?;
 
@@ -2145,10 +2053,7 @@ impl IronRdpSession {
                 self.framebuffer.clear_dirty();
 
                 // Send sync
-                let timestamp_ms = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis() as u64;
+                let timestamp_ms = guacr_terminal::current_time_millis();
                 let timestamp_str = timestamp_ms.to_string();
                 let sync_instr = format_instruction("sync", &[&timestamp_str]);
                 self.send_and_record(&sync_instr).await?;
@@ -2187,10 +2092,7 @@ impl IronRdpSession {
         // Tee key/mouse instructions to the video recorder's embedded data track
         // and to the threat detector (one intercept, two consumers)
         if matches!(instr.opcode, "key" | "mouse") {
-            let ts_ms = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as u64;
+            let ts_ms = guacr_terminal::current_time_millis();
             let instr_str = String::from_utf8_lossy(msg).into_owned();
 
             if let Some(ref mut recorder) = self.video_recorder {
@@ -2761,10 +2663,7 @@ impl IronRdpSession {
         self.framebuffer.clear_dirty();
 
         // Send sync instruction (reuse buffer to avoid allocation)
-        let timestamp_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
+        let timestamp_ms = guacr_terminal::current_time_millis();
 
         // Send sync instruction using shared protocol utilities
         let timestamp_str = timestamp_ms.to_string();

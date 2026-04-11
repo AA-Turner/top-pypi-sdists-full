@@ -2,7 +2,7 @@
 
 use crate::tube_protocol::{ControlMessage, Frame};
 use crate::unlikely;
-use crate::webrtc_data_channel::{EventDrivenSender, WebRTCDataChannel, STANDARD_BUFFER_THRESHOLD};
+use crate::webrtc_data_channel::{EventDrivenSender, WebRTCDataChannel, ACTOR_BYTE_BUDGET};
 use anyhow::{anyhow, Result};
 use bytes::BufMut;
 use log::{debug, error, info, warn};
@@ -96,6 +96,14 @@ impl Channel {
         let server_connection_tasks = self.server_connection_tasks.clone();
         let tunnel_protocol = self.tunnel_protocol.clone();
 
+        // Shared sender: create once, cloned for each accepted connection.
+        if self.event_sender.is_none() {
+            self.event_sender = Some(
+                EventDrivenSender::new(Arc::new(self.webrtc.clone()), ACTOR_BYTE_BUDGET).await,
+            );
+        }
+        let shared_event_sender = self.event_sender.as_ref().unwrap().clone();
+
         let server_task = tokio::spawn(async move {
             // Signal that we're ready to accept connections
             let _ = tx.send(());
@@ -173,6 +181,7 @@ impl Channel {
                             let current_conn_no = next_conn_no;
                             next_conn_no += 1;
 
+                            let event_sender_clone = shared_event_sender.clone();
                             let handle = tokio::spawn(async move {
                                 if let Err(e) = handle_tunnel_server_connection(
                                     stream,
@@ -182,6 +191,7 @@ impl Channel {
                                     webrtc_clone,
                                     buffer_pool_clone,
                                     task_channel_id,
+                                    event_sender_clone,
                                 )
                                 .await
                                 {
@@ -205,6 +215,7 @@ impl Channel {
                                     let current_conn_no = next_conn_no;
                                     next_conn_no += 1;
 
+                                    let event_sender_clone = shared_event_sender.clone();
                                     let handle = tokio::spawn(async move {
                                         if let Err(e) = handle_generic_server_connection(
                                             stream,
@@ -214,6 +225,7 @@ impl Channel {
                                             webrtc_clone,
                                             buffer_pool_clone,
                                             task_channel_id,
+                                            event_sender_clone,
                                         )
                                         .await
                                         {
@@ -286,6 +298,7 @@ impl Channel {
 /// Used for SOCKS5 and PortForward protocols.
 /// Performs the protocol handshake, sends OpenConnection over WebRTC,
 /// then spawns a read loop with EventDrivenSender for backpressure.
+#[allow(clippy::too_many_arguments)]
 async fn handle_tunnel_server_connection(
     stream: TcpStream,
     conn_no: u32,
@@ -298,6 +311,7 @@ async fn handle_tunnel_server_connection(
     webrtc: WebRTCDataChannel,
     buffer_pool: crate::buffer_pool::BufferPool,
     channel_id: String,
+    event_sender: EventDrivenSender,
 ) -> Result<()> {
     debug!(
         "Channel({}): New {} connection {}",
@@ -340,7 +354,6 @@ async fn handle_tunnel_server_connection(
     );
 
     // 3. Spawn read loop with EventDrivenSender for proper backpressure
-    let dc_clone = webrtc.clone();
     let buffer_pool_clone = buffer_pool.clone();
     let channel_id_clone = channel_id.clone();
     let protocol_name = protocol.name().to_string();
@@ -351,8 +364,8 @@ async fn handle_tunnel_server_connection(
 
         const MAX_READ_SIZE: usize = 8 * 1024; // Match WebRTC RECEIVE_MTU
 
-        let event_sender =
-            EventDrivenSender::new(Arc::new(dc_clone.clone()), STANDARD_BUFFER_THRESHOLD);
+        // Use the shared per-tube sender passed in from start_server.
+        let event_sender = event_sender;
 
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
@@ -362,13 +375,6 @@ async fn handle_tunnel_server_connection(
         }
 
         loop {
-            // Pause TCP reads when WebRTC send queue is filling up, matching
-            // the backpressure logic in connections.rs.
-            if event_sender.queue_depth() > 5000 {
-                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-                continue;
-            }
-
             read_buffer.clear();
             if read_buffer.capacity() < MAX_READ_SIZE {
                 read_buffer.reserve(MAX_READ_SIZE - read_buffer.capacity());
@@ -486,6 +492,7 @@ async fn handle_tunnel_server_connection(
 }
 
 /// Handle a generic server-side accepted TCP connection (for Guacd, DatabaseProxy server mode)
+#[allow(clippy::too_many_arguments)]
 async fn handle_generic_server_connection(
     stream: TcpStream,
     conn_no: u32,
@@ -498,6 +505,7 @@ async fn handle_generic_server_connection(
     webrtc: WebRTCDataChannel,
     buffer_pool: crate::buffer_pool::BufferPool,
     channel_id: String,
+    event_sender: EventDrivenSender,
 ) -> Result<()> {
     debug!(
         "Channel({}): New generic {:?} connection {}",
@@ -528,7 +536,6 @@ async fn handle_generic_server_connection(
 
     let (mut reader, writer) = stream.into_split();
 
-    let dc_clone = webrtc.clone();
     let buffer_pool_clone = buffer_pool.clone();
     let channel_id_clone = channel_id.clone();
 
@@ -538,8 +545,8 @@ async fn handle_generic_server_connection(
 
         const MAX_READ_SIZE: usize = 8 * 1024; // Match WebRTC RECEIVE_MTU
 
-        let event_sender =
-            EventDrivenSender::new(Arc::new(dc_clone.clone()), STANDARD_BUFFER_THRESHOLD);
+        // Use the shared per-tube sender passed in from start_server.
+        let event_sender = event_sender;
 
         if unlikely!(crate::logger::is_verbose_logging()) {
             debug!(
@@ -549,13 +556,6 @@ async fn handle_generic_server_connection(
         }
 
         loop {
-            // Pause TCP reads when WebRTC send queue is filling up, matching
-            // the backpressure logic in connections.rs.
-            if event_sender.queue_depth() > 5000 {
-                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-                continue;
-            }
-
             read_buffer.clear();
             if read_buffer.capacity() < MAX_READ_SIZE {
                 read_buffer.reserve(MAX_READ_SIZE - read_buffer.capacity());

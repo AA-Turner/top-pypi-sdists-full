@@ -53,7 +53,7 @@ setup(
         "sqlglot>=26.3.8",
         "aiobotocore>=2.23.0,<=2.26.0",
         # The following are dependencies for the vendored pyspark
-        "py4j==0.10.9.9",
+        "py4j>=0.10.9.7, <0.10.10.0",
         "pandas>=1.0.5",
         "pyarrow>=4.0.0,<=18.1.0",  # Newer pyarrow versions have stricter checks for nullability which breaks scala code
         "grpcio>=1.56.0,<=1.76.0",

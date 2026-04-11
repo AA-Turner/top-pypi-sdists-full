@@ -252,8 +252,8 @@ class Geocif:
         self.model_name = model
         self.experiment_name = self.parser.get("ML", "experiment_name")
         self.ml_model = self.parser.getboolean(self.model_name, "ML_model")
-        self.select_cei_by = self.parser.get(self.model_name, "select_cei_by")
-        self.use_ceis = ast.literal_eval(self.parser.get(self.model_name, "use_ceis"))
+        self.select_cid_by = self.parser.get(self.model_name, "select_cid_by")
+        self.use_cids = ast.literal_eval(self.parser.get(self.model_name, "use_cids"))
         # In pooled mode, use _config_country for per-country config lookups
         _cc = getattr(self, '_config_country', self.country)
         self.model_names = ast.literal_eval(self.parser.get(_cc, "models"))
@@ -324,7 +324,7 @@ class Geocif:
         self.check_yield_trend = True
         self.cluster_strategy = "single"
         self.use_spatial_neighbors = False
-        self.select_cei_by = "Index"
+        self.select_cid_by = "Index"
         self.use_cumulative_features = True
 
     def _setup_tabular_flags(self):
@@ -523,7 +523,7 @@ class Geocif:
         return path
 
     def _create_statistics_file(self, country: str, crop: str, file_path: Path):
-        """Create statistics file by combining CEI data with yield statistics."""
+        """Create statistics file by combining CID data with yield statistics."""
         admin_zone = self.parser.get(country, "admin_level")
         country_str = country.title().replace("_", " ")
         crop_str = crop.title().replace("_", " ")
@@ -637,14 +637,14 @@ class Geocif:
         
         self._run_spatial_autocorrelation_if_enabled()
         
-        dict_selected_features, dict_best_cei = self._generate_correlation_plots(df)
+        dict_selected_features, dict_best_cid = self._generate_correlation_plots(df)
         
         self._prepare_train_test_split(df)
         self._compute_detrended_yield()
         self._add_spatial_neighbor_features()
 
         if self.run_ml:
-            self._execute_ml_pipeline(dict_selected_features, dict_best_cei)
+            self._execute_ml_pipeline(dict_selected_features, dict_best_cid)
 
     def _filter_low_production_regions(self, df: pd.DataFrame) -> pd.DataFrame:
         """Exclude bottom-5th-pct production regions and regions with ≤3 data points."""
@@ -667,7 +667,7 @@ class Geocif:
     def _prepare_ml_dataframe(self) -> pd.DataFrame:
         """Convert raw data into ML-ready format."""
         df = self._filter_by_simulation_stages()
-        df = self._filter_by_cei_categories(df)
+        df = self._filter_by_cid_categories(df)
         df = self.create_ml_dataframe(df)
 
         if self.parser.getboolean("DEFAULT", "filter_low_production_regions", fallback=False):
@@ -687,15 +687,15 @@ class Geocif:
         mask = self.df_inputs["Stage_ID"].isin(stages_list)
         return self.df_inputs[mask]
 
-    def _filter_by_cei_categories(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Filter by selected CEI categories."""
-        if "all" in self.use_ceis:
+    def _filter_by_cid_categories(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Filter by selected CID categories."""
+        if "all" in self.use_cids:
             return df
-        
-        if self.select_cei_by == "Type":
-            return df[df["Type"].isin(self.use_ceis)]
-        elif self.select_cei_by == "Index":
-            return df[df["Index"].isin(self.use_ceis)]
+
+        if self.select_cid_by == "Type":
+            return df[df["Type"].isin(self.use_cids)]
+        elif self.select_cid_by == "Index":
+            return df[df["Index"].isin(self.use_cids)]
         
         return df
 
@@ -917,7 +917,7 @@ class Geocif:
             f"({self.spatial_neighbor_method}, k={self.spatial_neighbor_k})"
         )
 
-    def _execute_ml_pipeline(self, dict_selected_features: Dict, dict_best_cei: Dict):
+    def _execute_ml_pipeline(self, dict_selected_features: Dict, dict_best_cid: Dict):
         """Execute the machine learning training pipeline."""
         self.logger.info(f"Running ML for {self.country} {self.crop}")
         
@@ -929,7 +929,7 @@ class Geocif:
             pbar.set_description(f"[{self.experiment_name}] ML {self.country} {self.crop} {self.forecast_season} ({num_regions} regions, {len(setup_stages)} stages) fs={self.feature_selection} detrend={self.check_yield_trend}")
             
             try:
-                self.loop_ml(stage, dict_selected_features, dict_best_cei)
+                self.loop_ml(stage, dict_selected_features, dict_best_cid)
             except Exception as e:
                 self.logger.error(f"Error in ML loop for stage {stage}: {e}")
 
@@ -948,10 +948,10 @@ class Geocif:
 
     def create_ml_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Create ML-ready dataframe from long format CEI data.
-        
+        Create ML-ready dataframe from long format CID data.
+
         Args:
-            df: Input dataframe with CEI data
+            df: Input dataframe with CID data
             
         Returns:
             Wide-format dataframe ready for ML
@@ -973,7 +973,7 @@ class Geocif:
     def _pivot_to_wide_format(self, df: pd.DataFrame) -> pd.DataFrame:
         """Convert from long to wide format."""
         df = df[
-            ["Index", "Stage_ID", "CEI"]
+            ["Index", "Stage_ID", "CID"]
             + self.fixed_columns
             + [self.target]
             + self.statistics_columns
@@ -988,7 +988,7 @@ class Geocif:
         df = df.pivot_table(
             index=self.fixed_columns + [self.target] + self.statistics_columns,
             columns=["Index", "Stage_ID"],
-            values="CEI",
+            values="CID",
         ).reset_index()
         
         # Restore NaN
@@ -1009,40 +1009,40 @@ class Geocif:
 
     def _select_latest_stage(self, df: pd.DataFrame) -> pd.DataFrame:
         """Select features from the latest stage only."""
-        all_cei_columns = self.get_cei_column_names(df)
+        all_cid_columns = self.get_cid_column_names(df)
 
-        if not all_cei_columns:
+        if not all_cid_columns:
             return df
 
-        parts = all_cei_columns[-1].split("_")
+        parts = all_cid_columns[-1].split("_")
         skip = 2 if parts[0] == "AEF" else 1
         first_stage_idx = next(
             (i for i in range(skip, len(parts)) if parts[i].isdigit()),
             len(parts),
         )
-        cei = "_".join(parts[:first_stage_idx])
-        
-        cei_column = df[df.columns[df.columns.str.contains(cei)]].columns
-        max_cei_col = max(cei_column, key=len)
-        
-        self.stage_info = stages.get_stage_information_dict(max_cei_col, self.method)
+        cid = "_".join(parts[:first_stage_idx])
+
+        cid_column = df[df.columns[df.columns.str.contains(cid)]].columns
+        max_cid_col = max(cid_column, key=len)
+
+        self.stage_info = stages.get_stage_information_dict(max_cid_col, self.method)
         
         return df
 
     def _create_cumulative_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Create cumulative features for each region."""
-        all_cei_columns = self.get_cei_column_names(df)
+        all_cid_columns = self.get_cid_column_names(df)
 
-        if not all_cei_columns:
+        if not all_cid_columns:
             return df
 
-        parts = all_cei_columns[-1].split("_")
+        parts = all_cid_columns[-1].split("_")
         skip = 2 if parts[0] == "AEF" else 1
         first_stage_idx = next(
             (i for i in range(skip, len(parts)) if parts[i].isdigit()),
             len(parts),
         )
-        cei = "_".join(parts[:first_stage_idx])
+        cid = "_".join(parts[:first_stage_idx])
         
         frames = []
         groups = df.groupby(["Region"])
@@ -1050,13 +1050,13 @@ class Geocif:
         for name, group in groups:
             group = group.dropna(axis=1, how="all")
             
-            cei_column = group[group.columns[group.columns.str.contains(cei)]].columns
-            
-            if not len(cei_column):
+            cid_column = group[group.columns[group.columns.str.contains(cid)]].columns
+
+            if not len(cid_column):
                 continue
-            
-            max_cei_col = max(cei_column, key=len)
-            self.stage_info = stages.get_stage_information_dict(max_cei_col, self.method)
+
+            max_cid_col = max(cid_column, key=len)
+            self.stage_info = stages.get_stage_information_dict(max_cid_col, self.method)
             
             all_columns = group.columns[
                 group.columns.str.contains(self.stage_info["Stage_ID"])
@@ -1074,7 +1074,7 @@ class Geocif:
             
             group.rename(
                 columns={
-                    col: stages.get_stage_information_dict(col, self.method)["CEI"]
+                    col: stages.get_stage_information_dict(col, self.method)["CID"]
                     for col in all_columns
                 },
                 inplace=True,
@@ -1153,8 +1153,8 @@ class Geocif:
         """Update column names to be human-readable."""
         df = stages.update_feature_names(df, self.method)
         
-        all_cei_columns = self.get_cei_column_names(df)
-        df.loc[:, all_cei_columns] = df.loc[:, all_cei_columns].fillna(0)
+        all_cid_columns = self.get_cid_column_names(df)
+        df.loc[:, all_cid_columns] = df.loc[:, all_cid_columns].fillna(0)
         
         return df
 
@@ -1207,8 +1207,8 @@ class Geocif:
 
         return df
 
-    def get_cei_column_names(self, df: pd.DataFrame) -> List[str]:
-        """Get list of CEI column names (excluding fixed/target/meta/engineered columns)."""
+    def get_cid_column_names(self, df: pd.DataFrame) -> List[str]:
+        """Get list of CID column names (excluding fixed/target/meta/engineered columns)."""
         exclude = set(
             self.fixed_columns
             + [self.target]
@@ -1268,23 +1268,23 @@ class Geocif:
                     (i for i in range(_skip, len(parts)) if parts[i].isdigit()),
                     len(parts),
                 )
-                cei = "_".join(parts[:_idx])
-                
+                cid = "_".join(parts[:_idx])
+
                 try:
                     if self.model_name.startswith("cumulative_"):
                         dict_fn = stages.get_stage_information_dict(_t, self.method)
-                        tmp_col = f"{dict_fn['CEI']}"
-                        
+                        tmp_col = f"{dict_fn['CID']}"
+
                         if tmp_col in self.df_train.columns:
                             self.feature_names.append(tmp_col)
                     else:
-                        if selected_features["CEI"].any():
-                            for x in selected_features["CEI"].values:
-                                if x not in cei:
+                        if selected_features["CID"].any():
+                            for x in selected_features["CID"].values:
+                                if x not in cid:
                                     continue
-                                
+
                                 dict_fn = stages.get_stage_information_dict(_t, self.method)
-                                tmp_col = f"{dict_fn['CEI']} {dict_fn['Stage Name']}"
+                                tmp_col = f"{dict_fn['CID']} {dict_fn['Stage Name']}"
                                 
                                 if tmp_col in self.df_train.columns:
                                     self.feature_names.append(tmp_col)
@@ -1331,7 +1331,7 @@ class Geocif:
             all_features = self.X_train.columns
             self.selected_features = [
                 column for column in all_features
-                if any(cei in column for cei in self.use_ceis)
+                if any(cid in column for cid in self.use_cids)
             ]
         elif self.feature_selection.lower() == "none":
             self.logger.info(f"Skipping feature selection for {self.country} {self.crop}")
@@ -1861,18 +1861,18 @@ class Geocif:
     # ============================================================================
 
     def loop_ml(
-        self, 
-        stages: list, 
-        dict_selected_features: Dict, 
-        dict_best_cei: Dict
+        self,
+        stages: list,
+        dict_selected_features: Dict,
+        dict_best_cid: Dict
     ):
         """
         Main ML loop - orchestrates training and prediction for all regions.
-        
+
         Args:
             stages: List of stages to use
             dict_selected_features: Selected features per region
-            dict_best_cei: Best CEI features per region
+            dict_best_cid: Best CID features per region
         """
         dir_output = self._get_output_directory()
         scaler = self._initialize_scaler()
@@ -1883,8 +1883,8 @@ class Geocif:
         for idx, region_id in enumerate(pbar):
             try:
                 self._process_single_region(
-                    region_id, idx, stages, dict_selected_features, 
-                    dict_best_cei, dir_output, scaler, pbar
+                    region_id, idx, stages, dict_selected_features,
+                    dict_best_cid, dir_output, scaler, pbar
                 )
             except Exception as e:
                 self.logger.error(f"Error processing region {region_id}: {e}\n{traceback.format_exc()}")
@@ -1913,14 +1913,14 @@ class Geocif:
         idx: int,
         stages: list,
         dict_selected_features: Dict,
-        dict_best_cei: Dict,
+        dict_best_cid: Dict,
         dir_output: Path,
         scaler,
         pbar
     ):
         """Process training and prediction for a single region."""
         self._create_feature_names_for_region(
-            region_id, stages, dict_selected_features, dict_best_cei
+            region_id, stages, dict_selected_features, dict_best_cid
         )
 
         df_region_train, df_region_test = self._prepare_region_data(region_id)
@@ -1947,11 +1947,11 @@ class Geocif:
         region_id: int,
         stages: list,
         dict_selected_features: Dict,
-        dict_best_cei: Dict
+        dict_best_cid: Dict
     ):
         """Create feature names based on model type and region."""
         if self.model_name == "linear":
-            selected = dict_best_cei[region_id][0:3].tolist()
+            selected = dict_best_cid[region_id][0:3].tolist()
             self.create_feature_names(stages, selected)
         elif self.model_name.startswith("cumulative_"):
             self.create_feature_names(stages, {})
@@ -1960,8 +1960,8 @@ class Geocif:
             if selected is not None and not selected.empty:
                 self.create_feature_names(stages, selected)
             else:
-                # No correlation-based selection — use all CEI features
-                self.feature_names = self.get_cei_column_names(self.df_train)
+                # No correlation-based selection — use all CID features
+                self.feature_names = self.get_cid_column_names(self.df_train)
         elif self.model_name == "median":
             self.feature_names = [f"Median {self.target}"]
             self.last_year_yield_as_feature = False

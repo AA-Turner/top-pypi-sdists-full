@@ -27,6 +27,14 @@ log = structlog.get_logger()
 
 # Threshold for allowing Seed generation (NFR6)
 AMBIGUITY_THRESHOLD = 0.2
+SEED_CLOSER_ACTIVATION_THRESHOLD = 0.25
+AUTO_COMPLETE_STREAK_REQUIRED = 2
+
+# Minimum per-dimension clarity required before interview auto-completion.
+GOAL_CLARITY_FLOOR = 0.75
+CONSTRAINT_CLARITY_FLOOR = 0.65
+SUCCESS_CRITERIA_CLARITY_FLOOR = 0.70
+BROWNFIELD_CONTEXT_CLARITY_FLOOR = 0.60
 
 # Weights for greenfield score components (3 dimensions)
 GOAL_CLARITY_WEIGHT = 0.40
@@ -113,6 +121,46 @@ class AmbiguityScore:
         return self.overall_score <= AMBIGUITY_THRESHOLD
 
 
+def get_completion_floor_failures(
+    score: AmbiguityScore,
+    *,
+    is_brownfield: bool,
+) -> list[str]:
+    """Return any unmet component floors for interview auto-completion."""
+    required_components: list[tuple[str, str, float]] = [
+        ("goal_clarity", "Goal Clarity", GOAL_CLARITY_FLOOR),
+        ("constraint_clarity", "Constraint Clarity", CONSTRAINT_CLARITY_FLOOR),
+        ("success_criteria_clarity", "Success Criteria Clarity", SUCCESS_CRITERIA_CLARITY_FLOOR),
+    ]
+    if is_brownfield:
+        required_components.append(
+            ("context_clarity", "Context Clarity", BROWNFIELD_CONTEXT_CLARITY_FLOOR)
+        )
+
+    failures: list[str] = []
+    for attribute_name, label, minimum_clarity in required_components:
+        component = getattr(score.breakdown, attribute_name)
+        if component is None:
+            failures.append(f"{label} missing (< {minimum_clarity:.2f})")
+            continue
+        if component.clarity_score < minimum_clarity:
+            failures.append(f"{label} {component.clarity_score:.2f} < {minimum_clarity:.2f}")
+
+    return failures
+
+
+def qualifies_for_seed_completion(
+    score: AmbiguityScore,
+    *,
+    is_brownfield: bool,
+) -> bool:
+    """Return True when ambiguity and all required component floors are satisfied."""
+    return score.is_ready_for_seed and not get_completion_floor_failures(
+        score,
+        is_brownfield=is_brownfield,
+    )
+
+
 @dataclass
 class AmbiguityScorer:
     """Scorer for calculating ambiguity of interview requirements.
@@ -148,7 +196,7 @@ class AmbiguityScorer:
     llm_adapter: LLMAdapter
     model: str = field(default_factory=get_clarification_model)
     temperature: float = SCORING_TEMPERATURE
-    initial_max_tokens: int = 2048
+    initial_max_tokens: int = 512
     max_retries: int | None = 10  # Default to 10 retries (None = unlimited)
     max_format_error_retries: int = 5  # Stop after N format errors (non-truncation)
 
@@ -211,6 +259,7 @@ class AmbiguityScorer:
         last_error: Exception | ProviderError | None = None
         last_response: str = ""
         attempt = 0
+        format_error_count = 0
 
         while True:
             # Check retry limit if set
@@ -289,11 +338,22 @@ class AmbiguityScorer:
                     current_max_tokens = next_tokens
                 else:
                     # Format error without truncation - retry with same tokens
+                    format_error_count += 1
+                    if format_error_count >= self.max_format_error_retries:
+                        log.warning(
+                            "ambiguity.scoring.format_errors_exhausted",
+                            interview_id=state.interview_id,
+                            error=str(e),
+                            format_error_count=format_error_count,
+                            max_format_error_retries=self.max_format_error_retries,
+                        )
+                        break
                     log.warning(
                         "ambiguity.scoring.format_error_retrying",
                         interview_id=state.interview_id,
                         error=str(e),
                         attempt=attempt,
+                        format_error_count=format_error_count,
                         finish_reason=result.value.finish_reason,
                     )
 

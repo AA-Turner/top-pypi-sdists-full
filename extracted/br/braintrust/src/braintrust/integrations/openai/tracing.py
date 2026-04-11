@@ -1,17 +1,25 @@
 """OpenAI-specific tracing wrappers, stream proxies, and serialization helpers."""
 
 import abc
-import base64
 import inspect
-import re
 import time
-import warnings
 from collections.abc import Callable
 from typing import Any
 
-from braintrust.logger import Attachment, Span, start_span
+from braintrust.integrations.utils import (
+    _attachment_filename_for_mime_type,
+    _attachment_from_base64_data,
+    _attachment_from_file_input,
+    _convert_data_url_to_attachment,
+    _image_url_payload,
+    _parse_openai_usage_metrics,
+    _prettify_response_params,
+    _timing_metrics,
+    _try_to_dict,
+)
+from braintrust.logger import Span, start_span
 from braintrust.span_types import SpanTypeAttribute
-from braintrust.util import is_numeric, merge_dicts
+from braintrust.util import clean_nones, merge_dicts
 from wrapt import FunctionWrapper
 
 
@@ -94,29 +102,6 @@ def _raw_response_requested(kwargs: dict[str, Any]) -> bool:
             return bool(value)
 
     return False
-
-
-def _convert_data_url_to_attachment(data_url: str, filename: str | None = None) -> Attachment | str:
-    """Helper function to convert data URL to an Attachment."""
-    data_url_match = re.match(r"^data:([^;]+);base64,(.+)$", data_url)
-    if not data_url_match:
-        return data_url
-
-    mime_type, base64_data = data_url_match.groups()
-
-    try:
-        binary_data = base64.b64decode(base64_data)
-
-        if filename is None:
-            extension = mime_type.split("/")[1] if "/" in mime_type else "bin"
-            prefix = "image" if mime_type.startswith("image/") else "document"
-            filename = f"{prefix}.{extension}"
-
-        attachment = Attachment(data=binary_data, filename=filename, content_type=mime_type)
-
-        return attachment
-    except Exception:
-        return data_url
 
 
 def _process_attachments_in_input(input_data: Any) -> Any:
@@ -264,6 +249,28 @@ def _moderation_create_wrapper(wrapped, instance, args, kwargs):
 
         return call()
     return ModerationWrapper(create_fn, None).create(*args, **kwargs)
+
+
+def _make_base_wrapper_callback(
+    wrapper_cls: type["BaseWrapper"],
+    *,
+    method_name: str = "create",
+):
+    """Create a wrapt callback that routes through with_raw_response for header capture."""
+
+    def wrapper(wrapped, instance, args, kwargs):
+        stream = bool(kwargs.get("stream", False))
+        create_fn = wrapped if stream else (_get_raw_callable(instance, method_name) or wrapped)
+        if _is_async_callable(wrapped):
+
+            async def call():
+                response = await wrapper_cls(None, create_fn).acreate(*args, **kwargs)
+                return AsyncResponseWrapper(response)
+
+            return call()
+        return wrapper_cls(create_fn, None).create(*args, **kwargs)
+
+    return wrapper
 
 
 def _responses_create_wrapper(wrapped, instance, args, kwargs):
@@ -871,6 +878,73 @@ class ResponseWrapper:
         }
 
 
+def _image_attachment_from_base64(
+    data: Any,
+    *,
+    output_format: Any,
+    index: int,
+) -> tuple[Any | None, int | None, str | None]:
+    if not isinstance(data, str):
+        return None, None, None
+
+    extension = output_format if isinstance(output_format, str) and output_format else "png"
+    mime_type = extension if "/" in extension else f"image/{extension}"
+    attachment = _attachment_from_base64_data(
+        data,
+        mime_type,
+        filename=_attachment_filename_for_mime_type(mime_type, prefix=f"generated_image_{index}"),
+    )
+    if attachment is None:
+        return None, None, None
+    return attachment, len(attachment.data), mime_type
+
+
+def _extract_images_output(response: dict[str, Any]) -> dict[str, Any]:
+    images = []
+    output_format = response.get("output_format")
+
+    for index, image in enumerate(response.get("data") or []):
+        image_dict = _try_to_dict(image)
+        if not isinstance(image_dict, dict):
+            continue
+
+        image_entry = clean_nones(
+            {
+                "revised_prompt": image_dict.get("revised_prompt"),
+            }
+        )
+
+        if isinstance(image_dict.get("url"), str):
+            image_entry.update(_image_url_payload(image_dict["url"]))
+
+        b64_json = image_dict.get("b64_json")
+        attachment, image_size_bytes, mime_type = _image_attachment_from_base64(
+            b64_json,
+            output_format=output_format,
+            index=index,
+        )
+        if attachment is not None:
+            image_entry.update(_image_url_payload(attachment))
+            image_entry["image_size_bytes"] = image_size_bytes
+            image_entry["mime_type"] = mime_type
+        elif isinstance(b64_json, str):
+            image_entry["b64_json_present"] = True
+
+        images.append(image_entry)
+
+    return clean_nones(
+        {
+            "created": response.get("created"),
+            "background": response.get("background"),
+            "output_format": output_format,
+            "quality": response.get("quality"),
+            "size": response.get("size"),
+            "images_count": len(images),
+            "images": images,
+        }
+    )
+
+
 class BaseWrapper(abc.ABC):
     def __init__(self, create_fn: Callable[..., Any] | None, acreate_fn: Callable[..., Any] | None, name: str):
         self._create_fn = create_fn
@@ -935,6 +1009,93 @@ class BaseWrapper(abc.ABC):
         )
 
 
+class _ImageBaseWrapper(BaseWrapper):
+    def _log_result(self, log_response: Any, start: float, span: Span) -> None:
+        end = time.time()
+        metrics = _timing_metrics(start, end)
+        if isinstance(log_response, dict):
+            metrics.update(_parse_metrics_from_usage(log_response.get("usage")))
+        output = _extract_images_output(log_response) if isinstance(log_response, dict) else log_response
+        span.log(metrics=metrics, output=output)
+
+    def create(self, *args: Any, **kwargs: Any) -> Any:
+        params = self._parse_params(kwargs)
+
+        with start_span(
+            **merge_dicts(dict(name=self._name, span_attributes={"type": SpanTypeAttribute.LLM}), params)
+        ) as span:
+            start = time.time()
+            create_response = self._create_fn(*args, **kwargs)
+            if hasattr(create_response, "parse"):
+                raw_response = create_response.parse()
+                log_headers(create_response, span)
+            else:
+                raw_response = create_response
+
+            self._log_result(_try_to_dict(raw_response), start, span)
+            return raw_response
+
+    async def acreate(self, *args: Any, **kwargs: Any) -> Any:
+        params = self._parse_params(kwargs)
+
+        with start_span(
+            **merge_dicts(dict(name=self._name, span_attributes={"type": SpanTypeAttribute.LLM}), params)
+        ) as span:
+            start = time.time()
+            create_response = await self._acreate_fn(*args, **kwargs)
+            if hasattr(create_response, "parse"):
+                raw_response = create_response.parse()
+                log_headers(create_response, span)
+            else:
+                raw_response = create_response
+
+            self._log_result(_try_to_dict(raw_response), start, span)
+            return raw_response
+
+    def process_output(self, response: Any, span: Span):
+        output = _extract_images_output(response) if isinstance(response, dict) else response
+        span.log(output=output)
+
+    @classmethod
+    def _parse_params(cls, params: dict[str, Any]) -> dict[str, Any]:
+        ret = params.pop("span_info", {})
+        params = prettify_params(params)
+        prompt = params.pop("prompt", None)
+        image = params.pop("image", None)
+        mask = params.pop("mask", None)
+
+        input_data = clean_nones(
+            {
+                "prompt": prompt,
+                "image": _attachment_from_file_input(image),
+                "mask": _attachment_from_file_input(mask),
+            }
+        )
+
+        return merge_dicts(
+            ret,
+            {
+                "input": prompt if (prompt is not None and len(input_data) == 1) else (input_data or None),
+                "metadata": {**params, "provider": "openai"},
+            },
+        )
+
+
+class ImageGenerateWrapper(_ImageBaseWrapper):
+    def __init__(self, create_fn: Callable[..., Any] | None, acreate_fn: Callable[..., Any] | None):
+        super().__init__(create_fn, acreate_fn, "Image Generation")
+
+
+class ImageEditWrapper(_ImageBaseWrapper):
+    def __init__(self, create_fn: Callable[..., Any] | None, acreate_fn: Callable[..., Any] | None):
+        super().__init__(create_fn, acreate_fn, "Image Edit")
+
+
+class ImageVariationWrapper(_ImageBaseWrapper):
+    def __init__(self, create_fn: Callable[..., Any] | None, acreate_fn: Callable[..., Any] | None):
+        super().__init__(create_fn, acreate_fn, "Image Variation")
+
+
 class EmbeddingWrapper(BaseWrapper):
     def __init__(self, create_fn: Callable[..., Any] | None, acreate_fn: Callable[..., Any] | None):
         super().__init__(create_fn, acreate_fn, "Embedding")
@@ -960,6 +1121,71 @@ class ModerationWrapper(BaseWrapper):
         )
 
 
+class SpeechWrapper(BaseWrapper):
+    def __init__(self, create_fn: Callable[..., Any] | None, acreate_fn: Callable[..., Any] | None):
+        super().__init__(create_fn, acreate_fn, "Speech")
+
+    def process_output(self, response: Any, span: Span):
+        span.log(output={"type": "audio"})
+
+
+class _AudioFileWrapper(BaseWrapper):
+    """Base for transcription/translation wrappers that accept audio file input."""
+
+    @classmethod
+    def _parse_params(cls, params: dict[str, Any]) -> dict[str, Any]:
+        ret = params.pop("span_info", {})
+        params = prettify_params(params)
+        # Remove the file object after prettifying — prettify_params already
+        # made a copy so the original kwargs (used by the API call) are preserved.
+        params.pop("file", None)
+        return merge_dicts(
+            ret,
+            {
+                "metadata": {**params, "provider": "openai"},
+            },
+        )
+
+    @staticmethod
+    def _extract_text(response: Any) -> str | None:
+        if isinstance(response, dict):
+            return response.get("text")
+        if isinstance(response, str):
+            return response.strip()
+        return getattr(response, "text", None)
+
+
+class TranscriptionWrapper(_AudioFileWrapper):
+    def __init__(self, create_fn: Callable[..., Any] | None, acreate_fn: Callable[..., Any] | None):
+        super().__init__(create_fn, acreate_fn, "Transcription")
+
+    def process_output(self, response: Any, span: Span):
+        metrics = {}
+        if isinstance(response, dict):
+            usage = response.get("usage")
+            if usage:
+                metrics = _parse_metrics_from_usage(usage)
+        span.log(metrics=metrics, output=self._extract_text(response))
+
+
+class TranslationWrapper(_AudioFileWrapper):
+    def __init__(self, create_fn: Callable[..., Any] | None, acreate_fn: Callable[..., Any] | None):
+        super().__init__(create_fn, acreate_fn, "Translation")
+
+    def process_output(self, response: Any, span: Span):
+        span.log(output=self._extract_text(response))
+
+
+_audio_speech_create_wrapper = _make_base_wrapper_callback(SpeechWrapper)
+_audio_transcription_create_wrapper = _make_base_wrapper_callback(TranscriptionWrapper)
+_audio_translation_create_wrapper = _make_base_wrapper_callback(TranslationWrapper)
+
+
+_image_generate_wrapper = _make_base_wrapper_callback(ImageGenerateWrapper, method_name="generate")
+_image_edit_wrapper = _make_base_wrapper_callback(ImageEditWrapper, method_name="edit")
+_image_create_variation_wrapper = _make_base_wrapper_callback(ImageVariationWrapper, method_name="create_variation")
+
+
 # OpenAI's representation to Braintrust's representation
 TOKEN_NAME_MAP = {
     # chat API
@@ -979,92 +1205,14 @@ TOKEN_PREFIX_MAP = {
 
 
 def _parse_metrics_from_usage(usage: Any) -> dict[str, Any]:
-    # For simplicity, this function handles all the different APIs
-    metrics = {}
-
-    if not usage:
-        return metrics
-
-    # This might be a dict or a Usage object that can be cast to a dict
-    # to a dict
-    usage = _try_to_dict(usage)
-    if not isinstance(usage, dict):
-        return metrics  # unexpected
-
-    for oai_name, value in usage.items():
-        if oai_name.endswith("_tokens_details"):
-            # handle `_tokens_detail` dicts
-            if not isinstance(value, dict):
-                continue  # unexpected
-            raw_prefix = oai_name[: -len("_tokens_details")]
-            prefix = TOKEN_PREFIX_MAP.get(raw_prefix, raw_prefix)
-            for k, v in value.items():
-                if is_numeric(v):
-                    metrics[f"{prefix}_{k}"] = v
-        elif is_numeric(value):
-            name = TOKEN_NAME_MAP.get(oai_name, oai_name)
-            metrics[name] = value
-
-    return metrics
+    return _parse_openai_usage_metrics(
+        usage,
+        token_name_map=TOKEN_NAME_MAP,
+        token_prefix_map=TOKEN_PREFIX_MAP,
+    )
 
 
 def prettify_params(params: dict[str, Any]) -> dict[str, Any]:
     # Filter out NOT_GIVEN parameters
     # https://linear.app/braintrustdata/issue/BRA-2467
-    ret = {k: v for k, v in params.items() if not _is_not_given(v)}
-
-    if "response_format" in ret:
-        ret["response_format"] = serialize_response_format(ret["response_format"])
-    return ret
-
-
-def _try_to_dict(obj: Any) -> dict[str, Any]:
-    if isinstance(obj, dict):
-        return obj
-    # convert a pydantic object to a dict
-    # Suppress Pydantic serializer warnings from generic/discriminated-union models
-    # (e.g. OpenAI's ParsedResponse[T]).  See
-    # https://github.com/braintrustdata/braintrust-sdk-python/issues/60
-    if hasattr(obj, "model_dump") and callable(obj.model_dump):
-        try:
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", message="Pydantic serializer warnings", category=UserWarning)
-                return obj.model_dump()
-        except Exception:
-            pass
-    # deprecated pydantic method, try model_dump first.
-    if hasattr(obj, "dict") and callable(obj.dict):
-        try:
-            return obj.dict()
-        except Exception:
-            pass
-    return obj
-
-
-def serialize_response_format(response_format: Any) -> Any:
-    try:
-        from pydantic import BaseModel
-    except ImportError:
-        return response_format
-
-    if isinstance(response_format, type) and issubclass(response_format, BaseModel):
-        return dict(
-            type="json_schema",
-            json_schema=dict(
-                name=response_format.__name__,
-                schema=response_format.model_json_schema(),
-            ),
-        )
-    else:
-        return response_format
-
-
-def _is_not_given(value: Any) -> bool:
-    if value is None:
-        return False
-    try:
-        # Check by type name and repr to avoid import dependency
-        type_name = type(value).__name__
-        return type_name == "NotGiven"
-    except Exception:
-        return False
+    return _prettify_response_params(params, drop_not_given=True)

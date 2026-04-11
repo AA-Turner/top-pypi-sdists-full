@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import base64
+import csv
 import datetime
+import io
 import json
 import os
 import pkgutil
@@ -10,6 +13,8 @@ from tempfile import mkdtemp
 from typing import Any, Literal, Optional
 
 import flask
+import openpyxl
+import pypdfium2 as pdfium
 
 from abstra_internals.cloud_api import (
     get_api_key_info,
@@ -82,6 +87,10 @@ from abstra_internals.utils.file_search import (
     list_directory_entries,
 )
 from abstra_internals.utils.validate import validate_json
+
+MAX_LINES = 500
+HARD_MAX_LINES = 50
+HARD_MAX_PDF_PAGES = 3
 
 
 class UnknownNodeTypeError(Exception):
@@ -372,7 +381,7 @@ class MainController:
             end_line (Optional[int]): 1-indexed line number to stop reading at (inclusive).
                 If None, reads until max_lines is reached. Defaults to None.
             max_lines (int): Maximum number of lines to return in a single call.
-                Prevents context overflow for large files. Defaults to 500.
+                Hard maximum of 1000. Defaults to 500.
 
         Returns:
             dict | None: Dictionary containing file content and metadata if the stage exists:
@@ -425,6 +434,12 @@ class MainController:
             Read stage file with pagination
             Reading stage file with pagination support...
         """
+        HARD_MAX_LINES_LIMIT = 1000
+        if max_lines > HARD_MAX_LINES_LIMIT:
+            return {
+                "error": f"max_lines cannot exceed {HARD_MAX_LINES_LIMIT}, got {max_lines}"
+            }
+
         stage = self.get_stage(id)
         if not isinstance(stage, StageWithFile):
             return None
@@ -522,19 +537,178 @@ class MainController:
             return None
         return Settings.root_path.joinpath(file).read_text(encoding="utf-8")
 
+    def _read_spreadsheet_file(
+        self,
+        file_path: Path,
+        sheet_name: str | None = None,
+        start_line: int | None = None,
+        end_line: int | None = None,
+    ) -> dict[str, Any] | None:
+        try:
+            wb = openpyxl.load_workbook(file_path, data_only=True)
+        except Exception as e:
+            AbstraLogger.error(f"Failed to read spreadsheet {file_path}: {e}")
+            return None
+
+        if not sheet_name:
+            summary_lines = []
+            for name in wb.sheetnames:
+                ws = wb[name]
+                rows = ws.max_row or 0
+                cols = ws.max_column or 0
+                summary_lines.append(f"- {name}: {rows} rows, {cols} columns")
+            sheets = list(wb.sheetnames)
+            wb.close()
+            return {
+                "content": "Sheets in this file:\n"
+                + "\n".join(summary_lines)
+                + "\n\nUse sheet_name parameter to read a specific sheet.",
+                "type": "spreadsheet_summary",
+                "sheets": sheets,
+            }
+
+        if sheet_name not in wb.sheetnames:
+            available = ", ".join(wb.sheetnames)
+            wb.close()
+            return {
+                "content": f'Error: Sheet "{sheet_name}" not found. Available sheets: {available}',
+                "error": True,
+            }
+
+        ws = wb[sheet_name]
+        total_rows = ws.max_row or 0
+
+        actual_start = max(1, start_line or 1)
+        actual_end = min(total_rows, end_line or total_rows)
+
+        if actual_start > total_rows:
+            wb.close()
+            return {
+                "content": "",
+                "start_line": actual_start,
+                "end_line": actual_start - 1,
+                "total_lines": total_rows,
+                "has_more": False,
+                "truncated": False,
+                "sheet_name": sheet_name,
+            }
+
+        truncated = False
+        if actual_end - actual_start + 1 > HARD_MAX_LINES:
+            actual_end = actual_start + HARD_MAX_LINES - 1
+            truncated = True
+
+        # Only iterate the rows we need
+        output = io.StringIO()
+        writer = csv.writer(output)
+        for row in ws.iter_rows(
+            min_row=actual_start, max_row=actual_end, values_only=True
+        ):
+            cells = [cell if cell is not None else "" for cell in row]
+            while cells and cells[-1] == "":
+                cells.pop()
+            if cells:
+                writer.writerow(cells)
+        wb.close()
+
+        content = output.getvalue().rstrip("\n")
+
+        return {
+            "content": content,
+            "start_line": actual_start,
+            "end_line": actual_end,
+            "total_lines": total_rows,
+            "has_more": actual_end < total_rows,
+            "truncated": truncated,
+            "sheet_name": sheet_name,
+        }
+
+    def _read_pdf_file(
+        self,
+        file_path: Path,
+        start_page: int | None = None,
+        end_page: int | None = None,
+    ) -> dict[str, Any] | None:
+        try:
+            doc = pdfium.PdfDocument(str(file_path))
+            total_pages = len(doc)
+
+            actual_start = max(1, start_page or 1)
+            requested_end = end_page or actual_start + HARD_MAX_PDF_PAGES - 1
+            actual_end = min(
+                requested_end,
+                total_pages,
+                actual_start + HARD_MAX_PDF_PAGES - 1,
+            )
+
+            pages_text = []
+            for i in range(actual_start - 1, actual_end):
+                page = doc[i]
+                text_page = page.get_textpage()
+                text = text_page.get_text_range()
+                pages_text.append(f"--- Page {i + 1} ---\n{text}")
+                text_page.close()
+
+            doc.close()
+
+            has_more = actual_end < total_pages
+            content = "\n\n".join(pages_text)
+            content += (
+                f"\n\n[Pages {actual_start}-{actual_end} of {total_pages}"
+                + (", use start_page/end_page to read more" if has_more else "")
+                + "]"
+            )
+
+            return {
+                "content": content,
+                "total_pages": total_pages,
+                "start_page": actual_start,
+                "end_page": actual_end,
+                "has_more": has_more,
+            }
+        except Exception as e:
+            AbstraLogger.error(f"Failed to read PDF {file_path}: {e}")
+            return None
+
+    def _read_image_file(
+        self,
+        file_path: Path,
+    ) -> dict[str, Any] | None:
+        try:
+            image_data = base64.b64encode(file_path.read_bytes()).decode("utf-8")
+            ext = file_path.suffix.lower()
+            mime_type = {
+                ".png": "image/png",
+                ".gif": "image/gif",
+                ".webp": "image/webp",
+            }.get(ext, "image/jpeg")
+            data_uri = f"data:{mime_type};base64,{image_data}"
+
+            return {
+                "__imageContent": True,
+                "mimeType": mime_type,
+                "dataUri": data_uri,
+                "description": f"Image file: {file_path.name}",
+            }
+        except Exception as e:
+            AbstraLogger.error(f"Failed to read image {file_path}: {e}")
+            return None
+
     def read_file_with_pagination(
         self,
         file: str,
         start_line: int | None = None,
         end_line: int | None = None,
-        max_lines: int = 500,
+        max_lines: int = MAX_LINES,
     ):
         """
-        Read text content of a file with line-range pagination.
+        Read text content of a code or text file with line-range pagination.
 
-        Use this to read file contents. For finding files by name, use find_files_by_pattern.
-        For searching inside files, use search_file_with_context (single file) or
-        grep_codebase (all files). For listing directory contents, use list_directory.
+        Use this to read project code and text files. For documents (spreadsheets,
+        PDFs, images, CSVs), use read_document instead. For finding files by name, use
+        find_files_by_pattern. For searching inside files, use search_file_with_context
+        (single file) or grep_codebase (all files). For listing directory contents, use
+        list_directory.
 
         Args:
             file (str): Relative path to the file from the project root directory.
@@ -544,7 +718,7 @@ class MainController:
             end_line (Optional[int]): 1-indexed line number to stop reading at (inclusive).
                 If None, reads until max_lines is reached. Defaults to None.
             max_lines (int): Maximum number of lines to return in a single call.
-                Prevents context overflow for large files. Defaults to 500.
+                Hard maximum of 1000. Defaults to 500.
 
         Returns:
             dict | None: Dictionary containing file content and metadata if the file exists:
@@ -600,10 +774,82 @@ class MainController:
             Reading file contents...
             Reading {file}...
         """
+        HARD_MAX_LINES_LIMIT = 1000
+        if max_lines > HARD_MAX_LINES_LIMIT:
+            return {
+                "error": f"max_lines cannot exceed {HARD_MAX_LINES_LIMIT}, got {max_lines}"
+            }
+
         file_path = Settings.root_path.joinpath(file)
+
+        if not file_path.exists():
+            return None
+
         return self._read_file_lines_with_pagination(
             file_path, start_line, end_line, max_lines
         )
+
+    def read_document(
+        self,
+        file: str,
+        start_line: int | None = None,
+        end_line: int | None = None,
+        sheet_name: str | None = None,
+        start_page: int | None = None,
+        end_page: int | None = None,
+    ):
+        """
+        Read a document file (spreadsheets, PDFs, images, CSVs, or other non-code files).
+
+        Use this to read documents. It supports:
+        - Spreadsheets (xlsx/xls): call without sheet_name to get a summary of sheets,
+          with sheet_name to get CSV content of that sheet (paginated by lines, hard limit: 50 lines per call)
+        - PDFs: renders pages as images, page-based pagination with start_page/end_page (hard limit: 3 pages per call)
+        - Images: returns the image data for visual inspection
+        - Other files: reads as text with line-based pagination (hard limit: 50 lines per call)
+
+        For reading project code files, use read_file_with_pagination instead.
+
+        Args:
+            file (str): Relative path to the file from the project root directory.
+                Should include the file extension.
+            start_line (Optional[int]): 1-indexed line number for text/spreadsheet pagination.
+                If None, starts from the beginning. Defaults to None.
+            end_line (Optional[int]): 1-indexed end line for text/spreadsheet pagination.
+                Hard limit: 50 lines per call.
+            sheet_name (Optional[str]): Sheet name for xlsx/xls files. Omit to get summary.
+            start_page (Optional[int]): 1-indexed start page for PDFs.
+                If None, starts from page 1. Defaults to None.
+            end_page (Optional[int]): 1-indexed end page for PDFs.
+                Hard limit: 3 pages per call.
+
+        Returns:
+            dict | None: File content and metadata, or None if file not found.
+
+        Copywritings:
+            Read document
+            Reading document...
+            Reading {file}...
+        """
+        file_path = Settings.root_path.joinpath(file)
+
+        if not file_path.exists():
+            return {"error": f"File not found at path: {file}"}
+
+        suffix = file_path.suffix.lower()
+
+        if suffix in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
+            return self._read_image_file(file_path)
+        elif suffix in (".xlsx", ".xls"):
+            return self._read_spreadsheet_file(
+                file_path, sheet_name, start_line, end_line
+            )
+        elif suffix == ".pdf":
+            return self._read_pdf_file(file_path, start_page, end_page)
+        else:
+            return self._read_file_lines_with_pagination(
+                file_path, start_line, end_line, HARD_MAX_LINES
+            )
 
     def check_file_exists(self, file_path: str):
         """
@@ -2089,77 +2335,54 @@ class MainController:
     def stop_execution(self, execution_id: str):
         self.execution_repository.stop_execution(execution_id)
 
-    def get_execution_logs(self, id: str) -> list[LogEntry]:
+    def get_execution_logs(self, id: str):
         """
         Retrieve execution logs for a specific execution by its ID.
 
-        This method returns all log entries (stdout, stderr, and system messages)
-        that were generated during the execution of a workflow stage. Logs provide
-        detailed information about what happened during execution, including output,
-        errors, and system events.
+        Returns the log output text from a stage execution, formatted as
+        lines with event type prefixes (STDOUT/STDERR). Useful for debugging
+        failed executions and understanding what happened during a run.
 
         Args:
             id (str): Unique identifier of the execution to retrieve logs for.
 
         Returns:
-            List[LogEntry]: List of log entries for the execution, each containing:
-                - execution_id: ID of the execution that generated the log
-                - created_at: Timestamp when the log entry was created
-                - event: Type of log event ('stdout', 'stderr', 'system')
-                - sequence: Sequential number for ordering log entries
-                - payload: Dictionary containing the actual log data
+            dict: Dictionary containing:
+                - logs (str): The formatted log output text
+                - total_entries (int): Total number of log entries
 
         Example:
             ```python
-            controller = MainController(repositories)
-
-            # Get logs for a specific execution
-            execution_logs = controller.get_logs("exec-123")
-
-            print(f"Found {len(execution_logs)} log entries")
-
-            for log_entry in execution_logs:
-                timestamp = log_entry.created_at.strftime("%Y-%m-%d %H:%M:%S")
-                event_type = log_entry.event
-                message = log_entry.payload.get('text', '')
-
-                print(f"[{timestamp}] {event_type.upper()}: {message}")
-
-            # Filter logs by type
-            stdout_logs = [log for log in execution_logs if log.event == 'stdout']
-            stderr_logs = [log for log in execution_logs if log.event == 'stderr']
-
-            print(f"Output messages: {len(stdout_logs)}")
-            print(f"Error messages: {len(stderr_logs)}")
-
-            # Show recent errors
-            if stderr_logs:
-                print("Recent errors:")
-                for error_log in stderr_logs[-5:]:  # Last 5 errors
-                    print(f"  - {error_log.payload.get('text', 'No message')}")
-
-            # Check for system messages
-            system_logs = [log for log in execution_logs if log.event == 'system']
-            if system_logs:
-                print("System events:")
-                for sys_log in system_logs:
-                    print(f"  - {sys_log.payload}")
+            result = controller.get_execution_logs("exec-123")
+            print(result["logs"])
+            # [STDOUT] Execution started for stage ceb1fe9b
+            # [STDERR] Traceback (most recent call last):
+            # [STDERR]   File "form.py", line 9
+            # [STDERR] SyntaxError: '(' was never closed
             ```
-
-        Note:
-            - Logs are returned in chronological order based on sequence numbers
-            - stdout logs contain regular program output and print statements
-            - stderr logs contain error messages and exceptions
-            - system logs contain execution lifecycle events and abstra platform messages
-            - Returns empty list if execution ID doesn't exist or has no logs
-            - Useful for debugging failed executions and monitoring stage behavior
-            - Log payload structure may vary depending on the event type
 
         Copywritings:
             Get execution logs for a specific execution
             Retrieving execution logs from an execution...
         """
-        return self.execution_logs_repository.get(id)
+        entries = self.execution_logs_repository.get(id)
+        lines = []
+        for entry in entries:
+            text = entry.payload.get("text", "").rstrip("\n")
+            if not text:
+                continue
+            prefix = entry.event.upper() if entry.event else "LOG"
+            ts = (
+                entry.created_at.strftime("%H:%M:%S.%f")[:-3]
+                if entry.created_at
+                else ""
+            )
+            lines.append(f"{ts} [{prefix}] {text}")
+
+        return {
+            "logs": "\n".join(lines),
+            "total_entries": len(entries),
+        }
 
     def get_execution_tasks(self, execution_id: str) -> ExecutionTasksResponse:
         """
@@ -2934,4 +3157,89 @@ class MainController:
             + (f"=={version}" if version else ""),
             "output": installation_output,
             "requirements": requirements.to_dict(),
+        }
+
+    def list_linter_issues(
+        self,
+        type: str | None = None,
+        name_pattern: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ):
+        """
+        List linter issues found in the project codebase with filtering and pagination.
+
+        Use this tool to discover code quality issues, security problems, and
+        potential bugs. Results can be filtered by severity type and rule name.
+        Use fix_issue_in_codebase to apply automatic fixes for issues that support it.
+
+        Args:
+            type (str, optional): Filter by issue severity type.
+                Valid values: 'security', 'error', 'bug', 'warning', 'info'.
+                If None, returns all types. Defaults to None.
+            name_pattern (str, optional): Regex pattern to filter by rule name.
+                Case-insensitive. Example: 'missing.*env' matches rules about
+                missing environment variables. Defaults to None.
+            limit (int): Maximum number of issues to return per page.
+                Hard maximum of 20. Defaults to 20.
+            offset (int): Number of issues to skip for pagination. Defaults to 0.
+
+        Returns:
+            dict: Paginated results containing:
+                - issues (list): List of linter issue objects, each with:
+                    - rule_name (str): Unique identifier for the linter rule
+                    - rule_label (str): Human-readable description of the rule
+                    - type (str): Severity level ('security', 'error', 'bug', 'warning', 'info')
+                    - issue_label (str): Description of the specific issue found
+                    - fixes (list[str]): Names of available automatic fixes
+                - total (int): Total number of matching issues (before pagination)
+                - limit (int): The limit used
+                - offset (int): The offset used
+                - has_more (bool): Whether there are more results after this page
+
+        Copywritings:
+            List linter issues in the codebase
+            Listing linter issues in the codebase...
+        """
+        import re
+
+        MAX_LIMIT = 20
+        if limit > MAX_LIMIT:
+            return {"error": f"limit cannot exceed {MAX_LIMIT}, got {limit}"}
+
+        checks = self.linter_repository.find_issues_in_codebase()
+
+        compiled_pattern = None
+        if name_pattern:
+            try:
+                compiled_pattern = re.compile(name_pattern, re.IGNORECASE)
+            except re.error:
+                return {"error": f"Invalid regex pattern: {name_pattern}"}
+
+        flat_issues = []
+        for check in checks:
+            if type and check.type != type:
+                continue
+            if compiled_pattern and not compiled_pattern.search(check.name):
+                continue
+            for issue in check.issues:
+                flat_issues.append(
+                    {
+                        "rule_name": check.name,
+                        "rule_label": check.label,
+                        "type": check.type,
+                        "issue_label": issue.make_label(),
+                        "fixes": [fix.name for fix in issue.fixes],
+                    }
+                )
+
+        total = len(flat_issues)
+        page = flat_issues[offset : offset + limit]
+
+        return {
+            "issues": page,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + limit < total,
         }

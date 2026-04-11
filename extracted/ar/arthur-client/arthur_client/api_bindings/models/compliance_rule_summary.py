@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -26,9 +26,10 @@ class ComplianceRuleSummary(BaseModel):
     """
     ComplianceRuleSummary
     """ # noqa: E501
-    id: StrictStr = Field(description="The rule ID.")
+    id: StrictStr = Field(description="The policy rule definition ID (policy_alert_rules or policy_attestation_rules).")
+    materialized_rule_id: Optional[StrictStr] = None
     name: StrictStr = Field(description="The rule name.")
-    __properties: ClassVar[List[str]] = ["id", "name"]
+    __properties: ClassVar[List[str]] = ["id", "materialized_rule_id", "name"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -69,6 +70,11 @@ class ComplianceRuleSummary(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if materialized_rule_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.materialized_rule_id is None and "materialized_rule_id" in self.model_fields_set:
+            _dict['materialized_rule_id'] = None
+
         return _dict
 
     @classmethod
@@ -82,6 +88,7 @@ class ComplianceRuleSummary(BaseModel):
 
         _obj = cls.model_validate({
             "id": obj.get("id"),
+            "materialized_rule_id": obj.get("materialized_rule_id"),
             "name": obj.get("name")
         })
         return _obj

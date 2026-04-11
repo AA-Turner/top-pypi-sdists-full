@@ -2,6 +2,25 @@
 
 from __future__ import annotations
 
+
+__lazy_modules__ = [
+    'argparse',
+    'build._exceptions',
+    'build.env',
+    'functools',
+    'json',
+    'os',
+    'platform',
+    'pyproject_hooks',
+    'shutil',
+    'subprocess',
+    'tempfile',
+    'textwrap',
+    'traceback',
+    'typing',
+    'warnings',
+]
+
 import argparse
 import contextlib
 import contextvars
@@ -16,19 +35,25 @@ import textwrap
 import traceback
 import warnings
 
-from collections.abc import Iterator, Mapping, Sequence
 from functools import partial
 from typing import Any, NoReturn, TextIO
 
 import pyproject_hooks
 
 import build
+import build.env as _env
 
-from . import ProjectBuilder, _ctx
-from . import env as _env
-from ._exceptions import BuildBackendException, BuildException, FailedProcessError
-from ._types import ConfigSettings, Distribution, StrPath, SubprocessRunner
-from .env import DefaultIsolatedEnv
+from build import ProjectBuilder, _ctx
+from build._exceptions import BuildBackendException, BuildException, FailedProcessError
+from build.env import DefaultIsolatedEnv
+
+
+TYPE_CHECKING = False
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Mapping, Sequence
+
+    from build._types import ConfigSettings, Distribution, StrPath, SubprocessRunner
 
 
 _COLORS = {
@@ -62,11 +87,11 @@ def _cprint(fmt: str = '', msg: str = '', file: TextIO | None = None) -> None:
 
 def _showwarning(
     message: Warning | str,
-    category: type[Warning],
-    filename: str,
-    lineno: int,
+    category: type[Warning],  # noqa: ARG001
+    filename: str,  # noqa: ARG001
+    lineno: int,  # noqa: ARG001
     file: TextIO | None = None,
-    line: str | None = None,
+    line: str | None = None,  # noqa: ARG001
 ) -> None:  # pragma: no cover
     _cprint('{yellow}WARNING{reset} {}', str(message), file)
 
@@ -78,16 +103,15 @@ def _make_logger() -> _ctx.Logger:
 
     fill = partial(textwrap.fill, subsequent_indent='  ', width=max_terminal_width)
 
-    def log(message: str, *, origin: tuple[str, ...] | None = None) -> None:
+    def log(message: str, *, kind: tuple[str, ...] | None = None) -> None:
         if _ctx.verbosity >= -1:
-            if origin is None:
-                (first, *rest) = message.splitlines()
-                _cprint('{bold}{}{reset}', fill(first, initial_indent='* '), file=sys.stderr)
-                for line in rest:
-                    print(fill(line, initial_indent='  '), file=sys.stderr)
+            if kind is None:
+                print(fill(message, initial_indent='  '), file=sys.stderr)  # noqa: T201
+            elif kind[0] == 'step':
+                _cprint('{bold}{}{reset}', fill(message, initial_indent='* '), file=sys.stderr)
 
-            elif origin[0] == 'subprocess':
-                initial_indent = '> ' if origin[1] == 'cmd' else '< '
+            elif kind[0] == 'subprocess':
+                initial_indent = '> ' if kind[1] == 'cmd' else '< '
                 for line in message.splitlines():
                     _cprint('{dim}{}{reset}', fill(line, initial_indent=initial_indent), file=sys.stderr)
 
@@ -122,7 +146,7 @@ def _error(msg: str, code: int = 1) -> NoReturn:  # pragma: no cover
     raise SystemExit(code)
 
 
-def _format_dep_chain(dep_chain: Sequence[str]) -> str:
+def _format_dep_chain(dep_chain: tuple[str, ...]) -> str:
     return ' -> '.join(dep.partition(';')[0].strip() for dep in dep_chain)
 
 
@@ -165,9 +189,7 @@ def _bootstrap_build_env(
         if not skip_dependency_check:
             missing = builder.check_dependencies(distribution, config_settings)
             if missing:
-                dependencies = ''.join(
-                    '\n\t' + dep for deps in missing for dep in (deps[0], _format_dep_chain(deps[1:])) if dep
-                )
+                dependencies = ''.join('\n\t' + _format_dep_chain(deps) for deps in missing)
                 _cprint()
                 _error(f'Missing dependencies:{dependencies}')
 
@@ -230,13 +252,12 @@ def _natural_language_list(elements: Sequence[str]) -> str:
     if len(elements) == 0:
         msg = 'no elements'
         raise IndexError(msg)
-    elif len(elements) == 1:
+    if len(elements) == 1:
         return elements[0]
-    else:
-        return '{} and {}'.format(
-            ', '.join(elements[:-1]),
-            elements[-1],
-        )
+    return '{} and {}'.format(
+        ', '.join(elements[:-1]),
+        elements[-1],
+    )
 
 
 def build_package(
@@ -313,7 +334,7 @@ def build_package_via_sdist(
         with tarfile.TarFile.open(sdist) as t:
             t.extractall(sdist_out)
             try:
-                _ctx.log(f'Building {_natural_language_list(distributions)} from sdist')
+                _ctx.log(f'Building {_natural_language_list(distributions)} from sdist', kind=('step',))
                 srcdir = os.path.join(sdist_out, sdist_name[: -len('.tar.gz')])
                 for distribution in distributions:
                     out = _build(
@@ -334,8 +355,8 @@ def build_package_via_sdist(
 
 def _build_metadata(
     srcdir: StrPath,
-    outdir: StrPath,
-    distributions: Sequence[Distribution],
+    outdir: StrPath,  # noqa: ARG001
+    distributions: Sequence[Distribution],  # noqa: ARG001
     config_settings: ConfigSettings | None = None,
     isolation: bool = True,
     skip_dependency_check: bool = False,
@@ -368,7 +389,7 @@ def _build_metadata(
         ) as metadata_file,
     ):
         valid_metadata, _ = packaging.metadata.parse_email(metadata_file.read())
-    print(
+    print(  # noqa: T201
         json.dumps(valid_metadata, ensure_ascii=False, indent=2),
     )
 
@@ -398,10 +419,10 @@ def main_parser() -> argparse.ArgumentParser:
 
         def __call__(
             self,
-            parser: argparse.ArgumentParser,
+            parser: argparse.ArgumentParser,  # noqa: ARG002
             namespace: object,
-            values: str | Sequence[Any] | None,
-            option_string: str | None = None,
+            values: str | Sequence[Any] | None,  # noqa: ARG002
+            option_string: str | None = None,  # noqa: ARG002
         ) -> None:
             setattr(namespace, self.dest, getattr(namespace, self.dest, 0) - 1)
 
@@ -420,8 +441,8 @@ def main_parser() -> argparse.ArgumentParser:
         # which impedes readability. Also keep the description formatted.
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    if sys.version_info >= (3, 14):
-        make_parser = partial(make_parser, suggest_on_error=True)
+    if sys.version_info >= (3, 14):  # pragma: no branch
+        make_parser = partial(make_parser, suggest_on_error=True)  # pragma: no cover
 
     parser = make_parser()
     parser.add_argument(

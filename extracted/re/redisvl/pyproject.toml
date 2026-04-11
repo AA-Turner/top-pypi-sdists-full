@@ -1,7 +1,7 @@
 [project]
 name = "redisvl"
 # NOTE: This version value is automatically incremented by the release workflow - do not manually adjust it.
-version = "0.16.0"
+version = "0.17.0"
 description = "Python client library and CLI for using Redis as a vector database"
 authors = [{ name = "Redis Inc.", email = "applied.ai@redis.com" }]
 requires-python = ">=3.9.2,<3.15"
@@ -35,6 +35,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+mcp = [
+    "fastmcp>=2.0.0 ; python_version >= '3.10'",
+    "pydantic-settings>=2.0",
+]
 mistralai = ["mistralai>=1.0.0"]
 openai = ["openai>=1.1.0"]
 nltk = ["nltk>=3.8.1,<4"]
@@ -54,7 +58,7 @@ pillow = [
     "pillow>=11.3.0",
 ]
 sql-redis = [
-    "sql-redis>=0.2.0",
+    "sql-redis>=0.4.0",
 ]
 all = [
     "mistralai>=1.0.0",
@@ -69,7 +73,7 @@ all = [
     "boto3>=1.36.0,<2",
     "urllib3<2.2.0",
     "pillow>=11.3.0",
-    "sql-redis>=0.2.0",
+    "sql-redis>=0.4.0",
 ]
 
 [project.urls]
@@ -148,3 +152,7 @@ filterwarnings = [
 warn_unused_configs = true
 ignore_missing_imports = true
 exclude = ["env", "venv", ".venv"]
+
+[[tool.mypy.overrides]]
+module = ["mistralai", "mistralai.*"]
+follow_imports = "skip"

@@ -9,9 +9,15 @@ from __future__ import annotations
 
 import datetime
 import json
+import sys
 import typing as t
 
 import structlog
+
+if sys.version_info >= (3, 11):
+    from typing import Self  # noqa: ICN003
+else:
+    from typing_extensions import Self
 
 from meltano.core.job import Job, Payload, State
 from meltano.core.job_state import SINGER_STATE_KEY
@@ -22,6 +28,8 @@ from meltano.core.state_store import (
 )
 
 if t.TYPE_CHECKING:
+    from types import TracebackType
+
     from sqlalchemy.orm import Session
 
     from meltano.core.state_store.base import StateStoreManager
@@ -31,6 +39,10 @@ logger = structlog.getLogger(__name__)
 
 class InvalidJobStateError(Exception):
     """Invalid job state is parsed."""
+
+
+class StatePersistenceError(Exception):
+    """Failed to persist state to the configured state backend."""
 
 
 class StateService:
@@ -44,11 +56,33 @@ class StateService:
 
         Args:
             project: current meltano Project
-            session: the session to use, if using SYSTEMDB state backend
+            session: the session to use, if using SYSTEMDB state backend.
+                The caller is responsible for managing the session lifecycle;
+                closing the ``StateService`` only closes the state store
+                manager, not the session.
         """
         self.project = project or Project.find()
         self.session = session
         self._state_store_manager: StateStoreManager | None = None
+
+    def __enter__(self) -> Self:
+        """Enter the context manager."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        """Exit the context manager, closing the state store manager."""
+        self.close()
+
+    def close(self) -> None:
+        """Close the state store manager, if one was created."""
+        if self._state_store_manager is not None:
+            self._state_store_manager.close()
+            self._state_store_manager = None
 
     def list_state(self, state_id_pattern: str | None = None) -> dict:
         """List all state found in the db.
@@ -138,7 +172,7 @@ class StateService:
         state_to_add_to = self._get_or_create_job(job)
         state_to_add_to.payload = new_state_dict
         state_to_add_to.payload_flags = payload_flags
-        state_to_add_to.save(self.session)  # type: ignore[arg-type]
+        state_to_add_to.save(self.session)  # type: ignore[arg-type]  # ty:ignore[invalid-argument-type]
         logger.debug(
             "Added to state %s state payload %s",
             state_to_add_to.job_name,
@@ -153,7 +187,11 @@ class StateService:
             partial_state=partial_state,
             completed_state=completed_state,
         )
-        self.state_store_manager.update(job_state)
+        try:
+            self.state_store_manager.update(job_state)
+        except Exception as err:
+            msg = "Failed to persist state to the configured state backend"
+            raise StatePersistenceError(msg) from err
 
     def get_state(self, state_id: str) -> dict:
         """Get state for the given state_id.

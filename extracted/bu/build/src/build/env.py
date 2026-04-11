@@ -1,5 +1,24 @@
 from __future__ import annotations
 
+
+__lazy_modules__ = [
+    'abc',
+    'contextlib',
+    f'{__spec__.parent}._ctx',
+    f'{__spec__.parent}._exceptions',
+    f'{__spec__.parent}._util',
+    'importlib',
+    'importlib.util',
+    'os',
+    'platform',
+    'shutil',
+    'subprocess',
+    'sys',
+    'sysconfig',
+    'tempfile',
+    'warnings',
+]
+
 import abc
 import contextlib
 import functools
@@ -14,16 +33,23 @@ import tempfile
 import typing
 import warnings
 
-from collections.abc import Collection, Mapping
-
 from . import _ctx
 from ._ctx import run_subprocess
 from ._exceptions import FailedProcessError
 from ._util import check_dependency
 
 
-if typing.TYPE_CHECKING:
+TYPE_CHECKING = False
+
+if TYPE_CHECKING:
+    from collections.abc import Collection, Mapping
+
     from ._compat.importlib import metadata as importlib_metadata
+
+    if sys.version_info < (3, 11):
+        from typing_extensions import Self
+    else:
+        from typing import Self
 
 
 Installer = typing.Literal['pip', 'uv']
@@ -82,7 +108,7 @@ class DefaultIsolatedEnv(IsolatedEnv):
     ) -> None:
         self.installer: Installer = installer
 
-    def __enter__(self) -> DefaultIsolatedEnv:
+    def __enter__(self) -> Self:
         try:
             path = tempfile.mkdtemp(prefix='build-env-')
             # Call ``realpath`` to prevent spurious warning from being emitted
@@ -101,7 +127,7 @@ class DefaultIsolatedEnv(IsolatedEnv):
             else:
                 self._env_backend = _PipBackend()
 
-            _ctx.log(f'Creating isolated environment: {self._env_backend.display_name}...')
+            _ctx.log(f'Creating isolated environment: {self._env_backend.display_name}...', kind=('step',))
             self._env_backend.create(self._path)
 
         except Exception:  # cleanup folder if creation fails
@@ -111,8 +137,7 @@ class DefaultIsolatedEnv(IsolatedEnv):
         return self
 
     def __exit__(self, *args: object) -> None:
-        if os.path.exists(self._path):  # in case the user already deleted skip remove
-            shutil.rmtree(self._path)
+        shutil.rmtree(self._path, ignore_errors=True)
 
     @property
     def path(self) -> str:
@@ -129,7 +154,11 @@ class DefaultIsolatedEnv(IsolatedEnv):
         return {
             'PATH': os.pathsep.join([self._env_backend.scripts_dir, path])
             if path is not None
-            else self._env_backend.scripts_dir
+            else self._env_backend.scripts_dir,
+            # Set PYTHONPATH to empty to override any host value. An empty
+            # PYTHONPATH is treated as unset by CPython's path initialization
+            # (the ``if pythonpath_env:`` check makes it a no-op).
+            'PYTHONPATH': '',
         }
 
     def install(self, requirements: Collection[str], constraints: Collection[str] = []) -> None:
@@ -144,7 +173,9 @@ class DefaultIsolatedEnv(IsolatedEnv):
         if not requirements:
             return
 
-        _ctx.log('Installing packages in isolated environment:\n' + '\n'.join(f'- {r}' for r in sorted(requirements)))
+        _ctx.log('Installing packages in isolated environment:', kind=('step',))
+        for r in sorted(requirements):
+            _ctx.log(f'- {r}')
         self._env_backend.install_dependencies(requirements, constraints)
 
 
@@ -158,6 +189,17 @@ class _EnvBackend(typing.Protocol):  # pragma: no cover
 
     @property
     def display_name(self) -> str: ...
+
+
+@functools.cache
+def _has_keyring_cli() -> bool:
+    return shutil.which('keyring') is not None
+
+
+def _pip_env() -> dict[str, str] | None:
+    if 'PIP_KEYRING_PROVIDER' not in os.environ and _has_keyring_cli():
+        return {**os.environ, 'PIP_KEYRING_PROVIDER': 'subprocess'}
+    return None
 
 
 class _PipBackend(_EnvBackend):
@@ -265,7 +307,10 @@ class _PipBackend(_EnvBackend):
                     minimum_pip_version_str,
                     path=[purelib],
                 ):
-                    run_subprocess([self.python_executable, '-Im', 'pip', 'install', f'pip>={minimum_pip_version_str}'])
+                    run_subprocess(
+                        [self.python_executable, '-Im', 'pip', 'install', '--no-input', f'pip>={minimum_pip_version_str}'],
+                        env=_pip_env(),
+                    )
 
                 # Uninstall setuptools from the build env to prevent depending on it implicitly.
                 # Pythons 3.12 and up do not install setuptools, check if it exists first.
@@ -273,7 +318,10 @@ class _PipBackend(_EnvBackend):
                     'setuptools',
                     path=[purelib],
                 ):
-                    run_subprocess([self.python_executable, '-Im', 'pip', 'uninstall', '-y', 'setuptools'])
+                    run_subprocess(
+                        [self.python_executable, '-Im', 'pip', 'uninstall', '--no-input', '-y', 'setuptools'],
+                        env=_pip_env(),
+                    )
 
     def install_dependencies(self, requirements: Collection[str], constraints: Collection[str]) -> None:
         with contextlib.ExitStack() as exit_stack:
@@ -282,10 +330,10 @@ class _PipBackend(_EnvBackend):
             else:
                 cmd = [self.python_executable, '-Im', 'pip']
 
-            if _ctx.verbosity > 1:
-                cmd += [f'-{"v" * (_ctx.verbosity - 1)}']
+            if (verbosity := _ctx.verbosity) > 1:
+                cmd += [f'-{"v" * (verbosity - 1)}']
 
-            cmd += ['install', '--use-pep517', '--no-warn-script-location', '--no-compile']
+            cmd += ['install', '--use-pep517', '--no-warn-script-location', '--no-compile', '--no-input']
 
             # pip does not honour environment markers in command line arguments
             # but it does from requirement files.
@@ -306,7 +354,7 @@ class _PipBackend(_EnvBackend):
 
                 cmd += ['-c', os.path.abspath(constraint_file.name)]
 
-            run_subprocess(cmd)
+            run_subprocess(cmd, env=_pip_env())
 
     @property
     def display_name(self) -> str:
@@ -335,12 +383,14 @@ class _UvBackend(_EnvBackend):
         venv.EnvBuilder(symlinks=_fs_supports_symlink(), with_pip=False).create(self._env_path)
         self.python_executable, self.scripts_dir, _ = _find_executable_and_scripts(self._env_path)
 
-    def install_dependencies(self, requirements: Collection[str], constraints: Collection[str]) -> None:
+    def install_dependencies(  # pragma: no cover -- uv tests are skipped on PyPy, covered on CPython
+        self, requirements: Collection[str], constraints: Collection[str]
+    ) -> None:
         with contextlib.ExitStack() as exit_stack:
             cmd = [self._uv_bin, 'pip']
 
-            if _ctx.verbosity > 1:
-                cmd += [f'-{"v" * min(2, _ctx.verbosity - 1)}']
+            if (verbosity := _ctx.verbosity) > 1:
+                cmd += [f'-{"v" * min(2, verbosity - 1)}']
 
             cmd += ['install', *requirements]
             cmd += ['--python', self.python_executable]
@@ -354,7 +404,11 @@ class _UvBackend(_EnvBackend):
 
                 cmd += ['-c', os.path.abspath(constraint_file.name)]
 
-            run_subprocess(cmd, env={**os.environ, 'VIRTUAL_ENV': self._env_path})
+            env = {k: v for k, v in os.environ.items() if k != 'PYTHONPATH'}
+            env['VIRTUAL_ENV'] = self._env_path
+            if 'UV_KEYRING_PROVIDER' not in os.environ and _has_keyring_cli():
+                env['UV_KEYRING_PROVIDER'] = 'subprocess'
+            run_subprocess(cmd, env=env)
 
     @property
     def display_name(self) -> str:
@@ -366,10 +420,10 @@ def _fs_supports_symlink() -> bool:
     """Return True if symlinks are supported"""
     # Using definition used by venv.main()
     if os.name != 'nt':
-        return True
+        return True  # pragma: win32 no cover
 
     # Windows may support symlinks (setting in Windows 10)
-    with tempfile.NamedTemporaryFile(prefix='build-symlink-') as tmp_file:
+    with tempfile.NamedTemporaryFile(prefix='build-symlink-') as tmp_file:  # pragma: win32 cover
         dest = f'{tmp_file}-b'
         try:
             os.symlink(tmp_file.name, dest)
@@ -396,7 +450,7 @@ def _find_executable_and_scripts(path: str) -> tuple[str, str, str]:
         # The distributors are encouraged to set a "venv" scheme to be used for this.
         # See https://bugs.python.org/issue45413
         # and https://github.com/pypa/virtualenv/issues/2208
-        paths = sysconfig.get_paths(scheme='venv', vars=config_vars)
+        paths = sysconfig.get_paths(scheme='venv', vars=config_vars)  # pragma: no cover
     elif 'posix_local' in scheme_names:
         # The Python that ships on Debian/Ubuntu varies the default scheme to
         # install to /usr/local

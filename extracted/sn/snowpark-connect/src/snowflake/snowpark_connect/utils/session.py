@@ -4,7 +4,6 @@
 
 import logging
 import os
-import threading
 from collections.abc import Sequence
 from typing import Any
 
@@ -14,7 +13,6 @@ from snowflake.snowpark.exceptions import SnowparkClientException, SnowparkSQLEx
 from snowflake.snowpark.session import _get_active_session
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
-from snowflake.snowpark_connect.utils.artifacts import ArtifactKey
 from snowflake.snowpark_connect.utils.describe_query_cache import (
     instrument_session_for_describe_cache,
 )
@@ -72,30 +70,6 @@ def configure_snowpark_session(session: snowpark.Session):
 
     telemetry.initialize(session)
     session._sprocs = set()
-
-    # custom udf imports
-    session._python_files = set()
-    session._import_files = set()
-    session._artifact_jars = set()
-
-    # custom artifact attributes
-    # track current chunk
-    # key: session_id, value: dict of (name, num_chunks, current_chunk_index)
-    session._current_chunk: dict[str, dict] = {}
-    # Use thread-safe access when modifying current chunk dictionary
-    session._current_chunk_lock = threading.RLock()
-
-    # track filenames to be uploaded to stage
-    # key: session_id, value: dict of (name, filename)
-    session._filenames: dict[str, dict[str, str]] = {}
-    # Use thread-safe access when modifying filenames dictionary
-    session._filenames_lock = threading.RLock()
-
-    # Thread-safe access when modifying cached artifact hashes
-    session._artifact_hash_cache_lock = threading.RLock()
-    # track already uploaded artifacts to avoid re-uploading the same artifact multiple times in the same session
-    # key: session_id, value: set of ArtifactKey representing uploaded artifacts
-    session._artifact_hash_cache: dict[str, set[ArtifactKey]] = {}
 
     # built-in udf cache
     init_builtin_udf_cache(session)
@@ -157,6 +131,14 @@ def configure_snowpark_session(session: snowpark.Session):
         "ENABLE_STRUCTURED_TYPES_IN_SNOWPARK_CONNECT_RESPONSE": "true",
         "QUERY_TAG": f"'{query_tag}'",
     }
+
+    # SNOW-3316643: Enable SCOS feature flag on CI (Jenkins sfctest0/qa6/preprod6) only.
+    # Phase 2: enable by default once the GS-side public session parameter fix lands.
+    _conn_param_file = os.environ.get("CONN_PARAM_FILE", "")
+    if "SAS_DAILY_JENKINS" in os.environ or any(
+        env in _conn_param_file for env in ("sfctest0", "preprod", "qa")
+    ):
+        session_params["ENABLE_SCOS_FEATURE"] = "true"
 
     # SNOW-2245971: Stored procedures inside Native Apps run as Execute As Owner and hence cannot set session params.
     if not SKIP_SESSION_CONFIGURATION:

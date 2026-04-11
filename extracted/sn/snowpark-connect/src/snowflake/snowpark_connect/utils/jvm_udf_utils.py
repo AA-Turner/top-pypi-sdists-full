@@ -132,11 +132,16 @@ def build_jvm_udxf_imports(
         else set()
     )
 
-    # Format the user jars to be used in the IMPORTS clause of the stored procedure.
+    from snowflake.snowpark_connect.utils.spark_session_cache import (
+        get_spark_session_cache,
+    )
+
+    artifacts_store = get_spark_session_cache().artifacts_store
+
     return (
         [closure_binary_file]
         + _scala_static_imports_for_udf(stage_resource_path)
-        + list(session._artifact_jars)
+        + list(artifacts_store.get_jars())
         + list(config_imports)
     )
 

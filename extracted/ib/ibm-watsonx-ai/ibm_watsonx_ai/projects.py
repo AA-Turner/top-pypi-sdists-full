@@ -471,20 +471,21 @@ class Projects(WMLResource):
         self,
         project_id: str | None = None,
         limit: int | None = None,
-        asynchronous: bool = False,
         get_all: bool = False,
         project_name: str | None = None,
         **kwargs: Any,
-    ) -> dict[str, Any] | Generator[Any, None, None]:
+    ) -> dict[str, Any]:
         """Get metadata of stored project(s) with caching. It's dedicated for internal usage."""
 
-        return self.get_details(
-            project_id=project_id,
-            limit=limit,
-            asynchronous=asynchronous,
-            get_all=get_all,
-            project_name=project_name,
-            **kwargs,
+        return cast(
+            dict[str, Any],
+            self.get_details(
+                project_id=project_id,
+                limit=limit,
+                get_all=get_all,
+                project_name=project_name,
+                **kwargs,
+            ),
         )
 
     async def _aget_details(

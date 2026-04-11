@@ -2741,24 +2741,20 @@ class TextExtractionsV2ParametersMetaNames(MetaNamesBase):
             dict,
             False,
             {
-                "target_image_width": 500,
                 "enable_text_hints": True,
                 "enable_generic_kvp": True,
                 "schemas": [
                     {
                         "document_type": "Property lease agreement",
                         "document_description": "Legally binding contract between a property owner (lessor) and a tenant (lessee), outlining the terms and conditions for the tenant's use of the property in exchange for rent payments.",
-                        "target_image_width": 800,
-                        "enable_text_hints": True,
-                        "enable_generic_kvp": False,
                         "fields": {
                             "first_name": {
-                                "default": "",
                                 "example": "Jacob",
+                                "description": "The first name of the lessee",
                             },
                             "last_name": {
-                                "default": "",
                                 "example": "Smith",
+                                "description": "The last name of the lessee",
                             },
                         },
                     }

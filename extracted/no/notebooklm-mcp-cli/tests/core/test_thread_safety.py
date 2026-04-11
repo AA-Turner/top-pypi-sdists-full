@@ -9,8 +9,6 @@ verify that the internal locking prevents race conditions.
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from unittest.mock import patch
 
-import pytest
-
 
 def _make_client():
     """Create a NotebookLMClient with mocked auth (no network)."""

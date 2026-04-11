@@ -1,4 +1,5 @@
 """Setups up the Shimmy module."""
+
 from setuptools import find_packages, setup
 
 
@@ -33,8 +34,8 @@ version = get_version()
 header_count, long_description = get_description()
 
 extras = {
-    "gym-v21": ["gym>=0.21.0,<0.26", "pyglet==1.5.11"],
-    "gym-v26": ["gym>=0.26.2"],
+    "gym-v21": ["gym>=0.21.0,<0.26", "pyglet==1.5.11", "numpy<2.0"],
+    "gym-v26": ["gym>=0.26.2", "numpy<2.0"],
     # "imageio" should be "gymnasium[mujoco]>=0.26" but there are install conflicts
     "dm-control": ["dm-control>=1.0.10", "imageio", "h5py>=3.7.0"],
     "dm-control-multi-agent": [
@@ -42,14 +43,15 @@ extras = {
         "imageio",
         "h5py>=3.7.0",
         "pettingzoo>=1.23",
+        "protobuf<4",
     ],
     "dm-lab": ["dm-env>=1.6"],
     "openspiel": ["open_spiel>=1.2", "pettingzoo>=1.23"],
     "meltingpot": [
         "pettingzoo>=1.23",
-        "dm-meltingpot>=2.2.2; python_version > '3.10'",
+        "dm-meltingpot>=2.2.2; python_version > '3.10' and python_version < '3.12'",
     ],
-    "bsuite": ["bsuite>=0.3.5"],
+    "bsuite": ["bsuite>=0.3.5; python_version < '3.12'"],
 }
 extras["all"] = [
     lib for key, libs in extras.items() if key != "gym-v21" for lib in libs
@@ -70,17 +72,17 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     keywords=["Reinforcement Learning", "game", "RL", "AI"],
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     packages=find_packages(),
-    install_requires=["numpy>=1.18.0", "gymnasium>=1.0.0a1"],
+    install_requires=["numpy>=1.18.0", "gymnasium>=1.0.0"],
     tests_require=extras["testing"],
     extras_require=extras,
     classifiers=[
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],

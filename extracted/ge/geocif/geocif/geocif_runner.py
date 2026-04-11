@@ -196,10 +196,10 @@ def _build_summary_params(parser, inputs):
         if parser.has_option(section, key):
             params.append((key, parser.get(section, key)))
 
-    # Per-model use_ceis (show from first model)
+    # Per-model use_cids (show from first model)
     first_model = inputs[0][4] if inputs else None  # index 4 = model name
-    if first_model and parser.has_option(first_model, "use_ceis"):
-        params.append(("use_ceis", parser.get(first_model, "use_ceis")))
+    if first_model and parser.has_option(first_model, "use_cids"):
+        params.append(("use_cids", parser.get(first_model, "use_cids")))
 
     params.append(("Parallel", str(do_parallel)))
     if do_parallel:

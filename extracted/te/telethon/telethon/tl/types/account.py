@@ -5,7 +5,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeAuthorization, TypeAutoDownloadSettings, TypeAutoSaveException, TypeAutoSaveSettings, TypeBusinessChatLink, TypeChat, TypeChatTheme, TypeConnectedBot, TypeDocument, TypeEmojiStatus, TypeMessageEntity, TypePasswordKdfAlgo, TypePeer, TypePrivacyRule, TypeSecurePasswordKdfAlgo, TypeSecureRequiredType, TypeSecureSecretSettings, TypeSecureValue, TypeSecureValueError, TypeTheme, TypeUser, TypeWallPaper, TypeWebAuthorization
+    from ...tl.types import TypeAuthorization, TypeAutoDownloadSettings, TypeAutoSaveException, TypeAutoSaveSettings, TypeBusinessChatLink, TypeChat, TypeChatTheme, TypeConnectedBot, TypeDataJSON, TypeDocument, TypeEmojiStatus, TypeMessageEntity, TypePasskey, TypePasswordKdfAlgo, TypePeer, TypePrivacyRule, TypeSecurePasswordKdfAlgo, TypeSecureRequiredType, TypeSecureSecretSettings, TypeSecureValue, TypeSecureValueError, TypeTheme, TypeUser, TypeWallPaper, TypeWebAuthorization
     from ...tl.types.auth import TypeSentCode
 
 
@@ -571,6 +571,67 @@ class PaidMessagesRevenue(TLObject):
         return cls(stars_amount=_stars_amount)
 
 
+class PasskeyRegistrationOptions(TLObject):
+    CONSTRUCTOR_ID = 0xe16b5ce1
+    SUBCLASS_OF_ID = 0x341d83e4
+
+    def __init__(self, options: 'TypeDataJSON'):
+        """
+        Constructor for account.PasskeyRegistrationOptions: Instance of PasskeyRegistrationOptions.
+        """
+        self.options = options
+
+    def to_dict(self):
+        return {
+            '_': 'PasskeyRegistrationOptions',
+            'options': self.options.to_dict() if isinstance(self.options, TLObject) else self.options
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xe1\\k\xe1',
+            self.options._bytes(),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _options = reader.tgread_object()
+        return cls(options=_options)
+
+
+class Passkeys(TLObject):
+    CONSTRUCTOR_ID = 0xf8e0aa1c
+    SUBCLASS_OF_ID = 0x24dd205e
+
+    def __init__(self, passkeys: List['TypePasskey']):
+        """
+        Constructor for account.Passkeys: Instance of Passkeys.
+        """
+        self.passkeys = passkeys
+
+    def to_dict(self):
+        return {
+            '_': 'Passkeys',
+            'passkeys': [] if self.passkeys is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.passkeys]
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\x1c\xaa\xe0\xf8',
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.passkeys)),b''.join(x._bytes() for x in self.passkeys),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        reader.read_int()
+        _passkeys = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _passkeys.append(_x)
+
+        return cls(passkeys=_passkeys)
+
+
 class Password(TLObject):
     CONSTRUCTOR_ID = 0x957b50fb
     SUBCLASS_OF_ID = 0x53a211a3
@@ -612,7 +673,7 @@ class Password(TLObject):
         }
 
     def _bytes(self):
-        assert ((self.has_password or self.has_password is not None) and (self.current_algo or self.current_algo is not None) and (self.srp_B or self.srp_B is not None) and (self.srp_id or self.srp_id is not None)) or ((self.has_password is None or self.has_password is False) and (self.current_algo is None or self.current_algo is False) and (self.srp_B is None or self.srp_B is False) and (self.srp_id is None or self.srp_id is False)), 'has_password, current_algo, srp_B, srp_id parameters must all be False-y (like None) or all me True-y'
+        assert ((self.has_password or self.has_password is not None) and (self.current_algo or self.current_algo is not None) and (self.srp_B or self.srp_B is not None) and (self.srp_id or self.srp_id is not None)) or ((self.has_password is None or self.has_password is False) and (self.current_algo is None or self.current_algo is False) and (self.srp_B is None or self.srp_B is False) and (self.srp_id is None or self.srp_id is False)), 'has_password, current_algo, srp_B, srp_id parameters must all be False-y (like None) or all be True-y'
         return b''.join((
             b'\xfbP{\x95',
             struct.pack('<I', (0 if self.has_recovery is None or self.has_recovery is False else 1) | (0 if self.has_secure_values is None or self.has_secure_values is False else 2) | (0 if self.has_password is None or self.has_password is False else 4) | (0 if self.current_algo is None or self.current_algo is False else 4) | (0 if self.srp_B is None or self.srp_B is False else 4) | (0 if self.srp_id is None or self.srp_id is False else 4) | (0 if self.hint is None or self.hint is False else 8) | (0 if self.email_unconfirmed_pattern is None or self.email_unconfirmed_pattern is False else 16) | (0 if self.pending_reset_date is None or self.pending_reset_date is False else 32) | (0 if self.login_email_pattern is None or self.login_email_pattern is False else 64)),
@@ -694,7 +755,7 @@ class PasswordInputSettings(TLObject):
         }
 
     def _bytes(self):
-        assert ((self.new_algo or self.new_algo is not None) and (self.new_password_hash or self.new_password_hash is not None) and (self.hint or self.hint is not None)) or ((self.new_algo is None or self.new_algo is False) and (self.new_password_hash is None or self.new_password_hash is False) and (self.hint is None or self.hint is False)), 'new_algo, new_password_hash, hint parameters must all be False-y (like None) or all me True-y'
+        assert ((self.new_algo or self.new_algo is not None) and (self.new_password_hash or self.new_password_hash is not None) and (self.hint or self.hint is not None)) or ((self.new_algo is None or self.new_algo is False) and (self.new_password_hash is None or self.new_password_hash is False) and (self.hint is None or self.hint is False)), 'new_algo, new_password_hash, hint parameters must all be False-y (like None) or all be True-y'
         return b''.join((
             b"\xc9'7\xc2",
             struct.pack('<I', (0 if self.new_algo is None or self.new_algo is False else 1) | (0 if self.new_password_hash is None or self.new_password_hash is False else 1) | (0 if self.hint is None or self.hint is False else 1) | (0 if self.email is None or self.email is False else 2) | (0 if self.new_secure_settings is None or self.new_secure_settings is False else 4)),

@@ -1,5 +1,6 @@
-use crate::handler::{extract_record, Tn3270Handler, DO, EOR, IAC, OPT_BINARY};
+use crate::handler::Tn3270Handler;
 use guacr_handlers::ProtocolHandler;
+use guacr_protocol::telnet::{extract_record, DO, EOR, IAC, OPT_BINARY};
 
 #[test]
 fn test_handler_name() {

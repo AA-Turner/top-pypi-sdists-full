@@ -547,6 +547,36 @@ class TestProject(TestCase):
     @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
     @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
     @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
+    def test_get_project_iam_role_is_cached(
+        self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        """Test that iam_role property caches the result and does not call connection lookup again"""
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        self.mock_datazone_api.get_domain.return_value = GET_DOMAIN_RESPONSE_STANDARD
+        get_connection_by_name_mock.return_value = Connection(
+            {"environmentUserRole": "arn:aws:iam:cached_role"},
+            Mock(),
+            Mock(),
+            Mock(),
+            Mock(),
+            Mock(),
+        )
+        project = Project(id="aa76bmnbd042v")
+
+        # First call should trigger the connection lookup
+        role1 = project.iam_role
+        self.assertEqual(role1, "arn:aws:iam:cached_role")
+        self.assertEqual(get_connection_by_name_mock.call_count, 1)
+
+        # Second call should return cached value without additional connection lookup
+        role2 = project.iam_role
+        self.assertEqual(role2, "arn:aws:iam:cached_role")
+        self.assertEqual(get_connection_by_name_mock.call_count, 1)
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
     def test_get_project_iam_role_connection_fails(
         self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
     ):

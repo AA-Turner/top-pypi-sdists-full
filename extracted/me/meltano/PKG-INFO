@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meltano
-Version: 4.1.2
+Version: 4.2.0
 Summary: Meltano is your CLI for ELT+: Open Source, Flexible, and Scalable. Move, transform, and test your data with confidence using a streamlined data engineering workflow you’ll love.
 Project-URL: Homepage, https://meltano.com
 Project-URL: Repository, https://github.com/meltano/meltano
@@ -26,7 +26,7 @@ Requires-Python: >=3.10
 Requires-Dist: alembic<2,>=1.14.0
 Requires-Dist: anyio<5,>=4.4.0
 Requires-Dist: backports-strenum<2,>=1.3.1; python_version < '3.11'
-Requires-Dist: click!=8.2.2,<8.4,>=8.1
+Requires-Dist: click!=8.2.2,<8.4,>=8.2
 Requires-Dist: click-default-group<2,>=1.2.4
 Requires-Dist: dateparser>=1.2.1
 Requires-Dist: fasteners<0.21,>=0.19
@@ -49,15 +49,15 @@ Requires-Dist: structlog<26,>=25.5.0
 Requires-Dist: typing-extensions<5,>=4.12.2
 Requires-Dist: tzlocal~=5.3
 Requires-Dist: urllib3>=1.26.20
-Requires-Dist: uv<0.10,>=0.8.14
-Requires-Dist: virtualenv<21,>=20.26.6
+Requires-Dist: uv>=0.8.14
+Requires-Dist: virtualenv<22,>=20.26.6
 Provides-Extra: azure
 Requires-Dist: azure-common<2,>=1.1.28; extra == 'azure'
 Requires-Dist: azure-core<2,>=1.32.0; extra == 'azure'
 Requires-Dist: azure-identity<2,>=1.19.0; extra == 'azure'
 Requires-Dist: azure-storage-blob<13,>=12.24.0; extra == 'azure'
 Provides-Extra: containers
-Requires-Dist: aiodocker<0.26,>=0.24.0; extra == 'containers'
+Requires-Dist: aiodocker<0.27,>=0.24.0; extra == 'containers'
 Provides-Extra: gcs
 Requires-Dist: google-cloud-storage>=3; extra == 'gcs'
 Provides-Extra: mssql
@@ -67,14 +67,14 @@ Requires-Dist: psycopg[binary]<4,>=3.2.3; extra == 'postgres'
 Provides-Extra: psycopg2
 Requires-Dist: psycopg2-binary<3,>=2.9.9; extra == 'psycopg2'
 Provides-Extra: s3
-Requires-Dist: boto3<1.43,>=1.35; extra == 's3'
+Requires-Dist: boto3<2,>=1.35; extra == 's3'
 Description-Content-Type: text/markdown
 
 <div align="center">
-  <picture align="center" with="600">
-    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/meltano/meltano/assets/5394188/59d36ec9-2e02-45ff-98ea-8b5b1f0fb34f">
-    <source media="(prefers-color-scheme: light)" srcset="https://github.com/meltano/meltano/assets/5394188/be586327-53b0-43e6-a93e-c7cc2577d9be">
-  <img alt="Meltano Logo" src="https://github.com/meltano/meltano/assets/5394188/be586327-53b0-43e6-a93e-c7cc2577d9be" width="600"/>
+  <picture align="center" width="600">
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/dbeb107f-20ad-43d0-af9c-f51b97f95e04">
+    <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/d15ec5e3-65e9-4c5a-ab13-019c00d97d28">
+  <img alt="Meltano Logo" src="https://github.com/user-attachments/assets/d15ec5e3-65e9-4c5a-ab13-019c00d97d28" width="600"/>
   </picture>
 </div>
 
@@ -83,7 +83,7 @@ Description-Content-Type: text/markdown
 
 <div align="center">
 <a href="https://meltano.com/demo">
-<img alt="Try codespaces" src="https://img.shields.io/static/v1?label=&message=Try live demo with Codespaces&color=02a5a5&style=for-the-badge&logo=github"/>
+<img alt="Try codespaces" src="https://img.shields.io/static/v1?label=&message=Try%20live%20demo%20with%20Codespaces&color=02a5a5&style=for-the-badge&logo=github"/>
 </a>
 </div>
 

@@ -80,7 +80,10 @@ class AddPrefixedEnvVars:
         return event_dict
 
 
-class AddApiVersion:
+class AddStaticMetadata:
+    def __init__(self) -> None:
+        self._has_deepagents = os.getenv("DEEPAGENTS_VERSION", "") != ""
+
     def __call__(
         self, logger: logging.Logger, method_name: str, event_dict: EventDict
     ) -> EventDict:
@@ -90,6 +93,8 @@ class AddApiVersion:
             event_dict["langgraph_api_version"] = __version__
         except ImportError:
             pass
+        if self._has_deepagents:
+            event_dict["has_deepagents"] = "true"
         return event_dict
 
 
@@ -171,7 +176,7 @@ shared_processors = [
     structlog.stdlib.PositionalArgumentsFormatter(),
     structlog.stdlib.ExtraAdder(),
     AddPrefixedEnvVars("LANGSMITH_LANGGRAPH_"),  # injected by docker build
-    AddApiVersion(),
+    AddStaticMetadata(),
     structlog.processors.TimeStamper(fmt="iso", utc=True),
     structlog.processors.StackInfoRenderer(),
     structlog.processors.format_exc_info,

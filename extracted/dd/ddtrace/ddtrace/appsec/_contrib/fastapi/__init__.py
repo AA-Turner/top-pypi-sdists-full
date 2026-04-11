@@ -1,4 +1,9 @@
+from collections.abc import Awaitable
+from collections.abc import Callable
+from collections.abc import Mapping
 import json
+from typing import Any
+from typing import Optional
 
 from ddtrace.appsec._asm_request_context import _call_waf
 from ddtrace.appsec._asm_request_context import _call_waf_first
@@ -11,6 +16,7 @@ from ddtrace.contrib.internal.trace_utils_base import _set_url_tag
 from ddtrace.ext import http
 from ddtrace.internal import core
 from ddtrace.internal.constants import RESPONSE_HEADERS
+from ddtrace.internal.core import ExecutionContext
 from ddtrace.internal.logger import get_logger
 from ddtrace.internal.settings.asm import config as asm_config
 from ddtrace.internal.utils import http as http_utils
@@ -20,14 +26,16 @@ import ddtrace.vendor.xmltodict as xmltodict
 
 logger = get_logger(__name__)
 
+_ASGIReceive = Callable[[], Awaitable[Optional[dict[str, Any]]]]
 
-async def _on_asgi_request_parse_body(receive, headers):
+
+async def _on_asgi_request_parse_body(receive: _ASGIReceive, headers: Mapping[str, str]) -> tuple[_ASGIReceive, Any]:
     if asm_config._asm_enabled:
         # This must not be imported globally due to 3rd party patching timeline
         import asyncio
 
         more_body = True
-        body_parts = []
+        body_parts: list[bytes] = []
         try:
             while more_body:
                 data_received = await asyncio.wait_for(receive(), asm_config._fast_api_async_body_timeout)
@@ -42,7 +50,7 @@ async def _on_asgi_request_parse_body(receive, headers):
             return receive, None
         body = b"".join(body_parts)
 
-        async def receive_wrapped(once=[True]):
+        async def receive_wrapped(once: list[bool] = [True]) -> Optional[dict[str, Any]]:
             if once[0]:
                 once[0] = False
                 return {"type": "http.request", "body": body, "more_body": more_body}
@@ -68,7 +76,7 @@ async def _on_asgi_request_parse_body(receive, headers):
     return receive, None
 
 
-def _asgi_make_block_content(ctx, url):
+def _asgi_make_block_content(ctx: ExecutionContext, url: str) -> tuple[int, list[tuple[bytes, bytes]], bytes]:
     middleware = ctx.get_item("middleware")
     req_span = ctx.get_item("req_span")
     headers = ctx.get_item("headers")
@@ -89,27 +97,27 @@ def _asgi_make_block_content(ctx, url):
         resp_headers = [(b"content-type", block_config.content_type.encode())]
     status = block_config.status_code
     try:
-        req_span._set_tag_str(RESPONSE_HEADERS + ".content-length", str(len(content)))
+        req_span._set_attribute(RESPONSE_HEADERS + ".content-length", str(len(content)))
         if ctype is not None:
-            req_span._set_tag_str(RESPONSE_HEADERS + ".content-type", ctype)
-        req_span._set_tag_str(http.STATUS_CODE, str(status))
+            req_span._set_attribute(RESPONSE_HEADERS + ".content-type", ctype)
+        req_span._set_attribute(http.STATUS_CODE, str(status))
         query_string = environ.get("QUERY_STRING")
         _set_url_tag(middleware.integration_config, req_span, url, query_string)
         if query_string and middleware._config.trace_query_string:
-            req_span._set_tag_str(http.QUERY_STRING, query_string)
+            req_span._set_attribute(http.QUERY_STRING, query_string)
         method = environ.get("REQUEST_METHOD")
         if method:
-            req_span._set_tag_str(http.METHOD, method)
+            req_span._set_attribute(http.METHOD, method)
         user_agent = _get_request_header_user_agent(headers, headers_are_case_sensitive=True)
         if user_agent:
-            req_span._set_tag_str(http.USER_AGENT, user_agent)
+            req_span._set_attribute(http.USER_AGENT, user_agent)
     except Exception as e:
         logger.warning("Could not set some span tags on blocked request: %s", str(e))
     resp_headers.append((b"Content-Length", str(len(content)).encode()))
     return status, resp_headers, content
 
 
-def listen():
+def listen() -> None:
     core.on("asgi.request.parse.body", _on_asgi_request_parse_body, "await_receive_and_body")
     core.on("asgi.block.started", _asgi_make_block_content, "status_headers_content")
 

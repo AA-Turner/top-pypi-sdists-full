@@ -93,7 +93,7 @@ def get_input_file_path(country, parser, data_source="harvest") -> Path:
     return Path(f"{base_path}/{country_lower}")
 
 
-class cei_runner(base.BaseGeo):
+class cid_runner(base.BaseGeo):
     def __init__(self, path_config_file):
         super().__init__(path_config_file)
 
@@ -262,7 +262,7 @@ class cei_runner(base.BaseGeo):
         # One task per file, covering all harvest years in a single call so the
         # ICCLIM result cache inside process_file amortizes icclim.index calls
         # across years (~25x speedup on the cached path). The redo flag is
-        # False here; process_file / CEIs still force recomputation for the
+        # False here; process_file / CIDs still force recomputation for the
         # current and previous harvest years regardless.
         years = list(range(2001, ar.utcnow().year + 1))
         tasks = [
@@ -287,11 +287,11 @@ class cei_runner(base.BaseGeo):
                 for _ in tqdm(
                     p.imap_unordered(indices.process_file, tasks),
                     total=len(tasks),
-                    desc="CEI files",
+                    desc="CID files",
                 ):
                     pass
         else:
-            pbar = tqdm(tasks, desc="CEI files")
+            pbar = tqdm(tasks, desc="CID files")
             for val in pbar:
                 pbar.set_description(f"Main loop {val[3]} {val[5]}")
                 indices.process_file(val)
@@ -302,7 +302,7 @@ def run(path_config_files=[]):
     # Sanity-check index definitions have no spaces in keys
     indices.validate_index_definitions()
 
-    obj = cei_runner(path_config_files)
+    obj = cid_runner(path_config_files)
 
     from geocif.data import ensure_metadata
     ensure_metadata(obj.parser)

@@ -1,7 +1,5 @@
 """Google GenAI-specific span creation, metadata extraction, stream handling, and output normalization."""
 
-import base64
-import binascii
 import contextvars
 import dataclasses
 import logging
@@ -12,8 +10,15 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from braintrust.bt_json import bt_safe_deep_copy
+from braintrust.integrations.utils import (
+    _attachment_filename_for_mime_type,
+    _attachment_from_base64_data,
+    _attachment_from_bytes,
+    _image_url_payload,
+)
 from braintrust.logger import Attachment, start_span
 from braintrust.span_types import SpanTypeAttribute
+from braintrust.util import clean_nones
 
 
 if TYPE_CHECKING:
@@ -113,16 +118,11 @@ def _serialize_content_item(item: Any) -> Any:
 
                 # Ensure data is bytes
                 if isinstance(data, bytes):
-                    # Determine file extension from mime type
-                    extension = mime_type.split("/")[1] if "/" in mime_type else "bin"
-                    filename = f"file.{extension}"
-
-                    # Create an Attachment object
-                    attachment = Attachment(data=data, filename=filename, content_type=mime_type)
+                    attachment = _attachment_from_bytes(data, mime_type)
 
                     # Return the attachment object in image_url format
                     # The SDK's _extract_attachments will replace it with its reference when logging
-                    return {"image_url": {"url": attachment}}
+                    return _image_url_payload(attachment)
 
         # Try to use built-in serialization if available
         if hasattr(item, "model_dump"):
@@ -153,21 +153,6 @@ def _serialize_tools(api_client: Any, input: Any | None) -> Any | None:
         return tools
     except Exception:
         return None
-
-
-def _attachment_from_base64_data(data: str, mime_type: str, *, label: str) -> Attachment | None:
-    raw_data = data
-    if raw_data.startswith("data:"):
-        _, _, encoded = raw_data.partition(",")
-        raw_data = encoded
-
-    try:
-        decoded = base64.b64decode(raw_data, validate=True)
-    except (ValueError, binascii.Error):
-        return None
-
-    extension = mime_type.split("/")[1] if "/" in mime_type else "bin"
-    return Attachment(data=decoded, filename=f"{label}.{extension}", content_type=mime_type)
 
 
 def _serialize_interaction_content_dict(value: dict[str, Any]) -> dict[str, Any]:
@@ -218,10 +203,6 @@ def _get_args_kwargs(
     return {k: args[i] if args else kwargs.get(k) for i, k in enumerate(keys)}, _omit(kwargs, omit_keys or keys)
 
 
-def _clean(obj: dict[str, Any]) -> dict[str, Any]:
-    return {k: v for k, v in obj.items() if v is not None}
-
-
 def _prepare_traced_call(
     api_client: Any, args: list[Any], kwargs: dict[str, Any]
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -236,7 +217,7 @@ def _prepare_generate_images_traced_call(
     input, clean_kwargs = _get_args_kwargs(args, kwargs, ["model", "prompt", "config"], ["prompt", "config"])
     if input.get("config") is not None:
         input["config"] = bt_safe_deep_copy(input["config"])
-    return _clean(input), clean_kwargs
+    return clean_nones(input), clean_kwargs
 
 
 def _prepare_interaction_create_traced_call(
@@ -244,7 +225,7 @@ def _prepare_interaction_create_traced_call(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     del api_client, args
 
-    input_data = _clean(
+    input_data = clean_nones(
         {
             "model": kwargs.get("model"),
             "agent": kwargs.get("agent"),
@@ -262,7 +243,7 @@ def _prepare_interaction_create_traced_call(
             "agent_config": _serialize_interaction_value(kwargs.get("agent_config")),
         }
     )
-    metadata = _clean(
+    metadata = clean_nones(
         {
             "api_version": kwargs.get("api_version"),
             "model": kwargs.get("model"),
@@ -279,7 +260,7 @@ def _prepare_interaction_get_traced_call(
     del api_client
 
     interaction_id = args[0] if args else kwargs.get("id")
-    input_data = _clean(
+    input_data = clean_nones(
         {
             "id": interaction_id,
             "include_input": kwargs.get("include_input"),
@@ -287,7 +268,7 @@ def _prepare_interaction_get_traced_call(
             "stream": kwargs.get("stream"),
         }
     )
-    metadata = _clean({"api_version": kwargs.get("api_version")})
+    metadata = clean_nones({"api_version": kwargs.get("api_version")})
     return input_data, metadata
 
 
@@ -297,8 +278,8 @@ def _prepare_interaction_id_traced_call(
     del api_client
 
     interaction_id = args[0] if args else kwargs.get("id")
-    input_data = _clean({"id": interaction_id})
-    metadata = _clean({"api_version": kwargs.get("api_version")})
+    input_data = clean_nones({"id": interaction_id})
+    metadata = clean_nones({"api_version": kwargs.get("api_version")})
     return input_data, metadata
 
 
@@ -335,7 +316,7 @@ def _extract_generate_content_metrics(response: "GenerateContentResponse", start
     if hasattr(response, "usage_metadata") and response.usage_metadata:
         _extract_usage_metadata_metrics(response.usage_metadata, metrics)
 
-    return _clean(dict(metrics))
+    return clean_nones(dict(metrics))
 
 
 def _extract_embed_content_output(response: "EmbedContentResponse") -> dict[str, Any]:
@@ -343,7 +324,7 @@ def _extract_embed_content_output(response: "EmbedContentResponse") -> dict[str,
     first_embedding = embeddings[0] if embeddings else None
     first_values = getattr(first_embedding, "values", None) or []
 
-    return _clean(
+    return clean_nones(
         {
             "embedding_length": len(first_values) if first_values else None,
             "embeddings_count": len(embeddings) if embeddings else None,
@@ -376,7 +357,7 @@ def _extract_embed_content_metrics(response: "EmbedContentResponse", start: floa
     if billable_character_count is not None:
         metrics["billable_characters"] = billable_character_count
 
-    return _clean(metrics)
+    return clean_nones(metrics)
 
 
 def _extract_generate_images_output(response: Any) -> dict[str, Any]:
@@ -389,7 +370,7 @@ def _extract_generate_images_output(response: Any) -> dict[str, Any]:
         mime_type = getattr(image, "mime_type", None)
         safety_attributes = getattr(generated_image, "safety_attributes", None)
 
-        image_entry: dict[str, Any] = _clean(
+        image_entry: dict[str, Any] = clean_nones(
             {
                 "mime_type": mime_type,
                 "gcs_uri": getattr(image, "gcs_uri", None),
@@ -405,17 +386,19 @@ def _extract_generate_images_output(response: Any) -> dict[str, Any]:
         # Convert image bytes to an Attachment so the SDK uploads them to
         # object storage and the Braintrust UI can render the image.
         if isinstance(image_bytes, bytes) and mime_type:
-            extension = mime_type.split("/")[1] if "/" in mime_type else "bin"
-            filename = f"generated_image_{i}.{extension}"
-            attachment = Attachment(data=image_bytes, filename=filename, content_type=mime_type)
-            image_entry["image_url"] = {"url": attachment}
+            attachment = _attachment_from_bytes(
+                image_bytes,
+                mime_type,
+                filename=_attachment_filename_for_mime_type(mime_type, prefix=f"generated_image_{i}"),
+            )
+            image_entry.update(_image_url_payload(attachment))
 
         serialized_images.append(image_entry)
 
     positive_prompt_safety_attributes = getattr(response, "positive_prompt_safety_attributes", None)
     positive_prompt_summary = None
     if positive_prompt_safety_attributes is not None:
-        positive_prompt_summary = _clean(
+        positive_prompt_summary = clean_nones(
             {
                 "categories": getattr(positive_prompt_safety_attributes, "categories", None),
                 "scores": getattr(positive_prompt_safety_attributes, "scores", None),
@@ -423,7 +406,7 @@ def _extract_generate_images_output(response: Any) -> dict[str, Any]:
             }
         )
 
-    return _clean(
+    return clean_nones(
         {
             "generated_images_count": len(generated_images),
             "generated_images": serialized_images,
@@ -435,7 +418,7 @@ def _extract_generate_images_output(response: Any) -> dict[str, Any]:
 
 def _extract_generic_timing_metrics(start: float) -> dict[str, Any]:
     end_time = time.time()
-    return _clean(
+    return clean_nones(
         {
             "start": start,
             "end": end_time,
@@ -480,7 +463,7 @@ def _extract_interaction_output(
 ) -> dict[str, Any]:
     outputs_list = serialized_outputs if serialized_outputs is not None else _serialize_interaction_outputs(response)
 
-    return _clean(
+    return clean_nones(
         {
             "status": getattr(response, "status", None),
             "outputs": outputs_list,
@@ -494,7 +477,7 @@ def _extract_interaction_metadata(response: "Interaction") -> dict[str, Any]:
     usage_serialized = _serialize_interaction_value(usage)
     usage_by_modality = None
     if isinstance(usage_serialized, dict):
-        usage_by_modality = _clean(
+        usage_by_modality = clean_nones(
             {
                 "input_tokens_by_modality": usage_serialized.get("input_tokens_by_modality"),
                 "output_tokens_by_modality": usage_serialized.get("output_tokens_by_modality"),
@@ -503,7 +486,7 @@ def _extract_interaction_metadata(response: "Interaction") -> dict[str, Any]:
             }
         )
 
-    return _clean(
+    return clean_nones(
         {
             "interaction_id": getattr(response, "id", None),
             "previous_interaction_id": getattr(response, "previous_interaction_id", None),
@@ -553,7 +536,7 @@ def _tool_span_input(call_item: dict[str, Any] | None) -> Any:
     if call_item.get("arguments") is not None:
         return call_item["arguments"]
     return (
-        _clean(
+        clean_nones(
             {
                 key: value
                 for key, value in call_item.items()
@@ -570,7 +553,7 @@ def _tool_span_output(result_item: dict[str, Any] | None) -> Any:
     if result_item.get("result") is not None:
         return result_item["result"]
     return (
-        _clean(
+        clean_nones(
             {
                 key: value
                 for key, value in result_item.items()
@@ -694,7 +677,7 @@ def _aggregate_generate_content_chunks(
     if text:
         aggregated["text"] = text
 
-    clean_metrics = _clean(dict(metrics))
+    clean_metrics = clean_nones(dict(metrics))
 
     return aggregated, clean_metrics
 
@@ -759,7 +742,7 @@ def _get_active_interaction_tool_spans() -> dict[str, _ActiveInteractionToolSpan
 
 def _tool_span_metadata(call_item: dict[str, Any] | None, result_item: dict[str, Any] | None) -> dict[str, Any] | None:
     return (
-        _clean(
+        clean_nones(
             {
                 "tool_type": (call_item or result_item or {}).get("type"),
                 "call_id": (call_item or {}).get("id") or (result_item or {}).get("call_id"),
@@ -953,7 +936,9 @@ def _aggregate_interaction_events(
     if first_token_time is not None:
         metrics["time_to_first_token"] = first_token_time - start
 
-    metadata = _clean({"stream_event_types": [et for event in events if (et := getattr(event, "event_type", None))]})
+    metadata = clean_nones(
+        {"stream_event_types": [et for event in events if (et := getattr(event, "event_type", None))]}
+    )
     reconstructed_outputs = _reconstruct_interaction_outputs_from_events(events)
 
     final_interaction = next(
@@ -968,7 +953,7 @@ def _aggregate_interaction_events(
         if reconstructed_outputs:
             return (
                 {"outputs": reconstructed_outputs, "text": _extract_interaction_text(reconstructed_outputs)},
-                _clean(metrics),
+                clean_nones(metrics),
                 metadata,
             )
         error_event = next(
@@ -981,7 +966,7 @@ def _aggregate_interaction_events(
         )
         if error_event is not None:
             metadata["stream_error"] = _serialize_interaction_value(error_event.error)
-        return {"events": _serialize_interaction_value(events)}, _clean(metrics), metadata
+        return {"events": _serialize_interaction_value(events)}, clean_nones(metrics), metadata
 
     final_outputs_list = _serialize_interaction_outputs(final_interaction)
 
@@ -993,7 +978,7 @@ def _aggregate_interaction_events(
         output["outputs"] = reconstructed_outputs
         output["text"] = _extract_interaction_text(reconstructed_outputs)
 
-    return output, _clean(metrics), _clean(metadata)
+    return output, clean_nones(metrics), clean_nones(metadata)
 
 
 # ---------------------------------------------------------------------------

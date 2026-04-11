@@ -849,4 +849,87 @@ impl ThreatDetector {
             .map(|s| s.command_history.iter().cloned().collect())
             .unwrap_or_default()
     }
+
+    /// Build a `ThreatDetector` from connection parameters.
+    ///
+    /// Returns `None` if `threat_detection_baml_endpoint` is absent (feature disabled for
+    /// this connection). Logs at `info` on success and `warn` on construction failure.
+    pub fn from_params(params: &HashMap<String, String>, log_prefix: &str) -> Option<Arc<Self>> {
+        let baml_endpoint = params.get("threat_detection_baml_endpoint")?;
+        let config = ThreatDetectorConfig {
+            baml_endpoint: baml_endpoint.clone(),
+            baml_api_key: params.get("threat_detection_baml_api_key").cloned(),
+            enabled: true,
+            auto_terminate: params
+                .get("threat_detection_auto_terminate")
+                .map(|s| s == "true")
+                .unwrap_or(true),
+            min_log_level: params
+                .get("threat_detection_min_log_level")
+                .and_then(|s| match s.as_str() {
+                    "critical" => Some(ThreatLevel::Critical),
+                    "high" => Some(ThreatLevel::High),
+                    "medium" => Some(ThreatLevel::Medium),
+                    "low" => Some(ThreatLevel::Low),
+                    _ => None,
+                })
+                .unwrap_or(ThreatLevel::Low),
+            command_history_size: params
+                .get("threat_detection_command_history_size")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(10),
+            timeout_seconds: params
+                .get("threat_detection_timeout_seconds")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(5),
+            deny_tags: HashMap::new(),
+            allow_tags: HashMap::new(),
+            enable_tag_checking: true,
+            proactive_mode: params
+                .get("threat_detection_proactive_mode")
+                .map(|s| s == "true")
+                .unwrap_or(false),
+            approval_timeout_ms: params
+                .get("threat_detection_approval_timeout_ms")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(2000),
+            fail_closed_on_error: params
+                .get("threat_detection_fail_closed_on_error")
+                .map(|s| s == "true")
+                .unwrap_or(false),
+            show_approval_status: params
+                .get("threat_detection_show_approval_status")
+                .map(|s| s == "true")
+                .unwrap_or(true),
+            auto_approve_safe_commands: params
+                .get("threat_detection_auto_approve_safe_commands")
+                .map(|s| s == "true")
+                .unwrap_or(true),
+            config_allow_ai_session_terminate: params
+                .get("threat_detection_config_allow_ai_session_terminate")
+                .map(|s| s == "true")
+                .unwrap_or(true),
+            resource_ai_session_terminate_enabled: params
+                .get("threat_detection_resource_ai_session_terminate_enabled")
+                .map(|s| s == "true")
+                .unwrap_or(true),
+            level_terminate_flags: HashMap::new(),
+        };
+        match Self::new(config) {
+            Ok(detector) => {
+                info!(
+                    "{}: Threat detection enabled with BAML endpoint: {}",
+                    log_prefix, baml_endpoint
+                );
+                Some(Arc::new(detector))
+            }
+            Err(e) => {
+                warn!(
+                    "{}: Failed to initialize threat detection: {}",
+                    log_prefix, e
+                );
+                None
+            }
+        }
+    }
 }

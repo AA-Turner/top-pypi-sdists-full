@@ -1,7 +1,9 @@
-use super::{PyDuration, PyInstant};
+use std::time::{Duration, Instant};
+
 use pyo3::exceptions::{PyOverflowError, PyValueError};
 use pyo3::prelude::*;
-use std::time::{Duration, Instant};
+
+use super::{PyDuration, PyInstant};
 
 #[pyfunction]
 pub fn sleep(py: Python<'_>, secs: f64) -> PyResult<f64> {

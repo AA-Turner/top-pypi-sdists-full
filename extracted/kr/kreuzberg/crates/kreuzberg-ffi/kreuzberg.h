@@ -9,8 +9,8 @@
 
 #define KREUZBERG_VERSION_MAJOR 4
 #define KREUZBERG_VERSION_MINOR 8
-#define KREUZBERG_VERSION_PATCH 0
-#define KREUZBERG_VERSION "4.8.0"
+#define KREUZBERG_VERSION_PATCH 2
+#define KREUZBERG_VERSION "4.8.2"
 
 
 #include <stdarg.h>
@@ -1268,6 +1268,30 @@ int32_t kreuzberg_config_builder_set_acceleration(struct ConfigBuilder *builder,
 KREUZBERG_EXPORT
 int32_t kreuzberg_config_builder_set_content_filter(struct ConfigBuilder *builder,
                                                     const char *cf_json);
+
+/**
+ * Set HTML output configuration from JSON.
+ *
+ * # Arguments
+ *
+ * * `builder` - Non-null pointer to ConfigBuilder
+ * * `html_output_json` - JSON string for HTML output config
+ *
+ * # Returns
+ *
+ * 0 on success, -1 on error (check kreuzberg_last_error)
+ *
+ * # Safety
+ *
+ * This function is meant to be called from C/FFI code. The caller must ensure:
+ * - `builder` must be a valid, non-null pointer previously returned by `kreuzberg_config_builder_new`
+ * - The pointer must be properly aligned and point to a valid ConfigBuilder instance
+ * - `html_output_json` must be a valid, non-null pointer to a null-terminated UTF-8 string
+ * - The string pointer must remain valid for the duration of the function call
+ */
+KREUZBERG_EXPORT
+int32_t kreuzberg_config_builder_set_html_output(struct ConfigBuilder *builder,
+                                                 const char *html_output_json);
 
 /**
  * Build the final ExtractionConfig and consume the builder.

@@ -523,7 +523,12 @@ LSD_DD_ENDPOINT = _first_non_empty(
 # Not in public docs: infrastructure, set by platform
 METRIC_PREFIX = env("METRIC_PREFIX", cast=str, default="lg_api_")
 # Not in public docs: infrastructure, set by platform
-METRIC_MAX_EMITTING_TIER = env("METRIC_MAX_EMITTING_TIER", cast=int, default=2)
+_METRIC_MAX_EMITTING_TIER_DEFAULT = (
+    1 if os.environ.get("LSD_DEPLOYMENT_TYPE", "") in ("dev", "dev_free") else 2
+)
+METRIC_MAX_EMITTING_TIER = env(
+    "METRIC_MAX_EMITTING_TIER", cast=int, default=_METRIC_MAX_EMITTING_TIER_DEFAULT
+)
 DATADOG_METRICS_ENABLED = bool(LSD_DD_API_KEY)
 LANGGRAPH_LOGS_ENDPOINT = env("LANGGRAPH_LOGS_ENDPOINT", cast=str, default=None)
 LANGGRAPH_LOGS_ENABLED = env("LANGGRAPH_LOGS_ENABLED", cast=bool, default=False)

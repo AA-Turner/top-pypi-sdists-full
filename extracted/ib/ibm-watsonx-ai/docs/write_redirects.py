@@ -14,9 +14,22 @@ from docs.utils import (
 
 
 REDIRECT_HTML = """<!doctype html>
-<meta http-equiv="refresh" content="0; url={target}">
-<link rel="canonical" href="{target}">
-<p>Redirecting to <a href="{target}">{target}</a>…</p>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Redirecting...</title>
+        <link rel="canonical" href="{target}">
+        <script>
+            window.location.replace("{target}" + window.location.hash);
+        </script>
+        <noscript>
+            <meta http-equiv="refresh" content="0; url={target}">
+        </noscript>
+    </head>
+    <body>
+        <p>Redirecting to <a href="{target}">{target}</a>…</p>
+    </body>
+</html>
 """
 
 

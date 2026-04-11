@@ -20,6 +20,7 @@ use std::sync::Arc;
 
 use crate::query_executor::QueryExecutor;
 use crate::recording::send_and_record;
+use crate::security::DatabaseSecuritySettings;
 
 /// Parse display size from connection params and calculate terminal dimensions.
 ///
@@ -27,25 +28,7 @@ use crate::recording::send_and_record;
 /// Returns (pixel_width, pixel_height, cols, rows) where cols/rows are calculated
 /// from a 9x18 pixel character cell size.
 pub fn parse_display_size(params: &HashMap<String, String>) -> (u32, u32, u16, u16) {
-    let size_params = params
-        .get("size")
-        .map(|s| s.as_str())
-        .unwrap_or("1024,768,96");
-    let size_parts: Vec<&str> = size_params.split(',').collect();
-    let width: u32 = size_parts
-        .first()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(1024);
-    let height: u32 = size_parts
-        .get(1)
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(768);
-
-    // Calculate terminal dimensions (9x18 pixels per character cell)
-    let cols = (width / 9).max(80) as u16;
-    let rows = (height / 18).max(24) as u16;
-
-    (width, height, cols, rows)
+    guacr_terminal::parse_display_size(params)
 }
 
 /// Render connection error with troubleshooting tips, then drain the client channel.
@@ -81,18 +64,42 @@ pub async fn render_connection_error(
 
 /// Render connection success banner and initial screen.
 ///
-/// Displays a list of informational lines (e.g. "Connected to X at host:port",
-/// "Database: foo", "Type 'help' for available commands."), followed by a prompt,
-/// then renders and sends to client.
+/// Displays connection info lines, then conditionally adds security status lines
+/// (read-only mode, CSV export/import disabled) from `security`, followed by a
+/// help hint and a prompt. Renders and sends to client.
 pub async fn render_connection_success(
     executor: &mut QueryExecutor,
     to_client: &mpsc::Sender<Bytes>,
     info_lines: &[&str],
+    security: &DatabaseSecuritySettings,
     recorder: &mut Option<MultiFormatRecorder>,
 ) -> Result<(), HandlerError> {
-    let msg = info_lines.join("\n");
     executor
-        .write_line(&msg)
+        .write_line("")
+        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    for line in info_lines {
+        executor
+            .write_line(line)
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    }
+    if security.base.read_only {
+        executor
+            .write_line("Mode: READ-ONLY (modifications disabled)")
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    }
+    if security.disable_csv_export {
+        executor
+            .write_line("CSV Export: DISABLED")
+            .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    }
+    executor
+        .write_line("Type 'help' for available commands.")
+        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    executor
+        .write_line("")
+        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    executor
+        .write_prompt()
         .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
 
     send_render(executor, to_client, recorder).await?;
@@ -145,13 +152,29 @@ pub async fn handle_quit(
     to_client: &mpsc::Sender<Bytes>,
     recorder: &mut Option<MultiFormatRecorder>,
 ) -> HandlerError {
-    executor.write_status("Bye");
+    let _ = executor.write_line("Bye");
     if let Ok((_, instructions)) = executor.render_screen().await {
         for instr in instructions {
             let _ = send_and_record(to_client, recorder, instr).await;
         }
     }
     HandlerError::Disconnected("User requested disconnect".to_string())
+}
+
+/// Write an error to the executor and immediately render + send to the client.
+///
+/// Used for security rejections and validation failures where the error must be
+/// shown immediately rather than waiting for the next debounce tick.
+pub async fn reject_with_error(
+    executor: &mut QueryExecutor,
+    to_client: &mpsc::Sender<Bytes>,
+    recorder: &mut Option<MultiFormatRecorder>,
+    msg: &str,
+) -> Result<(), HandlerError> {
+    executor
+        .write_error(msg)
+        .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+    send_render(executor, to_client, recorder).await
 }
 
 /// Render the screen, send all resulting instructions to the client, and record

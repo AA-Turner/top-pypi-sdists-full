@@ -27,6 +27,7 @@ from .summarizer import get_provider_name
 from .reindex_state import await_freshness_if_strict
 from .path_map import ENV_VAR as _PATH_MAP_ENV_VAR
 from .storage import result_cache_invalidate as _result_cache_invalidate
+from .storage import write_pulse as _write_pulse
 
 try:
     from .watcher import watch_folders, WatcherError
@@ -60,7 +61,7 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     # Quality & Metrics
     "get_symbol_complexity", "get_churn_rate", "get_hotspots",
     "get_repo_health", "get_symbol_importance", "find_dead_code",
-    "get_dead_code_v2",
+    "get_dead_code_v2", "get_untested_symbols",
     # Diffs & Embeddings
     "get_symbol_diff", "embed_repo",
     # Utilities
@@ -652,6 +653,11 @@ def _build_tools_list() -> list[Tool]:
                     "semantic_only": {
                         "type": "boolean",
                         "description": "Skip BM25 entirely and rank solely by embedding cosine similarity. Implies semantic=true.",
+                        "default": False
+                    },
+                    "fusion": {
+                        "type": "boolean",
+                        "description": "Enable multi-signal fusion (Weighted Reciprocal Rank) across lexical, structural, similarity, and identity channels. Produces higher-quality ranking than linear score addition. When True, sort_by is ignored.",
                         "default": False
                     },
                     "fqn": {
@@ -1494,6 +1500,43 @@ def _build_tools_list() -> list[Tool]:
             },
         ),
         Tool(
+            name="get_untested_symbols",
+            description=(
+                "Find functions and methods with no evidence of being exercised by any test file. "
+                "Uses import-graph reachability + name matching (AST call_references when available, "
+                "word-boundary text heuristic as fallback). Returns symbols classified as 'unreached' "
+                "(no test file imports the source file) or 'imported_not_called' (test imports the "
+                "module but no test references this specific function). "
+                "This is heuristic reachability, NOT runtime coverage — it answers 'does any test "
+                "reference this symbol?' rather than 'what % of lines are covered.' "
+                "Use after get_repo_health for a deeper quality picture."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository identifier (owner/repo or just repo name)",
+                    },
+                    "file_pattern": {
+                        "type": "string",
+                        "description": "Optional glob to narrow which source files are analysed (e.g. 'src/**/*.py').",
+                    },
+                    "min_confidence": {
+                        "type": "number",
+                        "description": "Minimum confidence to include (0.0–1.0, default 0.5).",
+                        "default": 0.5,
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Cap on returned symbols (default 100).",
+                        "default": 100,
+                    },
+                },
+                "required": ["repo"],
+            },
+        ),
+        Tool(
             name="get_symbol_importance",
             description=(
                 "Return the most architecturally important symbols in a repo, ranked by "
@@ -1590,6 +1633,11 @@ def _build_tools_list() -> list[Tool]:
                     "scope": {
                         "type": "string",
                         "description": "Optional glob pattern to limit search to a subdirectory (e.g. 'src/core/*').",
+                    },
+                    "fusion": {
+                        "type": "boolean",
+                        "description": "Enable multi-signal fusion (Weighted Reciprocal Rank) for ranking. Combines lexical, structural, and identity channels.",
+                        "default": False,
                     },
                 },
                 "required": ["repo", "query"],
@@ -1769,32 +1817,117 @@ a query like `"list repos"` or `"search symbols"` to load the full schema before
 Set `discovery_hint: false` in config.jsonc to suppress the reminder in tool descriptions.
 """
 
+_EXPLORE_PROMPT_TEXT = """\
+# Explore — Build a mental model of an unfamiliar repo
+
+Goal: Onboard to a repo you've never seen before.
+
+1. **list_repos** → check if indexed. If not, run **index_folder** (local) or **index_repo** (GitHub).
+2. **get_repo_outline** → directory structure, languages, most-imported files, most-central symbols (PageRank).
+3. **get_repo_health** → dead code %, avg complexity, hotspots, dependency cycles, unstable modules.
+4. **get_file_outline** on the 2–3 most-central files → understand the core.
+5. **get_class_hierarchy** → inheritance structure (if OOP codebase).
+6. **get_dependency_graph** on the entry point file (`direction="importers"`, `depth=2`) → what depends on the core.
+7. **search_symbols** with `sort_by="centrality"` → find the most important symbols across the repo.
+"""
+
+_ASSESS_PROMPT_TEXT = """\
+# Assess — Pre-merge impact analysis
+
+Goal: Understand the blast radius of a change before merging.
+
+1. **get_changed_symbols** → map the git diff to added/removed/modified/renamed symbols.
+2. **get_blast_radius** on each changed file → depth-scored transitive impact + `has_test_reach` per file.
+3. **get_impact_preview** on key changed symbols → "what breaks?" analysis.
+4. **check_rename_safe** if any symbols were renamed → verify no broken refs.
+5. **get_untested_symbols** on affected files → flag unreached symbols in the blast radius.
+6. **get_coupling_metrics** on changed files → check if the change increases coupling.
+7. **get_dependency_cycles** → check if the change introduces new cycles.
+"""
+
+_TRIAGE_PROMPT_TEXT = """\
+# Triage — Diagnose a repo's code quality
+
+Goal: Get a complete health picture in one guided session.
+
+1. **get_repo_health** → one-call snapshot (dead code %, complexity, hotspots, cycles, unstable modules).
+2. **find_dead_code** with `min_confidence=0.8` → high-confidence dead code candidates for removal.
+3. **get_untested_symbols** → functions with no test-file reachability.
+4. **get_dependency_cycles** → full cycle list with file paths.
+5. **get_hotspots** with `top_n=10`, `days=90` → highest-risk symbols by complexity × churn.
+6. **get_layer_violations** → architectural boundary violations.
+7. **get_extraction_candidates** → functions that should be refactored out.
+8. **get_coupling_metrics** on hotspot files → instability analysis.
+"""
+
+_TRACE_PROMPT_TEXT = """\
+# Trace — Investigate a bug through the call graph
+
+Goal: Follow a suspected bug from symptom to root cause.
+
+1. **search_symbols** for the function name or error message keyword.
+2. **get_symbol_source** on the suspect symbol → read the implementation.
+3. **get_call_hierarchy** with `direction="callers"`, `depth=3` → who calls this?
+4. **get_call_hierarchy** with `direction="callees"`, `depth=2` → what does it call?
+5. **get_context_bundle** on the suspect symbol → full source + imports in one call.
+6. **find_references** for the symbol name → all files that reference it.
+7. **get_blast_radius** on the suspect file → what else could be affected?
+8. **get_symbol_diff** if a recent change is suspected → compare current vs. previous version.
+"""
+
 
 @server.list_prompts()
 async def list_prompts() -> list[Prompt]:
-    """Return the workflow guidance prompt."""
+    """Return available workflow guidance prompts."""
     return [
         Prompt(
             name="workflow",
             description="Step-by-step guide for using jcodemunch-mcp tools in Claude Code.",
-        )
+        ),
+        Prompt(
+            name="explore",
+            description="Build a mental model of an unfamiliar repo.",
+        ),
+        Prompt(
+            name="assess",
+            description="Pre-merge impact analysis — blast radius, reachability, coupling.",
+        ),
+        Prompt(
+            name="triage",
+            description="Diagnose a repo's code quality — dead code, hotspots, cycles.",
+        ),
+        Prompt(
+            name="trace",
+            description="Investigate a bug through the call graph from symptom to root cause.",
+        ),
     ]
+
+
+_PROMPT_MAP: dict[str, tuple[str, str]] = {
+    "workflow": (_WORKFLOW_PROMPT_TEXT, "jcodemunch-mcp workflow guide for Claude Code."),
+    "explore": (_EXPLORE_PROMPT_TEXT, "Explore — build a mental model of an unfamiliar repo."),
+    "assess": (_ASSESS_PROMPT_TEXT, "Assess — pre-merge impact analysis."),
+    "triage": (_TRIAGE_PROMPT_TEXT, "Triage — diagnose a repo's code quality."),
+    "trace": (_TRACE_PROMPT_TEXT, "Trace — investigate a bug through the call graph."),
+}
 
 
 @server.get_prompt()
 async def get_prompt(name: str, arguments: dict | None = None) -> GetPromptResult:
     """Return the requested prompt content."""
-    if name == "workflow":
-        return GetPromptResult(
-            description="jcodemunch-mcp workflow guide for Claude Code.",
-            messages=[
-                PromptMessage(
-                    role="user",
-                    content=TextContent(type="text", text=_WORKFLOW_PROMPT_TEXT),
-                )
-            ],
-        )
-    raise ValueError(f"Unknown prompt: {name}")
+    entry = _PROMPT_MAP.get(name)
+    if entry is None:
+        raise ValueError(f"Unknown prompt: {name}")
+    text, description = entry
+    return GetPromptResult(
+        description=description,
+        messages=[
+            PromptMessage(
+                role="user",
+                content=TextContent(type="text", text=text),
+            )
+        ],
+    )
 
 
 @server.call_tool(validate_input=False)
@@ -1972,6 +2105,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                         semantic=arguments.get("semantic", False),
                         semantic_weight=arguments.get("semantic_weight", 0.5),
                         semantic_only=arguments.get("semantic_only", False),
+                        fusion=arguments.get("fusion", False),
                         storage_path=storage_path,
                         fqn=arguments.get("fqn"),
                     )
@@ -2088,6 +2222,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     strategy=arguments.get("strategy", "combined"),
                     include_kinds=arguments.get("include_kinds"),
                     scope=arguments.get("scope"),
+                    fusion=arguments.get("fusion", False),
                     storage_path=storage_path,
                 )
             )
@@ -2385,6 +2520,18 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     storage_path=storage_path,
                 )
             )
+        elif name == "get_untested_symbols":
+            from .tools.get_untested_symbols import get_untested_symbols
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_untested_symbols,
+                    repo=arguments["repo"],
+                    file_pattern=arguments.get("file_pattern"),
+                    min_confidence=arguments.get("min_confidence", 0.5),
+                    max_results=arguments.get("max_results", 100),
+                    storage_path=storage_path,
+                )
+            )
         elif name == "get_changed_symbols":
             from .tools.get_changed_symbols import get_changed_symbols
             result = await asyncio.to_thread(
@@ -2569,6 +2716,10 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                         _meta[field] = existing_meta[field]
                 if _meta:
                     result["_meta"] = _meta
+        # Per-call pulse for downstream consumers (dashboards, monitors)
+        _saved = result.get("_meta", {}).get("tokens_saved", 0) if isinstance(result, dict) else 0
+        _write_pulse(name, tokens_saved=_saved, base_path=storage_path)
+
         return [TextContent(type="text", text=json.dumps(result, separators=(',', ':')))]
 
     except KeyError as e:
@@ -2988,7 +3139,8 @@ def _generate_claude_md_snippet(missing_only: bool = False) -> str:
                           "get_cross_repo_map"]),
         ("Quality & Metrics", ["get_symbol_complexity", "get_churn_rate", "get_hotspots",
                                 "get_repo_health", "get_symbol_importance",
-                                "find_dead_code", "get_dead_code_v2"]),
+                                "find_dead_code", "get_dead_code_v2",
+                                "get_untested_symbols"]),
         ("Diffs & Embeddings", ["get_symbol_diff", "embed_repo"]),
         ("Session-Aware Routing", ["plan_turn", "get_session_context", "get_session_snapshot", "register_edit"]),
         ("Utilities", ["get_session_stats", "invalidate_cache", "test_summarizer",
@@ -3261,6 +3413,12 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
         print(f"  Active provider:  {yellow('none')} — no API key set, signature fallback active")
         print(f"  {dim('Set ANTHROPIC_API_KEY, GOOGLE_API_KEY, OPENAI_API_BASE, MINIMAX_API_KEY, ZHIPUAI_API_KEY, or OPENROUTER_API_KEY to enable')}")
 
+    allow_remote = _cfg.get("allow_remote_summarizer", False)
+    allow_label = str(allow_remote).lower()
+    if not allow_remote and provider_name:
+        allow_label += f" {dim('(only affects custom base URLs, not standard API endpoints)')}"
+    row("allow_remote_summarizer", allow_label, _detect_source("allow_remote_summarizer", False))
+
     # ── Transport ──────────────────────────────────────────────────────────
     section("Transport")
     transport = _cfg.get("transport", "stdio")
@@ -3297,7 +3455,6 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
     share = _cfg.get("share_savings", True)
     row("share_savings", green("enabled") if share else yellow("disabled"), _detect_source("share_savings", True))
     row("summarizer_concurrency", _cfg.get("summarizer_concurrency", 4), _detect_source("summarizer_concurrency", 4))
-    row("allow_remote_summarizer", str(_cfg.get("allow_remote_summarizer", False)).lower(), _detect_source("allow_remote_summarizer", False))
 
     # ── --check ───────────────────────────────────────────────────────────
     if check:
@@ -3391,6 +3548,8 @@ def _run_config(check: bool = False, init: bool = False, upgrade: bool = False) 
             "hook-pretooluse": ("PreToolUse", "Read"),
             "hook-posttooluse": ("PostToolUse", "Edit|Write"),
             "hook-precompact": ("PreCompact", ""),
+            "hook-taskcomplete": ("TaskCompleted", ""),
+            "hook-subagent-start": ("SubagentStart", ""),
         }
         if _settings_path.exists():
             try:
@@ -3603,6 +3762,11 @@ def main(argv: Optional[list[str]] = None):
         metavar="MINUTES",
         help="Auto-shutdown after N minutes with no re-indexing (default: disabled)",
     )
+    watch_parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Index all paths once (incremental) and exit immediately — no file watching",
+    )
     _add_common_args(watch_parser)
 
     # --- config ---
@@ -3643,6 +3807,35 @@ def main(argv: Optional[list[str]] = None):
         dest="fmt",
         help="'full' (default) — complete snippet; 'append' — only tools not yet in your CLAUDE.md",
     )
+
+    # --- index-file ---
+    # --- index (full folder/repo index) ---
+    index_parser = subparsers.add_parser(
+        "index",
+        help="Index a local folder or GitHub repo (default: current directory)",
+    )
+    index_parser.add_argument(
+        "target",
+        nargs="?",
+        default=".",
+        help="Local path or owner/repo (default: current directory)",
+    )
+    index_parser.add_argument(
+        "--no-ai-summaries",
+        action="store_true",
+        help="Disable AI-generated summaries",
+    )
+    index_parser.add_argument(
+        "--follow-symlinks",
+        action="store_true",
+        help="Include symlinked files in indexing",
+    )
+    index_parser.add_argument(
+        "--extra-ignore",
+        nargs="*",
+        help="Additional gitignore-style patterns to exclude",
+    )
+    _add_common_args(index_parser)
 
     # --- index-file ---
     index_file_parser = subparsers.add_parser(
@@ -3750,6 +3943,18 @@ def main(argv: Optional[list[str]] = None):
         help="PreCompact hook: generate session snapshot before context compaction (reads stdin)",
     )
 
+    # --- hook-taskcomplete ---
+    subparsers.add_parser(
+        "hook-taskcomplete",
+        help="TaskCompleted hook: post-task diagnostics — dead code, untested symbols, dangling refs (reads stdin)",
+    )
+
+    # --- hook-subagent-start ---
+    subparsers.add_parser(
+        "hook-subagent-start",
+        help="SubagentStart hook: inject condensed repo orientation for spawned agents (reads stdin)",
+    )
+
     # --- watch-claude ---
     wc_parser = subparsers.add_parser(
         "watch-claude",
@@ -3791,6 +3996,48 @@ def main(argv: Optional[list[str]] = None):
     )
     _add_common_args(wc_parser)
 
+    # --- download-model ---
+    dm_parser = subparsers.add_parser(
+        "download-model",
+        help="Download the bundled ONNX embedding model (all-MiniLM-L6-v2) for zero-config semantic search",
+    )
+    dm_parser.add_argument(
+        "--target-dir",
+        default=None,
+        metavar="PATH",
+        help="Custom directory to store the model (default: ~/.code-index/models/all-MiniLM-L6-v2/)",
+    )
+
+    # --- install-pack ---
+    ip_parser = subparsers.add_parser(
+        "install-pack",
+        help="Download and install a Starter Pack pre-built index",
+    )
+    ip_parser.add_argument(
+        "pack_id",
+        nargs="?",
+        default=None,
+        help="Pack identifier to install (e.g. nodejs, fastapi)",
+    )
+    ip_parser.add_argument(
+        "--license",
+        default=None,
+        dest="license_key",
+        metavar="KEY",
+        help="jCodeMunch license key (required for premium packs)",
+    )
+    ip_parser.add_argument(
+        "--list",
+        action="store_true",
+        dest="list_packs",
+        help="List all available starter packs",
+    )
+    ip_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-download and overwrite an already-installed pack",
+    )
+
     # Backwards compat: if first non-flag arg isn't a known subcommand,
     # prepend "serve" so legacy invocations like `jcodemunch-mcp --transport sse` still work.
     # But let --help and -V be handled by the top-level parser first.
@@ -3799,7 +4046,7 @@ def main(argv: Optional[list[str]] = None):
     if any(arg in top_level_flags for arg in raw_argv):
         args = parser.parse_args(raw_argv)
     else:
-        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-precompact", "watch-claude", "config", "index-file", "claude-md", "init"}
+        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-precompact", "hook-taskcomplete", "hook-subagent-start", "watch-claude", "config", "index", "index-file", "claude-md", "init", "install-pack", "download-model"}
         has_subcommand = any(arg in known_commands for arg in raw_argv if not arg.startswith("-"))
         if not has_subcommand:
             raw_argv = ["serve"] + list(raw_argv)
@@ -3834,6 +4081,26 @@ def main(argv: Optional[list[str]] = None):
             no_backup=args.no_backup,
         ))
 
+    if args.command == "download-model":
+        from .embeddings.local_encoder import download_model as _download_model
+        from pathlib import Path as _Path
+        try:
+            target = _Path(args.target_dir) if args.target_dir else None
+            _download_model(target)
+            sys.exit(0)
+        except Exception as exc:
+            print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
+            sys.exit(1)
+
+    if args.command == "install-pack":
+        from .cli.install_pack import run_install_pack
+        sys.exit(run_install_pack(
+            pack_id=args.pack_id,
+            license_key=args.license_key,
+            list_packs=args.list_packs,
+            force=args.force,
+        ))
+
     if args.command == "hook-pretooluse":
         from .cli.hooks import run_pretooluse
         sys.exit(run_pretooluse())
@@ -3845,6 +4112,14 @@ def main(argv: Optional[list[str]] = None):
     if args.command == "hook-precompact":
         from .cli.hooks import run_precompact
         sys.exit(run_precompact())
+
+    if args.command == "hook-taskcomplete":
+        from .cli.hooks import run_taskcomplete
+        sys.exit(run_taskcomplete())
+
+    if args.command == "hook-subagent-start":
+        from .cli.hooks import run_subagentstart
+        sys.exit(run_subagentstart())
 
     # Apply config defaults for watcher keys: CLI args > config > env vars.
     # config.load_config() is called inside each subcommand handler, but we need
@@ -3869,20 +4144,33 @@ def main(argv: Optional[list[str]] = None):
     _setup_logging(args)
 
     if args.command == "watch":
-        from .watcher import watch_folders
-
         use_ai = not args.no_ai_summaries and _default_use_ai_summaries()
-        asyncio.run(
-            watch_folders(
-                paths=args.paths,
-                debounce_ms=args.debounce,
-                use_ai_summaries=use_ai,
-                storage_path=os.environ.get("CODE_INDEX_PATH"),
-                extra_ignore_patterns=args.extra_ignore,
-                follow_symlinks=args.follow_symlinks,
-                idle_timeout_minutes=args.idle_timeout,
+        if args.once:
+            from .watcher import sync_folders
+
+            asyncio.run(
+                sync_folders(
+                    paths=args.paths,
+                    use_ai_summaries=use_ai,
+                    storage_path=os.environ.get("CODE_INDEX_PATH"),
+                    extra_ignore_patterns=args.extra_ignore,
+                    follow_symlinks=args.follow_symlinks,
+                )
             )
-        )
+        else:
+            from .watcher import watch_folders
+
+            asyncio.run(
+                watch_folders(
+                    paths=args.paths,
+                    debounce_ms=args.debounce,
+                    use_ai_summaries=use_ai,
+                    storage_path=os.environ.get("CODE_INDEX_PATH"),
+                    extra_ignore_patterns=args.extra_ignore,
+                    follow_symlinks=args.follow_symlinks,
+                    idle_timeout_minutes=args.idle_timeout,
+                )
+            )
     elif args.command == "hook-event":
         from .hook_event import handle_hook_event
 
@@ -3902,6 +4190,31 @@ def main(argv: Optional[list[str]] = None):
                 follow_symlinks=args.follow_symlinks,
             )
         )
+    elif args.command == "index":
+        import json as _json
+        t = args.target
+        use_ai = not args.no_ai_summaries and _default_use_ai_summaries()
+        # Heuristic: "owner/repo" is a GitHub repo; anything else is a local path
+        is_local = "/" not in t or t.startswith("/") or t.startswith(".") or (len(t) > 1 and t[1] == ":")
+        if is_local:
+            from .tools.index_folder import index_folder as _index_folder
+            result = _index_folder(
+                path=t,
+                use_ai_summaries=use_ai,
+                storage_path=os.environ.get("CODE_INDEX_PATH"),
+                extra_ignore_patterns=args.extra_ignore,
+                follow_symlinks=args.follow_symlinks,
+            )
+        else:
+            from .tools.index_repo import index_repo as _index_repo
+            result = asyncio.run(_index_repo(
+                repo=t,
+                use_ai_summaries=use_ai,
+                storage_path=os.environ.get("CODE_INDEX_PATH"),
+            ))
+        print(_json.dumps(result, indent=2))
+        if not result.get("success"):
+            sys.exit(1)
     elif args.command == "index-file":
         from .tools.index_file import index_file as _index_file
         import json as _json

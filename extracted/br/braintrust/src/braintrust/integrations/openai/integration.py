@@ -3,8 +3,12 @@
 from braintrust.integrations.base import BaseIntegration
 
 from .patchers import (
+    AudioSpeechPatcher,
+    AudioTranscriptionsPatcher,
+    AudioTranslationsPatcher,
     ChatCompletionsPatcher,
     EmbeddingsPatcher,
+    ImagesPatcher,
     ModerationsPatcher,
     ResponsesPatcher,
 )
@@ -19,5 +23,9 @@ class OpenAIIntegration(BaseIntegration):
         ChatCompletionsPatcher,
         EmbeddingsPatcher,
         ModerationsPatcher,
+        AudioSpeechPatcher,
+        AudioTranscriptionsPatcher,
+        AudioTranslationsPatcher,
+        ImagesPatcher,
         ResponsesPatcher,
     )

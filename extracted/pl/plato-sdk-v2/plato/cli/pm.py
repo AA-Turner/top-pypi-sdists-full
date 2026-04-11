@@ -101,7 +101,34 @@ def _get_claude_credentials() -> tuple[str, str]:
         except (FileNotFoundError, PermissionError, subprocess.TimeoutExpired, json.JSONDecodeError):
             pass
 
-    # 2. Fall back to ANTHROPIC_API_KEY env var
+    # 2. Try ~/.claude/.credentials.json (written by `claude` CLI login on any platform)
+    creds_path = Path.home() / ".claude" / ".credentials.json"
+    if creds_path.exists():
+        try:
+            creds = json.loads(creds_path.read_text())
+            oauth = creds.get("claudeAiOauth", {})
+            if oauth:
+                expires_at = oauth.get("expiresAt")
+                expiry_msg = ""
+                if expires_at:
+                    try:
+                        exp_dt = datetime.fromtimestamp(expires_at / 1000)
+                        remaining = exp_dt - datetime.now()
+                        mins = int(remaining.total_seconds() / 60)
+                        if mins < 0:
+                            expiry_msg = f" [yellow](expired {-mins}m ago!)[/yellow]"
+                        elif mins < 60:
+                            expiry_msg = f" [yellow](expires in {mins}m)[/yellow]"
+                        else:
+                            expiry_msg = f" [dim](expires in {mins // 60}h {mins % 60}m)[/dim]"
+                    except (ValueError, TypeError, OSError):
+                        pass
+                console.print(f"[green]Using Claude OAuth from credentials file[/green]{expiry_msg}")
+                return "claude_oauth_credentials", json.dumps(creds, separators=(",", ":"))
+        except (PermissionError, json.JSONDecodeError):
+            pass
+
+    # 3. Fall back to ANTHROPIC_API_KEY env var
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     if api_key:
         masked = api_key[:10] + "..." + api_key[-4:] if len(api_key) > 14 else "****"

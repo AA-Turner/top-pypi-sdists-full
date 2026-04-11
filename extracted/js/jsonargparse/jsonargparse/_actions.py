@@ -26,10 +26,9 @@ from ._util import (
 )
 
 __all__ = [
-    "ActionConfigFile",
     "ActionFail",
-    "ActionParser",
     "ActionYesNo",
+    "ActionParser",
 ]
 
 
@@ -123,7 +122,7 @@ class ActionConfigFile(Action):
                         raise ex_path
                     cfg_path = None
                     cfg_file = parser.parse_string(value, **kwargs)
-                except (TypeError, ValueError) + get_loader_exceptions() as ex_str:  # type: ignore[misc]
+                except (TypeError, ValueError) + get_loader_exceptions() as ex_str:
                     raise TypeError(f'Parser key "{dest}": {ex_str}') from ex_str
             else:
                 cfg_file = parser.parse_path(value, **kwargs)
@@ -330,10 +329,13 @@ class _ActionHelpClassPath(NonParsingAction):
         dest = re.sub("\\.help$", "", self.dest)
         subparser = type(parser)(description=f"Help for {option_string}={get_import_path(val_class)}")
         val = Namespace(class_path=get_import_path(val_class))
+        sub_add_kwargs = dict(self.sub_add_kwargs)
+        if "skip" in sub_add_kwargs:
+            sub_add_kwargs["skip"] = set(sub_add_kwargs["skip"])
         _, partial_skip_args = adapt_partial_callable_class(self._typehint, val)
         if partial_skip_args:
-            self.sub_add_kwargs["skip"] = partial_skip_args
-        subparser.add_class_arguments(val_class, dest, **self.sub_add_kwargs)
+            sub_add_kwargs.setdefault("skip", set()).update(partial_skip_args)
+        subparser.add_class_arguments(val_class, dest, **sub_add_kwargs)
         subparser._inner_parser = True
         remove_actions(subparser, (_HelpAction, _ActionPrintConfig, _ActionConfigLoad))
         args = self.get_args_after_opt(parser.args)
@@ -403,7 +405,7 @@ class ActionYesNo(Action):
             self._yes_prefix = kwargs.pop("_yes_prefix") if "_yes_prefix" in kwargs else ""
             self._no_prefix = kwargs.pop("_no_prefix") if "_no_prefix" in kwargs else "no_"
             if len(kwargs["option_strings"]) == 0:
-                raise ValueError(f'{type(self).__name__} not intended for positional arguments  ({kwargs["dest"]}).')
+                raise ValueError(f"{type(self).__name__} not intended for positional arguments  ({kwargs['dest']}).")
             opt_name = kwargs["option_strings"][0]
             if not opt_name.startswith("--" + self._yes_prefix):
                 raise ValueError(f'Expected option string to start with "--{self._yes_prefix}".')
@@ -503,8 +505,6 @@ class ActionParser:
         def add_prefix(key):
             return re.sub("^--", "--" + prefix + ".", key)
 
-        required_args = {prefix + "." + x for x in subparser.required_args}
-
         option_string_actions = {}
         for key, action in filter_non_parsing_actions(subparser._option_string_actions).items():
             option_string_actions[add_prefix(key)] = action
@@ -536,7 +536,6 @@ class ActionParser:
                 group.dest = dest + "." + group.dest
 
         parser.add_argument(args[0], action=_ActionConfigLoad)
-        parser.required_args.update(required_args)
         parser._option_string_actions.update(option_string_actions)
         parser._actions.extend(actions)
         parser._action_groups.extend([base_action_group] + extra_action_groups)

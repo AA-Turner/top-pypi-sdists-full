@@ -4,7 +4,7 @@ import os
 import subprocess
 
 # Replaced with the current commit when building the wheels.
-_POLICY_COMMIT_SHA = "2341b200fe77570fb6fcdebb9f4a3ff39fe1fb5e"
+_POLICY_COMMIT_SHA = "6a823641efc7d0964481f849337c9aa7af1eda8d"
 
 
 def _get_git_commit():

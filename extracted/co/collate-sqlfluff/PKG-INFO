@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: collate-sqlfluff
-Version: 3.5.0
+Version: 3.5.1
 Summary: The SQL Linter for Humans
 Author: open-metadata
 License: MIT License
@@ -43,7 +43,6 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -61,7 +60,6 @@ Requires-Dist: chardet
 Requires-Dist: click<=8.3.0
 Requires-Dist: colorama>=0.3
 Requires-Dist: diff-cover>=2.5.0
-Requires-Dist: importlib_resources; python_version < "3.9"
 Requires-Dist: Jinja2
 Requires-Dist: pathspec
 Requires-Dist: pytest

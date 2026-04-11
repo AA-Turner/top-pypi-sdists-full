@@ -1,5 +1,6 @@
 # coding=utf-8
 from .._impl import (
+    scout_sandbox_api_AddDemoWorkbooksRequest as AddDemoWorkbooksRequest,
     scout_sandbox_api_GetDemoWorkbooksResponse as GetDemoWorkbooksResponse,
     scout_sandbox_api_SandboxWorkspaceService as SandboxWorkspaceService,
     scout_sandbox_api_SandboxWorkspaceSettings as SandboxWorkspaceSettings,
@@ -9,6 +10,7 @@ from .._impl import (
 )
 
 __all__ = [
+    'AddDemoWorkbooksRequest',
     'GetDemoWorkbooksResponse',
     'SandboxWorkspaceSettings',
     'SandboxWorkspaceSettingsVisitor',

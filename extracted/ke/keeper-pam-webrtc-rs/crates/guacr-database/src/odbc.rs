@@ -561,6 +561,7 @@ impl ProtocolHandler for OdbcHandler {
         };
         let mut executor = QueryExecutor::new_with_size(&prompt, "odbc", rows, cols)
             .map_err(|e| HandlerError::ProtocolError(e.to_string()))?;
+        executor.use_binary = params.get("binary").map(|v| v == "true").unwrap_or(false);
 
         // Initialize recording if enabled
         let mut recorder = init_recording(&recording_config, &params, "ODBC", cols, rows);
@@ -633,8 +634,14 @@ impl ProtocolHandler for OdbcHandler {
                 }
                 info_lines.push("Type 'help' for available commands.");
 
-                render_connection_success(&mut executor, &to_client, &info_lines, &mut recorder)
-                    .await?;
+                render_connection_success(
+                    &mut executor,
+                    &to_client,
+                    &info_lines,
+                    &security,
+                    &mut recorder,
+                )
+                .await?;
                 debug!("ODBC: Initial screen sent successfully");
             }
             Err(e) => {

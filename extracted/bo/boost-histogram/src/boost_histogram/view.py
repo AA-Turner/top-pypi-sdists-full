@@ -19,13 +19,16 @@ class View(np.ndarray[Any, Any]):
     def __getitem__(self, ind: StrIndex) -> np.typing.NDArray[Any]:  # type: ignore[override]
         sliced = super().__getitem__(ind)  # type: ignore[index]
 
+        # If the dtype has changed, return a normal array (no longer a record).
+        # This must be checked before the shape check so that 0-d field access
+        # (e.g. ``view["value"]`` on a 0-d MeanView) returns a plain scalar
+        # array instead of trying to iterate over a 0-d array.
+        if sliced.dtype != self.dtype:
+            return np.asarray(sliced)
+
         # If the shape is empty, return the parent type
         if not sliced.shape:
             return self._PARENT._make(*sliced)  # type: ignore[return-value]
-
-        # If the dtype has changed, return a normal array (no longer a record)
-        if sliced.dtype != self.dtype:
-            return np.asarray(sliced)
 
         # Otherwise, no change, return the same View type
         return sliced
@@ -118,127 +121,107 @@ class WeightedSumView(View):
         # Avoid infinite recursion
         raw_inputs = [np.asarray(x) for x in inputs]
 
-        # Support unary + and -
-        if (
-            method == "__call__"
-            and len(raw_inputs) == 1
-            and ufunc in {np.negative, np.positive}
-        ):
-            (result,) = (
-                kwargs.pop("out")
-                if "out" in kwargs
-                else [np.empty(self.shape, self.dtype)]
-            )
+        # First match the ones without a pre-computed out= parameter
+        match method, ufunc, raw_inputs:
+            case "reduce", np.add, [raw_input]:
+                results = (
+                    ufunc.reduce(raw_input[field], **kwargs) for field in self._FIELDS
+                )
+                return self._PARENT._make(*results)  # type: ignore[return-value]
 
-            ufunc(raw_inputs[0]["value"], out=result["value"], **kwargs)
-            result["variance"] = raw_inputs[0]["variance"]
-            return result.view(self.__class__)  # type: ignore[no-any-return]
-
-        if method == "__call__" and len(raw_inputs) == 2:
-            (result,) = (
-                kwargs.pop("out")
-                if "out" in kwargs
-                else [np.empty(self.shape, self.dtype)]
-            )
-
-            # Addition of two views
-            if raw_inputs[0].dtype == raw_inputs[1].dtype:
-                if ufunc in {np.add, np.subtract}:
+        # These use a pre-computed out parameter
+        (result,) = (
+            kwargs.pop("out") if "out" in kwargs else [np.empty(self.shape, self.dtype)]
+        )
+        match method, ufunc, raw_inputs:
+            # Support unary + and -
+            case "__call__", np.negative | np.positive, [raw_input]:
+                ufunc(raw_input["value"], out=result["value"], **kwargs)
+                result["variance"] = raw_input["variance"]
+                return result.view(self.__class__)
+            # Support + and -
+            case "__call__", np.add | np.subtract, [raw_input1, raw_input2]:
+                if raw_input1.dtype == raw_input2.dtype:
                     ufunc(
-                        raw_inputs[0]["value"],
-                        raw_inputs[1]["value"],
+                        raw_input1["value"],
+                        raw_input2["value"],
                         out=result["value"],
                         **kwargs,
                     )
                     np.add(
-                        raw_inputs[0]["variance"],
-                        raw_inputs[1]["variance"],
+                        raw_input1["variance"],
+                        raw_input2["variance"],
                         out=result["variance"],
                         **kwargs,
                     )
-                    return result.view(self.__class__)  # type: ignore[no-any-return]
-
-                # If unsupported, just pass through (will return not implemented)
-                # pylint: disable-next=no-member
-                return super().__array_ufunc__(ufunc, method, *raw_inputs, **kwargs)  # type: ignore[no-any-return]
-
-            # View with normal value or array
-            if ufunc in {np.add, np.subtract}:
-                if self.dtype == raw_inputs[0].dtype:
+                elif self.dtype == raw_input1.dtype:
                     ufunc(
-                        raw_inputs[0]["value"],
-                        raw_inputs[1],
+                        raw_input1["value"],
+                        raw_input2,
                         out=result["value"],
                         **kwargs,
                     )
                     np.add(
-                        raw_inputs[0]["variance"],
-                        raw_inputs[1] ** 2,
+                        raw_input1["variance"],
+                        raw_input2**2,
                         out=result["variance"],
                         **kwargs,
                     )
                 else:
                     ufunc(
-                        raw_inputs[0],
-                        raw_inputs[1]["value"],
+                        raw_input1,
+                        raw_input2["value"],
                         out=result["value"],
                         **kwargs,
                     )
                     np.add(
-                        raw_inputs[0] ** 2,
-                        raw_inputs[1]["variance"],
+                        raw_input1**2,
+                        raw_input2["variance"],
                         out=result["variance"],
                         **kwargs,
                     )
-                return result.view(self.__class__)  # type: ignore[no-any-return]
+                return result.view(self.__class__)
 
-            if ufunc in {np.multiply, np.divide, np.true_divide, np.floor_divide}:
-                if self.dtype == raw_inputs[0].dtype:
+            case (
+                "__call__",
+                np.multiply | np.divide | np.true_divide | np.floor_divide,
+                [raw_input1, raw_input2],
+            ):
+                if self.dtype == raw_input1.dtype:
                     ufunc(
-                        raw_inputs[0]["value"],
-                        raw_inputs[1],
+                        raw_input1["value"],
+                        raw_input2,
                         out=result["value"],
                         **kwargs,
                     )
                     ufunc(
-                        raw_inputs[0]["variance"],
-                        raw_inputs[1] ** 2,
+                        raw_input1["variance"],
+                        raw_input2**2,
                         out=result["variance"],
                         **kwargs,
                     )
                 else:
                     ufunc(
-                        raw_inputs[0],
-                        raw_inputs[1]["value"],
+                        raw_input1,
+                        raw_input2["value"],
                         out=result["value"],
                         **kwargs,
                     )
                     ufunc(
-                        raw_inputs[0] ** 2,
-                        raw_inputs[1]["variance"],
+                        raw_input1**2,
+                        raw_input2["variance"],
                         out=result["variance"],
                         **kwargs,
                     )
 
-                return result.view(self.__class__)  # type: ignore[no-any-return]
+                return result.view(self.__class__)
 
-        # ufuncs that are allowed to reduce
-        if ufunc in {np.add} and method == "reduce" and len(raw_inputs) == 1:
-            results = (ufunc.reduce(self[field], **kwargs) for field in self._FIELDS)
-            return self._PARENT._make(*results)  # type: ignore[return-value]
+            case "accumulate", np.add, [raw_input]:
+                for field in self._FIELDS:
+                    ufunc.accumulate(self[field], out=result[field], **kwargs)
+                return result.view(self.__class__)
 
-        # ufuncs that are allowed to accumulate
-        if ufunc in {np.add} and method == "accumulate" and len(raw_inputs) == 1:
-            (result,) = (
-                kwargs.pop("out")
-                if "out" in kwargs
-                else [np.empty(self.shape, self.dtype)]
-            )
-            for field in self._FIELDS:
-                ufunc.accumulate(self[field], out=result[field], **kwargs)
-            return result.view(self.__class__)  # type: ignore[no-any-return]
-
-        # If unsupported, just pass through (will return NotImplemented or things like == will work but not return subclasses)
+        # If unsupported, just pass through (will return not implemented)
         # pylint: disable-next=no-member
         return super().__array_ufunc__(ufunc, method, *raw_inputs, **kwargs)  # type: ignore[no-any-return]
 

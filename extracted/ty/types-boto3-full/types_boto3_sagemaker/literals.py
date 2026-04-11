@@ -777,7 +777,12 @@ AvailabilityZoneBalanceEnforcementModeType = Literal["PERMISSIVE"]
 AwsManagedHumanLoopRequestSourceType = Literal[
     "AWS/Rekognition/DetectModerationLabels/Image/V3", "AWS/Textract/AnalyzeDocument/Forms/V1"
 ]
-BatchAddClusterNodesErrorCodeType = Literal["InstanceGroupNotFound", "InvalidInstanceGroupStatus"]
+BatchAddClusterNodesErrorCodeType = Literal[
+    "IncompatibleAvailabilityZones",
+    "IncompatibleInstanceTypes",
+    "InstanceGroupNotFound",
+    "InvalidInstanceGroupStatus",
+]
 BatchDeleteClusterNodesErrorCodeType = Literal["InvalidNodeStatus", "NodeIdInUse", "NodeIdNotFound"]
 BatchRebootClusterNodesErrorCodeType = Literal[
     "InstanceIdInUse", "InstanceIdNotFound", "InternalServerError", "InvalidInstanceStatus"

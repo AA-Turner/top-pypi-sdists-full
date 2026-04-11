@@ -1404,13 +1404,19 @@ def _get_writer_for_table_creation(df: snowpark.DataFrame) -> snowpark.DataFrame
     # When creating a new table, if case sensitivity is not enabled, we need to rename the columns
     # to upper case so they are case-insensitive in Snowflake.
     if auto_uppercase_column_identifiers():
+        new_cols = []
+        needs_rename = False
         for field in df.schema.fields:
             col_name = field.name
             # Uppercasing is fine, regardless of whether the original name was quoted or not.
             # In Snowflake these are equivalent "COL" == COL == col == coL
-            uppercased_name = col_name.upper()
-            if col_name != uppercased_name:
-                df = df.withColumnRenamed(col_name, uppercased_name)
+            if col_name != col_name.upper():
+                new_cols.append(col(col_name).alias(col_name.upper()))
+                needs_rename = True
+            else:
+                new_cols.append(col(col_name))
+        if needs_rename:
+            df = df.select(new_cols)
     return df.write
 
 
@@ -1991,10 +1997,19 @@ def handle_column_names(
         return df, column_map.get_snowpark_columns()
 
     snowpark_column_names = []
-    for column in column_map.columns:
-        new_name = quote_name_without_upper_casing(column.spark_name)
-        df = df.withColumnRenamed(column.snowpark_name, new_name)
-        snowpark_column_names.append(new_name)
+    if column_map.columns:
+        snowpark_column_names = [
+            quote_name_without_upper_casing(column.spark_name)
+            for column in column_map.columns
+        ]
+        df = df.select(
+            [
+                col(column.snowpark_name).alias(snowpark_column_name)
+                for column, snowpark_column_name in zip(
+                    column_map.columns, snowpark_column_names
+                )
+            ]
+        )
 
     return df, snowpark_column_names
 

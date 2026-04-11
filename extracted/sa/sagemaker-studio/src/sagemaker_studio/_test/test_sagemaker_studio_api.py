@@ -39,6 +39,7 @@ class TestSageMakerUIHelper(unittest.TestCase):
         execution_config = ExecutionConfig(local=True)
         execution_config.domain_identifier = "bogus_domain_id"
         execution_config.project_identifier = "bogus_project_id"
+        execution_config.datazone_endpoint = "https://datazone.us-east-1.api.aws"
         execution_config.datazone_domain_region = "us-east-1"
         assert self.sagemaker_studio._build_execution_config() == execution_config
 
@@ -65,6 +66,7 @@ class TestSageMakerUIHelper(unittest.TestCase):
         execution_config = ExecutionConfig()
         execution_config.domain_identifier = "bogus_domain_id"
         execution_config.project_identifier = "bogus_project_id"
+        execution_config.datazone_endpoint = "https://datazone.us-east-1.api.aws"
         execution_config.datazone_domain_region = "us-east-1"
         execution_config.project_s3_path = (
             "s3://bogus_bucket_name/bogus_domain_id_sm_space/bogus_project_id_sm_space/dev"

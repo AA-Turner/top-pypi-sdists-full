@@ -8,10 +8,13 @@ use crate::channel::types::ActiveProtocol;
 use crate::models::Conn;
 use crate::tube_protocol::{Capabilities, CloseConnectionReason, ControlMessage, Frame};
 use crate::unlikely; // Branch prediction optimization
-use crate::webrtc_data_channel::{EventDrivenSender, STANDARD_BUFFER_THRESHOLD};
+use crate::webrtc_data_channel::{EventDrivenSender, ACTOR_BYTE_BUDGET};
 use anyhow::Result;
 use bytes::{Buf, BufMut, BytesMut};
-use guacr_protocol::{GuacdInstruction, GuacdParser, OpcodeAction, PeekError, SpecialOpcode};
+use guacr_protocol::{
+    format_error, GuacdInstruction, GuacdParser, OpcodeAction, PeekError, SpecialOpcode,
+    STATUS_SERVER_ERROR,
+};
 use log::{debug, error, warn};
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -32,8 +35,8 @@ fn should_log_connection(is_critical: bool) -> bool {
     crate::logger::is_verbose_logging() || is_critical
 }
 
-/// Last backpressure log timestamp (rate limiting)
-static LAST_BACKPRESSURE_LOG: AtomicU64 = AtomicU64::new(0);
+// LAST_BACKPRESSURE_LOG removed — backpressure is now event-driven inside
+// EventDrivenSender.send_with_natural_backpressure(), not logged from the loop.
 
 /// Read timeout for cancellation check interval
 /// This allows the backend read task to check for cancellation every 500ms
@@ -136,6 +139,7 @@ pub async fn setup_outbound_task(
     let buffer_pool = channel.buffer_pool.clone();
     let is_channel_server_mode = channel.server_mode;
     let channel_close_reason_arc = channel.channel_close_reason.clone(); // For checking if Python already closed
+    let channel_close_message_arc = channel.channel_close_message.clone();
     let fragmentation_enabled = channel.capabilities.contains(Capabilities::FRAGMENTATION);
     let should_exit_for_task = channel.should_exit.clone();
     let shutdown_notify_for_task = channel.shutdown_notify.clone();
@@ -223,6 +227,9 @@ pub async fn setup_outbound_task(
                     }
                 }
                 dc.drain(Duration::from_millis(500)).await;
+                channel
+                    .should_exit
+                    .store(true, std::sync::atomic::Ordering::Release);
                 return Err(e);
             }
             Err(_) => {
@@ -265,6 +272,9 @@ pub async fn setup_outbound_task(
                     }
                 }
                 dc.drain(Duration::from_millis(500)).await;
+                channel
+                    .should_exit
+                    .store(true, std::sync::atomic::Ordering::Release);
                 return Err(anyhow::anyhow!("Guacd handshake timed out"));
             }
         }
@@ -447,6 +457,15 @@ pub async fn setup_outbound_task(
         channel_id_for_task.clone(),
     ));
 
+    // Shared sender: one per tube, cloned for each logical connection (conn_no).
+    // All conn_no outbound tasks share one queue + drain callback so only one
+    // dc.send() task runs at a time across all logical connections on this tube.
+    if channel.event_sender.is_none() {
+        channel.event_sender =
+            Some(EventDrivenSender::new(Arc::new(dc.clone()), ACTOR_BYTE_BUDGET).await);
+    }
+    let event_sender_for_task = channel.event_sender.as_ref().unwrap().clone();
+
     let outbound_handle = tokio::spawn(async move {
         // TRACE: Task lifecycle logging (ultra-verbose, only in verbose mode)
         if unlikely!(crate::logger::is_verbose_logging()) {
@@ -459,8 +478,7 @@ pub async fn setup_outbound_task(
             );
         }
 
-        // Create event-driven sender for zero-polling backpressure
-        let event_sender = EventDrivenSender::new(Arc::new(dc.clone()), STANDARD_BUFFER_THRESHOLD);
+        let event_sender = event_sender_for_task;
 
         // **OPTIMIZED EVENT-DRIVEN HELPER** - Zero polling, instant backpressure
         // Now with optional fragmentation support for large frames
@@ -524,7 +542,7 @@ pub async fn setup_outbound_task(
                     // TRACE: Ultra-verbose send tracking (suppressed unless verbose mode)
                     if unlikely!(crate::logger::is_verbose_logging()) {
                         log::trace!(
-                            "Event-driven send successful (0ms latency) (channel_id: {}, conn_no: {}, context: {}, queue_depth: {}, can_send_immediate: {}, is_over_threshold: {}, threshold: {})",
+                            "Event-driven send successful (0ms latency) (channel_id: {}, conn_no: {}, context: {}, bytes_queued: {}, can_send_immediate: {}, budget_exhausted: {}, byte_budget: {})",
                             channel_id_local,
                             conn_no_local,
                             context_msg,
@@ -560,15 +578,24 @@ pub async fn setup_outbound_task(
         // proxy to close the TCP connection cleanly), so start as true to avoid treating
         // a normal client disconnect as ConnectionLost and tearing down the tube.
         let mut clean_disconnect_received = active_protocol == ActiveProtocol::DatabaseProxy;
-        let mut loop_iterations = 0;
-
         let mut drain_mode = false; // Guacd: discard data after WebRTC close, wait for guacd EOF
+
+        // Post-handshake idle timeout: if guacd sends no data within this window after
+        // the session starts, treat it as a failed connection (e.g. DB auth failure where
+        // guacd holds the TCP open but never sends a screen frame).
+        // Equivalent to guacamole-client's guacd-socket-timeout (default 10s in KCM).
+        let guacd_idle_deadline = if active_protocol == ActiveProtocol::Guacd {
+            Some(std::time::Instant::now() + std::time::Duration::from_secs(10))
+        } else {
+            None
+        };
+        let mut guacd_first_data_received = false;
+
         let mut main_read_buffer = buffer_pool.acquire();
         let mut encode_buffer = buffer_pool.acquire();
 
         // **SCIENTIFICALLY DERIVED VALUES FROM WEBRTC-RS SOURCE + PROTOCOL ANALYSIS**
         // WebRTC-rs internals: RECEIVE_MTU = 8KB (webrtc-data/src/data_channel/mod.rs)
-        // Threshold: STANDARD_BUFFER_THRESHOLD = 8KB (event fires when buffer < 8KB free)
         // Guacamole protocol analysis:
         //   - SSH/telnet: 90% instructions < 100 bytes (key, mouse, sync)
         //   - RDP/VNC: Mixed - small copy (64B) + large img (1-16KB PNG tiles)
@@ -600,67 +627,30 @@ pub async fn setup_outbound_task(
         // **NO STRING ALLOCATIONS, NO UNNECESSARY OBJECT CREATION**
         // **USE BORROWED DATA, BUFFER POOLS, AND ZERO-COPY TECHNIQUES**
 
-        // Orphaned task prevention: Track backpressure stall iterations
-        let mut backpressure_stall_counter = 0;
-        const BACKPRESSURE_STALL_LIMIT: usize = 100; // 100 * 10ms = 1 second between channel state checks
-
         loop {
-            loop_iterations += 1;
-
-            // **CRITICAL: TCP BACKPRESSURE - Check queue depth before reading more data**
-            let queue_depth = event_sender.queue_depth();
-            const MAX_QUEUE_FRAMES: usize = 10000; // Match the queue size in EventDrivenSender
-            const BACKPRESSURE_THRESHOLD: usize = MAX_QUEUE_FRAMES / 2; // 50% = 5,000 frames (adjusted for faster drain rate)
-
-            // Log queue status periodically for monitoring
-            if unlikely!(should_log_connection(false)) && loop_iterations % 1000 == 0 {
-                debug!(
-                    "Queue status check (channel_id: {}, conn_no: {}, queue_depth: {}/{}, fill: {:.1}%)",
-                    channel_id_for_task, conn_no, queue_depth, MAX_QUEUE_FRAMES,
-                    (queue_depth as f64 / MAX_QUEUE_FRAMES as f64) * 100.0
-                );
+            // Universal SCTP backpressure: pause reading from the backend when the
+            // SCTP send buffer exceeds SCTP_HIGH_WATER (32 KB). The outbound task
+            // acts as a plain network path — read, send, pause when the pipe is full.
+            //
+            // This applies to every protocol (guacd, port-forward, database proxy, etc.)
+            // because the failure mode is the same for all: dc.send() queues into SCTP's
+            // internal buffer without blocking, so without this check the buffer grows
+            // to 256 KB+ before any natural backpressure kicks in.
+            //
+            // At 32 KB the worst-case queue latency is ~200ms at 160 KB/s TURN — safe
+            // for guacd's 15s sync timeout and invisible on fast local paths.
+            let (should_break, pause_us) = event_sender
+                .maybe_pause_for_sctp(&cancel_token_for_task)
+                .await;
+            if should_break {
+                break;
             }
-
-            // If queue is > 50% full (5,000 frames), pause reading to prevent overflow
-            if queue_depth > BACKPRESSURE_THRESHOLD {
-                backpressure_stall_counter += 1;
-
-                // ORPHANED TASK PREVENTION: Check if data channel closed (efficient - once per second, not every 10ms)
-                if backpressure_stall_counter >= BACKPRESSURE_STALL_LIMIT {
-                    let channel_state = dc.ready_state();
-
-                    if channel_state != "Open" {
-                        warn!(
-                            "Data channel closed during backpressure - exiting orphaned task (channel_id: {}, conn_no: {}, queue: {}, state: {})",
-                            channel_id_for_task, conn_no, queue_depth, channel_state
-                        );
-                        break; // Exit orphaned task immediately
-                    }
-                    backpressure_stall_counter = 0; // Reset for next interval
-                }
-
-                // Rate-limited logging (once every 5 seconds max)
-                let now = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or(Duration::ZERO)
-                    .as_secs();
-                let last = LAST_BACKPRESSURE_LOG.load(Ordering::Relaxed);
-
-                if now - last >= 5 {
-                    LAST_BACKPRESSURE_LOG.store(now, Ordering::Relaxed);
-                    debug!(
-                        "Backpressure active: Queue filling up (channel_id: {}, conn_no: {}, queue: {}/{} = {:.1}%)",
-                        channel_id_for_task, conn_no, queue_depth, MAX_QUEUE_FRAMES,
-                        (queue_depth as f64 / MAX_QUEUE_FRAMES as f64) * 100.0
-                    );
-                }
-
-                // Brief pause to let queue drain
-                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-                continue; // Skip this read iteration, check queue again
-            } else {
-                // Reset stall counter when queue is healthy
-                backpressure_stall_counter = 0;
+            if pause_us > 0 {
+                crate::metrics::METRICS_COLLECTOR.record_backpressure_pause(
+                    &channel_id_for_task,
+                    pause_us,
+                    event_sender.queue_depth(),
+                );
             }
 
             if main_read_buffer.capacity() - main_read_buffer.len() < MAX_READ_SIZE / 2 {
@@ -711,9 +701,71 @@ pub async fn setup_outbound_task(
                                 break;
                             }
                             Err(_timeout) => {
-                                // Read timeout - loop continues and checks cancellation
-                                // This allows cancellation to be detected within 500ms
-                                // instead of waiting for TCP timeout (2-3 seconds)
+                                // Read timeout - check idle deadline before continuing
+                                if !guacd_first_data_received {
+                                    if let Some(deadline) = guacd_idle_deadline {
+                                        if std::time::Instant::now() > deadline {
+                                            let error_str = "Database connection failed: authentication failed";
+                                            error!(
+                                                "Guacd idle timeout - no data received after handshake \
+                                                (channel_id: {}, conn_no: {}). Likely DB auth failure.",
+                                                channel_id_for_task, conn_no
+                                            );
+                                            // Store close reason so tube.rs includes it in channel_closed signal
+                                            if let Ok(mut guard) = channel_close_reason_arc.try_lock() {
+                                                *guard = Some(CloseConnectionReason::GuacdError);
+                                            }
+                                            if let Ok(mut guard) = channel_close_message_arc.try_lock() {
+                                                *guard = Some(error_str.to_string());
+                                            }
+                                            // Send Guacamole error instruction on conn_no 1 (data channel).
+                                            // This is what guacd would send via guac_client_abort() —
+                                            // the Guacamole JS client receives it and shows the error dialog,
+                                            // the same path used for SSH auth failures.
+                                            let error_instr = format_error(error_str, STATUS_SERVER_ERROR);
+                                            let error_data_frame = Frame::new_data_with_pool(
+                                                conn_no,
+                                                error_instr.as_bytes(),
+                                                &buffer_pool,
+                                            );
+                                            let encoded_error = error_data_frame.encode_with_pool(&buffer_pool);
+                                            let _ = send_with_event_backpressure(
+                                                encoded_error,
+                                                conn_no,
+                                                &event_sender,
+                                                &channel_id_for_task,
+                                                "Guacd idle timeout error instruction",
+                                                fragmentation_enabled,
+                                            ).await;
+                                            // Send CloseConnection control frame
+                                            let mut buf = buffer_pool.acquire();
+                                            buf.clear();
+                                            buf.extend_from_slice(&conn_no.to_be_bytes());
+                                            buf.put_u8(CloseConnectionReason::GuacdError as u8);
+                                            let error_bytes = error_str.as_bytes();
+                                            let error_len = error_bytes.len().min(1024) as u16;
+                                            buf.put_u16(error_len);
+                                            buf.extend_from_slice(&error_bytes[..error_len as usize]);
+                                            let close_frame = Frame::new_control_with_buffer(
+                                                ControlMessage::CloseConnection,
+                                                &mut buf,
+                                            );
+                                            buffer_pool.release(buf);
+                                            let encoded_close = close_frame.encode_with_pool(&buffer_pool);
+                                            let _ = send_with_event_backpressure(
+                                                encoded_close,
+                                                conn_no,
+                                                &event_sender,
+                                                &channel_id_for_task,
+                                                "Guacd idle timeout close",
+                                                fragmentation_enabled,
+                                            ).await;
+                                            should_exit_for_task.store(true, std::sync::atomic::Ordering::Release);
+                                            shutdown_notify_for_task.notify_one();
+                                            break;
+                                        }
+                                    }
+                                }
                                 continue;
                             }
                         }
@@ -754,6 +806,10 @@ pub async fn setup_outbound_task(
                     }
                 }
             };
+
+            if n_read > 0 {
+                guacd_first_data_received = true;
+            }
 
             match n_read {
                 0 => {
@@ -1127,6 +1183,17 @@ pub async fn setup_outbound_task(
                                                         );
                                                     }
                                                 }
+                                                // Store the guacd error message so it reaches Python via channel_closed signal
+                                                if close_reason == CloseConnectionReason::GuacdError
+                                                {
+                                                    if let Some(ref msg) = guacd_error_message {
+                                                        if let Ok(mut guard) =
+                                                            channel_close_message_arc.try_lock()
+                                                        {
+                                                            *guard = Some(msg.clone());
+                                                        }
+                                                    }
+                                                }
                                             }
 
                                             // CRITICAL: Drain buffer to ensure CloseConnection transmits.
@@ -1221,10 +1288,23 @@ pub async fn setup_outbound_task(
                                             // Dispatch to appropriate special handler
                                             match opcode {
                                                 SpecialOpcode::Size => {
+                                                    // Track whether this is a main-layer (layer 0)
+                                                    // viewport resize so we can flush immediately
+                                                    // after the Python signal spawn below.
+                                                    let mut is_main_layer_resize = false;
+
                                                     // Parse the full instruction for details and send to Python
                                                     if let Ok(peeked_instr) =
                                                         GuacdParser::peek_instruction(current_slice)
                                                     {
+                                                        // Layer 0 = main viewport; other layers are
+                                                        // popups/overlays that don't need priority flushing.
+                                                        is_main_layer_resize = peeked_instr
+                                                            .args
+                                                            .first()
+                                                            .map(|s| *s == "0")
+                                                            .unwrap_or(false);
+
                                                         if peeked_instr.args.len() >= 2 {
                                                             if unlikely!(should_log_connection(
                                                                 false
@@ -1325,6 +1405,76 @@ pub async fn setup_outbound_task(
                                                     )) {
                                                         debug!("OUTBOUND: Failed to parse size instruction - skipping signal (channel_id: {}, opcode_name: {})", channel_id_for_task, SpecialOpcode::Size.as_str());
                                                     }
+
+                                                    // Main-layer resize: flush the batch buffer
+                                                    // immediately and send size directly, without
+                                                    // waiting for the next sync (~33ms at 30fps).
+                                                    // This matches WebSocket behavior where guacd
+                                                    // writes are forwarded to the client as they
+                                                    // arrive, not held until the next frame boundary.
+                                                    if is_main_layer_resize {
+                                                        if let Some(ref mut batch_buffer) =
+                                                            guacd_batch_buffer
+                                                        {
+                                                            if !batch_buffer.is_empty() {
+                                                                encode_buffer.clear();
+                                                                let bytes_written =
+                                                                    Frame::encode_data_frame_from_slice(
+                                                                        &mut encode_buffer,
+                                                                        conn_no,
+                                                                        &batch_buffer[..],
+                                                                    );
+                                                                let batch_frame_bytes =
+                                                                    encode_buffer
+                                                                        .split_to(bytes_written)
+                                                                        .freeze();
+                                                                if send_with_event_backpressure(
+                                                                    batch_frame_bytes,
+                                                                    conn_no,
+                                                                    &event_sender,
+                                                                    &channel_id_for_task,
+                                                                    "pre-size,0 batch flush",
+                                                                    fragmentation_enabled,
+                                                                )
+                                                                .await
+                                                                .is_err()
+                                                                {
+                                                                    close_conn_and_break = true;
+                                                                    break;
+                                                                }
+                                                                batch_buffer.clear();
+                                                            }
+                                                        }
+
+                                                        let instruction_slice =
+                                                            &current_slice[..instruction_len];
+                                                        let data_frame = Frame::new_data_with_pool(
+                                                            conn_no,
+                                                            instruction_slice,
+                                                            &buffer_pool,
+                                                        );
+                                                        let encoded_data = data_frame
+                                                            .encode_with_pool(&buffer_pool);
+                                                        if send_with_event_backpressure(
+                                                            encoded_data,
+                                                            conn_no,
+                                                            &event_sender,
+                                                            &channel_id_for_task,
+                                                            "size,0 direct send",
+                                                            fragmentation_enabled,
+                                                        )
+                                                        .await
+                                                        .is_err()
+                                                        {
+                                                            close_conn_and_break = true;
+                                                            break;
+                                                        }
+
+                                                        consumed_offset += instruction_len;
+                                                        continue; // bypass batch buffer path
+                                                    }
+                                                    // Non-main-layer size (popups, overlays):
+                                                    // fall through to normal batching below.
                                                 }
                                                 SpecialOpcode::Error => {
                                                     // This should not happen as Error maps to CloseConnection

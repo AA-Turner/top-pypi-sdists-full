@@ -571,7 +571,7 @@ class Connection(pulumi.CustomResource):
         db = gcp.sql.Database("db",
             instance=instance.name,
             name="db")
-        pwd = random.index.Password("pwd",
+        pwd = random.Password("pwd",
             length=16,
             special=False)
         user = gcp.sql.User("user",
@@ -610,7 +610,7 @@ class Connection(pulumi.CustomResource):
         db = gcp.sql.Database("db",
             instance=instance.name,
             name="db")
-        pwd = random.index.Password("pwd",
+        pwd = random.Password("pwd",
             length=16,
             special=False)
         user = gcp.sql.User("user",
@@ -753,7 +753,7 @@ class Connection(pulumi.CustomResource):
         user = gcp.sql.User("user",
             name="user",
             instance=instance.name,
-            password="tf-test-my-password_60302")
+            password="tf-test-my-password_15222")
         bq_connection_cmek = gcp.bigquery.Connection("bq-connection-cmek",
             friendly_name="👋",
             description="a riveting description",
@@ -864,7 +864,7 @@ class Connection(pulumi.CustomResource):
         db = gcp.sql.Database("db",
             instance=instance.name,
             name="db")
-        pwd = random.index.Password("pwd",
+        pwd = random.Password("pwd",
             length=16,
             special=False)
         user = gcp.sql.User("user",
@@ -903,7 +903,7 @@ class Connection(pulumi.CustomResource):
         db = gcp.sql.Database("db",
             instance=instance.name,
             name="db")
-        pwd = random.index.Password("pwd",
+        pwd = random.Password("pwd",
             length=16,
             special=False)
         user = gcp.sql.User("user",
@@ -1046,7 +1046,7 @@ class Connection(pulumi.CustomResource):
         user = gcp.sql.User("user",
             name="user",
             instance=instance.name,
-            password="tf-test-my-password_60302")
+            password="tf-test-my-password_15222")
         bq_connection_cmek = gcp.bigquery.Connection("bq-connection-cmek",
             friendly_name="👋",
             description="a riveting description",

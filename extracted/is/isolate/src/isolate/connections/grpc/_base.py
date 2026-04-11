@@ -1,4 +1,5 @@
 import os
+import signal
 import socket
 import subprocess
 import time
@@ -180,8 +181,17 @@ class LocalPythonGRPC(PythonExecutionBase[str], GRPCExecutionBase):
                 self._process.kill()
                 return_code = self._process.wait()
 
+            # Python reports signal-based termination as negative return codes.
+            if return_code == 0:
+                finish_message = "Isolate agent finished successfully"
+            elif return_code == -int(signal.SIGTERM):
+                finish_message = "Isolate agent gracefully terminated"
+            elif return_code == -int(signal.SIGKILL):
+                finish_message = "Isolate agent forcefully killed"
+            else:
+                finish_message = f"Isolate agent finished (exit code: {return_code})"
             self.log(
-                f"Isolate agent finished (exit code: {return_code})",
+                finish_message,
                 level=LogLevel.INFO,
                 source=LogSource.BRIDGE,
             )

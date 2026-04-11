@@ -1519,15 +1519,11 @@ _ma_chem_comp_descriptor.software_id
         sd = modelcif.reference.SeqDif(
             seq_id=2, db_monomer=lpep['W'],
             monomer=lpep['S'], details='Test mutation')
-        # Test non-mandatory db_monomer
-        sd2 = modelcif.reference.SeqDif(
-            seq_id=3, db_monomer=None,
-            monomer=lpep['P'], details='Test mutation')
         r1 = modelcif.reference.UniProt(
             code='NUP84_YEAST', accession='P52891', sequence='MELWPTYQT',
             details='test sequence')
         r1.alignments.append(modelcif.reference.Alignment(
-            db_begin=3, seq_dif=[sd, sd2]))
+            db_begin=3, seq_dif=[sd]))
         r2 = modelcif.reference.UniProt(
             code='testcode', accession='testacc', sequence='MELSPTYQT',
             details='test2')
@@ -1586,12 +1582,12 @@ _struct_ref_seq.db_align_end
 loop_
 _struct_ref_seq_dif.pdbx_ordinal
 _struct_ref_seq_dif.align_id
-_struct_ref_seq_dif.seq_num
 _struct_ref_seq_dif.db_mon_id
+_struct_ref_seq_dif.pdbx_seq_db_seq_num
 _struct_ref_seq_dif.mon_id
+_struct_ref_seq_dif.seq_num
 _struct_ref_seq_dif.details
-1 1 2 TRP SER 'Test mutation'
-2 1 3 ? PRO 'Test mutation'
+1 1 TRP ? SER 2 'Test mutation'
 #
 """)
 

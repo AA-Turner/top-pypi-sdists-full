@@ -1,3 +1,13 @@
+use std::fmt::Display;
+use std::hash::{DefaultHasher, Hash, Hasher};
+
+use jiff::{SignedDuration, Span, SpanArithmetic, SpanRelativeTo, SpanRound};
+use pyo3::prelude::*;
+use pyo3::types::{PyDelta, PyDict, PyFloat, PyInt, PyTuple};
+use pyo3::{BoundObject, IntoPyObjectExt};
+use ryo3_core::{PyAsciiString, map_py_overflow_err, map_py_value_err, py_value_err};
+use ryo3_macro_rules::{any_repr, py_overflow_error, py_type_err, py_value_error};
+
 use crate::constants::SPAN_PARSER;
 use crate::py_temporal_like::PyTemporalTypes;
 use crate::ry_signed_duration::RySignedDuration;
@@ -5,14 +15,6 @@ use crate::spanish::Spanish;
 use crate::{
     JiffRoundMode, JiffSpan, JiffUnit, RyDate, RyDateTime, RyTime, RyTimestamp, RyZoned, timespan,
 };
-use jiff::{SignedDuration, Span, SpanArithmetic, SpanRelativeTo, SpanRound};
-use pyo3::prelude::*;
-use pyo3::types::{PyDelta, PyDict, PyFloat, PyInt, PyTuple};
-use pyo3::{BoundObject, IntoPyObjectExt};
-use ryo3_core::{PyAsciiString, map_py_overflow_err, map_py_value_err, py_value_err};
-use ryo3_macro_rules::{any_repr, py_overflow_error, py_type_err, py_value_error};
-use std::fmt::Display;
-use std::hash::{DefaultHasher, Hash, Hasher};
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
@@ -36,16 +38,16 @@ impl RySpan {
     #[pyo3(
         signature = (
             *,
-            years=0,
-            months=0,
-            weeks=0,
-            days=0,
-            hours=0,
-            minutes=0,
-            seconds=0,
-            milliseconds=0,
-            microseconds=0,
-            nanoseconds=0
+            years = 0,
+            months = 0,
+            weeks = 0,
+            days = 0,
+            hours = 0,
+            minutes = 0,
+            seconds = 0,
+            milliseconds = 0,
+            microseconds = 0,
+            nanoseconds = 0
         )
     )]
     fn py_new(
@@ -102,7 +104,7 @@ impl RySpan {
         }
     }
 
-    #[pyo3(signature = (*, friendly=false), name = "to_string")]
+    #[pyo3(signature = (*, friendly = false), name = "to_string")]
     fn py_to_string(&self, friendly: bool) -> String {
         if friendly {
             format!("{:#}", self.0)
@@ -191,7 +193,21 @@ impl RySpan {
     // </UNIFORM>
 
     #[expect(clippy::too_many_arguments)]
-    #[pyo3(signature = (years=None, months=None, weeks=None, days=None, hours=None, minutes=None, seconds=None, milliseconds=None, microseconds=None, nanoseconds=None))]
+    #[pyo3(
+        signature = (
+            *,
+            years = None,
+            months = None,
+            weeks = None,
+            days = None,
+            hours = None,
+            minutes = None,
+            seconds = None,
+            milliseconds = None,
+            microseconds = None,
+            nanoseconds = None
+        )
+    )]
     fn replace(
         &self,
         years: Option<i64>,
@@ -420,7 +436,7 @@ impl RySpan {
         self.__mul__(other)
     }
 
-    #[pyo3(signature = (other, relative=None, *, days_are_24_hours=false))]
+    #[pyo3(signature = (other, relative = None, *, days_are_24_hours = false))]
     fn compare(
         &self,
         other: &Self,
@@ -535,13 +551,13 @@ impl RySpan {
     // ========================================================================
     #[pyo3(
         signature = (
-            smallest=JiffUnit::NANOSECOND,
-            increment=1,
+            smallest = JiffUnit::NANOSECOND,
+            increment = 1,
             *,
-            relative=None,
-            largest=None,
-            mode=JiffRoundMode::HALF_EXPAND,
-            days_are_24_hours=false
+            relative = None,
+            largest = None,
+            mode = JiffRoundMode::HALF_EXPAND,
+            days_are_24_hours = false
         ),
         text_signature = "(self, smallest=\"nanosecond\", increment=1, *, relative=None, largest=None, mode=\"half-expand\", days_are_24_hours=False)"
     )]
@@ -607,7 +623,7 @@ impl RySpan {
         self.0.signum()
     }
 
-    #[pyo3(signature = (relative=None, *, days_are_24_hours=false))]
+    #[pyo3(signature = (relative = None, *, days_are_24_hours = false))]
     fn total_seconds(
         &self,
         relative: Option<RySpanRelativeTo>,
@@ -616,7 +632,7 @@ impl RySpan {
         self.total(JiffUnit::SECOND, relative, days_are_24_hours)
     }
 
-    #[pyo3(signature = (unit, relative=None, *, days_are_24_hours=false))]
+    #[pyo3(signature = (unit, relative = None, *, days_are_24_hours = false))]
     fn total(
         &self,
         unit: JiffUnit,

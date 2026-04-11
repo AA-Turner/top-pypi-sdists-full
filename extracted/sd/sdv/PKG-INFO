@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sdv
-Version: 1.35.1
+Version: 1.36.0
 Summary: Generate synthetic data for single table, multi table and sequential data
 Author-email: "DataCebo, Inc." <info@sdv.dev>
 License-Expression: BUSL-1.1

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coqpit-config
-Version: 0.2.4
+Version: 0.2.5
 Summary: Simple (maybe too simple), light-weight config management through python data-classes.
 Project-URL: Repository, https://github.com/idiap/coqui-ai-coqpit
 Project-URL: Issues, https://github.com/idiap/coqui-ai-coqpit/issues

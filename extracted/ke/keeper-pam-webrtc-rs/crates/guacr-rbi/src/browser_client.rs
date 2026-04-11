@@ -10,7 +10,7 @@ use crate::screencast::ScreencastConfig;
 use crate::scroll_detector::ScrollDetector;
 // Events module provides types used for more complex RBI scenarios
 use crate::handler::{RbiBackend, RbiConfig};
-use crate::input::{KeyboardShortcut, RbiInputHandler};
+use crate::input::{chrome_flags_to_cdp_modifiers, KeyboardShortcut, RbiInputHandler};
 use bytes::Bytes;
 use guacr_protocol::GuacamoleParser;
 use log::{debug, error, info, warn};
@@ -865,7 +865,8 @@ impl BrowserClient {
                         let pressed = pressed == 1;
 
                         // Use the new input handler for proper state tracking
-                        let _key_event = self.input_handler.handle_keyboard(keysym, pressed);
+                        let key_event = self.input_handler.handle_keyboard(keysym, pressed);
+                        let cdp_mods = chrome_flags_to_cdp_modifiers(key_event.modifiers);
 
                         // Check for keyboard shortcuts (Ctrl+C, Ctrl+V, etc.)
                         if let Some(shortcut) = self.input_handler.check_shortcut(keysym, pressed) {
@@ -888,8 +889,10 @@ impl BrowserClient {
                             // Let the browser handle the shortcut
                         }
 
-                        // Inject the key event into browser
-                        chrome_session.inject_keyboard(keysym, pressed).await?;
+                        // Inject the key event into browser via CDP (isTrusted=true)
+                        chrome_session
+                            .inject_keyboard(keysym, pressed, cdp_mods)
+                            .await?;
                     }
                 }
             }
@@ -910,36 +913,44 @@ impl BrowserClient {
                         let should_send_move = last_mouse_move
                             .map(|t: std::time::Instant| now.duration_since(t).as_millis() >= 33)
                             .unwrap_or(true);
+                        // Pass current buttons mask so Chrome tracks hover state correctly.
+                        let pre_buttons = self.input_handler.mouse_buttons_mask();
                         if should_send_move
                             && chrome_session
-                                .inject_mouse_move(x, y)
+                                .inject_mouse_move(x, y, pre_buttons)
                                 .await
                                 .unwrap_or(false)
                         {
                             *last_mouse_move = Some(now);
                         }
 
-                        // Use the new input handler for proper button tracking
+                        // Update button state — must happen before reading post-event mask.
                         let mouse_event = self.input_handler.handle_mouse(x, y, mask);
 
-                        // Handle button presses
+                        // Handle button presses (post-event mask: pressed button is now held)
                         for button in &mouse_event.buttons_pressed {
                             let button_num = match button {
                                 crate::input::MouseButton::Left => 0,
                                 crate::input::MouseButton::Middle => 1,
                                 crate::input::MouseButton::Right => 2,
                             };
-                            chrome_session.inject_mouse(x, y, button_num, true).await?;
+                            let post_buttons = self.input_handler.mouse_buttons_mask();
+                            chrome_session
+                                .inject_mouse(x, y, button_num, true, post_buttons)
+                                .await?;
                         }
 
-                        // Handle button releases
+                        // Handle button releases (post-event mask: released button no longer held)
                         for button in &mouse_event.buttons_released {
                             let button_num = match button {
                                 crate::input::MouseButton::Left => 0,
                                 crate::input::MouseButton::Middle => 1,
                                 crate::input::MouseButton::Right => 2,
                             };
-                            chrome_session.inject_mouse(x, y, button_num, false).await?;
+                            let post_buttons = self.input_handler.mouse_buttons_mask();
+                            chrome_session
+                                .inject_mouse(x, y, button_num, false, post_buttons)
+                                .await?;
                         }
 
                         // Handle scroll

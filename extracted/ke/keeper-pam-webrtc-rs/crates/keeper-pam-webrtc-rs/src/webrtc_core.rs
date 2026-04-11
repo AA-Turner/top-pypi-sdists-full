@@ -113,7 +113,7 @@ use webrtc::track::track_local::TrackLocal;
 
 // Constants for SCTP max message size negotiation
 const DEFAULT_MAX_MESSAGE_SIZE: u32 = 262144; // 256KB - Common default for WebRTC
-const OUR_MAX_MESSAGE_SIZE: u32 = 65536; // 64KB - Safe limit for webrtc-rs
+const OUR_MAX_MESSAGE_SIZE: u32 = 262144; // 256KB - matches vault offer; required for binary IMAGE frames
 
 // Constants for ICE restart management
 /// Maximum number of ICE restart attempts before giving up.
@@ -495,9 +495,6 @@ pub struct WebRTCPeerConnection {
     // ISOLATION: Circuit breaker for comprehensive failure protection
     circuit_breaker: TubeCircuitBreaker,
 
-    // Quality and network monitoring systems
-    quality_manager: Arc<crate::webrtc_quality_manager::AdaptiveQualityManager>,
-
     // Keepalive infrastructure for session timeout prevention
     keepalive_task: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
     keepalive_interval: Duration,
@@ -628,12 +625,6 @@ impl WebRTCPeerConnection {
         // ISOLATION: Create circuit breaker for comprehensive failure protection
         let circuit_breaker = TubeCircuitBreaker::new(tube_id.clone());
 
-        // Initialize quality manager for connection monitoring
-        let quality_manager = Arc::new(crate::webrtc_quality_manager::AdaptiveQualityManager::new(
-            tube_id.clone(),
-            Default::default(),
-        ));
-
         // Initialize per-tube network monitor to maintain isolation
         // Each tube gets its own monitor to prevent one failing tube from affecting others
         let network_monitor = Arc::new(crate::webrtc_network_monitor::NetworkMonitor::new(
@@ -750,9 +741,6 @@ impl WebRTCPeerConnection {
 
             // ISOLATION: Store circuit breaker with this connection
             circuit_breaker,
-
-            // Quality and network monitoring
-            quality_manager,
 
             // Initialize keepalive infrastructure
             keepalive_task: Arc::new(Mutex::new(None)),
@@ -1424,6 +1412,59 @@ impl WebRTCPeerConnection {
         self.generate_sdp_and_maybe_gather_ice(is_offer).await
     }
 
+    /// Patch `a=max-message-size:` in an SDP string to our negotiated value.
+    /// Replaces the existing value if present, inserts after `a=sctp-port:` if not.
+    async fn patch_sdp_max_message_size(&self, sdp: String) -> String {
+        // Read the remote's advertised max from the offer
+        let remote_max = if let Some(remote_desc) = self.peer_connection.remote_description().await
+        {
+            let offer_sdp = &remote_desc.sdp;
+            if let Some(pos) = offer_sdp.find("a=max-message-size:") {
+                let start = pos + "a=max-message-size:".len();
+                let end = offer_sdp[start..]
+                    .find('\r')
+                    .or_else(|| offer_sdp[start..].find('\n'))
+                    .map(|e| start + e)
+                    .unwrap_or(offer_sdp.len());
+                offer_sdp[start..end]
+                    .trim()
+                    .parse::<u32>()
+                    .unwrap_or(DEFAULT_MAX_MESSAGE_SIZE)
+            } else {
+                DEFAULT_MAX_MESSAGE_SIZE
+            }
+        } else {
+            DEFAULT_MAX_MESSAGE_SIZE
+        };
+
+        let negotiated = remote_max.min(OUR_MAX_MESSAGE_SIZE);
+        debug!("Patching SDP max-message-size: remote={remote_max}, ours={OUR_MAX_MESSAGE_SIZE}, negotiated={negotiated} (tube_id: {})", self.tube_id);
+
+        let prefix = "a=max-message-size:";
+        if let Some(pos) = sdp.find(prefix) {
+            // Replace existing value
+            let start = pos + prefix.len();
+            let end = sdp[start..]
+                .find('\r')
+                .or_else(|| sdp[start..].find('\n'))
+                .map(|e| start + e)
+                .unwrap_or(sdp.len());
+            format!("{}{}{}", &sdp[..start], negotiated, &sdp[end..])
+        } else if let Some(sctp_pos) = sdp.find("a=sctp-port:") {
+            // Insert after a=sctp-port: line
+            if let Some(line_end) = sdp[sctp_pos..].find('\n') {
+                let insert_pos = sctp_pos + line_end + 1;
+                let mut result = sdp;
+                result.insert_str(insert_pos, &format!("a=max-message-size:{negotiated}\r\n"));
+                result
+            } else {
+                sdp
+            }
+        } else {
+            sdp
+        }
+    }
+
     async fn generate_sdp_and_maybe_gather_ice(&self, is_offer: bool) -> Result<String, String> {
         let sdp_type_str = if is_offer { "offer" } else { "answer" };
 
@@ -1504,71 +1545,9 @@ impl WebRTCPeerConnection {
                     if let Some(final_desc) = self.peer_connection.local_description().await {
                         let mut sdp_str = final_desc.sdp;
 
-                        // Add max-message-size to answer SDP for non-trickle ICE only
-                        if !is_offer && !sdp_str.contains("a=max-message-size") {
-                            // Extract max-message-size from the offer (remote description)
-                            let max_message_size = if let Some(remote_desc) =
-                                self.peer_connection.remote_description().await
-                            {
-                                // Extract the max-message-size from the remote offer
-                                let offer_sdp = &remote_desc.sdp;
-                                if let Some(pos) = offer_sdp.find("a=max-message-size:") {
-                                    let start = pos + "a=max-message-size:".len();
-                                    if let Some(end) = offer_sdp[start..]
-                                        .find('\r')
-                                        .or_else(|| offer_sdp[start..].find('\n'))
-                                    {
-                                        if let Ok(size) =
-                                            offer_sdp[start..start + end].trim().parse::<u32>()
-                                        {
-                                            size
-                                        } else {
-                                            DEFAULT_MAX_MESSAGE_SIZE // Default if parsing fails
-                                        }
-                                    } else {
-                                        DEFAULT_MAX_MESSAGE_SIZE // Default if no line ending
-                                    }
-                                } else {
-                                    DEFAULT_MAX_MESSAGE_SIZE // Default if isn't found in offer
-                                }
-                            } else {
-                                debug!(
-                                    "No remote description available (tube_id: {})",
-                                    self.tube_id
-                                );
-                                DEFAULT_MAX_MESSAGE_SIZE // Default if no remote description
-                            };
-
-                            // Use the minimum of the client's requested size and our maximum
-                            let our_max = OUR_MAX_MESSAGE_SIZE;
-                            let negotiated_size = max_message_size.min(our_max);
-
-                            if unlikely!(crate::logger::is_verbose_logging()) {
-                                debug!("Negotiating max-message-size: client_requested={} ({}KB), our_max={} ({}KB), negotiated={} ({}KB) (tube_id: {})",
-                                    max_message_size, max_message_size/1024, our_max, our_max/1024, negotiated_size, negotiated_size/1024, self.tube_id);
-                            }
-
-                            // Find the position to insert after sctp-port
-                            if let Some(sctp_pos) = sdp_str.find("a=sctp-port:") {
-                                // Find the end of the sctp-port line
-                                if let Some(line_end) = sdp_str[sctp_pos..].find('\n') {
-                                    let insert_pos = sctp_pos + line_end + 1;
-                                    if unlikely!(crate::logger::is_verbose_logging()) {
-                                        debug!(
-                                            "Found sctp-port at position {} (tube_id: {})",
-                                            sctp_pos, self.tube_id
-                                        );
-                                    }
-                                    sdp_str.insert_str(
-                                        insert_pos,
-                                        &format!("a=max-message-size:{negotiated_size}\r\n"),
-                                    );
-                                    if unlikely!(crate::logger::is_verbose_logging()) {
-                                        debug!("Successfully added max-message-size={} ({}KB) to answer SDP (client requested: {} ({}KB), our max: {} ({}KB)) (tube_id: {})",
-                                            negotiated_size, negotiated_size/1024, max_message_size, max_message_size/1024, our_max, our_max/1024, self.tube_id);
-                                    }
-                                }
-                            }
+                        // Patch max-message-size for non-trickle ICE (both offer and answer).
+                        if !is_offer {
+                            sdp_str = self.patch_sdp_max_message_size(sdp_str).await;
                         }
 
                         Ok(sdp_str)
@@ -1582,17 +1561,38 @@ impl WebRTCPeerConnection {
                 Err(_) => Err(format!("ICE gathering timeout for {sdp_type_str}")),
             }
         } else {
-            // Trickle ICE: return the SDP immediately.
-            // The calling Tube will set the local description if this is an offer/answer being created by self.
+            // Trickle ICE: set local description with the ORIGINAL (unpatched) SDP so
+            // webrtc-rs can validate it against the offer it generated internally.
+            // Any modification to the SDP before set_local_description causes
+            // "new sdp does not match previous offer" — webrtc-rs compares byte-for-byte.
+            let original_sdp = sdp_obj.sdp;
+
             if unlikely!(crate::logger::is_verbose_logging()) {
                 debug!(
                     "Initial {} SDP (tube_id: {}, sdp: {})",
-                    sdp_type_str, self.tube_id, sdp_obj.sdp
+                    sdp_type_str, self.tube_id, original_sdp
                 );
             }
 
-            // For trickle ICE, do not modify the SDP
-            Ok(sdp_obj.sdp)
+            let local_desc = if is_offer {
+                RTCSessionDescription::offer(original_sdp.clone())
+            } else {
+                RTCSessionDescription::answer(original_sdp.clone())
+            }
+            .map_err(|e| {
+                format!("Failed to create RTCSessionDescription for trickle {sdp_type_str}: {e}")
+            })?;
+
+            self.peer_connection
+                .set_local_description(local_desc)
+                .await
+                .map_err(|e| format!("Failed to set local description: {e}"))?;
+
+            // Now patch max-message-size on the already-set SDP for the version we return
+            // to the caller (Python / tube registry).  The local description inside
+            // webrtc-rs stays as the original; we're only changing the string we hand out.
+            let patched = self.patch_sdp_max_message_size(original_sdp).await;
+            Ok(patched)
         }
     }
 
@@ -2124,12 +2124,6 @@ impl WebRTCPeerConnection {
         &self,
         status: Arc<tokio::sync::RwLock<crate::tube_and_channel_helpers::TubeStatus>>,
     ) -> Result<(), String> {
-        // Start quality monitoring
-        self.quality_manager
-            .start_monitoring()
-            .await
-            .map_err(|e| format!("Failed to start quality monitoring: {}", e))?;
-
         // Register this tube with monitoring systems
         debug!("Registering tube {} with monitoring systems", self.tube_id);
 
@@ -2204,9 +2198,6 @@ impl WebRTCPeerConnection {
                 self.tube_id, conv_id
             );
         }
-
-        // Stop quality monitoring
-        self.quality_manager.stop_monitoring();
 
         // Stop stats collection task
         {
@@ -2329,10 +2320,9 @@ impl WebRTCPeerConnection {
         Ok(())
     }
 
-    /// Start periodic stats collection for quality monitoring
+    /// Start periodic stats collection for connection visibility
     async fn start_stats_collection(&self) -> Result<(), String> {
         let peer_connection = Arc::clone(&self.peer_connection);
-        let quality_manager = Arc::clone(&self.quality_manager);
         let is_closing = Arc::clone(&self.is_closing);
         let tube_id = self.tube_id.clone();
         let conversation_id = self.conversation_id.clone();
@@ -2345,7 +2335,10 @@ impl WebRTCPeerConnection {
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
             let ipv6_binding_failures = std::sync::atomic::AtomicU32::new(0);
-            let mut previous_stats: Option<crate::webrtc_quality_manager::WebRTCStats> = None;
+            // Track previous cycle's totals for per-interval bitrate calculation
+            let mut prev_bytes_sent: u64 = 0;
+            let mut prev_bytes_received: u64 = 0;
+            let mut prev_tick = std::time::Instant::now();
 
             loop {
                 interval.tick().await;
@@ -2407,192 +2400,96 @@ impl WebRTCPeerConnection {
                     }
                 }
 
-                // Collect real WebRTC stats from peer connection
+                // Collect real WebRTC stats from the nominated candidate pair and data channels.
+                let now = std::time::Instant::now();
                 let reports = peer_connection.get_stats().await;
-                let webrtc_stats = {
-                    let mut collected_stats = crate::webrtc_quality_manager::WebRTCStats {
-                        timestamp: Instant::now(),
-                        ..Default::default()
-                    };
 
-                    // Parse WebRTC stats reports for relevant metrics
-                    // Strategy:
-                    //   - CandidatePair (nominated) → Network-level stats (real packets, RTT, bandwidth)
-                    //   - DataChannel → Per-channel stats (application-level messages)
-                    //   - Transport → Sanity check only (logged if verbose)
-                    for (_id, report) in reports.reports.iter() {
-                        match report {
-                            webrtc::stats::StatsReportType::CandidatePair(pair) => {
-                                if pair.nominated {
-                                    // Use the nominated candidate pair for REAL network-level stats
-                                    // This is the active UDP connection carrying all data channels
-                                    collected_stats.packets_sent = pair.packets_sent as u64;
-                                    collected_stats.packets_received = pair.packets_received as u64;
-                                    collected_stats.bytes_sent = pair.bytes_sent;
-                                    collected_stats.bytes_received = pair.bytes_received;
-                                    collected_stats.rtt_ms =
-                                        Some(pair.current_round_trip_time * 1000.0);
+                let mut bytes_sent: u64 = 0;
+                let mut bytes_received: u64 = 0;
+                let mut rtt_ms: Option<f64> = None;
 
-                                    // Optional: Log available bandwidth estimates from ICE
-                                    if unlikely!(crate::logger::is_verbose_logging()) {
-                                        debug!(
-                                            "ICE bandwidth estimates (tube_id: {}): outgoing={:.2} Mbps, incoming={:.2} Mbps",
-                                            tube_id,
-                                            pair.available_outgoing_bitrate / 1_000_000.0,
-                                            pair.available_incoming_bitrate / 1_000_000.0
-                                        );
-                                    }
-                                }
-                            }
-                            webrtc::stats::StatsReportType::DataChannel(data_channel) => {
-                                // Collect per-channel stats (not aggregated)
-                                // This gives us visibility into individual channel activity
-                                let channel_stats = crate::webrtc_quality_manager::ChannelStats {
-                                    label: data_channel.label.clone(),
-                                    messages_sent: data_channel.messages_sent as u64,
-                                    messages_received: data_channel.messages_received as u64,
-                                    bytes_sent: data_channel.bytes_sent as u64,
-                                    bytes_received: data_channel.bytes_received as u64,
-                                    state: format!("{:?}", data_channel.state),
-                                };
-                                collected_stats
-                                    .per_channel_stats
-                                    .insert(data_channel.label.clone(), channel_stats);
-                            }
-                            webrtc::stats::StatsReportType::Transport(transport) => {
-                                // Transport stats are useful for sanity checks (logged if verbose)
-                                if unlikely!(crate::logger::is_verbose_logging()) {
-                                    debug!(
-                                        "Transport totals (tube_id: {}): sent={} bytes, received={} bytes",
-                                        tube_id,
-                                        transport.bytes_sent,
-                                        transport.bytes_received
-                                    );
-                                }
-                            }
-                            // Note: InboundRTP/OutboundRTP only exist for media streams (audio/video)
-                            // They do NOT exist for pure data channel connections, so we ignore them
-                            _ => {} // Ignore other stat types
+                for (_id, report) in reports.reports.iter() {
+                    match report {
+                        webrtc::stats::StatsReportType::CandidatePair(pair) if pair.nominated => {
+                            bytes_sent = pair.bytes_sent;
+                            bytes_received = pair.bytes_received;
+                            rtt_ms = Some(pair.current_round_trip_time * 1000.0);
                         }
-                    }
-
-                    // Calculate bitrate from byte delta if we have previous stats
-                    if let Some(prev_stats) = &previous_stats {
-                        let time_delta = collected_stats
-                            .timestamp
-                            .duration_since(prev_stats.timestamp)
-                            .as_secs_f64();
-                        if time_delta > 0.0 {
-                            let bytes_delta = (collected_stats.bytes_sent
-                                + collected_stats.bytes_received)
-                                .saturating_sub(prev_stats.bytes_sent + prev_stats.bytes_received);
-                            collected_stats.bitrate_bps =
-                                Some((bytes_delta as f64 * 8.0 / time_delta) as u64);
+                        webrtc::stats::StatsReportType::DataChannel(dc) => {
+                            if unlikely!(crate::logger::is_verbose_logging()) {
+                                debug!(
+                                    "DataChannel stats (tube_id: {}, label: {}): msgs_sent={}, msgs_recv={}, bytes_sent={:.2} KB, bytes_recv={:.2} KB",
+                                    tube_id, dc.label,
+                                    dc.messages_sent, dc.messages_received,
+                                    dc.bytes_sent as f64 / 1024.0,
+                                    dc.bytes_received as f64 / 1024.0,
+                                );
+                            }
                         }
-                    }
-
-                    collected_stats
-                };
-
-                // Log collected stats only if there's activity
-                let has_activity = webrtc_stats.bytes_sent > 0
-                    || webrtc_stats.bytes_received > 0
-                    || webrtc_stats.packets_sent > 0
-                    || webrtc_stats.packets_received > 0;
-
-                if unlikely!(crate::logger::is_verbose_logging()) && has_activity {
-                    // Log aggregate network stats from CandidatePair
-                    debug!(
-                        "WebRTC Network Stats (tube_id: {}): packets_sent={}, packets_received={}, bytes_sent={}, bytes_received={}, rtt_ms={:.2}, bitrate_bps={}",
-                        tube_id,
-                        webrtc_stats.packets_sent,
-                        webrtc_stats.packets_received,
-                        webrtc_stats.bytes_sent,
-                        webrtc_stats.bytes_received,
-                        webrtc_stats.rtt_ms.unwrap_or(0.0),
-                        webrtc_stats.bitrate_bps.map_or("N/A".to_string(), |b| format!("{:.2} Mbps", b as f64 / 1_000_000.0))
-                    );
-
-                    // Log per-channel stats from DataChannel
-                    if !webrtc_stats.per_channel_stats.is_empty() {
-                        debug!("Per-Channel Stats (tube_id: {}):", tube_id);
-                        for (label, channel) in webrtc_stats.per_channel_stats.iter() {
-                            debug!(
-                                "  - '{}': msgs_sent={}, msgs_recv={}, bytes_sent={:.2} KB, bytes_recv={:.2} KB, state={}",
-                                label,
-                                channel.messages_sent,
-                                channel.messages_received,
-                                channel.bytes_sent as f64 / 1024.0,
-                                channel.bytes_received as f64 / 1024.0,
-                                channel.state
-                            );
-                        }
+                        _ => {}
                     }
                 }
 
-                // Store current stats for next cycle's bitrate calculation
-                previous_stats = Some(webrtc_stats.clone());
-
-                // Update the quality manager with real stats
-                if let Err(e) = quality_manager.update_stats(webrtc_stats.clone()).await {
-                    debug!(
-                        "Failed to update quality manager stats (tube_id: {}, error: {})",
-                        tube_id, e
-                    );
-                }
-
-                // Retrieve comprehensive metrics for connection leg visibility
-                let connection_health = if let Some(ref conv_id) = conversation_id {
-                    crate::metrics::METRICS_COLLECTOR
-                        .get_connection_health(&tube_id)
-                        .or_else(|| {
-                            crate::metrics::METRICS_COLLECTOR.get_connection_health(conv_id)
-                        })
+                // Per-interval bitrate from cumulative byte counters
+                let elapsed = now.duration_since(prev_tick).as_secs_f64();
+                let bitrate_bps = if elapsed > 0.0 {
+                    let delta = (bytes_sent + bytes_received)
+                        .saturating_sub(prev_bytes_sent + prev_bytes_received);
+                    Some((delta as f64 * 8.0 / elapsed) as u64)
                 } else {
-                    crate::metrics::METRICS_COLLECTOR.get_connection_health(&tube_id)
+                    None
                 };
+                prev_bytes_sent = bytes_sent;
+                prev_bytes_received = bytes_received;
+                prev_tick = now;
 
-                if let Some(metrics) = connection_health {
-                    let legs = &metrics.webrtc_metrics.connection_legs;
-                    let ice_stats = &metrics.webrtc_metrics.rtc_stats.ice_stats;
-                    let bandwidth_estimate_bps = quality_manager.get_bandwidth_estimate_bps();
-                    let current_metrics = quality_manager.get_current_metrics().await;
-
-                    // Calculate uptime
-                    let uptime = chrono::Utc::now().signed_duration_since(metrics.established_at);
-                    let uptime_str = if uptime.num_hours() > 0 {
-                        format!("{}h{}m", uptime.num_hours(), uptime.num_minutes() % 60)
-                    } else if uptime.num_minutes() > 0 {
-                        format!("{}m{}s", uptime.num_minutes(), uptime.num_seconds() % 60)
+                // Connection metrics log (verbose only)
+                if unlikely!(crate::logger::is_verbose_logging()) {
+                    let connection_health = if let Some(ref conv_id) = conversation_id {
+                        crate::metrics::METRICS_COLLECTOR
+                            .get_connection_health(&tube_id)
+                            .or_else(|| {
+                                crate::metrics::METRICS_COLLECTOR.get_connection_health(conv_id)
+                            })
                     } else {
-                        format!("{}s", uptime.num_seconds())
+                        crate::metrics::METRICS_COLLECTOR.get_connection_health(&tube_id)
                     };
 
-                    // Get connection path from selected candidate pair
-                    let connection_path = if let Some(ref pair) = ice_stats.selected_candidate_pair
-                    {
-                        format!(
-                            "{}->{}",
-                            pair.local_candidate_type, pair.remote_candidate_type
-                        )
-                    } else {
-                        "unknown".to_string()
-                    };
-
-                    // Calculate current throughput rates (from bitrate which is already delta-based)
-                    let send_rate_bps = webrtc_stats.bitrate_bps.unwrap_or(0) / 2; // Approximate split
-                    let recv_rate_bps = webrtc_stats.bitrate_bps.unwrap_or(0) / 2;
-
-                    // Determine side label based on server_mode
-                    let side_label = if is_server_mode {
-                        "Commander"
-                    } else {
-                        "Gateway"
-                    };
-
-                    if unlikely!(crate::logger::is_verbose_logging()) {
+                    if let Some(metrics) = connection_health {
+                        let legs = &metrics.webrtc_metrics.connection_legs;
+                        let ice_stats = &metrics.webrtc_metrics.rtc_stats.ice_stats;
+                        let uptime =
+                            chrono::Utc::now().signed_duration_since(metrics.established_at);
+                        let uptime_str = if uptime.num_hours() > 0 {
+                            format!("{}h{}m", uptime.num_hours(), uptime.num_minutes() % 60)
+                        } else if uptime.num_minutes() > 0 {
+                            format!("{}m{}s", uptime.num_minutes(), uptime.num_seconds() % 60)
+                        } else {
+                            format!("{}s", uptime.num_seconds())
+                        };
+                        let connection_path =
+                            if let Some(ref pair) = ice_stats.selected_candidate_pair {
+                                format!(
+                                    "{}->{}",
+                                    pair.local_candidate_type, pair.remote_candidate_type
+                                )
+                            } else {
+                                "unknown".to_string()
+                            };
+                        let side_label = if is_server_mode {
+                            "Commander"
+                        } else {
+                            "Gateway"
+                        };
+                        let (pacing_pauses, pacing_paused_us, peak_sctp) =
+                            crate::metrics::METRICS_COLLECTOR
+                                .get_pacing_stats(&tube_id)
+                                .unwrap_or((0, 0, 0));
                         debug!(
-                            "Connection Metrics ({}) | tube_id: {} | Uptime: {} | Path: {} | E2E: {:?}ms | {}<->KRelay: {:?}ms | RTT: {:?}ms | Jitter: {:.1}ms | BW: {:.2}Mbps ^{:.0}bps v{:.0}bps | Loss: {:.2}% | Quality: {}/100 | Congestion: {:?} | Sent: {:.2}MB | Recv: {:.2}MB",
+                            "Connection Metrics ({}) | tube_id: {} | Uptime: {} | Path: {} | \
+                             E2E: {:?}ms | {}<->KRelay: {:?}ms | RTT: {:?}ms | \
+                             BW: {:.2}Mbps | Sent: {:.2}MB | Recv: {:.2}MB | \
+                             Pacing: {} pauses {:.0}ms peak={}KB",
                             side_label,
                             tube_id,
                             uptime_str,
@@ -2600,24 +2497,16 @@ impl WebRTCPeerConnection {
                             legs.end_to_end_latency_ms,
                             side_label,
                             legs.krelay_to_gateway_latency_ms,
-                            webrtc_stats.rtt_ms,
-                            current_metrics.jitter_ms,
-                            bandwidth_estimate_bps as f64 / 1_000_000.0,
-                            send_rate_bps,
-                            recv_rate_bps,
-                            current_metrics.packet_loss_rate * 100.0,
-                            current_metrics.quality_score,
-                            current_metrics.congestion_level,
-                            webrtc_stats.bytes_sent as f64 / 1_000_000.0,
-                            webrtc_stats.bytes_received as f64 / 1_000_000.0
+                            rtt_ms,
+                            bitrate_bps.unwrap_or(0) as f64 / 1_000_000.0,
+                            bytes_sent as f64 / 1_000_000.0,
+                            bytes_received as f64 / 1_000_000.0,
+                            pacing_pauses,
+                            pacing_paused_us as f64 / 1000.0,
+                            peak_sctp / 1024,
                         );
                     }
                 }
-
-                // Apply quality recommendations (every 5 seconds)
-                // This creates a feedback loop where quality metrics influence connection behavior
-                // Note: We need to be careful not to create circular references here
-                // The quality manager makes recommendations, but doesn't directly call back to the connection
             }
 
             debug!("Stats collection task finished (tube_id: {})", tube_id);

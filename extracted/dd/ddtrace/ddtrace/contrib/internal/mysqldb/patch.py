@@ -1,5 +1,3 @@
-import os
-
 import MySQLdb
 from wrapt import wrap_function_wrapper as _w
 
@@ -17,6 +15,7 @@ from ddtrace.ext import net
 from ddtrace.internal.constants import COMPONENT
 from ddtrace.internal.schema import schematize_database_operation
 from ddtrace.internal.schema import schematize_service_name
+from ddtrace.internal.settings import env
 from ddtrace.internal.settings.asm import config as asm_config
 from ddtrace.internal.utils.formats import asbool
 from ddtrace.internal.utils.wrappers import unwrap as _u
@@ -30,8 +29,8 @@ config._add(
         _default_service=schematize_service_name("mysql"),
         _dbapi_span_name_prefix="mysql",
         _dbapi_span_operation_name=schematize_database_operation("mysql.query", database_provider="mysql"),
-        trace_fetch_methods=asbool(os.getenv("DD_MYSQLDB_TRACE_FETCH_METHODS", default=False)),
-        trace_connect=asbool(os.getenv("DD_MYSQLDB_TRACE_CONNECT", default=False)),
+        trace_fetch_methods=asbool(env.get("DD_MYSQLDB_TRACE_FETCH_METHODS", default=False)),
+        trace_connect=asbool(env.get("DD_MYSQLDB_TRACE_CONNECT", default=False)),
         _dbm_propagator=_DBM_Propagator(0, "query"),
     ),
 )
@@ -101,13 +100,12 @@ def _connect(func, instance, args, kwargs):
         with tracer.trace(
             "MySQLdb.connection.connect", service=ext_service(pin, config.mysqldb), span_type=SpanTypes.SQL
         ) as span:
-            span._set_tag_str(COMPONENT, config.mysqldb.integration_name)
+            span._set_attribute(COMPONENT, config.mysqldb.integration_name)
 
             # set span.kind to the type of operation being performed
-            span._set_tag_str(SPAN_KIND, SpanKind.CLIENT)
+            span._set_attribute(SPAN_KIND, SpanKind.CLIENT)
 
-            # PERF: avoid setting via Span.set_tag
-            span.set_metric(_SPAN_MEASURED_KEY, 1)
+            span._set_attribute(_SPAN_MEASURED_KEY, 1)
             conn = func(*args, **kwargs)
     return patch_conn(conn, *args, **kwargs)
 

@@ -1,5 +1,6 @@
 # pyright: reportGeneralTypeIssues=false
 """Wrapper to convert an OpenSpiel environment into a pettingzoo compatible environment."""
+
 from __future__ import annotations
 
 import string
@@ -326,7 +327,7 @@ class OpenSpielCompatibilityV0(pz.AECEnv, EzPickle):
                         return
                     else:
                         # ignore agents where there are no valid actions
-                        # this will raise assertations with PZ api
+                        # this will raise assertions with PZ api
                         self.simultaneous_actions[agent] = None
             return
 

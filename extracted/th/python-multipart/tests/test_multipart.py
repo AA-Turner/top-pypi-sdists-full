@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import logging
 import os
 import random
 import sys
 import tempfile
 import unittest
 from io import BytesIO
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
 import pytest
@@ -40,7 +39,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
     from typing import Any, TypedDict
 
-    from python_multipart.multipart import FieldProtocol, FileConfig, FileProtocol
+    from python_multipart.multipart import FileConfig
 
     class TestParams(TypedDict):
         name: str
@@ -375,6 +374,18 @@ class TestQuerystringParser(unittest.TestCase):
         self.p.write(b"foo=bar&")
 
         self.assert_fields((b"foo", b"bar"))
+
+    def test_querystring_trailing_bare_field_name(self) -> None:
+        # A trailing bare field name (no '=') must still emit field_end on
+        # finalize - otherwise the field is silently dropped.
+        self.p.write(b"foo=bar&baz")
+
+        self.assert_fields((b"foo", b"bar"), (b"baz", b""))
+
+    def test_querystring_only_bare_field_name(self) -> None:
+        self.p.write(b"foo")
+
+        self.assert_fields((b"foo", b""))
 
     def test_multiple_querystring(self) -> None:
         self.p.write(b"foo=bar&asdf=baz")
@@ -722,6 +733,14 @@ single_byte_tests = [
     "single_field_single_file",
 ]
 
+EPILOGUE_TEST_HEAD = (
+    "--boundary\r\n"
+    'Content-Disposition: form-data; name="file"; filename="filename.txt"\r\n'
+    "Content-Type: text/plain\r\n\r\n"
+    "hello\r\n"
+    "--boundary--"
+).encode("latin-1")
+
 
 def split_all(val: bytes) -> Iterator[tuple[bytes, bytes]]:
     """
@@ -734,6 +753,25 @@ def split_all(val: bytes) -> Iterator[tuple[bytes, bytes]]:
         yield (val[:i], val[i:])
 
 
+@pytest.mark.parametrize("content_transfer_encoding", [b"base64", b"BASE64", b"Base64"])
+def test_content_transfer_encoding_is_case_insensitive(content_transfer_encoding: bytes) -> None:
+    data = (
+        b'----boundary\r\nContent-Disposition: form-data; name="file"; filename="test.txt"\r\n'
+        b"Content-Type: text/plain\r\n"
+        b"Content-Transfer-Encoding: " + content_transfer_encoding + b"\r\n\r\nVGVzdA==\r\n----boundary--\r\n"
+    )
+    files: list[File] = []
+
+    f = FormParser("multipart/form-data", None, files.append, boundary="--boundary")
+
+    f.write(data)
+    f.finalize()
+
+    file = files[0]
+    file.file_object.seek(0)
+    assert file.file_object.read() == b"Test"
+
+
 @parametrize_class
 class TestFormParser(unittest.TestCase):
     def make(self, boundary: str | bytes, config: dict[str, Any] = {}) -> None:
@@ -741,11 +779,11 @@ class TestFormParser(unittest.TestCase):
         self.files: list[File] = []
         self.fields: list[Field] = []
 
-        def on_field(f: FieldProtocol) -> None:
-            self.fields.append(cast(Field, f))
+        def on_field(f: Field) -> None:
+            self.fields.append(f)
 
-        def on_file(f: FileProtocol) -> None:
-            self.files.append(cast(File, f))
+        def on_file(f: File) -> None:
+            self.files.append(f)
 
         def on_end() -> None:
             self.ended = True
@@ -759,7 +797,7 @@ class TestFormParser(unittest.TestCase):
         file_data = o.read()
         self.assertEqual(file_data, data)
 
-    def assert_file(self, field_name: bytes, file_name: bytes, data: bytes) -> None:
+    def assert_file(self, field_name: bytes, file_name: bytes, content_type: str | None, data: bytes) -> None:
         # Find this file.
         found = None
         for f in self.files:
@@ -770,6 +808,8 @@ class TestFormParser(unittest.TestCase):
         # Assert that we found it.
         self.assertIsNotNone(found)
         assert found is not None
+
+        self.assertEqual(found.content_type, content_type)
 
         try:
             # Assert about this file.
@@ -840,7 +880,7 @@ class TestFormParser(unittest.TestCase):
                 self.assert_field(name, e["data"])
 
             elif type == "file":
-                self.assert_file(name, e["file_name"].encode("latin-1"), e["data"])
+                self.assert_file(name, e["file_name"].encode("latin-1"), e["content_type"], e["data"])
 
             else:
                 assert False
@@ -871,7 +911,32 @@ class TestFormParser(unittest.TestCase):
 
             # Assert that our file and field are here.
             self.assert_field(b"field", b"test1")
-            self.assert_file(b"file", b"file.txt", b"test2")
+            self.assert_file(b"file", b"file.txt", "text/plain", b"test2")
+
+    def test_upload_delete_tmp_config(self) -> None:
+        with tempfile.TemporaryDirectory() as upload_dir:
+            self.make(
+                "----WebKitFormBoundary5BZGOJCWtXGYC9HW",
+                config={"UPLOAD_DIR": upload_dir, "UPLOAD_DELETE_TMP": False, "MAX_MEMORY_FILE_SIZE": 1},
+            )
+
+            test_file = "single_file.http"
+            with open(os.path.join(http_tests_dir, test_file), "rb") as f:
+                test_data = f.read()
+
+            self.f.write(test_data)
+            self.f.finalize()
+
+            self.assertEqual(len(self.files), 1)
+            uploaded_file = self.files[0]
+            assert uploaded_file.actual_file_name is not None
+            actual_file_name = uploaded_file.actual_file_name.decode(sys.getfilesystemencoding())
+            uploaded_file.close()
+
+            try:
+                self.assertTrue(os.path.exists(actual_file_name))
+            finally:
+                os.unlink(actual_file_name)
 
     @parametrize("param", [t for t in http_tests if t["name"] in single_byte_tests])
     def test_feed_single_bytes(self, param: TestParams) -> None:
@@ -910,7 +975,7 @@ class TestFormParser(unittest.TestCase):
                 self.assert_field(name, e["data"])
 
             elif type == "file":
-                self.assert_file(name, e["file_name"].encode("latin-1"), e["data"])
+                self.assert_file(name, e["file_name"].encode("latin-1"), e["content_type"], e["data"])
 
             else:
                 assert False
@@ -947,6 +1012,48 @@ class TestFormParser(unittest.TestCase):
 
                 # Assert that our field is here.
                 self.assert_field(b"field", b"0123456789ABCDEFGHIJ0123456789ABCDEFGHIJ")
+
+    def test_file_content_type_header(self) -> None:
+        """
+        This test checks the content-type for a file part is passed on.
+        """
+        # Load test data.
+        test_file = "header_with_number.http"
+        with open(os.path.join(http_tests_dir, test_file), "rb") as f:
+            test_data = f.read()
+
+        expected_content_type = "text/plain; charset=utf-8"
+
+        # Create form parser.
+        self.make(boundary="b8825ae386be4fdc9644d87e392caad3")
+        self.f.write(test_data)
+        self.f.finalize()
+
+        # Assert that our field is here.
+        self.assertEqual(1, len(self.files))
+        actual_content_type = self.files[0].content_type
+        self.assertEqual(actual_content_type, expected_content_type)
+
+    def test_field_content_type_header(self) -> None:
+        """
+        This test checks content-tpye for a field part are read and passed.
+        """
+        # Load test data.
+        test_file = "single_field.http"
+        with open(os.path.join(http_tests_dir, test_file), "rb") as f:
+            test_data = f.read()
+
+        expected_content_type = None
+
+        # Create form parser.
+        self.make(boundary="----WebKitFormBoundaryTkr3kCBQlBe1nrhc")
+        self.f.write(test_data)
+        self.f.finalize()
+
+        # Assert that our field is here.
+        self.assertEqual(1, len(self.fields))
+        actual_content_type = self.fields[0].content_type
+        self.assertEqual(actual_content_type, expected_content_type)
 
     def test_request_body_fuzz(self) -> None:
         """
@@ -1078,8 +1185,8 @@ class TestFormParser(unittest.TestCase):
     def test_octet_stream(self) -> None:
         files: list[File] = []
 
-        def on_file(f: FileProtocol) -> None:
-            files.append(cast(File, f))
+        def on_file(f: File) -> None:
+            files.append(f)
 
         on_field = Mock()
         on_end = Mock()
@@ -1100,8 +1207,8 @@ class TestFormParser(unittest.TestCase):
     def test_querystring(self) -> None:
         fields: list[Field] = []
 
-        def on_field(f: FieldProtocol) -> None:
-            fields.append(cast(Field, f))
+        def on_field(f: Field) -> None:
+            fields.append(f)
 
         on_file = Mock()
         on_end = Mock()
@@ -1171,8 +1278,8 @@ class TestFormParser(unittest.TestCase):
 
         files: list[File] = []
 
-        def on_file(f: FileProtocol) -> None:
-            files.append(cast(File, f))
+        def on_file(f: File) -> None:
+            files.append(f)
 
         on_field = Mock()
         on_end = Mock()
@@ -1193,11 +1300,31 @@ class TestFormParser(unittest.TestCase):
         f.finalize()
         self.assert_file_data(files[0], b"Test")
 
+    def test_bad_content_disposition(self) -> None:
+        # Field name is required per RFC 7578 §4.2.
+        data = (
+            b"----boundary\r\n"
+            b"Content-Disposition: form-data;\r\n"
+            b"Content-Type: text/plain\r\n"
+            b"\r\n"
+            b"Test\r\n"
+            b"----boundary--\r\n"
+        )
+
+        on_field = Mock()
+        on_file = Mock()
+
+        f = FormParser("multipart/form-data", on_field, on_file, boundary="--boundary")
+
+        with self.assertRaisesRegex(FormParserError, "Field name not found in Content-Disposition"):
+            f.write(data)
+            f.finalize()
+
     def test_handles_None_fields(self) -> None:
         fields: list[Field] = []
 
-        def on_field(f: FieldProtocol) -> None:
-            fields.append(cast(Field, f))
+        def on_field(f: Field) -> None:
+            fields.append(f)
 
         on_file = Mock()
         on_end = Mock()
@@ -1215,27 +1342,58 @@ class TestFormParser(unittest.TestCase):
         self.assertEqual(fields[2].field_name, b"baz")
         self.assertEqual(fields[2].value, b"asdf")
 
-    def test_multipart_parser_newlines_before_first_boundary(self) -> None:
-        """This test makes sure that the parser does not handle when there is junk data after the last boundary."""
-        num = 5_000_000
-        data = (
-            "\r\n" * num + "--boundary\r\n"
-            'Content-Disposition: form-data; name="file"; filename="filename.txt"\r\n'
-            "Content-Type: text/plain\r\n\r\n"
-            "hello\r\n"
-            "--boundary--"
-        )
+    @parametrize(
+        "chunks",
+        [
+            [
+                b"\r\nignored preamble\r\n"
+                + (
+                    b"--boundary\r\n"
+                    b'Content-Disposition: form-data; name="file"; filename="filename.txt"\r\n'
+                    b"Content-Type: text/plain\r\n\r\n"
+                    b"hello\r\n"
+                    b"--boundary--"
+                )
+            ],
+            [
+                b"\r\n" * 5_000_000
+                + (
+                    b"--boundary\r\n"
+                    b'Content-Disposition: form-data; name="file"; filename="filename.txt"\r\n'
+                    b"Content-Type: text/plain\r\n\r\n"
+                    b"hello\r\n"
+                    b"--boundary--"
+                )
+            ],
+            [
+                b"\r\n" * 5_000_000,
+                (
+                    b"--boundary\r\n"
+                    b'Content-Disposition: form-data; name="file"; filename="filename.txt"\r\n'
+                    b"Content-Type: text/plain\r\n\r\n"
+                    b"hello\r\n"
+                    b"--boundary--"
+                ),
+            ],
+        ],
+    )
+    def test_multipart_parser_preamble_before_first_boundary(self, chunks: list[bytes]) -> None:
+        """Parser must not hang or blow up on a preamble before the first boundary."""
 
         files: list[File] = []
 
-        def on_file(f: FileProtocol) -> None:
-            files.append(cast(File, f))
+        def on_file(f: File) -> None:
+            files.append(f)
 
         f = FormParser("multipart/form-data", on_field=Mock(), on_file=on_file, boundary="boundary")
-        f.write(data.encode("latin-1"))
+        for chunk in chunks:
+            f.write(chunk)
+
+        assert len(files) == 1
+        self.assert_file_data(files[0], b"hello")
 
     def test_multipart_parser_data_after_last_boundary(self) -> None:
-        """This test makes sure that the parser does not handle when there is junk data after the last boundary."""
+        """Parser must short-circuit on arbitrary epilogue data after the closing boundary (no O(N) scan)."""
         num = 50_000_000
         data = (
             "--boundary\r\n"
@@ -1247,35 +1405,38 @@ class TestFormParser(unittest.TestCase):
 
         files: list[File] = []
 
-        def on_file(f: FileProtocol) -> None:
-            files.append(cast(File, f))
+        def on_file(f: File) -> None:
+            files.append(f)
 
         f = FormParser("multipart/form-data", on_field=Mock(), on_file=on_file, boundary="boundary")
         f.write(data.encode("latin-1"))
 
-    @pytest.fixture(autouse=True)
-    def inject_fixtures(self, caplog: pytest.LogCaptureFixture) -> None:
-        self._caplog = caplog
+    @parametrize(
+        "chunks",
+        [
+            [EPILOGUE_TEST_HEAD + b"\r\n"],
+            [EPILOGUE_TEST_HEAD + b"\r", b"\n"],
+            [EPILOGUE_TEST_HEAD, b"\r\n"],
+            [EPILOGUE_TEST_HEAD + b"\r\n--boundary\r\nthis is not a valid header\r\n\r\nnot a real part"],
+        ],
+    )
+    def test_multipart_parser_ignores_epilogue(self, chunks: list[bytes]) -> None:
+        """Epilogue data after the closing boundary must be ignored.
 
-    def test_multipart_parser_data_end_with_crlf_without_warnings(self) -> None:
-        """This test makes sure that the parser does not handle when the data ends with a CRLF."""
-        data = (
-            "--boundary\r\n"
-            'Content-Disposition: form-data; name="file"; filename="filename.txt"\r\n'
-            "Content-Type: text/plain\r\n\r\n"
-            "hello\r\n"
-            "--boundary--\r\n"
-        )
-
+        Covers both the single-chunk case and the case where trailing CRLF is split across `write()` calls.
+        The final case asserts that epilogue bytes are not parsed or validated.
+        """
         files: list[File] = []
 
-        def on_file(f: FileProtocol) -> None:
-            files.append(cast(File, f))
+        def on_file(f: File) -> None:
+            files.append(f)
 
         f = FormParser("multipart/form-data", on_field=Mock(), on_file=on_file, boundary="boundary")
-        with self._caplog.at_level(logging.WARNING):
-            f.write(data.encode("latin-1"))
-            assert len(self._caplog.records) == 0
+        for chunk in chunks:
+            f.write(chunk)
+
+        assert len(files) == 1
+        self.assert_file_data(files[0], b"hello")
 
     def test_max_size_multipart(self) -> None:
         # Load test data.
@@ -1317,8 +1478,8 @@ class TestFormParser(unittest.TestCase):
     def test_octet_stream_max_size(self) -> None:
         files: list[File] = []
 
-        def on_file(f: FileProtocol) -> None:
-            files.append(cast(File, f))
+        def on_file(f: File) -> None:
+            files.append(f)
 
         on_field = Mock()
         on_end = Mock()
@@ -1395,12 +1556,12 @@ class TestHelperFunctions(unittest.TestCase):
         self.assertEqual(on_file.call_args[0][0].size, 15)
 
     def test_parse_form_content_length(self) -> None:
-        files: list[FileProtocol] = []
+        files: list[File] = []
 
-        def on_field(field: FieldProtocol) -> None:
+        def on_field(field: Field) -> None:
             pass
 
-        def on_file(file: FileProtocol) -> None:
+        def on_file(file: File) -> None:
             files.append(file)
 
         parse_form(
@@ -1411,7 +1572,7 @@ class TestHelperFunctions(unittest.TestCase):
         )
 
         self.assertEqual(len(files), 1)
-        self.assertEqual(files[0].size, 10)  # type: ignore[attr-defined]
+        self.assertEqual(files[0].size, 10)
 
     def test_parse_form_invalid_chunk_size(self) -> None:
         with self.assertRaisesRegex(ValueError, "chunk_size must be a positive number, not 0"):

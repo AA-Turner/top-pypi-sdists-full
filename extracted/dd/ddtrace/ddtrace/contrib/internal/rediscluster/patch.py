@@ -1,5 +1,3 @@
-import os
-
 # 3p
 import rediscluster
 import wrapt
@@ -19,6 +17,7 @@ from ddtrace.ext import redis as redisx
 from ddtrace.internal.constants import COMPONENT
 from ddtrace.internal.schema import schematize_cache_operation
 from ddtrace.internal.schema import schematize_service_name
+from ddtrace.internal.settings import env
 from ddtrace.internal.utils.formats import CMD_MAX_LEN
 from ddtrace.internal.utils.formats import asbool
 from ddtrace.internal.utils.formats import stringify_cache_args
@@ -34,8 +33,8 @@ config._add(
     "rediscluster",
     dict(
         _default_service=schematize_service_name("rediscluster"),
-        cmd_max_length=int(os.getenv("DD_REDISCLUSTER_CMD_MAX_LENGTH", CMD_MAX_LEN)),
-        resource_only_command=asbool(os.getenv("DD_REDIS_RESOURCE_ONLY_COMMAND", True)),
+        cmd_max_length=int(env.get("DD_REDISCLUSTER_CMD_MAX_LENGTH", CMD_MAX_LEN)),
+        resource_only_command=asbool(env.get("DD_REDIS_RESOURCE_ONLY_COMMAND", True)),
     ),
 )
 
@@ -101,12 +100,11 @@ def traced_execute_pipeline(func, instance, args, kwargs):
         service=trace_utils.ext_service(pin, config.rediscluster, "rediscluster"),
         span_type=SpanTypes.REDIS,
     ) as s:
-        s._set_tag_str(SPAN_KIND, SpanKind.CLIENT)
-        s._set_tag_str(COMPONENT, config.rediscluster.integration_name)
-        s._set_tag_str(db.SYSTEM, redisx.APP)
-        # PERF: avoid setting via Span.set_tag
-        s.set_metric(_SPAN_MEASURED_KEY, 1)
-        s._set_tag_str(redisx.RAWCMD, resource)
-        s.set_metric(redisx.PIPELINE_LEN, len(instance.command_stack))
+        s._set_attribute(SPAN_KIND, SpanKind.CLIENT)
+        s._set_attribute(COMPONENT, config.rediscluster.integration_name)
+        s._set_attribute(db.SYSTEM, redisx.APP)
+        s._set_attribute(_SPAN_MEASURED_KEY, 1)
+        s._set_attribute(redisx.RAWCMD, resource)
+        s._set_attribute(redisx.PIPELINE_LEN, len(instance.command_stack))
 
         return func(*args, **kwargs)

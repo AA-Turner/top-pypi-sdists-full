@@ -82,6 +82,8 @@ def standardize_dataframe(df: pd.DataFrame, vi_var: str) -> pd.DataFrame:
         "daymet_tmax": "tasmax",
         "daymet_tmin": "tasmin",
         "daymet_prcp": "pr",
+        "chirts_era5_tmax": "tasmax",
+        "chirts_era5_tmin": "tasmin",
         "snow": "snd",
         "esi_4wk": "esi_4wk",
         "region": "adm1_name",
@@ -356,12 +358,12 @@ METHOD_TO_COLUMN = {
 
 
 ###############################################################################
-#                          MAIN CLASS CEIs
+#                          MAIN CLASS CIDs
 ###############################################################################
-class CEIs:
+class CIDs:
     """
     The main class orchestrating the extraction and computation of climate
-    and environmental indices (CEIs) for a given country/crop/season dataset.
+    and environmental indices (CIDs) for a given country/crop/season dataset.
     """
 
     def __init__(
@@ -376,7 +378,7 @@ class CEIs:
         redo: bool
     ) -> None:
         """
-        Initialize the CEIs class with relevant parameters and placeholders.
+        Initialize the CIDs class with relevant parameters and placeholders.
 
         Args:
             parser: Config parser or similar object to fetch base directories.
@@ -525,7 +527,7 @@ class CEIs:
 
     def manage_existing_files(self) -> Path | None:
         """
-        Check if final CEI file already exists. If we do not need to redo,
+        Check if final CID file already exists. If we do not need to redo,
         skip processing for older years.
 
         Returns:
@@ -535,7 +537,7 @@ class CEIs:
             self.dir_intermediate
             / f"{self.country}_{self.crop}_s{self.season}_{self.harvest_year}.csv"
         )
-        cei_file = (
+        cid_file = (
             self.dir_output
             / f"{self.country}_{self.crop}_s{self.season}_{self.harvest_year}.csv"
         )
@@ -543,8 +545,8 @@ class CEIs:
 
         if not self.redo:
             # If harvest_year is older than last year and file exists, skip
-            if (self.harvest_year < (current_year - 1)) and cei_file.is_file():
-                logger.info(f"CEI file exists, skipping: {cei_file}")
+            if (self.harvest_year < (current_year - 1)) and cid_file.is_file():
+                logger.info(f"CID file exists, skipping: {cid_file}")
                 return None
 
         return intermediate_file
@@ -666,7 +668,7 @@ class CEIs:
         key: tuple[str, str]
     ) -> pd.DataFrame:
         """
-        Compute CEIs for a single (adm0_name, adm1_name) subset, iterating
+        Compute CIDs for a single (adm0_name, adm1_name) subset, iterating
         across each stage or stage combination (depending on method).
 
         Args:
@@ -674,7 +676,7 @@ class CEIs:
             key (tuple[str, str]): (country_name, region_name)
 
         Returns:
-            pd.DataFrame: The computed CEIs for this region across all stages.
+            pd.DataFrame: The computed CIDs for this region across all stages.
         """
         frames_group = []
 
@@ -831,7 +833,7 @@ class CEIs:
         df = df.iloc[[0]]  # keep as DataFrame
 
         # Add metadata
-        df["CEI"] = df[index_name]
+        df["CID"] = df[index_name]
         df.drop(columns=[index_name], inplace=True)
 
         df["Description"] = index_details
@@ -847,7 +849,7 @@ class CEIs:
         df["Harvest Year"] = self.harvest_year
 
         return df[[
-            "Description", "CEI", "Country", "Region", "Area",
+            "Description", "CID", "Country", "Region", "Area",
             "Crop", "Season", "Method", "Stage", "Harvest Year",
             "Index", "Type"
         ]]
@@ -1010,7 +1012,7 @@ class CEIs:
 
             row = {
                 "Description": idesc,
-                "CEI": val,
+                "CID": val,
                 "Country": key[0].replace("_", " ").title(),
                 "Region": key[1].replace("_", " ").title(),
                 "Area": df_harvest_year_region["Area"].unique()[0],
@@ -1036,15 +1038,15 @@ class CEIs:
         fname = f"{self.country}_{self.crop}_s{self.season}_{self.harvest_year}.csv"
         out_path = self.dir_output / fname
         df.to_csv(out_path, index=False)
-        logger.info("Saved CEI results to %s", out_path)
+        logger.info("Saved CID results to %s", out_path)
 
 
 ###############################################################################
 #                            MAIN PROCESS FUNCTION
 ###############################################################################
-def _run_one_year(obj: "CEIs") -> None:
+def _run_one_year(obj: "CIDs") -> None:
     """
-    Run the per-harvest-year pipeline on a ``CEIs`` instance whose
+    Run the per-harvest-year pipeline on a ``CIDs`` instance whose
     ``df_country_crop`` and ``icclim_cache`` have already been populated by
     the caller. Extracted so ``process_file`` can amortize CSV read and ICCLIM
     result caching across many years for one file.
@@ -1096,8 +1098,8 @@ def process_file(row) -> None:
     if not years:
         return
 
-    def _build_ceis(harvest_year: int) -> "CEIs":
-        return CEIs(
+    def _build_cids(harvest_year: int) -> "CIDs":
+        return CIDs(
             parser=args.parser,
             process_type=args.process_type,
             file_path=args.file_path,
@@ -1110,7 +1112,7 @@ def process_file(row) -> None:
 
     # Read + standardize + add season columns exactly once for this file.
     try:
-        df_country_crop = _build_ceis(years[0]).preprocess_input_df(args.vi_var)
+        df_country_crop = _build_cids(years[0]).preprocess_input_df(args.vi_var)
     except Exception as e:
         logger.error("preprocess_input_df failed for %s: %s", args.file_path, e)
         return
@@ -1119,16 +1121,16 @@ def process_file(row) -> None:
         return
 
     # Shared ICCLIM result cache for every year in this file. Ordinary dict
-    # passed by reference so every CEIs instance below appends to the same
-    # object — amortizes ICCLIM across years without reusing CEIs state.
+    # passed by reference so every CIDs instance below appends to the same
+    # object — amortizes ICCLIM across years without reusing CIDs state.
     icclim_cache: dict = {}
 
     for year in years:
         try:
-            obj = _build_ceis(year)
+            obj = _build_cids(year)
             # Inject the pre-loaded dataframe and the shared cache. Everything
             # else (directories, df_harvest_year, paths) is reset cleanly by
-            # ``CEIs.__init__`` so no per-year state leaks.
+            # ``CIDs.__init__`` so no per-year state leaks.
             obj.df_country_crop = df_country_crop
             obj.icclim_cache = icclim_cache
             _run_one_year(obj)

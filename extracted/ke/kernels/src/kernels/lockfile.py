@@ -2,18 +2,21 @@ import hashlib
 from dataclasses import dataclass
 from pathlib import Path
 
-from huggingface_hub import HfApi
+from huggingface_hub.dataclasses import strict
 
 from kernels._versions import resolve_version_spec_as_ref
 from kernels.compat import tomllib
+from kernels.status import resolve_status
 
 
+@strict
 @dataclass
 class VariantLock:
     hash: str
     hash_type: str = "git_lfs_concat"
 
 
+@strict
 @dataclass
 class KernelLock:
     repo_id: str
@@ -35,9 +38,18 @@ def get_kernel_locks(repo_id: str, version_spec: int | str) -> KernelLock:
     The version specifier can be any valid Python version specifier:
     https://packaging.python.org/en/latest/specifications/version-specifiers/#version-specifiers
     """
+    from kernels.utils import _get_hf_api
+
+    api = _get_hf_api()
+
+    # NOTE: the destination of a redirect is respected but we still use
+    # resolve_version_spec_as_ref to resolve the version specifier of the
+    # final destination repo.
+    repo_id, _ = resolve_status(api, repo_id, "main")
+
     tag_for_newest = resolve_version_spec_as_ref(repo_id, version_spec)
 
-    r = HfApi().repo_info(
+    r = api.repo_info(
         repo_id=repo_id, revision=tag_for_newest.target_commit, files_metadata=True
     )
     if r.sha is None:

@@ -1,13 +1,15 @@
-use crate::UrlLike;
-use pyo3::basic::CompareOp;
-use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyTuple};
-use ryo3_macro_rules::{py_type_err, py_value_error};
 use std::ffi::OsString;
 use std::hash::{Hash, Hasher};
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
+
+use pyo3::basic::CompareOp;
+use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyTuple};
+use ryo3_macro_rules::{py_type_err, py_value_error};
+
+use crate::UrlLike;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize), serde(transparent))]

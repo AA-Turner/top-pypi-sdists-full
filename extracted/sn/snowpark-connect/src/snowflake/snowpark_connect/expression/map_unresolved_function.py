@@ -2491,23 +2491,21 @@ def map_unresolved_function(
                 base64_encoding_function(snowpark_args[0]), lambda: [StringType()]
             )
         case "bin":
+            match snowpark_typed_args[0].typ:
+                case StringType():
+                    bin_arg = snowpark_fn.try_cast(snowpark_args[0], LongType())
+                case type_ if isinstance(type_, _FractionalType):
+                    bin_arg = snowpark_fn.cast(
+                        snowpark_fn.when(
+                            snowpark_args[0] < 0, snowpark_fn.ceil(snowpark_args[0])
+                        ).otherwise(snowpark_fn.floor(snowpark_args[0])),
+                        LongType(),
+                    )
+                case _:
+                    bin_arg = snowpark_fn.cast(snowpark_args[0], LongType())
 
-            @cached_udf(
-                input_types=[VariantType()],
-                return_type=StringType(),
-            )
-            def _to_bin_udf(intval):
-                try:
-                    intval = int(intval)
-                except (ValueError, TypeError):
-                    return None
-
-                return format(intval if intval >= 0 else (1 << 64) + intval, "b")
-
-            result_exp = TypedColumn(
-                _to_bin_udf(snowpark_fn.cast(snowpark_args[0], VariantType())),
-                lambda: [StringType()],
-            )
+            result_exp = snowpark_fn.call_function(sfdb_udfs.bin_long, bin_arg)
+            result_type = StringType()
         case "bit_and":
             bit_and_agg_function = snowpark_fn.function("BITAND_AGG")
             result_exp = bit_and_agg_function(snowpark_args[0])

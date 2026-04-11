@@ -23,9 +23,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version:
-          - "3.8"
-          - "3.10"
-          - "3.13"
+          - "3.9"
+          - "3.11"
           - "3.14"
         include:
           - os: ubuntu-22.04
@@ -55,10 +54,10 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         if: matrix.python-version == '3.14'
         with:
-          auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
-          use-mamba: true
           channels: conda-forge
+          conda-remove-defaults: true
+          conda-version: '25.11.1'
+          activate-environment:
       - name: Install Nox-under-test (uv)
         run:  uv pip install --system .
       - name: Run tests on ${{ matrix.os }}
@@ -69,7 +68,7 @@ jobs:
         if: matrix.python-version == '3.14'
         run: nox --session "conda_tests" -- --full-trace
       - name: Save coverage report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ github.job }}-${{ strategy.job-index }}
           path: .coverage.*
@@ -92,7 +91,7 @@ jobs:
       - name: Install Nox-under-test
         run:  uv pip install --system .
       - name: Download individual coverage reports
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: coverage-*
           merge-multiple: true

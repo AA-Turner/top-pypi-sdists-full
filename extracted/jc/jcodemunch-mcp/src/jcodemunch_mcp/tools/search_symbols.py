@@ -180,6 +180,40 @@ def _compute_centrality(
     return {f: math.log(1 + c) * _CENTRALITY_WEIGHT for f, c in counts.items()}
 
 
+def _identity_score(sym: dict, query_joined: str) -> float:
+    """Identity channel: exact or prefix match on symbol name/ID.
+
+    Returns a high score for exact matches and a decreasing score for
+    prefix matches by specificity.  Replaces the old ``50.0`` exact-name hack.
+
+    Scoring:
+      - Exact name match          → 50.0
+      - Exact ID match            → 50.0
+      - Name starts with query    → 30.0
+      - ID contains query segment → 20.0
+      - No match                  →  0.0
+    """
+    if not query_joined:
+        return 0.0
+    name_lower = sym.get("name", "").lower()
+    sym_id_lower = sym.get("id", "").lower()
+
+    # Exact match on name or ID
+    if query_joined == name_lower or query_joined == sym_id_lower:
+        return 50.0
+
+    # Prefix match on name (e.g. query "get_sym" matches "get_symbol_source")
+    if name_lower.startswith(query_joined):
+        return 30.0
+
+    # Qualified ID segment match (e.g. query "storage.indexstore" matches
+    # "src/storage/index_store.py::IndexStore")
+    if query_joined in sym_id_lower:
+        return 20.0
+
+    return 0.0
+
+
 def _bm25_score(sym: dict, query_terms: list[str], idf: dict[str, float], avgdl: float,
                 centrality: Optional[dict] = None) -> float:
     """BM25 score for a single symbol.
@@ -191,10 +225,9 @@ def _bm25_score(sym: dict, query_terms: list[str], idf: dict[str, float], avgdl:
     tf_raw = sym["_tf"]
     dl = sym["_dl"]
 
-    # Exact name match bonus so direct lookups still float to the top
-    name_lower = sym.get("name", "").lower()
+    # Identity channel: exact/prefix match on symbol name or ID
     query_joined = " ".join(query_terms)
-    score: float = 50.0 if query_joined == name_lower else 0.0
+    score: float = _identity_score(sym, query_joined)
 
     K = _BM25_K1 * (1 - _BM25_B + _BM25_B * dl / max(avgdl, 1.0))
     for term in set(query_terms):
@@ -242,7 +275,17 @@ def _bm25_breakdown(sym: dict, query_terms: list[str], idf: dict[str, float], av
             if tf > 0 and idf.get(term, 0.0) > 0:
                 field_score += idf[term] * (tf * (_BM25_K1 + 1)) / (tf + K)
         out[fname] = round(field_score, 3)
-    out["name_exact_bonus"] = 50.0 if " ".join(query_terms) == sym.get("name", "").lower() else 0.0
+    query_joined = " ".join(query_terms)
+    identity = _identity_score(sym, query_joined)
+    out["identity"] = identity
+    if identity >= 50.0:
+        out["identity_type"] = "exact"
+    elif identity >= 30.0:
+        out["identity_type"] = "prefix"
+    elif identity >= 20.0:
+        out["identity_type"] = "segment"
+    else:
+        out["identity_type"] = "none"
     return out
 
 
@@ -303,6 +346,7 @@ def search_symbols(
     semantic: bool = False,
     semantic_weight: float = 0.5,
     semantic_only: bool = False,
+    fusion: bool = False,
     storage_path: Optional[str] = None,
     fqn: Optional[str] = None,
 ) -> dict:
@@ -341,6 +385,10 @@ def search_symbols(
             Set to 0.0 for pure BM25 behaviour; set to 1.0 for pure semantic.
         semantic_only: Skip BM25 entirely; rank solely by embedding similarity.
             Implies semantic=True.
+        fusion: Enable multi-signal fusion (Weighted Reciprocal Rank) across
+            lexical, structural, similarity, and identity channels. Produces
+            higher-quality ranking than linear score addition. When True,
+            ``sort_by`` is ignored (fusion handles its own ranking).
         storage_path: Custom storage path.
 
     Returns:
@@ -400,6 +448,7 @@ def search_symbols(
             sort_by,
             semantic_weight,
             token_budget,
+            fusion,
         )
         _cached = _result_cache_get(_cache_key)
         if _cached is not None:
@@ -492,6 +541,36 @@ def search_symbols(
             provider=_semantic_provider[0],
             model=_semantic_provider[1],
             start=start,
+        )
+
+    # ── Fusion search path ──────────────────────────────────────────────
+    # Multi-signal ranking via Weighted Reciprocal Rank (WRR).
+    if fusion:
+        return _search_symbols_fusion(
+            index=index,
+            store=store,
+            owner=owner,
+            name=name,
+            query=query,
+            query_terms=query_terms,
+            idf=idf,
+            avgdl=avgdl,
+            centrality=centrality,
+            pagerank=pagerank,
+            has_filters=has_filters,
+            kind=kind,
+            file_pattern=file_pattern,
+            language=language,
+            decorator=decorator,
+            max_results=max_results,
+            effective_limit=effective_limit,
+            token_budget=token_budget,
+            budget_bytes=budget_bytes,
+            detail_level=detail_level,
+            debug=debug,
+            start=start,
+            cache_key=_cache_key,
+            cacheable=_cacheable,
         )
 
     # Narrow candidates using inverted index: only score symbols that
@@ -1019,3 +1098,219 @@ def _search_symbols_semantic(
     return result
 
 
+def _search_symbols_fusion(
+    *,
+    index,
+    store,
+    owner: str,
+    name: str,
+    query: str,
+    query_terms: list[str],
+    idf: dict,
+    avgdl: float,
+    centrality: dict,
+    pagerank: dict,
+    has_filters: bool,
+    kind,
+    file_pattern,
+    language,
+    decorator,
+    max_results: int,
+    effective_limit: int,
+    token_budget,
+    budget_bytes: int,
+    detail_level: str,
+    debug: bool,
+    start: float,
+    cache_key,
+    cacheable: bool,
+) -> dict:
+    """Fusion search path: multi-signal WRR ranking."""
+    from ..retrieval.signal_fusion import (
+        fuse,
+        build_lexical_channel,
+        build_structural_channel,
+        build_identity_channel,
+        load_fusion_weights,
+    )
+
+    # Apply filters to get candidate symbols
+    if has_filters:
+        from fnmatch import fnmatch as _fnmatch
+        candidates = [
+            sym for sym in index.symbols
+            if (not kind or sym.get("kind") == kind)
+            and (not file_pattern or _fnmatch(sym.get("file", ""), file_pattern))
+            and (not language or sym.get("language") == language)
+            and (not decorator or any(decorator.lower() in d.lower() for d in (sym.get("decorators") or [])))
+        ]
+    else:
+        candidates = index.symbols
+
+    if not candidates:
+        elapsed = (time.perf_counter() - start) * 1000
+        return {
+            "result_count": 0,
+            "results": [],
+            "_meta": {"timing_ms": round(elapsed, 1), "total_symbols": len(index.symbols)},
+        }
+
+    # Load config weights
+    weights, smoothing = load_fusion_weights()
+
+    # Build channels
+    channels = []
+
+    # Lexical (BM25 without identity — identity is a separate channel)
+    lex_ch = build_lexical_channel(candidates, query_terms, idf, avgdl, centrality)
+    channels.append(lex_ch)
+
+    # Identity
+    id_ch = build_identity_channel(candidates, query)
+    channels.append(id_ch)
+
+    # Structural (PageRank) — only if we have PageRank data
+    if not pagerank:
+        cache = index._bm25_cache
+        if "pagerank" not in cache:
+            from .pagerank import compute_pagerank
+            pr_scores, _ = compute_pagerank(
+                index.imports or {}, index.source_files, index.alias_map,
+                psr4_map=getattr(index, "psr4_map", None),
+            )
+            cache["pagerank"] = pr_scores
+        pagerank = cache["pagerank"]
+
+    if pagerank:
+        candidate_ids = set(lex_ch.ranked_ids) | set(id_ch.ranked_ids)
+        struct_ch = build_structural_channel(candidates, pagerank, candidate_ids)
+        channels.append(struct_ch)
+
+    # Similarity channel: only if embeddings exist for this repo
+    try:
+        from ..storage.embedding_store import EmbeddingStore
+        emb_store = EmbeddingStore(base_path=store._base_path if hasattr(store, "_base_path") else None)
+        all_embeddings = emb_store.get_all(owner, name)
+        if all_embeddings:
+            from .embed_repo import _detect_provider, _embed_texts
+            provider = _detect_provider()
+            if provider:
+                q_emb = _embed_texts([query], provider[0], provider[1])
+                if q_emb and q_emb[0]:
+                    from ..retrieval.signal_fusion import build_similarity_channel
+                    sim_ch = build_similarity_channel(q_emb[0], all_embeddings)
+                    channels.append(sim_ch)
+    except Exception:
+        pass  # Similarity is optional
+
+    # Fuse
+    fused = fuse(channels, smoothing=smoothing, weights=weights)
+
+    # Build result list
+    sym_by_id = {sym["id"]: sym for sym in candidates}
+    scored_results = []
+
+    for fr in fused[:effective_limit]:
+        sym = sym_by_id.get(fr.symbol_id)
+        if not sym:
+            continue
+
+        if detail_level == "compact":
+            entry = {
+                "id": sym["id"],
+                "name": sym["name"],
+                "kind": sym["kind"],
+                "file": sym["file"],
+                "line": sym["line"],
+                "byte_length": sym.get("byte_length", 0),
+            }
+        else:
+            entry = {
+                "id": sym["id"],
+                "kind": sym["kind"],
+                "name": sym["name"],
+                "file": sym["file"],
+                "line": sym["line"],
+                "signature": sym["signature"],
+                "summary": sym.get("summary", ""),
+                "byte_length": sym.get("byte_length", 0),
+            }
+        decs = sym.get("decorators") or []
+        if decs:
+            entry["decorators"] = decs
+        if debug:
+            entry["fusion_score"] = round(fr.score, 6)
+            entry["channel_contributions"] = {
+                k: round(v, 6) for k, v in fr.channel_contributions.items()
+            }
+            entry["channel_ranks"] = fr.channel_ranks
+        scored_results.append(entry)
+
+    # Budget packing
+    budget_truncated = False
+    if token_budget is not None:
+        packed, used_bytes = [], 0
+        for entry in scored_results:
+            b = entry["byte_length"]
+            if used_bytes + b <= budget_bytes:
+                packed.append(entry)
+                used_bytes += b
+        budget_truncated = len(packed) < len(scored_results)
+        scored_results = packed
+
+    # Full detail
+    if detail_level == "full":
+        for entry in scored_results:
+            sym = index._get_symbol_raw(entry["id"])
+            if sym:
+                source = store.get_symbol_content(owner, name, entry["id"], _index=index)
+                entry["end_line"] = sym.get("end_line", entry["line"])
+                entry["docstring"] = sym.get("docstring", "")
+                entry["source"] = source or ""
+
+    # Token savings
+    raw_bytes = 0
+    seen_files: set = set()
+    response_bytes = 0
+    for entry in scored_results:
+        f = entry["file"]
+        if f not in seen_files:
+            seen_files.add(f)
+            raw_bytes += index.file_sizes.get(f, 0)
+        response_bytes += entry["byte_length"]
+    tokens_saved = estimate_savings(raw_bytes, response_bytes)
+    total_saved = record_savings(tokens_saved, tool_name="search_symbols")
+
+    elapsed = (time.perf_counter() - start) * 1000
+
+    meta = {
+        "timing_ms": round(elapsed, 1),
+        "total_symbols": len(index.symbols),
+        "truncated": len(fused) > len(scored_results) or budget_truncated,
+        "tokens_saved": tokens_saved,
+        "total_tokens_saved": total_saved,
+        **cost_avoided(tokens_saved, total_saved),
+        "fusion": True,
+        "channels": [ch.name for ch in channels],
+    }
+    if token_budget is not None:
+        used = sum(e["byte_length"] for e in scored_results)
+        meta["token_budget"] = token_budget
+        meta["tokens_used"] = used // BYTES_PER_TOKEN
+        meta["tokens_remaining"] = max(0, token_budget - used // BYTES_PER_TOKEN)
+    if debug:
+        meta["fusion_weights"] = weights
+        meta["fusion_smoothing"] = smoothing
+    if scored_results:
+        meta["hint"] = "Use get_context_bundle(symbol_id) to retrieve source + imports in one call"
+
+    result = {
+        "result_count": len(scored_results),
+        "results": scored_results,
+        "_meta": meta,
+    }
+
+    if cacheable and cache_key is not None:
+        _result_cache_put(cache_key, result)
+
+    return result

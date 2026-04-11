@@ -1,9 +1,11 @@
+import re
 import uuid
 
 import sky
 
 from trainy.config import load_config
 from trainy.logging import get_logger
+from trainy.policy._pod_spec import merge_pod_spec_sections
 
 logger = get_logger(__file__)
 
@@ -18,6 +20,18 @@ def set_oci_config(user_request: sky.UserRequest) -> sky.MutatedUserRequest:
     # Set kueue pod-group labels/annotations for all jobs
     if task.name is None:
         raise ValueError("no sky.Task name defined. You must set a task name")
+    if len(task.name) > 58:
+        raise ValueError(
+            f"sky.Task name {task.name!r} is too long ({len(task.name)} "
+            "characters). Maximum allowed length is 58 characters."
+        )
+    # Sanitize to a DNS-1123 label: lowercase alphanumeric and '-'.
+    sanitized_name = re.sub(r"[^a-z0-9-]", "-", task.name.lower()).strip("-")
+    if not sanitized_name:
+        raise ValueError(
+            f"sky.Task name {task.name!r} cannot be sanitized to a valid "
+            "DNS-1123 label (must contain at least one alphanumeric character)."
+        )
     config.set_nested(
         (
             "kubernetes",
@@ -26,7 +40,7 @@ def set_oci_config(user_request: sky.UserRequest) -> sky.MutatedUserRequest:
             "labels",
             "kueue.x-k8s.io/pod-group-name",
         ),
-        f"{task.name[:8]}-{uuid.uuid4().hex[:4]}",
+        f"{sanitized_name}-{uuid.uuid4().hex[:4]}",
     )
     config.set_nested(
         (
@@ -56,8 +70,9 @@ def set_oci_config(user_request: sky.UserRequest) -> sky.MutatedUserRequest:
         for accelerator, count in resource.accelerators.items():
             if accelerator == "H100":
                 k8s_override_config = load_config("oci.yaml")
+                merged_override = merge_pod_spec_sections(config, k8s_override_config)
                 new_config = sky.skypilot_config._recursive_update(
-                    config, k8s_override_config
+                    config, merged_override
                 )
                 return sky.MutatedUserRequest(task=task, skypilot_config=new_config)
 

@@ -1,5 +1,3 @@
-import os
-
 import wrapt
 
 from ddtrace import config
@@ -10,6 +8,7 @@ from ddtrace.contrib.internal.trace_utils import unwrap
 from ddtrace.ext import db
 from ddtrace.ext import net
 from ddtrace.internal.schema import schematize_service_name
+from ddtrace.internal.settings import env
 from ddtrace.internal.utils.formats import asbool
 
 
@@ -23,7 +22,7 @@ config._add(
         # `sql.query` whereas other dbapi-compliant integrations are set to
         # `<integration>.query`.
         _dbapi_span_name_prefix="sql",
-        trace_fetch_methods=asbool(os.getenv("DD_SNOWFLAKE_TRACE_FETCH_METHODS", default=False)),
+        trace_fetch_methods=asbool(env.get("DD_SNOWFLAKE_TRACE_FETCH_METHODS", default=False)),
     ),
 )
 
@@ -45,7 +44,7 @@ def _supported_versions() -> dict[str, str]:
 class _SFTracedCursor(TracedCursor):
     def _set_post_execute_tags(self, span):
         super(_SFTracedCursor, self)._set_post_execute_tags(span)
-        span._set_tag_str("sfqid", self.__wrapped__.sfqid)
+        span._set_attribute("sfqid", self.__wrapped__.sfqid)
 
 
 def patch():

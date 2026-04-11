@@ -13,46 +13,44 @@
 /// E.g.
 /// within_count returns a u32 as opposed to usize because that can help me skip a type conversion when used with Polars.
 pub mod kdt;
+pub mod kdt2;
 // pub mod ball_tree;
-pub mod leaf;
+pub mod leaf; // Keep leaf module as it's used by KDT2
 pub mod neighbor;
 pub mod utils;
 
-pub use kdt::KDT;
+pub use kdt2::KDT; // Change this to use the new kdt2 implementation
 // pub use ball_tree::BallTree;
+use crate::utils::{l1_distance, linf_distance, squared_l2_distance};
 pub use leaf::{KdLeaf, Leaf};
 pub use neighbor::NB;
-use serde::Deserialize;
-pub use utils::{
-    slice_to_empty_leaves, slice_to_leaves, suggest_capacity, SplitMethod,
-};
 use num::Float;
-use crate::utils::{
-    l1_distance, squared_l2_distance, linf_distance
-};
+use serde::Deserialize;
+pub use utils::{slice_to_empty_leaves, slice_to_leaves, suggest_capacity, SplitMethod};
 // ---------------------------------------------------------------------------------------------------------
 #[derive(Clone, Copy)]
 pub enum KNNDist {
     L1,
     L2,
     SQL2,
-    LINF
+    LINF,
 }
 
 impl TryFrom<String> for KNNDist {
     type Error = String;
     fn try_from(value: String) -> Result<Self, Self::Error> {
         match value.to_lowercase().as_ref() {
-            "l1" => Ok(KNNDist::L1)
-            , "sql2" => Ok(KNNDist::SQL2)
-            , "l2" => Ok(KNNDist::L2)
-            , "linf" | "inf" => Ok(KNNDist::LINF)
-            , _ => Err(format!("Unknown distance indicator: {}", value))
+            "l1" => Ok(KNNDist::L1),
+            "sql2" => Ok(KNNDist::SQL2),
+            "l2" => Ok(KNNDist::L2),
+            "linf" | "inf" => Ok(KNNDist::LINF),
+            _ => Err(format!("Unknown distance indicator: {}", value)),
         }
     }
 }
 
 impl KNNDist {
+    #[inline(always)]
     pub fn dist(&self, v1: &[f64], v2: &[f64]) -> f64 {
         match self {
             KNNDist::L1 => l1_distance(v1, v2),
@@ -63,6 +61,50 @@ impl KNNDist {
     }
 }
 
+pub trait Metric: Send + Sync + Copy {
+    fn dist(&self, v1: &[f64], v2: &[f64]) -> f64;
+    fn dist_to_box(&self, bounds: &[f64], point: &[f64]) -> f64;
+}
+
+impl Metric for KNNDist {
+    #[inline(always)]
+    fn dist(&self, v1: &[f64], v2: &[f64]) -> f64 {
+        self.dist(v1, v2)
+    }
+
+    #[inline(always)]
+    fn dist_to_box(&self, bounds: &[f64], point: &[f64]) -> f64 {
+        let dim = point.len();
+        let mut dist = 0f64;
+        match self {
+            KNNDist::L1 => {
+                for i in 0..dim {
+                    if point[i] > bounds[i + dim] { dist += point[i] - bounds[i + dim]; }
+                    else if point[i] < bounds[i] { dist += bounds[i] - point[i]; }
+                }
+            }
+            KNNDist::SQL2 | KNNDist::L2 => {
+                for i in 0..dim {
+                    if point[i] > bounds[i + dim] {
+                        let d = point[i] - bounds[i + dim];
+                        dist += d * d;
+                    } else if point[i] < bounds[i] {
+                        let d = bounds[i] - point[i];
+                        dist += d * d;
+                    }
+                }
+                if let KNNDist::L2 = self { dist = dist.sqrt(); }
+            }
+            KNNDist::LINF => {
+                for i in 0..dim {
+                    if point[i] > bounds[i + dim] { dist = dist.max(point[i] - bounds[i + dim]); }
+                    else if point[i] < bounds[i] { dist = dist.max(bounds[i] - point[i]); }
+                }
+            }
+        }
+        dist
+    }
+}
 
 #[derive(Clone, Copy, Default, Deserialize)]
 pub enum KNNMethod {
@@ -86,6 +128,7 @@ impl KNNMethod {
     }
 }
 
+// The SpatialQueries trait is kept for compatibility with KNNRegressor, but KDT2 does not implement it directly.
 /// K Dimensional Tree Queries. Should be the same for ball trees, etc.
 pub trait SpatialQueries<'a, A> {
     fn dim(&self) -> usize;
@@ -108,7 +151,12 @@ pub trait SpatialQueries<'a, A> {
         radius: f64,
     );
 
-    fn within_count_one_step(&self, pending: &mut Vec<(f64, &Self)>, point: &[f64], radius: f64) -> u32;
+    fn within_count_one_step(
+        &self,
+        pending: &mut Vec<(f64, &Self)>,
+        point: &[f64],
+        radius: f64,
+    ) -> u32;
 
     fn knn(&self, k: usize, point: &[f64], epsilon: f64) -> Option<Vec<NB<f64, A>>> {
         if k == 0 || (point.len() != self.dim()) || (point.iter().any(|x| !x.is_finite())) {
@@ -119,7 +167,14 @@ pub trait SpatialQueries<'a, A> {
             let mut pending = Vec::with_capacity(k + 1);
             pending.push((f64::min_value(), self));
             while !pending.is_empty() {
-                self.knn_one_step(&mut pending, &mut top_k, k, point, f64::max_value(), epsilon);
+                self.knn_one_step(
+                    &mut pending,
+                    &mut top_k,
+                    k,
+                    point,
+                    f64::max_value(),
+                    epsilon,
+                );
             }
             Some(top_k)
         }
@@ -201,9 +256,7 @@ pub trait SpatialQueries<'a, A> {
     }
 }
 
-pub trait KNNRegressor<'a, A: Float + Into<f64>>:
-    SpatialQueries<'a, A>
-{
+pub trait KNNRegressor<'a, A: Float + Into<f64>>: SpatialQueries<'a, A> {
     fn knn_regress(
         &self,
         k: usize,
@@ -212,13 +265,11 @@ pub trait KNNRegressor<'a, A: Float + Into<f64>>:
         max_dist_bound: f64,
         how: KNNMethod,
     ) -> Option<f64> {
-        let knn = self
-            .knn_bounded(k, point, max_dist_bound, 0f64)
-            .map(|nn| {
-                nn.into_iter()
-                    .filter(|nb| nb.dist >= min_dist_bound)
-                    .collect::<Vec<_>>()
-            });
+        let knn = self.knn_bounded(k, point, max_dist_bound, 0f64).map(|nn| {
+            nn.into_iter()
+                .filter(|nb| nb.dist >= min_dist_bound)
+                .collect::<Vec<_>>()
+        });
         match knn {
             Some(nn) if !nn.is_empty() => match how {
                 KNNMethod::P1Weighted => {

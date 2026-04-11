@@ -331,10 +331,14 @@ def map_dropna(
             if nested_columns:
                 if how == "any":
                     # For "any", drop rows where ANY of the nested columns is NULL or NaN
-                    for nested_col in nested_columns:
-                        result = result.filter(
-                            snowpark_expr(f"NOT {_is_null_or_nan(nested_col)}")
+                    result = result.filter(
+                        snowpark_expr(
+                            " AND ".join(
+                                f"NOT {_is_null_or_nan(nested_col)}"
+                                for nested_col in nested_columns
+                            )
                         )
+                    )
                 else:
                     # For "all", drop rows where ALL of the nested columns are NULL or NaN
                     all_null_or_nan_condition = " AND ".join(
@@ -508,10 +512,18 @@ def map_union(
                     field.name
                 )
             )
-            right_df = right_df.withColumnRenamed(field.name, spark_name)
             columns_to_restore[spark_name.upper()] = (spark_name, field.name)
             right_renamed_fields.append(
                 StructField(spark_name, field.datatype, field.nullable)
+            )
+        if right_renamed_fields:
+            right_df = right_df.select(
+                [
+                    col(field.name).alias(renamed.name)
+                    for field, renamed in zip(
+                        original_right_schema.fields, right_renamed_fields
+                    )
+                ]
             )
         set_schema_getter(right_df, lambda: StructType(right_renamed_fields))
 
@@ -523,10 +535,18 @@ def map_union(
                     field.name
                 )
             )
-            left_df = left_df.withColumnRenamed(field.name, spark_name)
             columns_to_restore[spark_name.upper()] = (spark_name, field.name)
             left_renamed_fields.append(
                 StructField(spark_name, field.datatype, field.nullable)
+            )
+        if left_renamed_fields:
+            left_df = left_df.select(
+                [
+                    col(field.name).alias(renamed.name)
+                    for field, renamed in zip(
+                        original_left_schema.fields, left_renamed_fields
+                    )
+                ]
             )
         set_schema_getter(left_df, lambda: StructType(left_renamed_fields))
 
@@ -550,14 +570,15 @@ def map_union(
         snowpark_columns = []
 
         snowpark_column_types = [f.datatype for f in result.schema.fields]
+        select_exprs = []
         for col_ in result.columns:
             spark_col_to_restore, snowpark_col_to_restore = columns_to_restore[
                 col_.upper()
             ]
-            result = result.withColumnRenamed(col_, snowpark_col_to_restore)
-
+            select_exprs.append(col(col_).alias(snowpark_col_to_restore))
             spark_columns.append(spark_col_to_restore)
             snowpark_columns.append(snowpark_col_to_restore)
+        result = result.select(select_exprs)
 
         left_df_col_metadata = left_column_map.column_metadata or {}
         right_df_col_metadata = right_column_map.column_metadata or {}

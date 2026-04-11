@@ -162,8 +162,11 @@ async def _compact_messages(
     messages.clear()
     messages.append(
         {
-            "role": "system",
-            "content": (f"Previous conversation summary (auto-compacted from {original_count} messages):\n\n{summary}"),
+            "role": "user",
+            "content": (
+                f"[Previous conversation summary (auto-compacted from {original_count} messages)]\n\n"
+                f"{summary}\n\nPlease continue from where we left off."
+            ),
         }
     )
     logger.info("Compacted %d messages into summary for context recovery", original_count)

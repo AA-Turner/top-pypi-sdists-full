@@ -1,5 +1,6 @@
-use crate::handler::{extract_record, Tn5250Handler, EOR, IAC};
+use crate::handler::Tn5250Handler;
 use guacr_handlers::ProtocolHandler;
+use guacr_protocol::telnet::{extract_record, EOR, IAC};
 
 #[test]
 fn test_handler_name() {

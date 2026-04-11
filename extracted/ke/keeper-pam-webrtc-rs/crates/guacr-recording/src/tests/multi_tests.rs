@@ -222,10 +222,10 @@ fn test_typescript_recording_with_timing() {
         content.contains("Script output here"),
         "Should have raw output"
     );
-    assert!(content.contains("Script done on"), "Should have footer");
+    assert!(content.contains("[END TYPESCRIPT]"), "Should have footer");
 
-    // Check timing file exists
-    let timing_path = tmp_dir.path().join("typescript-test.timing");
+    // Timing file has same stem as typescript with .timing extension.
+    let timing_path = ts_path.with_extension("timing");
     assert!(timing_path.exists(), "Timing file should exist");
 
     let timing_content = std::fs::read_to_string(&timing_path).unwrap();

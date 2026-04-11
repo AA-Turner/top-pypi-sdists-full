@@ -2,12 +2,20 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+import codecs
 from dataclasses import dataclass
 from typing import Any
+
+from pyspark.errors.exceptions.base import IllegalArgumentException
 
 from snowflake.snowpark_connect.config import global_config, str_to_bool
 from snowflake.snowpark_connect.date_time_format_mapping import (
     convert_java_datetime_format_for_fileformat,
+)
+from snowflake.snowpark_connect.error.error_codes import ErrorCodes
+from snowflake.snowpark_connect.error.error_utils import (
+    UnsupportedCharsetException,
+    attach_custom_error_code,
 )
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 
@@ -405,6 +413,14 @@ class CsvWriterConfig(ReaderWriterConfig):
 
 
 class JsonReaderConfig(ReaderWriterConfig):
+    # Encoding denyList for non-multiLine mode (SPARK-24190)
+    # UTF-16 and UTF-32 encodings are not allowed when multiLine is false
+    # because these encodings use multi-byte line separators that can't be
+    # reliably detected when reading line-by-line.
+    # Pre-computed normalized versions (lowercase, no hyphens/underscores) for efficient comparison.
+    # Using frozenset for immutability and thread-safety.
+    _NORMALIZED_ENCODING_DENYLIST = frozenset({"utf16", "utf32"})
+
     def __init__(self, options: dict[str, str]) -> None:
         super().__init__(
             _Config(
@@ -491,6 +507,45 @@ class JsonReaderConfig(ReaderWriterConfig):
             ),
             options,
         )
+        self._validate_encoding()
+
+    def _validate_encoding(self) -> None:
+        """
+        Validate the encoding option for JSON reading.
+
+        This implements two validations from Spark:
+        1. SPARK-23723: Throw UnsupportedCharsetException for invalid charset names
+        2. SPARK-24190: Throw IllegalArgumentException when UTF-16/32 is used with
+           multiLine=false (these encodings use multi-byte line separators)
+        """
+        encoding = self.config.get("encoding", "utf-8")
+
+        # SPARK-23723: Validate that the encoding is a valid charset
+        try:
+            codecs.lookup(encoding)
+        except LookupError:
+            exception = UnsupportedCharsetException(encoding)
+            attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+            raise exception
+
+        # SPARK-24190: Check encoding denyList for non-multiLine mode
+        # Use _get_config_setting to get the properly typed boolean value
+        # (self.config stores raw strings, so "false" would be truthy)
+        is_multiline = self._get_config_setting("multiline")
+
+        if not is_multiline:
+            # Normalize encoding name for comparison (case-insensitive, remove hyphens/underscores)
+            normalized_encoding = encoding.lower().replace("-", "").replace("_", "")
+            # Check against pre-computed normalized denylist for efficiency
+            for denied in self._NORMALIZED_ENCODING_DENYLIST:
+                if normalized_encoding.startswith(denied):
+                    exception = IllegalArgumentException(
+                        f"encoding must not be included in the denyList when multiLine is disabled: {encoding}"
+                    )
+                    attach_custom_error_code(
+                        exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT
+                    )
+                    raise exception
 
     def convert_to_snowpark_args(self) -> dict[str, Any]:
         renamed_args = {

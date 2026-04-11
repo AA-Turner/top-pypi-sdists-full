@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: run-mcp-servers-with-aws-lambda
-Version: 0.5.13
+Version: 0.5.14
 Summary: Run Model Context Protocol (MCP) servers with AWS Lambda
 Project-URL: Repository, https://github.com/awslabs/run-model-context-protocol-servers-with-aws-lambda
 Project-URL: Issues, https://github.com/awslabs/run-model-context-protocol-servers-with-aws-lambda/issues
@@ -16,13 +16,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.11
-Requires-Dist: aiobotocore>=2.26.0
-Requires-Dist: anyio>=4.12.0
-Requires-Dist: aws-lambda-powertools>=3.22.0
-Requires-Dist: mcp-proxy-for-aws>=1.1.2
-Requires-Dist: mcp>=1.23.1
+Requires-Dist: aiobotocore>=3.4.0
+Requires-Dist: anyio>=4.13.0
+Requires-Dist: aws-lambda-powertools>=3.26.0
+Requires-Dist: mcp-proxy-for-aws>=1.2.0
+Requires-Dist: mcp>=1.26.0
 Provides-Extra: stubs
-Requires-Dist: types-aiobotocore[lambda]>=2.26.0; extra == 'stubs'
+Requires-Dist: types-aiobotocore[lambda]>=3.4.0; extra == 'stubs'
 Description-Content-Type: text/markdown
 
 # Run Model Context Protocol (MCP) servers with AWS Lambda

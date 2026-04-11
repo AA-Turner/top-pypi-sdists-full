@@ -464,7 +464,14 @@ FailureReasonCodeType = Literal[
     "REQUEST_THROTTLED",
 ]
 FileStatusTypeType = Literal["APPROVED", "FAILED", "PROCESSING", "REJECTED"]
-FileUseCaseTypeType = Literal["ATTACHMENT", "EMAIL_MESSAGE"]
+FileUseCaseTypeType = Literal[
+    "ATTACHMENT",
+    "CONTACT_ANALYSIS",
+    "EMAIL_MESSAGE",
+    "EMAIL_MESSAGE_PLAIN_TEXT",
+    "EMAIL_MESSAGE_PLAIN_TEXT_REDACTED",
+    "EMAIL_MESSAGE_REDACTED",
+]
 FilterV2StringConditionComparisonOperatorType = Literal["NOT_EXISTS"]
 FlowAssociationResourceTypeType = Literal[
     "ANALYTICS_CONNECTOR",
@@ -976,6 +983,8 @@ ReferenceTypeType = Literal[
     "EMAIL",
     "EMAIL_MESSAGE",
     "EMAIL_MESSAGE_PLAIN_TEXT",
+    "EMAIL_MESSAGE_PLAIN_TEXT_REDACTED",
+    "EMAIL_MESSAGE_REDACTED",
     "NUMBER",
     "STRING",
     "URL",

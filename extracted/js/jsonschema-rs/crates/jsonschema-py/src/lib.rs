@@ -13,10 +13,11 @@ use std::{
 };
 
 use email::EmailOptions;
+#[cfg(not(target_arch = "wasm32"))]
 use http::HttpOptions;
 use jsonschema::{paths::LocationSegment, Draft};
 use pyo3::{
-    exceptions::{self, PyValueError},
+    exceptions::{self, PyKeyError, PyValueError},
     ffi::{PyList_New, PyList_SetItem, PyUnicode_AsUTF8AndSize, Py_DECREF},
     prelude::*,
     types::{PyAny, PyDict, PyList, PyString, PyType},
@@ -32,6 +33,7 @@ extern crate pyo3_built;
 mod canonical;
 mod clone;
 mod email;
+#[cfg(not(target_arch = "wasm32"))]
 mod http;
 mod regex;
 mod registry;
@@ -58,7 +60,7 @@ fn referencing_error_type(py: Python<'_>) -> PyResult<Bound<'_, PyType>> {
 }
 
 /// Convert a serde_json::Value to a Python object, properly handling arbitrary precision numbers
-fn value_to_python(py: Python<'_>, value: &serde_json::Value) -> PyResult<Py<PyAny>> {
+pub(crate) fn value_to_python(py: Python<'_>, value: &serde_json::Value) -> PyResult<Py<PyAny>> {
     match value {
         serde_json::Value::Null => Ok(py.None()),
         serde_json::Value::Bool(b) => Ok(pyo3::types::PyBool::new(py, *b)
@@ -281,7 +283,7 @@ fn create_referencing_error_object(py: Python<'_>, message: String) -> PyResult<
     Ok(obj.into())
 }
 
-fn referencing_error_pyerr(py: Python<'_>, message: String) -> PyResult<PyErr> {
+pub(crate) fn referencing_error_pyerr(py: Python<'_>, message: String) -> PyResult<PyErr> {
     let obj = create_referencing_error_object(py, message)?;
     Ok(PyErr::from_value(obj.into_bound(py)))
 }
@@ -832,19 +834,19 @@ impl jsonschema::Keyword for CustomKeyword {
     }
 }
 
-fn make_options(
+fn make_options<'a>(
     draft: Option<u8>,
-    formats: Option<&Bound<'_, PyDict>>,
+    formats: Option<&Bound<'a, PyDict>>,
     validate_formats: Option<bool>,
     ignore_unknown_formats: Option<bool>,
-    retriever: Option<&Bound<'_, PyAny>>,
-    registry: Option<&registry::Registry>,
+    retriever: Option<&Bound<'a, PyAny>>,
+    registry: Option<&'a registry::Registry>,
     base_uri: Option<String>,
-    pattern_options: Option<&Bound<'_, PyAny>>,
-    email_options: Option<&Bound<'_, PyAny>>,
-    http_options: Option<&Bound<'_, PyAny>>,
-    keywords: Option<&Bound<'_, PyDict>>,
-) -> PyResult<jsonschema::ValidationOptions> {
+    pattern_options: Option<&Bound<'a, PyAny>>,
+    email_options: Option<&Bound<'a, PyAny>>,
+    http_options: Option<&Bound<'a, PyAny>>,
+    keywords: Option<&Bound<'a, PyDict>>,
+) -> PyResult<jsonschema::ValidationOptions<'a>> {
     let mut options = jsonschema::options();
     if let Some(raw_draft_version) = draft {
         options = options.with_draft(get_draft(raw_draft_version)?);
@@ -890,7 +892,7 @@ fn make_options(
         options = options.with_retriever(Retriever { func });
     }
     if let Some(registry) = registry {
-        options = options.with_registry(registry.inner.clone());
+        options = options.with_registry(registry.inner.as_ref());
     }
     if let Some(base_uri) = base_uri {
         options = options.with_base_uri(base_uri);
@@ -956,6 +958,7 @@ fn make_options(
         });
         options = options.with_email_options(email_opts);
     }
+    #[cfg(not(target_arch = "wasm32"))]
     if let Some(http_options) = http_options {
         let opts = http_options.extract::<HttpOptions>().map_err(|_| {
             exceptions::PyTypeError::new_err("http_options must be an instance of HttpOptions")
@@ -977,6 +980,12 @@ fn make_options(
         options = options.with_http_options(&http_opts).map_err(|e| {
             exceptions::PyRuntimeError::new_err(format!("Failed to configure HTTP options: {e}"))
         })?;
+    }
+    #[cfg(target_arch = "wasm32")]
+    if http_options.is_some() {
+        return Err(exceptions::PyValueError::new_err(
+            "http_options is not supported on WebAssembly targets (the built-in HTTP retriever is unavailable); use a custom retriever= instead",
+        ));
     }
     if let Some(keywords) = keywords {
         for (name, callback) in keywords.iter() {
@@ -1427,6 +1436,54 @@ struct Validator {
     mask: Option<String>,
 }
 
+#[pyclass(module = "jsonschema_rs")]
+struct ValidatorMap {
+    inner: jsonschema::ValidatorMap,
+    mask: Option<String>,
+}
+
+#[pymethods]
+impl ValidatorMap {
+    /// get(pointer)
+    ///
+    /// Return the validator for the given URI-fragment JSON pointer, or ``None`` if not found.
+    ///
+    ///     >>> m = validator_map_for({"$defs": {"T": {"type": "string"}}})
+    ///     >>> v = m.get("#/$defs/T")
+    ///
+    fn get(&self, pointer: &str) -> Option<Validator> {
+        self.inner.get(pointer).map(|v| Validator {
+            validator: v.clone(),
+            mask: self.mask.clone(),
+        })
+    }
+
+    fn __getitem__(&self, pointer: &str) -> PyResult<Validator> {
+        match self.inner.get(pointer) {
+            Some(v) => Ok(Validator {
+                validator: v.clone(),
+                mask: self.mask.clone(),
+            }),
+            None => Err(PyKeyError::new_err(pointer.to_owned())),
+        }
+    }
+
+    fn __contains__(&self, pointer: &str) -> bool {
+        self.inner.contains_key(pointer)
+    }
+
+    /// keys()
+    ///
+    /// Return all URI-fragment JSON pointer keys in this map.
+    fn keys(&self) -> Vec<String> {
+        self.inner.keys().map(str::to_owned).collect()
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.len()
+    }
+}
+
 /// validator_for(schema, formats=None, validate_formats=None, ignore_unknown_formats=True, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None)
 ///
 /// Create a validator for the input schema with automatic draft detection and default options.
@@ -1470,6 +1527,53 @@ fn validator_for(
     )
 }
 
+/// validator_map_for(schema, formats=None, validate_formats=None, ignore_unknown_formats=True, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None)
+///
+/// Compile all subschemas in ``schema`` into a map keyed by URI-fragment JSON pointer.
+///
+///     >>> schema = {"$defs": {"User": {"type": "object"}}}
+///     >>> m = validator_map_for(schema)
+///     >>> v = m.get("#/$defs/User")
+///     >>> v.is_valid({})
+///     True
+///
+#[pyfunction]
+#[pyo3(signature = (schema, formats=None, validate_formats=None, ignore_unknown_formats=true, retriever=None, registry=None, mask=None, base_uri=None, pattern_options=None, email_options=None, http_options=None, keywords=None))]
+fn validator_map_for(
+    py: Python<'_>,
+    schema: &Bound<'_, PyAny>,
+    formats: Option<&Bound<'_, PyDict>>,
+    validate_formats: Option<bool>,
+    ignore_unknown_formats: Option<bool>,
+    retriever: Option<&Bound<'_, PyAny>>,
+    registry: Option<&registry::Registry>,
+    mask: Option<String>,
+    base_uri: Option<String>,
+    pattern_options: Option<&Bound<'_, PyAny>>,
+    email_options: Option<&Bound<'_, PyAny>>,
+    http_options: Option<&Bound<'_, PyAny>>,
+    keywords: Option<&Bound<'_, PyDict>>,
+) -> PyResult<ValidatorMap> {
+    let schema = parse_schema_str(schema)?;
+    let options = make_options(
+        None,
+        formats,
+        validate_formats,
+        ignore_unknown_formats,
+        retriever,
+        registry,
+        base_uri,
+        pattern_options,
+        email_options,
+        http_options,
+        keywords,
+    )?;
+    match options.build_map(&schema) {
+        Ok(inner) => Ok(ValidatorMap { inner, mask }),
+        Err(error) => Err(into_py_err(py, error, mask.as_deref())?),
+    }
+}
+
 /// bundle(schema, /, *, retriever=None, registry=None, draft=None, base_uri=None)
 ///
 /// Bundle a JSON Schema into a Compound Schema Document.
@@ -1503,6 +1607,76 @@ fn bundle(
     }
 }
 
+/// dereference(schema, /, *, retriever=None, registry=None, draft=None, base_uri=None)
+///
+/// Recursively inline all `$ref` values in a JSON Schema.
+///
+/// Circular references are left in place as `$ref` strings.
+///
+/// :param schema: The JSON Schema to dereference.
+/// :param retriever: Optional callable ``(uri: str) -> dict`` for fetching external schemas.
+/// :param registry: Optional pre-built :class:`Registry` of known schemas.
+/// :param draft: Optional draft version (e.g. ``jsonschema_rs.Draft202012``).
+/// :param base_uri: Optional base URI for the root schema.
+/// :raises ReferencingError: if any `$ref` cannot be resolved.
+///
+///     >>> result = dereference({"$defs": {"t": {"type": "string"}}, "properties": {"x": {"$ref": "#/$defs/t"}}})
+///
+#[pyfunction]
+#[pyo3(signature = (schema, /, *, retriever=None, registry=None, draft=None, base_uri=None))]
+fn dereference(
+    py: Python<'_>,
+    schema: &Bound<'_, PyAny>,
+    retriever: Option<&Bound<'_, PyAny>>,
+    registry: Option<&registry::Registry>,
+    draft: Option<u8>,
+    base_uri: Option<String>,
+) -> PyResult<Py<PyAny>> {
+    let schema_value = ser::to_value(schema)?;
+    let options = make_options(
+        draft, None, None, None, retriever, registry, base_uri, None, None, None, None,
+    )?;
+    match options.dereference(&schema_value) {
+        Ok(result) => value_to_python(py, &result),
+        Err(e @ jsonschema::ReferencingError::Unretrievable { .. }) => {
+            Err(referencing_error_pyerr(py, e.to_string())?)
+        }
+        Err(e) => Err(exceptions::PyValueError::new_err(e.to_string())),
+    }
+}
+
+fn parse_schema_str(schema: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
+    let obj_ptr = schema.as_ptr();
+    let object_type = unsafe { pyo3::ffi::Py_TYPE(obj_ptr) };
+    if unsafe { object_type == types::STR_TYPE } {
+        let mut str_size: pyo3::ffi::Py_ssize_t = 0;
+        let ptr = unsafe { PyUnicode_AsUTF8AndSize(obj_ptr, &raw mut str_size) };
+        let slice = unsafe { std::slice::from_raw_parts(ptr.cast::<u8>(), str_size as usize) };
+        serde_json::from_slice(slice)
+            .map_err(|error| PyValueError::new_err(format!("Invalid string: {error}")))
+    } else {
+        ser::to_value(schema)
+    }
+}
+
+fn detect_draft(schema: &Bound<'_, PyAny>) -> PyResult<Draft> {
+    if let Ok(dict) = schema.cast::<PyDict>() {
+        if let Ok(Some(val)) = dict.get_item("$schema") {
+            if let Ok(s) = val.extract::<&str>() {
+                return Ok(Draft::from_schema_uri(s));
+            }
+        }
+        return Ok(Draft::default());
+    }
+    let value = parse_schema_str(schema)?;
+    if let serde_json::Value::Object(map) = &value {
+        if let Some(serde_json::Value::String(s)) = map.get("$schema") {
+            return Ok(Draft::from_schema_uri(s));
+        }
+    }
+    Ok(Draft::default())
+}
+
 /// validator_cls_for(schema)
 ///
 /// Detect the JSON Schema draft for a schema and return the corresponding validator class.
@@ -1514,28 +1688,15 @@ fn bundle(
 ///     >>> validator = cls({"$schema": "http://json-schema.org/draft-07/schema#", "type": "string"})
 ///
 #[pyfunction]
-fn validator_cls_for(py: Python<'_>, schema: &Bound<'_, PyAny>) -> Py<PyType> {
-    let draft = if let Ok(dict) = schema.cast::<PyDict>() {
-        if let Ok(Some(val)) = dict.get_item("$schema") {
-            if let Ok(s) = val.extract::<&str>() {
-                Draft::from_schema_uri(s)
-            } else {
-                Draft::default()
-            }
-        } else {
-            Draft::default()
-        }
-    } else {
-        Draft::default()
-    };
-    let cls: Bound<'_, PyType> = match draft {
+fn validator_cls_for(py: Python<'_>, schema: &Bound<'_, PyAny>) -> PyResult<Py<PyType>> {
+    let cls: Bound<'_, PyType> = match detect_draft(schema)? {
         Draft::Draft4 => py.get_type::<Draft4Validator>(),
         Draft::Draft6 => py.get_type::<Draft6Validator>(),
         Draft::Draft7 => py.get_type::<Draft7Validator>(),
         Draft::Draft201909 => py.get_type::<Draft201909Validator>(),
         Draft::Draft202012 | Draft::Unknown | _ => py.get_type::<Draft202012Validator>(),
     };
-    cls.unbind()
+    Ok(cls.unbind())
 }
 
 fn validator_for_impl(
@@ -1554,17 +1715,7 @@ fn validator_for_impl(
     http_options: Option<&Bound<'_, PyAny>>,
     keywords: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<Validator> {
-    let obj_ptr = schema.as_ptr();
-    let object_type = unsafe { pyo3::ffi::Py_TYPE(obj_ptr) };
-    let schema = if unsafe { object_type == types::STR_TYPE } {
-        let mut str_size: pyo3::ffi::Py_ssize_t = 0;
-        let ptr = unsafe { PyUnicode_AsUTF8AndSize(obj_ptr, &raw mut str_size) };
-        let slice = unsafe { std::slice::from_raw_parts(ptr.cast::<u8>(), str_size as usize) };
-        serde_json::from_slice(slice)
-            .map_err(|error| PyValueError::new_err(format!("Invalid string: {error}")))?
-    } else {
-        ser::to_value(schema)?
-    };
+    let schema = parse_schema_str(schema)?;
     let options = make_options(
         draft,
         formats,
@@ -2021,7 +2172,7 @@ mod meta {
         let schema = crate::ser::to_value(schema)?;
         let result = if let Some(registry) = registry {
             jsonschema::meta::options()
-                .with_registry(registry.inner.clone())
+                .with_registry(registry.inner.as_ref())
                 .validate(&schema)
         } else {
             jsonschema::meta::validate(&schema)
@@ -2070,7 +2221,7 @@ mod meta {
         let schema = crate::ser::to_value(schema)?;
         let result = if let Some(registry) = registry {
             jsonschema::meta::options()
-                .with_registry(registry.inner.clone())
+                .with_registry(registry.inner.as_ref())
                 .validate(&schema)
         } else {
             jsonschema::meta::validate(&schema)
@@ -2099,7 +2250,10 @@ fn jsonschema_rs(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_wrapped(wrap_pyfunction!(iter_errors))?;
     module.add_wrapped(wrap_pyfunction!(evaluate))?;
     module.add_wrapped(wrap_pyfunction!(validator_for))?;
+    module.add_wrapped(wrap_pyfunction!(validator_map_for))?;
+    module.add_class::<ValidatorMap>()?;
     module.add_wrapped(wrap_pyfunction!(bundle))?;
+    module.add_wrapped(wrap_pyfunction!(dereference))?;
     module.add_wrapped(wrap_pyfunction!(validator_cls_for))?;
     module.add_class::<Draft4Validator>()?;
     module.add_class::<Draft6Validator>()?;
@@ -2108,9 +2262,12 @@ fn jsonschema_rs(py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<Draft202012Validator>()?;
     module.add_class::<PyEvaluation>()?;
     module.add_class::<registry::Registry>()?;
+    module.add_class::<registry::Resolver>()?;
+    module.add_class::<registry::Resolved>()?;
     module.add_class::<FancyRegexOptions>()?;
     module.add_class::<RegexOptions>()?;
     module.add_class::<EmailOptions>()?;
+    #[cfg(not(target_arch = "wasm32"))]
     module.add_class::<HttpOptions>()?;
     module.add("ValidationErrorKind", py.get_type::<ValidationErrorKind>())?;
     module.add("Draft4", DRAFT4)?;

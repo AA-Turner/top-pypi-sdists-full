@@ -70,7 +70,8 @@ impl ExtractionConfig {
         extraction_timeout_secs=None,
         tree_sitter=None,
         structured_extraction=None,
-        content_filter=None
+        content_filter=None,
+        html_output=None
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -103,6 +104,7 @@ impl ExtractionConfig {
         tree_sitter: Option<TreeSitterConfig>,
         structured_extraction: Option<PyStructuredExtractionConfig>,
         content_filter: Option<ContentFilterConfig>,
+        html_output: Option<HtmlOutputConfig>,
     ) -> PyResult<Self> {
         let (html_options_inner, html_options_dict) = parse_html_options_dict(html_options)?;
         Ok(Self {
@@ -168,6 +170,7 @@ impl ExtractionConfig {
                 max_archive_depth: 3,
                 tree_sitter: tree_sitter.map(Into::into),
                 structured_extraction: structured_extraction.map(|s| s.inner),
+                html_output: html_output.map(Into::into),
             },
             html_options_dict,
         })
@@ -3480,5 +3483,152 @@ impl PyStructuredExtractionConfig {
             "StructuredExtractionConfig(schema_name={:?}, strict={}, llm=LlmConfig(model={:?}))",
             self.inner.schema_name, self.inner.strict, self.inner.llm.model
         )
+    }
+}
+
+/// HTML output configuration for styled HTML rendering.
+///
+/// Controls how the HTML output format renders documents, including
+/// theme selection, custom CSS, and class prefix configuration.
+///
+/// Example:
+///     >>> from kreuzberg import HtmlOutputConfig
+///     >>> config = HtmlOutputConfig(theme="github", embed_css=True)
+#[pyclass(name = "HtmlOutputConfig", module = "kreuzberg", from_py_object)]
+#[derive(Clone)]
+pub struct HtmlOutputConfig {
+    pub inner: kreuzberg::HtmlOutputConfig,
+}
+
+#[pymethods]
+impl HtmlOutputConfig {
+    #[new]
+    #[pyo3(signature = (
+        theme=None,
+        css=None,
+        css_file=None,
+        class_prefix=None,
+        embed_css=None
+    ))]
+    fn new(
+        theme: Option<String>,
+        css: Option<String>,
+        css_file: Option<String>,
+        class_prefix: Option<String>,
+        embed_css: Option<bool>,
+    ) -> PyResult<Self> {
+        let theme = match theme.as_deref().unwrap_or("unstyled") {
+            "default" => kreuzberg::HtmlTheme::Default,
+            "github" => kreuzberg::HtmlTheme::GitHub,
+            "dark" => kreuzberg::HtmlTheme::Dark,
+            "light" => kreuzberg::HtmlTheme::Light,
+            "unstyled" => kreuzberg::HtmlTheme::Unstyled,
+            other => {
+                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "Invalid theme: '{}'. Must be 'default', 'github', 'dark', 'light', or 'unstyled'",
+                    other
+                )));
+            }
+        };
+
+        Ok(Self {
+            inner: kreuzberg::HtmlOutputConfig {
+                css,
+                css_file: css_file.map(std::path::PathBuf::from),
+                theme,
+                class_prefix: class_prefix.unwrap_or_else(|| "kb-".to_string()),
+                embed_css: embed_css.unwrap_or(true),
+            },
+        })
+    }
+
+    #[getter]
+    fn theme(&self) -> String {
+        match self.inner.theme {
+            kreuzberg::HtmlTheme::Default => "default".to_string(),
+            kreuzberg::HtmlTheme::GitHub => "github".to_string(),
+            kreuzberg::HtmlTheme::Dark => "dark".to_string(),
+            kreuzberg::HtmlTheme::Light => "light".to_string(),
+            kreuzberg::HtmlTheme::Unstyled => "unstyled".to_string(),
+        }
+    }
+
+    #[setter]
+    fn set_theme(&mut self, value: String) -> PyResult<()> {
+        self.inner.theme = match value.as_str() {
+            "default" => kreuzberg::HtmlTheme::Default,
+            "github" => kreuzberg::HtmlTheme::GitHub,
+            "dark" => kreuzberg::HtmlTheme::Dark,
+            "light" => kreuzberg::HtmlTheme::Light,
+            "unstyled" => kreuzberg::HtmlTheme::Unstyled,
+            other => {
+                return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "Invalid theme: '{}'. Must be 'default', 'github', 'dark', 'light', or 'unstyled'",
+                    other
+                )));
+            }
+        };
+        Ok(())
+    }
+
+    #[getter]
+    fn css(&self) -> Option<String> {
+        self.inner.css.clone()
+    }
+
+    #[setter]
+    fn set_css(&mut self, value: Option<String>) {
+        self.inner.css = value;
+    }
+
+    #[getter]
+    fn css_file(&self) -> Option<String> {
+        self.inner.css_file.as_ref().map(|p| p.to_string_lossy().into_owned())
+    }
+
+    #[setter]
+    fn set_css_file(&mut self, value: Option<String>) {
+        self.inner.css_file = value.map(std::path::PathBuf::from);
+    }
+
+    #[getter]
+    fn class_prefix(&self) -> String {
+        self.inner.class_prefix.clone()
+    }
+
+    #[setter]
+    fn set_class_prefix(&mut self, value: String) {
+        self.inner.class_prefix = value;
+    }
+
+    #[getter]
+    fn embed_css(&self) -> bool {
+        self.inner.embed_css
+    }
+
+    #[setter]
+    fn set_embed_css(&mut self, value: bool) {
+        self.inner.embed_css = value;
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "HtmlOutputConfig(theme='{}', class_prefix='{}', embed_css={})",
+            self.theme(),
+            self.inner.class_prefix,
+            self.inner.embed_css
+        )
+    }
+}
+
+impl From<HtmlOutputConfig> for kreuzberg::HtmlOutputConfig {
+    fn from(val: HtmlOutputConfig) -> Self {
+        val.inner
+    }
+}
+
+impl From<kreuzberg::HtmlOutputConfig> for HtmlOutputConfig {
+    fn from(val: kreuzberg::HtmlOutputConfig) -> Self {
+        Self { inner: val }
     }
 }

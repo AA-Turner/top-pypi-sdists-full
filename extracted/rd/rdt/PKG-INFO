@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: rdt
-Version: 1.20.0
+Version: 1.21.0
 Summary: Reversible Data Transforms
 Author-email: "DataCebo, Inc." <info@sdv.dev>
-License: BSL-1.1
+License-Expression: BUSL-1.1
 Project-URL: Source Code, https://github.com/sdv-dev/RDT/
 Project-URL: Issue Tracker, https://github.com/sdv-dev/RDT/issues
 Project-URL: Changes, https://github.com/sdv-dev/RDT/blob/main/HISTORY.md
 Project-URL: Twitter, https://twitter.com/sdv_dev
-Project-URL: Chat, https://bit.ly/sdv-slack-invite
+Project-URL: Chat, https://forum.datacebo.com/
 Keywords: machine learning,synthetic data generation,benchmark,generative models
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: Free for non-commercial use
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -89,7 +88,7 @@ Dynamic: license-file
 [![Unit Tests](https://github.com/sdv-dev/RDT/actions/workflows/unit.yml/badge.svg)](https://github.com/sdv-dev/RDT/actions/workflows/unit.yml)
 [![Downloads](https://pepy.tech/badge/rdt)](https://pepy.tech/project/rdt)
 [![Coverage Status](https://codecov.io/gh/sdv-dev/RDT/branch/main/graph/badge.svg)](https://codecov.io/gh/sdv-dev/RDT)
-[![Slack](https://img.shields.io/badge/Community-Slack-blue?style=plastic&logo=slack)](https://bit.ly/sdv-slack-invite)
+[![Forum](https://img.shields.io/badge/Forum-Join%20now!-36C5F0)](https://forum.datacebo.com)
 
 <div align="left">
 <br/>

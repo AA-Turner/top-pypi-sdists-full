@@ -26,6 +26,7 @@ from ._actions import (
     previous_config,
 )
 from ._common import (
+    ClassType,
     InstantiatorCallable,
     InstantiatorsDictType,
     LoggerProperty,
@@ -38,10 +39,7 @@ from ._common import (
     supports_optionals_as_positionals,
     validate_default,
 )
-from ._completions import (
-    argcomplete_namespace,
-    handle_completions,
-)
+from ._completions import get_argcomplete_namespace, handle_completions
 from ._completions import (
     get_completion_script as get_completion_script_internal,
 )
@@ -78,6 +76,12 @@ from ._optionals import (
 )
 from ._parameter_resolvers import UnknownDefault
 from ._paths import change_to_path_dir
+from ._required import (
+    iter_required_keys,
+    restore_suppressed_required,
+    set_required,
+    suppress_required_actions,
+)
 from ._signatures import SignatureArguments
 from ._subcommands import (
     ActionSubCommands,
@@ -91,7 +95,6 @@ from ._subcommands import (
 )
 from ._typehints import ActionTypeHint, is_subclass_spec
 from ._util import (
-    ClassType,
     Path,
     argument_error,
     get_argument_group_class,
@@ -100,7 +103,7 @@ from ._util import (
     return_parser_if_captured,
 )
 
-__all__ = ["ActionsContainer", "ArgumentParser"]
+__all__ = ["ArgumentParser", "ActionsContainer"]
 
 
 _parse_known_has_intermixed = "intermixed" in inspect.signature(argparse.ArgumentParser._parse_known_args).parameters
@@ -162,10 +165,6 @@ class ActionsContainer(SignatureArguments, argparse._ActionsContainer):
         ):
             raise ValueError("Positional arguments not allowed to have a default value.")
         validate_default(self, action)
-        if action.required:
-            parser.required_args.add(action.dest)  # type: ignore[union-attr]
-            action._required = True  # type: ignore[attr-defined]
-            action.required = False
         return action
 
     def add_argument_group(self, *args, name: Optional[str] = None, **kwargs) -> "ArgumentGroup":
@@ -245,7 +244,6 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
         *args,
         env_prefix: Union[bool, str] = True,
         formatter_class: type[argparse.HelpFormatter] = DefaultHelpFormatter,
-        exit_on_error: bool = True,
         logger: Union[logging.Logger, bool, str, dict] = False,
         version: Optional[str] = None,
         print_config: Optional[str] = "--print_config",
@@ -276,8 +274,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
         self._group_class = get_argument_group_class(self)
         if self.groups is None:
             self.groups = {}
-        self.exit_on_error = exit_on_error
-        self.required_args: set[str] = set()
+        self._extra_required_keys: set[str] = set()
         self.save_path_content: set[str] = set()
         self.default_config_files = default_config_files
         self.default_env = default_env
@@ -292,20 +289,19 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
 
     ## Parsing methods ##
 
-    def parse_known_args(self, args=None, namespace=None):
+    def parse_known_args(self, *args, **kwargs) -> NoReturn:
         """Raises ``NotImplementedError``, not supported since typos in configs would go unnoticed."""
-        caller_mod = inspect.getmodule(inspect.stack()[1][0])
-        caller = None if caller_mod is None else caller_mod.__package__
-        if caller not in {"jsonargparse", "argcomplete"}:
-            raise NotImplementedError("parse_known_args not supported because typos in configs would go unnoticed.")
+        raise NotImplementedError("parse_known_args not supported because typos in configs would go unnoticed.")
 
-        namespace = argcomplete_namespace(caller, self, namespace)
-
+    def _parse_known_args_internal(self, args=None, namespace=None, *, argcomplete: bool = False):
+        if argcomplete:
+            namespace = get_argcomplete_namespace(self, namespace)
         try:
             with (
                 patch_namespace(),
                 parser_context(parent_parser=self, lenient_check=True),
                 ActionTypeHint.subclass_arg_context(self),
+                suppress_required_actions(self),
             ):
                 kwargs = {}
                 if _parse_known_has_intermixed:
@@ -434,7 +430,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
             A config object with all parsed values.
 
         Raises:
-            ArgumentError: If the parsing fails and ``exit_on_error=True``.
+            ArgumentError: If the parsing fails and ``exit_on_error=False``.
         """
         skip_validation, namespace_as_config = get_private_kwargs(
             kwargs, _skip_validation=False, _namespace_as_config=False
@@ -464,10 +460,10 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
                     cfg = self.merge_config(namespace, cfg)
 
             with parse_kwargs_context({"env": env, "defaults": defaults}):
-                cfg, unk = self.parse_known_args(args=args, namespace=cfg)
+                cfg, unk = self._parse_known_args_internal(args=args, namespace=cfg)
                 cfg, unk = self._positional_optionals(cfg, unk)
             if unk:
-                self.error(f"Unrecognized arguments: {' '.join(unk)}")
+                self.error(f"unrecognized arguments: {' '.join(unk)}")
 
             parsed_cfg = self._parse_common(
                 cfg=cfg,
@@ -501,7 +497,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
             A config object with all parsed values.
 
         Raises:
-            ArgumentError: If the parsing fails and ``exit_on_error=True``.
+            ArgumentError: If the parsing fails and ``exit_on_error=False``.
         """
         skip_validation, skip_required = get_private_kwargs(kwargs, _skip_validation=False, _skip_required=False)
 
@@ -584,7 +580,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
             A config object with all parsed values.
 
         Raises:
-            ArgumentError: If the parsing fails and ``exit_on_error=True``.
+            ArgumentError: If the parsing fails and ``exit_on_error=False``.
         """
         skip_validation, skip_subcommands = get_private_kwargs(kwargs, _skip_validation=False, _skip_subcommands=False)
 
@@ -628,7 +624,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
             A config object with all parsed values.
 
         Raises:
-            ArgumentError: If the parsing fails and ``exit_on_error=True``.
+            ArgumentError: If the parsing fails and ``exit_on_error=False``.
         """
         fpath = Path(cfg_path, mode=_get_config_read_mode())
         with change_to_path_dir(fpath):
@@ -667,7 +663,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
             A config object with all parsed values.
 
         Raises:
-            ArgumentError: If the parsing fails and ``exit_on_error=True``.
+            ArgumentError: If the parsing fails and ``exit_on_error=False``.
         """
         skip_validation, fail_no_subcommand = get_private_kwargs(
             kwargs, _skip_validation=False, _fail_no_subcommand=True
@@ -722,7 +718,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
 
     ## Methods for adding to the parser ##
 
-    def add_subparsers(self, **kwargs) -> NoReturn:
+    def add_subparsers(self, *args, **kwargs) -> NoReturn:
         """Raises a ``NotImplementedError`` since jsonargparse uses ``add_subcommands``."""
         raise NotImplementedError("In jsonargparse subcommands are added using the add_subcommands method.")
 
@@ -748,9 +744,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
         subcommands: ActionSubCommands = super().add_subparsers(dest=dest, **kwargs)  # type: ignore[assignment]
         self.default_config_files = default_config_files
         if required:
-            self.required_args.add(dest)
-        subcommands._required = required  # type: ignore[attr-defined]
-        subcommands.required = False
+            set_required(self, subcommands)
         subcommands.parent_parser = self
         subcommands.env_prefix = get_env_var(self)
         self._subcommands_action = subcommands
@@ -1150,18 +1144,20 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
             cfg[branch] = branch_cfg
 
         def check_required(cfg, parser, prefix):
-            for reqkey in parser.required_args:
+            missing = []
+            for reqkey in iter_required_keys(parser):
                 try:
                     val = cfg[reqkey]
                     if val is None:
                         raise TypeError
-                except (KeyError, TypeError) as ex:
-                    raise TypeError(
-                        f"Option '{prefix}{reqkey}' is required but not provided or its value is None."
-                    ) from ex
+                except (KeyError, TypeError):
+                    missing.append(f"{prefix}{reqkey}")
             subcommand, subparser = get_subcommand(parser, cfg, fail_no_subcommand=False)
             if subcommand is not None and subparser is not None:
-                check_required(cfg.get(subcommand), subparser, prefix + subcommand + ".")
+                missing.extend(check_required(cfg.get(subcommand), subparser, prefix + subcommand + "."))
+            if prefix == "" and missing:
+                raise TypeError(f"the following arguments are required: {', '.join(missing)}")
+            return missing
 
         def check_values(cfg):
             sorted_keys = {k: find_action(self, k) for k in cfg.get_sorted_keys()}
@@ -1183,9 +1179,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
                     try:
                         self._check_value_key(action, val, key, ccfg)
                     except TypeError as ex:
-                        if not (
-                            val == {} and ActionTypeHint.is_subclass_typehint(action) and key not in self.required_args
-                        ):
+                        if not (val == {} and ActionTypeHint.is_subclass_typehint(action)):
                             raise ex
                 else:
                     if isinstance(parent_action, ActionSubCommands) and "." in key:
@@ -1265,7 +1259,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
         cfg: Namespace,
         instantiate_groups: bool = True,
     ) -> Namespace:
-        """Recursively instantiates all subclasses defined by ``class_path``+``init_args`` and class groups.
+        """Recursively instantiates all subclasses defined by ``class_path`` + ``init_args`` and class groups.
 
         Args:
             cfg: The configuration object to use.
@@ -1376,7 +1370,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
                 note = f"tried getting defaults considering default_config_files but failed due to: {ex}"
             group = self._default_config_files_group
             group.description = f"{self._default_config_files}, Note: {note}"
-        with parser_context(parent_parser=self, defaults_cache=defaults):
+        with restore_suppressed_required(), parser_context(parent_parser=self, defaults_cache=defaults):
             help_str = super().format_help()
         return help_str
 

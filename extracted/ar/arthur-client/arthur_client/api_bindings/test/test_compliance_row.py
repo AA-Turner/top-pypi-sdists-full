@@ -39,6 +39,7 @@ class TestComplianceRow(unittest.TestCase):
                 rule_type = 'alert_rule',
                 rule = arthur_client.api_bindings.models.compliance_rule_summary.ComplianceRuleSummary(
                     id = '', 
+                    materialized_rule_id = '', 
                     name = '', ),
                 model = arthur_client.api_bindings.models.compliance_model_summary.ComplianceModelSummary(
                     id = '', 
@@ -64,7 +65,8 @@ class TestComplianceRow(unittest.TestCase):
                 frequency_days = 56,
                 alert = arthur_client.api_bindings.models.compliance_alert_summary.ComplianceAlertSummary(
                     description = '', 
-                    id = '', )
+                    id = '', ),
+                created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
             )
         else:
             return ComplianceRow(
@@ -72,6 +74,7 @@ class TestComplianceRow(unittest.TestCase):
                 rule_type = 'alert_rule',
                 rule = arthur_client.api_bindings.models.compliance_rule_summary.ComplianceRuleSummary(
                     id = '', 
+                    materialized_rule_id = '', 
                     name = '', ),
                 model = arthur_client.api_bindings.models.compliance_model_summary.ComplianceModelSummary(
                     id = '', 

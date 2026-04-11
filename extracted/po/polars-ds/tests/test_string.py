@@ -53,17 +53,18 @@ def test_map_words():
 
 
 def test_normalize_whitespace():
-    df = pl.DataFrame({"x": ["a   b", "ab", "a b", "a\t\nb"]})
+    df = pl.DataFrame({"x": ["a   b", "ab", "a b", "a\t\nb", "a \rb"]})
 
     assert_frame_equal(
         df.select(pds.normalize_whitespace("x")),
-        pl.DataFrame({"x": ["a b", "ab", "a b", "a b"]}),
+        pl.DataFrame({"x": ["a b", "ab", "a b", "a b", "a b"]}),
     )
 
     assert_frame_equal(
         df.select(pds.normalize_whitespace("x", only_spaces=True)),
-        pl.DataFrame({"x": ["a b", "ab", "a b", "a\t\nb"]}),
+        pl.DataFrame({"x": ["a b", "ab", "a b", "a\t\nb", "a \rb"]}),
     )
+
 
 
 @pytest.mark.parametrize(
@@ -253,6 +254,19 @@ def test_levenshtein(df, res):
     assert_frame_equal(
         df.lazy().select(pds.str_leven("a", pl.col("b"))).collect(engine="streaming"), res
     )
+
+def test_levenshtein_bytes():
+    df = pds.frame(size = 1_000).with_columns(
+        a = pds.random_str(min_size = 3, max_size = 10, len_ref = "row_num")
+        , b = pds.random_str(min_size = 1, max_size = 10, len_ref = "row_num")
+    )
+
+    res = df.select(
+        leven1 = pds.str_leven("a", "b")
+        , leven2 = pds.str_leven("a", "b", as_bytes = True)
+    )
+
+    assert res.select((pl.col("leven1") == pl.col("leven2")).all()).item(0, 0)
 
 
 @pytest.mark.parametrize(

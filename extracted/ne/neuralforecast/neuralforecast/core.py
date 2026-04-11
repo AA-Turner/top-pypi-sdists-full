@@ -292,7 +292,7 @@ class NeuralForecast:
         self.scalers_, self.static_scalers_ = {}, {}
         if self.local_scaler_type is not None:
             for i, col in enumerate(dataset.temporal_cols):
-                if col == "available_mask":
+                if col in ("available_mask", "sample_weight"):
                     continue
                 ga = GroupedArray(dataset.temporal[:, i].numpy(), dataset.indptr)
                 self.scalers_[col] = _type2scaler[self.local_scaler_type]().fit(ga)
@@ -358,7 +358,17 @@ class NeuralForecast:
             available_mask = np.full(df.shape[0], True)
 
         df_to_check = ufp.filter_with_mask(df, available_mask)
+
+        if "sample_weight" in temporal_cols:
+            sw_vals = df_to_check["sample_weight"]
+            if ufp.is_nan_or_none(sw_vals).any():
+                raise ValueError("sample_weight column contains NaN values.")
+            if (sw_vals.to_numpy() < 0).any():
+                raise ValueError("sample_weight column must be non-negative.")
+
         for col in temporal_cols:
+            if col == "sample_weight":
+                continue
             if ufp.is_nan_or_none(df_to_check[col]).any():
                 cols_with_nans.append(col)
 
@@ -464,6 +474,7 @@ class NeuralForecast:
         df: Optional[Union[DataFrame, SparkDataFrame, Sequence[str]]] = None,
         static_df: Optional[Union[DataFrame, SparkDataFrame]] = None,
         val_size: Optional[int] = 0,
+        val_df: Optional[DataFrame] = None,
         use_init_models: bool = False,
         verbose: bool = False,
         id_col: str = "unique_id",
@@ -481,7 +492,11 @@ class NeuralForecast:
             df (pandas, polars or spark DataFrame, or a list of parquet files containing the series, optional): DataFrame with columns [`unique_id`, `ds`, `y`] and exogenous variables.
                 If None, a previously stored dataset is required.
             static_df (pandas, polars or spark DataFrame, optional): DataFrame with columns [`unique_id`] and static exogenous.
-            val_size (int, optional): Size of validation set.
+            val_size (int, optional): Size of validation set. Cannot be used together with `val_df`.
+            val_df (pandas or polars DataFrame, optional): Explicit validation DataFrame with columns [`unique_id`, `ds`, `y`] and exogenous variables.
+                `val_df` can be temporally independent (no requirement that it starts immediately after `df`).
+                Cannot be used together with `val_size`. Only supported when `df` is a pandas or polars DataFrame.
+                All series in `val_df` must have the same length.
             use_init_models (bool, optional): Use initial model passed when NeuralForecast object was instantiated.
             verbose (bool): Print processing steps.
             id_col (str): Column that identifies each serie.
@@ -496,12 +511,22 @@ class NeuralForecast:
         if (df is None) and not (hasattr(self, "dataset")):
             raise Exception("You must pass a DataFrame or have one stored.")
 
+        if val_df is not None and val_size != 0:
+            raise ValueError(
+                "val_df and val_size cannot be set together. "
+                "Set val_size=0 (default) when providing val_df."
+            )
+
+        if val_df is not None and not isinstance(val_df, (pd.DataFrame, pl_DataFrame)):
+            raise ValueError("val_df must be a pandas or polars DataFrame.")
+
         # Model and datasets interactions protections
         if (
             any(model.early_stop_patience_steps > 0 for model in self.models)
             and val_size == 0
+            and val_df is None
         ):
-            raise Exception("Set val_size>0 if early stopping is enabled.")
+            raise Exception("Set val_size>0 or provide a val_df if early stopping is enabled.")
 
         if (val_size is not None) and (0 < val_size < self.h):
             raise ValueError(
@@ -578,10 +603,47 @@ class NeuralForecast:
                 f"`df` must be a pandas, polars or spark DataFrame, or a list of parquet files containing the series, or `None`, got: {type(df)}"
             )
 
+        if val_df is not None:
+            if isinstance(df, (SparkDataFrame,)) or (
+                isinstance(df, Sequence) and not isinstance(df, str)
+            ):
+                raise ValueError(
+                    "val_df is only supported when df is a pandas or polars DataFrame."
+                )
+            val_dataset = self.dataset.align(
+                val_df, id_col=id_col, time_col=time_col, target_col=target_col
+            )
+            if val_dataset.min_size != val_dataset.max_size:
+                raise ValueError(
+                    "All series in val_df must be of equal length. "
+                    "Found series lengths ranging from "
+                    f"{val_dataset.min_size} to {val_dataset.max_size}"
+                )
+            val_size = val_dataset.min_size
+            self.dataset = self.dataset.append(val_dataset)
+            _, _, self.last_dates, _ = TimeSeriesDataset.from_df(
+                df=val_df, id_col=id_col, time_col=time_col, target_col=target_col
+            )
+
         if val_size is not None:
             if self.dataset.min_size < val_size:
                 warnings.warn(
                     "Validation set size is larger than the shorter time-series."
+                )
+
+        for model in self.models:
+            input_size = getattr(model, "input_size", None)
+            if input_size is None:
+                continue  # Auto models have a tunable input_size; skip validation
+            train_size = self.dataset.min_size - (val_size or 0)
+            start_padding_enabled = getattr(model, "start_padding_enabled", False)
+            min_required = 1 if start_padding_enabled else input_size
+            if train_size < min_required:
+                raise ValueError(
+                    f"{model.__class__.__name__} requires at least {min_required} training "
+                    f"timestamp(s) (input_size={input_size}, start_padding_enabled="
+                    f"{start_padding_enabled}), but the shortest series has only "
+                    f"{train_size} timestamp(s) available for training after removing val_size."
                 )
 
         # Recover initial model if use_init_models

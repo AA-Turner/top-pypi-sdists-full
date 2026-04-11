@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coredis
-Version: 6.4.0
+Version: 6.5.0
 Summary: Fast, async, fully-typed Redis client with support for cluster and sentinel
 Project-URL: Homepage, https://github.com/alisaifee/coredis
 Project-URL: Source, https://github.com/alisaifee/coredis
@@ -36,8 +36,11 @@ Requires-Dist: anyio>=4.11.0
 Requires-Dist: beartype>=0.20
 Requires-Dist: deprecated>=1.2
 Requires-Dist: exceptiongroup>=1.3.0
+Requires-Dist: opentelemetry-api>=1.0.0
 Requires-Dist: packaging<27,>=21
 Requires-Dist: typing-extensions>=4.13
+Provides-Extra: otel
+Requires-Dist: opentelemetry-sdk>=1.0.0; extra == 'otel'
 Provides-Extra: recipes
 Requires-Dist: aiobotocore>=2.15.2; extra == 'recipes'
 Requires-Dist: asyncache>=0.3.1; extra == 'recipes'
@@ -74,11 +77,18 @@ Fast, async, fully-typed Redis client with support for cluster and sentinel
 - Convenient [Stream Consumers](https://coredis.readthedocs.org/en/latest/handbook/streams.html) implementation
 - Comprehensive documentation
 - Optional [runtime type validation](https://coredis.readthedocs.org/en/latest/handbook/typing.html#runtime-type-checking) (via [beartype](https://github.com/beartype/beartype))
+- Optional [observability with OpenTelemetry](https://coredis.readthedocs.org/en/latest/handbook/observability.html)
 
 ## Installation
 
 ```console
 $ pip install coredis
+```
+
+### Optional extras
+
+```console
+$ pip install "coredis[otel]"
 ```
 
 ## Getting started
@@ -171,8 +181,7 @@ coredis is additionally tested against:
 
 ## References
 
-- [Documentation (Stable)](http://coredis.readthedocs.org/en/stable)
-- [Documentation (Latest)](http://coredis.readthedocs.org/en/latest)
-- [Changelog](http://coredis.readthedocs.org/en/stable/release_notes.html)
-- [Project History](http://coredis.readthedocs.org/en/stable/history.html)
-
+- [Documentation (Stable)](https://coredis.readthedocs.org/en/stable)
+- [Documentation (Latest)](https://coredis.readthedocs.org/en/latest)
+- [Changelog](https://coredis.readthedocs.org/en/stable/release_notes.html)
+- [Project History](https://coredis.readthedocs.org/en/stable/history.html)

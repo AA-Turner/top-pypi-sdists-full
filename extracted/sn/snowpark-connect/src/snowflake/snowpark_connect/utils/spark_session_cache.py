@@ -4,9 +4,11 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from snowflake.snowpark import Session
+from snowflake.snowpark_connect.utils.artifacts import ArtifactKey
 from snowflake.snowpark_connect.utils.concurrent import ReadWriteLock, SynchronizedDict
 from snowflake.snowpark_connect.utils.context import get_spark_session_id
 
@@ -157,6 +159,189 @@ class UdtfMonitor:
             self._registered.clear()
 
 
+class _ArtifactStoreWriter:
+    """Non-locking accessor yielded by ``ArtifactStore.writer()``.
+
+    All mutations bypass locking because the caller already holds
+    ``_filenames_lock`` in write mode for the entire ``with`` block.
+    """
+
+    def __init__(self, store: ArtifactStore) -> None:
+        self._store = store
+
+    def drain_filenames(self) -> dict[str, str]:
+        result = dict(self._store._filenames)
+        self._store._filenames.clear()
+        return result
+
+    def add_python_file(self, path: str) -> None:
+        self._store._python_files.add(path)
+
+    def remove_python_file(self, path: str) -> None:
+        self._store._python_files.discard(path)
+
+    def has_python_file(self, path: str) -> bool:
+        return path in self._store._python_files
+
+    def add_import_file(self, path: str) -> None:
+        self._store._import_files.add(path)
+
+    def add_jar(self, path: str) -> None:
+        self._store._jars.add(path)
+
+
+class ArtifactStore:
+    """Per-session store for artifact upload state.
+
+    Manages artifact file mappings, chunked-upload tracking,
+    dedup hash cache, and UDF import file sets.
+
+    Thread safety is provided by three ``ReadWriteLock`` instances,
+    each guarding an independent group of state:
+
+    - ``_filenames_lock`` — ``_filenames``, ``_python_files``,
+      ``_import_files``, ``_jars``
+    - ``_chunk_lock`` — ``_current_chunk``
+    - ``_hash_lock`` — ``_hash_cache``
+
+    Individual public methods acquire the appropriate lock.  The
+    ``writer()`` context manager acquires ``_filenames_lock`` in write
+    mode for callers that need a held-lock section spanning multiple
+    mutations (e.g. the post-upload stage processing).
+    """
+
+    def __init__(self) -> None:
+        self._filenames_lock = ReadWriteLock()
+        self._chunk_lock = ReadWriteLock()
+        self._hash_lock = ReadWriteLock()
+
+        self._filenames: dict[str, str] = {}
+        self._current_chunk: dict | None = None
+        self._hash_cache: set[ArtifactKey] = set()
+        self._python_files: set[str] = set()
+        self._import_files: set[str] = set()
+        self._jars: set[str] = set()
+
+    # -- filenames (artifact name -> local filepath) -------------------------
+
+    def set_filename(self, name: str, filepath: str) -> None:
+        with self._filenames_lock.writer():
+            self._filenames[name] = filepath
+
+    def get_filename(self, name: str) -> str | None:
+        with self._filenames_lock.reader():
+            return self._filenames.get(name)
+
+    def remove_filename(self, name: str) -> str | None:
+        """Pop and return the filepath for *name*, or ``None``."""
+        with self._filenames_lock.writer():
+            return self._filenames.pop(name, None)
+
+    def assert_no_duplicate_filename(self, name: str) -> None:
+        with self._filenames_lock.reader():
+            assert name not in self._filenames, "Duplicate artifact name found."
+
+    def assert_filename_matches(self, name: str, expected: str) -> None:
+        with self._filenames_lock.reader():
+            assert self._filenames[name] == expected, "Artifact staging error."
+
+    # -- current chunk (chunked upload tracking) -----------------------------
+
+    def get_current_chunk(self) -> dict | None:
+        with self._chunk_lock.reader():
+            return self._current_chunk
+
+    def set_current_chunk(self, chunk: dict | None) -> None:
+        with self._chunk_lock.writer():
+            self._current_chunk = chunk
+
+    def has_current_chunk(self) -> bool:
+        with self._chunk_lock.reader():
+            return self._current_chunk is not None
+
+    # -- hash cache ----------------------------------------------------------
+
+    def is_cached(self, key: ArtifactKey) -> bool:
+        with self._hash_lock.reader():
+            return key in self._hash_cache
+
+    def cache_hashes(self, keys: set[ArtifactKey]) -> None:
+        with self._hash_lock.writer():
+            self._hash_cache.update(keys)
+
+    def clear_hash_cache(self) -> None:
+        with self._hash_lock.writer():
+            self._hash_cache.clear()
+
+    # -- import file sets ----------------------------------------------------
+
+    def get_python_files(self) -> set[str]:
+        with self._filenames_lock.reader():
+            return set(self._python_files)
+
+    def add_python_file(self, path: str) -> None:
+        with self._filenames_lock.writer():
+            self._python_files.add(path)
+
+    def remove_python_file(self, path: str) -> None:
+        with self._filenames_lock.writer():
+            self._python_files.discard(path)
+
+    def has_python_file(self, path: str) -> bool:
+        with self._filenames_lock.reader():
+            return path in self._python_files
+
+    def clear_python_files(self) -> None:
+        with self._filenames_lock.writer():
+            self._python_files.clear()
+
+    def get_import_files(self) -> set[str]:
+        with self._filenames_lock.reader():
+            return set(self._import_files)
+
+    def add_import_file(self, path: str) -> None:
+        with self._filenames_lock.writer():
+            self._import_files.add(path)
+
+    def get_jars(self) -> set[str]:
+        with self._filenames_lock.reader():
+            return set(self._jars)
+
+    def add_jar(self, path: str) -> None:
+        with self._filenames_lock.writer():
+            self._jars.add(path)
+
+    def clear_jars(self) -> None:
+        with self._filenames_lock.writer():
+            self._jars.clear()
+
+    # -- held-lock context manager -------------------------------------------
+
+    @contextmanager
+    def writer(self):
+        """Acquire ``_filenames_lock`` in write mode and yield an
+        ``_ArtifactStoreWriter`` for non-locking bulk mutations.
+
+        Use this when multiple filename / import-set mutations must be
+        atomic (e.g. the post-upload stage processing loop).
+        """
+        with self._filenames_lock.writer():
+            yield _ArtifactStoreWriter(self)
+
+    # -- lifecycle -----------------------------------------------------------
+
+    def clear(self) -> None:
+        with self._filenames_lock.writer():
+            self._filenames.clear()
+            self._python_files.clear()
+            self._import_files.clear()
+            self._jars.clear()
+        with self._chunk_lock.writer():
+            self._current_chunk = None
+        with self._hash_lock.writer():
+            self._hash_cache.clear()
+
+
 class SparkSessionCache:
     """Per-Spark-session cache that isolates cached objects across different
     Spark sessions sharing the same underlying Snowpark session.
@@ -170,6 +355,7 @@ class SparkSessionCache:
         self._spark_session_id = spark_session_id
         self.udfs = UdfMonitor()
         self.udtfs = UdtfMonitor()
+        self.artifacts_store = ArtifactStore()
 
     @property
     def spark_session_id(self) -> str:
@@ -185,6 +371,7 @@ class SparkSessionCache:
         """Drop all cached objects for this Spark session."""
         self.udfs.clear()
         self.udtfs.clear()
+        self.artifacts_store.clear()
 
 
 class SparkSessionCacheRegistry(SynchronizedDict):
@@ -233,7 +420,7 @@ def init_spark_session_cache_registry(session: Session) -> None:
 
 
 def get_spark_session_cache() -> SparkSessionCache:
-    """Return the ``SparkSessionCache`` for the current (or given) Spark
+    """Return the ``SparkSessionCache`` for the current Spark
     session, creating one if it doesn't exist yet."""
     spark_session_id = get_spark_session_id()
     registry: SparkSessionCacheRegistry = (

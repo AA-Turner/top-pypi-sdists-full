@@ -15,15 +15,15 @@ use crate::{
     paths::{Location, LocationSegment},
     types::{JsonType, JsonTypeSet},
     validator::Validate,
-    ValidationError, Validator,
+    ValidationError, Validator, ValidatorMap,
 };
 use ahash::{AHashMap, AHashSet};
 use referencing::{
-    uri, Draft, List, Registry, Resolved, Resolver, Resource, ResourceRef, Uri, Vocabulary,
-    VocabularySet,
+    uri, write_escaped_str, Draft, List, Registry, Resolved, Resolver, ResourceRef, Uri,
+    Vocabulary, VocabularySet,
 };
 use serde_json::{Map, Value};
-use std::{borrow::Cow, cell::RefCell, iter::once, rc::Rc, sync::Arc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 const DEFAULT_SCHEME: &str = "json-schema";
 pub(crate) const DEFAULT_BASE_URI: &str = "json-schema:///";
@@ -32,6 +32,62 @@ pub(crate) const DEFAULT_BASE_URI: &str = "json-schema:///";
 type SharedCache<K, V> = Rc<RefCell<AHashMap<K, V>>>;
 /// Type alias for shared sets in compiler state.
 type SharedSet<T> = Rc<RefCell<AHashSet<T>>>;
+
+pub(crate) trait CompilationOptions {
+    fn validate_formats(&self) -> Option<bool>;
+    fn are_unknown_formats_ignored(&self) -> bool;
+    fn get_content_media_type_check(&self, media_type: &str) -> Option<ContentMediaTypeCheckType>;
+    fn content_encoding_check(&self, content_encoding: &str) -> Option<ContentEncodingCheckType>;
+    fn get_content_encoding_convert(
+        &self,
+        content_encoding: &str,
+    ) -> Option<ContentEncodingConverterType>;
+    fn get_keyword_factory(&self, name: &str) -> Option<&Arc<dyn KeywordFactory>>;
+    fn get_format(&self, format: &str) -> Option<(&String, &Arc<dyn Format>)>;
+    fn pattern_options(&self) -> PatternEngineOptions;
+    fn email_options(&self) -> Option<&email_address::Options>;
+}
+
+impl<R> CompilationOptions for ValidationOptions<'_, R> {
+    fn validate_formats(&self) -> Option<bool> {
+        ValidationOptions::validate_formats(self)
+    }
+
+    fn are_unknown_formats_ignored(&self) -> bool {
+        ValidationOptions::are_unknown_formats_ignored(self)
+    }
+
+    fn get_content_media_type_check(&self, media_type: &str) -> Option<ContentMediaTypeCheckType> {
+        ValidationOptions::get_content_media_type_check(self, media_type)
+    }
+
+    fn content_encoding_check(&self, content_encoding: &str) -> Option<ContentEncodingCheckType> {
+        ValidationOptions::content_encoding_check(self, content_encoding)
+    }
+
+    fn get_content_encoding_convert(
+        &self,
+        content_encoding: &str,
+    ) -> Option<ContentEncodingConverterType> {
+        ValidationOptions::get_content_encoding_convert(self, content_encoding)
+    }
+
+    fn get_keyword_factory(&self, name: &str) -> Option<&Arc<dyn KeywordFactory>> {
+        ValidationOptions::get_keyword_factory(self, name)
+    }
+
+    fn get_format(&self, format: &str) -> Option<(&String, &Arc<dyn Format>)> {
+        ValidationOptions::get_format(self, format)
+    }
+
+    fn pattern_options(&self) -> PatternEngineOptions {
+        ValidationOptions::compiler_pattern_options(self)
+    }
+
+    fn email_options(&self) -> Option<&email_address::Options> {
+        ValidationOptions::compiler_email_options(self)
+    }
+}
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 pub(crate) struct LocationCacheKey {
@@ -116,10 +172,9 @@ impl SharedContextState {
 }
 
 /// Per-location view used while compiling schemas into validators.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct Context<'a> {
-    config: &'a ValidationOptions,
-    pub(crate) registry: &'a Registry,
+    config: &'a dyn CompilationOptions,
     resolver: Resolver<'a>,
     vocabularies: VocabularySet,
     location: Location,
@@ -145,8 +200,7 @@ pub(crate) struct Context<'a> {
 
 impl<'a> Context<'a> {
     pub(crate) fn new(
-        config: &'a ValidationOptions,
-        registry: &'a Registry,
+        config: &'a dyn CompilationOptions,
         resolver: Resolver<'a>,
         vocabularies: VocabularySet,
         draft: Draft,
@@ -154,7 +208,6 @@ impl<'a> Context<'a> {
     ) -> Self {
         Context {
             config,
-            registry,
             resolver,
             resource_base: location.clone(),
             location,
@@ -166,7 +219,7 @@ impl<'a> Context<'a> {
     pub(crate) fn draft(&self) -> Draft {
         self.draft
     }
-    pub(crate) fn config(&self) -> &ValidationOptions {
+    pub(crate) fn config(&self) -> &dyn CompilationOptions {
         self.config
     }
 
@@ -178,7 +231,6 @@ impl<'a> Context<'a> {
         let resolver = self.resolver.in_subresource(resource)?;
         Ok(Context {
             config: self.config,
-            registry: self.registry,
             resolver,
             vocabularies: self.vocabularies.clone(),
             draft: resource.draft(),
@@ -196,7 +248,6 @@ impl<'a> Context<'a> {
         let location = self.location.join(chunk);
         Context {
             config: self.config,
-            registry: self.registry,
             resolver: self.resolver.clone(),
             vocabularies: self.vocabularies.clone(),
             resource_base: self.resource_base.clone(),
@@ -268,6 +319,9 @@ impl<'a> Context<'a> {
     pub(crate) fn supports_integer_valued_numbers(&self) -> bool {
         !matches!(self.draft, Draft::Draft4)
     }
+    pub(crate) fn find_vocabularies(&self, draft: Draft, contents: &Value) -> VocabularySet {
+        self.resolver.find_vocabularies(draft, contents)
+    }
     pub(crate) fn validates_formats_by_default(&self) -> bool {
         self.config.validate_formats().unwrap_or(matches!(
             self.draft,
@@ -286,7 +340,6 @@ impl<'a> Context<'a> {
     ) -> Context<'a> {
         Context {
             config: self.config,
-            registry: self.registry,
             resolver,
             draft,
             vocabularies,
@@ -326,13 +379,13 @@ impl<'a> Context<'a> {
     ) -> Result<bool, referencing::Error> {
         let uri = self
             .resolver
-            .resolve_against(&self.resolver.base_uri().borrow(), reference)?;
+            .resolve_uri(&self.resolver.base_uri().borrow(), reference)?;
         Ok(self.shared.seen.borrow().contains(&*uri))
     }
     pub(crate) fn mark_seen(&self, reference: &str) -> Result<(), referencing::Error> {
         let uri = self
             .resolver
-            .resolve_against(&self.resolver.base_uri().borrow(), reference)?;
+            .resolve_uri(&self.resolver.base_uri().borrow(), reference)?;
         self.shared.seen.borrow_mut().insert(uri);
         Ok(())
     }
@@ -350,7 +403,7 @@ impl<'a> Context<'a> {
         }
         let result = self
             .resolver
-            .resolve_against(&self.resolver.base_uri().borrow(), &buffer);
+            .resolve_uri(&self.resolver.base_uri().borrow(), &buffer);
         buffer.clear();
         result
     }
@@ -360,7 +413,7 @@ impl<'a> Context<'a> {
         reference: &str,
     ) -> Result<Arc<Uri<String>>, referencing::Error> {
         self.resolver
-            .resolve_against(&self.resolver.base_uri().borrow(), reference)
+            .resolve_uri(&self.resolver.base_uri().borrow(), reference)
     }
 
     pub(crate) fn cached_location_node(&self, key: &LocationCacheKey) -> Option<SchemaNode> {
@@ -668,160 +721,137 @@ impl<'a> Context<'a> {
     }
 }
 
-pub(crate) fn build_registry(
-    config: &ValidationOptions,
+pub(crate) fn build_registry<'a>(
+    config: &'a ValidationOptions<'a>,
     draft: Draft,
-    resource: referencing::Resource,
-    schema_id: Option<&str>,
-) -> Result<(Arc<referencing::Registry>, referencing::Uri<String>), referencing::Error> {
-    let base_uri = if let Some(base_uri) = config.base_uri.as_ref() {
-        uri::from_str(base_uri)?
-    } else {
-        uri::from_str(schema_id.unwrap_or(DEFAULT_BASE_URI))?
-    };
-
-    // Build a registry & resolver needed for validator compilation
-    // Clone resources to drain them without mutating the original config
-    let pairs = collect_resource_pairs(base_uri.as_str(), resource, config.resources.clone());
-
-    let registry = if let Some(ref registry) = config.registry {
-        Arc::new(registry.clone().try_with_resources_and_retriever(
-            pairs,
-            &*config.retriever,
-            draft,
-        )?)
-    } else {
-        Arc::new(
-            Registry::options()
-                .draft(draft)
-                .retriever(Arc::clone(&config.retriever))
-                .build(pairs)?,
-        )
-    };
+    resource: ResourceRef<'a>,
+    schema_id: Option<&'a str>,
+) -> Result<(referencing::Registry<'a>, referencing::Uri<String>), referencing::Error> {
+    let base_uri = resolve_base_uri(config.base_uri.as_ref(), schema_id)?;
+    let registry = referencing::Registry::new()
+        .retriever(config.retriever.clone())
+        .draft(draft)
+        .add(base_uri.as_str(), resource)?
+        .prepare()?;
     Ok((registry, base_uri))
 }
 
 pub(crate) fn build_validator(
-    config: &ValidationOptions,
+    config: &ValidationOptions<'_>,
     schema: &Value,
 ) -> Result<Validator, ValidationError<'static>> {
     let draft = config.draft_for(schema)?;
-    let resource_ref = draft.create_resource_ref(schema); // single computation
-    let resource = draft.create_resource(schema.clone());
-    let (registry, base_uri) = build_registry(config, draft, resource, resource_ref.id())?;
-    let vocabularies = registry.find_vocabularies(draft, schema);
-    let resolver = registry.resolver(base_uri);
-
-    let ctx = Context::new(
-        config,
-        &registry,
-        resolver,
-        vocabularies,
-        draft,
-        Location::new(),
-    );
+    let resource = draft.create_resource_ref(schema);
 
     // Validate the schema itself
     if config.validate_schema {
         validate_schema(draft, schema)?;
     }
 
-    // Finally, compile the validator
-    let root = compile(&ctx, resource_ref).map_err(ValidationError::to_owned)?;
-    let draft = config.draft();
-    Ok(Validator { root, draft })
+    if let Some(registry) = config.registry {
+        let base_uri = resolve_base_uri(config.base_uri.as_ref(), resource.id())?;
+        let registry = registry
+            .add(base_uri.as_str(), resource)?
+            .retriever(config.retriever.clone())
+            .draft(draft)
+            .prepare()?;
+        return build_validator_with_registry(config, schema, draft, resource, &registry);
+    }
+
+    let (registry, _) = build_registry(config, draft, resource, resource.id())?;
+    build_validator_with_registry(config, schema, draft, resource, &registry)
 }
 
 #[cfg(feature = "resolve-async")]
-pub(crate) async fn build_registry_async(
-    config: &ValidationOptions<Arc<dyn referencing::AsyncRetrieve>>,
+pub(crate) async fn build_registry_async<'a>(
+    config: &'a ValidationOptions<'a, Arc<dyn referencing::AsyncRetrieve>>,
     draft: Draft,
-    resource: referencing::Resource,
-    schema_id: Option<&str>,
-) -> Result<(Arc<referencing::Registry>, referencing::Uri<String>), referencing::Error> {
-    let base_uri = if let Some(base_uri) = config.base_uri.as_ref() {
-        uri::from_str(base_uri)?
-    } else {
-        uri::from_str(schema_id.unwrap_or(DEFAULT_BASE_URI))?
-    };
-
-    // Build a registry & resolver needed for validator compilation
-    // Clone resources to drain them without mutating the original config
-    let pairs = collect_resource_pairs(base_uri.as_str(), resource, config.resources.clone());
-
-    let registry = if let Some(ref registry) = config.registry {
-        Arc::new(
-            registry
-                .clone()
-                .try_with_resources_and_retriever_async(pairs, &*config.retriever, draft)
-                .await?,
-        )
-    } else {
-        Arc::new(
-            Registry::options()
-                .draft(draft)
-                .async_retriever(Arc::clone(&config.retriever))
-                .build(pairs)
-                .await?,
-        )
-    };
+    resource: ResourceRef<'a>,
+    schema_id: Option<&'a str>,
+) -> Result<(referencing::Registry<'a>, referencing::Uri<String>), referencing::Error> {
+    let base_uri = resolve_base_uri(config.base_uri.as_ref(), schema_id)?;
+    let registry = referencing::Registry::new()
+        .async_retriever(config.retriever.clone())
+        .draft(draft)
+        .add(base_uri.as_str(), resource)?
+        .async_prepare()
+        .await?;
     Ok((registry, base_uri))
 }
 
 #[cfg(feature = "resolve-async")]
 pub(crate) async fn build_validator_async(
-    config: &ValidationOptions<Arc<dyn referencing::AsyncRetrieve>>,
+    config: &ValidationOptions<'_, Arc<dyn referencing::AsyncRetrieve>>,
     schema: &Value,
 ) -> Result<Validator, ValidationError<'static>> {
     let draft = config.draft_for(schema).await?;
     let resource_ref = draft.create_resource_ref(schema); // single computation
-    let resource = draft.create_resource(schema.clone());
-    let (registry, base_uri) =
-        build_registry_async(config, draft, resource, resource_ref.id()).await?;
-    let vocabularies = registry.find_vocabularies(draft, schema);
-    let resolver = registry.resolver(base_uri);
-    // HACK: `ValidationOptions` struct has a default type parameter as `Arc<dyn Retrieve>` and to
-    //       avoid propagating types everywhere in `Context`, it is easier to just replace the
-    //       retriever to one that implements `Retrieve`, as it is not used anymore anyway.
-    let config_with_blocking_retriever = config
-        .clone()
-        .with_blocking_retriever(crate::retriever::DefaultRetriever);
-    let ctx = Context::new(
-        &config_with_blocking_retriever,
-        &registry,
-        resolver,
-        vocabularies,
-        draft,
-        Location::new(),
-    );
 
     if config.validate_schema {
         validate_schema(draft, schema)?;
     }
 
-    let root = compile(&ctx, resource_ref).map_err(ValidationError::to_owned)?;
+    if let Some(registry) = config.registry {
+        let base_uri = resolve_base_uri(config.base_uri.as_ref(), resource_ref.id())?;
+        let registry = registry
+            .add(base_uri.as_str(), resource_ref)?
+            .async_retriever(config.retriever.clone())
+            .draft(draft)
+            .async_prepare()
+            .await?;
+        return build_validator_with_registry(config, schema, draft, resource_ref, &registry);
+    }
+
+    let (registry, _) =
+        build_registry_async(config, draft, resource_ref, resource_ref.id()).await?;
+    build_validator_with_registry(config, schema, draft, resource_ref, &registry)
+}
+
+fn build_validator_with_registry<R>(
+    config: &ValidationOptions<'_, R>,
+    schema: &Value,
+    draft: Draft,
+    resource: ResourceRef<'_>,
+    registry: &Registry<'_>,
+) -> Result<Validator, ValidationError<'static>> {
+    let requested_base_uri = resolve_base_uri(config.base_uri.as_ref(), resource.id())?;
+    let base_uri = normalize_base_uri(registry, &requested_base_uri);
+    let vocabularies = registry.find_vocabularies(draft, schema);
+    let resolver = registry.resolver(base_uri);
+    let ctx = Context::new(config, resolver, vocabularies, draft, Location::new());
+    let root = compile(&ctx, resource).map_err(ValidationError::to_owned)?;
     let draft = config.draft();
     Ok(Validator { root, draft })
 }
 
-fn annotations_to_value(annotations: AHashMap<String, Value>) -> Arc<Value> {
-    let mut object = Map::with_capacity(annotations.len());
-    for (key, value) in annotations {
-        object.insert(key, value);
+pub(crate) fn normalize_base_uri(registry: &Registry<'_>, base_uri: &Uri<String>) -> Uri<String> {
+    if registry.contains_resource(base_uri.as_str()) {
+        return base_uri.clone();
     }
-    Arc::new(Value::Object(object))
+
+    if base_uri
+        .fragment()
+        .is_some_and(|fragment| fragment.as_str().is_empty())
+    {
+        let mut normalized = base_uri.clone();
+        normalized.set_fragment(None);
+        if registry.contains_resource(normalized.as_str()) {
+            return normalized;
+        }
+    }
+
+    panic!("generated registry is missing root URI '{base_uri}'");
 }
 
-fn collect_resource_pairs(
-    base_uri: &str,
-    resource: Resource,
-    resources: AHashMap<String, Resource>,
-) -> impl IntoIterator<Item = (Cow<'_, str>, Resource)> {
-    once((Cow::Borrowed(base_uri), resource)).chain(
-        resources
-            .into_iter()
-            .map(|(uri, resource)| (Cow::Owned(uri), resource)),
-    )
+pub(crate) fn resolve_base_uri(
+    base_uri: Option<&String>,
+    schema_id: Option<&str>,
+) -> Result<Uri<String>, referencing::Error> {
+    if let Some(base_uri) = base_uri {
+        uri::from_str(base_uri)
+    } else {
+        uri::from_str(schema_id.unwrap_or(DEFAULT_BASE_URI))
+    }
 }
 
 fn validate_schema(draft: Draft, schema: &Value) -> Result<(), ValidationError<'static>> {
@@ -940,20 +970,15 @@ fn compile_without_cache<'a>(
                 // Older drafts ignore all other keywords if `$ref` is present
                 if let Some(reference) = schema.get("$ref") {
                     // Treat all keywords other than `$ref` as annotations
-                    let annotations: AHashMap<String, Value> = schema
+                    let annotations: Map<String, Value> = schema
                         .iter()
-                        .filter_map(|(k, v)| {
-                            if k.as_str() == "$ref" {
-                                None
-                            } else {
-                                Some((k.clone(), v.clone()))
-                            }
-                        })
+                        .filter(|(k, _)| k.as_str() != "$ref")
+                        .map(|(k, v)| (k.clone(), v.clone()))
                         .collect();
                     let annotations = if annotations.is_empty() {
                         None
                     } else {
-                        Some(annotations_to_value(annotations))
+                        Some(Arc::new(Value::Object(annotations)))
                     };
                     return if let Some(validator) =
                         keywords::ref_::compile_ref(ctx, schema, reference)
@@ -968,7 +993,7 @@ fn compile_without_cache<'a>(
             }
 
             let mut validators = Vec::with_capacity(schema.len());
-            let mut annotations = AHashMap::new();
+            let mut annotations = Map::new();
             for (keyword, value) in schema {
                 // Check if this keyword is overridden, then check the standard definitions
                 if let Some(factory) = ctx.get_keyword_factory(keyword) {
@@ -992,7 +1017,7 @@ fn compile_without_cache<'a>(
             let annotations = if annotations.is_empty() {
                 None
             } else {
-                Some(annotations_to_value(annotations))
+                Some(Arc::new(Value::Object(annotations)))
             };
             Ok(SchemaNode::from_keywords(ctx, validators, annotations))
         }
@@ -1009,4 +1034,124 @@ fn compile_without_cache<'a>(
             ))
         }
     }
+}
+
+/// Iteratively traverse a schema document and compile a [`Validator`] for every
+/// reachable subschema, keyed by URI-fragment JSON pointer.
+///
+/// Each subschema is compiled with its own fresh [`Context`] so that caches from
+/// sibling compilations do not interfere. Nodes that fail to compile (e.g.
+/// unresolvable `$ref`) are silently skipped.
+fn collect_validators<'a>(
+    config: &'a dyn CompilationOptions,
+    resolver: &Resolver<'a>,
+    vocabularies: &VocabularySet,
+    schema: &'a Value,
+    draft: Draft,
+) -> AHashMap<String, Validator> {
+    let mut validators: AHashMap<String, Validator> = AHashMap::new();
+    let mut stack: Vec<(&'a Value, String)> = vec![(schema, "#".to_string())];
+
+    while let Some((current, pointer)) = stack.pop() {
+        // Only Object and Bool are valid JSON schemas — skip compilation for everything else
+        if matches!(current, Value::Object(_) | Value::Bool(_)) {
+            let ctx = Context::new(
+                config,
+                resolver.clone(),
+                vocabularies.clone(),
+                draft,
+                Location::new(),
+            );
+            let resource_ref = ctx.as_resource_ref(current);
+            if let Ok(node) = compile(&ctx, resource_ref) {
+                // Store each sub-validator with the same draft as the top-level schema.
+                // Per-subschema draft detection is not performed here; subschemas that
+                // declare their own `$schema` will still compile correctly since the
+                // registry handles resolution, but their Validator::draft() will reflect
+                // the top-level draft.
+                validators.insert(pointer.clone(), Validator { root: node, draft });
+            }
+        }
+
+        match current {
+            Value::Object(obj) => {
+                for (key, value) in obj {
+                    let mut escaped = String::new();
+                    write_escaped_str(&mut escaped, key);
+                    stack.push((value, format!("{pointer}/{escaped}")));
+                }
+            }
+            Value::Array(arr) => {
+                for (idx, item) in arr.iter().enumerate() {
+                    stack.push((item, format!("{pointer}/{idx}")));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    validators
+}
+
+fn build_validator_map_with_registry<R>(
+    config: &ValidationOptions<'_, R>,
+    schema: &Value,
+    draft: Draft,
+    resource: ResourceRef<'_>,
+    registry: &Registry<'_>,
+) -> Result<ValidatorMap, ValidationError<'static>> {
+    let requested_base_uri = resolve_base_uri(config.base_uri.as_ref(), resource.id())?;
+    let base_uri = normalize_base_uri(registry, &requested_base_uri);
+    let vocabularies = registry.find_vocabularies(draft, schema);
+    let resolver = registry.resolver(base_uri);
+    let validators = collect_validators(config, &resolver, &vocabularies, schema, draft);
+    Ok(ValidatorMap { validators })
+}
+
+pub(crate) fn build_validator_map(
+    config: &ValidationOptions<'_>,
+    schema: &Value,
+) -> Result<ValidatorMap, ValidationError<'static>> {
+    let draft = config.draft_for(schema)?;
+    let resource = draft.create_resource_ref(schema);
+
+    validate_schema(draft, schema)?;
+
+    if let Some(registry) = config.registry {
+        let base_uri = resolve_base_uri(config.base_uri.as_ref(), resource.id())?;
+        let registry = registry
+            .add(base_uri.as_str(), resource)?
+            .retriever(config.retriever.clone())
+            .draft(draft)
+            .prepare()?;
+        return build_validator_map_with_registry(config, schema, draft, resource, &registry);
+    }
+
+    let (registry, _) = build_registry(config, draft, resource, resource.id())?;
+    build_validator_map_with_registry(config, schema, draft, resource, &registry)
+}
+
+#[cfg(feature = "resolve-async")]
+pub(crate) async fn build_validator_map_async(
+    config: &ValidationOptions<'_, Arc<dyn referencing::AsyncRetrieve>>,
+    schema: &Value,
+) -> Result<ValidatorMap, ValidationError<'static>> {
+    let draft = config.draft_for(schema).await?;
+    let resource = draft.create_resource_ref(schema);
+
+    validate_schema(draft, schema)?;
+
+    if let Some(registry) = config.registry {
+        let base_uri = resolve_base_uri(config.base_uri.as_ref(), resource.id())?;
+        let registry = registry
+            .add(base_uri.as_str(), resource)?
+            .async_retriever(config.retriever.clone())
+            .draft(draft)
+            .async_prepare()
+            .await?;
+        return build_validator_map_with_registry(config, schema, draft, resource, &registry);
+    }
+
+    let (registry, _) = build_registry_async(config, draft, resource, resource.id()).await?;
+    build_validator_map_with_registry(config, schema, draft, resource, &registry)
 }

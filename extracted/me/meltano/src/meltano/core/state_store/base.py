@@ -4,14 +4,21 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import sys
 import typing as t
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+
+if sys.version_info >= (3, 11):
+    from typing import Self  # noqa: ICN003
+else:
+    from typing_extensions import Self
 
 from meltano.core.utils import merge
 
 if t.TYPE_CHECKING:
     from collections.abc import Generator, Iterable
+    from types import TracebackType
 
 
 class UnsupportedStateBackendURIError(Exception):
@@ -113,6 +120,26 @@ class StateStoreManager(ABC):
             kwargs: additional keyword arguments
         """
 
+    def __enter__(self) -> Self:
+        """Enter the context manager."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        """Exit the context manager."""
+        self.close()
+
+    def close(self) -> None:  # noqa: B027
+        """Close any resources held by the state store manager.
+
+        Subclasses should override this to clean up backend-specific resources
+        (e.g., database connections, file handles).
+        """
+
     @t.final
     def update(self, state: MeltanoState) -> None:
         """Update state for the given `state_id`.
@@ -202,13 +229,20 @@ class StateStoreManager(ABC):
         """
         ...
 
+    def migrate(self) -> None:  # noqa: B027
+        """Migrate state from a previous version of the manager.
+
+        Subclasses should override this to perform any necessary migrations
+        on the state data (e.g., fixing path prefixes, schema changes).
+        """
+
     @abstractmethod
     @contextmanager
     def acquire_lock(
         self,
         state_id: str,
         *,
-        retry_seconds: int,
+        retry_seconds: float,
     ) -> Generator[None, None, None]:
         """Acquire a naive lock for the given job's state.
 

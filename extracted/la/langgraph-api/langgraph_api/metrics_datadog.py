@@ -235,6 +235,10 @@ class DatadogMetricsReporter:
                         "k8s.deployment.name": os.getenv(
                             "LANGSMITH_HOST_PROJECT_NAME", ""
                         ),
+                        "has_deepagents": "true"
+                        if os.getenv("DEEPAGENTS_VERSION", "") != ""
+                        else "false",
+                        "deployment_type": os.getenv("LSD_DEPLOYMENT_TYPE", ""),
                     }
                 )
                 base_exporter = OTLPMetricExporter(

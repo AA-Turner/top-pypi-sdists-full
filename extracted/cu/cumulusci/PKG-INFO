@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cumulusci
-Version: 4.9.0
+Version: 4.10.0
 Summary: Build and release tools for Salesforce developers
 Project-URL: Homepage, https://github.com/SFDO-Tooling/CumulusCI
 Project-URL: Changelog, https://cumulusci.readthedocs.io/en/stable/history.html
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.11
+Requires-Python: <3.14,>=3.11
 Requires-Dist: click>=8.2.0
 Requires-Dist: cryptography
 Requires-Dist: defusedxml
@@ -126,15 +126,18 @@ license](https://github.com/SFDO-Tooling/CumulusCI/blob/main/LICENSE)
 and is not covered by the Salesforce Master Subscription Agreement.
 
 <!-- Changelog -->
-## v4.9.0 (2026-04-02)
+## v4.10.0 (2026-04-10)
 
 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
-## What's Changed 
+## What's Changed
 
 ### Changes
 
-- Remove PyFilesystem2 dependency @W-21244194 by [@jstvz](https://github.com/jstvz) in [#3923](https://github.com/SFDO-Tooling/CumulusCI/pull/3923)
-- Expose Rollback Option in the Snowfakery Task by [@aditya-balachander](https://github.com/aditya-balachander) in [#3958](https://github.com/SFDO-Tooling/CumulusCI/pull/3958)
+-   @W-21875476: Phase 0 CI workflow updates by [@jstvz](https://github.com/jstvz) in [#3964](https://github.com/SFDO-Tooling/CumulusCI/pull/3964)
 
-**Full Changelog**: https://github.com/SFDO-Tooling/CumulusCI/compare/v4.8.1...v4.9.0
+## New Contributors
+
+-   @dependabot[bot] made their first contribution in [#3965](https://github.com/SFDO-Tooling/CumulusCI/pull/3965)
+
+**Full Changelog**: https://github.com/SFDO-Tooling/CumulusCI/compare/v4.9.0...v4.10.0

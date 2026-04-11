@@ -471,6 +471,48 @@ _sorted_token_pairs: list[tuple[str, str]] = [
 ]
 
 
+def _parse_java_quoted_literal(java_format: str, start_index: int) -> tuple[str, int]:
+    """Parse a single-quoted literal block from a Java date format string.
+
+    Java date format uses single quotes to escape literal text:
+    - 'text' represents literal "text"
+    - '' represents a single literal quote character
+
+    Args:
+        java_format: The full Java format string
+        start_index: Index of the opening quote character
+
+    Returns:
+        Tuple of (parsed_literal_content, new_index_after_closing_quote)
+    """
+    result: list[str] = []
+    i = start_index
+
+    # Handle '' which represents a single literal quote
+    if java_format[i : i + 2] == "''":
+        return ("'", i + 2)
+
+    # Skip the opening quote
+    i += 1
+    n = len(java_format)
+
+    while i < n:
+        if java_format[i] == "'":
+            if java_format[i : i + 2] == "''":
+                # Escaped quote inside literal
+                result.append("'")
+                i += 2
+            else:
+                # Closing quote
+                i += 1
+                break
+        else:
+            result.append(java_format[i])
+            i += 1
+
+    return ("".join(result), i)
+
+
 def convert_java_datetime_format_for_fileformat(java_format: str) -> str:
     """Convert a Java SimpleDateFormat string to a Snowflake file-format compatible
     date/timestamp format string.
@@ -489,22 +531,8 @@ def convert_java_datetime_format_for_fileformat(java_format: str) -> str:
 
         # Single-quoted literal block ('text')
         if ch == "'":
-            if java_format[i : i + 2] == "''":
-                result.append("'")
-                i += 2
-                continue
-            i += 1
-            while i < n:
-                if java_format[i] == "'":
-                    if java_format[i : i + 2] == "''":
-                        result.append("'")
-                        i += 2
-                    else:
-                        i += 1
-                        break
-                else:
-                    result.append(java_format[i])
-                    i += 1
+            literal, i = _parse_java_quoted_literal(java_format, i)
+            result.append(literal)
             continue
 
         # Separator characters pass through directly
@@ -523,6 +551,104 @@ def convert_java_datetime_format_for_fileformat(java_format: str) -> str:
                 break
 
         if not matched:
+            result.append(ch)
+            i += 1
+
+    return "".join(result)
+
+
+# Mapping from Java SimpleDateFormat patterns to Python strptime patterns
+_java_to_python_datetime_mapping = {
+    # Year
+    "yyyy": "%Y",
+    "yy": "%y",
+    "y": "%Y",
+    # Month
+    "MMMM": "%B",  # Full month name
+    "MMM": "%b",  # Abbreviated month name
+    "MM": "%m",  # Zero-padded month
+    "M": "%m",  # Month (Python always zero-pads)
+    # Day
+    "dd": "%d",  # Zero-padded day
+    "d": "%d",  # Day (Python always zero-pads)
+    # Hour
+    "HH": "%H",  # 24-hour zero-padded
+    "H": "%H",  # 24-hour
+    "hh": "%I",  # 12-hour zero-padded
+    "h": "%I",  # 12-hour
+    # Minute
+    "mm": "%M",
+    "m": "%M",
+    # Second
+    "ss": "%S",
+    "s": "%S",
+    # Milliseconds/Microseconds
+    "SSS": "%f",  # Python uses %f for microseconds (6 digits)
+    "SS": "%f",
+    "S": "%f",
+    # AM/PM
+    "a": "%p",
+    # Timezone
+    "z": "%Z",
+    "Z": "%z",
+}
+
+# Pre-sort keys by length descending for longest match first, store as tuples
+# for efficient lookup (avoids dict lookup inside loop)
+_sorted_java_to_python_pairs: list[tuple[str, str]] = [
+    (k, v)
+    for k, v in sorted(
+        _java_to_python_datetime_mapping.items(),
+        key=lambda t: len(t[0]),
+        reverse=True,
+    )
+]
+
+_PYTHON_FORMAT_SEPARATORS = set(" :/-.,T")
+
+
+def convert_java_datetime_format_to_python(java_format: str) -> str:
+    """Convert a Java SimpleDateFormat string to Python strptime format string.
+
+    This is used for local JSON processing where Python's datetime.strptime is used
+    to parse date/timestamp values.
+
+    Args:
+        java_format: Java SimpleDateFormat pattern (e.g., "yyyyMMdd", "yyyy-MM-dd HH:mm:ss")
+
+    Returns:
+        Python strptime format string (e.g., "%Y%m%d", "%Y-%m-%d %H:%M:%S")
+    """
+    result: list[str] = []
+    i = 0
+    n = len(java_format)
+
+    while i < n:
+        ch = java_format[i]
+
+        # Handle quoted literal text
+        if ch == "'":
+            literal, i = _parse_java_quoted_literal(java_format, i)
+            result.append(literal)
+            continue
+
+        # Separator characters pass through directly
+        if ch in _PYTHON_FORMAT_SEPARATORS:
+            result.append(ch)
+            i += 1
+            continue
+
+        # Try to match a Java token (longest first)
+        matched = False
+        for java_tok, python_tok in _sorted_java_to_python_pairs:
+            if java_format[i:].startswith(java_tok):
+                result.append(python_tok)
+                i += len(java_tok)
+                matched = True
+                break
+
+        if not matched:
+            # Unrecognized character - pass through
             result.append(ch)
             i += 1
 

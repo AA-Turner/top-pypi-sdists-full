@@ -1,5 +1,4 @@
 from copy import deepcopy
-import os
 import re
 import sys
 from typing import Any  # noqa:F401
@@ -29,6 +28,7 @@ from ddtrace.internal.schema import DEFAULT_SPAN_SERVICE_NAME
 from ddtrace.internal.serverless import in_aws_lambda
 from ddtrace.internal.serverless import in_azure_function
 from ddtrace.internal.serverless import in_gcp_function
+from ddtrace.internal.settings import env
 from ddtrace.internal.telemetry import get_config as _get_config
 from ddtrace.internal.telemetry import telemetry_writer
 from ddtrace.internal.telemetry import validate_and_report_otel_metrics_exporter_enabled
@@ -199,8 +199,10 @@ INTEGRATION_CONFIGS = frozenset(
         "yaaredis",
         "openai_agents",
         "mcp",
+        "mlflow",
         "ray",
         "aiokafka",
+        "google_cloud_pubsub",
     }
 )
 
@@ -212,7 +214,6 @@ def _parse_propagation_styles(styles_str: str) -> Optional[list[str]]:
 
         <style>[,<style>...]
 
-
     The allowed values are:
 
     - "datadog"
@@ -222,9 +223,7 @@ def _parse_propagation_styles(styles_str: str) -> Optional[list[str]]:
     - "baggage"
     - "none"
 
-
     The default value is ``"datadog,tracecontext,baggage"``.
-
 
     Examples::
 
@@ -550,7 +549,7 @@ class Config(object):
         )
 
         # Emit deprecation warning if env var is set (still functional, removal in 5.0.0)
-        if "DD_TRACE_128_BIT_TRACEID_GENERATION_ENABLED" in os.environ:
+        if "DD_TRACE_128_BIT_TRACEID_GENERATION_ENABLED" in env:
             deprecate(
                 "DD_TRACE_128_BIT_TRACEID_GENERATION_ENABLED is deprecated",
                 message="128-bit trace ID generation will become mandatory in version 5.0.0.",
@@ -652,7 +651,7 @@ class Config(object):
         if self._otel_trace_enabled or self._otel_logs_enabled or self._otel_metrics_enabled:
             # Replaces the default otel api runtime context with DDRuntimeContext
             # https://github.com/open-telemetry/opentelemetry-python/blob/v1.16.0/opentelemetry-api/src/opentelemetry/context/__init__.py#L53
-            os.environ["OTEL_PYTHON_CONTEXT"] = "ddcontextvars_context"
+            env["OTEL_PYTHON_CONTEXT"] = "ddcontextvars_context"
         self._otel_enabled = self._otel_trace_enabled or self._otel_metrics_enabled or self._otel_logs_enabled
 
         self._trace_methods = _get_config("DD_TRACE_METHODS")
@@ -668,6 +667,8 @@ class Config(object):
         self._llmobs_instrumented_proxy_urls = _get_config(
             "DD_LLMOBS_INSTRUMENTED_PROXY_URLS", None, lambda x: set(x.strip().split(","))
         )
+
+        self._model_lab_enabled = _get_config("DD_MODEL_LAB_ENABLED", False, asbool)
 
         self._llmobs_payload_size_limit = _get_config(
             "DD_LLMOBS_PAYLOAD_SIZE_BYTES", DEFAULT_EVP_PAYLOAD_SIZE_LIMIT, int
@@ -686,9 +687,6 @@ class Config(object):
         )
         self._trace_resource_renaming_always_simplified_endpoint = _get_config(
             "DD_TRACE_RESOURCE_RENAMING_ALWAYS_SIMPLIFIED_ENDPOINT", default=False, modifier=asbool
-        )
-        self._process_tags_enabled = _get_config(
-            "DD_EXPERIMENTAL_PROPAGATE_PROCESS_TAGS_ENABLED", default=False, modifier=asbool
         )
 
         # Long-running span interval configurations
