@@ -135,7 +135,11 @@ class AgmetPlotter:
             self.df["nsidc_rootzone"] = self.df["nsidc_rootzone"].clip(0, 1)
         if "esi_4wk" in self.df:
             self.df["esi_4wk"] = self.df["esi_4wk"] / 10.0 - 4.0
-        if "daymet_tmax" in self.df and "daymet_tmin" in self.df:
+        if "chirts_era5_tmax" in self.df and "chirts_era5_tmin" in self.df:
+            self.df["average_temperature"] = (
+                self.df["chirts_era5_tmax"] + self.df["chirts_era5_tmin"]
+            ) / 2.0
+        elif "daymet_tmax" in self.df and "daymet_tmin" in self.df:
             self.df["average_temperature"] = (
                 self.df["daymet_tmax"] + self.df["daymet_tmin"]
             ) / 2.0
@@ -396,11 +400,13 @@ class AgmetPlotter:
             cur_ax, curr_vals, last_vals, past_vals, min_vals, max_vals, idx,
         )
 
-        tmax_col = (
-            "daymet_tmax" if "daymet_tmax" in self.df_current.columns else "cpc_tmax"
+        tmax_col = next(
+            (c for c in ["chirts_era5_tmax", "daymet_tmax", "cpc_tmax"]
+             if c in self.df_current.columns), "cpc_tmax"
         )
-        tmin_col = (
-            "daymet_tmin" if "daymet_tmin" in self.df_current.columns else "cpc_tmin"
+        tmin_col = next(
+            (c for c in ["chirts_era5_tmin", "daymet_tmin", "cpc_tmin"]
+             if c in self.df_current.columns), "cpc_tmin"
         )
 
         mask_max = self.df_current[tmax_col] > 30
@@ -420,6 +426,58 @@ class AgmetPlotter:
         cur_ax.legend(loc="upper left", fontsize="small")
         return a1, a2, a3, a4
 
+    # -- FLDAS panel-type → base variable mapping --
+    _FLDAS_PANEL_MAP = {
+        "temperature": "tair_tavg",
+        "precip": "totalprecip_tavg",
+        "soil_moisture": "soilmoist_tavg",
+    }
+
+    def _overlay_fldas_dots(self, cur_ax, panel_type):
+        """Overlay FLDAS forecast dots on an existing subplot.
+
+        For each month in the current season, plot one dot per lead time
+        (lead 0 = most opaque, lead 5 = most transparent).  Dots beyond
+        the harvest date are suppressed.
+        """
+        fldas_var = self._FLDAS_PANEL_MAP.get(panel_type)
+        if fldas_var is None:
+            return
+
+        lead0_col = f"fldas_{fldas_var}_lead0"
+        if lead0_col not in self.df_current.columns:
+            return
+
+        # Determine harvest date cutoff
+        harvest_date = self.dates_cal[3] if self.dates_cal and self.dates_cal[3] else None
+
+        # Group current-season data by month
+        monthly = self.df_current.groupby(self.df_current.index.month)
+
+        added_legend = False
+        for _, grp in monthly:
+            # Mid-month date for x-position
+            mid_date = grp.index[len(grp) // 2]
+            if harvest_date and mid_date > harvest_date:
+                continue
+
+            for lead in range(6):
+                col = f"fldas_{fldas_var}_lead{lead}"
+                if col not in grp.columns:
+                    continue
+                val = grp[col].dropna()
+                if val.empty:
+                    continue
+                y = val.iloc[0]
+                label = "FLDAS forecast" if not added_legend else ""
+                cur_ax.plot(
+                    mid_date, y, marker="D", color="tab:orange",
+                    markersize=4, alpha=0.8, linestyle="none",
+                    label=label, zorder=5,
+                )
+                if label:
+                    added_legend = True
+
     def _add_annotations(self, fig, leg):
         """Add logos, data sources, production share, and footer text."""
         import matplotlib.image as image
@@ -438,11 +496,15 @@ class AgmetPlotter:
             precip_str = "Precipitation: NOAA CPC\n"
         if self.use_forecast:
             precip_str += "Precipitation Forecast: CHIRPS-GEFS\n"
-        temp_str = (
-            "Temperature: Daymet V4\n"
-            if "daymet_tmax" in self.df.columns
-            else "Temperature: NOAA CPC\n"
-        )
+        if "chirts_era5_tmax" in self.df.columns:
+            temp_str = "Temperature: CHIRTS-ERA5\n"
+        elif "daymet_tmax" in self.df.columns:
+            temp_str = "Temperature: Daymet V4\n"
+        else:
+            temp_str = "Temperature: NOAA CPC\n"
+        fldas_str = ""
+        if any(c.startswith("fldas_") for c in self.df.columns):
+            fldas_str = "Forecast: FLDAS NMME\n"
         fig.text(
             0.83,
             0.14 if self.precip_var == "chirps" else 0.15,
@@ -450,7 +512,8 @@ class AgmetPlotter:
             + temp_str
             + precip_str
             + "Evaporative Stress Index: NASA ESI\n"
-            + "Soil Moisture: NASA-USDA Global Soil Moisture\n",
+            + "Soil Moisture: NASA-USDA Global Soil Moisture\n"
+            + fldas_str,
             linespacing=1.5,
         )
 
@@ -557,10 +620,15 @@ class AgmetPlotter:
             self.df_previous["harvest_season"] < datetime.datetime.now().year
         ]
 
+        _tmax_col = next(
+            (c for c in ["chirts_era5_tmax", "daymet_tmax", "cpc_tmax"]
+             if c in self.df_current.columns), None
+        )
         if (
             self.df_current.empty
             or self.df_previous.empty
-            or self.df_current["cpc_tmax"].isnull().values.all()
+            or _tmax_col is None
+            or self.df_current[_tmax_col].isnull().values.all()
         ):
             return pd.DataFrame()
 
@@ -635,18 +703,22 @@ class AgmetPlotter:
 
             if subplot_name == "daily_precip":
                 self._draw_daily_precip(cur_ax, idx)
+                self._overlay_fldas_dots(cur_ax, "precip")
             elif subplot_name == "cumulative_precip":
                 self._draw_cumulative_precip(cur_ax, idx, df_mean_vals)
             elif subplot_name == "yearly_ndvi":
                 self._draw_yearly_vi(cur_ax, "ndvi")
             elif subplot_name == "yearly_gcvi":
                 self._draw_yearly_vi(cur_ax, "gcvi")
-            elif subplot_name == "cpc_tmax":
+            elif subplot_name in ("cpc_tmax", "chirts_era5_tmax", "daymet_tmax"):
                 a1, a2, a3, a4 = self._draw_temperature(cur_ax, idx)
+                self._overlay_fldas_dots(cur_ax, "temperature")
             else:
                 a1, a2, a3, a4 = self._draw_standard_lines(
                     cur_ax, curr_vals, last_vals, past_vals, min_vals, max_vals, idx,
                 )
+                if subplot_name in ("nsidc_surface", "soil_moisture_as1"):
+                    self._overlay_fldas_dots(cur_ax, "soil_moisture")
 
             # Crop calendar vertical lines
             if self.dates_cal:

@@ -1,2 +1,0 @@
-class TunaError(Exception):
-    pass

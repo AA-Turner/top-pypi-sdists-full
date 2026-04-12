@@ -1,26 +1,39 @@
+from __future__ import annotations
+
 import argparse
 import json
+import re
 from pathlib import Path
+from typing import Any, cast
+
+# Target component name used in translation key references.
+COMPONENT_NAME = "victron_gx"
+
+# When True, detect duplicate strings across entities and store them in a local
+# "common" section with cross-references.  When False, only global common
+# strings (from strings_common.json) are used.
+DEDUPE_STRINGS = False
 
 # Entity types to include in the output. Add more as platforms are added.
 # To publish all entity types, replace this with: INCLUDED_ENTITY_TYPES = None
-INCLUDED_ENTITY_TYPES = {"sensor", "button"}
+# INCLUDED_ENTITY_TYPES: set[str] | None = None
+INCLUDED_ENTITY_TYPES: set[str] | None = {"sensor", "binary_sensor", "select", "switch"}
 
 
-def build_common_lookup(data, prefix=""):
+def build_common_lookup(data: dict[str, Any], prefix: str = "") -> dict[str, list[str]]:
     """Build reverse lookup: value -> list of key paths from strings_common.json."""
-    lookup = {}
+    lookup: dict[str, list[str]] = {}
     for key, value in data.items():
         path = f"{prefix}::{key}" if prefix else key
         if isinstance(value, dict):
-            for v, paths in build_common_lookup(value, path).items():
+            for v, paths in build_common_lookup(cast("dict[str, Any]", value), path).items():
                 lookup.setdefault(v, []).extend(paths)
         elif isinstance(value, str):
             lookup.setdefault(value, []).append(path)
     return lookup
 
 
-def resolve_common_ref(value, common_lookup, prefer_section=None):
+def resolve_common_ref(value: str, common_lookup: dict[str, list[str]], prefer_section: str | None = None) -> str:
     """Replace a value with a [%key:...%] reference if found in common strings."""
     if value not in common_lookup:
         return value
@@ -49,7 +62,7 @@ def main():
         output_path = translations_dir / "strings.json"
 
     common_path = Path(args.common) if args.common else Path(__file__).parent / "strings_common.json"
-    common_lookup = {}
+    common_lookup: dict[str, list[str]] = {}
     if common_path.exists():
         with common_path.open(encoding="utf-8") as f:
             common_lookup = build_common_lookup(json.load(f))
@@ -66,10 +79,10 @@ def main():
         en = json.load(f)
 
     # Build enum lookup: enum_name -> {lowercase_id: human_readable_name}
-    enum_lookup = {}
+    enum_lookup: dict[str | None, dict[str, str]] = {}
     for enum_def in topics_data.get("enums", []):
         enum_name = enum_def.get("name")
-        enum_values = {}
+        enum_values: dict[str, str] = {}
         for ev in enum_def.get("EnumValues", []):
             # Use lowercase id as key, name as value
             enum_values[ev.get("id", "").lower()] = ev.get("name", "")
@@ -93,7 +106,7 @@ def main():
     }
 
     # Update topics: add or update entries in en.json under entity.sensor for each topic id
-    entity = {}
+    entity: dict[str, dict[str, dict[str, Any]]] = {}
     count = 0
     for topic in topics_data.get("topics", []):
         translation_key = topic.get("short_id").replace("{", "").replace("}", "")  # same as in common.py
@@ -104,6 +117,10 @@ def main():
         is_adjustable_suffix = topic.get("is_adjustable_suffix")
         enum_name = topic.get("enum")
         is_main_topic = topic.get("main_topic", False)
+        is_hidden = topic.get("hidden", False)
+
+        if is_hidden:
+            continue
 
         # Extract the part after the dot and make it lower case
         entity_type = message_type.split(".", 1)[1].lower() if "." in message_type else message_type.lower()
@@ -117,13 +134,10 @@ def main():
         # Main topics inherit their name from the device, so omit "name".
         entity_entry = {} if is_main_topic else {"name": topic_name}
         has_device_class = topic_metric_type in DEVICE_CLASS_METRIC_TYPES
-        if topic_unit is not None and not has_device_class:
+        if topic_unit is not None and topic_unit != "%" and not has_device_class:
             entity_entry["unit_of_measurement"] = topic_unit
         if enum_name and enum_name in enum_lookup:
-            entity_entry["state"] = {
-                k: resolve_common_ref(v, common_lookup, prefer_section="common::state")
-                for k, v in enum_lookup[enum_name].items()
-            }
+            entity_entry["state"] = dict(enum_lookup[enum_name])
 
         # Add to original entity type
         if entity_type not in entity:
@@ -136,8 +150,54 @@ def main():
             if "sensor" not in entity:
                 entity["sensor"] = {}
             entity["sensor"][translation_key] = entity_entry
+
+    # Detect duplicate string values and store as integration-local common strings
+    local_common: dict[str, str] = {}
+    if DEDUPE_STRINGS:
+        value_counts: dict[str, int] = {}
+        for entity_type_entries in entity.values():
+            for entry in entity_type_entries.values():
+                if "name" in entry:
+                    value_counts[entry["name"]] = value_counts.get(entry["name"], 0) + 1
+                if "state" in entry:
+                    for v in entry["state"].values():
+                        value_counts[v] = value_counts.get(v, 0) + 1
+
+        # Build local common section for values that appear 2+ times and aren't
+        # already covered by the global strings_common.json
+        local_common_keys: set[str] = set()
+        for value, cnt in sorted(value_counts.items()):
+            if cnt < 2 or value in common_lookup:
+                continue
+            key = re.sub(r"[^a-z]+", "_", value.lower()).strip("_")
+            if key in local_common_keys:
+                i = 2
+                while f"{key}_{i}" in local_common_keys:
+                    i += 1
+                key = f"{key}_{i}"
+            local_common[key] = value
+            local_common_keys.add(key)
+
+        if local_common:
+            # Add local common values to the lookup so resolve_common_ref can find them
+            for key, value in local_common.items():
+                path = f"component::{COMPONENT_NAME}::common::{key}"
+                common_lookup.setdefault(value, []).insert(0, path)
+            print(f"Added {len(local_common)} local common strings")
+
+    # Resolve common references in all entries
+    for entity_type_entries in entity.values():
+        for entry in entity_type_entries.values():
+            if "name" in entry:
+                entry["name"] = resolve_common_ref(entry["name"], common_lookup)
+            if "state" in entry:
+                entry["state"] = {
+                    k: resolve_common_ref(v, common_lookup, prefer_section="common::state")
+                    for k, v in entry["state"].items()
+                }
+
     # Sort the entity dictionary and its nested dictionaries
-    sorted_entity = {}
+    sorted_entity: dict[str, dict[str, dict[str, Any]]] = {}
     for entity_type in sorted(entity.keys()):
         if INCLUDED_ENTITY_TYPES is not None and entity_type not in INCLUDED_ENTITY_TYPES:
             continue
@@ -162,8 +222,12 @@ def main():
 
     en["entity"] = sorted_entity
 
+    # Add local common strings section for duplicate state values
+    if local_common:
+        en["common"] = dict(sorted(local_common.items()))
+
     # Build lookup of units from generated English entity translations
-    units_lookup = {}
+    units_lookup: dict[str, dict[str, Any]] = {}
     for entity_type, entries in sorted_entity.items():
         units_lookup[entity_type] = {}
         for translation_key, entry in entries.items():

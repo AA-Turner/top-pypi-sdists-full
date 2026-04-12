@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cwltool
-Version: 3.1.20260315121657
+Version: 3.2.20260411152607
 Summary: Common workflow language reference implementation
 Home-page: https://github.com/common-workflow-language/cwltool
 Download-URL: https://github.com/common-workflow-language/cwltool
@@ -44,13 +44,14 @@ Requires-Dist: coloredlogs
 Requires-Dist: pydot>=1.4.1
 Requires-Dist: argcomplete>=1.12.0
 Requires-Dist: pyparsing!=3.0.2
-Requires-Dist: cwl-utils>=0.32
+Requires-Dist: cwl-utils>=0.41
 Requires-Dist: spython>=0.3.0
 Requires-Dist: rich-argparse
+Requires-Dist: pygments>=2.20.0
 Requires-Dist: typing-extensions>=4.1.0
 Provides-Extra: deps
-Requires-Dist: galaxy-tool-util!=23.0.1,!=23.0.2,!=23.0.3,!=23.0.4,!=23.0.5,<25.2,>=22.1.2; extra == "deps"
-Requires-Dist: galaxy-util<25.2; extra == "deps"
+Requires-Dist: galaxy-tool-util!=23.0.1,!=23.0.2,!=23.0.3,!=23.0.4,!=23.0.5,<26.1,>=22.1.2; extra == "deps"
+Requires-Dist: galaxy-util<26.1; extra == "deps"
 Requires-Dist: pillow; extra == "deps"
 Dynamic: author
 Dynamic: author-email

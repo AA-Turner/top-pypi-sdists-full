@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from aiohttp import ClientSession
 from aiohttp import ClientTimeout
 from aiohttp import ServerConnectionError
+from aiohttp import TCPConnector
 from websockets.asyncio.client import ClientConnection
 from websockets.asyncio.client import connect
 from websockets.exceptions import ConnectionClosed
@@ -30,10 +31,15 @@ if TYPE_CHECKING:
 
     from pysignalr.protocol.abstract import Protocol
 
+# NOTE: Defaults from websockets library (`connect` function)
 DEFAULT_MAX_SIZE = 2**20  # 1 MB
-DEFAULT_PING_INTERVAL = 10
+DEFAULT_PING_INTERVAL = 20
 DEFAULT_CONNECTION_TIMEOUT = 10
 
+# NOTE: Default from SignalR documentation (`HubOptions.KeepAliveInterval`)
+DEFAULT_SIGNALR_PING_INTERVAL = 15
+
+# NOTE: Arbitrary defaults for retry logic
 DEFAULT_RETRY_SLEEP = 1
 DEFAULT_RETRY_MULTIPLIER = 1.1
 DEFAULT_RETRY_COUNT = 10
@@ -66,6 +72,7 @@ class WebsocketTransport(Transport):
         headers: dict[str, str] | None = None,
         skip_negotiation: bool = False,
         ping_interval: int = DEFAULT_PING_INTERVAL,
+        signalr_ping_interval: int = DEFAULT_SIGNALR_PING_INTERVAL,
         connection_timeout: int = DEFAULT_CONNECTION_TIMEOUT,
         retry_sleep: float = DEFAULT_RETRY_SLEEP,
         retry_multiplier: float = DEFAULT_RETRY_MULTIPLIER,
@@ -84,6 +91,7 @@ class WebsocketTransport(Transport):
             headers (dict[str, str] | None): Optional HTTP headers to include in the WebSocket handshake.
             skip_negotiation (bool): Whether to skip the negotiation step.
             ping_interval (int): The interval for sending ping messages to keep the connection alive.
+            signalr_ping_interval (int): The interval for sending SignalR ping messages.
             connection_timeout (int): The timeout for establishing a connection.
             max_size (int | None): The maximum size for incoming messages.
             access_token_factory (Callable[[], str] | None): A factory function to provide access tokens.
@@ -95,6 +103,7 @@ class WebsocketTransport(Transport):
         self._headers = headers or {}
         self._skip_negotiation = skip_negotiation
         self._ping_interval = ping_interval
+        self._signalr_ping_interval = signalr_ping_interval
         self._connection_timeout = connection_timeout
         self._max_size = max_size
         self._access_token_factory = access_token_factory
@@ -183,6 +192,7 @@ class WebsocketTransport(Transport):
                 additional_headers=self._headers,
                 ping_interval=self._ping_interval,
                 open_timeout=self._connection_timeout,
+                close_timeout=self._connection_timeout,
                 max_size=self._max_size,
                 logger=_logger,
             )
@@ -192,6 +202,7 @@ class WebsocketTransport(Transport):
                 additional_headers=self._headers,
                 ping_interval=self._ping_interval,
                 open_timeout=self._connection_timeout,
+                close_timeout=self._connection_timeout,
                 max_size=self._max_size,
                 logger=_logger,
                 ssl=self._ssl,
@@ -262,7 +273,7 @@ class WebsocketTransport(Transport):
         """
         try:
             await asyncio.wait_for(self._connected.wait(), self._connection_timeout)
-        except TimeoutError as e:
+        except (TimeoutError, asyncio.TimeoutError) as e:
             raise RuntimeError('The socket was never run') from e
         if not self._ws or self._ws.state != State.OPEN:
             raise RuntimeError('Connection is closed')
@@ -287,7 +298,7 @@ class WebsocketTransport(Transport):
             conn (ClientConnection): The WebSocket connection.
         """
         while True:
-            await asyncio.sleep(10)
+            await asyncio.sleep(self._signalr_ping_interval)
             await conn.send(self._protocol.encode(PingMessage()))
 
     async def _handshake(self, conn: ClientConnection) -> None:
@@ -319,8 +330,10 @@ class WebsocketTransport(Transport):
         negotiate_url = get_negotiate_url(self._url)
         _logger.info('Performing negotiation, URL: `%s`', negotiate_url)
 
+        connector = TCPConnector(ssl=self._ssl) if self._ssl is not None else None
         session = ClientSession(
             timeout=ClientTimeout(connect=self._connection_timeout),
+            connector=connector,
         )
         async with session:
             async with session.post(negotiate_url, headers=self._headers) as response:

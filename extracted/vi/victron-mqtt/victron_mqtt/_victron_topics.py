@@ -614,19 +614,26 @@ topics: list[TopicDescriptor] = [
         name="Cell voltage deviation",
         metric_type=MetricType.VOLTAGE,
     ),
-    # Charger topics (AC chargers such as Blue Smart IP22)
+    # Charger topics (AC chargers such as Blue Smart IP22 and IP43)
     TopicDescriptor(
-        topic="N/{installation_id}/charger/{device_id}/Dc/0/Current",
+        topic="N/{installation_id}/charger/{device_id}/Ac/In/{phase}/I",
         message_type=MetricKind.SENSOR,
-        short_id="charger_dc_current",
-        name="DC output current",
+        short_id="charger_ac_in_current_{phase}",
+        name="AC input current {phase}",
         metric_type=MetricType.CURRENT,
     ),
     TopicDescriptor(
-        topic="N/{installation_id}/charger/{device_id}/Dc/0/Voltage",
+        topic="N/{installation_id}/charger/{device_id}/Dc/{output}/Current",
         message_type=MetricKind.SENSOR,
-        short_id="charger_dc_voltage",
-        name="DC output voltage",
+        short_id="charger_dc_current_{output}",
+        name="DC output {output} current",
+        metric_type=MetricType.CURRENT,
+    ),
+    TopicDescriptor(
+        topic="N/{installation_id}/charger/{device_id}/Dc/{output}/Voltage",
+        message_type=MetricKind.SENSOR,
+        short_id="charger_dc_voltage_{output}",
+        name="DC output {output} voltage",
         metric_type=MetricType.VOLTAGE,
     ),
     TopicDescriptor(
@@ -1042,6 +1049,7 @@ topics: list[TopicDescriptor] = [
         value_type=ValueType.FLOAT,
         precision=None,  # Use full precision of GPS device
         unit_of_measurement="lat",
+        hidden=True,
     ),
     TopicDescriptor(
         topic="N/{installation_id}/gps/{device_id}/Position/Longitude",
@@ -1053,6 +1061,7 @@ topics: list[TopicDescriptor] = [
         value_type=ValueType.FLOAT,
         precision=None,  # Use full precision of GPS device
         unit_of_measurement="long",
+        hidden=True,
     ),
     TopicDescriptor(
         topic="N/{installation_id}/gps/{device_id}/Speed",
@@ -1064,6 +1073,15 @@ topics: list[TopicDescriptor] = [
         metric_type=MetricType.SPEED,
         value_type=ValueType.FLOAT,
         precision=2,
+    ),
+    TopicDescriptor(
+        topic="$$func/gps/gps_location",
+        depends_on=["gps_latitude", "gps_longitude"],
+        message_type=MetricKind.DEVICE_TRACKER,
+        short_id="gps_location",
+        name="Location",
+        metric_type=MetricType.LOCATION,
+        value_type=ValueType.GPS_LOCATION,
     ),
     # Grid topics
     TopicDescriptor(
@@ -1123,7 +1141,6 @@ topics: list[TopicDescriptor] = [
         value_type=ValueType.FLOAT,
         metric_nature=MetricNature.MEASUREMENT,
         precision=3,
-        unit_of_measurement="factor",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/grid/{device_id}/Ac/Voltage",
@@ -1168,7 +1185,6 @@ topics: list[TopicDescriptor] = [
         value_type=ValueType.FLOAT,
         metric_nature=MetricNature.MEASUREMENT,
         precision=3,
-        unit_of_measurement="factor",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/grid/{device_id}/Ac/{phase}/Voltage",
@@ -1461,7 +1477,6 @@ topics: list[TopicDescriptor] = [
         name="Phases",
         metric_nature=MetricNature.MEASUREMENT,
         value_type=ValueType.INT,
-        unit_of_measurement="phases",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/multi/{device_id}/Ac/Out/{output}/{phase}/I",
@@ -1483,6 +1498,13 @@ topics: list[TopicDescriptor] = [
         short_id="multi_acout_{output}_voltage_{phase}",
         name="AC-out-{output} voltage on {phase}",
         metric_type=MetricType.VOLTAGE,
+    ),
+    TopicDescriptor(
+        topic="N/{installation_id}/multi/{device_id}/Dc/0/Temperature",
+        message_type=MetricKind.SENSOR,
+        short_id="multi_dc_temperature",
+        name="DC temperature",
+        metric_type=MetricType.TEMPERATURE,
     ),
     TopicDescriptor(
         topic="N/{installation_id}/multi/{device_id}/Energy/AcIn1ToAcOut",
@@ -1656,7 +1678,7 @@ topics: list[TopicDescriptor] = [
         topic="N/{installation_id}/multi/{device_id}/Settings/Ess/MinimumSocLimit",
         message_type=MetricKind.NUMBER,
         short_id="multi_ess_min_soc_limit",
-        name="ESS minimum Soc limit",
+        name="ESS minimum SoC limit",
         metric_type=MetricType.ELECTRIC_STORAGE_PERCENTAGE,
     ),
     TopicDescriptor(
@@ -2426,7 +2448,6 @@ topics: list[TopicDescriptor] = [
         name="Consumption phases",
         metric_nature=MetricNature.MEASUREMENT,
         value_type=ValueType.INT,
-        unit_of_measurement="phases",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/system/{device_id}/Ac/Consumption/{phase}/Current",
@@ -2456,7 +2477,6 @@ topics: list[TopicDescriptor] = [
         name="Consumption on output phases",
         metric_nature=MetricNature.MEASUREMENT,
         value_type=ValueType.INT,
-        unit_of_measurement="phases",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/system/{device_id}/Ac/ConsumptionOnOutput/{phase}/Power",
@@ -2479,7 +2499,6 @@ topics: list[TopicDescriptor] = [
         name="Grid phases",
         metric_nature=MetricNature.MEASUREMENT,
         value_type=ValueType.INT_DEFAULT_0,
-        unit_of_measurement="phases",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/system/{device_id}/Ac/Grid/{phase}/Current",
@@ -2502,7 +2521,6 @@ topics: list[TopicDescriptor] = [
         name="PV on output phases",
         metric_nature=MetricNature.MEASUREMENT,
         value_type=ValueType.INT,
-        unit_of_measurement="phases",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/system/{device_id}/Ac/PvOnOutput/{phase}/Current",
@@ -3264,7 +3282,6 @@ topics: list[TopicDescriptor] = [
         max=3.5,
         step=0.125,
         precision=3,
-        unit_of_measurement="factor",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/vebus/{device_id}/State",

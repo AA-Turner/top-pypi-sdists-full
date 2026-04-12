@@ -3,6 +3,7 @@ from polylith_cli.polylith.interface.collect import get_brick_interface
 from polylith_cli.polylith.interface.usage import check_brick_interface_usage, unified_usages
 from polylith_cli.polylith.reporting import theme
 from rich.console import Console
+from rich.padding import Padding
 from rich.table import Table
 
 def print_brick_interface(root: Path, ns: str, brick: str, bricks: dict) -> None:
@@ -17,7 +18,7 @@ def print_brick_interface(root: Path, ns: str, brick: str, bricks: dict) -> None
     for endpoint in sorted(brick_interface):
         *_ns, exposes = str.split(endpoint, '.')
         table.add_row(f'[data]{exposes}[/]')
-    console.print(table, overflow='ellipsis')
+    console.print(Padding(table, (0, 0, 1, 0)), overflow='ellipsis')
 
 def print_brick_interface_invalid_usage(root: Path, ns: str, brick: str, bricks: dict) -> None:
     res = check_brick_interface_usage(root, ns, brick, bricks)
@@ -25,7 +26,6 @@ def print_brick_interface_invalid_usage(root: Path, ns: str, brick: str, bricks:
     if not invalid_usage:
         return
     console = Console(theme=theme.poly_theme)
-    table = Table(box=None)
     tag = 'base' if brick in bricks['bases'] else 'comp'
     for using_brick, usages in invalid_usage.items():
         using_tag = 'base' if using_brick in bricks['bases'] else 'comp'
@@ -34,5 +34,4 @@ def print_brick_interface_invalid_usage(root: Path, ns: str, brick: str, bricks:
             prefix = f'Found in [{using_tag}]{using_brick}[/]'
             middle = f'[data]{used}[/] is not part of the public interface of [{tag}]{brick}[/]'
             message = f':information: {prefix}: {middle}.'
-            table.add_row(f'{message}')
-    console.print(table, overflow='ellipsis')
+            console.print(Padding(f'{message}', (0, 0, 0, 1)), overflow='ellipsis')

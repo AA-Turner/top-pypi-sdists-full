@@ -50,7 +50,12 @@ class RuntimeSettings(BaseSettings):
 
     agent_vm_image: str = Field(
         default="383806609161.dkr.ecr.us-west-1.amazonaws.com/vm/rootfs/plato-agents/claude-code:3.1.15",
-        description="Default Docker image for VM-backed agent runtimes.",
+        description="Default Docker image for VM-backed agent runtimes (claude-code).",
+    )
+
+    gemini_agent_vm_image: str = Field(
+        default="383806609161.dkr.ecr.us-west-1.amazonaws.com/vm/rootfs/plato-agents/gemini-cli:3.1.21",
+        description="Docker image for Gemini CLI agent runtimes.",
     )
 
     codex_vm_image: str = Field(

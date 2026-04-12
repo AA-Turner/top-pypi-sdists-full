@@ -102,7 +102,6 @@ def attach_review_gate(
         tracer = trace.get_tracer("plato.agents.review_gate")
         hostname = runner.runtime_info.hostname if runner.runtime_info else ""
 
-        # --- Review span (covers only the review, not merge) ---
         with tracer.start_as_current_span(
             f"pr_review.{branch_name}",
             attributes={"plato.review.branch": branch_name},
@@ -110,22 +109,59 @@ def attach_review_gate(
             gate_result = await review_fn(hostname)
 
             result_dict = gate_result.result_data
+            overall_passed = gate_result.passed
+
+            # If review passed, attempt merge as part of the same review cycle
+            merge_status = None
+            if overall_passed and merge_fn is not None:
+                try:
+                    merged = await merge_fn()
+                    if merged:
+                        merge_status = "merged"
+                        logger.info("Merged branch %s to main", branch_name)
+                        if checkpoint_fn:
+                            await checkpoint_fn(f"merged.{branch_name.replace('/', '.')}")
+                    else:
+                        merge_status = "conflict"
+                        overall_passed = False
+                        gate_result.feedback = (
+                            "Your code passed review but has merge conflicts with main. "
+                            "Pull the latest main into your branch, resolve conflicts, "
+                            "and commit."
+                        )
+                        logger.warning("Merge conflict for branch %s", branch_name)
+                except Exception as exc:
+                    merge_status = f"error: {exc}"
+                    overall_passed = False
+                    gate_result.feedback = (
+                        f"Your code passed review but could not be merged: {exc}\n"
+                        "Pull the latest main into your branch, resolve conflicts, "
+                        "and commit."
+                    )
+                    logger.error("Merge error for branch %s: %s", branch_name, exc)
+
             _last_result.clear()
             _last_result.update(result_dict)
-            _last_result["passed"] = gate_result.passed
+            _last_result["passed"] = overall_passed
             _last_result["feedback"] = gate_result.feedback
             _last_result["score"] = gate_result.score
             _last_result["verdict"] = gate_result.verdict
+            if merge_status is not None:
+                _last_result["merge_status"] = merge_status
             _review_history.append(dict(_last_result))
 
-            # Attach standard review attributes to span
-            review_span.set_attribute("plato.review.passed", gate_result.passed)
+            # Attach final attributes to the span (includes merge outcome)
+            review_span.set_attribute("plato.review.passed", overall_passed)
+            if merge_status is not None:
+                result_dict["merge_status"] = merge_status
             review_json = json.dumps(result_dict, default=str)
             review_span.set_attribute("plato.review.result_json", review_json[:32000])
             if gate_result.score is not None:
                 review_span.set_attribute("plato.review.score", gate_result.score)
             if gate_result.verdict is not None:
                 review_span.set_attribute("plato.review.verdict", gate_result.verdict)
+            if merge_status is not None:
+                review_span.set_attribute("plato.merge.status", merge_status)
 
             # Persist to disk if configured
             if _results_path is not None:
@@ -133,53 +169,15 @@ def attach_review_gate(
                 _results_path.write_text(json.dumps(result_dict, default=str, indent=2))
 
             logger.info(
-                "Review gate [%s]: passed=%s score=%s verdict=%s",
+                "Review gate [%s]: passed=%s score=%s verdict=%s merge=%s",
                 branch_name,
-                gate_result.passed,
+                overall_passed,
                 gate_result.score,
                 gate_result.verdict,
+                merge_status,
             )
 
-        # Review failed — no merge attempt
-        if not gate_result.passed:
-            return False
-
-        # --- Merge span (separate from review) ---
-        if merge_fn is not None:
-            with tracer.start_as_current_span(
-                f"merge.{branch_name}",
-                attributes={"plato.merge.branch": branch_name},
-            ) as merge_span:
-                try:
-                    merged = await merge_fn()
-                    if not merged:
-                        merge_span.set_attribute("plato.merge.status", "conflict")
-                        _last_result["merge_failed"] = True
-                        _last_result["feedback"] = (
-                            "Review passed but merge to main failed (conflicts). "
-                            "Pull the latest main, resolve conflicts, and commit."
-                        )
-                        _last_result["passed"] = False
-                        logger.warning("Merge failed for branch %s after review passed", branch_name)
-                        return False
-                    merge_span.set_attribute("plato.merge.status", "merged")
-                    logger.info("Merged branch %s to main", branch_name)
-                    if checkpoint_fn:
-                        await checkpoint_fn(f"merged.{branch_name.replace('/', '.')}")
-                    return True
-                except Exception as exc:
-                    merge_span.set_attribute("plato.merge.status", f"error: {exc}")
-                    _last_result["merge_failed"] = True
-                    _last_result["feedback"] = (
-                        f"Review passed but merge to main failed: {exc}\n"
-                        "Pull the latest main, resolve conflicts, and commit."
-                    )
-                    _last_result["passed"] = False
-                    logger.error("Merge error for branch %s: %s", branch_name, exc)
-                    return False
-
-        # No merge_fn — just return passed
-        return True
+        return overall_passed
 
     def _build_continuation_instruction() -> str:
         if not _last_result:
@@ -192,11 +190,12 @@ def attach_review_gate(
             return "Your code passed review. Say AGENT_FINISH."
 
         feedback = _last_result.get("feedback", "")
-        merge_failed = _last_result.get("merge_failed", False)
+        merge_status = _last_result.get("merge_status")
 
-        if merge_failed:
+        if merge_status and merge_status != "merged":
             parts = [
-                f"Your code passed the automated review (attempt {len(_review_history)}), but the merge to main failed."
+                f"Your code passed the automated review (attempt {len(_review_history)}), "
+                "but could not be merged into main due to conflicts."
             ]
         else:
             parts = [f"Your code did not pass the automated review (attempt {len(_review_history)})."]

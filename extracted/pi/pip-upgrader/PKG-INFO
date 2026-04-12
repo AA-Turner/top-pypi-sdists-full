@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip_upgrader
-Version: 2.4.2
+Version: 2.4.4
 Summary: An interactive pip requirements upgrader. It also updates the version in your requirements.txt file.
 Project-URL: Homepage, https://github.com/simion/pip-upgrader
 Author-email: Simion Baws <simion.agv@gmail.com>

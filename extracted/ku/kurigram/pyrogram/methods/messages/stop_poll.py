@@ -74,4 +74,7 @@ class StopPoll:
             )
         )
 
-        return types.Poll._parse(self, r.updates[0])
+        users = {i.id: i for i in r.users}
+        chats = {i.id: i for i in r.chats}
+
+        return types.Poll._parse(self, r.updates[0], None, users=users, chats=chats)

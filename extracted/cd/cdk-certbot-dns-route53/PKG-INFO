@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-certbot-dns-route53
-Version: 2.5.13
+Version: 2.5.15
 Summary: Create Cron Job Via Lambda, to update certificate and put it to S3 Bucket.
 Home-page: https://github.com/neilkuan/cdk-certbot-dns-route53.git
 Author: Neil Kuan<guan840912@gmail.com>
@@ -22,7 +22,7 @@ License-File: LICENSE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.214.1
 Requires-Dist: aws-cdk.aws-lambda-python-alpha==2.214.1.a0
 Requires-Dist: constructs<11.0.0,>=10.5.1
-Requires-Dist: jsii<2.0.0,>=1.127.0
+Requires-Dist: jsii<2.0.0,>=1.128.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3
 

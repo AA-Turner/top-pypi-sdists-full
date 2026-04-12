@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.362
+Version: 0.4.363
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -353,7 +353,7 @@ Indices, ML, and agmet settings for geocif. Country overrides go here when geoci
 
 ```ini
 [AGMET]
-eo_plot = ['ndvi', 'cpc_tmax', 'cpc_tmin', 'chirps', 'esi_4wk', 'nsidc_surface', 'nsidc_rootzone']
+eo_plot = ['ndvi', 'chirts_era5_tmax', 'chirts_era5_tmin', 'chirps', 'esi_4wk', 'nsidc_surface', 'nsidc_rootzone']
 logo_harvest = harvest.png
 logo_geoglam = geoglam.png
 
@@ -407,6 +407,18 @@ seasons = [1]
 threshold = True
 floor = 20
 ```
+
+### FLDAS forecast overlay
+
+When FLDAS columns are present in the merged data (e.g. `fldas_tair_tavg_lead0` through `_lead5`), agmet plots automatically overlay forecast dots on matching panels:
+
+| FLDAS variable | Target panel |
+|---|---|
+| `fldas_tair_tavg` | Temperature |
+| `fldas_totalprecip_tavg` | Daily precipitation |
+| `fldas_soilmoist_tavg` | Soil moisture (surface) |
+
+Each lead time (0–5) appears as a diamond marker with decreasing opacity (lead 0 = most opaque). Dots beyond the harvest date are suppressed. No config changes are needed — detection is automatic.
 
 ## Credits
 

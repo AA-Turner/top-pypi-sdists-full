@@ -456,9 +456,18 @@ _LAZY_IMPORTS = {
     'SandboxConfig': ('praisonaiagents.sandbox.config', 'SandboxConfig'),
     'SecurityPolicy': ('praisonaiagents.sandbox.config', 'SecurityPolicy'),
     
-    # Managed backend protocols (implementations in praisonai wrapper)
+    # Managed backend protocol (implementation + config in praisonai wrapper)
     'ManagedBackendProtocol': ('praisonaiagents.agent.protocols', 'ManagedBackendProtocol'),
-    'ManagedBackendConfig': ('praisonaiagents.agent.protocols', 'ManagedBackendConfig'),
+    
+    # Managed agent events (provider-agnostic)
+    'ManagedEvent': ('praisonaiagents.managed.events', 'ManagedEvent'),
+    'AgentMessageEvent': ('praisonaiagents.managed.events', 'AgentMessageEvent'),
+    'ToolUseEvent': ('praisonaiagents.managed.events', 'ToolUseEvent'),
+    'CustomToolUseEvent': ('praisonaiagents.managed.events', 'CustomToolUseEvent'),
+    'SessionIdleEvent': ('praisonaiagents.managed.events', 'SessionIdleEvent'),
+    'SessionErrorEvent': ('praisonaiagents.managed.events', 'SessionErrorEvent'),
+    'EventType': ('praisonaiagents.managed.events', 'EventType'),
+    'StopReason': ('praisonaiagents.managed.events', 'StopReason'),
     
     # Model failover
     'AuthProfile': ('praisonaiagents.llm.failover', 'AuthProfile'),

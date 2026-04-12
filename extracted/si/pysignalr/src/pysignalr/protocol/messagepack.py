@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-# TODO: Refactor this module
-from collections import deque
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import cast
@@ -70,11 +68,12 @@ class MessagepackProtocol(Protocol):
             list[Message]: A list of Message objects.
         """
         messages: list[Message] = []
+        data: bytes = raw_message.encode() if isinstance(raw_message, str) else raw_message
         offset = 0
-        while offset < len(raw_message):
-            length = msgpack.unpackb(raw_message[offset : offset + 1])
-            values = msgpack.unpackb(raw_message[offset + 1 : offset + length + 1])
-            offset += length + 1
+        while offset < len(data):
+            length, offset = self._from_varint(data, offset)
+            values = msgpack.unpackb(data[offset : offset + length])
+            offset += length
             message = self.parse_message(values)
             messages.append(message)
         return messages
@@ -89,18 +88,33 @@ class MessagepackProtocol(Protocol):
         Returns:
             bytes: The raw representation of the message.
         """
-        raw_message: deque[Any] = deque()
-
-        for attr in _attribute_priority:
-            if hasattr(message, attr):
-                if attr == 'type_':
-                    raw_message.append(getattr(message, attr).value)
-                else:
-                    raw_message.append(getattr(message, attr))
+        if isinstance(message, CompletionMessage):
+            raw_message = self._encode_completion(message)
+        else:
+            raw_message = []
+            for attr in _attribute_priority:
+                if hasattr(message, attr):
+                    if attr == 'type_':
+                        raw_message.append(getattr(message, attr).value)
+                    elif attr == 'headers':
+                        raw_message.append(getattr(message, attr) or {})
+                    elif attr == 'stream_ids':
+                        raw_message.append(getattr(message, attr) or [])
+                    else:
+                        raw_message.append(getattr(message, attr))
 
         encoded_message = cast('bytes', msgpack.packb(raw_message))
         varint_length = self._to_varint(len(encoded_message))
         return varint_length + encoded_message
+
+    def _encode_completion(self, message: CompletionMessage) -> list[Any]:
+        headers = message.headers or {}
+        if message.error is not None:
+            return [MessageType.completion.value, headers, message.invocation_id, 1, message.error]
+        elif message.result is not None:
+            return [MessageType.completion.value, headers, message.invocation_id, 3, message.result]
+        else:
+            return [MessageType.completion.value, headers, message.invocation_id, 2]
 
     def decode_handshake(self, raw_message: str | bytes) -> tuple[HandshakeResponseMessage, Iterable[Message]]:
         """
@@ -145,8 +159,8 @@ class MessagepackProtocol(Protocol):
         message_type = MessageType(msg[0])
 
         if message_type is MessageType.invocation:
-            if len(msg[5]) > 0:
-                return InvocationClientStreamMessage(headers=msg[1], stream_ids=msg[5], target=msg[3], arguments=msg[4])
+            if len(msg) > 5 and len(msg[5]) > 0:
+                return InvocationClientStreamMessage(headers=msg[1], stream_ids=msg[5], target=msg[3], arguments=msg[4], invocation_id=msg[2])
             else:
                 return InvocationMessage(headers=msg[1], invocation_id=msg[2], target=msg[3], arguments=msg[4])
         elif message_type is MessageType.stream_item:
@@ -161,7 +175,8 @@ class MessagepackProtocol(Protocol):
             else:
                 raise NotImplementedError
         elif message_type is MessageType.stream_invocation:
-            return StreamInvocationMessage(headers=msg[1], invocation_id=msg[2], target=msg[3], arguments=msg[4])
+            stream_ids = msg[5] if len(msg) > 5 else None
+            return StreamInvocationMessage(headers=msg[1], invocation_id=msg[2], target=msg[3], arguments=msg[4], stream_ids=stream_ids or None)
         elif message_type is MessageType.cancel_invocation:
             return CancelInvocationMessage(headers=msg[1], invocation_id=msg[2])
         elif message_type is MessageType.ping:
@@ -170,6 +185,28 @@ class MessagepackProtocol(Protocol):
             return CloseMessage(*msg[1:])
         else:
             raise NotImplementedError
+
+    def _from_varint(self, data: bytes, offset: int) -> tuple[int, int]:
+        """
+        Decodes a variable-length integer from data starting at offset.
+
+        Args:
+            data (bytes): The data containing the varint.
+            offset (int): The starting offset.
+
+        Returns:
+            tuple[int, int]: The decoded integer and the new offset after the varint.
+        """
+        length = 0
+        shift = 0
+        while True:
+            byte = data[offset]
+            offset += 1
+            length |= (byte & 0x7F) << shift
+            shift += 7
+            if not (byte & 0x80):
+                break
+        return length, offset
 
     def _to_varint(self, value: int) -> bytes:
         """

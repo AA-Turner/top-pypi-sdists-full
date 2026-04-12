@@ -37,6 +37,12 @@ TLD_KZ = "kz"           # Kazakhstan
 TLD_EU = "eu"           # European Economic Area. ONLY AVAILABLE TO INSTITUTIONS
 
 
+class _RetryableRequestError(Exception):
+    def __init__(self, recv_window):
+        self.recv_window = recv_window
+        super().__init__("Retryable error occurred, retrying...")
+
+
 def generate_signature(use_rsa_authentication, secret, param_str):
     def generate_hmac():
         hash = hmac.new(
@@ -196,6 +202,9 @@ class _V5HTTPManager:
 
                 return self._handle_response(response, method, path, req_params, recv_window, retries_attempted)
 
+            except _RetryableRequestError as e:
+                recv_window = e.recv_window
+                continue
             except (requests.exceptions.ReadTimeout, requests.exceptions.SSLError,
                     requests.exceptions.ConnectionError) as e:
                 self._handle_network_error(e, retries_attempted)
@@ -275,8 +284,10 @@ class _V5HTTPManager:
             error_msg = f"{s_json[ret_msg]} (ErrCode: {error_code})"
 
             if error_code in self.retry_codes:
-                self._handle_retryable_error(response, error_code, error_msg, recv_window)
-                raise Exception("Retryable error occurred, retrying...")
+                recv_window = self._handle_retryable_error(
+                    response, error_code, error_msg, recv_window
+                )
+                raise _RetryableRequestError(recv_window)
 
             if error_code not in self.ignore_codes:
                 raise InvalidRequestError(
@@ -306,13 +317,19 @@ class _V5HTTPManager:
             recv_window += 2500
         elif error_code == 10006:  # rate limit error
             self.logger.error(f"{error_msg}. Hit the API rate limit on {response.url}. Sleeping then trying again.")
-            limit_reset_time = int(response.headers["X-Bapi-Limit-Reset-Timestamp"])
+            limit_reset_time = int(
+                response.headers.get(
+                    "X-Bapi-Limit-Reset-Timestamp",
+                    _helpers.generate_timestamp() + 2000
+                )
+            )
             limit_reset_str = dt.fromtimestamp(limit_reset_time / 10 ** 3).strftime("%H:%M:%S.%f")[:-3]
             delay_time = (limit_reset_time - _helpers.generate_timestamp()) / 10 ** 3
             error_msg = f"API rate limit will reset at {limit_reset_str}. Sleeping for {int(delay_time * 10 ** 3)} ms"
 
         self.logger.error(f"{error_msg}. Retrying...")
         time.sleep(delay_time)
+        return recv_window
 
     def _handle_network_error(self, error, retries_attempted):
         """Handle network-related exceptions."""

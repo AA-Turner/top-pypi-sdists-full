@@ -3,6 +3,7 @@
 from ..core.pydantic_utilities import UniversalBaseModel
 import typing
 from .bulk_sync_execution import BulkSyncExecution
+from .bulk_sync_ingestion_status import BulkSyncIngestionStatus
 import datetime as dt
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 import pydantic
@@ -10,6 +11,7 @@ import pydantic
 
 class BulkSyncStatusResponse(UniversalBaseModel):
     current_execution: typing.Optional[BulkSyncExecution] = None
+    ingestion_status: typing.Optional[BulkSyncIngestionStatus] = None
     last_execution: typing.Optional[BulkSyncExecution] = None
     next_execution_time: typing.Optional[dt.datetime] = None
 

@@ -164,11 +164,36 @@ class AgentExecutionManager:
                 task.merged = True
                 return True
 
+        _review_attempt = 0
+
+        async def _review_with_no_change_guard(hostname: str) -> ReviewGateResult:
+            from plato.agents.review_gate import ReviewGateResult
+
+            nonlocal _review_attempt
+            _review_attempt += 1
+
+            if published_transport.published_ref is None and _review_attempt > 1:
+                logger.warning(
+                    "No published ref for %s on attempt %d — builder made no changes, skipping review",
+                    task_name,
+                    _review_attempt,
+                )
+                return ReviewGateResult(
+                    passed=False,
+                    feedback=(
+                        "Your code was not submitted for review because no changes were committed. "
+                        "You must actually modify the code to address the requested changes, "
+                        "then commit your work. Re-read the instructions and make the required changes."
+                    ),
+                    result_data={},
+                )
+            return await review_fn(hostname)
+
         result_dir = self._primary_mount.world_path if self._primary_mount else None
 
         attach_review_gate(
             task,
-            review_fn=review_fn,
+            review_fn=_review_with_no_change_guard,
             branch_name=f"plato-task/{task_name}",
             merge_fn=_merge,
             max_continuations=task._max_review_continuations,

@@ -12,14 +12,16 @@
 //! the full performance of whichever model you choose.
 
 pub mod lpg;
+pub mod projection;
 pub mod traits;
 
 #[cfg(feature = "compact-store")]
 pub mod compact;
 
-#[cfg(feature = "rdf")]
+#[cfg(feature = "triple-store")]
 pub mod rdf;
 
+pub use projection::{GraphProjection, ProjectionSpec};
 pub use traits::{GraphStore, GraphStoreMut, NullGraphStore};
 
 /// Controls which edges to follow during traversal.
@@ -28,6 +30,7 @@ pub use traits::{GraphStore, GraphStoreMut, NullGraphStore};
 /// when you care about relationships *from* a node, [`Incoming`](Self::Incoming) for
 /// relationships *to* a node, and [`Both`](Self::Both) when direction doesn't matter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Direction {
     /// Follow outgoing edges (A)-\[r\]->(B) from A's perspective.
     Outgoing,

@@ -1,3 +1,53 @@
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "tuna"
+version = "0.5.12"
+description = "Visualize Python performance profiles"
+readme = "README.md"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Nico Schlömer", email = "nico.schloemer@gmail.com" }]
+keywords = ["performance", "profile", "visualization"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: User Interfaces",
+  "Topic :: Utilities",
+]
+requires-python = ">=3.10"
+
+[dependency-groups]
+dev = ["pytest", "pytest-codeblocks", "pytest-cov"]
+
+[project.urls]
+Code = "https://github.com/nschloe/tuna"
+Issues = "https://github.com/nschloe/tuna/issues"
+
+[project.scripts]
+tuna = "tuna.cli:main"
+
+[tool.setuptools.package-data]
+"*" = [
+  "web/*.html",
+  "web/static/*.js",
+  "web/static/*.css",
+  "web/static/favicon256.png",
+]
+
+
+[tool.ruff]
+src = ["src", "tests"]
+line-length = 88
+lint.select = ["ALL"]
+lint.ignore = ["ANN", "COM812", "D", "ERA", "PLR", "S101"]
+target-version = "py310"

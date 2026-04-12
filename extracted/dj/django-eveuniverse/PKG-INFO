@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-eveuniverse
-Version: 1.6.0
+Version: 1.6.1
 Summary: Complete set of Eve Universe models with on-demand loading from ESI.
 Author-email: Erik Kalkoken <kalkoken87@gmail.com>
 Requires-Python: >=3.8
@@ -24,7 +24,7 @@ License-File: LICENSE
 Requires-Dist: celery>=4.0.2
 Requires-Dist: celery_once>=3.0.1
 Requires-Dist: django-bitfield>=2.2
-Requires-Dist: django-esi>=4
+Requires-Dist: django-esi>=4,<9
 Requires-Dist: django>=3.2
 Requires-Dist: requests
 Project-URL: Documentation, https://django-eveuniverse.readthedocs.io/en/latest/

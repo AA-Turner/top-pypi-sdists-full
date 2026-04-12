@@ -19,7 +19,10 @@ from eveuniverse.models import (
 
 T = TypeVar("T")
 
-faker = factory.faker.faker.Faker()
+factory.Faker._DEFAULT_LOCALE = "en_US"
+
+_POSITION_MIN = -100_000_000_000_000_000
+_POSITION_MAX = 100_000_000_000_000_000
 
 
 class BaseMetaFactory(Generic[T], factory.base.FactoryMetaClass):
@@ -46,7 +49,7 @@ class EveGroupFactory(
         model = EveGroup
         django_get_or_create = ("id",)
 
-    id = factory.Sequence(lambda n: 100_000 + n)
+    id = factory.Sequence(lambda n: 200_000 + n)
     name = factory.Faker("color_name")
     eve_category = factory.SubFactory(EveCategoryFactory)
     published = True
@@ -59,7 +62,7 @@ class EveTypeFactory(
         model = EveType
         django_get_or_create = ("id",)
 
-    id = factory.Sequence(lambda n: 1_000_000 + n)
+    id = factory.Sequence(lambda n: 300_000 + n)
     name = factory.Faker("color_name")
     description = factory.Faker("paragraph")
     eve_group = factory.SubFactory(EveGroupFactory)
@@ -73,7 +76,7 @@ class EveRegionFactory(
         model = EveRegion
         django_get_or_create = ("id",)
 
-    id = factory.Sequence(lambda n: 19_000_000 + n)
+    id = factory.Sequence(lambda n: 10_900_000 + n)
     name = factory.Faker("country")
     description = factory.Faker("paragraph")
 
@@ -85,12 +88,12 @@ class EveConstellationFactory(
         model = EveConstellation
         django_get_or_create = ("id",)
 
-    id = factory.Sequence(lambda n: 29_000_000 + n)
+    id = factory.Sequence(lambda n: 20_900_000 + n)
     name = factory.Faker("country")
     eve_region = factory.SubFactory(EveRegionFactory)
-    position_x = factory.fuzzy.FuzzyFloat(-1_000_000_000, 1_000_000_000)
-    position_y = factory.fuzzy.FuzzyFloat(-1_000_000_000, 1_000_000_000)
-    position_z = factory.fuzzy.FuzzyFloat(-1_000_000_000, 1_000_000_000)
+    position_x = factory.fuzzy.FuzzyFloat(_POSITION_MIN, _POSITION_MAX)
+    position_y = factory.fuzzy.FuzzyFloat(_POSITION_MIN, _POSITION_MAX)
+    position_z = factory.fuzzy.FuzzyFloat(_POSITION_MIN, _POSITION_MAX)
 
 
 class EveSolarSystemFactory(
@@ -100,13 +103,13 @@ class EveSolarSystemFactory(
         model = EveSolarSystem
         django_get_or_create = ("id",)
 
-    id = factory.Sequence(lambda n: 39_000_000 + n)
+    id = factory.Sequence(lambda n: 30_900_000 + n)
     name = factory.Faker("city")
     eve_constellation = factory.SubFactory(EveConstellationFactory)
     eve_star = None
-    position_x = factory.fuzzy.FuzzyFloat(-1_000_000_000, 1_000_000_000)
-    position_y = factory.fuzzy.FuzzyFloat(-1_000_000_000, 1_000_000_000)
-    position_z = factory.fuzzy.FuzzyFloat(-1_000_000_000, 1_000_000_000)
+    position_x = factory.fuzzy.FuzzyFloat(_POSITION_MIN, _POSITION_MAX)
+    position_y = factory.fuzzy.FuzzyFloat(_POSITION_MIN, _POSITION_MAX)
+    position_z = factory.fuzzy.FuzzyFloat(_POSITION_MIN, _POSITION_MAX)
     security_status = factory.fuzzy.FuzzyFloat(-1, 1)
 
 
@@ -117,13 +120,13 @@ class EvePlanetFactory(
         model = EvePlanet
         django_get_or_create = ("id",)
 
-    id = factory.Sequence(lambda n: 39_000_000 + n)
+    id = factory.Sequence(lambda n: 40_910_000 + n)
     name = factory.Faker("street_name")
     eve_solar_system = factory.SubFactory(EveSolarSystemFactory)
     eve_type = factory.SubFactory(EveTypeFactory)
-    position_x = factory.fuzzy.FuzzyFloat(-1_000_000_000, 1_000_000_000)
-    position_y = factory.fuzzy.FuzzyFloat(-1_000_000_000, 1_000_000_000)
-    position_z = factory.fuzzy.FuzzyFloat(-1_000_000_000, 1_000_000_000)
+    position_x = factory.fuzzy.FuzzyFloat(_POSITION_MIN, _POSITION_MAX)
+    position_y = factory.fuzzy.FuzzyFloat(_POSITION_MIN, _POSITION_MAX)
+    position_z = factory.fuzzy.FuzzyFloat(_POSITION_MIN, _POSITION_MAX)
 
 
 class EveMoonFactory(
@@ -133,12 +136,12 @@ class EveMoonFactory(
         model = EveMoon
         django_get_or_create = ("id",)
 
-    id = factory.Sequence(lambda n: 49_000_000 + n)
+    id = factory.Sequence(lambda n: 40_920_000 + n)
     name = factory.Faker("street_name")
     eve_planet = factory.SubFactory(EvePlanetFactory)
-    position_x = factory.fuzzy.FuzzyFloat(-1_000_000_000, 1_000_000_000)
-    position_y = factory.fuzzy.FuzzyFloat(-1_000_000_000, 1_000_000_000)
-    position_z = factory.fuzzy.FuzzyFloat(-1_000_000_000, 1_000_000_000)
+    position_x = factory.fuzzy.FuzzyFloat(_POSITION_MIN, _POSITION_MAX)
+    position_y = factory.fuzzy.FuzzyFloat(_POSITION_MIN, _POSITION_MAX)
+    position_z = factory.fuzzy.FuzzyFloat(_POSITION_MIN, _POSITION_MAX)
 
 
 class EveEntityFactory(

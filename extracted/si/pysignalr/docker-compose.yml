@@ -1,0 +1,10 @@
+services:
+  aspnet-server:
+    build:
+      context: ./AspNetAuthExample
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:80
+    ports:
+      - "5000:80"

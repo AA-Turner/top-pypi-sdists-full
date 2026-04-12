@@ -479,7 +479,15 @@ class DatagramServer(Server):
                     break
         except ssl.SSLError as error:
             error_v = error.args[0] if error.args else None
-            error_m = error.reason if hasattr(error, "reason") else None
+            error_m = (
+                error.reason.upper().replace(" ", "_")
+                if not error_v in SSL_VALID_ERRORS
+                and hasattr(error, "reason")
+                and error.reason
+                else (
+                    self._ssl_reason(error) if not error_v in SSL_VALID_ERRORS else None
+                )
+            )
             if error_v in SSL_SILENT_ERRORS or error_m in SSL_SILENT_REASONS:
                 self.on_expected(error)
             elif not error_v in SSL_VALID_ERRORS and not error_m in SSL_VALID_REASONS:
@@ -511,7 +519,15 @@ class DatagramServer(Server):
             self._send(_socket)
         except ssl.SSLError as error:
             error_v = error.args[0] if error.args else None
-            error_m = error.reason if hasattr(error, "reason") else None
+            error_m = (
+                error.reason.upper().replace(" ", "_")
+                if not error_v in SSL_VALID_ERRORS
+                and hasattr(error, "reason")
+                and error.reason
+                else (
+                    self._ssl_reason(error) if not error_v in SSL_VALID_ERRORS else None
+                )
+            )
             if error_v in SSL_SILENT_ERRORS or error_m in SSL_SILENT_REASONS:
                 self.on_expected(error)
             elif not error_v in SSL_VALID_ERRORS and not error_m in SSL_VALID_REASONS:
@@ -750,7 +766,15 @@ class StreamServer(Server):
                     raise
         except ssl.SSLError as error:
             error_v = error.args[0] if error.args else None
-            error_m = error.reason if hasattr(error, "reason") else None
+            error_m = (
+                error.reason.upper().replace(" ", "_")
+                if not error_v in SSL_VALID_ERRORS
+                and hasattr(error, "reason")
+                and error.reason
+                else (
+                    self._ssl_reason(error) if not error_v in SSL_VALID_ERRORS else None
+                )
+            )
             if error_v in SSL_SILENT_ERRORS or error_m in SSL_SILENT_REASONS:
                 self.on_expected_s(error)
             elif not error_v in SSL_VALID_ERRORS and not error_m in SSL_VALID_REASONS:
@@ -828,7 +852,15 @@ class StreamServer(Server):
                     break
         except ssl.SSLError as error:
             error_v = error.args[0] if error.args else None
-            error_m = error.reason if hasattr(error, "reason") else None
+            error_m = (
+                error.reason.upper().replace(" ", "_")
+                if not error_v in SSL_VALID_ERRORS
+                and hasattr(error, "reason")
+                and error.reason
+                else (
+                    self._ssl_reason(error) if not error_v in SSL_VALID_ERRORS else None
+                )
+            )
             if error_v in SSL_SILENT_ERRORS or error_m in SSL_SILENT_REASONS:
                 self.on_expected(error, connection)
             elif not error_v in SSL_VALID_ERRORS and not error_m in SSL_VALID_REASONS:
@@ -867,7 +899,15 @@ class StreamServer(Server):
             connection._send()
         except ssl.SSLError as error:
             error_v = error.args[0] if error.args else None
-            error_m = error.reason if hasattr(error, "reason") else None
+            error_m = (
+                error.reason.upper().replace(" ", "_")
+                if not error_v in SSL_VALID_ERRORS
+                and hasattr(error, "reason")
+                and error.reason
+                else (
+                    self._ssl_reason(error) if not error_v in SSL_VALID_ERRORS else None
+                )
+            )
             if error_v in SSL_SILENT_ERRORS or error_m in SSL_SILENT_REASONS:
                 self.on_expected(error, connection)
             elif not error_v in SSL_VALID_ERRORS and not error_m in SSL_VALID_REASONS:

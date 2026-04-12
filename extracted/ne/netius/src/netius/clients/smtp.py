@@ -28,6 +28,7 @@ __copyright__ = "Copyright (c) 2008-2024 Hive Solutions Lda."
 __license__ = "Apache License, Version 2.0"
 """ The license for the module """
 
+import time
 import base64
 import datetime
 
@@ -89,11 +90,19 @@ class SMTPConnection(netius.Connection):
         self.sequence = ()
         self.capabilities = ()
         self.messages = []
+        self.greeting = None
+        self.queue_response = None
+        self.tls_version = None
+        self.tls_cipher = None
+        self.start_time = None
+        self.transcript = []
+        self.transcript_max = 50
 
     def open(self, *args, **kwargs):
         netius.Connection.open(self, *args, **kwargs)
         if not self.is_open():
             return
+        self.start_time = time.time()
         self.parser = netius.common.SMTPParser(self)
         self.parser.bind("on_line", self.on_line)
         self.build()
@@ -213,6 +222,7 @@ class SMTPConnection(netius.Connection):
         data = base + "\r\n"
         count = self.send(data, delay=delay, callback=callback)
         self.debug(base)
+        self._transcript_add("send", base)
         return count
 
     def on_line(self, code, message, is_final=True):
@@ -221,6 +231,7 @@ class SMTPConnection(netius.Connection):
         # current debug logger support (for traceability)
         base = "%s %s" % (code, message)
         self.debug(base)
+        self._transcript_add("recv", base)
 
         # adds the message part of the line to the buffer that holds the
         # various messages "pending" for the current response, these values
@@ -263,10 +274,14 @@ class SMTPConnection(netius.Connection):
         self.call()
 
     def helo_t(self):
+        if self.greeting == None:
+            self.greeting = self.messages[0] if self.messages else None
         self.helo(self.host)
         self.next_sequence()
 
     def ehlo_t(self):
+        if self.greeting == None:
+            self.greeting = self.messages[0] if self.messages else None
         self.ehlo(self.host)
         self.next_sequence()
 
@@ -331,6 +346,17 @@ class SMTPConnection(netius.Connection):
         self.next_sequence()
 
     def quit_t(self):
+        self.queue_response = self.messages[0] if self.messages else None
+
+        # captures TLS information that can be later used for
+        # diagnostics purposes and critical security analysis
+        try:
+            self.tls_version = self.socket.version() if self.socket else None
+            self.tls_cipher = self.socket.cipher() if self.socket else None
+        except Exception:
+            self.tls_version = None
+            self.tls_cipher = None
+
         self.quit()
         self.next_sequence()
 
@@ -452,13 +478,25 @@ class SMTPConnection(netius.Connection):
         usable = [method for method in methods if method in cls.AUTH_METHODS]
         return usable[0] if usable else "plain"
 
+    def _transcript_add(self, direction, message):
+        if not self.owner or not getattr(self.owner, "capture_transcript", False):
+            return
+        if len(self.transcript) >= self.transcript_max:
+            return
+        self.transcript.append(
+            dict(direction=direction, message=message, timestamp=time.time())
+        )
+
 
 class SMTPClient(netius.StreamClient):
 
-    def __init__(self, host=None, auto_close=False, *args, **kwargs):
+    def __init__(
+        self, host=None, auto_close=False, capture_transcript=False, *args, **kwargs
+    ):
         netius.StreamClient.__init__(self, *args, **kwargs)
         self.host = host if host else "[" + netius.common.host() + "]"
         self.auto_close = auto_close
+        self.capture_transcript = capture_transcript
 
     @classmethod
     def message_s(
@@ -498,12 +536,19 @@ class SMTPClient(netius.StreamClient):
         if mark:
             contents = self.mark(contents)
 
+        # creates the shared sessions list that will accumulate
+        # deliverability information across all domain handlers
+        # for the current message relay operation
+        sessions = []
+
         # creates the method that is able to generate handler for a
         # certain sequence of to based (email) addresses
         def build_handler(tos, domain=None, tos_map=None):
 
             # creates the context object that will be used to pass
-            # contextual information to the callbacks
+            # contextual information to the callbacks, the sessions
+            # list is shared across all handlers for the same message
+            # and accumulates deliverability info per domain session
             context = dict(
                 froms=froms,
                 tos=tos,
@@ -513,11 +558,51 @@ class SMTPClient(netius.StreamClient):
                 ensure_loop=ensure_loop,
                 domain=domain,
                 tos_map=tos_map,
+                sessions=sessions,
             )
 
             def on_close(connection=None):
-                # verifies if the current handler has been build with a
-                # domain based clojure and if that's the case removes the
+                # captures the deliverability information from the
+                # SMTP session that has just completed, including the
+                # remote server greeting, queue response, session
+                # duration and the recipients for this session
+                if connection:
+                    end_time = time.time()
+                    duration = (
+                        end_time - connection.start_time
+                        if not connection.start_time == None
+                        else None
+                    )
+                    session = dict(
+                        domain=domain,
+                        host=(
+                            netius.legacy.str(connection.address[0])
+                            if connection.address
+                            else None
+                        ),
+                        port=connection.address[1] if connection.address else None,
+                        mx_host=(
+                            netius.legacy.str(connection.mx_host)
+                            if getattr(connection, "mx_host", None)
+                            else None
+                        ),
+                        greeting=connection.greeting,
+                        queue_response=connection.queue_response,
+                        capabilities=list(connection.capabilities),
+                        starttls=not connection.tls_version == None,
+                        tls_version=connection.tls_version,
+                        tls_cipher=connection.tls_cipher,
+                        start_time=connection.start_time,
+                        end_time=end_time,
+                        duration=duration,
+                        recipients=list(tos),
+                        error=getattr(connection, "_session_error", None),
+                        transcript=connection.transcript,
+                    )
+                    context["sessions"].append(session)
+
+                # verifies if the current handler has been built with a
+                # domain based closure and if that's the case removes the
                 # reference of it from the map of tos, then verifies if the
                 # map is still valid and if that's the case returns and this
                 # is not considered the last remaining SMTP session for the
@@ -531,9 +616,11 @@ class SMTPClient(netius.StreamClient):
                 # the case calls the callback indicating the end of the send
                 # operation (note that this may represent multiple SMTP sessions)
                 if callback:
-                    callback(self)
+                    callback(self, context)
 
             def on_exception(connection=None, exception=None):
+                if connection:
+                    connection._session_error = str(exception) if exception else None
                 if callback_error:
                     callback_error(self, context, exception)
 
@@ -586,11 +673,12 @@ class SMTPClient(netius.StreamClient):
                 # going to be established (helps with debugging purposes)
                 self.debug("Establishing SMTP connection on %s:%d ...", _host, _port)
 
-                # establishes the connection to the target host and port
-                # and using the provided key and certificate files and then
+                # establishes the connection to the target host and port,
+                # using the provided key and certificate files and then
                 # sets the SMTP information in the current connection, after
                 # the connections is completed the SMTP session should start
                 connection = self.connect(_host, _port)
+                connection.mx_host = address if not address == host else None
                 if stls:
                     connection.set_message_stls_seq(ehlo=ehlo)
                 else:

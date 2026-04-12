@@ -1776,6 +1776,8 @@ class PlanQueryResponse(BaseModel):
     errors: List[ChalkError]
     structured_plan: Optional[str] = None
     serialized_plan_proto_bytes: Optional[str] = None
+    serialized_pre_optimization_logical_plan_proto_bytes: Optional[List[str]] = None
+    serialized_post_optimization_logical_plan_proto_bytes: Optional[str] = None
 
 
 class IngestDatasetRequest(BaseModel):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trl
-Version: 1.0.0
+Version: 1.1.0
 Summary: Train transformer language models with reinforcement learning.
 Author-email: Leandro von Werra <leandro.vonwerra@gmail.com>
 License-Expression: Apache-2.0
@@ -22,6 +22,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: accelerate>=1.4.0
 Requires-Dist: datasets>=4.7.0
+Requires-Dist: jinja2
 Requires-Dist: packaging>20.0
 Requires-Dist: transformers>=4.56.2
 Provides-Extra: bco
@@ -30,10 +31,6 @@ Requires-Dist: joblib; extra == "bco"
 Provides-Extra: deepspeed
 Requires-Dist: deepspeed>=0.14.4; extra == "deepspeed"
 Requires-Dist: transformers!=5.1.0; extra == "deepspeed"
-Provides-Extra: judges
-Requires-Dist: openai>=1.23.2; extra == "judges"
-Requires-Dist: llm-blender>=0.0.2; extra == "judges"
-Requires-Dist: transformers<5.0.0; extra == "judges"
 Provides-Extra: kernels
 Requires-Dist: kernels; extra == "kernels"
 Provides-Extra: liger
@@ -54,7 +51,7 @@ Requires-Dist: pytest-rerunfailures==15.1; extra == "test"
 Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Provides-Extra: vllm
-Requires-Dist: vllm<=0.17.1,>=0.10.2; extra == "vllm"
+Requires-Dist: vllm<=0.17.1,>=0.11.0; extra == "vllm"
 Requires-Dist: fastapi; extra == "vllm"
 Requires-Dist: pydantic; extra == "vllm"
 Requires-Dist: aiohttp>=3.13.3; extra == "vllm"
@@ -113,9 +110,7 @@ Dynamic: license-file
 
 ## 🎉 What's New
 
-**OpenEnv Integration:** TRL now supports **[OpenEnv](https://huggingface.co/blog/openenv)**, the open-source framework from Meta for defining, deploying, and interacting with environments in reinforcement learning and agentic workflows.
-
-Explore how to seamlessly integrate TRL with OpenEnv in our [dedicated documentation](https://huggingface.co/docs/trl/openenv).
+**TRL v1:** We released TRL v1 — a major milestone that marks a real shift in what TRL is. Read the [blog post](https://huggingface.co/blog/trl-v1) to learn more.
 
 ## Overview
 

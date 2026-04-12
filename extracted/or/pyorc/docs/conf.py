@@ -33,6 +33,8 @@ class Mock(MagicMock):
             return object
         elif name == "_orc_version":
             return lambda: "0.0.0-DUMMY"
+        elif name == "_protobuf_version":
+            return lambda: "0.0.0"
         # For zoneinfo
         elif name == "ZoneInfo":
             return lambda key: object
@@ -49,7 +51,7 @@ sys.modules["pyorc"] = pyorc
 # -- Project information -----------------------------------------------------
 
 project = "PyORC"
-copyright = "2019-2025, noirello"
+copyright = "2019-2026, noirello"
 author = "noirello"
 
 # The full version, including alpha/beta/rc tags

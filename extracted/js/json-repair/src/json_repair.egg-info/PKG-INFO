@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json_repair
-Version: 0.59.0
+Version: 0.59.2
 Summary: A package to repair broken json strings
 Author-email: Stefano Baccianella <4247706+mangiucugna@users.noreply.github.com>
 License-Expression: MIT
@@ -14,8 +14,8 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: schema
-Requires-Dist: jsonschema>=4.21; extra == "schema"
-Requires-Dist: pydantic>=2; extra == "schema"
+Requires-Dist: jsonschema>=4.21; (python_full_version < "3.15.0a0" or python_full_version >= "3.15.0") and extra == "schema"
+Requires-Dist: pydantic>=2; (python_full_version < "3.15.0a0" or python_full_version >= "3.15.0") and extra == "schema"
 Dynamic: license-file
 
 [![PyPI](https://img.shields.io/pypi/v/json-repair)](https://pypi.org/project/json-repair/)

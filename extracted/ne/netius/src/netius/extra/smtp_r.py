@@ -46,19 +46,25 @@ class RelaySMTPServer(netius.servers.SMTPServer):
     to relay the messages.
     """
 
-    def __init__(self, postmaster=None, *args, **kwargs):
+    def __init__(self, postmaster=None, capture_transcript=False, *args, **kwargs):
         netius.servers.SMTPServer.__init__(self, *args, **kwargs)
         self.postmaster = postmaster
+        self.capture_transcript = capture_transcript
         self.dkim = {}
 
     def on_serve(self):
         netius.servers.SMTPServer.on_serve(self)
         self.postmaster = self.get_env("POSTMASTER", self.postmaster)
+        self.capture_transcript = self.get_env(
+            "SMTP_CAPTURE_TRANSCRIPT", self.capture_transcript, cast=bool
+        )
         self.dkim = self.get_env("DKIM", self.dkim)
         dkim_l = len(self.dkim)
         self.info("Starting Relay SMTP server with %d DKIM registers  ...", dkim_l)
         if self.postmaster:
             self.info("Using '%s' as the Postmaster email sender ...", self.postmaster)
+        if self.capture_transcript:
+            self.info("SMTP session transcript capture enabled")
 
     def on_header_smtp(self, connection, from_l, to_l):
         netius.servers.SMTPServer.on_header_smtp(self, connection, from_l, to_l)
@@ -102,6 +108,29 @@ class RelaySMTPServer(netius.servers.SMTPServer):
         # sends the message for relay to all of the current remotes
         froms = self._emails(connection.from_l, prefix="from")
         self.relay(connection, froms, connection.remotes, data_s)
+
+    def on_relay_smtp(self, connection, context, smtp_client, froms, tos, contents):
+        # by default the relay operation is considered to be successful
+        # and the client is closed once the message is sent to all the
+        # recipients
+        smtp_client.close()
+
+    def on_relay_error_smtp(
+        self,
+        connection,
+        context,
+        exception,
+        smtp_client,
+        froms,
+        tos,
+        contents,
+        reply_to,
+    ):
+        # in case of error a postmaster email is sent to the reply
+        # to address with the details of the error, the client
+        # close is handled by the `on_close` callback that fires
+        # after the exception handler completes
+        self.relay_postmaster(reply_to, context, exception)
 
     def relay(self, connection, froms, tos, contents):
         # verifies that the current connection has an authenticated user
@@ -158,20 +187,35 @@ class RelaySMTPServer(netius.servers.SMTPServer):
         # is sent to all the recipients (better auto close support), note
         # that multiple SMTP session may be created for the message so that
         # all the hosts associated with the recipients are notified
-        callback = lambda smtp_client: smtp_client.close()
+        callback = lambda smtp_client, context: self.on_relay_smtp(
+            connection, context, smtp_client, froms, tos, contents
+        )
 
         # creates the callback to the error as a function that sends a
         # postmaster email to the reply to address found in the message,
         # note that this is only performed in case there's a valid email
         # address defined as postmaster for this SMTP server
-        callback_error = lambda smtp_client, context, exception: self.relay_postmaster(
-            reply_to, context, exception
+        callback_error = (
+            lambda smtp_client, context, exception: self.on_relay_error_smtp(
+                connection,
+                context,
+                exception,
+                smtp_client,
+                froms,
+                tos,
+                contents,
+                reply_to,
+            )
         )
 
         # generates a new SMTP client for the sending of the message,
         # uses the current host for identification and then triggers
-        # the message event to send the message to the target host
-        smtp_client = netius.clients.SMTPClient(host=self.host)
+        # the message event to send the message to the target host,
+        # the capture_transcript flag is forwarded from the server
+        # configuration to enable per-session SMTP conversation logging
+        smtp_client = netius.clients.SMTPClient(
+            host=self.host, capture_transcript=self.capture_transcript
+        )
         smtp_client.message(
             froms,
             tos,

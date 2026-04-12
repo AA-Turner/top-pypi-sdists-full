@@ -8,11 +8,11 @@ import subprocess
 import urllib.request
 import tarfile
 import logging
+import fileinput
 
 from setuptools import setup
 
 from pybind11.setup_helpers import Pybind11Extension, build_ext
-
 
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
 
@@ -84,8 +84,8 @@ class BuildExt(build_ext):
     def initialize_options(self) -> None:
         """Set default values for options."""
         super().initialize_options()
-        self.orc_version = "2.1.0"
-        self.output_dir = "deps"
+        self.orc_version = "2.1.4"
+        self.output_dir = pathlib.Path("deps")
         self.source_url = "https://archive.apache.org/dist/orc/"
         self.download_only = False
         self.skip_orc_build = False
@@ -102,17 +102,29 @@ class BuildExt(build_ext):
 
     def _download_source(self) -> None:
         tmp_tar = io.BytesIO()
-        url = "{url}orc-{ver}/orc-{ver}.tar.gz".format(
-            url=self.source_url, ver=self.orc_version
-        )
+        url = f"{self.source_url}orc-{self.orc_version}/orc-{self.orc_version}.tar.gz"
         with urllib.request.urlopen(url) as src:
-            logging.info("Download ORC release from: %s" % url)
+            logging.info(f"Download ORC release from: {url}")
             tmp_tar.write(src.read())
         tmp_tar.seek(0)
         tar_src = tarfile.open(fileobj=tmp_tar, mode="r:gz")
-        logging.info("Extract archives in: %s" % self.output_dir)
+        logging.info(f"Extract archives in: {self.output_dir}")
         tar_src.extractall(self.output_dir)
         tar_src.close()
+
+    def _patch_protobuf_version(self, version) -> None:
+        file_path = (
+            self.output_dir
+            / f"orc-{self.orc_version}"
+            / "cmake_modules"
+            / "ThirdpartyToolchain.cmake"
+        )
+        with fileinput.input(file_path, inplace=True, encoding="utf-8") as cmake_file:
+            for line in cmake_file:
+                if "set(PROTOBUF_VERSION " in line:
+                    line = f'set(PROTOBUF_VERSION "{version}")\n'
+                print(line, end="")
+        logging.info(f"Overrode protobuf version to: {version}")
 
     @staticmethod
     def _get_build_envs() -> dict:
@@ -124,7 +136,7 @@ class BuildExt(build_ext):
 
         return env
 
-    def _build_with_cmake(self) -> str:
+    def _build_with_cmake(self) -> pathlib.Path:
         build_type = "DEBUG" if self.debug else "RELEASE"
 
         cmake_args = [
@@ -140,14 +152,12 @@ class BuildExt(build_ext):
             cmake_args.append("-DBUILD_TOOLS=OFF")
             cmake_args.append("-DBUILD_CPP_TESTS=OFF")
         env = self._get_build_envs()
-        build_dir = os.path.join(
-            self.output_dir, "orc-{ver}".format(ver=self.orc_version), "build"
-        )
+        build_dir = self.output_dir / f"orc-{self.orc_version}" / "build"
         if not os.path.exists(build_dir):
             os.makedirs(build_dir)
         logging.info("Build libraries with cmake")
         cmake_cmd = ["cmake", ".."] + cmake_args
-        logging.info("Cmake command: %s" % cmake_cmd)
+        logging.info(f"Cmake command: {cmake_cmd}")
         subprocess.check_call(cmake_cmd, cwd=build_dir, env=env)
         if sys.platform == "win32":
             subprocess.check_call(
@@ -168,7 +178,7 @@ class BuildExt(build_ext):
             subprocess.check_call(["make", j_flag, "package"], cwd=build_dir, env=env)
         return build_dir
 
-    def _build_orc_lib(self):
+    def _build_orc_lib(self) -> None:
         logging.info("Build ORC C++ Core library")
         build_dir = self._build_with_cmake()
         plat = (
@@ -177,32 +187,28 @@ class BuildExt(build_ext):
             # Change platform title on Windows depending on arch (32/64bit)
             else sys.platform.title().replace("32", platform.architecture()[0][:2])
         )
-        pack_dir = os.path.join(
-            build_dir,
-            "_CPack_Packages",
-            plat,
-            "TGZ",
-            f"ORC-{self.orc_version}-{plat}",
+        pack_dir = (
+            build_dir
+            / "_CPack_Packages"
+            / plat
+            / "TGZ"
+            / f"ORC-{self.orc_version}-{plat}"
         )
+        proto_src_dir = build_dir / "protobuf_ep-prefix" / "src" / "protobuf_ep" / "src"
         logging.info(
-            "Move artifacts from '%s' to the '%s' folder" % (pack_dir, self.output_dir)
+            f"Move artifacts from '{pack_dir}' to the '{self.output_dir}' folder"
         )
         try:
-            shutil.move(os.path.join(pack_dir, "include"), self.output_dir)
+            shutil.move(pack_dir / "include", self.output_dir)
+            shutil.move(proto_src_dir / "google", self.output_dir / "include")
             lib_dir = (
                 "lib64" if os.path.exists(os.path.join(pack_dir, "lib64")) else "lib"
             )
-            shutil.move(
-                os.path.join(pack_dir, lib_dir), os.path.join(self.output_dir, "lib")
-            )
+            shutil.move(pack_dir / lib_dir, self.output_dir / "lib")
             if self.debug and not sys.platform.startswith("win32"):
-                shutil.move(os.path.join(pack_dir, "bin"), self.output_dir)
+                shutil.move(pack_dir / "bin", self.output_dir)
             shutil.move(
-                os.path.join(
-                    self.output_dir,
-                    f"orc-{self.orc_version}",
-                    "examples",
-                ),
+                self.output_dir / f"orc-{self.orc_version}" / "examples",
                 self.output_dir,
             )
         except Exception as exc:
@@ -218,19 +224,21 @@ class BuildExt(build_ext):
 
     def build_extensions(self):
         if not self.skip_orc_build:
-            orc_lib = os.path.join(
-                self.output_dir,
-                "lib",
-                "orc.lib" if sys.platform.startswith("win32") else "liborc.a",
+            orc_lib = (
+                self.output_dir
+                / "lib"
+                / ("orc.lib" if sys.platform.startswith("win32") else "liborc.a")
             )
-            if not os.path.isdir(
-                os.path.join(self.output_dir, "orc-{ver}".format(ver=self.orc_version))
-            ):
+            if not os.path.isdir(self.output_dir / f"orc-{self.orc_version}"):
                 self._download_source()
 
             if self.download_only:
                 logging.info("Only downloaded the ORC library source. Skip build_ext")
                 return
+
+            protobuf_ver = os.getenv("PYORC_OVERRIDDEN_PROTOBUF_VERSION")
+            if protobuf_ver:
+                self._patch_protobuf_version(protobuf_ver)
 
             if not os.path.exists(orc_lib):
                 self._build_orc_lib()
@@ -257,36 +265,10 @@ with open(CURRDIR / "src" / "pyorc" / "__init__.py") as src:
 setup(
     name="pyorc",
     version=VER,
-    description="Python module for reading and writing Apache ORC file format.",
-    author="noirello",
-    author_email="noirello@gmail.com",
-    url="https://github.com/noirello/pyorc",
-    long_description=LONG_DESC,
-    long_description_content_type="text/x-rst",
-    license="Apache License, Version 2.0",
     ext_modules=EXT_MODULES,
     package_dir={"pyorc": "src/pyorc"},
     packages=["pyorc"],
     package_data={"pyorc": ["py.typed", "_pyorc.pyi"]},
     include_package_data=True,
     cmdclass={"build_ext": BuildExt},
-    keywords=["python3", "orc", "apache-orc"],
-    classifiers=[
-        "Development Status :: 3 - Alpha",
-        "Intended Audience :: Developers",
-        "Intended Audience :: System Administrators",
-        "License :: OSI Approved :: Apache Software License",
-        "Programming Language :: C++",
-        "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
-    ],
-    python_requires=">=3.6",
-    install_requires=[
-        'tzdata >= 2020.5 ; sys_platform == "win32"',
-        'backports.zoneinfo >= 0.2.1 ; python_version < "3.9"',
-    ],
 )

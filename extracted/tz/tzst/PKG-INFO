@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tzst
-Version: 1.3.2
+Version: 1.3.3
 Summary: The next-generation Python library engineered for modern archive management, leveraging cutting-edge Zstandard compression to deliver superior performance, security, and reliability
 Project-URL: Homepage, https://github.com/xixu-me/tzst
 Project-URL: Documentation, https://github.com/xixu-me/tzst#readme
@@ -16,6 +16,7 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Archiving :: Compression
 Requires-Python: >=3.12
@@ -28,6 +29,9 @@ Requires-Dist: pytest>=7.0.0; extra == 'dev'
 Requires-Dist: ruff>=0.1.0; extra == 'dev'
 Requires-Dist: twine>=4.0.0; extra == 'dev'
 Description-Content-Type: text/markdown
+
+> [!TIP]
+> 欢迎加入“Xget 开源与 AI 交流群”，一起交流开源项目、AI 应用、工程实践、效率工具和独立开发；如果你也在做产品、写代码、折腾项目或者对开源和 AI 感兴趣，欢迎[**进群**](https://file.xi-xu.me/QR%20Codes/%E7%BE%A4%E4%BA%8C%E7%BB%B4%E7%A0%81.png)认识更多认真做事、乐于分享的朋友。
 
 <h1 align="center">
 <img src="https://raw.githubusercontent.com/xixu-me/tzst/refs/heads/main/docs/_static/tzst-logo.png" width="300">
@@ -481,7 +485,7 @@ except KeyboardInterrupt:
 
 ## 📋 Requirements
 
-- 🐍 Python 3.12 or higher
+- 🐍 Python 3.12 or higher (tested on 3.12-3.14)
 - 📦 zstandard >= 0.19.0
 
 ## 🛠️ Development

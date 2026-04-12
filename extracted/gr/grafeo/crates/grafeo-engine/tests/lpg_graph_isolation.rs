@@ -439,8 +439,8 @@ fn show_graphs_lists_created_graphs() {
     assert_eq!(result.columns, vec!["name"]);
     assert_eq!(result.row_count(), 2);
     // Results should be sorted alphabetically
-    assert_eq!(result.rows[0][0], Value::String("alpha".into()));
-    assert_eq!(result.rows[1][0], Value::String("beta".into()));
+    assert_eq!(result.rows()[0][0], Value::String("alpha".into()));
+    assert_eq!(result.rows()[1][0], Value::String("beta".into()));
 }
 
 #[test]
@@ -521,11 +521,85 @@ fn db_current_graph_api() {
     db.execute("USE GRAPH mydb").unwrap();
     assert_eq!(db.current_graph(), Some("mydb".to_string()));
 
-    db.set_current_graph(None);
+    db.set_current_graph(None).unwrap();
     assert_eq!(db.current_graph(), None);
 
-    db.set_current_graph(Some("mydb"));
+    db.set_current_graph(Some("mydb")).unwrap();
     assert_eq!(db.current_graph(), Some("mydb".to_string()));
+}
+
+#[test]
+fn set_current_graph_rejects_nonexistent() {
+    let db = db();
+    let err = db.set_current_graph(Some("nope")).unwrap_err();
+    assert!(
+        err.to_string().contains("does not exist"),
+        "expected 'does not exist' error, got: {err}"
+    );
+    // context should remain unchanged
+    assert_eq!(db.current_graph(), None);
+}
+
+#[test]
+fn set_current_graph_allows_default() {
+    let db = db();
+    // "default" is always valid even without creating it
+    db.set_current_graph(Some("default")).unwrap();
+    // setting None clears it
+    db.set_current_graph(None).unwrap();
+    assert_eq!(db.current_graph(), None);
+}
+
+#[test]
+fn drop_graph_resets_active_context() {
+    let db = db();
+    db.execute("CREATE GRAPH ephemeral").unwrap();
+    db.set_current_graph(Some("ephemeral")).unwrap();
+    assert_eq!(db.current_graph(), Some("ephemeral".to_string()));
+
+    db.drop_graph("ephemeral");
+    assert_eq!(
+        db.current_graph(),
+        None,
+        "current_graph should reset after dropping the active graph"
+    );
+}
+
+#[test]
+fn drop_graph_preserves_context_for_other_graph() {
+    let db = db();
+    db.execute("CREATE GRAPH keep").unwrap();
+    db.execute("CREATE GRAPH other").unwrap();
+    db.set_current_graph(Some("keep")).unwrap();
+
+    db.drop_graph("other");
+    assert_eq!(
+        db.current_graph(),
+        Some("keep".to_string()),
+        "dropping a different graph should not touch current_graph"
+    );
+}
+
+#[test]
+fn set_current_schema_rejects_nonexistent() {
+    let db = db();
+    let err = db.set_current_schema(Some("fake")).unwrap_err();
+    assert!(
+        err.to_string().contains("does not exist"),
+        "expected 'does not exist' error, got: {err}"
+    );
+    assert_eq!(db.current_schema(), None);
+}
+
+#[test]
+fn set_current_schema_accepts_valid() {
+    let db = db();
+    db.execute("CREATE SCHEMA reporting").unwrap();
+    db.set_current_schema(Some("reporting")).unwrap();
+    assert_eq!(db.current_schema(), Some("reporting".to_string()));
+
+    db.set_current_schema(None).unwrap();
+    assert_eq!(db.current_schema(), None);
 }
 
 #[test]
@@ -594,16 +668,16 @@ fn concurrent_sessions_on_different_graphs() {
     let r1 = s1.execute("MATCH (i:Item) RETURN i.name").unwrap();
     let r2 = s2.execute("MATCH (i:Item) RETURN i.name").unwrap();
 
-    assert_eq!(r1.rows.len(), 1, "alpha should have 1 item");
-    assert_eq!(r2.rows.len(), 1, "beta should have 1 item");
+    assert_eq!(r1.rows().len(), 1, "alpha should have 1 item");
+    assert_eq!(r2.rows().len(), 1, "beta should have 1 item");
 
     // Cross-check: each graph has its own data
     assert_eq!(
-        r1.rows[0][0],
+        r1.rows()[0][0],
         grafeo_common::types::Value::String("widget".into())
     );
     assert_eq!(
-        r2.rows[0][0],
+        r2.rows()[0][0],
         grafeo_common::types::Value::String("gadget".into())
     );
 }

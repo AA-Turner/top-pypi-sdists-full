@@ -1,13 +1,13 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pysignalr
-Version: 1.3.0
+Version: 1.3.1
 Summary: Modern, reliable and async-ready client for SignalR protocol
-Keywords: signalr,asp,client,asyncio,json,messagepack,websockets
-Author: Lev Gorodetskii
-Author-email: pysignalr@drsr.io
-Maintainer: Lev Gorodetskii
-Maintainer-email: pysignalr@drsr.io
-Requires-Python: >=3.10,<4
+Project-URL: Repository, https://github.com/baking-bad/pysignalr
+Project-URL: Homepage, https://github.com/baking-bad/pysignalr
+Author-email: Lev Gorodetskii <github@drsr.io>, mandrewcito <anbaalo@gmail.com>, Caio Barbieri <caio@lombello.com>
+Maintainer-email: Lev Gorodetskii <github@drsr.io>
+License-File: LICENSE
+Keywords: asp,asyncio,client,json,messagepack,signalr,websockets
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -18,15 +18,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Typing :: Typed
+Requires-Python: <4,>=3.10
 Requires-Dist: aiohttp
 Requires-Dist: msgpack
 Requires-Dist: orjson
-Requires-Dist: websockets (>=15.0.1,<16)
-Project-URL: Homepage, https://github.com/baking-bad/pysignalr
-Project-URL: Repository, https://github.com/baking-bad/pysignalr
+Requires-Dist: websockets<17,>=16.0
 Description-Content-Type: text/markdown
 
 # pysignalr
@@ -48,7 +48,8 @@ Description-Content-Type: text/markdown
 2. [Basic Usage](#basic-usage)
 3. [Usage with Token Authentication](#usage-with-token-authentication)
 4. [API Reference](#api-reference)
-5. [License](#license)
+5. [Contributors](#contributors)
+6. [License](#license)
 
 ## Installation
 
@@ -63,35 +64,45 @@ pip install pysignalr
 Let's connect to [TzKT](https://tzkt.io/), an API and block explorer of Tezos blockchain, and subscribe to all operations:
 
 ```python
+from __future__ import annotations
+
 import asyncio
 from contextlib import suppress
+from typing import TYPE_CHECKING
 from typing import Any
-from typing import Dict
-from typing import List
 
 from pysignalr.client import SignalRClient
-from pysignalr.messages import CompletionMessage
+
+if TYPE_CHECKING:
+    from pysignalr.messages import CompletionMessage
+
 
 async def on_open() -> None:
     print('Connected to the server')
 
+
 async def on_close() -> None:
     print('Disconnected from the server')
 
-async def on_message(message: List[Dict[str, Any]]) -> None:
+
+async def on_message(message: list[dict[str, Any]]) -> None:
     print(f'Received message: {message}')
 
+
 async def on_client_result(message: list[dict[str, Any]]) -> str:
-    """
-    The server can request a result from a client.
-    This requires the server to use ISingleClientProxy.InvokeAsync and the client to return a result from its .On handler.
-    https://learn.microsoft.com/en-us/aspnet/core/signalr/hubs?view=aspnetcore-9.0#client-results
+    """The server can request a result from a client.
+
+    Requires the server to use ISingleClientProxy.InvokeAsync and the client
+    to return a result from its .On handler.
+    See: https://learn.microsoft.com/en-us/aspnet/core/signalr/hubs?view=aspnetcore-9.0#client-results
     """
     print(f'Received message: {message}')
     return 'reply'
 
+
 async def on_error(message: CompletionMessage) -> None:
     print(f'Received error: {message.error}')
+
 
 async def main() -> None:
     client = SignalRClient('https://api.tzkt.io/v1/ws')
@@ -117,43 +128,56 @@ with suppress(KeyboardInterrupt, asyncio.CancelledError):
 To connect to the SignalR server using token authentication:
 
 ```python
+from __future__ import annotations
+
 import asyncio
 from contextlib import suppress
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING
+from typing import Any
 
 from pysignalr.client import SignalRClient
-from pysignalr.messages import CompletionMessage
+
+if TYPE_CHECKING:
+    from pysignalr.messages import CompletionMessage
+
 
 async def on_open() -> None:
     print('Connected to the server')
 
+
 async def on_close() -> None:
     print('Disconnected from the server')
 
-async def on_message(message: List[Dict[str, Any]]) -> None:
+
+async def on_message(message: list[dict[str, Any]]) -> None:
     print(f'Received message: {message}')
-    
+
+
 async def on_client_result(message: list[dict[str, Any]]) -> str:
-    """
-    The server can request a result from a client.
-    This requires the server to use ISingleClientProxy.InvokeAsync and the client to return a result from its .On handler.
-    https://learn.microsoft.com/en-us/aspnet/core/signalr/hubs?view=aspnetcore-9.0#client-results
+    """The server can request a result from a client.
+
+    Requires the server to use ISingleClientProxy.InvokeAsync and the client
+    to return a result from its .On handler.
+    See: https://learn.microsoft.com/en-us/aspnet/core/signalr/hubs?view=aspnetcore-9.0#client-results
     """
     print(f'Received message: {message}')
     return 'reply'
 
+
 async def on_error(message: CompletionMessage) -> None:
     print(f'Received error: {message.error}')
 
+
 def token_factory() -> str:
     # Replace with logic to fetch or generate the token
-    return "your_access_token_here"
+    return 'your_access_token_here'
+
 
 async def main() -> None:
     client = SignalRClient(
         url='https://api.tzkt.io/v1/ws',
         access_token_factory=token_factory,
-        headers={"mycustomheader": "mycustomheadervalue"},
+        headers={'mycustomheader': 'mycustomheadervalue'},
     )
 
     client.on_open(on_open)
@@ -167,6 +191,7 @@ async def main() -> None:
         client.send('SubscribeToOperations', [{}]),
     )
 
+
 with suppress(KeyboardInterrupt, asyncio.CancelledError):
     asyncio.run(main())
 ```
@@ -177,17 +202,30 @@ with suppress(KeyboardInterrupt, asyncio.CancelledError):
 
 #### Parameters
 
-- `url` (str): The SignalR server URL.
-- `access_token_factory` (Callable[[], str], optional): A function that returns the access token.
-- `headers` (Dict[str, str], optional): Additional headers to include in the WebSocket handshake.
+| Parameter | Type | Default | Description |
+| --------- | ---- | ------- | ----------- |
+| `url` | `str` | *required* | The SignalR server URL |
+| `protocol` | `Protocol \| None` | `JSONProtocol()` | Protocol for message encoding/decoding |
+| `headers` | `dict[str, str] \| None` | `None` | Additional headers for the WebSocket handshake |
+| `ping_interval` | `int` | `10` | Keepalive ping interval in seconds |
+| `connection_timeout` | `int` | `10` | Connection timeout in seconds |
+| `max_size` | `int \| None` | `1048576` | Maximum WebSocket message size (1 MB) |
+| `retry_sleep` | `float` | `1` | Initial retry delay in seconds |
+| `retry_multiplier` | `float` | `1.1` | Exponential backoff multiplier |
+| `retry_count` | `int` | `10` | Maximum number of retries |
+| `access_token_factory` | `Callable[[], str] \| None` | `None` | Function that returns an access token |
+| `ssl` | `ssl.SSLContext \| None` | `None` | Custom SSL context |
 
 #### Methods
 
-- `on_open(callback: Callable[[], Awaitable[None]])`: Set the callback for connection open event.
-- `on_close(callback: Callable[[], Awaitable[None]])`: Set the callback for connection close event.
-- `on_error(callback: Callable[[CompletionMessage], Awaitable[None]])`: Set the callback for error events.
-- `on(event: str, callback: Callable[[List[Dict[str, Any]]], Awaitable[Any | None]])`: Set the callback for a specific event.
-- `send(method: str, args: List[Any])`: Send a message to the server.
+- `run()`: Run the client, managing the connection lifecycle.
+- `on(event, callback)`: Register a callback for a specific event. If the callback returns a value, it is sent back as a `CompletionMessage` (client results).
+- `on_open(callback)`: Register a callback for connection open events.
+- `on_close(callback)`: Register a callback for connection close events.
+- `on_error(callback)`: Register a callback for error events.
+- `send(method, arguments, on_invocation=None)`: Send a message to the server. Without `on_invocation`, sends a non-blocking (fire-and-forget) invocation. With a callback, tracks the invocation and routes the server's completion response to it.
+- `stream(event, event_params, on_next=None, on_complete=None, on_error=None)`: Start a server-to-client streaming invocation.
+- `client_stream(target)`: Async context manager for client-to-server streaming. Use `await stream.send(item)` inside the context.
 
 ### `CompletionMessage`
 
@@ -195,9 +233,20 @@ A message received from the server upon completion of a method invocation.
 
 #### Attributes
 
-- `error` (str): The error message, if any.
+- `invocation_id` (`str | None`): The ID of the invocation.
+- `result` (`Any | None`): The result of the invocation, if any.
+- `error` (`str | None`): The error message, if the invocation failed.
+
+## Contributors
+
+- [Lev Gorodetskii](https://github.com/droserasprout)
+- [Ola Lidholm](https://github.com/olalid)
+- [ciaranby](https://github.com/ciaranby)
+- [MichaelMKKelly](https://github.com/MichaelMKKelly)
+- [Wizard1209](https://github.com/Wizard1209)
+- Antonino Bonanno
+- Caio Barbieri
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-

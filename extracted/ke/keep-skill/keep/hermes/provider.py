@@ -40,11 +40,28 @@ from keep.hermes.const import (
     TOOL_ERROR_SETUP_HINT,
     TOOL_ERROR_SETUP_REQUIRED,
 )
+from keep.daemon_client import stop_daemon
 from keep.types import format_ref
 
 logger = logging.getLogger(__name__)
 
 _MEMORY_CHARS_PER_TOKEN = 2.75
+
+
+def _stop_daemon(store_path: Path) -> None:
+    """Stop a running keep daemon for *store_path* so it restarts with fresh config."""
+    stop_daemon(store_path, force=True)
+
+
+def _read_env_var(env_path: Path, key: str) -> str | None:
+    """Read a single env var from a .env file, or None if absent."""
+    if not env_path.exists():
+        return None
+    prefix = f"{key}="
+    for line in env_path.read_text().splitlines():
+        if line.startswith(prefix):
+            return line[len(prefix):]
+    return None
 
 
 def _write_env_var(env_path: Path, key: str, value: str) -> None:
@@ -68,6 +85,26 @@ def _display_path(path: Path) -> str:
         return str(Path("~") / path.resolve().relative_to(Path.home()))
     except Exception:
         return str(path)
+
+
+def _resolve_hermes_store_path(hermes_home: str | Path | None) -> Path | None:
+    """Resolve the active Keep store for a Hermes profile.
+
+    Prefer the profile-local ``.env`` binding over the process environment so
+    one profile cannot silently overwrite another profile's configured store.
+    """
+    env_path: Path | None = None
+    if hermes_home:
+        env_path = Path(hermes_home) / ".env"
+    existing_store = _read_env_var(env_path, "KEEP_STORE_PATH") if env_path else None
+    if existing_store:
+        return Path(existing_store).resolve()
+    env_store = os.environ.get("KEEP_STORE_PATH")
+    if env_store:
+        return Path(env_store).resolve()
+    if hermes_home:
+        return Path(hermes_home, "keep").resolve()
+    return None
 
 
 def _contact_ref(*, platform: str, user_id: str, user_name: str = "") -> str:
@@ -95,6 +132,10 @@ class KeepMemoryProvider:
         self._session_id = ""
         self._session_item_id = ""
         self._session_tags: Dict[str, str] = {"source": "hermes"}
+        # Hermes may supply user identity only via on_turn_start(); cache it
+        # so sync_turn can still tag notes when the write hook gets text only.
+        self._turn_user_id = ""
+        self._turn_user_name = ""
         self._setup_required = False
         self._system_prompt_token_budget = 1200
         self._prefetch_token_budget = 1200
@@ -196,15 +237,20 @@ class KeepMemoryProvider:
         if embedding is None:
             raise ValueError(EMBEDDING_MISSING_ERROR)
 
-        # Always use profile-scoped path for setup — ignore inherited
-        # KEEP_STORE_PATH to prevent cross-profile store binding.
-        store_path = Path(hermes_home, "keep").resolve()
+        # Prefer the profile-local binding so re-running setup does not
+        # replace a profile store with an inherited shell-level store.
+        store_path = _resolve_hermes_store_path(hermes_home)
+        if store_path is None:
+            store_path = Path(hermes_home, "keep").resolve()
         config = create_default_config(store_path)
         config.embedding = embedding
         if summarization is not None:
             config.summarization = summarization
 
         save_config(config)
+
+        # Stop any running daemon so it picks up the new config on next start
+        _stop_daemon(store_path)
 
         # Persist KEEP_STORE_PATH in .env so the daemon can find this store
         env_path = Path(hermes_home) / ".env"
@@ -232,14 +278,15 @@ class KeepMemoryProvider:
         self._session_id = session_id
         hermes_home = kwargs.get("hermes_home")
         if hermes_home:
-            self._store_path = os.environ.get("KEEP_STORE_PATH") or str(
-                Path(hermes_home) / "keep"
-            )
+            store_path = _resolve_hermes_store_path(hermes_home)
+            self._store_path = str(store_path) if store_path else None
         else:
-            self._store_path = os.environ.get("KEEP_STORE_PATH") or None
+            store_path = _resolve_hermes_store_path(None)
+            self._store_path = str(store_path) if store_path else None
 
         self._session_item_id = self._build_session_item_id(session_id, **kwargs)
         self._session_tags = self._build_session_tags(session_id, **kwargs)
+        self._apply_session_title(kwargs.get("session_title"), update_when_missing=False)
         self._configure_token_budgets(**kwargs)
 
         # Per-profile CLI command (hermes creates wrapper aliases per profile)
@@ -404,8 +451,8 @@ class KeepMemoryProvider:
         item_id = self._session_item_id or f"hermes:{self._session_id}"
         tags = dict(self._session_tags)
         platform = str(tags.get("platform") or "").strip()
-        raw_user_id = str(user_id or "").strip()
-        turn_user_name = str(user_name or "").strip()
+        raw_user_id = str(user_id or self._turn_user_id or "").strip()
+        turn_user_name = str(user_name or self._turn_user_name or "").strip()
         if raw_user_id:
             tags["user_id"] = _contact_ref(
                 platform=platform or "hermes",
@@ -439,6 +486,22 @@ class KeepMemoryProvider:
 
     def on_turn_start(self, turn_number: int, message: str, **kwargs) -> None:
         self._turn_count = turn_number
+        self._turn_user_id = str(kwargs.get("user_id") or "").strip()
+        self._turn_user_name = str(kwargs.get("user_name") or "").strip()
+
+        session_id = str(kwargs.get("session_id") or "").strip()
+        if session_id and session_id != self._session_id:
+            self._session_id = session_id
+            self._session_item_id = self._build_session_item_id(
+                session_id,
+                platform=self._session_tags.get("platform"),
+                agent_identity=self._session_tags.get("agent_identity"),
+            )
+
+        self._apply_session_title(
+            kwargs.get("session_title"),
+            update_when_missing="session_title" in kwargs,
+        )
 
     def on_session_end(self, messages: List[Dict[str, Any]]) -> None:
         if self._sync_thread and self._sync_thread.is_alive():
@@ -703,6 +766,19 @@ class KeepMemoryProvider:
                 tags[key] = str(value)
         return tags
 
+    def _apply_session_title(self, title: Any, *, update_when_missing: bool = True) -> None:
+        """Overlay mutable session title metadata without breaking old Hermes builds."""
+        if title is None:
+            if update_when_missing:
+                self._session_tags.pop("title", None)
+            return
+
+        normalized = str(title).strip()
+        if normalized:
+            self._session_tags["title"] = normalized
+        else:
+            self._session_tags.pop("title", None)
+
     def _configure_token_budgets(self, **kwargs) -> None:
         memory_char_limit = kwargs.get("memory_char_limit")
         user_char_limit = kwargs.get("user_char_limit")
@@ -734,10 +810,10 @@ class KeepMemoryProvider:
     def _current_keep_providers(self):
         try:
             from keep.config import load_config
-            store_path = Path(
-                os.environ.get("KEEP_STORE_PATH")
-                or Path(os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes"))) / "keep"
-            ).resolve()
+            hermes_home = os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes"))
+            store_path = _resolve_hermes_store_path(hermes_home)
+            if store_path is None:
+                return None, None
             config = load_config(store_path)
             embed = config.embedding.name if config.embedding else None
             summ = config.summarization.name if config.summarization else None

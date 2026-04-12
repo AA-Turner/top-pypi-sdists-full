@@ -1,12 +1,17 @@
 //! Shared accumulator types for both pull-based and push-based aggregate operators.
 //!
 //! Provides the canonical definitions of [`AggregateFunction`], [`AggregateExpr`],
-//! and [`HashableValue`] used by both `aggregate.rs` (pull) and `push/aggregate.rs`.
+//! [`AggregateState`], and [`HashableValue`] used by both `aggregate.rs` (pull)
+//! and `push/aggregate.rs`.
+
+// Re-export AggregateState so both pull and push operators import from one place.
+pub use super::aggregate::AggregateState;
 
 use grafeo_common::types::Value;
 
 /// Aggregation function types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum AggregateFunction {
     /// Count of rows (COUNT(*)).
     Count,
@@ -280,6 +285,7 @@ impl AggregateExpr {
 
 /// A wrapper for [`Value`] that can be hashed (for DISTINCT tracking).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum HashableValue {
     /// Null value.
     Null,

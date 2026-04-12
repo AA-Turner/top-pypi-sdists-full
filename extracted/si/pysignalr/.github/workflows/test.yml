@@ -1,0 +1,76 @@
+name: Test
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/test.yml'
+
+jobs:
+  test:
+    name: Test
+    runs-on: macos-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install project
+        run: make install
+      - name: Run lint
+        run: uv run make lint
+      - name: Run tests
+        run: uv run make test
+
+  test-full:
+    name: Test (full matrix)
+    if: github.ref == 'refs/heads/master'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+            python-version: '3.14'
+          - os: ubuntu-latest
+            arch: arm64
+            python-version: '3.14'
+          - os: macos-latest
+            arch: amd64
+            python-version: '3.14'
+          - os: ubuntu-latest
+            arch: amd64
+            python-version: '3.13'
+          - os: ubuntu-latest
+            arch: amd64
+            python-version: '3.12'
+          - os: ubuntu-latest
+            arch: amd64
+            python-version: '3.11'
+          - os: ubuntu-latest
+            arch: amd64
+            python-version: '3.10'
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install project
+        run: make install
+      - name: Run lint
+        run: uv run make lint
+      - name: Run tests
+        run: uv run make test

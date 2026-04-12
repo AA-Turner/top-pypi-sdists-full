@@ -1813,7 +1813,7 @@ def _capture_global(
         except:
             pass
 
-    if isinstance(global_value, (str, int, float, bool, list, set, tuple)):
+    if isinstance(global_value, (str, int, float, bool, list, set, tuple, dict)):
         return FunctionCapturedGlobalVariable(
             name=global_var,
             module=module_name,

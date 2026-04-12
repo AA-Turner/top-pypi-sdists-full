@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coolname
-Version: 4.1.0
+Version: 4.2.0
 Summary: Random name and slug generator
 Author-email: Alexander Lukanin <alexander.lukanin.13@gmail.com>
 License-Expression: BSD-2-Clause
@@ -95,7 +95,7 @@ Features
 
         >>> from coolname import get_combinations_count
         >>> get_combinations_count(4)
-        83377588406
+        83930205085
 
 * Hand-picked vocabulary. ``sexy`` and ``demonic`` are about the most "offensive" words here -
   but there is only a pinch of them, for spice. Most words are either neutral, such as ``red``, or positive,

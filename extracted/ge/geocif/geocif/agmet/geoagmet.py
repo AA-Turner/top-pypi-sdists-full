@@ -86,7 +86,7 @@ class AgmetGeo(base.BaseGeo):
         ordered = [
             "ndvi", "cumulative_precip", "nsidc_surface",
             "yearly_ndvi", "daily_precip", "nsidc_rootzone",
-            "esi_4wk", "cpc_tmax", "daymet_tmax",
+            "esi_4wk", "cpc_tmax", "chirts_era5_tmax", "daymet_tmax",
         ]
 
         # Which raw vars expand into which subplot names
@@ -97,7 +97,7 @@ class AgmetGeo(base.BaseGeo):
             "gcvi": ["gcvi", "yearly_gcvi"],
         }
         # These raw vars get dropped (absorbed into the avg temp plot)
-        skip = {"cpc_tmin", "daymet_tmin"}
+        skip = {"cpc_tmin", "daymet_tmin", "chirts_era5_tmin"}
 
         # Build set of subplot names from raw eo_plot
         subplot_set = set()

@@ -198,21 +198,27 @@ class SearchLogEntriesResponse(_message.Message):
     ) -> None: ...
 
 class SearchAccessLogEntriesRequest(_message.Message):
-    __slots__ = ("query", "page_token", "start_time", "end_time")
+    __slots__ = ("query", "page_token", "start_time", "end_time", "scaling_group_id", "container_id")
     QUERY_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
+    SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
     query: str
     page_token: SearchAccessLogEntriesPageToken
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
+    scaling_group_id: str
+    container_id: str
     def __init__(
         self,
         query: _Optional[str] = ...,
         page_token: _Optional[_Union[SearchAccessLogEntriesPageToken, _Mapping]] = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        scaling_group_id: _Optional[str] = ...,
+        container_id: _Optional[str] = ...,
     ) -> None: ...
 
 class SearchAccessLogEntriesResponse(_message.Message):
@@ -314,21 +320,27 @@ class GetLogFacetValuesResponse(_message.Message):
     def __init__(self, values: _Optional[_Iterable[_Union[LogFacetValue, _Mapping]]] = ...) -> None: ...
 
 class SearchAccessLogEntriesAggregatedRequest(_message.Message):
-    __slots__ = ("query", "start_time", "end_time", "window_period")
+    __slots__ = ("query", "start_time", "end_time", "window_period", "scaling_group_id", "container_id")
     QUERY_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
     query: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     window_period: _duration_pb2.Duration
+    scaling_group_id: str
+    container_id: str
     def __init__(
         self,
         query: _Optional[str] = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        scaling_group_id: _Optional[str] = ...,
+        container_id: _Optional[str] = ...,
     ) -> None: ...
 
 class SearchAccessLogEntriesAggregatedResponse(_message.Message):
@@ -350,17 +362,21 @@ class GetAccessLogFacetsResponse(_message.Message):
     def __init__(self, facets: _Optional[_Iterable[_Union[LogFacet, _Mapping]]] = ...) -> None: ...
 
 class GetAccessLogFacetValuesRequest(_message.Message):
-    __slots__ = ("path", "start_time", "end_time", "limit", "query")
+    __slots__ = ("path", "start_time", "end_time", "limit", "query", "scaling_group_id", "container_id")
     PATH_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     QUERY_FIELD_NUMBER: _ClassVar[int]
+    SCALING_GROUP_ID_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
     path: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
     query: str
+    scaling_group_id: str
+    container_id: str
     def __init__(
         self,
         path: _Optional[str] = ...,
@@ -368,6 +384,8 @@ class GetAccessLogFacetValuesRequest(_message.Message):
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         limit: _Optional[int] = ...,
         query: _Optional[str] = ...,
+        scaling_group_id: _Optional[str] = ...,
+        container_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetAccessLogFacetValuesResponse(_message.Message):

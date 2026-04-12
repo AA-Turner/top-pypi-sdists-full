@@ -1030,7 +1030,9 @@ class Document(MDDocument):
                 continue
             if not hasattr(existing_style, "name"):
                 continue
-            if not existing_style.name.startswith(AUTOMATIC_PREFIX):  # type: ignore[union-attr]
+            if not existing_style.name or not existing_style.name.startswith(  # type: ignore[union-attr]
+                AUTOMATIC_PREFIX
+            ):
                 continue
             try:
                 index = int(existing_style.name[len(AUTOMATIC_PREFIX) :])  # type: ignore
@@ -1472,7 +1474,7 @@ class Document(MDDocument):
             name_or_element="odfdopagebreak",
         ):
             properties = existing.get_properties()  # type: ignore
-            if properties and properties["fo:break-after"] == "page":
+            if properties and properties.get("fo:break-after") == "page":
                 return
         style = (
             '<style:style style:family="paragraph" style:parent-style-name="Standard" '

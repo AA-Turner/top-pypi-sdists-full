@@ -30,7 +30,7 @@ dependencies = [
     "celery>=4.0.2",
     "celery_once>=3.0.1",
     "django-bitfield>=2.2",
-    "django-esi>=4",
+    "django-esi>=4,<9",
     "django>=3.2",
     "requests",
 ]

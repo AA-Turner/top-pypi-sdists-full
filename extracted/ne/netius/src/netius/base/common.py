@@ -58,7 +58,7 @@ NAME = "netius"
 identification of both the clients and the services this
 value may be prefixed or suffixed """
 
-VERSION = "1.39.6"
+VERSION = "1.45.0"
 """ The version value that identifies the version of the
 current infra-structure, all of the services and clients
 may share this value """
@@ -174,7 +174,7 @@ SSL_ERROR_NAMES = {
 """ The dictionary containing the association between the
 various SSL errors and their string representation """
 
-SSL_SILENT_REASONS = ("WRONG_VERSION_NUMBER",)
+SSL_SILENT_REASONS = ("WRONG_VERSION_NUMBER", "RECORD_LAYER_FAILURE")
 """ The list containing the SSL reasons that should be silenced
 while still making the connection dropped as they are expected
 to occur and should not be considered an exception """
@@ -182,6 +182,17 @@ to occur and should not be considered an exception """
 SSL_VALID_REASONS = ("CERT_ALREADY_IN_HASH_TABLE",)
 """ The list containing the valid reasons for the handshake
 operation of the SSL connection establishment """
+
+SSL_ALL_REASONS = SSL_SILENT_REASONS + SSL_VALID_REASONS
+""" The combined list of all SSL reasons that require matching,
+pre-computed to avoid repeated tuple concatenation """
+
+SSL_ALL_REASONS_L = tuple(
+    reason.lower().replace("_", " ") for reason in SSL_ALL_REASONS
+)
+""" The lowercase space-separated version of the SSL reasons
+used for fallback matching against str(error) when error.reason
+is not available (eg: PyPy with unmapped OpenSSL error codes) """
 
 TCP_TYPE = 1
 """ The type enumeration value that represents the TCP (stream)
@@ -2889,21 +2900,13 @@ class AbstractBase(observer.Observable):
     def on_connection_c(self, connection):
         # prints some debug information about the connection that has
         # just been created (for possible debugging purposes)
-        if connection.address == None:
-            self.debug(
-                "Connection '%s' %s from '%s' created (no address)\n%s",
-                connection.id,
-                connection.address,
-                connection.owner.name,
-                "".join(traceback.format_stack()),
-            )
-        else:
-            self.debug(
-                "Connection '%s' %s from '%s' created",
-                connection.id,
-                connection.address,
-                connection.owner.name,
-            )
+        self.debug(
+            "Connection '%s' %s (%s) from '%s' created",
+            connection.id,
+            connection.address,
+            "datagram" if connection.datagram else "stream",
+            connection.owner.name,
+        )
         self.debug(
             "There are %d connections for '%s'",
             len(connection.owner.connections),
@@ -3059,7 +3062,15 @@ class AbstractBase(observer.Observable):
                     break
         except ssl.SSLError as error:
             error_v = error.args[0] if error.args else None
-            error_m = error.reason if hasattr(error, "reason") else None
+            error_m = (
+                error.reason.upper().replace(" ", "_")
+                if not error_v in SSL_VALID_ERRORS
+                and hasattr(error, "reason")
+                and error.reason
+                else (
+                    self._ssl_reason(error) if not error_v in SSL_VALID_ERRORS else None
+                )
+            )
             if error_v in SSL_SILENT_ERRORS or error_m in SSL_SILENT_REASONS:
                 self.on_expected(error, connection)
             elif not error_v in SSL_VALID_ERRORS and not error_m in SSL_VALID_REASONS:
@@ -3104,7 +3115,15 @@ class AbstractBase(observer.Observable):
             connection._send()
         except ssl.SSLError as error:
             error_v = error.args[0] if error.args else None
-            error_m = error.reason if hasattr(error, "reason") else None
+            error_m = (
+                error.reason.upper().replace(" ", "_")
+                if not error_v in SSL_VALID_ERRORS
+                and hasattr(error, "reason")
+                and error.reason
+                else (
+                    self._ssl_reason(error) if not error_v in SSL_VALID_ERRORS else None
+                )
+            )
             if error_v in SSL_SILENT_ERRORS or error_m in SSL_SILENT_REASONS:
                 self.on_expected(error, connection)
             elif not error_v in SSL_VALID_ERRORS and not error_m in SSL_VALID_REASONS:
@@ -3145,7 +3164,15 @@ class AbstractBase(observer.Observable):
                     raise
         except ssl.SSLError as error:
             error_v = error.args[0] if error.args else None
-            error_m = error.reason if hasattr(error, "reason") else None
+            error_m = (
+                error.reason.upper().replace(" ", "_")
+                if not error_v in SSL_VALID_ERRORS
+                and hasattr(error, "reason")
+                and error.reason
+                else (
+                    self._ssl_reason(error) if not error_v in SSL_VALID_ERRORS else None
+                )
+            )
             if error_v in SSL_SILENT_ERRORS or error_m in SSL_SILENT_REASONS:
                 self.on_expected_s(error)
             elif not error_v in SSL_VALID_ERRORS and not error_m in SSL_VALID_REASONS:
@@ -3442,7 +3469,15 @@ class AbstractBase(observer.Observable):
             return callable(*args, **kwargs)
         except ssl.SSLError as error:
             error_v = error.args[0] if error.args else None
-            error_m = error.reason if hasattr(error, "reason") else None
+            error_m = (
+                error.reason.upper().replace(" ", "_")
+                if not error_v in SSL_VALID_ERRORS
+                and hasattr(error, "reason")
+                and error.reason
+                else (
+                    self._ssl_reason(error) if not error_v in SSL_VALID_ERRORS else None
+                )
+            )
             if error_v in SSL_SILENT_ERRORS or error_m in SSL_SILENT_REASONS:
                 self.on_expected(error, connection)
             elif not error_v in SSL_VALID_ERRORS and not error_m in SSL_VALID_REASONS:
@@ -4338,6 +4373,18 @@ class AbstractBase(observer.Observable):
         self._ssl_secure = None
         self._ssl_context_options = None
 
+    def _ssl_reload(self):
+        # verifies if the current SSL contexts map supports
+        # reload (eg: LetsEncryptDict) and if that's the case
+        # triggers a reload to pick up new certificates from
+        # the file system without requiring a full restart
+        if not hasattr(self._ssl_contexts, "reload"):
+            return
+        domains = list(self._ssl_contexts.keys())
+        changed = self._ssl_contexts.reload(domains)
+        if changed:
+            self.info("Reloaded SSL certificates for updated domains")
+
     def _ssl_callback(self, socket, hostname, context):
         context, values = self._ssl_contexts.get(hostname, (context, None))
         self._ssl_ctx_protocols(context)
@@ -4849,6 +4896,17 @@ class AbstractBase(observer.Observable):
                     self.unsub_write(_socket)
             else:
                 raise
+
+    def _ssl_reason(self, error):
+        # extracts the SSL error reason from the string representation
+        # of the exception as a fallback when error.reason is not set
+        # (eg: PyPy's cffi SSL may not map all OpenSSL error codes)
+        error_s = str(error).lower()
+        for index, reason_l in enumerate(SSL_ALL_REASONS_L):
+            if not reason_l in error_s:
+                continue
+            return SSL_ALL_REASONS[index]
+        return None
 
     def _expand_destroy(self):
         """

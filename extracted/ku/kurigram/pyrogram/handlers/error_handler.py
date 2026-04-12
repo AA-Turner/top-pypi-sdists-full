@@ -16,13 +16,15 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Callable, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence, Union
 
-import pyrogram
 from pyrogram.filters import Filter
-from pyrogram.types import Update
 
 from .handler import Handler
+
+if TYPE_CHECKING:
+    import pyrogram
+    from pyrogram import raw
 
 
 class ErrorHandler(Handler):
@@ -61,13 +63,12 @@ class ErrorHandler(Handler):
             :obj:`~pyrogram.raw.base.Update` base type.
 
         users (``dict``):
-            Dictionary of all :obj:`~pyrogram.types.User` mentioned in the update.
+            Dictionary of all :obj:`~pyrogram.raw.base.User` mentioned in the update.
             You can access extra info about the user (such as *first_name*, *last_name*, etc...) by using
             the IDs you find in the *update* argument (e.g.: *users[1768841572]*).
 
         chats (``dict``):
-            Dictionary of all :obj:`~pyrogram.types.Chat` and
-            :obj:`~pyrogram.raw.types.Channel` mentioned in the update.
+            Dictionary of all :obj:`~pyrogram.raw.base.Chat` mentioned in the update.
             You can access extra info about the chat (such as *title*, *participants_count*, etc...)
             by using the IDs you find in the *update* argument (e.g.: *chats[1701277281]*).
 
@@ -75,7 +76,15 @@ class ErrorHandler(Handler):
 
     def __init__(
         self,
-        callback: Callable,
+        callback: Callable[
+            [
+                "pyrogram.Client",
+                "raw.base.Update",
+                Dict[int, "raw.base.User"],
+                Dict[int, "raw.base.Chat"],
+            ],
+            Any,
+        ],
         exceptions: Optional[Union[Exception, Sequence[Exception]]] = None,
         filters: Optional[Filter] = None,
     ):

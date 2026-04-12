@@ -626,10 +626,11 @@ class Gift(Object):
         parsed_gift.next_transfer_date = utils.timestamp_to_datetime(saved_gift.can_transfer_at) or parsed_gift.next_transfer_date
         parsed_gift.next_resale_date = utils.timestamp_to_datetime(saved_gift.can_resell_at) or parsed_gift.next_resale_date
         parsed_gift.craft_date = utils.timestamp_to_datetime(saved_gift.can_craft_at) or parsed_gift.craft_date
-        parsed_gift.collection_ids = types.List(saved_gift.collection_id) or None or parsed_gift.collection_ids
+        parsed_gift.collection_ids = list(saved_gift.collection_id) if saved_gift.collection_id else parsed_gift.collection_ids
         parsed_gift.prepaid_upgrade_hash = saved_gift.prepaid_upgrade_hash or parsed_gift.prepaid_upgrade_hash
         parsed_gift.drop_original_details_star_count = saved_gift.drop_original_details_stars or parsed_gift.drop_original_details_star_count
         parsed_gift.unique_gift_number = saved_gift.gift_num or parsed_gift.unique_gift_number
+        parsed_gift.raw = saved_gift
 
         return parsed_gift
 

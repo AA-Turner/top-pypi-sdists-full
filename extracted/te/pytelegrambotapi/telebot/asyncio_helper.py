@@ -1,5 +1,6 @@
 import asyncio # for future uses
 import ssl
+import threading
 import aiohttp
 import certifi
 from telebot import types
@@ -30,9 +31,16 @@ REQUEST_LIMIT = 50
 
 class SessionManager:
     def __init__(self) -> None:
-        self.session = None
+        self._local = threading.local()
         self.ssl_context = ssl.create_default_context(cafile=certifi.where())
 
+    @property
+    def session(self):
+        return getattr(self._local, 'session', None)
+
+    @session.setter
+    def session(self, value):
+        self._local.session = value
 
     async def create_session(self):
         self.session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(
@@ -45,7 +53,7 @@ class SessionManager:
         if self.session is None:
             self.session = await self.create_session()
             return self.session
-            
+
         if self.session.closed:
             self.session = await self.create_session()
 
@@ -103,6 +111,7 @@ async def _process_request(token, url, method='get', params=None, files=None, **
             logger.error(f'Unknown error: {e.__class__.__name__}')
         if not got_result:
             raise RequestTimeout("Request timeout. Request: method={0} url={1} params={2} files={3} request_timeout={4}".format(method, url, params, files, request_timeout, current_try))
+    return None
         
 def _prepare_file(obj):
     """
@@ -111,6 +120,7 @@ def _prepare_file(obj):
     name = getattr(obj, 'name', None)
     if name and isinstance(name, str) and name[0] != '<' and name[-1] != '>':
         return os.path.basename(name)
+    return None
 
 def _prepare_data(params=None, files=None):
     """
@@ -431,7 +441,13 @@ async def save_prepared_inline_message(token, user_id, result: types.InlineQuery
         payload['allow_group_chats'] = allow_group_chats
     if allow_channel_chats is not None:
         payload['allow_channel_chats'] = allow_channel_chats
-    return await _process_request(token, method_url, params=payload)
+    return await _process_request(token, method_url, params=payload, method='post')
+
+
+async def save_prepared_keyboard_button(token, user_id, button: types.KeyboardButton):
+    method_url = r'savePreparedKeyboardButton'
+    payload = {'user_id': user_id, 'button': button.to_json()}
+    return await _process_request(token, method_url, params=payload, method='post')
 
 
 async def get_chat_member(token, chat_id, user_id):
@@ -521,7 +537,7 @@ async def send_checklist(
     if reply_parameters:
         payload['reply_parameters'] = reply_parameters.to_json()
     if reply_markup:
-        payload['reply_markup'] = _convert_markup(reply_markup)
+        payload['reply_markup'] = await _convert_markup(reply_markup)
     return await _process_request(token, method_url, params=payload)
 
 
@@ -647,7 +663,7 @@ async def send_paid_media(
     if reply_parameters is not None:
         _payload['reply_parameters'] = reply_parameters.to_json()
     if reply_markup:
-        _payload['reply_markup'] = _convert_markup(reply_markup)
+        _payload['reply_markup'] = await _convert_markup(reply_markup)
     if business_connection_id:
         _payload['business_connection_id'] = business_connection_id
     if payload:
@@ -1237,6 +1253,7 @@ async def get_method_by_type(data_type):
         return r'sendDocument'
     if data_type == 'sticker':
         return r'sendSticker'
+    return None
 
 
 async def ban_chat_member(token, chat_id, user_id, until_date=None, revoke_messages=None):
@@ -1601,6 +1618,16 @@ async def get_business_connection(token, business_connection_id):
     payload = {'business_connection_id': business_connection_id}
     return await _process_request(token, method_url, params=payload , method='post')
 
+async def get_managed_bot_token(token, user_id):
+    method_url = 'getManagedBotToken'
+    payload = {'user_id': user_id}
+    return await _process_request(token, method_url, params=payload , method='post')
+
+async def replace_managed_bot_token(token, user_id):
+    method_url = 'replaceManagedBotToken'
+    payload = {'user_id': user_id}
+    return await _process_request(token, method_url, params=payload , method='post')
+
 async def delete_my_commands(token, scope=None, language_code=None):
     method_url = r'deleteMyCommands'
     payload = {}
@@ -1890,7 +1917,9 @@ async def send_invoice(
     :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum supergroups only
     :param reply_parameters: A JSON-serialized object for an inline keyboard. If empty, one 'Pay total price' button will be shown. If not empty, the first button must be a Pay button.
     :param message_effect_id: Unique identifier of the message effect to be added to the message; for private chats only
-    :param allow_paid_broadcast:
+    :param allow_paid_broadcast: Pass True to allow up to 1000 messages per second, ignoring broadcasting limits for a fee of 0.1 Telegram Stars per message. The relevant Stars will be withdrawn from the bot's balance
+    :param direct_messages_topic_id: Identifier of the direct messages topic to which the message will be sent; required if the message is sent to a direct messages chat
+    :param suggested_post_parameters: A JSON-serialized object containing the parameters of the suggested post to send; for direct messages chats only. If the message is sent as a reply to another suggested post, then that suggested post is automatically declined.
     :return:
     """
     method_url = r'sendInvoice'
@@ -2499,16 +2528,16 @@ async def create_invoice_link(token, title, description, payload, provider_token
     return await _process_request(token, method_url, params=payload, method='post')
 
 
-
 # noinspection PyShadowingBuiltins
 async def send_poll(
         token, chat_id, question, options,
-        is_anonymous = None, type = None, allows_multiple_answers = None, correct_option_id = None,
+        is_anonymous = None, type = None, allows_multiple_answers = None,
         explanation = None, explanation_parse_mode=None, open_period = None, close_date = None, is_closed = None,
         disable_notification=False,  
         reply_markup=None, timeout=None, explanation_entities=None, protect_content=None, message_thread_id=None,
         reply_parameters=None,business_connection_id=None, question_parse_mode=None, question_entities=None, message_effect_id=None,
-        allow_paid_broadcast=None):
+        allow_paid_broadcast=None, allows_revoting=None, shuffle_options=None, allow_adding_options=None, hide_results_until_closes=None,
+        correct_option_ids=None, description=None, description_parse_mode=None, description_entities=None):
     method_url = r'sendPoll'
     payload = {
         'chat_id': str(chat_id),
@@ -2522,8 +2551,6 @@ async def send_poll(
         payload['type'] = type
     if allows_multiple_answers is not None:
         payload['allows_multiple_answers'] = allows_multiple_answers
-    if correct_option_id is not None:
-        payload['correct_option_id'] = correct_option_id
     if explanation is not None:
         payload['explanation'] = explanation
     if explanation_parse_mode is not None:
@@ -2562,6 +2589,22 @@ async def send_poll(
         payload['message_effect_id'] = message_effect_id
     if allow_paid_broadcast is not None:
         payload['allow_paid_broadcast'] = allow_paid_broadcast
+    if allows_revoting is not None:
+        payload['allows_revoting'] = allows_revoting
+    if shuffle_options is not None:
+        payload['shuffle_options'] = shuffle_options
+    if allow_adding_options is not None:
+        payload['allow_adding_options'] = allow_adding_options
+    if hide_results_until_closes is not None:
+        payload['hide_results_until_closes'] = hide_results_until_closes
+    if correct_option_ids is not None:
+        payload['correct_option_ids'] = json.dumps(correct_option_ids)
+    if description is not None:
+        payload['description'] = description
+    if description_parse_mode is not None:
+        payload['description_parse_mode'] = description_parse_mode
+    if description_entities is not None:
+        payload['description_entities'] = json.dumps(types.MessageEntity.to_list_of_dicts(description_entities))
     return await _process_request(token, method_url, params=payload)
 
 
@@ -2702,6 +2745,7 @@ async def convert_input_media(media):
 async def convert_input_media_array(array):
     media = []
     files = {}
+    key = ""
     for input_media in array:
         if isinstance(input_media, types.InputMedia) or isinstance(input_media, types.InputPaidMedia):
             media_dict = input_media.to_dict()
@@ -2793,5 +2837,3 @@ class RequestTimeout(Exception):
     This class represents a request timeout.
     """
     pass
-
-

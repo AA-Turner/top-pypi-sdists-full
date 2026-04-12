@@ -1606,6 +1606,16 @@ def get_business_connection(token, business_connection_id):
     payload = {'business_connection_id': business_connection_id}
     return _make_request(token, method_url, params=payload , method='post')
 
+def get_managed_bot_token(token, user_id):
+    method_url = 'getManagedBotToken'
+    payload = {'user_id': user_id}
+    return _make_request(token, method_url, params=payload , method='post')
+
+def replace_managed_bot_token(token, user_id):
+    method_url = 'replaceManagedBotToken'
+    payload = {'user_id': user_id}
+    return _make_request(token, method_url, params=payload , method='post')
+
 def delete_my_commands(token, scope=None, language_code=None):
     method_url = r'deleteMyCommands'
     payload = {}
@@ -1893,7 +1903,9 @@ def send_invoice(
     :param message_thread_id: Unique identifier for the target message thread (topic) of the forum; for forum supergroups only
     :param reply_parameters: A JSON-serialized object for an inline keyboard. If empty, one 'Pay total price' button will be shown. If not empty, the first button must be a Pay button.
     :param message_effect_id: Unique identifier of the message effect to be added to the message; for private chats only
-    :param allow_paid_broadcast:
+    :param allow_paid_broadcast: Pass True to allow up to 1000 messages per second, ignoring broadcasting limits for a fee of 0.1 Telegram Stars per message. The relevant Stars will be withdrawn from the bot's balance
+    :param direct_messages_topic_id: Identifier of the direct messages topic to which the message will be sent; required if the message is sent to a direct messages chat
+    :param suggested_post_parameters: A JSON-serialized object containing the parameters of the suggested post to send; for direct messages chats only. If the message is sent as a reply to another suggested post, then that suggested post is automatically declined.
     :return:
     """
     method_url = r'sendInvoice'
@@ -2486,6 +2498,12 @@ def save_prepared_inline_message(token, user_id, result: types.InlineQueryResult
         return _make_request(token, method_url, params=payload, method='post')
 
 
+def save_prepared_keyboard_button(token, user_id, button):
+    method_url = 'savePreparedKeyboardButton'
+    payload = {'user_id': user_id, 'button': button.to_json()}
+    return _make_request(token, method_url, params=payload, method='post')
+
+
 def create_invoice_link(token, title, description, payload, provider_token,
             currency, prices, max_tip_amount=None, suggested_tip_amounts=None, provider_data=None,
             photo_url=None, photo_size=None, photo_width=None, photo_height=None, need_name=None, need_phone_number=None,
@@ -2534,11 +2552,12 @@ def create_invoice_link(token, title, description, payload, provider_token,
 # noinspection PyShadowingBuiltins
 def send_poll(
         token, chat_id, question, options,
-        is_anonymous = None, type = None, allows_multiple_answers = None, correct_option_id = None, explanation = None,
+        is_anonymous = None, type = None, allows_multiple_answers = None, explanation = None,
         explanation_parse_mode=None, open_period = None, close_date = None, is_closed = None, disable_notification=False,
         reply_markup=None, timeout=None, explanation_entities=None, protect_content=None, message_thread_id=None,
         reply_parameters=None, business_connection_id=None, question_parse_mode=None, question_entities=None, message_effect_id=None,
-        allow_paid_broadcast=None):
+        allow_paid_broadcast=None, allows_revoting=None, shuffle_options=None, allow_adding_options=None, hide_results_until_closes=None,
+        correct_option_ids=None, description=None, description_parse_mode=None, description_entities=None):
     method_url = r'sendPoll'
     payload = {
         'chat_id': str(chat_id),
@@ -2552,8 +2571,6 @@ def send_poll(
         payload['type'] = type
     if allows_multiple_answers is not None:
         payload['allows_multiple_answers'] = allows_multiple_answers
-    if correct_option_id is not None:
-        payload['correct_option_id'] = correct_option_id
     if explanation:
         payload['explanation'] = explanation
     if explanation_parse_mode:
@@ -2591,6 +2608,22 @@ def send_poll(
         payload['message_effect_id'] = message_effect_id
     if allow_paid_broadcast is not None:
         payload['allow_paid_broadcast'] = allow_paid_broadcast
+    if allows_revoting is not None:
+        payload['allows_revoting'] = allows_revoting
+    if shuffle_options is not None:
+        payload['shuffle_options'] = shuffle_options
+    if allow_adding_options is not None:
+        payload['allow_adding_options'] = allow_adding_options
+    if hide_results_until_closes is not None:
+        payload['hide_results_until_closes'] = hide_results_until_closes
+    if correct_option_ids is not None:
+        payload['correct_option_ids'] = json.dumps(correct_option_ids)
+    if description is not None:
+        payload['description'] = description
+    if description_parse_mode is not None:
+        payload['description_parse_mode'] = description_parse_mode
+    if description_entities is not None:
+        payload['description_entities'] = json.dumps(types.MessageEntity.to_list_of_dicts(description_entities))
     return _make_request(token, method_url, params=payload)
 
 def create_forum_topic(token, chat_id, name, icon_color=None, icon_custom_emoji_id=None):

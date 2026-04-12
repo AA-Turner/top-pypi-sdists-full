@@ -4,19 +4,29 @@
 //! its own transaction state, so concurrent sessions don't interfere with
 //! each other. Sessions are cheap to create - spin up as many as you need.
 
-#[cfg(feature = "rdf")]
+#[cfg(feature = "triple-store")]
 mod rdf;
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
+#[cfg(feature = "lpg")]
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
-use grafeo_common::types::{EdgeId, EpochId, NodeId, TransactionId, Value};
+#[cfg(feature = "lpg")]
+use grafeo_common::grafeo_debug_span;
+#[cfg(feature = "lpg")]
+use grafeo_common::types::{EdgeId, NodeId};
+use grafeo_common::types::{EpochId, TransactionId, Value};
 use grafeo_common::utils::error::Result;
-use grafeo_common::{grafeo_debug_span, grafeo_info_span, grafeo_warn};
+use grafeo_common::{grafeo_info_span, grafeo_warn};
+#[cfg(feature = "lpg")]
 use grafeo_core::graph::Direction;
-use grafeo_core::graph::lpg::{Edge, LpgStore, Node};
-#[cfg(feature = "rdf")]
+#[cfg(feature = "lpg")]
+use grafeo_core::graph::lpg::LpgStore;
+#[cfg(feature = "lpg")]
+use grafeo_core::graph::lpg::{Edge, Node};
+#[cfg(feature = "triple-store")]
 use grafeo_core::graph::rdf::RdfStore;
 use grafeo_core::graph::{GraphStore, GraphStoreMut};
 
@@ -77,6 +87,15 @@ pub(crate) struct SessionConfig {
     pub gc_interval: usize,
     /// When true, the session permanently blocks all mutations.
     pub read_only: bool,
+    /// The identity bound to this session (for permission checks).
+    pub identity: crate::auth::Identity,
+    /// Named graph projections shared with the database.
+    #[cfg(feature = "lpg")]
+    pub projections: Arc<
+        parking_lot::RwLock<
+            std::collections::HashMap<String, Arc<grafeo_core::graph::GraphProjection>>,
+        >,
+    >,
 }
 
 /// Your handle to the database - execute queries and manage transactions.
@@ -86,6 +105,7 @@ pub(crate) struct SessionConfig {
 /// sessions without them interfering.
 pub struct Session {
     /// The underlying store.
+    #[cfg(feature = "lpg")]
     store: Arc<LpgStore>,
     /// Graph store trait object for pluggable storage backends (read path).
     graph_store: Arc<dyn GraphStore>,
@@ -94,7 +114,7 @@ pub struct Session {
     /// Schema and metadata catalog shared across sessions.
     catalog: Arc<Catalog>,
     /// RDF triple store (if RDF feature is enabled).
-    #[cfg(feature = "rdf")]
+    #[cfg(feature = "triple-store")]
     rdf_store: Arc<RdfStore>,
     /// Transaction manager.
     transaction_manager: Arc<TransactionManager>,
@@ -109,6 +129,8 @@ pub struct Session {
     /// Whether the database itself is read-only (set at open time, never changes).
     /// When true, `read_only_tx` is always true regardless of transaction flags.
     db_read_only: bool,
+    /// The identity bound to this session (determines permission level).
+    identity: crate::auth::Identity,
     /// Whether the session is in auto-commit mode.
     auto_commit: bool,
     /// Adaptive execution configuration.
@@ -130,7 +152,7 @@ pub struct Session {
     transaction_start_edge_count: AtomicUsize,
     /// WAL for logging schema changes.
     #[cfg(feature = "wal")]
-    wal: Option<Arc<grafeo_adapters::storage::wal::LpgWal>>,
+    wal: Option<Arc<grafeo_storage::wal::LpgWal>>,
     /// Shared WAL graph context tracker for named graph awareness.
     #[cfg(feature = "wal")]
     wal_graph_context: Option<Arc<parking_lot::Mutex<Option<String>>>>,
@@ -169,6 +191,13 @@ pub struct Session {
     /// Transaction start time for duration tracking.
     #[cfg(feature = "metrics")]
     tx_start_time: parking_lot::Mutex<Option<Instant>>,
+    /// Named graph projections shared with the database.
+    #[cfg(feature = "lpg")]
+    projections: Arc<
+        parking_lot::RwLock<
+            std::collections::HashMap<String, Arc<grafeo_core::graph::GraphProjection>>,
+        >,
+    >,
 }
 
 /// Per-graph savepoint snapshot, capturing the store state at the time of the savepoint.
@@ -197,7 +226,8 @@ struct SavepointState {
 
 impl Session {
     /// Creates a new session with adaptive execution configuration.
-    #[allow(dead_code)]
+    #[cfg(feature = "lpg")]
+    #[allow(dead_code)] // Used when lpg enabled without triple-store
     pub(crate) fn with_adaptive(store: Arc<LpgStore>, cfg: SessionConfig) -> Self {
         let graph_store = Arc::clone(&store) as Arc<dyn GraphStore>;
         let graph_store_mut = Some(Arc::clone(&store) as Arc<dyn GraphStoreMut>);
@@ -206,13 +236,14 @@ impl Session {
             graph_store,
             graph_store_mut,
             catalog: cfg.catalog,
-            #[cfg(feature = "rdf")]
+            #[cfg(feature = "triple-store")]
             rdf_store: Arc::new(RdfStore::new()),
             transaction_manager: cfg.transaction_manager,
             query_cache: cfg.query_cache,
             current_transaction: parking_lot::Mutex::new(None),
             read_only_tx: parking_lot::Mutex::new(cfg.read_only),
             db_read_only: cfg.read_only,
+            identity: cfg.identity,
             auto_commit: true,
             adaptive_config: cfg.adaptive_config,
             factorized_execution: cfg.factorized_execution,
@@ -242,6 +273,7 @@ impl Session {
             metrics: None,
             #[cfg(feature = "metrics")]
             tx_start_time: parking_lot::Mutex::new(None),
+            projections: cfg.projections,
         }
     }
 
@@ -249,10 +281,10 @@ impl Session {
     ///
     /// This also wraps `graph_store` in a [`WalGraphStore`] so that mutation
     /// operators (INSERT, DELETE, SET via queries) log to the WAL.
-    #[cfg(feature = "wal")]
+    #[cfg(all(feature = "wal", feature = "lpg"))]
     pub(crate) fn set_wal(
         &mut self,
-        wal: Arc<grafeo_adapters::storage::wal::LpgWal>,
+        wal: Arc<grafeo_storage::wal::LpgWal>,
         wal_graph_context: Arc<parking_lot::Mutex<Option<String>>>,
     ) {
         // Wrap the graph store so query-engine mutations are WAL-logged
@@ -308,17 +340,19 @@ impl Session {
         cfg: SessionConfig,
     ) -> Result<Self> {
         Ok(Self {
+            #[cfg(feature = "lpg")]
             store: Arc::new(LpgStore::new()?),
             graph_store: read_store,
             graph_store_mut: write_store,
             catalog: cfg.catalog,
-            #[cfg(feature = "rdf")]
+            #[cfg(feature = "triple-store")]
             rdf_store: Arc::new(RdfStore::new()),
             transaction_manager: cfg.transaction_manager,
             query_cache: cfg.query_cache,
             current_transaction: parking_lot::Mutex::new(None),
             read_only_tx: parking_lot::Mutex::new(cfg.read_only),
             db_read_only: cfg.read_only,
+            identity: cfg.identity,
             auto_commit: true,
             adaptive_config: cfg.adaptive_config,
             factorized_execution: cfg.factorized_execution,
@@ -348,6 +382,8 @@ impl Session {
             metrics: None,
             #[cfg(feature = "metrics")]
             tx_start_time: parking_lot::Mutex::new(None),
+            #[cfg(feature = "lpg")]
+            projections: cfg.projections,
         })
     }
 
@@ -355,6 +391,12 @@ impl Session {
     #[must_use]
     pub fn graph_model(&self) -> GraphModel {
         self.graph_model
+    }
+
+    /// Returns the identity bound to this session.
+    #[must_use]
+    pub fn identity(&self) -> &crate::auth::Identity {
+        &self.identity
     }
 
     // === Session State Management ===
@@ -437,6 +479,7 @@ impl Session {
         let key = self.active_graph_storage_key();
         match key {
             None => Arc::clone(&self.graph_store),
+            #[cfg(feature = "lpg")]
             Some(ref name) => match self.store.graph(name) {
                 Some(named_store) => {
                     #[cfg(feature = "wal")]
@@ -452,6 +495,8 @@ impl Session {
                 }
                 None => Arc::clone(&self.graph_store),
             },
+            #[cfg(not(feature = "lpg"))]
+            Some(_) => Arc::clone(&self.graph_store),
         }
     }
 
@@ -463,6 +508,7 @@ impl Session {
         let key = self.active_graph_storage_key();
         match key {
             None => self.graph_store_mut.as_ref().map(Arc::clone),
+            #[cfg(feature = "lpg")]
             Some(ref name) => match self.store.graph(name) {
                 Some(named_store) => {
                     let mut store: Arc<dyn GraphStoreMut> = named_store;
@@ -493,6 +539,8 @@ impl Session {
                 }
                 None => self.graph_store_mut.as_ref().map(Arc::clone),
             },
+            #[cfg(not(feature = "lpg"))]
+            Some(_) => self.graph_store_mut.as_ref().map(Arc::clone),
         }
     }
 
@@ -500,6 +548,7 @@ impl Session {
     ///
     /// Used by direct CRUD methods that need the concrete store type
     /// for versioned operations.
+    #[cfg(feature = "lpg")]
     fn active_lpg_store(&self) -> Arc<LpgStore> {
         let key = self.active_graph_storage_key();
         match key {
@@ -513,6 +562,7 @@ impl Session {
 
     /// Resolves a graph name to a concrete `LpgStore`.
     /// `None` and `"default"` resolve to the session's root store.
+    #[cfg(feature = "lpg")]
     fn resolve_store(&self, graph_name: &Option<String>) -> Arc<LpgStore> {
         match graph_name {
             None => Arc::clone(&self.store),
@@ -614,6 +664,7 @@ impl Session {
     /// Returns all versions of a node with their creation/deletion epochs.
     ///
     /// Properties and labels reflect the current state (not versioned per-epoch).
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub fn get_node_history(&self, id: NodeId) -> Vec<(EpochId, Option<EpochId>, Node)> {
         self.active_lpg_store().get_node_history(id)
@@ -622,6 +673,7 @@ impl Session {
     /// Returns all versions of an edge with their creation/deletion epochs.
     ///
     /// Properties reflect the current state (not versioned per-epoch).
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub fn get_edge_history(&self, id: EdgeId) -> Vec<(EpochId, Option<EpochId>, Edge)> {
         self.active_lpg_store().get_edge_history(id)
@@ -637,19 +689,68 @@ impl Session {
         Ok(())
     }
 
+    /// Checks that the session's identity is permitted to execute the given
+    /// statement kind. Returns an error if the role is insufficient.
+    fn require_permission(&self, kind: crate::auth::StatementKind) -> Result<()> {
+        crate::auth::check_permission(&self.identity, kind).map_err(|denied| {
+            grafeo_common::utils::error::Error::Query(grafeo_common::utils::error::QueryError::new(
+                grafeo_common::utils::error::QueryErrorKind::Semantic,
+                denied.to_string(),
+            ))
+        })
+    }
+
     /// Executes a session or transaction command, returning an empty result.
     #[cfg(feature = "gql")]
     fn execute_session_command(
         &self,
         cmd: grafeo_adapters::query::gql::ast::SessionCommand,
     ) -> Result<QueryResult> {
-        use grafeo_adapters::query::gql::ast::{SessionCommand, TransactionIsolationLevel};
+        use grafeo_adapters::query::gql::ast::SessionCommand;
+        #[cfg(feature = "lpg")]
+        use grafeo_adapters::query::gql::ast::TransactionIsolationLevel;
         use grafeo_common::utils::error::{Error, QueryError, QueryErrorKind};
+
+        // Check role-based permission for graph management commands
+        match &cmd {
+            SessionCommand::CreateGraph { .. }
+            | SessionCommand::DropGraph { .. }
+            | SessionCommand::CreateProjection { .. }
+            | SessionCommand::DropProjection { .. } => {
+                self.require_permission(crate::auth::StatementKind::Write)?;
+            }
+            _ => {} // Session state + transaction control: always allowed
+        }
+
+        // Check per-graph grants for graph-scoped commands
+        if self.identity.has_grants() {
+            match &cmd {
+                SessionCommand::CreateGraph { name, .. }
+                | SessionCommand::DropGraph { name, .. } => {
+                    if !self
+                        .identity
+                        .can_access_graph(name, crate::auth::Role::ReadWrite)
+                    {
+                        return Err(Error::Query(QueryError::new(
+                            QueryErrorKind::Semantic,
+                            format!(
+                                "permission denied: no grant for graph '{name}' (user: {})",
+                                self.identity.user_id()
+                            ),
+                        )));
+                    }
+                }
+                _ => {}
+            }
+        }
 
         // Block DDL in read-only transactions (ISO/IEC 39075 Section 8)
         if *self.read_only_tx.lock() {
             match &cmd {
-                SessionCommand::CreateGraph { .. } | SessionCommand::DropGraph { .. } => {
+                SessionCommand::CreateGraph { .. }
+                | SessionCommand::DropGraph { .. }
+                | SessionCommand::CreateProjection { .. }
+                | SessionCommand::DropProjection { .. } => {
                     return Err(Error::Transaction(
                         grafeo_common::utils::error::TransactionError::ReadOnly,
                     ));
@@ -659,6 +760,7 @@ impl Session {
         }
 
         match cmd {
+            #[cfg(feature = "lpg")]
             SessionCommand::CreateGraph {
                 name,
                 if_not_exists,
@@ -702,11 +804,9 @@ impl Session {
                 }
                 if created {
                     #[cfg(feature = "wal")]
-                    self.log_schema_wal(
-                        &grafeo_adapters::storage::wal::WalRecord::CreateNamedGraph {
-                            name: storage_key.clone(),
-                        },
-                    );
+                    self.log_schema_wal(&grafeo_storage::wal::WalRecord::CreateNamedGraph {
+                        name: storage_key.clone(),
+                    });
                 }
 
                 // AS COPY OF: copy data from source graph
@@ -746,6 +846,7 @@ impl Session {
 
                 Ok(QueryResult::empty())
             }
+            #[cfg(feature = "lpg")]
             SessionCommand::DropGraph { name, if_exists } => {
                 let storage_key = self.effective_graph_key(&name);
                 let dropped = self.store.drop_graph(&storage_key);
@@ -757,11 +858,9 @@ impl Session {
                 }
                 if dropped {
                     #[cfg(feature = "wal")]
-                    self.log_schema_wal(
-                        &grafeo_adapters::storage::wal::WalRecord::DropNamedGraph {
-                            name: storage_key.clone(),
-                        },
-                    );
+                    self.log_schema_wal(&grafeo_storage::wal::WalRecord::DropNamedGraph {
+                        name: storage_key.clone(),
+                    });
                     // If this session was using the dropped graph, reset to default
                     let mut current = self.current_graph.lock();
                     if current
@@ -773,7 +872,23 @@ impl Session {
                 }
                 Ok(QueryResult::empty())
             }
+            #[cfg(feature = "lpg")]
             SessionCommand::UseGraph(name) => {
+                // Check per-graph grant before switching
+                if self.identity.has_grants()
+                    && !name.eq_ignore_ascii_case("default")
+                    && !self
+                        .identity
+                        .can_access_graph(&name, crate::auth::Role::ReadOnly)
+                {
+                    return Err(Error::Query(QueryError::new(
+                        QueryErrorKind::Semantic,
+                        format!(
+                            "permission denied: no grant for graph '{name}' (user: {})",
+                            self.identity.user_id()
+                        ),
+                    )));
+                }
                 // Verify graph exists (resolve within current schema)
                 let effective_key = self.effective_graph_key(&name);
                 if !name.eq_ignore_ascii_case("default")
@@ -789,8 +904,24 @@ impl Session {
                 self.track_graph_touch();
                 Ok(QueryResult::empty())
             }
+            #[cfg(feature = "lpg")]
             SessionCommand::SessionSetGraph(name) => {
                 // ISO/IEC 39075 Section 7.1 GR2: set session graph (resolved within current schema)
+                // Check per-graph grant before switching (same as USE GRAPH)
+                if self.identity.has_grants()
+                    && !name.eq_ignore_ascii_case("default")
+                    && !self
+                        .identity
+                        .can_access_graph(&name, crate::auth::Role::ReadOnly)
+                {
+                    return Err(Error::Query(QueryError::new(
+                        QueryErrorKind::Semantic,
+                        format!(
+                            "permission denied: no grant for graph '{name}' (user: {})",
+                            self.identity.user_id()
+                        ),
+                    )));
+                }
                 let effective_key = self.effective_graph_key(&name);
                 if !name.eq_ignore_ascii_case("default")
                     && self.store.graph(&effective_key).is_none()
@@ -854,6 +985,7 @@ impl Session {
                 self.reset_session();
                 Ok(QueryResult::empty())
             }
+            #[cfg(feature = "lpg")]
             SessionCommand::StartTransaction {
                 read_only,
                 isolation_level,
@@ -872,34 +1004,94 @@ impl Session {
                 self.begin_transaction_inner(read_only, engine_level)?;
                 Ok(QueryResult::status("Transaction started"))
             }
+            #[cfg(feature = "lpg")]
             SessionCommand::Commit => {
                 self.commit_inner()?;
                 Ok(QueryResult::status("Transaction committed"))
             }
+            #[cfg(feature = "lpg")]
             SessionCommand::Rollback => {
                 self.rollback_inner()?;
                 Ok(QueryResult::status("Transaction rolled back"))
             }
+            #[cfg(feature = "lpg")]
             SessionCommand::Savepoint(name) => {
                 self.savepoint(&name)?;
                 Ok(QueryResult::status(format!("Savepoint '{name}' created")))
             }
+            #[cfg(feature = "lpg")]
             SessionCommand::RollbackToSavepoint(name) => {
                 self.rollback_to_savepoint(&name)?;
                 Ok(QueryResult::status(format!(
                     "Rolled back to savepoint '{name}'"
                 )))
             }
+            #[cfg(feature = "lpg")]
             SessionCommand::ReleaseSavepoint(name) => {
                 self.release_savepoint(&name)?;
                 Ok(QueryResult::status(format!("Savepoint '{name}' released")))
             }
+            #[cfg(feature = "lpg")]
+            SessionCommand::CreateProjection {
+                name,
+                node_labels,
+                edge_types,
+            } => {
+                use grafeo_core::graph::{GraphProjection, ProjectionSpec};
+                use std::collections::hash_map::Entry;
+
+                let spec = ProjectionSpec::new()
+                    .with_node_labels(node_labels)
+                    .with_edge_types(edge_types);
+
+                let store = self.active_store();
+                let projection = Arc::new(GraphProjection::new(store, spec));
+                let mut projections = self.projections.write();
+                match projections.entry(name.clone()) {
+                    Entry::Occupied(_) => Err(Error::Query(QueryError::new(
+                        QueryErrorKind::Semantic,
+                        format!("Projection '{name}' already exists"),
+                    ))),
+                    Entry::Vacant(e) => {
+                        e.insert(projection);
+                        Ok(QueryResult::status(format!("Projection '{name}' created")))
+                    }
+                }
+            }
+            #[cfg(feature = "lpg")]
+            SessionCommand::DropProjection { name } => {
+                let removed = self.projections.write().remove(&name).is_some();
+                if !removed {
+                    return Err(Error::Query(QueryError::new(
+                        QueryErrorKind::Semantic,
+                        format!("Projection '{name}' does not exist"),
+                    )));
+                }
+                Ok(QueryResult::status(format!("Projection '{name}' dropped")))
+            }
+            #[cfg(feature = "lpg")]
+            SessionCommand::ShowProjections => {
+                let mut names: Vec<String> = self.projections.read().keys().cloned().collect();
+                names.sort();
+                let rows: Vec<Vec<Value>> =
+                    names.into_iter().map(|n| vec![Value::from(n)]).collect();
+                Ok(QueryResult {
+                    columns: vec!["name".to_string()],
+                    column_types: Vec::new(),
+                    rows,
+                    ..QueryResult::empty()
+                })
+            }
+            #[cfg(not(feature = "lpg"))]
+            _ => Err(grafeo_common::utils::error::Error::Internal(
+                "This command requires the `lpg` feature".to_string(),
+            )),
         }
     }
 
     /// Logs a WAL record for a schema change (no-op if WAL is not enabled).
     #[cfg(feature = "wal")]
-    fn log_schema_wal(&self, record: &grafeo_adapters::storage::wal::WalRecord) {
+    fn log_schema_wal(&self, record: &grafeo_storage::wal::WalRecord) {
         if let Some(ref wal) = self.wal
             && let Err(e) = wal.log(record)
         {
@@ -908,7 +1100,7 @@ impl Session {
     }
 
     /// Executes a schema DDL command, returning a status result.
-    #[cfg(feature = "gql")]
+    #[cfg(all(feature = "lpg", feature = "gql"))]
     fn execute_schema_command(
         &self,
         cmd: grafeo_adapters::query::gql::ast::SchemaStatement,
@@ -917,9 +1109,9 @@ impl Session {
             EdgeTypeDefinition, NodeTypeDefinition, PropertyDataType, TypedProperty,
         };
         use grafeo_adapters::query::gql::ast::SchemaStatement;
-        #[cfg(feature = "wal")]
-        use grafeo_adapters::storage::wal::WalRecord;
         use grafeo_common::utils::error::{Error, QueryError, QueryErrorKind};
+        #[cfg(feature = "wal")]
+        use grafeo_storage::wal::WalRecord;
 
         /// Logs a WAL record for schema changes. Compiles to nothing without `wal`.
         macro_rules! wal_log {
@@ -1839,7 +2031,7 @@ impl Session {
     }
 
     /// Creates a vector index on the store by scanning existing nodes.
-    #[cfg(all(feature = "gql", feature = "vector-index"))]
+    #[cfg(all(feature = "lpg", feature = "gql", feature = "vector-index"))]
     fn create_vector_index_on_store(
         store: &LpgStore,
         label: &str,
@@ -1899,7 +2091,7 @@ impl Session {
     }
 
     /// Stub for when vector-index feature is not enabled.
-    #[cfg(all(feature = "gql", not(feature = "vector-index")))]
+    #[cfg(all(feature = "lpg", feature = "gql", not(feature = "vector-index")))]
     fn create_vector_index_on_store(
         _store: &LpgStore,
         _label: &str,
@@ -1913,7 +2105,7 @@ impl Session {
     }
 
     /// Creates a text index on the store by scanning existing nodes.
-    #[cfg(all(feature = "gql", feature = "text-index"))]
+    #[cfg(all(feature = "lpg", feature = "gql", feature = "text-index"))]
     fn create_text_index_on_store(store: &LpgStore, label: &str, property: &str) -> Result<()> {
         use grafeo_common::types::{PropertyKey, Value};
         use grafeo_core::index::text::{BM25Config, InvertedIndex};
@@ -1933,7 +2125,7 @@ impl Session {
     }
 
     /// Stub for when text-index feature is not enabled.
-    #[cfg(all(feature = "gql", not(feature = "text-index")))]
+    #[cfg(all(feature = "lpg", feature = "gql", not(feature = "text-index")))]
     fn create_text_index_on_store(_store: &LpgStore, _label: &str, _property: &str) -> Result<()> {
         Err(grafeo_common::utils::error::Error::Internal(
             "Text index support requires the 'text-index' feature".to_string(),
@@ -2160,6 +2352,7 @@ impl Session {
     /// When a session schema is set, only graphs belonging to that schema are
     /// shown (their compound prefix is stripped). When no schema is set, graphs
     /// without a schema prefix are shown (the default schema).
+    #[cfg(feature = "lpg")]
     fn execute_show_graphs(&self) -> Result<QueryResult> {
         let schema = self.current_schema.lock().clone();
         let all_names = self.store.graph_names();
@@ -2296,7 +2489,7 @@ impl Session {
     ///
     /// // Query nodes
     /// let result = session.execute("MATCH (n:Person) RETURN n.name, n.age")?;
-    /// for row in &result.rows {
+    /// for row in result.rows() {
     ///     println!("{:?}", row);
     /// }
     /// # Ok(())
@@ -2326,8 +2519,10 @@ impl Session {
             gql::GqlTranslationResult::SessionCommand(cmd) => {
                 return self.execute_session_command(cmd);
             }
+            #[cfg(feature = "lpg")]
             gql::GqlTranslationResult::SchemaCommand(cmd) => {
-                // All DDL is a write operation
+                // All DDL requires Admin role
+                self.require_permission(crate::auth::StatementKind::Admin)?;
                 if *self.read_only_tx.lock() {
                     return Err(grafeo_common::utils::error::Error::Transaction(
                         grafeo_common::utils::error::TransactionError::ReadOnly,
@@ -2336,6 +2531,10 @@ impl Session {
                 return self.execute_schema_command(cmd);
             }
             gql::GqlTranslationResult::Plan(plan) => {
+                // Check role-based permission before read-only transaction check
+                if plan.root.has_mutations() {
+                    self.require_permission(crate::auth::StatementKind::Write)?;
+                }
                 // Block mutations in read-only transactions
                 if *self.read_only_tx.lock() && plan.root.has_mutations() {
                     return Err(grafeo_common::utils::error::Error::Transaction(
@@ -2343,6 +2542,12 @@ impl Session {
                     ));
                 }
                 plan
+            }
+            #[cfg(not(feature = "lpg"))]
+            gql::GqlTranslationResult::SchemaCommand(_) => {
+                return Err(grafeo_common::utils::error::Error::Internal(
+                    "Schema commands require the `lpg` feature".to_string(),
+                ));
             }
         };
 
@@ -2521,7 +2726,25 @@ impl Session {
 
         use crate::query::processor::{QueryLanguage, QueryProcessor};
 
-        let has_mutations = Self::query_looks_like_mutation(query);
+        // Reject writes if the identity lacks permission. Parse the query
+        // to determine mutation status reliably (the text heuristic has false
+        // negatives that could bypass authorization).
+        let has_mutations = if self.identity.can_write() {
+            // Fast path: identity can write, use heuristic for auto-commit only
+            Self::query_looks_like_mutation(query)
+        } else {
+            // Restricted identity: parse to check mutations reliably
+            use crate::query::translators::gql;
+            match gql::translate(query) {
+                Ok(plan) if plan.root.has_mutations() => {
+                    self.require_permission(crate::auth::StatementKind::Write)?;
+                    true
+                }
+                Ok(_) => false,
+                // Parse error: let the processor handle it below
+                Err(_) => Self::query_looks_like_mutation(query),
+            }
+        };
         let active = self.active_store();
 
         self.with_auto_commit(has_mutations, || {
@@ -2585,12 +2808,16 @@ impl Session {
             Executor, binder::Binder, cache::CacheKey, optimizer::Optimizer,
             processor::QueryLanguage, translators::cypher,
         };
-        use grafeo_common::utils::error::{Error as GrafeoError, QueryError, QueryErrorKind};
 
         // Handle schema DDL and SHOW commands before the normal query path
         let translation = cypher::translate_full(query)?;
         match translation {
+            #[cfg(feature = "lpg")]
             cypher::CypherTranslationResult::SchemaCommand(cmd) => {
+                use grafeo_common::utils::error::{
+                    Error as GrafeoError, QueryError, QueryErrorKind,
+                };
+                self.require_permission(crate::auth::StatementKind::Admin)?;
                 if *self.read_only_tx.lock() {
                     return Err(GrafeoError::Query(QueryError::new(
                         QueryErrorKind::Semantic,
@@ -2598,6 +2825,12 @@ impl Session {
                     )));
                 }
                 return self.execute_schema_command(cmd);
+            }
+            #[cfg(not(feature = "lpg"))]
+            cypher::CypherTranslationResult::SchemaCommand(_) => {
+                return Err(grafeo_common::utils::error::Error::Internal(
+                    "Schema DDL requires the `lpg` feature".to_string(),
+                ));
             }
             cypher::CypherTranslationResult::ShowIndexes => {
                 return self.execute_show_indexes();
@@ -2640,6 +2873,11 @@ impl Session {
 
             plan
         };
+
+        // Check role-based permission for mutations
+        if optimized_plan.root.has_mutations() {
+            self.require_permission(crate::auth::StatementKind::Write)?;
+        }
 
         // Resolve the active store for query execution
         let active = self.active_store();
@@ -2761,6 +2999,9 @@ impl Session {
         let optimized_plan = optimizer.optimize(logical_plan)?;
 
         let has_mutations = optimized_plan.root.has_mutations();
+        if has_mutations {
+            self.require_permission(crate::auth::StatementKind::Write)?;
+        }
 
         let result = self.with_auto_commit(has_mutations, || {
             // Get transaction context for MVCC visibility
@@ -2800,27 +3041,42 @@ impl Session {
         query: &str,
         params: std::collections::HashMap<String, Value>,
     ) -> Result<QueryResult> {
-        use crate::query::processor::{QueryLanguage, QueryProcessor};
+        use crate::query::{
+            Executor, binder::Binder, optimizer::Optimizer, processor::substitute_params,
+            translators::gremlin,
+        };
 
         #[cfg(all(feature = "metrics", not(target_arch = "wasm32")))]
         let start_time = Instant::now();
 
-        let has_mutations = Self::query_looks_like_mutation(query);
+        // Parse and translate the query to a logical plan
+        let mut logical_plan = gremlin::translate(query)?;
+
+        // Substitute parameters
+        substitute_params(&mut logical_plan, &params)?;
+
+        // Semantic validation
+        let mut binder = Binder::new();
+        let _binding_context = binder.bind(&logical_plan)?;
+
+        // Optimize the plan
         let active = self.active_store();
+        let optimizer = Optimizer::from_graph_store(&*active);
+        let optimized_plan = optimizer.optimize(logical_plan)?;
+
+        let has_mutations = optimized_plan.root.has_mutations();
+        if has_mutations {
+            self.require_permission(crate::auth::StatementKind::Write)?;
+        }
 
         let result = self.with_auto_commit(has_mutations, || {
             let (viewing_epoch, transaction_id) = self.get_transaction_context();
-            let processor = QueryProcessor::for_stores_with_transaction(
-                Arc::clone(&active),
-                self.active_write_store(),
-                Arc::clone(&self.transaction_manager),
-            )?;
-            let processor = if let Some(transaction_id) = transaction_id {
-                processor.with_transaction_context(viewing_epoch, transaction_id)
-            } else {
-                processor
-            };
-            processor.process(query, QueryLanguage::Gremlin, Some(&params))
+            let planner =
+                self.create_planner_for_store(Arc::clone(&active), viewing_epoch, transaction_id);
+            let mut physical_plan = planner.plan(&optimized_plan)?;
+            let executor = Executor::with_columns(physical_plan.columns.clone())
+                .with_deadline(self.query_deadline());
+            executor.execute(physical_plan.operator.as_mut())
         });
 
         #[cfg(feature = "metrics")]
@@ -2883,6 +3139,9 @@ impl Session {
         let optimizer = Optimizer::from_graph_store(&*active);
         let optimized_plan = optimizer.optimize(logical_plan)?;
         let has_mutations = optimized_plan.root.has_mutations();
+        if has_mutations {
+            self.require_permission(crate::auth::StatementKind::Write)?;
+        }
 
         let result = self.with_auto_commit(has_mutations, || {
             let (viewing_epoch, transaction_id) = self.get_transaction_context();
@@ -2917,27 +3176,48 @@ impl Session {
         query: &str,
         params: std::collections::HashMap<String, Value>,
     ) -> Result<QueryResult> {
-        use crate::query::processor::{QueryLanguage, QueryProcessor};
+        use crate::query::{
+            Executor, binder::Binder, optimizer::Optimizer, processor::substitute_params,
+            translators::graphql,
+        };
 
         #[cfg(all(feature = "metrics", not(target_arch = "wasm32")))]
         let start_time = Instant::now();
 
-        let has_mutations = Self::query_looks_like_mutation(query);
+        // Parse and translate the query to a logical plan
+        let mut logical_plan = graphql::translate(query)?;
+
+        // Merge default params with caller-supplied params
+        if !logical_plan.default_params.is_empty() {
+            let mut merged = logical_plan.default_params.clone();
+            merged.extend(params.iter().map(|(k, v)| (k.clone(), v.clone())));
+            substitute_params(&mut logical_plan, &merged)?;
+        } else {
+            substitute_params(&mut logical_plan, &params)?;
+        }
+
+        // Semantic validation
+        let mut binder = Binder::new();
+        let _binding_context = binder.bind(&logical_plan)?;
+
+        // Optimize the plan
         let active = self.active_store();
+        let optimizer = Optimizer::from_graph_store(&*active);
+        let optimized_plan = optimizer.optimize(logical_plan)?;
+
+        let has_mutations = optimized_plan.root.has_mutations();
+        if has_mutations {
+            self.require_permission(crate::auth::StatementKind::Write)?;
+        }
 
         let result = self.with_auto_commit(has_mutations, || {
             let (viewing_epoch, transaction_id) = self.get_transaction_context();
-            let processor = QueryProcessor::for_stores_with_transaction(
-                Arc::clone(&active),
-                self.active_write_store(),
-                Arc::clone(&self.transaction_manager),
-            )?;
-            let processor = if let Some(transaction_id) = transaction_id {
-                processor.with_transaction_context(viewing_epoch, transaction_id)
-            } else {
-                processor
-            };
-            processor.process(query, QueryLanguage::GraphQL, Some(&params))
+            let planner =
+                self.create_planner_for_store(Arc::clone(&active), viewing_epoch, transaction_id);
+            let mut physical_plan = planner.plan(&optimized_plan)?;
+            let executor = Executor::with_columns(physical_plan.columns.clone())
+                .with_deadline(self.query_deadline());
+            executor.execute(physical_plan.operator.as_mut())
         });
 
         #[cfg(feature = "metrics")]
@@ -2991,6 +3271,7 @@ impl Session {
 
         // Handle DDL statements directly (they don't go through the query pipeline)
         if let LogicalOperator::CreatePropertyGraph(ref cpg) = logical_plan.root {
+            self.require_permission(crate::auth::StatementKind::Admin)?;
             return Ok(QueryResult {
                 columns: vec!["status".into()],
                 column_types: vec![grafeo_common::types::LogicalType::String],
@@ -3023,6 +3304,9 @@ impl Session {
 
         let active = self.active_store();
         let has_mutations = optimized_plan.root.has_mutations();
+        if has_mutations {
+            self.require_permission(crate::auth::StatementKind::Write)?;
+        }
 
         let result = self.with_auto_commit(has_mutations, || {
             let (viewing_epoch, transaction_id) = self.get_transaction_context();
@@ -3062,7 +3346,22 @@ impl Session {
         #[cfg(all(feature = "metrics", not(target_arch = "wasm32")))]
         let start_time = Instant::now();
 
-        let has_mutations = Self::query_looks_like_mutation(query);
+        let has_mutations = if self.identity.can_write() {
+            Self::query_looks_like_mutation(query)
+        } else {
+            use crate::query::translators::sql_pgq;
+            match sql_pgq::translate(query) {
+                Ok(plan) if plan.root.has_mutations() => {
+                    self.require_permission(crate::auth::StatementKind::Write)?;
+                    true
+                }
+                Ok(_) => false,
+                Err(_) => Self::query_looks_like_mutation(query),
+            }
+        };
+        if has_mutations {
+            self.require_permission(crate::auth::StatementKind::Write)?;
+        }
         let active = self.active_store();
 
         let result = self.with_auto_commit(has_mutations, || {
@@ -3127,7 +3426,19 @@ impl Session {
                     #[cfg(all(feature = "metrics", not(target_arch = "wasm32")))]
                     let start_time = Instant::now();
 
-                    let has_mutations = Self::query_looks_like_mutation(query);
+                    let has_mutations = if self.identity.can_write() {
+                        Self::query_looks_like_mutation(query)
+                    } else {
+                        use crate::query::translators::cypher;
+                        match cypher::translate(query) {
+                            Ok(plan) if plan.root.has_mutations() => {
+                                self.require_permission(crate::auth::StatementKind::Write)?;
+                                true
+                            }
+                            Ok(_) => false,
+                            Err(_) => Self::query_looks_like_mutation(query),
+                        }
+                    };
                     let active = self.active_store();
                     let result = self.with_auto_commit(has_mutations, || {
                         let processor = QueryProcessor::for_stores_with_transaction(
@@ -3174,7 +3485,7 @@ impl Session {
                     self.execute_graphql(query)
                 }
             }
-            #[cfg(all(feature = "graphql", feature = "rdf"))]
+            #[cfg(all(feature = "graphql", feature = "triple-store"))]
             "graphql-rdf" => {
                 if let Some(p) = params {
                     self.execute_graphql_rdf_with_params(query, p)
@@ -3190,7 +3501,7 @@ impl Session {
                     self.execute_sql(query)
                 }
             }
-            #[cfg(all(feature = "sparql", feature = "rdf"))]
+            #[cfg(all(feature = "sparql", feature = "triple-store"))]
             "sparql" => {
                 if let Some(p) = params {
                     self.execute_sparql_with_params(query, p)
@@ -3244,6 +3555,7 @@ impl Session {
     /// # Errors
     ///
     /// Returns an error if a transaction is already active.
+    #[cfg(feature = "lpg")]
     pub fn begin_transaction(&mut self) -> Result<()> {
         self.begin_transaction_inner(false, None)
     }
@@ -3255,6 +3567,7 @@ impl Session {
     /// # Errors
     ///
     /// Returns an error if a transaction is already active.
+    #[cfg(feature = "lpg")]
     pub fn begin_transaction_with_isolation(
         &mut self,
         isolation_level: crate::transaction::IsolationLevel,
@@ -3263,6 +3576,7 @@ impl Session {
     }
 
     /// Core transaction begin logic, usable from both `&mut self` and `&self` paths.
+    #[cfg(feature = "lpg")]
     fn begin_transaction_inner(
         &self,
         read_only: bool,
@@ -3319,11 +3633,13 @@ impl Session {
     /// # Errors
     ///
     /// Returns an error if no transaction is active.
+    #[cfg(feature = "lpg")]
     pub fn commit(&mut self) -> Result<()> {
         self.commit_inner()
     }
 
     /// Core commit logic, usable from both `&mut self` and `&self` paths.
+    #[cfg(feature = "lpg")]
     fn commit_inner(&self) -> Result<()> {
         let _span = grafeo_debug_span!("grafeo::tx::commit");
         // Nested transaction: release the auto-savepoint (changes are preserved).
@@ -3356,7 +3672,7 @@ impl Session {
                     let store = self.resolve_store(graph_name);
                     store.rollback_transaction_properties(transaction_id);
                 }
-                #[cfg(feature = "rdf")]
+                #[cfg(feature = "triple-store")]
                 self.rollback_rdf_transaction(transaction_id);
                 // Discard buffered CDC events on conflict rollback
                 #[cfg(feature = "cdc")]
@@ -3391,7 +3707,7 @@ impl Session {
         }
 
         // Commit succeeded: discard undo logs (make changes permanent)
-        #[cfg(feature = "rdf")]
+        #[cfg(feature = "triple-store")]
         self.commit_rdf_transaction(transaction_id);
 
         for graph_name in &touched {
@@ -3409,6 +3725,23 @@ impl Session {
                 e.epoch = commit_epoch;
                 e
             }));
+        }
+
+        // Log transaction commit and epoch advance to WAL so that crash
+        // recovery can identify committed transactions and their epoch
+        // boundaries. Without these markers, WAL recovery discards all
+        // records as uncommitted (fixes #252 for the crash scenario).
+        #[cfg(feature = "wal")]
+        if let Some(ref wal) = self.wal {
+            use grafeo_storage::wal::WalRecord;
+            if let Err(e) = wal.log(&WalRecord::TransactionCommit { transaction_id }) {
+                grafeo_warn!("Failed to log transaction commit to WAL: {}", e);
+            }
+            if let Err(e) = wal.log(&WalRecord::EpochAdvance {
+                epoch: commit_epoch,
+            }) {
+                grafeo_warn!("Failed to log epoch advance to WAL: {}", e);
+            }
         }
 
         // Sync epoch for all touched graphs so that convenience lookups
@@ -3476,11 +3809,13 @@ impl Session {
     /// # Ok(())
     /// # }
     /// ```
+    #[cfg(feature = "lpg")]
     pub fn rollback(&mut self) -> Result<()> {
         self.rollback_inner()
     }
 
     /// Core rollback logic, usable from both `&mut self` and `&self` paths.
+    #[cfg(feature = "lpg")]
     fn rollback_inner(&self) -> Result<()> {
         let _span = grafeo_debug_span!("grafeo::tx::rollback");
         // Nested transaction: rollback to the auto-savepoint.
@@ -3513,7 +3848,7 @@ impl Session {
         }
 
         // Discard pending operations in the RDF store
-        #[cfg(feature = "rdf")]
+        #[cfg(feature = "triple-store")]
         self.rollback_rdf_transaction(transaction_id);
 
         // Discard buffered CDC events on rollback
@@ -3552,6 +3887,7 @@ impl Session {
     /// # Errors
     ///
     /// Returns an error if no transaction is active.
+    #[cfg(feature = "lpg")]
     pub fn savepoint(&self, name: &str) -> Result<()> {
         let tx_id = self.current_transaction.lock().ok_or_else(|| {
             grafeo_common::utils::error::Error::Transaction(
@@ -3597,6 +3933,7 @@ impl Session {
     /// # Errors
     ///
     /// Returns an error if no transaction is active or the savepoint does not exist.
+    #[cfg(feature = "lpg")]
     pub fn rollback_to_savepoint(&self, name: &str) -> Result<()> {
         let transaction_id = self.current_transaction.lock().ok_or_else(|| {
             grafeo_common::utils::error::Error::Transaction(
@@ -3730,6 +4067,7 @@ impl Session {
     }
 
     /// Returns the store's current node count and the count at transaction start.
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub(crate) fn node_count_delta(&self) -> (usize, usize) {
         (
@@ -3739,6 +4077,7 @@ impl Session {
     }
 
     /// Returns the store's current edge count and the count at transaction start.
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub(crate) fn edge_count_delta(&self) -> (usize, usize) {
         (
@@ -3780,6 +4119,7 @@ impl Session {
     /// # Ok(())
     /// # }
     /// ```
+    #[cfg(feature = "lpg")]
     pub fn prepare_commit(&mut self) -> Result<crate::transaction::PreparedCommit<'_>> {
         crate::transaction::PreparedCommit::new(self)
     }
@@ -3805,6 +4145,7 @@ impl Session {
 
     /// Wraps `body` in an automatic begin/commit when [`needs_auto_commit`]
     /// returns `true`. On error the transaction is rolled back.
+    #[cfg(feature = "lpg")]
     fn with_auto_commit<F>(&self, has_mutations: bool, body: F) -> Result<QueryResult>
     where
         F: FnOnce() -> Result<QueryResult>,
@@ -3824,6 +4165,15 @@ impl Session {
         } else {
             body()
         }
+    }
+
+    /// Non-LPG stub: no auto-commit wrapping (SPARQL UPDATE is atomic).
+    #[cfg(not(feature = "lpg"))]
+    fn with_auto_commit<F>(&self, _has_mutations: bool, body: F) -> Result<QueryResult>
+    where
+        F: FnOnce() -> Result<QueryResult>,
+    {
+        body()
     }
 
     /// Quick heuristic: returns `true` when the query text looks like it
@@ -4047,6 +4397,7 @@ impl Session {
     ///
     /// This is a low-level API for testing and direct manipulation.
     /// If a transaction is active, the node will be versioned with the transaction ID.
+    #[cfg(feature = "lpg")]
     pub fn create_node(&self, labels: &[&str]) -> NodeId {
         let (epoch, transaction_id) = self.get_transaction_context();
         self.active_lpg_store().create_node_versioned(
@@ -4059,6 +4410,7 @@ impl Session {
     /// Creates a node with properties.
     ///
     /// If a transaction is active, the node will be versioned with the transaction ID.
+    #[cfg(feature = "lpg")]
     pub fn create_node_with_props<'a>(
         &self,
         labels: &[&str],
@@ -4077,6 +4429,7 @@ impl Session {
     ///
     /// This is a low-level API for testing and direct manipulation.
     /// If a transaction is active, the edge will be versioned with the transaction ID.
+    #[cfg(feature = "lpg")]
     pub fn create_edge(
         &self,
         src: NodeId,
@@ -4094,6 +4447,7 @@ impl Session {
     }
 
     /// Creates an edge with properties within the active transaction context.
+    #[cfg(feature = "lpg")]
     pub fn create_edge_with_props<'a>(
         &self,
         src: NodeId,
@@ -4112,6 +4466,7 @@ impl Session {
     }
 
     /// Sets a node property within the active transaction context.
+    #[cfg(feature = "lpg")]
     pub fn set_node_property(&self, id: NodeId, key: &str, value: Value) {
         let (_, transaction_id) = self.get_transaction_context();
         if let Some(tid) = transaction_id {
@@ -4123,6 +4478,7 @@ impl Session {
     }
 
     /// Sets an edge property within the active transaction context.
+    #[cfg(feature = "lpg")]
     pub fn set_edge_property(&self, id: grafeo_common::types::EdgeId, key: &str, value: Value) {
         let (_, transaction_id) = self.get_transaction_context();
         if let Some(tid) = transaction_id {
@@ -4134,6 +4490,7 @@ impl Session {
     }
 
     /// Deletes a node within the active transaction context.
+    #[cfg(feature = "lpg")]
     pub fn delete_node(&self, id: NodeId) -> bool {
         let (epoch, transaction_id) = self.get_transaction_context();
         if let Some(tid) = transaction_id {
@@ -4145,6 +4502,7 @@ impl Session {
     }
 
     /// Deletes an edge within the active transaction context.
+    #[cfg(feature = "lpg")]
     pub fn delete_edge(&self, id: grafeo_common::types::EdgeId) -> bool {
         let (epoch, transaction_id) = self.get_transaction_context();
         if let Some(tid) = transaction_id {
@@ -4182,6 +4540,7 @@ impl Session {
     /// let node = session.get_node(node_id);
     /// assert!(node.is_some());
     /// ```
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub fn get_node(&self, id: NodeId) -> Option<Node> {
         let (epoch, transaction_id) = self.get_transaction_context();
@@ -4215,6 +4574,7 @@ impl Session {
     /// let name = session.get_node_property(id, "name");
     /// assert_eq!(name, Some(Value::String("Alix".into())));
     /// ```
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub fn get_node_property(&self, id: NodeId, key: &str) -> Option<Value> {
         self.get_node(id)
@@ -4227,6 +4587,7 @@ impl Session {
     ///
     /// - Time complexity: O(1) average case
     /// - No lock contention
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub fn get_edge(&self, id: EdgeId) -> Option<Edge> {
         let (epoch, transaction_id) = self.get_transaction_context();
@@ -4262,6 +4623,7 @@ impl Session {
     /// assert_eq!(neighbors.len(), 1);
     /// assert_eq!(neighbors[0].0, gus);
     /// ```
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub fn get_neighbors_outgoing(&self, node: NodeId) -> Vec<(NodeId, EdgeId)> {
         self.active_lpg_store()
@@ -4277,6 +4639,7 @@ impl Session {
     ///
     /// - Time complexity: O(degree) where degree is the number of incoming edges
     /// - Uses backward adjacency index for direct access
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub fn get_neighbors_incoming(&self, node: NodeId) -> Vec<(NodeId, EdgeId)> {
         self.active_lpg_store()
@@ -4295,6 +4658,7 @@ impl Session {
     /// # let alix = session.create_node(&["Person"]);
     /// let neighbors = session.get_neighbors_outgoing_by_type(alix, "KNOWS");
     /// ```
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub fn get_neighbors_outgoing_by_type(
         &self,
@@ -4316,12 +4680,14 @@ impl Session {
     ///
     /// - Time complexity: O(1)
     /// - Fastest existence check available
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub fn node_exists(&self, id: NodeId) -> bool {
         self.get_node(id).is_some()
     }
 
     /// Checks if an edge exists, bypassing query planning.
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub fn edge_exists(&self, id: EdgeId) -> bool {
         self.get_edge(id).is_some()
@@ -4330,6 +4696,7 @@ impl Session {
     /// Gets the degree (number of edges) of a node.
     ///
     /// Returns (outgoing_degree, incoming_degree).
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub fn get_degree(&self, node: NodeId) -> (usize, usize) {
         let active = self.active_lpg_store();
@@ -4347,6 +4714,7 @@ impl Session {
     ///
     /// - Time complexity: O(n) where n is the number of IDs
     /// - Better cache utilization than individual lookups
+    #[cfg(feature = "lpg")]
     #[must_use]
     pub fn get_nodes_batch(&self, ids: &[NodeId]) -> Vec<Option<Node>> {
         let (epoch, transaction_id) = self.get_transaction_context();
@@ -4405,6 +4773,7 @@ impl Drop for Session {
     fn drop(&mut self) {
         // Auto-rollback any active transaction to prevent leaked MVCC state,
         // dangling write locks, and uncommitted versions lingering in the store.
+        #[cfg(feature = "lpg")]
         if self.in_transaction() {
             let _ = self.rollback_inner();
         }

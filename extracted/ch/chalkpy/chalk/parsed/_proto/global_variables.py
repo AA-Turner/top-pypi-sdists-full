@@ -32,6 +32,13 @@ class _HashableTy:
         return hash(self._serialized)
 
 
+def _homogeneous_python_type(values: Iterable[object]) -> types_pb.Ty:
+    unique_items = {_HashableTy(_parse_python_type(v)) for v in values}
+    if len(unique_items) != 1:
+        return _any_proto_ty
+    return next(iter(unique_items)).msg
+
+
 def _parse_python_type(value: object) -> types_pb.Ty:
     value_type = type(value)
     if value_type is str:
@@ -46,12 +53,20 @@ def _parse_python_type(value: object) -> types_pb.Ty:
         return types_pb.Ty(none=types_pb.EmptyMessage(), nullable=False)
     elif value_type is set or value_type is list:
         assert isinstance(value, (set, list))
-        unique_items = {_HashableTy(_parse_python_type(v)) for v in value}
-        items = unique_items.pop().msg if unique_items else _any_proto_ty
+        items = _homogeneous_python_type(value)
         return (
             types_pb.Ty(set=types_pb.TySet(items=items), nullable=False)
             if value_type is set
             else types_pb.Ty(list=types_pb.TyList(items=items), nullable=False)
+        )
+    elif value_type is dict:
+        assert isinstance(value, dict)
+        return types_pb.Ty(
+            dict=types_pb.TyDict(
+                key=_homogeneous_python_type(value.keys()),
+                value=_homogeneous_python_type(value.values()),
+            ),
+            nullable=False,
         )
     return _any_proto_ty
 

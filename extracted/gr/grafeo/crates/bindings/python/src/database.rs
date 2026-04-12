@@ -212,17 +212,20 @@ impl PyGrafeoDB {
         } else {
             None
         };
-        let result = db
+        let mut result = db
             .execute_language(query, language, param_map)
             .map_err(PyGrafeoError::from)?;
         let (nodes, edges) = extract_entities(&result, &db);
+        let columns = std::mem::take(&mut result.columns);
+        let exec_time = result.execution_time_ms;
+        let scanned = result.rows_scanned;
         Ok(PyQueryResult::with_metrics(
-            result.columns,
-            result.rows,
+            columns,
+            result.into_rows(),
             nodes,
             edges,
-            result.execution_time_ms,
-            result.rows_scanned,
+            exec_time,
+            scanned,
         ))
     }
 }
@@ -330,7 +333,7 @@ impl PyGrafeoDB {
         } else {
             None
         };
-        let result = session
+        let mut result = session
             .execute_at_epoch_with_params(
                 query,
                 grafeo_common::types::EpochId::new(epoch),
@@ -338,13 +341,16 @@ impl PyGrafeoDB {
             )
             .map_err(PyGrafeoError::from)?;
         let (nodes, edges) = extract_entities(&result, &db);
+        let columns = std::mem::take(&mut result.columns);
+        let exec_time = result.execution_time_ms;
+        let scanned = result.rows_scanned;
         Ok(PyQueryResult::with_metrics(
-            result.columns,
-            result.rows,
+            columns,
+            result.into_rows(),
             nodes,
             edges,
-            result.execution_time_ms,
-            result.rows_scanned,
+            exec_time,
+            scanned,
         ))
     }
 
@@ -416,7 +422,7 @@ impl PyGrafeoDB {
         future_into_py(py, async move {
             // Perform the query execution in the async context
             // We use spawn_blocking since the actual db.execute is synchronous
-            let result = tokio::task::spawn_blocking(move || {
+            let mut result = tokio::task::spawn_blocking(move || {
                 let db = db.read();
                 if let Some(params) = param_map {
                     db.execute_with_params(&query, params)
@@ -431,10 +437,12 @@ impl PyGrafeoDB {
             // Create PyQueryResult from the result
             // Note: We can't call extract_entities here because we don't have
             // Python references in the async context. We return raw data.
+            let columns = std::mem::take(&mut result.columns);
+            let column_types = std::mem::take(&mut result.column_types);
             Ok(AsyncQueryResult {
-                columns: result.columns,
-                rows: result.rows,
-                column_types: result.column_types,
+                columns,
+                rows: result.into_rows(),
+                column_types,
             })
         })
     }
@@ -1634,7 +1642,30 @@ impl PyGrafeoDB {
     /// ```
     #[pyo3(signature = (isolation_level=None))]
     fn begin_transaction(&self, isolation_level: Option<&str>) -> PyResult<PyTransaction> {
-        PyTransaction::new(self.inner.clone(), isolation_level)
+        PyTransaction::new(self.inner.clone(), isolation_level, None)
+    }
+
+    /// Begin a transaction with an explicit CDC override.
+    ///
+    /// When ``cdc_enabled`` is ``True``, mutations in this transaction are
+    /// tracked regardless of the database default. ``False`` disables tracking
+    /// for this transaction only.
+    ///
+    /// Example:
+    /// ```python
+    /// with db.begin_transaction_with_cdc(True) as tx:
+    ///     tx.execute("INSERT (:Person {name: 'Alix'})")
+    ///     tx.commit()
+    /// # This transaction's changes appear in node_history()
+    /// ```
+    #[cfg(feature = "cdc")]
+    #[pyo3(signature = (cdc_enabled, isolation_level=None))]
+    fn begin_transaction_with_cdc(
+        &self,
+        cdc_enabled: bool,
+        isolation_level: Option<&str>,
+    ) -> PyResult<PyTransaction> {
+        PyTransaction::new(self.inner.clone(), isolation_level, Some(cdc_enabled))
     }
 
     /// Get database statistics.
@@ -1975,6 +2006,49 @@ impl PyGrafeoDB {
         Ok(())
     }
 
+    /// Creates a full backup of the database.
+    ///
+    /// Checkpoints the database, copies the container file to the backup directory,
+    /// and creates a backup manifest.
+    ///
+    /// Example:
+    ///     db = GrafeoDB("./mydb.grafeo")
+    ///     db.backup_full("./backups/mydb")
+    fn backup_full(&self, backup_dir: String) -> PyResult<()> {
+        let db = self.inner.read();
+        db.backup_full(std::path::Path::new(&backup_dir))
+            .map_err(PyGrafeoError::from)?;
+        Ok(())
+    }
+
+    /// Creates an incremental backup (WAL records since last backup).
+    ///
+    /// Requires a prior full backup in the backup directory.
+    ///
+    /// Example:
+    ///     db.backup_incremental("./backups/mydb")
+    fn backup_incremental(&self, backup_dir: String) -> PyResult<()> {
+        let db = self.inner.read();
+        db.backup_incremental(std::path::Path::new(&backup_dir))
+            .map_err(PyGrafeoError::from)?;
+        Ok(())
+    }
+
+    /// Restores a database to a specific epoch from a backup chain.
+    ///
+    /// Example:
+    ///     GrafeoDB.restore_to_epoch("./backups/mydb", 500, "./restored.grafeo")
+    #[staticmethod]
+    fn restore_to_epoch(backup_dir: String, epoch: u64, output_path: String) -> PyResult<()> {
+        grafeo_engine::GrafeoDB::restore_to_epoch(
+            std::path::Path::new(&backup_dir),
+            grafeo_common::types::EpochId::new(epoch),
+            std::path::Path::new(&output_path),
+        )
+        .map_err(PyGrafeoError::from)?;
+        Ok(())
+    }
+
     /// Creates an in-memory copy of this database.
     ///
     /// Returns a new database that is completely independent.
@@ -2151,14 +2225,19 @@ impl PyGrafeoDB {
         let db = self.inner.read();
         let store = db.store();
 
-        // Collect all nodes and discover property keys
+        // Collect all nodes and discover property keys.
+        // Skip properties whose names collide with structural columns
+        // to prevent silent overwrites (GrafeoDB/grafeo#254).
+        const RESERVED_NODE_COLS: &[&str] = &["id", "labels"];
         let nodes: Vec<_> = store.all_nodes().collect();
         let mut prop_keys: Vec<String> = Vec::new();
         let mut prop_key_set = std::collections::HashSet::new();
         for node in &nodes {
             for (key, _) in node.properties.iter() {
                 let key_str = key.as_str().to_owned();
-                if prop_key_set.insert(key_str.clone()) {
+                if prop_key_set.insert(key_str.clone())
+                    && !RESERVED_NODE_COLS.contains(&key_str.as_str())
+                {
                     prop_keys.push(key_str);
                 }
             }
@@ -2222,14 +2301,19 @@ impl PyGrafeoDB {
         let db = self.inner.read();
         let store = db.store();
 
-        // Collect all edges and discover property keys
+        // Collect all edges and discover property keys.
+        // Skip properties whose names collide with structural columns
+        // to prevent silent overwrites (GrafeoDB/grafeo#254).
+        const RESERVED_EDGE_COLS: &[&str] = &["id", "source", "target", "type"];
         let edges: Vec<_> = store.all_edges().collect();
         let mut prop_keys: Vec<String> = Vec::new();
         let mut prop_key_set = std::collections::HashSet::new();
         for edge in &edges {
             for (key, _) in edge.properties.iter() {
                 let key_str = key.as_str().to_owned();
-                if prop_key_set.insert(key_str.clone()) {
+                if prop_key_set.insert(key_str.clone())
+                    && !RESERVED_EDGE_COLS.contains(&key_str.as_str())
+                {
                     prop_keys.push(key_str);
                 }
             }
@@ -2412,6 +2496,104 @@ impl PyGrafeoDB {
         Ok(count)
     }
 
+    /// Import a CSV file as graph nodes.
+    ///
+    /// Each row becomes a node with the given label. Column headers are used
+    /// as property names. Returns the number of nodes created.
+    ///
+    /// Example:
+    ///     count = db.import_csv("people.csv", label="Person")
+    #[pyo3(signature = (path, label="Row", headers=true))]
+    fn import_csv(&self, path: &str, label: &str, headers: bool) -> PyResult<u64> {
+        let abs_path = std::path::Path::new(path)
+            .canonicalize()
+            .map_err(|e| pyo3::exceptions::PyFileNotFoundError::new_err(format!("{path}: {e}")))?;
+        let path_str = escape_gql_string(&abs_path.to_string_lossy().replace('\\', "/"));
+        let safe_label = sanitize_gql_identifier(label);
+
+        let header_clause = if headers { " WITH HEADERS" } else { "" };
+
+        // Read column headers to build property mapping
+        let insert_clause = if headers {
+            let columns = read_csv_headers(&abs_path, ',')?;
+            if columns.is_empty() {
+                format!("INSERT (:{safe_label} {{}})")
+            } else {
+                let props = columns
+                    .iter()
+                    .map(|col| {
+                        let safe = sanitize_gql_identifier(col);
+                        format!("{safe}: row.{safe}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("INSERT (:{safe_label} {{{props}}})")
+            }
+        } else {
+            format!("INSERT (:{safe_label} {{}})")
+        };
+
+        let query =
+            format!("LOAD DATA FROM '{path_str}' FORMAT CSV{header_clause} AS row {insert_clause}");
+
+        let db = self.inner.read();
+        let session = db.session();
+
+        let before_count = count_nodes_with_label(&session, &safe_label);
+
+        session.execute(&query).map_err(PyGrafeoError::from)?;
+
+        let count = count_nodes_with_label(&session, &safe_label) - before_count;
+
+        Ok(count.max(0) as u64)
+    }
+
+    /// Import a JSON Lines file as graph nodes.
+    ///
+    /// Each line must be a valid JSON object. Object keys become property names.
+    /// Returns the number of nodes created.
+    ///
+    /// Example:
+    ///     count = db.import_jsonl("events.jsonl", label="Event")
+    #[pyo3(signature = (path, label="Row"))]
+    fn import_jsonl(&self, path: &str, label: &str) -> PyResult<u64> {
+        let abs_path = std::path::Path::new(path)
+            .canonicalize()
+            .map_err(|e| pyo3::exceptions::PyFileNotFoundError::new_err(format!("{path}: {e}")))?;
+        let path_str = escape_gql_string(&abs_path.to_string_lossy().replace('\\', "/"));
+        let safe_label = sanitize_gql_identifier(label);
+
+        // Read first line to discover JSON keys
+        let keys = read_jsonl_keys(&abs_path)?;
+
+        let insert_clause = if keys.is_empty() {
+            format!("INSERT (:{safe_label} {{}})")
+        } else {
+            let props = keys
+                .iter()
+                .map(|key| {
+                    let safe = sanitize_gql_identifier(key);
+                    format!("{safe}: row.{safe}")
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("INSERT (:{safe_label} {{{props}}})")
+        };
+
+        let query = format!("LOAD DATA FROM '{path_str}' FORMAT JSONL AS row {insert_clause}");
+
+        let db = self.inner.read();
+        let session = db.session();
+
+        let before_count = count_nodes_with_label(&session, &safe_label);
+
+        session.execute(&query).map_err(PyGrafeoError::from)?;
+
+        let count = count_nodes_with_label(&session, &safe_label) - before_count;
+
+        Ok(count.max(0) as u64)
+    }
+
     fn __repr__(&self) -> String {
         "GrafeoDB()".to_string()
     }
@@ -2550,15 +2732,19 @@ impl PyGrafeoDB {
     /// Example:
     ///     db.set_schema("reporting")
     ///     result = db.execute("SHOW GRAPH TYPES")  # only sees types in 'reporting'
-    fn set_schema(&self, name: String) {
-        self.inner.read().set_current_schema(Some(&name));
+    fn set_schema(&self, name: String) -> PyResult<()> {
+        self.inner
+            .read()
+            .set_current_schema(Some(&name))
+            .map_err(PyGrafeoError::from)?;
+        Ok(())
     }
 
     /// Clears the current schema context.
     ///
     /// Subsequent `execute()` calls will use the default (no-schema) namespace.
     fn reset_schema(&self) {
-        self.inner.read().set_current_schema(None);
+        let _ = self.inner.read().set_current_schema(None);
     }
 
     /// Returns the current schema name, or `None` if no schema is set.
@@ -2568,6 +2754,115 @@ impl PyGrafeoDB {
     ///     assert db.current_schema() == "reporting"
     fn current_schema(&self) -> Option<String> {
         self.inner.read().current_schema()
+    }
+
+    // -----------------------------------------------------------------
+    // Named graph management
+    // -----------------------------------------------------------------
+
+    /// Creates a named graph. Returns ``True`` if created, ``False`` if it
+    /// already exists.
+    ///
+    /// Example:
+    ///     db.create_graph("social")
+    ///     db.set_graph("social")
+    ///     db.execute("INSERT (:Person {name: 'Alix'})")
+    fn create_graph(&self, name: &str) -> PyResult<bool> {
+        Ok(self
+            .inner
+            .read()
+            .create_graph(name)
+            .map_err(PyGrafeoError::from)?)
+    }
+
+    /// Drops a named graph. Returns ``True`` if dropped, ``False`` if it did
+    /// not exist.
+    fn drop_graph(&self, name: &str) -> bool {
+        self.inner.read().drop_graph(name)
+    }
+
+    /// Returns a list of all named graph names.
+    fn list_graphs(&self) -> Vec<String> {
+        self.inner.read().list_graphs()
+    }
+
+    // -----------------------------------------------------------------
+    // Graph projections
+    // -----------------------------------------------------------------
+
+    /// Creates a named graph projection. Returns ``True`` if created, ``False``
+    /// if a projection with that name already exists.
+    ///
+    /// A projection is a read-only, filtered view of the default graph. Only
+    /// nodes with matching labels and edges with matching types are visible.
+    ///
+    /// Args:
+    ///     name: Projection name.
+    ///     node_labels: Node labels to include (empty means all).
+    ///     edge_types: Edge types to include (empty means all).
+    ///
+    /// Example:
+    ///     db.create_projection("social", node_labels=["Person"], edge_types=["KNOWS"])
+    #[pyo3(signature = (name, node_labels=vec![], edge_types=vec![]))]
+    fn create_projection(
+        &self,
+        name: &str,
+        node_labels: Vec<String>,
+        edge_types: Vec<String>,
+    ) -> bool {
+        use grafeo_core::graph::ProjectionSpec;
+
+        let mut spec = ProjectionSpec::new();
+        if !node_labels.is_empty() {
+            spec = spec.with_node_labels(node_labels);
+        }
+        if !edge_types.is_empty() {
+            spec = spec.with_edge_types(edge_types);
+        }
+        self.inner.read().create_projection(name, spec)
+    }
+
+    /// Drops a named graph projection. Returns ``True`` if it existed, ``False``
+    /// otherwise.
+    fn drop_projection(&self, name: &str) -> bool {
+        self.inner.read().drop_projection(name)
+    }
+
+    /// Returns a list of all projection names.
+    fn list_projections(&self) -> Vec<String> {
+        self.inner.read().list_projections()
+    }
+
+    /// Sets the current graph for subsequent ``execute()`` calls.
+    ///
+    /// Equivalent to running ``USE GRAPH <name>`` but persists across calls.
+    /// Use ``reset_graph()`` to clear it.
+    ///
+    /// Example:
+    ///     db.set_graph("social")
+    ///     result = db.execute("MATCH (n) RETURN n")  # queries 'social' graph
+    fn set_graph(&self, name: &str) -> PyResult<()> {
+        self.inner
+            .read()
+            .set_current_graph(Some(name))
+            .map_err(PyGrafeoError::from)?;
+        Ok(())
+    }
+
+    /// Clears the current graph context.
+    ///
+    /// Subsequent ``execute()`` calls will use the default graph.
+    fn reset_graph(&self) {
+        let _ = self.inner.read().set_current_graph(None);
+    }
+
+    /// Returns the current graph name, or ``None`` if no graph is set.
+    ///
+    /// Example:
+    ///     db.set_graph("social")
+    ///     assert db.current_graph() == "social"
+    fn current_graph(&self) -> Option<String> {
+        self.inner.read().current_graph()
     }
 }
 
@@ -2624,22 +2919,29 @@ impl PyTransaction {
         } else {
             None
         };
-        let result = session
+        let mut result = session
             .execute_language(query, language, param_map)
             .map_err(PyGrafeoError::from)?;
         let (nodes, edges) = extract_entities(&result, &db);
+        let columns = std::mem::take(&mut result.columns);
+        let exec_time = result.execution_time_ms;
+        let scanned = result.rows_scanned;
         Ok(PyQueryResult::with_metrics(
-            result.columns,
-            result.rows,
+            columns,
+            result.into_rows(),
             nodes,
             edges,
-            result.execution_time_ms,
-            result.rows_scanned,
+            exec_time,
+            scanned,
         ))
     }
 
-    /// Create a new transaction with an optional isolation level.
-    fn new(db: Arc<RwLock<GrafeoDB>>, isolation_level: Option<&str>) -> PyResult<Self> {
+    /// Create a new transaction with an optional isolation level and CDC override.
+    fn new(
+        db: Arc<RwLock<GrafeoDB>>,
+        isolation_level: Option<&str>,
+        _cdc_override: Option<bool>,
+    ) -> PyResult<Self> {
         // Parse isolation level string
         let (level, level_name) = match isolation_level {
             Some("read_committed") => (
@@ -2659,10 +2961,20 @@ impl PyTransaction {
             }
         };
 
-        // Create session from db, but drop the read guard before moving db
+        // Create session from db, using CDC override when available
         let mut session = {
             let db_guard = db.read();
-            db_guard.session()
+            #[cfg(feature = "cdc")]
+            {
+                match _cdc_override {
+                    Some(cdc) => db_guard.session_with_cdc(cdc),
+                    None => db_guard.session(),
+                }
+            }
+            #[cfg(not(feature = "cdc"))]
+            {
+                db_guard.session()
+            }
         };
 
         // Begin the transaction with the specified isolation level
@@ -3072,6 +3384,89 @@ fn is_pandas_na(py: Python<'_>, obj: &Bound<'_, PyAny>) -> bool {
         return b;
     }
     false
+}
+
+/// Read CSV headers from the first line of a file.
+/// Escape single quotes in a string for embedding in a GQL string literal.
+fn escape_gql_string(s: &str) -> String {
+    s.replace('\'', "\\'")
+}
+
+/// Sanitize a name for use as a GQL identifier.
+fn sanitize_gql_identifier(name: &str) -> String {
+    let sanitized: String = name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if sanitized.is_empty() {
+        "_col".to_string()
+    } else if sanitized.starts_with(|c: char| c.is_ascii_digit()) {
+        format!("_{sanitized}")
+    } else {
+        sanitized
+    }
+}
+
+/// Count nodes with a given label.
+fn count_nodes_with_label(session: &grafeo_engine::Session, label: &str) -> i64 {
+    session
+        .execute(&format!("MATCH (n:{label}) RETURN count(n) AS c"))
+        .ok()
+        .and_then(|r| r.rows().first().cloned())
+        .and_then(|row| row.first().cloned())
+        .and_then(|v| match v {
+            grafeo_common::types::Value::Int64(n) => Some(n),
+            _ => None,
+        })
+        .unwrap_or(0)
+}
+
+fn read_csv_headers(path: &std::path::Path, delimiter: char) -> PyResult<Vec<String>> {
+    use std::io::{BufRead, BufReader};
+    let f = std::fs::File::open(path).map_err(|e| {
+        pyo3::exceptions::PyFileNotFoundError::new_err(format!("{}: {e}", path.display()))
+    })?;
+    let mut reader = BufReader::new(f);
+    let mut header_line = String::new();
+    reader.read_line(&mut header_line).map_err(|e| {
+        pyo3::exceptions::PyIOError::new_err(format!("Failed to read headers: {e}"))
+    })?;
+    Ok(header_line
+        .trim()
+        .split(delimiter)
+        .map(|h| h.trim().trim_matches('"').to_string())
+        .filter(|h| !h.is_empty())
+        .collect())
+}
+
+/// Read JSON keys from the first non-empty line of a JSONL file.
+fn read_jsonl_keys(path: &std::path::Path) -> PyResult<Vec<String>> {
+    use std::io::{BufRead, BufReader};
+    let f = std::fs::File::open(path).map_err(|e| {
+        pyo3::exceptions::PyFileNotFoundError::new_err(format!("{}: {e}", path.display()))
+    })?;
+    let reader = BufReader::new(f);
+    for line in reader.lines() {
+        let line = line.map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("Failed to read JSONL file: {e}"))
+        })?;
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Ok(obj) = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(trimmed)
+        {
+            return Ok(obj.keys().cloned().collect());
+        }
+        break;
+    }
+    Ok(Vec::new())
 }
 
 /// Convert a Value to a NodeId, validating that it's a valid integer.

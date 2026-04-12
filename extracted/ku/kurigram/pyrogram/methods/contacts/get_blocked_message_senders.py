@@ -34,7 +34,7 @@ class GetBlockedMessageSenders:
         .. include:: /_includes/usable-by/users.rst
 
         Parameters:
-            block_list (``pyrogram.enums.BlockList``, *optional*):
+            block_list (:obj:`~pyrogram.enums.BlockList`, *optional*):
                 The block list from which to return users.
 
             offset (``int``, *optional*):
@@ -48,6 +48,7 @@ class GetBlockedMessageSenders:
 
         Example:
             .. code-block:: python
+
                 async for chat in app.get_blocked_message_senders():
                     print(chat)
         """

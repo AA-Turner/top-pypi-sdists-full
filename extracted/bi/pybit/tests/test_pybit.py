@@ -4,10 +4,13 @@ import pytest
 import hmac
 import hashlib
 from collections import defaultdict
+from unittest.mock import Mock
 
 import requests
+import websocket
 
 from pybit._http_manager import _V5HTTPManager
+from pybit._websocket_stream import _WebSocketManager
 from pybit.unified_trading import HTTP
 from pybit import _http_manager
 
@@ -140,3 +143,249 @@ def test_logger_handler_attached():
     finally:
         # restore original handlers
         root.handlers = old_handlers
+
+
+class _FakeSock:
+    def __init__(self, connected=True):
+        self.connected = connected
+
+
+class _FakeWS:
+    def __init__(self, connected=True, send_error=None):
+        self.sock = _FakeSock(connected=connected)
+        self.send_error = send_error
+        self.sent_messages = []
+        self.closed = False
+
+    def send(self, message):
+        if self.send_error is not None:
+            raise self.send_error
+        self.sent_messages.append(message)
+
+    def close(self):
+        self.closed = True
+        self.sock = None
+
+
+class _FakeTimer:
+    def __init__(self):
+        self.daemon = False
+        self.started = False
+        self.cancelled = False
+
+    def start(self):
+        self.started = True
+
+    def cancel(self):
+        self.cancelled = True
+
+
+def test_websocket_exit_cancels_custom_ping_timer():
+    manager = _WebSocketManager(
+        lambda _: None,
+        "Test WS",
+        testnet=False,
+    )
+    manager.ws = _FakeWS()
+    timer = _FakeTimer()
+    manager.custom_ping_timer = timer
+
+    manager.exit()
+
+    assert manager.exited is True
+    assert timer.cancelled is True
+    assert manager.custom_ping_timer is None
+    assert manager.ws.closed is True
+
+
+def test_send_custom_ping_ignores_closed_connection():
+    manager = _WebSocketManager(
+        lambda _: None,
+        "Test WS",
+        testnet=False,
+    )
+    manager.ws = _FakeWS(
+        connected=True,
+        send_error=websocket.WebSocketConnectionClosedException(
+            "Connection is already closed."
+        ),
+    )
+
+    manager._send_custom_ping()
+
+
+def test_send_custom_ping_skips_disconnected_socket():
+    manager = _WebSocketManager(
+        lambda _: None,
+        "Test WS",
+        testnet=False,
+    )
+    manager.ws = _FakeWS(connected=False)
+
+    manager._send_custom_ping()
+
+    assert manager.ws.sent_messages == []
+
+
+def test_websocket_exit_waits_with_sleep_until_socket_closes(monkeypatch):
+    manager = _WebSocketManager(
+        lambda _: None,
+        "Test WS",
+        testnet=False,
+    )
+
+    class _SlowCloseWS:
+        def __init__(self):
+            self._sock = object()
+            self.close_called = False
+
+        @property
+        def sock(self):
+            return self._sock
+
+        @sock.setter
+        def sock(self, value):
+            self._sock = value
+
+        def close(self):
+            self.close_called = True
+
+    manager.ws = _SlowCloseWS()
+    sleep_calls = []
+
+    def fake_sleep(delay):
+        sleep_calls.append(delay)
+        manager.ws.sock = None
+
+    monkeypatch.setattr("pybit._websocket_stream.time.sleep", fake_sleep)
+
+    manager.exit()
+
+    assert manager.ws.close_called is True
+    assert sleep_calls == [0.01]
+
+
+def test_submit_request_retries_when_retcode_is_retryable():
+    manager = _V5HTTPManager(api_key=_api_key, api_secret=_api_secret)
+    manager.retry_delay = 0
+
+    first_response = Mock()
+    first_response.status_code = 200
+    first_response.headers = {}
+    first_response.elapsed = 0
+    first_response.url = "https://api.bybit.com/v5/order/realtime"
+    first_response.json.return_value = {
+        "retCode": 10006,
+        "retMsg": "Too many visits",
+        "result": {},
+        "time": 1234567890,
+    }
+
+    second_response = Mock()
+    second_response.status_code = 200
+    second_response.headers = {}
+    second_response.elapsed = 0
+    second_response.url = "https://api.bybit.com/v5/order/realtime"
+    second_response.json.return_value = {
+        "retCode": 0,
+        "retMsg": "OK",
+        "result": {"list": []},
+        "time": 1234567891,
+    }
+
+    manager.client.send = Mock(side_effect=[first_response, second_response])
+
+    result = manager._submit_request(
+        method="GET",
+        path="https://api.bybit.com/v5/order/realtime",
+        query={"category": "linear"},
+        auth=True,
+    )
+
+    assert result["retCode"] == 0
+    assert manager.client.send.call_count == 2
+
+
+def test_submit_request_retries_with_expanded_recv_window_after_10002():
+    manager = _V5HTTPManager(api_key=_api_key, api_secret=_api_secret)
+    manager.retry_delay = 0
+
+    first_response = Mock()
+    first_response.status_code = 200
+    first_response.headers = {}
+    first_response.elapsed = 0
+    first_response.url = "https://api.bybit.com/v5/order/realtime"
+    first_response.json.return_value = {
+        "retCode": 10002,
+        "retMsg": "invalid request, please check your server timestamp or recv_window param",
+        "result": {},
+        "time": 1234567890,
+    }
+
+    second_response = Mock()
+    second_response.status_code = 200
+    second_response.headers = {}
+    second_response.elapsed = 0
+    second_response.url = "https://api.bybit.com/v5/order/realtime"
+    second_response.json.return_value = {
+        "retCode": 0,
+        "retMsg": "OK",
+        "result": {"list": []},
+        "time": 1234567891,
+    }
+
+    captured_recv_windows = []
+
+    def fake_prepare_headers(payload, recv_window):
+        captured_recv_windows.append(recv_window)
+        return {}
+
+    manager._prepare_headers = fake_prepare_headers
+    manager.client.send = Mock(side_effect=[first_response, second_response])
+
+    result = manager._submit_request(
+        method="GET",
+        path="https://api.bybit.com/v5/order/realtime",
+        query={"category": "linear"},
+        auth=True,
+    )
+
+    assert result["retCode"] == 0
+    assert manager.client.send.call_count == 2
+    assert captured_recv_windows == [5000, 7500]
+
+
+def test_submit_request_returns_response_when_retcode_is_ignored():
+    manager = _V5HTTPManager(api_key=_api_key, api_secret=_api_secret)
+    manager.ignore_codes.add(110043)
+
+    ignored_response = Mock()
+    ignored_response.status_code = 200
+    ignored_response.headers = {}
+    ignored_response.elapsed = 0
+    ignored_response.url = "https://api-testnet.bybit.com/v5/position/set-leverage"
+    ignored_response.json.return_value = {
+        "retCode": 110043,
+        "retMsg": "leverage not changed",
+        "result": {},
+        "retExtInfo": {},
+        "time": 1234567890,
+    }
+
+    manager.client.send = Mock(return_value=ignored_response)
+
+    result = manager._submit_request(
+        method="POST",
+        path="https://api-testnet.bybit.com/v5/position/set-leverage",
+        query={
+            "category": "linear",
+            "symbol": "BTCUSDT",
+            "buyLeverage": "10",
+            "sellLeverage": "10",
+        },
+        auth=True,
+    )
+
+    assert result["retCode"] == 110043
+    assert result["retMsg"] == "leverage not changed"
+    assert manager.client.send.call_count == 1

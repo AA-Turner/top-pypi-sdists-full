@@ -35,7 +35,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install uv
         uses: astral-sh/setup-uv@v4
-      - name: Install dependencies
+      - name: Install dependencies (no cloud extras)
+        run: uv sync
+      - name: Test (missing deps coverage)
+        run: uv run pytest pathy/_tests --cov=pathy --cov-report=xml
+      - name: Install dependencies (all extras)
         run: uv sync --all-extras
       - name: Lint Codebase
         if: matrix.os == 'ubuntu-latest'
@@ -44,7 +48,7 @@ jobs:
           uv run flake8 pathy
           uv run black pathy --check
       - name: Test (local only)
-        run: uv run pytest pathy/_tests --cov=pathy
+        run: uv run pytest pathy/_tests --cov=pathy --cov-append --cov-report=xml
       - name: Test (cloud providers)
         if: matrix.os == 'ubuntu-latest'
         env:
@@ -52,27 +56,55 @@ jobs:
           PATHY_S3_ACCESS_ID: ${{ secrets.PATHY_S3_ACCESS_ID }}
           PATHY_S3_ACCESS_SECRET: ${{ secrets.PATHY_S3_ACCESS_SECRET }}
           PATHY_AZURE_CONNECTION_STRING: ${{ secrets.PATHY_AZURE_CONNECTION_STRING }}
-        run: uv run pytest pathy/_tests --run-gcs --run-s3 --run-azure --cov=pathy --cov-append
+        run: uv run pytest pathy/_tests --run-gcs --run-s3 --run-azure --cov=pathy --cov-append --cov-report=xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   deploy:
     runs-on: ubuntu-latest
     needs: "build"
     if: github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    environment: pypi
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
       - name: Install uv
         uses: astral-sh/setup-uv@v4
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-      - name: Deploy
+      - name: Install dependencies
+        run: uv sync
+      - name: Version and build
+        id: release
         env:
-          PYPI_USERNAME: ${{ secrets.PYPI_USERNAME }}
-          PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: sh tools/deploy.sh
+        run: |
+          if uv run semantic-release version; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Generate artifact attestations
+        if: steps.release.outputs.released == 'true'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "dist/*"
+      - name: Publish to PyPI
+        if: steps.release.outputs.released == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Publish to GitHub Releases
+        if: steps.release.outputs.released == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          uv run semantic-release publish
+          rm -rf dist
