@@ -29,6 +29,37 @@ _PROACTIVE_COMPACTION_MSG_THRESHOLD = 80  # fallback: compact when messages exce
 _PROACTIVE_COMPACTION_TOKEN_THRESHOLD = 90_000  # compact when estimated tokens exceed this
 
 
+def _humanize_tool_brief(tool_name: str, arguments: dict[str, Any]) -> str:
+    """Produce a short human-readable summary for a tool call (#1366).
+
+    Used in phase events sent to both CLI and web UI.
+    """
+    name_lower = tool_name.lower()
+    if name_lower in ("file_read", "read_file"):
+        path = arguments.get("path", arguments.get("file_path", ""))
+        return f"Reading {path}" if path else "Reading file"
+    if name_lower in ("file_write", "write_file"):
+        path = arguments.get("path", arguments.get("file_path", ""))
+        return f"Writing {path}" if path else "Writing file"
+    if name_lower in ("file_edit", "edit_file"):
+        path = arguments.get("path", arguments.get("file_path", ""))
+        return f"Editing {path}" if path else "Editing file"
+    if name_lower in ("grep", "search", "ripgrep"):
+        pattern = arguments.get("pattern", arguments.get("query", ""))
+        return f"Searching for '{pattern}'" if pattern else "Searching"
+    if name_lower in ("glob", "glob_files", "find_files"):
+        pattern = arguments.get("pattern", "")
+        return f"Finding {pattern}" if pattern else "Finding files"
+    if name_lower == "bash":
+        cmd = arguments.get("command", "")
+        if len(cmd) > 60:
+            cmd = cmd[:57] + "..."
+        return f"bash {cmd}" if cmd else "Running command"
+    if name_lower == "run_agent":
+        return "Running sub-agent"
+    return tool_name
+
+
 def _truncate_large_tool_outputs(
     messages: list[dict[str, Any]], max_chars: int = _DEFAULT_TOOL_OUTPUT_MAX_CHARS
 ) -> bool:
@@ -195,7 +226,7 @@ async def _execute_tool(
             for p in pending:
                 p.cancel()
                 try:
-                    await asyncio.wait_for(p, timeout=5.0)
+                    await asyncio.wait_for(p, timeout=0.5)
                 except (asyncio.CancelledError, asyncio.TimeoutError):
                     pass
             if exec_task in done:
@@ -243,6 +274,7 @@ async def run_agent_loop(
     max_line_repeats: int = 5,
     serialize_tools: bool = False,
     pause_signal: asyncio.Event | None = None,
+    injection_queue: asyncio.Queue[dict[str, Any]] | None = None,
 ) -> AsyncGenerator[AgentEvent, None]:
     """Run the agentic tool-call loop, yielding events.
 
@@ -360,6 +392,29 @@ async def run_agent_loop(
             )
             if await _compact_messages(ai_service, messages):
                 yield AgentEvent(kind="compaction", data={"new_message_count": len(messages)})
+
+        # Per-iteration injection checkpoint (#889): drain mid-run
+        # workflow inputs from `injection_queue` BEFORE the next LLM call.
+        # Separate from `message_queue` (loop-continuation queue at `done`).
+        if injection_queue is not None:
+            _drained: list[dict[str, Any]] = []
+            while True:
+                try:
+                    _drained.append(injection_queue.get_nowait())
+                except asyncio.QueueEmpty:
+                    break
+            for _idx, _msg in enumerate(_drained, 1):
+                # Strip internal metadata before adding to LLM messages
+                _clean = {k: v for k, v in _msg.items() if not k.startswith("_")}
+                messages.append(_clean)
+                yield AgentEvent(
+                    kind="queued_message",
+                    data={
+                        **_msg,
+                        "position": _idx,
+                        "queue_depth": injection_queue.qsize() + len(_drained) - _idx,
+                    },
+                )
 
         yield AgentEvent(kind="thinking", data={})
 
@@ -651,13 +706,27 @@ async def run_agent_loop(
             }
         )
 
+        # Emit tool_exec phase event for UI indicators (#1366)
+        tool_names = [tc["function_name"] for tc in tool_calls_pending]
+        yield AgentEvent(
+            kind="phase",
+            data={
+                "phase": "tool_exec",
+                "tool_count": len(tool_calls_pending),
+                "tool_names": tool_names,
+                "tool_summaries": [
+                    _humanize_tool_brief(tc["function_name"], tc.get("arguments", {})) for tc in tool_calls_pending
+                ],
+            },
+        )
+
         # Execute tool calls in parallel
         _tools_start = time.monotonic()
         logger.debug(
             "agent_loop tool_exec_start iteration=%d count=%d tools=%s",
             iteration,
             len(tool_calls_pending),
-            [tc["function_name"] for tc in tool_calls_pending],
+            tool_names,
         )
         _end_turn_requested = False  # (#1311) background task turn-yield
         if cancel_event and cancel_event.is_set():

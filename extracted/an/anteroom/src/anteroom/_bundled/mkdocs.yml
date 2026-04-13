@@ -116,6 +116,7 @@ nav:
       - cli/skill-examples.md
       - cli/commands.md
       - cli/themes.md
+      - cli/background-tasks.md
       - cli/context-management.md
       - cli/file-references.md
       - cli/project-instructions.md

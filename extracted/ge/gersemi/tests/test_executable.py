@@ -76,6 +76,10 @@ def test_help_just_works(app):
     assert app("--help") == success()
 
 
+def test_version_just_works(app):
+    assert app("--version") == success()
+
+
 def test_check_on_formatted_file_should_return_zero(app, testfiles):
     assert app("--check", testfiles / "formatted_file.cmake") == success()
 
@@ -122,6 +126,11 @@ def test_check_formatted_input_from_stdin(app):
 def test_check_not_formatted_input_from_stdin(app):
     inp = """set(FOO BAR)"""  # missing newline at the end
     assert app("--check", "-", input=inp) == fail()
+
+
+def test_safe_check_not_formatted_input_from_stdin(app):
+    inp = """set(FOO BAR)"""  # missing newline at the end
+    assert app("--check", "--safe", "-", input=inp) == fail()
 
 
 def test_format_formatted_input_from_stdin(app):

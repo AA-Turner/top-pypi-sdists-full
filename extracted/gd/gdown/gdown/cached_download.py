@@ -1,15 +1,35 @@
+from __future__ import annotations
+
 import hashlib
 import os
 import os.path as osp
 import shutil
 import sys
 import tempfile
-import warnings
-from typing import Optional
+from collections.abc import Callable
+from typing import TypedDict
+
+if sys.version_info >= (3, 12):
+    from typing import Unpack
+else:
+    from typing_extensions import Unpack
 
 import filelock
 
 from .download import download
+
+
+class _DownloadKwargs(TypedDict, total=False):
+    proxy: str | None
+    speed: float | None
+    use_cookies: bool
+    verify: bool | str
+    id: str | None
+    resume: bool
+    format: str | None
+    user_agent: str | None
+    progress: Callable[[int, int | None], None] | None
+
 
 cache_root = osp.join(osp.expanduser("~"), ".cache/gdown")
 if not osp.exists(cache_root):
@@ -19,74 +39,47 @@ if not osp.exists(cache_root):
         pass
 
 
-def md5sum(filename, blocksize=None):
-    warnings.warn(
-        "md5sum is deprecated and will be removed in the future.", FutureWarning
-    )
-
-    if blocksize is None:
-        blocksize = 65536
-
-    hash = hashlib.md5()
-    with open(filename, "rb") as f:
-        for block in iter(lambda: f.read(blocksize), b""):
-            hash.update(block)
-    return hash.hexdigest()
-
-
-def assert_md5sum(filename, md5, quiet=False, blocksize=None):
-    warnings.warn(
-        "assert_md5sum is deprecated and will be removed in the future.", FutureWarning
-    )
-
-    if not (isinstance(md5, str) and len(md5) == 32):
-        raise ValueError(f"MD5 must be 32 chars: {md5}")
-
-    md5_actual = md5sum(filename)
-
-    if md5_actual == md5:
-        if not quiet:
-            print(f"MD5 matches: {filename!r} == {md5!r}", file=sys.stderr)
-        return True
-
-    raise AssertionError(f"MD5 doesn't match:\nactual: {md5_actual}\nexpected: {md5}")
-
-
 def cached_download(
-    url=None,
-    path=None,
-    md5=None,
-    quiet=False,
-    postprocess=None,
-    hash: Optional[str] = None,
-    **kwargs,
-):
+    url: str | None = None,
+    path: str | None = None,
+    quiet: bool = False,
+    postprocess: Callable[[str], object] | None = None,
+    hash: str | None = None,
+    **kwargs: Unpack[_DownloadKwargs],
+) -> str:
     """Cached download from URL.
 
     Parameters
     ----------
-    url: str
+    url:
         URL. Google Drive URL is also supported.
-    path: str, optional
+    path:
         Output filename. Default is basename of URL.
-    md5: str, optional
-        Expected MD5 for specified file. Deprecated in favor of `hash`.
-    quiet: bool
+    quiet:
         Suppress terminal output. Default is False.
-    postprocess: callable, optional
+    postprocess:
         Function called with filename as postprocess.
-    hash: str, optional
+    hash:
         Hash value of file in the format of {algorithm}:{hash_value}
         such as sha256:abcdef.... Supported algorithms: md5, sha1, sha256, sha512.
-    kwargs: dict
+    kwargs:
         Keyword arguments to be passed to `download`.
 
     Returns
     -------
-    path: str
+    path:
         Output filename.
+
+    Raises
+    ------
+    ValueError
+        If url is not specified when path is not specified.
+    DownloadError
+        If the download fails.
     """
     if path is None:
+        if url is None:
+            raise ValueError("url must be specified when path is not specified")
         path = (
             url.replace("/", "-SLASH-")
             .replace(":", "-COLON-")
@@ -94,17 +87,6 @@ def cached_download(
             .replace("?", "-QUESTION-")
         )
         path = osp.join(cache_root, path)
-
-    if md5 is not None and hash is not None:
-        raise ValueError("md5 and hash cannot be specified at the same time.")
-
-    if md5 is not None:
-        warnings.warn(
-            "md5 is deprecated in favor of hash. Please use hash='md5:xxx...' instead.",
-            FutureWarning,
-        )
-        hash = f"md5:{md5}"
-    del md5
 
     # check existence
     if osp.exists(path) and not hash:
@@ -116,7 +98,6 @@ def cached_download(
             _assert_filehash(path=path, hash=hash, quiet=quiet)
             return path
         except AssertionError as e:
-            # show warning and overwrite if md5 doesn't match
             print(e, file=sys.stderr)
 
     # download
@@ -155,7 +136,7 @@ def cached_download(
     return path
 
 
-def _compute_filehash(path, algorithm):
+def _compute_filehash(path: str, algorithm: str) -> str:
     BLOCKSIZE = 65536
 
     if algorithm not in hashlib.algorithms_guaranteed:
@@ -171,7 +152,7 @@ def _compute_filehash(path, algorithm):
     return f"{algorithm}:{algorithm_instance.hexdigest()}"
 
 
-def _assert_filehash(path, hash, quiet=False, blocksize=None):
+def _assert_filehash(path: str, hash: str, quiet: bool = False) -> None:
     if ":" not in hash:
         raise ValueError(
             f"Invalid hash: {hash}. "
@@ -181,9 +162,7 @@ def _assert_filehash(path, hash, quiet=False, blocksize=None):
 
     hash_actual = _compute_filehash(path=path, algorithm=algorithm)
 
-    if hash_actual == hash:
-        return True
-
-    raise AssertionError(
-        f"File hash doesn't match:\nactual: {hash_actual}\nexpected: {hash}"
-    )
+    if hash_actual != hash:
+        raise AssertionError(
+            f"File hash doesn't match:\nactual: {hash_actual}\nexpected: {hash}"
+        )

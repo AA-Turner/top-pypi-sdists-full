@@ -1,15 +1,27 @@
 """Skill system for custom CLI commands.
 
-Skills are YAML files in ~/.anteroom/skills/ or .anteroom/skills/ (project-level).
-Each skill defines a prompt template that gets injected when invoked via /skill_name.
+Skills are SKILL.md files with YAML frontmatter. The Markdown body is the
+prompt; the frontmatter carries ``name`` and ``description``.
 
-Example skill file (~/.anteroom/skills/deploy-check.yaml):
+Canonical layout::
+
+    .anteroom/skills/
+      deploy-check/
+        SKILL.md          # name + description in frontmatter, prompt in body
+
+Example SKILL.md::
+
+    ---
     name: deploy-check
     description: Verify the app is ready to deploy
-    prompt: |
-      Check that all tests pass and lint is clean.
-      Run: pytest tests/unit/ -v && ruff check src/
-      Report any issues found.
+    ---
+
+    Check that all tests pass and lint is clean.
+    Run: pytest tests/unit/ -v && ruff check src/
+    Report any issues found.
+
+Legacy ``.yaml`` / ``.yml`` skill files are also loaded for backward
+compatibility during migration. New skills should use ``SKILL.md``.
 """
 
 from __future__ import annotations
@@ -124,52 +136,100 @@ def _validate_skill_name(raw_name: str, stem: str) -> tuple[str, str | None]:
     return name, None
 
 
+def _parse_skill_md(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+    """Parse a SKILL.md file with YAML frontmatter.
+
+    Returns ``(data_dict, None)`` on success or ``(None, warning)`` on
+    failure. The ``data_dict`` has ``name``, ``description``, and
+    ``prompt`` keys — the same shape as a parsed YAML skill, so the
+    caller can process both formats uniformly.
+    """
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except Exception as exc:
+        return None, f"Failed to read {path}: {exc}"
+    if not raw.strip():
+        return None, f"Skipped {path}: empty file"
+    if not raw.startswith("---\n") and not raw.startswith("---\r\n"):
+        return None, f"Skipped {path}: missing YAML frontmatter (must start with ---)"
+    try:
+        end = raw.index("\n---", 4)
+    except ValueError:
+        return None, f"Skipped {path}: no closing --- for frontmatter"
+    frontmatter_str = raw[4:end]
+    body = raw[end + 4 :].strip()  # skip the closing "---\n"
+    try:
+        fm = yaml.safe_load(frontmatter_str)
+    except yaml.YAMLError as exc:
+        return None, _format_yaml_error(path, exc)
+    if not isinstance(fm, dict):
+        return None, f"Skipped {path}: frontmatter is not a YAML mapping"
+    if not body:
+        return None, f"Skipped {path}: empty prompt body (nothing after frontmatter)"
+    fm["prompt"] = body
+    return fm, None
+
+
 def _load_skills_from_dir(skills_dir: Path, source: str) -> _LoadResult:
-    """Load all .yaml/.yml skill files from a directory."""
+    """Load ``*/SKILL.md`` skill files from a directory.
+
+    Only the directory-based SKILL.md layout is supported::
+
+        skills/
+          deploy-check/
+            SKILL.md
+
+    YAML ``.yaml`` / ``.yml`` skill files are no longer loaded. If any are
+    found, a warning is emitted directing the user to migrate to SKILL.md.
+    """
     result = _LoadResult()
     if not skills_dir.is_dir():
         result.searched_dirs.append(_SearchedDir(str(skills_dir), source, 0, False))
         return result
-    paths = sorted(set(skills_dir.glob("*.yaml")) | set(skills_dir.glob("*.yml")), key=lambda p: p.name)
-    for path in paths:
+
+    # Discover SKILL.md files (the only supported layout)
+    md_paths = sorted(skills_dir.glob("*/SKILL.md"), key=lambda p: p.parent.name)
+
+    # Warn about stale YAML files that will no longer load
+    stale_yaml = sorted(set(skills_dir.glob("*.yaml")) | set(skills_dir.glob("*.yml")))
+    for stale in stale_yaml:
+        result.warnings.append(
+            f"Ignored {stale.name}: YAML skills are no longer supported. "
+            f"Migrate to {stale.stem}/SKILL.md (YAML frontmatter + Markdown body)."
+        )
+
+    for path in md_paths:
+        effective_name = path.parent.name.lower()
         try:
-            with open(path, encoding="utf-8") as f:
-                data = yaml.safe_load(f)
-            if data is None:
-                result.warnings.append(f"Skipped {path.name}: empty file")
+            data, warning = _parse_skill_md(path)
+            if warning:
+                result.warnings.append(warning)
                 continue
-            if not isinstance(data, dict):
-                result.warnings.append(f"Skipped {path.name}: invalid format (expected YAML mapping)")
-                continue
-            raw_name = data.get("name", path.stem)
+            assert data is not None
+
+            raw_name = data.get("name", effective_name)
             if not isinstance(raw_name, str):
-                result.warnings.append(f"Skipped {path.name}: 'name' must be a string, got {type(raw_name).__name__}")
+                result.warnings.append(f"Skipped {path}: 'name' must be a string, got {type(raw_name).__name__}")
                 continue
-            name, warning = _validate_skill_name(raw_name, path.stem)
+            name, warning = _validate_skill_name(raw_name, effective_name)
             if warning:
                 result.warnings.append(warning)
                 continue
             prompt = data.get("prompt", "")
             if not isinstance(prompt, str):
-                result.warnings.append(f"Skipped {path.name}: 'prompt' must be a string, got {type(prompt).__name__}")
+                result.warnings.append(f"Skipped {path}: 'prompt' must be a string, got {type(prompt).__name__}")
                 continue
             if not prompt.strip():
-                if "content" in data:
-                    result.warnings.append(
-                        f"Skipped {path.name}: uses 'content' field — "
-                        f"local CLI skills require 'prompt' (rename 'content' to 'prompt')"
-                    )
-                else:
-                    result.warnings.append(f"Skipped {path.name}: missing 'prompt' field")
+                result.warnings.append(f"Skipped {path}: empty prompt body")
                 continue
             if len(prompt) > MAX_PROMPT_SIZE:
                 result.warnings.append(
-                    f"Skipped {path.name}: prompt exceeds {MAX_PROMPT_SIZE // 1000}KB limit ({len(prompt) // 1000}KB)"
+                    f"Skipped {path}: prompt exceeds {MAX_PROMPT_SIZE // 1000}KB limit ({len(prompt) // 1000}KB)"
                 )
                 continue
             description = data.get("description", "")
             if not description:
-                result.warnings.append(f"{path.name} has no description")
+                result.warnings.append(f"{path} has no description")
             result.skills.append(
                 Skill(
                     name=name,
@@ -178,10 +238,8 @@ def _load_skills_from_dir(skills_dir: Path, source: str) -> _LoadResult:
                     source=source,
                 )
             )
-        except yaml.YAMLError as e:
-            result.warnings.append(_format_yaml_error(path, e))
         except Exception as e:
-            result.warnings.append(f"Failed to load {path.name}: {e}")
+            result.warnings.append(f"Failed to load {path}: {e}")
     result.searched_dirs.append(_SearchedDir(str(skills_dir), source, len(result.skills), True))
     return result
 
@@ -418,13 +476,26 @@ class SkillRegistry:
                 continue
             description = art.name
             prompt = art.content
-            try:
-                data = yaml.safe_load(art.content)
-                if isinstance(data, dict):
-                    description = data.get("description", art.name)
-                    prompt = data.get("prompt", art.content)
-            except yaml.YAMLError:
-                pass
+            # Try SKILL.md frontmatter format first, then fall back to
+            # legacy YAML for backward compat with existing DB content.
+            content = art.content or ""
+            if content.startswith("---\n") or content.startswith("---\r\n"):
+                try:
+                    end = content.index("\n---", 4)
+                    fm = yaml.safe_load(content[4:end])
+                    if isinstance(fm, dict):
+                        description = fm.get("description", art.name)
+                        prompt = content[end + 4 :].strip()
+                except (ValueError, yaml.YAMLError):
+                    pass
+            else:
+                try:
+                    data = yaml.safe_load(content)
+                    if isinstance(data, dict):
+                        description = data.get("description", art.name)
+                        prompt = data.get("prompt", content)
+                except yaml.YAMLError:
+                    pass
             if not prompt or not prompt.strip():
                 continue
             self._skills[canonical] = Skill(

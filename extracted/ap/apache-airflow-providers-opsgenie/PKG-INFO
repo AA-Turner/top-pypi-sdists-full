@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-opsgenie
-Version: 5.10.2
+Version: 5.10.3
 Summary: Provider package apache-airflow-providers-opsgenie for Apache Airflow
 Keywords: airflow-provider,opsgenie,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -27,8 +27,8 @@ Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.8.0
 Requires-Dist: opsgenie-sdk>=2.1.5
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-opsgenie/5.10.2/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-opsgenie/5.10.2
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-opsgenie/5.10.3/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-opsgenie/5.10.3
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -59,7 +59,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-opsgenie``
 
-Release: ``5.10.2``
+Release: ``5.10.3``
 
 
 `Opsgenie <https://www.atlassian.com/software/opsgenie>`__
@@ -72,7 +72,7 @@ This is a provider package for ``opsgenie`` provider. All classes for this provi
 are in ``airflow.providers.opsgenie`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-opsgenie/5.10.2/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-opsgenie/5.10.3/>`_.
 
 Installation
 ------------
@@ -114,5 +114,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-opsgenie/5.10.2/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-opsgenie/5.10.3/changelog.html>`_.
 

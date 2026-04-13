@@ -57,27 +57,11 @@ def test_all_pages_no_browser_errors(page: Page):
 
     def console_error_handler(msg: ConsoleMessage):
         if msg.type == "error":
-            # err: Dict[str, Any] = {}
-            # if msg.location:
-            #     err: Dict[str, Any] = dict(msg.location.items())
-            # err["text"] = msg.text
             errors.append(msg)
 
     def page_error_handler(err: Error):
         errors.append(err)
-        # print(err.args)
-        # print(err.stack.replace("\n", ""))
-        # print(err.name)
-        # print(err.message)
 
-    # page.on(
-    #     "console",
-    #     lambda msg: (
-    #         print(type(msg), msg.args, msg.location)
-    #         if msg.type == "error"
-    #         else None
-    #     ),
-    # )
     page.on(
         "console",
         console_error_handler,

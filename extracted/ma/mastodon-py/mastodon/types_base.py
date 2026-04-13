@@ -24,7 +24,6 @@ def base62_to_int(base62: str) -> int:
     """
     str_len = len(base62)
     val = 0
-    base62 = base62.lower()
     for idx, char in enumerate(base62):
         power = (str_len - (idx + 1))
         val += BASE62_ALPHABET.index(char) * (62 ** power)
@@ -92,7 +91,7 @@ def _str_to_type(mastopy_type):
         elif mastopy_type == "typing.Optional":
             full_type = Optional[sub_type]
         elif mastopy_type == "typing.Union":
-            full_type = Union.__getitem__(tuple(sub_type_list))
+            full_type = Union[tuple(sub_type_list)]
     else:
         full_type = ENTITY_NAME_MAP.get(mastopy_type, None)
     if full_type is None:
@@ -191,16 +190,17 @@ if sys.version_info < (3, 9):
         # I'm sorry about this, but I cannot think of another way to make this work properly in versions below 3.9 that
         # cannot resolve forward references in a sane way
         from mastodon.return_types import Account, AccountField, Role, CredentialAccountSource, \
-            Status, Quote, ShallowQuote, StatusEdit, FilterResult, StatusMention, \
-            ScheduledStatus, ScheduledStatusParams, Poll, PollOption, Conversation, Tag, \
-            TagHistory, CustomEmoji, Application, Relationship, Filter, FilterV2, \
-            Notification, Context, UserList, MediaAttachment, MediaAttachmentMetadataContainer, MediaAttachmentImageMetadata, \
-            MediaAttachmentVideoMetadata, MediaAttachmentAudioMetadata, MediaAttachmentFocusPoint, MediaAttachmentColors, PreviewCard, TrendingLinkHistory, \
-            PreviewCardAuthor, Search, SearchV2, Instance, InstanceConfiguration, InstanceURLs, \
-            InstanceV2, InstanceIcon, InstanceConfigurationV2, InstanceVapidKey, InstanceURLsV2, InstanceThumbnail, \
-            InstanceThumbnailVersions, InstanceStatistics, InstanceUsage, InstanceUsageUsers, RuleTranslation, Rule, \
-            InstanceRegistrations, InstanceContact, InstanceAccountConfiguration, InstanceStatusConfiguration, InstanceTranslationConfiguration, InstanceMediaConfiguration, \
-            InstancePollConfiguration, Nodeinfo, NodeinfoSoftware, NodeinfoServices, NodeinfoUsage, NodeinfoUsageUsers, \
+            Status, Quote, ShallowQuote, QuoteApproval, StatusEdit, FilterResult, \
+            StatusMention, ScheduledStatus, ScheduledStatusParams, Poll, PollOption, Conversation, \
+            Tag, TagHistory, CustomEmoji, Application, Relationship, Filter, \
+            FilterV2, Notification, Context, UserList, MediaAttachment, MediaAttachmentMetadataContainer, \
+            MediaAttachmentImageMetadata, MediaAttachmentVideoMetadata, MediaAttachmentAudioMetadata, MediaAttachmentFocusPoint, MediaAttachmentColors, PreviewCard, \
+            TrendingLinkHistory, PreviewCardAuthor, Search, SearchV2, Collection, CollectionItem, \
+            Instance, InstanceConfiguration, InstanceURLs, InstanceV2, InstanceIcon, InstanceConfigurationV2, \
+            InstanceVapidKey, InstanceURLsV2, InstanceThumbnail, InstanceThumbnailVersions, InstanceStatistics, InstanceUsage, \
+            InstanceUsageUsers, RuleTranslation, Rule, InstanceRegistrations, InstanceContact, InstanceAccountConfiguration, \
+            InstanceStatusConfiguration, InstanceTranslationConfiguration, InstanceMediaConfiguration, InstancePollConfiguration, InstanceTimelinesAccessConfiguration, InstanceTimelinesAccessFeedConfiguration, \
+            InstanceAnnualReportCampaign, Nodeinfo, NodeinfoSoftware, NodeinfoServices, NodeinfoUsage, NodeinfoUsageUsers, \
             NodeinfoMetadata, Activity, Report, AdminReport, WebPushSubscription, WebPushSubscriptionAlerts, \
             PushNotification, Preferences, FeaturedTag, Marker, Announcement, Reaction, \
             StreamReaction, FamiliarFollowers, AdminAccount, AdminIp, AdminMeasure, AdminMeasureData, \
@@ -209,7 +209,7 @@ if sys.version_info < (3, 9):
             FilterKeyword, FilterStatus, IdentityProof, StatusSource, Suggestion, Translation, \
             AccountCreationError, AccountCreationErrorDetails, AccountCreationErrorDetailsField, NotificationPolicy, NotificationPolicySummary, RelationshipSeveranceEvent, \
             GroupedNotificationsResults, PartialAccountWithAvatar, NotificationGroup, AccountWarning, UnreadNotificationsCount, Appeal, \
-            NotificationRequest, SupportedLocale, OAuthServerInfo, OAuthUserInfo, TermsOfService
+            NotificationRequest, SupportedLocale, OAuthServerInfo, OAuthUserInfo, TermsOfService, AsyncRefresh
         if isinstance(t, ForwardRef):
             try:
                 t = t._evaluate(globals(), locals(), frozenset())
@@ -488,6 +488,8 @@ class Entity():
             serialize_data["_mastopy_extra_data"]["_pagination_next"] = self._pagination_next
         if hasattr(self, "_pagination_prev") and self._pagination_prev is not None:
             serialize_data["_mastopy_extra_data"]["_pagination_prev"] = self._pagination_prev
+        if hasattr(self, "_async_refresh") and self._async_refresh is not None:
+            serialize_data["_mastopy_extra_data"]["_async_refresh"] = self._async_refresh
 
         def json_serial(obj):
             if isinstance(obj, datetime):
@@ -543,6 +545,8 @@ class Entity():
                 response_type = return_data._pagination_prev.get("_mastopy_type", None)
                 if response_type is not None:
                     return_data._pagination_prev["_mastopy_type"] = _str_to_type(response_type)
+            if "_async_refresh" in json_result["_mastopy_extra_data"]:
+                return_data._async_refresh = json_result["_mastopy_extra_data"]["_async_refresh"]
 
         return return_data
 
@@ -641,7 +645,7 @@ class AttribAccessDict(OrderedStrDict, Entity):
         """
         Override to force access of normal attributes to go through __getattr__
         """
-        if attr in ["_AttribAccessDict__union_specializer", "_mastopy_type", "__class__"]:
+        if attr in ["_AttribAccessDict__union_specializer", "_mastopy_type", "_async_refresh", "__class__"]:
             return super(AttribAccessDict, self).__getattribute__(attr)
         if attr in self.__class__.__annotations__:
             return self.__getattr__(attr)
@@ -676,8 +680,8 @@ class AttribAccessDict(OrderedStrDict, Entity):
         """
         Attribute setter that calls through to dict setter but will throw if attribute is not in dict
         """
-        if attr in self or attr in ["_AttribAccessDict__union_specializer", "_mastopy_type"]:
-            if attr == "_mastopy_type":
+        if attr in self or attr in ["_AttribAccessDict__union_specializer", "_mastopy_type", "_async_refresh"]:
+            if attr in ["_mastopy_type", "_async_refresh"]:
                 super(AttribAccessDict, self).__setattr__(attr, val)
             else:
                 self[attr] = val

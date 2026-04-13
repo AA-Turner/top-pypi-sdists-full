@@ -2,7 +2,7 @@ import argparse
 from dataclasses import fields
 import pathlib
 import sys
-from lark import __version__ as lark_version
+import gersemi_rust_backend
 from gersemi.__version__ import __title__, __version__
 from gersemi.configuration import (
     ControlConfiguration,
@@ -36,9 +36,9 @@ class ShowVersion(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         frozen_suffix = " (frozen)" if FROZEN else ""
         print(f"{__title__} {__version__}{frozen_suffix}")
-        print(f"lark {lark_version}")
         print(f"colorama {colorama_version}")
         print(f"Python {sys.version}")
+        print(gersemi_rust_backend.version())
         sys.exit(SUCCESS)
 
 
@@ -141,11 +141,16 @@ def create_argparser():
         help=f"{outcome_conf_doc['indent']} [default: {repr(OutcomeConfiguration.indent)}]",
     )
     outcome_configuration_group.add_argument(
+        "--safe",
         "--unsafe",
         dest="unsafe",
-        action="store_true",
+        action=toggle_action(lambda s: s == "--safe"),
+        nargs=0,
         default=None,
-        help=outcome_conf_doc["unsafe"],
+        help=f"""
+    {outcome_conf_doc["unsafe"]}
+    [default: skip sanity checks]
+            """,
     )
     outcome_configuration_group.add_argument(
         "--definitions",

@@ -1,7 +1,7 @@
-from lark import Discard, Tree
 from gersemi.ast_helpers import is_newline
 from gersemi.exceptions import ASTMismatch
-from gersemi.transformer import Transformer_InPlace
+from gersemi.transformer import Discard, Transformer_InPlace
+from gersemi.types import Tree
 
 
 def is_not_newline(node):
@@ -21,11 +21,11 @@ class DropIrrelevantNodes(Transformer_InPlace):
             return Tree("line_comment", [])
 
         comment_content, *_ = children
-        return Tree("line_comment", [comment_content.rstrip()])
+        return Tree("line_comment", [comment_content.value.rstrip()])
 
     def command_invocation(self, children):
         command_name, *rest = children
-        return Tree("command_invocation", [command_name.lower(), *rest])
+        return Tree("command_invocation", [str(command_name).lower(), *rest])
 
     def commented_argument(self, children):
         return Tree("commented_argument", list(remove_newlines(children)))
@@ -34,6 +34,10 @@ class DropIrrelevantNodes(Transformer_InPlace):
         if len(children) == 0:
             return Discard
         return Tree("non_command_element", children)
+
+    def custom_command(self, children):
+        _, identifier, arguments, _ = children
+        return Tree("command_invocation", [str(identifier).lower(), arguments])
 
     def command_element(self, children):
         if len(children) == 1:

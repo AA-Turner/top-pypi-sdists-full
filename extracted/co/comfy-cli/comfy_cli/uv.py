@@ -18,7 +18,21 @@ def _run(cmd: list[str], cwd: PathLike, check: bool = True) -> subprocess.Comple
 def _check_call(cmd: list[str], cwd: PathLike | None = None):
     """uses check_call to run pip, as reccomended by the pip maintainers.
     see https://pip.pypa.io/en/stable/user_guide/#using-pip-from-your-program"""
-    subprocess.check_call(cmd, cwd=cwd)
+    try:
+        subprocess.check_call(cmd, cwd=cwd)
+    except subprocess.CalledProcessError:
+        if len(cmd) >= 5 and cmd[1:4] == ["-m", "uv", "pip"] and cmd[4] in ("install", "sync"):
+            from rich import print as rprint
+
+            rprint(
+                "\n[bold yellow]Hint:[/bold yellow] If you are on a network filesystem "
+                "(RunPod, NFS, etc.), this may be caused by a known uv issue.\n"
+                "Try setting one of these environment variables before running comfy:\n"
+                "  [green]export UV_LINK_MODE=copy[/green]\n"
+                "  [green]export UV_CACHE_DIR=<your-workspace>/.cache/uv[/green]\n"
+                "See https://github.com/astral-sh/uv/issues/12036 for details."
+            )
+        raise
 
 
 _req_name_re: re.Pattern[str] = re.compile(r"require\s([\w-]+)")
@@ -442,7 +456,13 @@ class DependencyCompiler:
 
         with open(self.override, "a") as f:
             f.write("# ensure that core comfyui deps take precedence over any 3rd party extension deps\n")
-            for line in completed.stdout:
+            for line in completed.stdout.splitlines(keepends=True):
+                # Skip bare cuda-toolkit pins — torch>=2.11 depends on
+                # cuda-toolkit[cublas,cudart,...] and uv --override replaces
+                # the full spec, stripping extras and dropping CUDA runtime
+                # packages (nvidia-cuda-runtime, nvidia-cuda-nvrtc, …). #412
+                if line.strip().startswith("cuda-toolkit=="):
+                    continue
                 f.write(line)
             f.write("\n")
 

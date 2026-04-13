@@ -7,12 +7,31 @@ This module handles the extraction and analysis of symbols from ELF files,
 including symbol filtering, type mapping, and source file resolution.
 """
 
+import re
 from typing import Dict, List
 from itanium_demangler import parse as cpp_demangle
 from rust_demangler import demangle as rust_demangle
 from elftools.common.exceptions import ELFError
 from ..core.models import Symbol
 from ..core.exceptions import SymbolExtractionError
+
+
+# GCC/LLVM compiler-generated suffixes appended to mangled symbol names.
+# These are added by optimizations like partial inlining (.part), constant
+# propagation (.constprop), interprocedural SRA (.isra), cold path splitting
+# (.cold), and LTO (.lto_priv). They must be stripped before demangling.
+_COMPILER_SUFFIX_RE = re.compile(
+    r'(\.(part|constprop|isra|cold|lto_priv|llvm)\.\d+|\.(cold))$'
+)
+
+
+def strip_compiler_suffix(name: str) -> str:
+    """Strip GCC/LLVM compiler-generated suffixes from a symbol name.
+
+    Returns the name without the suffix. If no suffix is present, returns
+    the original name unchanged.
+    """
+    return _COMPILER_SUFFIX_RE.sub('', name)
 
 
 class SymbolExtractor:  # pylint: disable=too-few-public-methods
@@ -43,22 +62,32 @@ class SymbolExtractor:  # pylint: disable=too-few-public-methods
         if not name:
             return name
 
+        # Strip compiler-generated suffixes (e.g. .part.0, .constprop.1)
+        # before demangling, then re-append to the result
+        suffix_match = _COMPILER_SUFFIX_RE.search(name)
+        if suffix_match:
+            base_name = name[:suffix_match.start()]
+            suffix = suffix_match.group()
+        else:
+            base_name = name
+            suffix = ''
+
         # Rust v0 mangling (starts with _R)
-        if name.startswith('_R'):
-            return self._demangle_rust(name)
+        if base_name.startswith('_R'):
+            return self._demangle_rust(base_name) + suffix
 
         # Could be C++ or legacy Rust (both use _ZN prefix)
-        if name.startswith('_ZN'):
+        if base_name.startswith('_ZN'):
             # Try Rust first (legacy Rust uses _ZN prefix)
-            rust_result = self._demangle_rust(name)
-            if rust_result != name:
-                return rust_result
+            rust_result = self._demangle_rust(base_name)
+            if rust_result != base_name:
+                return rust_result + suffix
             # Fall back to C++
-            return self._demangle_cpp(name)
+            return self._demangle_cpp(base_name) + suffix
 
         # Standard C++ mangling (_Z but not _ZN)
-        if name.startswith('_Z'):
-            return self._demangle_cpp(name)
+        if base_name.startswith('_Z'):
+            return self._demangle_cpp(base_name) + suffix
 
         return name
 
@@ -78,7 +107,9 @@ class SymbolExtractor:  # pylint: disable=too-few-public-methods
         except Exception:  # pylint: disable=broad-exception-caught
             return name
 
-    def extract_symbols(self, source_resolver) -> List[Symbol]:
+    def extract_symbols(  # pylint: disable=too-many-locals
+        self, source_resolver, map_resolver=None
+    ) -> List[Symbol]:
         """Extract symbol information from ELF file with source file mapping."""
         symbols = []
 
@@ -108,6 +139,27 @@ class SymbolExtractor:  # pylint: disable=too-few-public-methods
                     symbol_name, symbol_type, symbol_address
                 )
 
+                # Get symbol visibility
+                visibility = 'DEFAULT'  # Default value
+                try:
+                    if hasattr(
+                            symbol,
+                            'st_other') and hasattr(
+                            symbol['st_other'],
+                            'visibility'):
+                        visibility = symbol['st_other']['visibility'].replace(
+                            'STV_', '')
+                except (KeyError, AttributeError):
+                    pass
+
+                # Get archive/object file from map file resolver
+                if map_resolver is not None:
+                    archive, object_file = map_resolver.resolve(
+                        symbol_address)
+                else:
+                    archive, object_file = '', ''
+
+
                 symbols.append(Symbol(
                     name=symbol_name,
                     address=symbol_address,
@@ -116,6 +168,9 @@ class SymbolExtractor:  # pylint: disable=too-few-public-methods
                     binding=symbol_binding,
                     section=section_name,
                     source_file=source_file,
+                    visibility=visibility,
+                    archive=archive,
+                    object_file=object_file
                 ))
 
         except (IOError, OSError) as e:

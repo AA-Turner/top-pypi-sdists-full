@@ -19,24 +19,26 @@ interactions:
       string: '[{"id": "202", "phrase": "animes", "context": ["home"], "whole_word":
         false, "expires_at": null, "irreversible": false}]'
     headers:
+      Accept-Ranges:
+      - none
       Connection:
       - keep-alive
       Date:
-      - Fri, 15 Aug 2025 20:18:51 GMT
+      - Sat, 11 Apr 2026 23:14:23 GMT
       Strict-Transport-Security:
       - max-age=31557600
       Vary:
       - Authorization, Origin, Accept-Encoding
+      Via:
+      - 1.1 varnish, 1.1 varnish
       X-Cache:
       - MISS, MISS, MISS
       X-Cache-Hits:
       - 0, 0, 0
       X-Served-By:
-      - cache-fra-etou8220107-FRA, cache-fra-eddf8230151-FRA, cache-hel1410030-HEL
+      - cache-fra-eddf8230041-FRA, cache-fra-eddf8230057-FRA, cache-hel1410025-HEL
       X-Timer:
-      - S1755289132.636629,VS0,VE97
-      accept-ranges:
-      - none
+      - S1775949263.968890,VS0,VE93
       alt-svc:
       - h3=":443";ma=86400,h3-29=":443";ma=86400,h3-27=":443";ma=86400
       cache-control:
@@ -53,10 +55,10 @@ interactions:
       - W/"57c790beb80237a431ff7945557e5ab3"
       referrer-policy:
       - same-origin
+      server:
+      - Mastodon
       transfer-encoding:
       - chunked
-      via:
-      - 1.1 varnish, 1.1 varnish, 1.1 varnish
       x-content-type-options:
       - nosniff
       x-frame-options:
@@ -64,13 +66,13 @@ interactions:
       x-ratelimit-limit:
       - '300'
       x-ratelimit-remaining:
-      - '246'
+      - '275'
       x-ratelimit-reset:
-      - '2025-08-15T20:20:00.696401Z'
+      - '2026-04-11T23:15:00.029711Z'
       x-request-id:
-      - 16a46cdf113e0e02c501df3015fc3e9e
+      - e21c5688-06d4-448c-9790-c8b2d30c78d6
       x-runtime:
-      - '0.029340'
+      - '0.021213'
       x-xss-protection:
       - '0'
     status:

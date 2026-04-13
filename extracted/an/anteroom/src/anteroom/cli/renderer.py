@@ -85,7 +85,7 @@ def _apply_markdown_theme() -> None:
         setattr(c, "_anteroom_markdown_theme_applied", True)
 
 
-_ESC_HINT_DELAY: float = 8.0  # seconds before showing "esc to cancel" hint
+_ESC_HINT_DELAY: float = 5.0  # seconds before showing "esc to cancel" hint
 _STALL_THRESHOLD: float = 15.0  # seconds before showing API stall warning
 _REPL_THINKING_REVEAL_DELAY: float = 2.0  # seconds before first REPL thinking line
 
@@ -158,12 +158,17 @@ _thinking_cancelled: bool = False  # guard flag to suppress stale ticker output 
 _thinking_line_visible: bool = False
 
 # Lifecycle phase tracking
-_thinking_phase: str = ""  # current phase: connecting, waiting, streaming
+_thinking_phase: str = ""  # current phase: connecting, waiting, streaming, tool_exec
 _thinking_tokens: int = 0  # token counter during streaming
 _streaming_chars: int = 0  # character counter during streaming
 _last_chunk_time: float = 0  # monotonic time of last token (for stall detection)
 _phase_start_time: float = 0  # monotonic time when current phase began
 _MID_STREAM_STALL: float = 5.0  # seconds of silence before marking "stalled"
+
+# Tool execution phase tracking (#1366)
+_active_tool_count: int = 0
+_active_tool_names: list[str] = []
+_active_tool_summaries: list[str] = []
 
 # Throughput-based stall detection (#774): catches slow-trickle streams where
 # tiny chunks arrive often enough to avoid gap-based detection but overall
@@ -541,7 +546,8 @@ def get_busy_status() -> BusyStatus | None:
         # ANSI escapes which would render as garbled text in prompt_toolkit.
         if elapsed >= _REPL_THINKING_REVEAL_DELAY or _plan_visible:
             suffix = _phase_suffix(elapsed)
-            thinking_text = f"Thinking... {elapsed:.0f}s"
+            label = _phase_label()
+            thinking_text = f"{label} {elapsed:.0f}s"
             if suffix:
                 thinking_text += f"  {suffix}"
         show_cancel = elapsed >= _ESC_HINT_DELAY
@@ -572,7 +578,8 @@ async def _thinking_ticker() -> None:
                 elapsed = time.monotonic() - _thinking_start
                 suffix = _phase_suffix(elapsed)
                 if _spinner:
-                    label = f"[{GOLD}]Thinking...[/] [{CHROME}]{elapsed:.0f}s[/{CHROME}]"
+                    plabel = _phase_label()
+                    label = f"[{GOLD}]{plabel}[/] [{CHROME}]{elapsed:.0f}s[/{CHROME}]"
                     if suffix:
                         label += f"  [{MUTED}]{suffix}[/{MUTED}]"
                     _spinner.update(label)
@@ -603,6 +610,7 @@ def start_thinking(*, newline: bool = False) -> None:
     if _tool_batch_active:
         console.print()
     _tool_batch_active = False
+    _reset_tool_phase()
     _thinking_start = time.monotonic()
     _thinking_phase = ""
     _thinking_tokens = 0
@@ -678,24 +686,26 @@ def _build_thinking_text(
     ):
         return ""
 
+    label = _phase_label()
+
     if elapsed < 3.0 and not error_msg and not cancel_msg:
-        return f"{gold}Thinking...{rst}"
+        return f"{gold}{label}{rst}"
 
     timer = f"{timer_c}{elapsed:.0f}s{rst}"
     if cancel_msg:
-        return f"{gold}Thinking...{rst} {timer}  {muted}{cancel_msg}{rst}"
+        return f"{gold}{label}{rst} {timer}  {muted}{cancel_msg}{rst}"
     if error_msg:
         err_text = f"  {err_c}{error_msg}{rst}"
         if countdown > 0:
             retry_text = f" \u00b7 {muted}retrying in {countdown}s{rst}"
             hint = f"  {muted}esc to give up{rst}"
-            return f"{gold}Thinking...{rst} {timer}{err_text}{retry_text}{hint}"
-        return f"{gold}Thinking...{rst} {timer}{err_text}"
+            return f"{gold}{label}{rst} {timer}{err_text}{retry_text}{hint}"
+        return f"{gold}{label}{rst} {timer}{err_text}"
 
     hint = f"  {muted}esc to cancel{rst}" if elapsed >= _ESC_HINT_DELAY else ""
     suffix = _phase_suffix(elapsed)
     phase_text = f"  {muted}{suffix}{rst}" if suffix else ""
-    return f"{gold}Thinking...{rst} {timer}{phase_text}{hint}"
+    return f"{gold}{label}{rst} {timer}{phase_text}{hint}"
 
 
 def _write_thinking_block(
@@ -946,10 +956,12 @@ async def stop_thinking(
     return elapsed
 
 
-def stop_thinking_sync() -> float:
+def stop_thinking_sync(*, cancel_msg: str = "") -> float:
     """Synchronous fallback for stop_thinking (KeyboardInterrupt handlers).
 
     Does not await the ticker — use only when an event loop is unavailable.
+    Renders an optional *cancel_msg* in all three render modes so the user
+    sees immediate visual acknowledgment from the keybinding handler thread.
     """
     global _spinner, _thinking_ticker_task, _plan_written_lines, _thinking_start
     global _thinking_cancelled, _thinking_line_visible, _footer_mode
@@ -964,7 +976,22 @@ def stop_thinking_sync() -> float:
         _spinner = None
     elif _footer_mode:
         elapsed = time.monotonic() - _thinking_start
+        # Footer mode: toolbar owns the busy indicator.  Clear footer state
+        # FIRST to prevent the ticker from writing concurrently, then render
+        # the cancel ack directly to the raw stderr fd.
+        #
+        # Cannot use console.print() here — it routes through patch_stdout
+        # proxy which requires the event loop to flush.  _stdout bypasses
+        # the proxy (same pattern as approval prompts via write_raw()).
         _footer_mode = False
+        if cancel_msg and _stdout:
+            gold = _theme.ansi_fg("accent")
+            timer_c = _theme.ansi_fg("chrome")
+            muted = _theme.ansi_fg("muted")
+            rst = _theme.ansi_reset
+            text = f"{gold}Thinking...{rst} {timer_c}{elapsed:.0f}s{rst}  {muted}{cancel_msg}{rst}"
+            _stdout.write(f"\r\033[2K{text}\n")
+            _stdout.flush()
         if _toolbar_invalidator:
             _toolbar_invalidator()
     else:
@@ -977,8 +1004,13 @@ def stop_thinking_sync() -> float:
                     _stdout.write("\r\033[2K\n")
                 _stdout.write("\033[1A")
                 _plan_written_lines = 0
-            _stdout.write("\r\033[2K")
-            _stdout.flush()
+            if cancel_msg:
+                _write_thinking_line(elapsed, cancel_msg=cancel_msg)
+                _stdout.write("\n")
+                _stdout.flush()
+            else:
+                _stdout.write("\r\033[2K")
+                _stdout.flush()
     _thinking_start = 0
     _thinking_line_visible = False
     return elapsed
@@ -1073,14 +1105,88 @@ def increment_streaming_chars(n: int) -> None:
         _throughput_window.popleft()
 
 
-def _phase_elapsed_str() -> str:
-    """Return per-phase elapsed as ``(Ns)`` when > 1s, else empty string."""
-    if not _phase_start_time:
-        return ""
-    phase_secs = time.monotonic() - _phase_start_time
-    if phase_secs >= 1.5:
-        return f" ({phase_secs:.0f}s)"
-    return ""
+def _phase_label() -> str:
+    """Return a phase-aware label for the thinking line (#1366).
+
+    Maps the current ``_thinking_phase`` to a user-friendly label:
+    - ``""`` / unknown → ``"Thinking..."``
+    - ``connecting`` → ``"Connecting..."``
+    - ``waiting`` → ``"Thinking..."``
+    - ``streaming`` → ``"Writing..."``
+    - ``retrying`` → ``"Thinking..."`` (retry suffix handles detail)
+    - ``tool_exec`` → tool-context label via ``_tool_phase_label()``
+    """
+    phase = _thinking_phase
+    if phase == "connecting":
+        return "Connecting..."
+    if phase == "streaming":
+        return "Writing..."
+    if phase == "tool_exec":
+        return _tool_phase_label()
+    # waiting, retrying, empty, unknown → default
+    return "Thinking..."
+
+
+def _tool_phase_label() -> str:
+    """Build the tool execution phase label from active tool state (#1366).
+
+    - 1 tool: use humanized summary (e.g. "Reading src/foo.py...")
+    - N tools of same action: group label (e.g. "Reading 3 files...")
+    - N tools of mixed actions: "Running N tools..."
+    - 0 tools (shouldn't happen): "Running tools..."
+    """
+    if _active_tool_count == 0:
+        return "Running tools..."
+    if _active_tool_count == 1 and _active_tool_summaries:
+        summary = _active_tool_summaries[0]
+        if not summary.endswith("..."):
+            summary += "..."
+        return summary
+    # Multiple tools: check if they share an action prefix
+    if _active_tool_summaries:
+        prefixes = set()
+        for s in _active_tool_summaries:
+            prefix = s.split(" ", 1)[0] if " " in s else s
+            prefixes.add(prefix)
+        if len(prefixes) == 1:
+            prefix = next(iter(prefixes))
+            noun = "files" if prefix in ("Reading", "Writing", "Editing") else "patterns"
+            return f"{prefix} {_active_tool_count} {noun}..."
+    return f"Running {_active_tool_count} tools..."
+
+
+def enter_tool_phase(tool_name: str, arguments: dict[str, Any]) -> None:
+    """Track a tool starting execution for phase display (#1366)."""
+    global _active_tool_count
+    _active_tool_count += 1
+    _active_tool_names.append(tool_name)
+    summary = _humanize_tool(tool_name, arguments)
+    _active_tool_summaries.append(summary)
+
+
+def exit_tool_phase(tool_name: str) -> None:
+    """Track a tool completing execution (#1366)."""
+    global _active_tool_count
+    if _active_tool_count > 0:
+        _active_tool_count -= 1
+    # Remove the first occurrence of this tool name
+    if tool_name in _active_tool_names:
+        idx = _active_tool_names.index(tool_name)
+        _active_tool_names.pop(idx)
+        if idx < len(_active_tool_summaries):
+            _active_tool_summaries.pop(idx)
+    # Clear tool_exec phase when all tools complete
+    if _active_tool_count == 0:
+        _active_tool_names.clear()
+        _active_tool_summaries.clear()
+
+
+def _reset_tool_phase() -> None:
+    """Reset tool phase tracking state."""
+    global _active_tool_count
+    _active_tool_count = 0
+    _active_tool_names.clear()
+    _active_tool_summaries.clear()
 
 
 def _phase_suffix(elapsed: float) -> str:
@@ -1098,13 +1204,12 @@ def _phase_suffix(elapsed: float) -> str:
         attempt = _retrying_info.get("attempt", 2)
         max_attempts = _retrying_info.get("max_attempts", 3)
         return f"retry {attempt}/{max_attempts}"
-    pe = _phase_elapsed_str()
     if phase == "streaming":
         now = time.monotonic()
         # Gap-based stall: always shown immediately
         if _last_chunk_time and now - _last_chunk_time > _MID_STREAM_STALL:
             stall_secs = now - _last_chunk_time
-            return f"streaming · {_streaming_chars:,} chars · stalled {stall_secs:.0f}s"
+            return f"{_streaming_chars:,} chars · stalled {stall_secs:.0f}s"
         # Throughput-based stall (#774): always shown after warmup
         if _phase_start_time and now - _phase_start_time > _THROUGHPUT_WARMUP_SECS and _throughput_window:
             window_span = now - _throughput_window[0][0]
@@ -1112,18 +1217,22 @@ def _phase_suffix(elapsed: float) -> str:
                 window_chars = sum(n for _, n in _throughput_window)
                 throughput = window_chars / window_span
                 if throughput < _THROUGHPUT_STALL_THRESHOLD:
-                    return f"streaming · {_streaming_chars:,} chars · slow ({throughput:.0f} chars/s)"
+                    return f"{_streaming_chars:,} chars · slow ({throughput:.0f} chars/s)"
         # Normal streaming detail suppressed during calm window
         if elapsed < 5.0:
             return ""
-        return f"streaming · {_streaming_chars:,} chars"
-    # connecting/waiting suppressed during calm window
+        return f"{_streaming_chars:,} chars"
+    # tool_exec: label already shows tool context via _phase_label(); no suffix needed
+    if phase == "tool_exec":
+        return ""
+    # connecting: label already says "Connecting..." — no suffix needed (#1382)
+    if phase == "connecting":
+        return ""
+    # waiting suppressed during calm window
     if elapsed < 5.0:
         return ""
-    if phase == "connecting":
-        return f"connecting{pe}"
     if phase == "waiting":
-        return f"connected · waiting for first token{pe}"
+        return "waiting for first token"
     return phase
 
 
@@ -1409,7 +1518,11 @@ async def _tool_ticker() -> None:
 def start_tool_ticker(summary: str) -> None:
     """Start a live elapsed timer for the current tool call."""
     global _tool_ticker_task, _tool_ticker_summary, _tool_spinner
-    _tool_ticker_summary = summary
+    # When multiple tools are active in parallel, show a grouped summary (#1366)
+    if _active_tool_count > 1:
+        _tool_ticker_summary = _tool_phase_label()
+    else:
+        _tool_ticker_summary = summary
     if _tool_ticker_task is not None:
         _tool_ticker_task.cancel()
         _tool_ticker_task = None

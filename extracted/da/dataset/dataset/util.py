@@ -1,56 +1,77 @@
-from hashlib import sha1
-from urllib.parse import urlparse, urlencode
 from collections import OrderedDict
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from datetime import date, datetime
+from decimal import Decimal
+from hashlib import sha1
+from typing import Any
+from urllib.parse import urlencode, urlparse
+
+from sqlalchemy import Connection, ResultProxy
+from sqlalchemy.engine import Row
 from sqlalchemy.exc import ResourceClosedError
 
 QUERY_STEP = 1000
-row_type = OrderedDict
 
-try:
-    # SQLAlchemy > 1.4.0, new row model.
-    from sqlalchemy.engine import Row  # noqa
+# Type definitions for SQL values and rows
+SQLPlainValue = (
+    None  # NULL
+    | bool  # BOOLEAN
+    | int  # INTEGER, BIGINT
+    | float  # FLOAT, REAL, DOUBLE
+    | str  # VARCHAR, TEXT, CHAR
+    | bytes  # BINARY, BLOB, BYTEA
+    | Decimal  # NUMERIC, DECIMAL
+    | date  # DATE
+    | datetime  # DATETIME, TIMESTAMP
+)
+SQLWriteValue = (
+    SQLPlainValue
+    | dict[str, SQLPlainValue]  # JSON, JSONB
+    | list[SQLPlainValue]  # JSON arrays
+)
 
-    def convert_row(row_type, row):
-        if row is None:
-            return None
-        return row_type(row._mapping.items())
+# Type alias for input rows (dict-like with SQL-compatible values)
+WriteRow = Mapping[str, SQLWriteValue]
+# Mutable row dict — used where rows are built up or mutated in place
+MutableRow = dict[str, SQLWriteValue]
+OutRow = Mapping[str, Any]
+RowFactory = Callable[[Iterable[tuple[str, Any]]], OutRow]
+
+row_factory: RowFactory = OrderedDict
 
 
-except ImportError:
-    # SQLAlchemy < 1.4.0, no _mapping.
-
-    def convert_row(row_type, row):
-        if row is None:
-            return None
-        return row_type(row.items())
+def convert_row(factory: RowFactory, row: Row[Any]) -> OutRow:
+    return factory(row._mapping.items())  # type: ignore[arg-type]
 
 
-class DatasetException(Exception):
+class DatasetError(Exception):
     pass
 
 
-def iter_result_proxy(rp, step=None):
+class QueryError(DatasetError):
+    pass
+
+
+def iter_result_proxy(
+    rp: ResultProxy[Any], step: int | None = None
+) -> Iterator[Row[Any]]:
     """Iterate over the ResultProxy."""
     while True:
-        if step is None:
-            chunk = rp.fetchall()
-        else:
-            chunk = rp.fetchmany(size=step)
+        chunk = rp.fetchall() if step is None else rp.fetchmany(size=step)
         if not chunk:
             break
-        for row in chunk:
-            yield row
+        yield from chunk
 
 
 def make_sqlite_url(
-    path,
-    cache=None,
-    timeout=None,
-    mode=None,
-    check_same_thread=True,
-    immutable=False,
-    nolock=False,
-):
+    path: str,
+    cache: str | None = None,
+    timeout: int | None = None,
+    mode: str | None = None,
+    check_same_thread: bool = True,
+    immutable: bool = False,
+    nolock: bool = False,
+) -> str:
     # NOTE: this PR
     # https://gerrit.sqlalchemy.org/c/sqlalchemy/sqlalchemy/+/1474/
     # added support for URIs in SQLite
@@ -58,7 +79,7 @@ def make_sqlite_url(
     # https://docs.python.org/3/library/sqlite3.html#sqlite3.connect
     # and
     # https://www.sqlite.org/uri.html
-    params = {}
+    params: dict[str, Any] = {}
     if cache:
         assert cache in ("shared", "private")
         params["cache"] = cache
@@ -80,21 +101,32 @@ def make_sqlite_url(
     return "sqlite:///file:" + path + "?" + urlencode(params)
 
 
-class ResultIter(object):
+class ResultIter(Iterator[OutRow]):
     """SQLAlchemy ResultProxies are not iterable to get a
     list of dictionaries. This is to wrap them."""
 
-    def __init__(self, result_proxy, row_type=row_type, step=None):
+    def __init__(
+        self,
+        result_proxy: ResultProxy[Any] | None,
+        row_type: RowFactory = row_factory,
+        step: int | None = None,
+        connection: Connection | None = None,
+    ):
         self.row_type = row_type
         self.result_proxy = result_proxy
-        try:
-            self.keys = list(result_proxy.keys())
-            self._iter = iter_result_proxy(result_proxy, step=step)
-        except ResourceClosedError:
-            self.keys = []
-            self._iter = iter([])
+        self._conn = connection
+        if result_proxy is None:
+            self.keys: list[str] = []
+            self._iter: Iterator[Row[Any]] = iter([])
+        else:
+            try:
+                self.keys = list(result_proxy.keys())
+                self._iter = iter_result_proxy(result_proxy, step=step)
+            except ResourceClosedError:
+                self.keys = []
+                self._iter = iter([])
 
-    def __next__(self):
+    def __next__(self) -> OutRow:
         try:
             return convert_row(self.row_type, next(self._iter))
         except StopIteration:
@@ -103,17 +135,30 @@ class ResultIter(object):
 
     next = __next__
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[OutRow]:
         return self
 
-    def close(self):
-        self.result_proxy.close()
+    def close(self) -> None:
+        if self.result_proxy is not None:
+            self.result_proxy.close()
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
 
 
-def normalize_column_name(name):
+def ensure_strings(value: str | Iterable[str] | None) -> list[str]:
+    """Normalize a string-or-list-of-strings argument to a list."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return list(value)
+
+
+def normalize_column_name(name: str) -> str:
     """Check if a string is a reasonable thing to use as a column name."""
     if not isinstance(name, str):
-        raise ValueError("%r is not a valid column name." % name)
+        raise ValueError(f"{name!r} is not a valid column name.")
 
     # limit to 63 characters
     name = name.strip()[:63]
@@ -123,44 +168,46 @@ def normalize_column_name(name):
             name = name[: len(name) - 1]
 
     if not len(name) or "." in name or "-" in name:
-        raise ValueError("%r is not a valid column name." % name)
+        raise ValueError(f"{name!r} is not a valid column name.")
     return name
 
 
-def normalize_column_key(name):
+def normalize_column_key(name: str | None) -> str | None:
     """Return a comparable column name."""
     if name is None or not isinstance(name, str):
         return None
     return name.upper().strip().replace(" ", "")
 
 
-def normalize_table_name(name):
+def normalize_table_name(name: str) -> str:
     """Check if the table name is obviously invalid."""
     if not isinstance(name, str):
-        raise ValueError("Invalid table name: %r" % name)
+        raise ValueError(f"Invalid table name: {name!r}")
     name = name.strip()[:63]
     if not len(name):
-        raise ValueError("Invalid table name: %r" % name)
+        raise ValueError(f"Invalid table name: {name!r}")
     return name
 
 
-def safe_url(url):
+def safe_url(url: str) -> str:
     """Remove password from printed connection URLs."""
     parsed = urlparse(url)
     if parsed.password is not None:
-        pwd = ":%s@" % parsed.password
+        pwd = f":{parsed.password}@"
         url = url.replace(pwd, ":*****@")
     return url
 
 
-def index_name(table, columns):
+def index_name(table: str, columns: list[str]) -> str:
     """Generate an artificial index name."""
     sig = "||".join(columns)
     key = sha1(sig.encode("utf-8")).hexdigest()[:16]
-    return "ix_%s_%s" % (table, key)
+    return f"ix_{table}_{key}"
 
 
-def pad_chunk_columns(chunk, columns):
+def pad_chunk_columns(
+    chunk: list[MutableRow], columns: Iterable[str]
+) -> list[MutableRow]:
     """Given a set of items to be inserted, make sure they all have the
     same columns by padding columns with None if they are missing."""
     for record in chunk:

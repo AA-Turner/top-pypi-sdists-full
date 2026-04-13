@@ -19,7 +19,7 @@ use std::{env, ops::Deref, sync::LazyLock, vec};
 
 use fst::Map;
 use github_actions_expressions::{Expr, context::Context, literal::Literal};
-use github_actions_models::common::{EnvValue, RepositoryUses, Uses};
+use github_actions_models::common::{EnvValue, RepositoryUses, Uses, expr::LoE};
 use itertools::Itertools as _;
 
 use super::{Audit, AuditLoadError, audit_meta};
@@ -119,7 +119,7 @@ impl TemplateInjection {
         match step.body() {
             models::StepBodyCommon::Uses {
                 uses: Uses::Repository(uses),
-                with,
+                with: LoE::Literal(with),
             } => TemplateInjection::action_injection_sinks(uses)
                 .iter()
                 .filter_map(|input| {
@@ -216,7 +216,8 @@ impl TemplateInjection {
         // TODO: We could probably go a step further here and avoid the
         // loop below entirely, since we expect `env` contexts to only
         // have a single part, i.e. `foo.bar` and never `foo.bar.baz`.
-        if ctx.child_of("env") {
+        let is_env_context = ctx.child_of("env");
+        if is_env_context {
             ctx_parts.next();
         }
 
@@ -271,7 +272,16 @@ impl TemplateInjection {
             }
         }
 
-        Some(env_parts.join("_").to_uppercase())
+        let env_var = env_parts.join("_");
+
+        // For `env` contexts, preserve the original case since these refer
+        // to existing environment variables. GitHub recommends treating
+        // environment variables as case sensitive.
+        if is_env_context {
+            Some(env_var)
+        } else {
+            Some(env_var.to_uppercase())
+        }
     }
 
     /// Attempts to produce a `Fix` for a given expression.
@@ -412,6 +422,9 @@ impl TemplateInjection {
                                 // Without a FST match, we fall back on heuristics.
                                 if context.child_of("secrets") {
                                     // While not ideal, secret expansion is typically not exploitable.
+                                    continue;
+                                } else if context.matches("needs.*.result") {
+                                    // `result` is always one of `success`, `failure`, `cancelled`, or `skipped`.
                                     continue;
                                 } else if context.child_of("inputs") {
                                     let (severity, confidence, persona) = match context
@@ -1059,7 +1072,7 @@ jobs:
                           echo "User: ${GITHUB_ACTOR}"
                           echo "User: ${GITHUB_ACTOR}"
                           echo "User: ${GITHUB_ACTOR}"
-                          echo "User: ${GITHUB_ACTOR}"
+                          echo "User: ${github_actor}"
                 "#);
             }
         );
@@ -1133,9 +1146,7 @@ jobs:
             Some(Capability::Arbitrary)
         ));
         assert!(matches!(
-            Capability::from_context(
-                "github.event.workflow_run.triggering_actor.organizations_url"
-            ),
+            Capability::from_context("github.event.answer.user.gists_url"),
             Some(Capability::Structured)
         ));
         assert!(matches!(
@@ -1169,15 +1180,15 @@ jobs:
             ("foo.bar['baz']['quux'].zap", Some("FOO_BAR_BAZ_QUUX_ZAP")),
             ("github.event.issue.title", Some("GITHUB_EVENT_ISSUE_TITLE")),
             // Calls not supported
-            ("call(foo.bar).baz", None),
+            ("fromJSON(foo.bar).baz", None),
             // Computed indices not supported
             ("foo.bar[computed]", None),
             ("foo.bar[abc && def]", None),
-            // env contexts should have the env prefix removed
+            // env contexts should have the env prefix removed and preserve case
             ("env.FOO_BAR", Some("FOO_BAR")),
-            ("env.foo_bar", Some("FOO_BAR")),
-            ("ENV.foo_bar", Some("FOO_BAR")),
-            ("ENV['foo_bar']", Some("FOO_BAR")),
+            ("env.foo_bar", Some("foo_bar")),
+            ("ENV.foo_bar", Some("foo_bar")),
+            ("ENV['foo_bar']", Some("foo_bar")),
             ("env.GITHUB_ACTOR", Some("GITHUB_ACTOR")),
             // FIXME: soundness hole
             (
@@ -1321,7 +1332,7 @@ jobs:
                         finding,
                         "replace expression with environment variable",
                     );
-                    insta::assert_snapshot!(fixed_content.source(), @r"
+                    insta::assert_snapshot!(fixed_content.source(), @"
 
                     name: Test Template Injection - CMD
                     on: push
@@ -1507,7 +1518,7 @@ jobs:
                         finding,
                         "replace expression with environment variable",
                     );
-                    insta::assert_snapshot!(fixed_content.source(), @r"
+                    insta::assert_snapshot!(fixed_content.source(), @"
 
                     name: Test Template Injection - CMD with Custom Env
                     on: push

@@ -22,17 +22,21 @@ from anteroom.cli.renderer import (
     _has_diff_data,
     _humanize_tool,
     _output_summary,
-    _phase_elapsed_str,
+    _phase_label,
     _phase_suffix,
     _plan_block_height,
     _render_inline_diff,
+    _reset_tool_phase,
     _short_path,
+    _tool_phase_label,
     _write_thinking_block,
     _write_thinking_line,
     clear_plan,
     clear_turn_history,
     configure_thresholds,
     cycle_verbosity,
+    enter_tool_phase,
+    exit_tool_phase,
     flush_buffered_text,
     format_status_toolbar,
     get_busy_status,
@@ -1089,7 +1093,21 @@ class TestWriteThinkingLine:
         r._stdout = None
 
     def test_no_hint_under_threshold(self) -> None:
-        """Between 3s and 8s: timer shown but no ESC hint (#1052)."""
+        """Between 3s and 5s: timer shown but no ESC hint (#1366 lowered from 8s to 5s)."""
+        import io
+
+        import anteroom.cli.renderer as r
+
+        buf = io.StringIO()
+        r._stdout = buf
+        _write_thinking_line(4.0)
+        output = buf.getvalue()
+        assert "4s" in output
+        assert "esc to cancel" not in output
+        r._stdout = None
+
+    def test_hint_at_threshold(self) -> None:
+        """At 5s: ESC hint appears (#1366 lowered from 8s to 5s)."""
         import io
 
         import anteroom.cli.renderer as r
@@ -1099,20 +1117,6 @@ class TestWriteThinkingLine:
         _write_thinking_line(5.0)
         output = buf.getvalue()
         assert "5s" in output
-        assert "esc to cancel" not in output
-        r._stdout = None
-
-    def test_hint_at_threshold(self) -> None:
-        """At 8s: ESC hint appears (#1052)."""
-        import io
-
-        import anteroom.cli.renderer as r
-
-        buf = io.StringIO()
-        r._stdout = buf
-        _write_thinking_line(8.0)
-        output = buf.getvalue()
-        assert "8s" in output
         assert "esc to cancel" in output
         r._stdout = None
 
@@ -1442,12 +1446,12 @@ class TestThinkingPhases:
         assert _phase_suffix(5.0) == ""
 
     def test_phase_suffix_shown_in_compact_mode(self) -> None:
-        """_phase_suffix returns phase text in COMPACT mode after calm window (#1052)."""
+        """_phase_suffix returns empty for connecting in COMPACT mode (#1052, #1382)."""
         import anteroom.cli.renderer as r
 
         set_verbosity(Verbosity.COMPACT)
         r._thinking_phase = "connecting"
-        assert _phase_suffix(6.0) == "connecting"
+        assert _phase_suffix(6.0) == ""
 
     def test_phase_suffix_retry_always_visible(self) -> None:
         """_phase_suffix shows retry immediately even during calm window (#1052)."""
@@ -1467,11 +1471,11 @@ class TestThinkingPhases:
         assert _phase_suffix(3.0) == ""
 
     def test_phase_suffix_connecting(self) -> None:
-        """_phase_suffix returns 'connecting' after calm window (#1052)."""
+        """_phase_suffix returns '' for connecting — label already says it (#1382)."""
         import anteroom.cli.renderer as r
 
         r._thinking_phase = "connecting"
-        assert _phase_suffix(6.0) == "connecting"
+        assert _phase_suffix(6.0) == ""
 
     def test_phase_suffix_connecting_suppressed_in_calm_window(self) -> None:
         """_phase_suffix returns '' for connecting during calm window (#1052)."""
@@ -1481,21 +1485,21 @@ class TestThinkingPhases:
         assert _phase_suffix(3.0) == ""
 
     def test_phase_suffix_waiting(self) -> None:
-        """_phase_suffix returns 'connected · waiting for first token' after calm window (#1052)."""
+        """_phase_suffix returns 'waiting for first token' after calm window (#1052, #1382)."""
         import anteroom.cli.renderer as r
 
         r._thinking_phase = "waiting"
-        assert _phase_suffix(6.0) == "connected · waiting for first token"
+        assert _phase_suffix(6.0) == "waiting for first token"
 
     def test_phase_suffix_streaming_with_char_count(self) -> None:
-        """_phase_suffix returns 'streaming · N chars' after calm window (#1052)."""
+        """_phase_suffix returns 'N chars' after calm window (#1052, #1382)."""
         import anteroom.cli.renderer as r
 
         r._thinking_phase = "streaming"
         r._streaming_chars = 420
         r._last_chunk_time = time.monotonic()  # recent, no stall
         result = _phase_suffix(6.0)
-        assert result == "streaming · 420 chars"
+        assert result == "420 chars"
 
     def test_phase_suffix_streaming_stalled(self) -> None:
         """_phase_suffix returns 'stalled Ns' when no chunks arrive for >5s."""
@@ -1517,7 +1521,7 @@ class TestThinkingPhases:
         r._last_chunk_time = time.monotonic() - 2.0  # 2s ago, under threshold
         result = _phase_suffix(10.0)
         assert "stalled" not in result
-        assert result == "streaming · 100 chars"
+        assert result == "100 chars"
 
     def test_phase_suffix_unknown_phase_returns_raw(self) -> None:
         """_phase_suffix returns the raw phase string for unknown phases after calm window (#1052)."""
@@ -1539,7 +1543,7 @@ class TestThinkingPhases:
 
         set_verbosity(Verbosity.VERBOSE)
         r._thinking_phase = "connecting"
-        assert _phase_suffix(6.0) == "connecting"
+        assert _phase_suffix(6.0) == ""
 
     def test_start_thinking_resets_phase_state(self) -> None:
         """start_thinking() resets all phase-related state."""
@@ -1588,17 +1592,17 @@ class TestThinkingPhases:
         import anteroom.cli.renderer as r
 
         set_thinking_phase("connecting")
-        assert _phase_suffix(6.0) == "connecting"
+        assert _phase_suffix(6.0) == ""
 
         set_thinking_phase("waiting")
-        assert _phase_suffix(6.0) == "connected · waiting for first token"
+        assert _phase_suffix(6.0) == "waiting for first token"
 
         increment_thinking_tokens()
         increment_thinking_tokens()
         increment_thinking_tokens()
         r._streaming_chars = 150
         result = _phase_suffix(6.0)
-        assert result == "streaming · 150 chars"
+        assert result == "150 chars"
 
     def test_stall_detection_clears_when_chunks_resume(self) -> None:
         """Stall detection clears when new chunks arrive."""
@@ -1614,7 +1618,7 @@ class TestThinkingPhases:
         r._streaming_chars = 80
         result = _phase_suffix(15.0)
         assert "stalled" not in result
-        assert result == "streaming · 80 chars"
+        assert result == "80 chars"
 
     def test_phase_suffix_streaming_with_zero_chunk_time(self) -> None:
         """_phase_suffix with _last_chunk_time=0 skips stall check, returns char count."""
@@ -1625,7 +1629,240 @@ class TestThinkingPhases:
         r._last_chunk_time = 0  # falsy — stall check skipped
         result = _phase_suffix(20.0)
         assert "stalled" not in result
-        assert result == "streaming · 70 chars"
+        assert result == "70 chars"
+
+
+class TestPhaseLabels:
+    """Tests for phase-aware thinking labels (#1366)."""
+
+    def setup_method(self) -> None:
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = ""
+        r._thinking_tokens = 0
+        r._streaming_chars = 0
+        r._last_chunk_time = 0
+        r._phase_start_time = 0
+        r._retrying_info = {}
+        _reset_tool_phase()
+        set_verbosity(Verbosity.DETAILED)
+
+    def teardown_method(self) -> None:
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = ""
+        r._thinking_tokens = 0
+        r._streaming_chars = 0
+        r._last_chunk_time = 0
+        r._phase_start_time = 0
+        r._retrying_info = {}
+        _reset_tool_phase()
+        set_verbosity(Verbosity.COMPACT)
+
+    def test_phase_label_default(self) -> None:
+        """Default label is 'Thinking...' when no phase set."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = ""
+        assert _phase_label() == "Thinking..."
+
+    def test_phase_label_connecting(self) -> None:
+        """Label is 'Connecting...' when phase is connecting."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "connecting"
+        assert _phase_label() == "Connecting..."
+
+    def test_phase_label_waiting(self) -> None:
+        """Label is 'Thinking...' when phase is waiting."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "waiting"
+        assert _phase_label() == "Thinking..."
+
+    def test_phase_label_streaming(self) -> None:
+        """Label is 'Writing...' when phase is streaming."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "streaming"
+        assert _phase_label() == "Writing..."
+
+    def test_phase_label_retrying(self) -> None:
+        """Label is 'Thinking...' when phase is retrying (retry suffix handles detail)."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "retrying"
+        assert _phase_label() == "Thinking..."
+
+    def test_phase_label_tool_exec(self) -> None:
+        """Label delegates to _tool_phase_label when phase is tool_exec."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "tool_exec"
+        assert _phase_label() == "Running tools..."
+
+    def test_phase_label_unknown(self) -> None:
+        """Unknown phases fall back to 'Thinking...'."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "something_unexpected"
+        assert _phase_label() == "Thinking..."
+
+    def test_build_thinking_text_uses_phase_label_connecting(self) -> None:
+        """_build_thinking_text shows 'Connecting...' for connecting phase."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "connecting"
+        text = _build_thinking_text(4.0)
+        assert "Connecting..." in text
+        assert "Thinking..." not in text
+
+    def test_build_thinking_text_uses_phase_label_streaming(self) -> None:
+        """_build_thinking_text shows 'Writing...' for streaming phase."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "streaming"
+        r._streaming_chars = 100
+        r._last_chunk_time = time.monotonic()
+        text = _build_thinking_text(4.0)
+        assert "Writing..." in text
+        assert "Thinking..." not in text
+
+    def test_esc_hint_at_5s(self) -> None:
+        """Cancel hint appears at 5s (lowered from 8s in #1366)."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = ""
+        text = _build_thinking_text(5.0)
+        assert "esc to cancel" in text
+
+    def test_no_esc_hint_before_5s(self) -> None:
+        """No cancel hint before 5s threshold."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = ""
+        text = _build_thinking_text(4.9)
+        assert "esc to cancel" not in text
+
+    def test_get_busy_status_uses_phase_label(self) -> None:
+        """get_busy_status() uses phase-aware label."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_start = time.monotonic() - 3.0
+        r._thinking_phase = "connecting"
+        status = get_busy_status()
+        assert status is not None
+        assert "Connecting..." in status.thinking_text
+        r._thinking_start = 0
+        r._thinking_phase = ""
+
+
+class TestToolPhaseTracking:
+    """Tests for tool execution phase tracking (#1366)."""
+
+    def setup_method(self) -> None:
+        _reset_tool_phase()
+
+    def teardown_method(self) -> None:
+        _reset_tool_phase()
+
+    def test_enter_tool_phase_single(self) -> None:
+        """Single tool shows humanized summary."""
+        import anteroom.cli.renderer as r
+
+        enter_tool_phase("read_file", {"path": "src/foo.py"})
+        assert r._active_tool_count == 1
+        label = _tool_phase_label()
+        assert "Reading" in label
+        assert "src/foo.py" in label
+
+    def test_enter_tool_phase_parallel(self) -> None:
+        """Multiple mixed tools show 'Running N tools...'."""
+        import anteroom.cli.renderer as r
+
+        enter_tool_phase("read_file", {"path": "a.py"})
+        enter_tool_phase("bash", {"command": "echo hi"})
+        enter_tool_phase("grep", {"pattern": "foo"})
+        assert r._active_tool_count == 3
+        label = _tool_phase_label()
+        assert label == "Running 3 tools..."
+
+    def test_enter_tool_phase_same_type(self) -> None:
+        """Multiple tools of same type show grouped label."""
+        import anteroom.cli.renderer as r
+
+        enter_tool_phase("read_file", {"path": "a.py"})
+        enter_tool_phase("read_file", {"path": "b.py"})
+        enter_tool_phase("read_file", {"path": "c.py"})
+        assert r._active_tool_count == 3
+        label = _tool_phase_label()
+        assert label == "Reading 3 files..."
+
+    def test_exit_tool_phase_decrements(self) -> None:
+        """Count goes down when tool completes."""
+        import anteroom.cli.renderer as r
+
+        enter_tool_phase("read_file", {"path": "a.py"})
+        enter_tool_phase("bash", {"command": "echo hi"})
+        assert r._active_tool_count == 2
+        exit_tool_phase("read_file")
+        assert r._active_tool_count == 1
+
+    def test_exit_tool_phase_all_done(self) -> None:
+        """Tool phase clears when count reaches 0."""
+        import anteroom.cli.renderer as r
+
+        enter_tool_phase("read_file", {"path": "a.py"})
+        exit_tool_phase("read_file")
+        assert r._active_tool_count == 0
+        assert r._active_tool_names == []
+        assert r._active_tool_summaries == []
+
+    def test_exit_tool_phase_no_negative(self) -> None:
+        """exit_tool_phase does not go below 0."""
+        import anteroom.cli.renderer as r
+
+        exit_tool_phase("read_file")
+        assert r._active_tool_count == 0
+
+    def test_reset_tool_phase(self) -> None:
+        """_reset_tool_phase clears all state."""
+        import anteroom.cli.renderer as r
+
+        enter_tool_phase("read_file", {"path": "a.py"})
+        enter_tool_phase("bash", {"command": "echo hi"})
+        _reset_tool_phase()
+        assert r._active_tool_count == 0
+        assert r._active_tool_names == []
+        assert r._active_tool_summaries == []
+
+    def test_tool_phase_label_zero_tools(self) -> None:
+        """Fallback label when no tools active."""
+        assert _tool_phase_label() == "Running tools..."
+
+    def test_phase_suffix_tool_exec_is_empty(self) -> None:
+        """_phase_suffix returns empty for tool_exec (label handles it)."""
+        import anteroom.cli.renderer as r
+
+        r._thinking_phase = "tool_exec"
+        assert _phase_suffix(10.0) == ""
+
+    def test_start_thinking_resets_tool_phase(self) -> None:
+        """start_thinking() resets tool phase tracking state."""
+        import anteroom.cli.renderer as r
+
+        enter_tool_phase("read_file", {"path": "a.py"})
+        r._repl_mode = True
+        r._stdout = io.StringIO()
+        try:
+            start_thinking()
+            assert r._active_tool_count == 0
+            assert r._active_tool_names == []
+            assert r._active_tool_summaries == []
+        finally:
+            stop_thinking_sync()
+            r._repl_mode = False
+            r._stdout = None
 
 
 class TestThroughputStallDetection:
@@ -1689,7 +1926,7 @@ class TestThroughputStallDetection:
             r._throughput_window.append((now - 10.0 + i, 500))
         result = _phase_suffix(20.0)
         assert "slow" not in result
-        assert result == "streaming · 5,000 chars"
+        assert result == "5,000 chars"
 
     def test_no_slow_indicator_during_warmup(self) -> None:
         """Throughput stall not triggered during warmup period."""
@@ -1806,7 +2043,7 @@ class TestWriteThinkingLinePhases:
         r._last_chunk_time = time.monotonic()
         _write_thinking_line(6.0)
         output = buf.getvalue()
-        assert "connecting" in output
+        assert "Connecting..." in output
         assert "6s" in output
         r._stdout = None
 
@@ -1824,7 +2061,7 @@ class TestWriteThinkingLinePhases:
         r._stdout = None
 
     def test_streaming_phase_in_ansi_output(self) -> None:
-        """_write_thinking_line includes 'streaming · N chars' after calm window (#1052)."""
+        """_write_thinking_line includes 'N chars' after calm window (#1052, #1382)."""
         import anteroom.cli.renderer as r
 
         buf = io.StringIO()
@@ -1834,7 +2071,6 @@ class TestWriteThinkingLinePhases:
         r._last_chunk_time = time.monotonic()
         _write_thinking_line(6.0)
         output = buf.getvalue()
-        assert "streaming" in output
         assert "250 chars" in output
         r._stdout = None
 
@@ -1866,7 +2102,7 @@ class TestWriteThinkingLinePhases:
         r._stdout = None
 
     def test_phase_text_shown_in_compact_mode(self) -> None:
-        """_write_thinking_line shows phase text in COMPACT mode after calm window (#1052)."""
+        """_write_thinking_line shows phase label in COMPACT mode after calm window (#1052, #1382)."""
         import anteroom.cli.renderer as r
 
         set_verbosity(Verbosity.COMPACT)
@@ -1876,7 +2112,7 @@ class TestWriteThinkingLinePhases:
         r._last_chunk_time = time.monotonic()
         _write_thinking_line(6.0)
         output = buf.getvalue()
-        assert "connecting" in output
+        assert "Connecting..." in output
         r._stdout = None
 
     def test_phase_text_overrides_stall_warning(self) -> None:
@@ -1974,7 +2210,7 @@ class TestThinkingTickerPhases:
                 pass
 
             output = buf.getvalue()
-            assert "streaming" in output
+            assert "Writing..." in output
             assert "1,500 chars" in output
         finally:
             r._repl_mode = False
@@ -2126,48 +2362,29 @@ class TestIncrementStreamingChars:
         assert r._streaming_chars == 0
 
 
-class TestPhaseElapsedStr:
-    """Tests for _phase_elapsed_str() (#221)."""
+class TestPhaseElapsedEdgeCasesConnecting:
+    """Tests for connecting phase suffix after _phase_elapsed_str removal (#1382)."""
 
     def setup_method(self) -> None:
         import anteroom.cli.renderer as r
 
         r._phase_start_time = 0
+        r._thinking_phase = ""
 
     def teardown_method(self) -> None:
         import anteroom.cli.renderer as r
 
         r._phase_start_time = 0
+        r._thinking_phase = ""
 
-    def test_returns_empty_when_no_start_time(self) -> None:
-        assert _phase_elapsed_str() == ""
-
-    def test_returns_empty_when_under_threshold(self) -> None:
-        import anteroom.cli.renderer as r
-
-        r._phase_start_time = time.monotonic() - 0.5  # 0.5s, under 1.5s threshold
-        assert _phase_elapsed_str() == ""
-
-    def test_returns_elapsed_when_over_threshold(self) -> None:
-        import anteroom.cli.renderer as r
-
-        r._phase_start_time = time.monotonic() - 3.0
-        result = _phase_elapsed_str()
-        assert result.startswith(" (")
-        assert result.endswith("s)")
-        # Should be approximately 3s
-        secs = int(result.strip(" ()s"))
-        assert 2 <= secs <= 4
-
-    def test_phase_suffix_includes_elapsed(self) -> None:
-        """Phase suffix includes per-phase elapsed when > 1.5s."""
+    def test_phase_suffix_connecting_returns_empty(self) -> None:
+        """Connecting phase suffix is empty — label already says 'Connecting...' (#1382)."""
         import anteroom.cli.renderer as r
 
         r._thinking_phase = "connecting"
         r._phase_start_time = time.monotonic() - 5.0
         result = _phase_suffix(10.0)
-        assert "connecting" in result
-        assert "(5s)" in result or "(4s)" in result
+        assert result == ""
 
 
 class TestWriteThinkingLineMessages:
@@ -2578,7 +2795,7 @@ class TestStreamingCharsInPhaseDisplay:
         r._streaming_chars = 0
         r._last_chunk_time = time.monotonic()
         result = _phase_suffix(6.0)
-        assert result == "streaming · 0 chars"
+        assert result == "0 chars"
 
     def test_chars_and_stall_coexist(self) -> None:
         """Stall message includes char count."""
@@ -2653,8 +2870,7 @@ class TestPhaseElapsedEdgeCases:
         r._thinking_phase = "connecting"
         r._phase_start_time = time.monotonic() - 1.0  # 1s, under 1.5s threshold
         result = _phase_suffix(6.0)
-        assert result == "connecting"
-        assert "(" not in result
+        assert result == ""
 
     def test_elapsed_shown_for_slow_phases(self) -> None:
         """Phases taking > 1.5s show per-phase elapsed."""
@@ -2663,8 +2879,7 @@ class TestPhaseElapsedEdgeCases:
         r._thinking_phase = "waiting"
         r._phase_start_time = time.monotonic() - 10.0
         result = _phase_suffix(15.0)
-        assert "connected · waiting for first token" in result
-        assert "(10s)" in result or "(9s)" in result
+        assert result == "waiting for first token"
 
     def test_elapsed_not_shown_for_streaming(self) -> None:
         """Streaming phase doesn't show per-phase elapsed (char count is enough)."""
@@ -2696,15 +2911,6 @@ class TestPhaseStartTimeInitialization:
             stop_thinking_sync()
             r._repl_mode = False
             r._stdout = None
-
-    def test_phase_elapsed_works_immediately_after_start(self) -> None:
-        """_phase_elapsed_str() returns timing immediately (no set_thinking_phase needed)."""
-        import anteroom.cli.renderer as r
-
-        r._phase_start_time = time.monotonic() - 3.0
-        result = _phase_elapsed_str()
-        assert result.startswith(" (")
-        assert result.endswith("s)")
 
     def test_set_thinking_phase_overrides_initial_start(self) -> None:
         """set_thinking_phase() resets _phase_start_time from the initial value."""
@@ -3804,6 +4010,60 @@ class TestGetBusyStatus:
         status = get_busy_status()
         assert status is not None
         assert status.show_cancel_hint is False
+
+    def test_connecting_no_duplicate_phase(self) -> None:
+        """Connecting phase: no duplicate 'connecting' in thinking_text (#1382)."""
+        self.mod._thinking_start = time.monotonic() - 10.0
+        self.mod._thinking_phase = "connecting"
+        status = get_busy_status()
+        assert status is not None
+        assert "Connecting..." in status.thinking_text
+        # The word "connecting" should only appear once (in the label)
+        assert status.thinking_text.lower().count("connecting") == 1
+
+    def test_waiting_no_duplicate_elapsed(self) -> None:
+        """Waiting phase: suffix adds detail without repeating elapsed (#1382)."""
+        self.mod._thinking_start = time.monotonic() - 10.0
+        self.mod._thinking_phase = "waiting"
+        status = get_busy_status()
+        assert status is not None
+        assert "Thinking..." in status.thinking_text
+        assert "waiting for first token" in status.thinking_text
+        # "connected ·" prefix should not appear
+        assert "connected" not in status.thinking_text.lower()
+
+    def test_streaming_no_duplicate_phase(self) -> None:
+        """Streaming phase: suffix has char count without 'streaming' prefix (#1382)."""
+        self.mod._thinking_start = time.monotonic() - 10.0
+        self.mod._thinking_phase = "streaming"
+        self.mod._streaming_chars = 500
+        self.mod._last_chunk_time = time.monotonic()
+        status = get_busy_status()
+        assert status is not None
+        assert "Writing..." in status.thinking_text
+        assert "500 chars" in status.thinking_text
+        assert "streaming" not in status.thinking_text.lower()
+
+    def test_streaming_stall_no_duplicate_phase(self) -> None:
+        """Streaming stall: suffix has stall info without 'streaming' prefix (#1382)."""
+        self.mod._thinking_start = time.monotonic() - 15.0
+        self.mod._thinking_phase = "streaming"
+        self.mod._streaming_chars = 300
+        self.mod._last_chunk_time = time.monotonic() - 8.0
+        status = get_busy_status()
+        assert status is not None
+        assert "Writing..." in status.thinking_text
+        assert "300 chars" in status.thinking_text
+        assert "stalled" in status.thinking_text
+        assert "streaming" not in status.thinking_text.lower()
+
+    def test_calm_window_suppresses_thinking_text(self) -> None:
+        """Thinking text is empty during the calm window (#1382)."""
+        self.mod._thinking_start = time.monotonic() - 0.5  # well under 2s reveal delay
+        self.mod._thinking_phase = "connecting"
+        status = get_busy_status()
+        assert status is not None
+        assert status.thinking_text == ""
 
 
 # ---------------------------------------------------------------------------

@@ -20,29 +20,29 @@ interactions:
     uri: http://localhost:3000/api/v1/statuses
   response:
     body:
-      string: '{"id":"115045584390645146","created_at":"2025-08-17T18:45:04.789Z","in_reply_to_id":null,"in_reply_to_account_id":null,"sensitive":false,"spoiler_text":"","visibility":"public","language":"ja","uri":"http://localhost:3000/users/mastodonpy_test/statuses/115045584390645146","url":"http://localhost:3000/@mastodonpy_test/115045584390645146","replies_count":0,"reblogs_count":0,"favourites_count":0,"edited_at":null,"favourited":false,"reblogged":false,"muted":false,"bookmarked":false,"pinned":false,"content":"\u003cp\u003eToot!\u003c/p\u003e","filtered":[],"reblog":null,"application":{"name":"Mastodon.py
-        test suite","website":null},"account":{"id":"115045158004229352","username":"mastodonpy_test","acct":"mastodonpy_test","display_name":"John
-        Lennon","locked":true,"bot":false,"discoverable":null,"indexable":false,"group":false,"created_at":"2025-08-17T00:00:00.000Z","note":"\u003cp\u003eI
-        walk funny\u003c/p\u003e","url":"http://localhost:3000/@mastodonpy_test","uri":"http://localhost:3000/users/mastodonpy_test","avatar":"http://localhost:3000/system/accounts/avatars/115/045/158/004/229/352/original/228aadcd9f964064.jpg","avatar_static":"http://localhost:3000/system/accounts/avatars/115/045/158/004/229/352/original/228aadcd9f964064.jpg","header":"http://localhost:3000/system/accounts/headers/115/045/158/004/229/352/original/75c82cb34a6eb173.jpg","header_static":"http://localhost:3000/system/accounts/headers/115/045/158/004/229/352/original/75c82cb34a6eb173.jpg","followers_count":0,"following_count":0,"statuses_count":11,"last_status_at":"2025-08-17","hide_collections":null,"noindex":false,"emojis":[],"roles":[],"fields":[{"name":"bread","value":"toasty.","verified_at":null},{"name":"lasagna","value":"no!!!","verified_at":null}]},"media_attachments":[],"mentions":[],"tags":[],"emojis":[],"quote":null,"card":null,"poll":null}'
+      string: '{"id":"116388626878565502","created_at":"2026-04-11T23:18:26.813Z","in_reply_to_id":null,"in_reply_to_account_id":null,"sensitive":true,"spoiler_text":"","visibility":"unlisted","language":"en","uri":"http://localhost:3000/ap/users/116387031229467654/statuses/116388626878565502","url":"http://localhost:3000/@mastodonpy_test/116388626878565502","replies_count":0,"reblogs_count":0,"favourites_count":0,"quotes_count":0,"edited_at":null,"favourited":false,"reblogged":false,"muted":false,"bookmarked":false,"pinned":false,"content":"\u003cp\u003eToot!\u003c/p\u003e","filtered":[],"reblog":null,"application":{"name":"Mastodon.py
+        test suite","website":null},"account":{"id":"116387031229467654","username":"mastodonpy_test","acct":"mastodonpy_test","display_name":"John
+        Lennon","locked":true,"bot":false,"discoverable":null,"indexable":true,"group":false,"created_at":"2026-04-11T00:00:00.000Z","note":"\u003cp\u003eI
+        walk funny\u003c/p\u003e","url":"http://localhost:3000/@mastodonpy_test","uri":"http://localhost:3000/ap/users/116387031229467654","avatar":"http://localhost:3000/system/accounts/avatars/116/387/031/229/467/654/original/876440ecc8bd08c0.jpg","avatar_static":"http://localhost:3000/system/accounts/avatars/116/387/031/229/467/654/original/876440ecc8bd08c0.jpg","header":"http://localhost:3000/system/accounts/headers/116/387/031/229/467/654/original/82144469ad0970a5.jpg","header_static":"http://localhost:3000/system/accounts/headers/116/387/031/229/467/654/original/82144469ad0970a5.jpg","followers_count":0,"following_count":0,"statuses_count":26,"last_status_at":"2026-04-11","hide_collections":true,"noindex":false,"emojis":[],"roles":[],"fields":[{"name":"bread","value":"toasty.","verified_at":null},{"name":"lasagna","value":"no!!!","verified_at":null}]},"media_attachments":[],"mentions":[],"tags":[],"emojis":[],"quote":null,"card":null,"poll":null,"quote_approval":{"automatic":["followers"],"manual":[],"current_user":"automatic"}}'
     headers:
-      Content-Length:
-      - '1847'
       cache-control:
       - private, no-store
+      content-length:
+      - '1960'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"d4abe3cb10e1e8d0c1f35dd7ab0f45a2"
+      - W/"624cf889a6499f806e41eb9af69af794"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.07, sql.active_record;dur=14.32, cache_generate.active_support;dur=3.59,
-        cache_write.active_support;dur=0.13, instantiation.active_record;dur=0.34,
+      - cache_read.active_support;dur=0.06, sql.active_record;dur=15.63, cache_generate.active_support;dur=5.94,
+        cache_write.active_support;dur=0.16, instantiation.active_record;dur=0.35,
         start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
-        transaction.active_record;dur=5.81, render.active_model_serializers;dur=14.37,
-        process_action.action_controller;dur=60.98
+        transaction.active_record;dur=7.95, render.active_model_serializers;dur=15.74,
+        process_action.action_controller;dur=67.40
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -54,13 +54,13 @@ interactions:
       x-ratelimit-limit:
       - '300'
       x-ratelimit-remaining:
-      - '236'
+      - '224'
       x-ratelimit-reset:
-      - '2025-08-17T21:00:00.819309Z'
+      - '2026-04-12T00:00:00.850439Z'
       x-request-id:
-      - 7bc1b49c-e61a-40fb-8cbf-52da78572cb8
+      - 950923f6-2e95-4de5-8501-705d5c42c657
       x-runtime:
-      - '0.078374'
+      - '0.085280'
       x-xss-protection:
       - '0'
     status:
@@ -82,32 +82,32 @@ interactions:
       User-Agent:
       - tests/v311
     method: DELETE
-    uri: http://localhost:3000/api/v1/statuses/115045584390645146
+    uri: http://localhost:3000/api/v1/statuses/116388626878565502
   response:
     body:
-      string: '{"id":"115045584390645146","created_at":"2025-08-17T18:45:04.789Z","in_reply_to_id":null,"in_reply_to_account_id":null,"sensitive":false,"spoiler_text":"","visibility":"public","language":"ja","uri":"http://localhost:3000/users/mastodonpy_test/statuses/115045584390645146","url":"http://localhost:3000/@mastodonpy_test/115045584390645146","replies_count":0,"reblogs_count":0,"favourites_count":0,"edited_at":null,"favourited":false,"reblogged":false,"muted":false,"bookmarked":false,"pinned":false,"text":"Toot!","filtered":[],"reblog":null,"application":{"name":"Mastodon.py
-        test suite","website":null},"account":{"id":"115045158004229352","username":"mastodonpy_test","acct":"mastodonpy_test","display_name":"John
-        Lennon","locked":true,"bot":false,"discoverable":null,"indexable":false,"group":false,"created_at":"2025-08-17T00:00:00.000Z","note":"\u003cp\u003eI
-        walk funny\u003c/p\u003e","url":"http://localhost:3000/@mastodonpy_test","uri":"http://localhost:3000/users/mastodonpy_test","avatar":"http://localhost:3000/system/accounts/avatars/115/045/158/004/229/352/original/228aadcd9f964064.jpg","avatar_static":"http://localhost:3000/system/accounts/avatars/115/045/158/004/229/352/original/228aadcd9f964064.jpg","header":"http://localhost:3000/system/accounts/headers/115/045/158/004/229/352/original/75c82cb34a6eb173.jpg","header_static":"http://localhost:3000/system/accounts/headers/115/045/158/004/229/352/original/75c82cb34a6eb173.jpg","followers_count":0,"following_count":0,"statuses_count":10,"last_status_at":"2025-08-17","hide_collections":null,"noindex":false,"emojis":[],"roles":[],"fields":[{"name":"bread","value":"toasty.","verified_at":null},{"name":"lasagna","value":"no!!!","verified_at":null}]},"media_attachments":[],"mentions":[],"tags":[],"emojis":[],"quote":null,"card":null,"poll":null}'
+      string: '{"id":"116388626878565502","created_at":"2026-04-11T23:18:26.813Z","in_reply_to_id":null,"in_reply_to_account_id":null,"sensitive":true,"spoiler_text":"","visibility":"unlisted","language":"en","uri":"http://localhost:3000/ap/users/116387031229467654/statuses/116388626878565502","url":"http://localhost:3000/@mastodonpy_test/116388626878565502","replies_count":0,"reblogs_count":0,"favourites_count":0,"quotes_count":0,"edited_at":null,"favourited":false,"reblogged":false,"muted":false,"bookmarked":false,"pinned":false,"text":"Toot!","filtered":[],"reblog":null,"application":{"name":"Mastodon.py
+        test suite","website":null},"account":{"id":"116387031229467654","username":"mastodonpy_test","acct":"mastodonpy_test","display_name":"John
+        Lennon","locked":true,"bot":false,"discoverable":null,"indexable":true,"group":false,"created_at":"2026-04-11T00:00:00.000Z","note":"\u003cp\u003eI
+        walk funny\u003c/p\u003e","url":"http://localhost:3000/@mastodonpy_test","uri":"http://localhost:3000/ap/users/116387031229467654","avatar":"http://localhost:3000/system/accounts/avatars/116/387/031/229/467/654/original/876440ecc8bd08c0.jpg","avatar_static":"http://localhost:3000/system/accounts/avatars/116/387/031/229/467/654/original/876440ecc8bd08c0.jpg","header":"http://localhost:3000/system/accounts/headers/116/387/031/229/467/654/original/82144469ad0970a5.jpg","header_static":"http://localhost:3000/system/accounts/headers/116/387/031/229/467/654/original/82144469ad0970a5.jpg","followers_count":0,"following_count":0,"statuses_count":25,"last_status_at":"2026-04-11","hide_collections":true,"noindex":false,"emojis":[],"roles":[],"fields":[{"name":"bread","value":"toasty.","verified_at":null},{"name":"lasagna","value":"no!!!","verified_at":null}]},"media_attachments":[],"mentions":[],"tags":[],"emojis":[],"quote":null,"card":null,"poll":null,"quote_approval":{"automatic":["followers"],"manual":[],"current_user":"automatic"}}'
     headers:
-      Content-Length:
-      - '1817'
       cache-control:
       - private, no-store
+      content-length:
+      - '1930'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"836df711c3228992f7fca2fe1a8db195"
+      - W/"5f633f94532834e43be27bee042d05f7"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.07, sql.active_record;dur=8.22, cache_generate.active_support;dur=3.77,
-        cache_write.active_support;dur=0.30, instantiation.active_record;dur=0.52,
+      - cache_read.active_support;dur=0.06, sql.active_record;dur=8.63, cache_generate.active_support;dur=3.06,
+        cache_write.active_support;dur=0.20, instantiation.active_record;dur=0.65,
         start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
-        transaction.active_record;dur=5.15, render.active_model_serializers;dur=24.05,
-        process_action.action_controller;dur=63.39
+        transaction.active_record;dur=5.27, render.active_model_serializers;dur=21.33,
+        process_action.action_controller;dur=59.24
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -121,11 +121,11 @@ interactions:
       x-ratelimit-remaining:
       - '29'
       x-ratelimit-reset:
-      - '2025-08-17T19:00:00.902159Z'
+      - '2026-04-11T23:30:00.962388Z'
       x-request-id:
-      - e23441d6-7a14-4321-9b98-966e17fe3c79
+      - 8cc01e22-f596-49bb-8898-545e32b18dd9
       x-runtime:
-      - '0.082197'
+      - '0.076632'
       x-xss-protection:
       - '0'
     status:

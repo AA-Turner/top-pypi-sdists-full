@@ -25,19 +25,17 @@ fn test_missing() -> anyhow::Result<()> {
             ))
             .args(["--persona=pedantic"])
             .run()?,
-        @r"
+        @"
     help[concurrency-limits]: insufficient job-level concurrency limits
-      --> @@INPUT@@:1:1
-       |
-     1 | / name: Workflow without concurrency
-     2 | | on: push
-     3 | | permissions: {}
-    ...  |
-    10 | |     - name: 1-ok
-    11 | |       run: echo ok
-       | |___________________^ missing concurrency setting
-       |
-       = note: audit confidence → High
+     --> @@INPUT@@:2:1
+      |
+    2 | on: push
+      | ^^^^^^^^ workflow is missing concurrency setting
+    ...
+    7 |     name: some-job
+      |     -------------- job affected by missing workflow concurrency
+      |
+      = note: audit confidence → High
 
     1 finding: 0 informational, 1 low, 0 medium, 0 high
     "
@@ -54,7 +52,7 @@ fn test_no_cancel() -> anyhow::Result<()> {
             ))
             .args(["--persona=pedantic"])
             .run()?,
-        @r"
+        @"
     help[concurrency-limits]: insufficient job-level concurrency limits
      --> @@INPUT@@:5:1
       |
@@ -79,25 +77,26 @@ fn test_jobs_missing_no_cancel() -> anyhow::Result<()> {
             ))
             .args(["--persona=pedantic"])
             .run()?,
-        @r"
+        @"
     help[concurrency-limits]: insufficient job-level concurrency limits
-     --> @@INPUT@@:9:5
+     --> @@INPUT@@:2:1
       |
+    2 | on: push
+      | ^^^^^^^^ workflow is missing concurrency setting
+    ...
     9 |     concurrency: group
-      |     ^^^^^^^^^^^^^^^^^^ job concurrency is missing cancel-in-progress
+      |     ------------------ job concurrency is missing cancel-in-progress
       |
       = note: audit confidence → High
 
     help[concurrency-limits]: insufficient job-level concurrency limits
-      --> @@INPUT@@:1:1
+      --> @@INPUT@@:2:1
        |
-     1 | / name: Workflow with job 1 missing cancel-in-progress and job 2 missing concurrency
-     2 | | on: push
-     3 | | permissions: {}
-    ...  |
-    17 | |     - name: 2-ok
-    18 | |       run: echo ok
-       | |___________________^ missing concurrency setting
+     2 | on: push
+       | ^^^^^^^^ workflow is missing concurrency setting
+    ...
+    14 |     name: job-2
+       |     ----------- job affected by missing workflow concurrency
        |
        = note: audit confidence → High
 

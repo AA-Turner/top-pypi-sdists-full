@@ -16,191 +16,216 @@ interactions:
     uri: https://mastodon.social/api/v1/trends/links
   response:
     body:
-      string: '[{"url": "https://www.404media.co/ice-adds-random-person-to-group-chat-exposes-details-of-manhunt-in-real-time/",
-        "title": "ICE Adds Random Person to Group Chat, Exposes Details of Manhunt
-        in Real-Time", "description": "The texts were sent to a group called \u201cMass
-        Text\u201d and show ICE using DMV and license plate reader data in an attempt
-        to find their target, copies of the messages obtained by 404 Media show.",
-        "language": "en", "type": "link", "author_name": "", "author_url": "", "provider_name":
-        "404 Media", "provider_url": "", "html": "", "width": 584, "height": 395,
-        "image": "https://files.mastodon.social/cache/preview_cards/images/158/831/576/original/3f30e49589543a50.png",
-        "image_description": "", "embed_url": "", "blurhash": "UJO3;fIv^-D??Y?VoMoL^,M|Ss%J^~jJovov",
-        "published_at": "2025-08-14T16:54:06.000Z", "history": [{"day": "1755216000",
-        "accounts": "117", "uses": "125"}, {"day": "1755129600", "accounts": "445",
-        "uses": "475"}, {"day": "1755043200", "accounts": "0", "uses": "0"}, {"day":
-        "1754956800", "accounts": "0", "uses": "0"}, {"day": "1754870400", "accounts":
-        "0", "uses": "0"}, {"day": "1754784000", "accounts": "0", "uses": "0"}, {"day":
-        "1754697600", "accounts": "0", "uses": "0"}], "authors": []}, {"url": "https://www.rollingstone.com/music/music-news/neil-young-quits-facebook-1235408277/",
-        "title": "Neil Young Quits Facebook Over Meta\u2019s \u2018Unconscionable\u2019
-        Use of Chatbots With Children", "description": "Neil Young has requested that
-        his Facebook account stop being used, with the rocker quitting in response
-        to Meta chatbots interacting with children. ", "language": "en", "type": "link",
-        "author_name": "Larisha Paul", "author_url": "", "provider_name": "Rolling
-        Stone", "provider_url": "", "html": "", "width": 640, "height": 360, "image":
-        "https://files.mastodon.social/cache/preview_cards/images/158/936/549/original/f8edc8e277119094.jpg",
-        "image_description": "Neil Young Quits Facebook Over Meta''s ''Unconscionable''
-        Use of Chatbots With Children", "embed_url": "", "blurhash": "U58zW50LEn%3ojNFbuxcIB-=Rho~%2NZxF-p",
-        "published_at": "2025-08-15T13:50:47.000Z", "history": [{"day": "1755216000",
-        "accounts": "158", "uses": "158"}, {"day": "1755129600", "accounts": "0",
-        "uses": "0"}, {"day": "1755043200", "accounts": "0", "uses": "0"}, {"day":
-        "1754956800", "accounts": "0", "uses": "0"}, {"day": "1754870400", "accounts":
-        "0", "uses": "0"}, {"day": "1754784000", "accounts": "0", "uses": "0"}, {"day":
-        "1754697600", "accounts": "0", "uses": "0"}], "authors": [{"name": "Larisha
-        Paul", "url": "", "account": null}]}, {"url": "https://www.tomshardware.com/tech-industry/artificial-intelligence/chatgpt-5-power-consumption-could-be-as-much-as-eight-times-higher-than-gpt-4-research-institute-estimates-medium-sized-gpt-5-response-can-consume-up-to-40-watt-hours-of-electricity",
-        "title": "ChatGPT 5 power consumption could be as much as eight times higher
-        than GPT 4 \u2014 research institute estimates medium-sized GPT-5 response
-        can consume up to 40 watt-hours of electricity", "description": "But the figures
-        rely on hardware and usage assumptions that may be inaccurate.", "language":
-        "en", "type": "link", "author_name": "Anton Shilov", "author_url": "https://www.tomshardware.com/author/anton-shilov",
-        "provider_name": "Tom''s Hardware", "provider_url": "", "html": "", "width":
-        640, "height": 360, "image": "https://files.mastodon.social/cache/preview_cards/images/158/808/386/original/4d4f686166f08557.jpg",
-        "image_description": "", "embed_url": "", "blurhash": "UEHx$=Iq4m%h-Lt9s*Rp-.M_MwW@t9Ris*oz",
-        "published_at": "2025-08-14T13:22:11.000Z", "history": [{"day": "1755216000",
-        "accounts": "252", "uses": "252"}, {"day": "1755129600", "accounts": "4",
-        "uses": "4"}, {"day": "1755043200", "accounts": "0", "uses": "0"}, {"day":
-        "1754956800", "accounts": "0", "uses": "0"}, {"day": "1754870400", "accounts":
-        "0", "uses": "0"}, {"day": "1754784000", "accounts": "0", "uses": "0"}, {"day":
-        "1754697600", "accounts": "0", "uses": "0"}], "authors": [{"name": "Anton
-        Shilov", "url": "https://www.tomshardware.com/author/anton-shilov", "account":
-        null}]}, {"url": "https://www.theatlantic.com/technology/archive/2025/03/search-libgen-data-set/682094/",
-        "title": "Search LibGen, the Pirated-Books Database That Meta Used to Train
-        AI", "description": "Millions of books and scientific papers are captured
-        in the collection\u2019s current iteration.", "language": "en", "type": "link",
-        "author_name": "Alex Reisner", "author_url": "", "provider_name": "The Atlantic",
-        "provider_url": "", "html": "", "width": 664, "height": 346, "image": "https://files.mastodon.social/cache/preview_cards/images/138/092/669/original/d9ae296d5c32ca1a.gif",
-        "image_description": "", "embed_url": "", "blurhash": "UWB}8$TCM_V@DOsEt7az8waLt7oy?uS1RikB",
-        "published_at": "2025-03-20T11:30:00.000Z", "history": [{"day": "1755216000",
-        "accounts": "176", "uses": "177"}, {"day": "1755129600", "accounts": "2",
-        "uses": "2"}, {"day": "1755043200", "accounts": "10", "uses": "10"}, {"day":
-        "1754956800", "accounts": "0", "uses": "0"}, {"day": "1754870400", "accounts":
-        "0", "uses": "0"}, {"day": "1754784000", "accounts": "0", "uses": "0"}, {"day":
-        "1754697600", "accounts": "0", "uses": "0"}], "authors": [{"name": "Alex Reisner",
-        "url": "", "account": null}]}, {"url": "https://www.thepinknews.com/2025/08/14/meta-robby-starbuck-ai/",
-        "title": "Meta appoints notorious anti-LGBTQ+ conspiracy theorist Robby Starbuck
-        as AI bias advisor", "description": "Meta has appointed right-wing, anti-LGBTQ+,
-        anti-DEI conspiracy theorist Robby Starbuck to advise them on preventing political
-        bias in AI.", "language": "en", "type": "link", "author_name": "Sophie Perry",
-        "author_url": "", "provider_name": "PinkNews | Latest lesbian, gay, bi and
-        trans news | LGBTQ+ news", "provider_url": "", "html": "", "width": 619, "height":
-        372, "image": "https://files.mastodon.social/cache/preview_cards/images/158/795/527/original/d4b9fc9fe9a3dd45.jpg",
-        "image_description": "", "embed_url": "", "blurhash": "UfK1g;x^YRnhx]n~t7bcELj?nNkWo#WBt7of",
-        "published_at": "2025-08-14T10:57:32.000Z", "history": [{"day": "1755216000",
-        "accounts": "211", "uses": "213"}, {"day": "1755129600", "accounts": "286",
-        "uses": "302"}, {"day": "1755043200", "accounts": "0", "uses": "0"}, {"day":
-        "1754956800", "accounts": "0", "uses": "0"}, {"day": "1754870400", "accounts":
-        "0", "uses": "0"}, {"day": "1754784000", "accounts": "0", "uses": "0"}, {"day":
-        "1754697600", "accounts": "0", "uses": "0"}], "authors": [{"name": "Sophie
-        Perry", "url": "", "account": null}]}, {"url": "https://www.abc.net.au/news/2025-08-15/victoria-lawyer-apologises-after-ai-generated-submissions/105661208",
-        "title": "Senior lawyer apologises after filing AI-generated submissions in
-        Victorian murder case", "description": "The fake submissions included fabricated
-        quotes from a speech to the state legislature and non-existent case citations
-        purportedly from Victoria''s Supreme Court.", "language": "en", "type": "link",
-        "author_name": "ABC News", "author_url": "https://www.abc.net.au/news", "provider_name":
-        "ABC News", "provider_url": "", "html": "", "width": 640, "height": 360, "image":
-        "https://files.mastodon.social/cache/preview_cards/images/158/914/080/original/f1912751da8070c4.jpeg",
-        "image_description": "", "embed_url": "", "blurhash": "ULE.@O4U9ztQ?D%4I]NHRjt8WGtmW@X8s;n+",
-        "published_at": "2025-08-15T10:28:15.000Z", "history": [{"day": "1755216000",
-        "accounts": "100", "uses": "100"}, {"day": "1755129600", "accounts": "0",
-        "uses": "0"}, {"day": "1755043200", "accounts": "0", "uses": "0"}, {"day":
-        "1754956800", "accounts": "0", "uses": "0"}, {"day": "1754870400", "accounts":
-        "0", "uses": "0"}, {"day": "1754784000", "accounts": "0", "uses": "0"}, {"day":
-        "1754697600", "accounts": "0", "uses": "0"}], "authors": [{"name": "ABC News",
-        "url": "https://www.abc.net.au/news", "account": null}]}, {"url": "https://www.washingtonpost.com/politics/2025/08/15/kristi-noem-is-living-free-charge-coast-guard-commandants-home/",
-        "title": "Kristi Noem is living rent free in home used by Coast Guard commandant",
-        "description": "A DHS spokesman said Noem must live on the military base because
-        she had been \u201cso horribly doxxed and targeted that she is no longer able
-        to safely live in her own apartment.\u201d", "language": "en", "type": "link",
-        "author_name": "Marianne LeVine", "author_url": "https://www.washingtonpost.com/people/marianne-levine/",
-        "provider_name": "The Washington Post", "provider_url": "", "html": "", "width":
-        588, "height": 392, "image": "https://files.mastodon.social/cache/preview_cards/images/158/940/640/original/6bf7370647f93e2e.jpeg",
-        "image_description": "", "embed_url": "", "blurhash": "UmFh#TpHoLRm~Cb_oMV@-UXTbHadr;S5kBjY",
-        "published_at": "2025-08-15T14:43:29.275Z", "history": [{"day": "1755216000",
-        "accounts": "70", "uses": "78"}, {"day": "1755129600", "accounts": "0", "uses":
-        "0"}, {"day": "1755043200", "accounts": "0", "uses": "0"}, {"day": "1754956800",
-        "accounts": "0", "uses": "0"}, {"day": "1754870400", "accounts": "0", "uses":
-        "0"}, {"day": "1754784000", "accounts": "0", "uses": "0"}, {"day": "1754697600",
-        "accounts": "0", "uses": "0"}], "authors": [{"name": "Marianne LeVine", "url":
-        "https://www.washingtonpost.com/people/marianne-levine/", "account": null}]},
-        {"url": "https://www.thenation.com/?post_type=article&p=565590", "title":
-        "The Danes Resisted Fascism, and So Can We", "description": "Danish resistance
-        didn\u2019t arrive all at once during World War II. But taken as a whole,
-        the Danes\u2019 actions are a testament to what\u2019s possible when we work
-        together to fight fascism.", "language": "en", "type": "link", "author_name":
-        "", "author_url": "", "provider_name": "The Nation", "provider_url": "", "html":
-        "", "width": 605, "height": 381, "image": "https://files.mastodon.social/cache/preview_cards/images/157/755/483/original/4d00283eba7652fd.jpg",
-        "image_description": "", "embed_url": "", "blurhash": "UZHC7hIUxuIU~qRjRjfj-;ayRjt7ofWBRjay",
-        "published_at": "2025-08-05T13:00:00.000Z", "history": [{"day": "1755216000",
-        "accounts": "90", "uses": "90"}, {"day": "1755129600", "accounts": "2", "uses":
-        "2"}, {"day": "1755043200", "accounts": "1", "uses": "1"}, {"day": "1754956800",
-        "accounts": "0", "uses": "0"}, {"day": "1754870400", "accounts": "0", "uses":
-        "0"}, {"day": "1754784000", "accounts": "1", "uses": "1"}, {"day": "1754697600",
-        "accounts": "0", "uses": "0"}], "authors": []}, {"url": "https://eu.usatoday.com/story/news/politics/2025/08/14/donald-trump-pew-research-center-approval-rating/85663592007/",
-        "title": "Trump''s approval rating dips again in new Pew survey, hits 38%",
-        "description": "The president''s approval rating is down three points since
-        June and nine points since shortly after his inauguration, when it stood at
-        47%.", "language": "en", "type": "link", "author_name": ", USA TODAY", "author_url":
-        "", "provider_name": "USA TODAY", "provider_url": "", "html": "", "width":
-        640, "height": 360, "image": "https://files.mastodon.social/cache/preview_cards/images/158/856/439/original/3df6db13c0287484.jpg",
-        "image_description": "", "embed_url": "", "blurhash": "UZI5PZ*J7fYQ_Mo~Xmb^ELiwv#MxtRtRW=of",
-        "published_at": "2025-08-14T20:07:34.000Z", "history": [{"day": "1755216000",
-        "accounts": "62", "uses": "63"}, {"day": "1755129600", "accounts": "1", "uses":
-        "1"}, {"day": "1755043200", "accounts": "0", "uses": "0"}, {"day": "1754956800",
-        "accounts": "0", "uses": "0"}, {"day": "1754870400", "accounts": "0", "uses":
-        "0"}, {"day": "1754784000", "accounts": "0", "uses": "0"}, {"day": "1754697600",
-        "accounts": "0", "uses": "0"}], "authors": [{"name": ", USA TODAY", "url":
-        "", "account": null}]}, {"url": "https://www.theregister.com/2025/08/13/firefox_ai_scoffing_power/",
-        "title": "Some users report their Firefox browser is scoffing CPU power",
-        "description": ": You guessed it: looks like it''s a so-called AI", "language":
-        "en", "type": "link", "author_name": "Liam Proven", "author_url": "", "provider_name":
-        "The Register", "provider_url": "", "html": "", "width": 588, "height": 392,
-        "image": "https://files.mastodon.social/cache/preview_cards/images/158/642/266/original/2092ab5cf3522c14.jpg",
-        "image_description": "", "embed_url": "", "blurhash": "UI9P$lX70xXROpn%nPoe0_XR^Si{vin*O;ae",
-        "published_at": "2025-08-13T08:30:08.000Z", "history": [{"day": "1755216000",
-        "accounts": "788", "uses": "797"}, {"day": "1755129600", "accounts": "141",
-        "uses": "146"}, {"day": "1755043200", "accounts": "28", "uses": "29"}, {"day":
-        "1754956800", "accounts": "0", "uses": "0"}, {"day": "1754870400", "accounts":
-        "0", "uses": "0"}, {"day": "1754784000", "accounts": "0", "uses": "0"}, {"day":
-        "1754697600", "accounts": "0", "uses": "0"}], "authors": [{"name": "Liam Proven",
-        "url": "", "account": null}]}]'
+      string: '[{"url": "https://www.nbcnews.com/tech/tech-news/openai-ceo-sam-altman-molotov-cocktail-house-headquarters-rcna273694",
+        "title": "OpenAI says CEO Sam Altman''s house was targeted with a Molotov
+        cocktail", "description": "San Francisco police early Friday arrested a person
+        who allegedly threw a Molotov cocktail at OpenAI chief executive Sam Altman''s
+        home and made threats outside the AI giant''s San Francisco headquarters,
+        the company said in a statement.\"Thankfully, no one was hurt,\" OpenAI said.",
+        "language": "en", "type": "link", "author_name": "Daniel Arkin", "author_url":
+        "https://www.nbcnews.com/author/daniel-arkin-ncpn1206", "provider_name": "NBC
+        News", "provider_url": "", "html": "", "width": 662, "height": 348, "image":
+        "https://files.mastodon.social/cache/preview_cards/images/188/760/511/original/82b9508a265bfff8.jpg",
+        "image_description": "", "embed_url": "", "blurhash": "UOJ@tUHX?bS4~Vn*EMNZIokCjZa#NHfPt6kC",
+        "published_at": "2026-04-10T17:23:39.754Z", "missing_attribution": false,
+        "history": [{"day": "1775865600", "accounts": "175", "uses": "176"}, {"day":
+        "1775779200", "accounts": "311", "uses": "320"}, {"day": "1775692800", "accounts":
+        "0", "uses": "0"}, {"day": "1775606400", "accounts": "0", "uses": "0"}, {"day":
+        "1775520000", "accounts": "0", "uses": "0"}, {"day": "1775433600", "accounts":
+        "0", "uses": "0"}, {"day": "1775347200", "accounts": "0", "uses": "0"}], "authors":
+        [{"name": "Daniel Arkin", "url": "https://www.nbcnews.com/author/daniel-arkin-ncpn1206",
+        "account": null}]}, {"url": "https://www.wired.com/story/openai-backs-bill-exempt-ai-firms-model-harm-lawsuits/",
+        "title": "OpenAI Backs Bill That Would Limit Liability for AI-Enabled Mass
+        Deaths or Financial Disasters", "description": "The ChatGPT-maker testified
+        in favor of an Illinois bill that would limit when AI labs can be held liable\u2014even
+        in cases where their products cause \u201ccritical harm.\u201d", "language":
+        "en", "type": "link", "author_name": "Maxwell Zeff", "author_url": "", "provider_name":
+        "WIRED", "provider_url": "", "html": "", "width": 663, "height": 347, "image":
+        "https://files.mastodon.social/cache/preview_cards/images/188/656/411/original/bb0e849c815fe168.jpg",
+        "image_description": "", "embed_url": "", "blurhash": "UPB:Krof0KRj-pj[Ipax9Zae%3ofD%jZ%2j]",
+        "published_at": "2026-04-10T00:19:53.221Z", "missing_attribution": false,
+        "history": [{"day": "1775865600", "accounts": "35", "uses": "39"}, {"day":
+        "1775779200", "accounts": "261", "uses": "282"}, {"day": "1775692800", "accounts":
+        "0", "uses": "0"}, {"day": "1775606400", "accounts": "0", "uses": "0"}, {"day":
+        "1775520000", "accounts": "0", "uses": "0"}, {"day": "1775433600", "accounts":
+        "0", "uses": "0"}, {"day": "1775347200", "accounts": "0", "uses": "0"}], "authors":
+        [{"name": "Maxwell Zeff", "url": "", "account": null}]}, {"url": "https://www.nytimes.com/2026/02/26/magazine/acl-tear-women-girl-sports.html",
+        "title": "Why Are So Many Teen Girls Still Tearing Their A.C.L.s?", "description":
+        "For years, ligament tears have been a crisis among young athletes \u2014
+        even though a few simple exercises can prevent them.", "language": "en", "type":
+        "link", "author_name": "Craig Welch", "author_url": "https://www.nytimes.com/by/craig-welch",
+        "provider_name": "The New York Times", "provider_url": "", "html": "", "width":
+        662, "height": 347, "image": "https://files.mastodon.social/cache/preview_cards/images/183/337/699/original/192852ef636a19b3.jpg",
+        "image_description": "[PHOTO ONLY:] The LA Breakers U13 soccer team who regularly
+        does the \u201cFIFA 11+,\u201d a series of exercises designed to prevent ACL
+        tears and other injuries.", "embed_url": "", "blurhash": "UE97eLxu00M{WBj[WBofD%Rjxuj[RjWBj[of",
+        "published_at": "2026-02-26T10:00:53.000Z", "missing_attribution": false,
+        "history": [{"day": "1775865600", "accounts": "13", "uses": "13"}, {"day":
+        "1775779200", "accounts": "248", "uses": "252"}, {"day": "1775692800", "accounts":
+        "0", "uses": "0"}, {"day": "1775606400", "accounts": "0", "uses": "0"}, {"day":
+        "1775520000", "accounts": "0", "uses": "0"}, {"day": "1775433600", "accounts":
+        "0", "uses": "0"}, {"day": "1775347200", "accounts": "0", "uses": "0"}], "authors":
+        [{"name": "Craig Welch", "url": "https://www.nytimes.com/by/craig-welch",
+        "account": null}]}, {"url": "https://techcrunch.com/2026/04/10/france-to-ditch-windows-for-linux-to-reduce-reliance-on-us-tech/",
+        "title": "France to ditch Windows for Linux to reduce reliance on US tech
+        | TechCrunch", "description": "France''s move to ditch Windows for Linux is
+        its latest effort to reduce its reliance on American tech giants.", "language":
+        "en", "type": "link", "author_name": "", "author_url": "", "provider_name":
+        "TechCrunch", "provider_url": "", "html": "", "width": 562, "height": 409,
+        "image": "https://files.mastodon.social/cache/preview_cards/images/188/737/543/original/7cff906dd46822cf.jpg",
+        "image_description": "", "embed_url": "", "blurhash": "UV5ZFam~MvbcR;XBoGnfacf9kEbbbIn~jYW?",
+        "published_at": "2026-04-10T14:39:32.000Z", "missing_attribution": false,
+        "history": [{"day": "1775865600", "accounts": "158", "uses": "165"}, {"day":
+        "1775779200", "accounts": "233", "uses": "242"}, {"day": "1775692800", "accounts":
+        "0", "uses": "0"}, {"day": "1775606400", "accounts": "0", "uses": "0"}, {"day":
+        "1775520000", "accounts": "0", "uses": "0"}, {"day": "1775433600", "accounts":
+        "0", "uses": "0"}, {"day": "1775347200", "accounts": "0", "uses": "0"}], "authors":
+        [{"name": "", "url": "", "account": {"id": "109246358402616382", "username":
+        "zackwhittaker", "acct": "zackwhittaker", "display_name": "Zack Whittaker",
+        "locked": false, "bot": false, "discoverable": true, "indexable": true, "group":
+        false, "created_at": "2022-10-28T00:00:00.000Z", "note": "<p>Security editor,
+        TechCrunch<br />Email: zack.whittaker@techcrunch.com<br />Signal: zackwhittaker.1337<br
+        />New York, NY</p>", "url": "https://mastodon.social/@zackwhittaker", "uri":
+        "https://mastodon.social/users/zackwhittaker", "avatar": "https://files.mastodon.social/accounts/avatars/109/246/358/402/616/382/original/4143aa23be8308b5.jpg",
+        "avatar_static": "https://files.mastodon.social/accounts/avatars/109/246/358/402/616/382/original/4143aa23be8308b5.jpg",
+        "avatar_description": "", "header": "https://files.mastodon.social/accounts/headers/109/246/358/402/616/382/original/22f7dd2c327caa79.jpeg",
+        "header_static": "https://files.mastodon.social/accounts/headers/109/246/358/402/616/382/original/22f7dd2c327caa79.jpeg",
+        "header_description": "", "followers_count": 19238, "following_count": 443,
+        "statuses_count": 3641, "last_status_at": "2026-04-10", "hide_collections":
+        false, "show_media": true, "show_media_replies": true, "show_featured": true,
+        "noindex": false, "emojis": [], "roles": [], "fields": [{"name": "Newsletter",
+        "value": "<a href=\"https://this.weekinsecurity.com\" target=\"_blank\" rel=\"nofollow
+        noopener me\" translate=\"no\"><span class=\"invisible\">https://</span><span
+        class=\"\">this.weekinsecurity.com</span><span class=\"invisible\"></span></a>",
+        "verified_at": "2022-10-28T15:18:21.095+00:00"}, {"name": "TechCrunch", "value":
+        "<a href=\"https://techcrunch.com/author/zack-whittaker\" target=\"_blank\"
+        rel=\"nofollow noopener me\" translate=\"no\"><span class=\"invisible\">https://</span><span
+        class=\"ellipsis\">techcrunch.com/author/zack-whi</span><span class=\"invisible\">ttaker</span></a>",
+        "verified_at": "2024-07-09T16:53:02.159+00:00"}]}}]}, {"url": "https://www.theguardian.com/technology/2026/apr/09/amazon-upsets-book-lovers-by-ending-support-for-old-kindles",
+        "title": "Amazon upsets ebook lovers by ending support for old Kindle devices",
+        "description": "Up to 2m e-readers made before 2013 will no longer be able
+        to download new titles", "language": "en", "type": "link", "author_name":
+        "Caroline Davies", "author_url": "", "provider_name": "The Guardian", "provider_url":
+        "", "html": "", "width": 662, "height": 348, "image": "https://files.mastodon.social/cache/preview_cards/images/188/620/873/original/28c5f97c9a39f0af.jpg",
+        "image_description": "", "embed_url": "", "blurhash": "UEB3v*}=]}%2t7%Ms;n$E0Ndp0of9DS6kXWY",
+        "published_at": "2026-04-09T17:17:39.000Z", "missing_attribution": false,
+        "history": [{"day": "1775865600", "accounts": "121", "uses": "123"}, {"day":
+        "1775779200", "accounts": "475", "uses": "478"}, {"day": "1775692800", "accounts":
+        "5", "uses": "5"}, {"day": "1775606400", "accounts": "0", "uses": "0"}, {"day":
+        "1775520000", "accounts": "0", "uses": "0"}, {"day": "1775433600", "accounts":
+        "0", "uses": "0"}, {"day": "1775347200", "accounts": "0", "uses": "0"}], "authors":
+        [{"name": "Caroline Davies", "url": "", "account": null}]}, {"url": "https://www.democracydocket.com/news-alerts/doges-secret-voter-data-deal-was-alarming-court-finds/",
+        "title": "DOGE\u2019s secret voter data deal was \u2018alarming,\u2019 court
+        finds", "description": "Read more here.", "language": "en", "type": "link",
+        "author_name": "", "author_url": "", "provider_name": "Democracy Docket",
+        "provider_url": "", "html": "", "width": 588, "height": 392, "image": "https://files.mastodon.social/cache/preview_cards/images/188/787/908/original/c4725f8de95ab7c1.jpg",
+        "image_description": "", "embed_url": "", "blurhash": "UNFY7CXTD*ER~8R*M{V@M^x^tSi]n#Shjss.",
+        "published_at": null, "missing_attribution": false, "history": [{"day": "1775865600",
+        "accounts": "156", "uses": "158"}, {"day": "1775779200", "accounts": "6",
+        "uses": "6"}, {"day": "1775692800", "accounts": "0", "uses": "0"}, {"day":
+        "1775606400", "accounts": "0", "uses": "0"}, {"day": "1775520000", "accounts":
+        "0", "uses": "0"}, {"day": "1775433600", "accounts": "0", "uses": "0"}, {"day":
+        "1775347200", "accounts": "0", "uses": "0"}], "authors": []}, {"url": "https://www.theguardian.com/uk-news/2026/apr/11/suv-britain-potholes-worse-scientists-heavier-cars",
+        "title": "SUVs are making Britain\u2019s potholes worse, say scientists",
+        "description": "Engineers link reduced lifespan of roads to shift to heavier
+        cars, some bought to navigate damaged surfaces", "language": "en", "type":
+        "link", "author_name": "Gwyn Topham", "author_url": "", "provider_name": "The
+        Guardian", "provider_url": "", "html": "", "width": 662, "height": 348, "image":
+        "https://files.mastodon.social/cache/preview_cards/images/188/808/179/original/ed917d3874e3c20c.jpg",
+        "image_description": "", "embed_url": "", "blurhash": "UJFF?Ki]kE%g?uM|xtoz?ct6kDt8_Nt8j]t7",
+        "published_at": "2026-04-11T05:00:40.000Z", "missing_attribution": false,
+        "history": [{"day": "1775865600", "accounts": "61", "uses": "63"}, {"day":
+        "1775779200", "accounts": "0", "uses": "0"}, {"day": "1775692800", "accounts":
+        "0", "uses": "0"}, {"day": "1775606400", "accounts": "0", "uses": "0"}, {"day":
+        "1775520000", "accounts": "0", "uses": "0"}, {"day": "1775433600", "accounts":
+        "0", "uses": "0"}, {"day": "1775347200", "accounts": "0", "uses": "0"}], "authors":
+        [{"name": "Gwyn Topham", "url": "", "account": null}]}, {"url": "https://www.404media.co/fbi-extracts-suspects-deleted-signal-messages-saved-in-iphone-notification-database-2/",
+        "title": "FBI Extracts Suspect\u2019s Deleted Signal Messages Saved in iPhone
+        Notification Database", "description": "The case was the first time authorities
+        charged people for alleged \u201cAntifa\u201d activities after President Trump
+        designated the umbrella term a terrorist organization.", "language": "en",
+        "type": "link", "author_name": "", "author_url": "", "provider_name": "404
+        Media", "provider_url": "", "html": "", "width": 588, "height": 392, "image":
+        "https://files.mastodon.social/cache/preview_cards/images/188/589/273/original/36071e828e0fdc1f.jpg",
+        "image_description": "", "embed_url": "", "blurhash": "UcB:~xOHd.,8nhj[W=oei]WAkXXAbIayj=a}",
+        "published_at": "2026-04-09T13:27:50.000Z", "missing_attribution": false,
+        "history": [{"day": "1775865600", "accounts": "95", "uses": "96"}, {"day":
+        "1775779200", "accounts": "104", "uses": "108"}, {"day": "1775692800", "accounts":
+        "405", "uses": "433"}, {"day": "1775606400", "accounts": "0", "uses": "0"},
+        {"day": "1775520000", "accounts": "0", "uses": "0"}, {"day": "1775433600",
+        "accounts": "0", "uses": "0"}, {"day": "1775347200", "accounts": "0", "uses":
+        "0"}], "authors": []}, {"url": "https://www.lemonde.fr/en/environment/article/2026/04/10/france-announces-ban-on-gas-boilers-in-new-buildings-starting-in-2027_6752297_114.html",
+        "title": "France announces ban on gas boilers in new buildings starting in
+        2027", "description": "French Prime Minister S\u00e9bastien Lecornu also announced
+        on Friday a doubling of support for electrification by 2030, from \u20ac5.5
+        billion to \u20ac10 billion annually.", "language": "en", "type": "link",
+        "author_name": "Le Monde", "author_url": "https://www.lemonde.fr", "provider_name":
+        "Le Monde", "provider_url": "", "html": "", "width": 588, "height": 392, "image":
+        "https://files.mastodon.social/cache/preview_cards/images/188/766/322/original/3cf77a2ed447bfca.jpg",
+        "image_description": "", "embed_url": "", "blurhash": "UhJHgoae~WogxtayxtayOAj@baoenOj[o0kB",
+        "published_at": "2026-04-10T18:14:25.000Z", "missing_attribution": false,
+        "history": [{"day": "1775865600", "accounts": "54", "uses": "64"}, {"day":
+        "1775779200", "accounts": "1", "uses": "1"}, {"day": "1775692800", "accounts":
+        "0", "uses": "0"}, {"day": "1775606400", "accounts": "0", "uses": "0"}, {"day":
+        "1775520000", "accounts": "0", "uses": "0"}, {"day": "1775433600", "accounts":
+        "0", "uses": "0"}, {"day": "1775347200", "accounts": "0", "uses": "0"}], "authors":
+        [{"name": "Le Monde", "url": "https://www.lemonde.fr", "account": null}]},
+        {"url": "https://www.theguardian.com/us-news/2026/apr/11/trump-mass-pardons-end-of-presidential-term",
+        "title": "Trump reportedly says he\u2019ll issue mass pardons at end of his
+        presidential term", "description": "President already has issued sweeping
+        pardons throughout second term, including for 1,500 US Capital riot defendants",
+        "language": "en", "type": "link", "author_name": "Lauren Aratani", "author_url":
+        "", "provider_name": "The Guardian", "provider_url": "", "html": "", "width":
+        662, "height": 348, "image": "https://files.mastodon.social/cache/preview_cards/images/188/847/433/original/7200f3aaa112f346.jpg",
+        "image_description": "", "embed_url": "", "blurhash": "UOH1_LU[R4x[Mwxb-:Io4o-;s:V@adofj?of",
+        "published_at": "2026-04-11T14:17:33.000Z", "missing_attribution": false,
+        "history": [{"day": "1775865600", "accounts": "53", "uses": "56"}, {"day":
+        "1775779200", "accounts": "0", "uses": "0"}, {"day": "1775692800", "accounts":
+        "0", "uses": "0"}, {"day": "1775606400", "accounts": "0", "uses": "0"}, {"day":
+        "1775520000", "accounts": "0", "uses": "0"}, {"day": "1775433600", "accounts":
+        "0", "uses": "0"}, {"day": "1775347200", "accounts": "0", "uses": "0"}], "authors":
+        [{"name": "Lauren Aratani", "url": "", "account": null}]}]'
     headers:
+      Accept-Ranges:
+      - none
       Connection:
       - keep-alive
       Date:
-      - Fri, 15 Aug 2025 20:18:57 GMT
+      - Sat, 11 Apr 2026 23:14:29 GMT
       Strict-Transport-Security:
       - max-age=31557600
       Vary:
       - Authorization, Accept-Language, Origin, Accept-Encoding
+      Via:
+      - 1.1 varnish, 1.1 varnish
       X-Cache:
       - MISS, MISS, MISS
       X-Cache-Hits:
       - 0, 0, 0
       X-Served-By:
-      - cache-fra-eddf8230087-FRA, cache-fra-eddf8230058-FRA, cache-hel1410020-HEL
+      - cache-fra-etou8220157-FRA, cache-fra-etou8220157-FRA, cache-hel1410029-HEL
       X-Timer:
-      - S1755289137.106466,VS0,VE282
-      accept-ranges:
-      - none
+      - S1775949269.358822,VS0,VE447
       alt-svc:
       - h3=":443";ma=86400,h3-29=":443";ma=86400,h3-27=":443";ma=86400
       cache-control:
       - private, no-store
       content-length:
-      - '11932'
+      - '13847'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"c0efddb1bedacf7c343f4bced72cbb69"
+      - W/"9e87e011e622dd418e80a3602fc5502e"
       link:
       - <https://mastodon.social/api/v1/trends/links?offset=10>; rel="next"
       referrer-policy:
       - same-origin
+      server:
+      - Mastodon
       transfer-encoding:
       - chunked
-      via:
-      - 1.1 varnish, 1.1 varnish, 1.1 varnish
       x-content-type-options:
       - nosniff
       x-frame-options:
@@ -208,13 +233,13 @@ interactions:
       x-ratelimit-limit:
       - '300'
       x-ratelimit-remaining:
-      - '230'
+      - '259'
       x-ratelimit-reset:
-      - '2025-08-15T20:20:00.162792Z'
+      - '2026-04-11T23:15:00.419766Z'
       x-request-id:
-      - 676206f4045d9271c67c003e9b3ec3f8
+      - e119ebb1-2881-4e84-8f12-70188ca5e040
       x-runtime:
-      - '0.206137'
+      - '0.379411'
       x-xss-protection:
       - '0'
     status:

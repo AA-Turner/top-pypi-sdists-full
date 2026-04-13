@@ -3,7 +3,7 @@ from ascii_magic.constants import DEFAULT_GEMINI_MODEL
 
 from PIL import Image
 
-from typing import Optional
+import typing as t
 
 
 def quick_test():
@@ -28,7 +28,7 @@ def from_clipboard() -> AsciiArt:
 
 def from_gemini(
     prompt: str,
-    api_key: Optional[str] = None,
+    api_key: "t.Optional[str]" = None,
     model: str = DEFAULT_GEMINI_MODEL,
     debug: bool = False,
 ) -> AsciiArt:

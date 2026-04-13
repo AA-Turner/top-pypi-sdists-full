@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ubelt
-Version: 1.4.1
+Version: 1.4.2
 Summary: A Python utility belt containing simple tools, a stdlib like feel, and extra batteries
 Home-page: https://github.com/Erotemic/ubelt
 Author: Jon Crall
@@ -366,7 +366,6 @@ Ubelt is small. Its top-level API is defined using roughly 40 lines:
                                  sorted_vals, sorted_values, udict, varied_values,)
     from ubelt.util_deprecate import (schedule_deprecation,)
     from ubelt.util_download import (download, grabdata,)
-    from ubelt.util_download_manager import (DownloadManager,)
     from ubelt.util_func import (compatible, identity, inject_method,)
     from ubelt.util_repr import (ReprExtensions, urepr,)
     from ubelt.util_futures import (Executor, JobPool,)
@@ -459,11 +458,11 @@ The objective top 5 are:
 ================================================================================================================================================ ================
  Function name                                                                                                                                         Usefulness
 ================================================================================================================================================ ================
-`ubelt.urepr <https://ubelt.readthedocs.io/en/latest/ubelt.util_repr.html#ubelt.util_repr.urepr>`__                                                          3542
-`ubelt.Path <https://ubelt.readthedocs.io/en/latest/ubelt.util_path.html#ubelt.util_path.Path>`__                                                            1915
-`ubelt.paragraph <https://ubelt.readthedocs.io/en/latest/ubelt.util_str.html#ubelt.util_str.paragraph>`__                                                     866
-`ubelt.cmd <https://ubelt.readthedocs.io/en/latest/ubelt.util_cmd.html#ubelt.util_cmd.cmd>`__                                                                 654
-`ubelt.ProgIter <https://ubelt.readthedocs.io/en/latest/ubelt.progiter.html#ubelt.progiter.ProgIter>`__                                                       600
+`ubelt.urepr <https://ubelt.readthedocs.io/en/latest/auto/ubelt.util_repr.html#ubelt.util_repr.urepr>`__                                                     3648
+`ubelt.Path <https://ubelt.readthedocs.io/en/latest/auto/ubelt.util_path.html#ubelt.util_path.Path>`__                                                       2023
+`ubelt.paragraph <https://ubelt.readthedocs.io/en/latest/auto/ubelt.util_str.html#ubelt.util_str.paragraph>`__                                                911
+`ubelt.cmd <https://ubelt.readthedocs.io/en/latest/auto/ubelt.util_cmd.html#ubelt.util_cmd.cmd>`__                                                            659
+`ubelt.ProgIter <https://ubelt.readthedocs.io/en/latest/auto/ubelt.progiter.html#ubelt.progiter.ProgIter>`__                                                  621
 ================================================================================================================================================ ================
 
 The full `function usefulness chart <https://ubelt.readthedocs.io/en/latest/index.html#the-api-by-usefulness>`__ is in the documentation.

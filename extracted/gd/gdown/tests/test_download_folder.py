@@ -1,68 +1,158 @@
 import os.path as osp
+import sys
 import tempfile
+import unittest.mock
+from pathlib import Path
 
-from gdown.download_folder import _parse_google_drive_file
+import pytest
+
+from gdown.download_folder import _GoogleDriveFile
+from gdown.download_folder import _parse_embedded_folder_view
 from gdown.download_folder import download_folder
+from gdown.exceptions import DownloadError
 
 here = osp.dirname(osp.abspath(__file__))
 
 
-def test_valid_page():
-    html_file = osp.join(here, "data/folder-page-sample.html")
+@pytest.mark.network
+def test_download_folder_google_slides_without_extension(tmp_path: Path) -> None:
+    # The folder contains a Google Slides file named "gdown" with no extension in
+    # Google Drive. Previously, download_folder() passed this extensionless name as
+    # the output path to download(), which saved the file without .pptx extension.
+    # The fix passes the directory instead, letting download() resolve the filename
+    # (including extension) from the Content-Disposition header.
+    url = "https://drive.google.com/drive/folders/12zxlvJtuHFV6awc3AINaNHnfvRttPv0i"
+    files = download_folder(url=url, output=str(tmp_path), quiet=True)
+    assert len(files) == 1
+    assert isinstance(files[0], str)
+    assert files[0].endswith(".pptx")
+
+
+def _make_folder_root(
+    name: str = "folder", child_name: str = "file.txt"
+) -> _GoogleDriveFile:
+    return _GoogleDriveFile(
+        id="root_id",
+        name=name,
+        type=_GoogleDriveFile.TYPE_FOLDER,
+        children=[
+            _GoogleDriveFile(
+                id="child_id",
+                name=child_name,
+                type="text/plain",
+            ),
+        ],
+    )
+
+
+def test_root_folder_name_path_traversal_is_sanitized(tmp_path: Path) -> None:
+    root = _make_folder_root(name="../../evil", child_name="safe_file.txt")
+    output_dir = str(tmp_path) + osp.sep
+
+    with unittest.mock.patch.object(
+        sys.modules["gdown.download_folder"],
+        "_download_and_parse_google_drive_link",
+        return_value=root,
+    ):
+        files = download_folder(
+            url="https://drive.google.com/drive/folders/dummy",
+            output=output_dir,
+            skip_download=True,
+            quiet=True,
+        )
+
+    for file in files:
+        assert not isinstance(file, str)
+        resolved = osp.realpath(file.local_path)
+        assert resolved.startswith(osp.realpath(output_dir))
+
+
+def test_download_folder_propagates_download_error(tmp_path: Path) -> None:
+    root = _make_folder_root()
+
+    with (
+        unittest.mock.patch.object(
+            sys.modules["gdown.download_folder"],
+            "_download_and_parse_google_drive_link",
+            return_value=root,
+        ),
+        unittest.mock.patch.object(
+            sys.modules["gdown.download_folder"],
+            "download",
+            side_effect=DownloadError("access denied"),
+        ),
+        pytest.raises(DownloadError, match="access denied"),
+    ):
+        download_folder(
+            url="https://drive.google.com/drive/folders/dummy",
+            output=str(tmp_path) + osp.sep,
+            quiet=True,
+        )
+
+
+def test_parse_embedded_folder_view() -> None:
+    html_file = osp.join(here, "data/embedded-folder-view-sample.html")
     with open(html_file) as f:
         content = f.read()
-    folder = "".join(
-        [
-            "https://drive.google.com",
-            "/drive/folders/1KpLl_1tcK0eeehzN980zbG-3M2nhbVks",
-        ]
-    )
-    gdrive_file, id_name_type_iter = _parse_google_drive_file(
-        folder,
-        content,
-    )
-    assert gdrive_file.id == "1KpLl_1tcK0eeehzN980zbG-3M2nhbVks"
 
-    assert gdrive_file.name == "gdown_folder_test"
-    assert gdrive_file.type == "application/vnd.google-apps.folder"
-    assert gdrive_file.children == []
-    assert gdrive_file.is_folder()
+    mock_response = unittest.mock.Mock()
+    mock_response.status_code = 200
+    mock_response.text = content
 
-    expected_children_ids = [
+    mock_sess = unittest.mock.Mock()
+    mock_sess.get.return_value = mock_response
+
+    result = _parse_embedded_folder_view(sess=mock_sess, folder_id="test_folder_id")
+
+    assert result is not None
+    folder_name, children = result
+    assert folder_name == "files_100"
+    assert len(children) == 4
+
+    ids = [r[0] for r in children]
+    names = [r[1] for r in children]
+    types = [r[2] for r in children]
+
+    assert ids == [
+        "108RHF3bQb6dgOByv_KMGzHuktJOwU_jL",
+        "1Sul7bhaimPjncS2GE73nVloSPQbtyzu-",
+        "1xYz2AbCdEfGhIjKlMnOpQrStUvWxYz3A",
         "1aMZqPaU03E7XOQNXtjSCdguRHBaIQ82m",
-        "1hVAxfM7_doToqQ24eVd65cgiaoLi0TtO",
-        "1Z2VYnXb01h-3uvEptoQ48Fo__eAn0wc1",
-        "14xzOzvKjP0at07jfonV7qVrTKoctFijz",
-        "1wlapSEt6N9Ayf7fzCTOkra_4GIg-cqeD",
+    ]
+    assert names == ["file_00.txt", "file_01.txt", "photo.jpg", "subfolder"]
+    assert types == [
+        "application/octet-stream",
+        "application/octet-stream",
+        "application/octet-stream",
+        _GoogleDriveFile.TYPE_FOLDER,
     ]
 
-    expected_children_names = [
-        "directory-0",
-        "directory-1",
-        "fractal.jpg",
-        "this is a file.txt",
-        "tux.jpg",
-    ]
 
-    expected_children_types = [
-        "application/vnd.google-apps.folder",
-        "application/vnd.google-apps.folder",
-        "image/jpeg",
-        "text/plain",
-        "image/jpeg",
-    ]
+def test_parse_embedded_folder_view_http_error() -> None:
+    mock_response = unittest.mock.Mock()
+    mock_response.status_code = 404
 
-    children_info = list(id_name_type_iter)
-    actual_children_ids = [t[0] for t in children_info]
-    actual_children_names = [t[1] for t in children_info]
-    actual_children_types = [t[2] for t in children_info]
+    mock_sess = unittest.mock.Mock()
+    mock_sess.get.return_value = mock_response
 
-    assert actual_children_ids == expected_children_ids
-    assert actual_children_names == expected_children_names
-    assert actual_children_types == expected_children_types
+    with pytest.raises(DownloadError, match="status code 404"):
+        _parse_embedded_folder_view(sess=mock_sess, folder_id="nonexistent")
 
 
-def test_download_folder_dry_run():
+def test_parse_embedded_folder_view_malformed_html() -> None:
+    mock_response = unittest.mock.Mock()
+    mock_response.status_code = 200
+    mock_response.text = "<html><body>no title</body></html>"
+
+    mock_sess = unittest.mock.Mock()
+    mock_sess.get.return_value = mock_response
+
+    with pytest.raises(DownloadError, match="page structure may have changed"):
+        _parse_embedded_folder_view(sess=mock_sess, folder_id="test")
+
+
+@pytest.mark.network
+def test_download_folder_dry_run() -> None:
     url = "https://drive.google.com/drive/folders/1KpLl_1tcK0eeehzN980zbG-3M2nhbVks"
     tmp_dir = tempfile.mkdtemp()
     files = download_folder(url=url, output=tmp_dir, skip_download=True)

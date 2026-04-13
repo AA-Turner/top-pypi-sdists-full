@@ -8,17 +8,6 @@ import logging
 import time
 from typing import Any, AsyncGenerator
 
-import httpx
-from openai import (
-    APIConnectionError,
-    APIStatusError,
-    APITimeoutError,
-    AsyncOpenAI,
-    AuthenticationError,
-    BadRequestError,
-    RateLimitError,
-)
-
 from ..config import AIConfig
 from .async_tasks import cancel_task
 from .egress_allowlist import check_egress_allowed
@@ -103,6 +92,9 @@ class AIService:
                         pass  # No running loop (e.g. during __init__)
             except Exception:
                 logger.debug("Failed to close old HTTP client", exc_info=True)
+
+        import httpx
+        from openai import AsyncOpenAI
 
         api_key = self._resolve_api_key()
         timeout = httpx.Timeout(
@@ -249,6 +241,15 @@ class AIService:
         extra_system_prompt: str | None = None,
         _token_refreshed: bool = False,
     ) -> AsyncGenerator[dict[str, Any], None]:
+        from openai import (
+            APIConnectionError,
+            APIStatusError,
+            APITimeoutError,
+            AuthenticationError,
+            BadRequestError,
+            RateLimitError,
+        )
+
         system_content = self.config.system_prompt
         if extra_system_prompt:
             system_content = extra_system_prompt + "\n\n" + system_content
@@ -805,6 +806,8 @@ class AIService:
             }
 
     async def generate_title(self, user_message: str, _token_refreshed: bool = False) -> str:
+        from openai import APIConnectionError, APITimeoutError, AuthenticationError
+
         try:
             response = await self.client.chat.completions.create(
                 model=self.config.model,
@@ -846,6 +849,8 @@ class AIService:
         _token_refreshed: bool = False,
     ) -> str | None:
         """Non-streaming completion for internal use (e.g. context compaction)."""
+        from openai import AuthenticationError
+
         try:
             response = await self.client.chat.completions.create(
                 model=self.config.model,
@@ -874,6 +879,8 @@ class AIService:
 
         Returns (response_text, {"prompt_tokens": N, "completion_tokens": N, "total_tokens": N}).
         """
+        from openai import AuthenticationError
+
         try:
             kwargs: dict[str, Any] = {
                 "model": self.config.model,
@@ -906,6 +913,8 @@ class AIService:
             raise
 
     async def validate_connection(self, _token_refreshed: bool = False) -> tuple[bool, str, list[str]]:
+        from openai import APIConnectionError, APITimeoutError, AuthenticationError
+
         try:
             models = await self.client.models.list()
             model_ids = [m.id for m in models.data]

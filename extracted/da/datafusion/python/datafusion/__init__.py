@@ -35,7 +35,7 @@ from . import functions, object_store, substrait, unparser
 
 # The following imports are okay to remain as opaque to the user.
 from ._internal import Config
-from .catalog import Catalog, Database, Table
+from .catalog import Catalog, Table
 from .col import col, column
 from .common import DFSchema
 from .context import (
@@ -47,6 +47,7 @@ from .context import (
 from .dataframe import (
     DataFrame,
     DataFrameWriteOptions,
+    ExplainFormat,
     InsertOp,
     ParquetColumnOptions,
     ParquetWriterOptions,
@@ -80,8 +81,8 @@ __all__ = [
     "DFSchema",
     "DataFrame",
     "DataFrameWriteOptions",
-    "Database",
     "ExecutionPlan",
+    "ExplainFormat",
     "Expr",
     "InsertOp",
     "LogicalPlan",

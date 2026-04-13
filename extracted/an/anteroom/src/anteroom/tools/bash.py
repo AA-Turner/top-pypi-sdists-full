@@ -159,6 +159,8 @@ async def handle(
     _bg_manager: Any = None,
     _conversation_id: str = "",
     _db: Any = None,
+    _cancel_event: Any = None,
+    _force_cancel_event: Any = None,
     **_: Any,
 ) -> dict[str, Any]:
     # Null byte check runs unconditionally — never bypassable.
@@ -240,15 +242,51 @@ async def handle(
                 security_logger.warning("Job Object setup failed, running without OS sandbox")
 
         try:
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        except asyncio.TimeoutError:
-            if job_handle is not None:
-                from .sandbox_win32 import terminate_job
+            comm_task = asyncio.create_task(proc.communicate())
+            wait_set: set[asyncio.Task[Any]] = {comm_task, asyncio.create_task(asyncio.sleep(timeout))}
+            cancel_wait: asyncio.Task[Any] | None = None
+            if _cancel_event is not None:
+                cancel_wait = asyncio.create_task(_cancel_event.wait())
+                wait_set.add(cancel_wait)
+            done, pending = await asyncio.wait(wait_set, return_when=asyncio.FIRST_COMPLETED)
+            for p in pending:
+                p.cancel()
+            if comm_task in done:
+                stdout, stderr = comm_task.result()
+            elif cancel_wait is not None and cancel_wait in done:
+                # Soft cancel: SIGTERM, then race grace period against force-cancel
+                proc.terminate()
+                grace_task = asyncio.create_task(proc.communicate())
+                grace_set: set[asyncio.Task[Any]] = {
+                    grace_task,
+                    asyncio.create_task(asyncio.sleep(2.0)),
+                }
+                # Race force-cancel event during SIGTERM grace window so
+                # double-cancel kills immediately instead of waiting 2s
+                if _force_cancel_event is not None:
 
-                terminate_job(job_handle)
-            proc.kill()
-            await proc.wait()
-            return {"error": f"Command timed out after {timeout}s", "exit_code": -1}
+                    async def _wait_force() -> None:
+                        while not _force_cancel_event.is_set():
+                            await asyncio.sleep(0.05)
+
+                    grace_set.add(asyncio.create_task(_wait_force()))
+                grace_done, grace_pending = await asyncio.wait(grace_set, return_when=asyncio.FIRST_COMPLETED)
+                for gp in grace_pending:
+                    gp.cancel()
+                if grace_task not in grace_done:
+                    # Process didn't exit in time or force-cancel fired — SIGKILL
+                    proc.kill()
+                    await proc.wait()
+                return {"stdout": "", "stderr": "", "exit_code": -1, "cancelled": True}
+            else:
+                # Timeout
+                if job_handle is not None:
+                    from .sandbox_win32 import terminate_job
+
+                    terminate_job(job_handle)
+                proc.kill()
+                await proc.wait()
+                return {"error": f"Command timed out after {timeout}s", "exit_code": -1}
         finally:
             if job_handle is not None:
                 from .sandbox_win32 import close_job

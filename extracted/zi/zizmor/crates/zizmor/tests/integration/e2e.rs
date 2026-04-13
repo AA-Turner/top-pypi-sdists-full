@@ -231,8 +231,8 @@ fn invalid_config_file() -> Result<()> {
             .config(if cfg!(windows) { "NUL" } else { "/dev/null" })
             .input(input_under_test("e2e-menagerie"))
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
+     INFO zizmor: 🌈 zizmor v@@VERSION@@
     fatal: no audit was performed
     error: configuration error in @@CONFIG@@
       |
@@ -278,8 +278,8 @@ fn invalid_inputs() -> Result<()> {
             .input(input_under_test("invalid/empty/"))
             .args(["--strict-collection"])
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
+     INFO zizmor: 🌈 zizmor v@@VERSION@@
     fatal: no audit was performed
     error: no inputs collected
       |
@@ -309,7 +309,7 @@ fn test_issue_1394() -> Result<()> {
             .args(["--strict-collection"])
             .run()?,
         @r#"
-    🌈 zizmor v@@VERSION@@
+     INFO zizmor: 🌈 zizmor v@@VERSION@@
     fatal: no audit was performed
     failed to load file://@@INPUT@@ as workflow
 
@@ -328,7 +328,7 @@ fn test_issue_1394() -> Result<()> {
             ))
             .run()?,
         @r#"
-    🌈 zizmor v@@VERSION@@
+     INFO zizmor: 🌈 zizmor v@@VERSION@@
      WARN collect_inputs: zizmor::registry::input: failed to parse input: jobs.demo.steps[0]: duplicate entry with key "env" at line 10 column 9
     fatal: no audit was performed
     error: no inputs collected
@@ -412,8 +412,8 @@ fn issue_1065() -> Result<()> {
             .output(OutputMode::Both)
             .input(input_under_test("issue-1065.yml"))
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
+     INFO zizmor: 🌈 zizmor v@@VERSION@@
      INFO audit: zizmor: 🌈 completed @@INPUT@@
     warning[excessive-permissions]: overly broad permissions
       --> @@INPUT@@:12:3
@@ -457,10 +457,9 @@ fn warn_on_min_severity_unknown() -> Result<()> {
             .args(["--min-severity=unknown"])
             .input(input_under_test("e2e-menagerie"))
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
-     WARN zizmor: `unknown` is a deprecated minimum severity that has no effect
-     WARN zizmor: future versions of zizmor will reject this value
+        @"
+    WARN zizmor: `unknown` is a deprecated minimum severity that has no effect
+    WARN zizmor: future versions of zizmor will reject this value
     "
     );
 
@@ -478,10 +477,9 @@ fn warn_on_min_confidence_unknown() -> Result<()> {
             .args(["--min-confidence=unknown"])
             .input(input_under_test("e2e-menagerie"))
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
-     WARN zizmor: `unknown` is a deprecated minimum confidence that has no effect
-     WARN zizmor: future versions of zizmor will reject this value
+        @"
+    WARN zizmor: `unknown` is a deprecated minimum confidence that has no effect
+    WARN zizmor: future versions of zizmor will reject this value
     "
     );
     Ok(())
@@ -521,8 +519,8 @@ fn issue_1286() -> Result<()> {
             .offline(false)
             .input(input_under_test("issue-1286.yml"))
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
+     INFO zizmor: 🌈 zizmor v@@VERSION@@
     fatal: no audit was performed
     'ref-confusion' audit failed on file://@@INPUT@@
 
@@ -552,8 +550,8 @@ fn issue_1300() -> Result<()> {
             .args(["--collect=workflows"])
             .input("woodruffw-experiments/empty")
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
+     INFO zizmor: 🌈 zizmor v@@VERSION@@
     fatal: no audit was performed
     error: input @@INPUT@@ doesn't contain any workflows
       |
@@ -619,8 +617,8 @@ fn test_cant_retrieve_offline() -> Result<()> {
             .offline(true)
             .args(["pypa/sampleproject"])
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
+     INFO zizmor: 🌈 zizmor v@@VERSION@@
     fatal: no audit was performed
     error: can't fetch remote repository: pypa/sampleproject
       |
@@ -645,8 +643,8 @@ fn test_cant_retrieve_no_gh_token() -> Result<()> {
             .gh_token(false)
             .args(["pypa/sampleproject"])
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
+     INFO zizmor: 🌈 zizmor v@@VERSION@@
     fatal: no audit was performed
     error: can't fetch remote repository: pypa/sampleproject
       |
@@ -668,12 +666,12 @@ fn test_github_output() -> Result<()> {
             .input(input_under_test("several-vulnerabilities.yml"))
             .args(["--persona=auditor", "--format=github"])
             .run()?,
-        @r"
+        @"
     ::error file=@@INPUT@@,line=5,title=excessive-permissions::several-vulnerabilities.yml:5: overly broad permissions: uses write-all permissions
     ::error file=@@INPUT@@,line=11,title=excessive-permissions::several-vulnerabilities.yml:11: overly broad permissions: uses write-all permissions
     ::error file=@@INPUT@@,line=2,title=dangerous-triggers::several-vulnerabilities.yml:2: use of fundamentally insecure workflow trigger: pull_request_target is almost always used insecurely
     ::error file=@@INPUT@@,line=16,title=template-injection::several-vulnerabilities.yml:16: code injection via template expansion: may expand into attacker-controllable code
-    ::warning file=@@INPUT@@,line=1,title=concurrency-limits::several-vulnerabilities.yml:1: insufficient job-level concurrency limits: missing concurrency setting
+    ::warning file=@@INPUT@@,line=2,title=concurrency-limits::several-vulnerabilities.yml:2: insufficient job-level concurrency limits: workflow is missing concurrency setting
     "
     );
 

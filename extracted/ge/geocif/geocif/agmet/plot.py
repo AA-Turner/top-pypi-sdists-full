@@ -436,9 +436,9 @@ class AgmetPlotter:
     def _overlay_fldas_dots(self, cur_ax, panel_type):
         """Overlay FLDAS forecast dots on an existing subplot.
 
-        For each month in the current season, plot one dot per lead time
-        (lead 0 = most opaque, lead 5 = most transparent).  Dots beyond
-        the harvest date are suppressed.
+        Uses the most recent initialization month's data and plots each
+        lead at its target month (init + lead).  Only future months
+        (after today) up to the harvest date are shown.
         """
         fldas_var = self._FLDAS_PANEL_MAP.get(panel_type)
         if fldas_var is None:
@@ -448,35 +448,47 @@ class AgmetPlotter:
         if lead0_col not in self.df_current.columns:
             return
 
-        # Determine harvest date cutoff
         harvest_date = self.dates_cal[3] if self.dates_cal and self.dates_cal[3] else None
+        today = pd.Timestamp.now().normalize()
 
-        # Group current-season data by month
+        # Find the last month with non-null FLDAS data (most recent init)
         monthly = self.df_current.groupby(self.df_current.index.month)
+        init_month_grp = None
+        for _, grp in monthly:
+            if grp[lead0_col].notna().any():
+                init_month_grp = grp
+
+        if init_month_grp is None:
+            return
+
+        init_mid = init_month_grp.index[len(init_month_grp) // 2]
 
         added_legend = False
-        for _, grp in monthly:
-            # Mid-month date for x-position
-            mid_date = grp.index[len(grp) // 2]
-            if harvest_date and mid_date > harvest_date:
+        for lead in range(6):
+            col = f"fldas_{fldas_var}_lead{lead}"
+            if col not in init_month_grp.columns:
+                continue
+            val = init_month_grp[col].dropna()
+            if val.empty:
                 continue
 
-            for lead in range(6):
-                col = f"fldas_{fldas_var}_lead{lead}"
-                if col not in grp.columns:
-                    continue
-                val = grp[col].dropna()
-                if val.empty:
-                    continue
-                y = val.iloc[0]
-                label = "FLDAS forecast" if not added_legend else ""
-                cur_ax.plot(
-                    mid_date, y, marker="D", color="tab:orange",
-                    markersize=4, alpha=0.8, linestyle="none",
-                    label=label, zorder=5,
-                )
-                if label:
-                    added_legend = True
+            # Target date = init month + lead months
+            target_date = init_mid + pd.DateOffset(months=lead)
+
+            if target_date < today:
+                continue
+            if harvest_date and target_date > harvest_date:
+                continue
+
+            y = val.iloc[0]
+            label = "FLDAS forecast" if not added_legend else ""
+            cur_ax.plot(
+                target_date, y, marker="D", color="tab:orange",
+                markersize=5, alpha=0.8, linestyle="none",
+                label=label, zorder=5,
+            )
+            if label:
+                added_legend = True
 
     def _add_annotations(self, fig, leg):
         """Add logos, data sources, production share, and footer text."""
@@ -487,7 +499,15 @@ class AgmetPlotter:
         im = image.imread(str(self.logos[1]))
         fig.figimage(im, 450, 2300, zorder=3)
 
-        fig.text(0.83, 0.25, "Data Sources\n", fontsize=14, fontweight="bold")
+        # Data Sources — position title at same y as Legend title
+        # Read Legend title y-position for alignment
+        try:
+            renderer = fig.canvas.get_renderer()
+            leg_title_bbox = leg.get_title().get_window_extent(renderer)
+            ds_y = leg_title_bbox.transformed(fig.transFigure.inverted()).y0
+        except Exception:
+            ds_y = 0.25
+        fig.text(0.83, ds_y, "Data Sources", fontsize=14, fontweight="bold")
         if self.precip_var == "chirps":
             precip_str = "Precipitation: CHIRPS\n"
         elif self.precip_var == "daymet_prcp":
@@ -507,7 +527,7 @@ class AgmetPlotter:
             fldas_str = "Forecast: FLDAS NMME\n"
         fig.text(
             0.83,
-            0.14 if self.precip_var == "chirps" else 0.15,
+            0.13,
             "NDVI: UMD GLAM system\n"
             + temp_str
             + precip_str
@@ -582,17 +602,20 @@ class AgmetPlotter:
             ax_map = fig.add_axes([x_left, 0.99 - h, w, h])
             ax_map.set_axis_off()
 
+            # Keep only polygon geometries (drop stray points/lines)
+            gdf = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])].copy()
+
             # Draw regions with thin edges, then country outline with thick edge
             gdf.plot(ax=ax_map, color="lightgray", edgecolor="gray", linewidth=0.3)
             gdf.dissolve().boundary.plot(ax=ax_map, color="black", linewidth=1.0)
 
             # Highlight region: use highlight_gdf (district) or match by name (adm1)
             if self.highlight_gdf is not None and not self.highlight_gdf.empty:
-                self.highlight_gdf.plot(ax=ax_map, color="black", edgecolor="black")
+                self.highlight_gdf.plot(ax=ax_map, color="royalblue", edgecolor="royalblue")
             elif self.region:
                 region_clean = self.region.replace("_", " ").lower()
                 mask = gdf[name_col].str.lower().str.replace("_", " ") == region_clean
-                gdf[mask].plot(ax=ax_map, color="black", edgecolor="black")
+                gdf[mask].plot(ax=ax_map, color="royalblue", edgecolor="royalblue")
         except Exception:
             pass
 

@@ -1490,6 +1490,17 @@ def _handle_resume(config: AppConfig, db: Any, args: argparse.Namespace) -> None
     console.print(f"[bold]Run:[/bold] {run_id[:12]}...")
     if from_step:
         console.print(f"[bold]From step:[/bold] {from_step}")
+        console.print(
+            "[yellow]Replay mode: steps from this point onward will be re-executed. "
+            "Prior results for these steps will be cleared.[/yellow]"
+        )
+        # Warn if the run is waiting on a gate that will be skipped
+        run = get_workflow_run(db, run_id)
+        if run and run["status"] in ("waiting_for_approval", "waiting_for_input"):
+            console.print(
+                "[yellow]Gate jump: the current approval/input gate will be skipped "
+                "because replay starts past it.[/yellow]"
+            )
     if force:
         console.print("[yellow]Force mode: definition drift will be overridden[/yellow]")
 
@@ -1501,6 +1512,7 @@ def _handle_resume(config: AppConfig, db: Any, args: argparse.Namespace) -> None
                     definition,
                     from_step=from_step,
                     force=force,
+                    actor="cli_operator",
                 )
             )
         )

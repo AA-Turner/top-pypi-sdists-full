@@ -31,6 +31,8 @@ class Mastodon(Internals):
             - `admin.report` - For accounts with appropriate permissions: A new report has been received
             - `severed_relationships` - Some of the logged in users relationships have been severed due to a moderation action on this server
             - `moderation_warning` - The logged in user has been warned by a moderator
+            - `quote` - A user quoted one of the logged in user's statuses
+            - `quoted_update` - A status the logged in user has quoted has been edited
             
         Parameters `exclude_types` and `types` are array of these types, specifying them will in- or exclude the
         types of notifications given. It is legal to give both parameters at the same tine, the result will then
@@ -72,14 +74,14 @@ class Mastodon(Internals):
     # Writing data: Notifications
     ###
     @api_version("1.0.0", "1.0.0")
-    def notifications_clear(self):
+    def notifications_clear(self) -> None:
         """
         Clear out a user's notifications
         """
         self.__api_request('POST', '/api/v1/notifications/clear')
 
     @api_version("1.3.0", "2.9.2")
-    def notifications_dismiss(self, id: Union[Notification, IdType]):
+    def notifications_dismiss(self, id: Union[Notification, IdType]) -> None:
         """
         Deletes a single notification
         """

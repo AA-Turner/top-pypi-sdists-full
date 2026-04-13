@@ -40,7 +40,7 @@ use super::rank_select::SuccinctBitVector;
 ///
 /// Supports sequences of u64 symbols. Internally builds a binary tree
 /// of bitvectors, one level per bit of the alphabet encoding.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct WaveletTree {
     /// Bitvectors at each level of the tree.
     /// Level 0 is the root, level h-1 is the leaves.
@@ -351,6 +351,103 @@ impl WaveletTree {
     pub fn iter(&self) -> impl Iterator<Item = (usize, u64)> + '_ {
         (0..self.len).map(move |i| (i, self.access(i)))
     }
+
+    /// Validates structural invariants after deserialization.
+    ///
+    /// Checks that:
+    /// - `levels.len()` equals `height`
+    /// - `symbols.len()` equals `sigma`
+    /// - `symbol_to_code` is consistent with `symbols`
+    /// - `height` is consistent with `sigma`
+    /// - Each level bitvector has the expected length
+    ///
+    /// # Errors
+    ///
+    /// Returns a description of the first violated invariant.
+    pub fn validate(&self) -> Result<(), String> {
+        // Empty tree: all fields should be zero/empty
+        if self.len == 0 {
+            if self.height != 0 {
+                return Err(format!("empty tree has non-zero height {}", self.height));
+            }
+            if self.sigma != 0 {
+                return Err(format!("empty tree has non-zero sigma {}", self.sigma));
+            }
+            if !self.levels.is_empty() {
+                return Err(format!("empty tree has {} levels", self.levels.len()));
+            }
+            if !self.symbols.is_empty() {
+                return Err(format!("empty tree has {} symbols", self.symbols.len()));
+            }
+            return Ok(());
+        }
+
+        // Non-empty tree checks
+        if self.levels.len() != self.height {
+            return Err(format!(
+                "levels count {} != height {}",
+                self.levels.len(),
+                self.height
+            ));
+        }
+
+        if self.symbols.len() != self.sigma as usize {
+            return Err(format!(
+                "symbols count {} != sigma {}",
+                self.symbols.len(),
+                self.sigma
+            ));
+        }
+
+        if self.symbol_to_code.len() != self.symbols.len() {
+            return Err(format!(
+                "symbol_to_code size {} != symbols count {}",
+                self.symbol_to_code.len(),
+                self.symbols.len()
+            ));
+        }
+
+        // Height must be consistent with sigma
+        let expected_height = if self.sigma <= 1 {
+            1
+        } else {
+            64 - (self.sigma - 1).leading_zeros() as usize
+        };
+        if self.height != expected_height {
+            return Err(format!(
+                "height {} inconsistent with sigma {} (expected {expected_height})",
+                self.height, self.sigma
+            ));
+        }
+
+        // Each level bitvector must have the same length as the sequence
+        for (i, bv) in self.levels.iter().enumerate() {
+            if bv.len() != self.len {
+                return Err(format!(
+                    "level {i} bitvector length {} != sequence length {}",
+                    bv.len(),
+                    self.len
+                ));
+            }
+        }
+
+        // Verify symbol_to_code maps each symbol to a valid code in [0, sigma)
+        for (i, &sym) in self.symbols.iter().enumerate() {
+            match self.symbol_to_code.get(&sym) {
+                Some(&code) if code == i as u64 => {}
+                Some(&code) => {
+                    return Err(format!("symbol_to_code[{sym}] = {code}, expected {i}"));
+                }
+                None => {
+                    return Err(format!(
+                        "symbol {sym} at index {i} missing from symbol_to_code"
+                    ));
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -523,5 +620,81 @@ mod tests {
 
         assert_eq!(wt.count(1_000_000), 2);
         assert_eq!(wt.rank(1_000_000, 3), 2);
+    }
+
+    #[test]
+    fn test_validate_empty() {
+        let wt = WaveletTree::new(&[]);
+        assert!(wt.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_non_empty() {
+        let wt = WaveletTree::new(&[0, 1, 0, 2, 1, 0, 2, 2]);
+        assert!(wt.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_single_symbol() {
+        let wt = WaveletTree::new(&[7, 7, 7]);
+        assert!(wt.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_large_alphabet() {
+        let seq: Vec<u64> = (0..100).map(|i| i * 7 % 50).collect();
+        let wt = WaveletTree::new(&seq);
+        assert!(wt.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_bad_height() {
+        // sigma=4 expects height=2. Corrupt height to 5 and pad levels
+        // so the levels-count check passes but height/sigma check catches it.
+        let wt = WaveletTree::new(&[0, 1, 2, 3]);
+        let mut json_val: serde_json::Value = serde_json::to_value(&wt).unwrap();
+        let first_level = json_val["levels"][0].clone();
+        let levels = json_val["levels"].as_array_mut().unwrap();
+        // Pad to 5 levels so levels.len() == height
+        while levels.len() < 5 {
+            levels.push(first_level.clone());
+        }
+        json_val["height"] = serde_json::json!(5);
+        let corrupted: WaveletTree = serde_json::from_value(json_val).unwrap();
+        let err = corrupted.validate().unwrap_err();
+        assert!(
+            err.contains("height") && err.contains("inconsistent"),
+            "expected height-inconsistent error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_validate_bad_level_count() {
+        let wt = WaveletTree::new(&[0, 1, 2, 3]);
+        let mut json_val: serde_json::Value = serde_json::to_value(&wt).unwrap();
+        // Remove one level so levels.len() != height
+        let levels = json_val["levels"].as_array_mut().unwrap();
+        levels.pop();
+        let corrupted: WaveletTree = serde_json::from_value(json_val).unwrap();
+        let err = corrupted.validate().unwrap_err();
+        assert!(
+            err.contains("levels count") && err.contains("height"),
+            "expected levels/height mismatch error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_validate_mismatched_symbols() {
+        let wt = WaveletTree::new(&[0, 1, 2, 3]);
+        let mut json_val: serde_json::Value = serde_json::to_value(&wt).unwrap();
+        // Remove one symbol so symbols.len() != sigma
+        let symbols = json_val["symbols"].as_array_mut().unwrap();
+        symbols.pop();
+        let corrupted: WaveletTree = serde_json::from_value(json_val).unwrap();
+        let err = corrupted.validate().unwrap_err();
+        assert!(
+            err.contains("symbols count") && err.contains("sigma"),
+            "expected symbols/sigma mismatch error, got: {err}"
+        );
     }
 }

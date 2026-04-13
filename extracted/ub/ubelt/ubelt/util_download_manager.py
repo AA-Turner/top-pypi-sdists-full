@@ -10,6 +10,7 @@ if typing.TYPE_CHECKING:
     import concurrent.futures
     import os
     from collections.abc import Iterable
+    import ubelt as ub
 
 __all__ = ['DownloadManager']
 
@@ -72,6 +73,8 @@ class DownloadManager:
 
     download_root: str | os.PathLike
     cache: bool
+    _pool: ub.JobPool[typing.Any]
+    _dl_func: typing.Callable[..., object]
 
     def __init__(
         self,
@@ -157,7 +160,7 @@ class DownloadManager:
         prog: None | bool | type = None,
         desc: str | None = None,
         verbose: int = 1,
-    ):
+    ) -> typing.Iterable[typing.Any]:
         """
         Generate completed jobs as they become available
 

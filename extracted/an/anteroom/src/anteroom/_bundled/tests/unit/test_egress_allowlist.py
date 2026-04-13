@@ -177,43 +177,43 @@ class TestLocalhostVariants:
 class TestAIServiceEgressValidation:
     def test_allowed_domain_constructs_normally(self) -> None:
         config = _make_config(allowed_domains=["api.openai.com"])
-        with patch("anteroom.services.ai_service.AsyncOpenAI"):
+        with patch("openai.AsyncOpenAI"):
             service = AIService(config)
         assert service.config.base_url == "https://api.openai.com/v1"
 
     def test_blocked_domain_raises_valueerror(self) -> None:
         config = _make_config(allowed_domains=["api.anthropic.com"])
         with pytest.raises(ValueError, match="Egress blocked"):
-            with patch("anteroom.services.ai_service.AsyncOpenAI"):
+            with patch("openai.AsyncOpenAI"):
                 AIService(config)
 
     def test_empty_allowlist_allows_any(self) -> None:
         config = _make_config(allowed_domains=[])
-        with patch("anteroom.services.ai_service.AsyncOpenAI"):
+        with patch("openai.AsyncOpenAI"):
             service = AIService(config)
         assert service.config is not None
 
     def test_block_localhost_rejects_loopback(self) -> None:
         config = _make_config(base_url="http://localhost:11434/v1", block_localhost_api=True)
         with pytest.raises(ValueError, match="Egress blocked"):
-            with patch("anteroom.services.ai_service.AsyncOpenAI"):
+            with patch("openai.AsyncOpenAI"):
                 AIService(config)
 
     def test_block_localhost_allows_external(self) -> None:
         config = _make_config(base_url="https://api.openai.com/v1", block_localhost_api=True)
-        with patch("anteroom.services.ai_service.AsyncOpenAI"):
+        with patch("openai.AsyncOpenAI"):
             service = AIService(config)
         assert service.config.base_url == "https://api.openai.com/v1"
 
     def test_error_message_does_not_leak_allowlist(self) -> None:
         config = _make_config(allowed_domains=["secret-internal.corp.com"])
         with pytest.raises(ValueError, match="Egress blocked") as exc_info:
-            with patch("anteroom.services.ai_service.AsyncOpenAI"):
+            with patch("openai.AsyncOpenAI"):
                 AIService(config)
         assert "secret-internal" not in str(exc_info.value)
 
     def test_block_localhost_rejects_cloud_imds(self) -> None:
         config = _make_config(base_url="http://169.254.169.254/latest/meta-data/", block_localhost_api=True)
         with pytest.raises(ValueError, match="Egress blocked"):
-            with patch("anteroom.services.ai_service.AsyncOpenAI"):
+            with patch("openai.AsyncOpenAI"):
                 AIService(config)

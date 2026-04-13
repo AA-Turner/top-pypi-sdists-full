@@ -1,8 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use tombi_test_lib::{
-    cargo_feature_navigation_fixture_path, cargo_schema_path, pyproject_schema_path,
-    string_format_test_schema_path, tombi_schema_path,
+    adjacent_applicators_test_schema_path, adjacent_one_of_hover_test_schema_path,
+    cargo_feature_navigation_fixture_path, cargo_schema_path, lsp_consistency_test_schema_path,
+    one_of_hover_discriminator_test_schema_path, pyproject_schema_path,
+    ref_sibling_annotations_test_schema_path, string_format_test_schema_path, tombi_schema_path,
 };
 
 fn cargo_feature_usage_hover_description(
@@ -225,6 +227,38 @@ mod hover_keys_value {
             ) -> Ok({
                 "Keys": "package.name",
                 "Value": "String"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn cargo_lints_clippy_absolute_paths_default(
+                r#"
+                [lints.clippy]
+                absolute_paths█ = "allow"
+                "#,
+                SchemaPath(cargo_schema_path()),
+            ) -> Ok({
+                "Keys": "lints.clippy.absolute_paths",
+                "Value": "(String | Table)?",
+                "Title": Some("Absolute Paths"),
+                "Default": "\"allow\""
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn ref_sibling_examples_are_displayed(
+                r#"
+                name = "█allow"
+                "#,
+                SchemaPath(ref_sibling_annotations_test_schema_path()),
+            ) -> Ok({
+                "Keys": "name",
+                "Value": "String?",
+                "Title": Some("Ref Sibling Annotations"),
+                "Default": "\"allow\"",
+                "Examples": ["\"warn\"", "\"deny\""]
             });
         );
 
@@ -531,6 +565,152 @@ mod hover_keys_value {
         );
     }
 
+    mod one_of_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn one_of_hover_prefers_single_valid_branch(
+                r#"
+                [[repos]]
+                repo = "builtin"
+                hooks = [
+                  { id = "█hook" }
+                ]
+                "#,
+                SchemaPath(one_of_hover_discriminator_test_schema_path()),
+            ) -> Ok({
+                "Keys": "repos[0].hooks[0].id",
+                "Value": "String",
+                "Default": "\"builtin-hook\""
+            });
+        );
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn one_of_hover_does_not_leak_branch_default_when_no_branch_is_valid(
+                r#"
+                [[repos]]
+                hooks = [
+                  { id = "█hook" }
+                ]
+                "#,
+                SchemaPath(one_of_hover_discriminator_test_schema_path()),
+            ) -> Ok({
+                "Keys": "repos[0]",
+                "Value": "Table"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn adjacent_one_of_hover_prefers_valid_branch_property_schema(
+                r#"
+                [[repos]]
+                repo = "builtin"
+                ho█oks = []
+                "#,
+                SchemaPath(adjacent_one_of_hover_test_schema_path()),
+            ) -> Ok({
+                "Keys": "repos[0].hooks",
+                "Value": "Array"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn adjacent_one_of_hover_prefers_valid_branch_nested_item_schema(
+                r#"
+                [[repos]]
+                repo = "builtin"
+                hooks = [
+                  { id = "█hook" }
+                ]
+                "#,
+                SchemaPath(adjacent_one_of_hover_test_schema_path()),
+            ) -> Ok({
+                "Keys": "repos[0].hooks[0].id",
+                "Value": "String",
+                "Default": "\"builtin-hook\""
+            });
+        );
+    }
+
+    mod adjacent_applicators_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn adjacent_all_of_offset_date_time_hover_merges_const(
+                r#"
+                offset_date_time_all = 2024-01-15T█10:30:00Z
+                "#,
+                SchemaPath(adjacent_applicators_test_schema_path()),
+            ) -> Ok({
+                "Keys": "offset_date_time_all",
+                "Value": "OffsetDateTime?",
+                "Enum": ["2024-01-15T10:30:00Z"]
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn adjacent_all_of_boolean_hover_merges_const(
+                r#"
+                boolean_all = t█rue
+                "#,
+                SchemaPath(adjacent_applicators_test_schema_path()),
+            ) -> Ok({
+                "Keys": "boolean_all",
+                "Value": "Boolean?",
+                "Enum": ["true"]
+            });
+        );
+    }
+
+    mod consistency_schema {
+        use super::*;
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn typed_extra_table_unevaluated_properties_hover(
+                r#"
+                [typed_extra_table]
+                extra = { id = "█value" }
+                "#,
+                SchemaPath(lsp_consistency_test_schema_path()),
+            ) -> Ok({
+                "Keys": "typed_extra_table.extra.id",
+                "Value": "String?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn typed_unevaluated_tuple_hover(
+                r#"
+                typed_unevaluated_tuple = [1, { id = "█value" }]
+                "#,
+                SchemaPath(lsp_consistency_test_schema_path()),
+            ) -> Ok({
+                "Keys": "typed_unevaluated_tuple[1].id",
+                "Value": "String?"
+            });
+        );
+
+        test_hover_keys_value!(
+            #[tokio::test]
+            async fn typed_overflow_tuple_hover(
+                r#"
+                typed_overflow_tuple = [1, { id = "█value" }]
+                "#,
+                SchemaPath(lsp_consistency_test_schema_path()),
+            ) -> Ok({
+                "Keys": "typed_overflow_tuple[1].id",
+                "Value": "String?"
+            });
+        );
+    }
+
     mod pyproject_schema {
         use super::*;
 
@@ -774,6 +954,9 @@ mod hover_keys_value {
             "Value": $value_type:expr
             $(, "Title": $title:expr)?
             $(, "Description": $description:expr)?
+            $(, "Enum": [$($enum_values:expr),* $(,)?])?
+            $(, "Default": $default:expr)?
+            $(, "Examples": [$($examples:expr),* $(,)?])?
             $(,)?
         });) => {
             #[tokio::test]
@@ -1008,6 +1191,44 @@ mod hover_keys_value {
                         hover_content.description.as_deref(),
                         expected_description.as_deref(),
                         "Description is not equal"
+                    );
+                )?
+                $(
+                    let expected_enum = vec![$($enum_values),*];
+                    pretty_assertions::assert_eq!(
+                        hover_content
+                            .constraints
+                            .as_ref()
+                            .and_then(|constraints| constraints.r#enum.as_ref())
+                            .map(|values| values.iter().map(ToString::to_string).collect::<Vec<_>>())
+                            .unwrap_or_default(),
+                        expected_enum,
+                        "Enum is not equal"
+                    );
+                )?
+                $(
+                    let expected_default = $default;
+                    pretty_assertions::assert_eq!(
+                        hover_content
+                            .constraints
+                            .as_ref()
+                            .and_then(|constraints| constraints.default.as_ref())
+                            .map(ToString::to_string)
+                            .as_deref(),
+                        Some(expected_default),
+                        "Default is not equal"
+                    );
+                )?
+                $(
+                    let expected_examples = vec![$($examples),*];
+                    pretty_assertions::assert_eq!(
+                        hover_content
+                            .constraints
+                            .as_ref()
+                            .and_then(|constraints| constraints.examples.as_ref())
+                            .map(|examples| examples.iter().map(ToString::to_string).collect::<Vec<_>>()),
+                        Some(expected_examples.into_iter().map(ToString::to_string).collect()),
+                        "Examples are not equal"
                     );
                 )?
 

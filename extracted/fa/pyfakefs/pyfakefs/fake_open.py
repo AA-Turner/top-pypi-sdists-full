@@ -32,13 +32,15 @@ from typing import (
     IO,
 )
 
-from pyfakefs import helpers
 from pyfakefs.fake_file import (
+    FakeBinaryFileWrapper,
+    FakeTextFileWrapper,
     FakePipeWrapper,
     FakeFileWrapper,
     FakeFile,
     AnyFileWrapper,
 )
+from pyfakefs import helpers
 from pyfakefs.helpers import (
     AnyString,
     is_called_from_skipped_module,
@@ -46,6 +48,7 @@ from pyfakefs.helpers import (
     PERM_READ,
     PERM_WRITE,
     _OpenModes,
+    is_unfaked_path,
 )
 
 if TYPE_CHECKING:
@@ -87,10 +90,14 @@ def fake_open(
     """
     # We don't need to check this if we are in an `open_code` call
     # from a faked file (and this might cause recursions in `linecache`)
-    if not is_fake_open_code and is_called_from_skipped_module(
-        skip_names=skip_names,
-        case_sensitive=filesystem.is_case_sensitive,
-        check_open_code=sys.version_info >= (3, 12),
+    if (
+        not is_fake_open_code
+        and is_called_from_skipped_module(
+            skip_names=skip_names,
+            case_sensitive=filesystem.is_case_sensitive,
+            check_open_code=sys.version_info >= (3, 12),
+        )
+        or is_unfaked_path(file)
     ):
         return io_open(  # pytype: disable=wrong-arg-count
             file,
@@ -265,7 +272,8 @@ class FakeFileOpen:
             if not self.filesystem.is_windows_fs:
                 file_object.st_ctime = current_time
 
-        fakefile = FakeFileWrapper(
+        wrapper_class = FakeBinaryFileWrapper if binary else FakeTextFileWrapper
+        fakefile = wrapper_class(
             file_object,
             file_path,
             open_modes=open_modes,

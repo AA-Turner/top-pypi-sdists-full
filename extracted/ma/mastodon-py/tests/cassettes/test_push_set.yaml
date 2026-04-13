@@ -1,6 +1,6 @@
 interactions:
 - request:
-    body: subscription%5Bendpoint%5D=https%3A%2F%2Fexample.com&subscription%5Bkeys%5D%5Bp256dh%5D=BFe3PrQ5GpV39om7tB1KqjfRbh%2BtYFV8A%2BM18dn8ghMyo43MLaK6ofEGa6qbV4T%2BL%2B%2B8YkcCwpblVQBOA7YVxpc%3D&subscription%5Bkeys%5D%5Bauth%5D=N7pTt1M0nFHShEakXFxfAg%3D%3D&policy=none&data%5Balerts%5D%5Bfollow%5D=1&data%5Balerts%5D%5Bfavourite%5D=1&data%5Balerts%5D%5Breblog%5D=1&data%5Balerts%5D%5Bmention%5D=1&data%5Balerts%5D%5Bpoll%5D=1&data%5Balerts%5D%5Bfollow_request%5D=1&data%5Balerts%5D%5Bstatus%5D=1
+    body: subscription%5Bendpoint%5D=https%3A%2F%2Fexample.com&subscription%5Bkeys%5D%5Bp256dh%5D=BHx21iB%2FQ36NdDRVr%2Bzq3CTFRB80TnzXJ2TAn8aU9TU4ZIr%2BVoHBIGG1%2Ft8qH2DdSLuMoJooTLN2UDEV%2F7h2Qas%3D&subscription%5Bkeys%5D%5Bauth%5D=bZoBlPD8N5g3qtY1fXn9YA%3D%3D&policy=none&data%5Balerts%5D%5Bfollow%5D=1&data%5Balerts%5D%5Bfavourite%5D=1&data%5Balerts%5D%5Breblog%5D=1&data%5Balerts%5D%5Bmention%5D=1&data%5Balerts%5D%5Bpoll%5D=1&data%5Balerts%5D%5Bfollow_request%5D=1&data%5Balerts%5D%5Bstatus%5D=1
     headers:
       Accept:
       - '*/*'
@@ -20,26 +20,26 @@ interactions:
     uri: http://localhost:3000/api/v1/push/subscription
   response:
     body:
-      string: '{"id":1,"endpoint":"https://example.com","standard":false,"alerts":{"mention":true,"status":true,"reblog":true,"follow":true,"follow_request":true,"favourite":true,"poll":true},"server_key":"BKGsRlMhRk26SiksmAVnO0Qme01ZMxazuh5Bt_2bd0NIAZDly-N8oqDGuiRpfZyvTdhGLedFV5Y5nkIAX0KIeZI=","policy":"all"}'
+      string: '{"id":6,"endpoint":"https://example.com","standard":false,"alerts":{"mention":true,"status":true,"reblog":true,"follow":true,"follow_request":true,"favourite":true,"poll":true},"server_key":"BF6E9wvINAYAoTbXKLkpNpaiYFuk0J9eagQsfqoCrm1IJ0Kqw3-luR_JFME38OQgA_AX7qixyBETudsXVMxX3hw=","policy":"all"}'
     headers:
-      Content-Length:
-      - '296'
       cache-control:
       - private, no-store
+      content-length:
+      - '296'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"cac6ee24a0fd8f2c0bce0c55a0660ae9"
+      - W/"788a3f37159a6836fb90a4e5e39c56d4"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=8.20, cache_generate.active_support;dur=1.02,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.34,
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=7.58, cache_generate.active_support;dur=1.82,
+        cache_write.active_support;dur=0.10, instantiation.active_record;dur=0.31,
         start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
-        transaction.active_record;dur=8.69, render.active_model_serializers;dur=0.23,
-        process_action.action_controller;dur=51.25
+        transaction.active_record;dur=9.13, render.active_model_serializers;dur=0.22,
+        process_action.action_controller;dur=40.60
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -53,11 +53,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T18:45:00.366088Z'
+      - '2026-04-11T23:20:00.099939Z'
       x-request-id:
-      - 2d5ccac4-c83e-4c44-bb77-7bbccdf9ecf9
+      - e6ada5ab-a998-41ab-9985-0b732a453d5a
       x-runtime:
-      - '0.072793'
+      - '0.059647'
       x-xss-protection:
       - '0'
     status:
@@ -80,25 +80,25 @@ interactions:
     uri: http://localhost:3000/api/v1/push/subscription
   response:
     body:
-      string: '{"id":1,"endpoint":"https://example.com","standard":false,"alerts":{"mention":true,"status":true,"reblog":true,"follow":true,"follow_request":true,"favourite":true,"poll":true},"server_key":"BKGsRlMhRk26SiksmAVnO0Qme01ZMxazuh5Bt_2bd0NIAZDly-N8oqDGuiRpfZyvTdhGLedFV5Y5nkIAX0KIeZI=","policy":"all"}'
+      string: '{"id":6,"endpoint":"https://example.com","standard":false,"alerts":{"mention":true,"status":true,"reblog":true,"follow":true,"follow_request":true,"favourite":true,"poll":true},"server_key":"BF6E9wvINAYAoTbXKLkpNpaiYFuk0J9eagQsfqoCrm1IJ0Kqw3-luR_JFME38OQgA_AX7qixyBETudsXVMxX3hw=","policy":"all"}'
     headers:
-      Content-Length:
-      - '296'
       cache-control:
       - private, no-store
+      content-length:
+      - '296'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"cac6ee24a0fd8f2c0bce0c55a0660ae9"
+      - W/"788a3f37159a6836fb90a4e5e39c56d4"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.04, sql.active_record;dur=2.83, cache_generate.active_support;dur=1.01,
-        cache_write.active_support;dur=0.08, instantiation.active_record;dur=3.39,
-        start_processing.action_controller;dur=0.01, render.active_model_serializers;dur=0.20,
-        process_action.action_controller;dur=36.35
+      - cache_read.active_support;dur=0.10, sql.active_record;dur=1.04, cache_generate.active_support;dur=0.99,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.25,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.23,
+        process_action.action_controller;dur=27.25
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -112,11 +112,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T18:45:00.445325Z'
+      - '2026-04-11T23:20:00.187314Z'
       x-request-id:
-      - 3f3df050-084a-4fec-bb3a-374a632f3d07
+      - c7969b83-3650-4ad1-bd44-8987f949d652
       x-runtime:
-      - '0.056850'
+      - '0.044359'
       x-xss-protection:
       - '0'
     status:

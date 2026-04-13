@@ -404,7 +404,7 @@ class TestEmbeddingWorkerBackoff:
         provider.get_token = MagicMock(return_value="new-token")
         service._set_token_provider(provider)
 
-        with patch("anteroom.services.embeddings.AsyncOpenAI", return_value=fresh_client):
+        with patch("openai.AsyncOpenAI", return_value=fresh_client):
             with pytest.raises(EmbeddingPermanentError) as exc_info:
                 await service.embed_batch(["hello world test"])
         assert exc_info.value.status_code == 401

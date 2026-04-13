@@ -52,9 +52,11 @@ from os.path import (
 
 from ubelt import util_io
 
+from typing import Union, Tuple
+
 if typing.TYPE_CHECKING:
     from types import TracebackType
-    from typing import Callable, Type, Iterator
+    from typing import Callable, Iterable, Iterator, Type
 
 
 __all__ = [
@@ -333,7 +335,7 @@ def expandpath(path: str | os.PathLike) -> str:
 
 
 def ensuredir(
-    dpath: str | os.PathLike | tuple[str | os.PathLike, ...],
+    dpath: str | os.PathLike[str] | tuple[str | os.PathLike[str], ...],
     mode: int = 0o1777,
     verbose: int = 0,
     recreate: bool = False,
@@ -371,8 +373,15 @@ def ensuredir(
         >>> assert dpath.exists()
         >>> dpath.delete()
     """
-    if isinstance(dpath, (list, tuple)):
-        dpath = join(*dpath)  # type: ignore
+
+    def _coerce_path_part(part: str | os.PathLike[str]) -> str:
+        if isinstance(part, str):
+            return part
+        return part.__fspath__()
+
+    if isinstance(dpath, tuple):
+        parts = typing.cast('Tuple[Union[str, os.PathLike[str]], ...]', dpath)
+        dpath = join(*(_coerce_path_part(part) for part in parts))
 
     if recreate:
         from ubelt import schedule_deprecation
@@ -466,7 +475,7 @@ class ChDir:
         ex_type: Type[BaseException] | None,
         ex_value: BaseException | None,
         ex_traceback: TracebackType | None,
-    ) -> bool | None:
+    ) -> None:
         """
         Args:
             ex_type (Type[BaseException] | None):
@@ -474,7 +483,7 @@ class ChDir:
             ex_traceback (TracebackType | None):
 
         Returns:
-            bool | None
+            None
         """
         if self._context_dpath is not None:
             os.chdir(self._orig_dpath)
@@ -572,7 +581,7 @@ class TempDir:
         ex_type: Type[BaseException] | None,
         ex_value: BaseException | None,
         ex_traceback: TracebackType | None,
-    ) -> bool | None:
+    ) -> None:
         """
         Args:
             ex_type (Type[BaseException] | None):
@@ -580,7 +589,7 @@ class TempDir:
             ex_traceback (TracebackType | None):
 
         Returns:
-            bool | None
+            None
         """
         self.cleanup()
 
@@ -754,7 +763,7 @@ class Path(_PathBase):
     def appdir(
         cls,
         appname: str | None = None,
-        *args,
+        *args: str,
         type: str = 'cache',
     ) -> 'Path':
         """
@@ -1068,12 +1077,12 @@ class Path(_PathBase):
         self.mkdir(mode=mode, parents=True, exist_ok=True)
         return self
 
-    def mkdir(
+    def mkdir(  # type: ignore
         self,
         mode: int = 511,
         parents: bool = False,
         exist_ok: bool = False,
-    ) -> 'Path':  # type: ignore[invalid-method-override]
+    ) -> 'Path':
         """
         Create a new directory at this given path.
 
@@ -1215,7 +1224,11 @@ class Path(_PathBase):
         new = self.__class__(shrunk)
         return new
 
-    def chmod(self, mode, follow_symlinks=True):
+    def chmod(
+        self,
+        mode: int | str,
+        follow_symlinks: bool = True,
+    ) -> typing.Any:
         """
         Change the permissions of the path, like os.chmod().
 
@@ -1316,7 +1329,7 @@ class Path(_PathBase):
     #     super().hardlink_to(target)
     #     return self
 
-    def touch(self, mode: int = 0o0666, exist_ok: bool = True) -> 'Path':  # type: ignore[invalid-method-override]
+    def touch(self, mode: int = 0o0666, exist_ok: bool = True) -> 'Path':  # type: ignore
         """
         Create this file with the given access mode, if it doesn't exist.
 
@@ -1334,7 +1347,11 @@ class Path(_PathBase):
         super().touch(mode=mode, exist_ok=exist_ok)
         return self
 
-    def relative_to(self, *other, **kwargs):
+    def relative_to(
+        self,
+        *other: str | os.PathLike,
+        **kwargs: typing.Any,
+    ) -> Path:
         """
         Return the relative path to another path identified by the passed
         arguments.  If the operation is not possible (because this is not a
@@ -1391,7 +1408,7 @@ class Path(_PathBase):
         top_down: bool = True,
         on_error: Callable[[OSError], object] | None = None,
         follow_symlinks: bool = False,
-        **kwargs,
+        **kwargs: typing.Any,
     ) -> Iterator[tuple['Path', list[str], list[str]]]:
         """
         A variant of :func:`os.walk` for pathlib
@@ -1476,7 +1493,7 @@ class Path(_PathBase):
             for root, dnames, fnames in walker:
                 yield (cls(root), dnames, fnames)
 
-    def __add__(self, other) -> str:
+    def __add__(self, other: str) -> str:
         """
         Returns a new string starting with this fspath representation.
 
@@ -1502,7 +1519,7 @@ class Path(_PathBase):
         """
         return os.fspath(self) + other
 
-    def __radd__(self, other) -> str:
+    def __radd__(self, other: str) -> str:
         """
         Returns a new string ending with this fspath representation.
 
@@ -1528,7 +1545,7 @@ class Path(_PathBase):
         """
         return other + os.fspath(self)
 
-    def endswith(self, suffix: str | tuple[str, ...], *args) -> bool:
+    def endswith(self, suffix: str | tuple[str, ...], *args: int) -> bool:
         """
         Test if the fspath representation ends with ``suffix``.
 
@@ -1563,7 +1580,7 @@ class Path(_PathBase):
         """
         return os.fspath(self).endswith(suffix, *args)
 
-    def startswith(self, prefix: str | tuple[str, ...], *args) -> bool:
+    def startswith(self, prefix: str | tuple[str, ...], *args: int) -> bool:
         """
         Test if the fspath representation starts with ``prefix``.
 
@@ -1602,8 +1619,11 @@ class Path(_PathBase):
     # This is discussed in https://peps.python.org/pep-0428/#filesystem-modification
 
     def _request_copy_function(
-        self, follow_file_symlinks=True, follow_dir_symlinks=True, meta='stats'
-    ):
+        self,
+        follow_file_symlinks: bool = True,
+        follow_dir_symlinks: bool = True,
+        meta: str | None = 'stats',
+    ) -> typing.Callable[..., typing.Any]:
         """
         Get a copy_function based on specified capabilities
         """
@@ -1611,6 +1631,8 @@ class Path(_PathBase):
 
         # Note: Avoiding the use of the partial enables shutil optimizations
         from functools import partial
+
+        copy_function: typing.Callable[..., typing.Any]
 
         if meta is None:
             if follow_file_symlinks:
@@ -1637,7 +1659,7 @@ class Path(_PathBase):
             raise KeyError(meta)
         return copy_function
 
-    def copy(
+    def copy(  # type: ignore
         self,
         dst: str | os.PathLike,
         follow_file_symlinks: bool = False,
@@ -1654,6 +1676,10 @@ class Path(_PathBase):
         (``src`` and ``dst``) these can either be files, directories, or not
         exist. Given these three states, the following table summarizes how
         this function copies this path to its destination.
+
+        FIXME:
+            pathlib.Path added a copy command, that is incompatible with ours, so we need
+            to address that.
 
         TextArt:
 
@@ -1806,7 +1832,7 @@ class Path(_PathBase):
             raise FileExistsError('The source path does not exist')
         return Path(dst)
 
-    def move(
+    def move(  # type: ignore
         self,
         dst: str | os.PathLike,
         follow_file_symlinks: bool = False,
@@ -1820,6 +1846,10 @@ class Path(_PathBase):
         This method will refuse to overwrite anything, and there is currently
         no overwrite option for technical reasons. This may change in the
         future.
+
+        FIXME:
+            pathlib.Path added a move command, that is incompatible with ours, so we need
+            to address that.
 
         Args:
             dst (str | PathLike):
@@ -1893,7 +1923,7 @@ class Path(_PathBase):
         return Path(real_dst)
 
 
-def _parse_chmod_code(code):
+def _parse_chmod_code(code: str) -> Iterable[tuple[str, str, str]]:
     """
     Expand a chmod code into a list of actions.
 
@@ -1957,7 +1987,7 @@ def _parse_chmod_code(code):
         yield (targets, op, perms)
 
 
-def _resolve_chmod_code(old_mode, code):
+def _resolve_chmod_code(old_mode: int, code: str) -> int:
     """
     Modifies integer stat permissions based on a string code.
 
@@ -2026,7 +2056,7 @@ def _resolve_chmod_code(old_mode, code):
                 target + perm for target, perm in it.product(targets, perms)
             )
             action_values = (action_lut[key] for key in action_keys)
-            action_values = list(action_values)
+            action_values = list(action_values)  # type: ignore[assignment]
             if op == '+':
                 for val in action_values:
                     new_mode |= val
@@ -2045,7 +2075,7 @@ def _resolve_chmod_code(old_mode, code):
     return new_mode
 
 
-def _encode_chmod_int(int_code):
+def _encode_chmod_int(int_code: int) -> str:
     """
     Convert a chmod integer code to a string
 
@@ -2053,7 +2083,6 @@ def _encode_chmod_int(int_code):
 
     Args:
         int_code (int): mode from st_stat
-        concise (bool): if True, uses concise representations of special perms
 
     Returns:
         str: the permissions code
@@ -2089,7 +2118,8 @@ def _encode_chmod_int(int_code):
     )
     target_to_perms = defaultdict(list)
     for key, val in action_lut.items():
-        target, perm = key
+        target = key[0]
+        perm = key[1]
         if int_code & val:
             target_to_perms[target].append(perm)
 
@@ -2114,7 +2144,7 @@ def _encode_chmod_int(int_code):
     return code
 
 
-def _patch_win32_stats_on_pypy():
+def _patch_win32_stats_on_pypy() -> None:
     """
     Handle [PyPyIssue4953]_ [PyPyDiscuss4952]_.
 
@@ -2124,12 +2154,12 @@ def _patch_win32_stats_on_pypy():
     """
     if not hasattr(stat, 'IO_REPARSE_TAG_MOUNT_POINT'):  # nocover
         os.supports_follow_symlinks.add(os.stat)
-        stat.IO_REPARSE_TAG_APPEXECLINK = 0x8000001B  # type: ignore[unresolved-attribute]
-        stat.IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003  # type: ignore[unresolved-attribute]
-        stat.IO_REPARSE_TAG_SYMLINK = 0xA000000C  # type: ignore[unresolved-attribute]
+        stat.IO_REPARSE_TAG_APPEXECLINK = 0x8000001B  # type: ignore
+        stat.IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003  # type: ignore
+        stat.IO_REPARSE_TAG_SYMLINK = 0xA000000C  # type: ignore
 
 
-def _is_relative_to_backport(self, other):
+def _is_relative_to_backport(self: typing.Any, other: typing.Any) -> bool:
     r"""
     A backport of is_relative_to for Python <=3.8
 
@@ -2193,7 +2223,11 @@ def _is_relative_to_backport(self, other):
         return True
 
 
-def _relative_path_backport(self, other, walk_up=False):  # nocover
+def _relative_path_backport(
+    self: typing.Any,
+    other: typing.Any,
+    walk_up: bool = False,
+) -> Path:  # nocover
     if not isinstance(other, _PathBase):
         other = type(self)(*other)
         # other = self.with_segments(other)
@@ -2228,4 +2262,4 @@ def _relative_path_backport(self, other, walk_up=False):  # nocover
 
 
 if PYTHON_LE_3_8:  # nocover
-    Path.is_relative_to = _is_relative_to_backport
+    Path.is_relative_to = _is_relative_to_backport  # type: ignore

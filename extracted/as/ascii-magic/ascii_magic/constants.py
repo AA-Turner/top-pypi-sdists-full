@@ -1,3 +1,7 @@
+import PIL
+from PIL import Image
+
+import warnings
 from enum import Enum
 
 
@@ -52,21 +56,38 @@ class Modes(Enum):
     HTML_FULL_COLOR = 'HTML_FULL_COLOR'
 
 
-_COLOR_DATA = [
-    [(0, 0, 0), Front.LIGHTBLACK, '#222'],
-    [(0, 0, 255), Front.BLUE, '#00F'],
-    [(0, 255, 0), Front.GREEN, '#0F0'],
-    [(255, 0, 0), Front.RED, '#F00'],
-    [(255, 255, 255), Front.WHITE, '#FFF'],
-    [(255, 0, 255), Front.MAGENTA, '#F0F'],
-    [(0, 255, 255), Front.CYAN, '#0FF'],
-    [(255, 255, 0), Front.YELLOW, '#FF0']
+PALETTE = [
+    ((0, 0, 0), Front.LIGHTBLACK, '#222'),
+    ((0, 0, 1), Front.BLUE, '#00F'),
+    ((0, 1, 0), Front.GREEN, '#0F0'),
+    ((1, 0, 0), Front.RED, '#F00'),
+    ((1, 1, 1), Front.WHITE, '#FFF'),
+    ((1, 0, 1), Front.MAGENTA, '#F0F'),
+    ((0, 1, 1), Front.CYAN, '#0FF'),
+    ((1, 1, 0), Front.YELLOW, '#FF0'),
 ]
-
-PALETTE = [[[(v / 255.0)**2.2 for v in x[0]], x[1], x[2]] for x in _COLOR_DATA]
 
 CHARS_BY_DENSITY = ' .`-_\':,;^=+/"|)\\<>)iv%xclrs{*}I?!][1taeo7zjLunT#JCwfy325Fp6mqSghVd4EgXPGZbYkOA&8U$@KHDBWNMR0QQ'
 
 DEFAULT_STYLES = 'display: inline-block; border-width: 4px 6px; border-color: black; color: white; border-style: solid; background-color:black; font-size: 8px;'
 
 DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash-image'
+
+# Image.Resampling.LANCZOS was added in Pillow 10 replacing Image.LANCZOS
+RESAMPLING_METHOD = (
+    getattr(getattr(Image, 'Resampling'), 'LANCZOS') or
+    getattr(Image, 'LANCZOS') or
+    1
+)
+
+# PIL.__version__ was added in Pillow 5.2
+# PIL.PILLOW_VERSION was removed in Pillow 9
+# PIL.VERSION was removed in Pillow 6
+PILLOW_VERSION = (
+    getattr(PIL, '__version__') or
+    getattr(PIL, 'PILLOW_VERSION') or
+    getattr(PIL, 'VERSION') or
+    '0'
+)
+if PILLOW_VERSION == '0':
+    warnings.warn('Could not determine Pillow version')

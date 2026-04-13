@@ -2,10 +2,9 @@ from collections import defaultdict
 from contextlib import contextmanager
 from textwrap import indent
 from typing import Dict, List, Optional, Tuple
-from lark import Tree
 from gersemi.ast_helpers import is_line_comment_in
 from gersemi.configuration import Indent, ListExpansion, OutcomeConfiguration, Tabs
-from gersemi.types import Nodes
+from gersemi.types import Nodes, Tree
 from gersemi.warnings import FormatterWarnings, UnknownCommandWarning
 
 
@@ -39,7 +38,7 @@ class BaseDumper:  # pylint: disable=too-many-instance-attributes
 
     def visit_children(self, tree):
         yield from (
-            self.visit(child) if isinstance(child, Tree) else child
+            self.visit(child) if isinstance(child, Tree) else str(child)
             for child in tree.children
         )
 
@@ -59,7 +58,7 @@ class BaseDumper:  # pylint: disable=too-many-instance-attributes
 
                 result = self.visit(c)
             else:
-                result = c
+                result = str(c)
 
             if "\n" in result:
                 raise WontFit()
@@ -94,6 +93,9 @@ class BaseDumper:  # pylint: disable=too-many-instance-attributes
         finally:
             self.indent_level = old_indent_level
 
+    def dedented(self):
+        return self.with_indent_level(self.indent_level - 1)
+
     def indented(self):
         return self.with_indent_level(self.indent_level + 1)
 
@@ -119,6 +121,7 @@ class BaseDumper:  # pylint: disable=too-many-instance-attributes
             self.favour_expansion = old
 
     def format_command_name(self, identifier):
+        identifier = str(identifier)
         try:
             canonical_name = self._canonical_name
         except AttributeError:

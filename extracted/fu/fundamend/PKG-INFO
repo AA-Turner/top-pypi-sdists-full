@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fundamend
-Version: 0.35.0
+Version: 0.36.0
 Summary: XML basierte Formate und DatemModelle für die Energiewirtschaft in Deutschland
 Project-URL: Changelog, https://github.com/Hochfrequenz/xml-fundamend-python/releases
 Project-URL: Homepage, https://github.com/Hochfrequenz/xml-fundamend-python
@@ -23,7 +23,7 @@ Requires-Python: >=3.11
 Requires-Dist: efoli>=2.2.0
 Requires-Dist: pydantic>=2
 Provides-Extra: ahbicht
-Requires-Dist: ahbicht<2,>=1.0.0; extra == 'ahbicht'
+Requires-Dist: ahbicht>=2.0.0; extra == 'ahbicht'
 Provides-Extra: cli
 Requires-Dist: typer; extra == 'cli'
 Provides-Extra: coverage
@@ -45,7 +45,7 @@ Provides-Extra: tests
 Requires-Dist: pytest==9.0.2; extra == 'tests'
 Requires-Dist: syrupy==5.1.0; extra == 'tests'
 Provides-Extra: type-check
-Requires-Dist: mypy==1.19.1; extra == 'type-check'
+Requires-Dist: mypy==1.20.0; extra == 'type-check'
 Description-Content-Type: text/markdown
 
 # FUNDAMEND - Formate und DAtenModelle für die ENergiewirtschaft in Deutschland

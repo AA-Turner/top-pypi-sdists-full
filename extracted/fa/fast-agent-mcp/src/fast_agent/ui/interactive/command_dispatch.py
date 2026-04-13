@@ -370,11 +370,11 @@ async def _dispatch_history_payload(
             return result
         case HistoryShowCommand(agent=target_agent):
             target_name = target_agent or agent
-            target = owner._get_agent_or_warn(prompt_provider, target_name)
+            target = owner._get_history_agent_or_warn(prompt_provider, target_name)
             if target is None:
                 return result
-            history = list(getattr(target, "message_history", []))
-            usage = getattr(target, "usage_accumulator", None)
+            history = list(target.message_history)
+            usage = target.usage_accumulator
             display_history_show(target_name, history, usage)
             return result
         case HistoryRewindCommand(turn_index=turn_index, error=error):

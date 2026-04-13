@@ -8,7 +8,7 @@ use crate::core::config::Value;
 use crate::core::rules::context::RuleContext;
 use crate::core::rules::crawlers::{Crawler, SegmentSeekerCrawler};
 use crate::core::rules::{Erased, ErasedRule, LintResult, Rule, RuleGroups};
-use crate::utils::reflow::sequence::{ReflowSequence, TargetSide};
+use crate::utils::reflow::sequence::{RebreakType, ReflowSequence, TargetSide};
 
 #[derive(Debug, Default, Clone)]
 pub struct RuleLT04 {
@@ -68,9 +68,12 @@ FROM foo
     }
 
     fn eval(&self, context: &RuleContext) -> Vec<LintResult> {
-        let comma_positioning = context.config.raw["layout"]["type"]["comma"]["line_position"]
-            .as_string()
-            .unwrap();
+        let comma_positioning = context
+            .config
+            .reflow()
+            .line_position_for(SyntaxKind::Comma)
+            .unwrap()
+            .position();
 
         if self.check_trail_lead_shortcut(
             &context.segment,
@@ -86,7 +89,7 @@ FROM foo
             TargetSide::Both,
             context.config,
         )
-        .rebreak(context.tables)
+        .rebreak(context.tables, RebreakType::Lines)
         .results()
     }
 

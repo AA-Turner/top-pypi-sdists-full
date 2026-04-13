@@ -758,7 +758,7 @@ class _Recorder(_AudioClient):
         self._idle_start_time = None
         data_ptr, nframes, flags = self._capture_buffer()
         if data_ptr != _ffi.NULL:
-            chunk = numpy.fromstring(_ffi.buffer(data_ptr, nframes*4*len(set(self.channelmap))), dtype='float32')
+            chunk = numpy.frombuffer(_ffi.buffer(data_ptr, nframes*4*len(set(self.channelmap))), dtype='float32').copy()
         else:
             raise RuntimeError('Could not create capture buffer')
         if flags & _ole32.AUDCLNT_BUFFERFLAGS_SILENT:

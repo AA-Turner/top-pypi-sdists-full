@@ -240,6 +240,7 @@ class TestConcurrencyCaps:
 
 class TestCountRunning:
     @pytest.mark.asyncio
+    @pytest.mark.skip(reason="Hangs in CI — mocked CancelledError leaks into event loop. See #1376")
     async def test_count_running_reflects_active_tasks(self, manager: BackgroundTaskManager, conv_id: str) -> None:
         assert manager.count_running() == 0
 

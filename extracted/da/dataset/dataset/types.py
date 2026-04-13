@@ -1,14 +1,26 @@
-from datetime import datetime, date
+from datetime import date, datetime
+from typing import Any
 
-from sqlalchemy import Integer, UnicodeText, Float, BigInteger
-from sqlalchemy import String, Boolean, Date, DateTime, Unicode, JSON
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    Integer,
+    String,
+    Unicode,
+    UnicodeText,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeEngine, _Binary
 
 MYSQL_LENGTH_TYPES = (String, _Binary)
+ColumnType = TypeEngine[Any] | type[TypeEngine[Any]]
 
 
-class Types(object):
+class Types:
     """A holder class for easy access to SQLAlchemy type names."""
 
     integer = Integer
@@ -20,10 +32,10 @@ class Types(object):
     date = Date
     datetime = DateTime
 
-    def __init__(self, is_postgres=None):
+    def __init__(self, is_postgres: bool | None = None):
         self.json = JSONB if is_postgres else JSON
 
-    def guess(self, sample):
+    def guess(self, sample: Any) -> ColumnType:
         """Given a single sample, guess the column type for the field.
 
         If the sample is an instance of an SQLAlchemy type, the type will be
@@ -31,6 +43,8 @@ class Types(object):
         """
         if isinstance(sample, TypeEngine):
             return sample
+        if isinstance(sample, type) and issubclass(sample, TypeEngine):
+            return sample()
         if isinstance(sample, bool):
             return self.boolean
         elif isinstance(sample, int):

@@ -126,19 +126,19 @@ class AgentExecutionManager:
         review_fn: Callable[[str], Awaitable[ReviewGateResult]],
     ) -> None:
         """Wire up the review gate on the task for review-before-merge flow."""
-        from plato.agents.review_gate import attach_review_gate
+        from plato.agents.review_gate import ReviewGateMergeResult, attach_review_gate
 
         primary_transport = _git_transport_from_mount(self._primary_mount) if self._primary_mount else None
 
-        async def _merge() -> bool:
+        async def _merge() -> bool | ReviewGateMergeResult:
             # published_ref is set after workspace sync-back during each attempt
             pub_ref = published_transport.published_ref
             if pub_ref is None:
                 logger.warning("No published ref available for merge after review pass")
-                return False
+                return ReviewGateMergeResult(merged=False, error="missing published ref")
 
             if primary_transport is None:
-                return False
+                return ReviewGateMergeResult(merged=False, error="missing primary transport")
 
             async with self._integration_lock, _optional_lock(primary_transport.sync_lock):
                 result = await merge_ref_to_main(
@@ -148,7 +148,7 @@ class AgentExecutionManager:
                     commit_message=f"Merge {task_name}",
                 )
                 if not result.merged:
-                    return False
+                    return ReviewGateMergeResult(merged=False, conflict_files=result.unmerged_files)
 
                 await primary_transport._refresh_local_workspace_from_main()
 
@@ -162,7 +162,7 @@ class AgentExecutionManager:
 
                 await delete_remote_ref(primary_transport.bare_repo_path, pub_ref.ref)
                 task.merged = True
-                return True
+                return ReviewGateMergeResult(merged=True)
 
         _review_attempt = 0
 
@@ -196,6 +196,9 @@ class AgentExecutionManager:
             review_fn=_review_with_no_change_guard,
             branch_name=f"plato-task/{task_name}",
             merge_fn=_merge,
+            reviewed_commit_fn=lambda: (
+                published_transport.published_ref.commit_sha if published_transport.published_ref is not None else None
+            ),
             max_continuations=task._max_review_continuations,
             result_dir=result_dir,
         )

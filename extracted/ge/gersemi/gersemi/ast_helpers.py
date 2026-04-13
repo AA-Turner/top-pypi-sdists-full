@@ -1,7 +1,6 @@
 from typing import Any, Callable
-from lark import Token, Tree
-from lark.visitors import Interpreter
-from gersemi.types import Node
+from gersemi.interpreter import Interpreter
+from gersemi.types import Node, Token, Tree
 
 
 def is_tree(tree_type: str) -> Callable[[Node], bool]:
@@ -9,7 +8,7 @@ def is_tree(tree_type: str) -> Callable[[Node], bool]:
 
 
 def is_token(token_type: str) -> Callable[[Node], bool]:
-    return lambda element: isinstance(element, Token) and element.type == token_type
+    return lambda element: getattr(element, "type", None) == token_type
 
 
 is_block = is_tree("block")
@@ -98,7 +97,7 @@ pair = make_tree("pair")
 
 
 def get_value(node, default: Any):
-    if isinstance(node, str):
+    if isinstance(node, (str, Token)):
         return str(node)
 
     if node.children:
@@ -106,7 +105,7 @@ def get_value(node, default: Any):
             return get_value(node.children[0], default)
 
         if is_quoted_argument(node):
-            return node.children[0][1:-1]  # type: ignore
+            return node.children[0].value[1:-1]  # type: ignore
 
         return node.children[0]
 

@@ -19,24 +19,26 @@ interactions:
       string: '[{"id": "471768", "name": "demoscene", "url": "https://mastodon.social/@halcy/tagged/demoscene",
         "statuses_count": "0", "last_status_at": null}]'
     headers:
+      Accept-Ranges:
+      - none
       Connection:
       - keep-alive
       Date:
-      - Fri, 15 Aug 2025 20:19:11 GMT
+      - Sat, 11 Apr 2026 23:14:47 GMT
       Strict-Transport-Security:
       - max-age=31557600
       Vary:
       - Authorization, Origin, Accept-Encoding
+      Via:
+      - 1.1 varnish, 1.1 varnish
       X-Cache:
       - MISS, MISS, MISS
       X-Cache-Hits:
       - 0, 0, 0
       X-Served-By:
-      - cache-fra-etou8220146-FRA, cache-fra-etou8220061-FRA, cache-hel1410033-HEL
+      - cache-fra-eddf8230050-FRA, cache-fra-eddf8230050-FRA, cache-hel1410022-HEL
       X-Timer:
-      - S1755289151.976449,VS0,VE151
-      accept-ranges:
-      - none
+      - S1775949287.101204,VS0,VE85
       alt-svc:
       - h3=":443";ma=86400,h3-29=":443";ma=86400,h3-27=":443";ma=86400
       cache-control:
@@ -51,10 +53,10 @@ interactions:
       - W/"ad14c7d863230aef3311f94067dc4812"
       referrer-policy:
       - same-origin
+      server:
+      - Mastodon
       transfer-encoding:
       - chunked
-      via:
-      - 1.1 varnish, 1.1 varnish, 1.1 varnish
       x-content-type-options:
       - nosniff
       x-frame-options:
@@ -62,13 +64,13 @@ interactions:
       x-ratelimit-limit:
       - '300'
       x-ratelimit-remaining:
-      - '225'
+      - '252'
       x-ratelimit-reset:
-      - '2025-08-15T20:20:00.074633Z'
+      - '2026-04-11T23:15:00.153851Z'
       x-request-id:
-      - 83e24f9c02300e52172e3c6cf3b82940
+      - 969d9da2-fc49-4a3c-8cdb-a33c9e970a76
       x-runtime:
-      - '0.039726'
+      - '0.024149'
       x-xss-protection:
       - '0'
     status:

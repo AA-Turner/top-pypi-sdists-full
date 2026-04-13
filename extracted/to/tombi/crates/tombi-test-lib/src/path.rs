@@ -142,6 +142,12 @@ pub fn recursive_defs_any_of_test_schema_path() -> PathBuf {
         .join("recursive-defs-any-of-test.schema.json")
 }
 
+pub fn ref_sibling_annotations_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("ref-sibling-annotations-test.schema.json")
+}
+
 pub fn additional_properties_branch_keys_test_schema_path() -> PathBuf {
     project_root_path()
         .join("schemas")
@@ -160,6 +166,30 @@ pub fn format_assertion_vocab_test_schema_path() -> PathBuf {
         .join("format-assertion-vocab-test.schema.json")
 }
 
+pub fn one_of_hover_discriminator_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("one-of-hover-discriminator-test.schema.json")
+}
+
+pub fn adjacent_one_of_hover_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("adjacent-one-of-hover-test.schema.json")
+}
+
+pub fn adjacent_one_of_additional_properties_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("adjacent-one-of-additional-properties-test.schema.json")
+}
+
+pub fn adjacent_applicators_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("adjacent-applicators-test.schema.json")
+}
+
 pub fn unevaluated_items_test_schema_path() -> PathBuf {
     project_root_path()
         .join("schemas")
@@ -176,4 +206,10 @@ pub fn unevaluated_properties_branch_additional_test_schema_path() -> PathBuf {
     project_root_path()
         .join("schemas")
         .join("unevaluated-properties-branch-additional-test.schema.json")
+}
+
+pub fn lsp_consistency_test_schema_path() -> PathBuf {
+    project_root_path()
+        .join("schemas")
+        .join("lsp-consistency-test.schema.json")
 }

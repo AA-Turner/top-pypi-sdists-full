@@ -2,9 +2,6 @@
 requires = [ "setuptools>=41.0.1",]
 build-backend = "setuptools.build_meta"
 
-[tool.mypy]
-ignore_missing_imports = true
-ignore_errors = true
 
 [tool.xcookie]
 tags = [ "purepy", "erotemic", "github",]
@@ -19,6 +16,8 @@ use_uv = true
 author_email = "erotemic@gmail.com"
 description = "A Python utility belt containing simple tools, a stdlib like feel, and extra batteries"
 #ci_cpython_versions=["3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13.0-beta.2"]
+ci_pypi_trusted_publishing = true
+ci_gpg_secret_transport = "direct_ci"
 license = "Apache 2"
 dev_status = "stable"
 classifiers = [
@@ -84,39 +83,15 @@ count = true
 quiet-level = 3
 ignore-words-list = ['wont', 'cant', 'ANS', 'doesnt', 'arent', 'ans', 'thats', 'datas', 'isnt']
 
-[tool.ty.src]
-exclude = [
-    #'ubelt/util_path.py',
-    #'ubelt/util_stream.py'
-]
 
+[tool.mypy]
+ignore_missing_imports = true
+#ignore_errors = true
 
-[[tool.ty.overrides]]
-# Apply the ignore unresolved rules to these files
-include = [
-  "ubelt/__main__.py",
-  "ubelt/util_time.py",
-  "ubelt/util_repr.py",
-  "ubelt/util_hash.py",
-  "ubelt/util_colors.py",
-  "ubelt/util_indexable.py",
-  "ubelt/util_deprecate.py",
-]
-rules = { unresolved-import = "ignore" }
-
-
-# TODO: eventually fix these errors
-[[tool.ty.overrides]]
-include = ["ubelt/util_cmd.py"]
-[tool.ty.overrides.rules]
-deprecated = "ignore"
-
-# TODO: Think about if we can fix copy and move signatures.
-[[tool.ty.overrides]]
-include = ["ubelt/util_path.py"]
-[tool.ty.overrides.rules]
-invalid-method-override = "ignore"
-
+[tool.ty.rules]
+unused-ignore-comment = "ignore"
+unused-type-ignore-comment = "ignore"
+unresolved-import = "ignore"
 
 [tool.ruff]
 line-length = 80

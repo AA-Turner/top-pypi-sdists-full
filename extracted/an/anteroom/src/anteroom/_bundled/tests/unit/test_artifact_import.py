@@ -78,7 +78,8 @@ class TestHeadingToName:
 
 class TestImportSkills:
     def test_imports_yaml_files(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
-        (tmp_path / "greet.yaml").write_text("name: greet\ncontent: Hello!\n")
+        (tmp_path / "greet").mkdir(exist_ok=True)
+        (tmp_path / "greet" / "SKILL.md").write_text("---\nname: greet\n---\n\nHello!\n")
         result = import_skills(db, tmp_path)
         assert result.imported == 1
         assert result.errors == 0
@@ -86,26 +87,34 @@ class TestImportSkills:
         assert row is not None
         assert row["source"] == "local"
 
-    def test_skips_non_mapping(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
-        (tmp_path / "bad.yaml").write_text("- just a list\n")
+    def test_imports_invalid_frontmatter_as_raw_content(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
+        """import_skills stores SKILL.md content as-is; validation happens
+        at load time in load_from_artifacts, not at import time."""
+        (tmp_path / "bad").mkdir(exist_ok=True)
+        (tmp_path / "bad" / "SKILL.md").write_text("not valid frontmatter\n")
         result = import_skills(db, tmp_path)
-        assert result.skipped == 1
-        assert result.imported == 0
+        # Imported (stored as raw content) — load_from_artifacts will reject it later
+        assert result.imported == 1
 
     def test_missing_dir(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
         result = import_skills(db, tmp_path / "nope")
         assert result.imported == 0
         assert "not found" in result.details[0].lower()
 
-    def test_uses_prompt_fallback(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
-        (tmp_path / "helper.yaml").write_text("name: helper\nprompt: Help me!\n")
+    def test_stores_full_skill_md_content(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
+        """import_skills stores the full SKILL.md content (frontmatter + body)
+        so load_from_artifacts can parse it at load time."""
+        (tmp_path / "helper").mkdir(exist_ok=True)
+        skill_content = "---\nname: helper\n---\n\nHelp me!\n"
+        (tmp_path / "helper" / "SKILL.md").write_text(skill_content)
         result = import_skills(db, tmp_path)
         assert result.imported == 1
         row = db.execute("SELECT content FROM artifacts WHERE name = 'helper'").fetchone()
-        assert row["content"] == "Help me!"
+        assert row["content"] == skill_content
 
     def test_idempotent(self, db: ThreadSafeConnection, tmp_path: Path) -> None:
-        (tmp_path / "greet.yaml").write_text("name: greet\ncontent: Hello!\n")
+        (tmp_path / "greet").mkdir(exist_ok=True)
+        (tmp_path / "greet" / "SKILL.md").write_text("---\nname: greet\n---\n\nHello!\n")
         import_skills(db, tmp_path)
         result = import_skills(db, tmp_path)
         assert result.imported == 1  # upsert succeeds
@@ -142,7 +151,8 @@ class TestImportAll:
     ) -> None:
         skills = tmp_path / "skills"
         skills.mkdir()
-        (skills / "greet.yaml").write_text("name: greet\ncontent: Hi\n")
+        (skills / "greet").mkdir(exist_ok=True)
+        (skills / "greet" / "SKILL.md").write_text("---\nname: greet\n---\n\nHi\n")
 
         proj = tmp_path / "project"
         proj.mkdir()

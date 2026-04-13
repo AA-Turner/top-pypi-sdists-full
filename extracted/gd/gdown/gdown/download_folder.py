@@ -1,189 +1,48 @@
+from __future__ import annotations
+
 import collections
-import itertools
-import json
 import os
 import os.path as osp
 import re
 import sys
-import warnings
-from typing import List
-from typing import Union
+import urllib.parse
 
 import bs4
+import requests
 
 from .download import _get_session
 from .download import _sanitize_filename
 from .download import download
-from .exceptions import FolderContentsMaximumLimitError
-from .parse_url import is_google_drive_url
-
-MAX_NUMBER_FILES = 50
+from .exceptions import DownloadError
 
 
-class _GoogleDriveFile(object):
+class _GoogleDriveFile:
     TYPE_FOLDER = "application/vnd.google-apps.folder"
 
-    def __init__(self, id, name, type, children=None):
+    def __init__(
+        self,
+        id: str,
+        name: str,
+        type: str,
+        children: list[_GoogleDriveFile] | None = None,
+    ) -> None:
         self.id = id
         self.name = name
         self.type = type
         self.children = children if children is not None else []
 
-    def is_folder(self):
+    def is_folder(self) -> bool:
         return self.type == self.TYPE_FOLDER
 
 
-def _parse_google_drive_file(url, content):
-    """Extracts information about the current page file and its children."""
-
-    folder_soup = bs4.BeautifulSoup(content, features="html.parser")
-
-    # finds the script tag with window['_DRIVE_ivd']
-    encoded_data = None
-    for script in folder_soup.select("script"):
-        inner_html = script.decode_contents()
-
-        if "_DRIVE_ivd" in inner_html:
-            # first js string is _DRIVE_ivd, the second one is the encoded arr
-            regex_iter = re.compile(r"'((?:[^'\\]|\\.)*)'").finditer(inner_html)
-            # get the second elem in the iter
-            try:
-                encoded_data = next(itertools.islice(regex_iter, 1, None)).group(1)
-            except StopIteration:
-                raise RuntimeError("Couldn't find the folder encoded JS string")
-            break
-
-    if encoded_data is None:
-        raise RuntimeError(
-            "Cannot retrieve the folder information from the link. "
-            "You may need to change the permission to "
-            "'Anyone with the link', or have had many accesses. "
-            "Check FAQ in https://github.com/wkentaro/gdown?tab=readme-ov-file#faq.",
-        )
-
-    # decodes the array and evaluates it as a python array
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=DeprecationWarning)
-        decoded = encoded_data.encode("utf-8").decode("unicode_escape")
-    folder_arr = json.loads(decoded)
-
-    folder_contents = [] if folder_arr[0] is None else folder_arr[0]
-
-    sep = " - "  # unicode dash
-    splitted = folder_soup.title.contents[0].split(sep)
-    if len(splitted) >= 2:
-        name = sep.join(splitted[:-1])
-    else:
-        raise RuntimeError(
-            "file/folder name cannot be extracted from: {}".format(
-                folder_soup.title.contents[0]
-            )
-        )
-
-    gdrive_file = _GoogleDriveFile(
-        id=url.split("/")[-1],
-        name=name,
-        type=_GoogleDriveFile.TYPE_FOLDER,
-    )
-
-    id_name_type_iter = [
-        (e[0], e[2].encode("raw_unicode_escape").decode("utf-8"), e[3])
-        for e in folder_contents
-    ]
-
-    return gdrive_file, id_name_type_iter
-
-
-def _download_and_parse_google_drive_link(
-    sess,
-    url,
-    quiet=False,
-    remaining_ok=False,
-    verify=True,
-):
-    """Get folder structure of Google Drive folder URL."""
-
-    return_code = True
-
-    for _ in range(2):
-        if is_google_drive_url(url):
-            # canonicalize the language into English
-            if "?" in url:
-                url += "&hl=en"
-            else:
-                url += "?hl=en"
-
-        res = sess.get(url, verify=verify)
-        if res.status_code != 200:
-            return False, None
-
-        if is_google_drive_url(url):
-            break
-
-        if not is_google_drive_url(res.url):
-            break
-
-        # need to try with canonicalized url if the original url redirects to gdrive
-        url = res.url
-
-    gdrive_file, id_name_type_iter = _parse_google_drive_file(
-        url=url,
-        content=res.text,
-    )
-
-    for child_id, child_name, child_type in id_name_type_iter:
-        if child_type != _GoogleDriveFile.TYPE_FOLDER:
-            if not quiet:
-                print(
-                    "Processing file",
-                    child_id,
-                    child_name,
-                )
-            gdrive_file.children.append(
-                _GoogleDriveFile(
-                    id=child_id,
-                    name=child_name,
-                    type=child_type,
-                )
-            )
-            if not return_code:
-                return return_code, None
-            continue
-
-        if not quiet:
-            print(
-                "Retrieving folder",
-                child_id,
-                child_name,
-            )
-        return_code, child = _download_and_parse_google_drive_link(
-            sess=sess,
-            url="https://drive.google.com/drive/folders/" + child_id,
-            quiet=quiet,
-            remaining_ok=remaining_ok,
-        )
-        if not return_code:
-            return return_code, None
-        gdrive_file.children.append(child)
-    has_at_least_max_files = len(gdrive_file.children) == MAX_NUMBER_FILES
-    if not remaining_ok and has_at_least_max_files:
-        message = " ".join(
-            [
-                "The gdrive folder with url: {url}".format(url=url),
-                "has more than {max} files,".format(max=MAX_NUMBER_FILES),
-                "gdrive can't download more than this limit.",
-            ]
-        )
-        raise FolderContentsMaximumLimitError(message)
-    return return_code, gdrive_file
-
-
-def _get_directory_structure(gdrive_file, previous_path):
+def _get_directory_structure(
+    gdrive_file: _GoogleDriveFile, previous_path: str
+) -> list[tuple[str | None, str]]:
     """Converts a Google Drive folder structure into a local directory list."""
 
     directory_structure = []
     for file in gdrive_file.children:
-        file.name = _sanitize_filename(file.name)
+        file.name = _sanitize_filename(filename=file.name)
         if file.is_folder():
             directory_structure.append((None, osp.join(previous_path, file.name)))
             for i in _get_directory_structure(file, osp.join(previous_path, file.name)):
@@ -199,49 +58,48 @@ GoogleDriveFileToDownload = collections.namedtuple(
 
 
 def download_folder(
-    url=None,
-    id=None,
-    output=None,
-    quiet=False,
-    proxy=None,
-    speed=None,
-    use_cookies=True,
-    remaining_ok=False,
-    verify=True,
-    user_agent=None,
+    url: str | None = None,
+    id: str | None = None,
+    output: str | None = None,
+    quiet: bool = False,
+    proxy: str | None = None,
+    speed: float | None = None,
+    use_cookies: bool = True,
+    verify: bool | str = True,
+    user_agent: str | None = None,
     skip_download: bool = False,
-    resume=False,
-) -> Union[List[str], List[GoogleDriveFileToDownload], None]:
+    resume: bool = False,
+) -> list[str] | list[GoogleDriveFileToDownload]:
     """Downloads entire folder from URL.
 
     Parameters
     ----------
-    url: str
+    url:
         URL of the Google Drive folder.
         Must be of the format 'https://drive.google.com/drive/folders/{url}'.
-    id: str
+    id:
         Google Drive's folder ID.
-    output: str, optional
+    output:
         String containing the path of the output folder.
         Defaults to current working directory.
-    quiet: bool, optional
+    quiet:
         Suppress terminal output.
-    proxy: str, optional
+    proxy:
         Proxy.
-    speed: float, optional
+    speed:
         Download byte size per second (e.g., 256KB/s = 256 * 1024).
-    use_cookies: bool, optional
+    use_cookies:
         Flag to use cookies. Default is True.
-    verify: bool or string
+    verify:
         Either a bool, in which case it controls whether the server's TLS
         certificate is verified, or a string, in which case it must be a path
         to a CA bundle to use. Default is True.
-    user_agent: str, optional
+    user_agent:
         User-agent to use in the HTTP request.
-    skip_download: bool, optional
+    skip_download:
         If True, return the list of files to download without downloading them.
         Defaults to False.
-    resume: bool
+    resume:
         Resume interrupted transfers.
         Completed output files will be skipped.
         Partial tempfiles will be reused, if the transfer is incomplete.
@@ -249,10 +107,17 @@ def download_folder(
 
     Returns
     -------
-    files: List[str] or List[GoogleDriveFileToDownload] or None
-        If dry_run is False, list of local file paths downloaded or None if failed.
-        If dry_run is True, list of GoogleDriveFileToDownload that contains
+    files:
+        If skip_download is False, list of local file paths downloaded.
+        If skip_download is True, list of GoogleDriveFileToDownload that contains
         id, path, and local_path.
+
+    Raises
+    ------
+    ValueError
+        If neither url nor id is specified, or both are specified.
+    DownloadError
+        If a file in the folder fails to download.
 
     Example
     -------
@@ -264,27 +129,26 @@ def download_folder(
     if not (id is None) ^ (url is None):
         raise ValueError("Either url or id has to be specified")
     if id is not None:
-        url = "https://drive.google.com/drive/folders/{id}".format(id=id)
+        folder_id = id
+    else:
+        assert url is not None
+        folder_id = _extract_folder_id(url)
     if user_agent is None:
         # We need to use different user agent for folder download c.f., file
         user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36"  # NOQA: E501
 
-    sess = _get_session(proxy=proxy, use_cookies=use_cookies, user_agent=user_agent)
+    sess, _ = _get_session(proxy=proxy, use_cookies=use_cookies, user_agent=user_agent)
 
     if not quiet:
         print("Retrieving folder contents", file=sys.stderr)
-    is_success, gdrive_file = _download_and_parse_google_drive_link(
-        sess,
-        url,
+    gdrive_file = _download_and_parse_google_drive_link(
+        sess=sess,
+        folder_id=folder_id,
         quiet=quiet,
-        remaining_ok=remaining_ok,
         verify=verify,
     )
-    if not is_success:
-        print("Failed to retrieve folder contents", file=sys.stderr)
-        return None
 
-    gdrive_file.name = _sanitize_filename(gdrive_file.name)
+    gdrive_file.name = _sanitize_filename(filename=gdrive_file.name)
 
     if not quiet:
         print("Retrieving folder contents completed", file=sys.stderr)
@@ -316,18 +180,16 @@ def download_folder(
                 GoogleDriveFileToDownload(id=id, path=path, local_path=local_path)
             )
         else:
-            if resume and os.path.isfile(local_path):
-                if not quiet:
-                    print(
-                        f"Skipping already downloaded file {local_path}",
-                        file=sys.stderr,
-                    )
-                files.append(local_path)
-                continue
-
+            # Google-native files (Docs, Sheets, Slides) have no extension
+            # in the folder listing. Pass the directory so download() resolves
+            # the correct filename from the Content-Disposition header.
+            if osp.splitext(local_path)[1]:
+                download_output = local_path
+            else:
+                download_output = osp.dirname(local_path) + osp.sep
             local_path = download(
                 url="https://drive.google.com/uc?id=" + id,
-                output=local_path,
+                output=download_output,
                 quiet=quiet,
                 proxy=proxy,
                 speed=speed,
@@ -335,11 +197,126 @@ def download_folder(
                 verify=verify,
                 resume=resume,
             )
-            if local_path is None:
-                if not quiet:
-                    print("Download ended unsuccessfully", file=sys.stderr)
-                return None
             files.append(local_path)
     if not quiet:
         print("Download completed", file=sys.stderr)
     return files
+
+
+def _extract_folder_id(url: str) -> str:
+    return urllib.parse.urlparse(url).path.rstrip("/").split("/")[-1]
+
+
+def _parse_embedded_folder_view(
+    sess: requests.Session,
+    folder_id: str,
+    verify: bool | str = True,
+) -> tuple[str, list[tuple[str, str, str]]]:
+    params = urllib.parse.urlencode({"id": folder_id})
+    url = f"https://drive.google.com/embeddedfolderview?{params}"
+    res = sess.get(url, verify=verify)
+    if res.status_code != 200:
+        raise DownloadError(
+            f"Failed to retrieve folder contents for folder ID: {folder_id} "
+            f"(status code {res.status_code}). "
+            "You may need to change the permission to "
+            "'Anyone with the link', or have had many accesses. "
+            "Check FAQ in https://github.com/wkentaro/gdown?tab=readme-ov-file#faq.",
+        )
+
+    soup = bs4.BeautifulSoup(res.text, features="html.parser")
+
+    if soup.title is None or soup.title.string is None:
+        raise DownloadError(
+            f"Failed to parse folder contents for folder ID: {folder_id}. "
+            "The page structure may have changed.",
+        )
+    folder_name = soup.title.string
+
+    children: list[tuple[str, str, str]] = []
+    for a_tag in soup.find_all(name="a"):
+        href = a_tag.get("href", "")
+        if not isinstance(href, str):
+            continue
+
+        file_match = re.match(
+            pattern=r"https://drive\.google\.com/file/d/([-\w]{25,})/view",
+            string=href,
+        )
+        if file_match:
+            file_id = file_match.group(1)
+            file_name = a_tag.get_text(strip=True)
+            children.append((file_id, file_name, "application/octet-stream"))
+            continue
+
+        # Google-native files (Docs, Sheets, Slides) use docs.google.com
+        docs_match = re.match(
+            pattern=r"https://docs\.google\.com/\w+/d/([-\w]{25,})/",
+            string=href,
+        )
+        if docs_match:
+            file_id = docs_match.group(1)
+            file_name = a_tag.get_text(strip=True)
+            children.append((file_id, file_name, "application/octet-stream"))
+            continue
+
+        folder_match = re.match(
+            pattern=r"https://drive\.google\.com/drive/folders/([-\w]{25,})",
+            string=href,
+        )
+        if folder_match:
+            child_folder_id = folder_match.group(1)
+            child_name = a_tag.get_text(strip=True)
+            children.append((child_folder_id, child_name, _GoogleDriveFile.TYPE_FOLDER))
+            continue
+
+    return (folder_name, children)
+
+
+def _download_and_parse_google_drive_link(
+    sess: requests.Session,
+    folder_id: str,
+    quiet: bool = False,
+    verify: bool | str = True,
+) -> _GoogleDriveFile:
+    folder_name, children = _parse_embedded_folder_view(
+        sess=sess, folder_id=folder_id, verify=verify
+    )
+
+    gdrive_file = _GoogleDriveFile(
+        id=folder_id,
+        name=folder_name,
+        type=_GoogleDriveFile.TYPE_FOLDER,
+    )
+
+    for child_id, child_name, child_type in children:
+        if child_type != _GoogleDriveFile.TYPE_FOLDER:
+            if not quiet:
+                print(
+                    "Processing file",
+                    child_id,
+                    child_name,
+                )
+            gdrive_file.children.append(
+                _GoogleDriveFile(
+                    id=child_id,
+                    name=child_name,
+                    type=child_type,
+                )
+            )
+            continue
+
+        if not quiet:
+            print(
+                "Retrieving folder",
+                child_id,
+                child_name,
+            )
+        child = _download_and_parse_google_drive_link(
+            sess=sess,
+            folder_id=child_id,
+            quiet=quiet,
+            verify=verify,
+        )
+        gdrive_file.children.append(child)
+    return gdrive_file

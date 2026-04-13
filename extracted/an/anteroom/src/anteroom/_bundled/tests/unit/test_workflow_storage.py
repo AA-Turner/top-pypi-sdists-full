@@ -17,16 +17,20 @@ from anteroom.services.workflow_storage import (
     create_workflow_run,
     create_workflow_step,
     delete_workflow_run,
+    emit_workflow_run_input,
+    fetch_pending_run_inputs,
     get_approval_request,
     get_lock,
     get_pending_approval,
     get_workflow_run,
     get_workflow_step,
+    list_active_runs_for_conversation,
     list_events_since,
     list_transcript_events,
     list_workflow_events,
     list_workflow_runs,
     list_workflow_steps,
+    mark_run_input_consumed,
     reclaim_stale_locks,
     release_lock,
     release_lock_by_target,
@@ -649,3 +653,76 @@ class TestListEventsSince:
         create_workflow_event(db, run_id=run["id"], event_type="step_finished", payload={"step": "a"})
         events = list_events_since(db, run["id"], 0)
         assert len(events) == 2
+
+
+# ---------------------------------------------------------------------------
+# Workflow Run Inputs (#889)
+# ---------------------------------------------------------------------------
+
+
+class TestWorkflowRunInputs:
+    def test_emit_workflow_run_input_creates_row(self, db: Any) -> None:
+        run = _make_run(db)
+        row_id = emit_workflow_run_input(db, run["id"], "I pushed fixes", "attach")
+        assert row_id
+        pending = fetch_pending_run_inputs(db, run["id"])
+        assert len(pending) == 1
+        assert pending[0]["id"] == row_id
+        assert pending[0]["content"] == "I pushed fixes"
+        assert pending[0]["source_action"] == "attach"
+        assert pending[0]["consumed_at"] is None
+
+    def test_fetch_pending_run_inputs_does_not_mutate_state(self, db: Any) -> None:
+        run = _make_run(db)
+        emit_workflow_run_input(db, run["id"], "msg1", "attach")
+        first = fetch_pending_run_inputs(db, run["id"])
+        second = fetch_pending_run_inputs(db, run["id"])
+        assert len(first) == len(second) == 1
+        assert first[0]["id"] == second[0]["id"]
+
+    def test_mark_run_input_consumed_is_idempotent(self, db: Any) -> None:
+        run = _make_run(db)
+        row_id = emit_workflow_run_input(db, run["id"], "msg", "update")
+        mark_run_input_consumed(db, row_id)
+        mark_run_input_consumed(db, row_id)  # second call should not raise
+        pending = fetch_pending_run_inputs(db, run["id"])
+        assert len(pending) == 0
+
+    def test_fetch_skips_already_consumed_rows(self, db: Any) -> None:
+        run = _make_run(db)
+        id1 = emit_workflow_run_input(db, run["id"], "old", "attach")
+        emit_workflow_run_input(db, run["id"], "new", "update")
+        mark_run_input_consumed(db, id1)
+        pending = fetch_pending_run_inputs(db, run["id"])
+        assert len(pending) == 1
+        assert pending[0]["content"] == "new"
+
+    def test_fetch_returns_rows_ordered_by_created_at(self, db: Any) -> None:
+        import time
+
+        run = _make_run(db)
+        emit_workflow_run_input(db, run["id"], "first", "attach")
+        time.sleep(0.01)
+        emit_workflow_run_input(db, run["id"], "second", "update")
+        pending = fetch_pending_run_inputs(db, run["id"])
+        assert len(pending) == 2
+        assert pending[0]["content"] == "first"
+        assert pending[1]["content"] == "second"
+
+    def test_list_active_runs_for_conversation(self, db: Any) -> None:
+        run1 = _make_run(db, conversation_id="conv-1")
+        update_workflow_run(db, run1["id"], status="running")
+        run2 = _make_run(db, conversation_id="conv-1")
+        update_workflow_run(db, run2["id"], status="completed")
+        run3 = _make_run(db, conversation_id="conv-1")
+        # run3 stays pending (non-terminal)
+
+        active = list_active_runs_for_conversation(db, "conv-1")
+        active_ids = {r["id"] for r in active}
+        assert run1["id"] in active_ids
+        assert run3["id"] in active_ids
+        assert run2["id"] not in active_ids  # completed = terminal
+
+    def test_list_active_runs_empty_for_no_conversation(self, db: Any) -> None:
+        active = list_active_runs_for_conversation(db, "nonexistent")
+        assert active == []

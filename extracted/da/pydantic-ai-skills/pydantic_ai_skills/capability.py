@@ -8,14 +8,29 @@ the capabilities API (pydantic-ai >= 1.71).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from pydantic_ai.tools import AgentDepsT, RunContext
+if TYPE_CHECKING:
+    from pydantic_ai.agent.abstract import AgentInstructions
+    from pydantic_ai.tools import AgentDepsT, RunContext
+else:
+    try:
+        from pydantic_ai.agent.abstract import AgentInstructions
+    except ImportError:
+        AgentInstructions = Any
+
+    try:
+        from pydantic_ai.tools import AgentDepsT, RunContext
+    except ImportError:
+        AgentDepsT = Any
+        RunContext = Any
 
 from .directory import SkillsDirectory
 from .registries._base import SkillRegistry
 from .toolset import SkillsToolset
 from .types import Skill
+
+_AgentDepsT = TypeVar('_AgentDepsT')
 
 if TYPE_CHECKING:
     from pydantic_ai.capabilities import AbstractCapability as _AbstractCapabilityBase
@@ -29,11 +44,11 @@ else:
     except ImportError:
         _CAPABILITIES_AVAILABLE = False
 
-        class _AbstractCapabilityBase(Generic[AgentDepsT]):
+        class _AbstractCapabilityBase(Generic[_AgentDepsT]):
             """Fallback placeholder when pydantic-ai capabilities are unavailable."""
 
 
-class SkillsCapability(_AbstractCapabilityBase[AgentDepsT]):
+class SkillsCapability(_AbstractCapabilityBase[Any]):
     """Capability wrapper for `SkillsToolset`.
 
     Use this class with the agent `capabilities=[...]` API introduced in
@@ -103,10 +118,22 @@ class SkillsCapability(_AbstractCapabilityBase[AgentDepsT]):
         """Return the underlying skills toolset."""
         return self._toolset
 
-    def get_instructions(self) -> Any:
-        """Return dynamic instructions via the underlying skills toolset."""
+    def get_instructions(self) -> AgentInstructions[AgentDepsT] | None:
+        """Return dynamic instructions via the underlying skills toolset.
 
-        async def _instructions(ctx: RunContext[Any]) -> str | None:
+        For pydantic-ai >= 1.74, instructions are natively extracted from the toolset
+        by the agent, so we return None here to avoid injecting duplicate instructions.
+        For older versions (pydantic-ai>=1.71), we return a function that delegates to the toolset.
+        """
+        try:
+            from pydantic_ai.toolsets import AbstractToolset
+
+            if hasattr(AbstractToolset, 'get_instructions'):
+                return None
+        except ImportError:
+            pass
+
+        async def _instructions(ctx: RunContext[AgentDepsT]) -> str | None:
             return await self._toolset.get_instructions(ctx)
 
         return _instructions

@@ -8,5 +8,7 @@ def test_from_clipboard():
     try:
         my_art = AsciiArt.from_clipboard()
         my_art.to_terminal(columns=100)
+    except ModuleNotFoundError as e:
+        pytest.skip(f'ModuleNotFoundError: {e}')
     except OSError:
         pytest.skip('No image found in the clipboard')

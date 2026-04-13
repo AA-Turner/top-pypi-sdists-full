@@ -6,10 +6,22 @@ import re
 from pathlib import Path
 
 import pytest
-import yaml
+
+
+def _parse_frontmatter(path):
+    """Parse a SKILL.md file, returning a dict with name, description, prompt."""
+    import yaml as _yaml
+
+    raw = path.read_text(encoding="utf-8")
+    assert raw.startswith("---\n"), f"{path} missing frontmatter"
+    end = raw.index("\n---", 4)
+    fm = _yaml.safe_load(raw[4:end])
+    fm["prompt"] = raw[end + 4 :].strip()
+    return fm
+
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_A_HELP_PATH = _REPO_ROOT / "src" / "anteroom" / "cli" / "default_skills" / "a-help.yaml"
+_A_HELP_PATH = _REPO_ROOT / "src" / "anteroom" / "cli" / "default_skills" / "a-help" / "SKILL.md"
 _SRC_ROOT = _REPO_ROOT / "src" / "anteroom"
 
 _EXPECTED_INTROSPECT_SECTIONS = [
@@ -27,7 +39,7 @@ _EXPECTED_INTROSPECT_SECTIONS = [
 
 @pytest.fixture(scope="module")
 def _a_help_data() -> dict:
-    return yaml.safe_load(_A_HELP_PATH.read_text())
+    return _parse_frontmatter(_A_HELP_PATH)
 
 
 @pytest.fixture(scope="module")
@@ -40,8 +52,7 @@ class TestAHelpPromptContract:
 
     @pytest.fixture()
     def prompt(self) -> str:
-        text = _A_HELP_PATH.read_text()
-        data = yaml.safe_load(text)
+        data = _parse_frontmatter(_A_HELP_PATH)
         return data["prompt"]
 
     def test_docs_first_strategy(self, prompt: str) -> None:
@@ -58,7 +69,7 @@ class TestAHelpPromptContract:
 
     def test_under_size_budget(self) -> None:
         size = _A_HELP_PATH.stat().st_size
-        assert size < 15_000, f"a-help.yaml is {size} bytes, budget is 15,000 bytes"
+        assert size < 15_000, f"a-help/SKILL.md is {size} bytes, budget is 15,000 bytes"
 
 
 class TestAHelpCliInvocationPath:
@@ -136,7 +147,7 @@ def test_introspect_section_present(_prompt: str, section: str) -> None:
 
 
 class TestIntrospectSectionsMatchLive:
-    """Introspect sections in a-help.yaml must match the live introspect tool enum."""
+    """Introspect sections in a-help/SKILL.md must match the live introspect tool enum."""
 
     def test_introspect_sections_match_live(self, _prompt: str) -> None:
         from anteroom.tools.introspect import DEFINITION
@@ -144,12 +155,12 @@ class TestIntrospectSectionsMatchLive:
         live_sections = set(DEFINITION["parameters"]["properties"]["section"]["enum"])
         prompt_sections = {s for s in live_sections if f"section={s}" in _prompt}
         assert prompt_sections == live_sections, (
-            f"a-help.yaml is missing introspect sections: {live_sections - prompt_sections}"
+            f"a-help/SKILL.md is missing introspect sections: {live_sections - prompt_sections}"
         )
 
 
 class TestDocIndexPathsExist:
-    """Every docs/ path in a-help.yaml Documentation Index must exist."""
+    """Every docs/ path in a-help/SKILL.md Documentation Index must exist."""
 
     def test_doc_index_paths_exist(self, _prompt: str) -> None:
         doc_paths: set[str] = set()
@@ -157,7 +168,7 @@ class TestDocIndexPathsExist:
             doc_paths.add(m.group(1))
         assert doc_paths, "No docs/ paths found in prompt"
         missing = sorted(p for p in doc_paths if not (_REPO_ROOT / p).is_file())
-        assert not missing, "a-help.yaml references missing doc files:\n" + "\n".join(f"  - {p}" for p in missing)
+        assert not missing, "a-help/SKILL.md references missing doc files:\n" + "\n".join(f"  - {p}" for p in missing)
 
 
 class TestSourceIndexPathsExist:
@@ -190,7 +201,7 @@ class TestSourceIndexPathsExist:
 
 
 class TestToolNamesMatchRegistered:
-    """Core tool names in a-help.yaml must match register_default_tools()."""
+    """Core tool names in a-help/SKILL.md must match register_default_tools()."""
 
     _CORE_TOOLS = {
         "read_file",
@@ -218,7 +229,7 @@ class TestToolNamesMatchRegistered:
             f"Core tools missing from registry: {self._CORE_TOOLS - registered_names}"
         )
         for tool in self._CORE_TOOLS:
-            assert tool in _prompt, f"Core tool '{tool}' not mentioned in a-help.yaml"
+            assert tool in _prompt, f"Core tool '{tool}' not mentioned in a-help/SKILL.md"
 
     def test_optional_tools_in_optional_context(self, _prompt: str) -> None:
         for tool in self._OPTIONAL_TOOLS:
@@ -251,4 +262,4 @@ class TestCommandsSubsetOfCanonical:
                     listed_commands.add(m.group(1))
         assert listed_commands, "No commands found in REPL Slash Commands table"
         not_in_canonical = listed_commands - canonical
-        assert not not_in_canonical, f"a-help.yaml lists commands not in ALL_COMMAND_NAMES: {not_in_canonical}"
+        assert not not_in_canonical, f"a-help/SKILL.md lists commands not in ALL_COMMAND_NAMES: {not_in_canonical}"

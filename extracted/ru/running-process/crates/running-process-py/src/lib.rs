@@ -20,8 +20,9 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList, PyString};
 use regex::Regex;
 use running_process_core::{
-    render_rust_debug_traces, CommandSpec, NativeProcess, ProcessConfig, ProcessError, ReadStatus,
-    StderrMode, StdinMode, StreamEvent, StreamKind,
+    find_processes_by_originator, render_rust_debug_traces, CommandSpec, ContainedChild,
+    ContainedProcessGroup, Containment, NativeProcess, OriginatorProcessInfo, ProcessConfig,
+    ProcessError, ReadStatus, StderrMode, StdinMode, StreamEvent, StreamKind,
 };
 #[cfg(unix)]
 use running_process_core::{
@@ -29,6 +30,7 @@ use running_process_core::{
 };
 use sysinfo::{Pid, ProcessRefreshKind, Signal, System, UpdateKind};
 
+mod daemon_client;
 #[cfg(unix)]
 mod pty_posix;
 #[cfg(windows)]
@@ -166,10 +168,14 @@ fn register_active_process(
             pid,
             kind: kind.to_string(),
             command: command.to_string(),
-            cwd,
+            cwd: cwd.clone(),
             started_at,
         },
     );
+    drop(registry); // release lock before IPC
+
+    // Fire-and-forget daemon notification.
+    daemon_client::daemon_register(pid, started_at, kind, command, cwd.as_deref());
 }
 
 fn unregister_active_process(pid: u32) {
@@ -177,6 +183,10 @@ fn unregister_active_process(pid: u32) {
         .lock()
         .expect("active process registry mutex poisoned");
     registry.remove(&pid);
+    drop(registry); // release lock before IPC
+
+    // Fire-and-forget daemon notification.
+    daemon_client::daemon_unregister(pid);
 }
 
 fn process_created_at(pid: u32) -> Option<f64> {
@@ -1106,6 +1116,14 @@ struct NativePtyProcess {
     input_bytes_total: Arc<AtomicUsize>,
     newline_events_total: Arc<AtomicUsize>,
     submit_events_total: Arc<AtomicUsize>,
+    /// When true, the reader thread writes PTY output to stdout.
+    echo: Arc<AtomicBool>,
+    /// When set, the reader thread feeds output directly to the idle detector.
+    idle_detector: Arc<Mutex<Option<Arc<IdleDetectorCore>>>>,
+    /// Visible (non-control) output bytes seen by the reader thread.
+    output_bytes_total: Arc<AtomicUsize>,
+    /// Control churn bytes (ANSI escapes, BS, CR, DEL) seen by the reader.
+    control_churn_bytes_total: Arc<AtomicUsize>,
     #[cfg(windows)]
     terminal_input_relay_stop: Arc<AtomicBool>,
     #[cfg(windows)]
@@ -1411,7 +1429,20 @@ impl NativePtyProcess {
         #[cfg(windows)]
         public_symbols::rp_apply_windows_pty_priority_public(child.as_raw_handle(), self.nice)?;
         let shared = Arc::clone(&self.reader);
-        thread::spawn(move || public_symbols::rp_spawn_pty_reader_public(reader, shared));
+        let echo = Arc::clone(&self.echo);
+        let idle_detector = Arc::clone(&self.idle_detector);
+        let output_bytes = Arc::clone(&self.output_bytes_total);
+        let churn_bytes = Arc::clone(&self.control_churn_bytes_total);
+        thread::spawn(move || {
+            spawn_pty_reader(
+                reader,
+                shared,
+                echo,
+                idle_detector,
+                output_bytes,
+                churn_bytes,
+            );
+        });
 
         *guard = Some(NativePtyHandles {
             master: pair.master,
@@ -1642,8 +1673,9 @@ struct IdleMonitorState {
     interrupted: bool,
 }
 
-#[pyclass]
-struct NativeIdleDetector {
+/// Core idle detection logic, shareable across threads via Arc.
+/// The reader thread calls `record_output` directly without the GIL.
+struct IdleDetectorCore {
     timeout_seconds: f64,
     stability_window_seconds: f64,
     sample_interval_seconds: f64,
@@ -1653,6 +1685,111 @@ struct NativeIdleDetector {
     enabled: Arc<AtomicBool>,
     state: Mutex<IdleMonitorState>,
     condvar: Condvar,
+}
+
+impl IdleDetectorCore {
+    fn record_input(&self, byte_count: usize) {
+        if !self.reset_on_input || byte_count == 0 {
+            return;
+        }
+        let mut guard = self.state.lock().expect("idle monitor mutex poisoned");
+        guard.last_reset_at = Instant::now();
+        self.condvar.notify_all();
+    }
+
+    fn record_output(&self, data: &[u8]) {
+        if !self.reset_on_output || data.is_empty() {
+            return;
+        }
+        let control_bytes = control_churn_bytes(data);
+        let visible_output_bytes = data.len().saturating_sub(control_bytes);
+        let active_output =
+            visible_output_bytes > 0 || (self.count_control_churn_as_output && control_bytes > 0);
+        if !active_output {
+            return;
+        }
+        let mut guard = self.state.lock().expect("idle monitor mutex poisoned");
+        guard.last_reset_at = Instant::now();
+        self.condvar.notify_all();
+    }
+
+    fn mark_exit(&self, returncode: i32, interrupted: bool) {
+        let mut guard = self.state.lock().expect("idle monitor mutex poisoned");
+        guard.returncode = Some(returncode);
+        guard.interrupted = interrupted;
+        self.condvar.notify_all();
+    }
+
+    fn enabled(&self) -> bool {
+        self.enabled.load(Ordering::Acquire)
+    }
+
+    fn set_enabled(&self, enabled: bool) {
+        let was_enabled = self.enabled.swap(enabled, Ordering::AcqRel);
+        if enabled && !was_enabled {
+            let mut guard = self.state.lock().expect("idle monitor mutex poisoned");
+            guard.last_reset_at = Instant::now();
+        }
+        self.condvar.notify_all();
+    }
+
+    fn wait(&self, timeout: Option<f64>) -> (bool, String, f64, Option<i32>) {
+        let started = Instant::now();
+        let overall_timeout = timeout.map(Duration::from_secs_f64);
+        let min_idle = self.timeout_seconds.max(self.stability_window_seconds);
+        let sample_interval = Duration::from_secs_f64(self.sample_interval_seconds.max(0.001));
+
+        let mut guard = self.state.lock().expect("idle monitor mutex poisoned");
+        loop {
+            let now = Instant::now();
+            let idle_for = now.duration_since(guard.last_reset_at).as_secs_f64();
+
+            if let Some(returncode) = guard.returncode {
+                let reason = if guard.interrupted {
+                    "interrupt"
+                } else {
+                    "process_exit"
+                };
+                return (false, reason.to_string(), idle_for, Some(returncode));
+            }
+
+            let enabled = self.enabled.load(Ordering::Acquire);
+            if enabled && idle_for >= min_idle {
+                return (true, "idle_timeout".to_string(), idle_for, None);
+            }
+
+            if let Some(limit) = overall_timeout {
+                if now.duration_since(started) >= limit {
+                    return (false, "timeout".to_string(), idle_for, None);
+                }
+            }
+
+            let idle_remaining = if enabled {
+                (min_idle - idle_for).max(0.0)
+            } else {
+                sample_interval.as_secs_f64()
+            };
+            let mut wait_for =
+                sample_interval.min(Duration::from_secs_f64(idle_remaining.max(0.001)));
+            if let Some(limit) = overall_timeout {
+                let elapsed = now.duration_since(started);
+                if elapsed < limit {
+                    let remaining = limit - elapsed;
+                    wait_for = wait_for.min(remaining);
+                }
+            }
+            let result = self
+                .condvar
+                .wait_timeout(guard, wait_for)
+                .expect("idle monitor mutex poisoned");
+            guard = result.0;
+        }
+    }
+}
+
+#[pyclass]
+struct NativeIdleDetector {
+    core: Arc<IdleDetectorCore>,
 }
 
 struct PtyBufferState {
@@ -1859,6 +1996,7 @@ impl NativeRunningProcess {
                 create_process_group,
                 stdin_mode: stdin_mode(stdin_mode_name)?,
                 nice,
+                containment: None,
             }),
             text,
             encoding,
@@ -2508,6 +2646,24 @@ impl PyNativeProcess {
     fn is_pty(&self) -> bool {
         matches!(self.backend, NativeProcessBackend::Pty(_))
     }
+
+    /// Wait for exit then drain remaining output (PTY only).
+    #[pyo3(signature = (timeout=None, drain_timeout=2.0))]
+    fn wait_and_drain(
+        &self,
+        py: Python<'_>,
+        timeout: Option<f64>,
+        drain_timeout: f64,
+    ) -> PyResult<i32> {
+        match &self.backend {
+            NativeProcessBackend::Pty(process) => {
+                process.wait_and_drain(py, timeout, drain_timeout)
+            }
+            NativeProcessBackend::Running(_) => Err(PyRuntimeError::new_err(
+                "wait_and_drain is only available for PTY-backed NativeProcess",
+            )),
+        }
+    }
 }
 
 #[pymethods]
@@ -2555,6 +2711,10 @@ impl NativePtyProcess {
             input_bytes_total: Arc::new(AtomicUsize::new(0)),
             newline_events_total: Arc::new(AtomicUsize::new(0)),
             submit_events_total: Arc::new(AtomicUsize::new(0)),
+            echo: Arc::new(AtomicBool::new(false)),
+            idle_detector: Arc::new(Mutex::new(None)),
+            output_bytes_total: Arc::new(AtomicUsize::new(0)),
+            control_churn_bytes_total: Arc::new(AtomicUsize::new(0)),
             #[cfg(windows)]
             terminal_input_relay_stop: Arc::new(AtomicBool::new(false)),
             #[cfg(windows)]
@@ -2743,6 +2903,125 @@ impl NativePtyProcess {
 
     fn pty_submit_events_total(&self) -> usize {
         self.submit_events_total.load(Ordering::Acquire)
+    }
+
+    /// Visible (non-control) output bytes tracked by the reader thread.
+    fn pty_output_bytes_total(&self) -> usize {
+        self.output_bytes_total.load(Ordering::Acquire)
+    }
+
+    /// Control churn bytes (ANSI escapes, BS, CR, DEL) tracked by the reader thread.
+    fn pty_control_churn_bytes_total(&self) -> usize {
+        self.control_churn_bytes_total.load(Ordering::Acquire)
+    }
+
+    /// Wait for exit then drain remaining output.  Entire operation runs
+    /// in Rust with the GIL released.
+    #[pyo3(signature = (timeout=None, drain_timeout=2.0))]
+    fn wait_and_drain(
+        &self,
+        py: Python<'_>,
+        timeout: Option<f64>,
+        drain_timeout: f64,
+    ) -> PyResult<i32> {
+        py.allow_threads(|| {
+            // Wait for exit.
+            let code = self.wait_impl(timeout)?;
+            // Drain: wait for reader thread to close.
+            let deadline = Instant::now() + Duration::from_secs_f64(drain_timeout.max(0.0));
+            let mut guard = self.reader.state.lock().expect("pty read mutex poisoned");
+            while !guard.closed {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    break;
+                }
+                let result = self
+                    .reader
+                    .condvar
+                    .wait_timeout(guard, remaining)
+                    .expect("pty read mutex poisoned");
+                guard = result.0;
+            }
+            Ok(code)
+        })
+    }
+
+    /// Enable/disable echoing PTY output to stdout from the reader thread.
+    fn set_echo(&self, enabled: bool) {
+        self.echo.store(enabled, Ordering::Release);
+    }
+
+    fn echo_enabled(&self) -> bool {
+        self.echo.load(Ordering::Acquire)
+    }
+
+    /// Attach an idle detector so the reader thread feeds it directly.
+    fn attach_idle_detector(&self, detector: &NativeIdleDetector) {
+        let mut guard = self
+            .idle_detector
+            .lock()
+            .expect("idle detector mutex poisoned");
+        *guard = Some(Arc::clone(&detector.core));
+    }
+
+    /// Detach the idle detector from the reader thread.
+    fn detach_idle_detector(&self) {
+        let mut guard = self
+            .idle_detector
+            .lock()
+            .expect("idle detector mutex poisoned");
+        *guard = None;
+    }
+
+    /// Wait for idle entirely in Rust.  The reader thread feeds the
+    /// detector directly — no Python pumping needed.
+    #[pyo3(signature = (detector, timeout=None))]
+    fn wait_for_idle(
+        &self,
+        py: Python<'_>,
+        detector: &NativeIdleDetector,
+        timeout: Option<f64>,
+    ) -> PyResult<(bool, String, f64, Option<i32>)> {
+        // Wire the detector into the reader thread.
+        {
+            let mut guard = self
+                .idle_detector
+                .lock()
+                .expect("idle detector mutex poisoned");
+            *guard = Some(Arc::clone(&detector.core));
+        }
+
+        // Spawn exit watcher that marks the detector on process exit.
+        let handles = Arc::clone(&self.handles);
+        let returncode = Arc::clone(&self.returncode);
+        let core = Arc::clone(&detector.core);
+        let exit_watcher = thread::spawn(move || loop {
+            match poll_pty_process(&handles, &returncode) {
+                Ok(Some(code)) => {
+                    // Heuristic: codes typically used for keyboard interrupt
+                    let interrupted = code == -2 || code == 130;
+                    core.mark_exit(code, interrupted);
+                    return;
+                }
+                Ok(None) => {}
+                Err(_) => return,
+            }
+            thread::sleep(Duration::from_millis(1));
+        });
+
+        // Block in Rust (GIL released) until idle, exit, or timeout.
+        let result = py.allow_threads(|| detector.core.wait(timeout));
+
+        // Detach detector from reader thread.
+        {
+            let mut guard = self
+                .idle_detector
+                .lock()
+                .expect("idle detector mutex poisoned");
+            *guard = None;
+        }
+        let _ = exit_watcher.join();
+        Ok(result)
     }
 
     #[getter]
@@ -3579,123 +3858,49 @@ impl NativeIdleDetector {
             .unwrap_or(now);
         let enabled = enabled_signal.borrow(py).value.clone();
         Self {
-            timeout_seconds,
-            stability_window_seconds,
-            sample_interval_seconds,
-            reset_on_input,
-            reset_on_output,
-            count_control_churn_as_output,
-            enabled,
-            state: Mutex::new(IdleMonitorState {
-                last_reset_at,
-                returncode: None,
-                interrupted: false,
+            core: Arc::new(IdleDetectorCore {
+                timeout_seconds,
+                stability_window_seconds,
+                sample_interval_seconds,
+                reset_on_input,
+                reset_on_output,
+                count_control_churn_as_output,
+                enabled,
+                state: Mutex::new(IdleMonitorState {
+                    last_reset_at,
+                    returncode: None,
+                    interrupted: false,
+                }),
+                condvar: Condvar::new(),
             }),
-            condvar: Condvar::new(),
         }
     }
 
     #[getter]
     fn enabled(&self) -> bool {
-        self.enabled.load(Ordering::Acquire)
+        self.core.enabled()
     }
 
     #[setter]
     fn set_enabled(&self, enabled: bool) {
-        let was_enabled = self.enabled.swap(enabled, Ordering::AcqRel);
-        if enabled && !was_enabled {
-            let mut guard = self.state.lock().expect("idle monitor mutex poisoned");
-            guard.last_reset_at = Instant::now();
-        }
-        self.condvar.notify_all();
+        self.core.set_enabled(enabled);
     }
 
     fn record_input(&self, byte_count: usize) {
-        if !self.reset_on_input || byte_count == 0 {
-            return;
-        }
-        let mut guard = self.state.lock().expect("idle monitor mutex poisoned");
-        guard.last_reset_at = Instant::now();
-        self.condvar.notify_all();
+        self.core.record_input(byte_count);
     }
 
     fn record_output(&self, data: &[u8]) {
-        if !self.reset_on_output || data.is_empty() {
-            return;
-        }
-        let control_bytes = control_churn_bytes(data);
-        let visible_output_bytes = data.len().saturating_sub(control_bytes);
-        let active_output =
-            visible_output_bytes > 0 || (self.count_control_churn_as_output && control_bytes > 0);
-        if !active_output {
-            return;
-        }
-        let mut guard = self.state.lock().expect("idle monitor mutex poisoned");
-        guard.last_reset_at = Instant::now();
-        self.condvar.notify_all();
+        self.core.record_output(data);
     }
 
     fn mark_exit(&self, returncode: i32, interrupted: bool) {
-        let mut guard = self.state.lock().expect("idle monitor mutex poisoned");
-        guard.returncode = Some(returncode);
-        guard.interrupted = interrupted;
-        self.condvar.notify_all();
+        self.core.mark_exit(returncode, interrupted);
     }
 
     #[pyo3(signature = (timeout=None))]
     fn wait(&self, py: Python<'_>, timeout: Option<f64>) -> (bool, String, f64, Option<i32>) {
-        py.allow_threads(|| {
-            let started = Instant::now();
-            let overall_timeout = timeout.map(Duration::from_secs_f64);
-            let min_idle = self.timeout_seconds.max(self.stability_window_seconds);
-            let sample_interval = Duration::from_secs_f64(self.sample_interval_seconds.max(0.001));
-
-            let mut guard = self.state.lock().expect("idle monitor mutex poisoned");
-            loop {
-                let now = Instant::now();
-                let idle_for = now.duration_since(guard.last_reset_at).as_secs_f64();
-
-                if let Some(returncode) = guard.returncode {
-                    let reason = if guard.interrupted {
-                        "interrupt"
-                    } else {
-                        "process_exit"
-                    };
-                    return (false, reason.to_string(), idle_for, Some(returncode));
-                }
-
-                let enabled = self.enabled.load(Ordering::Acquire);
-                if enabled && idle_for >= min_idle {
-                    return (true, "idle_timeout".to_string(), idle_for, None);
-                }
-
-                if let Some(limit) = overall_timeout {
-                    if now.duration_since(started) >= limit {
-                        return (false, "timeout".to_string(), idle_for, None);
-                    }
-                }
-
-                let idle_remaining = if enabled {
-                    (min_idle - idle_for).max(0.0)
-                } else {
-                    sample_interval.as_secs_f64()
-                };
-                let mut wait_for =
-                    sample_interval.min(Duration::from_secs_f64(idle_remaining.max(0.001)));
-                if let Some(limit) = overall_timeout {
-                    let elapsed = now.duration_since(started);
-                    if elapsed < limit {
-                        let remaining = limit - elapsed;
-                        wait_for = wait_for.min(remaining);
-                    }
-                }
-                let result = self
-                    .condvar
-                    .wait_timeout(guard, wait_for)
-                    .expect("idle monitor mutex poisoned");
-                guard = result.0;
-            }
-        })
+        py.allow_threads(|| self.core.wait(timeout))
     }
 }
 
@@ -3742,15 +3947,45 @@ fn command_builder_from_argv(argv: &[String]) -> CommandBuilder {
 }
 
 #[inline(never)]
-fn spawn_pty_reader(mut reader: Box<dyn Read + Send>, shared: Arc<PtyReadShared>) {
+fn spawn_pty_reader(
+    mut reader: Box<dyn Read + Send>,
+    shared: Arc<PtyReadShared>,
+    echo: Arc<AtomicBool>,
+    idle_detector: Arc<Mutex<Option<Arc<IdleDetectorCore>>>>,
+    output_bytes_total: Arc<AtomicUsize>,
+    control_churn_bytes_total: Arc<AtomicUsize>,
+) {
     running_process_core::rp_rust_debug_scope!("running_process_py::spawn_pty_reader");
     let mut chunk = [0_u8; 4096];
     loop {
         match reader.read(&mut chunk) {
             Ok(0) => break,
             Ok(n) => {
+                let data = &chunk[..n];
+
+                // Output accounting (no GIL needed).
+                let churn = control_churn_bytes(data);
+                let visible = data.len().saturating_sub(churn);
+                output_bytes_total.fetch_add(visible, Ordering::Relaxed);
+                control_churn_bytes_total.fetch_add(churn, Ordering::Relaxed);
+
+                // Echo to stdout if enabled (no GIL needed).
+                if echo.load(Ordering::Relaxed) {
+                    let _ = std::io::stdout().write_all(data);
+                    let _ = std::io::stdout().flush();
+                }
+
+                // Feed idle detector directly (no GIL needed).
+                if let Some(detector) = idle_detector
+                    .lock()
+                    .expect("idle detector mutex poisoned")
+                    .as_ref()
+                {
+                    detector.record_output(data);
+                }
+
                 let mut guard = shared.state.lock().expect("pty read mutex poisoned");
-                guard.chunks.push_back(chunk[..n].to_vec());
+                guard.chunks.push_back(data.to_vec());
                 shared.condvar.notify_all();
             }
             Err(err) if err.kind() == std::io::ErrorKind::Interrupted => continue,
@@ -3876,18 +4111,23 @@ fn apply_windows_pty_priority(
     Ok(())
 }
 
-#[cfg(all(test, windows))]
+#[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
     use winapi::um::wincon::{
         ENABLE_ECHO_INPUT, ENABLE_EXTENDED_FLAGS, ENABLE_LINE_INPUT, ENABLE_PROCESSED_INPUT,
         ENABLE_QUICK_EDIT_MODE, ENABLE_WINDOW_INPUT,
     };
+    #[cfg(windows)]
     use winapi::um::wincontypes::{
         KEY_EVENT_RECORD, LEFT_ALT_PRESSED, LEFT_CTRL_PRESSED, SHIFT_PRESSED,
     };
+    #[cfg(windows)]
     use winapi::um::winuser::{VK_RETURN, VK_TAB, VK_UP};
 
+    #[cfg(windows)]
     fn key_event(
         virtual_key_code: u16,
         unicode: u16,
@@ -3907,6 +4147,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn native_terminal_input_mode_disables_cooked_console_flags() {
         let original_mode =
             ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT | ENABLE_QUICK_EDIT_MODE;
@@ -3922,6 +4163,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn translate_terminal_input_preserves_submit_hint_for_enter() {
         let event = translate_console_key_event(&key_event(VK_RETURN as u16, '\r' as u16, 0, 1))
             .expect("enter should translate");
@@ -3930,6 +4172,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn translate_terminal_input_keeps_shift_enter_non_submit() {
         let event = translate_console_key_event(&key_event(
             VK_RETURN as u16,
@@ -3946,6 +4189,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn translate_terminal_input_encodes_shift_tab() {
         let event = translate_console_key_event(&key_event(VK_TAB as u16, 0, SHIFT_PRESSED, 1))
             .expect("shift-tab should translate");
@@ -3954,6 +4198,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn translate_terminal_input_encodes_modified_arrows() {
         let event = translate_console_key_event(&key_event(
             VK_UP as u16,
@@ -3966,6 +4211,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn translate_terminal_input_encodes_alt_printable_with_escape_prefix() {
         let event =
             translate_console_key_event(&key_event(b'X' as u16, 'x' as u16, LEFT_ALT_PRESSED, 1))
@@ -3974,6 +4220,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn translate_terminal_input_encodes_ctrl_printable_as_control_character() {
         let event =
             translate_console_key_event(&key_event(b'C' as u16, 'c' as u16, LEFT_CTRL_PRESSED, 1))
@@ -3982,17 +4229,3876 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn translate_terminal_input_ignores_keyup_events() {
         let mut event = key_event(VK_RETURN as u16, '\r' as u16, 0, 1);
         event.bKeyDown = 0;
         assert!(translate_console_key_event(&event).is_none());
     }
+
+    // ── control_churn_bytes tests ──
+
+    #[test]
+    fn control_churn_bytes_empty() {
+        assert_eq!(control_churn_bytes(b""), 0);
+    }
+
+    #[test]
+    fn control_churn_bytes_plain_text() {
+        assert_eq!(control_churn_bytes(b"hello world"), 0);
+    }
+
+    #[test]
+    fn control_churn_bytes_ansi_csi_sequence() {
+        // \x1b[31m = 5 bytes of control churn, \x1b[0m = 4 bytes
+        assert_eq!(control_churn_bytes(b"\x1b[31mhello\x1b[0m"), 9);
+    }
+
+    #[test]
+    fn control_churn_bytes_backspace_cr_del() {
+        assert_eq!(control_churn_bytes(b"\x08\x0D\x7F"), 3);
+    }
+
+    #[test]
+    fn control_churn_bytes_bare_escape() {
+        // Bare ESC with no CSI sequence following
+        assert_eq!(control_churn_bytes(b"\x1b"), 1);
+    }
+
+    #[test]
+    fn control_churn_bytes_mixed() {
+        // \x1b[J = 3 bytes CSI + 1 byte BS = 4
+        assert_eq!(control_churn_bytes(b"ok\x1b[Jmore\x08"), 4);
+    }
+
+    // ── input_contains_newline tests ──
+
+    #[test]
+    fn input_contains_newline_cr() {
+        assert!(input_contains_newline(b"hello\rworld"));
+    }
+
+    #[test]
+    fn input_contains_newline_lf() {
+        assert!(input_contains_newline(b"hello\nworld"));
+    }
+
+    #[test]
+    fn input_contains_newline_none() {
+        assert!(!input_contains_newline(b"hello world"));
+    }
+
+    #[test]
+    fn input_contains_newline_empty() {
+        assert!(!input_contains_newline(b""));
+    }
+
+    // ── is_ignorable_process_control_error tests ──
+
+    #[test]
+    fn ignorable_error_not_found() {
+        let err = std::io::Error::new(std::io::ErrorKind::NotFound, "not found");
+        assert!(is_ignorable_process_control_error(&err));
+    }
+
+    #[test]
+    fn ignorable_error_invalid_input() {
+        let err = std::io::Error::new(std::io::ErrorKind::InvalidInput, "bad input");
+        assert!(is_ignorable_process_control_error(&err));
+    }
+
+    #[test]
+    fn ignorable_error_permission_denied_is_not_ignorable() {
+        let err = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
+        assert!(!is_ignorable_process_control_error(&err));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn ignorable_error_esrch() {
+        let err = std::io::Error::from_raw_os_error(libc::ESRCH);
+        assert!(is_ignorable_process_control_error(&err));
+    }
+
+    // ── Windows-only pure function tests ──
+
+    #[test]
+    #[cfg(windows)]
+    fn windows_terminal_input_payload_passthrough() {
+        let result = windows_terminal_input_payload(b"hello");
+        assert_eq!(result, b"hello");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn windows_terminal_input_payload_lone_lf_becomes_cr() {
+        let result = windows_terminal_input_payload(b"\n");
+        assert_eq!(result, b"\r");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn windows_terminal_input_payload_crlf_preserved() {
+        let result = windows_terminal_input_payload(b"\r\n");
+        assert_eq!(result, b"\r\n");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn windows_terminal_input_payload_lone_cr_preserved() {
+        let result = windows_terminal_input_payload(b"\r");
+        assert_eq!(result, b"\r");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn terminal_input_modifier_none() {
+        assert!(terminal_input_modifier_parameter(false, false, false).is_none());
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn terminal_input_modifier_shift() {
+        assert_eq!(
+            terminal_input_modifier_parameter(true, false, false),
+            Some(2)
+        );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn terminal_input_modifier_alt() {
+        assert_eq!(
+            terminal_input_modifier_parameter(false, true, false),
+            Some(3)
+        );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn terminal_input_modifier_ctrl() {
+        assert_eq!(
+            terminal_input_modifier_parameter(false, false, true),
+            Some(5)
+        );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn terminal_input_modifier_shift_ctrl() {
+        assert_eq!(
+            terminal_input_modifier_parameter(true, false, true),
+            Some(6)
+        );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn control_character_for_unicode_letters() {
+        assert_eq!(control_character_for_unicode('A' as u16), Some(0x01));
+        assert_eq!(control_character_for_unicode('C' as u16), Some(0x03));
+        assert_eq!(control_character_for_unicode('Z' as u16), Some(0x1A));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn control_character_for_unicode_special() {
+        assert_eq!(control_character_for_unicode('@' as u16), Some(0x00));
+        assert_eq!(control_character_for_unicode('[' as u16), Some(0x1B));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn control_character_for_unicode_digit_returns_none() {
+        assert!(control_character_for_unicode('1' as u16).is_none());
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn format_terminal_input_bytes_empty() {
+        assert_eq!(format_terminal_input_bytes(b""), "[]");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn format_terminal_input_bytes_multi() {
+        assert_eq!(format_terminal_input_bytes(&[0x41, 0x42]), "[41 42]");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn repeated_tilde_sequence_no_modifier() {
+        assert_eq!(repeated_tilde_sequence(3, None, 1), b"\x1b[3~");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn repeated_tilde_sequence_with_modifier() {
+        assert_eq!(repeated_tilde_sequence(3, Some(2), 1), b"\x1b[3;2~");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn repeated_tilde_sequence_repeated() {
+        let result = repeated_tilde_sequence(3, None, 3);
+        assert_eq!(result, b"\x1b[3~\x1b[3~\x1b[3~");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn repeated_modified_sequence_no_modifier() {
+        let result = repeated_modified_sequence(b"\x1b[A", None, 1);
+        assert_eq!(result, b"\x1b[A");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn repeated_modified_sequence_with_modifier() {
+        // Shift modifier (2) applied to Up arrow
+        let result = repeated_modified_sequence(b"\x1b[A", Some(2), 1);
+        assert_eq!(result, b"\x1b[1;2A");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn repeated_modified_sequence_repeated() {
+        let result = repeated_modified_sequence(b"\x1b[A", None, 2);
+        assert_eq!(result, b"\x1b[A\x1b[A");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn repeat_terminal_input_bytes_single() {
+        let result = repeat_terminal_input_bytes(b"\r", 1);
+        assert_eq!(result, b"\r");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn repeat_terminal_input_bytes_multiple() {
+        let result = repeat_terminal_input_bytes(b"ab", 3);
+        assert_eq!(result, b"ababab");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn repeat_terminal_input_bytes_zero_clamps_to_one() {
+        let result = repeat_terminal_input_bytes(b"x", 0);
+        assert_eq!(result, b"x");
+    }
+
+    // ── B1: Windows Console Key Translation (navigation keys) ──
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_home() {
+        use winapi::um::winuser::VK_HOME;
+        let event = translate_console_key_event(&key_event(VK_HOME as u16, 0, 0, 1))
+            .expect("VK_HOME should translate");
+        assert_eq!(event.data, b"\x1b[H");
+        assert!(!event.submit);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_end() {
+        use winapi::um::winuser::VK_END;
+        let event = translate_console_key_event(&key_event(VK_END as u16, 0, 0, 1))
+            .expect("VK_END should translate");
+        assert_eq!(event.data, b"\x1b[F");
+        assert!(!event.submit);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_insert() {
+        use winapi::um::winuser::VK_INSERT;
+        let event = translate_console_key_event(&key_event(VK_INSERT as u16, 0, 0, 1))
+            .expect("VK_INSERT should translate");
+        assert_eq!(event.data, b"\x1b[2~");
+        assert!(!event.submit);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_delete() {
+        use winapi::um::winuser::VK_DELETE;
+        let event = translate_console_key_event(&key_event(VK_DELETE as u16, 0, 0, 1))
+            .expect("VK_DELETE should translate");
+        assert_eq!(event.data, b"\x1b[3~");
+        assert!(!event.submit);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_page_up() {
+        use winapi::um::winuser::VK_PRIOR;
+        let event = translate_console_key_event(&key_event(VK_PRIOR as u16, 0, 0, 1))
+            .expect("VK_PRIOR should translate");
+        assert_eq!(event.data, b"\x1b[5~");
+        assert!(!event.submit);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_page_down() {
+        use winapi::um::winuser::VK_NEXT;
+        let event = translate_console_key_event(&key_event(VK_NEXT as u16, 0, 0, 1))
+            .expect("VK_NEXT should translate");
+        assert_eq!(event.data, b"\x1b[6~");
+        assert!(!event.submit);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_shift_home() {
+        use winapi::um::winuser::VK_HOME;
+        let event = translate_console_key_event(&key_event(VK_HOME as u16, 0, SHIFT_PRESSED, 1))
+            .expect("Shift+Home should translate");
+        assert_eq!(event.data, b"\x1b[1;2H");
+        assert!(event.shift);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_shift_end() {
+        use winapi::um::winuser::VK_END;
+        let event = translate_console_key_event(&key_event(VK_END as u16, 0, SHIFT_PRESSED, 1))
+            .expect("Shift+End should translate");
+        assert_eq!(event.data, b"\x1b[1;2F");
+        assert!(event.shift);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_ctrl_home() {
+        use winapi::um::winuser::VK_HOME;
+        let event =
+            translate_console_key_event(&key_event(VK_HOME as u16, 0, LEFT_CTRL_PRESSED, 1))
+                .expect("Ctrl+Home should translate");
+        assert_eq!(event.data, b"\x1b[1;5H");
+        assert!(event.ctrl);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_shift_delete() {
+        use winapi::um::winuser::VK_DELETE;
+        let event = translate_console_key_event(&key_event(VK_DELETE as u16, 0, SHIFT_PRESSED, 1))
+            .expect("Shift+Delete should translate");
+        assert_eq!(event.data, b"\x1b[3;2~");
+        assert!(event.shift);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_ctrl_page_up() {
+        use winapi::um::winuser::VK_PRIOR;
+        let event =
+            translate_console_key_event(&key_event(VK_PRIOR as u16, 0, LEFT_CTRL_PRESSED, 1))
+                .expect("Ctrl+PageUp should translate");
+        assert_eq!(event.data, b"\x1b[5;5~");
+        assert!(event.ctrl);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_backspace() {
+        use winapi::um::winuser::VK_BACK;
+        let event = translate_console_key_event(&key_event(VK_BACK as u16, 0x08, 0, 1))
+            .expect("Backspace should translate");
+        assert_eq!(event.data, b"\x08");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_escape() {
+        use winapi::um::winuser::VK_ESCAPE;
+        let event = translate_console_key_event(&key_event(VK_ESCAPE as u16, 0x1b, 0, 1))
+            .expect("Escape should translate");
+        assert_eq!(event.data, b"\x1b");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_tab() {
+        let event = translate_console_key_event(&key_event(VK_TAB as u16, 0, 0, 1))
+            .expect("Tab should translate");
+        assert_eq!(event.data, b"\t");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_plain_enter_is_submit() {
+        let event = translate_console_key_event(&key_event(VK_RETURN as u16, '\r' as u16, 0, 1))
+            .expect("Enter should translate");
+        assert_eq!(event.data, b"\r");
+        assert!(event.submit);
+        assert!(!event.shift);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_unicode_printable() {
+        // Regular 'a' key
+        let event = translate_console_key_event(&key_event(b'A' as u16, 'a' as u16, 0, 1))
+            .expect("printable should translate");
+        assert_eq!(event.data, b"a");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_unicode_repeated() {
+        let event = translate_console_key_event(&key_event(b'A' as u16, 'a' as u16, 0, 3))
+            .expect("repeated printable should translate");
+        assert_eq!(event.data, b"aaa");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_down_arrow() {
+        use winapi::um::winuser::VK_DOWN;
+        let event = translate_console_key_event(&key_event(VK_DOWN as u16, 0, 0, 1))
+            .expect("Down arrow should translate");
+        assert_eq!(event.data, b"\x1b[B");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_right_arrow() {
+        use winapi::um::winuser::VK_RIGHT;
+        let event = translate_console_key_event(&key_event(VK_RIGHT as u16, 0, 0, 1))
+            .expect("Right arrow should translate");
+        assert_eq!(event.data, b"\x1b[C");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_left_arrow() {
+        use winapi::um::winuser::VK_LEFT;
+        let event = translate_console_key_event(&key_event(VK_LEFT as u16, 0, 0, 1))
+            .expect("Left arrow should translate");
+        assert_eq!(event.data, b"\x1b[D");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_unknown_vk_no_unicode_returns_none() {
+        // Unknown VK with no unicode char → should return None
+        let result = translate_console_key_event(&key_event(0xFF, 0, 0, 1));
+        assert!(result.is_none());
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_alt_escape_prefix() {
+        // Alt+letter should prepend ESC byte to the character
+        let event =
+            translate_console_key_event(&key_event(b'A' as u16, 'a' as u16, LEFT_ALT_PRESSED, 1))
+                .expect("Alt+a should translate");
+        assert_eq!(event.data, b"\x1ba");
+        assert!(event.alt);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_ctrl_a() {
+        let event =
+            translate_console_key_event(&key_event(b'A' as u16, 'a' as u16, LEFT_CTRL_PRESSED, 1))
+                .expect("Ctrl+A should translate");
+        assert_eq!(event.data, [0x01]); // SOH
+        assert!(event.ctrl);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn translate_console_key_ctrl_z() {
+        let event =
+            translate_console_key_event(&key_event(b'Z' as u16, 'z' as u16, LEFT_CTRL_PRESSED, 1))
+                .expect("Ctrl+Z should translate");
+        assert_eq!(event.data, [0x1A]); // SUB
+        assert!(event.ctrl);
+    }
+
+    // ── NativeSignalBool tests (no PyO3 needed) ──
+
+    #[test]
+    fn signal_bool_default_false() {
+        let sb = NativeSignalBool::new(false);
+        assert!(!sb.load_nolock());
+    }
+
+    #[test]
+    fn signal_bool_default_true() {
+        let sb = NativeSignalBool::new(true);
+        assert!(sb.load_nolock());
+    }
+
+    #[test]
+    fn signal_bool_store_and_load() {
+        let sb = NativeSignalBool::new(false);
+        sb.store_locked(true);
+        assert!(sb.load_nolock());
+        sb.store_locked(false);
+        assert!(!sb.load_nolock());
+    }
+
+    #[test]
+    fn signal_bool_compare_and_swap_success() {
+        let sb = NativeSignalBool::new(false);
+        assert!(sb.compare_and_swap_locked(false, true));
+        assert!(sb.load_nolock());
+    }
+
+    #[test]
+    fn signal_bool_compare_and_swap_failure() {
+        let sb = NativeSignalBool::new(false);
+        assert!(!sb.compare_and_swap_locked(true, false));
+        assert!(!sb.load_nolock());
+    }
+
+    // ── NativePtyBuffer tests (non-Python methods) ──
+
+    #[test]
+    fn pty_buffer_available_empty() {
+        let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+        assert!(!buf.available());
+    }
+
+    #[test]
+    fn pty_buffer_record_and_available() {
+        let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+        buf.record_output(b"hello");
+        assert!(buf.available());
+    }
+
+    #[test]
+    fn pty_buffer_history_bytes_and_clear() {
+        let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+        buf.record_output(b"hello");
+        buf.record_output(b"world");
+        assert_eq!(buf.history_bytes(), 10);
+        let released = buf.clear_history();
+        assert_eq!(released, 10);
+        assert_eq!(buf.history_bytes(), 0);
+    }
+
+    #[test]
+    fn pty_buffer_close() {
+        let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+        buf.close();
+        // After close, buffer is marked as closed
+        // (no panic, graceful handling)
+    }
+
+    // ── NativePtyBuffer tests with PyO3 ──
+
+    #[test]
+    fn pty_buffer_drain_returns_recorded_chunks() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+            buf.record_output(b"chunk1");
+            buf.record_output(b"chunk2");
+            let drained = buf.drain(py).unwrap();
+            assert_eq!(drained.len(), 2);
+            assert!(!buf.available());
+        });
+    }
+
+    #[test]
+    fn pty_buffer_output_returns_full_history() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(true, "utf-8", "replace");
+            buf.record_output(b"hello ");
+            buf.record_output(b"world");
+            let output = buf.output(py).unwrap();
+            let text: String = output.extract(py).unwrap();
+            assert_eq!(text, "hello world");
+        });
+    }
+
+    #[test]
+    fn pty_buffer_output_since_offset() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(true, "utf-8", "replace");
+            buf.record_output(b"hello ");
+            buf.record_output(b"world");
+            let output = buf.output_since(py, 6).unwrap();
+            let text: String = output.extract(py).unwrap();
+            assert_eq!(text, "world");
+        });
+    }
+
+    #[test]
+    fn pty_buffer_read_non_blocking_empty() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+            let result = buf.read_non_blocking(py).unwrap();
+            assert!(result.is_none());
+        });
+    }
+
+    #[test]
+    fn pty_buffer_read_non_blocking_with_data() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+            buf.record_output(b"data");
+            let result = buf.read_non_blocking(py).unwrap();
+            assert!(result.is_some());
+        });
+    }
+
+    #[test]
+    fn pty_buffer_read_closed_returns_error() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+            buf.close();
+            let result = buf.read_non_blocking(py);
+            assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn pty_buffer_read_with_timeout() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+            let result = buf.read(py, Some(0.05));
+            // Should timeout since no data
+            assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn pty_buffer_text_mode_decodes_utf8() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(true, "utf-8", "replace");
+            buf.record_output("héllo".as_bytes());
+            let result = buf.read_non_blocking(py).unwrap().unwrap();
+            let text: String = result.extract(py).unwrap();
+            assert_eq!(text, "héllo");
+        });
+    }
+
+    #[test]
+    fn pty_buffer_bytes_mode_returns_bytes() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+            buf.record_output(b"\xff\xfe");
+            let result = buf.read_non_blocking(py).unwrap().unwrap();
+            let bytes: Vec<u8> = result.extract(py).unwrap();
+            assert_eq!(bytes, vec![0xff, 0xfe]);
+        });
+    }
+
+    // ── NativeIdleDetector tests (requires PyO3) ──
+
+    fn make_idle_detector(
+        py: pyo3::Python<'_>,
+        timeout_seconds: f64,
+        enabled: bool,
+        initial_idle_for: f64,
+    ) -> NativeIdleDetector {
+        let signal = pyo3::Py::new(py, NativeSignalBool::new(enabled)).unwrap();
+        NativeIdleDetector::new(
+            py,
+            timeout_seconds,
+            0.0,  // stability_window_seconds
+            0.01, // sample_interval_seconds
+            signal,
+            true, // reset_on_input
+            true, // reset_on_output
+            true, // count_control_churn_as_output
+            initial_idle_for,
+        )
+    }
+
+    #[test]
+    fn idle_detector_mark_exit_returns_process_exit() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let det = make_idle_detector(py, 10.0, true, 0.0);
+            det.mark_exit(42, false);
+            let (triggered, reason, _idle_for, returncode) = det.wait(py, Some(1.0));
+            assert!(!triggered);
+            assert_eq!(reason, "process_exit");
+            assert_eq!(returncode, Some(42));
+        });
+    }
+
+    #[test]
+    fn idle_detector_mark_exit_interrupted() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let det = make_idle_detector(py, 10.0, true, 0.0);
+            det.mark_exit(1, true);
+            let (triggered, reason, _idle_for, returncode) = det.wait(py, Some(1.0));
+            assert!(!triggered);
+            assert_eq!(reason, "interrupt");
+            assert_eq!(returncode, Some(1));
+        });
+    }
+
+    #[test]
+    fn idle_detector_timeout_when_not_idle() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let det = make_idle_detector(py, 10.0, true, 0.0);
+            let (triggered, reason, _idle_for, returncode) = det.wait(py, Some(0.05));
+            assert!(!triggered);
+            assert_eq!(reason, "timeout");
+            assert!(returncode.is_none());
+        });
+    }
+
+    #[test]
+    fn idle_detector_triggers_when_already_idle() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            // initial_idle_for=1.0 means it thinks it's been idle for 1 second
+            // timeout_seconds=0.5 means 0.5s idle triggers
+            let det = make_idle_detector(py, 0.5, true, 1.0);
+            let (triggered, reason, _idle_for, _returncode) = det.wait(py, Some(1.0));
+            assert!(triggered);
+            assert_eq!(reason, "idle_timeout");
+        });
+    }
+
+    #[test]
+    fn idle_detector_disabled_does_not_trigger() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let det = make_idle_detector(py, 0.01, false, 1.0);
+            let (triggered, reason, _idle_for, _returncode) = det.wait(py, Some(0.1));
+            assert!(!triggered);
+            assert_eq!(reason, "timeout");
+        });
+    }
+
+    #[test]
+    fn idle_detector_record_input_resets_idle() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let det = make_idle_detector(py, 0.5, true, 1.0);
+            // Recording input should reset the idle timer
+            det.record_input(5);
+            // Now it should NOT trigger immediately since we just reset
+            let (triggered, reason, _idle_for, _returncode) = det.wait(py, Some(0.05));
+            assert!(!triggered);
+            assert_eq!(reason, "timeout");
+        });
+    }
+
+    #[test]
+    fn idle_detector_record_output_resets_idle() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let det = make_idle_detector(py, 0.5, true, 1.0);
+            // Recording visible output should reset idle timer
+            det.record_output(b"visible output");
+            let (triggered, reason, _idle_for, _returncode) = det.wait(py, Some(0.05));
+            assert!(!triggered);
+            assert_eq!(reason, "timeout");
+        });
+    }
+
+    #[test]
+    fn idle_detector_control_churn_only_no_reset_when_not_counted() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let signal = pyo3::Py::new(py, NativeSignalBool::new(true)).unwrap();
+            let det = NativeIdleDetector::new(
+                py, 0.05, 0.0, 0.01, signal, true, true,
+                false, // count_control_churn_as_output = false
+                1.0,   // already idle for 1s
+            );
+            // Output only ANSI escape (no visible content)
+            det.record_output(b"\x1b[31m");
+            // Should still trigger because control churn doesn't count
+            let (triggered, reason, _idle_for, _returncode) = det.wait(py, Some(0.5));
+            assert!(triggered);
+            assert_eq!(reason, "idle_timeout");
+        });
+    }
+
+    // ── Process tracking tests (requires PyO3) ──
+
+    #[test]
+    fn process_registry_register_list_unregister() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let test_pid = 99999u32;
+            // Register
+            native_register_process(test_pid, "test", "test-command", None).unwrap();
+            // List
+            let list = native_list_active_processes();
+            let found = list.iter().any(|(pid, _, _, _, _)| *pid == test_pid);
+            assert!(found, "registered pid should appear in active list");
+            // Unregister
+            native_unregister_process(test_pid).unwrap();
+            let list = native_list_active_processes();
+            let found = list.iter().any(|(pid, _, _, _, _)| *pid == test_pid);
+            assert!(!found, "unregistered pid should not appear in active list");
+        });
+    }
+
+    // ── NativeProcessMetrics tests (requires PyO3) ──
+
+    #[test]
+    fn process_metrics_sample_current_process() {
+        let pid = std::process::id();
+        let metrics = NativeProcessMetrics::new(pid);
+        metrics.prime();
+        let (exists, _cpu, _disk, _extra) = metrics.sample();
+        assert!(exists, "current process should exist");
+    }
+
+    #[test]
+    fn process_metrics_nonexistent_process() {
+        let metrics = NativeProcessMetrics::new(99999999);
+        metrics.prime();
+        let (exists, _cpu, _disk, _extra) = metrics.sample();
+        assert!(!exists, "nonexistent pid should not exist");
+    }
+
+    // ── portable_exit_code tests ──
+
+    #[test]
+    fn portable_exit_code_normal_exit_zero() {
+        let status = portable_pty::ExitStatus::with_exit_code(0);
+        assert_eq!(portable_exit_code(status), 0);
+    }
+
+    #[test]
+    fn portable_exit_code_normal_exit_nonzero() {
+        let status = portable_pty::ExitStatus::with_exit_code(42);
+        assert_eq!(portable_exit_code(status), 42);
+    }
+
+    // ── record_pty_input_metrics tests ──
+
+    #[test]
+    fn record_pty_input_metrics_basic() {
+        let input_bytes = Arc::new(AtomicUsize::new(0));
+        let newline_events = Arc::new(AtomicUsize::new(0));
+        let submit_events = Arc::new(AtomicUsize::new(0));
+
+        record_pty_input_metrics(
+            &input_bytes,
+            &newline_events,
+            &submit_events,
+            b"hello",
+            false,
+        );
+
+        assert_eq!(input_bytes.load(Ordering::Acquire), 5);
+        assert_eq!(newline_events.load(Ordering::Acquire), 0);
+        assert_eq!(submit_events.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn record_pty_input_metrics_with_newline() {
+        let input_bytes = Arc::new(AtomicUsize::new(0));
+        let newline_events = Arc::new(AtomicUsize::new(0));
+        let submit_events = Arc::new(AtomicUsize::new(0));
+
+        record_pty_input_metrics(
+            &input_bytes,
+            &newline_events,
+            &submit_events,
+            b"hello\n",
+            false,
+        );
+
+        assert_eq!(input_bytes.load(Ordering::Acquire), 6);
+        assert_eq!(newline_events.load(Ordering::Acquire), 1);
+        assert_eq!(submit_events.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn record_pty_input_metrics_with_submit() {
+        let input_bytes = Arc::new(AtomicUsize::new(0));
+        let newline_events = Arc::new(AtomicUsize::new(0));
+        let submit_events = Arc::new(AtomicUsize::new(0));
+
+        record_pty_input_metrics(&input_bytes, &newline_events, &submit_events, b"\r", true);
+
+        assert_eq!(input_bytes.load(Ordering::Acquire), 1);
+        assert_eq!(newline_events.load(Ordering::Acquire), 1);
+        assert_eq!(submit_events.load(Ordering::Acquire), 1);
+    }
+
+    #[test]
+    fn record_pty_input_metrics_accumulates() {
+        let input_bytes = Arc::new(AtomicUsize::new(0));
+        let newline_events = Arc::new(AtomicUsize::new(0));
+        let submit_events = Arc::new(AtomicUsize::new(0));
+
+        record_pty_input_metrics(&input_bytes, &newline_events, &submit_events, b"ab", false);
+        record_pty_input_metrics(&input_bytes, &newline_events, &submit_events, b"cd\n", true);
+
+        assert_eq!(input_bytes.load(Ordering::Acquire), 5);
+        assert_eq!(newline_events.load(Ordering::Acquire), 1);
+        assert_eq!(submit_events.load(Ordering::Acquire), 1);
+    }
+
+    // ── store_pty_returncode tests ──
+
+    #[test]
+    fn store_pty_returncode_sets_value() {
+        let returncode = Arc::new(Mutex::new(None));
+        store_pty_returncode(&returncode, 42);
+        assert_eq!(*returncode.lock().unwrap(), Some(42));
+    }
+
+    #[test]
+    fn store_pty_returncode_overwrites() {
+        let returncode = Arc::new(Mutex::new(Some(1)));
+        store_pty_returncode(&returncode, 0);
+        assert_eq!(*returncode.lock().unwrap(), Some(0));
+    }
+
+    // ── write_pty_input error path tests ──
+
+    #[test]
+    fn write_pty_input_not_connected() {
+        let handles: Arc<Mutex<Option<NativePtyHandles>>> = Arc::new(Mutex::new(None));
+        let result = write_pty_input(&handles, b"hello");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::NotConnected);
+    }
+
+    // ── poll_pty_process tests ──
+
+    #[test]
+    fn poll_pty_process_no_handles_returns_stored_code() {
+        let handles: Arc<Mutex<Option<NativePtyHandles>>> = Arc::new(Mutex::new(None));
+        let returncode = Arc::new(Mutex::new(Some(42)));
+        let result = poll_pty_process(&handles, &returncode).unwrap();
+        assert_eq!(result, Some(42));
+    }
+
+    #[test]
+    fn poll_pty_process_no_handles_no_code() {
+        let handles: Arc<Mutex<Option<NativePtyHandles>>> = Arc::new(Mutex::new(None));
+        let returncode = Arc::new(Mutex::new(None));
+        let result = poll_pty_process(&handles, &returncode).unwrap();
+        assert_eq!(result, None);
+    }
+
+    // ── descendant_pids tests ──
+
+    #[test]
+    fn descendant_pids_returns_empty_for_unknown_pid() {
+        let system = System::new();
+        let pid = system_pid(99999999);
+        let descendants = descendant_pids(&system, pid);
+        assert!(descendants.is_empty());
+    }
+
+    // ── unix_now_seconds tests ──
+
+    #[test]
+    fn unix_now_seconds_returns_positive() {
+        let now = unix_now_seconds();
+        assert!(now > 0.0, "unix timestamp should be positive");
+    }
+
+    // ── same_process_identity tests ──
+
+    #[test]
+    fn same_process_identity_nonexistent_pid() {
+        assert!(!same_process_identity(99999999, 0.0, 1.0));
+    }
+
+    // ── tracked_process_db_path tests ──
+
+    #[test]
+    fn tracked_process_db_path_returns_ok() {
+        let path = tracked_process_db_path();
+        assert!(path.is_ok());
+        let path = path.unwrap();
+        assert!(
+            path.to_string_lossy().contains("tracked-pids.sqlite3"),
+            "path should contain expected filename: {:?}",
+            path
+        );
+    }
+
+    // ── command_builder_from_argv tests ──
+
+    #[test]
+    fn command_builder_from_argv_single_arg() {
+        let argv = vec!["echo".to_string()];
+        let _cmd = command_builder_from_argv(&argv);
+        // Just ensure it doesn't panic
+    }
+
+    #[test]
+    fn command_builder_from_argv_multi_args() {
+        let argv = vec!["echo".to_string(), "hello".to_string(), "world".to_string()];
+        let _cmd = command_builder_from_argv(&argv);
+        // Just ensure it doesn't panic
+    }
+
+    // ── process_err_to_py tests ──
+
+    #[test]
+    fn process_err_to_py_timeout() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let err = process_err_to_py(ProcessError::Timeout);
+            assert!(err.is_instance_of::<pyo3::exceptions::PyTimeoutError>(py));
+        });
+    }
+
+    // ── kill_process_tree_impl tests ──
+
+    #[test]
+    fn kill_process_tree_nonexistent_pid_no_panic() {
+        // Should not panic when given a PID that doesn't exist
+        kill_process_tree_impl(99999999, 0.1);
+    }
+
+    // ── NativeIdleDetector additional tests ──
+
+    #[test]
+    fn idle_detector_record_input_zero_bytes_no_reset() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let det = make_idle_detector(py, 0.05, true, 1.0);
+            // Recording 0 bytes should NOT reset idle timer
+            det.record_input(0);
+            let (triggered, reason, _idle_for, _returncode) = det.wait(py, Some(0.5));
+            assert!(triggered);
+            assert_eq!(reason, "idle_timeout");
+        });
+    }
+
+    #[test]
+    fn idle_detector_record_output_empty_no_reset() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let det = make_idle_detector(py, 0.05, true, 1.0);
+            // Recording empty output should NOT reset idle timer
+            det.record_output(b"");
+            let (triggered, reason, _idle_for, _returncode) = det.wait(py, Some(0.5));
+            assert!(triggered);
+            assert_eq!(reason, "idle_timeout");
+        });
+    }
+
+    #[test]
+    fn idle_detector_enabled_getter_and_setter() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let det = make_idle_detector(py, 1.0, true, 0.0);
+            assert!(det.enabled());
+            det.set_enabled(false);
+            assert!(!det.enabled());
+            det.set_enabled(true);
+            assert!(det.enabled());
+        });
+    }
+
+    // ── NativePtyBuffer additional tests ──
+
+    #[test]
+    fn pty_buffer_multiple_record_and_drain() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+            buf.record_output(b"a");
+            buf.record_output(b"b");
+            buf.record_output(b"c");
+            let drained = buf.drain(py).unwrap();
+            assert_eq!(drained.len(), 3);
+            assert!(!buf.available());
+            // history should still be available
+            assert_eq!(buf.history_bytes(), 3);
+        });
+    }
+
+    #[test]
+    fn pty_buffer_output_since_beyond_length() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(true, "utf-8", "replace");
+            buf.record_output(b"hi");
+            let output = buf.output_since(py, 999).unwrap();
+            let text: String = output.extract(py).unwrap();
+            assert_eq!(text, "");
+        });
+    }
+
+    #[test]
+    fn pty_buffer_clear_history_returns_correct_bytes() {
+        let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+        buf.record_output(b"hello");
+        buf.record_output(b"world");
+        assert_eq!(buf.history_bytes(), 10);
+        let released = buf.clear_history();
+        assert_eq!(released, 10);
+        assert_eq!(buf.history_bytes(), 0);
+        // Record more after clear
+        buf.record_output(b"new");
+        assert_eq!(buf.history_bytes(), 3);
+    }
+
+    // ── NativeSignalBool additional tests ──
+
+    #[test]
+    fn signal_bool_concurrent_access() {
+        let sb = NativeSignalBool::new(false);
+        let sb_clone = sb.clone();
+
+        let handle = std::thread::spawn(move || {
+            sb_clone.store_locked(true);
+        });
+        handle.join().unwrap();
+        assert!(sb.load_nolock());
+    }
+
+    // ── control_churn_bytes additional edge cases ──
+
+    #[test]
+    fn control_churn_bytes_escape_then_non_bracket() {
+        // ESC followed by non-bracket character: only ESC itself is churn
+        assert_eq!(control_churn_bytes(b"\x1bO"), 1);
+    }
+
+    #[test]
+    fn control_churn_bytes_incomplete_csi() {
+        // ESC [ without terminator - counts entire remainder as churn
+        assert_eq!(control_churn_bytes(b"\x1b[123"), 5);
+    }
+
+    #[test]
+    fn control_churn_bytes_multiple_sequences() {
+        // Two complete CSI sequences
+        assert_eq!(control_churn_bytes(b"\x1b[H\x1b[2J"), 7);
+    }
+
+    // ── Windows-specific additional tests ──
+
+    #[cfg(windows)]
+    mod windows_payload_tests {
+        use super::*;
+
+        #[test]
+        fn windows_terminal_input_payload_mixed_line_endings() {
+            let result = windows_terminal_input_payload(b"a\nb\r\nc\rd");
+            assert_eq!(result, b"a\rb\r\nc\rd");
+        }
+
+        #[test]
+        fn windows_terminal_input_payload_consecutive_lf() {
+            let result = windows_terminal_input_payload(b"\n\n");
+            assert_eq!(result, b"\r\r");
+        }
+
+        #[test]
+        fn windows_terminal_input_payload_empty() {
+            let result = windows_terminal_input_payload(b"");
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn windows_terminal_input_payload_no_line_endings() {
+            let result = windows_terminal_input_payload(b"hello world");
+            assert_eq!(result, b"hello world");
+        }
+
+        #[test]
+        fn format_terminal_input_bytes_single() {
+            assert_eq!(format_terminal_input_bytes(&[0x0D]), "[0d]");
+        }
+
+        #[test]
+        fn native_terminal_input_mode_preserves_other_flags() {
+            // Pass a mode with an unrelated flag set
+            let custom_flag = 0x0100; // some arbitrary flag
+            let result = native_terminal_input_mode(custom_flag);
+            // The custom flag should be preserved
+            assert_ne!(result & custom_flag, 0);
+        }
+    }
+
+    // ── Process registry additional tests ──
+
+    #[test]
+    fn process_registry_register_with_cwd() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let test_pid = 99998u32;
+            native_register_process(test_pid, "test", "test-cmd", Some("/tmp/test".to_string()))
+                .unwrap();
+            let list = native_list_active_processes();
+            let entry = list.iter().find(|(pid, _, _, _, _)| *pid == test_pid);
+            assert!(entry.is_some());
+            let (_, kind, cmd, cwd, _) = entry.unwrap();
+            assert_eq!(kind, "test");
+            assert_eq!(cmd, "test-cmd");
+            assert_eq!(cwd.as_deref(), Some("/tmp/test"));
+            native_unregister_process(test_pid).unwrap();
+        });
+    }
+
+    #[test]
+    fn process_registry_double_register_overwrites() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let test_pid = 99997u32;
+            native_register_process(test_pid, "first", "cmd1", None).unwrap();
+            native_register_process(test_pid, "second", "cmd2", None).unwrap();
+            let list = native_list_active_processes();
+            let entries: Vec<_> = list
+                .iter()
+                .filter(|(pid, _, _, _, _)| *pid == test_pid)
+                .collect();
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0].1, "second");
+            native_unregister_process(test_pid).unwrap();
+        });
+    }
+
+    #[test]
+    fn process_registry_unregister_nonexistent_no_error() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            // Should not error when unregistering a PID that doesn't exist
+            let result = native_unregister_process(99996);
+            assert!(result.is_ok());
+        });
+    }
+
+    // ── list_tracked_processes tests ──
+
+    #[test]
+    fn list_tracked_processes_returns_ok() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let result = list_tracked_processes();
+            assert!(result.is_ok());
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Iteration 2: Additional coverage tests
+    // ══════════════════════════════════════════════════════════════
+
+    // ── is_ignorable_process_control_error additional tests ──
+
+    #[test]
+    fn non_ignorable_error_connection_refused() {
+        let err = std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "refused");
+        assert!(!is_ignorable_process_control_error(&err));
+    }
+
+    // ── to_py_err tests ──
+
+    #[test]
+    fn to_py_err_creates_runtime_error() {
+        pyo3::prepare_freethreaded_python();
+        let err = to_py_err("test error message");
+        assert!(err.to_string().contains("test error message"));
+    }
+
+    // ── process_err_to_py tests ──
+
+    #[test]
+    fn process_err_to_py_timeout_is_timeout_error() {
+        pyo3::prepare_freethreaded_python();
+        let err = process_err_to_py(running_process_core::ProcessError::Timeout);
+        pyo3::Python::with_gil(|py| {
+            assert!(err.is_instance_of::<pyo3::exceptions::PyTimeoutError>(py));
+        });
+    }
+
+    #[test]
+    fn process_err_to_py_not_running_is_runtime_error() {
+        pyo3::prepare_freethreaded_python();
+        let err = process_err_to_py(running_process_core::ProcessError::NotRunning);
+        pyo3::Python::with_gil(|py| {
+            assert!(err.is_instance_of::<pyo3::exceptions::PyRuntimeError>(py));
+        });
+    }
+
+    // ── input_contains_newline tests ──
+
+    #[test]
+    fn input_contains_newline_with_cr() {
+        assert!(input_contains_newline(b"hello\rworld"));
+    }
+
+    #[test]
+    fn input_contains_newline_with_lf() {
+        assert!(input_contains_newline(b"hello\nworld"));
+    }
+
+    #[test]
+    fn input_contains_newline_with_crlf() {
+        assert!(input_contains_newline(b"hello\r\nworld"));
+    }
+
+    #[test]
+    fn input_contains_newline_without_newline() {
+        assert!(!input_contains_newline(b"hello world"));
+    }
+
+    // ── control_churn_bytes additional tests (iter2) ──
+
+    #[test]
+    fn control_churn_bytes_backspace() {
+        assert_eq!(control_churn_bytes(b"\x08"), 1);
+    }
+
+    #[test]
+    fn control_churn_bytes_carriage_return() {
+        assert_eq!(control_churn_bytes(b"\x0D"), 1);
+    }
+
+    #[test]
+    fn control_churn_bytes_delete_char() {
+        assert_eq!(control_churn_bytes(b"\x7F"), 1);
+    }
+
+    #[test]
+    fn control_churn_bytes_mixed_with_text() {
+        assert_eq!(control_churn_bytes(b"hello\x0D\x1b[H"), 4);
+    }
+
+    #[test]
+    fn control_churn_bytes_plain_text_no_churn() {
+        assert_eq!(control_churn_bytes(b"hello world"), 0);
+    }
+
+    // ── system_pid tests ──
+
+    #[test]
+    fn system_pid_converts_u32() {
+        let pid = system_pid(12345);
+        assert_eq!(pid.as_u32(), 12345);
+    }
+
+    // ── unix_now_seconds tests ──
+
+    #[test]
+    fn unix_now_seconds_is_recent() {
+        let now = unix_now_seconds();
+        assert!(now > 1_577_836_800.0);
+    }
+
+    // ── NativeIdleDetector: additional wait/record scenarios ──
+
+    #[test]
+    fn idle_detector_wait_idle_timeout_with_initial_idle() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let signal = pyo3::Py::new(py, NativeSignalBool::new(true)).unwrap();
+            let detector =
+                NativeIdleDetector::new(py, 0.01, 0.01, 0.001, signal, true, true, true, 100.0);
+            let (idle, reason, _, code) = detector.wait(py, Some(1.0));
+            assert!(idle);
+            assert_eq!(reason, "idle_timeout");
+            assert!(code.is_none());
+        });
+    }
+
+    #[test]
+    fn idle_detector_record_output_only_control_churn_with_flag() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let signal = pyo3::Py::new(py, NativeSignalBool::new(true)).unwrap();
+            let detector =
+                NativeIdleDetector::new(py, 1.0, 0.5, 0.1, signal, true, true, true, 5.0);
+            let state_before = detector.core.state.lock().unwrap().last_reset_at;
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            detector.record_output(b"\x1b[H");
+            let state_after = detector.core.state.lock().unwrap().last_reset_at;
+            assert!(state_after > state_before);
+        });
+    }
+
+    #[test]
+    fn idle_detector_record_output_only_control_churn_without_flag() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let signal = pyo3::Py::new(py, NativeSignalBool::new(true)).unwrap();
+            let detector =
+                NativeIdleDetector::new(py, 1.0, 0.5, 0.1, signal, true, true, false, 5.0);
+            let state_before = detector.core.state.lock().unwrap().last_reset_at;
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            detector.record_output(b"\x1b[H");
+            let state_after = detector.core.state.lock().unwrap().last_reset_at;
+            assert_eq!(state_before, state_after);
+        });
+    }
+
+    #[test]
+    fn idle_detector_record_output_not_enabled() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let signal = pyo3::Py::new(py, NativeSignalBool::new(true)).unwrap();
+            let detector =
+                NativeIdleDetector::new(py, 1.0, 0.5, 0.1, signal, true, false, true, 5.0);
+            let state_before = detector.core.state.lock().unwrap().last_reset_at;
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            detector.record_output(b"visible");
+            let state_after = detector.core.state.lock().unwrap().last_reset_at;
+            assert_eq!(state_before, state_after);
+        });
+    }
+
+    #[test]
+    fn idle_detector_record_input_not_enabled() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let signal = pyo3::Py::new(py, NativeSignalBool::new(true)).unwrap();
+            let detector =
+                NativeIdleDetector::new(py, 1.0, 0.5, 0.1, signal, false, true, true, 5.0);
+            let state_before = detector.core.state.lock().unwrap().last_reset_at;
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            detector.record_input(100);
+            let state_after = detector.core.state.lock().unwrap().last_reset_at;
+            assert_eq!(state_before, state_after);
+        });
+    }
+
+    #[test]
+    fn idle_detector_record_input_nonzero_bytes_resets() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let signal = pyo3::Py::new(py, NativeSignalBool::new(true)).unwrap();
+            let detector =
+                NativeIdleDetector::new(py, 1.0, 0.5, 0.1, signal, true, true, true, 5.0);
+            let state_before = detector.core.state.lock().unwrap().last_reset_at;
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            detector.record_input(100);
+            let state_after = detector.core.state.lock().unwrap().last_reset_at;
+            assert!(state_after > state_before);
+        });
+    }
+
+    #[test]
+    fn idle_detector_record_output_visible_resets() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let signal = pyo3::Py::new(py, NativeSignalBool::new(true)).unwrap();
+            let detector =
+                NativeIdleDetector::new(py, 1.0, 0.5, 0.1, signal, true, true, true, 5.0);
+            let state_before = detector.core.state.lock().unwrap().last_reset_at;
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            detector.record_output(b"visible output");
+            let state_after = detector.core.state.lock().unwrap().last_reset_at;
+            assert!(state_after > state_before);
+        });
+    }
+
+    #[test]
+    fn idle_detector_mark_exit_sets_returncode() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let signal = pyo3::Py::new(py, NativeSignalBool::new(true)).unwrap();
+            let detector =
+                NativeIdleDetector::new(py, 1.0, 0.5, 0.1, signal, true, true, true, 0.0);
+            detector.mark_exit(42, false);
+            let state = detector.core.state.lock().unwrap();
+            assert_eq!(state.returncode, Some(42));
+            assert!(!state.interrupted);
+        });
+    }
+
+    // ── find_expect_match tests ──
+
+    #[test]
+    fn find_expect_match_literal_found() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let process = make_test_running_process(py);
+            let result = process
+                .find_expect_match("hello world", "world", false)
+                .unwrap();
+            assert!(result.is_some());
+            let (matched, start, end, groups) = result.unwrap();
+            assert_eq!(matched, "world");
+            assert_eq!(start, 6);
+            assert_eq!(end, 11);
+            assert!(groups.is_empty());
+        });
+    }
+
+    #[test]
+    fn find_expect_match_literal_not_found() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let process = make_test_running_process(py);
+            let result = process
+                .find_expect_match("hello world", "missing", false)
+                .unwrap();
+            assert!(result.is_none());
+        });
+    }
+
+    #[test]
+    fn find_expect_match_regex_found() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let process = make_test_running_process(py);
+            let result = process
+                .find_expect_match("hello 123 world", r"\d+", true)
+                .unwrap();
+            assert!(result.is_some());
+            let (matched, start, end, _) = result.unwrap();
+            assert_eq!(matched, "123");
+            assert_eq!(start, 6);
+            assert_eq!(end, 9);
+        });
+    }
+
+    #[test]
+    fn find_expect_match_regex_with_groups() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let process = make_test_running_process(py);
+            let result = process
+                .find_expect_match("hello 123 world", r"(\d+) (\w+)", true)
+                .unwrap();
+            assert!(result.is_some());
+            let (_, _, _, groups) = result.unwrap();
+            assert_eq!(groups.len(), 2);
+            assert_eq!(groups[0], "123");
+            assert_eq!(groups[1], "world");
+        });
+    }
+
+    #[test]
+    fn find_expect_match_regex_not_found() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let process = make_test_running_process(py);
+            let result = process
+                .find_expect_match("hello world", r"\d+", true)
+                .unwrap();
+            assert!(result.is_none());
+        });
+    }
+
+    #[test]
+    fn find_expect_match_invalid_regex_errors() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let process = make_test_running_process(py);
+            let result = process.find_expect_match("test", r"[invalid", true);
+            assert!(result.is_err());
+        });
+    }
+
+    fn make_test_running_process(py: Python<'_>) -> NativeRunningProcess {
+        let cmd = pyo3::types::PyList::new(py, ["echo", "test"]).unwrap();
+        NativeRunningProcess::new(
+            cmd.as_any(),
+            None,
+            false,
+            true,
+            None,
+            None,
+            true,
+            None,
+            None,
+            "inherit",
+            "stdout",
+            None,
+            false,
+        )
+        .unwrap()
+    }
+
+    // ── parse_command tests ──
+
+    #[test]
+    fn parse_command_string_with_shell() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyString::new(py, "echo hello");
+            let result = parse_command(cmd.as_any(), true).unwrap();
+            assert!(matches!(result, CommandSpec::Shell(ref s) if s == "echo hello"));
+        });
+    }
+
+    #[test]
+    fn parse_command_string_without_shell_errors() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyString::new(py, "echo hello");
+            let result = parse_command(cmd.as_any(), false);
+            assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn parse_command_list_without_shell() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(py, ["echo", "hello"]).unwrap();
+            let result = parse_command(cmd.as_any(), false).unwrap();
+            assert!(matches!(result, CommandSpec::Argv(ref v) if v.len() == 2));
+        });
+    }
+
+    #[test]
+    fn parse_command_list_with_shell_joins() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(py, ["echo", "hello"]).unwrap();
+            let result = parse_command(cmd.as_any(), true).unwrap();
+            assert!(matches!(result, CommandSpec::Shell(ref s) if s == "echo hello"));
+        });
+    }
+
+    #[test]
+    fn parse_command_empty_list_errors() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::empty(py);
+            let result = parse_command(cmd.as_any(), false);
+            assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn parse_command_invalid_type_errors() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = 42i32.into_pyobject(py).unwrap();
+            let result = parse_command(cmd.as_any(), false);
+            assert!(result.is_err());
+        });
+    }
+
+    // ── stream_kind tests ──
+
+    #[test]
+    fn stream_kind_stdout() {
+        let result = stream_kind("stdout").unwrap();
+        assert_eq!(result, StreamKind::Stdout);
+    }
+
+    #[test]
+    fn stream_kind_stderr() {
+        let result = stream_kind("stderr").unwrap();
+        assert_eq!(result, StreamKind::Stderr);
+    }
+
+    #[test]
+    fn stream_kind_invalid() {
+        let result = stream_kind("invalid");
+        assert!(result.is_err());
+    }
+
+    // ── stdin_mode tests ──
+
+    #[test]
+    fn stdin_mode_inherit() {
+        assert_eq!(stdin_mode("inherit").unwrap(), StdinMode::Inherit);
+    }
+
+    #[test]
+    fn stdin_mode_piped() {
+        assert_eq!(stdin_mode("piped").unwrap(), StdinMode::Piped);
+    }
+
+    #[test]
+    fn stdin_mode_null() {
+        assert_eq!(stdin_mode("null").unwrap(), StdinMode::Null);
+    }
+
+    #[test]
+    fn stdin_mode_invalid() {
+        assert!(stdin_mode("invalid").is_err());
+    }
+
+    // ── stderr_mode tests ──
+
+    #[test]
+    fn stderr_mode_stdout() {
+        assert_eq!(stderr_mode("stdout").unwrap(), StderrMode::Stdout);
+    }
+
+    #[test]
+    fn stderr_mode_pipe() {
+        assert_eq!(stderr_mode("pipe").unwrap(), StderrMode::Pipe);
+    }
+
+    #[test]
+    fn stderr_mode_invalid() {
+        assert!(stderr_mode("invalid").is_err());
+    }
+
+    // ── Windows-specific additional tests (iter2) ──
+
+    #[cfg(windows)]
+    mod windows_additional_tests {
+        use super::*;
+        use winapi::um::winuser::VK_F1;
+
+        // ── control_character_for_unicode tests ──
+
+        #[test]
+        fn control_char_at_sign() {
+            assert_eq!(control_character_for_unicode('@' as u16), Some(0x00));
+        }
+
+        #[test]
+        fn control_char_space() {
+            assert_eq!(control_character_for_unicode(' ' as u16), Some(0x00));
+        }
+
+        #[test]
+        fn control_char_a() {
+            assert_eq!(control_character_for_unicode('a' as u16), Some(0x01));
+        }
+
+        #[test]
+        fn control_char_z() {
+            assert_eq!(control_character_for_unicode('z' as u16), Some(0x1A));
+        }
+
+        #[test]
+        fn control_char_bracket() {
+            assert_eq!(control_character_for_unicode('[' as u16), Some(0x1B));
+        }
+
+        #[test]
+        fn control_char_backslash() {
+            assert_eq!(control_character_for_unicode('\\' as u16), Some(0x1C));
+        }
+
+        #[test]
+        fn control_char_close_bracket() {
+            assert_eq!(control_character_for_unicode(']' as u16), Some(0x1D));
+        }
+
+        #[test]
+        fn control_char_caret() {
+            assert_eq!(control_character_for_unicode('^' as u16), Some(0x1E));
+        }
+
+        #[test]
+        fn control_char_underscore() {
+            assert_eq!(control_character_for_unicode('_' as u16), Some(0x1F));
+        }
+
+        #[test]
+        fn control_char_digit_returns_none() {
+            assert_eq!(control_character_for_unicode('0' as u16), None);
+        }
+
+        #[test]
+        fn control_char_exclamation_returns_none() {
+            assert_eq!(control_character_for_unicode('!' as u16), None);
+        }
+
+        // ── terminal_input_modifier_parameter tests ──
+
+        #[test]
+        fn modifier_param_no_modifiers_returns_none() {
+            assert_eq!(terminal_input_modifier_parameter(false, false, false), None);
+        }
+
+        #[test]
+        fn modifier_param_shift_only() {
+            assert_eq!(
+                terminal_input_modifier_parameter(true, false, false),
+                Some(2)
+            );
+        }
+
+        #[test]
+        fn modifier_param_alt_only() {
+            assert_eq!(
+                terminal_input_modifier_parameter(false, true, false),
+                Some(3)
+            );
+        }
+
+        #[test]
+        fn modifier_param_ctrl_only() {
+            assert_eq!(
+                terminal_input_modifier_parameter(false, false, true),
+                Some(5)
+            );
+        }
+
+        #[test]
+        fn modifier_param_shift_ctrl() {
+            assert_eq!(
+                terminal_input_modifier_parameter(true, false, true),
+                Some(6)
+            );
+        }
+
+        #[test]
+        fn modifier_param_shift_alt() {
+            assert_eq!(
+                terminal_input_modifier_parameter(true, true, false),
+                Some(4)
+            );
+        }
+
+        #[test]
+        fn modifier_param_all_modifiers() {
+            assert_eq!(terminal_input_modifier_parameter(true, true, true), Some(8));
+        }
+
+        // ── repeated_tilde_sequence tests ──
+
+        #[test]
+        fn tilde_sequence_no_modifier() {
+            let result = repeated_tilde_sequence(3, None, 1);
+            assert_eq!(result, b"\x1b[3~");
+        }
+
+        #[test]
+        fn tilde_sequence_with_modifier() {
+            let result = repeated_tilde_sequence(3, Some(2), 1);
+            assert_eq!(result, b"\x1b[3;2~");
+        }
+
+        #[test]
+        fn tilde_sequence_repeated() {
+            let result = repeated_tilde_sequence(3, None, 3);
+            assert_eq!(result, b"\x1b[3~\x1b[3~\x1b[3~");
+        }
+
+        // ── repeated_modified_sequence tests ──
+
+        #[test]
+        fn modified_sequence_no_modifier() {
+            let result = repeated_modified_sequence(b"\x1b[A", None, 1);
+            assert_eq!(result, b"\x1b[A");
+        }
+
+        #[test]
+        fn modified_sequence_with_modifier() {
+            let result = repeated_modified_sequence(b"\x1b[A", Some(2), 1);
+            assert_eq!(result, b"\x1b[1;2A");
+        }
+
+        #[test]
+        fn modified_sequence_repeated_with_modifier() {
+            let result = repeated_modified_sequence(b"\x1b[A", Some(5), 2);
+            assert_eq!(result, b"\x1b[1;5A\x1b[1;5A");
+        }
+
+        // ── format_terminal_input_bytes tests ──
+
+        #[test]
+        fn format_bytes_empty() {
+            assert_eq!(format_terminal_input_bytes(&[]), "[]");
+        }
+
+        #[test]
+        fn format_bytes_multiple() {
+            assert_eq!(
+                format_terminal_input_bytes(&[0x1B, 0x5B, 0x41]),
+                "[1b 5b 41]"
+            );
+        }
+
+        // ── native_terminal_input_trace_target tests ──
+
+        #[test]
+        fn trace_target_empty_env_returns_none() {
+            std::env::remove_var(NATIVE_TERMINAL_INPUT_TRACE_PATH_ENV);
+            assert!(native_terminal_input_trace_target().is_none());
+        }
+
+        #[test]
+        fn trace_target_whitespace_env_returns_none() {
+            std::env::set_var(NATIVE_TERMINAL_INPUT_TRACE_PATH_ENV, "   ");
+            assert!(native_terminal_input_trace_target().is_none());
+            std::env::remove_var(NATIVE_TERMINAL_INPUT_TRACE_PATH_ENV);
+        }
+
+        #[test]
+        fn trace_target_valid_env_returns_value() {
+            std::env::set_var(NATIVE_TERMINAL_INPUT_TRACE_PATH_ENV, "/tmp/trace.log");
+            let result = native_terminal_input_trace_target();
+            assert_eq!(result, Some("/tmp/trace.log".to_string()));
+            std::env::remove_var(NATIVE_TERMINAL_INPUT_TRACE_PATH_ENV);
+        }
+
+        // ── translate_console_key_event: key-up ignored ──
+
+        #[test]
+        fn translate_key_up_event_returns_none() {
+            let mut event: KEY_EVENT_RECORD = unsafe { std::mem::zeroed() };
+            event.bKeyDown = 0;
+            event.wVirtualKeyCode = VK_RETURN as u16;
+            let result = translate_console_key_event(&event);
+            assert!(result.is_none());
+        }
+
+        // ── translate: F1 returns None (unknown key) ──
+
+        #[test]
+        fn translate_f1_key_returns_none() {
+            let event = key_event(VK_F1 as u16, 0, 0, 1);
+            let result = translate_console_key_event(&event);
+            assert!(result.is_none());
+        }
+
+        // ── translate: alt prefix ──
+
+        #[test]
+        fn translate_alt_a_has_escape_prefix() {
+            let event = key_event('a' as u16, 'a' as u16, LEFT_ALT_PRESSED, 1);
+            let result = translate_console_key_event(&event).unwrap();
+            assert!(result.data.starts_with(b"\x1b"));
+            assert!(result.alt);
+        }
+
+        // ── translate: Ctrl+character ──
+
+        #[test]
+        fn translate_ctrl_c_produces_etx() {
+            let event = key_event('C' as u16, 'c' as u16, LEFT_CTRL_PRESSED, 1);
+            let result = translate_console_key_event(&event).unwrap();
+            assert_eq!(result.data, &[0x03]);
+            assert!(result.ctrl);
+        }
+    }
+
+    // ── NativeTerminalInput tests ──
+
+    #[test]
+    fn terminal_input_new_starts_closed() {
+        let input = NativeTerminalInput::new();
+        assert!(!input.capturing());
+        let state = input.state.lock().unwrap();
+        assert!(state.closed);
+        assert!(state.events.is_empty());
+    }
+
+    #[test]
+    fn terminal_input_available_false_when_empty() {
+        let input = NativeTerminalInput::new();
+        assert!(!input.available());
+    }
+
+    #[test]
+    fn terminal_input_next_event_none_when_empty() {
+        let input = NativeTerminalInput::new();
+        assert!(input.next_event().is_none());
+    }
+
+    #[test]
+    fn terminal_input_inject_and_consume_event() {
+        let input = NativeTerminalInput::new();
+        {
+            let mut state = input.state.lock().unwrap();
+            state.events.push_back(TerminalInputEventRecord {
+                data: b"test".to_vec(),
+                submit: false,
+                shift: false,
+                ctrl: false,
+                alt: false,
+                virtual_key_code: 0,
+                repeat_count: 1,
+            });
+        }
+        assert!(input.available());
+        let event = input.next_event().unwrap();
+        assert_eq!(event.data, b"test");
+        assert!(!input.available());
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn terminal_input_start_errors_on_non_windows() {
+        pyo3::prepare_freethreaded_python();
+        let input = NativeTerminalInput::new();
+        let result = input.start();
+        assert!(result.is_err());
+    }
+
+    // ── NativeTerminalInputEvent __repr__ ──
+
+    #[test]
+    fn terminal_input_event_repr() {
+        let event = NativeTerminalInputEvent {
+            data: vec![0x0D],
+            submit: true,
+            shift: false,
+            ctrl: false,
+            alt: false,
+            virtual_key_code: 13,
+            repeat_count: 1,
+        };
+        let repr = event.__repr__();
+        assert!(repr.contains("submit=true"));
+        assert!(repr.contains("virtual_key_code=13"));
+    }
+
+    // ── tracked_process_db_path ──
+
+    #[test]
+    fn tracked_process_db_path_with_env() {
+        pyo3::prepare_freethreaded_python();
+        std::env::set_var("RUNNING_PROCESS_PID_DB", "/custom/path/db.sqlite3");
+        let result = tracked_process_db_path().unwrap();
+        assert_eq!(result, std::path::PathBuf::from("/custom/path/db.sqlite3"));
+        std::env::remove_var("RUNNING_PROCESS_PID_DB");
+    }
+
+    #[test]
+    fn tracked_process_db_path_empty_env_falls_back() {
+        pyo3::prepare_freethreaded_python();
+        std::env::set_var("RUNNING_PROCESS_PID_DB", "   ");
+        let result = tracked_process_db_path().unwrap();
+        assert!(!result.to_str().unwrap().trim().is_empty());
+        std::env::remove_var("RUNNING_PROCESS_PID_DB");
+    }
+
+    // ── NativePtyProcess: start_terminal_input_relay on non-windows ──
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pty_process_start_terminal_input_relay_errors_on_non_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["echo".to_string(), "test".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            let result = process.start_terminal_input_relay_impl();
+            assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pty_process_terminal_input_relay_active_false_on_non_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["echo".to_string(), "test".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            assert!(!process.terminal_input_relay_active());
+        });
+    }
+
+    // ── NativeProcessMetrics ──
+
+    #[test]
+    fn process_metrics_sample_nonexistent_pid() {
+        pyo3::prepare_freethreaded_python();
+        let metrics = NativeProcessMetrics::new(999999);
+        let (alive, cpu, io, _) = metrics.sample();
+        assert!(!alive);
+        assert_eq!(cpu, 0.0);
+        assert_eq!(io, 0);
+    }
+
+    #[test]
+    fn process_metrics_prime_no_panic() {
+        pyo3::prepare_freethreaded_python();
+        let metrics = NativeProcessMetrics::new(999999);
+        metrics.prime();
+    }
+
+    // ── ActiveProcessRecord ──
+
+    #[test]
+    fn active_process_record_clone() {
+        let record = ActiveProcessRecord {
+            pid: 1234,
+            kind: "test".to_string(),
+            command: "echo".to_string(),
+            cwd: Some("/tmp".to_string()),
+            started_at: 1000.0,
+        };
+        let cloned = record.clone();
+        assert_eq!(cloned.pid, 1234);
+        assert_eq!(cloned.kind, "test");
+        assert_eq!(cloned.command, "echo");
+        assert_eq!(cloned.cwd, Some("/tmp".to_string()));
+    }
+
+    // ── NativePtyProcess: empty argv errors ──
+
+    #[test]
+    fn pty_process_empty_argv_errors() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let result = NativePtyProcess::new(vec![], None, None, 24, 80, None);
+            assert!(result.is_err());
+        });
+    }
+
+    // ── NativePtyProcess: start already started errors ──
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pty_process_start_already_started_errors() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(0.1)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            let result = process.start_impl();
+            assert!(result.is_err());
+            let _ = process.close_impl();
+        });
+    }
+
+    // ── Iteration 3: NativePtyBuffer additional tests ──
+
+    #[test]
+    fn pty_buffer_new_defaults() {
+        let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+        assert!(!buf.available());
+        assert_eq!(buf.history_bytes(), 0);
+    }
+
+    #[test]
+    fn pty_buffer_record_output_makes_available() {
+        let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+        buf.record_output(b"hello");
+        assert!(buf.available());
+    }
+
+    #[test]
+    fn pty_buffer_history_bytes_accumulates() {
+        let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+        buf.record_output(b"hello");
+        assert_eq!(buf.history_bytes(), 5);
+        buf.record_output(b" world");
+        assert_eq!(buf.history_bytes(), 11);
+    }
+
+    #[test]
+    fn pty_buffer_clear_history_resets_to_zero() {
+        let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+        buf.record_output(b"data");
+        let released = buf.clear_history();
+        assert_eq!(released, 4);
+        assert_eq!(buf.history_bytes(), 0);
+    }
+
+    #[test]
+    fn pty_buffer_close_sets_closed_flag() {
+        let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+        buf.close();
+        let state = buf.state.lock().unwrap();
+        assert!(state.closed);
+    }
+
+    #[test]
+    fn pty_buffer_record_multiple_chunks_all_available() {
+        let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+        buf.record_output(b"a");
+        buf.record_output(b"bb");
+        buf.record_output(b"ccc");
+        assert_eq!(buf.history_bytes(), 6);
+        let state = buf.state.lock().unwrap();
+        assert_eq!(state.chunks.len(), 3);
+    }
+
+    // ── Iteration 3: PTY Process Integration Tests ──
+
+    #[test]
+    fn pty_process_pid_none_before_start() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            assert!(process.pid().unwrap().is_none());
+        });
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pty_process_lifecycle_start_wait_close() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "print('hello')".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert!(process.pid().unwrap().is_some());
+            let code = process.wait_impl(Some(10.0)).unwrap();
+            assert_eq!(code, 0);
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pty_process_poll_none_while_running() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(5)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert!(process.poll().unwrap().is_none());
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pty_process_nonzero_exit_code() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import sys; sys.exit(42)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            let code = process.wait_impl(Some(10.0)).unwrap();
+            assert_eq!(code, 42);
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    fn pty_process_write_before_start_errors() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            assert!(process.write_impl(b"test", false).is_err());
+        });
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pty_process_input_metrics_tracked() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(2)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert_eq!(process.pty_input_bytes_total(), 0);
+            let _ = process.write_impl(b"hello\n", false);
+            assert_eq!(process.pty_input_bytes_total(), 6);
+            assert_eq!(process.pty_newline_events_total(), 1);
+            let _ = process.write_impl(b"x", true);
+            assert_eq!(process.pty_submit_events_total(), 1);
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pty_process_resize_while_running() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(2)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert!(process.resize_impl(40, 120).is_ok());
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pty_process_kill_running_process() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(0.1)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert!(process.kill_impl().is_ok());
+        });
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pty_process_terminate_running_process() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(0.1)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert!(process.terminate_impl().is_ok());
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pty_process_close_already_closed_is_noop() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            let _ = process.wait_impl(Some(10.0));
+            let _ = process.close_impl();
+            assert!(process.close_impl().is_ok());
+        });
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn pty_process_wait_timeout_errors() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(0.1)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert!(process.wait_impl(Some(0.1)).is_err());
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    fn pty_process_send_interrupt_before_start_errors() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            assert!(process.send_interrupt_impl().is_err());
+        });
+    }
+
+    #[test]
+    fn pty_process_terminate_before_start_errors() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            assert!(process.terminate_impl().is_err());
+        });
+    }
+
+    #[test]
+    fn pty_process_kill_before_start_errors() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            assert!(process.kill_impl().is_err());
+        });
+    }
+
+    // ── Iteration 3: Utility function tests ──
+
+    #[test]
+    fn kill_process_tree_nonexistent_pid_is_noop() {
+        kill_process_tree_impl(999999, 0.5);
+    }
+
+    #[test]
+    fn get_process_tree_info_current_pid() {
+        let pid = std::process::id();
+        let info = native_get_process_tree_info(pid);
+        assert!(info.contains(&format!("{}", pid)));
+    }
+
+    #[test]
+    fn get_process_tree_info_nonexistent_pid() {
+        let info = native_get_process_tree_info(999999);
+        assert!(info.contains("Could not get process info"));
+    }
+
+    #[test]
+    fn register_and_list_active_processes() {
+        let fake_pid = 777777u32;
+        register_active_process(
+            fake_pid,
+            "test",
+            "echo hello",
+            Some("/tmp".to_string()),
+            1000.0,
+        );
+        let items = native_list_active_processes();
+        assert!(items.iter().any(|e| e.0 == fake_pid));
+        unregister_active_process(fake_pid);
+        let items = native_list_active_processes();
+        assert!(!items.iter().any(|e| e.0 == fake_pid));
+    }
+
+    #[test]
+    fn process_created_at_current_process_returns_some() {
+        let created = process_created_at(std::process::id());
+        assert!(created.is_some());
+        assert!(created.unwrap() > 0.0);
+    }
+
+    #[test]
+    fn process_created_at_nonexistent_returns_none() {
+        assert!(process_created_at(999999).is_none());
+    }
+
+    #[test]
+    fn same_process_identity_current_process_matches() {
+        let pid = std::process::id();
+        let created = process_created_at(pid).unwrap();
+        assert!(same_process_identity(pid, created, 2.0));
+    }
+
+    #[test]
+    fn same_process_identity_wrong_time_no_match() {
+        assert!(!same_process_identity(std::process::id(), 0.0, 1.0));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn windows_apply_process_priority_current_pid_ok() {
+        pyo3::prepare_freethreaded_python();
+        assert!(windows_apply_process_priority_impl(std::process::id(), 0).is_ok());
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn windows_apply_process_priority_nonexistent_errors() {
+        pyo3::prepare_freethreaded_python();
+        assert!(windows_apply_process_priority_impl(999999, 0).is_err());
+    }
+
+    #[test]
+    fn signal_bool_new_default_false() {
+        assert!(!NativeSignalBool::new(false).load_nolock());
+    }
+
+    #[test]
+    fn signal_bool_new_true() {
+        assert!(NativeSignalBool::new(true).load_nolock());
+    }
+
+    #[test]
+    fn signal_bool_store_locked_changes_value() {
+        let sb = NativeSignalBool::new(false);
+        sb.store_locked(true);
+        assert!(sb.load_nolock());
+    }
+
+    #[test]
+    fn signal_bool_compare_and_swap_success_iter3() {
+        let sb = NativeSignalBool::new(false);
+        assert!(sb.compare_and_swap_locked(false, true));
+        assert!(sb.load_nolock());
+    }
+
+    #[test]
+    fn idle_monitor_state_initial_values() {
+        let state = IdleMonitorState {
+            last_reset_at: Instant::now(),
+            returncode: None,
+            interrupted: false,
+        };
+        assert!(state.returncode.is_none());
+        assert!(!state.interrupted);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn terminal_input_wait_returns_event_immediately() {
+        let state = Arc::new(Mutex::new(TerminalInputState {
+            events: {
+                let mut q = VecDeque::new();
+                q.push_back(TerminalInputEventRecord {
+                    data: b"x".to_vec(),
+                    submit: false,
+                    shift: false,
+                    ctrl: false,
+                    alt: false,
+                    virtual_key_code: 0,
+                    repeat_count: 1,
+                });
+                q
+            },
+            closed: false,
+        }));
+        let condvar = Arc::new(Condvar::new());
+        match wait_for_terminal_input_event(&state, &condvar, Some(Duration::from_millis(100))) {
+            TerminalInputWaitOutcome::Event(e) => assert_eq!(e.data, b"x"),
+            _ => panic!("expected Event"),
+        }
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn terminal_input_wait_returns_closed() {
+        let state = Arc::new(Mutex::new(TerminalInputState {
+            events: VecDeque::new(),
+            closed: true,
+        }));
+        let condvar = Arc::new(Condvar::new());
+        assert!(matches!(
+            wait_for_terminal_input_event(&state, &condvar, Some(Duration::from_millis(100))),
+            TerminalInputWaitOutcome::Closed
+        ));
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn terminal_input_wait_returns_timeout() {
+        let state = Arc::new(Mutex::new(TerminalInputState {
+            events: VecDeque::new(),
+            closed: false,
+        }));
+        let condvar = Arc::new(Condvar::new());
+        assert!(matches!(
+            wait_for_terminal_input_event(&state, &condvar, Some(Duration::from_millis(50))),
+            TerminalInputWaitOutcome::Timeout
+        ));
+    }
+
+    #[test]
+    fn native_running_process_is_pty_available_false() {
+        assert!(!NativeRunningProcess::is_pty_available());
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn posix_input_payload_passthrough() {
+        assert_eq!(pty_platform::input_payload(b"hello\n"), b"hello\n");
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Iteration 4: Windows PTY process lifecycle + NativeRunningProcess
+    // ══════════════════════════════════════════════════════════════
+
+    // ── Windows PTY process lifecycle tests ──
+    //
+    // Note: On Windows ConPTY, the child process cannot exit cleanly until
+    // the master pipe is dropped. Therefore `wait_impl()` alone may block
+    // indefinitely — use `close_impl()` (which drops handles then waits)
+    // for lifecycle cleanup. Tests that need the exit code must use
+    // `kill_impl()` which explicitly drops handles.
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_start_and_close_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "print('hello')".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert!(process.pid().unwrap().is_some());
+            // close drops handles then waits — this is the correct Windows lifecycle
+            assert!(process.close_impl().is_ok());
+        });
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_poll_none_while_running_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(5)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert!(process.poll().unwrap().is_none());
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_kill_running_process_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(0.1)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert!(process.kill_impl().is_ok());
+        });
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_terminate_running_process_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(0.1)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            // On Windows, terminate delegates to kill
+            assert!(process.terminate_impl().is_ok());
+        });
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_close_not_started_is_ok_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            // close before start should be ok (handles are None)
+            assert!(process.close_impl().is_ok());
+        });
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_start_already_started_errors_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(0.1)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            let result = process.start_impl();
+            assert!(result.is_err());
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_resize_while_running_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(2)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert!(process.resize_impl(40, 120).is_ok());
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_write_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(2)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            let _ = process.write_impl(b"hello\n", false);
+            assert!(process.pty_input_bytes_total() >= 6);
+            assert!(process.pty_newline_events_total() >= 1);
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_input_metrics_tracked_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(2)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert_eq!(process.pty_input_bytes_total(), 0);
+            let _ = process.write_impl(b"hello\n", false);
+            assert_eq!(process.pty_input_bytes_total(), 6);
+            assert_eq!(process.pty_newline_events_total(), 1);
+            let _ = process.write_impl(b"x", true);
+            assert_eq!(process.pty_submit_events_total(), 1);
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_send_interrupt_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import time; time.sleep(0.1)".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            // send_interrupt on Windows writes Ctrl+C byte via PTY
+            assert!(process.send_interrupt_impl().is_ok());
+            let _ = process.close_impl();
+        });
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_with_cwd_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let tmp = std::env::temp_dir();
+            let cwd = tmp.to_str().unwrap().to_string();
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, Some(cwd), None, 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert!(process.close_impl().is_ok());
+        });
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_with_env_windows() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let env = pyo3::types::PyDict::new(py);
+            if let Ok(path) = std::env::var("PATH") {
+                env.set_item("PATH", &path).unwrap();
+            }
+            if let Ok(root) = std::env::var("SystemRoot") {
+                env.set_item("SystemRoot", &root).unwrap();
+            }
+            env.set_item("RP_TEST_PTY", "test_value").unwrap();
+            let argv = vec![
+                "python".to_string(),
+                "-c".to_string(),
+                "import os; print(os.environ.get('RP_TEST_PTY', 'MISSING'))".to_string(),
+            ];
+            let process = NativePtyProcess::new(argv, None, Some(env), 24, 80, None).unwrap();
+            process.start_impl().unwrap();
+            assert!(process.close_impl().is_ok());
+        });
+    }
+
+    // ── Windows PTY terminal input relay tests ──
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_terminal_input_relay_not_active_initially() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            assert!(!process.terminal_input_relay_active());
+        });
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn pty_process_stop_terminal_input_relay_noop_when_not_started() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            process.stop_terminal_input_relay_impl(); // should not panic
+        });
+    }
+
+    // ── Windows-specific helper function tests ──
+
+    #[test]
+    #[cfg(windows)]
+    fn assign_child_to_job_null_handle_errors() {
+        pyo3::prepare_freethreaded_python();
+        let result = assign_child_to_windows_kill_on_close_job(None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn apply_windows_pty_priority_none_handle_ok() {
+        pyo3::prepare_freethreaded_python();
+        // None handle with any nice value should be Ok (early return)
+        assert!(apply_windows_pty_priority(None, Some(5)).is_ok());
+        assert!(apply_windows_pty_priority(None, None).is_ok());
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn apply_windows_pty_priority_zero_nice_noop() {
+        pyo3::prepare_freethreaded_python();
+        // Some handle with nice=0 → flags=0 → early return Ok
+        use std::os::windows::io::AsRawHandle;
+        let current = std::process::Command::new("cmd")
+            .args(["/C", "echo"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let handle = current.as_raw_handle();
+        assert!(apply_windows_pty_priority(Some(handle), Some(0)).is_ok());
+        assert!(apply_windows_pty_priority(Some(handle), None).is_ok());
+    }
+
+    // ── NativeRunningProcess lifecycle tests ──
+
+    #[test]
+    fn running_process_start_wait_lifecycle() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(py, ["python", "-c", "print('hello')"]).unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                true,
+                None,
+                None,
+                true,
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            process.start_impl().unwrap();
+            assert!(process.inner.pid().is_some());
+            let code = process.wait_impl(py, Some(10.0)).unwrap();
+            assert_eq!(code, 0);
+        });
+    }
+
+    #[test]
+    fn running_process_kill_running() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd =
+                pyo3::types::PyList::new(py, ["python", "-c", "import time; time.sleep(0.1)"])
+                    .unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                false,
+                None,
+                None,
+                true,
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            process.start_impl().unwrap();
+            assert!(process.kill_impl().is_ok());
+        });
+    }
+
+    #[test]
+    fn running_process_terminate_running() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd =
+                pyo3::types::PyList::new(py, ["python", "-c", "import time; time.sleep(0.1)"])
+                    .unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                false,
+                None,
+                None,
+                true,
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            process.start_impl().unwrap();
+            assert!(process.terminate_impl().is_ok());
+        });
+    }
+
+    #[test]
+    fn running_process_close_finished() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(py, ["python", "-c", "pass"]).unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                false,
+                None,
+                None,
+                true,
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            process.start_impl().unwrap();
+            let _ = process.wait_impl(py, Some(10.0));
+            assert!(process.close_impl(py).is_ok());
+        });
+    }
+
+    #[test]
+    fn running_process_close_running() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd =
+                pyo3::types::PyList::new(py, ["python", "-c", "import time; time.sleep(0.1)"])
+                    .unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                false,
+                None,
+                None,
+                true,
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            process.start_impl().unwrap();
+            assert!(process.close_impl(py).is_ok());
+        });
+    }
+
+    // ── NativeRunningProcess decode/text mode tests ──
+
+    #[test]
+    fn running_process_decode_line_text_mode() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(py, ["echo", "test"]).unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                true,
+                None,
+                None,
+                true, // text=true
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            let result = process.decode_line_to_string(py, b"hello world").unwrap();
+            assert_eq!(result, "hello world");
+        });
+    }
+
+    #[test]
+    fn running_process_decode_line_binary_mode() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(py, ["echo", "test"]).unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                true,
+                None,
+                None,
+                false, // text=false
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            let result = process.decode_line_to_string(py, b"\xff\xfe").unwrap();
+            // Binary mode uses lossy conversion
+            assert!(!result.is_empty());
+        });
+    }
+
+    #[test]
+    fn running_process_decode_line_custom_encoding() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(py, ["echo", "test"]).unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                true,
+                None,
+                None,
+                true,
+                Some("ascii".to_string()),
+                Some("replace".to_string()),
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            let result = process.decode_line_to_string(py, b"hello").unwrap();
+            assert_eq!(result, "hello");
+        });
+    }
+
+    #[test]
+    fn running_process_captured_stream_text() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd =
+                pyo3::types::PyList::new(py, ["python", "-c", "print('line1'); print('line2')"])
+                    .unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                true,
+                None,
+                None,
+                true,
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            process.start_impl().unwrap();
+            let _ = process.wait_impl(py, Some(10.0));
+            let text = process
+                .captured_stream_text(py, StreamKind::Stdout)
+                .unwrap();
+            assert!(text.contains("line1"));
+            assert!(text.contains("line2"));
+        });
+    }
+
+    #[test]
+    fn running_process_captured_combined_text() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(
+                py,
+                [
+                    "python",
+                    "-c",
+                    "import sys; print('out'); print('err', file=sys.stderr)",
+                ],
+            )
+            .unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                true,
+                None,
+                None,
+                true,
+                None,
+                None,
+                "inherit",
+                "pipe",
+                None,
+                false,
+            )
+            .unwrap();
+            process.start_impl().unwrap();
+            let _ = process.wait_impl(py, Some(10.0));
+            let text = process.captured_combined_text(py).unwrap();
+            assert!(text.contains("out"));
+            assert!(text.contains("err"));
+        });
+    }
+
+    #[test]
+    fn running_process_read_status_text_stream() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(py, ["python", "-c", "print('data')"]).unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                true,
+                None,
+                None,
+                true,
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            process.start_impl().unwrap();
+            let _ = process.wait_impl(py, Some(10.0));
+            std::thread::sleep(Duration::from_millis(50));
+            // Read from stdout
+            let status = process
+                .read_status_text(Some(StreamKind::Stdout), Some(Duration::from_millis(100)));
+            assert!(status.is_ok());
+        });
+    }
+
+    #[test]
+    fn running_process_read_status_text_combined() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(py, ["python", "-c", "print('data')"]).unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                true,
+                None,
+                None,
+                true,
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            process.start_impl().unwrap();
+            let _ = process.wait_impl(py, Some(10.0));
+            std::thread::sleep(Duration::from_millis(50));
+            // Read from combined (None stream)
+            let status = process.read_status_text(None, Some(Duration::from_millis(100)));
+            assert!(status.is_ok());
+        });
+    }
+
+    #[test]
+    fn running_process_decode_line_returns_bytes_in_binary_mode() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(py, ["echo", "test"]).unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                true,
+                None,
+                None,
+                false, // text=false → bytes mode
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            let result = process.decode_line(py, b"hello").unwrap();
+            // In binary mode, should return PyBytes
+            let bytes: Vec<u8> = result.extract(py).unwrap();
+            assert_eq!(bytes, b"hello");
+        });
+    }
+
+    #[test]
+    fn running_process_decode_line_returns_string_in_text_mode() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(py, ["echo", "test"]).unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                true,
+                None,
+                None,
+                true, // text=true → string mode
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            let result = process.decode_line(py, b"hello").unwrap();
+            let text: String = result.extract(py).unwrap();
+            assert_eq!(text, "hello");
+        });
+    }
+
+    // ── NativePtyBuffer decode_chunk tests ──
+
+    #[test]
+    fn pty_buffer_decode_chunk_text_mode() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(true, "utf-8", "replace");
+            let result = buf.decode_chunk(py, b"hello").unwrap();
+            let text: String = result.extract(py).unwrap();
+            assert_eq!(text, "hello");
+        });
+    }
+
+    #[test]
+    fn pty_buffer_decode_chunk_binary_mode() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let buf = NativePtyBuffer::new(false, "utf-8", "replace");
+            let result = buf.decode_chunk(py, b"\xff\xfe").unwrap();
+            let bytes: Vec<u8> = result.extract(py).unwrap();
+            assert_eq!(bytes, vec![0xff, 0xfe]);
+        });
+    }
+
+    // ── NativePtyProcess mark_reader_closed / store_returncode tests ──
+
+    #[test]
+    fn pty_process_mark_reader_closed() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            // reader should not be closed initially
+            assert!(!process.reader.state.lock().unwrap().closed);
+            process.mark_reader_closed();
+            assert!(process.reader.state.lock().unwrap().closed);
+        });
+    }
+
+    #[test]
+    fn pty_process_store_returncode_sets_value() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            assert!(process.returncode.lock().unwrap().is_none());
+            process.store_returncode(42);
+            assert_eq!(*process.returncode.lock().unwrap(), Some(42));
+        });
+    }
+
+    #[test]
+    fn pty_process_record_input_metrics_tracks_data() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|_py| {
+            let argv = vec!["python".to_string(), "-c".to_string(), "pass".to_string()];
+            let process = NativePtyProcess::new(argv, None, None, 24, 80, None).unwrap();
+            assert_eq!(process.pty_input_bytes_total(), 0);
+            process.record_input_metrics(b"hello\n", false);
+            assert_eq!(process.pty_input_bytes_total(), 6);
+            assert_eq!(process.pty_newline_events_total(), 1);
+            assert_eq!(process.pty_submit_events_total(), 0);
+            process.record_input_metrics(b"\r", true);
+            assert_eq!(process.pty_submit_events_total(), 1);
+        });
+    }
+
+    // ── process_err_to_py additional variants ──
+
+    #[test]
+    fn process_err_to_py_already_started_is_runtime_error() {
+        pyo3::prepare_freethreaded_python();
+        let err = process_err_to_py(running_process_core::ProcessError::AlreadyStarted);
+        pyo3::Python::with_gil(|py| {
+            assert!(err.is_instance_of::<pyo3::exceptions::PyRuntimeError>(py));
+        });
+    }
+
+    #[test]
+    fn process_err_to_py_stdin_unavailable_is_runtime_error() {
+        pyo3::prepare_freethreaded_python();
+        let err = process_err_to_py(running_process_core::ProcessError::StdinUnavailable);
+        pyo3::Python::with_gil(|py| {
+            assert!(err.is_instance_of::<pyo3::exceptions::PyRuntimeError>(py));
+        });
+    }
+
+    #[test]
+    fn process_err_to_py_spawn_is_runtime_error() {
+        pyo3::prepare_freethreaded_python();
+        let err = process_err_to_py(running_process_core::ProcessError::Spawn(
+            std::io::Error::new(std::io::ErrorKind::NotFound, "not found"),
+        ));
+        pyo3::Python::with_gil(|py| {
+            assert!(err.is_instance_of::<pyo3::exceptions::PyRuntimeError>(py));
+        });
+    }
+
+    #[test]
+    fn process_err_to_py_io_is_runtime_error() {
+        pyo3::prepare_freethreaded_python();
+        let err = process_err_to_py(running_process_core::ProcessError::Io(std::io::Error::new(
+            std::io::ErrorKind::BrokenPipe,
+            "broken pipe",
+        )));
+        pyo3::Python::with_gil(|py| {
+            assert!(err.is_instance_of::<pyo3::exceptions::PyRuntimeError>(py));
+        });
+    }
+
+    // ── NativeRunningProcess: piped stdin tests ──
+
+    #[test]
+    fn running_process_piped_stdin() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(
+                py,
+                [
+                    "python",
+                    "-c",
+                    "import sys; data=sys.stdin.buffer.read(); sys.stdout.buffer.write(data[::-1])",
+                ],
+            )
+            .unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                true,
+                None,
+                None,
+                true,
+                None,
+                None,
+                "piped",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            process.start_impl().unwrap();
+            process.inner.write_stdin(b"abc").unwrap();
+            let code = process.wait_impl(py, Some(10.0)).unwrap();
+            assert_eq!(code, 0);
+        });
+    }
+
+    // ── NativeRunningProcess: shell mode ──
+
+    #[test]
+    fn running_process_shell_mode() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyString::new(py, "echo shell-mode-test");
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                true, // shell=true
+                true,
+                None,
+                None,
+                true,
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            process.start_impl().unwrap();
+            let code = process.wait_impl(py, Some(10.0)).unwrap();
+            assert_eq!(code, 0);
+        });
+    }
+
+    // ── NativeRunningProcess: send_interrupt before start errors ──
+
+    #[test]
+    fn running_process_send_interrupt_before_start_errors() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let cmd = pyo3::types::PyList::new(py, ["python", "-c", "pass"]).unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                false,
+                None,
+                None,
+                true,
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            assert!(process.send_interrupt_impl().is_err());
+        });
+    }
+
+    // ── NativeTerminalInput additional tests ──
+
+    #[test]
+    fn terminal_input_inject_multiple_events() {
+        let input = NativeTerminalInput::new();
+        {
+            let mut state = input.state.lock().unwrap();
+            for i in 0..5 {
+                state.events.push_back(TerminalInputEventRecord {
+                    data: vec![b'a' + i],
+                    submit: false,
+                    shift: false,
+                    ctrl: false,
+                    alt: false,
+                    virtual_key_code: 0,
+                    repeat_count: 1,
+                });
+            }
+        }
+        assert!(input.available());
+        let mut count = 0;
+        while input.next_event().is_some() {
+            count += 1;
+        }
+        assert_eq!(count, 5);
+        assert!(!input.available());
+    }
+
+    #[test]
+    fn terminal_input_capturing_false_initially() {
+        let input = NativeTerminalInput::new();
+        assert!(!input.capturing());
+    }
+
+    // ── NativeTerminalInputEvent fields ──
+
+    #[test]
+    fn terminal_input_event_fields() {
+        let event = NativeTerminalInputEvent {
+            data: vec![0x1B, 0x5B, 0x41],
+            submit: false,
+            shift: true,
+            ctrl: true,
+            alt: false,
+            virtual_key_code: 38,
+            repeat_count: 2,
+        };
+        assert_eq!(event.data, vec![0x1B, 0x5B, 0x41]);
+        assert!(!event.submit);
+        assert!(event.shift);
+        assert!(event.ctrl);
+        assert!(!event.alt);
+        assert_eq!(event.virtual_key_code, 38);
+        assert_eq!(event.repeat_count, 2);
+        // __repr__ should include all flags
+        let repr = event.__repr__();
+        assert!(repr.contains("shift=true"));
+        assert!(repr.contains("ctrl=true"));
+        assert!(repr.contains("alt=false"));
+    }
+
+    // ── spawn_pty_reader test ──
+
+    #[test]
+    fn spawn_pty_reader_reads_data_and_closes() {
+        let shared = Arc::new(PtyReadShared {
+            state: Mutex::new(PtyReadState {
+                chunks: VecDeque::new(),
+                closed: false,
+            }),
+            condvar: Condvar::new(),
+        });
+
+        let data = b"hello from reader\n";
+        let reader: Box<dyn std::io::Read + Send> = Box::new(std::io::Cursor::new(data.to_vec()));
+        let echo = Arc::new(AtomicBool::new(false));
+        let idle = Arc::new(Mutex::new(None));
+        let out_bytes = Arc::new(AtomicUsize::new(0));
+        let churn_bytes = Arc::new(AtomicUsize::new(0));
+        spawn_pty_reader(
+            reader,
+            Arc::clone(&shared),
+            echo,
+            idle,
+            out_bytes,
+            churn_bytes,
+        );
+
+        // Wait for the reader thread to finish
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let state = shared.state.lock().unwrap();
+            if state.closed {
+                break;
+            }
+            drop(state);
+            assert!(Instant::now() < deadline, "reader thread did not close");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        let state = shared.state.lock().unwrap();
+        assert!(state.closed);
+        assert!(!state.chunks.is_empty());
+    }
+
+    #[test]
+    fn spawn_pty_reader_empty_input_closes() {
+        let shared = Arc::new(PtyReadShared {
+            state: Mutex::new(PtyReadState {
+                chunks: VecDeque::new(),
+                closed: false,
+            }),
+            condvar: Condvar::new(),
+        });
+
+        let reader: Box<dyn std::io::Read + Send> = Box::new(std::io::Cursor::new(Vec::new()));
+        let echo = Arc::new(AtomicBool::new(false));
+        let idle = Arc::new(Mutex::new(None));
+        let out_bytes = Arc::new(AtomicUsize::new(0));
+        let churn_bytes = Arc::new(AtomicUsize::new(0));
+        spawn_pty_reader(
+            reader,
+            Arc::clone(&shared),
+            echo,
+            idle,
+            out_bytes,
+            churn_bytes,
+        );
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            let state = shared.state.lock().unwrap();
+            if state.closed {
+                break;
+            }
+            drop(state);
+            assert!(Instant::now() < deadline, "reader thread did not close");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+
+        let state = shared.state.lock().unwrap();
+        assert!(state.closed);
+        assert!(state.chunks.is_empty());
+    }
+
+    // ── Windows-only: windows_generate_console_ctrl_break ──
+
+    #[test]
+    #[cfg(windows)]
+    fn windows_generate_console_ctrl_break_nonexistent_pid() {
+        pyo3::prepare_freethreaded_python();
+        // Nonexistent PID should error
+        let result = windows_generate_console_ctrl_break_impl(999999, None);
+        assert!(result.is_err());
+    }
+
+    // ── NativeRunningProcess: with env ──
+
+    #[test]
+    fn running_process_with_env() {
+        pyo3::prepare_freethreaded_python();
+        pyo3::Python::with_gil(|py| {
+            let env = pyo3::types::PyDict::new(py);
+            if let Ok(path) = std::env::var("PATH") {
+                env.set_item("PATH", &path).unwrap();
+            }
+            #[cfg(windows)]
+            if let Ok(root) = std::env::var("SystemRoot") {
+                env.set_item("SystemRoot", &root).unwrap();
+            }
+            env.set_item("RP_TEST_VAR", "test_value").unwrap();
+
+            let cmd = pyo3::types::PyList::new(
+                py,
+                [
+                    "python",
+                    "-c",
+                    "import os; print(os.environ.get('RP_TEST_VAR', 'MISSING'))",
+                ],
+            )
+            .unwrap();
+            let process = NativeRunningProcess::new(
+                cmd.as_any(),
+                None,
+                false,
+                true,
+                Some(env),
+                None,
+                true,
+                None,
+                None,
+                "inherit",
+                "stdout",
+                None,
+                false,
+            )
+            .unwrap();
+            process.start_impl().unwrap();
+            let code = process.wait_impl(py, Some(10.0)).unwrap();
+            assert_eq!(code, 0);
+            let text = process
+                .captured_stream_text(py, StreamKind::Stdout)
+                .unwrap();
+            assert!(text.contains("test_value"));
+        });
+    }
+
+    // ── Windows input_payload test ──
+
+    #[test]
+    #[cfg(windows)]
+    fn windows_pty_input_payload_via_module() {
+        assert_eq!(pty_windows::input_payload(b"hello"), b"hello");
+        assert_eq!(pty_windows::input_payload(b"\n"), b"\r");
+    }
+}
+
+// ── ContainedProcessGroup Python wrapper ────────────────────────────────────
+
+/// Python enum-like class for containment policy.
+#[pyclass]
+#[derive(Clone, Copy)]
+struct PyContainment {
+    inner: Containment,
+}
+
+#[pymethods]
+impl PyContainment {
+    /// Create a "Contained" policy — child is killed when the group drops.
+    #[staticmethod]
+    fn contained() -> Self {
+        Self {
+            inner: Containment::Contained,
+        }
+    }
+
+    /// Create a "Detached" policy — child survives the group drop.
+    #[staticmethod]
+    fn detached() -> Self {
+        Self {
+            inner: Containment::Detached,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match self.inner {
+            Containment::Contained => "Containment.Contained".to_string(),
+            Containment::Detached => "Containment.Detached".to_string(),
+        }
+    }
+}
+
+/// Python wrapper for `ContainedProcessGroup`.
+#[pyclass(name = "ContainedProcessGroup")]
+struct PyContainedProcessGroup {
+    inner: Option<ContainedProcessGroup>,
+    children: Vec<ContainedChild>,
+}
+
+#[pymethods]
+impl PyContainedProcessGroup {
+    #[new]
+    #[pyo3(signature = (originator=None))]
+    fn new(originator: Option<String>) -> PyResult<Self> {
+        let group = match originator {
+            Some(ref orig) => ContainedProcessGroup::with_originator(orig).map_err(to_py_err)?,
+            None => ContainedProcessGroup::new().map_err(to_py_err)?,
+        };
+        Ok(Self {
+            inner: Some(group),
+            children: Vec::new(),
+        })
+    }
+
+    #[getter]
+    fn originator(&self) -> Option<String> {
+        self.inner.as_ref()?.originator().map(String::from)
+    }
+
+    #[getter]
+    fn originator_value(&self) -> Option<String> {
+        self.inner.as_ref()?.originator_value()
+    }
+
+    /// Spawn a contained child process (killed when group drops).
+    fn spawn(&mut self, argv: Vec<String>) -> PyResult<u32> {
+        let group = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("group already closed"))?;
+        if argv.is_empty() {
+            return Err(PyValueError::new_err("argv must not be empty"));
+        }
+        let mut cmd = std::process::Command::new(&argv[0]);
+        if argv.len() > 1 {
+            cmd.args(&argv[1..]);
+        }
+        let contained = group.spawn(&mut cmd).map_err(to_py_err)?;
+        let pid = contained.child.id();
+        self.children.push(contained);
+        Ok(pid)
+    }
+
+    /// Spawn a detached child process (survives group drop).
+    fn spawn_detached(&mut self, argv: Vec<String>) -> PyResult<u32> {
+        let group = self
+            .inner
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("group already closed"))?;
+        if argv.is_empty() {
+            return Err(PyValueError::new_err("argv must not be empty"));
+        }
+        let mut cmd = std::process::Command::new(&argv[0]);
+        if argv.len() > 1 {
+            cmd.args(&argv[1..]);
+        }
+        let contained = group.spawn_detached(&mut cmd).map_err(to_py_err)?;
+        let pid = contained.child.id();
+        self.children.push(contained);
+        Ok(pid)
+    }
+
+    /// Close the group, killing all contained children.
+    fn close(&mut self) {
+        self.inner.take();
+    }
+
+    /// Context manager: __enter__ returns self.
+    fn __enter__(slf: Py<Self>) -> Py<Self> {
+        slf
+    }
+
+    /// Context manager: __exit__ closes the group.
+    #[pyo3(signature = (_exc_type=None, _exc_val=None, _exc_tb=None))]
+    fn __exit__(
+        &mut self,
+        _exc_type: Option<&Bound<'_, PyAny>>,
+        _exc_val: Option<&Bound<'_, PyAny>>,
+        _exc_tb: Option<&Bound<'_, PyAny>>,
+    ) {
+        self.close();
+    }
+}
+
+// ── Originator process scanning ─────────────────────────────────────────────
+
+#[pyclass(name = "OriginatorProcessInfo")]
+#[derive(Clone)]
+struct PyOriginatorProcessInfo {
+    #[pyo3(get)]
+    pid: u32,
+    #[pyo3(get)]
+    name: String,
+    #[pyo3(get)]
+    command: String,
+    #[pyo3(get)]
+    originator: String,
+    #[pyo3(get)]
+    parent_pid: u32,
+    #[pyo3(get)]
+    parent_alive: bool,
+}
+
+#[pymethods]
+impl PyOriginatorProcessInfo {
+    fn __repr__(&self) -> String {
+        format!(
+            "OriginatorProcessInfo(pid={}, name={:?}, originator={:?}, parent_pid={}, parent_alive={})",
+            self.pid, self.name, self.originator, self.parent_pid, self.parent_alive
+        )
+    }
+}
+
+impl From<OriginatorProcessInfo> for PyOriginatorProcessInfo {
+    fn from(info: OriginatorProcessInfo) -> Self {
+        Self {
+            pid: info.pid,
+            name: info.name,
+            command: info.command,
+            originator: info.originator,
+            parent_pid: info.parent_pid,
+            parent_alive: info.parent_alive,
+        }
+    }
+}
+
+/// Find all processes whose RUNNING_PROCESS_ORIGINATOR env var starts
+/// with the given tool prefix.
+#[pyfunction]
+fn py_find_processes_by_originator(tool: &str) -> Vec<PyOriginatorProcessInfo> {
+    find_processes_by_originator(tool)
+        .into_iter()
+        .map(PyOriginatorProcessInfo::from)
+        .collect()
 }
 
 #[pymodule]
 fn _native(_py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PyNativeProcess>()?;
     module.add_class::<NativeRunningProcess>()?;
+    module.add_class::<PyContainedProcessGroup>()?;
+    module.add_class::<PyContainment>()?;
+    module.add_class::<PyOriginatorProcessInfo>()?;
+    module.add_function(wrap_pyfunction!(py_find_processes_by_originator, module)?)?;
     module.add_class::<NativePtyProcess>()?;
     module.add_class::<NativeProcessMetrics>()?;
     module.add_class::<NativeSignalBool>()?;

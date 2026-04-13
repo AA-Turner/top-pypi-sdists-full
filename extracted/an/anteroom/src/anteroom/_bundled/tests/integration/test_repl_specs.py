@@ -443,19 +443,17 @@ class TestSpecCreatePrompt:
         renderer.console = console
         try:
             with (
-                patch("anteroom.cli.repl.create_ai_service", return_value=mock_ai) as _mock_create,
+                patch("anteroom.services.ai_service.create_ai_service", return_value=mock_ai),
                 patch("subprocess.run"),  # editor no-op
             ):
-                # Patch create_ai_service at the import site used in repl.py
-                with patch("anteroom.services.ai_service.create_ai_service", return_value=mock_ai):
-                    asyncio.run(
-                        _handle_spec_command(
-                            "/spec create --prompt add-retry ns genfeat",
-                            cmd="/spec",
-                            db=db,
-                            config=mock_config,
-                        )
+                asyncio.run(
+                    _handle_spec_command(
+                        "/spec create --prompt add-retry ns genfeat",
+                        cmd="/spec",
+                        db=db,
+                        config=mock_config,
                     )
+                )
         finally:
             renderer.console = original
         output = _ANSI_RE.sub("", buf.getvalue())

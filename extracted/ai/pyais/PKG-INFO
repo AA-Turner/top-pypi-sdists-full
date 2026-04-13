@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyais
-Version: 2.20.1
+Version: 3.0.0
 Summary: AIS message decoding
 Author-email: Leon Morten Richter <misc@leonmortenrichter.de>
 Maintainer-email: Leon Morten Richter <misc@leonmortenrichter.de>
@@ -46,7 +46,6 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: bitarray
 Requires-Dist: attrs
 Provides-Extra: dev
 Requires-Dist: mypy; extra == "dev"
@@ -66,7 +65,6 @@ Dynamic: license-file
 
 [![PyPI](https://img.shields.io/pypi/v/pyais)](https://pypi.org/project/pyais/)
 [![license](https://img.shields.io/pypi/l/pyais)](https://github.com/M0r13n/pyais/blob/master/LICENSE)
-[![codecov](https://codecov.io/gh/M0r13n/pyais/branch/master/graph/badge.svg)](https://codecov.io/gh/M0r13n/pyais)
 [![downloads](https://img.shields.io/pypi/dm/pyais)](https://pypi.org/project/pyais/)
 ![CI](https://github.com/M0r13n/pyais/workflows/CI/badge.svg)
 [![Documentation Status](https://readthedocs.org/projects/pyais/badge/?version=latest)](https://pyais.readthedocs.io/en/latest/?badge=latest)
@@ -81,7 +79,7 @@ TCP/UDP sockets. This library has been used and tested extensively in representa
 
 You can find the full documentation on [readthedocs](https://pyais.readthedocs.io/en/latest/).
 
-Binary releases (Debian packages) are provided by the [pyais-debian](https://github.com/M0r13n/pyais-debian) starting with version **v2.5.6**. They are downloadable under the [Releases](https://github.com/M0r13n/pyais/releases) page.
+⚠️ **Important:** This is version **v3**, which may contain breaking changes compared to **v2**. The latter is maintained on the [`legacy branch`](https://github.com/M0r13n/pyais/tree/legacy).
 
 # Acknowledgements
 
@@ -610,16 +608,6 @@ with pyais.AISTracker() as tracker:
         latest_tracks = tracker.n_latest_tracks(10)
 ```
 
-# Performance Considerations
-
-You may refer to
-the [Code Review Stack Exchange question](https://codereview.stackexchange.com/questions/230258/decoding-of-binary-data-ais-from-socket)
-. After a some research I decided to use the bitarray module as foundation. This module uses a C extension under the
-hood and has a nice user interface in Python. Performance is also great. Decoding
-this [sample](https://www.aishub.net/ais-dispatcher) with roughly 85k messages takes **less than 6 seconds** on my
-machine. For comparison, the C++ based [libais module](https://github.com/schwehr/libais) parses the same file in \~ 2
-seconds.
-
 # Disclaimer
 
 This module is a private project of mine and does not claim to be complete. I try to improve and extend it, but there
@@ -631,29 +619,6 @@ Currently, this module is able to decode most message types. There are only a fe
 only occur in very rare cases and that you will probably never observe. The module was able to completely decode a 4
 hour stream with real-time data from San Francisco Bay Area without any errors or problems. If you find a bug or missing
 feature, please create an issue.
-
-# Known Issues
-
-During installation, you may encounter problems due to missing header files. The error looks like this:
-
-```sh
-...
-
-    bitarray/_bitarray.c:13:10: fatal error: Python.h: No such file or directory
-       13 | #include "Python.h"
-          |          ^~~~~~~~~~
-    compilation terminated.
-    error: command 'x86_64-linux-gnu-gcc' failed with exit status 1
-
-...
-
-```
-
-In order to solve this issue, you need to install header files and static libraries for python dev:
-
-```sh
-$ sudo apt install python3-dev
-```
 
 # For developers
 

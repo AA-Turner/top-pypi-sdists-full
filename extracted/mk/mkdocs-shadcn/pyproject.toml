@@ -1,6 +1,6 @@
 [project]
 name = "mkdocs-shadcn"
-version = "0.10.3"
+version = "0.10.4"
 description = "Documentation that also shines"
 authors = [
     { name = "Alban Siffer", email = "31479857+asiffer@users.noreply.github.com" },
@@ -35,6 +35,7 @@ shadcn = "shadcn"
 [project.entry-points."mkdocs.plugins"]
 "shadcn/search" = "shadcn.plugins.search:SearchPlugin"
 "shadcn/excalidraw" = "shadcn.plugins.excalidraw:ExcalidrawPlugin"
+"shadcn/autonumber" = "shadcn.plugins.autonumber:AutoNumberPlugin"
 
 [build-system]
 requires = ["hatchling"]

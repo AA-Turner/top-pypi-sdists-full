@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-alephalpha
-Version: 0.58.0
+Version: 0.59.0
 Summary: OpenTelemetry Aleph Alpha instrumentation
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-alephalpha
 Author-email: Gal Kleinman <gal@traceloop.com>, Nir Gazit <nir@traceloop.com>, Benedikt Wolf <bene25@web.de>

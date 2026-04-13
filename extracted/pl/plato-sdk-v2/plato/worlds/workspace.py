@@ -52,6 +52,7 @@ class Workspace:
         chronos_url: str = "",
         api_key: str = "",
         session_id: str = "",
+        commit_strategy: str = "manifest",
     ):
         self._repo_root = path
         self.path = path / "data" if tracked else path
@@ -66,6 +67,7 @@ class Workspace:
         self.chronos_url = chronos_url
         self.api_key = api_key
         self.session_id = session_id
+        self.commit_strategy = commit_strategy
         self._transport: Transport | None = None
         self._sts_credentials: dict[str, str] = {}
         self._sts_expires_at: float = 0
@@ -118,6 +120,7 @@ class Workspace:
             chronos_url=self.chronos_url,
             api_key=self.api_key,
             session_id=self.session_id,
+            commit_strategy=self.commit_strategy,
         )
 
     def mount(
@@ -334,6 +337,9 @@ class Workspace:
             return await self._commit_inner(step_name, message, trigger_span_id=trigger_span_id)
 
     async def _commit_inner(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
+        if self.commit_strategy == "archive":
+            return await self._archive_commit(step_name, message, trigger_span_id=trigger_span_id)
+
         if not self._lazy_mounts:
             raise RuntimeError(
                 f"Workspace '{self.name}' has no FUSE mounts. ensure_fuse_mount() must be called before commit()."
@@ -397,12 +403,13 @@ class Workspace:
     # ------------------------------------------------------------------
 
     async def restore(self, step_name: str, session_id: str | None = None) -> bool:
-        """Restore workspace lazily via FUSE.
+        """Restore workspace from S3.
 
-        Returns True when at least one tracked directory was mounted, False when
-        the ref exists but has no DVC files.
+        Automatically detects format per directory: archive refs are extracted
+        directly, manifest refs are lazy-mounted via FUSE. Returns True when at
+        least one tracked directory was restored.
         """
-        from plato.worlds.dvc_models import DVCManifest, S3Config
+        from plato.worlds.dvc_models import DVCManifest, S3Config, parse_dvc_format, restore_archive
         from plato.worlds.lazy_dvc import mount_lazy
 
         self._require_tracked()
@@ -427,25 +434,35 @@ class Workspace:
         )
 
         for dir_name, dvc_content in dvc_files.items():
-            try:
-                manifest = await DVCManifest.from_dvc_file(dvc_content, s3_config)
-            except Exception as e:
-                raise RuntimeError(
-                    f"Failed to restore workspace '{self.name}' at step '{step_name}' "
-                    f"(repo={self.repo_name}, dir={dir_name}): {e}"
-                ) from e
-            mountpoint = self._repo_root / dir_name
-            self._cleanup_stale_mount(mountpoint)
-            mountpoint.mkdir(parents=True, exist_ok=True)
-            cache_dir = Path("/tmp/plato-lazy-cache") / self.name / dir_name
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            mount = await mount_lazy(mountpoint, manifest, s3_config, cache_dir)
-            self._lazy_mounts[dir_name] = mount
+            fmt = parse_dvc_format(dvc_content)
 
-            dvc_path = self._repo_root / f"{dir_name}.dvc"
-            dvc_path.write_text(dvc_content)
+            if fmt == "archive":
+                target_dir = self._repo_root / dir_name
+                self._cleanup_stale_mount(target_dir)
+                target_dir.mkdir(parents=True, exist_ok=True)
+                await restore_archive(dvc_content, s3_config, target_dir)
+                dvc_path = self._repo_root / f"{dir_name}.dvc"
+                dvc_path.write_text(dvc_content)
+            else:
+                try:
+                    manifest = await DVCManifest.from_dvc_file(dvc_content, s3_config)
+                except Exception as e:
+                    raise RuntimeError(
+                        f"Failed to restore workspace '{self.name}' at step '{step_name}' "
+                        f"(repo={self.repo_name}, dir={dir_name}): {e}"
+                    ) from e
+                mountpoint = self._repo_root / dir_name
+                self._cleanup_stale_mount(mountpoint)
+                mountpoint.mkdir(parents=True, exist_ok=True)
+                cache_dir = Path("/tmp/plato-lazy-cache") / self.name / dir_name
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                mount = await mount_lazy(mountpoint, manifest, s3_config, cache_dir)
+                self._lazy_mounts[dir_name] = mount
 
-        logger.info("Restored workspace '%s' step '%s': %d mount(s)", self.name, step_name, len(dvc_files))
+                dvc_path = self._repo_root / f"{dir_name}.dvc"
+                dvc_path.write_text(dvc_content)
+
+        logger.info("Restored workspace '%s' step '%s': %d dir(s)", self.name, step_name, len(dvc_files))
         self._last_ref_step = step_name
         return True
 
@@ -481,6 +498,56 @@ class Workspace:
             dvc_files[dir_name] = dvc_yaml
 
         await self._validate_dvc_files_restorable(dvc_files)
+        ref_public_id = await self._record_workspace_ref(
+            step_name, "output", dvc_files, changed=True, trigger_span_id=trigger_span_id
+        )
+        await self._upload_audit_events(step_name, ref_public_id)
+
+        return json.dumps({"step": step_name, "dvc_files": list(dvc_files.keys())})
+
+    async def _archive_commit(self, step_name: str, message: str = "", *, trigger_span_id: str = "") -> str:
+        """Commit workspace as a single tar.gz archive to S3."""
+        from plato.worlds.dvc_models import S3Config, smart_commit_archive
+
+        self._require_tracked()
+        await self._ensure_credentials()
+
+        s3_config = S3Config(
+            bucket=self.s3_bucket,
+            prefix=self.s3_prefix,
+            credentials=self._aws_credentials(),
+        )
+
+        dvcignore_path = self._repo_root / ".dvcignore"
+        ignore_patterns: list[str] = []
+        if dvcignore_path.exists():
+            ignore_patterns = [
+                line.strip()
+                for line in dvcignore_path.read_text().splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            ]
+
+        dvc_files: dict[str, str] = {}
+        # Archive commits operate on the workspace data directories directly.
+        # If we have FUSE mounts, use their mountpoints; otherwise use self.path.
+        if self._lazy_mounts:
+            for dir_name, mount in list(self._lazy_mounts.items()):
+                _, dvc_yaml = await smart_commit_archive(
+                    mount.mountpoint, s3_config, dir_name=dir_name, ignore_patterns=ignore_patterns
+                )
+                dvc_path = self._repo_root / f"{dir_name}.dvc"
+                dvc_path.write_text(dvc_yaml)
+                dvc_files[dir_name] = dvc_yaml
+        else:
+            dir_name = "data"
+            source_dir = self._repo_root / dir_name
+            _, dvc_yaml = await smart_commit_archive(
+                source_dir, s3_config, dir_name=dir_name, ignore_patterns=ignore_patterns
+            )
+            dvc_path = self._repo_root / f"{dir_name}.dvc"
+            dvc_path.write_text(dvc_yaml)
+            dvc_files[dir_name] = dvc_yaml
+
         ref_public_id = await self._record_workspace_ref(
             step_name, "output", dvc_files, changed=True, trigger_span_id=trigger_span_id
         )

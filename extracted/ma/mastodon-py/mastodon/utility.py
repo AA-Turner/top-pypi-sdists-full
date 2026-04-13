@@ -1,6 +1,7 @@
 # utility.py - utility functions, externally usable
 
 from typing import TypeVar
+import sys
 import re
 import dateutil
 import datetime
@@ -316,8 +317,6 @@ class Mastodon(Internals):
                 if return_pagination_info:
                     yield (entry, self.get_pagination_info(current_page, direction))
                 else:
-                    print("CURRENT PAGE IS", current_page)
-                    print("YIELDING ENTRY: ", entry)
                     yield entry
 
             if direction == "next":
@@ -339,6 +338,10 @@ class Mastodon(Internals):
             raise NotImplementedError(
                 'To use the get_status_length function, please install the grapheme Python module.')
 
+        # on python 3.7 and below, graphemeu can be inaccurate, so warn about this
+        if (sys.version_info.major, sys.version_info.minor) <= (3, 7):
+            warnings.warn("The grapheme module may be inaccurate on Python 3.7 and below; get_status_length results may be incorrect.")
+
         username_regex = re.compile(
             r'(^|[^/\w])@(([a-z0-9_]+)@[a-z0-9\.\-]+[a-z0-9]+)', re.IGNORECASE)
 
@@ -352,4 +355,5 @@ class Mastodon(Internals):
             return text
 
         return grapheme.length(countable_text(text)) + grapheme.length(spoiler_text)
+
 

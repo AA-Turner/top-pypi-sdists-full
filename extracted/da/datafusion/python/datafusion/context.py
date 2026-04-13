@@ -37,6 +37,8 @@ from datafusion.catalog import (
     CatalogProviderExportable,
     CatalogProviderList,
     CatalogProviderListExportable,
+    TableProviderFactory,
+    TableProviderFactoryExportable,
 )
 from datafusion.dataframe import DataFrame
 from datafusion.expr import sort_list_to_raw_sort_list
@@ -61,7 +63,8 @@ if TYPE_CHECKING:
     import polars as pl  # type: ignore[import]
 
     from datafusion.catalog import CatalogProvider, Table
-    from datafusion.expr import SortKey
+    from datafusion.common import DFSchema
+    from datafusion.expr import Expr, SortKey
     from datafusion.plan import ExecutionPlan, LogicalPlan
     from datafusion.user_defined import (
         AggregateUDF,
@@ -294,6 +297,19 @@ class SessionConfig:
         self.config_internal = self.config_internal.set(key, value)
         return self
 
+    def with_extension(self, extension: Any) -> SessionConfig:
+        """Create a new configuration using an extension.
+
+        Args:
+            extension: A custom configuration extension object. These are
+            shared from another DataFusion extension library.
+
+        Returns:
+            A new :py:class:`SessionConfig` object with the updated setting.
+        """
+        self.config_internal = self.config_internal.with_extension(extension)
+        return self
+
 
 class RuntimeEnvBuilder:
     """Runtime configuration options."""
@@ -369,9 +385,8 @@ class RuntimeEnvBuilder:
         Returns:
             A new :py:class:`RuntimeEnvBuilder` object with the updated setting.
 
-        Examples usage::
-
-            config = RuntimeEnvBuilder().with_fair_spill_pool(1024)
+        Examples:
+            >>> config = dfn.RuntimeEnvBuilder().with_fair_spill_pool(1024)
         """
         self.config_internal = self.config_internal.with_fair_spill_pool(size)
         return self
@@ -389,9 +404,8 @@ class RuntimeEnvBuilder:
         Returns:
             A new :py:class:`RuntimeEnvBuilder` object with the updated setting.
 
-        Example usage::
-
-            config = RuntimeEnvBuilder().with_greedy_memory_pool(1024)
+        Examples:
+            >>> config = dfn.RuntimeEnvBuilder().with_greedy_memory_pool(1024)
         """
         self.config_internal = self.config_internal.with_greedy_memory_pool(size)
         return self
@@ -405,17 +419,11 @@ class RuntimeEnvBuilder:
         Returns:
             A new :py:class:`RuntimeEnvBuilder` object with the updated setting.
 
-        Example usage::
-
-            config = RuntimeEnvBuilder().with_temp_file_path("/tmp")
+        Examples:
+            >>> config = dfn.RuntimeEnvBuilder().with_temp_file_path("/tmp")
         """
         self.config_internal = self.config_internal.with_temp_file_path(str(path))
         return self
-
-
-@deprecated("Use `RuntimeEnvBuilder` instead.")
-class RuntimeConfig(RuntimeEnvBuilder):
-    """See `RuntimeEnvBuilder`."""
 
 
 class SQLOptions:
@@ -442,9 +450,8 @@ class SQLOptions:
         Returns:
             A new :py:class:`SQLOptions` object with the updated setting.
 
-        Example usage::
-
-            options = SQLOptions().with_allow_ddl(True)
+        Examples:
+            >>> options = dfn.SQLOptions().with_allow_ddl(True)
         """
         self.options_internal = self.options_internal.with_allow_ddl(allow)
         return self
@@ -460,9 +467,8 @@ class SQLOptions:
         Returns:
             A new :py:class:`SQLOptions` object with the updated setting.
 
-        Example usage::
-
-            options = SQLOptions().with_allow_dml(True)
+        Examples:
+            >>> options = dfn.SQLOptions().with_allow_dml(True)
         """
         self.options_internal = self.options_internal.with_allow_dml(allow)
         return self
@@ -476,9 +482,8 @@ class SQLOptions:
         Returns:
             A new :py:class:SQLOptions` object with the updated setting.
 
-        Example usage::
-
-            options = SQLOptions().with_allow_statements(True)
+        Examples:
+            >>> options = dfn.SQLOptions().with_allow_statements(True)
         """
         self.options_internal = self.options_internal.with_allow_statements(allow)
         return self
@@ -558,6 +563,15 @@ class SessionContext:
             host: URL for the host.
         """
         self.ctx.register_object_store(schema, store, host)
+
+    def deregister_object_store(self, schema: str, host: str | None = None) -> None:
+        """Remove an object store from the session.
+
+        Args:
+            schema: The data source schema (e.g. ``"s3://"``).
+            host: URL for the host (e.g. bucket name).
+        """
+        self.ctx.deregister_object_store(schema, host)
 
     def register_listing_table(
         self,
@@ -766,14 +780,6 @@ class SessionContext:
         """
         return DataFrame(self.ctx.from_arrow(data, name))
 
-    @deprecated("Use ``from_arrow`` instead.")
-    def from_arrow_table(self, data: pa.Table, name: str | None = None) -> DataFrame:
-        """Create a :py:class:`~datafusion.dataframe.DataFrame` from an Arrow table.
-
-        This is an alias for :py:func:`from_arrow`.
-        """
-        return self.from_arrow(data, name)
-
     def from_pandas(self, data: pd.DataFrame, name: str | None = None) -> DataFrame:
         """Create a :py:class:`~datafusion.dataframe.DataFrame` from a Pandas DataFrame.
 
@@ -830,6 +836,22 @@ class SessionContext:
         """Remove a table from the session."""
         self.ctx.deregister_table(name)
 
+    def register_table_factory(
+        self,
+        format: str,
+        factory: TableProviderFactory | TableProviderFactoryExportable,
+    ) -> None:
+        """Register a :py:class:`~datafusion.TableProviderFactoryExportable`.
+
+        The registered factory can be referenced from SQL DDL statements executed
+        against this context.
+
+        Args:
+            format: The value to be used in `STORED AS ${format}` clause.
+            factory: A PyCapsule that implements :class:`TableProviderFactoryExportable`
+        """
+        self.ctx.register_table_factory(format, factory)
+
     def catalog_names(self) -> set[str]:
         """Returns the list of catalogs in this context."""
         return self.ctx.catalog_names()
@@ -868,6 +890,35 @@ class SessionContext:
     def register_udtf(self, func: TableFunction) -> None:
         """Register a user defined table function."""
         self.ctx.register_udtf(func._udtf)
+
+    def register_batch(self, name: str, batch: pa.RecordBatch) -> None:
+        """Register a single :py:class:`pa.RecordBatch` as a table.
+
+        Args:
+            name: Name of the resultant table.
+            batch: Record batch to register as a table.
+
+        Examples:
+            >>> ctx = dfn.SessionContext()
+            >>> batch = pa.RecordBatch.from_pydict({"a": [1, 2, 3]})
+            >>> ctx.register_batch("batch_tbl", batch)
+            >>> ctx.sql("SELECT * FROM batch_tbl").collect()[0].column(0)
+            <pyarrow.lib.Int64Array object at ...>
+            [
+              1,
+              2,
+              3
+            ]
+        """
+        self.ctx.register_batch(name, batch)
+
+    def deregister_udtf(self, name: str) -> None:
+        """Remove a user-defined table function from the session.
+
+        Args:
+            name: Name of the UDTF to deregister.
+        """
+        self.ctx.deregister_udtf(name)
 
     def register_record_batches(
         self, name: str, partitions: list[list[pa.RecordBatch]]
@@ -1067,6 +1118,86 @@ class SessionContext:
             name, str(path), schema, file_extension, table_partition_cols
         )
 
+    def register_arrow(
+        self,
+        name: str,
+        path: str | pathlib.Path,
+        schema: pa.Schema | None = None,
+        file_extension: str = ".arrow",
+        table_partition_cols: list[tuple[str, str | pa.DataType]] | None = None,
+    ) -> None:
+        """Register an Arrow IPC file as a table.
+
+        The registered table can be referenced from SQL statements executed
+        against this context.
+
+        Args:
+            name: Name of the table to register.
+            path: Path to the Arrow IPC file.
+            schema: The data source schema.
+            file_extension: File extension to select.
+            table_partition_cols: Partition columns.
+
+        Examples:
+            >>> import tempfile, os
+            >>> ctx = dfn.SessionContext()
+            >>> table = pa.table({"x": [10, 20, 30]})
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     path = os.path.join(tmpdir, "data.arrow")
+            ...     with pa.ipc.new_file(path, table.schema) as writer:
+            ...         writer.write_table(table)
+            ...     ctx.register_arrow("arrow_tbl", path)
+            ...     ctx.sql("SELECT * FROM arrow_tbl").collect()[0].column(0)
+            <pyarrow.lib.Int64Array object at ...>
+            [
+              10,
+              20,
+              30
+            ]
+
+            Provide an explicit ``schema`` to override schema inference:
+
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     path = os.path.join(tmpdir, "data.arrow")
+            ...     with pa.ipc.new_file(path, table.schema) as writer:
+            ...         writer.write_table(table)
+            ...     ctx.register_arrow(
+            ...         "arrow_schema",
+            ...         path,
+            ...         schema=pa.schema([("x", pa.int64())]),
+            ...     )
+            ...     ctx.sql("SELECT * FROM arrow_schema").collect()[0].column(0)
+            <pyarrow.lib.Int64Array object at ...>
+            [
+              10,
+              20,
+              30
+            ]
+
+            Use ``file_extension`` to read files with a non-default extension:
+
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     path = os.path.join(tmpdir, "data.ipc")
+            ...     with pa.ipc.new_file(path, table.schema) as writer:
+            ...         writer.write_table(table)
+            ...     ctx.register_arrow(
+            ...         "arrow_ipc", path, file_extension=".ipc"
+            ...     )
+            ...     ctx.sql("SELECT * FROM arrow_ipc").collect()[0].column(0)
+            <pyarrow.lib.Int64Array object at ...>
+            [
+              10,
+              20,
+              30
+            ]
+        """
+        if table_partition_cols is None:
+            table_partition_cols = []
+        table_partition_cols = _convert_table_partition_cols(table_partition_cols)
+        self.ctx.register_arrow(
+            name, str(path), schema, file_extension, table_partition_cols
+        )
+
     def register_dataset(self, name: str, dataset: pa.dataset.Dataset) -> None:
         """Register a :py:class:`pa.dataset.Dataset` as a table.
 
@@ -1080,25 +1211,41 @@ class SessionContext:
         """Register a user-defined function (UDF) with the context."""
         self.ctx.register_udf(udf._udf)
 
+    def deregister_udf(self, name: str) -> None:
+        """Remove a user-defined scalar function from the session.
+
+        Args:
+            name: Name of the UDF to deregister.
+        """
+        self.ctx.deregister_udf(name)
+
     def register_udaf(self, udaf: AggregateUDF) -> None:
         """Register a user-defined aggregation function (UDAF) with the context."""
         self.ctx.register_udaf(udaf._udaf)
+
+    def deregister_udaf(self, name: str) -> None:
+        """Remove a user-defined aggregate function from the session.
+
+        Args:
+            name: Name of the UDAF to deregister.
+        """
+        self.ctx.deregister_udaf(name)
 
     def register_udwf(self, udwf: WindowUDF) -> None:
         """Register a user-defined window function (UDWF) with the context."""
         self.ctx.register_udwf(udwf._udwf)
 
+    def deregister_udwf(self, name: str) -> None:
+        """Remove a user-defined window function from the session.
+
+        Args:
+            name: Name of the UDWF to deregister.
+        """
+        self.ctx.deregister_udwf(name)
+
     def catalog(self, name: str = "datafusion") -> Catalog:
         """Retrieve a catalog by name."""
         return Catalog(self.ctx.catalog(name))
-
-    @deprecated(
-        "Use the catalog provider interface ``SessionContext.Catalog`` to "
-        "examine available catalogs, schemas and tables"
-    )
-    def tables(self) -> set[str]:
-        """Deprecated."""
-        return self.ctx.tables()
 
     def table(self, name: str) -> DataFrame:
         """Retrieve a previously registered table by name."""
@@ -1115,6 +1262,121 @@ class SessionContext:
     def session_id(self) -> str:
         """Return an id that uniquely identifies this :py:class:`SessionContext`."""
         return self.ctx.session_id()
+
+    def session_start_time(self) -> str:
+        """Return the session start time as an RFC 3339 formatted string.
+
+        Examples:
+            >>> ctx = SessionContext()
+            >>> ctx.session_start_time()  # doctest: +SKIP
+            '2026-01-01T12:34:56.123456789+00:00'
+        """
+        return self.ctx.session_start_time()
+
+    def enable_ident_normalization(self) -> bool:
+        """Return whether identifier normalization (lowercasing) is enabled.
+
+        Examples:
+            >>> ctx = SessionContext()
+            >>> ctx.enable_ident_normalization()
+            True
+        """
+        return self.ctx.enable_ident_normalization()
+
+    def parse_sql_expr(self, sql: str, schema: DFSchema) -> Expr:
+        """Parse a SQL expression string into a logical expression.
+
+        Args:
+            sql: SQL expression string.
+            schema: Schema to use for resolving column references.
+
+        Returns:
+            Parsed expression.
+
+        Examples:
+            >>> from datafusion.common import DFSchema
+            >>> ctx = SessionContext()
+            >>> schema = DFSchema.empty()
+            >>> ctx.parse_sql_expr("1 + 2", schema=schema)
+            Expr(Int64(1) + Int64(2))
+        """
+        from datafusion.expr import Expr  # noqa: PLC0415
+
+        return Expr(self.ctx.parse_sql_expr(sql, schema))
+
+    def execute_logical_plan(self, plan: LogicalPlan) -> DataFrame:
+        """Execute a :py:class:`~datafusion.plan.LogicalPlan` and return a DataFrame.
+
+        Args:
+            plan: Logical plan to execute.
+
+        Returns:
+            DataFrame resulting from the execution.
+
+        Examples:
+            >>> ctx = SessionContext()
+            >>> df = ctx.from_pydict({"a": [1, 2, 3]})
+            >>> plan = df.logical_plan()
+            >>> df2 = ctx.execute_logical_plan(plan)
+            >>> df2.collect()[0].column(0)
+            <pyarrow.lib.Int64Array object at ...>
+            [
+              1,
+              2,
+              3
+            ]
+        """
+        return DataFrame(self.ctx.execute_logical_plan(plan._raw_plan))
+
+    def refresh_catalogs(self) -> None:
+        """Refresh catalog metadata.
+
+        Examples:
+            >>> ctx = SessionContext()
+            >>> ctx.refresh_catalogs()
+        """
+        self.ctx.refresh_catalogs()
+
+    def remove_optimizer_rule(self, name: str) -> bool:
+        """Remove an optimizer rule by name.
+
+        Args:
+            name: Name of the optimizer rule to remove.
+
+        Returns:
+            True if a rule with the given name was found and removed.
+
+        Examples:
+            >>> ctx = SessionContext()
+            >>> ctx.remove_optimizer_rule("nonexistent_rule")
+            False
+        """
+        return self.ctx.remove_optimizer_rule(name)
+
+    def table_provider(self, name: str) -> Table:
+        """Return the :py:class:`~datafusion.catalog.Table` for the given table name.
+
+        Args:
+            name: Name of the table.
+
+        Returns:
+            The table provider.
+
+        Raises:
+            KeyError: If the table is not found.
+
+        Examples:
+            >>> import pyarrow as pa
+            >>> ctx = SessionContext()
+            >>> batch = pa.RecordBatch.from_pydict({"x": [1, 2]})
+            >>> ctx.register_record_batches("my_table", [[batch]])
+            >>> tbl = ctx.table_provider("my_table")
+            >>> tbl.schema
+            x: int64
+        """
+        from datafusion.catalog import Table  # noqa: PLC0415
+
+        return Table(self.ctx.table_provider(name))
 
     def read_json(
         self,
@@ -1302,6 +1564,86 @@ class SessionContext:
         return DataFrame(
             self.ctx.read_avro(str(path), schema, file_partition_cols, file_extension)
         )
+
+    def read_arrow(
+        self,
+        path: str | pathlib.Path,
+        schema: pa.Schema | None = None,
+        file_extension: str = ".arrow",
+        file_partition_cols: list[tuple[str, str | pa.DataType]] | None = None,
+    ) -> DataFrame:
+        """Create a :py:class:`DataFrame` for reading an Arrow IPC data source.
+
+        Args:
+            path: Path to the Arrow IPC file.
+            schema: The data source schema.
+            file_extension: File extension to select.
+            file_partition_cols: Partition columns.
+
+        Returns:
+            DataFrame representation of the read Arrow IPC file.
+
+        Examples:
+            >>> import tempfile, os
+            >>> ctx = dfn.SessionContext()
+            >>> table = pa.table({"a": [1, 2, 3]})
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     path = os.path.join(tmpdir, "data.arrow")
+            ...     with pa.ipc.new_file(path, table.schema) as writer:
+            ...         writer.write_table(table)
+            ...     df = ctx.read_arrow(path)
+            ...     df.collect()[0].column(0)
+            <pyarrow.lib.Int64Array object at ...>
+            [
+              1,
+              2,
+              3
+            ]
+
+            Provide an explicit ``schema`` to override schema inference:
+
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     path = os.path.join(tmpdir, "data.arrow")
+            ...     with pa.ipc.new_file(path, table.schema) as writer:
+            ...         writer.write_table(table)
+            ...     df = ctx.read_arrow(path, schema=pa.schema([("a", pa.int64())]))
+            ...     df.collect()[0].column(0)
+            <pyarrow.lib.Int64Array object at ...>
+            [
+              1,
+              2,
+              3
+            ]
+
+            Use ``file_extension`` to read files with a non-default extension:
+
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     path = os.path.join(tmpdir, "data.ipc")
+            ...     with pa.ipc.new_file(path, table.schema) as writer:
+            ...         writer.write_table(table)
+            ...     df = ctx.read_arrow(path, file_extension=".ipc")
+            ...     df.collect()[0].column(0)
+            <pyarrow.lib.Int64Array object at ...>
+            [
+              1,
+              2,
+              3
+            ]
+        """
+        if file_partition_cols is None:
+            file_partition_cols = []
+        file_partition_cols = _convert_table_partition_cols(file_partition_cols)
+        return DataFrame(
+            self.ctx.read_arrow(str(path), schema, file_extension, file_partition_cols)
+        )
+
+    def read_empty(self) -> DataFrame:
+        """Create an empty :py:class:`DataFrame` with no columns or rows.
+
+        See Also:
+            This is an alias for :meth:`empty_table`.
+        """
+        return self.empty_table()
 
     def read_table(
         self, table: Table | TableProviderExportable | DataFrame | pa.dataset.Dataset

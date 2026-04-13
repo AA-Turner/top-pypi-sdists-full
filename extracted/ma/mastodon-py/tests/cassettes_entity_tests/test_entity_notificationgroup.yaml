@@ -16,382 +16,257 @@ interactions:
     uri: https://mastodon.social/api/v2/notifications?expand_accounts=partial_avatars
   response:
     body:
-      string: '{"accounts": [{"id": "261937", "username": "halcy", "acct": "halcy@glitch.social",
-        "display_name": "fake halcy", "locked": false, "bot": false, "discoverable":
-        false, "indexable": false, "group": false, "created_at": "2017-12-13T00:00:00.000Z",
-        "note": "<p>test account for Mastodon.py development</p>", "url": "https://glitch.social/@halcy",
-        "uri": "https://glitch.social/users/halcy", "avatar": "https://files.mastodon.social/accounts/avatars/000/261/937/original/8ddd2c33f682ef12.png",
-        "avatar_static": "https://files.mastodon.social/accounts/avatars/000/261/937/original/8ddd2c33f682ef12.png",
-        "header": "https://files.mastodon.social/accounts/headers/000/261/937/original/3741881592d9d97b.png",
-        "header_static": "https://files.mastodon.social/accounts/headers/000/261/937/original/3741881592d9d97b.png",
-        "followers_count": 13, "following_count": 2, "statuses_count": 44, "last_status_at":
-        null, "hide_collections": false, "emojis": [], "fields": [{"name": "A", "value":
-        "X", "verified_at": null}, {"name": "B", "value": "Y", "verified_at": null},
-        {"name": "C", "value": "Z", "verified_at": null}, {"name": "D", "value": "W",
-        "verified_at": null}]}, {"id": "109446733121874654", "username": "latencyobs",
+      string: '{"accounts": [{"id": "109446733121874654", "username": "latencyobs",
         "acct": "latencyobs@icosahedron.website", "display_name": "Latency Observer",
         "locked": false, "bot": false, "discoverable": false, "indexable": false,
         "group": false, "created_at": "2022-12-02T00:00:00.000Z", "note": "", "url":
         "https://icosahedron.website/@latencyobs", "uri": "https://icosahedron.website/users/latencyobs",
         "avatar": "https://mastodon.social/avatars/original/missing.png", "avatar_static":
-        "https://mastodon.social/avatars/original/missing.png", "header": "https://mastodon.social/headers/original/missing.png",
-        "header_static": "https://mastodon.social/headers/original/missing.png", "followers_count":
-        0, "following_count": 0, "statuses_count": 0, "last_status_at": null, "hide_collections":
-        false, "emojis": [], "fields": []}, {"id": "109446733188999785", "username":
-        "halcy", "acct": "halcy@hachyderm.io", "display_name": "halcy", "locked":
-        false, "bot": false, "discoverable": false, "indexable": false, "group": false,
-        "created_at": "2022-12-01T00:00:00.000Z", "note": "", "url": "https://hachyderm.io/@halcy",
-        "uri": "https://hachyderm.io/users/halcy", "avatar": "https://mastodon.social/avatars/original/missing.png",
-        "avatar_static": "https://mastodon.social/avatars/original/missing.png", "header":
-        "https://mastodon.social/headers/original/missing.png", "header_static": "https://mastodon.social/headers/original/missing.png",
-        "followers_count": 0, "following_count": 0, "statuses_count": 1, "last_status_at":
-        null, "hide_collections": false, "emojis": [], "fields": []}, {"id": "23972",
-        "username": "halcy", "acct": "halcy@icosahedron.website", "display_name":
-        "halcy\u200b :icosahedron:", "locked": false, "bot": false, "discoverable":
-        true, "indexable": true, "group": false, "created_at": "2017-02-03T00:00:00.000Z",
-        "note": "<p>build. your. squid.</p><p>ideal for comfortable gameplay in relaxed
-        locations.</p><p>i work at, but do not speak for, microsoft.</p>", "url":
-        "https://icosahedron.website/@halcy", "uri": "https://icosahedron.website/users/halcy",
-        "avatar": "https://files.mastodon.social/cache/accounts/avatars/000/023/972/original/9c900052b7f670db.jpg",
-        "avatar_static": "https://files.mastodon.social/cache/accounts/avatars/000/023/972/original/9c900052b7f670db.jpg",
-        "header": "https://files.mastodon.social/cache/accounts/headers/000/023/972/original/e5c0d647464517c2.png",
-        "header_static": "https://files.mastodon.social/cache/accounts/headers/000/023/972/original/e5c0d647464517c2.png",
-        "followers_count": 3421, "following_count": 519, "statuses_count": 68338,
-        "last_status_at": "2025-08-15", "hide_collections": true, "emojis": [{"shortcode":
-        "icosahedron", "url": "https://files.mastodon.social/cache/custom_emojis/images/000/002/116/original/e0d448640e549b87.png",
-        "static_url": "https://files.mastodon.social/cache/custom_emojis/images/000/002/116/static/e0d448640e549b87.png",
-        "visible_in_picker": true}], "fields": [{"name": "Web", "value": "<a href=\"https://halcy.de/\"
-        target=\"_blank\" rel=\"nofollow noopener\" translate=\"no\"><span class=\"invisible\">https://</span><span
-        class=\"\">halcy.de/</span><span class=\"invisible\"></span></a>", "verified_at":
-        "2025-08-14T22:55:32.558+00:00"}, {"name": "Demogroup", "value": "<a href=\"https://demoscene.vc/\"
-        rel=\"nofollow noopener\" translate=\"no\" target=\"_blank\"><span class=\"invisible\">https://</span><span
-        class=\"\">demoscene.vc/</span><span class=\"invisible\"></span></a>", "verified_at":
-        null}, {"name": "Pronouns", "value": "He/Him", "verified_at": null}, {"name":
-        "Priv", "value": "<span class=\"h-card\" translate=\"no\"><a href=\"https://icosahedron.website/@halcy2\"
-        class=\"u-url mention\" rel=\"nofollow noopener\" target=\"_blank\">@<span>halcy2</span></a></span>",
-        "verified_at": null}]}], "partial_accounts": [], "statuses": [{"id": "114976376209872557",
-        "created_at": "2025-08-05T13:24:31.000Z", "in_reply_to_id": null, "in_reply_to_account_id":
-        null, "sensitive": false, "spoiler_text": "", "visibility": "direct", "language":
-        "de", "uri": "https://glitch.social/users/halcy/statuses/114976376172334732",
-        "url": "https://glitch.social/@halcy/114976376172334732", "replies_count":
-        0, "reblogs_count": 0, "favourites_count": 0, "edited_at": null, "favourited":
-        false, "reblogged": false, "muted": false, "bookmarked": false, "content":
-        "<p><span class=\"h-card\" translate=\"no\"><a href=\"https://mastodon.social/@halcy\"
-        class=\"u-url mention\" rel=\"nofollow noopener\" target=\"_blank\">@<span>halcy@mastodon.social</span></a></span>
-        <span class=\"h-card\" translate=\"no\"><a href=\"https://icosahedron.website/@latencyobs\"
-        class=\"u-url mention\" rel=\"nofollow noopener\" target=\"_blank\">@<span>latencyobs</span></a></span>
-        <span class=\"h-card\" translate=\"no\"><a href=\"https://hachyderm.io/@halcy\"
-        class=\"u-url mention\" rel=\"nofollow noopener\" target=\"_blank\">@<span>halcy@hachyderm.io</span></a></span>
-        ____________LATENCYPING____________1754400271.0995398____________LATENCYPING____________</p>",
-        "filtered": [], "reblog": null, "account": {"id": "261937", "username": "halcy",
-        "acct": "halcy@glitch.social", "display_name": "fake halcy", "locked": false,
-        "bot": false, "discoverable": false, "indexable": false, "group": false, "created_at":
-        "2017-12-13T00:00:00.000Z", "note": "<p>test account for Mastodon.py development</p>",
-        "url": "https://glitch.social/@halcy", "uri": "https://glitch.social/users/halcy",
-        "avatar": "https://files.mastodon.social/accounts/avatars/000/261/937/original/8ddd2c33f682ef12.png",
+        "https://mastodon.social/avatars/original/missing.png", "avatar_description":
+        "", "header": "https://mastodon.social/headers/original/missing.png", "header_static":
+        "https://mastodon.social/headers/original/missing.png", "header_description":
+        "", "followers_count": 0, "following_count": 0, "statuses_count": 0, "last_status_at":
+        null, "hide_collections": false, "show_media": true, "show_media_replies":
+        true, "show_featured": true, "emojis": [], "fields": []}, {"id": "109446733188999785",
+        "username": "halcy", "acct": "halcy@hachyderm.io", "display_name": "halcy",
+        "locked": false, "bot": false, "discoverable": false, "indexable": false,
+        "group": false, "created_at": "2022-12-01T00:00:00.000Z", "note": "", "url":
+        "https://hachyderm.io/@halcy", "uri": "https://hachyderm.io/users/halcy",
+        "avatar": "https://files.mastodon.social/cache/accounts/avatars/109/446/733/188/999/785/original/6518eb9200a50b3b.gif",
+        "avatar_static": "https://files.mastodon.social/cache/accounts/avatars/109/446/733/188/999/785/static/6518eb9200a50b3b.png",
+        "avatar_description": "", "header": "https://mastodon.social/headers/original/missing.png",
+        "header_static": "https://mastodon.social/headers/original/missing.png", "header_description":
+        "", "followers_count": 2, "following_count": 2, "statuses_count": 3, "last_status_at":
+        "2025-08-17", "hide_collections": false, "show_media": true, "show_media_replies":
+        true, "show_featured": true, "emojis": [], "fields": []}, {"id": "261937",
+        "username": "halcy", "acct": "halcy@glitch.social", "display_name": "fake
+        halcy", "locked": false, "bot": false, "discoverable": false, "indexable":
+        false, "group": false, "created_at": "2017-12-13T00:00:00.000Z", "note": "<p>test
+        account for Mastodon.py development</p>", "url": "https://glitch.social/@halcy",
+        "uri": "https://glitch.social/users/halcy", "avatar": "https://files.mastodon.social/accounts/avatars/000/261/937/original/8ddd2c33f682ef12.png",
         "avatar_static": "https://files.mastodon.social/accounts/avatars/000/261/937/original/8ddd2c33f682ef12.png",
-        "header": "https://files.mastodon.social/accounts/headers/000/261/937/original/3741881592d9d97b.png",
+        "avatar_description": "", "header": "https://files.mastodon.social/accounts/headers/000/261/937/original/3741881592d9d97b.png",
         "header_static": "https://files.mastodon.social/accounts/headers/000/261/937/original/3741881592d9d97b.png",
-        "followers_count": 13, "following_count": 2, "statuses_count": 44, "last_status_at":
-        null, "hide_collections": false, "emojis": [], "fields": [{"name": "A", "value":
-        "X", "verified_at": null}, {"name": "B", "value": "Y", "verified_at": null},
-        {"name": "C", "value": "Z", "verified_at": null}, {"name": "D", "value": "W",
-        "verified_at": null}]}, "media_attachments": [], "mentions": [{"id": "43",
-        "username": "halcy", "url": "https://mastodon.social/@halcy", "acct": "halcy"},
-        {"id": "109446733121874654", "username": "latencyobs", "url": "https://icosahedron.website/@latencyobs",
-        "acct": "latencyobs@icosahedron.website"}, {"id": "109446733188999785", "username":
-        "halcy", "url": "https://hachyderm.io/@halcy", "acct": "halcy@hachyderm.io"}],
-        "tags": [], "emojis": [], "quote": null, "card": null, "poll": null}, {"id":
-        "114942424782817157", "created_at": "2025-07-30T13:30:13.000Z", "in_reply_to_id":
-        null, "in_reply_to_account_id": null, "sensitive": false, "spoiler_text":
-        "", "visibility": "direct", "language": "en", "uri": "https://icosahedron.website/users/halcy/statuses/114942424762885790",
-        "url": "https://icosahedron.website/@halcy/114942424762885790", "replies_count":
-        0, "reblogs_count": 0, "favourites_count": 0, "edited_at": null, "favourited":
-        false, "reblogged": false, "muted": false, "bookmarked": false, "content":
-        "<p><span class=\"h-card\" translate=\"no\"><a href=\"https://mastodon.social/@halcy\"
-        class=\"u-url mention\" rel=\"nofollow noopener\" target=\"_blank\">@<span>halcy@mastodon.social</span></a></span>
-        <a href=\"https://kal-tsit.halcy.de/dev?teeeeeeestlolll2\" rel=\"nofollow
-        noopener\" translate=\"no\" target=\"_blank\"><span class=\"invisible\">https://</span><span
-        class=\"ellipsis\">kal-tsit.halcy.de/dev?teeeeeee</span><span class=\"invisible\">stlolll2</span></a></p>",
-        "filtered": [], "reblog": null, "account": {"id": "23972", "username": "halcy",
-        "acct": "halcy@icosahedron.website", "display_name": "halcy\u200b :icosahedron:",
-        "locked": false, "bot": false, "discoverable": true, "indexable": true, "group":
-        false, "created_at": "2017-02-03T00:00:00.000Z", "note": "<p>build. your.
-        squid.</p><p>ideal for comfortable gameplay in relaxed locations.</p><p>i
-        work at, but do not speak for, microsoft.</p>", "url": "https://icosahedron.website/@halcy",
-        "uri": "https://icosahedron.website/users/halcy", "avatar": "https://files.mastodon.social/cache/accounts/avatars/000/023/972/original/9c900052b7f670db.jpg",
-        "avatar_static": "https://files.mastodon.social/cache/accounts/avatars/000/023/972/original/9c900052b7f670db.jpg",
-        "header": "https://files.mastodon.social/cache/accounts/headers/000/023/972/original/e5c0d647464517c2.png",
-        "header_static": "https://files.mastodon.social/cache/accounts/headers/000/023/972/original/e5c0d647464517c2.png",
-        "followers_count": 3421, "following_count": 519, "statuses_count": 68338,
-        "last_status_at": "2025-08-15", "hide_collections": true, "emojis": [{"shortcode":
-        "icosahedron", "url": "https://files.mastodon.social/cache/custom_emojis/images/000/002/116/original/e0d448640e549b87.png",
-        "static_url": "https://files.mastodon.social/cache/custom_emojis/images/000/002/116/static/e0d448640e549b87.png",
-        "visible_in_picker": true}], "fields": [{"name": "Web", "value": "<a href=\"https://halcy.de/\"
-        target=\"_blank\" rel=\"nofollow noopener\" translate=\"no\"><span class=\"invisible\">https://</span><span
-        class=\"\">halcy.de/</span><span class=\"invisible\"></span></a>", "verified_at":
-        "2025-08-14T22:55:32.558+00:00"}, {"name": "Demogroup", "value": "<a href=\"https://demoscene.vc/\"
-        rel=\"nofollow noopener\" translate=\"no\" target=\"_blank\"><span class=\"invisible\">https://</span><span
-        class=\"\">demoscene.vc/</span><span class=\"invisible\"></span></a>", "verified_at":
-        null}, {"name": "Pronouns", "value": "He/Him", "verified_at": null}, {"name":
-        "Priv", "value": "<span class=\"h-card\" translate=\"no\"><a href=\"https://icosahedron.website/@halcy2\"
-        class=\"u-url mention\" rel=\"nofollow noopener\" target=\"_blank\">@<span>halcy2</span></a></span>",
-        "verified_at": null}]}, "media_attachments": [], "mentions": [{"id": "43",
-        "username": "halcy", "url": "https://mastodon.social/@halcy", "acct": "halcy"}],
-        "tags": [], "emojis": [], "quote": null, "card": null, "poll": null}, {"id":
-        "114938417684509406", "created_at": "2025-07-29T20:31:10.000Z", "in_reply_to_id":
-        null, "in_reply_to_account_id": null, "sensitive": false, "spoiler_text":
-        "", "visibility": "direct", "language": "en", "uri": "https://icosahedron.website/users/halcy/statuses/114938417663852418",
-        "url": "https://icosahedron.website/@halcy/114938417663852418", "replies_count":
-        0, "reblogs_count": 0, "favourites_count": 0, "edited_at": null, "favourited":
-        false, "reblogged": false, "muted": false, "bookmarked": false, "content":
-        "<p><span class=\"h-card\" translate=\"no\"><a href=\"https://mastodon.social/@halcy\"
-        class=\"u-url mention\" rel=\"nofollow noopener\" target=\"_blank\">@<span>halcy@mastodon.social</span></a></span>
-        <a href=\"https://kal-tsit.halcy.de/dev/?checkthisout\" rel=\"nofollow noopener\"
-        translate=\"no\" target=\"_blank\"><span class=\"invisible\">https://</span><span
-        class=\"ellipsis\">kal-tsit.halcy.de/dev/?checkth</span><span class=\"invisible\">isout</span></a></p>",
-        "filtered": [], "reblog": null, "account": {"id": "23972", "username": "halcy",
-        "acct": "halcy@icosahedron.website", "display_name": "halcy\u200b :icosahedron:",
-        "locked": false, "bot": false, "discoverable": true, "indexable": true, "group":
-        false, "created_at": "2017-02-03T00:00:00.000Z", "note": "<p>build. your.
-        squid.</p><p>ideal for comfortable gameplay in relaxed locations.</p><p>i
-        work at, but do not speak for, microsoft.</p>", "url": "https://icosahedron.website/@halcy",
-        "uri": "https://icosahedron.website/users/halcy", "avatar": "https://files.mastodon.social/cache/accounts/avatars/000/023/972/original/9c900052b7f670db.jpg",
-        "avatar_static": "https://files.mastodon.social/cache/accounts/avatars/000/023/972/original/9c900052b7f670db.jpg",
-        "header": "https://files.mastodon.social/cache/accounts/headers/000/023/972/original/e5c0d647464517c2.png",
-        "header_static": "https://files.mastodon.social/cache/accounts/headers/000/023/972/original/e5c0d647464517c2.png",
-        "followers_count": 3421, "following_count": 519, "statuses_count": 68338,
-        "last_status_at": "2025-08-15", "hide_collections": true, "emojis": [{"shortcode":
-        "icosahedron", "url": "https://files.mastodon.social/cache/custom_emojis/images/000/002/116/original/e0d448640e549b87.png",
-        "static_url": "https://files.mastodon.social/cache/custom_emojis/images/000/002/116/static/e0d448640e549b87.png",
-        "visible_in_picker": true}], "fields": [{"name": "Web", "value": "<a href=\"https://halcy.de/\"
-        target=\"_blank\" rel=\"nofollow noopener\" translate=\"no\"><span class=\"invisible\">https://</span><span
-        class=\"\">halcy.de/</span><span class=\"invisible\"></span></a>", "verified_at":
-        "2025-08-14T22:55:32.558+00:00"}, {"name": "Demogroup", "value": "<a href=\"https://demoscene.vc/\"
-        rel=\"nofollow noopener\" translate=\"no\" target=\"_blank\"><span class=\"invisible\">https://</span><span
-        class=\"\">demoscene.vc/</span><span class=\"invisible\"></span></a>", "verified_at":
-        null}, {"name": "Pronouns", "value": "He/Him", "verified_at": null}, {"name":
-        "Priv", "value": "<span class=\"h-card\" translate=\"no\"><a href=\"https://icosahedron.website/@halcy2\"
-        class=\"u-url mention\" rel=\"nofollow noopener\" target=\"_blank\">@<span>halcy2</span></a></span>",
-        "verified_at": null}]}, "media_attachments": [], "mentions": [{"id": "43",
-        "username": "halcy", "url": "https://mastodon.social/@halcy", "acct": "halcy"}],
-        "tags": [], "emojis": [], "quote": null, "card": {"url": "https://kal-tsit.halcy.de/dev/?checkthisout",
-        "title": "Interactive Grid", "description": "", "language": "en", "type":
-        "video", "author_name": "", "author_url": "", "provider_name": "", "provider_url":
-        "", "html": "<iframe src=\"https://kal-tsit.halcy.de/dev/?id=-1\" width=\"800\"
-        height=\"450\" allowfullscreen=\"allowfullscreen\" scrolling=\"no\" frameborder=\"0\"
-        sandbox=\"allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox
-        allow-forms\"></iframe>", "width": 800, "height": 450, "image": "https://files.mastodon.social/cache/preview_cards/images/156/941/483/original/a94367da26d9550e.png",
-        "image_description": "", "embed_url": "", "blurhash": "U3BoqEIBTVD%;Way#toM79of2}R%ORafFofj",
-        "published_at": null, "authors": []}, "poll": null}, {"id": "114875833772118580",
-        "created_at": "2025-07-18T19:15:15.000Z", "in_reply_to_id": null, "in_reply_to_account_id":
-        null, "sensitive": false, "spoiler_text": "", "visibility": "direct", "language":
-        "en", "uri": "https://icosahedron.website/users/latencyobs/statuses/114875833746679573",
-        "url": "https://icosahedron.website/@latencyobs/114875833746679573", "replies_count":
-        0, "reblogs_count": 0, "favourites_count": 0, "edited_at": null, "favourited":
-        false, "reblogged": false, "muted": false, "bookmarked": false, "content":
-        "<p><span class=\"h-card\" translate=\"no\"><a href=\"https://mastodon.social/@halcy\"
+        "header_description": "", "followers_count": 12, "following_count": 2, "statuses_count":
+        44, "last_status_at": null, "hide_collections": false, "show_media": true,
+        "show_media_replies": true, "show_featured": true, "emojis": [], "fields":
+        [{"name": "A", "value": "X", "verified_at": null}, {"name": "B", "value":
+        "Y", "verified_at": null}, {"name": "C", "value": "Z", "verified_at": null},
+        {"name": "D", "value": "W", "verified_at": null}]}], "partial_accounts": [],
+        "statuses": [{"id": "116275331587890092", "created_at": "2026-03-22T23:05:57.000Z",
+        "in_reply_to_id": null, "in_reply_to_account_id": null, "sensitive": false,
+        "spoiler_text": "", "visibility": "direct", "language": "en", "uri": "https://icosahedron.website/users/latencyobs/statuses/116275331526178516",
+        "url": "https://icosahedron.website/@latencyobs/116275331526178516", "replies_count":
+        0, "reblogs_count": 0, "favourites_count": 0, "quotes_count": 0, "edited_at":
+        null, "favourited": false, "reblogged": false, "muted": false, "bookmarked":
+        false, "content": "<p><span class=\"h-card\" translate=\"no\"><a href=\"https://mastodon.social/@halcy\"
         class=\"u-url mention\" rel=\"nofollow noopener\" target=\"_blank\">@<span>halcy@mastodon.social</span></a></span>
         <span class=\"h-card\" translate=\"no\"><a href=\"https://glitch.social/@halcy\"
         class=\"u-url mention\" rel=\"nofollow noopener\" target=\"_blank\">@<span>halcy@glitch.social</span></a></span>
         <span class=\"h-card\" translate=\"no\"><a href=\"https://hachyderm.io/@halcy\"
         class=\"u-url mention\" rel=\"nofollow noopener\" target=\"_blank\">@<span>halcy@hachyderm.io</span></a></span>
-        ____________LATENCYPING____________1752866115.350361____________LATENCYPING____________</p>",
+        ____________LATENCYPING____________1774220754.2367332____________LATENCYPING____________</p>",
         "filtered": [], "reblog": null, "account": {"id": "109446733121874654", "username":
         "latencyobs", "acct": "latencyobs@icosahedron.website", "display_name": "Latency
         Observer", "locked": false, "bot": false, "discoverable": false, "indexable":
         false, "group": false, "created_at": "2022-12-02T00:00:00.000Z", "note": "",
         "url": "https://icosahedron.website/@latencyobs", "uri": "https://icosahedron.website/users/latencyobs",
         "avatar": "https://mastodon.social/avatars/original/missing.png", "avatar_static":
-        "https://mastodon.social/avatars/original/missing.png", "header": "https://mastodon.social/headers/original/missing.png",
-        "header_static": "https://mastodon.social/headers/original/missing.png", "followers_count":
-        0, "following_count": 0, "statuses_count": 0, "last_status_at": null, "hide_collections":
-        false, "emojis": [], "fields": []}, "media_attachments": [], "mentions": [{"id":
-        "43", "username": "halcy", "url": "https://mastodon.social/@halcy", "acct":
-        "halcy"}, {"id": "261937", "username": "halcy", "url": "https://glitch.social/@halcy",
+        "https://mastodon.social/avatars/original/missing.png", "avatar_description":
+        "", "header": "https://mastodon.social/headers/original/missing.png", "header_static":
+        "https://mastodon.social/headers/original/missing.png", "header_description":
+        "", "followers_count": 0, "following_count": 0, "statuses_count": 0, "last_status_at":
+        null, "hide_collections": false, "show_media": true, "show_media_replies":
+        true, "show_featured": true, "emojis": [], "fields": []}, "media_attachments":
+        [], "mentions": [{"id": "43", "username": "halcy", "url": "https://mastodon.social/@halcy",
+        "acct": "halcy"}, {"id": "261937", "username": "halcy", "url": "https://glitch.social/@halcy",
         "acct": "halcy@glitch.social"}, {"id": "109446733188999785", "username": "halcy",
         "url": "https://hachyderm.io/@halcy", "acct": "halcy@hachyderm.io"}], "tags":
-        [], "emojis": [], "quote": null, "card": null, "poll": null}], "notification_groups":
-        [{"group_key": "ungrouped-447463634", "notifications_count": 1, "type": "mention",
-        "most_recent_notification_id": 447463634, "page_min_id": "447463634", "page_max_id":
-        "447463634", "latest_page_notification_at": "2025-08-14T14:29:24.439Z", "sample_account_ids":
-        ["261937"], "status_id": null}, {"group_key": "ungrouped-447385169", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 447385169, "page_min_id":
-        "447385169", "page_max_id": "447385169", "latest_page_notification_at": "2025-08-14T10:31:17.677Z",
-        "sample_account_ids": ["261937"], "status_id": null}, {"group_key": "ungrouped-446998583",
-        "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        446998583, "page_min_id": "446998583", "page_max_id": "446998583", "latest_page_notification_at":
-        "2025-08-13T10:30:28.179Z", "sample_account_ids": ["109446733121874654"],
-        "status_id": null}, {"group_key": "ungrouped-446765309", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 446765309, "page_min_id":
-        "446765309", "page_max_id": "446765309", "latest_page_notification_at": "2025-08-12T18:15:50.118Z",
+        [], "emojis": [], "tagged_collections": [], "quote": null, "card": null, "poll":
+        null, "quote_approval": {"automatic": [], "manual": [], "current_user": "denied"}}],
+        "notification_groups": [{"group_key": "ungrouped-550622655", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 550622655, "page_min_id":
+        "550622655", "page_max_id": "550622655", "latest_page_notification_at": "2026-04-11T16:55:10.452Z",
+        "sample_account_ids": ["109446733121874654"], "status_id": null}, {"group_key":
+        "ungrouped-550455231", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        550455231, "page_min_id": "550455231", "page_max_id": "550455231", "latest_page_notification_at":
+        "2026-04-11T08:01:42.375Z", "sample_account_ids": ["109446733121874654"],
+        "status_id": null}, {"group_key": "ungrouped-550262550", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 550262550, "page_min_id":
+        "550262550", "page_max_id": "550262550", "latest_page_notification_at": "2026-04-10T19:41:15.065Z",
         "sample_account_ids": ["109446733188999785"], "status_id": null}, {"group_key":
-        "ungrouped-446745777", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        446745777, "page_min_id": "446745777", "page_max_id": "446745777", "latest_page_notification_at":
-        "2025-08-12T17:20:42.879Z", "sample_account_ids": ["109446733121874654"],
-        "status_id": null}, {"group_key": "ungrouped-446690835", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 446690835, "page_min_id":
-        "446690835", "page_max_id": "446690835", "latest_page_notification_at": "2025-08-12T14:50:39.901Z",
-        "sample_account_ids": ["109446733121874654"], "status_id": null}, {"group_key":
-        "ungrouped-446447125", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        446447125, "page_min_id": "446447125", "page_max_id": "446447125", "latest_page_notification_at":
-        "2025-08-11T22:11:56.686Z", "sample_account_ids": ["109446733121874654"],
-        "status_id": null}, {"group_key": "ungrouped-446339767", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 446339767, "page_min_id":
-        "446339767", "page_max_id": "446339767", "latest_page_notification_at": "2025-08-11T16:45:55.802Z",
-        "sample_account_ids": ["109446733121874654"], "status_id": null}, {"group_key":
-        "ungrouped-446271804", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        446271804, "page_min_id": "446271804", "page_max_id": "446271804", "latest_page_notification_at":
-        "2025-08-11T13:45:21.284Z", "sample_account_ids": ["261937"], "status_id":
-        null}, {"group_key": "ungrouped-446159144", "notifications_count": 1, "type":
-        "mention", "most_recent_notification_id": 446159144, "page_min_id": "446159144",
-        "page_max_id": "446159144", "latest_page_notification_at": "2025-08-11T07:01:13.399Z",
-        "sample_account_ids": ["109446733121874654"], "status_id": null}, {"group_key":
-        "ungrouped-444596462", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        444596462, "page_min_id": "444596462", "page_max_id": "444596462", "latest_page_notification_at":
-        "2025-08-06T20:32:33.112Z", "sample_account_ids": ["109446733188999785"],
-        "status_id": null}, {"group_key": "ungrouped-444235275", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 444235275, "page_min_id":
-        "444235275", "page_max_id": "444235275", "latest_page_notification_at": "2025-08-05T21:46:16.729Z",
+        "ungrouped-550070176", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        550070176, "page_min_id": "550070176", "page_max_id": "550070176", "latest_page_notification_at":
+        "2026-04-10T11:44:35.067Z", "sample_account_ids": ["109446733121874654"],
+        "status_id": null}, {"group_key": "ungrouped-549298919", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 549298919, "page_min_id":
+        "549298919", "page_max_id": "549298919", "latest_page_notification_at": "2026-04-08T18:41:34.116Z",
         "sample_account_ids": ["109446733188999785"], "status_id": null}, {"group_key":
-        "ungrouped-444229311", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        444229311, "page_min_id": "444229311", "page_max_id": "444229311", "latest_page_notification_at":
-        "2025-08-05T21:29:29.781Z", "sample_account_ids": ["109446733121874654"],
-        "status_id": null}, {"group_key": "ungrouped-444192766", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 444192766, "page_min_id":
-        "444192766", "page_max_id": "444192766", "latest_page_notification_at": "2025-08-05T19:30:29.138Z",
+        "ungrouped-548377328", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        548377328, "page_min_id": "548377328", "page_max_id": "548377328", "latest_page_notification_at":
+        "2026-04-06T20:30:23.202Z", "sample_account_ids": ["261937"], "status_id":
+        null}, {"group_key": "ungrouped-548295734", "notifications_count": 1, "type":
+        "mention", "most_recent_notification_id": 548295734, "page_min_id": "548295734",
+        "page_max_id": "548295734", "latest_page_notification_at": "2026-04-06T17:10:44.941Z",
         "sample_account_ids": ["109446733121874654"], "status_id": null}, {"group_key":
-        "ungrouped-444163180", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        444163180, "page_min_id": "444163180", "page_max_id": "444163180", "latest_page_notification_at":
-        "2025-08-05T17:58:34.518Z", "sample_account_ids": ["109446733188999785"],
-        "status_id": null}, {"group_key": "ungrouped-444073043", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 444073043, "page_min_id":
-        "444073043", "page_max_id": "444073043", "latest_page_notification_at": "2025-08-05T13:24:31.928Z",
-        "sample_account_ids": ["261937"], "status_id": "114976376209872557"}, {"group_key":
-        "ungrouped-442957985", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        442957985, "page_min_id": "442957985", "page_max_id": "442957985", "latest_page_notification_at":
-        "2025-08-02T07:25:26.796Z", "sample_account_ids": ["109446733121874654"],
-        "status_id": null}, {"group_key": "ungrouped-442351603", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 442351603, "page_min_id":
-        "442351603", "page_max_id": "442351603", "latest_page_notification_at": "2025-07-31T15:27:59.729Z",
-        "sample_account_ids": ["261937"], "status_id": null}, {"group_key": "ungrouped-442311476",
+        "ungrouped-548273502", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        548273502, "page_min_id": "548273502", "page_max_id": "548273502", "latest_page_notification_at":
+        "2026-04-06T16:19:07.035Z", "sample_account_ids": ["109446733188999785"],
+        "status_id": null}, {"group_key": "ungrouped-546868644", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 546868644, "page_min_id":
+        "546868644", "page_max_id": "546868644", "latest_page_notification_at": "2026-04-03T09:30:29.367Z",
+        "sample_account_ids": ["261937"], "status_id": null}, {"group_key": "ungrouped-546556813",
         "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        442311476, "page_min_id": "442311476", "page_max_id": "442311476", "latest_page_notification_at":
-        "2025-07-31T13:35:58.377Z", "sample_account_ids": ["109446733188999785"],
-        "status_id": null}, {"group_key": "ungrouped-442306164", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 442306164, "page_min_id":
-        "442306164", "page_max_id": "442306164", "latest_page_notification_at": "2025-07-31T13:20:18.887Z",
-        "sample_account_ids": ["109446733121874654"], "status_id": null}, {"group_key":
-        "ungrouped-442067869", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        442067869, "page_min_id": "442067869", "page_max_id": "442067869", "latest_page_notification_at":
-        "2025-07-30T20:36:34.258Z", "sample_account_ids": ["109446733188999785"],
-        "status_id": null}, {"group_key": "ungrouped-442025385", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 442025385, "page_min_id":
-        "442025385", "page_max_id": "442025385", "latest_page_notification_at": "2025-07-30T18:19:39.023Z",
-        "sample_account_ids": ["261937"], "status_id": null}, {"group_key": "ungrouped-441926944",
+        546556813, "page_min_id": "546556813", "page_max_id": "546556813", "latest_page_notification_at":
+        "2026-04-02T15:47:19.240Z", "sample_account_ids": ["109446733121874654"],
+        "status_id": null}, {"group_key": "ungrouped-546238596", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 546238596, "page_min_id":
+        "546238596", "page_max_id": "546238596", "latest_page_notification_at": "2026-04-01T22:02:53.489Z",
+        "sample_account_ids": ["261937"], "status_id": null}, {"group_key": "ungrouped-546162287",
         "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        441926944, "page_min_id": "441926944", "page_max_id": "441926944", "latest_page_notification_at":
-        "2025-07-30T13:30:30.925Z", "sample_account_ids": ["23972"], "status_id":
-        "114942424782817157"}, {"group_key": "ungrouped-441689639", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 441689639, "page_min_id":
-        "441689639", "page_max_id": "441689639", "latest_page_notification_at": "2025-07-29T20:31:11.504Z",
-        "sample_account_ids": ["23972"], "status_id": "114938417684509406"}, {"group_key":
-        "ungrouped-441444481", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        441444481, "page_min_id": "441444481", "page_max_id": "441444481", "latest_page_notification_at":
-        "2025-07-29T07:00:22.114Z", "sample_account_ids": ["109446733121874654"],
-        "status_id": null}, {"group_key": "ungrouped-441340609", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 441340609, "page_min_id":
-        "441340609", "page_max_id": "441340609", "latest_page_notification_at": "2025-07-28T21:32:45.606Z",
-        "sample_account_ids": ["261937"], "status_id": null}, {"group_key": "ungrouped-440321144",
-        "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        440321144, "page_min_id": "440321144", "page_max_id": "440321144", "latest_page_notification_at":
-        "2025-07-25T22:00:57.700Z", "sample_account_ids": ["109446733188999785"],
-        "status_id": null}, {"group_key": "ungrouped-440160440", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 440160440, "page_min_id":
-        "440160440", "page_max_id": "440160440", "latest_page_notification_at": "2025-07-25T13:23:25.182Z",
-        "sample_account_ids": ["261937"], "status_id": null}, {"group_key": "ungrouped-439542131",
-        "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        439542131, "page_min_id": "439542131", "page_max_id": "439542131", "latest_page_notification_at":
-        "2025-07-23T19:29:37.024Z", "sample_account_ids": ["109446733121874654"],
-        "status_id": null}, {"group_key": "ungrouped-439175439", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 439175439, "page_min_id":
-        "439175439", "page_max_id": "439175439", "latest_page_notification_at": "2025-07-22T20:26:31.962Z",
+        546162287, "page_min_id": "546162287", "page_max_id": "546162287", "latest_page_notification_at":
+        "2026-04-01T18:41:00.724Z", "sample_account_ids": ["261937"], "status_id":
+        null}, {"group_key": "ungrouped-545986066", "notifications_count": 1, "type":
+        "mention", "most_recent_notification_id": 545986066, "page_min_id": "545986066",
+        "page_max_id": "545986066", "latest_page_notification_at": "2026-04-01T11:35:20.482Z",
         "sample_account_ids": ["109446733188999785"], "status_id": null}, {"group_key":
-        "ungrouped-439104112", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        439104112, "page_min_id": "439104112", "page_max_id": "439104112", "latest_page_notification_at":
-        "2025-07-22T17:04:43.143Z", "sample_account_ids": ["109446733188999785"],
-        "status_id": null}, {"group_key": "ungrouped-438064665", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 438064665, "page_min_id":
-        "438064665", "page_max_id": "438064665", "latest_page_notification_at": "2025-07-19T17:46:27.203Z",
+        "ungrouped-545763473", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        545763473, "page_min_id": "545763473", "page_max_id": "545763473", "latest_page_notification_at":
+        "2026-03-31T21:52:25.940Z", "sample_account_ids": ["109446733188999785"],
+        "status_id": null}, {"group_key": "ungrouped-545582117", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 545582117, "page_min_id":
+        "545582117", "page_max_id": "545582117", "latest_page_notification_at": "2026-03-31T14:37:41.945Z",
+        "sample_account_ids": ["109446733188999785"], "status_id": null}, {"group_key":
+        "ungrouped-545497038", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        545497038, "page_min_id": "545497038", "page_max_id": "545497038", "latest_page_notification_at":
+        "2026-03-31T11:00:20.456Z", "sample_account_ids": ["109446733188999785"],
+        "status_id": null}, {"group_key": "ungrouped-544586015", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 544586015, "page_min_id":
+        "544586015", "page_max_id": "544586015", "latest_page_notification_at": "2026-03-29T09:50:24.302Z",
+        "sample_account_ids": ["109446733188999785"], "status_id": null}, {"group_key":
+        "ungrouped-544582984", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        544582984, "page_min_id": "544582984", "page_max_id": "544582984", "latest_page_notification_at":
+        "2026-03-29T09:39:31.917Z", "sample_account_ids": ["109446733121874654"],
+        "status_id": null}, {"group_key": "ungrouped-544489788", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 544489788, "page_min_id":
+        "544489788", "page_max_id": "544489788", "latest_page_notification_at": "2026-03-29T02:45:32.305Z",
         "sample_account_ids": ["109446733121874654"], "status_id": null}, {"group_key":
-        "ungrouped-437756573", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        437756573, "page_min_id": "437756573", "page_max_id": "437756573", "latest_page_notification_at":
-        "2025-07-18T19:15:22.853Z", "sample_account_ids": ["109446733121874654"],
-        "status_id": "114875833772118580"}, {"group_key": "ungrouped-437672272", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 437672272, "page_min_id":
-        "437672272", "page_max_id": "437672272", "latest_page_notification_at": "2025-07-18T15:00:49.315Z",
-        "sample_account_ids": ["261937"], "status_id": null}, {"group_key": "ungrouped-437596406",
+        "ungrouped-544366375", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        544366375, "page_min_id": "544366375", "page_max_id": "544366375", "latest_page_notification_at":
+        "2026-03-28T19:21:05.818Z", "sample_account_ids": ["261937"], "status_id":
+        null}, {"group_key": "ungrouped-544338467", "notifications_count": 1, "type":
+        "mention", "most_recent_notification_id": 544338467, "page_min_id": "544338467",
+        "page_max_id": "544338467", "latest_page_notification_at": "2026-03-28T18:02:52.997Z",
+        "sample_account_ids": ["109446733121874654"], "status_id": null}, {"group_key":
+        "ungrouped-544297250", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        544297250, "page_min_id": "544297250", "page_max_id": "544297250", "latest_page_notification_at":
+        "2026-03-28T16:14:13.644Z", "sample_account_ids": ["109446733121874654"],
+        "status_id": null}, {"group_key": "ungrouped-544289566", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 544289566, "page_min_id":
+        "544289566", "page_max_id": "544289566", "latest_page_notification_at": "2026-03-28T15:53:55.262Z",
+        "sample_account_ids": ["109446733188999785"], "status_id": null}, {"group_key":
+        "ungrouped-543780548", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        543780548, "page_min_id": "543780548", "page_max_id": "543780548", "latest_page_notification_at":
+        "2026-03-27T13:45:47.807Z", "sample_account_ids": ["109446733188999785"],
+        "status_id": null}, {"group_key": "ungrouped-543755083", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 543755083, "page_min_id":
+        "543755083", "page_max_id": "543755083", "latest_page_notification_at": "2026-03-27T12:38:30.568Z",
+        "sample_account_ids": ["109446733188999785"], "status_id": null}, {"group_key":
+        "ungrouped-543712027", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        543712027, "page_min_id": "543712027", "page_max_id": "543712027", "latest_page_notification_at":
+        "2026-03-27T10:28:57.462Z", "sample_account_ids": ["109446733121874654"],
+        "status_id": null}, {"group_key": "ungrouped-543445711", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 543445711, "page_min_id":
+        "543445711", "page_max_id": "543445711", "latest_page_notification_at": "2026-03-26T18:51:37.464Z",
+        "sample_account_ids": ["261937"], "status_id": null}, {"group_key": "ungrouped-543329544",
         "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        437596406, "page_min_id": "437596406", "page_max_id": "437596406", "latest_page_notification_at":
-        "2025-07-18T11:02:38.817Z", "sample_account_ids": ["109446733188999785"],
-        "status_id": null}, {"group_key": "ungrouped-437569526", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 437569526, "page_min_id":
-        "437569526", "page_max_id": "437569526", "latest_page_notification_at": "2025-07-18T09:30:20.986Z",
+        543329544, "page_min_id": "543329544", "page_max_id": "543329544", "latest_page_notification_at":
+        "2026-03-26T14:22:26.621Z", "sample_account_ids": ["261937"], "status_id":
+        null}, {"group_key": "ungrouped-543281164", "notifications_count": 1, "type":
+        "mention", "most_recent_notification_id": 543281164, "page_min_id": "543281164",
+        "page_max_id": "543281164", "latest_page_notification_at": "2026-03-26T12:19:06.630Z",
+        "sample_account_ids": ["109446733188999785"], "status_id": null}, {"group_key":
+        "ungrouped-543192671", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        543192671, "page_min_id": "543192671", "page_max_id": "543192671", "latest_page_notification_at":
+        "2026-03-26T07:55:09.812Z", "sample_account_ids": ["109446733188999785"],
+        "status_id": null}, {"group_key": "ungrouped-543184633", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 543184633, "page_min_id":
+        "543184633", "page_max_id": "543184633", "latest_page_notification_at": "2026-03-26T07:29:09.001Z",
         "sample_account_ids": ["109446733121874654"], "status_id": null}, {"group_key":
-        "ungrouped-437371898", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        437371898, "page_min_id": "437371898", "page_max_id": "437371898", "latest_page_notification_at":
-        "2025-07-17T19:21:44.343Z", "sample_account_ids": ["109446733121874654"],
-        "status_id": null}, {"group_key": "ungrouped-436625701", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 436625701, "page_min_id":
-        "436625701", "page_max_id": "436625701", "latest_page_notification_at": "2025-07-15T19:49:11.446Z",
+        "ungrouped-542917616", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        542917616, "page_min_id": "542917616", "page_max_id": "542917616", "latest_page_notification_at":
+        "2026-03-25T16:48:16.520Z", "sample_account_ids": ["261937"], "status_id":
+        null}, {"group_key": "ungrouped-542551513", "notifications_count": 1, "type":
+        "mention", "most_recent_notification_id": 542551513, "page_min_id": "542551513",
+        "page_max_id": "542551513", "latest_page_notification_at": "2026-03-24T21:19:47.219Z",
         "sample_account_ids": ["109446733121874654"], "status_id": null}, {"group_key":
-        "ungrouped-436570029", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
-        436570029, "page_min_id": "436570029", "page_max_id": "436570029", "latest_page_notification_at":
-        "2025-07-15T16:53:21.497Z", "sample_account_ids": ["109446733188999785"],
-        "status_id": null}, {"group_key": "ungrouped-436376765", "notifications_count":
-        1, "type": "mention", "most_recent_notification_id": 436376765, "page_min_id":
-        "436376765", "page_max_id": "436376765", "latest_page_notification_at": "2025-07-15T06:01:30.406Z",
-        "sample_account_ids": ["261937"], "status_id": null}]}'
+        "ungrouped-542429726", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        542429726, "page_min_id": "542429726", "page_max_id": "542429726", "latest_page_notification_at":
+        "2026-03-24T16:19:40.622Z", "sample_account_ids": ["109446733121874654"],
+        "status_id": null}, {"group_key": "ungrouped-542394873", "notifications_count":
+        1, "type": "mention", "most_recent_notification_id": 542394873, "page_min_id":
+        "542394873", "page_max_id": "542394873", "latest_page_notification_at": "2026-03-24T14:56:53.479Z",
+        "sample_account_ids": ["109446733121874654"], "status_id": null}, {"group_key":
+        "ungrouped-542341900", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        542341900, "page_min_id": "542341900", "page_max_id": "542341900", "latest_page_notification_at":
+        "2026-03-24T12:45:47.422Z", "sample_account_ids": ["261937"], "status_id":
+        null}, {"group_key": "ungrouped-542321863", "notifications_count": 1, "type":
+        "mention", "most_recent_notification_id": 542321863, "page_min_id": "542321863",
+        "page_max_id": "542321863", "latest_page_notification_at": "2026-03-24T11:50:37.148Z",
+        "sample_account_ids": ["109446733121874654"], "status_id": null}, {"group_key":
+        "ungrouped-541938956", "notifications_count": 1, "type": "mention", "most_recent_notification_id":
+        541938956, "page_min_id": "541938956", "page_max_id": "541938956", "latest_page_notification_at":
+        "2026-03-23T16:24:03.180Z", "sample_account_ids": ["261937"], "status_id":
+        null}, {"group_key": "ungrouped-541644045", "notifications_count": 1, "type":
+        "mention", "most_recent_notification_id": 541644045, "page_min_id": "541644045",
+        "page_max_id": "541644045", "latest_page_notification_at": "2026-03-22T23:05:58.286Z",
+        "sample_account_ids": ["109446733121874654"], "status_id": "116275331587890092"},
+        {"group_key": "ungrouped-541461666", "notifications_count": 1, "type": "mention",
+        "most_recent_notification_id": 541461666, "page_min_id": "541461666", "page_max_id":
+        "541461666", "latest_page_notification_at": "2026-03-22T14:33:25.228Z", "sample_account_ids":
+        ["109446733188999785"], "status_id": null}]}'
     headers:
+      Accept-Ranges:
+      - none
       Connection:
       - keep-alive
       Date:
-      - Fri, 15 Aug 2025 20:19:23 GMT
+      - Sat, 11 Apr 2026 23:15:00 GMT
       Strict-Transport-Security:
       - max-age=31557600
       Vary:
       - Authorization, Origin, Accept-Encoding
+      Via:
+      - 1.1 varnish, 1.1 varnish
       X-Cache:
       - MISS, MISS, MISS
       X-Cache-Hits:
       - 0, 0, 0
       X-Served-By:
-      - cache-fra-eddf8230021-FRA, cache-fra-etou8220077-FRA, cache-hel1410023-HEL
+      - cache-fra-etou8220171-FRA, cache-fra-eddf8230020-FRA, cache-hel1410022-HEL
       X-Timer:
-      - S1755289163.377950,VS0,VE449
-      accept-ranges:
-      - none
+      - S1775949301.570914,VS0,VE251
       alt-svc:
       - h3=":443";ma=86400,h3-29=":443";ma=86400,h3-27=":443";ma=86400
       cache-control:
       - private, no-store
       content-length:
-      - '30180'
+      - '17022'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"aebaa4ad264f3a57b21ef6572006d5f1"
+      - W/"97ce4d3f6a8f75eead49177f44a143b6"
       link:
-      - <https://mastodon.social/api/v2/notifications?max_id=436376765>; rel="next",
-        <https://mastodon.social/api/v2/notifications?min_id=447463634>; rel="prev"
+      - <https://mastodon.social/api/v2/notifications?max_id=541461666>; rel="next",
+        <https://mastodon.social/api/v2/notifications?min_id=550622655>; rel="prev"
       referrer-policy:
       - same-origin
+      server:
+      - Mastodon
       transfer-encoding:
       - chunked
-      via:
-      - 1.1 varnish, 1.1 varnish, 1.1 varnish
       x-content-type-options:
       - nosniff
       x-frame-options:
@@ -399,13 +274,13 @@ interactions:
       x-ratelimit-limit:
       - '300'
       x-ratelimit-remaining:
-      - '215'
+      - '299'
       x-ratelimit-reset:
-      - '2025-08-15T20:20:00.637859Z'
+      - '2026-04-11T23:20:00.635349Z'
       x-request-id:
-      - bbde9c3902a8e85cc1210774f9a4ff10
+      - 0010265d-4f27-4877-a2a2-023e1a8b0085
       x-runtime:
-      - '0.193587'
+      - '0.162444'
       x-xss-protection:
       - '0'
     status:

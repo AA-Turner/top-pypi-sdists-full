@@ -18,6 +18,7 @@ use crate::{
             one_of::find_one_of_completion_items, type_hint_value,
         },
     },
+    schema_resolver::resolve_table_unevaluated_property_schema,
 };
 
 impl FindCompletionContents for tombi_document_tree::Table {
@@ -395,6 +396,92 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                     }
                                 }
 
+                                if let Some(one_of_schema) = table_schema.one_of.as_deref() {
+                                    let completion_items =
+                                        super::one_of::find_one_of_completion_items(
+                                            self,
+                                            position,
+                                            keys,
+                                            accessors,
+                                            one_of_schema,
+                                            current_schema,
+                                            schema_context,
+                                            completion_hint,
+                                        )
+                                        .await;
+                                    if !completion_items.is_empty() {
+                                        return completion_items;
+                                    }
+                                }
+                                if let Some(any_of_schema) = table_schema.any_of.as_deref() {
+                                    let completion_items =
+                                        super::any_of::find_any_of_completion_items(
+                                            self,
+                                            position,
+                                            keys,
+                                            accessors,
+                                            any_of_schema,
+                                            current_schema,
+                                            schema_context,
+                                            completion_hint,
+                                        )
+                                        .await;
+                                    if !completion_items.is_empty() {
+                                        return completion_items;
+                                    }
+                                }
+                                if let Some(all_of_schema) = table_schema.all_of.as_deref() {
+                                    let completion_items =
+                                        super::all_of::find_all_of_completion_items(
+                                            self,
+                                            position,
+                                            keys,
+                                            accessors,
+                                            all_of_schema,
+                                            current_schema,
+                                            schema_context,
+                                            completion_hint,
+                                        )
+                                        .await;
+                                    if !completion_items.is_empty() {
+                                        return completion_items;
+                                    }
+                                }
+
+                                if let Some(current_schema) =
+                                    resolve_table_unevaluated_property_schema(
+                                        table_schema,
+                                        current_schema,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    let mut contents = get_property_value_completion_contents(
+                                        value,
+                                        position,
+                                        key,
+                                        keys,
+                                        accessors,
+                                        Some(&current_schema),
+                                        schema_context,
+                                        completion_hint,
+                                    )
+                                    .await;
+
+                                    if !contents.is_empty()
+                                        && current_schema.value_schema.deprecated().await
+                                            == Some(true)
+                                    {
+                                        for content in &mut contents {
+                                            if !content.in_comment {
+                                                content.deprecated = Some(true);
+                                            }
+                                        }
+                                    }
+
+                                    return contents;
+                                }
+
                                 if table_schema
                                     .allows_any_additional_properties(schema_context.strict())
                                 {
@@ -409,6 +496,58 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                         completion_hint,
                                     )
                                     .await;
+                                }
+                            } else {
+                                if let Some(one_of_schema) = table_schema.one_of.as_deref() {
+                                    let completion_items =
+                                        super::one_of::find_one_of_completion_items(
+                                            self,
+                                            position,
+                                            keys,
+                                            accessors,
+                                            one_of_schema,
+                                            current_schema,
+                                            schema_context,
+                                            completion_hint,
+                                        )
+                                        .await;
+                                    if !completion_items.is_empty() {
+                                        return completion_items;
+                                    }
+                                }
+                                if let Some(any_of_schema) = table_schema.any_of.as_deref() {
+                                    let completion_items =
+                                        super::any_of::find_any_of_completion_items(
+                                            self,
+                                            position,
+                                            keys,
+                                            accessors,
+                                            any_of_schema,
+                                            current_schema,
+                                            schema_context,
+                                            completion_hint,
+                                        )
+                                        .await;
+                                    if !completion_items.is_empty() {
+                                        return completion_items;
+                                    }
+                                }
+                                if let Some(all_of_schema) = table_schema.all_of.as_deref() {
+                                    let completion_items =
+                                        super::all_of::find_all_of_completion_items(
+                                            self,
+                                            position,
+                                            keys,
+                                            accessors,
+                                            all_of_schema,
+                                            current_schema,
+                                            schema_context,
+                                            completion_hint,
+                                        )
+                                        .await;
+                                    if !completion_items.is_empty() {
+                                        return completion_items;
+                                    }
                                 }
                             }
                         } else {
@@ -598,6 +737,60 @@ impl FindCompletionContents for tombi_document_tree::Table {
                                     value_schema.deprecated().await,
                                     completion_hint,
                                 ));
+                            }
+
+                            if completion_contents.is_empty() {
+                                if let Some(one_of_schema) = table_schema.one_of.as_deref() {
+                                    let completion_items =
+                                        super::one_of::find_one_of_completion_items(
+                                            self,
+                                            position,
+                                            keys,
+                                            accessors,
+                                            one_of_schema,
+                                            current_schema,
+                                            schema_context,
+                                            completion_hint,
+                                        )
+                                        .await;
+                                    if !completion_items.is_empty() {
+                                        return completion_items;
+                                    }
+                                }
+                                if let Some(any_of_schema) = table_schema.any_of.as_deref() {
+                                    let completion_items =
+                                        super::any_of::find_any_of_completion_items(
+                                            self,
+                                            position,
+                                            keys,
+                                            accessors,
+                                            any_of_schema,
+                                            current_schema,
+                                            schema_context,
+                                            completion_hint,
+                                        )
+                                        .await;
+                                    if !completion_items.is_empty() {
+                                        return completion_items;
+                                    }
+                                }
+                                if let Some(all_of_schema) = table_schema.all_of.as_deref() {
+                                    let completion_items =
+                                        super::all_of::find_all_of_completion_items(
+                                            self,
+                                            position,
+                                            keys,
+                                            accessors,
+                                            all_of_schema,
+                                            current_schema,
+                                            schema_context,
+                                            completion_hint,
+                                        )
+                                        .await;
+                                    if !completion_items.is_empty() {
+                                        return completion_items;
+                                    }
+                                }
                             }
                         }
                         completion_contents

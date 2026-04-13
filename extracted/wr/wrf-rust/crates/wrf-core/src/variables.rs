@@ -40,7 +40,15 @@ pub static VARS: &[VarDef] = &[
     // ── Phase 1: Foundation ──
     VarDef {
         name: "pressure",
-        aliases: &["pres", "p"],
+        aliases: &[],
+        description: "Full model pressure",
+        default_units: "hPa",
+        dim: VarDim::ThreeD,
+        compute: dpres::compute_pressure_hpa,
+    },
+    VarDef {
+        name: "pres",
+        aliases: &["p", "pressure_pa"],
         description: "Full model pressure",
         default_units: "Pa",
         dim: VarDim::ThreeD,
@@ -161,7 +169,6 @@ pub static VARS: &[VarDef] = &[
         dim: VarDim::TwoD,
         compute: dwind::compute_lon,
     },
-
     // ── Phase 2: Thermodynamics ──
     VarDef {
         name: "theta_e",
@@ -219,7 +226,6 @@ pub static VARS: &[VarDef] = &[
         dim: VarDim::ThreeD,
         compute: dpres::compute_omega,
     },
-
     // ── Phase 2: Moisture ──
     VarDef {
         name: "pw",
@@ -261,7 +267,6 @@ pub static VARS: &[VarDef] = &[
         dim: VarDim::ThreeD,
         compute: dmoist::compute_specific_humidity,
     },
-
     // ── Phase 3: CAPE ──
     VarDef {
         name: "sbcape",
@@ -337,7 +342,7 @@ pub static VARS: &[VarDef] = &[
     },
     VarDef {
         name: "cape2d",
-        aliases: &[],
+        aliases: &["cape_2d"],
         description: "CAPE/CIN/LCL/LFC (backward-compat tuple)",
         default_units: "J/kg",
         dim: VarDim::TwoD,
@@ -345,13 +350,12 @@ pub static VARS: &[VarDef] = &[
     },
     VarDef {
         name: "cape3d",
-        aliases: &[],
+        aliases: &["cape_3d"],
         description: "3-D CAPE field",
         default_units: "J/kg",
         dim: VarDim::ThreeD,
         compute: dcape::compute_cape3d,
     },
-
     // ── Phase 4: Wind & SRH ──
     VarDef {
         name: "wspd",
@@ -465,7 +469,6 @@ pub static VARS: &[VarDef] = &[
         dim: VarDim::TwoD,
         compute: dsrh::compute_mean_wind_0_6km,
     },
-
     // ── Phase 6: Remaining diagnostics ──
     VarDef {
         name: "avo",
@@ -493,7 +496,7 @@ pub static VARS: &[VarDef] = &[
     },
     VarDef {
         name: "maxdbz",
-        aliases: &["max_reflectivity", "composite_reflectivity"],
+        aliases: &["max_reflectivity", "composite_reflectivity", "mdbz"],
         description: "Maximum (composite) reflectivity",
         default_units: "dBZ",
         dim: VarDim::TwoD,
@@ -517,13 +520,12 @@ pub static VARS: &[VarDef] = &[
     },
     VarDef {
         name: "uhel",
-        aliases: &["updraft_helicity"],
+        aliases: &["updraft_helicity", "helicity"],
         description: "Updraft helicity",
         default_units: "m2/s2",
         dim: VarDim::TwoD,
         compute: dhel::compute_uhel,
     },
-
     // ── Phase 7: Severe & Extras ──
     VarDef {
         name: "stp",
@@ -552,7 +554,7 @@ pub static VARS: &[VarDef] = &[
     VarDef {
         name: "scp",
         aliases: &["supercell_composite_parameter"],
-        description: "Supercell Composite Parameter",
+        description: "Supercell Composite Parameter (effective SRH + EBWD)",
         default_units: "dimensionless",
         dim: VarDim::TwoD,
         compute: dsevere::compute_scp,
@@ -653,9 +655,7 @@ pub static VARS: &[VarDef] = &[
         dim: VarDim::TwoD,
         compute: dextra::compute_hdw,
     },
-
     // ── Configurable / generic variables ──
-
     VarDef {
         name: "cape",
         aliases: &[],
@@ -697,6 +697,14 @@ pub static VARS: &[VarDef] = &[
         compute: dsrh::compute_effective_srh,
     },
     VarDef {
+        name: "ebwd",
+        aliases: &["effective_bulk_wind_difference", "effective_bulk_shear"],
+        description: "Effective bulk wind difference",
+        default_units: "m/s",
+        dim: VarDim::TwoD,
+        compute: dsevere::compute_effective_bulk_wind_difference,
+    },
+    VarDef {
         name: "bulk_shear",
         aliases: &["shear"],
         description: "Bulk wind shear (configurable bottom_m / top_m)",
@@ -725,7 +733,26 @@ pub static VARS: &[VarDef] = &[
 /// Look up a variable definition by name or alias (case-insensitive).
 pub fn get_var_def(name: &str) -> Option<&'static VarDef> {
     let lower = name.to_lowercase();
-    VARS.iter().find(|v| {
-        v.name == lower || v.aliases.iter().any(|a| *a == lower)
-    })
+    VARS.iter()
+        .find(|v| v.name == lower || v.aliases.iter().any(|a| *a == lower))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pressure_defaults_match_wrf_python_names() {
+        assert_eq!(get_var_def("pressure").unwrap().default_units, "hPa");
+        assert_eq!(get_var_def("pres").unwrap().default_units, "Pa");
+        assert_eq!(get_var_def("p").unwrap().default_units, "Pa");
+    }
+
+    #[test]
+    fn common_wrf_python_aliases_resolve() {
+        assert_eq!(get_var_def("cape_2d").unwrap().name, "cape2d");
+        assert_eq!(get_var_def("cape_3d").unwrap().name, "cape3d");
+        assert_eq!(get_var_def("mdbz").unwrap().name, "maxdbz");
+        assert_eq!(get_var_def("helicity").unwrap().name, "uhel");
+    }
 }

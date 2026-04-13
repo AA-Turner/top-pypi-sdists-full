@@ -116,12 +116,12 @@ async def _run_repl_with_agent_loop_mock(
         patch("prompt_toolkit.patch_stdout.patch_stdout", _noop_patch_stdout),
         patch("prompt_toolkit.PromptSession") as mock_session_cls,
         patch(
-            "anteroom.cli.repl.run_agent_loop",
+            "anteroom.services.agent_loop.run_agent_loop",
             side_effect=agent_loop_side_effect,
         )
         if agent_loop_side_effect
         else patch(
-            "anteroom.cli.repl.run_agent_loop",
+            "anteroom.services.agent_loop.run_agent_loop",
             return_value=_empty_gen(),
         ),
     ):

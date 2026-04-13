@@ -1,7 +1,11 @@
 use std::sync::LazyLock;
 
-use github_actions_models::common::{EnvValue, Uses, expr::ExplicitExpr};
+use github_actions_models::common::{
+    EnvValue, Uses,
+    expr::{ExplicitExpr, LoE},
+};
 use itertools::Itertools as _;
+use subfeature::Subfeature;
 
 use super::{Audit, AuditLoadError, audit_meta};
 use crate::{
@@ -107,6 +111,33 @@ impl Artipacked {
                 continue;
             };
 
+            let with = match with {
+                LoE::Literal(with) => with,
+                // Emit blanket pedantic finding if the `with:` block cannot be analyzed
+                LoE::Expr(_) => {
+                    findings.push(
+                        Self::finding()
+                            .severity(Severity::Informational)
+                            .confidence(Confidence::High)
+                            .persona(Persona::Pedantic)
+                            .add_location(
+                                step.location()
+                                    .with_keys(["uses".into()])
+                                    .subfeature(Subfeature::new(0, uses.raw()))
+                                    .annotated("this checkout"),
+                            )
+                            .add_location(
+                                step.location()
+                                    .primary()
+                                    .with_keys(["with".into()])
+                                    .annotated("may not set persist-credentials: false"),
+                            )
+                            .build(&step)?,
+                    );
+                    continue;
+                }
+            };
+
             if uses.matches("actions/checkout") {
                 let is_v6_or_higher = self
                     .is_checkout_v6_or_higher(uses)
@@ -123,8 +154,9 @@ impl Artipacked {
                         // they probably mean it. Only report if in auditor mode.
                         vulnerable_checkouts.push((step, Persona::Auditor, is_v6_or_higher))
                     }
-                    // TODO: handle expressions here.
-                    // persist-credentials is true by default.
+                    Some(v) if ExplicitExpr::from_curly(v).is_some() => {
+                        vulnerable_checkouts.push((step, Persona::Pedantic, is_v6_or_higher));
+                    }
                     _ => vulnerable_checkouts.push((step, Persona::default(), is_v6_or_higher)),
                 }
             } else if uses.matches("actions/upload-artifact") {
@@ -243,9 +275,13 @@ impl Artipacked {
 #[async_trait::async_trait]
 impl Audit for Artipacked {
     fn new(state: &AuditState) -> Result<Self, AuditLoadError> {
-        Ok(Self {
-            client: state.gh_client.clone(),
-        })
+        let client = if state.no_online_audits {
+            None
+        } else {
+            state.gh_client.clone()
+        };
+
+        Ok(Self { client })
     }
 
     async fn audit_action<'doc>(
@@ -523,7 +559,7 @@ jobs:
             workflow_content,
             |workflow: &Workflow, findings| {
                 let fixed = apply_fix_for_snapshot(workflow.as_document(), findings);
-                insta::assert_snapshot!(fixed.source(), @r"
+                insta::assert_snapshot!(fixed.source(), @"
 
                 name: Test Workflow
                 on: push
@@ -571,7 +607,7 @@ jobs:
             workflow_content,
             |workflow: &Workflow, findings| {
                 let fixed = apply_fix_for_snapshot(workflow.as_document(), findings);
-                insta::assert_snapshot!(fixed.source(), @r"
+                insta::assert_snapshot!(fixed.source(), @"
 
                 name: Test Workflow
                 on: push

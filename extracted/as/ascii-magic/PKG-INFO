@@ -1,17 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ascii_magic
-Version: 2.7.4
+Version: 2.7.5
 Summary: Converts pictures into ASCII art
-Home-page: https://github.com/LeandroBarone/python-ascii_magic
-Author: Leandro Barone
-Author-email: web@leandrobarone.com.ar
+Author-email: Leandro Barone <web@leandrobarone.com.ar>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/LeandroBarone/python-ascii_magic
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.5
+Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENCE
 Requires-Dist: Pillow
+Dynamic: license-file
 
 # ASCII Magic
 
@@ -21,7 +21,15 @@ Code based on [ProfOak's Ascii Py](https://github.com/ProfOak/Ascii_py/).
 
 # Changelog
 
-### v2.7.3 - Jan 2026
+### v2.7.5 - Apr 2026: Housekeeping
+- Code refactoring; no functional changes
+- Code is now compatible with Python 3.6+; turns out type hints were the only blocker, so forward references were used instead
+- Switched to `build` instead of `distutils` for package building
+- Fixed [missing HTML opening tag](https://github.com/LeandroBarone/python-ascii_magic/pull/33)
+
+### v2.7.4 - Jan 2026: Housekeeping
+- Stricter type checking
+- Updated default Gemini model to 'gemini-2.5-flash-image'
 - Fixed Python 3.9 [compatibility issue](https://github.com/LeandroBarone/python-ascii_magic/pull/28)
 
 ### v2.7 - Oct 2025

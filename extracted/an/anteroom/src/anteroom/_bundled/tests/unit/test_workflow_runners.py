@@ -410,3 +410,242 @@ class TestOpaqueRunnerCancellation:
             await _kill_subprocess(proc_mock)
 
         proc_mock.kill.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Live drainer & mid-run injection tests (#889)
+# ---------------------------------------------------------------------------
+
+
+class TestLiveDrainerInjection:
+    """Prove the live drainer pushes inputs into the agent loop's injection_queue."""
+
+    @pytest.mark.asyncio
+    async def test_injection_queue_created_when_db_and_run_id(self) -> None:
+        """When db and run_id are provided, injection_queue is a real Queue."""
+        captured_kwargs: dict[str, Any] = {}
+
+        async def _fake_loop(**kwargs: Any):
+            captured_kwargs.update(kwargs)
+            yield type("Evt", (), {"kind": "done", "data": {}})()
+
+        mock_db = MagicMock()
+        mock_db.execute_fetchall = MagicMock(return_value=[])
+        mock_db.execute = MagicMock()
+        mock_db.commit = MagicMock()
+
+        with patch("anteroom.services.agent_loop.run_agent_loop", _fake_loop):
+            await execute_agent_runner(
+                prompt="work",
+                timeout=10,
+                ai_service=object(),
+                tool_executor=lambda *_a, **_k: None,
+                db=mock_db,
+                run_id="run-001",
+            )
+
+        assert captured_kwargs["injection_queue"] is not None
+        assert isinstance(captured_kwargs["injection_queue"], asyncio.Queue)
+
+    @pytest.mark.asyncio
+    async def test_injection_queue_none_without_db(self) -> None:
+        """Without db, injection_queue stays None."""
+        captured_kwargs: dict[str, Any] = {}
+
+        async def _fake_loop(**kwargs: Any):
+            captured_kwargs.update(kwargs)
+            yield type("Evt", (), {"kind": "done", "data": {}})()
+
+        with patch("anteroom.services.agent_loop.run_agent_loop", _fake_loop):
+            await execute_agent_runner(
+                prompt="no db",
+                timeout=10,
+                ai_service=object(),
+                tool_executor=lambda *_a, **_k: None,
+            )
+
+        assert captured_kwargs["injection_queue"] is None
+
+    @pytest.mark.asyncio
+    async def test_step_start_injects_pending_inputs(self) -> None:
+        """Pending inputs are injected into messages before the first LLM call."""
+        captured_messages: list[list[dict[str, Any]]] = []
+
+        async def _fake_loop(**kwargs: Any):
+            captured_messages.append(list(kwargs["messages"]))
+            yield type("Evt", (), {"kind": "done", "data": {}})()
+
+        pending_row = {
+            "id": "inp-1",
+            "run_id": "run-001",
+            "content": "I pushed the fix",
+            "source_action": "attach",
+            "created_at": 1000.0,
+            "consumed_at": None,
+        }
+        mock_db = MagicMock()
+        mock_db.execute_fetchall = MagicMock(return_value=[pending_row])
+        mock_db.execute = MagicMock()
+        mock_db.commit = MagicMock()
+
+        with patch("anteroom.services.agent_loop.run_agent_loop", _fake_loop):
+            await execute_agent_runner(
+                prompt="Review the PR",
+                timeout=10,
+                ai_service=object(),
+                tool_executor=lambda *_a, **_k: None,
+                db=mock_db,
+                run_id="run-001",
+            )
+
+        msgs = captured_messages[0]
+        user_msgs = [m for m in msgs if m["role"] == "user"]
+        assert len(user_msgs) == 2
+        assert user_msgs[0]["content"] == "Review the PR"
+        assert "[Workflow input — attach]" in user_msgs[1]["content"]
+        assert "I pushed the fix" in user_msgs[1]["content"]
+
+    @pytest.mark.asyncio
+    async def test_step_start_marks_inputs_consumed(self) -> None:
+        """After injection at step start, inputs are marked consumed in DB."""
+        pending_row = {
+            "id": "inp-1",
+            "run_id": "run-001",
+            "content": "update context",
+            "source_action": "update",
+            "created_at": 1000.0,
+            "consumed_at": None,
+        }
+        mock_db = MagicMock()
+        mock_db.execute_fetchall = MagicMock(return_value=[pending_row])
+        mock_db.execute = MagicMock()
+        mock_db.commit = MagicMock()
+
+        async def _fake_loop(**kwargs: Any):
+            yield type("Evt", (), {"kind": "done", "data": {}})()
+
+        with patch("anteroom.services.agent_loop.run_agent_loop", _fake_loop):
+            await execute_agent_runner(
+                prompt="do work",
+                timeout=10,
+                ai_service=object(),
+                tool_executor=lambda *_a, **_k: None,
+                db=mock_db,
+                run_id="run-001",
+            )
+
+        # mark_run_input_consumed calls db.execute with UPDATE + consumed_at
+        update_calls = [c for c in mock_db.execute.call_args_list if "consumed_at" in str(c)]
+        assert len(update_calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_step_start_inputs_not_duplicated_by_drainer(self) -> None:
+        """Inputs injected at step start must not be re-enqueued by the drainer.
+
+        Regression: deferred ack left rows visible to the drainer poll, causing
+        duplicate injection every poll cycle until the agent loop finished.
+        """
+        pending_row = {
+            "id": "inp-dup",
+            "run_id": "run-001",
+            "content": "do not duplicate me",
+            "source_action": "update",
+            "created_at": 1000.0,
+            "consumed_at": None,
+        }
+        mock_db = MagicMock()
+        # fetch_pending_run_inputs returns the same row on every call
+        # (simulates the drainer seeing unconsumed rows repeatedly)
+        mock_db.execute_fetchall = MagicMock(return_value=[pending_row])
+        mock_db.execute = MagicMock()
+        mock_db.commit = MagicMock()
+
+        captured_messages: list[list[dict[str, Any]]] = []
+
+        async def _fake_loop(**kwargs: Any):
+            # Capture messages at LLM call time
+            captured_messages.append(list(kwargs.get("messages", [])))
+            # Drain injection_queue to see if duplicates landed there
+            iq = kwargs.get("injection_queue")
+            if iq is not None:
+                # Give the drainer a chance to poll at least once
+                await asyncio.sleep(0.15)
+                drained = []
+                while not iq.empty():
+                    drained.append(iq.get_nowait())
+                # The drainer must NOT re-enqueue the step-start row
+                assert len(drained) == 0, f"Drainer duplicated step-start input: {drained}"
+            yield type("Evt", (), {"kind": "done", "data": {}})()
+
+        with patch("anteroom.services.agent_loop.run_agent_loop", _fake_loop):
+            with patch(
+                "anteroom.services.workflow_runners._DRAINER_POLL_SECONDS",
+                0.05,
+            ):
+                await execute_agent_runner(
+                    prompt="do work",
+                    timeout=10,
+                    ai_service=object(),
+                    tool_executor=lambda *_a, **_k: None,
+                    db=mock_db,
+                    run_id="run-001",
+                )
+
+        # The input should appear exactly once in messages (from step-start)
+        msgs = captured_messages[0]
+        input_msgs = [m for m in msgs if "do not duplicate me" in m.get("content", "")]
+        assert len(input_msgs) == 1, f"Expected 1 injection, got {len(input_msgs)}: {input_msgs}"
+
+    @pytest.mark.asyncio
+    async def test_undrained_queue_items_not_acked(self) -> None:
+        """Items enqueued by the drainer but never drained by the agent loop
+        must NOT be marked consumed. This is the end-of-step loss window
+        regression: a row arrives after the last checkpoint, gets enqueued,
+        but the loop finishes before draining it."""
+        # Step-start returns nothing; drainer will find a row mid-run
+        call_count = [0]
+        late_row = {
+            "id": "inp-late",
+            "run_id": "run-001",
+            "content": "arrived after last checkpoint",
+            "source_action": "update",
+            "created_at": 1000.0,
+            "consumed_at": None,
+        }
+
+        def _fetch_side_effect(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+            call_count[0] += 1
+            # First call is step-start: return nothing
+            # Second+ calls are drainer: return the late row
+            if call_count[0] <= 1:
+                return []
+            return [late_row]
+
+        mock_db = MagicMock()
+        mock_db.execute_fetchall = MagicMock(side_effect=_fetch_side_effect)
+        mock_db.execute = MagicMock()
+        mock_db.commit = MagicMock()
+
+        async def _fast_loop(**kwargs: Any):
+            # Agent loop finishes immediately WITHOUT draining injection_queue.
+            # The drainer may have enqueued the late row, but the loop never
+            # hits the per-iteration checkpoint to drain it.
+            yield type("Evt", (), {"kind": "done", "data": {}})()
+
+        with patch("anteroom.services.agent_loop.run_agent_loop", _fast_loop):
+            with patch("anteroom.services.workflow_runners._DRAINER_POLL_SECONDS", 0.05):
+                await execute_agent_runner(
+                    prompt="quick task",
+                    timeout=10,
+                    ai_service=object(),
+                    tool_executor=lambda *_a, **_k: None,
+                    db=mock_db,
+                    run_id="run-001",
+                )
+
+        # The late row should NOT have been acked (no consumed_at UPDATE for inp-late)
+        ack_calls = [c for c in mock_db.execute.call_args_list if "consumed_at" in str(c)]
+        acked_ids = [str(c) for c in ack_calls if "inp-late" in str(c)]
+        assert len(acked_ids) == 0, (
+            f"Late row 'inp-late' was acked despite not being drained by the agent loop. Ack calls: {ack_calls}"
+        )

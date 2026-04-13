@@ -3,53 +3,196 @@ import dataclasses
 import math
 import typing
 from collections import OrderedDict
-from functools import partial, reduce
+from functools import reduce
 from operator import xor
 from typing import Any, Generator, Hashable, TYPE_CHECKING, Union, Dict
 
-from bitarray import bitarray
-
 from pyais.constants import _COG_SPECIAL, COUNTRY_MAPPING, AtoNDimensionType, SyncState
-from pyais.exceptions import NonPrintableCharacterException
 
 if TYPE_CHECKING:
     BaseDict = OrderedDict[Hashable, Any]
 else:
     BaseDict = OrderedDict
 
-from_bytes = partial(int.from_bytes, byteorder="big")
-from_bytes_signed = partial(int.from_bytes, byteorder="big", signed=True)
-
 T = typing.TypeVar('T')
 
 
-def decode_into_bit_array(data: bytes, fill_bits: int = 0) -> bitarray:
+class SixBitNibleEncoder:
     """
-    Decodes a raw AIS message into a bitarray.
-    :param data:        Raw AIS message in bytes
-    :param fill_bits:   Number of trailing fill bits to be ignored
-    :return:
+    6-bit AIS (Automatic Identification System) encoder.
+
+    Converts binary data into 6-bit AIS payload format using ASCII character encoding.
+    The AIS standard uses a specific 6-bit encoding scheme where values 0-39 are encoded
+    as ASCII characters 48-87 (0x30-0x57) and values 40-63 are encoded as ASCII
+    characters 96-119 (0x60-0x77).
+
+    The encoder handles bit padding automatically to ensure the output aligns to
+    6-bit boundaries.
     """
-    bit_str = ''
-    length = len(data)
 
-    for i, c in enumerate(data):
-        if not 0x20 <= c <= 0x7e:
-            raise NonPrintableCharacterException(f"Non printable character: '{hex(c)}'")
+    def __init__(self) -> None:
+        self._buffer = bytearray(256)  # Pre-allocated buffer
 
-        # Convert 8 bit binary to 6 bit binary
-        c -= 0x30 if (c < 0x60) else 0x38
-        c &= 0x3F
+    def encode(self, data: bytes, total_bits: int) -> tuple[str, int]:
+        """
+        Convert binary data to 6-bit AIS payload format.
 
-        if i == length - 1 and fill_bits:
-            # The last part be shorter than 6 bits and contain fill bits
-            c = c >> fill_bits
-            bit_str += f'{c:b}'.zfill(6 - fill_bits)
+        Args:
+            data: Binary data to encode
+            total_bits: Number of bits to process from the data
+
+        Returns:
+            Tuple of (encoded_string, fill_bits_count)
+        """
+        if len(data) == 0:
+            return '', 0
+
+        fill_bits = self._calculate_fill_bits(total_bits)
+        char_count = math.ceil(total_bits / 6)
+        self._ensure_buffer_size(char_count)
+
+        bit_pos = 0
+        char_idx = 0
+
+        while bit_pos < total_bits and char_idx < char_count:
+            six_bit_val = self._extract_six_bits(data, bit_pos, total_bits, char_idx, char_count, fill_bits)
+            ascii_char = self._six_bit_to_ascii(six_bit_val)
+
+            self._buffer[char_idx] = ascii_char
+            char_idx += 1
+            bit_pos += self._get_bits_extracted(bit_pos, total_bits, char_idx, char_count, fill_bits)
+
+        return bytes(self._buffer[:char_count]).decode('ascii'), fill_bits
+
+    def _calculate_fill_bits(self, total_bits: int) -> int:
+        """Calculate number of fill bits needed for 6-bit alignment."""
+        return (6 - (total_bits % 6)) % 6
+
+    def _ensure_buffer_size(self, char_count: int) -> None:
+        """Ensure buffer is large enough for the encoded output."""
+        if char_count > len(self._buffer):
+            self._buffer = bytearray(char_count + 64)
+
+    def _extract_six_bits(self, data: bytes, bit_pos: int, total_bits: int,
+                          char_idx: int, char_count: int, fill_bits: int) -> int:
+        """Extract up to 6 bits from the data at the given bit position."""
+        byte_idx = bit_pos // 8
+        bit_offset = bit_pos % 8
+        bits_to_extract = min(6, total_bits - bit_pos)
+
+        # Handle last character fill bits
+        if char_idx == char_count - 1 and fill_bits > 0:
+            bits_to_extract = 6 - fill_bits
+
+        six_bit_val = self._get_bits_from_data(data, byte_idx, bit_offset, bits_to_extract)
+
+        # Handle fill bits in last character
+        if char_idx == char_count - 1 and fill_bits > 0:
+            six_bit_val = six_bit_val << fill_bits
+
+        return six_bit_val & 0x3F
+
+    def _get_bits_from_data(self, data: bytes, byte_idx: int, bit_offset: int, bits_to_extract: int) -> int:
+        """Extract bits from data, handling byte boundaries."""
+        if bit_offset + bits_to_extract <= 8:
+            # All bits in current byte
+            if byte_idx < len(data):
+                return (data[byte_idx] >> (8 - bit_offset - bits_to_extract)) & ((1 << bits_to_extract) - 1)
+            return 0
         else:
-            bit_str += f'{c:06b}'
+            # Bits span two bytes
+            if byte_idx < len(data):
+                six_bit_val = (data[byte_idx] << (bits_to_extract - (8 - bit_offset))) & ((1 << bits_to_extract) - 1)
+                if byte_idx + 1 < len(data):
+                    remaining_bits = bits_to_extract - (8 - bit_offset)
+                    six_bit_val |= data[byte_idx + 1] >> (8 - remaining_bits)
+                return six_bit_val
+            return 0
 
-    bit_arr = bitarray(bit_str)
-    return bit_arr
+    def _six_bit_to_ascii(self, six_bit_val: int) -> int:
+        """Convert 6-bit value to AIS ASCII character."""
+        if six_bit_val < 40:  # 0x28
+            return six_bit_val + 0x30  # Add 48
+        else:
+            return six_bit_val + 0x38  # Add 56
+
+    def _get_bits_extracted(self, bit_pos: int, total_bits: int, char_idx: int, char_count: int, fill_bits: int) -> int:
+        """Calculate how many bits were extracted in this iteration."""
+        bits_to_extract = min(6, total_bits - bit_pos)
+        if char_idx == char_count and fill_bits > 0:
+            bits_to_extract = 6 - fill_bits
+        return bits_to_extract
+
+
+def get_num(num: int, start_bit: int, num_bits: int, total_bits: int, signed: bool = False) -> int:
+    # Handle edge cases
+    if num_bits == 0 or start_bit >= total_bits:
+        return 0
+
+    # Calculate actual bits to read
+    available_bits = total_bits - start_bit
+    bits_to_read = min(num_bits, available_bits)
+    shift = total_bits - start_bit - bits_to_read
+
+    if bits_to_read == 0:
+        return 0
+
+    # Create mask and extract value
+    mask = ((1 << bits_to_read) - 1) << shift
+    val = (num & mask) >> shift
+
+    # Handle signed interpretation
+    if signed:
+        sign_bit_mask = 1 << (num_bits - 1)
+        if val & sign_bit_mask:
+            val = val - (1 << num_bits)
+
+    return val
+
+
+def extract_bits(data: bytes, start_bit: int, num_bits: int, total_bit_length: int = -1, signed: bool = False) -> int:
+    """bit extraction from bytes"""
+    if total_bit_length == -1:
+        total_bit_length = len(data) * 8
+
+    if num_bits == 0:
+        return 0
+
+    if start_bit >= total_bit_length:
+        return 0
+
+    # Limit extraction to available bits
+    available_bits = total_bit_length - start_bit
+    bits_to_read = min(num_bits, available_bits)
+
+    if bits_to_read == 0:
+        return 0
+
+    result = 0
+    bits_read = 0
+
+    while bits_read < bits_to_read:
+        byte_idx = (start_bit + bits_read) // 8
+        if byte_idx >= len(data):
+            break
+
+        bit_offset = (start_bit + bits_read) % 8
+        bits_in_byte = min(8 - bit_offset, bits_to_read - bits_read)
+
+        # Extract bits from current byte
+        mask = (1 << bits_in_byte) - 1
+        byte_value = (data[byte_idx] >> (8 - bit_offset - bits_in_byte)) & mask
+
+        result = (result << bits_in_byte) | byte_value
+        bits_read += bits_in_byte
+
+    # Handle signed interpretation
+    if signed and num_bits > 0:
+        sign_bit_mask = 1 << (num_bits - 1)
+        if result & sign_bit_mask:
+            result = result - (1 << num_bits)
+
+    return result
 
 
 def chunks(sequence: typing.Sequence[T], n: int) -> Generator[typing.Sequence[T], None, None]:
@@ -57,48 +200,51 @@ def chunks(sequence: typing.Sequence[T], n: int) -> Generator[typing.Sequence[T]
     return (sequence[i:i + n] for i in range(0, len(sequence), n))
 
 
-def decode_bin_as_ascii6(bit_arr: bitarray) -> str:
+def decode_bytes_as_ascii6(data: bytes, start_bit: int = 0, total_bits: int = -1) -> str:
     """
-    Decode binary data as 6 bit ASCII.
-    :param bit_arr: array of bits
-    :return: ASCII String
+    Decode binary data as 6-bit ASCII.
+
+    Args:
+        data: Binary data to decode
+        start_bit: Starting bit position (default: 0)
+        total_bits: Total number of bits to process (default: all available)
+
+    Returns:
+        ASCII String
     """
-    string: str = ""
-    c: bitarray
-    for c in chunks(bit_arr, 6):  # type:ignore
-        n: int = from_bytes(c.tobytes()) >> 2
+    if total_bits == -1:
+        total_bits = len(data) * 8 - start_bit
 
-        # Last entry may not have 6 bits
-        if len(c) != 6:
-            n >>= (6 - len(c))
+    string = ""
+    bit_pos = start_bit
 
+    while bit_pos < start_bit + total_bits:
+        # Calculate how many bits are available for this chunk
+        remaining_bits = (start_bit + total_bits) - bit_pos
+        chunk_bits = min(6, remaining_bits)
+
+        if chunk_bits == 0:
+            break
+
+        # Extract the 6-bit chunk (or less if at the end)
+        n = extract_bits(data, bit_pos, chunk_bits, signed=False)
+
+        # Handle incomplete chunks (less than 6 bits)
+        if chunk_bits < 6:
+            n <<= (6 - chunk_bits)  # Left-shift to align to 6-bit boundary
+
+        # Convert to ASCII character
         if n < 0x20:
             n += 0x40
 
-        # Break if there is an @
+        # Break if there is an @ (ASCII 64)
         if n == 64:
             break
 
         string += chr(n)
+        bit_pos += chunk_bits
 
     return string.strip()
-
-
-def get_int(data: bitarray, ix_low: int, ix_high: int, signed: bool = False) -> int:
-    """
-    Cast a subarray of a bitarray into an integer.
-    The bitarray module adds tailing zeros when calling tobytes(), if the bitarray is not a multiple of 8.
-    So those need to be shifted away.
-    :param data: some bitarray
-    :param ix_low: the lower index of the sub-array
-    :param ix_high: the upper index of the sub-array
-    :param signed: True if the value should be interpreted as a signed integer
-    :return: a normal integer (int)
-    """
-    shift: int = (8 - ((ix_high - ix_low) % 8)) % 8
-    data = data[ix_low:ix_high]
-    i: int = from_bytes_signed(data) if signed else from_bytes(data)
-    return i >> shift
 
 
 def checksum(sentence: bytes) -> int:
@@ -168,24 +314,6 @@ def to_six_bit(char: str) -> str:
         raise ValueError(f"received char '{char}' that cant be encoded")
 
 
-def encode_ascii_6(bits: bitarray) -> typing.Tuple[str, int]:
-    """
-    Transform the bitarray to an ASCII-encoded bit vector.
-    Each character represents six bits of data.
-    @param bits: The bitarray to convert to an ASCII-encoded bit vector.
-    @return: ASCII-encoded bit vector and the number of fill bits required to pad the data payload to a 6 bit boundary.
-    """
-    out = ""
-    chunk: bitarray
-    padding = 0
-    for chunk in chunks(bits, 6):  # type:ignore
-        padding = 6 - len(chunk)
-        num = from_bytes(chunk.tobytes()) >> 2
-        armor = PAYLOAD_ARMOR[num]
-        out += armor
-    return out, padding
-
-
 def int_to_bytes(val: typing.Union[int, bytes]) -> int:
     """
     Convert a bytes object to an integer. Byteorder is big.
@@ -196,33 +324,6 @@ def int_to_bytes(val: typing.Union[int, bytes]) -> int:
     if isinstance(val, int):
         return val
     return int.from_bytes(val, 'big')
-
-
-def bits2bytes(bits: typing.Union[str, bitarray]) -> bytes:
-    """
-    Convert a bitstring or a bitarray to bytes.
-    >>> bits2bytes('00100110')
-    b'&'
-    """
-    bits = bitarray(bits)
-    return bits.tobytes()
-
-
-def bytes2bits(in_bytes: bytes, default: typing.Optional[bitarray] = None) -> bitarray:
-    """
-    Convert a bytes object to a bitarray.
-
-    @param  in_bytes :    The bytes to encode
-    @param  default  :    A default value to return if `in_bytes` is *Falseish*
-
-    >>> bytes2bits(b'&')
-    bitarray('00100110')
-    """
-    if default is not None and not in_bytes:
-        return default
-    bits = bitarray(endian='big')
-    bits.frombytes(in_bytes)
-    return bits
 
 
 def b64encode_str(val: bytes, encoding: str = 'utf-8') -> str:
@@ -236,60 +337,6 @@ def coerce_val(val: typing.Any, d_type: typing.Type[T]) -> T:
         raise ValueError(f"Expected bytes, but got: {type(val)}")
 
     return d_type(val)  # type: ignore
-
-
-def int_to_bin(val: typing.Union[int, bool], width: int, signed: bool = True) -> bitarray:
-    """
-    Convert an integer or boolean value to binary. If the value is too great to fit into
-    `width` bits, the maximum possible number that still fits is used.
-
-    @param val:     Any integer or boolean value.
-    @param width:   The bit width. If less than width bits are required, leading zeros are added.
-    @param signed:  Set to True/False if the value is signed or not.
-    @return:        The binary representation of value with exactly width bits. Type is bitarray.
-    """
-    # Compute the total number of bytes required to hold up to `width` bits.
-    n_bytes, mod = divmod(width, 8)
-    if mod > 0:
-        n_bytes += 1
-
-    # If the value is too big, return a bitarray of all 1's
-    mask = (1 << width) - 1
-    if val >= mask:
-        return bitarray('1' * width)
-
-    bits = bitarray(endian='big')
-    bits.frombytes(val.to_bytes(n_bytes, 'big', signed=signed))
-    return bits[8 - mod if mod else 0:]
-
-
-def str_to_bin(val: str, width: int, trailing_spaces: bool = False) -> bitarray:
-    """
-    Convert a string value to binary using six-bit ASCII encoding up to `width` chars.
-
-    @param val:               The string to first convert to six-bit ASCII and then to binary.
-    @param width:             The width of the full string
-    @param trailing_spaces:   If the string has fewer characters than width, trailing '@' are added
-    @return:        The binary representation of value with exactly width bits. Type is bitarray.
-    """
-    out = bitarray(endian='big')
-
-    # Each char will be converted to a six-bit binary vector.
-    # Therefore, the total number of chars is floor(WIDTH / 6).
-    num_chars = int(width / 6)
-
-    if trailing_spaces:
-        # Add trailing '@' if the string is shorter than `width`
-        for _ in range(num_chars - len(val)):
-            val += "@"
-
-    # Encode AT MOST width characters
-    for char in val[:num_chars]:
-        # Covert each char to six-bit ASCII vector
-        txt = to_six_bit(char)
-        out += bitarray(txt)
-
-    return out
 
 
 def chk_to_int(chk_str: bytes) -> typing.Tuple[int, int]:
@@ -431,6 +478,77 @@ def get_first_three_digits(num: int) -> int:
 
 def get_country(mmsi: int) -> typing.Tuple[str, str]:
     return COUNTRY_MAPPING.get(get_first_three_digits(mmsi), ('NA', 'Unknown'))
+
+
+def get_bytes(data: bytes, start_bit: int, length_bits: int) -> bytes:
+    """
+    Extract raw bytes from binary data starting at a specific bit position.
+
+    Args:
+        data: Source binary data
+        start_bit: Starting bit position (0-indexed)
+        length_bits: Number of bits to extract
+
+    Returns:
+        bytes object containing the extracted bits, padded to byte boundaries
+
+    Examples:
+        >>> decoder.get_bytes(b'\xFF\x00\xAA', 4, 8)  # Extract 8 bits starting at bit 4
+        b'\xF0'
+        >>> decoder.get_bytes(b'\xFF\x00\xAA', 0, 12)  # Extract 12 bits starting at bit 0
+        b'\xFF\x00'
+    """
+    if length_bits <= 0:
+        return b''
+
+    # Check boundaries
+    data_bit_length = len(data) * 8
+    if start_bit >= data_bit_length:
+        return b''
+
+    # Limit to available bits
+    available_bits = data_bit_length - start_bit
+    actual_bits = min(length_bits, available_bits)
+
+    if actual_bits <= 0:
+        return b''
+
+    # Calculate output byte count
+    output_bytes = (actual_bits + 7) // 8
+
+    result_buffer = bytearray(output_bytes)
+
+    # Extract bits and pack into bytes
+    bits_copied = 0
+
+    while bits_copied < actual_bits:
+        # Source position
+        src_byte_idx = (start_bit + bits_copied) // 8
+        src_bit_offset = (start_bit + bits_copied) % 8
+
+        # Destination position
+        dst_byte_idx = bits_copied // 8
+        dst_bit_offset = bits_copied % 8
+
+        # How many bits can we copy from current source byte?
+        src_bits_available = 8 - src_bit_offset
+        dst_bits_available = 8 - dst_bit_offset
+        remaining_bits = actual_bits - bits_copied
+
+        bits_to_copy = min(src_bits_available, dst_bits_available, remaining_bits)
+
+        if src_byte_idx < len(data) and dst_byte_idx < output_bytes:
+            # Extract bits from source
+            src_mask = ((1 << bits_to_copy) - 1) << (src_bits_available - bits_to_copy)
+            src_bits = (data[src_byte_idx] & src_mask) >> (src_bits_available - bits_to_copy)
+
+            # Place bits in destination
+            dst_shift = dst_bits_available - bits_to_copy
+            result_buffer[dst_byte_idx] |= src_bits << dst_shift
+
+        bits_copied += bits_to_copy
+
+    return bytes(result_buffer[:output_bytes])
 
 
 def is_auxiliary_craft(mmsi: int) -> bool:

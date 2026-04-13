@@ -13,6 +13,7 @@ import signal
 import sqlite3 as _sqlite3
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -27,18 +28,13 @@ from ..config import AppConfig, build_runtime_context
 from ..db import init_db
 from ..services import packs as packs_service
 from ..services import storage
-from ..services.agent_loop import _build_compaction_history, run_agent_loop
-from ..services.ai_service import AIService, create_ai_service
+from ..services.ai_service import AIService
 from ..services.context_trust import (
     sanitize_trust_tags,
     trusted_section_marker,
     untrusted_section_marker,
     wrap_untrusted,
 )
-from ..services.embeddings import get_effective_dimensions
-from ..services.rewind import collect_file_paths
-from ..services.rewind import rewind_conversation as rewind_service
-from ..services.slug import is_valid_slug, suggest_unique_slug
 from ..services.tool_result_compact import compact_tool_output
 from ..tools import ToolRegistry, register_default_tools
 from . import renderer
@@ -394,6 +390,34 @@ def _estimate_tokens(messages: list[dict[str, Any]]) -> int:
     return count_message_tokens(messages)
 
 
+class _LazyAIService:
+    """Proxy that defers AI service construction until first use."""
+
+    def __init__(self, ai_config: Any) -> None:
+        self._ai_config = ai_config
+        self._inner: AIService | None = None
+
+    def _ensure(self) -> AIService:
+        if self._inner is None:
+            from ..services.ai_service import create_ai_service
+
+            self._inner = create_ai_service(self._ai_config)
+        return self._inner
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._ensure(), name)
+
+    @property
+    def config(self) -> Any:
+        return self._ai_config if self._inner is None else self._inner.config
+
+    @config.setter
+    def config(self, value: Any) -> None:
+        if self._inner is not None:
+            self._inner.config = value
+        self._ai_config = value
+
+
 async def _check_for_update(current: str) -> str | None:
     """Check PyPI for a newer version. Returns latest if newer, else None."""
     proc = None
@@ -667,14 +691,29 @@ def _find_last_assistant_message(ai_messages: list[dict[str, Any]]) -> str | Non
 def _route_cancel_signal(
     agent_busy: asyncio.Event,
     current_cancel_event: list[asyncio.Event | None],
+    cancel_acked: list[bool] | None = None,
+    force_cancel_event: list[threading.Event | None] | None = None,
 ) -> bool:
     """Route a cancel signal (Ctrl-C or Escape) to the active cancel event.
 
     Returns True if cancel was routed (agent was busy), False otherwise.
     Called from prompt_toolkit keybinding handlers.
+
+    On first cancel: sets cancel_event, renders immediate visual ack via
+    stop_thinking_sync, and sets cancel_acked flag.
+    On double-cancel (cancel_event already set): sets force_cancel_event
+    to escalate to SIGKILL for stuck subprocesses.
     """
     if agent_busy.is_set() and current_cancel_event[0] is not None:
+        if current_cancel_event[0].is_set():
+            # Double-cancel: escalate to force-kill
+            if force_cancel_event is not None and force_cancel_event[0] is not None:
+                force_cancel_event[0].set()
+            return True
         current_cancel_event[0].set()
+        renderer.stop_thinking_sync(cancel_msg="cancelled")
+        if cancel_acked is not None:
+            cancel_acked[0] = True
         return True
     return False
 
@@ -2439,6 +2478,8 @@ async def run_cli(
     # Init DB (same as web UI)
     db_path = config.app.data_dir / "chat.db"
     config.app.data_dir.mkdir(parents=True, exist_ok=True)
+    from ..services.embeddings import get_effective_dimensions
+
     vec_dims = get_effective_dimensions(config)
 
     # Derive encryption key if encryption at rest is enabled
@@ -2459,12 +2500,21 @@ async def run_cli(
 
     db = init_db(db_path, vec_dimensions=vec_dims, encryption_key=encryption_key)
 
-    # Initialize vector index manager (usearch-based)
-    from ..services.vector_index import VectorIndexManager
+    # Vector index manager initialized in background (Phase 3A: startup optimization)
+    async def _init_vector_manager() -> Any | None:
+        from ..services.vector_index import VectorIndexManager
 
-    _vec_manager = VectorIndexManager(config.app.data_dir, dimensions=vec_dims)
-    if _vec_manager.enabled:
-        _vec_manager.rebuild_from_db(db)
+        try:
+            mgr = VectorIndexManager(config.app.data_dir, dimensions=vec_dims)
+            if mgr.enabled:
+                mgr.rebuild_from_db(db)
+            return mgr
+        except Exception:
+            logger.warning("Vector index init failed", exc_info=True)
+            return None
+
+    _vec_task: asyncio.Task[Any | None] | None = None
+    _mcp_startup_task: asyncio.Task[None] | None = None
 
     # Load space if specified via --space or auto-detect by cwd
     _space: dict[str, Any] | None = None
@@ -2676,6 +2726,7 @@ async def run_cli(
     # Build unified tool executor
     _subagent_counter = 0
     _active_cancel_event: list[asyncio.Event | None] = [None]
+    _active_force_cancel_event: list[threading.Event | None] = [None]
 
     from typing import cast as _cast
 
@@ -2838,6 +2889,11 @@ async def run_cli(
                 "_db": db,
                 "_runtime_info": _rt_info,
             }
+        # Inject cancel events into all tool calls for cooperative cancellation
+        if _active_cancel_event[0] is not None:
+            arguments["_cancel_event"] = _active_cancel_event[0]
+        if _active_force_cancel_event[0] is not None:
+            arguments["_force_cancel_event"] = _active_force_cancel_event[0]
         if tool_registry.has_tool(tool_name):
             result = await tool_registry.call_tool(
                 tool_name,
@@ -2982,20 +3038,7 @@ async def run_cli(
             tools_openai.append(invoke_def)
             tools_openai_or_none = tools_openai if tools_openai else None
 
-    ai_service = create_ai_service(config.ai)
-
-    # Validate connection before proceeding
-    with renderer.startup_step("Validating AI connection..."):
-        valid, message, _ = await ai_service.validate_connection()
-    if not valid:
-        renderer.render_error(f"Cannot connect to AI service: {message}")
-        renderer.console.print(f"  [{MUTED}]base_url: {config.ai.base_url}[/{MUTED}]")
-        renderer.console.print(f"  [{MUTED}]model: {config.ai.model}[/{MUTED}]")
-        renderer.console.print(f"  [{MUTED}]Check ~/.anteroom/config.yaml[/{MUTED}]\n")
-        if mcp_manager:
-            await mcp_manager.shutdown()
-        db.close()
-        return
+    ai_service: Any = _LazyAIService(config.ai)
 
     all_tool_names = tool_registry.list_tools()
     if mcp_manager:
@@ -3031,6 +3074,7 @@ async def run_cli(
                 tool_registry=tool_registry,
                 resume_conversation_id=resume_conversation_id,
                 cancel_event_ref=_active_cancel_event,
+                force_cancel_event_ref=_active_force_cancel_event,
                 dlp_scanner=_dlp_scanner,
                 injection_detector=_injection_detector,
                 output_filter=_output_filter,
@@ -3038,11 +3082,11 @@ async def run_cli(
         else:
             git_branch = _detect_git_branch()
             build_date = renderer._get_build_date()
-            with renderer.startup_step("Checking for updates..."):
-                latest_version = await _check_for_update(__version__)
+            _update_task = asyncio.create_task(_check_for_update(__version__))
             installed_packs = packs_service.list_packs(db)
             pack_count = len(installed_packs)
             pack_names = [p["name"] for p in installed_packs] if installed_packs else None
+            _vec_task = asyncio.create_task(_init_vector_manager())
             is_first_run = not storage.list_conversations(db, limit=1)
             renderer.render_welcome(
                 model=config.ai.model,
@@ -3057,23 +3101,38 @@ async def run_cli(
                 pack_names=pack_names,
                 is_first_run=is_first_run,
             )
-            if latest_version:
-                renderer.render_update_available(__version__, latest_version)
-            if config.mcp_servers and mcp_manager:
-                await _run_mcp_startup_live(mcp_manager, config.mcp_servers, _mcp_statuses)
-                # Rebuild tool list now that MCP tools are available
-                mcp_tools_post = mcp_manager.get_openai_tools()
-                if mcp_tools_post:
-                    tools_openai.extend(mcp_tools_post)
-                    tools_openai[:] = cap_tools(
-                        tools_openai, set(tool_registry.list_tools()), limit=config.ai.max_tools
-                    )
-                    if config.safety.read_only:
-                        from ..tools.tiers import filter_read_only_tools as _fro
 
-                        tools_openai[:] = _fro(tools_openai, config.safety.tool_tiers)
-                    tools_openai_or_none = tools_openai if tools_openai else None
-                    all_tool_names.extend(t["name"] for t in mcp_manager.get_all_tools())
+            # Update check runs fully in background — never blocks the prompt.
+            # The result is rendered via a done-callback when available.
+            def _on_update_check_done(task: asyncio.Task[str | None]) -> None:
+                try:
+                    latest = task.result()
+                    if latest:
+                        renderer.render_update_available(__version__, latest)
+                except Exception:
+                    pass
+
+            _update_task.add_done_callback(_on_update_check_done)
+            # MCP startup runs in background so the prompt appears immediately.
+            # Tools become available once startup completes — the list is mutated
+            # in-place so _run_repl sees the update on the next agent turn.
+            if config.mcp_servers and mcp_manager:
+
+                async def _background_mcp_startup() -> None:
+                    await _run_mcp_startup_live(mcp_manager, config.mcp_servers, _mcp_statuses)
+                    mcp_tools_post = mcp_manager.get_openai_tools()
+                    if mcp_tools_post:
+                        tools_openai.extend(mcp_tools_post)
+                        tools_openai[:] = cap_tools(
+                            tools_openai, set(tool_registry.list_tools()), limit=config.ai.max_tools
+                        )
+                        if config.safety.read_only:
+                            from ..tools.tiers import filter_read_only_tools as _fro
+
+                            tools_openai[:] = _fro(tools_openai, config.safety.tool_tiers)
+                        all_tool_names.extend(t["name"] for t in mcp_manager.get_all_tools())
+
+                _mcp_startup_task = asyncio.create_task(_background_mcp_startup())
             if config.safety.read_only:
                 renderer.console.print(
                     f"[yellow]Read-only mode active.[/yellow] Only READ-tier tools are available.\n"
@@ -3112,6 +3171,7 @@ async def run_cli(
                 mcp_manager=mcp_manager,
                 tool_registry=tool_registry,
                 cancel_event_ref=_active_cancel_event,
+                force_cancel_event_ref=_active_force_cancel_event,
                 subagent_limiter=_subagent_limiter,
                 rate_limiter=_rate_limiter,
                 plan_mode=plan_mode,
@@ -3123,16 +3183,31 @@ async def run_cli(
                 artifact_registry=_artifact_registry,
                 space=_space,
                 space_instructions=_space_instructions,
-                vec_manager=_vec_manager,
+                vec_manager_task=_vec_task,
                 instructions_snapshot=_instructions_snapshot,
                 no_project_context=no_project_context,
                 introspect_info_ref=_introspect_info_ref,
             )
     finally:
-        if _vec_manager and _vec_manager.enabled:
-            _vec_manager.save_all()
+        _resolved_mgr: Any | None = None
+        if _vec_task is not None:
+            if _vec_task.done():
+                try:
+                    _resolved_mgr = _vec_task.result()
+                except Exception:
+                    pass
+            else:
+                _vec_task.cancel()
+        if _resolved_mgr and _resolved_mgr.enabled:
+            _resolved_mgr.save_all()
         if retention_worker:
             retention_worker.stop()
+        if _mcp_startup_task is not None and not _mcp_startup_task.done():
+            _mcp_startup_task.cancel()
+            try:
+                await _mcp_startup_task
+            except (asyncio.CancelledError, Exception):
+                pass
         if mcp_manager:
             try:
                 await mcp_manager.shutdown()
@@ -3197,6 +3272,8 @@ async def _run_one_shot(
             storage.get_daily_token_total(db),
         )
 
+    from ..services.agent_loop import run_agent_loop
+
     try:
         while True:
             user_attempt += 1
@@ -3242,8 +3319,10 @@ async def _run_one_shot(
                     if thinking:
                         await renderer.stop_thinking()
                         thinking = False
+                    renderer.enter_tool_phase(event.data["tool_name"], event.data["arguments"])
                     renderer.render_tool_call_start(event.data["tool_name"], event.data["arguments"])
                 elif event.kind == "tool_call_end":
+                    renderer.exit_tool_phase(event.data["tool_name"])
                     renderer.render_tool_call_end(event.data["tool_name"], event.data["status"], event.data["output"])
                 elif event.kind == "assistant_message":
                     if event.data["content"]:
@@ -3424,6 +3503,7 @@ async def _run_repl(
     mcp_manager: Any = None,
     tool_registry: Any = None,
     cancel_event_ref: list[asyncio.Event | None] | None = None,
+    force_cancel_event_ref: list[threading.Event | None] | None = None,
     subagent_limiter: Any = None,
     rate_limiter: Any = None,
     plan_mode: bool = False,
@@ -3435,12 +3515,28 @@ async def _run_repl(
     artifact_registry: Any = None,
     space: dict[str, Any] | None = None,
     space_instructions: str | None = None,
-    vec_manager: Any | None = None,
+    vec_manager_task: asyncio.Task[Any | None] | None = None,
     instructions_snapshot: InstructionsSnapshot | None = None,
     no_project_context: bool = False,
     introspect_info_ref: list[dict[str, Any]] | None = None,
 ) -> None:
     """Run the interactive REPL."""
+    # Lazy vector manager resolver: awaits the background task on first access
+    _resolved_vec_manager: list[Any | None] = [None]
+    _vec_resolved: list[bool] = [False]
+
+    async def _get_vec_manager() -> Any | None:
+        if _vec_resolved[0]:
+            return _resolved_vec_manager[0]
+        if vec_manager_task is not None:
+            try:
+                _resolved_vec_manager[0] = await vec_manager_task
+            except Exception:
+                logger.warning("Vector index init failed", exc_info=True)
+                _resolved_vec_manager[0] = None
+        _vec_resolved[0] = True
+        return _resolved_vec_manager[0]
+
     id_kw = _identity_kwargs(config)
 
     from prompt_toolkit import PromptSession
@@ -3451,7 +3547,6 @@ async def _run_repl(
     from prompt_toolkit.key_binding import KeyBindings
     from prompt_toolkit.styles import Style as PtStyle
 
-    # Command metadata imported from the shared engine (single source of truth).
     from anteroom.cli.commands import (
         ALL_COMMAND_NAMES,
         COMMAND_DESCRIPTIONS,
@@ -3636,7 +3731,7 @@ async def _run_repl(
         # When agent is busy, route Ctrl-C to cancel the active run (#937).
         # On Windows, loop.add_signal_handler(SIGINT) is a no-op, so this
         # prompt_toolkit keybinding is the only cancel path.
-        if _route_cancel_signal(agent_busy, _current_cancel_event):
+        if _route_cancel_signal(agent_busy, _current_cancel_event, _cancel_acked, _force_cancel_event):
             return
 
         buf = event.current_buffer
@@ -3659,7 +3754,7 @@ async def _run_repl(
         # When idle, this is a no-op because _route_cancel_signal returns
         # False (agent_busy is not set). Escape+Enter chord for newline
         # is unaffected — prompt_toolkit distinguishes via flush timeout.
-        _route_cancel_signal(agent_busy, _current_cancel_event)
+        _route_cancel_signal(agent_busy, _current_cancel_event, _cancel_acked, _force_cancel_event)
 
     # Styled prompt — dim while agent is working to signal "you can type to queue"
     _prompt_text = HTML(f"<style fg='{renderer._theme.accent}'>❯</style> ") if renderer._theme.accent else HTML("❯ ")
@@ -4065,6 +4160,8 @@ async def _run_repl(
     agent_busy = asyncio.Event()  # set while agent loop is running
     exit_flag = asyncio.Event()
     _current_cancel_event: list[asyncio.Event | None] = [None]
+    _cancel_acked: list[bool] = [False]
+    _force_cancel_event: list[threading.Event | None] = [None]
 
     @kb.add("tab")
     def _tab_complete(event: Any) -> None:
@@ -4148,7 +4245,7 @@ async def _run_repl(
             try:
                 from ..services.embedding_worker import EmbeddingWorker
 
-                _embedding_worker[0] = EmbeddingWorker(db, svc, vec_manager=vec_manager)
+                _embedding_worker[0] = EmbeddingWorker(db, svc, vec_manager=await _get_vec_manager())
                 return _embedding_worker[0]
             except Exception:
                 logger.debug("Failed to create embedding worker for CLI", exc_info=True)
@@ -4448,6 +4545,8 @@ async def _run_repl(
         if _plan_active[0]:
             _apply_plan_mode(conv["id"])
 
+        _pending_disambiguation_runs: list[dict[str, Any]] = []
+
         while not exit_flag.is_set():
             if agent_busy.is_set() and not _has_pending_work():
                 agent_busy.clear()
@@ -4467,6 +4566,83 @@ async def _run_repl(
                 config=config,
             ):
                 continue
+
+            # Workflow follow-up message routing (#889)
+            if not user_input.startswith("/") and conv.get("id"):
+                try:
+                    from ..services.message_router import route_message
+                    from ..services.workflow_storage import (
+                        emit_workflow_run_input,
+                        list_active_runs_for_conversation,
+                    )
+
+                    _active_wf_runs = list_active_runs_for_conversation(db, conv["id"])
+                    if _active_wf_runs:
+                        from ..services.message_router import resolve_disambiguation
+
+                        # If the previous turn was an ask_user disambiguation
+                        # prompt, the user's reply MUST resolve to a run or we
+                        # re-prompt — never silently fall through to fresh routing.
+                        if _pending_disambiguation_runs:
+                            _resolved_id = resolve_disambiguation(user_input.strip(), _pending_disambiguation_runs)
+                            if _resolved_id is not None:
+                                _selected = [r for r in _pending_disambiguation_runs if r["id"] == _resolved_id]
+                                _route = route_message(user_input.strip(), _selected or _pending_disambiguation_runs)
+                                _pending_disambiguation_runs = []
+                            else:
+                                renderer.console.print(
+                                    "[yellow]Could not match your reply to a workflow run. "
+                                    "Reply with the number, workflow name, or run id prefix.[/yellow]"
+                                )
+                                continue
+                        else:
+                            _resolved_id = resolve_disambiguation(user_input.strip(), _active_wf_runs)
+                            if _resolved_id is not None:
+                                _selected = [r for r in _active_wf_runs if r["id"] == _resolved_id]
+                                _route = route_message(user_input.strip(), _selected or _active_wf_runs)
+                            else:
+                                _route = route_message(user_input.strip(), _active_wf_runs)
+
+                        if _route.action == "cancel":
+                            from ..services.workflow_engine import WorkflowEngine
+
+                            await WorkflowEngine.request_cancel(db, _route.target_run_id)
+                            renderer.console.print(
+                                f"[{CHROME}]Workflow run cancelled: {_route.target_run_id[:8]}...[/{CHROME}]"
+                            )
+                            continue
+
+                        if _route.action in ("attach", "update"):
+                            emit_workflow_run_input(
+                                db,
+                                _route.target_run_id,  # type: ignore[arg-type]
+                                user_input.strip(),
+                                _route.action,
+                            )
+                            renderer.console.print(
+                                f"[{CHROME}]Message routed to workflow run"
+                                f" ({_route.action}): {_route.target_run_id[:8]}...[/{CHROME}]"
+                            )
+                            continue
+
+                        if _route.action == "replace":
+                            from ..services.workflow_engine import WorkflowEngine
+
+                            await WorkflowEngine.request_cancel(db, _route.target_run_id)
+                            renderer.console.print(
+                                f"[{CHROME}]Cancelled run {_route.target_run_id[:8]}..."
+                                " — starting new work[/{CHROME}]"
+                            )
+                            # Fall through to normal processing
+
+                        if _route.action == "ask_user":
+                            _pending_disambiguation_runs = _active_wf_runs
+                            renderer.console.print(f"[yellow]{_route.clarification}[/yellow]")
+                            continue
+
+                        # action == "spawn" falls through to normal processing
+                except Exception:
+                    logger.debug("Workflow follow-up routing failed in CLI", exc_info=True)
 
             # Handle commands
             if user_input.startswith("/"):
@@ -4795,6 +4971,8 @@ async def _run_repl(
                     if not conv.get("id"):
                         renderer.render_error("No active conversation.")
                         continue
+                    from ..services.slug import is_valid_slug, suggest_unique_slug
+
                     if not is_valid_slug(desired):
                         renderer.render_error(
                             "Invalid slug. Use lowercase letters, numbers, and hyphens (e.g. my-project)."
@@ -4866,12 +5044,13 @@ async def _run_repl(
                         try:
                             query_emb = await _emb_svc.embed(query)
                             if query_emb:
+                                _vm = await _get_vec_manager()
                                 sem_results = storage.search_similar_messages(
                                     db,
                                     query_emb,
                                     limit=20,
                                     conversation_type=type_filter,
-                                    vec_index=vec_manager.messages if vec_manager and vec_manager.enabled else None,
+                                    vec_index=_vm.messages if _vm and _vm.enabled else None,
                                 )
                                 if sem_results:
                                     renderer.console.print(f"\n[bold]Semantic search results for '{query}':[/bold]")
@@ -6201,6 +6380,8 @@ async def _run_repl(
                         continue
                     new_model = parts[1].strip()
                     current_model = new_model
+                    from ..services.ai_service import create_ai_service
+
                     ai_service = create_ai_service(config.ai)
                     ai_service.config.model = new_model
                     _toolbar_refresh()
@@ -6394,6 +6575,9 @@ async def _run_repl(
 
                     msgs_after = [m for m in stored if m["position"] > target_pos]
                     msg_ids_after = [m["id"] for m in msgs_after]
+                    from ..services.rewind import collect_file_paths
+                    from ..services.rewind import rewind_conversation as rewind_service
+
                     file_paths = collect_file_paths(db, msg_ids_after)
 
                     undo_files = False
@@ -6410,13 +6594,14 @@ async def _run_repl(
                             renderer.console.print(f"[{CHROME}]Cancelled[/{CHROME}]\n")
                             continue
 
+                    _vm = await _get_vec_manager()
                     rewind_result = await rewind_service(
                         db=db,
                         conversation_id=conv["id"],
                         to_position=target_pos,
                         undo_files=undo_files,
                         working_dir=working_dir,
-                        vec_index=vec_manager.messages if vec_manager and vec_manager.enabled else None,
+                        vec_index=_vm.messages if _vm and _vm.enabled else None,
                     )
 
                     ai_messages, _ = _load_conversation_messages(
@@ -6552,7 +6737,7 @@ async def _run_repl(
                             config=config.rag,
                             current_conversation_id=conv["id"],
                             space_id=conv.get("space_id"),
-                            vec_manager=vec_manager,
+                            vec_manager=await _get_vec_manager(),
                             reranker_service=_rag_reranker,
                             reranker_config=config.reranker,
                         )
@@ -6581,8 +6766,12 @@ async def _run_repl(
                 rate_limiter.reset()
             cancel_event = asyncio.Event()
             _current_cancel_event[0] = cancel_event
+            _cancel_acked[0] = False
+            _force_cancel_event[0] = threading.Event()
             if cancel_event_ref is not None:
                 cancel_event_ref[0] = cancel_event
+            if force_cancel_event_ref is not None:
+                force_cancel_event_ref[0] = _force_cancel_event[0]
             loop = asyncio.get_event_loop()
             original_handler = signal.getsignal(signal.SIGINT)
             _add_signal_handler(loop, signal.SIGINT, cancel_event.set)
@@ -6626,6 +6815,8 @@ async def _run_repl(
                     tool_registry=tool_registry,
                     config=config,
                 )
+
+                from ..services.agent_loop import run_agent_loop
 
                 while True:
                     user_attempt += 1
@@ -6672,6 +6863,11 @@ async def _run_repl(
                             config=config,
                         )
 
+                        # Discard events after cancel ack — let generator
+                        # exhaust naturally without processing (#1372)
+                        if cancel_event.is_set() and _cancel_acked[0] and event.kind != "done":
+                            continue
+
                         if event.kind == "thinking":
                             if not thinking:
                                 # Advance plan: if a step was in_progress, mark it complete
@@ -6712,8 +6908,10 @@ async def _run_repl(
                             if _plan_checklist_steps and _plan_current_step[0] < len(_plan_checklist_steps):
                                 idx = _plan_current_step[0]
                                 renderer.update_plan_step(idx, "in_progress")
+                            renderer.enter_tool_phase(event.data["tool_name"], event.data["arguments"])
                             renderer.render_tool_call_start(event.data["tool_name"], event.data["arguments"])
                         elif event.kind == "tool_call_end":
+                            renderer.exit_tool_phase(event.data["tool_name"])
                             renderer.render_tool_call_end(
                                 event.data["tool_name"], event.data["status"], event.data["output"]
                             )
@@ -6845,9 +7043,14 @@ async def _run_repl(
                                         renderer.update_plan_step(idx, "complete")
                             collapse = bool(_plan_checklist_steps)
                             if thinking and cancel_event.is_set():
-                                total_elapsed += await renderer.stop_thinking(
-                                    cancel_msg="cancelled", collapse_plan=collapse
-                                )
+                                if _cancel_acked[0]:
+                                    # Visual ack already rendered by stop_thinking_sync
+                                    # in _route_cancel_signal — just clean up state
+                                    total_elapsed += await renderer.stop_thinking(collapse_plan=collapse)
+                                else:
+                                    total_elapsed += await renderer.stop_thinking(
+                                        cancel_msg="cancelled", collapse_plan=collapse
+                                    )
                                 thinking = False
                             elif thinking:
                                 total_elapsed += await renderer.stop_thinking(collapse_plan=collapse)
@@ -7039,6 +7242,8 @@ async def _compact_messages(
 
     original_count = len(ai_messages)
     original_tokens = _estimate_tokens(ai_messages)
+
+    from ..services.agent_loop import _build_compaction_history
 
     history_text = _build_compaction_history(ai_messages)
 

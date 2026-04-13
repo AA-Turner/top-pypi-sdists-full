@@ -4,8 +4,8 @@ build-backend = "maturin"
 
 [project]
 name = "wrf-rust"
-version = "0.2.25"
-description = "Rust-powered WRF post-processing — fixes CAPE, SRH, adds 65+ variables, 5-30x faster than wrf-python"
+version = "0.2.28"
+description = "Rust-powered WRF post-processing with corrected effective severe diagnostics, raw staggered support, and 83 diagnostic variables"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [{name = "Fahrenheit Research"}]
@@ -20,6 +20,11 @@ classifiers = [
 ]
 dependencies = ["numpy>=1.20"]
 readme = "README.md"
+
+[project.urls]
+Homepage = "https://github.com/FahrenheitResearch/wrf-rust"
+Repository = "https://github.com/FahrenheitResearch/wrf-rust"
+Issues = "https://github.com/FahrenheitResearch/wrf-rust/issues"
 
 [tool.maturin]
 python-source = "python"

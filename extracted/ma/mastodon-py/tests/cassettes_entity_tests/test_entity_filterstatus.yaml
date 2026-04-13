@@ -20,24 +20,26 @@ interactions:
         null, "filter_action": "warn", "keywords": [{"id": "202", "keyword": "animes",
         "whole_word": false}], "statuses": [{"id": "5980", "status_id": "110446223051565765"}]}]'
     headers:
+      Accept-Ranges:
+      - none
       Connection:
       - keep-alive
       Date:
-      - Fri, 15 Aug 2025 20:19:13 GMT
+      - Sat, 11 Apr 2026 23:14:51 GMT
       Strict-Transport-Security:
       - max-age=31557600
       Vary:
       - Authorization, Origin, Accept-Encoding
+      Via:
+      - 1.1 varnish, 1.1 varnish
       X-Cache:
       - MISS, MISS, MISS
       X-Cache-Hits:
       - 0, 0, 0
       X-Served-By:
-      - cache-fra-eddf8230022-FRA, cache-fra-eddf8230105-FRA, cache-hel1410025-HEL
+      - cache-fra-etou8220168-FRA, cache-fra-eddf8230166-FRA, cache-hel1410030-HEL
       X-Timer:
-      - S1755289154.504852,VS0,VE249
-      accept-ranges:
-      - none
+      - S1775949291.029939,VS0,VE105
       alt-svc:
       - h3=":443";ma=86400,h3-29=":443";ma=86400,h3-27=":443";ma=86400
       cache-control:
@@ -52,10 +54,10 @@ interactions:
       - W/"6fa9430258aa6544bfb53d5f1c900c33"
       referrer-policy:
       - same-origin
+      server:
+      - Mastodon
       transfer-encoding:
       - chunked
-      via:
-      - 1.1 varnish, 1.1 varnish, 1.1 varnish
       x-content-type-options:
       - nosniff
       x-frame-options:
@@ -63,13 +65,13 @@ interactions:
       x-ratelimit-limit:
       - '300'
       x-ratelimit-remaining:
-      - '222'
+      - '249'
       x-ratelimit-reset:
-      - '2025-08-15T20:20:00.683698Z'
+      - '2026-04-11T23:15:00.085388Z'
       x-request-id:
-      - 1acc23143e6a16ebb1017472e95b2ca5
+      - 5eec8916-a7e9-44ab-8eaf-58454a4b2b2d
       x-runtime:
-      - '0.188347'
+      - '0.039002'
       x-xss-protection:
       - '0'
     status:
@@ -94,24 +96,26 @@ interactions:
     body:
       string: '[{"id": "5980", "status_id": "110446223051565765"}]'
     headers:
+      Accept-Ranges:
+      - none
       Connection:
       - keep-alive
       Date:
-      - Fri, 15 Aug 2025 20:19:13 GMT
+      - Sat, 11 Apr 2026 23:14:51 GMT
       Strict-Transport-Security:
       - max-age=31557600
       Vary:
       - Authorization, Origin, Accept-Encoding
+      Via:
+      - 1.1 varnish, 1.1 varnish
       X-Cache:
       - MISS, MISS, MISS
       X-Cache-Hits:
       - 0, 0, 0
       X-Served-By:
-      - cache-fra-eddf8230170-FRA, cache-fra-eddf8230119-FRA, cache-hel1410028-HEL
+      - cache-fra-eddf8230222-FRA, cache-fra-eddf8230074-FRA, cache-hel1410032-HEL
       X-Timer:
-      - S1755289154.808708,VS0,VE103
-      accept-ranges:
-      - none
+      - S1775949291.241032,VS0,VE118
       alt-svc:
       - h3=":443";ma=86400,h3-29=":443";ma=86400,h3-27=":443";ma=86400
       cache-control:
@@ -126,10 +130,10 @@ interactions:
       - W/"7e9257dcd9be4d889bc9b023eccb8fc6"
       referrer-policy:
       - same-origin
+      server:
+      - Mastodon
       transfer-encoding:
       - chunked
-      via:
-      - 1.1 varnish, 1.1 varnish, 1.1 varnish
       x-content-type-options:
       - nosniff
       x-frame-options:
@@ -137,13 +141,13 @@ interactions:
       x-ratelimit-limit:
       - '300'
       x-ratelimit-remaining:
-      - '221'
+      - '248'
       x-ratelimit-reset:
-      - '2025-08-15T20:20:00.869687Z'
+      - '2026-04-11T23:15:00.308890Z'
       x-request-id:
-      - f6bf459dc732c2563a0e261cfb9ed5c3
+      - a25982bc-77c3-4711-8c58-f567b25d89c2
       x-runtime:
-      - '0.024068'
+      - '0.033306'
       x-xss-protection:
       - '0'
     status:

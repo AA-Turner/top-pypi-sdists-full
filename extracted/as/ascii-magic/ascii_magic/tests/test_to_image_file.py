@@ -34,7 +34,16 @@ def test_to_image_file_full_color():
         'output_lion_full_color.png',
         columns=60,
         full_color=True,
-        height='auto',
+    )
+
+
+def test_to_image_file_full_color_with_border():
+    my_art = AsciiArt.from_image('lion.jpg')
+    my_art.to_image_file(
+        'output_lion_full_color_with_border.png',
+        border_width=15,
+        columns=60,
+        full_color=True,
     )
 
 

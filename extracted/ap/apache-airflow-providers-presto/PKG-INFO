@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-presto
-Version: 5.11.1
+Version: 5.11.2
 Summary: Provider package apache-airflow-providers-presto for Apache Airflow
 Keywords: airflow-provider,presto,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -35,8 +35,8 @@ Requires-Dist: psycopg2-binary>=2.9.10; python_version >= "3.13"
 Requires-Dist: apache-airflow-providers-google ; extra == "google"
 Requires-Dist: sqlalchemy>=1.4.54 ; extra == "sqlalchemy"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-presto/5.11.1/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-presto/5.11.1
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-presto/5.11.2/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-presto/5.11.2
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -69,7 +69,7 @@ Provides-Extra: sqlalchemy
 
 Package ``apache-airflow-providers-presto``
 
-Release: ``5.11.1``
+Release: ``5.11.2``
 
 
 `Presto <https://prestodb.io/>`__
@@ -82,7 +82,7 @@ This is a provider package for ``presto`` provider. All classes for this provide
 are in ``airflow.providers.presto`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-presto/5.11.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-presto/5.11.2/>`_.
 
 Installation
 ------------
@@ -142,5 +142,5 @@ Extra           Dependencies
 ==============  ===================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-presto/5.11.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-presto/5.11.2/changelog.html>`_.
 

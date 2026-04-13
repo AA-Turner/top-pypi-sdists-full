@@ -1,6 +1,6 @@
 """Contract tests for the /new-skill built-in skill.
 
-These tests pin the structural requirements of new-skill.yaml so that
+These tests pin the structural requirements of new-skill/SKILL.md so that
 if someone edits the instructions and removes safeguards, CI catches
 it immediately.  Follows the test_excalidraw_skill.py pattern.
 """
@@ -10,15 +10,28 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-import yaml
-
 from anteroom.cli.skills import SkillRegistry
 
-_SKILL_PATH = Path(__file__).resolve().parents[2] / "src" / "anteroom" / "cli" / "default_skills" / "new-skill.yaml"
+
+def _parse_frontmatter(path):
+    """Parse a SKILL.md file, returning a dict with name, description, prompt."""
+    import yaml as _yaml
+
+    raw = path.read_text(encoding="utf-8")
+    assert raw.startswith("---\n"), f"{path} missing frontmatter"
+    end = raw.index("\n---", 4)
+    fm = _yaml.safe_load(raw[4:end])
+    fm["prompt"] = raw[end + 4 :].strip()
+    return fm
+
+
+_SKILL_PATH = (
+    Path(__file__).resolve().parents[2] / "src" / "anteroom" / "cli" / "default_skills" / "new-skill" / "SKILL.md"
+)
 
 
 def _load_prompt() -> str:
-    data = yaml.safe_load(_SKILL_PATH.read_text())
+    data = _parse_frontmatter(_SKILL_PATH)
     return data["prompt"]
 
 
@@ -26,14 +39,14 @@ class TestNewSkillContract:
     """Pin /new-skill prompt requirements so regressions are caught by CI."""
 
     def test_yaml_file_exists(self) -> None:
-        assert _SKILL_PATH.exists(), f"new-skill.yaml not found at {_SKILL_PATH}"
+        assert _SKILL_PATH.exists(), f"new-skill/SKILL.md not found at {_SKILL_PATH}"
 
     def test_yaml_parses_correctly(self) -> None:
-        data = yaml.safe_load(_SKILL_PATH.read_text())
+        data = _parse_frontmatter(_SKILL_PATH)
         assert isinstance(data, dict)
 
     def test_has_required_fields(self) -> None:
-        data = yaml.safe_load(_SKILL_PATH.read_text())
+        data = _parse_frontmatter(_SKILL_PATH)
         assert data.get("name") == "new-skill"
         assert "description" in data
         assert "prompt" in data

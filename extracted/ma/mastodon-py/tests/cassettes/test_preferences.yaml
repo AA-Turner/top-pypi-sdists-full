@@ -16,25 +16,25 @@ interactions:
     uri: http://localhost:3000/api/v1/preferences
   response:
     body:
-      string: '{"posting:default:visibility":"public","posting:default:sensitive":false,"posting:default:language":"ja","reading:expand:media":"default","reading:expand:spoilers":false,"reading:autoplay:gifs":false}'
+      string: '{"posting:default:visibility":"unlisted","posting:default:sensitive":true,"posting:default:language":"en","posting:default:quote_policy":"public","reading:expand:media":"default","reading:expand:spoilers":false,"reading:autoplay:gifs":false}'
     headers:
-      Content-Length:
-      - '200'
       cache-control:
       - private, no-store
+      content-length:
+      - '241'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"8fd4bab80a0d01081d346ad7dd8a0070"
+      - W/"3f200e69e0f102799fd84004ac9b942c"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=0.73, cache_generate.active_support;dur=1.02,
-        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.16,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.20,
-        process_action.action_controller;dur=26.83
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=1.03, cache_generate.active_support;dur=1.34,
+        cache_write.active_support;dur=0.11, instantiation.active_record;dur=0.19,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.27,
+        process_action.action_controller;dur=27.21
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -48,11 +48,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T18:45:00.372384Z'
+      - '2026-04-11T23:15:00.801738Z'
       x-request-id:
-      - ec626c02-6796-4f23-9a88-1fa53aab9750
+      - d54e9acc-8653-4544-9514-8bf8a57a070a
       x-runtime:
-      - '0.046477'
+      - '0.047898'
       x-xss-protection:
       - '0'
     status:

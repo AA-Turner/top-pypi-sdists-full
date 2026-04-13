@@ -166,7 +166,7 @@ class TestCreateAiServiceFactoryLiteLLM:
         from anteroom.services.ai_service import AIService, create_ai_service
 
         config = _make_config(provider="openai", base_url="http://localhost:11434/v1")
-        with patch("anteroom.services.ai_service.AsyncOpenAI"):
+        with patch("openai.AsyncOpenAI"):
             svc = create_ai_service(config)
         assert isinstance(svc, AIService)
 

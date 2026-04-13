@@ -1,11 +1,158 @@
 //! Severe weather composite diagnostic variables:
 //! stp, scp, ehi, critical_angle, ship, bri
 
-
-
 use crate::compute::ComputeOpts;
+use crate::diag::cape::{build_surface_augmented_thermo_column, find_effective_inflow_layer};
 use crate::error::WrfResult;
 use crate::file::WrfFile;
+use rayon::prelude::*;
+
+const SURFACE_LAYER_HEIGHT_M: f64 = 0.0;
+
+fn build_augmented_wind_profile(
+    u_3d: &[f64],
+    v_3d: &[f64],
+    h_agl: &[f64],
+    u10: f64,
+    v10: f64,
+    nz: usize,
+    nxy: usize,
+    ij: usize,
+) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let mut u_prof = Vec::with_capacity(nz + 1);
+    let mut v_prof = Vec::with_capacity(nz + 1);
+    let mut h_prof = Vec::with_capacity(nz + 1);
+    u_prof.push(u10);
+    v_prof.push(v10);
+    h_prof.push(SURFACE_LAYER_HEIGHT_M);
+
+    for k in 0..nz {
+        let idx = k * nxy + ij;
+        u_prof.push(u_3d[idx]);
+        v_prof.push(v_3d[idx]);
+        h_prof.push(h_agl[idx]);
+    }
+
+    (u_prof, v_prof, h_prof)
+}
+
+fn pressure_weighted_layer_mean(
+    u_prof: &[f64],
+    v_prof: &[f64],
+    h_prof: &[f64],
+    p_prof: &[f64],
+    bottom_m: f64,
+    top_m: f64,
+) -> (f64, f64) {
+    let u_bot = interp_wind_at_height(u_prof, v_prof, h_prof, bottom_m).0;
+    let v_bot = interp_wind_at_height(u_prof, v_prof, h_prof, bottom_m).1;
+    let u_top = interp_wind_at_height(u_prof, v_prof, h_prof, top_m).0;
+    let v_top = interp_wind_at_height(u_prof, v_prof, h_prof, top_m).1;
+
+    let mut us = Vec::with_capacity(u_prof.len() + 2);
+    let mut vs = Vec::with_capacity(v_prof.len() + 2);
+    let mut ps = Vec::with_capacity(p_prof.len() + 2);
+
+    us.push(u_bot);
+    vs.push(v_bot);
+    ps.push(interp_scalar_at_height(p_prof, h_prof, bottom_m));
+
+    for i in 0..h_prof.len() {
+        if h_prof[i] > bottom_m && h_prof[i] < top_m {
+            us.push(u_prof[i]);
+            vs.push(v_prof[i]);
+            ps.push(p_prof[i]);
+        }
+    }
+
+    us.push(u_top);
+    vs.push(v_top);
+    ps.push(interp_scalar_at_height(p_prof, h_prof, top_m));
+
+    let mut sum_u = 0.0;
+    let mut sum_v = 0.0;
+    let mut total_dp = 0.0;
+    for i in 0..(ps.len() - 1) {
+        let dp = (ps[i] - ps[i + 1]).abs();
+        sum_u += 0.5 * (us[i] + us[i + 1]) * dp;
+        sum_v += 0.5 * (vs[i] + vs[i + 1]) * dp;
+        total_dp += dp;
+    }
+
+    if total_dp <= 0.0 {
+        (u_bot, v_bot)
+    } else {
+        (sum_u / total_dp, sum_v / total_dp)
+    }
+}
+
+fn interp_scalar_at_height(values: &[f64], h_prof: &[f64], target_h: f64) -> f64 {
+    for k in 0..h_prof.len() - 1 {
+        if h_prof[k] <= target_h && h_prof[k + 1] > target_h {
+            let frac = (target_h - h_prof[k]) / (h_prof[k + 1] - h_prof[k]);
+            return values[k] + frac * (values[k + 1] - values[k]);
+        }
+    }
+    if target_h <= h_prof[0] {
+        values[0]
+    } else {
+        values[values.len() - 1]
+    }
+}
+
+pub fn compute_effective_bulk_wind_difference(
+    f: &WrfFile,
+    t: usize,
+    opts: &ComputeOpts,
+) -> WrfResult<Vec<f64>> {
+    let pres_hpa = f.pressure_hpa(t)?;
+    let tc = f.temperature_c(t)?;
+    let qv = f.qvapor(t)?;
+    let h_agl = f.height_agl(t)?;
+    let psfc = f.psfc(t)?;
+    let t2 = f.t2_for_opts(t, opts)?;
+    let q2 = f.q2_for_opts(t, opts)?;
+    let u = f.u_destag(t)?;
+    let v = f.v_destag(t)?;
+    let u10 = f.u10(t)?;
+    let v10 = f.v10(t)?;
+
+    let nx = f.nx;
+    let ny = f.ny;
+    let nz = f.nz;
+    let nxy = nx * ny;
+
+    Ok((0..nxy)
+        .into_par_iter()
+        .map(|ij| {
+            let (p_prof, t_prof, td_prof, thermo_h_prof) = build_surface_augmented_thermo_column(
+                &pres_hpa, &tc, &qv, &h_agl, psfc[ij], t2[ij], q2[ij], nz, nxy, ij,
+            );
+            let layer =
+                match find_effective_inflow_layer(&p_prof, &t_prof, &td_prof, &thermo_h_prof) {
+                    Some(layer) => layer,
+                    None => return 0.0,
+                };
+            let mu_el_h = match layer.mu_el_h {
+                Some(el_h) if el_h > layer.base_h => el_h,
+                _ => return 0.0,
+            };
+
+            let top_h = layer.base_h + 0.5 * (mu_el_h - layer.base_h);
+            if top_h <= layer.base_h {
+                return 0.0;
+            }
+
+            let (u_prof, v_prof, h_prof) =
+                build_augmented_wind_profile(&u, &v, &h_agl, u10[ij], v10[ij], nz, nxy, ij);
+            let (u_bot, v_bot) = interp_wind_at_height(&u_prof, &v_prof, &h_prof, layer.base_h);
+            let (u_top, v_top) = interp_wind_at_height(&u_prof, &v_prof, &h_prof, top_h);
+            let du = u_top - u_bot;
+            let dv = v_top - v_bot;
+            (du * du + dv * dv).sqrt()
+        })
+        .collect())
+}
 
 /// Significant Tornado Parameter -- fixed layer (dimensionless). `[ny, nx]`
 ///
@@ -19,12 +166,11 @@ pub fn compute_stp(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfResult<Vec<f
     let tc = f.temperature_c(t)?;
     let qv = f.qvapor(t)?;
     let h_agl = f.height_agl(t)?;
-    let psfc = f.psfc(t)?;   // Pa -- compute_cape_cin converts internally
-    let t2 = f.t2_for_opts(t, opts)?;       // K  -- compute_cape_cin converts internally
+    let psfc = f.psfc(t)?; // Pa -- compute_cape_cin converts internally
+    let t2 = f.t2_for_opts(t, opts)?; // K  -- compute_cape_cin converts internally
     let q2 = f.q2_for_opts(t, opts)?;
     let u = f.u_destag(t)?;
     let v = f.v_destag(t)?;
-
     let nx = f.nx;
     let ny = f.ny;
     let nz = f.nz;
@@ -32,12 +178,11 @@ pub fn compute_stp(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfResult<Vec<f
     // Surface-based CAPE + LCL
     // Pass raw Pa/K values -- compute_cape_cin converts internally
     let (sbcape, _, lcl, _) = crate::met::composite::compute_cape_cin(
-        &pres, &tc, &qv, &h_agl, &psfc, &t2, &q2,
-        nx, ny, nz, "sb",
+        &pres, &tc, &qv, &h_agl, &psfc, &t2, &q2, nx, ny, nz, "sb",
     );
 
     // 0-1 km SRH via canonical path (earth-rotated winds + 10m prepend)
-    let srh1 = crate::diag::srh::compute_srh_field(f, t, 1000.0, None)?;
+    let srh1 = crate::diag::srh::compute_srh_field(f, t, 1000.0, opts.storm_motion.as_ref())?;
 
     // 0-6 km shear magnitude
     let shear6 = crate::met::composite::compute_shear(&u, &v, &h_agl, nx, ny, nz, 0.0, 6000.0);
@@ -59,11 +204,9 @@ pub fn compute_stp_effective(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfRe
     let tc = f.temperature_c(t)?;
     let qv = f.qvapor(t)?;
     let h_agl = f.height_agl(t)?;
-    let psfc = f.psfc(t)?;   // Pa -- compute_cape_cin converts internally
-    let t2 = f.t2_for_opts(t, opts)?;       // K  -- compute_cape_cin converts internally
+    let psfc = f.psfc(t)?; // Pa -- compute_cape_cin converts internally
+    let t2 = f.t2_for_opts(t, opts)?; // K  -- compute_cape_cin converts internally
     let q2 = f.q2_for_opts(t, opts)?;
-    let u = f.u_destag(t)?;
-    let v = f.v_destag(t)?;
 
     let nx = f.nx;
     let ny = f.ny;
@@ -72,17 +215,16 @@ pub fn compute_stp_effective(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfRe
     // Mixed-layer CAPE, CIN, and LCL
     // Pass raw Pa/K values -- compute_cape_cin converts internally
     let (mlcape, mlcin, lcl, _) = crate::met::composite::compute_cape_cin(
-        &pres, &tc, &qv, &h_agl, &psfc, &t2, &q2,
-        nx, ny, nz, "ml",
+        &pres, &tc, &qv, &h_agl, &psfc, &t2, &q2, nx, ny, nz, "ml",
     );
-
-    // 0-6 km shear magnitude (EBWD approximation)
-    let shear6 = crate::met::composite::compute_shear(&u, &v, &h_agl, nx, ny, nz, 0.0, 6000.0);
 
     // Effective-layer SRH via canonical path (earth-rotated winds + 10m prepend)
     let eff_srh = crate::diag::srh::compute_effective_srh(f, t, opts)?;
+    let ebwd = compute_effective_bulk_wind_difference(f, t, opts)?;
 
-    Ok(stp_eff_from_components(&mlcape, &lcl, &mlcin, &eff_srh, &shear6))
+    Ok(stp_eff_from_components(
+        &mlcape, &lcl, &mlcin, &eff_srh, &ebwd,
+    ))
 }
 
 /// Generic STP dispatcher: uses opts.layer_type to choose fixed or effective.
@@ -105,9 +247,21 @@ fn stp_fixed_from_components(cape: &[f64], lcl: &[f64], srh: &[f64], shear: &[f6
         .zip(shear.iter())
         .map(|(((c, l), s), sh)| {
             let cape_term = (c / 1500.0).max(0.0);
-            let lcl_term = if *l >= 2000.0 { 0.0 } else if *l <= 1000.0 { 1.0 } else { (2000.0 - l) / 1000.0 };
+            let lcl_term = if *l >= 2000.0 {
+                0.0
+            } else if *l <= 1000.0 {
+                1.0
+            } else {
+                (2000.0 - l) / 1000.0
+            };
             let srh_term = (s / 150.0).max(0.0);
-            let shear_term = if *sh < 12.5 { 0.0 } else if *sh >= 30.0 { 1.5 } else { sh / 20.0 };
+            let shear_term = if *sh < 12.5 {
+                0.0
+            } else if *sh >= 30.0 {
+                1.5
+            } else {
+                sh / 20.0
+            };
             cape_term * lcl_term * srh_term * shear_term
         })
         .collect()
@@ -115,7 +269,13 @@ fn stp_fixed_from_components(cape: &[f64], lcl: &[f64], srh: &[f64], shear: &[f6
 
 /// Effective-layer STP: 5-term formula with CIN.
 ///   STP_eff = (mlCAPE/1500) * ((2000-mlLCL)/1000) * (ESRH/150) * (EBWD/20) * ((200+mlCIN)/150)
-fn stp_eff_from_components(cape: &[f64], lcl: &[f64], cin: &[f64], srh: &[f64], shear: &[f64]) -> Vec<f64> {
+fn stp_eff_from_components(
+    cape: &[f64],
+    lcl: &[f64],
+    cin: &[f64],
+    srh: &[f64],
+    shear: &[f64],
+) -> Vec<f64> {
     cape.iter()
         .zip(lcl.iter())
         .zip(cin.iter())
@@ -123,9 +283,21 @@ fn stp_eff_from_components(cape: &[f64], lcl: &[f64], cin: &[f64], srh: &[f64], 
         .zip(shear.iter())
         .map(|((((c, l), ci), s), sh)| {
             let cape_term = (c / 1500.0).max(0.0);
-            let lcl_term = if *l >= 2000.0 { 0.0 } else if *l <= 1000.0 { 1.0 } else { (2000.0 - l) / 1000.0 };
+            let lcl_term = if *l >= 2000.0 {
+                0.0
+            } else if *l <= 1000.0 {
+                1.0
+            } else {
+                (2000.0 - l) / 1000.0
+            };
             let srh_term = (s / 150.0).max(0.0);
-            let shear_term = if *sh < 12.5 { 0.0 } else if *sh >= 30.0 { 1.5 } else { sh / 20.0 };
+            let shear_term = if *sh < 12.5 {
+                0.0
+            } else if *sh >= 30.0 {
+                1.5
+            } else {
+                sh / 20.0
+            };
             // CIN term: (200 + mlCIN) / 150, clamped to [0, 1]
             // CIN is negative, so 200 + CIN shrinks toward 0 as CIN gets more negative
             let cin_term = ((200.0 + ci) / 150.0).clamp(0.0, 1.0);
@@ -136,17 +308,15 @@ fn stp_eff_from_components(cape: &[f64], lcl: &[f64], cin: &[f64], srh: &[f64], 
 
 /// Supercell Composite Parameter (dimensionless). `[ny, nx]`
 ///
-/// SRH is computed through the canonical compute_srh_field path (earth-rotated + 10m prepend).
+/// Uses MUCAPE, effective SRH, and effective bulk wind difference (EBWD).
 pub fn compute_scp(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfResult<Vec<f64>> {
     let pres = f.full_pressure(t)?;
     let tc = f.temperature_c(t)?;
     let qv = f.qvapor(t)?;
     let h_agl = f.height_agl(t)?;
-    let psfc = f.psfc(t)?;   // Pa -- compute_cape_cin converts internally
-    let t2 = f.t2_for_opts(t, opts)?;       // K  -- compute_cape_cin converts internally
+    let psfc = f.psfc(t)?; // Pa -- compute_cape_cin converts internally
+    let t2 = f.t2_for_opts(t, opts)?; // K  -- compute_cape_cin converts internally
     let q2 = f.q2_for_opts(t, opts)?;
-    let u = f.u_destag(t)?;
-    let v = f.v_destag(t)?;
 
     let nx = f.nx;
     let ny = f.ny;
@@ -154,15 +324,13 @@ pub fn compute_scp(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfResult<Vec<f
 
     // Pass raw Pa/K values -- compute_cape_cin converts internally
     let (mucape, _, _, _) = crate::met::composite::compute_cape_cin(
-        &pres, &tc, &qv, &h_agl, &psfc, &t2, &q2,
-        nx, ny, nz, "mu",
+        &pres, &tc, &qv, &h_agl, &psfc, &t2, &q2, nx, ny, nz, "mu",
     );
 
-    // 0-3 km SRH via canonical path (earth-rotated winds + 10m prepend)
-    let srh3 = crate::diag::srh::compute_srh_field(f, t, 3000.0, None)?;
-    let shear6 = crate::met::composite::compute_shear(&u, &v, &h_agl, nx, ny, nz, 0.0, 6000.0);
+    let eff_srh = crate::diag::srh::compute_effective_srh(f, t, opts)?;
+    let ebwd = compute_effective_bulk_wind_difference(f, t, opts)?;
 
-    Ok(crate::met::composite::compute_scp(&mucape, &srh3, &shear6))
+    Ok(crate::met::composite::compute_scp(&mucape, &eff_srh, &ebwd))
 }
 
 /// Energy-Helicity Index (dimensionless). `[ny, nx]`
@@ -176,8 +344,8 @@ pub fn compute_ehi(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfResult<Vec<f
     let tc = f.temperature_c(t)?;
     let qv = f.qvapor(t)?;
     let h_agl = f.height_agl(t)?;
-    let psfc = f.psfc(t)?;   // Pa -- compute_cape_cin converts internally
-    let t2 = f.t2_for_opts(t, opts)?;       // K  -- compute_cape_cin converts internally
+    let psfc = f.psfc(t)?; // Pa -- compute_cape_cin converts internally
+    let t2 = f.t2_for_opts(t, opts)?; // K  -- compute_cape_cin converts internally
     let q2 = f.q2_for_opts(t, opts)?;
 
     let nx = f.nx;
@@ -186,13 +354,12 @@ pub fn compute_ehi(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfResult<Vec<f
 
     // Pass raw Pa/K values -- compute_cape_cin converts internally
     let (sbcape, _, _, _) = crate::met::composite::compute_cape_cin(
-        &pres, &tc, &qv, &h_agl, &psfc, &t2, &q2,
-        nx, ny, nz, "sb",
+        &pres, &tc, &qv, &h_agl, &psfc, &t2, &q2, nx, ny, nz, "sb",
     );
 
     // SRH via canonical path (earth-rotated winds + 10m prepend)
     let srh_depth = opts.depth_m.unwrap_or(1000.0);
-    let srh = crate::diag::srh::compute_srh_field(f, t, srh_depth, None)?;
+    let srh = crate::diag::srh::compute_srh_field(f, t, srh_depth, opts.storm_motion.as_ref())?;
 
     // EHI = (CAPE * SRH) / 160000
     Ok(sbcape
@@ -204,14 +371,33 @@ pub fn compute_ehi(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfResult<Vec<f
 
 /// Critical angle (degrees). `[ny, nx]`
 pub fn compute_critical_angle(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfResult<Vec<f64>> {
-    let u = f.u_destag(t)?;
-    let v = f.v_destag(t)?;
+    let u_grid = f.u_destag(t)?;
+    let v_grid = f.v_destag(t)?;
+    let u10_grid = f.u10(t)?;
+    let v10_grid = f.v10(t)?;
+    let sina = f.sinalpha(t)?;
+    let cosa = f.cosalpha(t)?;
     let h_agl = f.height_agl(t)?;
 
     let nx = f.nx;
     let ny = f.ny;
     let nz = f.nz;
     let nxy = nx * ny;
+
+    let mut u = vec![0.0f64; u_grid.len()];
+    let mut v = vec![0.0f64; v_grid.len()];
+    for idx in 0..u_grid.len() {
+        let ij = idx % nxy;
+        u[idx] = u_grid[idx] * cosa[ij] - v_grid[idx] * sina[ij];
+        v[idx] = u_grid[idx] * sina[ij] + v_grid[idx] * cosa[ij];
+    }
+
+    let mut u10 = vec![0.0f64; nxy];
+    let mut v10 = vec![0.0f64; nxy];
+    for ij in 0..nxy {
+        u10[ij] = u10_grid[ij] * cosa[ij] - v10_grid[ij] * sina[ij];
+        v10[ij] = u10_grid[ij] * sina[ij] + v10_grid[ij] * cosa[ij];
+    }
 
     let mut result = vec![0.0f64; nxy];
     result.iter_mut().enumerate().for_each(|(ij, val)| {
@@ -226,14 +412,14 @@ pub fn compute_critical_angle(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfR
             h_prof.push(h_agl[idx]);
         }
 
-        // Get Bunkers RM storm motion
-        let ((sm_u, sm_v), _, _) =
-            crate::met::wind::bunkers_storm_motion(&u_prof, &v_prof, &h_prof);
-
-        // Interpolate wind at 500m
-        let (u_500, v_500) = interp_wind_at_height(&u_prof, &v_prof, &h_prof, 500.0);
-
-        *val = crate::met::wind::critical_angle(sm_u, sm_v, u_prof[0], v_prof[0], u_500, v_500);
+        *val = critical_angle_from_profile(
+            &u_prof,
+            &v_prof,
+            &h_prof,
+            u10[ij],
+            v10[ij],
+            opts.storm_motion.as_ref().map(|sm| sm.at(ij)),
+        );
     });
 
     Ok(result)
@@ -270,8 +456,7 @@ pub fn compute_ship(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfResult<Vec<
 
     // MUCAPE
     let (mucape, _, _, _) = crate::met::composite::compute_cape_cin(
-        &pres, &tc, &qv, &h_agl, &psfc, &t2, &q2,
-        nx, ny, nz, "mu",
+        &pres, &tc, &qv, &h_agl, &psfc, &t2, &q2, nx, ny, nz, "mu",
     );
 
     // 0-6 km shear
@@ -325,36 +510,65 @@ pub fn compute_ship(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfResult<Vec<
 }
 
 /// Bulk Richardson Number (dimensionless). `[ny, nx]`
+///
+/// Uses BRN shear rather than plain 0-6 km bulk shear:
+/// the denominator is based on the vector difference between the 0-500 m
+/// mean wind and the 0-6 km mean wind.
 pub fn compute_bri(f: &WrfFile, t: usize, opts: &ComputeOpts) -> WrfResult<Vec<f64>> {
     let pres = f.full_pressure(t)?;
+    let pres_hpa = f.pressure_hpa(t)?;
     let tc = f.temperature_c(t)?;
     let qv = f.qvapor(t)?;
     let h_agl = f.height_agl(t)?;
-    let psfc = f.psfc(t)?;   // Pa -- compute_cape_cin converts internally
-    let t2 = f.t2_for_opts(t, opts)?;       // K  -- compute_cape_cin converts internally
+    let psfc = f.psfc(t)?; // Pa -- compute_cape_cin converts internally
+    let t2 = f.t2_for_opts(t, opts)?; // K  -- compute_cape_cin converts internally
     let q2 = f.q2_for_opts(t, opts)?;
     let u = f.u_destag(t)?;
     let v = f.v_destag(t)?;
+    let u10 = f.u10(t)?;
+    let v10 = f.v10(t)?;
 
     let nx = f.nx;
     let ny = f.ny;
     let nz = f.nz;
+    let nxy = nx * ny;
 
     // Pass raw Pa/K values -- compute_cape_cin converts internally
     let (sbcape, _, _, _) = crate::met::composite::compute_cape_cin(
-        &pres, &tc, &qv, &h_agl, &psfc, &t2, &q2,
-        nx, ny, nz, "sb",
+        &pres, &tc, &qv, &h_agl, &psfc, &t2, &q2, nx, ny, nz, "sb",
     );
 
-    let shear6 = crate::met::composite::compute_shear(&u, &v, &h_agl, nx, ny, nz, 0.0, 6000.0);
+    let brn_shear: Vec<f64> = (0..nxy)
+        .into_par_iter()
+        .map(|ij| {
+            let (u_prof, v_prof, h_prof) =
+                build_augmented_wind_profile(&u, &v, &h_agl, u10[ij], v10[ij], nz, nxy, ij);
+            let mut p_prof = Vec::with_capacity(nz + 1);
+            p_prof.push(psfc[ij] / 100.0);
+            for k in 0..nz {
+                p_prof.push(pres_hpa[k * nxy + ij]);
+            }
 
-    // BRN = CAPE / (0.5 * shear^2)
+            let (mean_low_u, mean_low_v) =
+                pressure_weighted_layer_mean(&u_prof, &v_prof, &h_prof, &p_prof, 0.0, 500.0);
+            let (mean_deep_u, mean_deep_v) =
+                pressure_weighted_layer_mean(&u_prof, &v_prof, &h_prof, &p_prof, 0.0, 6000.0);
+            let du = mean_deep_u - mean_low_u;
+            let dv = mean_deep_v - mean_low_v;
+            (du * du + dv * dv).sqrt()
+        })
+        .collect();
+
     Ok(sbcape
         .iter()
-        .zip(shear6.iter())
-        .map(|(cape, shr)| {
-            let denom = 0.5 * shr * shr;
-            if denom > 0.1 { cape / denom } else { 0.0 }
+        .zip(brn_shear.iter())
+        .map(|(cape, brn_shear)| {
+            let denom = 0.5 * brn_shear * brn_shear;
+            if denom > 0.1 {
+                cape / denom
+            } else {
+                0.0
+            }
         })
         .collect())
 }
@@ -382,5 +596,106 @@ fn interp_wind_at_height(
     } else {
         let last = h_prof.len() - 1;
         (u_prof[last], v_prof[last])
+    }
+}
+
+fn critical_angle_from_profile(
+    u_prof: &[f64],
+    v_prof: &[f64],
+    h_prof: &[f64],
+    u_sfc: f64,
+    v_sfc: f64,
+    storm_motion: Option<(f64, f64)>,
+) -> f64 {
+    let mut u_aug = Vec::with_capacity(u_prof.len() + 1);
+    let mut v_aug = Vec::with_capacity(v_prof.len() + 1);
+    let mut h_aug = Vec::with_capacity(h_prof.len() + 1);
+
+    u_aug.push(u_sfc);
+    v_aug.push(v_sfc);
+    h_aug.push(SURFACE_LAYER_HEIGHT_M);
+
+    u_aug.extend_from_slice(u_prof);
+    v_aug.extend_from_slice(v_prof);
+    h_aug.extend_from_slice(h_prof);
+
+    let (sm_u, sm_v) = storm_motion.unwrap_or_else(|| {
+        let ((ru, rv), _, _) = crate::met::wind::bunkers_storm_motion(&u_aug, &v_aug, &h_aug);
+        (ru, rv)
+    });
+    let (u_500, v_500) = interp_wind_at_height(&u_aug, &v_aug, &h_aug, 500.0);
+
+    crate::met::wind::critical_angle(sm_u, sm_v, u_sfc, v_sfc, u_500, v_500)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_close(actual: f64, expected: f64) {
+        assert!(
+            (actual - expected).abs() < 1.0e-9,
+            "expected {expected}, got {actual}"
+        );
+    }
+
+    #[test]
+    fn critical_angle_uses_10m_surface_wind() {
+        let u_prof = [18.0, 24.0, 32.0, 42.0];
+        let v_prof = [8.0, 14.0, 20.0, 28.0];
+        let h_prof = [100.0, 500.0, 1500.0, 6000.0];
+        let u10 = 5.0;
+        let v10 = 2.0;
+
+        let actual = critical_angle_from_profile(&u_prof, &v_prof, &h_prof, u10, v10, None);
+
+        let mut u_aug = vec![u10];
+        let mut v_aug = vec![v10];
+        let mut h_aug = vec![SURFACE_LAYER_HEIGHT_M];
+        u_aug.extend_from_slice(&u_prof);
+        v_aug.extend_from_slice(&v_prof);
+        h_aug.extend_from_slice(&h_prof);
+
+        let ((sm_u, sm_v), _, _) = crate::met::wind::bunkers_storm_motion(&u_aug, &v_aug, &h_aug);
+        let (u_500, v_500) = interp_wind_at_height(&u_aug, &v_aug, &h_aug, 500.0);
+        let expected = crate::met::wind::critical_angle(sm_u, sm_v, u10, v10, u_500, v_500);
+        let first_level =
+            crate::met::wind::critical_angle(sm_u, sm_v, u_prof[0], v_prof[0], u_500, v_500);
+
+        assert!((actual - expected).abs() < 1.0e-9);
+        assert!(
+            (actual - first_level).abs() > 1.0e-3,
+            "10 m and first-model-level critical angles should differ in this profile"
+        );
+    }
+
+    #[test]
+    fn effective_stp_uses_ebwd_and_cin_limits() {
+        let stp = stp_eff_from_components(
+            &[1500.0, 1500.0, 1500.0, 1500.0],
+            &[1000.0, 1000.0, 1000.0, 1000.0],
+            &[-50.0, -50.0, -250.0, -50.0],
+            &[150.0, 150.0, 150.0, 150.0],
+            &[10.0, 20.0, 20.0, 40.0],
+        );
+
+        assert_close(stp[0], 0.0);
+        assert_close(stp[1], 1.0);
+        assert_close(stp[2], 0.0);
+        assert_close(stp[3], 1.5);
+    }
+
+    #[test]
+    fn fixed_stp_uses_operational_shear_gates() {
+        let stp = stp_fixed_from_components(
+            &[1500.0, 1500.0, 1500.0],
+            &[1000.0, 1000.0, 1000.0],
+            &[150.0, 150.0, 150.0],
+            &[12.0, 20.0, 40.0],
+        );
+
+        assert_close(stp[0], 0.0);
+        assert_close(stp[1], 1.0);
+        assert_close(stp[2], 1.5);
     }
 }

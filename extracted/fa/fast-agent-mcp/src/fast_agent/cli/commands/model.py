@@ -9,7 +9,7 @@ import shlex
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Literal, cast
+from typing import Callable, Literal, Protocol, cast, runtime_checkable
 
 import typer
 from pydantic import ValidationError
@@ -23,10 +23,9 @@ from fast_agent.commands.results import CommandMessage, CommandOutcome
 from fast_agent.config import (
     Settings,
     deep_merge,
-    find_fastagent_config_files,
-    load_layered_settings,
+    load_implicit_settings,
     load_yaml_mapping,
-    resolve_config_search_root,
+    resolve_implicit_secrets_file,
 )
 from fast_agent.llm.llamacpp_discovery import (
     DEFAULT_LLAMA_CPP_URL,
@@ -55,7 +54,10 @@ from fast_agent.llm.model_reference_diagnostics import (
 )
 from fast_agent.llm.provider_types import Provider
 from fast_agent.ui.adapters.tui_io import TuiCommandIO
-from fast_agent.ui.llamacpp_model_picker import run_llamacpp_model_picker_async
+from fast_agent.ui.llamacpp_model_picker import (
+    LlamaCppModelPickerContext,
+    run_llamacpp_model_picker_async,
+)
 from fast_agent.ui.model_reference_picker import (
     ModelReferencePickerItem,
     run_model_reference_picker_async,
@@ -63,6 +65,15 @@ from fast_agent.ui.model_reference_picker import (
 
 type WriteTarget = Literal["env", "project"]
 type LlamaCppAuthMode = Literal["none", "env", "secret_ref"]
+
+
+@runtime_checkable
+class ModelReferencePickerIO(Protocol):
+    async def pick_model_reference_token(
+        self,
+        *,
+        items: tuple[ModelReferenceSetupItem, ...],
+    ) -> str | None: ...
 
 app = typer.Typer(help="Interactive model reference setup.")
 llamacpp_app = typer.Typer(
@@ -219,13 +230,14 @@ async def run_model_setup(
             cwd=start_path,
             env_dir=getattr(settings, "environment_dir", None),
         )
+        common_items = _build_common_setup_items(diagnostics.valid_references)
         has_guided_choices = bool(diagnostics.items) or (
-            isinstance(io, TuiCommandIO)
-            and bool(_build_common_setup_items(diagnostics.valid_references))
+            bool(common_items) and isinstance(io, ModelReferencePickerIO)
         )
         resolved_token = await _select_model_setup_token(
             io,
             diagnostics=diagnostics,
+            common_items=common_items,
         )
         if has_guided_choices and resolved_token is None:
             outcome = CommandOutcome()
@@ -289,21 +301,26 @@ async def _select_model_setup_token(
     io: CommandIO,
     *,
     diagnostics: ModelReferenceSetupDiagnostics,
+    common_items: tuple[ModelReferenceSetupItem, ...] | None = None,
 ) -> str | None:
     items = diagnostics.items
-    common_items = _build_common_setup_items(diagnostics.valid_references)
+    resolved_common_items = (
+        common_items
+        if common_items is not None
+        else _build_common_setup_items(diagnostics.valid_references)
+    )
     if not items:
-        if isinstance(io, TuiCommandIO) and common_items:
+        if isinstance(io, ModelReferencePickerIO) and resolved_common_items:
             return await _pick_or_prompt_reference_token(
                 io,
-                items=common_items,
+                items=resolved_common_items,
             )
         return None
 
-    if isinstance(io, TuiCommandIO):
+    if isinstance(io, ModelReferencePickerIO):
         return await _pick_or_prompt_reference_token(
             io,
-            items=_merge_setup_items(items, common_items),
+            items=_merge_setup_items(items, resolved_common_items),
         )
 
     if len(items) == 1:
@@ -344,28 +361,11 @@ async def _select_model_setup_token(
 
 
 async def _pick_or_prompt_reference_token(
-    io: TuiCommandIO,
+    io: ModelReferencePickerIO,
     *,
     items: tuple[ModelReferenceSetupItem, ...],
 ) -> str | None:
-    picker_items = tuple(
-        ModelReferencePickerItem(
-            token=item.token,
-            priority=item.priority,
-            status=f"{item.priority}/{item.status}",
-            summary=item.summary,
-            current_value=item.current_value,
-            references=item.references,
-            removable=False,
-        )
-        for item in items
-    )
-    result = await run_model_reference_picker_async(picker_items)
-    if result is None:
-        return None
-    if result.action == "custom":
-        return await _prompt_manual_reference_token(io)
-    return result.token
+    return await io.pick_model_reference_token(items=items)
 
 
 def _render_setup_item_summary(item: ModelReferenceSetupItem, *, title: str) -> Text:
@@ -655,9 +655,8 @@ def _load_cli_settings(
     cwd: Path,
     env_dir: str | Path | None,
 ) -> Settings:
-    merged_settings, config_file = load_layered_settings(start_path=cwd, env_dir=env_dir)
-    search_root = resolve_config_search_root(cwd, env_dir=env_dir)
-    _, secrets_path = find_fastagent_config_files(search_root)
+    merged_settings, config_file = load_implicit_settings(start_path=cwd, env_dir=env_dir)
+    secrets_path = resolve_implicit_secrets_file(cwd, env_dir=env_dir)
     if secrets_path and secrets_path.exists():
         merged_settings = deep_merge(merged_settings, load_yaml_mapping(secrets_path))
 
@@ -673,9 +672,8 @@ def _load_tolerant_config_payload(
     env_dir: str | Path | None,
 ) -> dict[str, object] | None:
     try:
-        merged_settings, _ = load_layered_settings(start_path=cwd, env_dir=env_dir)
-        search_root = resolve_config_search_root(cwd, env_dir=env_dir)
-        _, secrets_path = find_fastagent_config_files(search_root)
+        merged_settings, _ = load_implicit_settings(start_path=cwd, env_dir=env_dir)
+        secrets_path = resolve_implicit_secrets_file(cwd, env_dir=env_dir)
         if secrets_path and secrets_path.exists():
             merged_settings = deep_merge(merged_settings, load_yaml_mapping(secrets_path))
     except Exception:
@@ -954,9 +952,9 @@ async def _select_llamacpp_model(
     if not interactive:
         return None
 
-    runtime_context_cache: dict[str, int | None] = {}
+    runtime_context_cache: dict[str, LlamaCppModelPickerContext] = {}
 
-    async def _load_runtime_context(model_id: str) -> int | None:
+    async def _load_runtime_context(model_id: str) -> LlamaCppModelPickerContext:
         if model_id in runtime_context_cache:
             return runtime_context_cache[model_id]
         discovered_model = await interrogate_llamacpp_model(
@@ -964,8 +962,12 @@ async def _select_llamacpp_model(
             model_id=model_id,
             api_key=interrogation_api_key,
         )
-        runtime_context_cache[model_id] = discovered_model.runtime_context_window
-        return discovered_model.runtime_context_window
+        loaded_context = LlamaCppModelPickerContext(
+            runtime_context_window=discovered_model.runtime_context_window,
+            training_context_window=discovered_model.listing.training_context_window,
+        )
+        runtime_context_cache[model_id] = loaded_context
+        return loaded_context
 
     picker_result = await run_llamacpp_model_picker_async(
         catalog.models,
@@ -1191,6 +1193,9 @@ def _emit_llamacpp_import_summary(
     include_sampling_defaults: bool,
     print_overlay_yaml: bool,
 ) -> None:
+    context_window = result.discovered_model.effective_context_window
+    context_source = result.discovered_model.context_window_source
+
     typer.echo(
         "Discovered llama.cpp model "
         f"{result.discovered_model.listing.model_id!r} from {result.catalog.models_url}."
@@ -1200,6 +1205,11 @@ def _emit_llamacpp_import_summary(
     else:
         typer.echo("Dry run only; no overlay files were written.")
     typer.echo(f"Overlay token: {result.overlay_name}")
+    if context_window is not None:
+        if context_source == "runtime":
+            typer.echo(f"Context window: {context_window} (runtime /props)")
+        elif context_source == "catalog":
+            typer.echo(f"Context window: {context_window} (catalog fallback; /props reported none)")
     typer.echo(
         f'Use it now: fast-agent go --model {result.overlay_name} --message "hello"'
     )

@@ -20,30 +20,30 @@ interactions:
     uri: http://localhost:3000/api/v1/statuses
   response:
     body:
-      string: '{"id":"115045578808309660","created_at":"2025-08-17T18:43:39.612Z","in_reply_to_id":null,"in_reply_to_account_id":null,"sensitive":false,"spoiler_text":"","visibility":"public","language":"en","uri":"http://localhost:3000/users/admin/statuses/115045578808309660","url":"http://localhost:3000/@admin/115045578808309660","replies_count":0,"reblogs_count":0,"favourites_count":0,"edited_at":null,"favourited":false,"reblogged":false,"muted":false,"bookmarked":false,"pinned":false,"content":"\u003cp\u003e\u003cspan
+      string: '{"id":"116388618928593346","created_at":"2026-04-11T23:16:25.509Z","in_reply_to_id":null,"in_reply_to_account_id":null,"sensitive":false,"spoiler_text":"","visibility":"public","language":"en","uri":"http://localhost:3000/ap/users/116387030920493064/statuses/116388618928593346","url":"http://localhost:3000/@admin/116388618928593346","replies_count":0,"reblogs_count":0,"favourites_count":0,"quotes_count":0,"edited_at":null,"favourited":false,"reblogged":false,"muted":false,"bookmarked":false,"pinned":false,"content":"\u003cp\u003e\u003cspan
         class=\"h-card\" translate=\"no\"\u003e\u003ca href=\"http://localhost:3000/@mastodonpy_test\"
         class=\"u-url mention\"\u003e@\u003cspan\u003emastodonpy_test\u003c/span\u003e\u003c/a\u003e\u003c/span\u003e
         hello!\u003c/p\u003e","filtered":[],"reblog":null,"application":{"name":"Mastodon.py
-        test suite","website":null},"account":{"id":"115045157726281124","username":"admin","acct":"admin","display_name":"","locked":false,"bot":false,"discoverable":null,"indexable":false,"group":false,"created_at":"2025-08-17T00:00:00.000Z","note":"","url":"http://localhost:3000/@admin","uri":"http://localhost:3000/users/admin","avatar":"http://localhost:3000/avatars/original/missing.png","avatar_static":"http://localhost:3000/avatars/original/missing.png","header":"http://localhost:3000/headers/original/missing.png","header_static":"http://localhost:3000/headers/original/missing.png","followers_count":0,"following_count":0,"statuses_count":1,"last_status_at":"2025-08-17","hide_collections":null,"noindex":false,"emojis":[],"roles":[{"id":"3","name":"Owner","color":""}],"fields":[]},"media_attachments":[],"mentions":[{"id":"115045158004229352","username":"mastodonpy_test","url":"http://localhost:3000/@mastodonpy_test","acct":"mastodonpy_test"}],"tags":[],"emojis":[],"quote":null,"card":null,"poll":null}'
+        test suite","website":null},"account":{"id":"116387030920493064","username":"admin","acct":"admin","display_name":"","locked":false,"bot":false,"discoverable":null,"indexable":false,"group":false,"created_at":"2026-04-11T00:00:00.000Z","note":"","url":"http://localhost:3000/@admin","uri":"http://localhost:3000/ap/users/116387030920493064","avatar":"http://localhost:3000/avatars/original/missing.png","avatar_static":"http://localhost:3000/avatars/original/missing.png","header":"http://localhost:3000/headers/original/missing.png","header_static":"http://localhost:3000/headers/original/missing.png","followers_count":0,"following_count":0,"statuses_count":1,"last_status_at":"2026-04-11","hide_collections":null,"noindex":false,"emojis":[],"roles":[{"id":"3","name":"Owner","color":""}],"fields":[]},"media_attachments":[],"mentions":[{"id":"116387031229467654","username":"mastodonpy_test","url":"http://localhost:3000/@mastodonpy_test","acct":"mastodonpy_test"}],"tags":[],"emojis":[],"quote":null,"card":null,"poll":null,"quote_approval":{"automatic":["public"],"manual":[],"current_user":"automatic"}}'
     headers:
-      Content-Length:
-      - '1815'
       cache-control:
       - private, no-store
+      content-length:
+      - '1945'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"f44ba1547bb898f5ebbb920681556e40"
+      - W/"9d6c54c03bf3f5ab5ea99043dc86eb23"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.08, sql.active_record;dur=18.22, cache_generate.active_support;dur=3.17,
-        cache_write.active_support;dur=0.13, instantiation.active_record;dur=0.73,
+      - cache_read.active_support;dur=0.07, sql.active_record;dur=18.59, cache_generate.active_support;dur=3.84,
+        cache_write.active_support;dur=0.13, instantiation.active_record;dur=0.62,
         start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.01,
-        transaction.active_record;dur=14.03, render.active_model_serializers;dur=13.93,
-        process_action.action_controller;dur=73.78
+        transaction.active_record;dur=21.69, render.active_model_serializers;dur=13.87,
+        process_action.action_controller;dur=80.58
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -57,11 +57,11 @@ interactions:
       x-ratelimit-remaining:
       - '292'
       x-ratelimit-reset:
-      - '2025-08-17T21:00:00.647162Z'
+      - '2026-04-12T00:00:00.552238Z'
       x-request-id:
-      - dfb28d3d-d7eb-4681-89d1-473ff0be3d4b
+      - 0824e995-0ed9-4ed6-9b92-c9cc8bb9c222
       x-runtime:
-      - '0.090492'
+      - '0.098257'
       x-xss-protection:
       - '0'
     status:
@@ -84,32 +84,32 @@ interactions:
     uri: http://localhost:3000/api/v1/notifications
   response:
     body:
-      string: '[{"id":"27","type":"mention","created_at":"2025-08-17T18:43:40.073Z","group_key":"ungrouped-27","account":{"id":"115045157726281124","username":"admin","acct":"admin","display_name":"","locked":false,"bot":false,"discoverable":null,"indexable":false,"group":false,"created_at":"2025-08-17T00:00:00.000Z","note":"","url":"http://localhost:3000/@admin","uri":"http://localhost:3000/users/admin","avatar":"http://localhost:3000/avatars/original/missing.png","avatar_static":"http://localhost:3000/avatars/original/missing.png","header":"http://localhost:3000/headers/original/missing.png","header_static":"http://localhost:3000/headers/original/missing.png","followers_count":0,"following_count":0,"statuses_count":1,"last_status_at":"2025-08-17","hide_collections":null,"noindex":false,"emojis":[],"roles":[{"id":"3","name":"Owner","color":""}],"fields":[]},"status":{"id":"115045578808309660","created_at":"2025-08-17T18:43:39.612Z","in_reply_to_id":null,"in_reply_to_account_id":null,"sensitive":false,"spoiler_text":"","visibility":"public","language":"en","uri":"http://localhost:3000/users/admin/statuses/115045578808309660","url":"http://localhost:3000/@admin/115045578808309660","replies_count":0,"reblogs_count":0,"favourites_count":0,"edited_at":null,"favourited":false,"reblogged":false,"muted":false,"bookmarked":false,"content":"\u003cp\u003e\u003cspan
+      string: '[{"id":"29","type":"mention","created_at":"2026-04-11T23:16:25.931Z","group_key":"ungrouped-29","account":{"id":"116387030920493064","username":"admin","acct":"admin","display_name":"","locked":false,"bot":false,"discoverable":null,"indexable":false,"group":false,"created_at":"2026-04-11T00:00:00.000Z","note":"","url":"http://localhost:3000/@admin","uri":"http://localhost:3000/ap/users/116387030920493064","avatar":"http://localhost:3000/avatars/original/missing.png","avatar_static":"http://localhost:3000/avatars/original/missing.png","header":"http://localhost:3000/headers/original/missing.png","header_static":"http://localhost:3000/headers/original/missing.png","followers_count":0,"following_count":0,"statuses_count":1,"last_status_at":"2026-04-11","hide_collections":null,"noindex":false,"emojis":[],"roles":[{"id":"3","name":"Owner","color":""}],"fields":[]},"status":{"id":"116388618928593346","created_at":"2026-04-11T23:16:25.509Z","in_reply_to_id":null,"in_reply_to_account_id":null,"sensitive":false,"spoiler_text":"","visibility":"public","language":"en","uri":"http://localhost:3000/ap/users/116387030920493064/statuses/116388618928593346","url":"http://localhost:3000/@admin/116388618928593346","replies_count":0,"reblogs_count":0,"favourites_count":0,"quotes_count":0,"edited_at":null,"favourited":false,"reblogged":false,"muted":false,"bookmarked":false,"content":"\u003cp\u003e\u003cspan
         class=\"h-card\" translate=\"no\"\u003e\u003ca href=\"http://localhost:3000/@mastodonpy_test\"
         class=\"u-url mention\"\u003e@\u003cspan\u003emastodonpy_test\u003c/span\u003e\u003c/a\u003e\u003c/span\u003e
         hello!\u003c/p\u003e","filtered":[],"reblog":null,"application":{"name":"Mastodon.py
-        test suite","website":null},"account":{"id":"115045157726281124","username":"admin","acct":"admin","display_name":"","locked":false,"bot":false,"discoverable":null,"indexable":false,"group":false,"created_at":"2025-08-17T00:00:00.000Z","note":"","url":"http://localhost:3000/@admin","uri":"http://localhost:3000/users/admin","avatar":"http://localhost:3000/avatars/original/missing.png","avatar_static":"http://localhost:3000/avatars/original/missing.png","header":"http://localhost:3000/headers/original/missing.png","header_static":"http://localhost:3000/headers/original/missing.png","followers_count":0,"following_count":0,"statuses_count":1,"last_status_at":"2025-08-17","hide_collections":null,"noindex":false,"emojis":[],"roles":[{"id":"3","name":"Owner","color":""}],"fields":[]},"media_attachments":[],"mentions":[{"id":"115045158004229352","username":"mastodonpy_test","url":"http://localhost:3000/@mastodonpy_test","acct":"mastodonpy_test"}],"tags":[],"emojis":[],"quote":null,"card":null,"poll":null}},{"id":"19","type":"follow","created_at":"2025-08-17T18:42:39.116Z","group_key":"follow-487626","account":{"id":"115045157726281124","username":"admin","acct":"admin","display_name":"","locked":false,"bot":false,"discoverable":null,"indexable":false,"group":false,"created_at":"2025-08-17T00:00:00.000Z","note":"","url":"http://localhost:3000/@admin","uri":"http://localhost:3000/users/admin","avatar":"http://localhost:3000/avatars/original/missing.png","avatar_static":"http://localhost:3000/avatars/original/missing.png","header":"http://localhost:3000/headers/original/missing.png","header_static":"http://localhost:3000/headers/original/missing.png","followers_count":0,"following_count":0,"statuses_count":1,"last_status_at":"2025-08-17","hide_collections":null,"noindex":false,"emojis":[],"roles":[{"id":"3","name":"Owner","color":""}],"fields":[]}}]'
+        test suite","website":null},"account":{"id":"116387030920493064","username":"admin","acct":"admin","display_name":"","locked":false,"bot":false,"discoverable":null,"indexable":false,"group":false,"created_at":"2026-04-11T00:00:00.000Z","note":"","url":"http://localhost:3000/@admin","uri":"http://localhost:3000/ap/users/116387030920493064","avatar":"http://localhost:3000/avatars/original/missing.png","avatar_static":"http://localhost:3000/avatars/original/missing.png","header":"http://localhost:3000/headers/original/missing.png","header_static":"http://localhost:3000/headers/original/missing.png","followers_count":0,"following_count":0,"statuses_count":1,"last_status_at":"2026-04-11","hide_collections":null,"noindex":false,"emojis":[],"roles":[{"id":"3","name":"Owner","color":""}],"fields":[]},"media_attachments":[],"mentions":[{"id":"116387031229467654","username":"mastodonpy_test","url":"http://localhost:3000/@mastodonpy_test","acct":"mastodonpy_test"}],"tags":[],"emojis":[],"quote":null,"card":null,"poll":null,"quote_approval":{"automatic":["public"],"manual":[],"current_user":"automatic"}}}]'
     headers:
-      Content-Length:
-      - '3523'
       cache-control:
       - private, no-store
+      content-length:
+      - '2813'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"fe2642e8ff9937e18e25c27c362073e5"
+      - W/"24779d99e1b4a2c19adb7378cece09ef"
       link:
-      - <http://localhost:3000/api/v1/notifications?max_id=19>; rel="next", <http://localhost:3000/api/v1/notifications?min_id=27>;
+      - <http://localhost:3000/api/v1/notifications?max_id=29>; rel="next", <http://localhost:3000/api/v1/notifications?min_id=29>;
         rel="prev"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.13, sql.active_record;dur=3.80, cache_generate.active_support;dur=3.17,
-        cache_write.active_support;dur=0.14, instantiation.active_record;dur=0.74,
+      - cache_read.active_support;dur=0.10, sql.active_record;dur=4.30, cache_generate.active_support;dur=6.42,
+        cache_write.active_support;dur=0.15, instantiation.active_record;dur=0.90,
         start_processing.action_controller;dur=0.00, cache_fetch_hit.active_support;dur=0.00,
-        render.active_model_serializers;dur=5.93, process_action.action_controller;dur=50.22
+        render.active_model_serializers;dur=5.42, process_action.action_controller;dur=56.44
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -123,11 +123,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T18:45:00.728875Z'
+      - '2026-04-11T23:20:00.669684Z'
       x-request-id:
-      - 04259912-ff3b-4770-a5a2-25e9e12bc359
+      - 615b939c-7870-490e-ada8-4b7ee0e234b7
       x-runtime:
-      - '0.066587'
+      - '0.076840'
       x-xss-protection:
       - '0'
     status:
@@ -149,15 +149,15 @@ interactions:
       User-Agent:
       - tests/v311
     method: POST
-    uri: http://localhost:3000/api/v1/notifications/27/dismiss
+    uri: http://localhost:3000/api/v1/notifications/29/dismiss
   response:
     body:
       string: '{}'
     headers:
-      Content-Length:
-      - '2'
       cache-control:
       - private, no-store
+      content-length:
+      - '2'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
@@ -167,11 +167,11 @@ interactions:
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=5.81, cache_generate.active_support;dur=1.16,
-        cache_write.active_support;dur=0.09, instantiation.active_record;dur=0.38,
+      - cache_read.active_support;dur=0.04, sql.active_record;dur=6.47, cache_generate.active_support;dur=1.56,
+        cache_write.active_support;dur=0.09, instantiation.active_record;dur=0.28,
         start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
-        transaction.active_record;dur=5.30, render.active_model_serializers;dur=0.03,
-        process_action.action_controller;dur=35.35
+        transaction.active_record;dur=5.80, render.active_model_serializers;dur=0.03,
+        process_action.action_controller;dur=34.27
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -185,11 +185,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T18:45:00.869017Z'
+      - '2026-04-11T23:20:00.831543Z'
       x-request-id:
-      - 19b6aed8-84c8-4e1b-8db7-2aa4df94207f
+      - 65d909fd-d45b-4ae2-adb5-7c09185e9961
       x-runtime:
-      - '0.053154'
+      - '0.051884'
       x-xss-protection:
       - '0'
     status:
@@ -211,31 +211,31 @@ interactions:
       User-Agent:
       - tests/v311
     method: DELETE
-    uri: http://localhost:3000/api/v1/statuses/115045578808309660
+    uri: http://localhost:3000/api/v1/statuses/116388618928593346
   response:
     body:
-      string: '{"id":"115045578808309660","created_at":"2025-08-17T18:43:39.612Z","in_reply_to_id":null,"in_reply_to_account_id":null,"sensitive":false,"spoiler_text":"","visibility":"public","language":"en","uri":"http://localhost:3000/users/admin/statuses/115045578808309660","url":"http://localhost:3000/@admin/115045578808309660","replies_count":0,"reblogs_count":0,"favourites_count":0,"edited_at":null,"favourited":false,"reblogged":false,"muted":false,"bookmarked":false,"pinned":false,"text":"@mastodonpy_test
+      string: '{"id":"116388618928593346","created_at":"2026-04-11T23:16:25.509Z","in_reply_to_id":null,"in_reply_to_account_id":null,"sensitive":false,"spoiler_text":"","visibility":"public","language":"en","uri":"http://localhost:3000/ap/users/116387030920493064/statuses/116388618928593346","url":"http://localhost:3000/@admin/116388618928593346","replies_count":0,"reblogs_count":0,"favourites_count":0,"quotes_count":0,"edited_at":null,"favourited":false,"reblogged":false,"muted":false,"bookmarked":false,"pinned":false,"text":"@mastodonpy_test
         hello!","filtered":[],"reblog":null,"application":{"name":"Mastodon.py test
-        suite","website":null},"account":{"id":"115045157726281124","username":"admin","acct":"admin","display_name":"","locked":false,"bot":false,"discoverable":null,"indexable":false,"group":false,"created_at":"2025-08-17T00:00:00.000Z","note":"","url":"http://localhost:3000/@admin","uri":"http://localhost:3000/users/admin","avatar":"http://localhost:3000/avatars/original/missing.png","avatar_static":"http://localhost:3000/avatars/original/missing.png","header":"http://localhost:3000/headers/original/missing.png","header_static":"http://localhost:3000/headers/original/missing.png","followers_count":0,"following_count":0,"statuses_count":0,"last_status_at":"2025-08-17","hide_collections":null,"noindex":false,"emojis":[],"roles":[{"id":"3","name":"Owner","color":""}],"fields":[]},"media_attachments":[],"mentions":[{"id":"115045158004229352","username":"mastodonpy_test","url":"http://localhost:3000/@mastodonpy_test","acct":"mastodonpy_test"}],"tags":[],"emojis":[],"quote":null,"card":null,"poll":null}'
+        suite","website":null},"account":{"id":"116387030920493064","username":"admin","acct":"admin","display_name":"","locked":false,"bot":false,"discoverable":null,"indexable":false,"group":false,"created_at":"2026-04-11T00:00:00.000Z","note":"","url":"http://localhost:3000/@admin","uri":"http://localhost:3000/ap/users/116387030920493064","avatar":"http://localhost:3000/avatars/original/missing.png","avatar_static":"http://localhost:3000/avatars/original/missing.png","header":"http://localhost:3000/headers/original/missing.png","header_static":"http://localhost:3000/headers/original/missing.png","followers_count":0,"following_count":0,"statuses_count":0,"last_status_at":"2026-04-11","hide_collections":null,"noindex":false,"emojis":[],"roles":[{"id":"3","name":"Owner","color":""}],"fields":[]},"media_attachments":[],"mentions":[{"id":"116387031229467654","username":"mastodonpy_test","url":"http://localhost:3000/@mastodonpy_test","acct":"mastodonpy_test"}],"tags":[],"emojis":[],"quote":null,"card":null,"poll":null,"quote_approval":{"automatic":["public"],"manual":[],"current_user":"automatic"}}'
     headers:
-      Content-Length:
-      - '1586'
       cache-control:
       - private, no-store
+      content-length:
+      - '1716'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"aa70c46943aa489684d0676f8429c91e"
+      - W/"61ceb0d188d214b9cf17a7461d53e3b1"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.08, sql.active_record;dur=8.53, cache_generate.active_support;dur=3.14,
-        cache_write.active_support;dur=0.15, instantiation.active_record;dur=0.61,
+      - cache_read.active_support;dur=0.06, sql.active_record;dur=9.16, cache_generate.active_support;dur=3.15,
+        cache_write.active_support;dur=0.13, instantiation.active_record;dur=0.66,
         start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
-        transaction.active_record;dur=4.65, render.active_model_serializers;dur=16.50,
-        process_action.action_controller;dur=53.50
+        transaction.active_record;dur=5.51, render.active_model_serializers;dur=18.36,
+        process_action.action_controller;dur=57.98
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -249,11 +249,11 @@ interactions:
       x-ratelimit-remaining:
       - '29'
       x-ratelimit-reset:
-      - '2025-08-17T19:00:00.930031Z'
+      - '2026-04-11T23:30:00.910046Z'
       x-request-id:
-      - 2ee1355d-7754-4586-9a5b-caf91e183837
+      - f9ab049e-ccec-4581-b175-20584d2b5b01
       x-runtime:
-      - '0.070336'
+      - '0.075224'
       x-xss-protection:
       - '0'
     status:

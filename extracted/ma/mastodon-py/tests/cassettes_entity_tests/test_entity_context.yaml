@@ -20,91 +20,103 @@ interactions:
         "in_reply_to_id": null, "in_reply_to_account_id": null, "sensitive": false,
         "spoiler_text": "", "visibility": "private", "language": "de", "uri": "https://mastodon.social/users/halcy/statuses/110446983178245440",
         "url": "https://mastodon.social/@halcy/110446983178245440", "replies_count":
-        0, "reblogs_count": 0, "favourites_count": 0, "edited_at": null, "favourited":
-        false, "reblogged": false, "muted": false, "bookmarked": false, "pinned":
-        false, "content": "<p>first status</p>", "filtered": [], "reblog": null, "application":
-        {"name": "Web", "website": null}, "account": {"id": "43", "username": "halcy",
-        "acct": "halcy", "display_name": "autumnal halcy", "locked": true, "bot":
-        false, "discoverable": false, "indexable": false, "group": false, "created_at":
-        "2016-03-21T00:00:00.000Z", "note": "<p><a href=\"https://halcy.de/\" target=\"_blank\"
-        rel=\"nofollow noopener\" translate=\"no\"><span class=\"invisible\">https://</span><span
-        class=\"\">halcy.de/</span><span class=\"invisible\"></span></a> ~ Local account.</p><p>Now
-        also and possibly primarily <span class=\"h-card\" translate=\"no\"><a href=\"https://icosahedron.website/@halcy\"
-        class=\"u-url mention\">@<span>halcy</span></a></span></p>", "url": "https://mastodon.social/@halcy",
-        "uri": "https://mastodon.social/users/halcy", "avatar": "https://mastodon.social/avatars/original/missing.png",
-        "avatar_static": "https://mastodon.social/avatars/original/missing.png", "header":
-        "https://mastodon.social/headers/original/missing.png", "header_static": "https://mastodon.social/headers/original/missing.png",
-        "followers_count": 127, "following_count": 34, "statuses_count": 981, "last_status_at":
-        "2025-07-18", "hide_collections": false, "noindex": false, "emojis": [{"shortcode":
-        "sidekiq", "url": "https://files.mastodon.social/custom_emojis/images/000/037/182/original/7efd7097c1d613e9.png",
+        0, "reblogs_count": 0, "favourites_count": 0, "quotes_count": 0, "edited_at":
+        null, "favourited": false, "reblogged": false, "muted": false, "bookmarked":
+        false, "pinned": false, "content": "<p>first status</p>", "filtered": [],
+        "reblog": null, "application": {"name": "Web", "website": null}, "account":
+        {"id": "43", "username": "halcy", "acct": "halcy", "display_name": "autumnal
+        halcy", "locked": true, "bot": false, "discoverable": false, "indexable":
+        false, "group": false, "created_at": "2016-03-21T00:00:00.000Z", "note": "<p><a
+        href=\"https://halcy.de/\" target=\"_blank\" rel=\"nofollow noopener\" translate=\"no\"><span
+        class=\"invisible\">https://</span><span class=\"\">halcy.de/</span><span
+        class=\"invisible\"></span></a> ~ Local account.</p><p>Now also and possibly
+        primarily <span class=\"h-card\" translate=\"no\"><a href=\"https://icosahedron.website/@halcy\"
+        class=\"u-url mention\">@<span>halcy</span></a></span> . You should really
+        follow me there. This account only exists for testing now.</p>", "url": "https://mastodon.social/@halcy",
+        "uri": "https://mastodon.social/users/halcy", "avatar": "https://files.mastodon.social/accounts/avatars/000/000/043/original/52c1dca567e1c24b.jpg",
+        "avatar_static": "https://files.mastodon.social/accounts/avatars/000/000/043/original/52c1dca567e1c24b.jpg",
+        "avatar_description": "", "header": "https://mastodon.social/headers/original/missing.png",
+        "header_static": "https://mastodon.social/headers/original/missing.png", "header_description":
+        "", "followers_count": 126, "following_count": 35, "statuses_count": 988,
+        "last_status_at": "2025-12-16", "hide_collections": false, "show_media": true,
+        "show_media_replies": true, "show_featured": true, "noindex": true, "emojis":
+        [{"shortcode": "sidekiq", "url": "https://files.mastodon.social/custom_emojis/images/000/037/182/original/7efd7097c1d613e9.png",
         "static_url": "https://files.mastodon.social/custom_emojis/images/000/037/182/static/7efd7097c1d613e9.png",
         "visible_in_picker": true}], "roles": [], "fields": [{"name": "i have a field
         now", "value": ":sidekiq:", "verified_at": null}]}, "media_attachments": [],
-        "mentions": [], "tags": [], "emojis": [], "quote": null, "card": null, "poll":
-        null}], "descendants": [{"id": "110446984249325790", "created_at": "2023-05-28T15:20:35.248Z",
-        "in_reply_to_id": "110446983926957470", "in_reply_to_account_id": "43", "sensitive":
-        false, "spoiler_text": "", "visibility": "private", "language": "de", "uri":
-        "https://mastodon.social/users/halcy/statuses/110446984249325790", "url":
-        "https://mastodon.social/@halcy/110446984249325790", "replies_count": 0, "reblogs_count":
-        0, "favourites_count": 0, "edited_at": null, "favourited": false, "reblogged":
-        false, "muted": false, "bookmarked": false, "pinned": false, "content": "<p>final
-        status</p>", "filtered": [], "reblog": null, "application": {"name": "Web",
-        "website": null}, "account": {"id": "43", "username": "halcy", "acct": "halcy",
-        "display_name": "autumnal halcy", "locked": true, "bot": false, "discoverable":
-        false, "indexable": false, "group": false, "created_at": "2016-03-21T00:00:00.000Z",
-        "note": "<p><a href=\"https://halcy.de/\" target=\"_blank\" rel=\"nofollow
-        noopener\" translate=\"no\"><span class=\"invisible\">https://</span><span
-        class=\"\">halcy.de/</span><span class=\"invisible\"></span></a> ~ Local account.</p><p>Now
-        also and possibly primarily <span class=\"h-card\" translate=\"no\"><a href=\"https://icosahedron.website/@halcy\"
-        class=\"u-url mention\">@<span>halcy</span></a></span></p>", "url": "https://mastodon.social/@halcy",
-        "uri": "https://mastodon.social/users/halcy", "avatar": "https://mastodon.social/avatars/original/missing.png",
-        "avatar_static": "https://mastodon.social/avatars/original/missing.png", "header":
-        "https://mastodon.social/headers/original/missing.png", "header_static": "https://mastodon.social/headers/original/missing.png",
-        "followers_count": 127, "following_count": 34, "statuses_count": 981, "last_status_at":
-        "2025-07-18", "hide_collections": false, "noindex": false, "emojis": [{"shortcode":
-        "sidekiq", "url": "https://files.mastodon.social/custom_emojis/images/000/037/182/original/7efd7097c1d613e9.png",
+        "mentions": [], "tags": [], "emojis": [], "tagged_collections": [], "quote":
+        null, "card": null, "poll": null, "quote_approval": {"automatic": [], "manual":
+        [], "current_user": "automatic"}}], "descendants": [{"id": "110446984249325790",
+        "created_at": "2023-05-28T15:20:35.248Z", "in_reply_to_id": "110446983926957470",
+        "in_reply_to_account_id": "43", "sensitive": false, "spoiler_text": "", "visibility":
+        "private", "language": "de", "uri": "https://mastodon.social/users/halcy/statuses/110446984249325790",
+        "url": "https://mastodon.social/@halcy/110446984249325790", "replies_count":
+        0, "reblogs_count": 0, "favourites_count": 0, "quotes_count": 0, "edited_at":
+        null, "favourited": false, "reblogged": false, "muted": false, "bookmarked":
+        false, "pinned": false, "content": "<p>final status</p>", "filtered": [],
+        "reblog": null, "application": {"name": "Web", "website": null}, "account":
+        {"id": "43", "username": "halcy", "acct": "halcy", "display_name": "autumnal
+        halcy", "locked": true, "bot": false, "discoverable": false, "indexable":
+        false, "group": false, "created_at": "2016-03-21T00:00:00.000Z", "note": "<p><a
+        href=\"https://halcy.de/\" target=\"_blank\" rel=\"nofollow noopener\" translate=\"no\"><span
+        class=\"invisible\">https://</span><span class=\"\">halcy.de/</span><span
+        class=\"invisible\"></span></a> ~ Local account.</p><p>Now also and possibly
+        primarily <span class=\"h-card\" translate=\"no\"><a href=\"https://icosahedron.website/@halcy\"
+        class=\"u-url mention\">@<span>halcy</span></a></span> . You should really
+        follow me there. This account only exists for testing now.</p>", "url": "https://mastodon.social/@halcy",
+        "uri": "https://mastodon.social/users/halcy", "avatar": "https://files.mastodon.social/accounts/avatars/000/000/043/original/52c1dca567e1c24b.jpg",
+        "avatar_static": "https://files.mastodon.social/accounts/avatars/000/000/043/original/52c1dca567e1c24b.jpg",
+        "avatar_description": "", "header": "https://mastodon.social/headers/original/missing.png",
+        "header_static": "https://mastodon.social/headers/original/missing.png", "header_description":
+        "", "followers_count": 126, "following_count": 35, "statuses_count": 988,
+        "last_status_at": "2025-12-16", "hide_collections": false, "show_media": true,
+        "show_media_replies": true, "show_featured": true, "noindex": true, "emojis":
+        [{"shortcode": "sidekiq", "url": "https://files.mastodon.social/custom_emojis/images/000/037/182/original/7efd7097c1d613e9.png",
         "static_url": "https://files.mastodon.social/custom_emojis/images/000/037/182/static/7efd7097c1d613e9.png",
         "visible_in_picker": true}], "roles": [], "fields": [{"name": "i have a field
         now", "value": ":sidekiq:", "verified_at": null}]}, "media_attachments": [],
-        "mentions": [], "tags": [], "emojis": [], "quote": null, "card": null, "poll":
-        null}]}'
+        "mentions": [], "tags": [], "emojis": [], "tagged_collections": [], "quote":
+        null, "card": null, "poll": null, "quote_approval": {"automatic": [], "manual":
+        [], "current_user": "automatic"}}]}'
     headers:
+      Accept-Ranges:
+      - none
       Connection:
       - keep-alive
       Date:
-      - Fri, 15 Aug 2025 20:18:53 GMT
+      - Sat, 11 Apr 2026 23:14:24 GMT
       Strict-Transport-Security:
       - max-age=31557600
       Vary:
       - Authorization, Origin, Accept-Encoding
+      Via:
+      - 1.1 varnish, 1.1 varnish
       X-Cache:
       - MISS, MISS, MISS
       X-Cache-Hits:
       - 0, 0, 0
       X-Served-By:
-      - cache-fra-eddf8230022-FRA, cache-fra-etou8220112-FRA, cache-hel1410021-HEL
+      - cache-fra-etou8220107-FRA, cache-fra-etou8220107-FRA, cache-hel1410026-HEL
       X-Timer:
-      - S1755289133.196960,VS0,VE178
-      accept-ranges:
-      - none
+      - S1775949265.725263,VS0,VE202
       alt-svc:
       - h3=":443";ma=86400,h3-29=":443";ma=86400,h3-27=":443";ma=86400
       cache-control:
       - private, no-store
       content-length:
-      - '4753'
+      - '5107'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"7cfa68642470684f23b746c1545c2e20"
+      - W/"c3d75e69766c0db2d79e0e7ea077cb04"
       referrer-policy:
       - same-origin
+      server:
+      - Mastodon
       transfer-encoding:
       - chunked
-      via:
-      - 1.1 varnish, 1.1 varnish, 1.1 varnish
       x-content-type-options:
       - nosniff
       x-frame-options:
@@ -112,13 +124,13 @@ interactions:
       x-ratelimit-limit:
       - '300'
       x-ratelimit-remaining:
-      - '243'
+      - '272'
       x-ratelimit-reset:
-      - '2025-08-15T20:20:00.246892Z'
+      - '2026-04-11T23:15:00.796213Z'
       x-request-id:
-      - 1805c209e4b04dd4b9775186238d00df
+      - 23b5ef46-a610-4322-a90e-fcc5313aebd4
       x-runtime:
-      - '0.118059'
+      - '0.117063'
       x-xss-protection:
       - '0'
     status:

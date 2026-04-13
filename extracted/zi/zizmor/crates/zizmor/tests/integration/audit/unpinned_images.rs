@@ -7,7 +7,7 @@ fn test_pedantic_persona() -> anyhow::Result<()> {
             .input(input_under_test("unpinned-images.yml"))
             .args(["--persona=pedantic"])
             .run()?,
-        @r"
+        @"
     error[unpinned-images]: unpinned image references
       --> @@INPUT@@:23:7
        |
@@ -56,7 +56,31 @@ fn test_pedantic_persona() -> anyhow::Result<()> {
        |
        = note: audit confidence → High
 
-    6 findings: 0 informational, 0 low, 0 medium, 6 high
+    error[unpinned-images]: unpinned image references
+       --> @@INPUT@@:101:50
+        |
+    101 |         image: ${{ inputs.use-redis == 'true' && 'redis:7' || '' }}
+        |                                                  ^^^^^^^^^ container image is not pinned to a SHA256 hash
+        |
+        = note: audit confidence → High
+
+    error[unpinned-images]: unpinned image references
+       --> @@INPUT@@:118:18
+        |
+    118 |       image: ${{ inputs.image || vars.DEFAULT_IMAGE }}
+        |                  ^^^^^^^^^^^^ container image may be unpinned
+        |
+        = note: audit confidence → Low
+
+    error[unpinned-images]: unpinned image references
+       --> @@INPUT@@:118:34
+        |
+    118 |       image: ${{ inputs.image || vars.DEFAULT_IMAGE }}
+        |                                  ^^^^^^^^^^^^^^^^^^ container image may be unpinned
+        |
+        = note: audit confidence → Low
+
+    9 findings: 0 informational, 0 low, 0 medium, 9 high
     "
     );
 
@@ -71,7 +95,7 @@ fn test_matrix_in_image_pedantic() -> anyhow::Result<()> {
             .input(input_under_test("unpinned-images/matrix-in-image.yml"))
             .args(["--persona=pedantic"])
             .run()?,
-        @r"
+        @"
     error[unpinned-images]: unpinned image references
       --> @@INPUT@@:20:7
        |
@@ -142,7 +166,7 @@ fn test_matrix_in_image_regular() -> anyhow::Result<()> {
         zizmor()
             .input(input_under_test("unpinned-images/matrix-in-image.yml"))
             .run()?,
-        @r"
+        @"
     error[unpinned-images]: unpinned image references
       --> @@INPUT@@:20:7
        |

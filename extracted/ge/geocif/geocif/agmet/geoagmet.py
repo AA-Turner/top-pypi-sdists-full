@@ -59,12 +59,12 @@ class AgmetGeo(base.BaseGeo):
         self.models = self._get_option("models", [])
         eo_plot_raw = self._get_option(
             "eo_plot",
-            ["ndvi", "cpc_tmax", "cpc_tmin", "chirps", "esi_4wk", "soil_moisture_as1", "soil_moisture_as2"],
+            ["ndvi", "chirts_era5_tmax", "chirts_era5_tmin", "chirps", "esi_4wk", "nsidc_surface", "nsidc_rootzone"],
         )
         self.eo_plot = self._expand_eo_plot(eo_plot_raw)
         self.eo_model = self._get_option(
             "eo_model",
-            ["ndvi", "cpc_tmax", "cpc_tmin", "chirps", "esi_4wk", "soil_moisture_as1", "soil_moisture_as2"],
+            ["ndvi", "chirts_era5_tmax", "chirts_era5_tmin", "chirps", "esi_4wk", "nsidc_surface", "nsidc_rootzone"],
         )
         self.logo_harvest = self.dir_metadata / "images" / self.parser.get(
             "AGMET", "logo_harvest"
@@ -609,7 +609,11 @@ def _process_combination(obj, country, scale, crop, growing_season):
             except Exception:
                 continue
 
-            if "daymet_tmax" in df_agg.columns and "daymet_tmin" in df_agg.columns:
+            if "chirts_era5_tmax" in df_agg.columns and "chirts_era5_tmin" in df_agg.columns:
+                df_agg.loc[:, "average_temperature"] = (
+                    df_agg["chirts_era5_tmax"] + df_agg["chirts_era5_tmin"]
+                ) / 2.0
+            elif "daymet_tmax" in df_agg.columns and "daymet_tmin" in df_agg.columns:
                 df_agg.loc[:, "average_temperature"] = (
                     df_agg["daymet_tmax"] + df_agg["daymet_tmin"]
                 ) / 2.0

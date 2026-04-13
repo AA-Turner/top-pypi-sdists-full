@@ -13,8 +13,7 @@ fn test_discovers_config_in_root() -> anyhow::Result<()> {
             .setenv("RUST_LOG", "zizmor::config=debug")
             .output(OutputMode::Both)
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
     DEBUG zizmor::config: discovering config for local input `@@INPUT@@`
     DEBUG zizmor::config: attempting config discovery in `@@INPUT@@`
     DEBUG zizmor::config: found config candidate at `@@INPUT@@/zizmor.yml`
@@ -39,8 +38,7 @@ fn test_discovers_config_in_root_from_file_input() -> anyhow::Result<()> {
             .setenv("RUST_LOG", "zizmor::config=debug")
             .output(OutputMode::Both)
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
     DEBUG zizmor::config: discovering config for local input `@@INPUT@@`
     DEBUG zizmor::config: attempting config discovery in `@@TEST_PREFIX@@/config-scenarios/config-in-root/.github/workflows`
     DEBUG zizmor::config: found config candidate at `@@TEST_PREFIX@@/config-scenarios/config-in-root/zizmor.yml`
@@ -65,8 +63,7 @@ fn test_discovers_config_in_root_from_child_dir() -> anyhow::Result<()> {
             .setenv("RUST_LOG", "zizmor::config=debug")
             .output(OutputMode::Both)
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
     DEBUG zizmor::config: discovering config for local input `@@INPUT@@`
     DEBUG zizmor::config: attempting config discovery in `@@INPUT@@`
     DEBUG zizmor::config: found config candidate at `@@TEST_PREFIX@@/config-scenarios/config-in-root/zizmor.yml`
@@ -88,10 +85,7 @@ fn test_ignores_config_in_root() -> anyhow::Result<()> {
             .setenv("RUST_LOG", "zizmor::config=debug")
             .output(OutputMode::Stderr)
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
-    DEBUG zizmor::config: skipping config discovery: explicitly disabled
-    "
+        @"DEBUG zizmor::config: skipping config discovery: explicitly disabled"
     );
 
     Ok(())
@@ -110,10 +104,7 @@ fn test_ignores_config_in_root_from_file_input() -> anyhow::Result<()> {
             .setenv("RUST_LOG", "zizmor::config=debug")
             .output(OutputMode::Stderr)
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
-    DEBUG zizmor::config: skipping config discovery: explicitly disabled
-    "
+        @"DEBUG zizmor::config: skipping config discovery: explicitly disabled"
     );
 
     Ok(())
@@ -132,10 +123,7 @@ fn test_ignores_config_in_root_from_child_dir() -> anyhow::Result<()> {
             .setenv("RUST_LOG", "zizmor::config=debug")
             .output(OutputMode::Stderr)
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
-    DEBUG zizmor::config: skipping config discovery: explicitly disabled
-    "
+        @"DEBUG zizmor::config: skipping config discovery: explicitly disabled"
     );
 
     Ok(())
@@ -152,8 +140,7 @@ fn test_discovers_config_in_dotgithub() -> anyhow::Result<()> {
             .setenv("RUST_LOG", "zizmor::config=debug")
             .output(OutputMode::Both)
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
     DEBUG zizmor::config: discovering config for local input `@@INPUT@@`
     DEBUG zizmor::config: attempting config discovery in `@@INPUT@@`
     DEBUG zizmor::config: found config candidate at `@@INPUT@@/.github/zizmor.yml`
@@ -177,8 +164,7 @@ fn test_discovers_dotyaml_config_in_dotgithub() -> anyhow::Result<()> {
             .setenv("RUST_LOG", "zizmor::config=debug")
             .output(OutputMode::Both)
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
     DEBUG zizmor::config: discovering config for local input `@@INPUT@@`
     DEBUG zizmor::config: attempting config discovery in `@@INPUT@@`
     DEBUG zizmor::config: found config candidate at `@@INPUT@@/.github/zizmor.yaml`
@@ -203,8 +189,7 @@ fn test_discovers_config_in_dotgithub_from_file_input() -> anyhow::Result<()> {
             .setenv("RUST_LOG", "zizmor::config=debug")
             .output(OutputMode::Both)
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
     DEBUG zizmor::config: discovering config for local input `@@INPUT@@`
     DEBUG zizmor::config: attempting config discovery in `@@TEST_PREFIX@@/config-scenarios/config-in-dotgithub/.github/workflows`
     DEBUG zizmor::config: found config candidate at `@@TEST_PREFIX@@/config-scenarios/config-in-dotgithub/.github/zizmor.yml`
@@ -226,10 +211,7 @@ fn test_ignores_config_in_dotgithub() -> anyhow::Result<()> {
             .setenv("RUST_LOG", "zizmor::config=debug")
             .output(OutputMode::Stderr)
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
-    DEBUG zizmor::config: skipping config discovery: explicitly disabled
-    "
+        @"DEBUG zizmor::config: skipping config discovery: explicitly disabled"
     );
 
     Ok(())
@@ -248,10 +230,7 @@ fn test_ignores_config_in_dotgithub_from_file_input() -> anyhow::Result<()> {
             .setenv("RUST_LOG", "zizmor::config=debug")
             .output(OutputMode::Stderr)
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
-    DEBUG zizmor::config: skipping config discovery: explicitly disabled
-    "
+        @"DEBUG zizmor::config: skipping config discovery: explicitly disabled"
     );
 
     Ok(())
@@ -267,7 +246,6 @@ fn test_disablement() -> anyhow::Result<()> {
             .output(OutputMode::Both)
             .run()?,
         @r#"
-    🌈 zizmor v@@VERSION@@
     DEBUG audit{input=Workflow(file://@@INPUT@@/.github/workflows/hackme.yml)}: zizmor::audit: skipping: template-injection is disabled in config for group Group("@@INPUT@@")
     No findings to report. Good job! (1 suppressed)
     "#
@@ -289,8 +267,8 @@ fn test_invalid_configs() -> anyhow::Result<()> {
             ))
             .output(OutputMode::Stderr)
             .run()?,
-        @r"
-    🌈 zizmor v@@VERSION@@
+        @"
+     INFO zizmor: 🌈 zizmor v@@VERSION@@
     fatal: no audit was performed
     error: configuration error in @@CONFIG@@
       |

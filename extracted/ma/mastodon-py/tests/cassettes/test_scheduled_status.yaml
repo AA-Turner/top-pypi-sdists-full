@@ -21,26 +21,26 @@ interactions:
   response:
     body:
       string: '{"id":"1","scheduled_at":"4000-01-01T14:33:14.000Z","params":{"text":"please
-        ensure adequate headroom","media_ids":null,"sensitive":null,"spoiler_text":null,"visibility":null,"language":null,"scheduled_at":null,"poll":null,"allowed_mentions":null,"idempotency":null,"with_rate_limit":false,"in_reply_to_id":null,"application_id":1234567890123456,"quoted_status_id":null},"media_attachments":[]}'
+        ensure adequate headroom","quote_approval_policy":262144,"media_ids":null,"sensitive":null,"spoiler_text":null,"visibility":null,"language":null,"scheduled_at":null,"poll":null,"allowed_mentions":null,"idempotency":null,"with_rate_limit":false,"in_reply_to_id":null,"application_id":1234567890123456,"quoted_status_id":null,"quoted_status_id":null,"quote_approval_policy":"followers"},"media_attachments":[]}'
     headers:
-      Content-Length:
-      - '394'
       cache-control:
       - private, no-store
+      content-length:
+      - '485'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"6799ec97b99a3606e21f262ce19a4efa"
+      - W/"bcc96e95732ca9d0e8bde2fea48e3a8d"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=12.06, cache_generate.active_support;dur=1.14,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.24,
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=9.54, cache_generate.active_support;dur=1.03,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.34,
         start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.01,
-        transaction.active_record;dur=15.61, render.active_model_serializers;dur=0.23,
-        process_action.action_controller;dur=58.55
+        transaction.active_record;dur=14.51, render.active_model_serializers;dur=0.35,
+        process_action.action_controller;dur=53.36
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -52,13 +52,13 @@ interactions:
       x-ratelimit-limit:
       - '300'
       x-ratelimit-remaining:
-      - '290'
+      - '210'
       x-ratelimit-reset:
-      - '2025-08-17T21:00:00.763460Z'
+      - '2026-04-12T00:00:00.086914Z'
       x-request-id:
-      - 8f40b199-3e78-4b70-afb2-221d0b218f89
+      - 73a26972-622a-46e8-937d-d9d81564372f
       x-runtime:
-      - '0.074994'
+      - '0.070714'
       x-xss-protection:
       - '0'
     status:
@@ -86,26 +86,26 @@ interactions:
   response:
     body:
       string: '{"id":"1","scheduled_at":"4000-01-01T14:23:14.000Z","params":{"poll":null,"text":"please
-        ensure adequate headroom","language":null,"media_ids":null,"sensitive":null,"visibility":null,"idempotency":null,"scheduled_at":null,"spoiler_text":null,"application_id":1234567890123456,"in_reply_to_id":null,"with_rate_limit":false,"allowed_mentions":null,"quoted_status_id":null},"media_attachments":[]}'
+        ensure adequate headroom","language":null,"media_ids":null,"sensitive":null,"visibility":null,"idempotency":null,"scheduled_at":null,"spoiler_text":null,"application_id":1234567890123456,"in_reply_to_id":null,"with_rate_limit":false,"allowed_mentions":null,"quoted_status_id":null,"quote_approval_policy":262144,"quoted_status_id":null,"quote_approval_policy":"followers"},"media_attachments":[]}'
     headers:
-      Content-Length:
-      - '394'
       cache-control:
       - private, no-store
+      content-length:
+      - '485'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"c176d9210f9999baac9cb282e081c9bf"
+      - W/"dcd97a658a3097fdaf7b21ecb87f2a9b"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=8.01, cache_generate.active_support;dur=1.04,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=1.54,
-        start_processing.action_controller;dur=0.01, unpermitted_parameters.action_controller;dur=0.00,
-        start_transaction.active_record;dur=0.00, transaction.active_record;dur=6.06,
-        render.active_model_serializers;dur=1.81, process_action.action_controller;dur=41.06
+      - cache_read.active_support;dur=0.08, sql.active_record;dur=7.61, cache_generate.active_support;dur=1.00,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=1.89,
+        start_processing.action_controller;dur=0.00, unpermitted_parameters.action_controller;dur=0.00,
+        start_transaction.active_record;dur=0.00, transaction.active_record;dur=5.86,
+        render.active_model_serializers;dur=2.71, process_action.action_controller;dur=41.87
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -119,11 +119,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T19:35:00.826603Z'
+      - '2026-04-11T23:20:00.162220Z'
       x-request-id:
-      - c541c00f-e1db-415e-883c-ace2443bdd83
+      - 4ca3cfa6-42a0-4e16-9fb3-8e8de7b10d34
       x-runtime:
-      - '0.072068'
+      - '0.062028'
       x-xss-protection:
       - '0'
     status:
@@ -147,27 +147,27 @@ interactions:
   response:
     body:
       string: '[{"id":"1","scheduled_at":"4000-01-01T14:23:14.000Z","params":{"poll":null,"text":"please
-        ensure adequate headroom","language":null,"media_ids":null,"sensitive":null,"visibility":null,"idempotency":null,"scheduled_at":null,"spoiler_text":null,"application_id":1234567890123456,"in_reply_to_id":null,"with_rate_limit":false,"allowed_mentions":null,"quoted_status_id":null},"media_attachments":[]}]'
+        ensure adequate headroom","language":null,"media_ids":null,"sensitive":null,"visibility":null,"idempotency":null,"scheduled_at":null,"spoiler_text":null,"application_id":1234567890123456,"in_reply_to_id":null,"with_rate_limit":false,"allowed_mentions":null,"quoted_status_id":null,"quote_approval_policy":262144,"quoted_status_id":null,"quote_approval_policy":"followers"},"media_attachments":[]}]'
     headers:
-      Content-Length:
-      - '396'
       cache-control:
       - private, no-store
+      content-length:
+      - '487'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"44e545067c55e67791deb86ab94d5dfa"
+      - W/"7970c9442e66225a9277d4001c950223"
       link:
       - <http://localhost:3000/api/v1/scheduled_statuses?min_id=1>; rel="prev"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=1.07, cache_generate.active_support;dur=0.80,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.20,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=1.16,
-        process_action.action_controller;dur=27.13
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.14, cache_generate.active_support;dur=1.16,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.21,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=1.24,
+        process_action.action_controller;dur=28.06
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -181,11 +181,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T19:35:00.896077Z'
+      - '2026-04-11T23:20:00.252554Z'
       x-request-id:
-      - 0347b8ef-0b75-4110-8424-3243266e3260
+      - 9cab2202-5ef4-42fa-b42e-08489b2e40e7
       x-runtime:
-      - '0.042958'
+      - '0.045475'
       x-xss-protection:
       - '0'
     status:
@@ -209,25 +209,25 @@ interactions:
   response:
     body:
       string: '{"id":"1","scheduled_at":"4000-01-01T14:23:14.000Z","params":{"poll":null,"text":"please
-        ensure adequate headroom","language":null,"media_ids":null,"sensitive":null,"visibility":null,"idempotency":null,"scheduled_at":null,"spoiler_text":null,"application_id":1234567890123456,"in_reply_to_id":null,"with_rate_limit":false,"allowed_mentions":null,"quoted_status_id":null},"media_attachments":[]}'
+        ensure adequate headroom","language":null,"media_ids":null,"sensitive":null,"visibility":null,"idempotency":null,"scheduled_at":null,"spoiler_text":null,"application_id":1234567890123456,"in_reply_to_id":null,"with_rate_limit":false,"allowed_mentions":null,"quoted_status_id":null,"quote_approval_policy":262144,"quoted_status_id":null,"quote_approval_policy":"followers"},"media_attachments":[]}'
     headers:
-      Content-Length:
-      - '394'
       cache-control:
       - private, no-store
+      content-length:
+      - '485'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"c176d9210f9999baac9cb282e081c9bf"
+      - W/"dcd97a658a3097fdaf7b21ecb87f2a9b"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.09, cache_generate.active_support;dur=0.96,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.21,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=1.69,
-        process_action.action_controller;dur=27.46
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=0.98, cache_generate.active_support;dur=0.98,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.22,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=1.49,
+        process_action.action_controller;dur=27.84
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -241,11 +241,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T19:35:00.955084Z'
+      - '2026-04-11T23:20:00.327512Z'
       x-request-id:
-      - a61b80d7-f56d-4f9a-b0ff-24a03cfaee2e
+      - 03b890c8-6efc-440f-9b94-b7f4c755790a
       x-runtime:
-      - '0.046226'
+      - '0.044400'
       x-xss-protection:
       - '0'
     status:
@@ -272,10 +272,10 @@ interactions:
     body:
       string: '{}'
     headers:
-      Content-Length:
-      - '2'
       cache-control:
       - private, no-store
+      content-length:
+      - '2'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
@@ -285,11 +285,11 @@ interactions:
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=5.04, cache_generate.active_support;dur=0.80,
-        cache_write.active_support;dur=0.06, instantiation.active_record;dur=0.24,
+      - cache_read.active_support;dur=0.09, sql.active_record;dur=5.64, cache_generate.active_support;dur=1.01,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.24,
         start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
-        transaction.active_record;dur=4.62, render.active_model_serializers;dur=0.02,
-        process_action.action_controller;dur=32.54
+        transaction.active_record;dur=6.14, render.active_model_serializers;dur=0.03,
+        process_action.action_controller;dur=34.79
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -303,11 +303,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T19:35:00.011015Z'
+      - '2026-04-11T23:20:00.403926Z'
       x-request-id:
-      - 6ae07a65-bc1b-4892-873c-29240c506e6c
+      - c505457e-e6b8-48fe-8f30-c8dd6be896a8
       x-runtime:
-      - '0.048370'
+      - '0.051957'
       x-xss-protection:
       - '0'
     status:
@@ -332,10 +332,10 @@ interactions:
     body:
       string: '[]'
     headers:
-      Content-Length:
-      - '2'
       cache-control:
       - private, no-store
+      content-length:
+      - '2'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
@@ -345,10 +345,10 @@ interactions:
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.00, cache_generate.active_support;dur=0.88,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.14,
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=0.84, cache_generate.active_support;dur=0.98,
+        cache_write.active_support;dur=0.27, instantiation.active_record;dur=0.15,
         start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.04,
-        process_action.action_controller;dur=31.97
+        process_action.action_controller;dur=26.83
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -362,18 +362,18 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T19:35:00.074030Z'
+      - '2026-04-11T23:20:00.482380Z'
       x-request-id:
-      - 0387fc8c-424f-4206-a679-7c6cae66813e
+      - 828dd48c-0315-4589-95f3-0d1c119af9d7
       x-runtime:
-      - '0.047948'
+      - '0.044475'
       x-xss-protection:
       - '0'
     status:
       code: 200
       message: OK
 - request:
-    body: status=please+ensure+adequate+headroom&scheduled_at=2025-08-17T19%3A37%3A20%2B00%3A00
+    body: status=please+ensure+adequate+headroom&scheduled_at=2026-04-11T23%3A23%3A34%2B00%3A00
     headers:
       Accept:
       - '*/*'
@@ -393,27 +393,27 @@ interactions:
     uri: http://localhost:3000/api/v1/statuses
   response:
     body:
-      string: '{"id":"2","scheduled_at":"2025-08-17T19:37:20.000Z","params":{"text":"please
-        ensure adequate headroom","media_ids":null,"sensitive":null,"spoiler_text":null,"visibility":null,"language":null,"scheduled_at":null,"poll":null,"allowed_mentions":null,"idempotency":null,"with_rate_limit":false,"in_reply_to_id":null,"application_id":1234567890123456,"quoted_status_id":null},"media_attachments":[]}'
+      string: '{"id":"2","scheduled_at":"2026-04-11T23:23:34.000Z","params":{"text":"please
+        ensure adequate headroom","quote_approval_policy":262144,"media_ids":null,"sensitive":null,"spoiler_text":null,"visibility":null,"language":null,"scheduled_at":null,"poll":null,"allowed_mentions":null,"idempotency":null,"with_rate_limit":false,"in_reply_to_id":null,"application_id":1234567890123456,"quoted_status_id":null,"quoted_status_id":null,"quote_approval_policy":"followers"},"media_attachments":[]}'
     headers:
-      Content-Length:
-      - '394'
       cache-control:
       - private, no-store
+      content-length:
+      - '485'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"3e159851a111a6a9b325407d07524517"
+      - W/"48e8f5c2aa0fe66bb6e20f670b5ff699"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.02, sql.active_record;dur=4.99, cache_generate.active_support;dur=0.77,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.24,
-        start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
-        transaction.active_record;dur=5.48, render.active_model_serializers;dur=0.24,
-        process_action.action_controller;dur=35.60
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=7.90, cache_generate.active_support;dur=1.12,
+        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.31,
+        start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.01,
+        transaction.active_record;dur=8.25, render.active_model_serializers;dur=0.28,
+        process_action.action_controller;dur=44.40
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -425,13 +425,13 @@ interactions:
       x-ratelimit-limit:
       - '300'
       x-ratelimit-remaining:
-      - '290'
+      - '210'
       x-ratelimit-reset:
-      - '2025-08-17T21:00:00.137947Z'
+      - '2026-04-12T00:00:00.573343Z'
       x-request-id:
-      - cdeeb177-916e-44d3-9864-e79f019f632d
+      - 2098df93-f0d4-4921-9a37-355458284c35
       x-runtime:
-      - '0.052556'
+      - '0.062188'
       x-xss-protection:
       - '0'
     status:

@@ -1,27 +1,38 @@
-all:
-	@echo '## Make commands ##'
-	@echo
-	@$(MAKE) -pRrq -f $(lastword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | xargs
+ifneq ($(OS),Windows_NT)
+	SHELL := bash
+endif
 
-lint:
-	mypy --package gdown
-	ruff format --check
-	ruff check
+.PHONY: help setup format lint test
+.DEFAULT_GOAL := help
 
-format:
-	ruff format
-	ruff check --fix
+PYTEST_ARGS ?= --numprocesses=auto
 
-test:
-	python -m pytest -n auto -v tests
+define exec
+	@uv run --no-sync python -c "import sys;print('\033[1;36m'+' '.join(sys.argv[1:])+'\033[0m')" $(1)
+	@$(1)
+endef
 
-clean:
-	rm -rf build dist *.egg-info
+help:
+	@uv run --no-sync python -c "import re; lines=open('Makefile').read().splitlines(); print('\033[1;32mAvailable targets:\033[0m'); [print(f'  \033[1;36m{m.group(1):<20s}\033[0m {m.group(2)}') for l in lines if (m:=re.match(r'^([a-zA-Z_-]+):.*?# (.+)$$',l))]"
 
-build: clean
-	python -m build --sdist --wheel
+setup:  # Setup the development environment
+	$(call exec,uv sync)
 
-upload: build
-	python -m twine upload dist/gdown-*
+format:  # Format code
+	$(call exec,uv run ruff format)
+	$(call exec,uv run ruff check --fix)
+	$(call exec,uv run taplo fmt $(shell git ls-files "*.toml"))
+	$(call exec,uv run mdformat $(shell git ls-files "*.md"))
+	$(call exec,uv run yamlfix $(shell git ls-files "*.yml" "*.yaml"))
 
-publish: build upload
+lint:  # Lint code
+	$(call exec,uv run ruff format --check)
+	$(call exec,uv run ruff check)
+	$(call exec,uv run ty check --no-progress)
+	$(call exec,uv run taplo fmt --check $(shell git ls-files "*.toml"))
+	$(call exec,uv run mdformat --check $(shell git ls-files "*.md"))
+	$(call exec,uv run yamlfix --check $(shell git ls-files "*.yml" "*.yaml"))
+	$(call exec,uv run typos)
+
+test:  # Run tests
+	$(call exec,uv run pytest -v tests/ $(PYTEST_ARGS))

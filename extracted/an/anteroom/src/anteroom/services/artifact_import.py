@@ -14,8 +14,6 @@ if TYPE_CHECKING:
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
-
 from .artifact_storage import upsert_artifact
 from .artifacts import ArtifactSource, ArtifactType, build_fqn
 
@@ -38,10 +36,10 @@ def import_skills(
     db: ThreadSafeConnection,
     skills_dir: Path,
 ) -> ImportResult:
-    """Import YAML skill files from a directory into the artifact system.
+    """Import ``*/SKILL.md`` skill files into the artifact system.
 
-    Scans *skills_dir* for ``.yaml`` files, reads their content, and
-    upserts as ``@local/skill/<name>`` artifacts with ``local`` source.
+    Only the directory-based SKILL.md layout is supported. Content is stored
+    as-is (frontmatter + body) so ``load_from_artifacts`` can parse it.
     """
     if not skills_dir.is_dir():
         return ImportResult(details=(f"Directory not found: {skills_dir}",))
@@ -51,17 +49,10 @@ def import_skills(
     errors = 0
     details: list[str] = []
 
-    for path in sorted(skills_dir.glob("*.yaml")):
-        name = path.stem
+    for path in sorted(skills_dir.glob("*/SKILL.md"), key=lambda p: p.parent.name):
+        name = path.parent.name.lower()
         try:
-            raw = path.read_text(encoding="utf-8")
-            data = yaml.safe_load(raw)
-            if not isinstance(data, dict):
-                details.append(f"Skipped {path.name}: not a YAML mapping")
-                skipped += 1
-                continue
-
-            content = str(data.get("content", data.get("prompt", raw)))
+            content = path.read_text(encoding="utf-8")
             fqn = build_fqn(_LOCAL_NAMESPACE, ArtifactType.SKILL.value, name)
 
             upsert_artifact(

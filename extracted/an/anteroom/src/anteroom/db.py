@@ -455,6 +455,16 @@ CREATE TABLE IF NOT EXISTS workflow_llm_cache (
     PRIMARY KEY (cache_key, space_id)
 );
 
+CREATE TABLE IF NOT EXISTS workflow_run_inputs (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    source_action TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    consumed_at REAL,
+    FOREIGN KEY (run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS agent_runs (
     id TEXT PRIMARY KEY,
     conversation_id TEXT NOT NULL,
@@ -829,6 +839,12 @@ def _create_indexes(conn: sqlite3.Connection) -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_workflow_schedules_due ON workflow_schedules(enabled, next_run_at)"
         )
+    except sqlite3.OperationalError:
+        pass
+
+    # Workflow run inputs index (#889)
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_wri_run_unconsumed ON workflow_run_inputs(run_id, consumed_at)")
     except sqlite3.OperationalError:
         pass
 
@@ -2432,6 +2448,21 @@ def _run_migrations(conn: sqlite3.Connection, vec_dimensions: int = 384) -> None
         if "stderr_path" not in bt_cols:
             conn.execute("ALTER TABLE background_tasks ADD COLUMN stderr_path TEXT DEFAULT NULL")
         conn.commit()
+
+    # Workflow run inputs table (#889)
+    if "workflow_run_inputs" not in all_tables:
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS workflow_run_inputs (
+                id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                source_action TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                consumed_at REAL,
+                FOREIGN KEY (run_id) REFERENCES workflow_runs(id) ON DELETE CASCADE
+            )"""
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_wri_run_unconsumed ON workflow_run_inputs(run_id, consumed_at)")
 
     # Add message-level and source-chunk-level FTS5 tables for hybrid search (#810)
     try:

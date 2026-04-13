@@ -1,11 +1,10 @@
-from lark import Discard
-from lark.visitors import Interpreter
 import yaml
 from gersemi.ast_helpers import get_value, is_keyword
 from gersemi.immutable import make_immutable
+from gersemi.interpreter import Interpreter
 from gersemi.keyword_kind import KeywordFormatter, KeywordPreprocessor
 from gersemi.keywords import Hint, Keywords
-from gersemi.transformer import Transformer_InPlace
+from gersemi.transformer import Discard, Transformer_InPlace
 
 
 class IgnoreThisDefinition:
@@ -43,7 +42,7 @@ class DropIrrelevantElements(Transformer_InPlace):
 
     def line_comment(self, children):
         if len(children) > 1:
-            comment = children[1].strip()
+            comment = str(children[1]).strip()
             if comment == IGNORE:
                 return IgnoreThisDefinition()
 
@@ -76,7 +75,7 @@ class CMakeInterpreter(Interpreter):
     def _set(self, arguments):
         name, *values = self.visit_children(arguments)
         self.stack[name] = [
-            item for value in values for item in self._eval_variables(value)
+            item for value in values for item in self._eval_variables(str(value))
         ]
 
     def _new_command(self, arguments):
@@ -95,7 +94,7 @@ class CMakeInterpreter(Interpreter):
             keywords = arguments.children[1:4]
 
         options, one_value_keywords, multi_value_keywords = [
-            self._eval_variables(self.visit(item)) for item in keywords
+            self._eval_variables(str(self.visit(item))) for item in keywords
         ]
         return Keywords(options, one_value_keywords, multi_value_keywords)
 
@@ -113,13 +112,13 @@ class CMakeInterpreter(Interpreter):
         return False
 
     def _add_command(self, name, arguments, block_end):
-        key = name.lower()
+        key = str(name).lower()
         if key not in self.found_commands:
             self.found_commands[key] = []
 
         self.found_commands[key].append(
             (
-                (name, arguments, block_end),
+                (str(name), arguments, block_end),
                 f"{self.filepath}:{name.line}:{name.column}",
             )
         )
@@ -189,7 +188,7 @@ class CMakeInterpreter(Interpreter):
         ][:1]
 
     def command_invocation(self, tree):
-        identifier, _, arguments, _ = tree.children
+        identifier, arguments = tree.children
         command_interpreters = {
             "cmake_parse_arguments": self._cmake_parse_arguments,
             "function": self._new_command,
@@ -199,7 +198,7 @@ class CMakeInterpreter(Interpreter):
         return command_interpreters.get(identifier, lambda *args: None)(arguments)
 
     def _join(self, tree):
-        return "".join(self.visit_children(tree))
+        return "".join(map(str, self.visit_children(tree)))
 
     def complex_argument(self, tree):
         return f"({self.visit_children(tree)})"

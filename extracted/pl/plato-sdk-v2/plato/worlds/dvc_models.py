@@ -966,3 +966,130 @@ async def smart_commit(
         manifest_md5,
     )
     return manifest_md5, dvc_yaml
+
+
+# ============================================================
+# Archive commit (single tar.gz)
+# ============================================================
+
+
+def _archive_s3_key(s3_config: S3Config, archive_md5: str) -> str:
+    """S3 key for an archive blob."""
+    return f"{s3_config.cache_prefix}/{archive_md5[:2]}/{archive_md5[2:]}"
+
+
+async def smart_commit_archive(
+    source_dir: Path,
+    s3_config: S3Config,
+    dir_name: str = "data",
+    ignore_patterns: list[str] | None = None,
+) -> tuple[str, str]:
+    """Tar.gz the entire source directory and upload as a single S3 object.
+
+    Returns ``(archive_md5, dvc_yaml_content)`` where the YAML includes
+    ``format: archive`` so restore knows to download+extract instead of
+    using the per-file manifest approach.
+    """
+    import tarfile
+
+    _ignored_name, _ignored_path = _build_ignore_matchers(ignore_patterns)
+
+    def _tar_filter(tarinfo: tarfile.TarInfo) -> tarfile.TarInfo | None:
+        name = tarinfo.name
+        parts = Path(name).parts
+        for part in parts:
+            if _ignored_name(part):
+                return None
+        if _ignored_path(name) or _ignored_path(f"{name}/"):
+            return None
+        return tarinfo
+
+    with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
+        tmp_path = tmp.name
+
+    try:
+        with tarfile.open(tmp_path, "w:gz") as tar:
+            for entry in sorted(os.scandir(source_dir), key=lambda e: e.name):
+                tar.add(
+                    entry.path,
+                    arcname=entry.name,
+                    filter=_tar_filter,
+                )
+
+        archive_bytes = Path(tmp_path).read_bytes()
+        archive_size = len(archive_bytes)
+        archive_md5 = hashlib.md5(archive_bytes).hexdigest()
+
+        key = _archive_s3_key(s3_config, archive_md5)
+        await s3_upload_bytes(s3_config, key, archive_bytes)
+
+        dvc_yaml = (
+            f"outs:\n- md5: {archive_md5}\n  size: {archive_size}\n  hash: md5\n  path: {dir_name}\n  format: archive\n"
+        )
+
+        logger.info(
+            "Archive commit: %s (%d bytes), md5=%s",
+            dir_name,
+            archive_size,
+            archive_md5,
+        )
+        return archive_md5, dvc_yaml
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+
+async def restore_archive(
+    dvc_content: str,
+    s3_config: S3Config,
+    target_dir: Path,
+) -> None:
+    """Download an archive blob from S3 and extract to target_dir."""
+    import tarfile
+
+    dvc_data = yaml.safe_load(dvc_content)
+    outs = dvc_data.get("outs", [])
+    if not outs:
+        return
+
+    archive_md5 = outs[0].get("md5", "")
+    if not archive_md5:
+        return
+
+    key = _archive_s3_key(s3_config, archive_md5)
+    archive_bytes = await s3_download_bytes(s3_config, key)
+
+    if target_dir.exists():
+        shutil.rmtree(target_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
+        tmp.write(archive_bytes)
+        tmp_path = tmp.name
+
+    try:
+        with tarfile.open(tmp_path, "r:gz") as tar:
+            import sys
+
+            if sys.version_info >= (3, 12):
+                tar.extractall(path=target_dir, filter="data")
+            else:
+                tar.extractall(path=target_dir)
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+    logger.info("Archive restore: extracted to %s (%d bytes)", target_dir, len(archive_bytes))
+
+
+def parse_dvc_format(dvc_content: str) -> str:
+    """Return the format of a .dvc file: 'archive' or 'manifest'."""
+    dvc_data = yaml.safe_load(dvc_content)
+    outs = dvc_data.get("outs", [])
+    if not outs:
+        return "manifest"
+    return outs[0].get("format", "manifest")

@@ -16,8 +16,6 @@ import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import uvicorn
-
 if TYPE_CHECKING:
     from rich.console import Console
 
@@ -767,6 +765,8 @@ def _run_web(
     config: AppConfig, config_path: Path, *, debug: bool = False, enforced_fields: list[str] | None = None
 ) -> None:
     """Launch the web UI server."""
+    import uvicorn
+
     print(f"Config loaded from {config_path}")
     print(f"  AI endpoint: {config.ai.base_url}")
     print(f"  Model: {config.ai.model}")

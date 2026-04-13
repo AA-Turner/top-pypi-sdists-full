@@ -7,18 +7,6 @@ import logging
 import os
 from typing import Any
 
-import httpx
-from openai import (
-    APIConnectionError,
-    APITimeoutError,
-    AsyncOpenAI,
-    AuthenticationError,
-    InternalServerError,
-    NotFoundError,
-    RateLimitError,
-    UnprocessableEntityError,
-)
-
 from ..config import AppConfig
 from .token_provider import TokenProvider, TokenProviderError
 
@@ -34,8 +22,25 @@ _LOCAL_MODEL_DIMENSIONS: dict[str, int] = {
     "nomic-ai/nomic-embed-text-v1.5": 768,
 }
 
-_PERMANENT_ERRORS = (NotFoundError, UnprocessableEntityError)
-_TRANSIENT_ERRORS = (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError)
+_PERMANENT_ERRORS: tuple[type[Exception], ...] | None = None
+_TRANSIENT_ERRORS: tuple[type[Exception], ...] | None = None
+
+
+def _get_openai_error_types() -> tuple[tuple[type[Exception], ...], tuple[type[Exception], ...]]:
+    global _PERMANENT_ERRORS, _TRANSIENT_ERRORS  # noqa: PLW0603
+    if _PERMANENT_ERRORS is None:
+        from openai import (
+            APIConnectionError,
+            APITimeoutError,
+            InternalServerError,
+            NotFoundError,
+            RateLimitError,
+            UnprocessableEntityError,
+        )
+
+        _PERMANENT_ERRORS = (NotFoundError, UnprocessableEntityError)
+        _TRANSIENT_ERRORS = (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError)
+    return _PERMANENT_ERRORS, _TRANSIENT_ERRORS
 
 
 class EmbeddingPermanentError(Exception):
@@ -55,7 +60,7 @@ class EmbeddingTransientError(Exception):
 
 
 class EmbeddingService:
-    def __init__(self, client: AsyncOpenAI, model: str = "text-embedding-3-small", dimensions: int = 1536) -> None:
+    def __init__(self, client: Any, model: str = "text-embedding-3-small", dimensions: int = 1536) -> None:
         self._client = client
         self._model = model
         self._dimensions = dimensions
@@ -76,6 +81,8 @@ class EmbeddingService:
         if not self._token_provider:
             return False
         try:
+            from openai import AsyncOpenAI
+
             self._token_provider.refresh()
             new_key = self._token_provider.get_token()
             self._client = AsyncOpenAI(base_url=str(self._client.base_url), api_key=new_key)
@@ -92,6 +99,9 @@ class EmbeddingService:
         Raises EmbeddingPermanentError for non-recoverable API errors.
         Raises EmbeddingTransientError for recoverable API errors.
         """
+        from openai import AuthenticationError
+
+        perm_errors, trans_errors = _get_openai_error_types()
         if not text or not text.strip():
             return None
         truncated = text[: MAX_INPUT_TOKENS * 4]
@@ -106,11 +116,11 @@ class EmbeddingService:
             if not _auth_retried and self._try_refresh_token():
                 return await self.embed(text, _auth_retried=True)
             raise EmbeddingPermanentError("Authentication failed", status_code=401)
-        except _PERMANENT_ERRORS as e:
+        except perm_errors as e:
             status = getattr(e, "status_code", None)
             logger.error("Permanent embedding error: %s (status=%s)", type(e).__name__, status)
             raise EmbeddingPermanentError(str(e), status_code=status) from e
-        except _TRANSIENT_ERRORS as e:
+        except trans_errors as e:
             status = getattr(e, "status_code", None)
             logger.warning("Transient embedding error: %s (status=%s)", type(e).__name__, status)
             raise EmbeddingTransientError(str(e), status_code=status) from e
@@ -131,6 +141,9 @@ class EmbeddingService:
         Raises EmbeddingPermanentError for non-recoverable API errors.
         Raises EmbeddingTransientError for recoverable API errors.
         """
+        from openai import AuthenticationError
+
+        perm_errors, trans_errors = _get_openai_error_types()
         results: list[list[float] | None] = []
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
@@ -161,11 +174,11 @@ class EmbeddingService:
                     results.extend(batch_results)
                 else:
                     raise EmbeddingPermanentError("Batch authentication failed", status_code=401)
-            except _PERMANENT_ERRORS as e:
+            except perm_errors as e:
                 status = getattr(e, "status_code", None)
                 logger.error("Permanent embedding error: %s (status=%s)", type(e).__name__, status)
                 raise EmbeddingPermanentError(str(e), status_code=status) from e
-            except _TRANSIENT_ERRORS as e:
+            except trans_errors as e:
                 status = getattr(e, "status_code", None)
                 logger.warning("Transient embedding error: %s (status=%s)", type(e).__name__, status)
                 raise EmbeddingTransientError(str(e), status_code=status) from e
@@ -353,6 +366,9 @@ def create_embedding_service(config: AppConfig) -> EmbeddingService | LocalEmbed
         "base_url": base_url,
         "api_key": api_key,
     }
+    import httpx
+    from openai import AsyncOpenAI
+
     if not config.ai.verify_ssl:
         kwargs["http_client"] = httpx.AsyncClient(verify=False)  # noqa: S501
 

@@ -29,13 +29,19 @@ from trilogy.scripts.common import (
     RefreshParams,
     RefreshQuery,
     handle_execution_exception,
+    parse_force_sources,
+    validate_force_sources,
 )
 from trilogy.scripts.dependency import (
     DependencyResolver,
     ManagedRefreshNode,
     ScriptNode,
 )
-from trilogy.scripts.parallel_execution import ExecutionMode, run_parallel_execution
+from trilogy.scripts.parallel_execution import (
+    ExecutionMode,
+    ParallelExecutionSummary,
+    run_parallel_execution,
+)
 
 
 def _collect_root_watermarks(
@@ -229,6 +235,7 @@ def _preview_directory_refresh(
     )
 
     address_map: dict[str, str] = {}
+    available_datasources: set[str] = set()
     ds_to_scripts: dict[str, list[ScriptNode]] = defaultdict(list)
     ds_is_root: dict[str, bool] = {}
     # root physical address -> set of concept addresses (as seen in that executor's namespace)
@@ -264,6 +271,7 @@ def _preview_directory_refresh(
                     print_error(f"Error parsing {node.path}: {e}")
                     raise Exit(1) from e
             env = executor.environment
+            available_datasources.update(env.datasources)
             needed_in_script: set[str] = set()
             for ds_id, ds in env.datasources.items():
                 address_map.setdefault(ds_id, ds.safe_address)
@@ -296,6 +304,8 @@ def _preview_directory_refresh(
                             ).update(env.concepts[ref].name for ref in matching)
         finally:
             executor.close()
+
+    validate_force_sources(force_sources, available_datasources)
 
     # Build topo order so we can assign each physical address to its furthest-upstream owner
     resolver = DependencyResolver()
@@ -574,6 +584,73 @@ def make_managed_refresh_fn(
     return wrapped_execute
 
 
+def run_refresh_command(cli_params: CLIRuntimeParams) -> ParallelExecutionSummary:
+    input_path = Path(cli_params.input)
+    from trilogy.scripts.common import merge_runtime_config, resolve_input_information
+    from trilogy.scripts.display import show_execution_info
+
+    _, _, input_type, input_name, runtime_config = resolve_input_information(
+        cli_params.input, cli_params.config_path
+    )
+    edialect, _ = merge_runtime_config(cli_params, runtime_config)
+    config_path_str = (
+        str(runtime_config.source_path) if runtime_config.source_path else None
+    )
+    refresh_params = cli_params.refresh_params or RefreshParams()
+
+    if input_path.is_dir():
+        show_execution_info(
+            input_type,
+            input_name,
+            edialect.value,
+            cli_params.debug,
+            config_path_str,
+            cli_params.debug_file,
+        )
+        approved, phys_graph = _preview_directory_refresh(
+            cli_params, input_path, interactive=refresh_params.interactive
+        )
+        if not approved:
+            raise Exit(2)
+        if not phys_graph:
+            raise Exit(2)
+
+        execution_fn = make_managed_refresh_fn(
+            refresh_params.print_watermarks,
+            False,
+            refresh_params.dry_run,
+        )
+
+        def physical_executor_factory(node: ManagedRefreshNode) -> Executor:
+            from trilogy.scripts.common import create_executor_for_script
+
+            executor = create_executor_for_script(
+                node.owner_script,
+                cli_params.param,
+                cli_params.conn_args,
+                cli_params.dialect or edialect,
+                cli_params.debug,
+                runtime_config,
+                cli_params.debug_file,
+            )
+            with open(node.owner_script.path, "r") as handle:
+                executor.parse_text(handle.read(), root=node.owner_script.path)
+            return executor
+
+        return run_parallel_execution(
+            cli_params=cli_params,
+            execution_fn=execution_fn,  # type: ignore[arg-type]
+            execution_mode=ExecutionMode.REFRESH,
+            graph=phys_graph,
+            executor_factory_override=physical_executor_factory,
+        )
+
+    return run_parallel_execution(
+        cli_params=cli_params,
+        execution_mode=ExecutionMode.REFRESH,
+    )
+
+
 @argument("input", type=ClickPath(), default=".")
 @argument("dialect", type=str, required=False)
 @option("--param", multiple=True, help="Environment parameters as key=value pairs")
@@ -647,7 +724,7 @@ def refresh(
     validate_dialect(dialect, "refresh")
     refresh_params = RefreshParams(
         print_watermarks=print_watermarks,
-        force_sources=frozenset(force),
+        force_sources=parse_force_sources(force),
         interactive=interactive,
         dry_run=dry_run,
     )
@@ -667,6 +744,10 @@ def refresh(
     )
 
     try:
+        summary = run_refresh_command(cli_params)
+        if summary.successful == 0 and summary.skipped > 0:
+            raise Exit(2)
+        return
         input_path = Path(input)
         from trilogy.scripts.common import (
             merge_runtime_config,

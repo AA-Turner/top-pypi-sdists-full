@@ -9,7 +9,7 @@ use sqruff_lib_core::parser::segments::{ErasedSegment, Tables};
 use super::config::ReflowConfig;
 use super::depth_map::DepthMap;
 use super::elements::{ReflowBlock, ReflowElement, ReflowPoint, ReflowSequenceType};
-use super::rebreak::rebreak_sequence;
+use super::rebreak::{rebreak_keywords_sequence, rebreak_sequence};
 use super::reindent::{construct_single_indent, lint_indent_points, lint_line_length};
 use crate::core::config::FluffConfig;
 use crate::core::rules::LintResult;
@@ -34,6 +34,12 @@ pub enum ReflowInsertPosition {
     Before,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum RebreakType {
+    Lines,
+    Keywords,
+}
+
 impl<'a, 'b> ReflowSequence<'a, 'b> {
     pub fn raw(&self) -> String {
         self.elements.iter().map(|it| it.raw()).join("")
@@ -51,7 +57,8 @@ impl<'a, 'b> ReflowSequence<'a, 'b> {
     }
 
     pub fn from_root(root_segment: &'b ErasedSegment, config: &'a FluffConfig) -> Self {
-        let depth_map = DepthMap::from_parent(root_segment).into();
+        let raws_with_stack = root_segment.raw_segments_with_ancestors();
+        let depth_map = Some(DepthMap::from_raws_with_stack(raws_with_stack));
 
         Self::from_raw_segments(
             root_segment.get_raw_segments(),
@@ -308,13 +315,16 @@ impl<'a, 'b> ReflowSequence<'a, 'b> {
         self
     }
 
-    pub fn rebreak(self, tables: &Tables) -> Self {
+    pub fn rebreak(self, tables: &Tables, rebreak_type: RebreakType) -> Self {
         if !self.lint_results.is_empty() {
             panic!("rebreak cannot currently handle pre-existing embodied fixes");
         }
 
-        // Delegate to the rebreak algorithm
-        let (elem_buff, lint_results) = rebreak_sequence(tables, self.elements, self.root_segment);
+        let (elem_buff, lint_results) = if rebreak_type == RebreakType::Lines {
+            rebreak_sequence(tables, self.elements, self.root_segment)
+        } else {
+            rebreak_keywords_sequence(tables, self.elements, self.root_segment)
+        };
 
         ReflowSequence {
             root_segment: self.root_segment,

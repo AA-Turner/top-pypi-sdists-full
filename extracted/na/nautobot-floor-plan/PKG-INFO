@@ -1,12 +1,12 @@
 Metadata-Version: 2.3
 Name: nautobot-floor-plan
-Version: 3.0.0
+Version: 3.0.1
 Summary: Nautobot Floor Plan
 License: Apache-2.0
 Keywords: nautobot,nautobot-app,nautobot-plugin
 Author: Network to Code, LLC
 Author-email: info@networktocode.com
-Requires-Python: >=3.10,<3.14
+Requires-Python: >=3.10,<3.15
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: all
 Requires-Dist: nautobot (>=3.0.0,<4.0.0)
 Project-URL: Documentation, https://docs.nautobot.com/projects/floor-plan/en/latest/
@@ -41,13 +42,13 @@ This App aids in data center management by providing the ability to create a gri
 
 ### Screenshots
 
-![A sample floor plan](https://raw.githubusercontent.com/nautobot/nautobot-app-floor-plan/develop/docs/images/floor-plan-populated.png)
+![A sample floor plan](https://raw.githubusercontent.com/nautobot/nautobot-app-floor-plan/develop/docs/images/floor-plan-populated-dark.png)
 
-![Button to add a new floor plan](https://raw.githubusercontent.com/nautobot/nautobot-app-floor-plan/develop/docs/images/add-floor-plan-button.png)
+![Button to add a new floor plan](https://raw.githubusercontent.com/nautobot/nautobot-app-floor-plan/develop/docs/images/add-floor-plan-button-dark.png)
 
-![Form to define a new floor plan](https://raw.githubusercontent.com/nautobot/nautobot-app-floor-plan/develop/docs/images/add-floor-plan-form.png)
+![Form to define a new floor plan](https://raw.githubusercontent.com/nautobot/nautobot-app-floor-plan/develop/docs/images/add-floor-plan-form-dark.png)
 
-![A new blank floor plan](https://raw.githubusercontent.com/nautobot/nautobot-app-floor-plan/develop/docs/images/floor-plan-empty.png)
+![A new blank floor plan](https://raw.githubusercontent.com/nautobot/nautobot-app-floor-plan/develop/docs/images/floor-plan-empty-dark.png)
 
 More screenshots can be found in the [Using the App](https://docs.nautobot.com/projects/floor-plan/en/latest/user/app_use_cases/) page in the documentation.
 

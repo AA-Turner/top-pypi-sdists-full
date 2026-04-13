@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gersemi
-Version: 0.26.1
+Version: 0.27.0
 Summary: A formatter to make your CMake code the real treasure
 Author-email: Blank Spruce <blankspruce@protonmail.com>
 License: MPL-2.0
@@ -23,7 +23,6 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ignore-python<0.4,>=0.3
-Requires-Dist: lark>=1.0
 Requires-Dist: platformdirs
 Requires-Dist: pyyaml<7,>=5
 Provides-Extra: color
@@ -48,7 +47,7 @@ pip3 install gersemi
 
 ```plain
 usage: gersemi [-c] [-i] [--diff] [--print-config {minimal,verbose,default}] [--version]
-               [-h] [-l INTEGER] [--indent (INTEGER | tabs)] [--unsafe]
+               [-h] [-l INTEGER] [--indent (INTEGER | tabs)] [--safe]
                [--definitions src [src ...]]
                [--list-expansion {favour-inlining,favour-expansion}]
                [--warn-about-unknown-commands] [--disable-formatting]
@@ -104,7 +103,7 @@ outcome configuration:
   --indent (INTEGER | tabs)
                         Number of spaces used to indent or 'tabs' for indenting with
                         tabs [default: 4]
-  --unsafe              Skip default sanity checks.
+  --safe, --unsafe      Enable sanity checks. [default: skip sanity checks]
   --definitions src [src ...]
                         Files or directories containing custom command definitions
                         (functions or macros). If only - is provided custom definitions,
@@ -198,7 +197,7 @@ You can use gersemi with a pre-commit hook by adding the following to `.pre-comm
 ```yaml
 repos:
 - repo: https://github.com/BlankSpruce/gersemi
-  rev: 0.26.1
+  rev: 0.27.0
   hooks:
   - id: gersemi
 ```
@@ -214,7 +213,7 @@ If you want to use extensions with pre-commit list them with [`additional_depend
 ```yaml
 repos:
 - repo: https://github.com/BlankSpruce/gersemi
-  rev: 0.26.1
+  rev: 0.27.0
   hooks:
   - id: gersemi
     additional_dependencies:
@@ -861,7 +860,11 @@ You can extend gersemi capabilities through Python modules listed with `--extens
 
 ### How to disable reformatting
 
-Gersemi can be disallowed to format block of code using pair of fencing comments `# gersemi: off`/`# gersemi: on`. Example:
+Gersemi can be disallowed to format block of code using pair of fencing comments. Supported pairs:
+- `# gersemi: off`/`# gersemi: on`
+- `# cmake-format: off`/`# cmake-format: on`
+- `# fmt: off`/`# fmt: on`
+Mixing fencing comments, for instance `# gersemi: off` + `# fmt: on`, is not supported. Example:
 
 ```cmake
 the_hobbit(

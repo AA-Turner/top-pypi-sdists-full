@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: importlib_resources
-Version: 7.0.0
+Version: 7.1.0
 Summary: Read resources from Python packages
 Author-email: Barry Warsaw <barry@python.org>
 Maintainer-email: "Jason R. Coombs" <jaraco@jaraco.com>

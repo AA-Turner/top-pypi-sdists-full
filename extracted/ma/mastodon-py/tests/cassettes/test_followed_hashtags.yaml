@@ -18,25 +18,25 @@ interactions:
     uri: http://localhost:3000/api/v1/tags/heeho/unfollow
   response:
     body:
-      string: '{"id":"","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1755388800","accounts":"0","uses":"0"},{"day":"1755302400","accounts":"0","uses":"0"},{"day":"1755216000","accounts":"0","uses":"0"},{"day":"1755129600","accounts":"0","uses":"0"},{"day":"1755043200","accounts":"0","uses":"0"},{"day":"1754956800","accounts":"0","uses":"0"},{"day":"1754870400","accounts":"0","uses":"0"}],"following":false,"featuring":false}'
+      string: '{"id":"","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1775865600","accounts":"0","uses":"0"},{"day":"1775779200","accounts":"0","uses":"0"},{"day":"1775692800","accounts":"0","uses":"0"},{"day":"1775606400","accounts":"0","uses":"0"},{"day":"1775520000","accounts":"0","uses":"0"},{"day":"1775433600","accounts":"0","uses":"0"},{"day":"1775347200","accounts":"0","uses":"0"}],"following":false,"featuring":false}'
     headers:
-      Content-Length:
-      - '442'
       cache-control:
       - private, no-store
+      content-length:
+      - '442'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"0a11108f81275f480c3d04b321bb56b0"
+      - W/"c41a445ad846c83f1ff1626ccc0ad1db"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.57, cache_generate.active_support;dur=1.63,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.20,
-        start_processing.action_controller;dur=0.01, render.active_model_serializers;dur=2.66,
-        process_action.action_controller;dur=33.70
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=1.53, cache_generate.active_support;dur=0.99,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.21,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=2.50,
+        process_action.action_controller;dur=32.60
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -50,11 +50,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T18:45:00.572235Z'
+      - '2026-04-11T23:15:00.763921Z'
       x-request-id:
-      - 3612e6c0-cc8c-442e-b124-a041a953c00a
+      - bac3c35e-ad79-424b-a800-3217615d3d91
       x-runtime:
-      - '0.058800'
+      - '0.049757'
       x-xss-protection:
       - '0'
     status:
@@ -79,10 +79,10 @@ interactions:
     body:
       string: '[]'
     headers:
-      Content-Length:
-      - '2'
       cache-control:
       - private, no-store
+      content-length:
+      - '2'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
@@ -92,10 +92,10 @@ interactions:
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=2.87, cache_generate.active_support;dur=0.90,
-        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.15,
+      - cache_read.active_support;dur=0.02, sql.active_record;dur=2.26, cache_generate.active_support;dur=1.05,
+        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.19,
         start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=0.04,
-        process_action.action_controller;dur=33.12
+        process_action.action_controller;dur=29.95
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -109,11 +109,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T18:45:00.634209Z'
+      - '2026-04-11T23:15:00.846606Z'
       x-request-id:
-      - 436cac1d-3ee5-458e-bf3a-f685893ce088
+      - 9f0aec4b-7aed-41ff-b5b8-aec5067f9aaf
       x-runtime:
-      - '0.053924'
+      - '0.049715'
       x-xss-protection:
       - '0'
     status:
@@ -138,26 +138,26 @@ interactions:
     uri: http://localhost:3000/api/v1/tags/heeho/follow
   response:
     body:
-      string: '{"id":"3","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1755388800","accounts":"0","uses":"0"},{"day":"1755302400","accounts":"0","uses":"0"},{"day":"1755216000","accounts":"0","uses":"0"},{"day":"1755129600","accounts":"0","uses":"0"},{"day":"1755043200","accounts":"0","uses":"0"},{"day":"1754956800","accounts":"0","uses":"0"},{"day":"1754870400","accounts":"0","uses":"0"}],"following":true,"featuring":false}'
+      string: '{"id":"3","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1775865600","accounts":"0","uses":"0"},{"day":"1775779200","accounts":"0","uses":"0"},{"day":"1775692800","accounts":"0","uses":"0"},{"day":"1775606400","accounts":"0","uses":"0"},{"day":"1775520000","accounts":"0","uses":"0"},{"day":"1775433600","accounts":"0","uses":"0"},{"day":"1775347200","accounts":"0","uses":"0"}],"following":true,"featuring":false}'
     headers:
-      Content-Length:
-      - '442'
       cache-control:
       - private, no-store
+      content-length:
+      - '442'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"65347e4be293e60273c31155e31a7b24"
+      - W/"fc3168bdf3ed3ddf83676dc21c13a3d8"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=9.80, cache_generate.active_support;dur=1.37,
-        cache_write.active_support;dur=0.09, instantiation.active_record;dur=0.25,
-        start_processing.action_controller;dur=0.01, start_transaction.active_record;dur=0.00,
-        transaction.active_record;dur=9.11, render.active_model_serializers;dur=3.99,
-        process_action.action_controller;dur=47.36
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=6.87, cache_generate.active_support;dur=1.09,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.21,
+        start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
+        transaction.active_record;dur=6.70, render.active_model_serializers;dur=2.68,
+        process_action.action_controller;dur=40.63
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -171,11 +171,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T18:45:00.699973Z'
+      - '2026-04-11T23:15:00.919846Z'
       x-request-id:
-      - f4bae5b3-aa5d-442d-b15f-e2d1e57ef83f
+      - afd2f494-407f-4843-b13e-1d9c0fe729ba
       x-runtime:
-      - '0.068940'
+      - '0.058719'
       x-xss-protection:
       - '0'
     status:
@@ -198,27 +198,27 @@ interactions:
     uri: http://localhost:3000/api/v1/followed_tags
   response:
     body:
-      string: '[{"id":"3","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1755388800","accounts":"0","uses":"0"},{"day":"1755302400","accounts":"0","uses":"0"},{"day":"1755216000","accounts":"0","uses":"0"},{"day":"1755129600","accounts":"0","uses":"0"},{"day":"1755043200","accounts":"0","uses":"0"},{"day":"1754956800","accounts":"0","uses":"0"},{"day":"1754870400","accounts":"0","uses":"0"}],"following":true,"featuring":false}]'
+      string: '[{"id":"3","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1775865600","accounts":"0","uses":"0"},{"day":"1775779200","accounts":"0","uses":"0"},{"day":"1775692800","accounts":"0","uses":"0"},{"day":"1775606400","accounts":"0","uses":"0"},{"day":"1775520000","accounts":"0","uses":"0"},{"day":"1775433600","accounts":"0","uses":"0"},{"day":"1775347200","accounts":"0","uses":"0"}],"following":true,"featuring":false}]'
     headers:
-      Content-Length:
-      - '444'
       cache-control:
       - private, no-store
+      content-length:
+      - '444'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"2f92872464211e16efb0478eb9c6cab1"
+      - W/"e1fc8cee6c67f6ef745700590257832a"
       link:
       - <http://localhost:3000/api/v1/followed_tags?since_id=1>; rel="prev"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.84, cache_generate.active_support;dur=1.07,
-        cache_write.active_support;dur=0.10, instantiation.active_record;dur=0.40,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=1.84,
-        process_action.action_controller;dur=32.26
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.93, cache_generate.active_support;dur=1.28,
+        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.46,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=1.72,
+        process_action.action_controller;dur=32.36
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -232,11 +232,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T18:45:00.778481Z'
+      - '2026-04-11T23:15:00.022826Z'
       x-request-id:
-      - d7a293d0-af83-4e2f-9c9a-50262c70dbb8
+      - 7003b7b1-1ffa-43f1-bf2d-8e4be7e36ef3
       x-runtime:
-      - '0.051749'
+      - '0.064902'
       x-xss-protection:
       - '0'
     status:
@@ -261,26 +261,26 @@ interactions:
     uri: http://localhost:3000/api/v1/tags/heeho/unfollow
   response:
     body:
-      string: '{"id":"3","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1755388800","accounts":"0","uses":"0"},{"day":"1755302400","accounts":"0","uses":"0"},{"day":"1755216000","accounts":"0","uses":"0"},{"day":"1755129600","accounts":"0","uses":"0"},{"day":"1755043200","accounts":"0","uses":"0"},{"day":"1754956800","accounts":"0","uses":"0"},{"day":"1754870400","accounts":"0","uses":"0"}],"following":false,"featuring":false}'
+      string: '{"id":"3","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1775865600","accounts":"0","uses":"0"},{"day":"1775779200","accounts":"0","uses":"0"},{"day":"1775692800","accounts":"0","uses":"0"},{"day":"1775606400","accounts":"0","uses":"0"},{"day":"1775520000","accounts":"0","uses":"0"},{"day":"1775433600","accounts":"0","uses":"0"},{"day":"1775347200","accounts":"0","uses":"0"}],"following":false,"featuring":false}'
     headers:
-      Content-Length:
-      - '443'
       cache-control:
       - private, no-store
+      content-length:
+      - '443'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"9460a88fb3e00e7df992236807d8e581"
+      - W/"b506916a42c887c3f4f37bed779e3726"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=6.92, cache_generate.active_support;dur=1.25,
-        cache_write.active_support;dur=0.07, instantiation.active_record;dur=2.25,
+      - cache_read.active_support;dur=0.04, sql.active_record;dur=7.46, cache_generate.active_support;dur=1.36,
+        cache_write.active_support;dur=0.08, instantiation.active_record;dur=2.74,
         start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
-        transaction.active_record;dur=4.47, render.active_model_serializers;dur=4.02,
-        process_action.action_controller;dur=40.40
+        transaction.active_record;dur=4.17, render.active_model_serializers;dur=5.78,
+        process_action.action_controller;dur=45.16
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -294,11 +294,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T18:45:00.836989Z'
+      - '2026-04-11T23:15:00.104214Z'
       x-request-id:
-      - 558a4688-a927-4a19-91b6-5c783d6f77a8
+      - 2a31aa7f-5fac-4735-9dc7-8a2eb74c4f4f
       x-runtime:
-      - '0.059771'
+      - '0.063907'
       x-xss-protection:
       - '0'
     status:
@@ -321,25 +321,25 @@ interactions:
     uri: http://localhost:3000/api/v1/tags/heeho
   response:
     body:
-      string: '{"id":"3","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1755388800","accounts":"0","uses":"0"},{"day":"1755302400","accounts":"0","uses":"0"},{"day":"1755216000","accounts":"0","uses":"0"},{"day":"1755129600","accounts":"0","uses":"0"},{"day":"1755043200","accounts":"0","uses":"0"},{"day":"1754956800","accounts":"0","uses":"0"},{"day":"1754870400","accounts":"0","uses":"0"}],"following":false,"featuring":false}'
+      string: '{"id":"3","name":"heeho","url":"http://localhost:3000/tags/heeho","history":[{"day":"1775865600","accounts":"0","uses":"0"},{"day":"1775779200","accounts":"0","uses":"0"},{"day":"1775692800","accounts":"0","uses":"0"},{"day":"1775606400","accounts":"0","uses":"0"},{"day":"1775520000","accounts":"0","uses":"0"},{"day":"1775433600","accounts":"0","uses":"0"},{"day":"1775347200","accounts":"0","uses":"0"}],"following":false,"featuring":false}'
     headers:
-      Content-Length:
-      - '443'
       cache-control:
       - private, no-store
+      content-length:
+      - '443'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"9460a88fb3e00e7df992236807d8e581"
+      - W/"b506916a42c887c3f4f37bed779e3726"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.36, cache_generate.active_support;dur=1.59,
-        cache_write.active_support;dur=0.08, instantiation.active_record;dur=0.19,
-        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=3.08,
-        process_action.action_controller;dur=29.74
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=1.34, cache_generate.active_support;dur=1.16,
+        cache_write.active_support;dur=0.07, instantiation.active_record;dur=0.21,
+        start_processing.action_controller;dur=0.00, render.active_model_serializers;dur=2.86,
+        process_action.action_controller;dur=29.34
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -353,11 +353,11 @@ interactions:
       x-ratelimit-remaining:
       - '299'
       x-ratelimit-reset:
-      - '2025-08-17T18:45:00.907776Z'
+      - '2026-04-11T23:15:00.198532Z'
       x-request-id:
-      - 5269d63d-97fd-4bea-b87e-e8ad9192226c
+      - 40ff8af5-f838-46cd-aa00-3ff5cbbf309a
       x-runtime:
-      - '0.047719'
+      - '0.047434'
       x-xss-protection:
       - '0'
     status:

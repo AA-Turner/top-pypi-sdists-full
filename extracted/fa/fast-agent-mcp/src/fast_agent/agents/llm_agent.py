@@ -11,7 +11,8 @@ This class extends LlmDecorator with LLM-specific interaction behaviors includin
 import json
 import os
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, Callable, Iterator, List, Optional, Tuple
 
 from a2a.types import AgentCapabilities
 from mcp import Tool
@@ -55,7 +56,7 @@ from fast_agent.workflow_telemetry import (
 
 if TYPE_CHECKING:
     from fast_agent.agents.llm_decorator import RemovedContentSummary
-    from fast_agent.agents.tool_runner import ToolRunnerHooks
+    from fast_agent.agents.tool_runner import HistoryRollbackState, ToolRunnerHooks
     from fast_agent.ui.streaming import StreamingHandle
 # TODO -- decide what to do with type safety for model/chat_turn()
 
@@ -87,10 +88,15 @@ class LlmAgent(LlmDecorator):
         self._force_non_streaming_once = False
         self._force_non_streaming_reason: str | None = None
         self._active_stream_handle: "StreamingHandle | None" = None
+        self._deferred_hook_status_bucket_stack: list[str] = []
+        self._deferred_hook_status_lines_by_bucket: dict[str, list[Text]] = {}
         self.tool_runner_hooks: "ToolRunnerHooks | None" = None
         self._workflow_telemetry_provider: WorkflowTelemetryProvider = (
             NoOpWorkflowTelemetryProvider()
         )
+        self._last_turn_cancelled = False
+        self._last_turn_cancel_reason = "cancelled"
+        self._last_turn_history_state: "HistoryRollbackState | None" = None
 
     @property
     def display(self) -> ConsoleDisplay:
@@ -111,6 +117,72 @@ class LlmAgent(LlmDecorator):
         if provider is None:
             provider = NoOpWorkflowTelemetryProvider()
         self._workflow_telemetry_provider = provider
+
+    @property
+    def last_turn_cancelled(self) -> bool:
+        return self._last_turn_cancelled
+
+    @property
+    def last_turn_cancel_reason(self) -> str:
+        return self._last_turn_cancel_reason
+
+    @property
+    def last_turn_history_state(self) -> "HistoryRollbackState | None":
+        return self._last_turn_history_state
+
+    def record_last_turn_cancellation(
+        self,
+        *,
+        reason: str,
+        rollback_state: "HistoryRollbackState",
+    ) -> None:
+        self._last_turn_cancelled = True
+        self._last_turn_cancel_reason = reason
+        self._last_turn_history_state = rollback_state
+
+    def clear_last_turn_cancellation(self) -> None:
+        self._last_turn_cancelled = False
+        self._last_turn_history_state = None
+
+    @contextmanager
+    def defer_hook_status_messages(self, bucket: str = "default") -> Iterator[None]:
+        """Buffer hook status lines until the current hook boundary finishes."""
+        self._deferred_hook_status_bucket_stack.append(bucket)
+        try:
+            yield
+        finally:
+            if self._deferred_hook_status_bucket_stack:
+                self._deferred_hook_status_bucket_stack.pop()
+
+    def queue_hook_status_messages(self, lines: Sequence[Text]) -> bool:
+        """Queue hook status lines when hook-output deferral is active."""
+        if not self._deferred_hook_status_bucket_stack:
+            return False
+        bucket = self._deferred_hook_status_bucket_stack[-1]
+        queued_lines = self._deferred_hook_status_lines_by_bucket.setdefault(bucket, [])
+        queued_lines.extend(line.copy() for line in lines)
+        return True
+
+    def flush_deferred_hook_status_messages(self, bucket: str | None = None) -> None:
+        """Emit buffered hook status lines after the current hook/display boundary."""
+        if bucket is not None:
+            lines = self._deferred_hook_status_lines_by_bucket.pop(bucket, [])
+        else:
+            lines = [
+                line
+                for bucket_lines in self._deferred_hook_status_lines_by_bucket.values()
+                for line in bucket_lines
+            ]
+            self._deferred_hook_status_lines_by_bucket.clear()
+        for line in lines:
+            self.display.show_status_message(line)
+
+    def clear_deferred_hook_status_messages(self, bucket: str | None = None) -> None:
+        """Drop buffered hook status lines without rendering them."""
+        if bucket is None:
+            self._deferred_hook_status_lines_by_bucket.clear()
+            return
+        self._deferred_hook_status_lines_by_bucket.pop(bucket, None)
 
     async def show_assistant_message(
         self,

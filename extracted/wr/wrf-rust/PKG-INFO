@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wrf-rust
-Version: 0.2.25
+Version: 0.2.28
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
@@ -8,12 +8,15 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Scientific/Engineering :: Atmospheric Science
 Requires-Dist: numpy>=1.20
-Summary: Rust-powered WRF post-processing — fixes CAPE, SRH, adds 65+ variables, 5-30x faster than wrf-python
+Summary: Rust-powered WRF post-processing with corrected effective severe diagnostics, raw staggered support, and 83 diagnostic variables
 Keywords: wrf,meteorology,weather,atmospheric-science,nwp,cape,srh
 Author: Fahrenheit Research
 License: MIT
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://github.com/FahrenheitResearch/wrf-rust
+Project-URL: Issues, https://github.com/FahrenheitResearch/wrf-rust/issues
+Project-URL: Repository, https://github.com/FahrenheitResearch/wrf-rust
 
 # wrf-rust
 
@@ -27,9 +30,27 @@ pip install wrf-rust
 
 Pre-built wheels for Python 3.10-3.13 on Linux, macOS, and Windows. No Rust toolchain, no system libraries, no conda required.
 
+## Community Guide
+
+The repo now includes a full WRF community setup guide for Windows, WSL 2, real-data initialization, domain sizing, and troubleshooting:
+
+- Manual-first Pages guide: [docs/index.html](docs/index.html)
+- Starter files: [docs/starter-files/README.md](docs/starter-files/README.md)
+- Optional Codex skill: [skills/wrf-community-onboarding/SKILL.md](skills/wrf-community-onboarding/SKILL.md)
+
+## Scientific Notes
+
+Recent correctness work tightened the severe-weather diagnostics without changing the basic `getvar()` workflow:
+
+- `effective_inflow` now returns the actual effective inflow base/top heights, not the MU parcel EL.
+- Effective `stp` and `scp` now use effective SRH plus effective bulk wind difference (EBWD).
+- `bri` now uses BRN shear instead of plain 0-6 km bulk shear.
+- Raw staggered fields (`U`, `V`, `W`) keep their native WRF shapes, and `ALL_TIMES` stacking now runs in Rust.
+
 ## Usage
 
 ```python
+import numpy as np
 from wrf import WrfFile, getvar
 
 f = WrfFile("wrfout_d01_2024-06-01_00:00:00")
@@ -53,6 +74,11 @@ cape = getvar(f, "cape", parcel_pressure=850,
 srh1 = getvar(f, "srh1")                            # 0-1 km
 srh3 = getvar(f, "srh3")                            # 0-3 km
 srh  = getvar(f, "srh", depth_m=1500, storm_motion=(12, 8))
+
+# Per-grid custom storm motion
+sm_u = np.full((f.ny, f.nx), 12.0)
+sm_v = np.full((f.ny, f.nx), 8.0)
+srh_custom = getvar(f, "srh", depth_m=1500, storm_motion=(sm_u, sm_v))
 
 # Effective inflow layer
 eff_srh  = getvar(f, "effective_srh")
@@ -117,7 +143,7 @@ python -m wrf panel wrfout_d01_2024-06-01_00:00:00 sbcape srh1 stp -o severe.png
 
 ## Benchmark vs wrf-python
 
-Tested on a 199x199x79 WRF grid. All values match exactly (rel_err=0.00).
+Benchmarked on a 199x199x79 WRF grid. The fields below matched wrf-python on that case, but broader scientific equivalence still depends on variable and workflow.
 
 | Variable | wrf-python | wrf-rust | Speedup |
 |---|---|---|---|
@@ -144,6 +170,8 @@ Plus 17 variables wrf-python doesn't have (STP, SCP, EHI, critical angle, shear,
 
 `pressure` `slp` `height` `height_agl` `terrain` `geopt` `omega`
 
+`pressure` defaults to hPa for wrf-python compatibility. Use `pres` / `p` or `units="Pa"` when you want Pascals.
+
 ### Moisture
 
 `pw` `rh2m` `dp2m` `mixing_ratio` `specific_humidity`
@@ -152,7 +180,7 @@ Plus 17 variables wrf-python doesn't have (STP, SCP, EHI, critical angle, shear,
 
 `sbcape` `sbcin` `mlcape` `mlcin` `mucape` `mucin` `cape` `cin` `lcl` `lfc` `el` `effective_cape` `effective_inflow` `cape2d` `cape3d`
 
-All CAPE variables support `top_m` for truncated integration (e.g. `top_m=3000` for 3CAPE). Generic `cape`/`cin` accept `parcel_type` or custom parcel (`parcel_pressure`, `parcel_temperature`, `parcel_dewpoint`).
+All CAPE variables support `top_m` for truncated integration (e.g. `top_m=3000` for 3CAPE). Generic `cape`/`cin` accept `parcel_type` or custom parcel (`parcel_pressure`, `parcel_temperature`, `parcel_dewpoint`). `effective_inflow` returns a two-plane output: effective layer base followed by effective layer top, both in meters AGL.
 
 ### Wind
 
@@ -162,13 +190,13 @@ All CAPE variables support `top_m` for truncated integration (e.g. `top_m=3000` 
 
 `srh1` `srh3` `srh` `effective_srh` `shear_0_1km` `shear_0_6km` `bulk_shear` `mean_wind` `bunkers_rm` `bunkers_lm` `mean_wind_0_6km`
 
-SRH uses Bunkers Internal Dynamics method. All accept `storm_motion=(u,v)`.
+SRH uses Bunkers Internal Dynamics method. `storm_motion=(u, v)` accepts either scalar components or `(ny, nx)` component grids.
 
 ### Severe composites
 
 `stp` `stp_fixed` `stp_effective` `scp` `ehi` `critical_angle` `ship` `bri`
 
-STP supports `layer_type="effective"` for the 5-term formula with MLCIN.
+STP supports `layer_type="effective"` for the 5-term formula with MLCIN. Effective `stp` uses ESRH + EBWD, and `scp` uses MUCAPE + effective SRH + EBWD.
 
 ### Radar & cloud
 
@@ -198,7 +226,7 @@ Generic `lapse_rate` accepts `bottom_m`/`top_m` or `bottom_p`/`top_p`, plus `use
 | `top_m` / `bottom_m` | Layer bounds in m AGL |
 | `top_p` / `bottom_p` | Layer bounds in hPa |
 | `depth_m` | SRH/EHI depth (m AGL) |
-| `storm_motion` | Custom (u, v) in m/s |
+| `storm_motion` | Custom storm motion `(u, v)` in m/s; each component may be a scalar or `(ny, nx)` grid |
 | `layer_type` | `"fixed"` or `"effective"` for STP |
 | `use_virtual` | Virtual temperature for lapse rates |
 | `lake_interp` | Interpolate 2m fields over lakes < N km2 |

@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "setuptools-rust>=0.11.4"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "gersemi"
-version = "0.26.1"
+version = "0.27.0"
 authors = [
     { name = "Blank Spruce", email = "blankspruce@protonmail.com" }
 ]
@@ -13,7 +13,6 @@ readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
     "ignore-python>=0.3,<0.4",
-    "lark>=1.0",
     "platformdirs",
     "pyyaml>=5,<7",
 ]
@@ -44,9 +43,16 @@ gersemi = "gersemi.__main__:main"
 [project.urls]
 Homepage = "https://github.com/BlankSpruce/gersemi"
 
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "10.12"
+
+[tool.cibuildwheel]
+skip = ["*-win32", "*-musllinux*", "*_i686"]
+
 [[tool.mypy.overrides]]
 module = [
     "colorama",
+    "gersemi_rust_backend",
     "platformdirs",
     "pytest",
 ]
@@ -59,7 +65,7 @@ load-plugins = 'pylint.extensions.mccabe'
 max-complexity=10
 
 [tool.pylint."MESSAGES CONTROL"]
-disable = '''use-dict-literal,
+disable = '''c-extension-no-member,
 
     duplicate-code,
 
@@ -119,5 +125,6 @@ no-lines-before = [
 [tool.setuptools.packages.find]
 include = ["gersemi", "gersemi.*"]
 
-[tool.setuptools.package-data]
-gersemi = ["cmake.lark"]
+[[tool.setuptools-rust.ext-modules]]
+target = "gersemi_rust_backend"
+path = "gersemi/rust-backend/Cargo.toml"

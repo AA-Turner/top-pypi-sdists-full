@@ -18,39 +18,32 @@
 """Process fixture factory for MySQL database."""
 
 from pathlib import Path
-from typing import Callable, Generator, List, Optional, Set, Tuple, Union
-from warnings import warn
+from typing import Callable, Generator, Iterable
 
 import pytest
-from port_for import get_port
+from port_for import PortForException, PortType, get_port
 from pytest import FixtureRequest, TempPathFactory
 
-from pytest_mysql.config import get_config
+from pytest_mysql.config import MySQLConfig, get_config
 from pytest_mysql.executor import MySQLExecutor
 
 
+def _mysql_port(port: PortType | None, config: MySQLConfig, excluded_ports: Iterable[int]) -> int:
+    """User specified port, otherwise find an unused port from config."""
+    mysql_port = get_port(port, excluded_ports) or get_port(config.port, excluded_ports)
+    assert mysql_port is not None
+    return mysql_port
+
+
 def mysql_proc(
-    mysqld_exec: Optional[Path] = None,
-    admin_executable: Optional[str] = None,
-    mysqld_safe: Optional[Path] = None,
-    host: Optional[str] = None,
-    user: Optional[str] = None,
-    port: Union[
-        None,
-        str,
-        int,
-        Tuple[int, int],
-        Set[int],
-        List[str],
-        List[int],
-        List[Tuple[int, int]],
-        List[Set[int]],
-        List[Union[Set[int], Tuple[int, int]]],
-        List[Union[str, int, Tuple[int, int], Set[int]]],
-    ] = -1,
-    params: Optional[str] = None,
-    logs_prefix: str = "",
-    install_db: Optional[str] = None,
+    mysqld_exec: Path | None = None,
+    admin_executable: str | None = None,
+    mysqld_safe: Path | None = None,
+    host: str | None = None,
+    user: str | None = None,
+    port: PortType | None = -1,
+    params: str | None = None,
+    install_db: str | None = None,
 ) -> Callable[[FixtureRequest, TempPathFactory], Generator[MySQLExecutor, None, None]]:
     """Process fixture factory for MySQL server.
 
@@ -91,37 +84,47 @@ def mysql_proc(
 
         """
         config = get_config(request)
-        mysql_mysqld = mysqld_exec or config["mysqld"]
-        mysql_admin_exec = admin_executable or config["admin"]
-        mysql_mysqld_safe = mysqld_safe or config["mysqld_safe"]
-        mysql_port = get_port(port) or get_port(config["port"])
+        mysql_mysqld = mysqld_exec or config.mysqld
+        mysql_admin_exec = admin_executable or config.admin
+        mysql_mysqld_safe = mysqld_safe or config.mysqld_safe
+
+        mysql_host = host or config.host
+
+        port_path = tmp_path_factory.getbasetemp()
+        if hasattr(request.config, "workerinput"):
+            port_path = tmp_path_factory.getbasetemp().parent
+
+        n = 0
+        used_ports: set[int] = set()
+        while True:
+            try:
+                mysql_port = _mysql_port(port, config, used_ports)
+                port_filename_path = port_path / f"mysql-{mysql_port}.port"
+                if mysql_port in used_ports:
+                    raise PortForException(
+                        f"Port {mysql_port} already in use, "
+                        f"probably by other instances of the test. "
+                        f"{port_filename_path} is already used."
+                    )
+                used_ports.add(mysql_port)
+                with port_filename_path.open("x") as port_file:
+                    port_file.write(f"mysql_port {mysql_port}\n")
+                break
+            except FileExistsError:
+                n += 1
+                if n >= config.port_search_count:
+                    raise PortForException(
+                        f"Attempted {n} times to select ports. "
+                        f"All attempted ports: {', '.join(map(str, used_ports))} are already "
+                        f"in use, probably by other instances of the test."
+                    ) from None
         assert mysql_port
-        mysql_host = host or config["host"]
-        mysql_params = params or config["params"]
-        mysql_install_db = install_db or config["install_db"]
+
+        mysql_params = params or config.params
+        mysql_install_db = install_db or config.install_db
 
         tmpdir = tmp_path_factory.mktemp(f"pytest-mysql-{request.fixturename}")
-
-        if logs_prefix:
-            warn(
-                f"logfile_prefix factory argument is deprecated, "
-                f"and will be dropped in future releases. All fixture related "
-                f"data resides within {tmpdir}, and logs_prefix is only used, "
-                f"if deprecated logsdir is configured",
-                DeprecationWarning,
-            )
-
         logfile_path = tmpdir / f"mysql-server.{port}.log"
-        logsdir = config["logsdir"]
-        if logsdir:
-            warn(
-                f"mysql_logsdir and --mysql-logsdir config option is "
-                f"deprecated, and will be dropped in future releases. "
-                f"All fixture related data resides within {tmpdir}",
-                DeprecationWarning,
-            )
-            if logs_prefix:
-                logfile_path = Path(logsdir) / f"{logs_prefix}mysql-server.{mysql_port}.log"
 
         mysql_executor = MySQLExecutor(
             mysqld_safe=mysql_mysqld_safe,
@@ -130,7 +133,7 @@ def mysql_proc(
             logfile_path=str(logfile_path),
             base_directory=tmpdir,
             params=mysql_params,
-            user=user or config["user"] or "root",
+            user=user or config.user or "root",
             host=mysql_host,
             port=mysql_port,
             install_db=mysql_install_db,

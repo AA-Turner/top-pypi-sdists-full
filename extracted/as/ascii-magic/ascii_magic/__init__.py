@@ -1,4 +1,5 @@
 from ascii_magic.ascii_art import AsciiArt
+from ascii_magic.color_data import ColorData
 from ascii_magic.constants import Front, Back, CHARS_BY_DENSITY, DEFAULT_GEMINI_MODEL
 from ascii_magic.functions import (
     quick_test,
@@ -13,6 +14,7 @@ from ascii_magic.functions import (
 __all__ = [
     # Main classes
     "AsciiArt",
+    "ColorData",
     "Front",
     "Back",
     # Functions

@@ -25,7 +25,9 @@ _CODE_EXTENSIONS: set[str] = {
     ".php",
     ".rb",
     ".cs", ".cshtml", ".razor",
-    ".cpp", ".c", ".h", ".hpp", ".cc", ".cxx",
+    ".cpp", ".c", ".h", ".hpp", ".cc", ".cxx", ".ino", ".pde",
+    ".vhd", ".vhdl", ".vho", ".vhs",
+    ".v", ".vh", ".sv", ".svh",
     ".swift",
     ".kt", ".kts",
     ".scala",
@@ -553,6 +555,7 @@ def run_subagentstart() -> int:
         "get_changed_symbols, find_dead_code, get_untested_symbols, "
         "get_symbol_complexity, get_churn_rate, get_hotspots, get_repo_health, "
         "get_coupling_metrics, get_extraction_candidates, check_rename_safe, "
+        "plan_refactoring, "
         "get_file_outline, get_file_tree, get_repo_outline, index_folder, "
         "index_repo, embed_repo, plan_turn, suggest_queries, "
         "get_session_context, get_session_snapshot, get_session_stats, "

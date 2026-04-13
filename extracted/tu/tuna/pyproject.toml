@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tuna"
-version = "0.5.12"
+version = "0.5.13"
 description = "Visualize Python performance profiles"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }

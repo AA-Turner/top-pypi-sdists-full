@@ -7,54 +7,13 @@ import typing
 from typing import Any, Dict, Optional, Sequence, Union
 
 import attr
-from bitarray import bitarray
 
-from pyais.constants import (
-    AtoNDimensionType,
-    AtoNRestrictedUseInidicator,
-    AtoNSationType,
-    TalkerID,
-    NavigationStatus,
-    ManeuverIndicator,
-    EpfdType,
-    ShipType,
-    NavAid,
-    StationType,
-    TransmitMode,
-    StationIntervals,
-    TurnRate,
-    InlandLoadedType
-)
-from pyais.exceptions import (
-    InvalidNMEAMessageException,
-    TagBlockNotInitializedException,
-    UnknownMessageException,
-    UnknownPartNoException,
-    InvalidDataTypeException,
-    MissingPayloadException
-)
-from pyais.util import (
-    ParsedDimensions,
-    checksum,
-    decode_into_bit_array,
-    compute_checksum,
-    get_itdma_comm_state,
-    get_sotdma_comm_state,
-    int_to_bin,
-    parse_dimensions,
-    str_to_bin,
-    encode_ascii_6,
-    from_bytes,
-    from_bytes_signed,
-    decode_bin_as_ascii6,
-    get_int,
-    chk_to_int,
-    coerce_val,
-    bits2bytes,
-    bytes2bits,
-    b64encode_str,
-    is_auxiliary_craft
-)
+from pyais.bit_vector import bit_vector
+from pyais.constants import AtoNDimensionType, AtoNRestrictedUseInidicator, AtoNSationType, TalkerID, NavigationStatus, ManeuverIndicator, EpfdType, ShipType, NavAid, StationType, \
+    TransmitMode, StationIntervals, TurnRate, InlandLoadedType
+from pyais.exceptions import InvalidNMEAMessageException, TagBlockNotInitializedException, UnknownMessageException, UnknownPartNoException, \
+    InvalidDataTypeException, MissingPayloadException
+from pyais.util import SIX_BIT_ENCODING, ParsedDimensions, SixBitNibleEncoder, checksum, compute_checksum, get_itdma_comm_state, get_sotdma_comm_state, chk_to_int, coerce_val, b64encode_str, is_auxiliary_craft, parse_dimensions
 
 NMEA_VALUE = typing.Union[str, float, int, bool, bytes]
 
@@ -508,7 +467,7 @@ class NMEASentence(object):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}<{self.raw.decode('ascii')}>"
 
-    def __getitem__(self, item: str) -> Union[int, str, bytes, bitarray]:
+    def __getitem__(self, item: str) -> Union[int, str, bytes]:
         if isinstance(item, str):
             try:
                 return getattr(self, item)  # type: ignore
@@ -577,7 +536,7 @@ class AISSentence(NMEASentence):
         'frag_num',
         'seq_id',
         'payload',
-        'bit_array',
+        'bv',
         'ais_id',
         'channel',
     )
@@ -616,8 +575,8 @@ class AISSentence(NMEASentence):
             raise InvalidNMEAMessageException("Too many fragments")
 
         # Finally decode bytes into bits
-        self.bit_array: bitarray = decode_into_bit_array(self.payload, self.fill_bits)
-        self.ais_id: int = get_int(self.bit_array, 0, 6)
+        self.bv = bit_vector(self.payload, self.fill_bits)
+        self.ais_id = self.bv.get(0, 6)
 
     def asdict(self) -> Dict[str, Any]:
         """
@@ -636,7 +595,6 @@ class AISSentence(NMEASentence):
             'payload': self.payload.decode('ascii'),  # str
             'fill_bits': self.fill_bits,  # int
             'checksum': self.checksum,  # int
-            'bit_array': self.bit_array.to01(),  # str
             'is_valid': self.is_valid,  # bool
         }
 
@@ -648,7 +606,6 @@ class AISSentence(NMEASentence):
         @return: A dictionary that holds all fields, defined in __slots__ + the decoded msg
         """
         rlt = self.asdict()
-        del rlt['bit_array']
         decoded = self.decode()
         rlt.update(decoded.asdict(enum_as_int))
         return rlt
@@ -668,22 +625,23 @@ class AISSentence(NMEASentence):
         :param messages: Sequence of NMEA messages
         :return: Single message
         """
+        if len(messages) == 1:
+            return messages[0]
+
         raw = b''
-        data = b''
-        bit_array = bitarray()
+        payload = b''
         is_valid = True
 
         for i, msg in enumerate(sorted(messages, key=lambda m: m.frag_num)):
             if i > 0:
                 raw += b'\n'
             raw += msg.raw
-            data += msg.payload
-            bit_array += msg.bit_array
+            payload += msg.payload
             is_valid &= msg.is_valid
 
         messages[0].raw = raw
-        messages[0].payload = data
-        messages[0].bit_array = bit_array
+        messages[0].payload = payload
+        messages[0].bv = bit_vector(payload, messages[-1].fill_bits)
         messages[0].is_valid = is_valid
         return messages[0]
 
@@ -710,7 +668,7 @@ class AISSentence(NMEASentence):
         if not self.payload:
             raise MissingPayloadException(self.raw.decode())
         try:
-            return MSG_CLASS[self.ais_id].from_bitarray(self.bit_array)
+            return MSG_CLASS[self.ais_id].from_vector(self.bv)
         except KeyError as e:
             raise UnknownMessageException(f"The message {self} is not supported!") from e
 
@@ -763,16 +721,16 @@ class Payload(abc.ABC):
         """
         return {field.name: field for field in cls.fields()}
 
-    def to_bitarray(self) -> bitarray:
-        """
-        Convert all attributes of a given Payload/Message to binary.
-        """
-        out = bitarray()
+    def to_bytes(self) -> tuple[bytes, int]:
+        output = bytearray()
+        bit_buffer = 0
+        bits_in_buffer = 0
+        total_bits = 0
+
         for field in self.fields():
             width = field.metadata['width']
             d_type = field.metadata['d_type']
             converter = field.metadata['from_converter']
-            signed = field.metadata['signed']
             variable_length = field.metadata['variable_length']
 
             val = getattr(self, field.name)
@@ -781,30 +739,56 @@ class Payload(abc.ABC):
 
             val = converter(val) if converter is not None else val
 
-            if d_type in (bool, int):
-                bits = int_to_bin(val, width, signed=signed)
-            elif d_type == float:
+            if d_type in (bool, int, float):
+                # Convert number to bits
                 val = int(val)
-                bits = int_to_bin(val, width, signed=signed)
+                bit_buffer = (bit_buffer << width) | (val & ((1 << width) - 1))
+                bits_in_buffer += width
             elif d_type == str:
                 trailing_spaces = not variable_length
-                bits = str_to_bin(val, width, trailing_spaces=trailing_spaces)
+                num_chars = int(width / 6)
+                if trailing_spaces:
+                    # Add trailing '@' if the string is shorter than `width`
+                    for _ in range(num_chars - len(val)):
+                        val += "@"
+                for char in val[:num_chars]:
+                    # Convert each char to six-bit ASCII vector
+                    txt = SIX_BIT_ENCODING[char.upper()]
+                    bit_buffer = (bit_buffer << 6) | (txt & ((1 << width) - 1))
+                    bits_in_buffer += 6
             elif d_type == bytes:
-                bits = bytes2bits(val, default=bitarray('0' * width))
+                # Convert bytes to bits
+                if not val:
+                    bit_buffer = (bit_buffer << width)
+                    bits_in_buffer += width
+                else:
+                    required_bits = min(width, len(val) * 8)
+                    int_value = int.from_bytes(val, 'big')
+                    bit_buffer = (bit_buffer << required_bits) | int_value
+                    bits_in_buffer += required_bits
             else:
                 raise InvalidDataTypeException(d_type)
 
-            bits = bits[:width]
-            out += bits
+            # Flush out bytes
+            while bits_in_buffer >= 8:
+                bits_in_buffer -= 8
+                byte = (bit_buffer >> bits_in_buffer) & 0xFF
+                output.append(byte)
+                total_bits += 8
 
-        return out
+        # Handle remaining bits (if any)
+        if bits_in_buffer > 0:
+            byte = (bit_buffer << (8 - bits_in_buffer)) & 0xFF
+            output.append(byte)
+            total_bits += bits_in_buffer
+
+        return bytes(output), total_bits
 
     def encode(self) -> typing.Tuple[str, int]:
         """
         Encode a payload as an ASCII encoded bit vector. The second returned value is the number of fill bits.
         """
-        bit_arr = self.to_bitarray()
-        return encode_ascii_6(bit_arr)
+        return SixBitNibleEncoder().encode(*self.to_bytes())
 
     @classmethod
     def create(cls, **kwargs: NMEA_VALUE) -> "ANY_MESSAGE":
@@ -832,16 +816,13 @@ class Payload(abc.ABC):
         return cls(**args)  # type:ignore
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
         cur: int = 0
-        end: int = 0
-        length: int = len(bit_arr)
         kwargs: typing.Dict[str, typing.Any] = {}
 
-        # Iterate over the bits until the last bit of the bitarray or all fields are fully decoded
+        # Iterate over fields and data
         for field in cls.fields():
-
-            if end >= length:
+            if cur >= len(bv):
                 # All fields that did not fit into the bit array are None
                 kwargs[field.name] = None
                 continue
@@ -850,17 +831,10 @@ class Payload(abc.ABC):
             d_type = field.metadata['d_type']
             converter = field.metadata['to_converter']
 
-            end = min(length, cur + width)
-            bits = bit_arr[cur: end]
-
             val: typing.Any
             # Get the correct data type and decoding function
             if d_type == int or d_type == bool or d_type == float:
-                shift = (8 - ((end - cur) % 8)) % 8
-                if field.metadata['signed']:
-                    val = from_bytes_signed(bits) >> shift
-                else:
-                    val = from_bytes(bits) >> shift
+                val = bv.get_num(cur, width, field.metadata['signed'])
 
                 if d_type == float:
                     val = float(val)
@@ -868,15 +842,15 @@ class Payload(abc.ABC):
                     val = bool(val)
 
             elif d_type == str:
-                val = decode_bin_as_ascii6(bits)
+                val = bv.get_str(cur, width)
             elif d_type == bytes:
-                val = bits2bytes(bits)
+                val = bv.get_bytes(cur, width)
             else:
                 raise InvalidDataTypeException(d_type)
 
             val = converter(val) if converter is not None else val
             kwargs[field.name] = val
-            cur = end
+            cur += width
 
         return cls(**kwargs)  # type:ignore
 
@@ -1191,13 +1165,13 @@ class MessageType8(Payload):
             return MessageType8Default.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        dac: int = get_int(bit_arr, 40, 50)
-        fid: int = get_int(bit_arr, 50, 56)
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
+        dac: int = bv.get(40, 10)
+        fid: int = bv.get(50, 6)
         if dac == 200 and fid == 10:
-            return MessageType8Dac200Fid10.from_bitarray(bit_arr)
+            return MessageType8Dac200Fid10.from_vector(bv)
         else:
-            return MessageType8Default.from_bitarray(bit_arr)
+            return MessageType8Default.from_vector(bv)
 
 
 @attr.s(slots=True)
@@ -1428,10 +1402,10 @@ class MessageType16(Payload):
         return MessageType16DestinationA.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        if len(bit_arr) > 96:
-            return MessageType16DestinationAB.from_bitarray(bit_arr)
-        return MessageType16DestinationA.from_bitarray(bit_arr)
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
+        if len(bv) > 96:
+            return MessageType16DestinationAB.from_vector(bv)
+        return MessageType16DestinationA.from_vector(bv)
 
 
 @attr.s(slots=True)
@@ -1672,11 +1646,11 @@ class MessageType22(Payload):
             return MessageType22Broadcast.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        if get_int(bit_arr, 139, 140):
-            return MessageType22Addressed.from_bitarray(bit_arr)
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
+        if bv.get(139, 1):
+            return MessageType22Addressed.from_vector(bv)
         else:
-            return MessageType22Broadcast.from_bitarray(bit_arr)
+            return MessageType22Broadcast.from_vector(bv)
 
 
 @attr.s(slots=True)
@@ -1695,15 +1669,12 @@ class MessageType23(Payload):
     sw_lon = bit_field(18, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
     sw_lat = bit_field(17, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=True)
 
-    station_type = bit_field(4, int, default=0, from_converter=StationType.from_value,
-                             to_converter=StationType.from_value)
+    station_type = bit_field(4, int, default=0, from_converter=StationType.from_value, to_converter=StationType.from_value)
     ship_type = bit_field(8, int, default=0, from_converter=ShipType.from_value, to_converter=ShipType.from_value)
     spare_2 = bit_field(22, bytes, default=b'', is_spare=True)
 
-    txrx = bit_field(2, int, default=0, from_converter=TransmitMode.from_value, to_converter=TransmitMode.from_value,
-                     signed=False)
-    interval = bit_field(4, int, default=0, from_converter=StationIntervals.from_value,
-                         to_converter=StationIntervals.from_value)
+    txrx = bit_field(2, int, default=0, from_converter=TransmitMode.from_value, to_converter=TransmitMode.from_value, signed=False)
+    interval = bit_field(4, int, default=0, from_converter=StationIntervals.from_value, to_converter=StationIntervals.from_value)
     quiet = bit_field(4, int, default=0, signed=False)
     spare_3 = bit_field(6, bytes, default=b'', is_spare=True)
 
@@ -1791,15 +1762,15 @@ class MessageType24(Payload):
             raise UnknownPartNoException(f"Partno {partno} is not allowed!")
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        mmsi: int = get_int(bit_arr, 8, 38)
-        partno: int = get_int(bit_arr, 38, 40)
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
+        mmsi: int = bv.get(8, 30)
+        partno: int = bv.get(38, 2)
         if partno == 0:
-            return MessageType24PartA.from_bitarray(bit_arr)
+            return MessageType24PartA.from_vector(bv)
         elif partno == 1:
             if is_auxiliary_craft(mmsi):
-                return MessageType24PartBAuxiliaryCraft.from_bitarray(bit_arr)
-            return MessageType24PartB.from_bitarray(bit_arr)
+                return MessageType24PartBAuxiliaryCraft.from_vector(bv)
+            return MessageType24PartB.from_vector(bv)
         else:
             raise UnknownPartNoException(f"Partno {partno} is not allowed!")
 
@@ -1883,20 +1854,20 @@ class MessageType25(Payload):
                 return MessageType25BroadcastUnstructured.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        addressed: int = get_int(bit_arr, 38, 39)
-        structured: int = get_int(bit_arr, 39, 40)
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
+        addressed: int = bv.get(38, 1)
+        structured: int = bv.get(39, 1)
 
         if addressed:
             if structured:
-                return MessageType25AddressedStructured.from_bitarray(bit_arr)
+                return MessageType25AddressedStructured.from_vector(bv)
             else:
-                return MessageType25AddressedUnstructured.from_bitarray(bit_arr)
+                return MessageType25AddressedUnstructured.from_vector(bv)
         else:
             if structured:
-                return MessageType25BroadcastStructured.from_bitarray(bit_arr)
+                return MessageType25BroadcastStructured.from_vector(bv)
             else:
-                return MessageType25BroadcastUnstructured.from_bitarray(bit_arr)
+                return MessageType25BroadcastUnstructured.from_vector(bv)
 
 
 @attr.s(slots=True)
@@ -1983,20 +1954,20 @@ class MessageType26(Payload):
                 return MessageType26BroadcastUnstructured.create(**kwargs)
 
     @classmethod
-    def from_bitarray(cls, bit_arr: bitarray) -> "ANY_MESSAGE":
-        addressed: int = get_int(bit_arr, 38, 39)
-        structured: int = get_int(bit_arr, 39, 40)
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
+        addressed: int = bv.get(38, 1)
+        structured: int = bv.get(39, 1)
 
         if addressed:
             if structured:
-                return MessageType26AddressedStructured.from_bitarray(bit_arr)
+                return MessageType26AddressedStructured.from_vector(bv)
             else:
-                return MessageType26AddressedUnstructured.from_bitarray(bit_arr)
+                return MessageType26AddressedUnstructured.from_vector(bv)
         else:
             if structured:
-                return MessageType26BroadcastStructured.from_bitarray(bit_arr)
+                return MessageType26BroadcastStructured.from_vector(bv)
             else:
-                return MessageType26BroadcastUnstructured.from_bitarray(bit_arr)
+                return MessageType26BroadcastUnstructured.from_vector(bv)
 
 
 @attr.s(slots=True)

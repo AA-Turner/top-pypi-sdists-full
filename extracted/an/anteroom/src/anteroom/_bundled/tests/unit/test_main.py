@@ -46,7 +46,7 @@ class TestPortInUse:
         with (
             patch(_PATCHES[0]),
             patch(_PATCHES[1], return_value=MagicMock()),
-            patch("anteroom.__main__.uvicorn.run", side_effect=OSError(errno.EADDRINUSE, "Address already in use")),
+            patch("uvicorn.run", side_effect=OSError(errno.EADDRINUSE, "Address already in use")),
             patch("anteroom.__main__.threading.Thread") as mock_thread,
             pytest.raises(SystemExit) as exc_info,
         ):
@@ -69,7 +69,7 @@ class TestPortInUse:
             patch(_PATCHES[0]),
             patch(_PATCHES[1], return_value=MagicMock()),
             patch(
-                "anteroom.__main__.uvicorn.run",
+                "uvicorn.run",
                 side_effect=OSError(errno.EADDRINUSE, "Address already in use"),
             ),
             patch("anteroom.__main__.threading.Thread") as mock_thread,
@@ -92,7 +92,7 @@ class TestPortInUse:
             patch(_PATCHES[0]),
             patch(_PATCHES[1], return_value=MagicMock()),
             patch(
-                "anteroom.__main__.uvicorn.run",
+                "uvicorn.run",
                 side_effect=OSError(errno.EADDRNOTAVAIL, "Cannot assign requested address"),
             ),
             patch("anteroom.__main__.threading.Thread") as mock_thread,
@@ -115,7 +115,7 @@ class TestPortInUse:
         with (
             patch(_PATCHES[0]),
             patch(_PATCHES[1], return_value=MagicMock()),
-            patch("anteroom.__main__.uvicorn.run", side_effect=OSError(errno.EADDRINUSE, "Address already in use")),
+            patch("uvicorn.run", side_effect=OSError(errno.EADDRINUSE, "Address already in use")),
             patch("anteroom.__main__.threading.Thread") as mock_thread,
             pytest.raises(SystemExit),
         ):
@@ -134,7 +134,7 @@ class TestPortInUse:
         with (
             patch(_PATCHES[0]),
             patch(_PATCHES[1], return_value=MagicMock()),
-            patch("anteroom.__main__.uvicorn.run", side_effect=OSError(errno.EACCES, "Permission denied")),
+            patch("uvicorn.run", side_effect=OSError(errno.EACCES, "Permission denied")),
             patch("anteroom.__main__.threading.Thread") as mock_thread,
             pytest.raises(OSError, match="Permission denied"),
         ):
@@ -157,7 +157,7 @@ class TestBrowserDeferral:
         with (
             patch(_PATCHES[0]),
             patch(_PATCHES[1], return_value=MagicMock()),
-            patch("anteroom.__main__.uvicorn.run"),
+            patch("uvicorn.run"),
             patch("anteroom.__main__.threading.Thread") as mock_thread_cls,
             patch("anteroom.__main__.webbrowser") as mock_wb,
         ):
@@ -180,7 +180,7 @@ class TestBrowserDeferral:
         with (
             patch(_PATCHES[0]),
             patch(_PATCHES[1], return_value=MagicMock()),
-            patch("anteroom.__main__.uvicorn.run", side_effect=OSError(errno.EADDRINUSE, "Address already in use")),
+            patch("uvicorn.run", side_effect=OSError(errno.EADDRINUSE, "Address already in use")),
             patch("anteroom.__main__.threading.Thread") as mock_thread_cls,
             patch("anteroom.__main__.webbrowser") as mock_wb,
             pytest.raises(SystemExit),
@@ -535,7 +535,7 @@ class TestDebugFlag:
         with (
             patch(_PATCHES[0]),
             patch(_PATCHES[1], return_value=MagicMock()),
-            patch("anteroom.__main__.uvicorn.run") as mock_uvicorn,
+            patch("uvicorn.run") as mock_uvicorn,
             patch("anteroom.__main__.threading.Thread") as mock_thread,
         ):
             mock_thread.return_value = MagicMock()
@@ -553,7 +553,7 @@ class TestDebugFlag:
         with (
             patch(_PATCHES[0]),
             patch(_PATCHES[1], return_value=MagicMock()),
-            patch("anteroom.__main__.uvicorn.run") as mock_uvicorn,
+            patch("uvicorn.run") as mock_uvicorn,
             patch("anteroom.__main__.threading.Thread") as mock_thread,
         ):
             mock_thread.return_value = MagicMock()

@@ -11831,7 +11831,7 @@ class TimeRangeInput(sgqlc.types.Input):
 
 class TimestampFilterInput(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("field_name", "ranges")
+    __field_names__ = ("field_name", "ranges", "template")
     field_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fieldName")
     """Field name to filter on"""
 
@@ -11839,6 +11839,9 @@ class TimestampFilterInput(sgqlc.types.Input):
         sgqlc.types.non_null(sgqlc.types.list_of("TimestampRangeInput")), graphql_name="ranges"
     )
     """Time ranges to filter by (combined via OR)"""
+
+    template = sgqlc.types.Field(String, graphql_name="template")
+    """Partition template for generating partition-aware where clauses"""
 
 
 class TimestampHistogramSimpleWidgetConfig(sgqlc.types.Input):
@@ -78604,7 +78607,7 @@ class SupportedWidget(sgqlc.types.Type):
     """Describes a field that can be visualized as a widget"""
 
     __schema__ = schema
-    __field_names__ = ("field_name", "widget_type", "is_time_axis")
+    __field_names__ = ("field_name", "widget_type", "is_time_axis", "partition_template")
     field_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fieldName")
     """Field name"""
 
@@ -78613,6 +78616,9 @@ class SupportedWidget(sgqlc.types.Type):
 
     is_time_axis = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isTimeAxis")
     """Whether or not this field is configured as a time axis"""
+
+    partition_template = sgqlc.types.Field(String, graphql_name="partitionTemplate")
+    """Partition template for generating partition-aware where clauses"""
 
 
 class SwitchUserAccount(sgqlc.types.Type):

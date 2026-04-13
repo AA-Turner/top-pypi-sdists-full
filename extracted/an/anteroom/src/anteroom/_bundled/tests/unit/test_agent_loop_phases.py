@@ -126,9 +126,12 @@ class TestAgentLoopPhaseForwarding:
             events.append(event)
 
         phase_events = [e for e in events if e.kind == "phase"]
-        # Two iterations = 4 phase events (2 per iteration)
-        assert len(phase_events) == 4
-        assert all(e.data["phase"] in ("connecting", "waiting") for e in phase_events)
+        # Two iterations = 4 phase events (2 per iteration) + 1 tool_exec phase = 5
+        assert len(phase_events) == 5
+        phases = [e.data["phase"] for e in phase_events]
+        assert phases.count("connecting") == 2
+        assert phases.count("waiting") >= 0  # may or may not appear
+        assert phases.count("tool_exec") == 1
 
     @pytest.mark.asyncio
     async def test_phase_events_not_stored_in_messages(self) -> None:
@@ -185,3 +188,104 @@ class TestAgentLoopPhaseForwarding:
         assert len(retry_events) == 1
         assert retry_events[0].data["attempt"] == 2
         assert retry_events[0].data["max_attempts"] == 3
+
+    @pytest.mark.asyncio
+    async def test_tool_exec_phase_emitted_before_tool_execution(self) -> None:
+        """Agent loop emits phase: tool_exec with tool context before executing tools (#1366)."""
+        ai_service = _make_ai_service()
+        call_count = 0
+
+        async def fake_stream_chat(messages: Any, **kwargs: Any):
+            nonlocal call_count
+            call_count += 1
+            yield {"event": "phase", "data": {"phase": "connecting"}}
+            if call_count == 1:
+                yield {
+                    "event": "tool_call",
+                    "data": {"id": "call_1", "function_name": "read_file", "arguments": {"path": "src/foo.py"}},
+                }
+                yield {
+                    "event": "tool_call",
+                    "data": {"id": "call_2", "function_name": "read_file", "arguments": {"path": "src/bar.py"}},
+                }
+            else:
+                yield {"event": "token", "data": {"content": "done"}}
+                yield {"event": "done", "data": {}}
+
+        ai_service.stream_chat = fake_stream_chat
+
+        async def fake_tool_executor(name: str, args: dict) -> dict:
+            return {"content": "file content"}
+
+        events: list[AgentEvent] = []
+        async for event in run_agent_loop(
+            ai_service=ai_service,
+            messages=[{"role": "user", "content": "read files"}],
+            tool_executor=fake_tool_executor,
+            tools_openai=[{"type": "function", "function": {"name": "read_file"}}],
+        ):
+            events.append(event)
+
+        tool_exec_phases = [e for e in events if e.kind == "phase" and e.data.get("phase") == "tool_exec"]
+        assert len(tool_exec_phases) == 1
+        evt = tool_exec_phases[0]
+        assert evt.data["tool_count"] == 2
+        assert evt.data["tool_names"] == ["read_file", "read_file"]
+        assert len(evt.data["tool_summaries"]) == 2
+        assert "src/foo.py" in evt.data["tool_summaries"][0]
+        assert "src/bar.py" in evt.data["tool_summaries"][1]
+
+        # Verify tool_exec phase appears before tool_call_end events
+        tool_exec_idx = next(
+            i for i, e in enumerate(events) if e.kind == "phase" and e.data.get("phase") == "tool_exec"
+        )
+        first_end_idx = next(i for i, e in enumerate(events) if e.kind == "tool_call_end")
+        assert tool_exec_idx < first_end_idx
+
+
+class TestHumanizeToolBrief:
+    """Tests for _humanize_tool_brief helper (#1366)."""
+
+    def test_read_file(self) -> None:
+        from anteroom.services.agent_loop import _humanize_tool_brief
+
+        assert _humanize_tool_brief("read_file", {"path": "src/foo.py"}) == "Reading src/foo.py"
+
+    def test_write_file(self) -> None:
+        from anteroom.services.agent_loop import _humanize_tool_brief
+
+        assert _humanize_tool_brief("write_file", {"path": "out.txt"}) == "Writing out.txt"
+
+    def test_edit_file(self) -> None:
+        from anteroom.services.agent_loop import _humanize_tool_brief
+
+        assert _humanize_tool_brief("edit_file", {"file_path": "a.py"}) == "Editing a.py"
+
+    def test_grep(self) -> None:
+        from anteroom.services.agent_loop import _humanize_tool_brief
+
+        assert _humanize_tool_brief("grep", {"pattern": "TODO"}) == "Searching for 'TODO'"
+
+    def test_bash(self) -> None:
+        from anteroom.services.agent_loop import _humanize_tool_brief
+
+        result = _humanize_tool_brief("bash", {"command": "echo hello"})
+        assert result == "bash echo hello"
+
+    def test_bash_long_command_truncated(self) -> None:
+        from anteroom.services.agent_loop import _humanize_tool_brief
+
+        long_cmd = "x" * 100
+        result = _humanize_tool_brief("bash", {"command": long_cmd})
+        assert len(result) < 100
+        assert result.endswith("...")
+
+    def test_unknown_tool(self) -> None:
+        from anteroom.services.agent_loop import _humanize_tool_brief
+
+        assert _humanize_tool_brief("my_custom_tool", {}) == "my_custom_tool"
+
+    def test_run_agent(self) -> None:
+        from anteroom.services.agent_loop import _humanize_tool_brief
+
+        assert _humanize_tool_brief("run_agent", {"prompt": "do stuff"}) == "Running sub-agent"

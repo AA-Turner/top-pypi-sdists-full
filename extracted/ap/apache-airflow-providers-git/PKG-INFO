@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-git
-Version: 0.3.0
+Version: 0.3.1
 Summary: Provider package apache-airflow-providers-git for Apache Airflow
 Keywords: airflow-provider,git,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -27,8 +27,8 @@ Requires-Dist: apache-airflow>=3.0.0
 Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: GitPython>=3.1.44
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-git/0.3.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-git/0.3.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-git/0.3.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-git/0.3.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -59,7 +59,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-git``
 
-Release: ``0.3.0``
+Release: ``0.3.1``
 
 
 `Distributed version control system (GIT) <https://git-scm.com/>`__
@@ -72,7 +72,7 @@ This is a provider package for ``git`` provider. All classes for this provider p
 are in ``airflow.providers.git`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-git/0.3.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-git/0.3.1/>`_.
 
 Installation
 ------------
@@ -114,5 +114,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-git/0.3.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-git/0.3.1/changelog.html>`_.
 

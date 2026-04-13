@@ -13,6 +13,7 @@ use crate::{
         comment::get_tombi_value_comment_directive_type_definition,
         one_of::get_one_of_type_definition,
     },
+    schema_resolver::resolve_table_unevaluated_property_schema,
 };
 
 impl GetTypeDefinition for tombi_document_tree::Table {
@@ -204,6 +205,74 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                         });
                                 }
 
+                                if let Some(one_of_schema) = table_schema.one_of.as_deref() {
+                                    if let Some(type_definition) = get_one_of_type_definition(
+                                        self,
+                                        position,
+                                        keys,
+                                        &accessors,
+                                        one_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                    {
+                                        return Some(type_definition);
+                                    }
+                                }
+                                if let Some(any_of_schema) = table_schema.any_of.as_deref() {
+                                    if let Some(type_definition) = get_any_of_type_definition(
+                                        self,
+                                        position,
+                                        keys,
+                                        &accessors,
+                                        any_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                    {
+                                        return Some(type_definition);
+                                    }
+                                }
+                                if let Some(all_of_schema) = table_schema.all_of.as_deref() {
+                                    if let Some(type_definition) = get_all_of_type_definition(
+                                        self,
+                                        position,
+                                        keys,
+                                        &accessors,
+                                        all_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                    {
+                                        return Some(type_definition);
+                                    }
+                                }
+
+                                if let Some(current_schema) =
+                                    resolve_table_unevaluated_property_schema(
+                                        table_schema,
+                                        current_schema,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    return value
+                                        .get_type_definition(
+                                            position,
+                                            &keys[1..],
+                                            &accessors,
+                                            Some(&current_schema),
+                                            schema_context,
+                                        )
+                                        .await;
+                                }
+
                                 value
                                     .get_type_definition(
                                         position,
@@ -230,7 +299,7 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                 })
                             }
                         } else {
-                            table_schema
+                            let type_definition = table_schema
                                 .get_type_definition(
                                     position,
                                     keys,
@@ -238,7 +307,62 @@ impl GetTypeDefinition for tombi_document_tree::Table {
                                     Some(current_schema),
                                     schema_context,
                                 )
+                                .await;
+
+                            if type_definition.is_some() {
+                                return type_definition;
+                            }
+
+                            if let Some(one_of_schema) = table_schema.one_of.as_deref() {
+                                if let Some(type_definition) = get_one_of_type_definition(
+                                    self,
+                                    position,
+                                    keys,
+                                    accessors,
+                                    one_of_schema,
+                                    &current_schema.schema_uri,
+                                    &current_schema.definitions,
+                                    schema_context,
+                                )
                                 .await
+                                {
+                                    return Some(type_definition);
+                                }
+                            }
+                            if let Some(any_of_schema) = table_schema.any_of.as_deref() {
+                                if let Some(type_definition) = get_any_of_type_definition(
+                                    self,
+                                    position,
+                                    keys,
+                                    accessors,
+                                    any_of_schema,
+                                    &current_schema.schema_uri,
+                                    &current_schema.definitions,
+                                    schema_context,
+                                )
+                                .await
+                                {
+                                    return Some(type_definition);
+                                }
+                            }
+                            if let Some(all_of_schema) = table_schema.all_of.as_deref() {
+                                if let Some(type_definition) = get_all_of_type_definition(
+                                    self,
+                                    position,
+                                    keys,
+                                    accessors,
+                                    all_of_schema,
+                                    &current_schema.schema_uri,
+                                    &current_schema.definitions,
+                                    schema_context,
+                                )
+                                .await
+                                {
+                                    return Some(type_definition);
+                                }
+                            }
+
+                            None
                         }
                     }
                     ValueSchema::OneOf(one_of_schema) => {

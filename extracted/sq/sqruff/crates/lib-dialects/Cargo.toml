@@ -22,9 +22,11 @@ default = [
     "bigquery",
     "clickhouse",
     "databricks",
+    "db2",
     "duckdb",
     "hive",
     "mysql",
+    "oracle",
     "postgres",
     "redshift",
     "snowflake",
@@ -37,9 +39,11 @@ athena = []
 bigquery = []
 clickhouse = []
 databricks = ["sparksql"]
+db2 = []
 duckdb = ["postgres"]
 hive = []
 mysql = []
+oracle = []
 postgres = []
 redshift = ["postgres"]
 snowflake = []

@@ -16,6 +16,7 @@ from trilogy.core.enums import ComparisonOperator, Modifier
 from trilogy.core.exceptions import (
     DatasourceColumnBindingData,
     DatasourceColumnBindingError,
+    DatasourceGrainValidationError,
     DatasourceModelValidationError,
 )
 from trilogy.core.models.build import (
@@ -52,6 +53,8 @@ def type_check(
 
     if target_type == DataType.STRING:
         return isinstance(input, str)
+    if target_type == DataType.BYTES:
+        return isinstance(input, (bytes, bytearray, memoryview))
     if target_type == DataType.INTEGER:
         return isinstance(input, int)
     if target_type == DataType.BIGINT:
@@ -74,6 +77,10 @@ def type_check(
         return isinstance(input, datetime)
     if target_type == DataType.TIMESTAMP:
         return isinstance(input, datetime)  # or timestamp type if you have one
+    if target_type == DataType.GEOGRAPHY:
+        # Unsafe compatibility shim: some DuckDB geography values currently surface
+        # as raw bytes, but not all bytes payloads are valid geometries.
+        return isinstance(input, (bytes, bytearray, memoryview))
     if target_type == DataType.UNIX_SECONDS:
         return isinstance(input, (int, float))  # Unix timestamps are numeric
     if target_type == DataType.DATE_PART:
@@ -93,6 +100,27 @@ def type_check(
     return False
 
 
+def inferred_type_check(
+    inferred_type: CONCRETE_TYPES,
+    expected_type: CONCRETE_TYPES,
+) -> bool:
+    while isinstance(inferred_type, TraitDataType):
+        inferred_type = inferred_type.data_type
+
+    target_type = expected_type
+    while isinstance(target_type, TraitDataType):
+        target_type = target_type.data_type
+
+    if isinstance(inferred_type, EnumType) or isinstance(target_type, EnumType):
+        return (
+            isinstance(inferred_type, EnumType)
+            and isinstance(target_type, EnumType)
+            and inferred_type == target_type
+        )
+
+    return inferred_type == target_type
+
+
 def validate_datasource(
     datasource: BuildDatasource,
     env: Environment,
@@ -101,23 +129,56 @@ def validate_datasource(
     fix: bool = False,
 ) -> list[ValidationTest]:
     results: list[ValidationTest] = []
+    datasource_output_addresses = {concept.address for concept in datasource.concepts}
+    missing_grain_components = sorted(
+        component
+        for component in datasource.grain.components
+        if component not in datasource_output_addresses
+    )
+    if missing_grain_components:
+        results.append(
+            ValidationTest(
+                check_type=ExpectationType.LOGICAL,
+                expected="grain_columns_present",
+                ran=True,
+                result=DatasourceGrainValidationError(
+                    "Datasource"
+                    f" {datasource.name} failed validation. Grain references"
+                    " concepts not present in datasource output:"
+                    f" {', '.join(missing_grain_components)}"
+                ),
+            )
+        )
+        return results
+
+    validation_datasource = (
+        exec.get_validation_cached_datasource(datasource) if exec else datasource
+    )
     # we might have merged concepts, where both will map out to the same
     unique_outputs = unique(
-        [build_env.concepts[col.concept.address] for col in datasource.columns],
+        [
+            build_env.concepts[col.concept.address]
+            for col in validation_datasource.columns
+        ],
         "address",
     )
     type_query = easy_query(
         concepts=unique_outputs,
-        datasource=datasource,
+        datasource=validation_datasource,
         env=env,
         limit=100,
     )
 
     rows = []
+    result_column_types: dict[str, CONCRETE_TYPES] = {}
     if exec:
         type_sql = exec.generate_sql(type_query)[-1]
         try:
-            rows = exec.execute_raw_sql(type_sql).fetchall()
+            result = exec.execute_raw_sql(type_sql)
+            result_column_types = (
+                exec.generator.get_result_column_types_for_validation(result) or {}
+            )
+            rows = result.fetchall()
         except Exception as e:
             results.append(
                 ValidationTest(
@@ -146,6 +207,7 @@ def validate_datasource(
         return results
     failures: list[DatasourceColumnBindingData] = []
     cols_with_error = set()
+    refined_type_cache: dict[tuple[str, str, str], CONCRETE_TYPES] = {}
     for row in rows:
         for col in datasource.columns:
             actual_address = build_env.concepts[col.concept.address].safe_address
@@ -153,10 +215,31 @@ def validate_datasource(
                 continue
             rval = getattr(row, actual_address)
             passed = type_check(rval, col.concept.datatype, col.is_nullable)
+            value_type = None
             if not passed:
                 value_type = (
                     arg_to_datatype(rval) if rval is not None else col.concept.datatype
                 )
+                if rval is not None and exec:
+                    cache_key = (
+                        actual_address,
+                        str(value_type),
+                        str(col.concept.datatype),
+                    )
+                    if cache_key not in refined_type_cache:
+                        refined_type_cache[cache_key] = (
+                            exec.generator.refine_runtime_value_type_for_validation(
+                                exec,
+                                rval,
+                                value_type,
+                                col.concept.datatype,
+                                result_type=result_column_types.get(actual_address),
+                            )
+                        )
+                    value_type = refined_type_cache[cache_key]
+                    passed = inferred_type_check(value_type, col.concept.datatype)
+            if not passed:
+                assert value_type is not None
                 traits = None
                 if isinstance(col.concept.datatype, TraitDataType):
                     traits = col.concept.datatype.traits
@@ -190,9 +273,11 @@ def validate_datasource(
 
     # grain validation section
     query = easy_query(
-        concepts=[build_env.concepts[name] for name in datasource.grain.components]
+        concepts=[
+            build_env.concepts[name] for name in validation_datasource.grain.components
+        ]
         + [build_env.concepts["grain_check"]],
-        datasource=datasource,
+        datasource=validation_datasource,
         env=exec.environment,
         condition=BuildComparison(
             left=build_env.concepts["grain_check"],

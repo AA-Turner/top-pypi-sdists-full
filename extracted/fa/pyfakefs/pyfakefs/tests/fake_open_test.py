@@ -903,6 +903,14 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
             f0.seek(3)
             self.assertEqual(4, self.os.path.getsize(file_path))
 
+    def test_seek_returns_location(self):
+        # Regression test for #1304
+        file_path = self.make_path("foo")
+        with self.open(file_path, "w", encoding="utf8") as f0:
+            f0.write("test")
+            result = f0.seek(3)
+            self.assertEqual(3, result)
+
     def test_truncate_flushes(self):
         # Regression test for #291
         file_path = self.make_path("foo")
@@ -995,6 +1003,18 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
             with self.open(self.os.devnull, encoding="utf8") as f:
                 self.assertEqual("", f.read())
 
+    @unittest.skipIf(os.name == "nt", "only exist on posix")
+    def test_pseudo_devices(self):
+        self.check_posix_only()
+        with self.open("/dev/random", "rb") as f:
+            self.assertEqual(1, len(f.read(1)))
+        with self.open("/dev/zero", "rb") as f:
+            self.assertEqual(b"\0\0\0\0", f.read(4))
+        if sys.platform == "linux":
+            with self.raises_os_error(errno.ENOSPC):
+                with self.open("/dev/full", "wb") as f:
+                    f.write(b"\0")
+
     def test_utf16_text(self):
         # regression test for #574
         file_path = self.make_path("foo")
@@ -1030,6 +1050,18 @@ class FakeFileOpenTest(FakeFileOpenTestBase):
         with self.open(file_path, "a+") as f:
             self.assertTrue(f.readable())
             self.assertTrue(f.writable())
+
+    def test_file_class(self):
+        file_path = self.make_path("foo")
+        with self.open(file_path, "w") as f:
+            assert isinstance(f, io.TextIOBase)
+            f.write("test")
+        with self.open(file_path) as f:
+            assert isinstance(f, io.TextIOBase)
+            assert f.read() == "test"
+        with self.open(file_path, "rb") as f:
+            assert isinstance(f, io.BufferedIOBase)
+            assert f.read() == b"test"
 
 
 class RealFileOpenTest(FakeFileOpenTest):

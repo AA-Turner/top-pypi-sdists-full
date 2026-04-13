@@ -1,6 +1,6 @@
-class FileURLRetrievalError(Exception):
+class DownloadError(Exception):
     pass
 
 
-class FolderContentsMaximumLimitError(Exception):
+class FileURLRetrievalError(DownloadError):
     pass

@@ -22,23 +22,25 @@ interactions:
       Accept-Ranges:
       - bytes
       Age:
-      - '46498'
+      - '236822'
       Connection:
       - keep-alive
       Date:
-      - Fri, 15 Aug 2025 20:19:09 GMT
+      - Sat, 11 Apr 2026 23:14:45 GMT
       Strict-Transport-Security:
       - max-age=31557600
       Vary:
       - Origin, Accept-Encoding
+      Via:
+      - 1.1 varnish, 1.1 varnish
       X-Cache:
       - MISS, HIT, HIT
       X-Cache-Hits:
-      - 0, 4765, 68
+      - 0, 41858, 103
       X-Served-By:
-      - cache-fra-eddf8230137-FRA, cache-fra-eddf8230137-FRA, cache-hel1410020-HEL
+      - cache-fra-etou8220053-FRA, cache-fra-etou8220091-FRA, cache-hel1410024-HEL
       X-Timer:
-      - S1755289150.966371,VS0,VE0
+      - S1775949286.915131,VS0,VE0
       alt-svc:
       - h3=":443";ma=86400,h3-29=":443";ma=86400,h3-27=":443";ma=86400
       cache-control:
@@ -48,36 +50,27 @@ interactions:
       content-security-policy:
       - 'base-uri ''none''; default-src ''none''; frame-ancestors ''none''; font-src
         ''self'' https://mastodon.social; img-src ''self'' data: blob: https://mastodon.social
-        https://files.mastodon.social; style-src ''self'' https://mastodon.social
-        ''nonce-MCwDaYVgBVJnqqoUCQTJ9Q==''; media-src ''self'' data: https://mastodon.social
+        https://files.mastodon.social; media-src ''self'' data: https://mastodon.social
         https://files.mastodon.social; manifest-src ''self'' https://mastodon.social;
         form-action ''self''; child-src ''self'' blob: https://mastodon.social; worker-src
         ''self'' blob: https://mastodon.social; connect-src ''self'' data: blob: https://mastodon.social
         https://files.mastodon.social wss://streaming.mastodon.social; script-src
         ''self'' https://mastodon.social ''wasm-unsafe-eval''; frame-src ''self''
-        https:'
+        https:; style-src ''self'' https://mastodon.social ''nonce-OJ0ub9ap0JG+2nl2noo3Qg=='''
       content-type:
       - application/json; charset=utf-8
       etag:
       - W/"2e5c6a3d0480ec4e1aca2c01d42f0238"
       referrer-policy:
       - same-origin
-      via:
-      - 1.1 varnish, 1.1 varnish, 1.1 varnish
       x-content-type-options:
       - nosniff
       x-frame-options:
       - DENY
       x-request-id:
-      - d282decd9159225170f61031b22883b5
+      - c74c318132869718fd5b6c6aa5f296d9
       x-runtime:
-      - '0.006331'
-      x-sigsci-agentresponse:
-      - '200'
-      x-sigsci-decision-ms:
-      - '12'
-      x-sigsci-tags:
-      - SUSPECTED-BOT,site.test
+      - '0.007995'
       x-xss-protection:
       - '0'
     status:
@@ -100,39 +93,41 @@ interactions:
     uri: https://mastodon.social/nodeinfo/2.0
   response:
     body:
-      string: '{"version": "2.0", "software": {"name": "mastodon", "version": "4.5.0-nightly.2025-08-06-security"},
+      string: '{"version": "2.0", "software": {"name": "mastodon", "version": "4.6.0-nightly.2026-04-09"},
         "protocols": ["activitypub"], "services": {"outbound": [], "inbound": []},
-        "usage": {"users": {"total": 2846379, "activeMonth": 272779, "activeHalfyear":
-        763426}, "localPosts": 142308335}, "openRegistrations": true, "metadata":
-        {"nodeName": "Mastodon", "nodeDescription": "The original server operated
-        by the Mastodon gGmbH non-profit"}}'
+        "usage": {"users": {"total": 3227352, "activeMonth": 286109, "activeHalfyear":
+        722982}, "localPosts": 170416131}, "openRegistrations": true, "metadata":
+        {"nodeName": "Mastodon", "nodeDescription": "The original server of Mastodon,
+        operated by Mastodon GmbH for the common good.\r\n\r\n"}}'
     headers:
       Accept-Ranges:
       - bytes
       Age:
-      - '1616'
+      - '315'
       Connection:
       - keep-alive
       Date:
-      - Fri, 15 Aug 2025 20:19:10 GMT
+      - Sat, 11 Apr 2026 23:14:45 GMT
       Strict-Transport-Security:
       - max-age=31557600
       Vary:
       - Origin, Accept-Encoding
+      Via:
+      - 1.1 varnish, 1.1 varnish
       X-Cache:
       - MISS, HIT, HIT
       X-Cache-Hits:
-      - 0, 2, 3
+      - 0, 12, 1
       X-Served-By:
-      - cache-fra-etou8220147-FRA, cache-fra-etou8220147-FRA, cache-hel1410020-HEL
+      - cache-fra-eddf8230155-FRA, cache-fra-eddf8230121-FRA, cache-hel1410024-HEL
       X-Timer:
-      - S1755289150.022680,VS0,VE0
+      - S1775949286.963332,VS0,VE1
       alt-svc:
       - h3=":443";ma=86400,h3-29=":443";ma=86400,h3-27=":443";ma=86400
       cache-control:
       - max-age=1800, public
       content-length:
-      - '408'
+      - '425'
       content-security-policy:
       - 'base-uri ''none''; default-src ''none''; frame-ancestors ''none''; font-src
         ''self'' https://mastodon.social; img-src ''self'' data: blob: https://mastodon.social
@@ -142,23 +137,23 @@ interactions:
         ''self'' blob: https://mastodon.social; connect-src ''self'' data: blob: https://mastodon.social
         https://files.mastodon.social wss://streaming.mastodon.social; script-src
         ''self'' https://mastodon.social ''wasm-unsafe-eval''; frame-src ''self''
-        https:; style-src ''self'' https://mastodon.social ''nonce-g82rVrPQRYMNX5TNddP01w=='''
+        https:; style-src ''self'' https://mastodon.social ''nonce-RrB6UEVAJEyIte7hH2uvRQ=='''
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"b2f5848e27d86fe93cf6599c9eadfa62"
+      - W/"8c39839f9e5cd3ba201ef0e2d492407d"
       referrer-policy:
       - same-origin
-      via:
-      - 1.1 varnish, 1.1 varnish, 1.1 varnish
+      server:
+      - Mastodon
       x-content-type-options:
       - nosniff
       x-frame-options:
       - DENY
       x-request-id:
-      - d7cb84af2c6d412918c78a9c8bc01b0c
+      - 500ac5bd-7b02-47a8-aa57-6fe6b927a54f
       x-runtime:
-      - '0.052226'
+      - '3.064179'
       x-xss-protection:
       - '0'
     status:

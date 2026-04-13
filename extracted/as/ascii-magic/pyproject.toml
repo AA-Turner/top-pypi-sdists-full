@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ascii_magic"
+version = "2.7.5"
+description = "Converts pictures into ASCII art"
+readme = "README.md"
+license = "MIT"
+requires-python = ">= 3.6"
+authors = [
+    { name = "Leandro Barone", email = "web@leandrobarone.com.ar" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "Pillow",
+]
+
+[project.urls]
+Homepage = "https://github.com/LeandroBarone/python-ascii_magic"
+
+[tool.setuptools.packages.find]
+include = ["ascii_magic*"]
+
+[tool.setuptools.package-data]
+"ascii_magic" = [
+    "fonts/courier_prime.ttf",
+    "tests/lion.jpg",
+    "tests/chicken_transparent.png",
+]

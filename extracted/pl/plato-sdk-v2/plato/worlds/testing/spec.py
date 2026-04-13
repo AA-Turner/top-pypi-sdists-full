@@ -62,6 +62,18 @@ class WorldWorkspaceSpec(BaseModel):
     dvcignore: list[str] = Field(default_factory=list)
     transport: Literal["nfs_kernel", "sshfs", "git"] | None = None
     git_config: GitTransportConfig | None = None
+    commit_strategy: Literal["manifest", "archive"] = "manifest"
+    source_ref: str | None = None
+    """Restore workspace from an existing ref before the test runs.
+
+    Format: ``"session_id:step_name"`` — restores from the given session and step.
+    """
+    source_repo: str | None = None
+    """Workspace repo name to resolve S3 credentials for the source ref.
+
+    Only needed when the source repo differs from the test workspace's own repo
+    (e.g. restoring from ``"webclone/stripe/code"`` into a test workspace named ``"code"``).
+    """
 
 
 @dataclass(slots=True)

@@ -371,6 +371,7 @@ class TestBashHandlerOsSandbox:
             assert "hello" in result["stdout"]
 
     @pytest.mark.asyncio
+    @pytest.mark.windows_only
     async def test_os_sandbox_setup_called_on_windows(self):
         """On Windows, setup_job_for_process is called when sandbox is enabled."""
         sandbox = OsSandboxConfig(enabled=True, max_memory_mb=256)

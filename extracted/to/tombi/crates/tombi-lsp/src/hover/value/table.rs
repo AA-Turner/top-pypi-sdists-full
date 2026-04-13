@@ -18,6 +18,7 @@ use crate::{
         constraints::{ValueConstraints, build_enum_values},
         one_of::get_one_of_hover_content,
     },
+    schema_resolver::resolve_table_unevaluated_property_schema,
 };
 
 impl GetHoverContent for tombi_document_tree::Table {
@@ -375,6 +376,106 @@ impl GetHoverContent for tombi_document_tree::Table {
                                     return hover_content;
                                 }
 
+                                if let Some(one_of_schema) = table_schema.one_of.as_deref() {
+                                    if let Some(hover_content) = get_one_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        one_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                    {
+                                        return Some(hover_content);
+                                    }
+                                }
+                                if let Some(any_of_schema) = table_schema.any_of.as_deref() {
+                                    if let Some(hover_content) = get_any_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        any_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                    {
+                                        return Some(hover_content);
+                                    }
+                                }
+                                if let Some(all_of_schema) = table_schema.all_of.as_deref() {
+                                    if let Some(hover_content) = get_all_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        all_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                    {
+                                        return Some(hover_content);
+                                    }
+                                }
+
+                                if let Some(current_schema) =
+                                    resolve_table_unevaluated_property_schema(
+                                        table_schema,
+                                        current_schema,
+                                        schema_context,
+                                    )
+                                    .await
+                                {
+                                    let mut hover_content = value
+                                        .get_hover_content(
+                                            position,
+                                            &keys[1..],
+                                            &accessors
+                                                .iter()
+                                                .cloned()
+                                                .chain(std::iter::once(accessor.clone()))
+                                                .collect_vec(),
+                                            Some(&current_schema),
+                                            schema_context,
+                                        )
+                                        .await;
+
+                                    if let Some(HoverContent::Value(hover_value_content)) =
+                                        hover_content.as_mut()
+                                        && keys.len() == 1
+                                    {
+                                        if !value.contains(position) {
+                                            if let Some(title) = current_schema.value_schema.title()
+                                            {
+                                                hover_value_content.title = Some(title.to_string());
+                                            }
+                                            if let Some(description) =
+                                                current_schema.value_schema.description()
+                                            {
+                                                hover_value_content.description =
+                                                    Some(description.to_string());
+                                            }
+                                        }
+
+                                        if hover_value_content
+                                            .accessors
+                                            .last()
+                                            .map(|accessor| accessor.is_key())
+                                            .unwrap_or_default()
+                                        {
+                                            hover_value_content.value_type.set_nullable();
+                                        }
+                                    }
+                                    return hover_content;
+                                }
+
                                 value
                                     .get_hover_content(
                                         position,
@@ -389,6 +490,55 @@ impl GetHoverContent for tombi_document_tree::Table {
                                     )
                                     .await
                             } else {
+                                if let Some(one_of_schema) = table_schema.one_of.as_deref() {
+                                    if let Some(hover_content) = get_one_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        one_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                    {
+                                        return Some(hover_content);
+                                    }
+                                }
+                                if let Some(any_of_schema) = table_schema.any_of.as_deref() {
+                                    if let Some(hover_content) = get_any_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        any_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                    {
+                                        return Some(hover_content);
+                                    }
+                                }
+                                if let Some(all_of_schema) = table_schema.all_of.as_deref() {
+                                    if let Some(hover_content) = get_all_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        all_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                    {
+                                        return Some(hover_content);
+                                    }
+                                }
+
                                 None
                             }
                         } else {
@@ -406,6 +556,55 @@ impl GetHoverContent for tombi_document_tree::Table {
                                 hover_content.as_mut()
                             {
                                 hover_value_content.range = Some(self.range());
+                            } else {
+                                if let Some(one_of_schema) = table_schema.one_of.as_deref() {
+                                    if let Some(hover_content) = get_one_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        one_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                    {
+                                        return Some(hover_content);
+                                    }
+                                }
+                                if let Some(any_of_schema) = table_schema.any_of.as_deref() {
+                                    if let Some(hover_content) = get_any_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        any_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                    {
+                                        return Some(hover_content);
+                                    }
+                                }
+                                if let Some(all_of_schema) = table_schema.all_of.as_deref() {
+                                    if let Some(hover_content) = get_all_of_hover_content(
+                                        self,
+                                        position,
+                                        keys,
+                                        accessors,
+                                        all_of_schema,
+                                        &current_schema.schema_uri,
+                                        &current_schema.definitions,
+                                        schema_context,
+                                    )
+                                    .await
+                                    {
+                                        return Some(hover_content);
+                                    }
+                                }
                             }
 
                             hover_content

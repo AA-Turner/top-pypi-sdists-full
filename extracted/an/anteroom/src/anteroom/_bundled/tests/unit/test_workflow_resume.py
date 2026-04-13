@@ -22,9 +22,13 @@ from anteroom.services.workflow_engine import (
 from anteroom.services.workflow_runners import create_default_registry
 from anteroom.services.workflow_storage import (
     acquire_lock,
+    cancel_pending_approval_requests,
+    create_approval_request,
+    create_human_decision,
     create_workflow_event,
     create_workflow_run,
     create_workflow_step,
+    expire_pending_decisions,
     find_running_steps,
     find_stale_runs,
     get_lock,
@@ -33,6 +37,7 @@ from anteroom.services.workflow_storage import (
     list_workflow_events,
     list_workflow_steps,
     release_lock,
+    reset_steps_from,
     update_workflow_run,
     update_workflow_step,
 )
@@ -641,6 +646,635 @@ class TestCancel:
         refreshed = get_workflow_run(db, run["id"])
         assert refreshed["status"] == "cancelled"
         assert get_lock(db, target_kind="task", target_ref="t1") is None
+
+
+# ---------------------------------------------------------------------------
+# Replay-from-step (#1106)
+# ---------------------------------------------------------------------------
+
+
+def _setup_completed_run(db: Any, defn_yaml: str = GENERIC_WORKFLOW) -> tuple[dict[str, Any], Any]:
+    """Create a paused run with step_a and step_b completed."""
+    defn = load_definition(defn_yaml)
+    run = create_workflow_run(
+        db,
+        workflow_id=defn.id,
+        workflow_version=defn.version,
+        target_kind="task",
+        target_ref="replay-test",
+        definition_hash=defn.content_hash,
+        definition_content=defn_yaml,
+    )
+    update_workflow_run(db, run["id"], status="paused")
+    # Create completed step records
+    for sid in ("step_a", "step_b"):
+        step = create_workflow_step(db, run_id=run["id"], step_id=sid, step_type="runner", runner_type="shell")
+        update_workflow_step(
+            db,
+            step["id"],
+            status="completed",
+            result_status="success",
+            result_summary="done",
+            raw_output_path="/tmp/out",
+            duration_ms=100,
+            started_at="2026-01-01T00:00:00",
+            completed_at="2026-01-01T00:01:00",
+            idempotency_key="idem-1",
+        )
+    return run, defn
+
+
+class TestReplayFromStep:
+    """Tests for resume_run with from_step (replay-from-step semantics, #1106)."""
+
+    @pytest.mark.asyncio
+    async def test_step_results_pruned(self, db: Any, engine: WorkflowEngine) -> None:
+        """step_results should only contain completed steps BEFORE from_step."""
+        run, defn = _setup_completed_run(db)
+        await engine.resume_run(run["id"], defn, from_step="step_b")
+        events = list_workflow_events(db, run["id"])
+        resumed = [e for e in events if e["event_type"] == "run_resumed"]
+        assert len(resumed) == 1
+        payload = resumed[0]["payload"]
+        assert "step_a" in payload["skip_completed"]
+        assert "step_b" not in payload["skip_completed"]
+
+    @pytest.mark.asyncio
+    async def test_db_steps_reset(self, db: Any, engine: WorkflowEngine) -> None:
+        """Steps at/after from_step are reset to pending with cleared metadata."""
+        run, defn = _setup_completed_run(db)
+        await engine.resume_run(run["id"], defn, from_step="step_b")
+
+        events = list_workflow_events(db, run["id"])
+        replay = [e for e in events if e["event_type"] == "replay_from_step"]
+        assert len(replay) == 1
+        pruned = replay[0]["payload"]["pruned_step_ids"]
+        assert "step_b" in pruned
+        assert "step_c" in pruned
+        assert "step_a" not in pruned
+
+    @pytest.mark.asyncio
+    async def test_approval_requests_expired(self, db: Any, engine: WorkflowEngine) -> None:
+        """Pending approval requests are expired during replay."""
+        run, defn = _setup_completed_run(db)
+        create_approval_request(
+            db,
+            run_id=run["id"],
+            step_id="step_b",
+            tool_name="bash",
+            tool_args={"command": "test"},
+            risk_tier="EXECUTE",
+        )
+        await engine.resume_run(run["id"], defn, from_step="step_b")
+
+        events = list_workflow_events(db, run["id"])
+        replay = [e for e in events if e["event_type"] == "replay_from_step"]
+        assert replay[0]["payload"]["expired_approvals"] == 1
+
+    @pytest.mark.asyncio
+    async def test_decisions_expired(self, db: Any, engine: WorkflowEngine) -> None:
+        """Pending human decisions are expired during replay."""
+        run, defn = _setup_completed_run(db)
+        create_human_decision(
+            db,
+            run_id=run["id"],
+            step_id="step_b",
+            prompt="Choose",
+            options=[{"id": "opt1", "label": "Opt 1", "outcome": "continue"}],
+        )
+        await engine.resume_run(run["id"], defn, from_step="step_b")
+
+        events = list_workflow_events(db, run["id"])
+        replay = [e for e in events if e["event_type"] == "replay_from_step"]
+        assert replay[0]["payload"]["expired_decisions"] == 1
+
+    @pytest.mark.asyncio
+    async def test_gate_skipped_waiting_for_approval(self, db: Any, engine: WorkflowEngine) -> None:
+        """waiting_for_approval gate is skipped when from_step jumps past it."""
+        run, defn = _setup_completed_run(db)
+        update_workflow_run(db, run["id"], status="waiting_for_approval", current_step_id="step_a")
+        create_approval_request(
+            db,
+            run_id=run["id"],
+            step_id="step_a",
+            tool_name="bash",
+            tool_args={"command": "test"},
+            risk_tier="EXECUTE",
+        )
+        # from_step=step_b, step_a is in completed => gate is before replay => skip
+        result = await engine.resume_run(run["id"], defn, from_step="step_b")
+        assert result["status"] in ("completed", "failed")
+
+    @pytest.mark.asyncio
+    async def test_gate_skipped_waiting_for_input(self, db: Any, engine: WorkflowEngine) -> None:
+        """waiting_for_input gate is skipped when from_step jumps past it."""
+        run, defn = _setup_completed_run(db)
+        update_workflow_run(db, run["id"], status="waiting_for_input", current_step_id="step_a")
+        create_human_decision(
+            db,
+            run_id=run["id"],
+            step_id="step_a",
+            prompt="Choose",
+            options=[{"id": "opt1", "label": "Opt 1", "outcome": "continue"}],
+        )
+        result = await engine.resume_run(run["id"], defn, from_step="step_b")
+        assert result["status"] in ("completed", "failed")
+
+    @pytest.mark.asyncio
+    async def test_replay_event_payload(self, db: Any, engine: WorkflowEngine) -> None:
+        """replay_from_step event has full payload."""
+        run, defn = _setup_completed_run(db)
+        update_workflow_run(db, run["id"], current_step_id="step_b")
+        await engine.resume_run(run["id"], defn, from_step="step_b", actor="test_actor")
+
+        events = list_workflow_events(db, run["id"])
+        replay = [e for e in events if e["event_type"] == "replay_from_step"]
+        assert len(replay) == 1
+        p = replay[0]["payload"]
+        assert p["from_step"] == "step_b"
+        assert p["actor"] == "test_actor"
+        assert p["prior_current_step"] == "step_b"
+        assert "step_b" in p["pruned_step_ids"]
+        assert "step_c" in p["pruned_step_ids"]
+        assert "step_a" not in p["pruned_step_ids"]
+        assert p["prior_status"] == "paused"
+
+    @pytest.mark.asyncio
+    async def test_actor_in_resumed_event(self, db: Any, engine: WorkflowEngine) -> None:
+        """run_resumed event includes from_step and actor when replaying."""
+        run, defn = _setup_completed_run(db)
+        await engine.resume_run(run["id"], defn, from_step="step_b", actor="cli_operator")
+
+        events = list_workflow_events(db, run["id"])
+        resumed = [e for e in events if e["event_type"] == "run_resumed"]
+        assert len(resumed) == 1
+        p = resumed[0]["payload"]
+        assert p["from_step"] == "step_b"
+        assert p["actor"] == "cli_operator"
+
+    @pytest.mark.asyncio
+    async def test_replay_from_first_step(self, db: Any, engine: WorkflowEngine) -> None:
+        """Replaying from step_a replays all three steps."""
+        run, defn = _setup_completed_run(db)
+        await engine.resume_run(run["id"], defn, from_step="step_a")
+
+        events = list_workflow_events(db, run["id"])
+        replay = [e for e in events if e["event_type"] == "replay_from_step"]
+        assert len(replay) == 1
+        assert set(replay[0]["payload"]["pruned_step_ids"]) == {"step_a", "step_b", "step_c"}
+
+    @pytest.mark.asyncio
+    async def test_replay_from_last_step(self, db: Any, engine: WorkflowEngine) -> None:
+        """Replaying from step_c only replays that step."""
+        run, defn = _setup_completed_run(db)
+        await engine.resume_run(run["id"], defn, from_step="step_c")
+
+        events = list_workflow_events(db, run["id"])
+        replay = [e for e in events if e["event_type"] == "replay_from_step"]
+        assert len(replay) == 1
+        assert replay[0]["payload"]["pruned_step_ids"] == ["step_c"]
+
+    @pytest.mark.asyncio
+    async def test_terminal_run_rejected(self, db: Any, engine: WorkflowEngine) -> None:
+        """Completed runs reject replay."""
+        defn = load_definition(GENERIC_WORKFLOW)
+        run = create_workflow_run(
+            db,
+            workflow_id=defn.id,
+            workflow_version=defn.version,
+            target_kind="task",
+            target_ref="replay-terminal",
+            definition_hash=defn.content_hash,
+        )
+        update_workflow_run(db, run["id"], status="completed")
+        with pytest.raises(ValueError, match="not resumable"):
+            await engine.resume_run(run["id"], defn, from_step="step_a")
+
+    @pytest.mark.asyncio
+    async def test_default_actor_is_operator(self, db: Any, engine: WorkflowEngine) -> None:
+        """Default actor is 'operator'."""
+        run, defn = _setup_completed_run(db)
+        await engine.resume_run(run["id"], defn, from_step="step_b")
+
+        events = list_workflow_events(db, run["id"])
+        replay = [e for e in events if e["event_type"] == "replay_from_step"]
+        assert replay[0]["payload"]["actor"] == "operator"
+
+    @pytest.mark.asyncio
+    async def test_no_replay_event_without_from_step(self, db: Any, engine: WorkflowEngine) -> None:
+        """Normal resume does not emit replay_from_step event."""
+        run, defn = _setup_completed_run(db)
+        await engine.resume_run(run["id"], defn)
+
+        events = list_workflow_events(db, run["id"])
+        replay = [e for e in events if e["event_type"] == "replay_from_step"]
+        assert len(replay) == 0
+
+    @pytest.mark.asyncio
+    async def test_no_actor_in_resumed_without_from_step(self, db: Any, engine: WorkflowEngine) -> None:
+        """Normal resume does not include from_step/actor in run_resumed payload."""
+        run, defn = _setup_completed_run(db)
+        await engine.resume_run(run["id"], defn)
+
+        events = list_workflow_events(db, run["id"])
+        resumed = [e for e in events if e["event_type"] == "run_resumed"]
+        assert len(resumed) == 1
+        p = resumed[0]["payload"]
+        assert "from_step" not in p
+        assert "actor" not in p
+
+    @pytest.mark.asyncio
+    async def test_replay_with_failed_run(self, db: Any, engine: WorkflowEngine) -> None:
+        """Failed runs can be replayed."""
+        run, defn = _setup_completed_run(db)
+        update_workflow_run(db, run["id"], status="failed", stop_reason="step_failed")
+        await engine.resume_run(run["id"], defn, from_step="step_b")
+
+        events = list_workflow_events(db, run["id"])
+        replay = [e for e in events if e["event_type"] == "replay_from_step"]
+        assert len(replay) == 1
+        assert replay[0]["payload"]["prior_status"] == "failed"
+
+    @pytest.mark.asyncio
+    async def test_invalid_from_step_rejected(self, db: Any, engine: WorkflowEngine) -> None:
+        """Nonexistent from_step raises ValueError."""
+        run, defn = _setup_completed_run(db)
+        with pytest.raises(ValueError, match="not found in workflow definition"):
+            await engine.resume_run(run["id"], defn, from_step="nonexistent")
+
+    @pytest.mark.asyncio
+    async def test_no_stale_approvals_no_event_count(self, db: Any, engine: WorkflowEngine) -> None:
+        """When no pending approvals exist, expired_approvals is 0."""
+        run, defn = _setup_completed_run(db)
+        await engine.resume_run(run["id"], defn, from_step="step_b")
+
+        events = list_workflow_events(db, run["id"])
+        replay = [e for e in events if e["event_type"] == "replay_from_step"]
+        assert replay[0]["payload"]["expired_approvals"] == 0
+        assert replay[0]["payload"]["expired_decisions"] == 0
+
+    @pytest.mark.asyncio
+    async def test_blocked_run_gate_skipped_when_before_from_step(self, db: Any, engine: WorkflowEngine) -> None:
+        """Blocked gate before from_step should stay in completed, not be discarded.
+
+        When a run is blocked at step_a and from_step=step_b, step_a is placed
+        in completed by the from_step logic.  The blocked-run discard must NOT
+        remove it, otherwise the gate would be re-evaluated instead of skipped.
+        """
+        run, defn = _setup_completed_run(db)
+        # Simulate a blocked run whose blocking gate is step_a (before from_step=step_b)
+        update_workflow_run(db, run["id"], status="blocked", current_step_id="step_a")
+        result = await engine.resume_run(run["id"], defn, from_step="step_b")
+        # The run should complete normally: step_a was skipped, step_b and step_c ran
+        assert result["status"] in ("completed", "failed")
+
+        events = list_workflow_events(db, run["id"])
+        replay = [e for e in events if e["event_type"] == "replay_from_step"]
+        assert len(replay) == 1
+        # step_a must be in skip_completed (not discarded)
+        resumed = [e for e in events if e["event_type"] == "run_resumed"]
+        assert len(resumed) == 1
+        assert "step_a" in resumed[0]["payload"]["skip_completed"]
+
+
+# ---------------------------------------------------------------------------
+# Storage: replay helpers (#1106)
+# ---------------------------------------------------------------------------
+
+
+class TestResetStepsFrom:
+    def test_resets_steps_in_set(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="reset-1",
+        )
+        step = create_workflow_step(db, run_id=run["id"], step_id="s1", step_type="runner", runner_type="shell")
+        update_workflow_step(
+            db,
+            step["id"],
+            status="completed",
+            result_status="success",
+            result_summary="done",
+            raw_output_path="/tmp/out",
+            duration_ms=100,
+            started_at="2026-01-01T00:00:00",
+            completed_at="2026-01-01T00:01:00",
+            idempotency_key="idem-1",
+        )
+        count = reset_steps_from(db, run["id"], {"s1"})
+        assert count == 1
+        steps = list_workflow_steps(db, run["id"])
+        s = steps[0]
+        assert s["status"] == "pending"
+        assert s["result_status"] is None
+        assert s["result_summary"] is None
+        assert s["result_artifacts"] is None
+        assert s["raw_output_path"] is None
+        assert s["duration_ms"] is None
+        assert s["started_at"] is None
+        assert s["completed_at"] is None
+        assert s.get("idempotency_key") is None
+
+    def test_leaves_steps_outside_set(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="reset-2",
+        )
+        s1 = create_workflow_step(db, run_id=run["id"], step_id="s1", step_type="runner")
+        s2 = create_workflow_step(db, run_id=run["id"], step_id="s2", step_type="runner")
+        update_workflow_step(db, s1["id"], status="completed", result_status="success")
+        update_workflow_step(db, s2["id"], status="completed", result_status="success")
+
+        reset_steps_from(db, run["id"], {"s2"})
+        steps = {s["step_id"]: s for s in list_workflow_steps(db, run["id"])}
+        assert steps["s1"]["status"] == "completed"
+        assert steps["s2"]["status"] == "pending"
+
+    def test_empty_set_returns_zero(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="reset-3",
+        )
+        count = reset_steps_from(db, run["id"], set())
+        assert count == 0
+
+    def test_nonexistent_step_ids_no_error(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="reset-4",
+        )
+        count = reset_steps_from(db, run["id"], {"nonexistent"})
+        assert count == 0
+
+    def test_clears_approval_and_decision_ids(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="reset-5",
+        )
+        step = create_workflow_step(db, run_id=run["id"], step_id="s1", step_type="runner")
+        update_workflow_step(
+            db,
+            step["id"],
+            status="completed",
+            result_status="success",
+            approval_request_id="apr-1",
+            decision_id="dec-1",
+        )
+        reset_steps_from(db, run["id"], {"s1"})
+        steps = list_workflow_steps(db, run["id"])
+        assert steps[0].get("approval_request_id") is None
+        assert steps[0].get("decision_id") is None
+
+
+class TestCancelPendingApprovalRequests:
+    def test_expires_pending_approvals(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="apr-1",
+        )
+        create_approval_request(
+            db,
+            run_id=run["id"],
+            step_id="s1",
+            tool_name="bash",
+            tool_args={"cmd": "x"},
+            risk_tier="EXECUTE",
+        )
+        count = cancel_pending_approval_requests(db, run["id"])
+        assert count == 1
+        from anteroom.services.workflow_storage import get_pending_approval
+
+        assert get_pending_approval(db, run["id"]) is None
+
+    def test_sets_resolved_by_and_resolved_at(self, db: Any) -> None:
+        """cancel_pending_approval_requests must stamp resolved_by and resolved_at."""
+        from anteroom.services.workflow_storage import get_approval_request
+
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="apr-1b",
+        )
+        req = create_approval_request(
+            db,
+            run_id=run["id"],
+            step_id="s1",
+            tool_name="bash",
+            tool_args={"cmd": "x"},
+            risk_tier="EXECUTE",
+        )
+        cancel_pending_approval_requests(db, run["id"])
+        updated = get_approval_request(db, req["id"])
+        assert updated is not None
+        assert updated["status"] == "expired"
+        assert updated["resolved_by"] == "replay"
+        assert updated["resolved_at"] is not None
+
+    def test_ignores_resolved_approvals(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="apr-2",
+        )
+        from anteroom.services.workflow_storage import resolve_approval_request
+
+        req = create_approval_request(
+            db,
+            run_id=run["id"],
+            step_id="s1",
+            tool_name="bash",
+            tool_args={"cmd": "x"},
+            risk_tier="EXECUTE",
+        )
+        resolve_approval_request(db, req["id"], status="approved")
+        count = cancel_pending_approval_requests(db, run["id"])
+        assert count == 0
+
+    def test_no_pending_returns_zero(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="apr-3",
+        )
+        count = cancel_pending_approval_requests(db, run["id"])
+        assert count == 0
+
+    def test_multiple_pending_all_expired(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="apr-4",
+        )
+        create_approval_request(
+            db,
+            run_id=run["id"],
+            step_id="s1",
+            tool_name="bash",
+            tool_args={"cmd": "x"},
+            risk_tier="EXECUTE",
+        )
+        create_approval_request(
+            db,
+            run_id=run["id"],
+            step_id="s2",
+            tool_name="bash",
+            tool_args={"cmd": "y"},
+            risk_tier="EXECUTE",
+        )
+        count = cancel_pending_approval_requests(db, run["id"])
+        assert count == 2
+
+
+class TestExpirePendingDecisions:
+    def test_expires_pending_decisions(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="dec-1",
+        )
+        create_human_decision(
+            db,
+            run_id=run["id"],
+            step_id="s1",
+            prompt="Choose",
+            options=[{"id": "a", "label": "A", "outcome": "continue"}],
+        )
+        count = expire_pending_decisions(db, run["id"])
+        assert count == 1
+        from anteroom.services.workflow_storage import get_pending_decision
+
+        assert get_pending_decision(db, run["id"]) is None
+
+    def test_clears_selected_option(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="dec-2",
+        )
+        dec = create_human_decision(
+            db,
+            run_id=run["id"],
+            step_id="s1",
+            prompt="Choose",
+            options=[{"id": "a", "label": "A", "outcome": "continue"}],
+        )
+        expire_pending_decisions(db, run["id"])
+        from anteroom.services.workflow_storage import get_human_decision
+
+        updated = get_human_decision(db, dec["id"])
+        assert updated is not None
+        assert updated["status"] == "expired"
+        assert updated["selected_option"] is None
+
+    def test_sets_resolved_at(self, db: Any) -> None:
+        """expire_pending_decisions must stamp resolved_at for auditability."""
+        from anteroom.services.workflow_storage import get_human_decision
+
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="dec-2b",
+        )
+        dec = create_human_decision(
+            db,
+            run_id=run["id"],
+            step_id="s1",
+            prompt="Choose",
+            options=[{"id": "a", "label": "A", "outcome": "continue"}],
+        )
+        expire_pending_decisions(db, run["id"])
+        updated = get_human_decision(db, dec["id"])
+        assert updated is not None
+        assert updated["resolved_at"] is not None
+
+    def test_ignores_resolved_decisions(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="dec-3",
+        )
+        from anteroom.services.workflow_storage import resolve_human_decision
+
+        dec = create_human_decision(
+            db,
+            run_id=run["id"],
+            step_id="s1",
+            prompt="Choose",
+            options=[{"id": "a", "label": "A", "outcome": "continue"}],
+        )
+        resolve_human_decision(db, dec["id"], selected_option="a")
+        count = expire_pending_decisions(db, run["id"])
+        assert count == 0
+
+    def test_no_pending_returns_zero(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="dec-4",
+        )
+        count = expire_pending_decisions(db, run["id"])
+        assert count == 0
+
+    def test_multiple_pending_all_expired(self, db: Any) -> None:
+        run = create_workflow_run(
+            db,
+            workflow_id="test",
+            workflow_version="0.1.0",
+            target_kind="task",
+            target_ref="dec-5",
+        )
+        create_human_decision(
+            db,
+            run_id=run["id"],
+            step_id="s1",
+            prompt="Choose",
+            options=[{"id": "a", "label": "A", "outcome": "continue"}],
+        )
+        create_human_decision(
+            db,
+            run_id=run["id"],
+            step_id="s2",
+            prompt="Choose",
+            options=[{"id": "b", "label": "B", "outcome": "continue"}],
+        )
+        count = expire_pending_decisions(db, run["id"])
+        assert count == 2
 
 
 # ---------------------------------------------------------------------------

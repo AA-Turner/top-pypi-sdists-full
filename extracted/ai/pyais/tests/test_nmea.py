@@ -1,6 +1,5 @@
 import unittest
 
-from bitarray import bitarray
 from pyais.decode import _assemble_messages
 
 from pyais.exceptions import InvalidNMEAMessageException
@@ -111,13 +110,6 @@ class TestNMEA(unittest.TestCase):
     def test_dict(self):
         msg = b"!AIVDM,1,1,,A,15Mj23P000G?q7fK>g:o7@1:0L3S,0*1B"
         msg = NMEAMessage(msg)
-
-        def serializable(o: object):
-            if isinstance(o, bytes):
-                return o.decode('utf-8')
-            elif isinstance(o, bitarray):
-                return o.to01()
-            return o
 
         actual = msg.asdict()
         self.assertEqual(1, actual["ais_id"])

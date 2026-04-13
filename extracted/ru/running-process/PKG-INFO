@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: running_process
-Version: 3.0.9
+Version: 3.0.13
 License-File: LICENSE
 Summary: A Rust-backed subprocess wrapper with split stdout/stderr streaming
 Home-Page: https://github.com/zackees/running-process
@@ -14,16 +14,26 @@ Project-URL: Repository, https://github.com/zackees/running-process
 
 # running-process
 
-[![Linux x86](https://github.com/zackees/running-process/actions/workflows/linux-x86.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/linux-x86.yml)
-[![Linux ARM](https://github.com/zackees/running-process/actions/workflows/linux-arm.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/linux-arm.yml)
-[![Windows x86](https://github.com/zackees/running-process/actions/workflows/windows-x86.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/windows-x86.yml)
-[![Windows ARM](https://github.com/zackees/running-process/actions/workflows/windows-arm.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/windows-arm.yml)
-[![macOS x86](https://github.com/zackees/running-process/actions/workflows/macos-x86.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/macos-x86.yml)
-[![macOS ARM](https://github.com/zackees/running-process/actions/workflows/macos-arm.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/macos-arm.yml)
+[![PyPI](https://img.shields.io/pypi/v/running-process)](https://pypi.org/project/running-process/) [![Crates.io](https://img.shields.io/crates/v/running-process-core)](https://crates.io/crates/running-process-core) [![codecov](https://codecov.io/gh/zackees/running-process/graph/badge.svg)](https://codecov.io/gh/zackees/running-process)
 
-`running-process` is a Rust-backed subprocess runtime with a thin Python API.
+`running-process` is what you wished python's subprocess was. Blazing fast, highly concurrent, huge feature list, dead process tracking, pty support. Built in Rust with a thin python api.
 
-The pipe-backed API keeps `stdout` and `stderr` separate, preserves raw bytes until decode time, and defaults to UTF-8 with `errors="replace"` when you ask for text. The PTY API is separate because terminal sessions are chunk-oriented and should not be forced through line normalization.
+| Platform | Build | Lint | Unit Test | Integration Test |
+|----------|-------|------|-----------|------------------|
+| Linux x86 | [![Build](https://github.com/zackees/running-process/actions/workflows/linux-x86-build.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/linux-x86-build.yml) | [![Lint](https://github.com/zackees/running-process/actions/workflows/linux-x86-lint.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/linux-x86-lint.yml) | [![Unit Test](https://github.com/zackees/running-process/actions/workflows/linux-x86-unit-test.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/linux-x86-unit-test.yml) | [![Integration Test](https://github.com/zackees/running-process/actions/workflows/linux-x86-integration-test.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/linux-x86-integration-test.yml) |
+| Linux ARM | [![Build](https://github.com/zackees/running-process/actions/workflows/linux-arm-build.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/linux-arm-build.yml) | [![Lint](https://github.com/zackees/running-process/actions/workflows/linux-arm-lint.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/linux-arm-lint.yml) | [![Unit Test](https://github.com/zackees/running-process/actions/workflows/linux-arm-unit-test.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/linux-arm-unit-test.yml) | [![Integration Test](https://github.com/zackees/running-process/actions/workflows/linux-arm-integration-test.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/linux-arm-integration-test.yml) |
+| Windows x86 | [![Build](https://github.com/zackees/running-process/actions/workflows/windows-x86-build.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/windows-x86-build.yml) | [![Lint](https://github.com/zackees/running-process/actions/workflows/windows-x86-lint.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/windows-x86-lint.yml) | [![Unit Test](https://github.com/zackees/running-process/actions/workflows/windows-x86-unit-test.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/windows-x86-unit-test.yml) | [![Integration Test](https://github.com/zackees/running-process/actions/workflows/windows-x86-integration-test.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/windows-x86-integration-test.yml) |
+| Windows ARM | [![Build](https://github.com/zackees/running-process/actions/workflows/windows-arm-build.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/windows-arm-build.yml) | [![Lint](https://github.com/zackees/running-process/actions/workflows/windows-arm-lint.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/windows-arm-lint.yml) | [![Unit Test](https://github.com/zackees/running-process/actions/workflows/windows-arm-unit-test.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/windows-arm-unit-test.yml) | [![Integration Test](https://github.com/zackees/running-process/actions/workflows/windows-arm-integration-test.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/windows-arm-integration-test.yml) |
+| macOS x86 | [![Build](https://github.com/zackees/running-process/actions/workflows/macos-x86-build.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/macos-x86-build.yml) | [![Lint](https://github.com/zackees/running-process/actions/workflows/macos-x86-lint.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/macos-x86-lint.yml) | [![Unit Test](https://github.com/zackees/running-process/actions/workflows/macos-x86-unit-test.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/macos-x86-unit-test.yml) | [![Integration Test](https://github.com/zackees/running-process/actions/workflows/macos-x86-integration-test.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/macos-x86-integration-test.yml) |
+| macOS ARM | [![Build](https://github.com/zackees/running-process/actions/workflows/macos-arm-build.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/macos-arm-build.yml) | [![Lint](https://github.com/zackees/running-process/actions/workflows/macos-arm-lint.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/macos-arm-lint.yml) | [![Unit Test](https://github.com/zackees/running-process/actions/workflows/macos-arm-unit-test.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/macos-arm-unit-test.yml) | [![Integration Test](https://github.com/zackees/running-process/actions/workflows/macos-arm-integration-test.yml/badge.svg)](https://github.com/zackees/running-process/actions/workflows/macos-arm-integration-test.yml) |
+
+
+
+## Why?
+
+This project started off as a fix for python's sub process module. It was in python originally, but then moved to OS specific rust. Now it's blazing fast: using OS threads, atomics and proper signaling back to the python api. This library also allows stderr and stdout stream reading in parallel, something `subprocess` lacks. It also has cross platform process tracking, pty generation. It has zombie process tracking. It also has builtin `expect` for keyword event triggers, `idle tracking` (great for agent CLI's that dont' notifiy when they are done, they just stop sending data).
+
+This libary is design for speed and correctness and portability. Usually terminal utilities are for windows or linux/mac. This is designed to run everywhere.
 
 ## PTY Support Matrix
 
@@ -292,6 +302,38 @@ That defaults to building a dev-profile wheel and reinstalling it into the repo'
 ```bash
 uv run build.py --release
 ```
+
+## Process Containment
+
+`ContainedProcessGroup` ensures all child processes are killed when the group is dropped, using OS-level mechanisms (Job Objects on Windows, process groups + `SIGKILL` on Unix).
+
+```python
+from running_process import ContainedProcessGroup
+
+with ContainedProcessGroup() as group:
+    proc = group.spawn(["sleep", "3600"])
+# all children killed on exit, even on crash
+```
+
+### Crash-resilient orphan discovery
+
+When a parent crashes, its in-process registry is lost. `ContainedProcessGroup` can stamp every child with an environment variable that survives parent death:
+
+```python
+from running_process import ContainedProcessGroup, find_processes_by_originator
+
+# At launch: tag children with your tool name
+with ContainedProcessGroup(originator="MYTOOL") as group:
+    proc = group.spawn(["long-running-worker"])
+
+# Later (from any process, any session): find orphans
+stale = find_processes_by_originator("MYTOOL")
+for info in stale:
+    if not info.parent_alive:
+        print(f"Orphaned PID {info.pid} from dead parent {info.parent_pid}")
+```
+
+The env var `RUNNING_PROCESS_ORIGINATOR=TOOL:PID` is inherited by all descendants. The scanner uses process start times to guard against PID reuse.
 
 ## Tracked PID Cleanup
 

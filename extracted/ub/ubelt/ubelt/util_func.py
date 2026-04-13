@@ -15,14 +15,30 @@ that signature.
 
 from __future__ import annotations
 
+from collections.abc import Iterable as IterableABC
 import typing
+
+T = typing.TypeVar('T')
+V = typing.TypeVar('V')
+
+
+class SupportsBool(typing.Protocol):
+    def __bool__(self) -> bool: ...  # nocover
+
+
+@typing.overload
+def identity() -> None: ...
+
+
+@typing.overload
+def identity(arg: T, *args: object, **kwargs: object) -> T: ...
 
 
 def identity(
-    arg: typing.Any | None = None,
-    *args: typing.Any,
-    **kwargs: typing.Any,
-) -> typing.Any:
+    arg: T | None = None,
+    *args: object,
+    **kwargs: object,
+) -> T | None:
     """
     Return the value of the first argument unchanged.
 
@@ -42,12 +58,12 @@ def identity(
     assigning it to a value.
 
     Args:
-        arg (Any | None): The value to return unchanged.
+        arg (T | None): The value to return unchanged.
         *args: Ignored
         **kwargs: Ignored
 
     Returns:
-        Any: arg - The same value of the first positional argument.
+        T: arg - The same value of the first positional argument.
 
     References:
         .. [WikiIdentity] https://en.wikipedia.org/wiki/Identity_function
@@ -65,7 +81,7 @@ def identity(
 
 
 def inject_method(
-    self,
+    self: typing.Any,
     func: typing.Callable[..., typing.Any],
     name: str | None = None,
 ) -> None:
@@ -104,7 +120,7 @@ def inject_method(
         >>> assert self.bar() == 'baz'
     """
     # TODO: if func is a bound method we should probably unbind it
-    new_method = func.__get__(self, self.__class__)  # type: ignore[unresolved-attribute]
+    new_method = func.__get__(self, self.__class__)  # type: ignore
     if name is None:
         name = getattr(func, '__name__', None)
         if name is None:
@@ -117,11 +133,11 @@ def inject_method(
 
 
 def compatible(
-    config: dict[str, typing.Any],
+    config: dict[str, V],
     func: typing.Callable,
     start: int = 0,
-    keywords: bool | typing.Iterable[str] = True,
-) -> dict[str, typing.Any]:
+    keywords: bool | str | typing.Iterable[str] | SupportsBool = True,
+) -> dict[str, V]:
     """
     Take the "compatible" subset of a dictionary that a function will accept as
     keyword arguments.
@@ -240,13 +256,11 @@ def compatible(
 
     # Test if keywords is a non-string iterable
     if not isinstance(keywords, (bool, str)):
-        try:
-            iter(keywords)
-        except Exception:
-            keywords = bool(keywords)
-        else:
+        if isinstance(keywords, IterableABC):
             argnames.extend(keywords)
             keywords = False
+        else:
+            keywords = bool(keywords)
 
     if has_kwargs and keywords:
         # kwargs could be anything, so keep everything

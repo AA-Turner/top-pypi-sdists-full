@@ -27,6 +27,7 @@ class TranscriptCallback(Protocol):
 logger = logging.getLogger(__name__)
 
 _DEFAULT_WORKFLOW_AGENT_MAX_ITERATIONS = 30
+_DRAINER_POLL_SECONDS = 3  # how often to poll workflow_run_inputs for mid-run injection
 
 
 def _trim_transcript_value(value: Any, max_chars: int) -> Any:
@@ -140,6 +141,8 @@ async def execute_agent_runner(
     transcript_max_assistant_chars: int = 4000,
     transcript_max_tool_output_chars: int = 2000,
     step_id: str | None = None,
+    db: Any | None = None,
+    run_id: str | None = None,
 ) -> RunnerResult:
     """Execute an agent runner step through Anteroom's agent loop.
 
@@ -181,6 +184,81 @@ async def execute_agent_runner(
     total_completion_tokens = 0
     turn_tokens = 0  # tokens for current turn
 
+    # Consume pending routed inputs from workflow_run_inputs (#889).
+    # This runs at step start (including resume after crash/pause), so
+    # any follow-up messages stored since the last execution are injected
+    # into the conversation before the first LLM call.
+    # IDs are collected but NOT marked consumed until after the agent loop
+    # finishes — a crash before that re-delivers on restart (at-least-once).
+    # _injected_input_ids dedupes across step-start and drainer paths so
+    # the same row is never enqueued twice during one runner execution.
+    _injected_input_ids: set[str] = set()
+    if db is not None and run_id:
+        from .workflow_storage import fetch_pending_run_inputs
+
+        pending_inputs = fetch_pending_run_inputs(db, run_id)
+        for inp in pending_inputs:
+            action_label = inp.get("source_action", "update")
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"[Workflow input — {action_label}] {inp['content']}",
+                }
+            )
+            _injected_input_ids.add(inp["id"])
+        if pending_inputs:
+            logger.info(
+                "Injected %d pending input(s) for run %s at step start",
+                len(pending_inputs),
+                run_id[:8] if run_id else "?",
+            )
+
+    # Live mid-run injection (#889): poll workflow_run_inputs every
+    # _DRAINER_POLL_SECONDS and push new rows into injection_queue.
+    # The per-iteration checkpoint in agent_loop.py (line ~365) drains
+    # this queue before each LLM call.
+    # Row IDs are collected but NOT marked consumed until after the agent
+    # loop finishes — a crash before that re-delivers on restart.
+    # Already-injected IDs (from step-start or prior polls) are skipped.
+    injection_queue: asyncio.Queue[dict[str, Any]] | None = None
+    _drainer_task: asyncio.Task[None] | None = None
+
+    if db is not None and run_id:
+        injection_queue = asyncio.Queue()
+
+        async def _drain_run_inputs() -> None:
+            """Background poller: fetch unconsumed inputs and push to queue."""
+            from .workflow_storage import fetch_pending_run_inputs
+
+            while True:
+                try:
+                    rows = fetch_pending_run_inputs(db, run_id)
+                    new_count = 0
+                    for row in rows:
+                        if row["id"] in _injected_input_ids:
+                            continue
+                        action_label = row.get("source_action", "update")
+                        injection_queue.put_nowait(  # type: ignore[union-attr]
+                            {
+                                "role": "user",
+                                "content": f"[Workflow input — {action_label}] {row['content']}",
+                                "_input_id": row["id"],
+                            }
+                        )
+                        _injected_input_ids.add(row["id"])
+                        new_count += 1
+                    if new_count:
+                        logger.debug(
+                            "Drainer pushed %d input(s) for run %s",
+                            new_count,
+                            run_id[:8],
+                        )
+                except Exception:
+                    logger.debug("Drainer poll error", exc_info=True)
+                await asyncio.sleep(_DRAINER_POLL_SECONDS)
+
+        _drainer_task = asyncio.create_task(_drain_run_inputs())
+
     if transcript_cb is not None and prompt.strip():
         transcript_cb(
             "transcript_prompt",
@@ -207,69 +285,103 @@ async def execute_agent_runner(
         turn_content = ""
         turn_tokens = 0
 
-    async for event in run_agent_loop(
-        ai_service=ai_service,
-        messages=messages,
-        tool_executor=actual_executor,
-        tools_openai=tools_openai,
-        serialize_tools=True,
-        pause_signal=pause_signal,
-        max_iterations=max_iterations,
-    ):
-        if event.kind == "token":
-            content = event.data.get("content", "")
-            assistant_content += content
-            turn_content += content
-        elif event.kind == "tool_call_end":
-            tool_outputs.append(event.data)
-            if transcript_cb is not None:
-                tc_name = event.data.get("tool_name", "")
-                tc_output = _trim_transcript_value(event.data.get("output", ""), transcript_max_tool_output_chars)
-                transcript_cb(
-                    "transcript_tool_result",
-                    step_id,
-                    {
-                        "tool_name": tc_name,
-                        "status": event.data.get("status", ""),
-                        "output": tc_output,
-                    },
+    try:
+        async for event in run_agent_loop(
+            ai_service=ai_service,
+            messages=messages,
+            tool_executor=actual_executor,
+            tools_openai=tools_openai,
+            serialize_tools=True,
+            pause_signal=pause_signal,
+            max_iterations=max_iterations,
+            injection_queue=injection_queue,
+        ):
+            if event.kind == "token":
+                content = event.data.get("content", "")
+                assistant_content += content
+                turn_content += content
+            elif event.kind == "tool_call_end":
+                tool_outputs.append(event.data)
+                if transcript_cb is not None:
+                    tc_name = event.data.get("tool_name", "")
+                    tc_output = _trim_transcript_value(event.data.get("output", ""), transcript_max_tool_output_chars)
+                    transcript_cb(
+                        "transcript_tool_result",
+                        step_id,
+                        {
+                            "tool_name": tc_name,
+                            "status": event.data.get("status", ""),
+                            "output": tc_output,
+                        },
+                    )
+            elif event.kind == "tool_call_start":
+                # Flush assistant turn before tool call — preserves chronology
+                _flush_turn()
+                if transcript_cb is not None:
+                    transcript_cb(
+                        "transcript_tool_call",
+                        step_id,
+                        {
+                            "tool_name": event.data.get("tool_name", ""),
+                            "arguments": str(event.data.get("arguments", "")),
+                        },
+                    )
+            elif event.kind == "usage":
+                total_prompt_tokens += event.data.get("prompt_tokens", 0)
+                total_completion_tokens += event.data.get("completion_tokens", 0)
+                turn_tokens += event.data.get("completion_tokens", 0)
+                if transcript_cb is not None:
+                    transcript_cb(
+                        "transcript_usage",
+                        step_id,
+                        {
+                            "prompt_tokens": event.data.get("prompt_tokens", 0),
+                            "completion_tokens": event.data.get("completion_tokens", 0),
+                            "total_tokens": event.data.get("total_tokens", 0),
+                        },
+                    )
+            elif event.kind == "workflow_pause":
+                paused = True
+                break
+            elif event.kind == "error":
+                _flush_turn()
+                duration_ms = int((time.monotonic() - start) * 1000)
+                return RunnerResult(
+                    status="failed",
+                    summary=event.data.get("message", "Agent loop error"),
+                    duration_ms=duration_ms,
                 )
-        elif event.kind == "tool_call_start":
-            # Flush assistant turn before tool call — preserves chronology
-            _flush_turn()
-            if transcript_cb is not None:
-                transcript_cb(
-                    "transcript_tool_call",
-                    step_id,
-                    {
-                        "tool_name": event.data.get("tool_name", ""),
-                        "arguments": str(event.data.get("arguments", "")),
-                    },
-                )
-        elif event.kind == "usage":
-            total_prompt_tokens += event.data.get("prompt_tokens", 0)
-            total_completion_tokens += event.data.get("completion_tokens", 0)
-            turn_tokens += event.data.get("completion_tokens", 0)
-            if transcript_cb is not None:
-                transcript_cb(
-                    "transcript_usage",
-                    step_id,
-                    {
-                        "prompt_tokens": event.data.get("prompt_tokens", 0),
-                        "completion_tokens": event.data.get("completion_tokens", 0),
-                        "total_tokens": event.data.get("total_tokens", 0),
-                    },
-                )
-        elif event.kind == "workflow_pause":
-            paused = True
-            break
-        elif event.kind == "error":
-            _flush_turn()
-            duration_ms = int((time.monotonic() - start) * 1000)
-            return RunnerResult(
-                status="failed",
-                summary=event.data.get("message", "Agent loop error"),
-                duration_ms=duration_ms,
+    finally:
+        if _drainer_task is not None:
+            _drainer_task.cancel()
+            try:
+                await _drainer_task
+            except asyncio.CancelledError:
+                pass
+        # Determine which inputs were actually consumed by the agent loop.
+        # Items still sitting in injection_queue were enqueued by the drainer
+        # but never drained by the per-iteration checkpoint — those must NOT
+        # be acked so they are re-delivered on the next step start.
+        _undrained_ids: set[str] = set()
+        if injection_queue is not None:
+            while not injection_queue.empty():
+                try:
+                    item = injection_queue.get_nowait()
+                    undrained_id = item.get("_input_id")
+                    if undrained_id:
+                        _undrained_ids.add(undrained_id)
+                except asyncio.QueueEmpty:
+                    break
+        _consumed_ids = _injected_input_ids - _undrained_ids
+        if _consumed_ids and db is not None:
+            from .workflow_storage import mark_run_input_consumed
+
+            for input_id in _consumed_ids:
+                mark_run_input_consumed(db, input_id)
+        if _undrained_ids:
+            logger.info(
+                "Skipped ack for %d undrained input(s) — will re-deliver on next step",
+                len(_undrained_ids),
             )
 
     # Flush any remaining assistant text from the final turn

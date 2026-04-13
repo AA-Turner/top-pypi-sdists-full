@@ -293,7 +293,47 @@ class Account(AttribAccessDict):
       * 4.2.0: added
     """
 
-    _version = "4.2.0"
+    avatar_description: "str"
+    """
+    Alt text description for the user's avatar image.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    header_description: "str"
+    """
+    Alt text description for the user's header image.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    show_media: "bool"
+    """
+    Whether the account wishes to have a Media tab with media attachments on their profile.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    show_media_replies: "bool"
+    """
+    Whether the account wishes to have replies in the Media tab on their profile.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    show_featured: "bool"
+    """
+    Whether the account wishes to have a Featured tab on their profile.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    _version = "4.6.0"
 
 class AccountField(AttribAccessDict):
     """
@@ -486,7 +526,15 @@ class CredentialAccountSource(AttribAccessDict):
       * 4.4.0: added
     """
 
-    _version = "4.4.0"
+    quote_policy: "str"
+    """
+    The default quote policy to be used for new statuses.
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    _version = "4.5.0"
 
 class Status(AttribAccessDict):
     """
@@ -754,7 +802,31 @@ class Status(AttribAccessDict):
       * 4.4.0: added
     """
 
-    _version = "4.4.0"
+    quotes_count: "int"
+    """
+    How many accepted quotes this status has.
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    tagged_collections: "NonPaginatableList[Collection]"
+    """
+    Collections linked in this status.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    quote_approval: "Optional[QuoteApproval]"
+    """
+    Summary of the post's quote approval policy and how it applies to the current user, indicating whether the user can be expected to be allowed to quote that post. (nullable)
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    _version = "4.6.0"
 
 class Quote(AttribAccessDict):
     """
@@ -772,21 +844,23 @@ class Quote(AttribAccessDict):
 
     state: "str"
     """
-    The state of the quote.
+    The state of the quote. Unknown values should be treated as `unauthorized`.
 
     Version history:
       * 4.4.0: added
+      * 4.5.0: added `blocked_account`, `blocked_domain` and `muted_account`
     """
 
     quoted_status: "Optional[Status]"
     """
-    The quoted status object, if the quote has been accepted. (optional)
+    The status being quoted, if the quote has been accepted. Null unless `state` is `accepted`, `blocked_account`, `blocked_domain`, or `muted_account`, or the wrapping Status entity was obtained by deleting the status. (nullable)
 
     Version history:
       * 4.4.0: added
+      * 4.5.7: `quoted_status` is set to the quoted status regardless of `state` when the entity is returned as part of status deletion
     """
 
-    _version = "4.4.0"
+    _version = "4.5.7"
 
 class ShallowQuote(AttribAccessDict):
     """
@@ -804,21 +878,63 @@ class ShallowQuote(AttribAccessDict):
 
     quoted_status_id: "Optional[MaybeSnowflakeIdType]"
     """
-    The ID of the quoted status. None if the quote is not accepted. (nullable)
+    The identifier of the status being quoted. Null unless `state` is `accepted`, `blocked_account`, `blocked_domain`, or `muted_account`, or the wrapping Status entity was obtained by deleting the status. (nullable)
 
     Version history:
       * 4.4.0: added
+      * 4.5.7: `quoted_status_id` is set to the status ID regardless of `state` when the entity is returned as part of status deletion
     """
 
     state: "str"
     """
-    The state of the quote.
+    The state of the quote. Unknown values should be treated as `unauthorized`.
 
     Version history:
       * 4.4.0: added
+      * 4.5.0: added `blocked_account`, `blocked_domain` and `muted_account`
     """
 
-    _version = "4.4.0"
+    _version = "4.5.7"
+
+class QuoteApproval(AttribAccessDict):
+    """
+    Summary of a status' quote approval policy and how it applies to the requesting user.
+
+    Example:
+
+    .. code-block:: python
+
+        # Returns a QuoteApproval object
+        mastodon.status(<status id>).quote_approval
+
+    See also (Mastodon API documentation): https://docs.joinmastodon.org/entities/QuoteApproval/
+    """
+
+    automatic: "NonPaginatableList[str]"
+    """
+    Describes who is expected to be able to quote that status and have the quote automatically authorized. An empty list means that nobody is expected to be able to quote this post.
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    manual: "NonPaginatableList[str]"
+    """
+    Describes who is expected to have their quotes of this status be manually reviewed by the author before being accepted. An empty list means that nobody is expected to be able to quote this post.
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    current_user: "str"
+    """
+    Describes how this status' quote policy applies to the current user.
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    _version = "4.5.0"
 
 class StatusEdit(AttribAccessDict):
     """
@@ -1164,7 +1280,15 @@ class ScheduledStatusParams(AttribAccessDict):
       * 4.4.0: added
     """
 
-    _version = "4.4.0"
+    quote_approval_policy: "Optional[str]"
+    """
+    The quote approval policy to be used for this status once posted. (nullable)
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    _version = "4.5.0"
 
 class Poll(AttribAccessDict):
     """
@@ -1746,7 +1870,15 @@ class Relationship(AttribAccessDict):
       * 0.9.9: added
     """
 
-    _version = "4.0.0"
+    muting_expires_at: "Optional[datetime]"
+    """
+    Date at which the mute expires, if the logged-in user has set a timed mute on this account. (nullable)
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    _version = "4.6.0"
 
 class Filter(AttribAccessDict):
     """
@@ -1925,6 +2057,7 @@ class Notification(AttribAccessDict):
       * 3.5.0: added `update` and `admin.sign_up`
       * 4.0.0: added `admin.report`
       * 4.3.0: added `severed_relationships` and `moderation_warning`
+      * 4.5.0: added `quote` and `quoted_update`
     """
 
     created_at: "datetime"
@@ -1984,7 +2117,7 @@ class Notification(AttribAccessDict):
       * 4.3.0: added
     """
 
-    _version = "4.3.0"
+    _version = "4.5.0"
 
 class Context(AttribAccessDict):
     """
@@ -2609,7 +2742,15 @@ class PreviewCard(AttribAccessDict):
       * 3.5.0: added
     """
 
-    _version = "4.3.0"
+    missing_attribution: "Optional[bool]"
+    """
+    True if the linked article claims to be written by the current user without the user having the article's domain in their attribution_domains. Used to prompt them to review and add the domain. (nullable)
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    _version = "4.6.0"
 
 class TrendingLinkHistory(AttribAccessDict):
     """
@@ -2778,7 +2919,185 @@ class SearchV2(AttribAccessDict):
       * 1.1.0: added
     """
 
-    _version = "2.4.1"
+    collections: "NonPaginatableList[Collection]"
+    """
+    List of collections resulting from the query.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    _version = "4.6.0"
+
+class Collection(AttribAccessDict):
+    """
+    A collection of accounts, associated with a hashtag.
+
+    Example:
+
+    .. code-block:: python
+
+        # Returns a Collection object
+        mastodon.search_v2('cats', type='collections').collections[0]
+
+    See also (Mastodon API documentation): None
+    """
+
+    id: "MaybeSnowflakeIdType"
+    """
+    The ID of the collection in the database.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    uri: "str"
+    """
+    The URI of the collection for federation.
+    Should contain (as text): URL
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    name: "str"
+    """
+    The name of the collection.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    description: "str"
+    """
+    A description of the collection.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    language: "str"
+    """
+    The language of the collection.
+    Should contain (as text): TwoLetterLanguageCodeEnum
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    account_id: "MaybeSnowflakeIdType"
+    """
+    The ID of the account that owns this collection.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    local: "bool"
+    """
+    Whether the collection belongs to a local account.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    sensitive: "bool"
+    """
+    Whether the collection is marked as sensitive.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    discoverable: "bool"
+    """
+    Whether the collection is discoverable.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    item_count: "int"
+    """
+    The number of items in this collection.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    created_at: "datetime"
+    """
+    When the collection was created.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    updated_at: "datetime"
+    """
+    When the collection was last updated.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    tag: "Tag"
+    """
+    The hashtag associated with this collection.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    items: "NonPaginatableList[CollectionItem]"
+    """
+    The items in this collection.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    _version = "4.6.0"
+
+class CollectionItem(AttribAccessDict):
+    """
+    An item in a collection, representing an account that has been added to the collection.
+
+    Example:
+
+    .. code-block:: python
+
+        # Returns a CollectionItem object
+        mastodon.search_v2('cats', type='collections').collections[0].items[0]
+
+    See also (Mastodon API documentation): None
+    """
+
+    id: "MaybeSnowflakeIdType"
+    """
+    The ID of the collection item in the database.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    state: "str"
+    """
+    The state of this collection item.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    account_id: "Optional[MaybeSnowflakeIdType]"
+    """
+    The ID of the account associated with this item. Only present when the item is accepted. (optional)
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    _version = "4.6.0"
 
 class Instance(AttribAccessDict):
     """
@@ -3149,7 +3468,15 @@ class InstanceV2(AttribAccessDict):
       * 4.3.0: added
     """
 
-    _version = "4.3.0"
+    wrapstodon: "Optional[InstanceAnnualReportCampaign]"
+    """
+    Info about Wrapstodon / year-in-review feature for the instance, if available. (optional)
+
+    Version history:
+      * 4.4.0: added
+    """
+
+    _version = "4.4.0"
 
 class InstanceIcon(AttribAccessDict):
     """
@@ -3262,7 +3589,15 @@ class InstanceConfigurationV2(AttribAccessDict):
       * 4.4.0: added
     """
 
-    _version = "4.4.0"
+    timelines_access: "InstanceTimelinesAccessConfiguration"
+    """
+    Access restrictions on different timelines, including live feeds, hashtag feeds, and trending link feeds.
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    _version = "4.5.0"
 
 class InstanceVapidKey(AttribAccessDict):
     """
@@ -3734,7 +4069,63 @@ class InstanceAccountConfiguration(AttribAccessDict):
       * 4.3.0: added
     """
 
-    _version = "4.3.0"
+    max_display_name_length: "int"
+    """
+    The maximum length allowed for an account's display name.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    max_note_length: "int"
+    """
+    The maximum length allowed for an account's bio.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    max_avatar_description_length: "int"
+    """
+    The maximum length allowed for an avatar's alt text description.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    max_header_description_length: "int"
+    """
+    The maximum length allowed for a header image's alt text description.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    max_profile_fields: "int"
+    """
+    The maximum number of custom profile fields allowed to be set.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    profile_field_name_limit: "int"
+    """
+    The maximum size of a profile field name, in characters.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    profile_field_value_limit: "int"
+    """
+    The maximum size of a profile field value, in characters.
+
+    Version history:
+      * 4.6.0: added
+    """
+
+    _version = "4.6.0"
 
 class InstanceStatusConfiguration(AttribAccessDict):
     """
@@ -3919,6 +4310,102 @@ class InstancePollConfiguration(AttribAccessDict):
     """
 
     _version = "3.4.2"
+
+class InstanceTimelinesAccessConfiguration(AttribAccessDict):
+    """
+    Access restrictions on different timelines.
+
+    Example:
+
+    .. code-block:: python
+
+        # Returns a InstanceTimelinesAccessConfiguration object
+        mastodon.instance_v2().configuration.timelines_access
+
+    See also (Mastodon API documentation): https://docs.joinmastodon.org/entities/Instance/
+    """
+
+    live_feeds: "InstanceTimelinesAccessFeedConfiguration"
+    """
+    Access restrictions on public feeds.
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    hashtag_feeds: "InstanceTimelinesAccessFeedConfiguration"
+    """
+    Access restrictions on hashtag feeds.
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    trending_link_feeds: "InstanceTimelinesAccessFeedConfiguration"
+    """
+    Access restrictions on trending link feeds.
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    _version = "4.5.0"
+
+class InstanceTimelinesAccessFeedConfiguration(AttribAccessDict):
+    """
+    Access restrictions for local and remote posts in a specific feed type.
+
+    Example:
+
+    .. code-block:: python
+
+        # Returns a InstanceTimelinesAccessFeedConfiguration object
+        mastodon.instance_v2().configuration.timelines_access.live_feeds
+
+    See also (Mastodon API documentation): https://docs.joinmastodon.org/entities/Instance/
+    """
+
+    local: "str"
+    """
+    Access restrictions for local posts in this feed.
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    remote: "str"
+    """
+    Access restrictions for remote posts in this feed.
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    _version = "4.5.0"
+
+class InstanceAnnualReportCampaign(AttribAccessDict):
+    """
+    Information about the Wrapstodon / year-in-review feature for the instance. This is not officially documented by Mastodon and may change without notice.
+
+    Example:
+
+    .. code-block:: python
+
+        # Returns a InstanceAnnualReportCampaign object
+        mastodon.instance_v2().wrapstodon
+
+    See also (Mastodon API documentation): https://docs.joinmastodon.org/entities/Instance/
+    """
+
+    year: "int"
+    """
+    The year this annual report campaign is for.
+
+    Version history:
+      * 4.4.0: added
+    """
+
+    _version = "4.4.0"
 
 class Nodeinfo(AttribAccessDict):
     """
@@ -4598,7 +5085,23 @@ class WebPushSubscriptionAlerts(AttribAccessDict):
       * 4.0.0: added
     """
 
-    _version = "4.0.0"
+    quote: "Optional[bool]"
+    """
+    True if push subscriptions for quote events have been requested, false or not present otherwise. (nullable)
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    quoted_update: "Optional[bool]"
+    """
+    True if push subscriptions for quoted status update events have been requested, false or not present otherwise. (nullable)
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    _version = "4.5.0"
 
 class PushNotification(AttribAccessDict):
     """
@@ -4737,7 +5240,15 @@ class Preferences(AttribAccessDict):
       * 2.8.0: added
     """
 
-    _version = "2.8.0"
+    posting_default_quote_policy: "str"
+    """
+    Default quote policy for new posts. Also found in CredentialAccountSource as `quote_policy`.
+
+    Version history:
+      * 4.5.0: added
+    """
+
+    _version = "4.5.0"
     _rename_map = {
         "posting_default_visibility": "posting:default:visibility",
         "posting_default_sensitive": "posting:default:sensitive",
@@ -4745,6 +5256,7 @@ class Preferences(AttribAccessDict):
         "reading_expand_media": "reading:expand:media",
         "reading_expand_spoilers": "reading:expand:spoilers",
         "reading_autoplay_gifs": "reading:autoplay:gifs",
+        "posting_default_quote_policy": "posting:default:quote_policy",
     }
 
 class FeaturedTag(AttribAccessDict):
@@ -7158,7 +7670,7 @@ class OAuthUserInfo(AttribAccessDict):
       * 4.4.0: added
     """
 
-    profile : "str"
+    profile: "str"
     """
     The URL of the user’s profile page.
     Should contain (as text): URL
@@ -7227,7 +7739,49 @@ class TermsOfService(AttribAccessDict):
 
     _version = "4.4.0"
 
+class AsyncRefresh(AttribAccessDict):
+    """
+    Status of an asynchronous refresh. Returned by the async_refreshes endpoint.
+
+    Example:
+
+    .. code-block:: python
+
+        # Returns a AsyncRefresh object
+        None
+
+    See also (Mastodon API documentation): https://docs.joinmastodon.org/entities/AsyncRefresh/
+    """
+
+    id: "IdType"
+    """
+    The ID of the async refresh.
+
+    Version history:
+      * 4.4.0: added
+    """
+
+    status: "str"
+    """
+    Status of the async refresh.
+    Should contain (as text): AsyncRefreshStatusEnum
+
+    Version history:
+      * 4.4.0: added
+    """
+
+    result_count: "Optional[int]"
+    """
+    if specified, number of results already created/fetched as part of this async refresh. (nullable)
+
+    Version history:
+      * 4.4.0: added
+    """
+
+    _version = "4.4.0"
+
 ENTITY_NAME_MAP = {
+    "AttribAccessDict": AttribAccessDict,
     "Account": Account,
     "AccountField": AccountField,
     "Role": Role,
@@ -7235,6 +7789,7 @@ ENTITY_NAME_MAP = {
     "Status": Status,
     "Quote": Quote,
     "ShallowQuote": ShallowQuote,
+    "QuoteApproval": QuoteApproval,
     "StatusEdit": StatusEdit,
     "FilterResult": FilterResult,
     "StatusMention": StatusMention,
@@ -7265,6 +7820,8 @@ ENTITY_NAME_MAP = {
     "PreviewCardAuthor": PreviewCardAuthor,
     "Search": Search,
     "SearchV2": SearchV2,
+    "Collection": Collection,
+    "CollectionItem": CollectionItem,
     "Instance": Instance,
     "InstanceConfiguration": InstanceConfiguration,
     "InstanceURLs": InstanceURLs,
@@ -7287,6 +7844,9 @@ ENTITY_NAME_MAP = {
     "InstanceTranslationConfiguration": InstanceTranslationConfiguration,
     "InstanceMediaConfiguration": InstanceMediaConfiguration,
     "InstancePollConfiguration": InstancePollConfiguration,
+    "InstanceTimelinesAccessConfiguration": InstanceTimelinesAccessConfiguration,
+    "InstanceTimelinesAccessFeedConfiguration": InstanceTimelinesAccessFeedConfiguration,
+    "InstanceAnnualReportCampaign": InstanceAnnualReportCampaign,
     "Nodeinfo": Nodeinfo,
     "NodeinfoSoftware": NodeinfoSoftware,
     "NodeinfoServices": NodeinfoServices,
@@ -7345,6 +7905,7 @@ ENTITY_NAME_MAP = {
     "OAuthServerInfo": OAuthServerInfo,
     "OAuthUserInfo": OAuthUserInfo,
     "TermsOfService": TermsOfService,
+    "AsyncRefresh": AsyncRefresh,
 }
 __all__ = [
     "Account",
@@ -7354,6 +7915,7 @@ __all__ = [
     "Status",
     "Quote",
     "ShallowQuote",
+    "QuoteApproval",
     "StatusEdit",
     "FilterResult",
     "StatusMention",
@@ -7384,6 +7946,8 @@ __all__ = [
     "PreviewCardAuthor",
     "Search",
     "SearchV2",
+    "Collection",
+    "CollectionItem",
     "Instance",
     "InstanceConfiguration",
     "InstanceURLs",
@@ -7406,6 +7970,9 @@ __all__ = [
     "InstanceTranslationConfiguration",
     "InstanceMediaConfiguration",
     "InstancePollConfiguration",
+    "InstanceTimelinesAccessConfiguration",
+    "InstanceTimelinesAccessFeedConfiguration",
+    "InstanceAnnualReportCampaign",
     "Nodeinfo",
     "NodeinfoSoftware",
     "NodeinfoServices",
@@ -7464,5 +8031,6 @@ __all__ = [
     "OAuthServerInfo",
     "OAuthUserInfo",
     "TermsOfService",
+    "AsyncRefresh",
 ]
 

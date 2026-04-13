@@ -79,6 +79,8 @@ class Mastodon():
                 return_type = AttribAccessDict
                 if func_obj is not None:
                     return_type = func_obj.__annotations__.get('return', AttribAccessDict)
+                if return_type is None:
+                    return_type = AttribAccessDict
             else:
                 return_type = override_type
         except:
@@ -360,6 +362,29 @@ class Mastodon():
                                 del prev_params['max_id']
                             response._pagination_prev = prev_params
         
+            # Parse Mastodon-Async-Refresh header
+            if 'Mastodon-Async-Refresh' in response_object.headers:
+                async_refresh_header = response_object.headers['Mastodon-Async-Refresh']
+                async_refresh_info = {}
+                for part in async_refresh_header.split(","):
+                    part = part.strip()
+                    if "=" in part:
+                        key, value = part.split("=", 1)
+                        key = key.strip()
+                        value = value.strip().strip('"')
+                        if key in ('retry', 'result_count'):
+                            try:
+                                value = int(value)
+                            except ValueError:
+                                pass
+                        async_refresh_info[key] = value
+                async_refresh_info['_method'] = method
+                async_refresh_info['_endpoint'] = endpoint
+                async_refresh_info['_params'] = copy.deepcopy(params)
+                async_refresh_info['_mastopy_type'] = final_type
+                if hasattr(response, '__dict__') or isinstance(response, dict):
+                    response._async_refresh = async_refresh_info
+
         return response
 
     def __get_streaming_base(self) -> str:
@@ -386,14 +411,14 @@ class Mastodon():
         if not streaming_api_url is None and streaming_api_url != self.api_base_url:
             # This is probably a websockets URL, which is really for the browser, but requests can't handle it
             # So we do this below to turn it into an HTTPS or HTTP URL
-            parse = urlparse(instance["urls"]["streaming_api"])
+            parse = urlparse(streaming_api_url)
             if parse.scheme == 'wss':
                 url = "https://" + parse.netloc
             elif parse.scheme == 'ws':
                 url = "http://" + parse.netloc
             else:
                 raise MastodonAPIError(
-                    f"Could not parse streaming api location returned from server: {instance['urls']['streaming_api']}."
+                    f"Could not parse streaming api location returned from server: {streaming_api_url}."
                 )
         else:
             url = self.api_base_url

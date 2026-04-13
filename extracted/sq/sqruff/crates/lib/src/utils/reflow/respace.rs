@@ -1,4 +1,5 @@
-use hashbrown::HashMap;
+use std::collections::BTreeMap;
+
 use itertools::{Itertools, enumerate};
 use sqruff_lib_core::dialects::syntax::{SyntaxKind, SyntaxSet};
 use sqruff_lib_core::lint_fix::LintFix;
@@ -63,6 +64,10 @@ pub fn determine_constraints(
 
             within_spacing = Some(within_spacing_inner);
             strip_newlines = strip_newlines_inner;
+        }
+
+        if prev_block.segment().is_comment() {
+            strip_newlines = false;
         }
     }
 
@@ -240,25 +245,38 @@ fn determine_aligned_inline_spacing(
         next_pos = pos_marker.clone();
     }
 
-    // Purge any siblings which are either self, or on the same line but after it.
-    let mut earliest_siblings: HashMap<usize, usize> = HashMap::default();
-    siblings.retain(|sibling| {
-        let pos_marker = sibling.get_position_marker().unwrap();
-        let best_seen = earliest_siblings.get(&pos_marker.working_line_no).copied();
-        if let Some(best_seen) = best_seen
-            && pos_marker.working_line_pos > best_seen
-        {
-            return false;
-        }
-        earliest_siblings.insert(pos_marker.working_line_no, pos_marker.working_line_pos);
+    let mut siblings_by_line: BTreeMap<usize, Vec<ErasedSegment>> = BTreeMap::new();
+    for sibling in siblings {
+        let Some(pos_marker) = sibling.get_position_marker() else {
+            continue;
+        };
+        siblings_by_line
+            .entry(pos_marker.working_line_no)
+            .or_default()
+            .push(sibling);
+    }
 
-        if pos_marker.working_line_no == next_pos.working_line_no
-            && pos_marker.working_line_pos != next_pos.working_line_pos
-        {
-            return false;
-        }
-        true
-    });
+    for line_siblings in siblings_by_line.values_mut() {
+        line_siblings
+            .sort_by_key(|sibling| sibling.get_position_marker().unwrap().working_line_pos);
+    }
+
+    let Some(current_line_segments) = siblings_by_line.get(&next_pos.working_line_no) else {
+        return " ".to_string();
+    };
+
+    let Some(target_index) = current_line_segments.iter().position(|segment| {
+        segment
+            .get_position_marker()
+            .is_some_and(|pos_marker| pos_marker.working_line_pos == next_pos.working_line_pos)
+    }) else {
+        return " ".to_string();
+    };
+
+    let siblings = siblings_by_line
+        .values()
+        .filter_map(|segments| segments.get(target_index).cloned())
+        .collect_vec();
 
     // If there's only one sibling, we have nothing to compare to. Default to a
     // single space.
@@ -571,13 +589,26 @@ mod tests {
     use itertools::Itertools;
     use pretty_assertions::assert_eq;
     use smol_str::ToSmolStr;
-    use sqruff_lib::core::test_functions::parse_ansi_string;
     use sqruff_lib_core::helpers::enter_panic;
     use sqruff_lib_core::lint_fix::LintFix;
+    use sqruff_lib_core::parser::segments::ErasedSegment;
 
+    use crate::core::config::FluffConfig;
+    use crate::core::linter::core::Linter;
+    use crate::core::test_functions::parse_ansi_string;
     use crate::utils::reflow::helpers::fixes_from_results;
     use crate::utils::reflow::respace::Tables;
     use crate::utils::reflow::sequence::{Filter, ReflowSequence};
+
+    fn parse_string_with_config(sql: &str, config: &FluffConfig) -> ErasedSegment {
+        let tables = Tables::default();
+        let linter = Linter::new(config.clone(), None, None, false).unwrap();
+        linter
+            .parse_string(&tables, sql, None)
+            .unwrap()
+            .tree
+            .unwrap()
+    }
 
     #[test]
     fn test_reflow_sequence_respace() {
@@ -727,6 +758,34 @@ mod tests {
                 .collect_vec();
 
             assert_eq!(fixes, fixes_out);
+        }
+    }
+
+    #[test]
+    fn test_reflow_sequence_respace_preserves_newline_after_inline_comment() {
+        let cases = ["touch:inline", "single:inline"];
+
+        for spacing_after in cases {
+            let _panic = enter_panic(format!("spacing_after={spacing_after}"));
+
+            let config = FluffConfig::from_source(
+                &format!(
+                    r#"
+[sqruff]
+dialect = ansi
+
+[sqruff:layout:type:inline_comment]
+spacing_after = {spacing_after}
+"#
+                ),
+                None,
+            );
+            let root = parse_string_with_config("select 1 -- comment\n+ 2", &config);
+            let seq = ReflowSequence::from_root(&root, &config);
+            let new_seq = seq.respace(&Tables::default(), false, Filter::All);
+
+            assert_eq!(new_seq.raw(), "select 1 -- comment\n+ 2");
+            assert!(new_seq.results().is_empty());
         }
     }
 }

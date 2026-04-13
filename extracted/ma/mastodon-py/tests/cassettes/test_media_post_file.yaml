@@ -1,9 +1,9 @@
 interactions:
 - request:
     body: !!binary |
-      LS1hODhiMmQxMWU1MmI2NWM0YzMwMGY2NmNjMGNmNzUwNQ0KQ29udGVudC1EaXNwb3NpdGlvbjog
-      Zm9ybS1kYXRhOyBuYW1lPSJmaWxlIjsgZmlsZW5hbWU9Im1hc3RvZG9ucHl1cGxvYWRfMTc1NTQ1
-      NjIwMS4zODc5NjE5XzlkODlkNTAxZjhmNjRlNDJiYjYxMTFjYjAyYWY2N2Y2LmpwZyINCkNvbnRl
+      LS1iNjYzYmY3YzM1ZTlmMmVhZWIyMWRkNjBlMTE1NmVhOA0KQ29udGVudC1EaXNwb3NpdGlvbjog
+      Zm9ybS1kYXRhOyBuYW1lPSJmaWxlIjsgZmlsZW5hbWU9Im1hc3RvZG9ucHl1cGxvYWRfMTc3NTk0
+      OTM2Ni4xOTcwNDU2X2RkNWYxMjMyNzA4ZTRkYmQ5NDY3YzNkNGYxZmE3MjI1LmpwZyINCkNvbnRl
       bnQtVHlwZTogaW1hZ2UvanBlZw0KDQr/2P/gABBKRklGAAEBAQBIAEgAAP/iAhxJQ0NfUFJPRklM
       RQABAQAAAgxsY21zAhAAAG1udHJSR0IgWFlaIAfcAAEAGQADACkAOWFjc3BBUFBMAAAAAAAAAAAA
       AAAAAAAAAAAAAAAAAAAAAAD21gABAAAAANMtbGNtcwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
@@ -939,8 +939,8 @@ interactions:
       yLUFixVEw4+9KlURKWI3D24r93pUoX5EQbZIDAphpUqKI6mINwj9YYOV2oMLkmWXo9TfelSoHhyk
       WUoovQTO33qdoivLumOvT8UqVFWbbHaEokDtzf5qMy4XCMTEjfPbPilSoFOFzByxzhRey1WUSaxV
       dtqVKgaCiiCrnK5pkwMTGX4pUqBTtsYnLjJ4xUrWDGZB1d1z+KVKguWW3ctzMCb7u1NAIwEky3zs
-      vWlSoIzwuWI/YpgkyI8qxk4wZ/WlSoGNPcbo46Oebs70qVKg/9kNCi0tYTg4YjJkMTFlNTJiNjVj
-      NGMzMDBmNjZjYzBjZjc1MDUtLQ0K
+      vWlSoIzwuWI/YpgkyI8qxk4wZ/WlSoGNPcbo46Oebs70qVKg/9kNCi0tYjY2M2JmN2MzNWU5ZjJl
+      YWViMjFkZDYwZTExNTZlYTgtLQ0K
     headers:
       Accept:
       - '*/*'
@@ -953,33 +953,33 @@ interactions:
       Content-Length:
       - '53544'
       Content-Type:
-      - multipart/form-data; boundary=a88b2d11e52b65c4c300f66cc0cf7505
+      - multipart/form-data; boundary=b663bf7c35e9f2eaeb21dd60e1156ea8
       User-Agent:
       - tests/v311
     method: POST
     uri: http://localhost:3000/api/v2/media
   response:
     body:
-      string: '{"id":"115045577623339768","type":"image","url":"http://localhost:3000/system/media_attachments/files/115/045/577/623/339/768/original/cee34a4cb218c93c.jpg","preview_url":"http://localhost:3000/system/media_attachments/files/115/045/577/623/339/768/small/cee34a4cb218c93c.jpg","remote_url":null,"preview_remote_url":null,"text_url":null,"meta":{"original":{"width":600,"height":600,"size":"600x600","aspect":1.0},"small":{"width":480,"height":480,"size":"480x480","aspect":1.0}},"description":null,"blurhash":"UGC~-#M{0JfkNFofR%M{IURj%Mt7E0oM%MR*"}'
+      string: '{"id":"116388617671691146","type":"image","url":"http://localhost:3000/system/media_attachments/files/116/388/617/671/691/146/original/2b53e52f7faec7b7.jpg","preview_url":"http://localhost:3000/system/media_attachments/files/116/388/617/671/691/146/small/2b53e52f7faec7b7.jpg","remote_url":null,"preview_remote_url":null,"text_url":null,"meta":{"original":{"width":600,"height":600,"size":"600x600","aspect":1.0},"small":{"width":480,"height":480,"size":"480x480","aspect":1.0}},"description":null,"blurhash":"UGC~-#M{0JfkNFofR%M{IURj%Mt7E0oM%MR*"}'
     headers:
-      Content-Length:
-      - '548'
       cache-control:
       - private, no-store
+      content-length:
+      - '548'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       content-type:
       - application/json; charset=utf-8
       etag:
-      - W/"fca1e092c38062adba77637aca41d9a8"
+      - W/"703ced015f9760e58f689bdd558e889b"
       referrer-policy:
       - strict-origin-when-cross-origin
       server-timing:
-      - cache_read.active_support;dur=0.03, sql.active_record;dur=5.64, cache_generate.active_support;dur=0.95,
-        cache_write.active_support;dur=0.10, instantiation.active_record;dur=0.22,
+      - cache_read.active_support;dur=0.03, sql.active_record;dur=5.66, cache_generate.active_support;dur=1.12,
+        cache_write.active_support;dur=0.09, instantiation.active_record;dur=0.25,
         start_processing.action_controller;dur=0.00, start_transaction.active_record;dur=0.00,
-        transaction.active_record;dur=7.71, render.active_model_serializers;dur=0.55,
-        process_action.action_controller;dur=130.51
+        transaction.active_record;dur=8.28, render.active_model_serializers;dur=0.67,
+        process_action.action_controller;dur=98.46
       vary:
       - Authorization, Origin
       x-content-type-options:
@@ -993,11 +993,11 @@ interactions:
       x-ratelimit-remaining:
       - '29'
       x-ratelimit-reset:
-      - '2025-08-17T19:00:00.430603Z'
+      - '2026-04-11T23:30:00.263535Z'
       x-request-id:
-      - 7015fda5-711c-47fc-82d4-ea393ab6d843
+      - 3ab0b511-6f23-41a0-a224-e81d5ff29b69
       x-runtime:
-      - '0.147417'
+      - '0.116833'
       x-xss-protection:
       - '0'
     status:

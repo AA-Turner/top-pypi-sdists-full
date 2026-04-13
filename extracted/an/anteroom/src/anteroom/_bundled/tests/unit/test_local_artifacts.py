@@ -46,12 +46,12 @@ class TestDiscoverLocalArtifacts:
 
     def test_discovers_skills(self, tmp_path: Path) -> None:
         skills = tmp_path / "skills"
-        skills.mkdir()
-        (skills / "greet.yaml").write_text("name: greet\ncontent: say hi\n")
+        (skills / "greet").mkdir(parents=True)
+        (skills / "greet" / "SKILL.md").write_text("---\nname: greet\n---\n\nsay hi\n")
         result = discover_local_artifacts(tmp_path)
         assert len(result) == 1
         assert result[0]["type"] == "skill"
-        assert result[0]["content"] == "say hi"
+        assert "say hi" in result[0]["content"]
 
     def test_skips_wrong_extension(self, tmp_path: Path) -> None:
         rules = tmp_path / "rules"
@@ -69,7 +69,8 @@ class TestDiscoverLocalArtifacts:
         (tmp_path / "rules").mkdir()
         (tmp_path / "rules" / "r1.md").write_text("rule 1")
         (tmp_path / "skills").mkdir()
-        (tmp_path / "skills" / "s1.yaml").write_text("content: skill 1\n")
+        (tmp_path / "skills" / "s1").mkdir()
+        (tmp_path / "skills" / "s1" / "SKILL.md").write_text("---\nname: s1\n---\n\nskill 1\n")
         (tmp_path / "instructions").mkdir()
         (tmp_path / "instructions" / "i1.md").write_text("instruction 1")
         result = discover_local_artifacts(tmp_path)
@@ -127,7 +128,8 @@ class TestScaffoldLocalArtifact:
     def test_creates_skill(self, tmp_path: Path) -> None:
         path = scaffold_local_artifact("skill", "my-skill", tmp_path)
         assert path.exists()
-        assert path.name == "my-skill.yaml"
+        assert path.name == "SKILL.md"
+        assert path.parent.name == "my-skill"
 
     def test_creates_in_project_dir(self, tmp_path: Path) -> None:
         proj = tmp_path / "proj"

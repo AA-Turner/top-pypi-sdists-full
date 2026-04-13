@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-shadcn
-Version: 0.10.3
+Version: 0.10.4
 Summary: Documentation that also shines
 Author-email: Alban Siffer <31479857+asiffer@users.noreply.github.com>
 License-File: LICENSE
@@ -12,7 +12,7 @@ Requires-Dist: pymdown-extensions>=10.14.3
 Description-Content-Type: text/markdown
 
 
-![banner](https://raw.githubusercontent.com/asiffer/mkdocs-shadcn/master/.github/assets/banner.png)
+![banner](./.github/assets/banner.png)
 
 <p align="center">
   <a href="https://github.com/squidfunk/mkdocs-shadcn/actions"><img
@@ -30,7 +30,7 @@ Description-Content-Type: text/markdown
 </p>
 
 
-![screenshot](https://raw.githubusercontent.com/asiffer/mkdocs-shadcn/master/.github/assets/screenshot4.png)
+![screenshot](./.github/assets/screenshot.png)
 
 
 > [!IMPORTANT]  
@@ -118,3 +118,9 @@ In parallel, you are likely to run the tailwind watcher to compile the css sourc
 ```shell
 bun dev
 ```
+
+### Testing
+
+Tests are managed by [`pytest`](https://docs.pytest.org/en/stable/) and are located in the [tests/](./tests/) folder.
+
+Currently we only test that there is no browser issue through [playwright](https://playwright.dev/).

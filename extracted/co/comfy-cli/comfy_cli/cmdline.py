@@ -267,7 +267,7 @@ def install(
         typer.Option(
             "--fast-deps",
             show_default=False,
-            help="Use new fast dependency installer",
+            help="Use uv instead of pip for dependency resolution (comfy-cli built-in resolver)",
         ),
     ] = False,
     pr: Annotated[
@@ -416,7 +416,10 @@ def update(
             check=True,
         )
 
-    custom_nodes.command.update_node_id_cache()
+    try:
+        custom_nodes.command.update_node_id_cache()
+    except (FileNotFoundError, subprocess.CalledProcessError) as e:
+        rprint(f"[yellow]Failed to update node id cache: {e}[/yellow]")
 
 
 @app.command(help="Run API workflow file using the ComfyUI launched by `comfy launch --background`")

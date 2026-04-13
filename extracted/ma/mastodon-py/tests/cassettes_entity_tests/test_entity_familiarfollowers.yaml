@@ -28,17 +28,18 @@ interactions:
         "avatar_static": "https://icosahedron.website/system/accounts/avatars/000/000/255/static/0b20396fed6a0faf.png",
         "header": "https://icosahedron.website/system/accounts/headers/000/000/255/original/09b3f747515cb077.png",
         "header_static": "https://icosahedron.website/system/accounts/headers/000/000/255/original/09b3f747515cb077.png",
-        "followers_count": 31, "following_count": 45, "statuses_count": 2971, "last_status_at":
-        "2025-08-07", "hide_collections": false, "noindex": false, "emojis": [], "roles":
+        "followers_count": 32, "following_count": 46, "statuses_count": 3007, "last_status_at":
+        "2026-03-16", "hide_collections": false, "noindex": false, "emojis": [], "roles":
         [], "fields": [{"name": "Pronouns", "value": "Sport/Champ/Hon", "verified_at":
-        null}]}]}]'
+        null}, {"name": "IPA", "value": "/\u02c8\u025bkv\u026an/", "verified_at":
+        null}, {"name": "Tripcode", "value": "!ekvinNiYa", "verified_at": null}]}]}]'
     headers:
       Connection:
       - keep-alive
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 15 Aug 2025 20:19:12 GMT
+      - Sat, 11 Apr 2026 23:14:48 GMT
       Transfer-Encoding:
       - chunked
       Vary:
@@ -49,11 +50,11 @@ interactions:
       cache-control:
       - private, no-store
       content-length:
-      - '1056'
+      - '1172'
       content-security-policy:
       - default-src 'none'; frame-ancestors 'none'; form-action 'none'
       etag:
-      - W/"bce67c74393056f749a5845463015840"
+      - W/"01773e292c9fd601d3b93f71360afe4e"
       referrer-policy:
       - same-origin
       server:
@@ -70,11 +71,11 @@ interactions:
       x-ratelimit-remaining:
       - '297'
       x-ratelimit-reset:
-      - '2025-08-15T20:20:00.002677Z'
+      - '2026-04-11T23:15:00.228398Z'
       x-request-id:
-      - 967e6524-fe09-40bb-9c4b-9d22d532b3d8
+      - 9a629a6d-9d87-4c33-94ef-f86d5fab893c
       x-runtime:
-      - '0.022484'
+      - '0.043643'
       x-xss-protection:
       - '0'
     status:

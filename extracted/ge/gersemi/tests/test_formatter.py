@@ -20,8 +20,17 @@ def test_formatter_idempotence(formatter_creator, case):
     assert p(formatted_once) == p(formatted_twice)
 
 
-def test_abstract_syntax_tree_equivalence(parser, parser_with_simple_grammar, case):
-    for p in [parser, parser_with_simple_grammar]:
+def test_abstract_syntax_tree_equivalence(
+    lark_based_parser,
+    lark_based_parser_with_simple_grammar,
+    rust_parser,
+    case,
+):
+    for p in [
+        lark_based_parser,
+        lark_based_parser_with_simple_grammar,
+        rust_parser,
+    ]:
         # ruff: noqa: PERF203
         try:
             parsed = p.parse(case.given)

@@ -272,6 +272,11 @@ def compute_indices(
     """
     ds = None
 
+    # Drop Feb 29 to avoid leap year shape mismatch in percentile indices
+    _leap = lambda d: (d["time"].dt.month == 2) & (d["time"].dt.day == 29)
+    df_base_period = df_base_period[~_leap(df_base_period)]
+    df_time_period = df_time_period[~_leap(df_time_period)]
+
     dx, vals_ix = df_to_xarray(df_base_period)
     start_br, end_br, start_tr, end_tr = get_icclim_dates(vals_ix, df_time_period.set_index(["lat", "lon", "time"]))
 

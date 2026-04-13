@@ -19,16 +19,103 @@
 
 use std::io;
 
+use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
+
 /// Stores booleans as individual bits - 8x smaller than `Vec<bool>`.
 ///
 /// Supports bitwise operations ([`and`](Self::and), [`or`](Self::or),
 /// [`not`](Self::not)) for combining filter results efficiently.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct BitVector {
     /// Packed bits (little-endian within each word).
     data: Vec<u64>,
     /// Number of bits stored.
     len: usize,
+}
+
+impl<'de> Deserialize<'de> for BitVector {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            Data,
+            Len,
+        }
+
+        struct BitVectorVisitor;
+
+        impl<'de> Visitor<'de> for BitVectorVisitor {
+            type Value = BitVector;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct BitVector with consistent data and len fields")
+            }
+
+            fn visit_seq<V>(self, mut seq: V) -> Result<BitVector, V::Error>
+            where
+                V: SeqAccess<'de>,
+            {
+                let data: Vec<u64> = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let len: usize = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                validate_bitvec(len, &data).map_err(de::Error::custom)
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<BitVector, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut data: Option<Vec<u64>> = None;
+                let mut len: Option<usize> = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Data => {
+                            if data.is_some() {
+                                return Err(de::Error::duplicate_field("data"));
+                            }
+                            data = Some(map.next_value()?);
+                        }
+                        Field::Len => {
+                            if len.is_some() {
+                                return Err(de::Error::duplicate_field("len"));
+                            }
+                            len = Some(map.next_value()?);
+                        }
+                    }
+                }
+
+                let data = data.ok_or_else(|| de::Error::missing_field("data"))?;
+                let len = len.ok_or_else(|| de::Error::missing_field("len"))?;
+                validate_bitvec(len, &data).map_err(de::Error::custom)
+            }
+        }
+
+        const FIELDS: &[&str] = &["data", "len"];
+        deserializer.deserialize_struct("BitVector", FIELDS, BitVectorVisitor)
+    }
+}
+
+/// Validates that `len` and `data` are consistent, returning a valid
+/// `BitVector` or an error message.
+fn validate_bitvec(len: usize, data: &[u64]) -> Result<BitVector, String> {
+    let expected_words = (len + 63) / 64;
+    if data.len() != expected_words {
+        return Err(format!(
+            "BitVector invariant violated: len={len} requires {expected_words} words, but data contains {} words",
+            data.len()
+        ));
+    }
+    Ok(BitVector {
+        data: data.to_vec(),
+        len,
+    })
 }
 
 impl BitVector {
@@ -545,5 +632,61 @@ mod tests {
         assert_eq!(bitvec.get(0), Some(true));
         assert_eq!(bitvec.get(1), Some(false));
         assert_eq!(bitvec.get(2), Some(true));
+    }
+
+    #[test]
+    fn test_bitvec_deserialize_roundtrip() {
+        let bools = vec![true, false, true, true, false, false, true, false];
+        let original = BitVector::from_bools(&bools);
+        let json = serde_json::to_string(&original).unwrap();
+        let restored: BitVector = serde_json::from_str(&json).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn test_bitvec_deserialize_invalid_len_too_large() {
+        // len=200 requires ceil(200/64) = 4 words, but we only provide 1
+        let json = r#"{"data":[42],"len":200}"#;
+        let result: Result<BitVector, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("invariant violated"),
+            "expected invariant error, got: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn test_bitvec_deserialize_invalid_len_data_mismatch() {
+        // len=10 requires ceil(10/64) = 1 word, but we provide 3
+        let json = r#"{"data":[1,2,3],"len":10}"#;
+        let result: Result<BitVector, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("invariant violated"),
+            "expected invariant error, got: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn test_bitvec_deserialize_valid_edge_cases() {
+        // len=0 with empty data
+        let json = r#"{"data":[],"len":0}"#;
+        let bv: BitVector = serde_json::from_str(json).unwrap();
+        assert_eq!(bv.len(), 0);
+        assert!(bv.is_empty());
+
+        // len=1 with one u64
+        let json = r#"{"data":[1],"len":1}"#;
+        let bv: BitVector = serde_json::from_str(json).unwrap();
+        assert_eq!(bv.len(), 1);
+        assert_eq!(bv.get(0), Some(true));
+
+        // len=64 with one u64 (exactly fills one word)
+        let json = r#"{"data":[18446744073709551615],"len":64}"#;
+        let bv: BitVector = serde_json::from_str(json).unwrap();
+        assert_eq!(bv.len(), 64);
+        assert_eq!(bv.count_ones(), 64);
     }
 }

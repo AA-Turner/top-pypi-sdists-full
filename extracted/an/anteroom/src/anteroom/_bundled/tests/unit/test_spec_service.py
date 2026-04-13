@@ -425,9 +425,9 @@ class TestSpecNotDiscoveredFromFilesystem:
         spec_dir.mkdir(parents=True)
         (spec_dir / "my-spec.yaml").write_text("requirements: r\ndesign: d\ntasks:\n  - id: t1\n    summary: s\n")
         # Also add a skill to prove other types still work
-        skill_dir = local_dir / "skills"
-        skill_dir.mkdir()
-        (skill_dir / "my-skill.yaml").write_text("name: test\nprompt: hello\n")
+        skill_dir = local_dir / "skills" / "my-skill"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: test\n---\n\nhello\n")
 
         artifacts = discover_local_artifacts(local_dir)
         types_found = {a["type"] for a in artifacts}

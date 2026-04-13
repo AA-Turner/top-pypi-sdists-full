@@ -2181,6 +2181,7 @@ class WorkflowEngine:
         *,
         from_step: str | None = None,
         force: bool = False,
+        actor: str = "operator",
     ) -> dict[str, Any]:
         """Resume a paused or waiting_for_approval run from the last completed step.
 
@@ -2261,15 +2262,33 @@ class WorkflowEngine:
             idx = all_step_ids.index(from_step)
             completed = set(all_step_ids[:idx])
 
-        # For blocked runs, ensure the blocking gate step is re-evaluated (not skipped)
-        if run["status"] == "blocked" and run.get("current_step_id"):
+            # Step 4: Reset DB step records at/after from_step (#1106)
+            replay_step_ids = set(all_step_ids[idx:])
+            ws.reset_steps_from(self._db, run_id, replay_step_ids)
+
+            # Step 5: Invalidate stale approvals and decisions (#1106)
+            approval_count = ws.cancel_pending_approval_requests(self._db, run_id)
+            decision_count = ws.expire_pending_decisions(self._db, run_id)
+
+        # For blocked runs, ensure the blocking gate step is re-evaluated (not skipped).
+        # When from_step is used and the blocked gate is before the replay point, from_step
+        # already places it in completed — don't discard it in that case.
+        if run["status"] == "blocked" and run.get("current_step_id") and not from_step:
             completed.discard(run["current_step_id"])
 
         # Rebuild step_results from persisted data
         step_results = self._rebuild_step_results(run_id)
 
+        # Prune step_results for replay so downstream steps see fresh context (#1106)
+        if from_step:
+            step_results = {k: v for k, v in step_results.items() if k in completed}
+
+        # Step 6: Short-circuit gate handlers when from_step jumps past (#1106)
+        current_step = run.get("current_step_id")
+        gate_is_before_replay = bool(from_step and current_step and current_step in completed)
+
         # Handle approval resolution for waiting_for_approval runs (#950)
-        if run["status"] == "waiting_for_approval":
+        if run["status"] == "waiting_for_approval" and not gate_is_before_replay:
             current_step_id = run.get("current_step_id")
             if current_step_id:
                 all_steps = ws.list_workflow_steps(self._db, run_id)
@@ -2306,7 +2325,7 @@ class WorkflowEngine:
                     self._preapproved_step_id = current_step_id
 
         # Handle human decision resolution for waiting_for_input runs
-        if run["status"] == "waiting_for_input":
+        if run["status"] == "waiting_for_input" and not gate_is_before_replay:
             pending = ws.get_pending_decision(self._db, run_id)
             if pending:
                 raise ValueError(
@@ -2437,13 +2456,36 @@ class WorkflowEngine:
         ws.update_workflow_run(self._db, run_id, heartbeat_at=_now())
         heartbeat_task = asyncio.create_task(self._heartbeat_loop(run_id))
 
+        resumed_payload: dict[str, Any] = {
+            "skip_completed": list(completed),
+            "prior_status": prior_status,
+        }
+        if from_step:
+            resumed_payload["from_step"] = from_step
+            resumed_payload["actor"] = actor
         await self._emit_event(
             run_id=run_id,
             event_type="run_resumed",
-            payload={"skip_completed": list(completed), "prior_status": prior_status},
+            payload=resumed_payload,
             definition=definition,
         )
         run = ws.get_workflow_run(self._db, run_id) or run
+
+        # Step 7: Emit replay_from_step audit event (#1106)
+        if from_step:
+            await self._emit_event(
+                run_id=run_id,
+                event_type="replay_from_step",
+                payload={
+                    "from_step": from_step,
+                    "actor": actor,
+                    "prior_current_step": run.get("current_step_id"),
+                    "pruned_step_ids": sorted(replay_step_ids),
+                    "prior_status": prior_status,
+                    "expired_approvals": approval_count,
+                    "expired_decisions": decision_count,
+                },
+            )
 
         try:
             inputs = {**(run.get("params") or {}), **(run.get("inputs") or {})}
@@ -3751,6 +3793,8 @@ class WorkflowEngine:
                 transcript_max_assistant_chars=transcript_cfg.max_assistant_chars if transcript_cfg else 4000,
                 transcript_max_tool_output_chars=transcript_cfg.max_tool_output_chars if transcript_cfg else 2000,
                 step_id=step_def.id,
+                db=self._db,
+                run_id=run["id"],
             )
         else:
             # Merge credential env into step env for opaque runners (#970)

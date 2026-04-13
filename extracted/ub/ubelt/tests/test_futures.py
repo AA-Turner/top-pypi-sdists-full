@@ -1,4 +1,26 @@
-def _process_backend_available():
+from __future__ import annotations
+
+import typing
+
+if typing.TYPE_CHECKING:
+    try:
+        from typing import assert_type
+    except ImportError:  # pragma: no cover
+        from typing_extensions import assert_type
+
+    import ubelt as ub
+
+    _typed_executor = ub.Executor(mode='serial')
+    _typed_future = _typed_executor.submit(int, '3')
+    assert_type(_typed_future.result(), int)
+    _typed_map_iter = _typed_executor.map(int, ['1', '2'])
+    assert_type(next(_typed_map_iter), int)
+    _typed_pool: ub.JobPool[int] = ub.JobPool(mode='serial')
+    _typed_pool.submit(int, '4')
+    assert_type(_typed_pool.join(), list[int])
+
+
+def _process_backend_available() -> bool:
     import multiprocessing as mp
 
     try:
@@ -10,13 +32,13 @@ def _process_backend_available():
         return True
 
 
-def test_job_pool_context_manager():
+def test_job_pool_context_manager() -> None:
     import ubelt as ub
 
-    def worker(data):
+    def worker(data: int) -> int:
         return data + 1
 
-    pool = ub.JobPool('thread', max_workers=16)
+    pool: ub.JobPool[int] = ub.JobPool('thread', max_workers=16)
     with pool:
         for data in ub.ProgIter(range(10), desc='submit jobs'):
             pool.submit(worker, data)
@@ -27,50 +49,49 @@ def test_job_pool_context_manager():
             final.append(info)
 
 
-def test_job_pool_clear_completed_thread():
+def test_job_pool_clear_completed_thread() -> None:
     import ubelt as ub
 
-    jobs = ub.JobPool(mode='thread', max_workers=2)
+    jobs: ub.JobPool[int] = ub.JobPool(mode='thread', max_workers=2)
+    with jobs:
+        for jobid in range(4):
+            jobs.submit(simple_worker, jobid)
 
-    for jobid in range(4):
-        jobs.submit(simple_worker, jobid)
+        for fs in jobs.as_completed():
+            fs.result()
 
-    for fs in jobs.as_completed():
-        fs.result()
-
-    assert len(jobs.jobs) > 0
-    jobs._clear_completed()
-    assert len(jobs.jobs) == 0
+        assert len(jobs.jobs) > 0
+        jobs._clear_completed()
+        assert len(jobs.jobs) == 0
 
 
-def test_job_pool_as_completed_prog_args():
+def test_job_pool_as_completed_prog_args() -> None:
     import ubelt as ub
 
-    def worker(data):
+    def worker(data: int) -> int:
         return data + 1
 
-    pool = ub.JobPool('thread', max_workers=1)
+    pool: ub.JobPool[int] = ub.JobPool('thread', max_workers=1)
+    with pool:
+        for data in ub.ProgIter(range(10), desc='submit jobs'):
+            pool.submit(worker, data)
 
-    for data in ub.ProgIter(range(10), desc='submit jobs'):
-        pool.submit(worker, data)
-
-    with ub.CaptureStdout() as cap:
-        final = list(
-            pool.as_completed(
-                desc='collect jobs', progkw={'verbose': 3, 'time_thresh': 0}
+        with ub.CaptureStdout() as cap:
+            final = list(
+                pool.as_completed(
+                    desc='collect jobs', progkw={'verbose': 3, 'time_thresh': 0}
+                )
             )
-        )
 
-    print(f'cap.text={cap.text}')
-    num_lines = len(cap.text.split('\n'))
-    num_jobs = len(pool.jobs)
-    assert num_lines > num_jobs
+        print(f'cap.text={cap.text}')
+        num_lines = len(cap.text.split('\n'))  # type: ignore
+        num_jobs = len(pool.jobs)
+        assert num_lines > num_jobs
 
-    print('final = {!r}'.format(final))
-    pool.shutdown()
+        print('final = {!r}'.format(final))
 
 
-def test_executor_timeout():
+def test_executor_timeout() -> None:
     import pytest
 
     pytest.skip(
@@ -82,7 +103,7 @@ def test_executor_timeout():
 
     import ubelt as ub
 
-    def long_job(n, t):
+    def long_job(n: int, t: float) -> None:
         for i in range(n):
             time.sleep(t)
 
@@ -101,7 +122,7 @@ def test_executor_timeout():
             print('ex_ = {!r}'.format(ex_))
 
 
-def test_job_pool_clear_completed():
+def test_job_pool_clear_completed() -> None:
     if not _process_backend_available():
         import pytest
 
@@ -111,18 +132,18 @@ def test_job_pool_clear_completed():
 
     import ubelt as ub
 
-    is_deleted = {}
-    weak_futures = {}
+    is_deleted: dict[int, bool] = {}
+    weak_futures: dict[int, typing.Any] = {}
 
-    jobs = ub.JobPool(mode='process', max_workers=4)
+    jobs: ub.JobPool[int] = ub.JobPool(mode='process', max_workers=4)
 
-    def make_finalizer(jobid):
-        def _finalizer():
+    def make_finalizer(jobid: int) -> typing.Callable[[], None]:
+        def _finalizer() -> None:
             is_deleted[jobid] = True
 
         return _finalizer
 
-    def debug_referrers():
+    def debug_referrers() -> None:
         if 0:
             referrers = ub.udict({})
             for jobid, ref in weak_futures.items():
@@ -133,23 +154,25 @@ def test_job_pool_clear_completed():
             print('is_deleted = {}'.format(ub.urepr(is_deleted, nl=1)))
             print('referrers = {}'.format(ub.urepr(referrers, nl=1)))
 
-    for jobid in range(10):
-        fs = jobs.submit(simple_worker, jobid)
-        weak_futures[jobid] = weakref.ref(fs)
-        is_deleted[jobid] = False
-        weakref.finalize(fs, make_finalizer(jobid))
-        del fs
+    with jobs:
+        for jobid in range(10):
+            fs = jobs.submit(simple_worker, jobid)
+            weak_futures[jobid] = weakref.ref(fs)
+            is_deleted[jobid] = False
+            weakref.finalize(fs, make_finalizer(jobid))
+            del fs
 
-    debug_referrers()
-    assert not any(is_deleted.values())
+        debug_referrers()
+        assert not any(is_deleted.values())
 
-    for fs in jobs.as_completed():
-        fs.result()
+        for fs in jobs.as_completed():
+            fs.result()
 
-    debug_referrers()
-    assert not any(is_deleted.values())
+        debug_referrers()
+        assert not any(is_deleted.values())
 
-    jobs._clear_completed()
+        jobs._clear_completed()
+    jobs.shutdown()
 
     debug_referrers()
 
@@ -159,18 +182,18 @@ def test_job_pool_clear_completed():
         if not any(is_deleted.values()):
             raise AssertionError
 
-    fs = None
+    fs = typing.cast(typing.Any, None)
 
     if 'pypy' not in platform.python_implementation().lower():
         if not all(is_deleted.values()):
             raise AssertionError
 
 
-def simple_worker(jobid):
+def simple_worker(jobid: int) -> int:
     return jobid
 
 
-def test_job_pool_transient():
+def test_job_pool_transient() -> None:
     if not _process_backend_available():
         import pytest
 
@@ -179,28 +202,31 @@ def test_job_pool_transient():
 
     import ubelt as ub
 
-    is_deleted = {}
-    weak_futures = {}
+    is_deleted: dict[int, bool] = {}
+    weak_futures: dict[int, typing.Any] = {}
 
-    jobs = ub.JobPool(mode='process', max_workers=4, transient=True)
+    jobs: ub.JobPool[int] = ub.JobPool(
+        mode='process', max_workers=4, transient=True
+    )
 
-    def make_finalizer(jobid):
-        def _finalizer():
+    def make_finalizer(jobid: int) -> typing.Callable[[], None]:
+        def _finalizer() -> None:
             is_deleted[jobid] = True
 
         return _finalizer
 
-    for jobid in range(10):
-        fs = jobs.submit(simple_worker, jobid)
-        weak_futures[jobid] = weakref.ref(fs)
-        is_deleted[jobid] = False
-        weakref.finalize(fs, make_finalizer(jobid))
+    with jobs:
+        for jobid in range(10):
+            fs = jobs.submit(simple_worker, jobid)
+            weak_futures[jobid] = weakref.ref(fs)
+            is_deleted[jobid] = False
+            weakref.finalize(fs, make_finalizer(jobid))
 
-    if any(is_deleted.values()):
-        raise AssertionError
+        if any(is_deleted.values()):
+            raise AssertionError
 
-    for fs in jobs.as_completed():
-        fs.result()
+        for fs in jobs.as_completed():
+            fs.result()
 
     # For 3.6, pytest has an AST issue if and assert statements are used.
     # raising regular AssertionErrors to handle that.
@@ -210,27 +236,30 @@ def test_job_pool_transient():
         if not any(is_deleted.values()):
             raise AssertionError
 
-    fs = None
+    fs = typing.cast(typing.Any, None)
 
     if 'pypy' not in platform.python_implementation().lower():
         if not all(is_deleted.values()):
             raise AssertionError
 
 
-def test_job_pool_transient_thread():
+def test_job_pool_transient_thread() -> None:
     import ubelt as ub
 
-    jobs = ub.JobPool(mode='thread', max_workers=2, transient=True)
-    for jobid in range(4):
-        jobs.submit(simple_worker, jobid)
+    jobs: ub.JobPool[int] = ub.JobPool(
+        mode='thread', max_workers=2, transient=True
+    )
+    with jobs:
+        for jobid in range(4):
+            jobs.submit(simple_worker, jobid)
 
-    for fs in jobs.as_completed():
-        fs.result()
+        for fs in jobs.as_completed():
+            fs.result()
 
-    assert jobs.jobs == []
+        assert jobs.jobs == []
 
 
-def test_backends():
+def test_backends() -> None:
     import platform
     import sys
 
@@ -252,27 +281,23 @@ def test_backends():
     # Fork before threading!
     # https://pybay.com/site_media/slides/raymond2017-keynote/combo.html
     self1 = ub.Executor(mode='serial', max_workers=0)
-    self1.__enter__()
     self2 = ub.Executor(mode='process', max_workers=2)
-    self2.__enter__()
     self3 = ub.Executor(mode='thread', max_workers=2)
-    self3.__enter__()
-    jobs = []
-    jobs.append(self1.submit(sum, [1, 2, 3]))
-    jobs.append(self1.submit(sum, [1, 2, 3]))
-    jobs.append(self2.submit(sum, [10, 20, 30]))
-    jobs.append(self2.submit(sum, [10, 20, 30]))
-    jobs.append(self3.submit(sum, [4, 5, 5]))
-    jobs.append(self3.submit(sum, [4, 5, 5]))
-    for job in jobs:
-        result = job.result()
-        print('result = {!r}'.format(result))
-    self1.__exit__(None, None, None)
-    self2.__exit__(None, None, None)
-    self3.__exit__(None, None, None)
+
+    with self1, self2, self3:
+        jobs = []
+        jobs.append(self1.submit(sum, [1, 2, 3]))
+        jobs.append(self1.submit(sum, [1, 2, 3]))
+        jobs.append(self2.submit(sum, [10, 20, 30]))
+        jobs.append(self2.submit(sum, [10, 20, 30]))
+        jobs.append(self3.submit(sum, [4, 5, 5]))
+        jobs.append(self3.submit(sum, [4, 5, 5]))
+        for job in jobs:
+            result = job.result()
+            print('result = {!r}'.format(result))
 
 
-def test_done_callback():
+def test_done_callback() -> None:
     import ubelt as ub
 
     self1 = ub.Executor(mode='serial', max_workers=0)
@@ -288,7 +313,7 @@ def test_done_callback():
             print('result = {!r}'.format(result))
 
 
-def _killable_worker(kill_fpath):
+def _killable_worker(kill_fpath: typing.Any) -> None:
     """
     An infinite loop that we can kill by writing a sentinel value to disk
     """
@@ -303,7 +328,7 @@ def _killable_worker(kill_fpath):
             return
 
 
-def _sleepy_worker(seconds, loops=100):
+def _sleepy_worker(seconds: float, loops: int = 100) -> float | None:
     """
     An infinite loop that we can kill by writing a sentinel value to disk
     """
@@ -317,7 +342,7 @@ def _sleepy_worker(seconds, loops=100):
             return elapsed
 
 
-def test_as_completed_timeout():
+def test_as_completed_timeout() -> None:
     """
     xdoctest ~/code/ubelt/tests/test_futures.py test_as_completed_timeout
     """
@@ -338,7 +363,7 @@ def test_as_completed_timeout():
     kill_fpath = dpath / kill_fname
 
     for mode in modes:
-        jobs = ub.JobPool(mode=mode, max_workers=2)
+        jobs: ub.JobPool[float | None] = ub.JobPool(mode=mode, max_workers=2)
         with jobs:
             print('Submitting')
             timer = ub.Timer().tic()

@@ -187,7 +187,7 @@ class TestEmbeddingServiceTokenRefresh:
         service._set_token_provider(provider)
 
         # Patch AsyncOpenAI to return fresh_client on re-creation
-        with patch("anteroom.services.embeddings.AsyncOpenAI", return_value=fresh_client):
+        with patch("openai.AsyncOpenAI", return_value=fresh_client):
             result = await service.embed("hello world")
 
         assert result == [0.1, 0.2]
@@ -236,7 +236,7 @@ class TestEmbeddingServiceTokenRefresh:
         provider.get_token = MagicMock(return_value="new-token")
         service._set_token_provider(provider)
 
-        with patch("anteroom.services.embeddings.AsyncOpenAI", return_value=fresh_client):
+        with patch("openai.AsyncOpenAI", return_value=fresh_client):
             results = await service.embed_batch(["hello", "world"])
 
         assert results == [[0.1], [0.2]]

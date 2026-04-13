@@ -8,7 +8,8 @@ Directory structure::
 
     local/
         skills/
-            my-skill.yaml
+            my-skill/
+                SKILL.md
         rules/
             my-rule.md
         instructions/
@@ -54,7 +55,7 @@ _TYPE_DIRS: dict[str, str] = {
 }
 
 _EXT_MAP: dict[str, tuple[str, ...]] = {
-    ArtifactType.SKILL: (".yaml", ".yml"),
+    ArtifactType.SKILL: (".md",),
     ArtifactType.RULE: (".md", ".txt"),
     ArtifactType.INSTRUCTION: (".md", ".txt"),
     ArtifactType.CONTEXT: (".md", ".txt", ".json"),
@@ -86,6 +87,34 @@ def discover_local_artifacts(
         if not subdir.is_dir():
             continue
 
+        # Skills use directory-based layout: skills/<name>/SKILL.md
+        if art_type == ArtifactType.SKILL:
+            for path in sorted(subdir.glob("*/SKILL.md")):
+                name = path.parent.name.lower()
+                content = _read_content(path, art_type)
+                if content is None:
+                    continue
+
+                try:
+                    fqn = build_fqn(_LOCAL_NAMESPACE, art_type.value, name)
+                except ValueError:
+                    logger.warning("Invalid artifact name %s in %s, skipping", name, subdir)
+                    continue
+
+                artifacts.append(
+                    {
+                        "fqn": fqn,
+                        "type": art_type.value,
+                        "namespace": _LOCAL_NAMESPACE,
+                        "name": name,
+                        "content": content,
+                        "source": ArtifactSource.LOCAL,
+                        "path": str(path),
+                    }
+                )
+            continue
+
+        # All other types use flat-file layout
         valid_exts = _EXT_MAP.get(art_type, (".yaml", ".yml", ".md", ".txt"))
         for path in sorted(subdir.iterdir()):
             if not path.is_file():
@@ -221,7 +250,21 @@ def scaffold_local_artifact(
     else:
         base = data_dir / _LOCAL_DIR / subdir_name
 
-    ext = ".yaml" if art_type in (ArtifactType.SKILL, ArtifactType.MCP_SERVER, ArtifactType.CONFIG_OVERLAY) else ".md"
+    # Skills use directory-based layout: skills/<name>/SKILL.md
+    if art_type == ArtifactType.SKILL:
+        skill_dir = base / name
+        path = skill_dir / "SKILL.md"
+
+        if path.exists():
+            msg = f"Artifact already exists: {path}"
+            raise ValueError(msg)
+
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        template = _get_template(art_type, name)
+        path.write_text(template, encoding="utf-8")
+        return path
+
+    ext = ".yaml" if art_type in (ArtifactType.MCP_SERVER, ArtifactType.CONFIG_OVERLAY) else ".md"
     path = base / f"{name}{ext}"
 
     if path.exists():
@@ -255,7 +298,7 @@ def _read_content(path: Path, art_type: ArtifactType) -> str | None:
 def _get_template(art_type: ArtifactType, name: str) -> str:
     """Return a template for a new local artifact."""
     if art_type == ArtifactType.SKILL:
-        return f"name: {name}\ndescription: TODO\ncontent: |\n  TODO: skill prompt here\n"
+        return f"---\nname: {name}\ndescription: TODO\n---\n\nTODO: skill prompt here\n"
     if art_type in (ArtifactType.MCP_SERVER, ArtifactType.CONFIG_OVERLAY):
         return f"# {name}\n# TODO: add configuration\n"
     return f"# {name}\n\nTODO: add content here\n"

@@ -56,6 +56,7 @@ from aiohomematic_config.schedule_facade import (
     set_climate_active_profile,
     set_climate_schedule_weekday,
     set_device_schedule,
+    set_schedule_enabled,
 )
 from aiohomematic_config.session import ConfigSession
 from aiohomematic_config.widgets import WidgetType, determine_widget
@@ -109,6 +110,7 @@ __all__ = [
     "set_climate_active_profile",
     "set_climate_schedule_weekday",
     "set_device_schedule",
+    "set_schedule_enabled",
     # session
     "ConfigSession",
     # widgets

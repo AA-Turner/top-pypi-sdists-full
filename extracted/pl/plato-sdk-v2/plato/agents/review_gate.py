@@ -61,12 +61,22 @@ class ReviewGateResult:
     verdict: str | None = None
 
 
+@dataclass(frozen=True)
+class ReviewGateMergeResult:
+    """Outcome of the post-review merge attempt."""
+
+    merged: bool
+    conflict_files: list[str] = field(default_factory=list)
+    error: str = ""
+
+
 def attach_review_gate(
     runner: AgentTask,
     *,
     review_fn: Callable[[str], Awaitable[ReviewGateResult]],
     branch_name: str,
-    merge_fn: Callable[[], Awaitable[bool]] | None = None,
+    merge_fn: Callable[[], Awaitable[bool | ReviewGateMergeResult]] | None = None,
+    reviewed_commit_fn: Callable[[], str | None] | None = None,
     max_continuations: int = 2,
     checkpoint_fn: Callable[[str], Awaitable[None]] | None = None,
     result_dir: Path | None = None,
@@ -84,6 +94,8 @@ def attach_review_gate(
         review_fn: Async function that takes the agent hostname and returns a ReviewGateResult.
         branch_name: Git branch name for span naming and result persistence.
         merge_fn: Optional async function that merges the branch. Returns True on success.
+        reviewed_commit_fn: Optional function that returns the commit SHA currently
+            under review. Attached to the span as ``plato.review.commit_sha`` when available.
         max_continuations: Max retry attempts after the initial run.
         checkpoint_fn: Optional async function called after successful merge.
         result_dir: Optional directory to persist review results as JSON.
@@ -106,6 +118,7 @@ def attach_review_gate(
             f"pr_review.{branch_name}",
             attributes={"plato.review.branch": branch_name},
         ) as review_span:
+            reviewed_commit = reviewed_commit_fn() if reviewed_commit_fn is not None else None
             gate_result = await review_fn(hostname)
 
             result_dict = gate_result.result_data
@@ -113,30 +126,51 @@ def attach_review_gate(
 
             # If review passed, attempt merge as part of the same review cycle
             merge_status = None
+            merge_conflict_files: list[str] = []
+            merge_error = ""
             if overall_passed and merge_fn is not None:
                 try:
-                    merged = await merge_fn()
+                    merge_result = await merge_fn()
+                    if isinstance(merge_result, ReviewGateMergeResult):
+                        merged = merge_result.merged
+                        merge_conflict_files = list(merge_result.conflict_files)
+                        merge_error = merge_result.error
+                    else:
+                        merged = merge_result
                     if merged:
                         merge_status = "merged"
                         logger.info("Merged branch %s to main", branch_name)
                         if checkpoint_fn:
                             await checkpoint_fn(f"merged.{branch_name.replace('/', '.')}")
                     else:
-                        merge_status = "conflict"
                         overall_passed = False
-                        gate_result.feedback = (
-                            "Your code passed review but has merge conflicts with main. "
-                            "Pull the latest main into your branch, resolve conflicts, "
-                            "and commit."
-                        )
-                        logger.warning("Merge conflict for branch %s", branch_name)
+                        if merge_conflict_files:
+                            merge_status = "conflict"
+                            feedback = [
+                                "Your code passed review but has merge conflicts with main.",
+                            ]
+                            feedback.append(
+                                "Conflicting files:\n" + "\n".join(f"- {path}" for path in merge_conflict_files)
+                            )
+                            feedback.append("Pull the latest main into your branch, resolve conflicts, and commit.")
+                            gate_result.feedback = "\n\n".join(feedback)
+                            logger.warning("Merge conflict for branch %s", branch_name)
+                        else:
+                            merge_status = "error"
+                            merge_error = merge_error or "merge returned merged=False without conflict files"
+                            gate_result.feedback = (
+                                "Your code passed review but could not be merged automatically.\n\n"
+                                f"Merge error: {merge_error}\n\n"
+                                "Re-run the task or inspect the git state before making code changes."
+                            )
+                            logger.warning("Merge error for branch %s: %s", branch_name, merge_error)
                 except Exception as exc:
-                    merge_status = f"error: {exc}"
+                    merge_status = "error"
                     overall_passed = False
+                    merge_error = str(exc)
                     gate_result.feedback = (
                         f"Your code passed review but could not be merged: {exc}\n"
-                        "Pull the latest main into your branch, resolve conflicts, "
-                        "and commit."
+                        "Re-run the task or inspect the git state before making code changes."
                     )
                     logger.error("Merge error for branch %s: %s", branch_name, exc)
 
@@ -146,12 +180,27 @@ def attach_review_gate(
             _last_result["feedback"] = gate_result.feedback
             _last_result["score"] = gate_result.score
             _last_result["verdict"] = gate_result.verdict
+            if reviewed_commit:
+                _last_result["reviewed_commit_sha"] = reviewed_commit
+            if merge_conflict_files:
+                _last_result["merge_conflict_files"] = merge_conflict_files
+            if merge_error:
+                _last_result["merge_error"] = merge_error
             if merge_status is not None:
                 _last_result["merge_status"] = merge_status
             _review_history.append(dict(_last_result))
 
             # Attach final attributes to the span (includes merge outcome)
             review_span.set_attribute("plato.review.passed", overall_passed)
+            if reviewed_commit:
+                result_dict["reviewed_commit_sha"] = reviewed_commit
+                review_span.set_attribute("plato.review.commit_sha", reviewed_commit)
+            if merge_conflict_files:
+                result_dict["merge_conflict_files"] = merge_conflict_files
+                review_span.set_attribute("plato.merge.conflict_files", json.dumps(merge_conflict_files))
+            if merge_error:
+                result_dict["merge_error"] = merge_error
+                review_span.set_attribute("plato.merge.error", merge_error[:4000])
             if merge_status is not None:
                 result_dict["merge_status"] = merge_status
             review_json = json.dumps(result_dict, default=str)
@@ -191,16 +240,23 @@ def attach_review_gate(
 
         feedback = _last_result.get("feedback", "")
         merge_status = _last_result.get("merge_status")
+        merge_error = str(_last_result.get("merge_error", ""))
 
-        if merge_status and merge_status != "merged":
+        if merge_status == "conflict":
             parts = [
                 f"Your code passed the automated review (attempt {len(_review_history)}), "
                 "but could not be merged into main due to conflicts."
+            ]
+        elif merge_status and merge_status != "merged":
+            parts = [
+                f"Your code passed the automated review (attempt {len(_review_history)}), but the merge step failed."
             ]
         else:
             parts = [f"Your code did not pass the automated review (attempt {len(_review_history)})."]
         if feedback:
             parts.append(f"Here is the review feedback:\n\n{feedback}")
+        elif merge_error:
+            parts.append(f"Merge error: {merge_error}")
         else:
             parts.append("No detailed feedback available — re-run validate.sh to check for errors.")
 

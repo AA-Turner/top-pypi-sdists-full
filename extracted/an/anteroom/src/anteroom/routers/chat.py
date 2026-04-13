@@ -37,11 +37,10 @@ router = APIRouter(tags=["chat"])
 _CANVAS_STREAMING_TOOLS = {"create_canvas", "update_canvas"}
 MAX_CANVAS_ARGS_ACCUM = 100_000 + 1024
 
-# Workflow cancel-intent patterns — compiled once at module level (#890)
-_CANCEL_INTENT_PATTERNS = [
-    re.compile(r"\b(cancel|stop|abort|halt|kill)\b.*\b(workflow|run|task)\b", re.IGNORECASE),
-    re.compile(r"^(cancel|stop|abort)$", re.IGNORECASE),
-]
+# Per-conversation disambiguation state for workflow follow-up routing (#889).
+# Maps conversation_id → list of active_runs that were presented in an ask_user
+# prompt. Cleared on successful resolution or when the conversation changes topic.
+_PENDING_DISAMBIGUATION: dict[str, list[dict[str, Any]]] = {}
 
 
 def _extract_streaming_content(accumulated_args: str) -> str | None:
@@ -1837,18 +1836,63 @@ async def chat(conversation_id: str, request: Request) -> Any:
     if not regenerate and not message_text.strip():
         raise HTTPException(status_code=400, detail="Message content cannot be empty")
 
-    # Workflow cancel-intent detection (#890)
+    # Workflow follow-up message routing (#889, supersedes #890 cancel-only detection)
     if not regenerate and message_text.strip():
-        if any(p.search(message_text.strip()) for p in _CANCEL_INTENT_PATTERNS):
-            try:
-                from ..services.workflow_storage import get_active_run_for_conversation
+        try:
+            from ..services.message_router import route_message
+            from ..services.workflow_storage import emit_workflow_run_input, list_active_runs_for_conversation
 
-                active_run = get_active_run_for_conversation(db, conversation_id)
-                if active_run:
+            active_runs = list_active_runs_for_conversation(db, conversation_id)
+            if active_runs:
+                from ..services.message_router import resolve_disambiguation
+
+                # Check if the previous turn was a disambiguation prompt.
+                # If so, the user's reply MUST resolve to a run or we
+                # re-prompt — never silently fall through to fresh routing.
+                _was_disambiguating = _PENDING_DISAMBIGUATION.pop(conversation_id, None)
+
+                if _was_disambiguating:
+                    resolved_id = resolve_disambiguation(message_text.strip(), _was_disambiguating)
+                    if resolved_id is not None:
+                        selected = [r for r in _was_disambiguating if r["id"] == resolved_id]
+                        route = route_message(message_text.strip(), selected or _was_disambiguating)
+                    else:
+                        # Failed to resolve — re-prompt
+                        _PENDING_DISAMBIGUATION[conversation_id] = _was_disambiguating
+
+                        async def _re_clarify_stream() -> Any:
+                            yield {
+                                "event": "message",
+                                "data": json.dumps(
+                                    {
+                                        "type": "workflow_clarification_needed",
+                                        "clarification": (
+                                            "Could not match your reply to a workflow run. "
+                                            "Reply with the number, workflow name, or run id prefix."
+                                        ),
+                                    }
+                                ),
+                            }
+                            yield {"event": "message", "data": json.dumps({"type": "done"})}
+
+                        return EventSourceResponse(_re_clarify_stream())
+                else:
+                    resolved_id = resolve_disambiguation(message_text.strip(), active_runs)
+                    if resolved_id is not None:
+                        selected = [r for r in active_runs if r["id"] == resolved_id]
+                        route = route_message(message_text.strip(), selected or active_runs)
+                    else:
+                        route = route_message(message_text.strip(), active_runs)
+
+                if route.action == "cancel":
                     from ..services.workflow_engine import WorkflowEngine
 
                     event_bus = getattr(request.app.state, "event_bus", None)
-                    updated = await WorkflowEngine.request_cancel(db, active_run["id"], event_bus=event_bus)
+                    updated = await WorkflowEngine.request_cancel(
+                        db,
+                        route.target_run_id,
+                        event_bus=event_bus,  # type: ignore[arg-type]
+                    )
 
                     async def _cancel_stream() -> Any:
                         yield {
@@ -1856,7 +1900,7 @@ async def chat(conversation_id: str, request: Request) -> Any:
                             "data": json.dumps(
                                 {
                                     "type": "workflow_cancel_requested",
-                                    "run_id": active_run["id"],
+                                    "run_id": route.target_run_id,
                                     "status": updated["status"],
                                 }
                             ),
@@ -1864,8 +1908,61 @@ async def chat(conversation_id: str, request: Request) -> Any:
                         yield {"event": "message", "data": json.dumps({"type": "done"})}
 
                     return EventSourceResponse(_cancel_stream())
-            except Exception:
-                logger.debug("Workflow cancel-intent detection failed", exc_info=True)
+
+                if route.action in ("attach", "update"):
+                    emit_workflow_run_input(
+                        db,
+                        route.target_run_id,  # type: ignore[arg-type]
+                        message_text.strip(),
+                        route.action,
+                    )
+
+                    async def _routed_stream() -> Any:
+                        yield {
+                            "event": "message",
+                            "data": json.dumps(
+                                {
+                                    "type": "workflow_input_routed",
+                                    "run_id": route.target_run_id,
+                                    "action": route.action,
+                                }
+                            ),
+                        }
+                        yield {"event": "message", "data": json.dumps({"type": "done"})}
+
+                    return EventSourceResponse(_routed_stream())
+
+                if route.action == "replace":
+                    from ..services.workflow_engine import WorkflowEngine
+
+                    event_bus = getattr(request.app.state, "event_bus", None)
+                    await WorkflowEngine.request_cancel(
+                        db,
+                        route.target_run_id,
+                        event_bus=event_bus,  # type: ignore[arg-type]
+                    )
+                    # Fall through to normal chat flow to spawn new work
+
+                if route.action == "ask_user":
+                    _PENDING_DISAMBIGUATION[conversation_id] = active_runs
+
+                    async def _clarify_stream() -> Any:
+                        yield {
+                            "event": "message",
+                            "data": json.dumps(
+                                {
+                                    "type": "workflow_clarification_needed",
+                                    "clarification": route.clarification,
+                                }
+                            ),
+                        }
+                        yield {"event": "message", "data": json.dumps({"type": "done"})}
+
+                    return EventSourceResponse(_clarify_stream())
+
+                # action == "spawn" falls through to normal chat flow
+        except Exception:
+            logger.debug("Workflow follow-up routing failed", exc_info=True)
 
     uid, uname = _get_identity(request)
 

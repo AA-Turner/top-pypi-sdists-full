@@ -30,7 +30,7 @@ class TestClientConfiguration:
     def test_default_timeout_applied(self):
         """httpx client must be built with the configured request_timeout as read timeout."""
         config = _make_config(request_timeout=60)
-        with patch("anteroom.services.ai_service.AsyncOpenAI") as mock_openai:
+        with patch("openai.AsyncOpenAI") as mock_openai:
             AIService(config)
             call_kwargs = mock_openai.call_args[1]
             http_client = call_kwargs["http_client"]
@@ -40,7 +40,7 @@ class TestClientConfiguration:
     def test_connect_timeout_uses_config(self):
         """Connect timeout must use config.connect_timeout (default 5s)."""
         config = _make_config(request_timeout=300)
-        with patch("anteroom.services.ai_service.AsyncOpenAI") as mock_openai:
+        with patch("openai.AsyncOpenAI") as mock_openai:
             AIService(config)
             http_client = mock_openai.call_args[1]["http_client"]
             assert http_client.timeout.connect == 5.0
@@ -48,7 +48,7 @@ class TestClientConfiguration:
     def test_connect_timeout_custom(self):
         """Connect timeout must honor custom config value."""
         config = _make_config(connect_timeout=8)
-        with patch("anteroom.services.ai_service.AsyncOpenAI") as mock_openai:
+        with patch("openai.AsyncOpenAI") as mock_openai:
             AIService(config)
             http_client = mock_openai.call_args[1]["http_client"]
             assert http_client.timeout.connect == 8.0
@@ -56,8 +56,8 @@ class TestClientConfiguration:
     def test_verify_ssl_true_by_default(self):
         """SSL verification must be enabled by default — AsyncClient built with verify=True."""
         config = _make_config(verify_ssl=True)
-        with patch("anteroom.services.ai_service.httpx.AsyncClient") as mock_client_cls:
-            with patch("anteroom.services.ai_service.AsyncOpenAI"):
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            with patch("openai.AsyncOpenAI"):
                 AIService(config)
             _, kwargs = mock_client_cls.call_args
             assert "verify" in kwargs, "verify must be explicitly passed to AsyncClient"
@@ -66,8 +66,8 @@ class TestClientConfiguration:
     def test_verify_ssl_false_when_configured(self):
         """SSL verification must be disabled when verify_ssl: false is explicitly set."""
         config = _make_config(verify_ssl=False)
-        with patch("anteroom.services.ai_service.httpx.AsyncClient") as mock_client_cls:
-            with patch("anteroom.services.ai_service.AsyncOpenAI"):
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            with patch("openai.AsyncOpenAI"):
                 AIService(config)
             _, kwargs = mock_client_cls.call_args
             assert kwargs.get("verify") is False
@@ -928,7 +928,7 @@ class TestBuildClientCleanup:
         """_build_client must schedule close() on the old httpx client to prevent resource leaks."""
         config = _make_config()
 
-        with patch("anteroom.services.ai_service.AsyncOpenAI"):
+        with patch("openai.AsyncOpenAI"):
             service = AIService.__new__(AIService)
             service.config = config
             service._token_provider = None
@@ -951,7 +951,7 @@ class TestBuildClientCleanup:
     def test_rebuild_without_existing_client(self):
         """_build_client must not fail when called for the first time (no old client)."""
         config = _make_config()
-        with patch("anteroom.services.ai_service.AsyncOpenAI"):
+        with patch("openai.AsyncOpenAI"):
             service = AIService(config)
             # Should not raise — client attribute is set for the first time
             assert service.client is not None
@@ -960,7 +960,7 @@ class TestBuildClientCleanup:
         """_build_client must not raise when no event loop is running (e.g., during __init__)."""
         config = _make_config()
 
-        with patch("anteroom.services.ai_service.AsyncOpenAI"):
+        with patch("openai.AsyncOpenAI"):
             service = AIService.__new__(AIService)
             service.config = config
             service._token_provider = None
@@ -979,7 +979,7 @@ class TestBuildClientCleanup:
         """_build_client must not fail when old client has no _client attribute."""
         config = _make_config()
 
-        with patch("anteroom.services.ai_service.AsyncOpenAI"):
+        with patch("openai.AsyncOpenAI"):
             service = AIService.__new__(AIService)
             service.config = config
             service._token_provider = None
@@ -995,7 +995,7 @@ class TestBuildClientCleanup:
         """_build_client must not fail if old_http.close() raises."""
         config = _make_config()
 
-        with patch("anteroom.services.ai_service.AsyncOpenAI"):
+        with patch("openai.AsyncOpenAI"):
             service = AIService.__new__(AIService)
             service.config = config
             service._token_provider = None

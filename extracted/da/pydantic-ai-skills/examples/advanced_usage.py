@@ -8,7 +8,7 @@ import logfire
 import uvicorn
 from dotenv import load_dotenv
 from langchain_community.tools import DuckDuckGoSearchRun
-from pydantic_ai import Agent, RunContext
+from pydantic_ai import Agent
 from pydantic_ai.ext.langchain import tool_from_langchain
 from pydantic_ai.mcp import MCPServerStdio
 from pydantic_ai.tools import DeferredToolRequests
@@ -24,10 +24,14 @@ logfire.instrument_pydantic_ai()
 script_dir = Path(__file__).parent
 skills_toolset = SkillsToolset(directories=[script_dir / 'skills', script_dir / 'anthropic-skills'])
 
+# Create tmp directory for MCP filesystem server
+tmp_dir = script_dir / 'tmp'
+tmp_dir.mkdir(exist_ok=True)
+
 # Initialize MCP filesystem server
 fs_toolset = MCPServerStdio(
     'npx',
-    args=['@modelcontextprotocol/server-filesystem', str(script_dir / 'tmp')],
+    args=['@modelcontextprotocol/server-filesystem', str(tmp_dir)],
     timeout=30,
 )
 
@@ -42,12 +46,6 @@ agent = Agent(
     tools=[search_tool],
     output_type=[str, DeferredToolRequests],
 )
-
-
-@agent.instructions
-async def add_skills(ctx: RunContext) -> str | None:
-    """Add skills instructions to the agent's context."""
-    return await skills_toolset.get_instructions(ctx)
 
 
 @agent.instructions

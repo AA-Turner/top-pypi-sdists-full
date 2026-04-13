@@ -1,4 +1,7 @@
+__version__ = '2.7.5'
+
 from ascii_magic.ascii_art_font import AsciiArtFont
+from ascii_magic.color_data import ColorData
 from ascii_magic.constants import (
     Front,
     Back,
@@ -7,6 +10,8 @@ from ascii_magic.constants import (
     DEFAULT_STYLES,
     PALETTE,
     DEFAULT_GEMINI_MODEL,
+    RESAMPLING_METHOD,
+    PILLOW_VERSION,
 )
 
 from PIL import Image, ImageDraw, ImageEnhance
@@ -14,15 +19,18 @@ from PIL import Image, ImageDraw, ImageEnhance
 import io
 import json
 import os
+import typing as t
 import urllib.request
 import urllib.parse
+import warnings
 import webbrowser
 from time import time
-from typing import Optional, Union, Literal
 
 
 class AsciiArt:
-    __VERSION__ = 2.7
+    __VERSION__ = __version__
+    __PILLOW_VERSION__ = PILLOW_VERSION
+    _image: Image.Image
 
     def __init__(self, image: Image.Image):
         self._image = image
@@ -32,18 +40,18 @@ class AsciiArt:
         return self._image
 
     @image.setter
-    def image(self, value):
+    def image(self, value: Image.Image):
         self._image = value
 
     def to_ascii(
         self,
         columns: int = 120,
         width_ratio: float = 2.2,
-        char: Optional[str] = None,
+        char: "t.Optional[str]" = None,
         monochrome: bool = False,
         enhance_image: bool = False,
-        back: Optional[Back] = None,
-        front: Optional[Front] = None,
+        back: "t.Optional[Back]" = None,
+        front: "t.Optional[Front]" = None,
         debug: bool = False,
     ):
         art = self._img_to_art(
@@ -65,11 +73,11 @@ class AsciiArt:
         self,
         columns: int = 120,
         width_ratio: float = 2.2,
-        char: Optional[str] = None,
+        char: "t.Optional[str]" = None,
         enhance_image: bool = False,
         monochrome: bool = False,
-        back: Optional[Back] = None,
-        front: Optional[Front] = None,
+        back: "t.Optional[Back]" = None,
+        front: "t.Optional[Front]" = None,
         debug: bool = False,
     ):
         art = self._img_to_art(
@@ -92,11 +100,11 @@ class AsciiArt:
         path: str,
         columns: int = 120,
         width_ratio: float = 2.2,
-        char: Optional[str] = None,
+        char: "t.Optional[str]" = None,
         enhance_image: bool = False,
         monochrome: bool = False,
-        back: Optional[Back] = None,
-        front: Optional[Front] = None,
+        back: "t.Optional[Back]" = None,
+        front: "t.Optional[Front]" = None,
         debug: bool = False,
     ):
         art = self._img_to_art(
@@ -117,20 +125,20 @@ class AsciiArt:
     def to_image_file(
         self,
         path: str,
-        width: Union[int, Literal['auto']] = 'auto',
-        height: Union[int, Literal['auto']] = 'auto',
+        width: "t.Union[int, t.Literal['auto']]" = 'auto',
+        height: "t.Union[int, t.Literal['auto']]" = 'auto',
         border_width: int = 2,
         stroke_width: float = 0.5,
-        file_type: Literal['PNG', 'JPG', 'GIF', 'WEBP'] = 'PNG',
+        file_type: "t.Literal['PNG', 'JPG', 'GIF', 'WEBP']" = 'PNG',
         font: str = 'courier_prime.ttf',
         columns: int = 120,
-        width_ratio: Union[float, Literal['auto']] = 'auto',
-        char: Optional[str] = None,
+        width_ratio: "t.Union[float, t.Literal['auto']]" = 'auto',
+        char: "t.Optional[str]" = None,
         enhance_image: bool = False,
         monochrome: bool = False,
         full_color: bool = False,
-        front: Optional[Union[Front, str]] = None,
-        back: Union[Back, str] = '#000000',
+        front: "t.Optional[t.Union[Front, str]]" = None,
+        back: "t.Union[Back, str]" = '#000000',
         debug: bool = False,
     ):
         try:
@@ -163,7 +171,7 @@ class AsciiArt:
             width=width,
             height=height,
             border_width=border_width,
-            stroke_width=stroke_width,
+            stroke_width=stroke_width if PILLOW_VERSION >= '9.0.0' else int(stroke_width),
             file_type=file_type,
             monochrome=monochrome,
             full_color=full_color,
@@ -176,7 +184,7 @@ class AsciiArt:
         self,
         columns: int = 120,
         width_ratio: float = 2.2,
-        char: Optional[str] = None,
+        char: "t.Optional[str]" = None,
         enhance_image: bool = False,
         monochrome: bool = False,
         full_color: bool = False,
@@ -201,7 +209,7 @@ class AsciiArt:
         path: str,
         columns: int = 120,
         width_ratio: float = 2.2,
-        char: Optional[str] = None,
+        char: "t.Optional[str]" = None,
         enhance_image: bool = False,
         monochrome: bool = False,
         full_color: bool = True,
@@ -235,13 +243,13 @@ class AsciiArt:
         self,
         columns: int = 120,
         width_ratio: float = 2.2,
-        char: Optional[str] = None,
+        char: "t.Optional[str]" = None,
         monochrome: bool = False,
         full_color: bool = False,
-        back: Optional[Back] = None,
-        front: Optional[Front] = None,
+        back: "t.Optional[Back]" = None,
+        front: "t.Optional[Front]" = None,
         debug: bool = False,
-    ) -> list[list[dict]]:
+    ) -> "t.List[t.List[t.Dict[str, str]]]":
         art = self._img_to_art(
             mode=Modes.OBJECT,
             columns=columns,
@@ -255,21 +263,32 @@ class AsciiArt:
         )
         if isinstance(art, str):
             raise Exception('_img_to_art() returned a string in OBJECT mode')
-        return art
+        return [
+            [
+                {
+                    'character': art.character,
+                    'terminal-color': art.terminal_color,
+                    'terminal-hex-color': art.terminal_hex_color,
+                    'full-hex-color': art.full_hex_color,
+                }
+                for art in line
+            ]
+            for line in art
+        ]
 
     def _img_to_art(
         self,
         columns: int = 120,
         width_ratio: float = 2.2,
-        char: Optional[str] = None,
+        char: "t.Optional[str]" = None,
         mode: Modes = Modes.TERMINAL,
         enhance_image: bool = False,
         monochrome: bool = False,
         full_color: bool = False,
-        front: Optional[Union[Front, str]] = None,
-        back: Optional[Union[Back, str]] = None,
+        front: "t.Optional[t.Union[Front, str]]" = None,
+        back: "t.Optional[t.Union[Back, str]]" = None,
         debug: bool = False,
-    ) -> Union[str, list[list[dict]]]:
+    ) -> "t.Union[str, t.List[t.List[ColorData]]]":
         if monochrome and full_color:
             full_color = False
 
@@ -305,9 +324,9 @@ class AsciiArt:
             rgb_img.save('rgb.jpg')
             grayscale_img.save('grayscale.jpg')
 
-        lines = []
+        lines: "t.List[t.List[ColorData]]" = []
         for h in range(img_h):
-            line = []
+            line: "t.List[ColorData]" = []
             for w in range(img_w):
                 # get brightness value
                 brightness = self.get_brightness_value(grayscale_img, w, h)
@@ -330,7 +349,7 @@ class AsciiArt:
             art = ''
             for line in lines:
                 for character in line:
-                    art += character['character']
+                    art += character.character
                 art += '\n'
             return art
 
@@ -342,12 +361,12 @@ class AsciiArt:
 
                 previous_color = None
                 for character in line:
-                    current_color = self.get_charcode(front) if front else character['terminal-color']
+                    current_color = self.get_charcode(front) if front else character.terminal_color
                     if current_color == previous_color:
-                        art += character['character']
+                        art += character.character
                     else:
                         previous_color = current_color
-                        art += current_color + character['character']
+                        art += current_color + character.character
 
                 if back:
                     art += self.get_charcode(Back.RESET)
@@ -357,12 +376,10 @@ class AsciiArt:
             return art
 
         if mode == Modes.OBJECT:
-            art = []
-            for line in lines:
-                art.append([])
-                for character in line:
-                    art[-1].append(character)
-            return art
+            return [
+                [c for c in line]
+                for line in lines
+            ]
 
         if mode == Modes.HTML_MONOCHROME:
             art = ''
@@ -370,7 +387,7 @@ class AsciiArt:
                 art += '<span>'
 
                 for character in line:
-                    art += '<span>' + character['character'] + '</span>'
+                    art += '<span>' + character.character + '</span>'
 
                 art += '</span>'
                 art += '<br />'
@@ -382,7 +399,7 @@ class AsciiArt:
                 art += '<span>'
 
                 for character in line:
-                    art += f'<span style="color:{character["terminal-hex-color"]}">' + character['character'] + '</span>'
+                    art += f'<span style="color:{character.terminal_hex_color}">' + character.character + '</span>'
 
                 art += '</span>'
                 art += '<br />'
@@ -395,7 +412,7 @@ class AsciiArt:
                 art += '<span>'
 
                 for character in line:
-                    art += f'<span style="color:{character["full-hex-color"]}">' + character['character'] + '</span>'
+                    art += f'<span style="color:{character.full_hex_color}">' + character.character + '</span>'
 
                 art += '</span>'
                 art += '<br />'
@@ -413,18 +430,18 @@ class AsciiArt:
             return 0
 
     @staticmethod
-    def get_charcode(color: Union[Front, Back, str]) -> str:
+    def get_charcode(color: "t.Union[Front, Back, str]") -> str:
         if isinstance(color, str):
             return ''
         return '\033[' + str(color.value) + 'm'
 
     @staticmethod
-    def cc(color: Union[Front, Back, str]) -> str:
+    def cc(color: "t.Union[Front, Back, str]") -> str:
         # cc() is now an alias for get_charcode(), for backwards compatibility
         return AsciiArt.get_charcode(color)
 
     @staticmethod
-    def color_to_hex(color: Union[Front, Back, str]) -> str:
+    def color_to_hex(color: "t.Union[Front, Back, str]") -> str:
         if isinstance(color, (Front, Back)):
             if color.name == 'BLACK': return '#000000'
             if color.name == 'RED': return '#FF0000'
@@ -446,48 +463,57 @@ class AsciiArt:
         return color
 
     @staticmethod
-    def l2_min(v1: Union[list, tuple], v2: Union[list, tuple]) -> float:
+    def l2_min(
+        v1: "t.Union[t.List[float], t.Tuple[float, float, float]]",
+        v2: "t.Union[t.List[float], t.Tuple[float, float, float]]"
+    ) -> float:
         return (v1[0] - v2[0])**2 + (v1[1] - v2[1])**2 + (v1[2] - v2[2])**2
 
-    @staticmethod
-    def get_color_data(char: str, rgb: Union[list, tuple], brightness: float) -> dict:
+    @classmethod
+    def get_color_data(
+        cls,
+        char: str,
+        rgb: "t.Union[t.List[float], t.Tuple[float, float, float]]",
+        brightness: float
+    ) -> ColorData:
         min_distance = 2
         index = 0
 
         for i in range(len(PALETTE)):
             tmp = [v * brightness for v in PALETTE[i][0]]
-            distance = AsciiArt.l2_min(tmp, rgb)
+            distance = cls.l2_min(tmp, rgb)
 
             if distance < min_distance:
                 index = i
                 min_distance = distance
 
-        return {
-            'character': char,
-            'terminal-color': AsciiArt.get_charcode(PALETTE[index][1]),
-            'terminal-hex-color': PALETTE[index][2],
-            'full-hex-color': '#{:02x}{:02x}{:02x}'.format(*(int(c * 200 + 55) for c in rgb)),
-        }
+        return ColorData(
+            character=char,
+            terminal_color=cls.get_charcode(PALETTE[index][1]),
+            terminal_hex_color=PALETTE[index][2],
+            full_hex_color='#{:02x}{:02x}{:02x}'.format(*(int(c * 200 + 55) for c in rgb)),
+        )
 
     @staticmethod
     def _save_string_to_text_file(path: str, art: str) -> None:
         with open(path, 'w') as f:
             f.write(art)
 
-    @staticmethod
+    @classmethod
     def _save_list_to_image_file(
+        cls,
         path: str,
-        art: list,
-        width: Union[int, Literal['auto']] = 'auto',
-        height: Union[int, Literal['auto']] = 'auto',
+        art: "t.List[t.List[ColorData]]",
+        width: "t.Union[int, t.Literal['auto']]" = 'auto',
+        height: "t.Union[int, t.Literal['auto']]" = 'auto',
         border_width: int = 2,
         stroke_width: float = 0.5,
-        file_type: Literal['PNG', 'JPG', 'GIF', 'WEBP'] = 'PNG',
-        font: Optional[AsciiArtFont] = None,
+        file_type: "t.Literal['PNG', 'JPG', 'GIF', 'WEBP']" = 'PNG',
+        font: "t.Optional[AsciiArtFont]" = None,
         monochrome: bool = False,
         full_color: bool = False,
-        front: Optional[Union[Front, str]] = None,
-        back: Optional[Union[Back, str]] = None,
+        front: "t.Optional[t.Union[Front, str]]" = None,
+        back: "t.Optional[t.Union[Back, str]]" = None,
     ) -> None:
         if font is None:
             font = AsciiArtFont('courier_prime.ttf')
@@ -496,9 +522,9 @@ class AsciiArt:
         if back is None:
             back = '#000000'
         if isinstance(back, Back):
-            back = AsciiArt.color_to_hex(back)
+            back = cls.color_to_hex(back)
         if isinstance(front, Front):
-            front = AsciiArt.color_to_hex(front)
+            front = cls.color_to_hex(front)
 
         cols = max(len(line) for line in art)
         rows = len(art)
@@ -517,15 +543,15 @@ class AsciiArt:
                 if front:
                     fg_color = front
                 elif full_color:
-                    fg_color = character['full-hex-color']
+                    fg_color = character.full_hex_color
                 elif monochrome:
                     fg_color = '#FFFFFF'
                 else:
-                    fg_color = character['terminal-hex-color']
+                    fg_color = character.terminal_hex_color
 
                 draw.text(
                     (x, y),
-                    character['character'],
+                    character.character,
                     anchor='lm',
                     fill=fg_color,
                     font=font.get_font(),
@@ -543,7 +569,7 @@ class AsciiArt:
             target_width = int(target_width * target_height / img_height)
 
         if target_width != img_width or target_height != img_height:
-            img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            img = img.resize((target_width, target_height), RESAMPLING_METHOD)
 
         img.save(path, file_type)
 
@@ -555,17 +581,20 @@ class AsciiArt:
         additional_styles: str = '',
         auto_open: bool = False,
     ) -> None:
-        html = f"""<!DOCTYPE html>
-    <head>
-        <title>ASCII art</title>
-        <meta name="generator" content="ASCII Magic {AsciiArt.__VERSION__} - https://github.com/LeandroBarone/python-ascii_magic/" />
-    </head>
-    <body>
-        <pre style="{styles} {additional_styles}">{art}</pre>
-    </body>
-    </html>"""
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ASCII art</title>
+    <meta name="generator" content="ASCII Magic {__version__} - https://github.com/LeandroBarone/python-ascii_magic/" />
+</head>
+<body>
+    <pre style="{styles} {additional_styles}">{art}</pre>
+</body>
+</html>
+        """
         with open(path, 'w') as f:
-            f.write(html)
+            f.write(html.strip())
         if auto_open:
             webbrowser.open(path)
 
@@ -615,7 +644,7 @@ class AsciiArt:
         cls,
         prompt: str,
         model: str = DEFAULT_GEMINI_MODEL,
-        api_key: Optional[str] = None,
+        api_key: "t.Optional[str]" = None,
         debug: bool = False
     ) -> 'AsciiArt':
         image = cls._load_gemini(prompt, model=model, api_key=api_key, debug=debug)
@@ -628,7 +657,7 @@ class AsciiArt:
         width: int = 1280,
         height: int = 720,
         steps: int = 20,
-        raw_input: dict = {},
+        raw_input: "t.Dict[str, t.Any]" = {},
         server: str = 'http://localhost:7801',
         model: str = 'auto',
         debug: bool = False
@@ -645,14 +674,13 @@ class AsciiArt:
         )
         return AsciiArt(image)
 
-    @classmethod
-    def _load_url(cls, url: str) -> Image.Image:
-
+    @staticmethod
+    def _load_url(url: str) -> Image.Image:
         with urllib.request.urlopen(url) as response:
             return Image.open(response)
 
-    @classmethod
-    def _load_file(cls, path: str) -> Image.Image:
+    @staticmethod
+    def _load_file(path: str) -> Image.Image:
         return Image.open(path)
 
     @classmethod
@@ -661,53 +689,55 @@ class AsciiArt:
             from PIL import ImageGrab
             result = ImageGrab.grabclipboard()
         except (NotImplementedError, ImportError):
-            result = cls._load_clipboard_linux()
+            warnings.warn("""
+Pillow cannot access the clipboard on this operating system.
+Recent Pillow versions can attempt to use wl-paste or xclip on Linux.
+Attempting to use PyGObject...
+            """.strip())
+            result = cls._load_clipboard_pygobject()
 
-        if isinstance(result, list):  # win32 file list
-            try:
-                return Image.open(result[0])
-            except Exception:
-                raise OSError('The clipboard does not contain an image')
-        elif isinstance(result, Image.Image):  # win32 or linux PIL image
-            return result
-        else:
+        if result is None or (isinstance(result, list) and len(result) == 0):
             raise OSError('The clipboard does not contain an image')
 
-    @classmethod
-    def _load_clipboard_linux(cls) -> Image.Image:
+        if isinstance(result, Image.Image):
+            # win32 or gtk single image
+            return result
+        else:
+            # win32 file list
+            return Image.open(result[0])
+
+    @staticmethod
+    def _load_clipboard_pygobject() -> Image.Image:
         try:
-            import gi  # type: ignore
-            gi.require_version("Gtk", "3.0")  # type: ignore
-            from gi.repository import Gtk, Gdk  # type: ignore
+            import gi  # type: ignore[reportMissingImports]
+            gi.require_version("Gtk", "3.0")
+            from gi.repository import Gtk, Gdk  # type: ignore[reportMissingImports]
         except ModuleNotFoundError:
-            print('Accessing the clipboard under Linux requires the PyGObject module')
-            print('Ubuntu/Debian: sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0')
-            print('Fedora: sudo dnf install python3-gobject gtk3')
-            print('Arch: sudo pacman -S python-gobject gtk3')
-            print('openSUSE: sudo zypper install python3-gobject python3-gobject-Gdk typelib-1_0-Gtk-3_0 libgtk-3-0')
-            exit()
-
-        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+            raise ModuleNotFoundError("PyGObject is not installed")
 
         try:
+            clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
             buffer = clipboard.wait_for_image()
+            if not buffer:
+                raise
             data = buffer.get_pixels()
-            w = buffer.props.width
-            h = buffer.props.height
-            stride = buffer.props.rowstride
+            if not data:
+                raise
         except Exception:
             raise OSError('The clipboard does not contain an image')
 
+        w = buffer.props.width
+        h = buffer.props.height
+        stride = buffer.props.rowstride
         mode = 'RGB'
         img = Image.frombytes(mode, (w, h), data, 'raw', mode, stride)
         return img
 
-    @classmethod
+    @staticmethod
     def _load_gemini(
-        cls,
         prompt: str,
         model: str = DEFAULT_GEMINI_MODEL,
-        api_key: Optional[str] = None,
+        api_key: "t.Optional[str]" = None,
         debug: bool = False
     ) -> Image.Image:
         try:
@@ -765,7 +795,7 @@ class AsciiArt:
         width: int = 1280,
         height: int = 720,
         steps: int = 20,
-        raw_input: dict = {},
+        raw_input: "t.Dict[str, t.Any]" = {},
         server: str = 'http://localhost:7801',
         model: str = 'auto',
         debug: bool = False

@@ -24,6 +24,10 @@ const Chat = (() => {
     let _streamingChars = 0;
     let _phaseStartTime = 0;
     let _lastChunkTime = 0;
+    // Tool execution phase context (#1366)
+    let _phaseToolCount = 0;
+    let _phaseToolNames = [];
+    let _phaseToolSummaries = [];
     let _phaseElapsedInterval = null;
     let _stallCheckInterval = null;
     let _streamWatchdog = null;
@@ -342,7 +346,7 @@ const Chat = (() => {
                 showThinking();
                 break;
             case 'phase':
-                updateThinkingPhase(data.phase, null);
+                updateThinkingPhase(data.phase, data);
                 break;
             case 'retrying':
                 updateThinkingPhase('retrying', data);
@@ -1556,17 +1560,29 @@ const Chat = (() => {
                 _setPhaseLabel('connecting\u2026' + elapsed, false);
                 break;
             case 'waiting':
-                _setPhaseLabel('waiting for first token\u2026' + elapsed, false);
+                _setPhaseLabel('thinking\u2026' + elapsed, false);
                 break;
             case 'streaming': {
                 const chars = _streamingChars.toLocaleString();
                 const gap = Date.now() - _lastChunkTime;
                 if (gap >= _STALL_THRESHOLD_MS) {
                     const stallSecs = _formatElapsed(gap);
-                    _setPhaseLabel('streaming \u00b7 ' + chars + ' chars \u00b7 stalled ' + stallSecs, true);
+                    _setPhaseLabel('writing \u00b7 ' + chars + ' chars \u00b7 stalled ' + stallSecs, true);
                 } else {
-                    _setPhaseLabel('streaming \u00b7 ' + chars + ' chars', false);
+                    _setPhaseLabel('writing \u00b7 ' + chars + ' chars', false);
                 }
+                break;
+            }
+            case 'tool_exec': {
+                var toolLabel;
+                if (_phaseToolCount === 1 && _phaseToolSummaries.length > 0) {
+                    toolLabel = _phaseToolSummaries[0] + '\u2026';
+                } else if (_phaseToolCount > 1) {
+                    toolLabel = 'running ' + _phaseToolCount + ' tools\u2026';
+                } else {
+                    toolLabel = 'running tools\u2026';
+                }
+                _setPhaseLabel(toolLabel + elapsed, false);
                 break;
             }
             case 'retrying':
@@ -1582,6 +1598,11 @@ const Chat = (() => {
         _ensureThinkingElement();
         _thinkingPhase = phase;
         _phaseStartTime = Date.now();
+
+        // Store tool context for tool_exec phase (#1366)
+        _phaseToolCount = (data && data.tool_count) || 0;
+        _phaseToolNames = (data && data.tool_names) || [];
+        _phaseToolSummaries = (data && data.tool_summaries) || [];
 
         if (phase === 'retrying' && data) {
             const label = 'retry ' + data.attempt + '/' + data.max_attempts;

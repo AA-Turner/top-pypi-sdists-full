@@ -121,8 +121,31 @@ class WorldTestHarnessWorld(BaseWorld[HarnessWorldConfig, HarnessWorldState]):
                 chronos_url=repo_info.chronos_url,
                 api_key=repo_info.api_key,
                 session_id=self.chronos.session_id if self.chronos else "",
+                commit_strategy=workspace_spec.commit_strategy,
             )
             await workspace.init()
+
+            if workspace_spec.source_ref and workspace_spec.tracked:
+                source_session_id, _, source_step = workspace_spec.source_ref.partition(":")
+                if source_session_id and source_step:
+                    # If source_repo differs, re-resolve credentials for that repo
+                    if workspace_spec.source_repo:
+                        source_repo_info = await self._resolve_workspace_repo_by_name(workspace_spec.source_repo)
+                        workspace.s3_bucket = source_repo_info.s3_bucket
+                        workspace.s3_prefix = source_repo_info.s3_prefix
+                        workspace.repo_id = source_repo_info.repo_id
+                        workspace.repo_name = workspace_spec.source_repo
+                        # Force credential refresh for source repo
+                        workspace._sts_expires_at = 0
+                    await workspace.restore(source_step, session_id=source_session_id)
+                    # Reset repo info back to the test workspace's own repo after restore
+                    if workspace_spec.source_repo:
+                        workspace.s3_bucket = repo_info.s3_bucket
+                        workspace.s3_prefix = repo_info.s3_prefix
+                        workspace.repo_id = repo_info.repo_id
+                        workspace.repo_name = repo_info.repo_name
+                        workspace._sts_expires_at = 0
+
             self._workspaces[workspace_spec.name] = workspace
             logger.debug(
                 "Harness workspace '%s' at %s (tracked=%s, mount_path=%s)",

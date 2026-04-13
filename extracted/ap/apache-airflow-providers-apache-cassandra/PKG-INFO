@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-apache-cassandra
-Version: 3.9.3
+Version: 3.9.4
 Summary: Provider package apache-airflow-providers-apache-cassandra for Apache Airflow
 Keywords: airflow-provider,apache.cassandra,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -28,8 +28,8 @@ Requires-Dist: cassandra-driver>=3.29.3; python_version >= '3.13' and python_ver
 Requires-Dist: cassandra-driver>=3.29.2; python_version >= '3.12' and python_version < '3.13'
 Requires-Dist: cassandra-driver>=3.29.1; python_version < '3.12'
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-cassandra/3.9.3/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-cassandra/3.9.3
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-cassandra/3.9.4/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-cassandra/3.9.4
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -60,7 +60,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-apache-cassandra``
 
-Release: ``3.9.3``
+Release: ``3.9.4``
 
 
 `Apache Cassandra <https://cassandra.apache.org/>`__.
@@ -73,7 +73,7 @@ This is a provider package for ``apache.cassandra`` provider. All classes for th
 are in ``airflow.providers.apache.cassandra`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-cassandra/3.9.3/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-cassandra/3.9.4/>`_.
 
 Installation
 ------------
@@ -117,5 +117,5 @@ Dependent package                                                               
 ==================================================================================================================  =================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-cassandra/3.9.3/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-cassandra/3.9.4/changelog.html>`_.
 

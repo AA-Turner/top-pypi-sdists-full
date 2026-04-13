@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GeoAlchemy2
-Version: 0.18.4
+Version: 0.19.0
 Summary: Using SQLAlchemy with Spatial Databases
 Author-email: Eric Lemoine <eric.lemoine@gmail.com>, Adrien Berchet <adrien.berchet@gmail.com>
 License-Expression: MIT

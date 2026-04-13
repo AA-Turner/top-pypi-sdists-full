@@ -52,17 +52,29 @@ import sys
 import typing
 
 from ubelt import util_hash
+from typing import cast, Mapping
+
+try:
+    from typing import Concatenate, ParamSpec
+except ImportError:  # pragma: no cover
+    from typing_extensions import Concatenate, ParamSpec
 
 if typing.TYPE_CHECKING:
-    from typing import Any, Callable
+    from typing import Callable
+
+    CacheKey = tuple[object, object]
 
 
 # TODO: Need to think if we can fix any of the typing ignores in this file.
 
 __all__ = ['memoize', 'memoize_method', 'memoize_property']
 
+P = ParamSpec('P')
+T = typing.TypeVar('T')
+S = typing.TypeVar('S')
 
-def _hashable(item):
+
+def _hashable(item: object) -> object:
     """
     Returns the item if it is naturally hashable, otherwise it tries to use
     ubelt.util_hash.hash_data to make it hashable. Errors if it cannot.
@@ -75,7 +87,10 @@ def _hashable(item):
         return item
 
 
-def _make_signature_key(args, kwargs):
+def _make_signature_key(
+    args: tuple[object, ...],
+    kwargs: typing.Mapping[str, object],
+) -> CacheKey:
     """
     Transforms function args into a key that can be used by the cache
 
@@ -99,7 +114,7 @@ def _make_signature_key(args, kwargs):
         >>> with pytest.raises(TypeError):
         >>>     _make_signature_key((Dummy(),), kwargs={})
     """
-    kwitems = kwargs.items()
+    kwitems: typing.Iterable[tuple[str, object]] = kwargs.items()
     # TODO: we should check if Python is at least 3.7 and sort by kwargs
     # keys otherwise. Should we use hash_data for key generation
     if (sys.version_info.major, sys.version_info.minor) < (3, 7):  # nocover
@@ -115,7 +130,7 @@ def _make_signature_key(args, kwargs):
     return key
 
 
-def memoize(func: Callable) -> Callable:
+def memoize(func: Callable[P, T]) -> Callable[P, T]:
     """
     memoization decorator that respects args and kwargs
 
@@ -159,8 +174,8 @@ def memoize(func: Callable) -> Callable:
     cache = {}
 
     @functools.wraps(func)
-    def memoizer(*args, **kwargs):
-        key = _make_signature_key(args, kwargs)
+    def memoizer(*args: P.args, **kwargs: P.kwargs) -> T:
+        key = _make_signature_key(args, cast(Mapping, kwargs))
         if key not in cache:
             cache[key] = func(*args, **kwargs)
         return cache[key]
@@ -170,7 +185,7 @@ def memoize(func: Callable) -> Callable:
     return memoizer
 
 
-class memoize_method:
+class memoize_method(typing.Generic[S, P, T]):
     """
     memoization decorator for a method that respects args and kwargs
 
@@ -245,20 +260,35 @@ class memoize_method:
         >>> assert method2('z') == ('z2', 'F2')
     """
 
-    __func__: Callable[..., Any]
+    __func__: Callable[Concatenate[S, P], T]
 
-    def __init__(self, func: Callable[..., Any]) -> None:
+    def __init__(self, func: Callable[Concatenate[S, P], T]) -> None:
         """
         Args:
             func (Callable): method to wrap
         """
         self._func = func
-        self._cache_name = '_cache__' + func.__name__  # type: ignore[invalid-assignment]
-        # Mimic attributes of a bound method
-        self.__func__ = func  # type: ignore[invalid-assignment]
-        functools.update_wrapper(self, func)  # type: ignore[invalid-argument-type]
+        func_name = getattr(func, '__name__', None)
+        if func_name is None:  # nocover
+            raise ValueError('memoize_method requires a named function')
+        self._func_name = func_name
+        self._cache_name = '_cache__' + self._func_name
+        # Mimic the bound method attribute that some callers may inspect.
+        self.__func__ = func
 
-    def __get__(self, instance: object, cls: type | None = None):
+    @typing.overload
+    def __get__(
+        self, instance: None, cls: type[S] | None = None
+    ) -> memoize_method[S, P, T]: ...
+
+    @typing.overload
+    def __get__(
+        self, instance: S, cls: type[S] | None = None
+    ) -> Callable[P, T]: ...
+
+    def __get__(
+        self, instance: S | None, cls: type[S] | None = None
+    ) -> memoize_method[S, P, T] | Callable[P, T]:
         """
         Descriptor get method. Called when the decorated method is accessed
         from an object instance.
@@ -267,29 +297,38 @@ class memoize_method:
             instance (object): the instance of the class with the memoized method
             cls (type | None): the type of the instance
         """
-        import types
+        if instance is None:
+            return self
 
         unbound = self._func
-        cache = instance.__dict__.setdefault(self._cache_name, {})
+        cache = getattr(instance, self._cache_name, None)
+        if cache is None:  # pragma: no branch
+            cache = {}
+            setattr(instance, self._cache_name, cache)
 
         # https://stackoverflow.com/questions/71413937/what-does-using-get-on-a-function-do
         @functools.wraps(unbound)
-        def memoizer(instance, *args, **kwargs):
-            key = _make_signature_key(args, kwargs)
+        def bound_memoizer(*args: P.args, **kwargs: P.kwargs) -> T:
+            key = _make_signature_key(args, dict(kwargs))
             if key not in cache:
                 cache[key] = unbound(instance, *args, **kwargs)
             return cache[key]
 
-        # Bind the unbound memoizer to the instance
-        bound_memoizer = types.MethodType(memoizer, instance)
-
         # Set the attribute to prevent calling __get__ again
         # Is there a better way to do this?
-        setattr(instance, self._func.__name__, bound_memoizer)  # type: ignore[possibly-missing-attribute]
+        setattr(instance, self._func_name, bound_memoizer)
         return bound_memoizer
 
 
-def memoize_property(fget: property | typing.Callable):
+@typing.overload
+def memoize_property(fget: property) -> property: ...
+
+
+@typing.overload
+def memoize_property(fget: typing.Callable[[S], T]) -> property: ...
+
+
+def memoize_property(fget: property | typing.Callable[[S], T]) -> property:
     """
     Return a property attribute for new-style classes that only calls its
     getter on the first access. The result is stored and on subsequent accesses
@@ -336,15 +375,19 @@ def memoize_property(fget: property | typing.Callable):
         >>> c.another_name
     """
     # Unwrap any existing property decorator
-    while hasattr(fget, 'fget'):
-        fget = fget.fget  # type: ignore[invalid-assignment]
+    getter: typing.Callable[[S], T]
+    if isinstance(fget, property):
+        assert fget.fget is not None
+        getter = fget.fget
+    else:
+        getter = fget
 
-    attr_name = '_' + fget.__name__  # type: ignore[unresolved-attribute]
+    attr_name = '_' + getattr(getter, '__name__')
 
-    @functools.wraps(fget)
-    def fget_memoized(self):
+    @functools.wraps(getter)
+    def fget_memoized(self: S) -> T:
         if not hasattr(self, attr_name):
-            setattr(self, attr_name, fget(self))
+            setattr(self, attr_name, getter(self))
         return getattr(self, attr_name)
 
     return property(fget_memoized)

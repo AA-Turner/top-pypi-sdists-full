@@ -185,7 +185,7 @@ bigquery_dialect.add(
     ),
     # Add a Full equivalent which also allow keywords
     NakedIdentifierFullSegment=RegexParser(
-        r"[A-Z_][A-Z0-9_]*",
+        r"[A-Z0-9_]*[A-Z_][A-Z0-9_]*",
         IdentifierSegment,
         type="naked_identifier_all",
     ),
@@ -207,7 +207,7 @@ bigquery_dialect.add(
     NakedCSIdentifierSegment=SegmentGenerator(
         # Generate the anti template from the set of reserved keywords
         lambda dialect: RegexParser(
-            r"[A-Z_][A-Z0-9_]*",
+            r"[A-Z0-9_]*[A-Z_][A-Z0-9_]*",
             IdentifierSegment,
             type="naked_identifier",
             anti_template=r"^(" + r"|".join(dialect.sets("reserved_keywords")) + r")$",
@@ -277,13 +277,19 @@ bigquery_dialect.add(
 
 
 bigquery_dialect.replace(
-    # Override to allow _01 type identifiers which are valid in BigQuery
-    # The strange regex here it to make sure we don't accidentally match numeric
-    # literals. We also use a regex to explicitly exclude disallowed keywords.
+    # Override to allow _01 type identifiers and digit-starting identifiers
+    # (e.g. dataset.1st_table) which BigQuery accepts at runtime despite the
+    # official docs stating identifiers must start with a letter or underscore.
+    # Confirmed by live BigQuery testing; INFORMATION_SCHEMA.JOBS preserves
+    # these as-is, so lineage tools must parse them.
+    # Ref: https://github.com/open-metadata/OpenMetadata/issues/23338
+    # The regex requires at least one letter or underscore so we don't
+    # accidentally match numeric literals.
+    # We also use a regex to explicitly exclude disallowed keywords.
     NakedIdentifierSegment=SegmentGenerator(
         # Generate the anti template from the set of reserved keywords
         lambda dialect: RegexParser(
-            r"[A-Z_][A-Z0-9_]*",
+            r"[A-Z0-9_]*[A-Z_][A-Z0-9_]*",
             IdentifierSegment,
             type="naked_identifier",
             anti_template=r"^(" + r"|".join(dialect.sets("reserved_keywords")) + r")$",

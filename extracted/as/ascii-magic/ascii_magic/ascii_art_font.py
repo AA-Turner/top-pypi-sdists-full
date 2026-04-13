@@ -1,6 +1,7 @@
 from PIL import ImageFont
 
 import os
+import typing as t
 
 
 class AsciiArtFont():
@@ -16,7 +17,7 @@ class AsciiArtFont():
     def get_font(self) -> ImageFont.FreeTypeFont:
         return self._font
 
-    def get_char_size(self, character: str = 'M') -> tuple[int, int, int]:
+    def get_char_size(self, character: str = 'M') -> "t.Tuple[int, int, int]":
         bbox = self._font.getbbox(character)
         char_width = int(bbox[2] - bbox[0])
         char_height = int(bbox[3] - bbox[1])

@@ -17,7 +17,20 @@ from anteroom.tools.canvas import (
     handle_create_canvas,
 )
 
-_SKILL_PATH = Path(__file__).resolve().parents[2] / "src" / "anteroom" / "cli" / "default_skills" / "excalidraw.yaml"
+
+def _parse_frontmatter(path: Path) -> dict:
+    """Parse a SKILL.md file, returning a dict with name, description, prompt."""
+    raw = path.read_text(encoding="utf-8")
+    assert raw.startswith("---\n"), f"{path} missing frontmatter"
+    end = raw.index("\n---", 4)
+    fm = yaml.safe_load(raw[4:end])
+    fm["prompt"] = raw[end + 4 :].strip()
+    return fm
+
+
+_SKILL_PATH = (
+    Path(__file__).resolve().parents[2] / "src" / "anteroom" / "cli" / "default_skills" / "excalidraw" / "SKILL.md"
+)
 
 _SAMPLE_EXCALIDRAW = json.dumps(
     {
@@ -52,30 +65,30 @@ _SAMPLE_EXCALIDRAW = json.dumps(
 
 
 class TestExcalidrawSkillYaml:
-    """Verify the excalidraw.yaml skill file is valid and loadable."""
+    """Verify the excalidraw/SKILL.md skill file is valid and loadable."""
 
     def test_yaml_file_exists(self) -> None:
-        assert _SKILL_PATH.exists(), f"Skill YAML not found at {_SKILL_PATH}"
+        assert _SKILL_PATH.exists(), f"Skill not found at {_SKILL_PATH}"
 
     def test_yaml_parses_correctly(self) -> None:
-        data = yaml.safe_load(_SKILL_PATH.read_text())
+        data = _parse_frontmatter(_SKILL_PATH)
         assert isinstance(data, dict)
 
     def test_has_required_fields(self) -> None:
-        data = yaml.safe_load(_SKILL_PATH.read_text())
+        data = _parse_frontmatter(_SKILL_PATH)
         assert data.get("name") == "excalidraw"
         assert "description" in data
         assert "prompt" in data
         assert len(data["prompt"]) > 100  # substantial prompt
 
     def test_prompt_mentions_create_canvas(self) -> None:
-        data = yaml.safe_load(_SKILL_PATH.read_text())
+        data = _parse_frontmatter(_SKILL_PATH)
         prompt = data["prompt"]
         assert "create_canvas" in prompt
         assert "excalidraw" in prompt.lower()
 
     def test_prompt_has_args_placeholder(self) -> None:
-        data = yaml.safe_load(_SKILL_PATH.read_text())
+        data = _parse_frontmatter(_SKILL_PATH)
         assert "{args}" in data["prompt"]
 
     def test_loaded_by_skill_registry(self) -> None:

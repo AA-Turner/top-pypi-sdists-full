@@ -544,13 +544,10 @@ class _ExpectRuntimeState:
 
 
 KEYBOARD_INTERRUPT_EXIT_CODES: set[int] = {
-    -2,
-    -11,
-    130,
-    255,
-    -1073741510,
-    3221225786,
-    4294967294,
+    -2,             # Unix: killed by SIGINT (negative signal number)
+    130,            # Unix: 128 + SIGINT(2) — shell convention
+    -1073741510,    # Windows: STATUS_CONTROL_C_EXIT (signed)
+    3221225786,     # Windows: STATUS_CONTROL_C_EXIT (unsigned)
 }
 
 
@@ -1266,6 +1263,7 @@ class PseudoTerminalProcess:
 
     def wait(self, timeout: float | None = None, *, raise_on_abnormal_exit: bool = False) -> int:
         self._ensure_started()
+        assert self._proc is not None
         try:
             code = self._wait_for_exit_code(timeout=timeout)
         except TimeoutError:
@@ -1825,6 +1823,9 @@ class PseudoTerminalProcess:
                         )
                     except BaseException as exc:
                         callback_state.error = exc
+                        if isinstance(exc, KeyboardInterrupt):
+                            import _thread
+                            _thread.interrupt_main()
                         return
                     if pending_writes:
                         with callback_state.lock:
@@ -2135,10 +2136,10 @@ class PseudoTerminalProcess:
         if self._proc is not None:
             with suppress(RuntimeError):
                 self._proc.respond_to_queries(chunk)
-        control_bytes = _control_churn_bytes(chunk)
+        # Output accounting (visible bytes, control churn) is now tracked
+        # by the Rust reader thread via atomic counters.  Python only needs
+        # to update the activity timestamp and echo/buffer bookkeeping.
         self.last_activity_at = time.time()
-        self._pty_output_bytes_total += max(0, len(chunk) - control_bytes)
-        self._pty_control_churn_bytes_total += control_bytes
         self._pending_echo_chunks.append(chunk)
         if self._buffer is not None:
             self._buffer.record_output(chunk)
@@ -2212,12 +2213,21 @@ class PseudoTerminalProcess:
         else:
             process_alive = self.poll() is None
 
+        # Read output accounting from Rust reader thread (atomic counters).
+        output_bytes = self._pty_output_bytes_total
+        churn_bytes = self._pty_control_churn_bytes_total
+        if self._proc is not None:
+            with suppress(AttributeError):
+                output_bytes = int(self._proc.pty_output_bytes_total())
+            with suppress(AttributeError):
+                churn_bytes = int(self._proc.pty_control_churn_bytes_total())
+
         return _IdleSample(
             sampled_at=now,
             process_alive=process_alive,
             pty_input_bytes=self._pty_input_bytes_total,
-            pty_output_bytes=self._pty_output_bytes_total,
-            pty_control_churn_bytes=self._pty_control_churn_bytes_total,
+            pty_output_bytes=output_bytes,
+            pty_control_churn_bytes=churn_bytes,
             cpu_percent=cpu_percent,
             disk_io_bytes=disk_io_bytes,
             network_io_bytes=network_io_bytes,

@@ -1,5 +1,4 @@
 from typing import List
-from lark import Tree
 from gersemi.ast_helpers import (
     is_comment,
     is_line_comment_in,
@@ -7,7 +6,7 @@ from gersemi.ast_helpers import (
 )
 from gersemi.base_command_invocation_dumper import BaseCommandInvocationDumper
 from gersemi.configuration import Spaces
-from gersemi.types import Nodes
+from gersemi.types import Nodes, Tree
 from gersemi.utils import advance
 
 
@@ -180,8 +179,20 @@ class ConditionSyntaxCommandInvocationDumper(BaseCommandInvocationDumper):
         return f"{begin}{formatted_arguments}\n{end}"
 
 
+class ConditionSyntaxCommandInvocationDumperWithDedent(
+    ConditionSyntaxCommandInvocationDumper
+):
+    def format_command(self, tree):
+        with self.dedented():
+            return super().format_command(tree)
+
+
 condition_syntax_commands = {
-    key: {"__impl": ConditionSyntaxCommandInvocationDumper}
+    key: {
+        "__impl": ConditionSyntaxCommandInvocationDumperWithDedent
+        if key in ("else", "elseif")
+        else ConditionSyntaxCommandInvocationDumper
+    }
     for key in (
         "elseif",
         "else",

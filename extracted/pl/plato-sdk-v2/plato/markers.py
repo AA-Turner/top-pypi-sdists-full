@@ -115,6 +115,8 @@ class WorkspaceMarker:
             workspace inherits the world config ``transport_mode``. Set to ``"git"`` to
             use git clone/push instead of NFS/SSHFS for this workspace.
         git_config: Git transport configuration. Only used when ``transport="git"``.
+        commit_strategy: DVC commit strategy. ``"manifest"`` (default) uploads individual
+            files; ``"archive"`` uploads the entire directory as a single tar.gz.
     """
 
     DEFAULT_DVCIGNORE: tuple[str, ...] = (
@@ -137,6 +139,7 @@ class WorkspaceMarker:
         dvcignore: list[str] | None = None,
         transport: Literal["nfs_kernel", "sshfs", "git"] | None = None,
         git_config: GitTransportConfig | None = None,
+        commit_strategy: Literal["manifest", "archive"] = "manifest",
     ):
         self.kind = "workspace"
         self.description = description
@@ -145,3 +148,4 @@ class WorkspaceMarker:
         self.dvcignore = dvcignore
         self.transport = transport
         self.git_config = git_config
+        self.commit_strategy = commit_strategy

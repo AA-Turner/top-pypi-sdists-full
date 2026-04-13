@@ -545,7 +545,7 @@ async def resume_workflow_run(request: Request, run_id: str) -> dict[str, Any]:
 
     async def _do_resume() -> None:
         try:
-            await engine.resume_run(run_id, definition)
+            await engine.resume_run(run_id, definition, actor="api")
         except Exception:
             logger.exception("Background resume failed for run %s", run_id)
 

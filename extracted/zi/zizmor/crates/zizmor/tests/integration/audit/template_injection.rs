@@ -74,7 +74,7 @@ fn test_pr_317_repro() -> Result<()> {
         zizmor()
             .input(input_under_test("template-injection/pr-317-repro.yml"))
             .run()?,
-        @r"
+        @"
     warning[template-injection]: code injection via template expansion
       --> @@INPUT@@:28:20
        |
@@ -99,7 +99,7 @@ fn test_static_env() -> Result<()> {
         zizmor()
             .input(input_under_test("template-injection/static-env.yml"))
             .run()?,
-        @r"
+        @"
     help[template-injection]: code injection via template expansion
       --> @@INPUT@@:43:20
        |
@@ -283,7 +283,7 @@ fn test_codeql_sinks() -> Result<()> {
         zizmor()
             .input(input_under_test("template-injection/codeql-sinks.yml"))
             .run()?,
-        @r"
+        @"
     error[template-injection]: code injection via template expansion
       --> @@INPUT@@:17:20
        |
@@ -595,7 +595,78 @@ fn test_issue_1664() -> Result<()> {
        |
        = note: audit confidence → High
 
-    3 findings (2 ignored): 0 informational, 1 low, 0 medium, 0 high
+    help[concurrency-limits]: insufficient job-level concurrency limits
+      --> @@INPUT@@:3:1
+       |
+     3 | / "on":
+     4 | |   push:
+     5 | |     branches:
+     6 | |       - main
+       | |____________^ workflow is missing concurrency setting
+    ...
+    12 |       name: Repro
+       |       ----------- job affected by missing workflow concurrency
+       |
+       = note: audit confidence → High
+
+    3 findings (1 suppressed): 0 informational, 2 low, 0 medium, 0 high
+    "#
+    );
+
+    Ok(())
+}
+
+/// Repro case for #1802: `needs.*.result` expressions should not be considered injection risks in the default persona.
+///
+/// See: <https://github.com/zizmorcore/zizmor/issues/1802>
+#[test]
+fn test_issue_1802() -> Result<()> {
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test("template-injection/issue-1802-repro.yml"))
+            .run()?,
+        @"No findings to report. Good job! (3 suppressed)"
+    );
+
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test("template-injection/issue-1802-repro.yml"))
+            .args(["--persona=pedantic"])
+            .run()?,
+        @r#"
+    help[template-injection]: code injection via template expansion
+      --> @@INPUT@@:20:21
+       |
+    19 |       - run: |
+       |         --- this run block
+    20 |           test "${{ needs.test-matrix.result }}" = "success"
+       |                     ^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+       |
+       = note: audit confidence → High
+
+    help[template-injection]: code injection via template expansion
+      --> @@INPUT@@:21:21
+       |
+    19 |       - run: |
+       |         --- this run block
+    20 |           test "${{ needs.test-matrix.result }}" = "success"
+    21 |           test "${{ needs['test-matrix']['result'] }}" = "success"
+       |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+       |
+       = note: audit confidence → High
+
+    help[template-injection]: code injection via template expansion
+      --> @@INPUT@@:22:21
+       |
+    19 |       - run: |
+       |         --- this run block
+    ...
+    22 |           test "${{ needs.TEST_MATRIX['result'] }}" = "success"
+       |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+       |
+       = note: audit confidence → High
+
+    3 findings: 0 informational, 3 low, 0 medium, 0 high
     "#
     );
 

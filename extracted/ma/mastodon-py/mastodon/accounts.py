@@ -115,7 +115,7 @@ class Mastodon(Internals):
             return response['access_token']
 
     @api_version("3.4.0", "3.4.0")
-    def email_resend_confirmation(self):
+    def email_resend_confirmation(self) -> None:
         """
         Requests a re-send of the users confirmation mail for an unconfirmed logged in user.
 
@@ -386,13 +386,16 @@ class Mastodon(Internals):
         id = self.__unpack_id(id)
         return self.__api_request('POST', f'/api/v1/accounts/{id}/unmute')
 
-    @api_version("1.1.1", "3.1.0")
+    @api_version("1.1.1", "4.2.0")
     def account_update_credentials(self, display_name: Optional[str] = None, note: Optional[str] = None,
                                    avatar: Optional[PathOrFile] = None, avatar_mime_type: Optional[str] = None,
                                    header: Optional[PathOrFile] = None, header_mime_type: Optional[str] = None,
                                    locked: Optional[bool] = None, bot: Optional[bool] = None,
                                    discoverable: Optional[bool] = None, fields: Optional[List[Tuple[str, str]]] = None,
-                                   attribution_domains: Optional[List[str]] = None) -> Account:
+                                   hide_collections: Optional[bool] = None, indexable: Optional[bool] = None,
+                                   attribution_domains: Optional[List[str]] = None,
+                                   default_privacy: Optional[str] = None, default_sensitive: Optional[bool] = None,
+                                   default_language: Optional[str] = None, default_quote_policy: Optional[str] = None) -> Account:
         """
         Update the profile for the currently logged-in user.
 
@@ -407,11 +410,26 @@ class Mastodon(Internals):
 
         `discoverable` specifies whether the user should appear in the user directory.
 
+        `hide_collections` specifies whether to hide the user's follower and following lists.
+
+        `indexable` specifies whether the user's public posts should be searchable by anyone.
+
         `fields` can be a list of up to four name-value pairs (specified as tuples) to
         appear as semi-structured information in the user's profile.
 
         `attribution_domains` can be a list of domains that the user wants to allow to
         attribute content to them.
+
+        `default_privacy` sets the default posting privacy. One of ``'public'``, ``'unlisted'``, 
+        or ``'private'``.
+
+        `default_sensitive` sets whether posts should be marked as sensitive by default.
+
+        `default_language` sets the default language for new posts (ISO 639-1 two-letter
+        language code).
+
+        `default_quote_policy` sets who is allowed to quote the user's posts by default.
+        One of ``'public'``, ``'followers'``, or ``'nobody'``.
 
         The returned object reflects the updated account.
         """
@@ -424,8 +442,19 @@ class Mastodon(Internals):
                 params_initial[f'fields_attributes[{idx}][name]'] = field_name
                 params_initial[f'fields_attributes[{idx}][value]'] = field_value
 
+        # Convert source[...] params to bracket notation
+        if default_privacy is not None:
+            params_initial['source[privacy]'] = default_privacy
+        if default_sensitive is not None:
+            params_initial['source[sensitive]'] = default_sensitive
+        if default_language is not None:
+            params_initial['source[language]'] = default_language
+        if default_quote_policy is not None:
+            params_initial['source[quote_policy]'] = default_quote_policy
+
         # Clean up params
-        for param in ["avatar", "avatar_mime_type", "header", "header_mime_type", "fields"]:
+        for param in ["avatar", "avatar_mime_type", "header", "header_mime_type", "fields",
+                       "default_privacy", "default_sensitive", "default_language", "default_quote_policy"]:
             if param in params_initial:
                 del params_initial[param]
 
@@ -505,14 +534,14 @@ class Mastodon(Internals):
         return self.__api_request('GET', f'/api/v1/accounts/{id}/featured_tags')
 
     @api_version("4.2.0", "4.2.0")
-    def account_delete_avatar(self):
+    def account_delete_avatar(self) -> None:
         """
         Delete the logged-in user's avatar.
         """
         self.__api_request('DELETE', '/api/v1/profile/avatar')
     
     @api_version("4.2.0", "4.2.0")
-    def account_delete_header(self):
+    def account_delete_header(self) -> None:
         """
         Delete the logged-in user's header.
         """

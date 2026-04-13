@@ -3,30 +3,30 @@ import os.path
 import re
 import sys
 import textwrap
-import warnings
+from collections.abc import Sequence
+from typing import Any
 
 import requests
 
 from . import __version__
-from ._indent import indent
 from .download import download
-from .download_folder import MAX_NUMBER_FILES
 from .download_folder import download_folder
-from .exceptions import FileURLRetrievalError
-from .exceptions import FolderContentsMaximumLimitError
+from .exceptions import DownloadError
 
 
 class _ShowVersionAction(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        print(
-            "gdown {ver} at {pos}".format(
-                ver=__version__, pos=os.path.dirname(os.path.dirname(__file__))
-            )
-        )
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
+    ) -> None:
+        print(f"gdown {__version__} at {os.path.dirname(os.path.dirname(__file__))}")
         parser.exit()
 
 
-def file_size(argv):
+def file_size(argv: str | None) -> float | None:
     if argv is not None:
         m = re.match(r"([0-9]+)(GB|MB|KB|B)", argv)
         if not m:
@@ -44,7 +44,7 @@ def file_size(argv):
         return size
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
@@ -55,9 +55,7 @@ def main():
         help="display version",
         nargs=0,
     )
-    parser.add_argument(
-        "url_or_id", help="url or file/folder id (with --id) to download from"
-    )
+    parser.add_argument("url_or_id", help="url or file/folder id to download from")
     parser.add_argument(
         "-O",
         "--output",
@@ -70,16 +68,6 @@ def main():
         "--quiet",
         action="store_true",
         help="suppress logging except errors",
-    )
-    parser.add_argument(
-        "--fuzzy",
-        action="store_true",
-        help="(file only) extract Google Drive's file ID",
-    )
-    parser.add_argument(
-        "--id",
-        action="store_true",
-        help="[DEPRECATED] flag to specify file/folder id instead of url",
     )
     parser.add_argument(
         "--proxy",
@@ -111,14 +99,7 @@ def main():
     parser.add_argument(
         "--folder",
         action="store_true",
-        help="download entire folder instead of a single file "
-        "(max {max} files per folder)".format(max=MAX_NUMBER_FILES),
-    )
-    parser.add_argument(
-        "--remaining-ok",
-        action="store_true",
-        help="(folder only) asserts that is ok to download max "
-        "{max} files per folder.".format(max=MAX_NUMBER_FILES),
+        help="download entire folder instead of a single file",
     )
     parser.add_argument(
         "--format",
@@ -135,25 +116,17 @@ def main():
     if args.output == "-":
         args.output = sys.stdout.buffer
 
-    if args.id:
-        warnings.warn(
-            "Option `--id` was deprecated in version 4.3.1 "
-            "and will be removed in 5.0. You don't need to "
-            "pass it anymore to use a file ID.",
-            category=FutureWarning,
-        )
+    if re.match("^https?://.*", args.url_or_id):
+        url = args.url_or_id
+        id = None
+    else:
         url = None
         id = args.url_or_id
-    else:
-        if re.match("^https?://.*", args.url_or_id):
-            url = args.url_or_id
-            id = None
-        else:
-            url = None
-            id = args.url_or_id
 
     try:
         if args.folder:
+            if not (args.output is None or isinstance(args.output, str)):
+                raise ValueError("--folder does not support stdout output (-O -)")
             download_folder(
                 url=url,
                 id=id,
@@ -163,7 +136,6 @@ def main():
                 speed=args.speed,
                 use_cookies=not args.no_cookies,
                 verify=not args.no_check_certificate,
-                remaining_ok=args.remaining_ok,
                 user_agent=args.user_agent,
                 resume=args.continue_,
             )
@@ -177,27 +149,17 @@ def main():
                 use_cookies=not args.no_cookies,
                 verify=not args.no_check_certificate,
                 id=id,
-                fuzzy=args.fuzzy,
                 resume=args.continue_,
                 format=args.format,
                 user_agent=args.user_agent,
             )
-    except FileURLRetrievalError as e:
+    except DownloadError as e:
         print(e, file=sys.stderr)
-        sys.exit(1)
-    except FolderContentsMaximumLimitError as e:
-        print(
-            "Failed to retrieve folder contents:\n\n{}\n\n"
-            "You can use `--remaining-ok` option to ignore this error.".format(
-                indent("\n".join(textwrap.wrap(str(e))), prefix="\t")
-            ),
-            file=sys.stderr,
-        )
         sys.exit(1)
     except requests.exceptions.ProxyError as e:
         print(
             "Failed to use proxy:\n\n{}\n\nPlease check your proxy settings.".format(
-                indent("\n".join(textwrap.wrap(str(e))), prefix="\t")
+                textwrap.indent("\n".join(textwrap.wrap(str(e))), prefix="\t")
             ),
             file=sys.stderr,
         )
@@ -206,7 +168,7 @@ def main():
         print(
             "Error:\n\n{}\n\nTo report issues, please visit "
             "https://github.com/wkentaro/gdown/issues.".format(
-                indent("\n".join(textwrap.wrap(str(e))), prefix="\t")
+                textwrap.indent("\n".join(textwrap.wrap(str(e))), prefix="\t")
             ),
             file=sys.stderr,
         )

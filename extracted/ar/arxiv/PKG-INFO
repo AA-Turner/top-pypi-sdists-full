@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arxiv
-Version: 2.4.1
+Version: 3.0.0
 Summary: Python wrapper for the arXiv API
 Project-URL: Homepage, https://github.com/lukasschwab/arxiv.py
 Project-URL: Repository, https://github.com/lukasschwab/arxiv.py
@@ -16,24 +16,16 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: feedparser~=6.0.10
-Requires-Dist: requests~=2.32.0
+Requires-Dist: requests<2.34,>=2.32
 Requires-Dist: typing-extensions>=4.0.0; python_version < '3.11'
-Provides-Extra: dev
-Requires-Dist: pdoc==14.5.1; extra == 'dev'
-Requires-Dist: pip-audit>=1.1.2; extra == 'dev'
-Requires-Dist: pytest>=6.2.2; extra == 'dev'
-Requires-Dist: ruff>=0.1.2; extra == 'dev'
-Provides-Extra: test
-Requires-Dist: pytest>=6.2.2; extra == 'test'
 Description-Content-Type: text/markdown
 
 # arxiv.py
@@ -154,16 +146,3 @@ The meaning of the underlying raw data is documented in the [arXiv API User Manu
 
 This project uses [UV](https://astral.sh/uv) for development, while maintaining compatibility with traditional pip installation for end users.
 
-### Development Setup
-
-1. **Install UV** (if you haven't already):
-   ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
-
-2. **Clone and setup**:
-   ```bash
-   git clone https://github.com/lukasschwab/arxiv.py
-   cd arxiv.py
-   make dev-setup
-   ```

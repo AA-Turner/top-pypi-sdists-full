@@ -1,8 +1,10 @@
 import os
 import warnings
+from typing import Any
+
 from dataset.database import Database
 from dataset.table import Table
-from dataset.util import row_type
+from dataset.util import DatasetError, OutRow, QueryError, RowFactory, row_factory
 
 # shut up useless SA warning:
 warnings.filterwarnings("ignore", "Unicode type received non-unicode bind param value.")
@@ -10,19 +12,27 @@ warnings.filterwarnings(
     "ignore", "Skipping unsupported ALTER for creation of implicit constraint"
 )
 
-__all__ = ["Database", "Table", "connect"]
-__version__ = "1.6.2"
+__all__ = [
+    "Database",
+    "DatasetError",
+    "OutRow",
+    "QueryError",
+    "RowFactory",
+    "Table",
+    "connect",
+]
+__version__ = "2.0.0"
 
 
 def connect(
-    url=None,
-    schema=None,
-    engine_kwargs=None,
-    ensure_schema=True,
-    row_type=row_type,
-    sqlite_wal_mode=True,
-    on_connect_statements=None,
-):
+    url: str | None = None,
+    schema: str | None = None,
+    engine_kwargs: dict[str, Any] | None = None,
+    ensure_schema: bool = True,
+    row_type: RowFactory = row_factory,
+    sqlite_wal_mode: bool = True,
+    on_connect_statements: list[str] | None = None,
+) -> Database:
     """Opens a new connection to a database.
 
     *url* can be any valid `SQLAlchemy engine URL`_.  If *url* is not defined
@@ -44,8 +54,8 @@ def connect(
     to on_connect_statements as a set of strings. You can view a full
     `list of PRAGMAs here`_.
 
-    .. _SQLAlchemy Engine URL: http://docs.sqlalchemy.org/en/latest/core/engines.html#sqlalchemy.create_engine
-    .. _DB connection timeout: http://docs.sqlalchemy.org/en/latest/core/pooling.html#setting-pool-recycle
+    .. _SQLAlchemy Engine URL: https://docs.sqlalchemy.org/en/latest/core/engines.html#sqlalchemy.create_engine
+    .. _DB connection timeout: https://docs.sqlalchemy.org/en/latest/core/pooling.html#setting-pool-recycle
     .. _list of PRAGMAs here: https://www.sqlite.org/pragma.html
     """
     if url is None:

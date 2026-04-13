@@ -232,7 +232,7 @@ class TestTokenRefresh:
         mock_tp = MagicMock()
         mock_tp.get_token.return_value = "old-key"
 
-        with patch("anteroom.services.ai_service.AsyncOpenAI"):
+        with patch("openai.AsyncOpenAI"):
             svc = AIService(config, token_provider=mock_tp)
 
         usage = MagicMock()

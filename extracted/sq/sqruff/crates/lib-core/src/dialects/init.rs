@@ -99,8 +99,10 @@ pub enum DialectKind {
     Bigquery,
     Clickhouse,
     Databricks,
+    Db2,
     Duckdb,
     Mysql,
+    Oracle,
     Postgres,
     Redshift,
     Snowflake,
@@ -119,8 +121,10 @@ impl DialectKind {
             DialectKind::Bigquery => "bigquery",
             DialectKind::Clickhouse => "clickhouse",
             DialectKind::Databricks => "databricks",
+            DialectKind::Db2 => "db2",
             DialectKind::Duckdb => "duckdb",
             DialectKind::Mysql => "mysql",
+            DialectKind::Oracle => "oracle",
             DialectKind::Postgres => "postgres",
             DialectKind::Redshift => "redshift",
             DialectKind::Snowflake => "snowflake",
@@ -143,8 +147,10 @@ impl DialectKind {
             }
             DialectKind::Clickhouse => "ClickHouse SQL dialect for real-time analytics.",
             DialectKind::Databricks => "Databricks SQL dialect for lakehouse analytics.",
+            DialectKind::Db2 => "IBM Db2 SQL dialect.",
             DialectKind::Duckdb => "DuckDB SQL dialect for in-process analytical database.",
             DialectKind::Mysql => "MySQL SQL dialect for the popular open-source database.",
+            DialectKind::Oracle => "Oracle SQL dialect for Oracle Database.",
             DialectKind::Postgres => {
                 "PostgreSQL SQL dialect for the advanced open-source database."
             }
@@ -177,8 +183,12 @@ impl DialectKind {
             DialectKind::Databricks => {
                 Some("https://docs.databricks.com/en/sql/language-manual/index.html")
             }
+            DialectKind::Db2 => Some("https://www.ibm.com/docs/en/i/7.4?topic=overview-db2-i"),
             DialectKind::Duckdb => Some("https://duckdb.org/docs/sql/introduction"),
             DialectKind::Mysql => Some("https://dev.mysql.com/doc/"),
+            DialectKind::Oracle => {
+                Some("https://www.oracle.com/database/technologies/appdev/sql.html")
+            }
             DialectKind::Postgres => Some("https://www.postgresql.org/docs/current/sql.html"),
             DialectKind::Redshift => {
                 Some("https://docs.aws.amazon.com/redshift/latest/dg/cm_chap_SQLCommandRef.html")

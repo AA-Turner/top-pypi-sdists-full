@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Functions for working with dictionaries.
 
@@ -52,14 +54,13 @@ References:
     .. [GHDictMap] https://github.com/ulisesojeda/dictionary_map
 """
 
-from __future__ import annotations
-
 import itertools as it
 import operator as op
 import sys
 import typing
 from collections import OrderedDict, defaultdict
 from collections.abc import Generator, Iterable, Mapping
+from typing import Callable, Union, DefaultDict
 
 from ubelt.util_const import NoParam
 
@@ -70,14 +71,13 @@ T = typing.TypeVar('T')
 if typing.TYPE_CHECKING:
     from typing import (
         Any,
-        Callable,
         Dict,
         List,
+        MutableMapping,
         Optional,
         Self,
         Set,
         Type,
-        Union,
         cast,
     )
 
@@ -226,8 +226,9 @@ def group_items(
             ],
         }
     """
+    pair_list: Iterable[tuple[KT, VT]]
     if callable(key):
-        keyfunc = key
+        keyfunc = typing.cast(Callable[[VT], KT], key)
         pair_list = ((keyfunc(item), item) for item in items)
     else:
         pair_list = zip(key, items)
@@ -301,35 +302,36 @@ def dict_hist(
         >>> print(ub.repr2(hist4, nl=0))
         {1: 1, 2: 4, 39: 1, 900: 1, 1232: 0}
     """
+    hist_data: Mapping[T, int | float]
     if weights is None and labels is None:
         # Accumulate discrete frequency.
         # In this special case we use an optimized stdlib routine
         from collections import Counter
 
-        hist_ = Counter()
-        hist_.update(items)
+        hist_data = Counter(items)
     else:
+        hist_2: dict[T, int | float]
         if labels is None:
-            hist_ = defaultdict(lambda: 0)
+            hist_2 = defaultdict(lambda: 0)
         else:
-            hist_ = {k: 0 for k in labels}
+            hist_2 = {k: 0 for k in labels}
         if weights is None:
             weights = it.repeat(1)  # 2x slower than Counter
-        if typing.TYPE_CHECKING:
-            hist_ = cast(typing.MutableMapping[typing.Any, float | int], hist_)
         # Accumulate weighted frequency
         for item, weight in zip(items, weights):
-            hist_[item] += weight
+            hist_2[item] += weight
+        hist_data = hist_2
     if ordered:
         # Order by value
         getval = op.itemgetter(1)
-        hist = OrderedDict(
-            [(key, value) for (key, value) in sorted(hist_.items(), key=getval)]
+        return OrderedDict(
+            [
+                (key, value)
+                for (key, value) in sorted(hist_data.items(), key=getval)
+            ]
         )
-    else:
-        # Cast to a normal dictionary
-        hist = dict(hist_)
-    return hist
+    # Cast to a normal dictionary
+    return dict(hist_data)
 
 
 def find_duplicates(
@@ -388,7 +390,7 @@ def find_duplicates(
         {5: [0, 1], 6: [2, 3], 7: [4, 5]}
     """
     # Build mapping from items to the indices at which they appear
-    duplicates = defaultdict(list)
+    duplicates: defaultdict[T, List[int]] = defaultdict(list)
     if key is None:
         for count, item in enumerate(items):
             duplicates[item].append(count)
@@ -396,11 +398,10 @@ def find_duplicates(
         for count, item in enumerate(items):
             duplicates[key(item)].append(count)
     # remove items seen fewer than k times.
-    for key in list(duplicates.keys()):
-        if len(duplicates[key]) < k:
-            del duplicates[key]
-    duplicates = dict(duplicates)
-    return duplicates
+    for dup_key in list(duplicates.keys()):
+        if len(duplicates[dup_key]) < k:
+            del duplicates[dup_key]
+    return dict(duplicates)
 
 
 def dict_subset(
@@ -643,8 +644,11 @@ def map_values(
         >>> print(newdict)
     """
     if not hasattr(func, '__call__'):
-        func = func.__getitem__
-    keyval_list = [(key, func(val)) for key, val in dict_.items()]
+        func = typing.cast(typing.Mapping, func).__getitem__
+    keyval_list = [
+        (key, typing.cast(Callable[[VT], T], func)(val))
+        for key, val in dict_.items()
+    ]
     if cls is None:
         cls = OrderedDict if isinstance(dict_, OrderedDict) else dict
     newdict = cls(keyval_list)
@@ -695,8 +699,11 @@ def map_keys(
         >>> assert newdict == {'a': [1, 2, 3], 'b': []}
     """
     if not hasattr(func, '__call__'):
-        func = func.__getitem__
-    keyval_list = [(func(key), val) for key, val in dict_.items()]
+        func = typing.cast(typing.Mapping, func).__getitem__
+    keyval_list = [
+        (typing.cast(Callable[[KT], T], func)(key), val)
+        for key, val in dict_.items()
+    ]
     if cls is None:
         cls = OrderedDict if isinstance(dict_, OrderedDict) else dict
     newdict = cls(keyval_list)
@@ -748,12 +755,20 @@ def sorted_values(
     """
     if key is None:
         newdict = OrderedDict(
-            sorted(dict_.items(), key=lambda kv: kv[1], reverse=reverse)
-        )
+            sorted(
+                dict_.items(),
+                key=typing.cast(typing.Any, lambda kv: kv[1]),
+                reverse=reverse,
+            )
+        )  # type: ignore
     else:
         newdict = OrderedDict(
-            sorted(dict_.items(), key=lambda kv: key(kv[1]), reverse=reverse)
-        )
+            sorted(
+                dict_.items(),
+                key=typing.cast(typing.Any, lambda kv: key(kv[1])),
+                reverse=reverse,
+            )
+        )  # type: ignore
     return newdict
 
 
@@ -803,12 +818,20 @@ def sorted_keys(
     """
     if key is None:
         newdict = OrderedDict(
-            sorted(dict_.items(), key=lambda kv: kv[0], reverse=reverse)
-        )
+            sorted(
+                dict_.items(),
+                key=typing.cast(typing.Any, lambda kv: kv[0]),
+                reverse=reverse,
+            )
+        )  # type: ignore
     else:
         newdict = OrderedDict(
-            sorted(dict_.items(), key=lambda kv: key(kv[0]), reverse=reverse)
-        )
+            sorted(
+                dict_.items(),
+                key=typing.cast(typing.Any, lambda kv: key(kv[0])),
+                reverse=reverse,
+            )
+        )  # type: ignore
     return newdict
 
 
@@ -871,10 +894,10 @@ def invert_dict(
             inverted = cls((val, key) for key, val in dict_.items())
     else:
         # Handle non-unique keys using groups
-        inverted = defaultdict(set)
+        inverted = defaultdict(set)  # type: ignore[arg-type, assignment]
         for key, value in dict_.items():
-            inverted[value].add(key)
-        inverted = cls(inverted)
+            inverted[value].add(key)  # type: ignore[attr-defined]
+        inverted = cls(inverted)  # type: ignore[assignment]
     return inverted
 
 
@@ -984,7 +1007,7 @@ def varied_values(
     longform: List[Dict[KT, VT]],
     min_variations: int = 0,
     default: Union[VT, NoParamType] = NoParam,
-) -> Dict[KT, Set[VT]]:
+) -> MutableMapping[KT, Set[VT]]:
     """
     Given a list of dictionaries, find the values that differ between them.
 
@@ -1100,7 +1123,7 @@ def varied_values(
         }
     """
     # Enumerate all defined columns
-    columns = set()
+    columns: set[KT] = set()
     for row in longform:
         if default is NoParam and len(row) != len(columns) and len(columns):
             missing = set(columns).symmetric_difference(set(row))
@@ -1117,7 +1140,10 @@ def varied_values(
         for key in columns:
             value = row.get(key, default)
             if isinstance(value, list):
-                value = tuple(value)
+                value = tuple(value)  # type: ignore[assignment]
+            # It is not possible for value to be NoParam here.
+            if typing.TYPE_CHECKING:
+                value = typing.cast(VT, value)
             varied[key].add(value)
 
     # Remove any column that does not have enough variation
@@ -1520,7 +1546,7 @@ class SetDict(dict):
     # - inplace versions
 
     # Not sure why its hard to type annotate this.
-    def __ior__(self, other) -> Self:
+    def __ior__(self, other: typing.Any) -> Self:  # type: ignore[misc]
         """
         The inplace union operator ``|=``.
 
@@ -1694,7 +1720,7 @@ class SetDict(dict):
             cls = self.__class__
         args = it.chain([self], others)
         if merge is None:
-            new = cls(it.chain.from_iterable(d.items() for d in args))
+            new = cls(it.chain.from_iterable(d.items() for d in args))  # type: ignore[attr-defined]
         else:
             raise NotImplementedError('merge function is not yet implemented')
         return new
@@ -1818,7 +1844,7 @@ class SetDict(dict):
         """
         if cls is None:
             cls = type(self)
-        other_keys = set()
+        other_keys: set = set()
         for v in others:
             other_keys.update(v)
         if merge is None:

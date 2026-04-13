@@ -423,6 +423,18 @@ def is_cancel_requested(db: ThreadSafeConnection, run_id: str) -> bool:
     return bool(row["cancel_requested"])
 
 
+def list_active_runs_for_conversation(db: ThreadSafeConnection, conversation_id: str) -> list[dict[str, Any]]:
+    """Return all non-terminal workflow runs for a conversation, newest first."""
+    terminal = tuple(_TERMINAL_RUN_STATUSES)
+    placeholders = ", ".join("?" for _ in terminal)
+    rows = db.execute_fetchall(
+        f"SELECT * FROM workflow_runs WHERE conversation_id = ? AND status NOT IN ({placeholders})"
+        " ORDER BY created_at DESC",
+        (conversation_id, *terminal),
+    )
+    return [_deserialize_run(dict(r)) for r in rows]
+
+
 def get_active_run_for_conversation(db: ThreadSafeConnection, conversation_id: str) -> dict[str, Any] | None:
     """Return the most recent non-terminal workflow run for a conversation."""
     terminal = tuple(_TERMINAL_RUN_STATUSES)
@@ -1085,6 +1097,74 @@ def _deserialize_decision(d: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Replay-from-step helpers (#1106)
+# ---------------------------------------------------------------------------
+
+
+def reset_steps_from(db: ThreadSafeConnection, run_id: str, step_ids: set[str]) -> int:
+    """Reset workflow steps to pending state, clearing all result and execution metadata.
+
+    Used by replay-from-step to prune stale downstream state.
+    Returns the number of rows updated.
+    """
+    if not step_ids:
+        return 0
+    placeholders = ", ".join("?" for _ in step_ids)
+    cursor = db.execute(
+        "UPDATE workflow_steps SET"
+        " status = 'pending',"
+        " result_status = NULL,"
+        " result_summary = NULL,"
+        " result_artifacts_json = NULL,"
+        " result_findings_json = NULL,"
+        " result_outputs_json = NULL,"
+        " approval_request_id = NULL,"
+        " decision_id = NULL,"
+        " raw_output_path = NULL,"
+        " duration_ms = NULL,"
+        " started_at = NULL,"
+        " completed_at = NULL,"
+        " idempotency_key = NULL"
+        " WHERE run_id = ? AND step_id IN ({})".format(placeholders),
+        (run_id, *sorted(step_ids)),
+    )
+    db.commit()
+    return cursor.rowcount
+
+
+def cancel_pending_approval_requests(db: ThreadSafeConnection, run_id: str) -> int:
+    """Expire all pending approval requests for a run.
+
+    Used by replay-from-step to invalidate stale approval gates.
+    Returns the number of rows updated.
+    """
+    now = _now()
+    cursor = db.execute(
+        "UPDATE workflow_approval_requests SET status = 'expired', resolved_by = 'replay',"
+        " resolved_at = ? WHERE run_id = ? AND status = 'pending'",
+        (now, run_id),
+    )
+    db.commit()
+    return cursor.rowcount
+
+
+def expire_pending_decisions(db: ThreadSafeConnection, run_id: str) -> int:
+    """Expire all pending human decisions for a run.
+
+    Used by replay-from-step to invalidate stale human gate decisions.
+    Returns the number of rows updated.
+    """
+    now = _now()
+    cursor = db.execute(
+        "UPDATE workflow_human_decisions SET status = 'expired', selected_option = NULL,"
+        " resolved_at = ? WHERE run_id = ? AND status = 'pending'",
+        (now, run_id),
+    )
+    db.commit()
+    return cursor.rowcount
+
+
+# ---------------------------------------------------------------------------
 # Workflow Checkpoints (#979)
 # ---------------------------------------------------------------------------
 
@@ -1634,3 +1714,53 @@ def reset_stale_schedule_claims(
     )
     db.commit()
     return cursor.rowcount
+
+
+# ---------------------------------------------------------------------------
+# Workflow Run Inputs (#889)
+# ---------------------------------------------------------------------------
+
+
+def emit_workflow_run_input(
+    db: ThreadSafeConnection,
+    run_id: str,
+    content: str,
+    source_action: str,
+) -> str:
+    """Insert a pending input row for a workflow run. Returns the row id."""
+    import time as _time
+
+    row_id = _uuid()
+    db.execute(
+        "INSERT INTO workflow_run_inputs (id, run_id, content, source_action, created_at) VALUES (?, ?, ?, ?, ?)",
+        (row_id, run_id, content, source_action, _time.time()),
+    )
+    db.commit()
+    return row_id
+
+
+def fetch_pending_run_inputs(db: ThreadSafeConnection, run_id: str) -> list[dict[str, Any]]:
+    """Return unconsumed input rows for a run, ordered by created_at ASC.
+
+    This is a read-only operation — rows are NOT marked consumed.
+    Use :func:`mark_run_input_consumed` to acknowledge after processing.
+    """
+    rows = db.execute_fetchall(
+        "SELECT id, run_id, content, source_action, created_at, consumed_at"
+        " FROM workflow_run_inputs"
+        " WHERE run_id = ? AND consumed_at IS NULL"
+        " ORDER BY created_at ASC",
+        (run_id,),
+    )
+    return [dict(r) for r in rows]
+
+
+def mark_run_input_consumed(db: ThreadSafeConnection, input_id: str) -> None:
+    """Idempotent ack — sets consumed_at only if still NULL."""
+    import time as _time
+
+    db.execute(
+        "UPDATE workflow_run_inputs SET consumed_at = ? WHERE id = ? AND consumed_at IS NULL",
+        (_time.time(), input_id),
+    )
+    db.commit()

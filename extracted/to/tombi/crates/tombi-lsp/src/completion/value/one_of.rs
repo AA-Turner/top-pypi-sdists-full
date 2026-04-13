@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use tombi_extension::CompletionContentPriority;
 use tombi_future::Boxable;
 use tombi_schema_store::{Accessor, CurrentSchema, SchemaAccessor, ValueSchema};
@@ -51,7 +52,7 @@ where
             return completion_items;
         };
 
-        let mut branch_results: Vec<(bool, Vec<CompletionContent>)> = Vec::new();
+        let mut branch_results: Vec<(bool, bool, Vec<CompletionContent>)> = Vec::new();
         for resolved_schema in &resolved_schemas {
             let branch_has_key = if let Some(ref first_key) = first_key {
                 match resolved_schema.value_schema.as_ref() {
@@ -65,6 +66,20 @@ where
             } else {
                 false
             };
+            let branch_is_valid = match value
+                .validate(accessors, Some(resolved_schema), schema_context)
+                .await
+            {
+                Ok(_) => true,
+                Err(tombi_validator::Error { diagnostics, .. })
+                    if diagnostics
+                        .iter()
+                        .all(tombi_diagnostic::Diagnostic::is_warning) =>
+                {
+                    true
+                }
+                _ => false,
+            };
 
             let schema_completions = value
                 .find_completion_contents(
@@ -77,14 +92,26 @@ where
                 )
                 .await;
 
-            branch_results.push((branch_has_key, schema_completions));
+            branch_results.push((branch_has_key, branch_is_valid, schema_completions));
         }
 
-        let narrow_branches = branch_results.iter().any(|(has_key, _)| *has_key);
-        for (branch_has_key, items) in branch_results {
-            if !narrow_branches || branch_has_key {
-                completion_items.extend(items);
+        let valid_branches = branch_results.iter().any(|(_, is_valid, _)| *is_valid);
+        let narrow_branches = branch_results.iter().any(|(has_key, _, _)| *has_key);
+        for (branch_has_key, branch_is_valid, items) in &branch_results {
+            if valid_branches {
+                if *branch_is_valid {
+                    completion_items.extend(items.iter().cloned());
+                }
+            } else if !narrow_branches || *branch_has_key {
+                completion_items.extend(items.iter().cloned());
             }
+        }
+
+        if completion_items.is_empty() {
+            completion_items = branch_results
+                .into_iter()
+                .flat_map(|(_, _, items)| items)
+                .collect_vec();
         }
 
         let detail = one_of_schema
@@ -114,7 +141,7 @@ where
             }
         }
 
-        if !narrow_branches {
+        if !valid_branches && !narrow_branches {
             if let Some(default) = &one_of_schema.default {
                 let default_label = default.to_string();
                 if let Some(completion_item) = completion_items
