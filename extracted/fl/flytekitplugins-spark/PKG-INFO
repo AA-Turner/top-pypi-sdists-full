@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flytekitplugins-spark
-Version: 1.16.16
+Version: 1.16.19
 Summary: Spark 3 plugin for flytekit
 Author: flyteorg
 Author-email: admin@flyte.org

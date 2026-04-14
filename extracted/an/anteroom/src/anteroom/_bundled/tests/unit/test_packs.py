@@ -12,8 +12,11 @@ from anteroom.db import _SCHEMA, ThreadSafeConnection
 from anteroom.services.packs import (
     ManifestArtifact,
     _extract_yaml_frontmatter,
+    _inline_resources,
+    _parse_resource_list_from_frontmatter,
     _read_artifact_content,
     _resolve_artifact_file,
+    _resolve_bundle_resources,
     get_pack,
     get_pack_by_id,
     install_pack,
@@ -266,6 +269,53 @@ class TestResolveArtifactFile:
         art = ManifestArtifact(type="skill", name="evil", file="../../../etc/passwd")
         result = _resolve_artifact_file(art, tmp_path)
         assert result is None
+
+    def test_skill_directory_layout(self, tmp_path: Path) -> None:
+        skill_dir = tmp_path / "skills" / "deploy"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: deploy\n---\nDeploy prompt")
+        art = ManifestArtifact(type="skill", name="deploy")
+        result = _resolve_artifact_file(art, tmp_path)
+        assert result is not None
+        assert result.name == "SKILL.md"
+        assert result.parent.name == "deploy"
+
+    def test_skill_flat_file_preferred_over_directory(self, tmp_path: Path) -> None:
+        (tmp_path / "skills").mkdir()
+        (tmp_path / "skills" / "deploy.yaml").write_text("content: flat")
+        skill_dir = tmp_path / "skills" / "deploy"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("---\nname: deploy\n---\nDir prompt")
+        art = ManifestArtifact(type="skill", name="deploy")
+        result = _resolve_artifact_file(art, tmp_path)
+        assert result is not None
+        assert result.name == "deploy.yaml"
+
+    def test_skill_directory_missing(self, tmp_path: Path) -> None:
+        (tmp_path / "skills").mkdir()
+        art = ManifestArtifact(type="skill", name="nope")
+        result = _resolve_artifact_file(art, tmp_path)
+        assert result is None
+
+
+class TestValidateManifestSkillDirectory:
+    def test_skill_directory_layout_valid(self, tmp_path: Path) -> None:
+        pack_dir = tmp_path / "pack"
+        pack_dir.mkdir()
+        skill_dir = pack_dir / "skills" / "deploy"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: deploy\n---\nDeploy prompt", encoding="utf-8")
+        _write_manifest(
+            pack_dir,
+            {
+                "name": "p",
+                "namespace": "ns",
+                "artifacts": [{"type": "skill", "name": "deploy"}],
+            },
+        )
+        manifest = parse_manifest(pack_dir / "pack.yaml")
+        errors = validate_manifest(manifest, pack_dir)
+        assert errors == []
 
 
 class TestReadArtifactContent:
@@ -1118,3 +1168,136 @@ class TestValidateManifestRuleMetadata:
         manifest = parse_manifest(pack_dir / "pack.yaml")
         errors = validate_manifest(manifest, pack_dir)
         assert any("Malformed front matter" in e for e in errors)
+
+
+class TestBundleResourceUtilities:
+    # ------------------------------------------------------------------ #
+    # _parse_resource_list_from_frontmatter                               #
+    # ------------------------------------------------------------------ #
+
+    def test_parse_resource_list_from_frontmatter_present(self, tmp_path: Path) -> None:
+        content = "---\nname: deploy\nresources:\n  - examples.md\n---\n\nDeploy the thing.\n"
+        skill_path = tmp_path / "SKILL.md"
+        skill_path.write_text(content, encoding="utf-8")
+        result = _parse_resource_list_from_frontmatter(content, skill_path)
+        assert result == ["examples.md"]
+
+    def test_parse_resource_list_from_frontmatter_absent(self, tmp_path: Path) -> None:
+        content = "---\nname: greet\n---\n\nSay hello.\n"
+        skill_path = tmp_path / "SKILL.md"
+        skill_path.write_text(content, encoding="utf-8")
+        result = _parse_resource_list_from_frontmatter(content, skill_path)
+        assert result == []
+
+    def test_parse_resource_list_from_frontmatter_invalid(self, tmp_path: Path) -> None:
+        # resources: is a string, not a list — must return []
+        content = "---\nname: greet\nresources: not-a-list\n---\n\nSay hello.\n"
+        skill_path = tmp_path / "SKILL.md"
+        skill_path.write_text(content, encoding="utf-8")
+        result = _parse_resource_list_from_frontmatter(content, skill_path)
+        assert result == []
+
+    # ------------------------------------------------------------------ #
+    # _resolve_bundle_resources                                            #
+    # ------------------------------------------------------------------ #
+
+    def test_resolve_bundle_resources_valid(self, tmp_path: Path) -> None:
+        skill_dir = tmp_path / "skills" / "deploy"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "checklist.md").write_text("- step one\n- step two\n", encoding="utf-8")
+        results = _resolve_bundle_resources(skill_dir, ["checklist.md"], tmp_path)
+        assert len(results) == 1
+        rel_path, content = results[0]
+        assert rel_path == "checklist.md"
+        assert "step one" in content
+
+    def test_resolve_bundle_resources_symlink_rejected(self, tmp_path: Path) -> None:
+        skill_dir = tmp_path / "skills" / "deploy"
+        skill_dir.mkdir(parents=True)
+        real_file = tmp_path / "real.md"
+        real_file.write_text("data", encoding="utf-8")
+        link = skill_dir / "link.md"
+        link.symlink_to(real_file)
+        with pytest.raises(ValueError, match="Symlink not allowed"):
+            _resolve_bundle_resources(skill_dir, ["link.md"], tmp_path)
+
+    def test_resolve_bundle_resources_path_traversal(self, tmp_path: Path) -> None:
+        # Use skill_dir as both skill_dir and boundary so that ../.. escapes it.
+        skill_dir = tmp_path / "skills" / "deploy"
+        skill_dir.mkdir(parents=True)
+        with pytest.raises(ValueError, match="Path traversal blocked"):
+            _resolve_bundle_resources(skill_dir, ["../../outside.md"], skill_dir)
+
+    def test_resolve_bundle_resources_missing_file(self, tmp_path: Path) -> None:
+        skill_dir = tmp_path / "skills" / "deploy"
+        skill_dir.mkdir(parents=True)
+        with pytest.raises(ValueError, match="Declared resource not found"):
+            _resolve_bundle_resources(skill_dir, ["nonexistent.md"], tmp_path)
+
+    def test_resolve_bundle_resources_bad_extension(self, tmp_path: Path) -> None:
+        skill_dir = tmp_path / "skills" / "deploy"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "payload.exe").write_bytes(b"MZ\x00\x01")
+        with pytest.raises(ValueError, match="Unsupported resource extension"):
+            _resolve_bundle_resources(skill_dir, ["payload.exe"], tmp_path)
+
+    # ------------------------------------------------------------------ #
+    # _inline_resources                                                    #
+    # ------------------------------------------------------------------ #
+
+    def test_inline_resources_single(self) -> None:
+        skill_content = "---\nname: deploy\n---\n\nDeploy the thing."
+        resources = [("checklist.md", "- step one\n")]
+        result = _inline_resources(skill_content, resources)
+        assert "<bundled_resources>" in result
+        assert '<resource path="checklist.md">' in result
+        assert "step one" in result
+        assert "</resource>" in result
+        assert "</bundled_resources>" in result
+
+    def test_inline_resources_empty(self) -> None:
+        skill_content = "---\nname: greet\n---\n\nSay hello."
+        result = _inline_resources(skill_content, [])
+        assert result == skill_content
+
+    def test_inline_resources_multiple(self) -> None:
+        skill_content = "# Deploy\nDo the thing."
+        resources = [("checklist.md", "- step 1\n"), ("examples.md", "## Example\n")]
+        result = _inline_resources(skill_content, resources)
+        assert '<resource path="checklist.md">' in result
+        assert '<resource path="examples.md">' in result
+        assert result.count("<resource") == 2
+
+
+class TestManifestArtifactResources:
+    def test_manifest_artifact_resources_field(self) -> None:
+        art = ManifestArtifact(type="skill", name="deploy")
+        assert hasattr(art, "resources")
+        assert art.resources == ()
+
+    def test_manifest_artifact_resources_populated(self) -> None:
+        art = ManifestArtifact(type="skill", name="deploy", resources=("checklist.md", "examples.md"))
+        assert art.resources == ("checklist.md", "examples.md")
+
+    def test_parse_manifest_with_resources(self, tmp_path: Path) -> None:
+        manifest_data = {
+            "name": "my-pack",
+            "namespace": "ns",
+            "version": "1.0.0",
+            "artifacts": [
+                {
+                    "type": "skill",
+                    "name": "deploy",
+                    "resources": ["checklist.md", "examples.md"],
+                }
+            ],
+        }
+        manifest_path = tmp_path / "pack.yaml"
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            yaml.dump(manifest_data, f)
+        m = parse_manifest(manifest_path)
+        assert len(m.artifacts) == 1
+        art = m.artifacts[0]
+        assert art.name == "deploy"
+        assert "checklist.md" in art.resources
+        assert "examples.md" in art.resources

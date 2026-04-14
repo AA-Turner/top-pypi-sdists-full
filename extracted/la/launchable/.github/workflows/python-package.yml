@@ -63,6 +63,8 @@ jobs:
         retry_on: error
         command: |
           python -m pip install --upgrade pip
+          # (Kohsuke in 2026 looking at this 2021 change) at some point, pipenv dropped the Python 3.6 support.
+          # This version must have been one that was known to work.
           pip install pipenv==2021.11.5
           pipenv install --dev --python ${{ matrix.python-version }}
     - name: Install dependencies
@@ -74,7 +76,12 @@ jobs:
         retry_on: error
         command: |
           python -m pip install --upgrade pip
-          pip install pipenv
+          # In responding to a CI failure unrelated to my change, I noticed that a newer version of pipenv
+          # (2026.5.2) was resolving a set of packages very differently. Normally, we'd put Pipenv.lock in Git
+          # to prevent this type of problems, but that file is intentionally kept out of Git, and I was afraid
+          # of changing  that. So here I'm just pinning this to a version known to work. v1 is in the maintenance
+          # mode, so this bandaid should last long enough.
+          pip install 'pipenv<=2026.0.3'
           pipenv install --dev --python ${{ matrix.python-version }}
     - name: Build
       run: |

@@ -1,5 +1,6 @@
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as _arrow_pb2
 from chalk._gen.chalk.expression.v1 import expression_pb2 as _expression_pb2
+from chalk._gen.chalk.planner.v1 import batch_udf_pb2 as _batch_udf_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -126,6 +127,8 @@ class LogicalPlanArgument(_message.Message):
         "list_value",
         "unordered_dict_value",
         "expr_value",
+        "batch_udf",
+        "batch_udf_v2",
     )
     NULL_VALUE_FIELD_NUMBER: _ClassVar[int]
     STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
@@ -137,6 +140,8 @@ class LogicalPlanArgument(_message.Message):
     LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
     UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
     EXPR_VALUE_FIELD_NUMBER: _ClassVar[int]
+    BATCH_UDF_FIELD_NUMBER: _ClassVar[int]
+    BATCH_UDF_V2_FIELD_NUMBER: _ClassVar[int]
     null_value: LogicalPlanArgumentNullOpt
     string_value: str
     int64_value: int
@@ -147,6 +152,8 @@ class LogicalPlanArgument(_message.Message):
     list_value: LogicalPlanArgumentList
     unordered_dict_value: LogicalPlanUnorderedDict
     expr_value: _expression_pb2.LogicalExprNode
+    batch_udf: _batch_udf_pb2.BatchUDF
+    batch_udf_v2: BatchUDFV2
     def __init__(
         self,
         null_value: _Optional[_Union[LogicalPlanArgumentNullOpt, _Mapping]] = ...,
@@ -159,6 +166,8 @@ class LogicalPlanArgument(_message.Message):
         list_value: _Optional[_Union[LogicalPlanArgumentList, _Mapping]] = ...,
         unordered_dict_value: _Optional[_Union[LogicalPlanUnorderedDict, _Mapping]] = ...,
         expr_value: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
+        batch_udf: _Optional[_Union[_batch_udf_pb2.BatchUDF, _Mapping]] = ...,
+        batch_udf_v2: _Optional[_Union[BatchUDFV2, _Mapping]] = ...,
     ) -> None: ...
 
 class LogicalPlanArgumentList(_message.Message):
@@ -182,6 +191,38 @@ class LogicalPlanUnorderedDict(_message.Message):
     ITEMS_FIELD_NUMBER: _ClassVar[int]
     items: _containers.MessageMap[str, LogicalPlanArgument]
     def __init__(self, items: _Optional[_Mapping[str, LogicalPlanArgument]] = ...) -> None: ...
+
+class BatchUDFV2(_message.Message):
+    __slots__ = ("batch_udf_type", "arguments")
+    class ArgumentsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: BatchUDFArgumentV2
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[BatchUDFArgumentV2, _Mapping]] = ...
+        ) -> None: ...
+
+    BATCH_UDF_TYPE_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    batch_udf_type: str
+    arguments: _containers.MessageMap[str, BatchUDFArgumentV2]
+    def __init__(
+        self, batch_udf_type: _Optional[str] = ..., arguments: _Optional[_Mapping[str, BatchUDFArgumentV2]] = ...
+    ) -> None: ...
+
+class BatchUDFArgumentV2(_message.Message):
+    __slots__ = ("logical_plan_arg", "py_obj")
+    LOGICAL_PLAN_ARG_FIELD_NUMBER: _ClassVar[int]
+    PY_OBJ_FIELD_NUMBER: _ClassVar[int]
+    logical_plan_arg: LogicalPlanArgument
+    py_obj: _batch_udf_pb2.PyObject
+    def __init__(
+        self,
+        logical_plan_arg: _Optional[_Union[LogicalPlanArgument, _Mapping]] = ...,
+        py_obj: _Optional[_Union[_batch_udf_pb2.PyObject, _Mapping]] = ...,
+    ) -> None: ...
 
 class LogicalPlanArgumentNullOpt(_message.Message):
     __slots__ = ()

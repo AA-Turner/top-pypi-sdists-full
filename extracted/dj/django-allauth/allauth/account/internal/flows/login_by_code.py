@@ -1,6 +1,9 @@
-from django.contrib import messages
+from __future__ import annotations
 
-from allauth.account import app_settings
+from django.contrib import messages
+from django.http import HttpRequest
+
+from allauth.account import app_settings, signals
 from allauth.account.adapter import get_adapter
 from allauth.account.internal.flows.code_verification import (
     AbstractCodeVerificationProcess,
@@ -18,7 +21,7 @@ LOGIN_CODE_STATE_KEY = "login_code"
 
 
 class LoginCodeVerificationProcess(AbstractCodeVerificationProcess):
-    def __init__(self, stage):
+    def __init__(self, stage) -> None:
         self.stage = stage
         self.request = stage.request
         super().__init__(
@@ -32,6 +35,7 @@ class LoginCodeVerificationProcess(AbstractCodeVerificationProcess):
         email = self.state.get("email")
         phone = self.state.get("phone")
         user = self.user
+        assert user  # nosec
         record_authentication(
             self.request, user, method="code", email=email, phone=phone
         )
@@ -51,6 +55,17 @@ class LoginCodeVerificationProcess(AbstractCodeVerificationProcess):
             return perform_login(self.request, login)
         else:
             return self.stage.exit()
+
+    def record_invalid_attempt(self) -> bool:
+        has_attempts_left = super().record_invalid_attempt()
+        if self.user:
+            signals.login_code_rejected.send(
+                sender=LoginCodeVerificationProcess,
+                request=self.request,
+                user=self.user,
+                last_attempt=not has_attempts_left,
+            )
+        return has_attempts_left
 
     def abort(self) -> None:
         clear_login(self.request)
@@ -75,6 +90,7 @@ class LoginCodeVerificationProcess(AbstractCodeVerificationProcess):
         if email:
             code = adapter.generate_login_code()
         elif phone:
+            assert self.user  # nosec
             code = adapter._generate_phone_verification_code_compat(
                 user=self.user, phone=phone
             )
@@ -123,12 +139,12 @@ class LoginCodeVerificationProcess(AbstractCodeVerificationProcess):
     def initiate(
         cls,
         *,
-        request,
+        request: HttpRequest,
         user,
         email: str | None = None,
         phone: str | None = None,
         stage=None,
-    ):
+    ) -> LoginCodeVerificationProcess:
         initial_state = cls.initial_state(user=user, email=email, phone=phone)
         initial_state["initiated_by_user"] = stage is None
         if not stage:

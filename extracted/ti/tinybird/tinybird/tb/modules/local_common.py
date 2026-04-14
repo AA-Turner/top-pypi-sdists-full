@@ -47,14 +47,21 @@ TB_LOCAL_DEFAULT_WORKSPACE_NAME = "Tinybird_Local_Testing"
 
 
 def get_tinybird_local_client(
-    config_obj: Dict[str, Any], test: bool = False, staging: bool = False, silent: bool = False
-) -> TinyB:
-    """Get a Tinybird client connected to the local environment."""
+    config_obj: Dict[str, Any],
+    test: bool = False,
+    staging: bool = False,
+    silent: bool = False,
+    branch: Optional[str] = None,
+) -> tuple[TinyB, bool]:
+    """Get a Tinybird client connected to the local environment.
+
+    Returns a tuple of (client, workspace_created).
+    """
     try:
-        config = get_tinybird_local_config(config_obj, test=test, silent=silent)
+        config, workspace_created = get_tinybird_local_config(config_obj, test=test, silent=silent, branch=branch)
         client = config.get_client(host=TB_LOCAL_ADDRESS, staging=staging)
         load_secrets(config_obj.get("path", ""), client)
-        return client
+        return client, workspace_created
     # if some of the API calls to tinybird local fail due to a JSONDecodeError, it means that container is running but it's unhealthy
     except json.JSONDecodeError:
         raise CLILocalException(
@@ -64,10 +71,14 @@ def get_tinybird_local_client(
         )
 
 
-def get_tinybird_local_config(config_obj: Dict[str, Any], test: bool = False, silent: bool = False) -> CLIConfig:
-    """Craft a client config with a workspace name based on the path of the project files
+def get_tinybird_local_config(
+    config_obj: Dict[str, Any], test: bool = False, silent: bool = False, branch: Optional[str] = None
+) -> tuple[CLIConfig, bool]:
+    """Craft a client config with a workspace name based on the path of the project files.
 
-    It uses the tokens from tinybird local
+    It uses the tokens from tinybird local.
+
+    Returns a tuple of (config, workspace_created).
     """
     path = config_obj.get("path")
     config = CLIConfig.get_project_config()
@@ -75,6 +86,7 @@ def get_tinybird_local_config(config_obj: Dict[str, Any], test: bool = False, si
     user_token = tokens["user_token"]
     admin_token = tokens["admin_token"]
     default_token = tokens["workspace_admin_token"]
+    workspace_created = False
     # Create a new workspace if path is provided. This is used to isolate the build in a different workspace.
     if path:
         user_client = config.get_client(host=TB_LOCAL_ADDRESS, token=user_token)
@@ -92,6 +104,8 @@ def get_tinybird_local_config(config_obj: Dict[str, Any], test: bool = False, si
                     )
 
             ws_name = get_test_workspace_name(path)
+        elif branch:
+            ws_name = branch
         else:
             ws_name = config.get("name") or config_obj.get("name") or get_build_workspace_name(path)
         if not ws_name:
@@ -120,6 +134,7 @@ def get_tinybird_local_config(config_obj: Dict[str, Any], test: bool = False, si
             ws = next((ws for ws in user_workspaces["workspaces"] if ws["name"] == ws_name), None)
             if not ws:
                 raise AuthNoTokenException()
+            workspace_created = True
 
         ws_token = ws["token"]
         config.set_token(ws_token)
@@ -130,7 +145,7 @@ def get_tinybird_local_config(config_obj: Dict[str, Any], test: bool = False, si
         config.set_token_for_host(TB_LOCAL_ADDRESS, default_token)
 
     config.set_user_token(user_token)
-    return config
+    return config, workspace_created
 
 
 def get_build_workspace_name(path: str) -> str:

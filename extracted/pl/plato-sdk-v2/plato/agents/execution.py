@@ -39,6 +39,7 @@ class AgentExecutionManager:
         primary_workspace: Workspace | None = None,
         primary_mount: AgentWorkspaceMount | None = None,
         total_agents: int | None = None,
+        min_warmpool_timeout: int = 43200,
     ) -> None:
         if agent_config.max_parallel is None:
             raise ValueError("AgentExecutionManager requires agent_config.max_parallel")
@@ -48,10 +49,13 @@ class AgentExecutionManager:
         self._checkpoint = checkpoint
         self._primary_workspace = primary_workspace
         self._primary_mount = primary_mount
+        self._min_warmpool_timeout = min_warmpool_timeout
 
         vm_timeout: int | None = None
-        if total_agents is not None and isinstance(agent_config.runtime, VMRuntimeConfig):
-            vm_timeout = agent_config.runtime.timeout * total_agents
+        if isinstance(agent_config.runtime, VMRuntimeConfig):
+            if total_agents is not None:
+                vm_timeout = agent_config.runtime.timeout * total_agents
+            vm_timeout = max(vm_timeout or 0, min_warmpool_timeout) if min_warmpool_timeout > 0 else vm_timeout
 
         self._warm_pool = WarmPool(
             runtime_factory=runtime_factory,
@@ -66,7 +70,10 @@ class AgentExecutionManager:
         """Recompute the pool's VM sandbox timeout for a (possibly larger) agent count."""
         if not isinstance(self._agent_config.runtime, VMRuntimeConfig):
             return
-        new_timeout = self._agent_config.runtime.timeout * total_agents
+        new_timeout = max(
+            self._agent_config.runtime.timeout * total_agents,
+            self._min_warmpool_timeout,
+        )
         if self._warm_pool._vm_timeout is None or new_timeout > self._warm_pool._vm_timeout:
             self._warm_pool._vm_timeout = new_timeout
 
@@ -123,7 +130,7 @@ class AgentExecutionManager:
         task: AgentTask,
         task_name: str,
         published_transport: GitTransport,
-        review_fn: Callable[[str], Awaitable[ReviewGateResult]],
+        review_fn: Callable[..., Awaitable[ReviewGateResult]],
     ) -> None:
         """Wire up the review gate on the task for review-before-merge flow."""
         from plato.agents.review_gate import ReviewGateMergeResult, attach_review_gate
@@ -166,7 +173,7 @@ class AgentExecutionManager:
 
         _review_attempt = 0
 
-        async def _review_with_no_change_guard(hostname: str) -> ReviewGateResult:
+        async def _review_with_no_change_guard(hostname: str, *, attempt_number: int = 1) -> ReviewGateResult:
             from plato.agents.review_gate import ReviewGateResult
 
             nonlocal _review_attempt
@@ -187,7 +194,7 @@ class AgentExecutionManager:
                     ),
                     result_data={},
                 )
-            return await review_fn(hostname)
+            return await review_fn(hostname, attempt_number=attempt_number)
 
         result_dir = self._primary_mount.world_path if self._primary_mount else None
 

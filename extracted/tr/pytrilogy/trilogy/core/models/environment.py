@@ -4,14 +4,18 @@ import copy
 import difflib
 import os
 from collections import UserDict, defaultdict
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import MappingProxyType
 from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
     ItemsView,
+    Iterator,
     List,
+    Mapping,
     Never,
     Optional,
     Self,
@@ -110,6 +114,7 @@ class EnvironmentConceptDict(UserDict[str, Concept]):
         self.fail_on_missing: bool = True
         self.hidden: set[str] = set()
         self._resolving: set[str] = set()
+        self._overlay_stack: list[Mapping[str, Concept]] = []
         self.populate_default_concepts()
 
     def duplicate(self) -> "EnvironmentConceptDict":
@@ -127,7 +132,66 @@ class EnvironmentConceptDict(UserDict[str, Concept]):
         for concept in DEFAULT_CONCEPTS.values():
             self[concept.address] = concept
 
+    @contextmanager
+    def push_overlay(
+        self, overlay: Mapping[str, Concept]
+    ) -> Iterator[Mapping[str, Concept]]:
+        """Install a read-only concept overlay for the duration of the scope.
+
+        While active, reads through ``__getitem__``/``get``/``__contains__``
+        consult the overlay before ``self.data``. Mutable dicts are wrapped
+        in ``MappingProxyType`` so this API cannot be used as a write path;
+        ``self.data`` is never mutated by overlay installation or teardown.
+        The wrapper is a *live* view of the caller's dict, so concepts added
+        to the underlying dict during the scope become visible immediately.
+        """
+        if isinstance(overlay, dict):
+            view: Mapping[str, Concept] = MappingProxyType(overlay)
+        else:
+            view = overlay
+        self._overlay_stack.append(view)
+        try:
+            yield view
+        finally:
+            popped = self._overlay_stack.pop()
+            assert popped is view, "overlay stack corrupted"
+
+    @contextmanager
+    def without_overlays(self) -> Iterator[None]:
+        """Temporarily detach every installed overlay.
+
+        Commit-time write paths (``semantic_state.commit`` running
+        ``add_concept``/``merge_concept``) must consult durable
+        ``self.data`` rather than the pending overlay view; otherwise
+        ``merge_concept``'s equality shortcut reads a staged alias and
+        skips rewiring a stale ``alias_origin_lookup`` entry.
+        """
+        saved, self._overlay_stack = self._overlay_stack, []
+        try:
+            yield
+        finally:
+            self._overlay_stack = saved
+
+    def _overlay_lookup(self, key: str) -> Concept | None:
+        if not self._overlay_stack:
+            return None
+        for overlay in reversed(self._overlay_stack):
+            hit = overlay.get(key)
+            if hit is not None:
+                return hit
+            if "." in key and key.split(".", 1)[0] == DEFAULT_NAMESPACE:
+                hit = overlay.get(key.split(".", 1)[1])
+                if hit is not None:
+                    return hit
+            elif "." not in key:
+                hit = overlay.get(f"{DEFAULT_NAMESPACE}.{key}")
+                if hit is not None:
+                    return hit
+        return None
+
     def __contains__(self, key: object) -> bool:
+        if isinstance(key, str) and self._overlay_lookup(key) is not None:
+            return True
         if key in self.data and key not in self.hidden:
             return True
         if isinstance(key, str):
@@ -180,6 +244,10 @@ class EnvironmentConceptDict(UserDict[str, Concept]):
     def __getitem__(
         self, key: str, line_no: int | None = None, file: Path | None = None
     ) -> Concept | UndefinedConceptFull:
+        if self._overlay_stack:
+            overlay_hit = self._overlay_lookup(key)
+            if overlay_hit is not None:
+                return overlay_hit
         # fast access path — includes hidden (needed for build resolution)
         if key in self.data:
             return self.data[key]
@@ -627,10 +695,7 @@ class Environment:
     ):
         if self.frozen:
             raise ValueError("Environment is frozen, cannot add imports")
-        from trilogy.parsing.parse_engine import (
-            PARSER,
-            ParseToObjects,
-        )
+        from trilogy.parser import parse_text
 
         if isinstance(path, str):
             if path.endswith(".preql"):
@@ -643,34 +708,17 @@ class Environment:
         else:
             target = path
         if not env:
-            import_keys = ["root", alias]
-            parse_address = "-".join(import_keys)
             try:
                 with open(target, "r", encoding="utf-8") as f:
                     text = f.read()
-                nenv = Environment(
-                    working_path=target.parent,
-                )
+                nenv = Environment(working_path=target.parent)
                 nenv.concepts.fail_on_missing = False
-                nparser = ParseToObjects(
-                    environment=Environment(
-                        working_path=target.parent,
-                    ),
-                    parse_address=parse_address,
-                    token_address=target,
-                    import_keys=import_keys,
-                )
-                nparser.set_text(text)
-                nparser.environment.concepts.fail_on_missing = False
-                nparser.transform(PARSER.parse(text))
-                nparser.run_second_parse_pass()
-                nparser.environment.concepts.fail_on_missing = True
-
+                nenv, _ = parse_text(text, environment=nenv, root=target.parent)
             except Exception as e:
                 raise ImportError(
                     f"Unable to import file {target.parent}, parsing error: {e}"
                 )
-            env = nparser.environment
+            env = nenv
         imps = Import(alias=alias, path=target)
         self.add_import(alias, source=env, imp_stm=imps)
         return imps

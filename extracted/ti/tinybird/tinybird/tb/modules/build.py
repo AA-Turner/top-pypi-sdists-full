@@ -12,14 +12,49 @@ from tinybird.datafile.exceptions import ParseException
 from tinybird.datafile.parse_datasource import parse_datasource
 from tinybird.datafile.parse_pipe import parse_pipe
 from tinybird.tb.client import TinyB
+from tinybird.tb.config import CLOUD_HOSTS
 from tinybird.tb.modules.build_common import process
-from tinybird.tb.modules.cli import cli
+from tinybird.tb.modules.cli import cli, get_current_git_branch
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.datafile.playground import folder_playground
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.project import Project
 from tinybird.tb.modules.query_output import print_table_formatted
 from tinybird.tb.modules.watch import watch_files, watch_project
+
+
+def _get_dashboard_url(config: Dict[str, Any], branch_name: str, is_local: bool) -> Optional[str]:
+    host = config.get("host", "")
+    cloud_base = CLOUD_HOSTS.get(host)
+    workspace_name = config.get("name", "")
+    if not cloud_base or not workspace_name:
+        return None
+    if is_local:
+        return f"{cloud_base}/{workspace_name}~local~{branch_name}"
+    return f"{cloud_base}/{workspace_name}~{branch_name}"
+
+
+def echo_branch_info(obj: Dict[str, Any]) -> None:
+    local_branch = obj.get("local_branch")
+    cloud_branch = obj.get("branch")
+    if not local_branch and not cloud_branch:
+        return
+    git_branch = obj.get("git_branch") or get_current_git_branch()
+    branch_created = obj.get("branch_created", False)
+    status = "✓ created" if branch_created else "✓ exists"
+    config = obj.get("config", {})
+    if git_branch:
+        click.echo(FeedbackManager.highlight(message=f"» Git branch:            {git_branch}"))
+    if local_branch:
+        click.echo(FeedbackManager.highlight(message=f"» Tinybird Local branch: {local_branch} {status}"))
+        dashboard_url = _get_dashboard_url(config, local_branch, is_local=True)
+    elif cloud_branch:
+        click.echo(FeedbackManager.highlight(message=f"» Tinybird Cloud branch: {cloud_branch} {status}"))
+        dashboard_url = _get_dashboard_url(config, cloud_branch, is_local=False)
+    else:
+        dashboard_url = None
+    if dashboard_url:
+        click.echo(FeedbackManager.gray(message=f"  ↳ {dashboard_url}"))
 
 
 @cli.command()
@@ -56,6 +91,7 @@ def build(ctx: click.Context, watch: bool, with_connections: bool) -> None:
             )
         )
 
+    echo_branch_info(obj)
     click.echo(FeedbackManager.highlight_building_project())
     process(
         project=project,
@@ -104,6 +140,7 @@ def dev(ctx: click.Context, with_connections: Optional[bool]) -> None:
     tb_client: TinyB = ctx.ensure_object(dict)["client"]
     config: Dict[str, Any] = ctx.ensure_object(dict)["config"]
 
+    echo_branch_info(obj)
     click.echo(FeedbackManager.highlight_building_project())
     process(
         project=project,

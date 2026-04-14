@@ -129,3 +129,54 @@ class TestECKey(TestCase):
         key1 = ECKey.derive_key("ec-secret-key", "P-256", kdf_options={"algorithm": hashes.SHA256()})
         key2 = ECKey.derive_key("ec-secret-key", "P-256", kdf_options={"algorithm": hashes.SHA512()})
         self.assertNotEqual(key1, key2)
+
+    def run_verify_full_size(self, curve_name: str, expected_base64_count: int):
+        """
+        Verifies that the full-size keys (private and public) generated using the specified curve conform to the expected
+        Base64-encoded string length for their respective components. The checks involve generating keys that could lead
+        to truncated values when encoded and ensuring their lengths match the specified expectation.
+
+        See section: https://datatracker.ietf.org/doc/html/rfc7518#section-6.2
+
+        Parameters:
+            curve_name (str): The name of the elliptic curve to use for key generation.
+            expected_base64_count (int): The expected length of the Base64-encoded key components (x, y, d).
+
+        Raises:
+            AssertionError: Raised if any of the generated private or public key components fail to match the expected lengths.
+        """
+        private_key = ECKey.generate_key(curve_name)
+        # find the number which requires one less byte(octet) than a full padding
+        byte_count = (private_key.curve_key_size + 7) // 8
+        lower_cap = pow(2, 8 * (byte_count - 1))
+        attempts_remaining = 1000000
+
+        # now generate keys until we find a parameter which could be truncated
+        while (
+            private_key.public_key.public_numbers().x >= lower_cap
+            and private_key.public_key.public_numbers().y >= lower_cap
+            and private_key.private_key.private_numbers().private_value >= lower_cap
+        ):
+            private_key = ECKey.generate_key(curve_name)
+            attempts_remaining -= 1
+            if attempts_remaining == 0:
+                raise AssertionError("Failed to find a key parameter that could be truncated")
+
+        output_private = private_key.as_dict(private=True)
+        self.assertEqual(expected_base64_count, len(output_private["x"]))
+        self.assertEqual(expected_base64_count, len(output_private["y"]))
+        self.assertEqual(expected_base64_count, len(output_private["d"]))
+
+        pub_key = ECKey.import_key(private_key.public_key)
+        output_public = pub_key.as_dict(private=False)
+        self.assertEqual(expected_base64_count, len(output_public["x"]))
+        self.assertEqual(expected_base64_count, len(output_public["y"]))
+
+    def test_p256_full_size(self):
+        self.run_verify_full_size("P-256", 43)
+
+    def test_p384_full_size(self):
+        self.run_verify_full_size("P-384", 64)
+
+    def test_p521_full_size(self):
+        self.run_verify_full_size("P-521", 88)

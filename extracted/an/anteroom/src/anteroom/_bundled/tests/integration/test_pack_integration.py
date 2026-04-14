@@ -2129,3 +2129,156 @@ class TestArtifactYAMLEdgeCases:
 
         assert result["artifact_count"] == 0
         assert "skill/ghost" in result["skipped_artifacts"]
+
+
+# ---------------------------------------------------------------------------
+# Tests: Directory-based SKILL.md pack skills (#1380)
+# ---------------------------------------------------------------------------
+
+
+class TestDirectorySkillInstall:
+    """Verify that packs with skills/<name>/SKILL.md install and surface correctly."""
+
+    def test_install_pack_with_directory_skill(
+        self, tmp_path: Path, db: ThreadSafeConnection, registry: ArtifactRegistry
+    ) -> None:
+        pack_dir = tmp_path / "ns-dirskill"
+        pack_dir.mkdir()
+        skill_dir = pack_dir / "skills" / "deploy-check"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: deploy-check\ndescription: Check deploy readiness\n---\n"
+            "Review the deployment and report issues.",
+            encoding="utf-8",
+        )
+        manifest = {
+            "name": "dirskill",
+            "namespace": "ns",
+            "version": "1.0.0",
+            "artifacts": [{"type": "skill", "name": "deploy-check"}],
+        }
+        (pack_dir / "pack.yaml").write_text(yaml.dump(manifest), encoding="utf-8")
+
+        result = _install_and_attach(db, pack_dir)
+        assert result["artifact_count"] == 1
+        assert result["skipped_artifacts"] == []
+
+        registry.load_from_db(db)
+        skills = registry.list_all(artifact_type=ArtifactType.SKILL)
+        assert len(skills) == 1
+        assert skills[0].name == "deploy-check"
+
+    def test_install_pack_directory_skill_content_preserved(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = tmp_path / "ns-content"
+        pack_dir.mkdir()
+        skill_dir = pack_dir / "skills" / "review"
+        skill_dir.mkdir(parents=True)
+        skill_content = "---\nname: review\ndescription: Code review\n---\nReview the code for issues."
+        (skill_dir / "SKILL.md").write_text(skill_content, encoding="utf-8")
+        manifest = {
+            "name": "content",
+            "namespace": "ns",
+            "version": "1.0.0",
+            "artifacts": [{"type": "skill", "name": "review"}],
+        }
+        (pack_dir / "pack.yaml").write_text(yaml.dump(manifest), encoding="utf-8")
+
+        _install_and_attach(db, pack_dir)
+
+        art = get_artifact_by_fqn(db, "@ns/skill/review")
+        assert art is not None
+        assert "---" in art["content"]
+        assert "Review the code" in art["content"]
+
+
+class TestBundledSkillInstall:
+    def test_install_pack_with_bundled_skill(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        pack_dir = tmp_path / "ns-bundled"
+        pack_dir.mkdir()
+        skill_dir = pack_dir / "skills" / "deploy"
+        skill_dir.mkdir(parents=True)
+        skill_content = (
+            "---\nname: deploy\ndescription: Deployment helper\n"
+            "resources:\n  - checklist.md\n---\n\nDeploy the service.\n"
+        )
+        (skill_dir / "SKILL.md").write_text(skill_content, encoding="utf-8")
+        (skill_dir / "checklist.md").write_text("- build\n- test\n- ship\n", encoding="utf-8")
+        manifest = {
+            "name": "bundled",
+            "namespace": "ns",
+            "version": "1.0.0",
+            "artifacts": [{"type": "skill", "name": "deploy"}],
+        }
+        (pack_dir / "pack.yaml").write_text(yaml.dump(manifest), encoding="utf-8")
+
+        result = _install(db, pack_dir)
+        assert result["artifact_count"] == 1
+        assert result["skipped_artifacts"] == []
+
+        art = get_artifact_by_fqn(db, "@ns/skill/deploy")
+        assert art is not None
+        assert "<bundled_resources>" in art["content"]
+        assert '<resource path="checklist.md">' in art["content"]
+        assert "build" in art["content"]
+        meta = art.get("metadata") or {}
+        if isinstance(meta, str):
+            import json
+
+            meta = json.loads(meta)
+        assert meta.get("bundle") is True
+        assert meta.get("resource_count") == 1
+
+    def test_install_pack_manifest_resources_override(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        """Manifest-level resources: list takes precedence over frontmatter."""
+        pack_dir = tmp_path / "ns-override"
+        pack_dir.mkdir()
+        skill_dir = pack_dir / "skills" / "deploy"
+        skill_dir.mkdir(parents=True)
+        # Frontmatter declares nothing; manifest declares checklist.md
+        skill_content = "---\nname: deploy\n---\n\nDeploy the service.\n"
+        (skill_dir / "SKILL.md").write_text(skill_content, encoding="utf-8")
+        (skill_dir / "checklist.md").write_text("- step one\n", encoding="utf-8")
+        manifest = {
+            "name": "override",
+            "namespace": "ns",
+            "version": "1.0.0",
+            "artifacts": [
+                {
+                    "type": "skill",
+                    "name": "deploy",
+                    "resources": ["checklist.md"],
+                }
+            ],
+        }
+        (pack_dir / "pack.yaml").write_text(yaml.dump(manifest), encoding="utf-8")
+
+        result = _install(db, pack_dir)
+        assert result["artifact_count"] == 1
+        art = get_artifact_by_fqn(db, "@ns/skill/deploy")
+        assert art is not None
+        assert "<bundled_resources>" in art["content"]
+        assert "step one" in art["content"]
+
+    def test_install_pack_bundled_skill_budget_exceeded(self, tmp_path: Path, db: ThreadSafeConnection) -> None:
+        """Skills whose combined content exceeds 50KB are skipped."""
+        pack_dir = tmp_path / "ns-budget"
+        pack_dir.mkdir()
+        skill_dir = pack_dir / "skills" / "big"
+        skill_dir.mkdir(parents=True)
+        skill_content = "---\nname: big\nresources:\n  - large.md\n---\n\nBig skill.\n"
+        (skill_dir / "SKILL.md").write_text(skill_content, encoding="utf-8")
+        # Write a file that pushes combined content over 50KB
+        (skill_dir / "large.md").write_text("x" * 60_000, encoding="utf-8")
+        manifest = {
+            "name": "budget",
+            "namespace": "ns",
+            "version": "1.0.0",
+            "artifacts": [{"type": "skill", "name": "big"}],
+        }
+        (pack_dir / "pack.yaml").write_text(yaml.dump(manifest), encoding="utf-8")
+
+        result = _install(db, pack_dir)
+        assert result["artifact_count"] == 0
+        assert "skill/big" in result["skipped_artifacts"]
+        art = get_artifact_by_fqn(db, "@ns/skill/big")
+        assert art is None

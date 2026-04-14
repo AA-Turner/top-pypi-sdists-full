@@ -363,7 +363,8 @@ def _get_tb_client(
     branch: Optional[str] = None,
     create_branch_if_missing: bool = False,
     request_from: Optional[str] = None,
-) -> TinyB:
+) -> Tuple[TinyB, bool]:
+    """Returns a tuple of (client, branch_created)."""
     resolved_request_from = request_from
     disable_ssl: bool = getenv_bool("TB_DISABLE_SSL_CHECKS", False)
     cloud_client = TinyB(
@@ -377,8 +378,9 @@ def _get_tb_client(
     )
 
     if not branch:
-        return cloud_client
+        return cloud_client, False
 
+    branch_created = False
     workspaces = cloud_client.user_workspaces_and_branches(version="v1")
     workspace = next((w for w in workspaces.get("workspaces", []) if w.get("name") == branch), None)
     if not workspace and create_branch_if_missing:
@@ -396,6 +398,7 @@ def _get_tb_client(
 
         workspaces = cloud_client.user_workspaces_and_branches(version="v1")
         workspace = next((w for w in workspaces.get("workspaces", []) if w.get("name") == branch), None)
+        branch_created = True
 
     if not workspace:
         raise CLIException(FeedbackManager.error_exception(error=f"Branch {branch} not found"))
@@ -408,7 +411,7 @@ def _get_tb_client(
         send_telemetry=True,
         staging=staging,
         request_from=resolved_request_from,
-    )
+    ), branch_created
 
 
 def create_tb_client(ctx: Context) -> TinyB:
@@ -416,7 +419,8 @@ def create_tb_client(ctx: Context) -> TinyB:
     token = obj["config"].get("token", "")
     host = obj["config"].get("host", DEFAULT_API_HOST)
     request_from = obj.get("project_type")
-    return _get_tb_client(token, host, request_from=request_from)
+    client, _ = _get_tb_client(token, host, request_from=request_from)
+    return client
 
 
 def _analyze(filename: str, client: TinyB, format: str):
@@ -1679,7 +1683,7 @@ def run_aws_iamrole_connection_flow(
 
     if use_local:
         try:
-            local_client = get_tinybird_local_client(config)
+            local_client, _ = get_tinybird_local_client(config)
         except Exception as e:
             click.echo(FeedbackManager.warning(message=f"Failed to initialize local client: {e}"))
             click.echo(FeedbackManager.warning(message="Continuing without local environment."))
@@ -2404,7 +2408,7 @@ def create_workspace_branch(
         if not branch_name:
             click.echo(FeedbackManager.info_workspace_branch_create_greeting())
             default_name = f"{workspace['name']}_{uuid.uuid4().hex[0:4]}"
-            branch_name = click.prompt("\Branch name", default=default_name, err=True, type=str)
+            branch_name = click.prompt("\nBranch name", default=default_name, err=True, type=str)
         assert isinstance(branch_name, str)
 
         response = config.get_client().create_workspace_branch(

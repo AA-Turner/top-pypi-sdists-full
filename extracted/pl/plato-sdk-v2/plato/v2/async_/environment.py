@@ -415,6 +415,30 @@ class Environment:
             job_id=self.job_id,
         )
 
+    @property
+    def sdk(self):
+        """Get the sim SDK client for this environment.
+
+        Lazily imports the sim SDK package based on ``self.simulator`` and
+        returns a cached :class:`AsyncClient` instance.
+
+        Raises:
+            ValueError: If ``simulator`` is not set (e.g. created via ``Env.artifact``).
+            ImportError: If the sim SDK package is not installed.
+        """
+        if not hasattr(self, "_sdk"):
+            if not self.simulator:
+                raise ValueError(
+                    "Cannot resolve sim SDK: 'simulator' is not set on this environment. "
+                    "Set env.simulator = 'ubuntu-vm' or use Env.simulator() instead of Env.artifact()."
+                )
+            module_name = self.simulator.replace("-", "_")
+            import importlib
+
+            mod = importlib.import_module(f"plato.sims.{module_name}")
+            self._sdk = mod.AsyncClient.from_environment(self)
+        return self._sdk
+
     def __repr__(self) -> str:
         return f"Environment(alias={self.alias!r}, job_id={self.job_id!r})"
 

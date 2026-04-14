@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: traceml
-Version: 1.2.7
+Version: 1.3.0
 Summary: Engine for ML/Data tracking, visualization, dashboards, and model UI for Polyaxon.
 Home-page: https://github.com/polyaxon/traceml
 Author: Polyaxon, Inc.

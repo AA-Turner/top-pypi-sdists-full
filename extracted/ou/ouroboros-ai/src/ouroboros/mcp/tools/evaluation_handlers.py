@@ -34,7 +34,6 @@ from ouroboros.observability.drift import (
 from ouroboros.orchestrator.session import SessionRepository
 from ouroboros.persistence.event_store import EventStore
 from ouroboros.providers import create_llm_adapter
-from ouroboros.providers.base import LLMAdapter
 
 log = structlog.get_logger(__name__)
 
@@ -240,7 +239,6 @@ class EvaluateHandler:
     """
 
     event_store: EventStore | None = field(default=None, repr=False)
-    llm_adapter: LLMAdapter | None = field(default=None, repr=False)
     llm_backend: str | None = field(default=None, repr=False)
     TIMEOUT_SECONDS: int = 0  # No server-side timeout; client/runtime decides.
 
@@ -399,10 +397,10 @@ class EvaluateHandler:
             # Use acceptance_criterion or derive from seed
             current_ac = acceptance_criterion or "Verify execution output meets requirements"
 
-            # Use injected or create services.
-            # Evaluation reads multiple spec files (one Read call per AC), so
-            # max_turns must be well above 1.
-            llm_adapter = self.llm_adapter or create_llm_adapter(
+            # Evaluation reads multiple spec files (one Read call per AC).
+            # Use a dedicated adapter with a higher turn budget — the shared
+            # MCP adapter is max_turns=1 (tuned for interview/seed single-shot).
+            llm_adapter = create_llm_adapter(
                 backend=self.llm_backend,
                 max_turns=20,
             )
@@ -419,7 +417,18 @@ class EvaluateHandler:
 
             # Collect file-based artifacts for richer semantic evaluation.
             # working_dir is used as the project root for artifact resolution.
+            #
+            # Write the artifact text to a file in working_dir so the
+            # ArtifactCollector can pick it up naturally during its scan
+            # instead of inlining the full text (potentially 50KB+) into
+            # the evaluation prompt.
             from ouroboros.evaluation.artifact_collector import ArtifactCollector
+
+            artifact_file = working_dir / ".ouroboros_eval_artifact.md"
+            try:
+                artifact_file.write_text(artifact, encoding="utf-8")
+            except OSError:
+                pass  # Non-critical — evaluator falls back to text_summary
 
             try:
                 artifact_bundle = ArtifactCollector().collect(artifact, str(working_dir))

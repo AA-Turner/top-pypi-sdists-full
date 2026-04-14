@@ -114,7 +114,7 @@ def _clean_error_message(error: str) -> str:
 
 def get_local_info(config: Dict[str, Any], silent: bool = False) -> Tuple[Iterable[Any], List[str]]:
     try:
-        local_config = get_tinybird_local_config(config, test=False, silent=silent)
+        local_config, _ = get_tinybird_local_config(config, test=False, silent=silent)
         local_client = local_config.get_client(host=TB_LOCAL_ADDRESS, staging=False)
         user_email = local_config.get_user_email() or "No user email found"
         token = local_config.get_token() or "No token found"

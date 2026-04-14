@@ -15,7 +15,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 
 def _ccc_series(x: pd.Series, y: pd.Series) -> float:

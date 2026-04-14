@@ -977,7 +977,14 @@ class ToProtoConverter:
 
         wmp = f.window_materialization_parsed
         rich_type_info = cls.convert_rich_type_info(f)
-        converter = cast(GenericFeatureConverter[Any, Any], f.converter)
+        # For versioned features with explicitly enumerated versions, use the
+        # default version's converter to get the correct arrow_type.
+        _dtype_feature: Feature = f
+        if f.version is not None and f.version.explicitly_enumerated and f.version.default in f.version.reference:
+            _ref = f.version.reference[f.version.default]
+            if isinstance(_ref, Feature):
+                _dtype_feature = _ref
+        converter = cast(GenericFeatureConverter[Any, Any], _dtype_feature.converter)
         aggregation_kwargs = {} if wmp is None else dict(wmp.aggregation_kwargs)
         res = pb.FeatureType(
             scalar=pb.ScalarFeatureType(

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: apache-airflow-client
-Version: 3.1.8
+Version: 3.2.0
 Summary: Apache Airflow API (Stable)
-Project-URL: Bug Tracker, https://github.com/apache/airflow-client-python/issues
+Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Changelog, https://github.com/apache/airflow-client-python/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow/stable/stable-rest-api-ref.html
 Project-URL: Download, https://archive.apache.org/dist/airflow/clients/python/
 Project-URL: Homepage, https://airflow.apache.org/
-Project-URL: Source Code, https://github.com/apache/airflow/clients/python
+Project-URL: Source Code, https://github.com/apache/airflow-client-python
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -23,8 +23,9 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: System :: Monitoring
-Requires-Python: >=3.10
+Requires-Python: !=3.15,>=3.10
 Requires-Dist: pydantic>=2.11.0
 Requires-Dist: python-dateutil
 Requires-Dist: urllib3!=2.6.0,>=2.1.0
@@ -662,6 +663,7 @@ You can also set it by env variable: `export AIRFLOW__CORE__LOAD_EXAMPLES=True`
 
 * optionally expose configuration (NOTE! that this is dangerous setting). The script will happily run with
   the default setting, but if you want to see the configuration, you need to expose it.
+  Note that sensitive configuration values are always masked.
   In the `[api]` section of your `airflow.cfg` set:
 
 ```ini

@@ -36,6 +36,7 @@ from pydantic import (
     GetCoreSchemaHandler,
     PrivateAttr,
     PydanticDeprecatedSince211,
+    PydanticSchemaGenerationError,
     PydanticUndefinedAnnotation,
     PydanticUserError,
     SecretStr,
@@ -981,7 +982,7 @@ def test_arbitrary_type_allowed_validation_fails():
 
 
 def test_arbitrary_types_not_allowed():
-    with pytest.raises(TypeError, match='Unable to generate pydantic-core schema for <class'):
+    with pytest.raises(PydanticUserError, match='Unable to generate pydantic-core schema for <class'):
 
         class ArbitraryTypeNotAllowedModel(BaseModel):
             t: ArbitraryType
@@ -1671,7 +1672,7 @@ def test_untyped_fields_warning():
 
 
 def test_untyped_fields_error():
-    with pytest.raises(TypeError, match="Field 'a' requires a type annotation"):
+    with pytest.raises(PydanticUserError, match="Field 'a' requires a type annotation"):
 
         class Model(BaseModel):
             a = Field('foobar')
@@ -2667,28 +2668,6 @@ def test_model_validate_strict() -> None:
     ]
 
 
-@pytest.mark.xfail(
-    reason='strict=True in model_validate_json does not overwrite strict=False given in ConfigDict'
-    'See issue: https://github.com/pydantic/pydantic/issues/8930'
-)
-def test_model_validate_list_strict() -> None:
-    # FIXME: This change must be implemented in pydantic-core. The argument strict=True
-    # in model_validate_json method is not overwriting the one set with ConfigDict(strict=False)
-    # for sequence like types. See: https://github.com/pydantic/pydantic/issues/8930
-
-    class LaxModel(BaseModel):
-        x: list[str]
-        model_config = ConfigDict(strict=False)
-
-    assert LaxModel.model_validate_json(json.dumps({'x': ('a', 'b', 'c')}), strict=None) == LaxModel(x=('a', 'b', 'c'))
-    assert LaxModel.model_validate_json(json.dumps({'x': ('a', 'b', 'c')}), strict=False) == LaxModel(x=('a', 'b', 'c'))
-    with pytest.raises(ValidationError) as exc_info:
-        LaxModel.model_validate_json(json.dumps({'x': ('a', 'b', 'c')}), strict=True)
-    assert exc_info.value.errors(include_url=False) == [
-        {'type': 'list_type', 'loc': ('x',), 'msg': 'Input should be a valid list', 'input': ('a', 'b', 'c')}
-    ]
-
-
 def test_model_validate_json_strict() -> None:
     class LaxModel(BaseModel):
         x: int
@@ -2890,6 +2869,15 @@ def test_extra_equality():
         pass
 
     assert MyModel(x=1) != MyModel()
+
+
+def test_extra_equality_runtime_override() -> None:
+    """https://github.com/pydantic/pydantic/issues/13051"""
+
+    class MyModel(BaseModel, extra='allow'):
+        a: int
+
+    assert MyModel.model_validate({'a': 1}) == MyModel.model_validate({'a': 1}, extra='forbid')
 
 
 def test_equality_delegation():
@@ -3317,6 +3305,13 @@ def test_extra_validator_named() -> None:
     }
 
 
+def test_extra_behavior_not_a_dict() -> None:
+    with pytest.raises(PydanticSchemaGenerationError):
+
+        class Model(BaseModel, extra='allow'):
+            __pydantic_extra__: int
+
+
 def test_super_getattr_extra():
     class Model(BaseModel):
         model_config = {'extra': 'allow'}
@@ -3543,13 +3538,11 @@ def test_shadow_attribute_warn_for_redefined_fields() -> None:
     # When inheriting from the parent class, as long as the field is not defined at all, there should be no warning
     # about shadowed fields.
     with warnings.catch_warnings(record=True) as captured_warnings:
-        # Start capturing all warnings
         warnings.simplefilter('always')
 
         class ChildWithoutRedefinedField(BaseModel, Parent):
             pass
 
-        # Check that no warnings were captured
         assert len(captured_warnings) == 0
 
     # But when inheriting from the parent class and a parent field is redefined, a warning should be raised about
@@ -3562,6 +3555,20 @@ def test_shadow_attribute_warn_for_redefined_fields() -> None:
 
         class ChildWithRedefinedField(BaseModel, Parent):
             foo: bool = True
+
+
+def test_shadow_attribute_no_warn_stdlib_dataclass() -> None:
+    @dataclass
+    class A:
+        a: int = 1
+
+    with warnings.catch_warnings(record=True) as captured_warnings:
+        warnings.simplefilter('always')
+
+        class B(A, BaseModel):
+            a: int
+
+        assert len(captured_warnings) == 0
 
 
 def test_field_name_deprecated_method_name() -> None:
@@ -3673,6 +3680,17 @@ def test_model_construct_with_model_post_init_and_model_copy() -> None:
 
     assert m == copy
     assert id(m) != id(copy)
+
+
+def test_model_construct_with_model_post_init_has_pydantic_private() -> None:
+    """https://github.com/pydantic/pydantic/issues/12813"""
+
+    class Model(BaseModel):
+        def model_post_init(self, context: Any, /) -> None:
+            pass
+
+    m = Model.model_construct()
+    assert m.__pydantic_private__ is None
 
 
 def test_subclassing_gen_schema_warns() -> None:

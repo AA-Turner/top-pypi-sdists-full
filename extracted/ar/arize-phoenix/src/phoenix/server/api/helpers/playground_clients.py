@@ -53,7 +53,6 @@ from opentelemetry.trace import NoOpTracer, Status, StatusCode, Tracer
 from opentelemetry.trace import Span as OTelSpan
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from strawberry.scalars import JSON as JSONScalarType
 from typing_extensions import TypeAlias, assert_never, override
 
 from phoenix.config import getenv
@@ -106,7 +105,7 @@ from phoenix.utilities.json import jsonify
 if TYPE_CHECKING:
     from anthropic import AsyncAnthropic
     from anthropic.lib.streaming import AsyncMessageStreamManager
-    from anthropic.types import MessageParam, TextBlockParam, ToolResultBlockParam
+    from anthropic.types import MessageParam, TextBlockParam, ToolUseBlockParam
     from anthropic.types.message_create_params import MessageCreateParamsBase
     from anthropic.types.usage import Usage
     from google.genai.client import AsyncClient as GoogleAsyncClient
@@ -342,14 +341,12 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
     ) -> None:
         if not model_name:
             raise BadRequest("A model name is required for OpenAI models")
-        from openai import RateLimitError as OpenAIRateLimitError
 
         super().__init__(
             client_factory=client_factory,
             provider=provider,
             model_name=model_name,
         )
-        self._rate_limit_error_cls = OpenAIRateLimitError
 
     @classmethod
     def dependencies(cls) -> list[Dependency]:
@@ -357,19 +354,17 @@ class OpenAIBaseStreamingClient(PlaygroundStreamingClient["AsyncOpenAI"]):
 
     @override
     def is_rate_limit_error(self, e: Exception) -> bool:
-        return isinstance(e, self._rate_limit_error_cls)
+        from openai import APIStatusError
+
+        return isinstance(e, APIStatusError) and e.status_code == 429
 
     @override
     def is_transient_error(self, e: Exception) -> bool:
-        from openai import APIConnectionError, APITimeoutError, InternalServerError
+        from openai import APIConnectionError, APIStatusError, APITimeoutError
 
-        if isinstance(e, (APIConnectionError, APITimeoutError, InternalServerError)):
+        if isinstance(e, (APIConnectionError, APITimeoutError)):
             return True
-        # Also check status code for 5xx errors
-        status_code = getattr(e, "status_code", None)
-        if status_code and 500 <= status_code < 600:
-            return True
-        return False
+        return isinstance(e, APIStatusError) and 500 <= e.status_code
 
     @classmethod
     def supported_invocation_parameters(cls) -> list[InvocationParameter]:
@@ -2336,33 +2331,17 @@ class AnthropicStreamingClient(PlaygroundStreamingClient["AsyncAnthropic"]):
 
     @override
     def is_rate_limit_error(self, e: Exception) -> bool:
-        # Anthropic has both RateLimitError (429) and OverloadedError (529)
-        # OverloadedError may not exist in all anthropic SDK versions
-        rate_limit_types: tuple[type, ...] = (self._anthropic.RateLimitError,)
-        if hasattr(self._anthropic, "OverloadedError"):
-            rate_limit_types = (*rate_limit_types, self._anthropic.OverloadedError)
-        return isinstance(e, rate_limit_types)
+        from anthropic import APIStatusError
+
+        return isinstance(e, APIStatusError) and e.status_code == 429
 
     @override
     def is_transient_error(self, e: Exception) -> bool:
-        # Anthropic-specific transient errors
-        # Some error types may not exist in all anthropic SDK versions
-        transient_types: list[type] = [
-            self._anthropic.APIConnectionError,
-            self._anthropic.APITimeoutError,
-            self._anthropic.InternalServerError,
-        ]
-        if hasattr(self._anthropic, "ServiceUnavailableError"):
-            transient_types.append(self._anthropic.ServiceUnavailableError)
-        if hasattr(self._anthropic, "OverloadedError"):
-            transient_types.append(self._anthropic.OverloadedError)
+        from anthropic import APIConnectionError, APIStatusError, APITimeoutError
 
-        if isinstance(e, tuple(transient_types)):
+        if isinstance(e, (APIConnectionError, APITimeoutError)):
             return True
-        status_code = getattr(e, "status_code", None)
-        if status_code and 500 <= status_code < 600:
-            return True
-        return False
+        return isinstance(e, APIStatusError) and 500 <= e.status_code
 
     @classmethod
     def supported_invocation_parameters(cls) -> list[InvocationParameter]:
@@ -2687,7 +2666,9 @@ class AnthropicStreamingClient(PlaygroundStreamingClient["AsyncAnthropic"]):
         self,
         messages: Sequence[PlaygroundMessage],
     ) -> tuple[list["MessageParam"], str]:
-        anthropic_messages: list["MessageParam"] = []
+        from anthropic.types import MessageParam, ToolResultBlockParam
+
+        anthropic_messages: list[MessageParam] = []
         system_prompt = ""
         for msg in messages:
             role = msg["role"]
@@ -2696,23 +2677,25 @@ class AnthropicStreamingClient(PlaygroundStreamingClient["AsyncAnthropic"]):
             tool_calls = msg.get("tool_calls")
             tool_aware_content = self._anthropic_message_content(content, tool_calls)
             if role == ChatCompletionMessageRole.USER:
-                anthropic_messages.append({"role": "user", "content": tool_aware_content})
+                anthropic_messages.append(MessageParam(role="user", content=tool_aware_content))
             elif role == ChatCompletionMessageRole.AI:
-                anthropic_messages.append({"role": "assistant", "content": tool_aware_content})
+                anthropic_messages.append(
+                    MessageParam(role="assistant", content=tool_aware_content)
+                )
             elif role == ChatCompletionMessageRole.SYSTEM:
                 system_prompt += content + "\n"
             elif role == ChatCompletionMessageRole.TOOL:
                 anthropic_messages.append(
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": tool_call_id or "",
-                                "content": content or "",
-                            }
+                    MessageParam(
+                        role="user",
+                        content=[
+                            ToolResultBlockParam(
+                                type="tool_result",
+                                tool_use_id=tool_call_id or "",
+                                content=content or "",
+                            )
                         ],
-                    }
+                    )
                 )
             else:
                 assert_never(role)
@@ -2720,14 +2703,24 @@ class AnthropicStreamingClient(PlaygroundStreamingClient["AsyncAnthropic"]):
         return anthropic_messages, system_prompt
 
     def _anthropic_message_content(
-        self, content: str, tool_calls: Optional[Sequence[JSONScalarType]]
-    ) -> Union[str, list[Union["ToolResultBlockParam", "TextBlockParam"]]]:
+        self, content: str, tool_calls: Optional[Sequence[PlaygroundToolCall]]
+    ) -> Union[str, list[ToolUseBlockParam | TextBlockParam]]:
+        from anthropic.types import TextBlockParam, ToolUseBlockParam
+
         if tool_calls:
             # Anthropic combines tool calls and the reasoning text into a single message object
-            tool_use_content: list[Union["ToolResultBlockParam", "TextBlockParam"]] = []
+            tool_use_content: list[ToolUseBlockParam | TextBlockParam] = []
             if content:
-                tool_use_content.append({"type": "text", "text": content})
-            tool_use_content.extend(tool_calls)
+                tool_use_content.append(TextBlockParam(type="text", text=content))
+            tool_use_content.extend(
+                ToolUseBlockParam(
+                    type="tool_use",
+                    id=tc.get("id", ""),
+                    name=tc.get("function", {}).get("name", ""),
+                    input=tc.get("function", {}).get("arguments", {}),
+                )
+                for tc in tool_calls
+            )
             return tool_use_content
 
         return content

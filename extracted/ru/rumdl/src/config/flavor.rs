@@ -179,3 +179,59 @@ pub(super) fn warn_comma_without_brace_in_pattern(pattern: &str, config_file: &s
         eprintln!("  Or use separate entries for each file.");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every MarkdownFlavor variant must produce a lowercase, unquoted string via Display.
+    /// This guards against new variants being added without a matching Display arm,
+    /// and against the Display impl regressing to Debug-style output (e.g. "Standard").
+    #[test]
+    fn test_display_all_variants_are_lowercase() {
+        let cases = [
+            (MarkdownFlavor::Standard, "standard"),
+            (MarkdownFlavor::MkDocs, "mkdocs"),
+            (MarkdownFlavor::MDX, "mdx"),
+            (MarkdownFlavor::Quarto, "quarto"),
+            (MarkdownFlavor::Obsidian, "obsidian"),
+            (MarkdownFlavor::Kramdown, "kramdown"),
+        ];
+        for (variant, expected) in cases {
+            let displayed = variant.to_string();
+            assert_eq!(
+                displayed, expected,
+                "MarkdownFlavor::{variant:?} Display should produce \"{expected}\", got \"{displayed}\""
+            );
+            // Must be lowercase — no uppercase letters anywhere
+            assert!(
+                displayed.chars().all(|c| !c.is_ascii_uppercase()),
+                "MarkdownFlavor::{variant:?} Display must be entirely lowercase, got \"{displayed}\""
+            );
+        }
+    }
+
+    /// Display output must round-trip through FromStr — every variant's Display string
+    /// must parse back to the same variant.
+    #[test]
+    fn test_display_round_trips_through_from_str() {
+        let variants = [
+            MarkdownFlavor::Standard,
+            MarkdownFlavor::MkDocs,
+            MarkdownFlavor::MDX,
+            MarkdownFlavor::Quarto,
+            MarkdownFlavor::Obsidian,
+            MarkdownFlavor::Kramdown,
+        ];
+        for variant in variants {
+            let displayed = variant.to_string();
+            let parsed: MarkdownFlavor = displayed
+                .parse()
+                .unwrap_or_else(|e| panic!("Display string \"{displayed}\" for {variant:?} failed to parse back: {e}"));
+            assert_eq!(
+                parsed, variant,
+                "Display(\"{displayed}\") for {variant:?} round-trips to a different variant: {parsed:?}"
+            );
+        }
+    }
+}

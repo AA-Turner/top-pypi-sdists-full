@@ -35803,6 +35803,19 @@ class CfnStackSet(
         return typing.cast("TagManager", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="managedExecution")
+    def managed_execution(self) -> typing.Any:
+        '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.'''
+        return typing.cast(typing.Any, jsii.get(self, "managedExecution"))
+
+    @managed_execution.setter
+    def managed_execution(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "managedExecution", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="permissionModel")
     def permission_model(self) -> builtins.str:
         '''Describes how the IAM roles required for StackSet operations are created.'''
@@ -35910,19 +35923,6 @@ class CfnStackSet(
             type_hints = typing.get_type_hints(_typecheckingstub__69b51712ff6404ccdc84f33ee3ab1d6f9badd506eff63172a852cf116891ff6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "executionRoleName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="managedExecution")
-    def managed_execution(self) -> typing.Any:
-        '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.'''
-        return typing.cast(typing.Any, jsii.get(self, "managedExecution"))
-
-    @managed_execution.setter
-    def managed_execution(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedExecution", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="operationPreferences")
@@ -40249,6 +40249,7 @@ __all__ = [
     "aws_nimblestudio",
     "aws_notifications",
     "aws_notificationscontacts",
+    "aws_novaact",
     "aws_oam",
     "aws_observabilityadmin",
     "aws_odb",
@@ -40309,6 +40310,7 @@ __all__ = [
     "aws_scheduler_targets",
     "aws_sdb",
     "aws_secretsmanager",
+    "aws_securityagent",
     "aws_securityhub",
     "aws_securitylake",
     "aws_servicecatalog",
@@ -40570,6 +40572,7 @@ from . import aws_networkmanager
 from . import aws_nimblestudio
 from . import aws_notifications
 from . import aws_notificationscontacts
+from . import aws_novaact
 from . import aws_oam
 from . import aws_observabilityadmin
 from . import aws_odb
@@ -40630,6 +40633,7 @@ from . import aws_scheduler
 from . import aws_scheduler_targets
 from . import aws_sdb
 from . import aws_secretsmanager
+from . import aws_securityagent
 from . import aws_securityhub
 from . import aws_securitylake
 from . import aws_servicecatalog
@@ -45178,6 +45182,12 @@ def _typecheckingstub__57648a38a59fb6d75dd552ca0fe250aa51e2511c9dbd779f211f36d05
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bb21580072a82cabb449c57b07732ff0c209ae85a5b9cdc23fd652093bc2278b(
     value: builtins.str,
 ) -> None:
@@ -45222,12 +45232,6 @@ def _typecheckingstub__2e922a74f7a0e62a3b43f5ffc866664dabe0e0f9e9b9fb9bd5591af73
 
 def _typecheckingstub__69b51712ff6404ccdc84f33ee3ab1d6f9badd506eff63172a852cf116891ff6b(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ca77b286dae07d28153d69991c6f5204e4eedd30da2e1712f2dcf9fc313553d9(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

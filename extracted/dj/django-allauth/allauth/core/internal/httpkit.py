@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import ipaddress
 import json
 from urllib.parse import parse_qs, quote, urlencode, urlparse, urlunparse
 
 from django import shortcuts
-from django.core.exceptions import ImproperlyConfigured
+from django.contrib.auth.models import AbstractBaseUser
+from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from django.http import (
     HttpRequest,
     HttpResponseRedirect,
@@ -19,7 +22,7 @@ from allauth import app_settings as allauth_settings
 HTTP_USER_AGENT_MAX_LENGTH = 200
 
 
-def serialize_request(request):
+def serialize_request(request: HttpRequest) -> str:
     return json.dumps(
         {
             "path": request.path,
@@ -33,7 +36,7 @@ def serialize_request(request):
     )
 
 
-def deserialize_request(s, request):
+def deserialize_request(s, request: HttpRequest) -> HttpRequest:
     data = json.loads(s)
     request.GET = QueryDict(data["GET"])
     request.POST = QueryDict(data["POST"])
@@ -41,11 +44,11 @@ def deserialize_request(s, request):
     request.path = data["path"]
     request.path_info = data["path_info"]
     request.method = data["method"]
-    request._get_scheme = lambda: data["scheme"]
+    request._get_scheme = lambda: data["scheme"]  # type:ignore[attr-defined]
     return request
 
 
-def redirect(to):
+def redirect(to) -> HttpResponseRedirect:
     try:
         return shortcuts.redirect(to)
     except NoReverseMatch:
@@ -89,7 +92,7 @@ def add_query_params(url: str, params: dict) -> str:
     return new_url
 
 
-def render_url(request, url_template, **kwargs):
+def render_url(request: HttpRequest, url_template, **kwargs) -> str:
     url = url_template
     for k, v in kwargs.items():
         qi = url.find("?")
@@ -108,7 +111,7 @@ def render_url(request, url_template, **kwargs):
     return url
 
 
-def default_get_frontend_url(request, urlname, **kwargs):
+def default_get_frontend_url(request: HttpRequest, urlname, **kwargs) -> str | None:
     from allauth import app_settings as allauth_settings
 
     if allauth_settings.HEADLESS_ENABLED:
@@ -122,7 +125,7 @@ def default_get_frontend_url(request, urlname, **kwargs):
     return None
 
 
-def get_frontend_url(request, urlname, **kwargs):
+def get_frontend_url(request: HttpRequest, urlname, **kwargs) -> str | None:
     from allauth import app_settings as allauth_settings
 
     if allauth_settings.HEADLESS_ENABLED:
@@ -132,7 +135,9 @@ def get_frontend_url(request, urlname, **kwargs):
     return default_get_frontend_url(request, urlname, **kwargs)
 
 
-def headed_redirect_response(viewname, query=None):
+def headed_redirect_response(
+    viewname, query=None
+) -> HttpResponseRedirect | HttpResponseServerError:
     """
     In some cases, we're redirecting to a non-headless view. In case of
     headless-only mode, that view clearly does not exist.
@@ -211,5 +216,12 @@ def get_client_ip(request: HttpRequest) -> str | None:
     else:
         ip = get_client_ip_from_xff(request)
         if not ip:
-            ip = request.META["REMOTE_ADDR"]
+            ip = request.META.get("REMOTE_ADDR")
     return clean_client_ip(ip) if ip else None
+
+
+def authenticated_user(request: HttpRequest) -> AbstractBaseUser:
+    user = request.user
+    if not user.is_authenticated:
+        raise PermissionDenied
+    return user

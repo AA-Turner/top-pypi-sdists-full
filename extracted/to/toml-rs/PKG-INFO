@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toml-rs
-Version: 0.3.10
+Version: 0.3.11
 Classifier: Typing :: Typed
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python
@@ -17,7 +17,7 @@ License-File: UNLICENSE
 Summary: A High-Performance TOML Parser for Python written in Rust
 Author-email: chirizxc <chirizxc@proton.me>
 Maintainer-email: chirizxc <chirizxc@proton.me>
-License-Expression: UNLICENSE
+License-Expression: Unlicense
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Bug Tracker, https://github.com/lava-sh/toml-rs/issues

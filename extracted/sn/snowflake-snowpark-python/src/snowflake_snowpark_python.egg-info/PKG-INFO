@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-snowpark-python
-Version: 1.48.1
+Version: 1.49.0
 Summary: Snowflake Snowpark for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -33,7 +33,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: >=3.9, <3.14
+Requires-Python: >=3.9, <3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: setuptools>=40.6.0
@@ -98,13 +98,13 @@ Requires-Dist: tox; extra == "modin-development"
 Requires-Dist: snowflake.core<2,>=1.0.0; extra == "modin-development"
 Requires-Dist: psutil; extra == "modin-development"
 Requires-Dist: lxml; extra == "modin-development"
-Requires-Dist: scipy<=1.16.0; extra == "modin-development"
+Requires-Dist: scipy<=1.16.3; extra == "modin-development"
 Requires-Dist: statsmodels; extra == "modin-development"
 Requires-Dist: scikit-learn; extra == "modin-development"
 Requires-Dist: plotly<6.0.0; extra == "modin-development"
 Requires-Dist: snowflake-ml-python>=1.8.0; python_version < "3.12" and extra == "modin-development"
 Requires-Dist: s3fs; extra == "modin-development"
-Requires-Dist: ray; extra == "modin-development"
+Requires-Dist: ray; python_version < "3.14" and extra == "modin-development"
 Provides-Extra: localtest
 Requires-Dist: pandas; extra == "localtest"
 Requires-Dist: requests; extra == "localtest"

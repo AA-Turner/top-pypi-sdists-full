@@ -47,6 +47,34 @@ from .data_classes import TopicDescriptor
 topics: list[TopicDescriptor] = [
     # generic device attributes
     TopicDescriptor(
+        topic="N/{installation_id}/switch/{device_id}/SwitchableOutput/{output}/Name",
+        message_type=MetricKind.ATTRIBUTE,
+        short_id="model",
+        value_type=ValueType.STRING,
+        sub_device_key="output",
+    ),
+    TopicDescriptor(
+        topic="N/{installation_id}/switch/{device_id}/SwitchableOutput/{output}/Settings/CustomName",
+        message_type=MetricKind.ATTRIBUTE,
+        short_id="custom_name",
+        value_type=ValueType.STRING,
+        sub_device_key="output",
+    ),
+    TopicDescriptor(
+        topic="N/{installation_id}/system/{device_id}/SwitchableOutput/{output}/Name",
+        message_type=MetricKind.ATTRIBUTE,
+        short_id="model",
+        value_type=ValueType.STRING,
+        sub_device_key="output",
+    ),
+    TopicDescriptor(
+        topic="N/{installation_id}/system/{device_id}/SwitchableOutput/{output}/Settings/CustomName",
+        message_type=MetricKind.ATTRIBUTE,
+        short_id="custom_name",
+        value_type=ValueType.STRING,
+        sub_device_key="output",
+    ),
+    TopicDescriptor(
         topic="N/{installation_id}/vebus/{device_id}/Devices/0/SerialNumber",
         message_type=MetricKind.ATTRIBUTE,
         short_id="serial_number",
@@ -1001,6 +1029,7 @@ topics: list[TopicDescriptor] = [
         value_type=ValueType.FLOAT,
         precision=2,
         unit_of_measurement="m",
+        hidden=True,
     ),
     TopicDescriptor(
         topic="N/{installation_id}/gps/{device_id}/Connected",
@@ -1021,6 +1050,7 @@ topics: list[TopicDescriptor] = [
         value_type=ValueType.FLOAT,
         precision=2,
         unit_of_measurement="°",
+        hidden=True,
     ),
     TopicDescriptor(
         topic="N/{installation_id}/gps/{device_id}/Fix",
@@ -1029,6 +1059,7 @@ topics: list[TopicDescriptor] = [
         name="Fix",
         value_type=ValueType.ENUM,
         enum=GenericOnOff,
+        hidden=True,
     ),
     TopicDescriptor(
         topic="N/{installation_id}/gps/{device_id}/NrOfSatellites",
@@ -1073,10 +1104,11 @@ topics: list[TopicDescriptor] = [
         metric_type=MetricType.SPEED,
         value_type=ValueType.FLOAT,
         precision=2,
+        hidden=True,
     ),
     TopicDescriptor(
         topic="$$func/gps/gps_location",
-        depends_on=["gps_latitude", "gps_longitude"],
+        depends_on=["gps_latitude", "gps_longitude", "gps_fix", "gps_altitude", "gps_course", "gps_speed"],
         message_type=MetricKind.DEVICE_TRACKER,
         short_id="gps_location",
         name="Location",
@@ -1477,6 +1509,7 @@ topics: list[TopicDescriptor] = [
         name="Phases",
         metric_nature=MetricNature.MEASUREMENT,
         value_type=ValueType.INT,
+        unit_of_measurement="phases",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/multi/{device_id}/Ac/Out/{output}/{phase}/I",
@@ -2407,30 +2440,25 @@ topics: list[TopicDescriptor] = [
     ),
     # Switch topics
     TopicDescriptor(
-        topic="N/{installation_id}/switch/{device_id}/SwitchableOutput/output_{output(1-4)}/Dimming",
+        topic="N/{installation_id}/switch/{device_id}/SwitchableOutput/{output}/Dimming",
         message_type=MetricKind.NUMBER,
         short_id="switch_{output}_dimming",
-        name="{output:switch_{output}_custom_name} dimming",
+        name="Dimming",
         value_type=ValueType.INT,
         metric_type=MetricType.PERCENTAGE,
         min=0,
         max=100,
         unit_of_measurement="%",
+        sub_device_key="output",
     ),
     TopicDescriptor(
-        topic="N/{installation_id}/switch/{device_id}/SwitchableOutput/output_{output(1-4)}/Settings/CustomName",
-        message_type=MetricKind.SENSOR,
-        short_id="switch_{output}_custom_name",
-        name="{output} custom name",
-        value_type=ValueType.STRING,
-    ),
-    TopicDescriptor(
-        topic="N/{installation_id}/switch/{device_id}/SwitchableOutput/output_{output(1-4)}/State",
+        topic="N/{installation_id}/switch/{device_id}/SwitchableOutput/{output}/State",
         message_type=MetricKind.SWITCH,
         short_id="switch_{output}_state",
-        name="Switch {output:switch_{output}_custom_name} state",
+        name="State",
         value_type=ValueType.ENUM,
         enum=GenericOnOff,
+        sub_device_key="output",
     ),
     # System topics
     TopicDescriptor(
@@ -2448,6 +2476,7 @@ topics: list[TopicDescriptor] = [
         name="Consumption phases",
         metric_nature=MetricNature.MEASUREMENT,
         value_type=ValueType.INT,
+        unit_of_measurement="phases",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/system/{device_id}/Ac/Consumption/{phase}/Current",
@@ -2477,6 +2506,7 @@ topics: list[TopicDescriptor] = [
         name="Consumption on output phases",
         metric_nature=MetricNature.MEASUREMENT,
         value_type=ValueType.INT,
+        unit_of_measurement="phases",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/system/{device_id}/Ac/ConsumptionOnOutput/{phase}/Power",
@@ -2495,10 +2525,11 @@ topics: list[TopicDescriptor] = [
     TopicDescriptor(
         topic="N/{installation_id}/system/{device_id}/Ac/Grid/NumberOfPhases",
         message_type=MetricKind.SENSOR,
-        short_id="system_grid_phases",  # system attribute
+        short_id="system_grid_phases",
         name="Grid phases",
         metric_nature=MetricNature.MEASUREMENT,
         value_type=ValueType.INT_DEFAULT_0,
+        unit_of_measurement="phases",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/system/{device_id}/Ac/Grid/{phase}/Current",
@@ -2521,6 +2552,7 @@ topics: list[TopicDescriptor] = [
         name="PV on output phases",
         metric_nature=MetricNature.MEASUREMENT,
         value_type=ValueType.INT,
+        unit_of_measurement="phases",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/system/{device_id}/Ac/PvOnOutput/{phase}/Current",
@@ -2760,19 +2792,13 @@ topics: list[TopicDescriptor] = [
         enum=GenericOnOff,
     ),
     TopicDescriptor(
-        topic="N/{installation_id}/system/{device_id}/SwitchableOutput/{output}/Settings/CustomName",
-        message_type=MetricKind.SENSOR,
-        short_id="switchable_output_{output}_custom_name",
-        name="Switchable output {output} custom name",
-        value_type=ValueType.STRING,
-    ),
-    TopicDescriptor(
         topic="N/{installation_id}/system/{device_id}/SwitchableOutput/{output}/State",
         message_type=MetricKind.SWITCH,
         short_id="switchable_output_{output}_state",
-        name="Switchable output {output:switchable_output_{output}_custom_name} state",
+        name="State",
         value_type=ValueType.ENUM,
         enum=GenericOnOff,
+        sub_device_key="output",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/system/{device_id}/SystemState/State",
@@ -2872,7 +2898,6 @@ topics: list[TopicDescriptor] = [
         metric_nature=MetricNature.MEASUREMENT,
         value_type=ValueType.FLOAT,
         precision=2,
-        unit_of_measurement="factor",
     ),
     TopicDescriptor(
         topic="N/{installation_id}/temperature/{device_id}/Status",

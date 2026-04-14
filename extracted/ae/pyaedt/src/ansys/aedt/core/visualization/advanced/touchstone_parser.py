@@ -22,6 +22,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from __future__ import annotations
+
 import bisect
 from copy import copy
 import itertools
@@ -38,7 +40,7 @@ from ansys.aedt.core.base import PyAedtBase
 from ansys.aedt.core.generic.file_utils import open_file
 from ansys.aedt.core.generic.general_methods import pyaedt_function_handler
 from ansys.aedt.core.internal.aedt_versions import aedt_versions
-from ansys.aedt.core.internal.checks import graphics_required
+from ansys.aedt.core.internal.checks import requires_graphical_dependency
 from ansys.aedt.core.internal.errors import AEDTRuntimeError
 
 # NOTE: Create a base class that conditionally inherits from skrf.Network.
@@ -129,12 +131,13 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
         elif touchstone_file and touchstone_file.is_file():
             rf.Network.__init__(self, touchstone_file)
             if not self.port_names:
+                pattern = re.compile(r"!\s*port\[[^\]]+\]\s*=\s*(\S+)", re.IGNORECASE)
                 with open(touchstone_file, "r") as f:
                     lines = f.readlines()
                     pnames = []
                     for line in lines:
-                        if line.lower().startswith("! port"):
-                            pnames.append(line.split("=")[-1].strip())
+                        if pattern.match(line):
+                            pnames.append(pattern.match(line).group(1).strip())
                     if not pnames:
                         pnames = [f"{i + 1}" for i in range(self.nports)]
                 self.port_names = pnames
@@ -331,7 +334,7 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
         return temp_list
 
     @pyaedt_function_handler()
-    def get_insertion_loss_index(self, threshold=-3):
+    def get_insertion_loss_index(self, threshold: float = -3) -> list:
         """Get all insertion losses.
 
         The first frequency point is used to determine whether two ports are shorted.
@@ -360,8 +363,8 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
                         temp_list.append(i)
         return temp_list
 
-    @graphics_required
-    def plot_insertion_losses(self, threshold=-3, plot: bool = True):
+    @requires_graphical_dependency("matplotlib")
+    def plot_insertion_losses(self, threshold: float = -3, plot: bool = True):
         """Plot all insertion losses.
 
         The first frequency point is used to determine whether two ports are shorted.
@@ -387,8 +390,8 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
             plt.show()
         return temp_list
 
-    @graphics_required
-    def plot(self, index_couples=None, show: bool = True) -> bool:
+    @requires_graphical_dependency("matplotlib")
+    def plot(self, index_couples: list = None, show: bool = True) -> bool:
         """Plot a list of curves.
 
         Parameters
@@ -413,7 +416,7 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
             plt.show()
         return True
 
-    @graphics_required
+    @requires_graphical_dependency("matplotlib")
     def plot_return_losses(self) -> bool:
         """Plot all return losses.
 
@@ -428,7 +431,9 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
         plt.show()
         return True
 
-    def get_mixed_mode_touchstone_data(self, num_of_diff_ports=None, port_ordering: str = "1234"):
+    def get_mixed_mode_touchstone_data(
+        self, num_of_diff_ports: int = None, port_ordering: str = "1234"
+    ) -> "TouchstoneData":
         """Transform network from single ended parameters to generalized mixed mode parameters.
 
         Parameters
@@ -477,7 +482,7 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
         return ts_diff
 
     @pyaedt_function_handler()
-    def get_return_loss_index(self, excitation_name_prefix: str = ""):
+    def get_return_loss_index(self, excitation_name_prefix: str = "") -> list:
         """Get the list of all the return loss from a list of excitations.
 
         If no excitation is provided it will provide a full list of return losses.
@@ -506,7 +511,7 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
         return values
 
     @pyaedt_function_handler()
-    def get_insertion_loss_index_from_prefix(self, tx_prefix, rx_prefix):
+    def get_insertion_loss_index_from_prefix(self, tx_prefix: str, rx_prefix: str) -> list:
         """Get the list of all the insertion losses from prefix.
 
         Parameters
@@ -533,7 +538,7 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
         return values
 
     @pyaedt_function_handler()
-    def get_next_xtalk_index(self, tx_prefix: str = ""):
+    def get_next_xtalk_index(self, tx_prefix: str = "") -> list:
         """Get the list of all the Near End XTalk a list of excitation.
 
         Optionally prefix can be used to retrieve driver names.
@@ -562,7 +567,9 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
         return values
 
     @pyaedt_function_handler()
-    def get_fext_xtalk_index_from_prefix(self, tx_prefix, rx_prefix, skip_same_index_couples: bool = True):
+    def get_fext_xtalk_index_from_prefix(
+        self, tx_prefix: str, rx_prefix: str, skip_same_index_couples: bool = True
+    ) -> list:
         """Get the list of all the Far End XTalk from a list of excitations and a prefix that will
         be used to retrieve driver and receivers names.
         If skip_same_index_couples is true, the tx and rx with same index
@@ -591,7 +598,7 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
                     values.append([self.port_names.index(i), self.port_names.index(k)])
         return values
 
-    @graphics_required
+    @requires_graphical_dependency("matplotlib")
     def plot_next_xtalk_losses(self, tx_prefix: str = "") -> bool:
         """Plot all next crosstalk curves.
 
@@ -613,8 +620,8 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
         plt.show()
         return True
 
-    @graphics_required
-    def plot_fext_xtalk_losses(self, tx_prefix, rx_prefix, skip_same_index_couples: bool = True) -> bool:
+    @requires_graphical_dependency("matplotlib")
+    def plot_fext_xtalk_losses(self, tx_prefix: str, rx_prefix: str, skip_same_index_couples: bool = True) -> bool:
         """Plot all fext crosstalk curves.
 
         Parameters
@@ -641,10 +648,15 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    @graphics_required
+    @requires_graphical_dependency("matplotlib")
     def get_worst_curve(
-        self, freq_min=None, freq_max=None, worst_is_higher: bool = True, curve_list=None, plot: bool = True
-    ):
+        self,
+        freq_min: float = None,
+        freq_max: float = None,
+        worst_is_higher: bool = True,
+        curve_list: list = None,
+        plot: bool = True,
+    ) -> tuple:
         """Analyze a solution data object with multiple curves and find the worst curve.
 
         Take the mean of the magnitude over the frequency range.
@@ -701,7 +713,7 @@ class TouchstoneData(_TouchstoneBase, PyAedtBase):
 
 
 @pyaedt_function_handler()
-def read_touchstone(input_file: str):
+def read_touchstone(input_file: str) -> TouchstoneData:
     """Load the contents of a Touchstone file into an NPort.
 
     Parameters
@@ -720,7 +732,7 @@ def read_touchstone(input_file: str):
 
 
 @pyaedt_function_handler()
-def check_touchstone_files(input_dir: str = "", passivity: bool = True, causality: bool = True):
+def check_touchstone_files(input_dir: str = "", passivity: bool = True, causality: bool = True) -> dict:
     """Check passivity and causality for all Touchstone files included in the folder.
 
     .. warning::
@@ -796,7 +808,7 @@ def check_touchstone_files(input_dir: str = "", passivity: bool = True, causalit
 
 
 @pyaedt_function_handler()
-def find_touchstone_files(input_dir):
+def find_touchstone_files(input_dir: str) -> dict:
     """Get all Touchstone files in a directory.
 
     Parameters

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "docstring_parser"
-version = "0.17.0"
+version = "0.18.0"
 description = "Parse Python docstrings in reST, Google and Numpydoc format"
 authors = [
     {name="Marcin Kurczewski", email="dash@wind.garden"},
@@ -24,6 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Documentation :: Sphinx",
     "Topic :: Text Processing :: Markup",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -48,9 +49,13 @@ dev = [
     "pre-commit >= 2.16.0; python_version>='3.9'",
 ]
 
+[tool.hatch.build.targets.wheel]
+exclude = [
+    "/docstring_parser/tests",
+]
+
 [tool.black]
 line-length = 79
-py38 = true
 
 [tool.isort]
 known_third_party = "docstring_parser"

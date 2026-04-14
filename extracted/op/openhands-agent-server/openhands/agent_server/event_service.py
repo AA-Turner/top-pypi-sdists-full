@@ -13,6 +13,7 @@ from openhands.agent_server.models import (
 from openhands.agent_server.pub_sub import PubSub, Subscriber
 from openhands.sdk import LLM, AgentBase, Event, Message, get_logger
 from openhands.sdk.conversation.impl.local_conversation import LocalConversation
+from openhands.sdk.conversation.response_utils import get_agent_final_response
 from openhands.sdk.conversation.secret_registry import SecretValue
 from openhands.sdk.conversation.state import (
     ConversationExecutionStatus,
@@ -419,6 +420,28 @@ class EventService:
 
             llm.telemetry.set_log_completions_callback(log_callback)
 
+    def _setup_acp_activity_heartbeat(self, agent: AgentBase) -> None:
+        """Wire ACP activity heartbeat to the idle timer.
+
+        ACP agents delegate to an external subprocess (e.g. gemini-cli,
+        claude-agent-acp).  Tool calls run inside that subprocess and never
+        hit the agent-server's HTTP endpoints, so update_last_execution_time()
+        is never called during conn.prompt().  Without a heartbeat the
+        runtime-api sees growing idle_time and kills the pod (~20 min).
+
+        This method checks if the agent is an ACPAgent and, if so, injects a
+        callback that resets the idle timer whenever the ACP bridge receives
+        a streaming update (throttled to every 30 s by the bridge).
+        """
+        from openhands.sdk.agent import ACPAgent
+
+        if isinstance(agent, ACPAgent):
+            from openhands.agent_server.server_details_router import (
+                update_last_execution_time,
+            )
+
+            agent._on_activity = update_last_execution_time
+
     def _setup_stats_streaming(self, agent: AgentBase) -> None:
         """Configure stats update callbacks to stream stats changes via events."""
 
@@ -472,10 +495,11 @@ class EventService:
             secrets=self.stored.secrets,
             cipher=self.cipher,
             hook_config=self.stored.hook_config,
+            tags=self.stored.tags,
         )
 
-        # Set confirmation mode if enabled
         conversation.set_confirmation_policy(self.stored.confirmation_policy)
+        conversation.set_security_analyzer(self.stored.security_analyzer)
         self._conversation = conversation
 
         # Register state change callback to automatically publish updates
@@ -486,6 +510,12 @@ class EventService:
 
         # Setup stats streaming for remote execution
         self._setup_stats_streaming(self._conversation.agent)
+
+        # Wire ACP activity heartbeat so ACP tool calls (which run inside
+        # the subprocess and never hit HTTP endpoints) still reset the
+        # agent-server's idle timer and prevent runtime-api from killing
+        # the pod during long conn.prompt() calls.
+        self._setup_acp_activity_heartbeat(self._conversation.agent)
 
         # If the execution_status was "running" while serialized, then the
         # conversation can't possibly be running - something is wrong
@@ -626,7 +656,8 @@ class EventService:
         await self._pub_sub.close()
         if self._conversation:
             loop = asyncio.get_running_loop()
-            loop.run_in_executor(None, self._conversation.close)
+            await loop.run_in_executor(None, self._conversation.close)
+            self._conversation = None
 
     async def generate_title(
         self, llm: "LLM | None" = None, max_length: int = 50
@@ -675,6 +706,28 @@ class EventService:
 
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._conversation.condense)
+
+    def _get_agent_final_response_sync(self) -> str:
+        """Extract the agent's final response from the conversation events.
+
+        Reads directly from the EventLog without acquiring the state lock.
+        EventLog reads are safe without the FIFOLock because events are
+        append-only and immutable once written.
+        """
+        if not self._conversation:
+            raise ValueError("inactive_service")
+        return get_agent_final_response(self._conversation._state.events)
+
+    async def get_agent_final_response(self) -> str:
+        """Extract the agent's final response from the conversation events.
+
+        Returns the text from the last FinishAction or agent MessageEvent,
+        or empty string if no final response is found.
+        """
+        if not self._conversation:
+            raise ValueError("inactive_service")
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self._get_agent_final_response_sync)
 
     async def get_state(self) -> ConversationState:
         if not self._conversation:

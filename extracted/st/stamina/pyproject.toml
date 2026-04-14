@@ -23,7 +23,7 @@ classifiers = [
   "Framework :: AsyncIO",
   "Framework :: Trio",
 ]
-dependencies = ["tenacity", "typing-extensions; python_version < '3.10'"]
+dependencies = ["tenacity"]
 
 [dependency-groups]
 tests = ["pytest>=9", "anyio", "dirty-equals"]
@@ -102,10 +102,10 @@ path = "README.md"
 start-at = "## Credits"
 
 
-[tool.pytest.ini_options]
-minversion = "9.0"
-addopts = ["-ra", "--strict", "--import-mode=importlib"]
-testpaths = "tests"
+[tool.pytest]
+strict = true
+addopts = ["-ra", "--import-mode=importlib"]
+testpaths = ["tests"]
 filterwarnings = ["once::Warning"]
 
 
@@ -121,7 +121,7 @@ source = ["src", ".nox/tests*/**/site-packages"]
 show_missing = true
 skip_covered = true
 exclude_also = [
-  'raise SystemError\("unreachable"\)',
+  'raise AssertionError\("unreachable"\)',
   # Typing-related
   "if TYPE_CHECKING:",
   ': \.\.\.$',

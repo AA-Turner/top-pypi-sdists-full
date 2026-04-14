@@ -25,14 +25,18 @@
 from collections import defaultdict
 import math
 import os
+from typing import TYPE_CHECKING
 import warnings
 
 import numpy as np
 
+if TYPE_CHECKING:
+    from pyvista import Plotter
+
 from ansys.aedt.core.base import PyAedtBase
 from ansys.aedt.core.generic.constants import AEDT_UNITS
 from ansys.aedt.core.generic.general_methods import pyaedt_function_handler
-from ansys.aedt.core.internal.checks import graphics_required
+from ansys.aedt.core.internal.checks import requires_graphical_dependency
 from ansys.aedt.core.visualization.plot.pyvista import CommonPlotter
 from ansys.aedt.core.visualization.plot.pyvista import ObjClass
 
@@ -61,7 +65,7 @@ class HDMPlotter(CommonPlotter, PyAedtBase):
         return self._bundle
 
     @pyaedt_function_handler()
-    def add_cad_model(self, filename, cad_color: str = "dodgerblue", opacity: int = 1, units: str = "mm") -> bool:
+    def add_cad_model(self, filename: str, cad_color: str = "dodgerblue", opacity: int = 1, units: str = "mm") -> bool:
         """Add a ``stl`` file to the scenario.
 
         Parameters
@@ -81,7 +85,7 @@ class HDMPlotter(CommonPlotter, PyAedtBase):
         return False
 
     @pyaedt_function_handler()
-    def add_hdm_bundle_from_file(self, filename, units=None) -> None:
+    def add_hdm_bundle_from_file(self, filename: str, units: str = None):
         """Add hdm bundle from file."""
         from ansys.aedt.core.visualization.advanced.sbrplus.hdm_parser import Parser
 
@@ -127,8 +131,8 @@ class HDMPlotter(CommonPlotter, PyAedtBase):
         return points, lines, depths
 
     @pyaedt_function_handler()
-    @graphics_required
-    def plot_rays(self, snapshot_path=None):
+    @requires_graphical_dependency("pyvista")
+    def plot_rays(self, snapshot_path: str = None) -> "Plotter":
         """Plot Rays read from an ``hdm`` file.
 
         Parameters
@@ -194,8 +198,8 @@ class HDMPlotter(CommonPlotter, PyAedtBase):
         return bounces
 
     @pyaedt_function_handler()
-    @graphics_required
-    def plot_first_bounce_currents(self, snapshot_path=None) -> None:
+    @requires_graphical_dependency("pyvista")
+    def plot_first_bounce_currents(self, snapshot_path: str = None) -> "Plotter":
         """Plot First bounce of currents read from an ``hdm`` file.
 
         Parameters
@@ -241,7 +245,7 @@ class HDMPlotter(CommonPlotter, PyAedtBase):
             self.pv.show(auto_close=False, jupyter_backend=self.jupyter_backend)
 
     @pyaedt_function_handler()
-    @graphics_required
+    @requires_graphical_dependency("pyvista")
     def _add_objects(self) -> None:
         import pyvista as pv
 

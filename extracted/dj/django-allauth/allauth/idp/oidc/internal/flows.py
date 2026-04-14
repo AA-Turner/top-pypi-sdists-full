@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.http import HttpRequest
 
 from allauth.account.internal.flows.logout import logout
@@ -10,7 +12,7 @@ def rp_initiated_logout(
     from_op: bool,
     post_logout_redirect_uri: str | None = None,
     client: Client | None = None,
-):
+) -> None:
     if not request.user.is_authenticated:
         return
     if client:

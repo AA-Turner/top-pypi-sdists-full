@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-pkcs11
-Version: 0.9.3
+Version: 0.9.4
 Summary: PKCS#11 support for Python
 Author-email: Andrey Kislyuk <kislyuk@gmail.com>, Danielle Madeley <danielle@madeley.id.au>
 Maintainer-email: Andrey Kislyuk <kislyuk@gmail.com>

@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from tqdm import tqdm
+from tqdm.rich import tqdm
 import matplotlib.pyplot as plt
 import Rbeast as rb
 

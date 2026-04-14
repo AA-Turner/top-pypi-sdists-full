@@ -1435,6 +1435,188 @@ class TestStringType(BaseClass):
             spark, check_func, pass_data, fail_data, StringType(), check_value
         )
 
+    @validate_scope(scope=ValidationScope.DATA)
+    def test_str_matches_check(self, spark_session, request) -> None:
+        """Test the Check to see if values match a regex pattern from the start"""
+        spark = request.getfixturevalue(spark_session)
+        check_func = pa.Check.str_matches
+        # Pattern to match strings starting with uppercase letter followed by lowercase letters
+        check_value = r"^[A-Z][a-z]+"
+
+        pass_data = [("Bal", "Bread"), ("Bal", "Butter")]
+        fail_data = [
+            ("Bal", "bread"),
+            ("Bal", "Butter"),
+        ]  # "bread" doesn't start with uppercase
+        BaseClass.check_function(
+            spark, check_func, pass_data, fail_data, StringType(), check_value
+        )
+
+    @validate_scope(scope=ValidationScope.DATA)
+    def test_str_matches_check_without_caret(
+        self, spark_session, request
+    ) -> None:
+        """Test str_matches automatically prepends ^ if not present"""
+        spark = request.getfixturevalue(spark_session)
+        check_func = pa.Check.str_matches
+        # Pattern without ^ - should be automatically added
+        check_value = r"[0-9]{3}"  # Match 3 digits at the start
+
+        pass_data = [("Bal", "123abc"), ("Bal", "456def")]
+        fail_data = [
+            ("Bal", "abc123"),
+            ("Bal", "456def"),
+        ]  # "abc123" doesn't start with digits
+        BaseClass.check_function(
+            spark, check_func, pass_data, fail_data, StringType(), check_value
+        )
+
+    @validate_scope(scope=ValidationScope.DATA)
+    def test_str_matches_check_with_caret(
+        self, spark_session, request
+    ) -> None:
+        """Test str_matches works correctly when ^ is already present"""
+        spark = request.getfixturevalue(spark_session)
+        check_func = pa.Check.str_matches
+        # Pattern with ^ already present
+        check_value = r"^test_"
+
+        pass_data = [("Bal", "test_123"), ("Bal", "test_abc")]
+        fail_data = [
+            ("Bal", "Test_123"),
+            ("Bal", "test_abc"),
+        ]  # "Test_123" has uppercase T
+        BaseClass.check_function(
+            spark, check_func, pass_data, fail_data, StringType(), check_value
+        )
+
+    @validate_scope(scope=ValidationScope.DATA)
+    def test_str_matches_email_pattern(self, spark_session, request) -> None:
+        """Test str_matches with an email-like regex pattern"""
+        spark = request.getfixturevalue(spark_session)
+        check_func = pa.Check.str_matches
+        # Email pattern
+        check_value = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+
+        pass_data = [
+            ("Bal", "test@example.com"),
+            ("Bal", "user.name@domain.org"),
+        ]
+        fail_data = [
+            ("Bal", "invalid-email"),
+            ("Bal", "test@example.com"),
+        ]  # "invalid-email" is not an email
+        BaseClass.check_function(
+            spark, check_func, pass_data, fail_data, StringType(), check_value
+        )
+
+    @validate_scope(scope=ValidationScope.DATA)
+    def test_str_matches_with_compiled_pattern(
+        self, spark_session, request
+    ) -> None:
+        """Test str_matches with a pre-compiled regex pattern"""
+        import re
+
+        spark = request.getfixturevalue(spark_session)
+        # Using compiled pattern
+        check_value = re.compile(r"^[A-Z]{2,3}[0-9]+")
+
+        schema = DataFrameSchema(
+            {
+                "product": Column(StringType()),
+                "code": Column(
+                    StringType(), pa.Check.str_matches(check_value)
+                ),
+            }
+        )
+        spark_schema = StructType(
+            [
+                StructField("product", StringType(), False),
+                StructField("code", StringType(), False),
+            ],
+        )
+
+        # Pass case: strings starting with 2-3 uppercase letters followed by digits
+        pass_data = [("foo", "AB123"), ("bar", "XYZ99")]
+        df = spark.createDataFrame(data=pass_data, schema=spark_schema)
+        df_out = schema.validate(df)
+        assert not df_out.pandera.errors
+
+        # Fail case: "ab123" starts with lowercase
+        fail_data = [("foo", "ab123"), ("bar", "XYZ99")]
+        with pytest.raises(PysparkSchemaError):
+            df_fail = spark.createDataFrame(
+                data=fail_data, schema=spark_schema
+            )
+            df_out = schema.validate(df_fail)
+            if df_out.pandera.errors:
+                raise PysparkSchemaError
+
+
+@validate_scope(scope=ValidationScope.DATA)
+def test_str_length_check_with_pyspark_schemas(
+    spark_session, request
+) -> None:
+    """Check.str_length should work for pyspark DataFrameSchema checks."""
+    spark = request.getfixturevalue(spark_session)
+    schema = DataFrameSchema(
+        {
+            "participant_id": Column(
+                StringType(),
+                checks=[pa.Check.str_length(32)],
+            )
+        }
+    )
+    spark_schema = StructType(
+        [StructField("participant_id", StringType(), False)],
+    )
+
+    df = spark.createDataFrame(
+        data=[("a" * 32,), ("b" * 32,)],
+        schema=spark_schema,
+    )
+    df_out = schema.validate(df)
+    assert not df_out.pandera.errors
+
+    df = spark.createDataFrame(
+        data=[("a" * 31,), ("b" * 32,)],
+        schema=spark_schema,
+    )
+    df_out = schema.validate(df)
+    assert (
+        dict(df_out.pandera.errors)["DATA"]["DATAFRAME_CHECK"][0]["check"]
+        == "str_length(32)"
+    )
+
+
+@validate_scope(scope=ValidationScope.DATA)
+def test_field_str_length_with_pyspark_schema_fields(
+    spark_session, request
+) -> None:
+    """Field(str_length=...) should work for pyspark DataFrameModel."""
+    spark = request.getfixturevalue(spark_session)
+
+    # pylint: disable=too-few-public-methods
+    class ProductSchema(DataFrameModel):
+        product_name: StringType() = Field(
+            str_length={"min_value": 1, "max_value": 2}
+        )
+
+    spark_schema = StructType(
+        [StructField("product_name", StringType(), False)],
+    )
+
+    df = spark.createDataFrame(data=[("a",), ("bb",)], schema=spark_schema)
+    df_out = ProductSchema.validate(df)
+    assert not df_out.pandera.errors
+
+    df = spark.createDataFrame(data=[("bbb",)], schema=spark_schema)
+    df_out = ProductSchema.validate(df)
+    assert (
+        dict(df_out.pandera.errors)["DATA"]["DATAFRAME_CHECK"][0]["check"]
+        == "str_length(1, 2)"
+    )
+
 
 class TestInRangeCheck(BaseClass):
     """This class is used to test the value in range check"""

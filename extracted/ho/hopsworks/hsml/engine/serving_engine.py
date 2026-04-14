@@ -145,7 +145,12 @@ class ServingEngine:
                 raise re
 
         if state.status == PREDICTOR_STATE.STATUS_RUNNING:
-            print("Start making predictions by using `.predict()`")
+            if deployment_instance.model_server == PREDICTOR.MODEL_SERVER_VLLM:
+                print("Start prompting using any OpenAI API-compatible client.")
+            elif not deployment_instance.has_model:
+                print("Start sending requests with your HTTP client of preference.")
+            else:
+                print("Start making predictions by using `.predict()`")
 
     def stop(self, deployment_instance, await_status: int) -> bool:
         (done, state) = self._check_status(
@@ -441,7 +446,7 @@ class ServingEngine:
                     )
                     raise_err = False
                 else:  # otherwise, raise an exception
-                    print(", but it is serving a different model version.")
+                    print(msg + ", but it is serving a different model version.")
                     print("Please, choose a different name.")
 
             if raise_err:
@@ -751,7 +756,7 @@ class ServingEngine:
                         data = {"instances": [inputs]}
                         break
         else:  # gRPC protocol
-            if isinstance(inputs, dict):  # Dict
+            if isinstance(inputs, dict):  # dict
                 data = InferInput(
                     name=inputs["name"],
                     shape=inputs["shape"],
@@ -760,10 +765,10 @@ class ServingEngine:
                     parameters=(inputs.get("parameters", None)),
                 )
                 if not recursive_call:
-                    # if inputs is of type Dict, return a singleton
+                    # if inputs is of type dict, return a singleton
                     data = [data]
 
-            else:  # List[Dict]
+            else:  # list[dict]
                 data = inputs
                 for index, inputs_item in enumerate(inputs):
                     data[index] = self._parse_inference_inputs(

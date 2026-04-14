@@ -1,0 +1,7 @@
+type: bearer_token
+env_prefix: UBUNTU_VM
+
+bearer_token:
+  default_token: ""
+  header: Authorization
+  prefix: Bearer

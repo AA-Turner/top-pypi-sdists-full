@@ -16,7 +16,7 @@ from typing import (
 )
 
 from galaxy import util as galaxy_util
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 # xref: https://github.com/python/mypy/issues/12664
@@ -100,8 +100,7 @@ class SchedulingTags(BaseModel):
     accept: list[str] | None = Field(default_factory=lambda: list())
     reject: list[str] | None = Field(default_factory=lambda: list())
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     @model_validator(mode="after")
     def check_duplicates(self) -> Self:
@@ -233,9 +232,7 @@ class SchedulingTags(BaseModel):
 
 
 class Entity(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-        extra = "allow"
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
     merge_order: ClassVar[int] = 0
     # assign a dummy value for now, so pydantic does not treat this as a required field
@@ -489,11 +486,6 @@ class Entity(BaseModel):
         kwargs.setdefault("by_alias", True)
         return super().model_dump(**kwargs)
 
-    def dict(self, **kwargs: Any) -> dict[str, Any]:
-        # by_alias is set to True to use the field aliases during serialization
-        kwargs.setdefault("by_alias", True)
-        return super().dict(**kwargs)
-
 
 class Rule(Entity):
     rule_counter: ClassVar[int] = 0
@@ -726,17 +718,14 @@ class Destination(EntityWithRules):
 
 
 class GlobalConfig(BaseModel):
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     default_inherits: str | None = None
     context: dict[str, Any] = Field(default_factory=lambda: dict())
 
 
 class TPVConfig(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
-        extra = "allow"
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
     global_config: GlobalConfig = Field(alias="global", default_factory=GlobalConfig)
     evaluator: SkipJsonSchema[TPVCodeEvaluator | None] = Field(exclude=True, default=None)

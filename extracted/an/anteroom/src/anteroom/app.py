@@ -365,7 +365,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
                 skill_reg = getattr(app.state, "skill_registry", None)
                 if skill_reg is not None:
-                    skill_reg.load_from_artifacts(registry)
+                    skill_reg.load_from_artifacts(registry, db=getattr(app.state, "db", None))
+                    if config.references.skills:
+                        skill_reg.load_from_references(config.references.skills)
 
                 logger.info("Config and registries reloaded after pack refresh (config_ok=%s)", config_ok)
             except Exception:
@@ -414,9 +416,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         skill_registry.load()
         app.state.skill_registry = skill_registry
         if artifact_registry.count:
-            n = skill_registry.load_from_artifacts(artifact_registry)
+            n = skill_registry.load_from_artifacts(artifact_registry, db=app.state.db)
             if n:
                 logger.info("Skill registry: %d skills from artifacts", n)
+        if config.references.skills:
+            n = skill_registry.load_from_references(config.references.skills)
+            if n:
+                logger.info("Skill registry: %d skills from references", n)
         if skill_registry.list_skills():
             logger.info("Skill registry loaded: %d skills", len(skill_registry.list_skills()))
 

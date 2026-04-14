@@ -244,6 +244,19 @@ class CfnComponent(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="overrides")
+    def overrides(self) -> typing.Any:
+        '''Describes the component's properties that can be overriden in a customized instance of the component.'''
+        return typing.cast(typing.Any, jsii.get(self, "overrides"))
+
+    @overrides.setter
+    def overrides(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0df3bcfbc7a5f3b8c1c149ff6cbac150b1f0b40f2b39df29eaf014b9a94c7083)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "overrides", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="appId")
     def app_id(self) -> typing.Optional[builtins.str]:
         '''The unique ID of the Amplify app associated with the component.'''
@@ -366,19 +379,6 @@ class CfnComponent(
             type_hints = typing.get_type_hints(_typecheckingstub__d390004d0f30759542ef28ada1804bcce6e8abbebac682bdb562339425f06133)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="overrides")
-    def overrides(self) -> typing.Any:
-        '''Describes the component's properties that can be overriden in a customized instance of the component.'''
-        return typing.cast(typing.Any, jsii.get(self, "overrides"))
-
-    @overrides.setter
-    def overrides(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0df3bcfbc7a5f3b8c1c149ff6cbac150b1f0b40f2b39df29eaf014b9a94c7083)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "overrides", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="properties")
@@ -7326,6 +7326,12 @@ def _typecheckingstub__5845dbb422dcf82315243e4c81979c1db599d6f4e807c7e8d29cce12a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0df3bcfbc7a5f3b8c1c149ff6cbac150b1f0b40f2b39df29eaf014b9a94c7083(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__52def26f5917015e0ec1be927753e0ddd7c6ba2b26ed493f53e325e9fc57f820(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -7370,12 +7376,6 @@ def _typecheckingstub__867f4afaa52290132593733e3be70d110a540505523ee1a4b0bea23f5
 
 def _typecheckingstub__d390004d0f30759542ef28ada1804bcce6e8abbebac682bdb562339425f06133(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0df3bcfbc7a5f3b8c1c149ff6cbac150b1f0b40f2b39df29eaf014b9a94c7083(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

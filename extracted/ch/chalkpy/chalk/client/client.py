@@ -2642,6 +2642,7 @@ class ChalkClient:
         upper_bound: datetime | None = None,
         resolver: str | None = None,
         query_tags: list[str] | None = None,
+        store_offline: bool | None = None,
     ) -> Any:
         """Trigger an aggregate backfill job.
 
@@ -2657,6 +2658,8 @@ class ChalkClient:
             The resolver to use for the backfill.
         query_tags : list[str], optional
             Resolver tags to prefer when running the backfill.
+        store_offline : bool, optional
+            If `True`, store materialized aggregate values in the offline store.
         """
         ...
 

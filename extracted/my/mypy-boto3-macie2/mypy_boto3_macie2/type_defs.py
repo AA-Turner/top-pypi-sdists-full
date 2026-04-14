@@ -3,7 +3,7 @@ Type annotations for macie2 service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_macie2/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -611,6 +611,7 @@ class CellTypeDef(TypedDict):
 class S3DestinationTypeDef(TypedDict):
     bucketName: str
     kmsKeyArn: str
+    expectedBucketOwner: NotRequired[str]
     keyPrefix: NotRequired[str]
 
 

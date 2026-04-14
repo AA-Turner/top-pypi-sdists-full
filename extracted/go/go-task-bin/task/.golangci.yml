@@ -33,6 +33,7 @@ formatters:
 linters:
   enable:
     - depguard
+    - gosec
     - mirror
     - misspell
     - noctx
@@ -41,6 +42,9 @@ linters:
     - tparallel
     - usetesting
   settings:
+    gosec:
+      excludes:
+        - G306
     depguard:
       rules:
         main:

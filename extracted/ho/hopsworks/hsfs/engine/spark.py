@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 if TYPE_CHECKING:
     import great_expectations
     from hsfs.constructor import hudi_feature_group_alias
+    from hsfs.constructor.filter import Filter, Logic
     from pyspark.rdd import RDD
     from pyspark.sql import DataFrame
 
@@ -182,8 +183,9 @@ class Engine:
         feature_group: fg_mod.FeatureGroup,
         n: int = None,
         dataframe_type: str = "default",
+        filter: Filter | Logic = None,
     ) -> pd.DataFrame | np.ndarray | list[list[Any]] | TypeVar("pyspark.sql.DataFrame"):
-        results = VectorDbClient.read_feature_group(feature_group, n)
+        results = VectorDbClient.read_feature_group(feature_group, n, filter=filter)
         feature_names = [f.name for f in feature_group.features]
         dataframe_type = dataframe_type.lower()
         if dataframe_type in ["default", "spark"]:
@@ -200,11 +202,11 @@ class Engine:
 
     def register_external_temporary_table(self, external_fg, alias):
         if not isinstance(external_fg, fg_mod.SpineGroup):
-            external_dataset = external_fg.storage_connector.read(
+            external_dataset = external_fg.data_source.storage_connector.read(
                 external_fg.data_source.query,
                 external_fg.data_format,
                 external_fg.options,
-                external_fg.storage_connector._get_path(
+                external_fg.data_source.storage_connector._get_path(
                     external_fg.data_source.path
                 ),  # cant rely on location since this method can be used before FG is saved
             )
@@ -543,36 +545,23 @@ class Engine:
                     "No duplicate records found. Proceeding with Delta write."
                 )
 
-            if (
-                isinstance(feature_group, fg_mod.ExternalFeatureGroup)
-                and feature_group.online_enabled
-            ) or feature_group.stream:
+            # ExternalFeatureGroups have no offline storage, so offline writes are skipped.
+            # FeatureGroups with stream=True use the same batch insert logic as non-stream
+            # feature groups in spark; streaming ingestion is handled by save_stream_dataframe.
+            if not isinstance(
+                feature_group, fg_mod.ExternalFeatureGroup
+            ) and storage in [None, "offline"]:
+                self._save_offline_dataframe(
+                    feature_group,
+                    dataframe,
+                    operation,
+                    offline_write_options,
+                    validation_id,
+                )
+            if (storage in [None, "online"]) and online_enabled:
                 self._save_online_dataframe(
                     feature_group, dataframe, online_write_options
                 )
-            else:
-                if storage == "offline" or not online_enabled:
-                    self._save_offline_dataframe(
-                        feature_group,
-                        dataframe,
-                        operation,
-                        offline_write_options,
-                        validation_id,
-                    )
-                elif storage == "online":
-                    self._save_online_dataframe(
-                        feature_group, dataframe, online_write_options
-                    )
-                elif online_enabled and storage is None:
-                    self._save_offline_dataframe(
-                        feature_group,
-                        dataframe,
-                        operation,
-                        offline_write_options,
-                    )
-                    self._save_online_dataframe(
-                        feature_group, dataframe, online_write_options
-                    )
         except Exception as e:
             raise FeatureStoreException(e).with_traceback(e.__traceback__) from e
 
@@ -676,7 +665,13 @@ class Engine:
 
         (
             serialized_df.withColumn(
-                "headers", self._get_headers(feature_group, dataframe.count())
+                "headers",
+                self._get_headers(
+                    feature_group,
+                    None
+                    if write_options.get("disable_online_ingestion_count", False)
+                    else dataframe.count(),
+                ),
             )
             .write.format(self.KAFKA_FORMAT)
             .options(**write_options)
@@ -754,17 +749,17 @@ class Engine:
         self,
         feature_name: str,
         feature_group: fg_mod.FeatureGroup | fg_mod.ExternalFeatureGroup,
-    ):
+    ) -> str:
         """Function to generate a wrapper record avro schema for a struct feature.
 
         This is required to deserialize a union of null and a struct field in spark, since spark expects the top level avro schema to be a record in this case.
 
         Parameters:
-            feature_name: `str`: The name of the feature to generate the wrapper record avro schema for.
-            feature_group: `Union[fg_mod.FeatureGroup, fg_mod.ExternalFeatureGroup]`: The feature group object.
+            feature_name: The name of the feature to generate the wrapper record avro schema for.
+            feature_group: The feature group object.
 
         Returns:
-            `str`: The wrapper record avro schema.
+            The wrapper record avro schema.
         """
         return (
             '{"type": "record", "name": "Wrapper", "fields": [{"name": "'
@@ -854,20 +849,22 @@ class Engine:
         query_obj: query.Query,
         read_options: dict[str, Any],
         dataframe_type: str,
-        training_dataset_version: int = None,
-        transformation_context: dict[str, Any] = None,
+        training_dataset_version: int | None = None,
+        transformation_context: dict[str, Any] | None = None,
     ):
         """Function that creates or retrieves already created the training dataset.
 
         Parameters:
-            training_dataset_obj `TrainingDataset`: The training dataset metadata object.
-            feature_view_obj `FeatureView`: The feature view object for the which the training data is being created.
-            query_obj `Query`: The query object that contains the query used to create the feature view.
-            read_options `Dict[str, Any]`: Dictionary that can be used to specify extra parameters for reading data.
-            dataframe_type `str`: The type of dataframe returned.
-            training_dataset_version `int`: Version of training data to be retrieved.
-            transformation_context: `Dict[str, Any]` A dictionary mapping variable names to objects that will be provided as contextual information to the transformation function at runtime.
-                These variables must be explicitly defined as parameters in the transformation function to be accessible during execution. If no context variables are provided, this parameter defaults to `None`.
+            training_dataset: The training dataset metadata object.
+            feature_view_obj: The feature view object for the which the training data is being created.
+            query_obj: The query object that contains the query used to create the feature view.
+            read_options: Dictionary that can be used to specify extra parameters for reading data.
+            dataframe_type: The type of dataframe returned.
+            training_dataset_version: Version of training data to be retrieved.
+            transformation_context:
+                A dictionary mapping variable names to objects that will be provided as contextual information to the transformation function at runtime.
+                The `context` variable must be explicitly defined as parameters in the transformation function for these to be accessible during execution.
+                If no context variables are provided, this parameter defaults to `None`.
 
         Raises:
             ValueError: If the training dataset statistics could not be retrieved.
@@ -916,16 +913,17 @@ class Engine:
         """Function that creates or retrieves already created the training dataset.
 
         Parameters:
-            training_dataset `TrainingDataset`: The training dataset metadata object.
-            query_obj `Query`: The query object that contains the query used to create the feature view.
-            user_write_options `Dict[str, Any]`: Dictionary that can be used to specify extra parameters for writing data using spark.
-            save_mode `str`: Spark save mode to be used while writing data.
-            read_options `Dict[str, Any]`: Dictionary that can be used to specify extra parameters for reading data.
-            feature_view_obj `FeatureView`: The feature view object for the which the training data is being created.
-            to_df `bool`: Return dataframe instead of writing the data.
-            training_dataset_version `Optional[int]`: Version of training data to be retrieved.
-            transformation_context: `Dict[str, Any]` A dictionary mapping variable names to objects that will be provided as contextual information to the transformation function at runtime.
-                These variables must be explicitly defined as parameters in the transformation function to be accessible during execution. If no context variables are provided, this parameter defaults to `None`.
+            training_dataset: The training dataset metadata object.
+            query_obj: The query object that contains the query used to create the feature view.
+            user_write_options: Dictionary that can be used to specify extra parameters for writing data using spark.
+            save_mode: Spark save mode to be used while writing data.
+            read_options: Dictionary that can be used to specify extra parameters for reading data.
+            feature_view_obj: The feature view object for the which the training data is being created.
+            to_df: Return dataframe instead of writing the data.
+            training_dataset_version: Version of training data to be retrieved.
+            transformation_context:
+                A dictionary mapping variable names to objects that will be provided as contextual information to the transformation function at runtime.
+                The `context` variable must be explicitly defined as parameters in the transformation function for these to be accessible during execution. If no context variables are provided, this parameter defaults to `None`.
 
         Raises:
             ValueError: If the training dataset statistics could not be retrieved.
@@ -959,7 +957,7 @@ class Engine:
             return self._write_training_dataset_single(
                 feature_view_obj.transformation_functions,
                 dataset,
-                training_dataset.storage_connector,
+                training_dataset.data_source.storage_connector,
                 training_dataset.data_format,
                 write_options,
                 save_mode,
@@ -1172,7 +1170,7 @@ class Engine:
             feature_dataframes[split_name] = self._write_training_dataset_single(
                 transformation_functions,
                 feature_dataframe,
-                training_dataset.storage_connector,
+                training_dataset.data_source.storage_connector,
                 training_dataset.data_format,
                 write_options,
                 save_mode,
@@ -1198,9 +1196,10 @@ class Engine:
         transformation_context: dict[str, Any] = None,
     ):
         # apply transformation functions (they are applied separately to each split)
-        feature_dataframe = self._apply_transformation_function(
-            transformation_functions,
-            dataset=feature_dataframe,
+        feature_dataframe = transformation_function_engine.TransformationFunctionEngine.apply_transformation_functions(
+            transformation_functions=transformation_functions,
+            data=feature_dataframe,
+            online=False,
             transformation_context=transformation_context,
         )
         if to_df:
@@ -1352,7 +1351,15 @@ class Engine:
         histograms,
         exact_uniqueness=True,
     ):
-        """Profile a dataframe with Deequ."""
+        """Profile a dataframe with Deequ.
+
+        Parameters:
+            dataframe: The Spark DataFrame to profile.
+            relevant_columns: List of column names to include in profiling.
+            correlations: Whether to compute feature correlations.
+            histograms: Whether to compute feature value frequency histograms.
+            exact_uniqueness: Whether to compute exact uniqueness metrics.
+        """
         return self._jvm.com.logicalclocks.hsfs.spark.engine.SparkEngine.getInstance().profile(
             dataframe._jdf,
             relevant_columns,
@@ -1613,25 +1620,31 @@ class Engine:
             location
         )
 
+    def shallow_copy_dataframe(self, dataframe: DataFrame) -> DataFrame:
+        return dataframe.copy(deep=False)
+
     def _apply_transformation_function(
         self,
         transformation_functions: list[transformation_function.TransformationFunction],
         dataset: DataFrame,
-        transformation_context: dict[str, Any] = None,
-    ):
+        transformation_context: dict[str, Any] | None = None,
+        expected_features: set[str] | None = None,
+    ) -> DataFrame:
         """Apply transformation function to the dataframe.
 
         Parameters:
-            transformation_functions `List[TransformationFunction]` : List of transformation functions.
-            dataset `Union[DataFrame]`: A spark dataframe.
-            transformation_context: `Dict[str, Any]` A dictionary mapping variable names to objects that will be provided as contextual information to the transformation function at runtime.
-                These variables must be explicitly defined as parameters in the transformation function to be accessible during execution. If no context variables are provided, this parameter defaults to `None`.
+            transformation_functions: List of transformation functions.
+            dataset: A spark dataframe.
+            transformation_context:
+                A dictionary mapping variable names to objects that will be provided as contextual information to the transformation function at runtime.
+                The `context` variable must be explicitly defined as parameters in the transformation function for these to be accessible during execution.
+                If no context variables are provided, this parameter defaults to `None`.
 
         Returns:
-            `DataFrame`: A spark dataframe with the transformed data.
+            A spark dataframe with the transformed data.
 
         Raises:
-            `hopsworks.client.exceptions.FeatureStoreException`: If any of the features mentioned in the transformation function is not present in the Feature View.
+            hopsworks.client.exceptions.FeatureStoreException: If any of the features mentioned in the transformation function is not present in the Feature View.
         """
         dropped_features = set()
         transformations = []
@@ -1644,25 +1657,16 @@ class Engine:
             # Setting transformation function context variables.
             hopsworks_udf.transformation_context = transformation_context
 
-            missing_features = set(hopsworks_udf.transformation_features) - set(
-                dataset.columns
-            )
-
-            if missing_features:
-                if (
-                    tf.transformation_type
-                    == transformation_function.TransformationType.ON_DEMAND
-                ):
-                    # On-demand transformation are applied using the python/spark engine during insertion, the transformation while retrieving feature vectors are performed in the vector_server.
-                    raise FeatureStoreException(
-                        f"The following feature(s): `{'`, '.join(missing_features)}`, specified in the on-demand transformation function '{hopsworks_udf.function_name}' are not present in the dataframe being inserted into the feature group. "
-                        "Please verify that the correct feature names are used in the transformation function and that these features exist in the dataframe being inserted."
-                    )
-                raise FeatureStoreException(
-                    f"The following feature(s): `{'`, '.join(missing_features)}`, specified in the model-dependent transformation function '{hopsworks_udf.function_name}' are not present in the feature view. Please verify that the correct features are specified in the transformation function."
-                )
             if tf.hopsworks_udf.dropped_features:
-                dropped_features.update(hopsworks_udf.dropped_features)
+                dropped_features.update(
+                    {
+                        f
+                        for f in hopsworks_udf.dropped_features
+                        if f not in expected_features
+                    }
+                    if expected_features
+                    else hopsworks_udf.dropped_features
+                )
 
             # Add to dropped features if the feature need to overwritten to avoid ambiguous columns.
             if len(hopsworks_udf.return_types) == 1 and (
@@ -1713,6 +1717,16 @@ class Engine:
         The logging metadata is created as a hidden attribute named `hopsworks_logging_metadata` of the returned dataframe.
 
         The return dataframe will only contain the features that the user requested (i.e. if the user requested to not include primary keys, event time or inference helpers, those features will be excluded).
+
+        Parameters:
+            untransformed_features: DataFrame containing the untransformed feature values.
+            transformed_features: DataFrame containing the transformed feature values.
+            feature_view: The feature view whose features are being logged.
+            transformed: Whether to include transformed features in the log.
+            inference_helpers: Whether to include inference helper columns.
+            event_time: Whether to include the event time column.
+            primary_key: Whether to include the primary key columns.
+            request_parameters: DataFrame containing request parameter values, if any.
         """
         # Extract primary keys and event time from fully qualified names
         fully_qualified_root_fg_event_time = generate_fully_qualified_feature_name(
@@ -1951,8 +1965,8 @@ class Engine:
         If the feature_log provided is a list then it is considered as a single feature (column).
 
         Parameters:
-            feature_log `Union[List[List[Any]], List[Any]]`: List of features/labels provided for logging.
-            cols `List[str]`: List of expected features in the logging dataframe.
+            feature_log: List of features/labels provided for logging.
+            cols: List of expected features in the logging dataframe.
         """
         if isinstance(feature_log[0], list) or (
             HAS_NUMPY and isinstance(feature_log[0], np.ndarray)
@@ -2033,35 +2047,34 @@ class Engine:
         training_dataset_version: int | None = None,
         model_name: str | None = None,
         model_version: int | None = None,
-    ) -> pyspark.sql.DataFrame:
+    ) -> tuple[pyspark.sql.DataFrame, list[str], list[str]]:
         """Function that combines all the logging data into a single dataframe that can be written to the logging feature group.
 
         The function takes care of renaming the prediction columns, creating a json column for the request parameters and adding the meta data columns.
 
         Parameters:
-            logging_data: `Union[pd.DataFrame, pyspark.sql.DataFrame, List[List], np.ndarray]` : The data to be logged.
-            logging_feature_group_features: `List[feature.Feature]` : The features of the logging feature group.
-            logging_feature_group_feature_names: `List[str]`. The names of the logging feature group features.
-            logging_features: `List[str]`: The names of the logging features, this excludes the names of all metadata columns.
-            transformed_features: `Optional[Tuple[Union[pd.DataFrame, pyspark.sql.DataFrame, List[List], np.ndarray], List[str]]]` : A tuple containing the transformed features and their feature names and a log component name (a constant named "transformed_features").
-            untransformed_features: `Optional[Tuple[Union[pd.DataFrame, pyspark.sql.DataFrame, List[List], np.ndarray], List[str]]]` : A tuple containing the untransformed features and their feature names and a log component name (a constant named "untransformed_features").
-            predictions: `Optional[Tuple[Union[pd.DataFrame, pyspark.sql.DataFrame, List[List], np.ndarray], List[str]]]` : A tuple containing the predictions and their feature names and a log component name (a constant named "predictions").
-            serving_keys: `Optional[Tuple[Union[pd.DataFrame, pyspark.sql.DataFrame, List[List], np.ndarray], List[str]]]` : A tuple containing the serving keys and    their feature names and a log component name (a constant named "serving_keys").
-            helper_columns: `Optional[Tuple[Union[pd.DataFrame, pyspark.sql.DataFrame, List[List], np.ndarray], List[str]]]` : A tuple containing the helper columns and their feature names and a log component name (a constant named "helper_columns").
-            request_parameters: `Optional[Tuple[Union[pd.DataFrame, pyspark.sql.DataFrame, List[List], np.ndarray], List[str]]]` : A tuple containing the request parameters and their feature names and a log component name (a constant named "request_parameters").
-            event_time: `Optional[Tuple[Union[pd.DataFrame, pyspark.sql.DataFrame, List[List], np.ndarray], List[str]]]` : A tuple containing the event time and their feature names and a log component name (a constant named "event_time").
-            extra_logging_features: `Optional[Tuple[Union[pd.DataFrame, pyspark.sql.DataFrame, List[List], np.ndarray], List[str]]]` : A tuple containing extra logging features and their feature names and a log component name (a constant named "extra_logging_features").
-            request_id: `Optional[Tuple[Union[pd.DataFrame, pyspark.sql.DataFrame, List[List], np.ndarray], List[str]]]` : A tuple containing the request id and their feature names and a log component name (a constant named "request_id").
-            td_col_name: `Optional[str]` : The name of the training dataset version column.
-            time_col_name: `Optional[str]` : The name of the time column.
-            model_col_name: `Optional[str]` : The name of the model column.
-            training_dataset_version: `Optional[int]` : The version of the training dataset.
-            hsml_model: `str` : The name of the model.
+            logging_data: The data to be logged.
+            logging_feature_group_features: The features of the logging feature group.
+            logging_feature_group_feature_names: The names of the logging feature group features.
+            logging_features: The names of the logging features, this excludes the names of all metadata columns.
+            transformed_features: A tuple containing the transformed features and their feature names and a log component name (a constant named "transformed_features").
+            untransformed_features: A tuple containing the untransformed features and their feature names and a log component name (a constant named "untransformed_features").
+            predictions: A tuple containing the predictions and their feature names and a log component name (a constant named "predictions").
+            serving_keys: A tuple containing the serving keys and their feature names and a log component name (a constant named "serving_keys").
+            helper_columns: A tuple containing the helper columns and their feature names and a log component name (a constant named "helper_columns").
+            request_parameters: A tuple containing the request parameters and their feature names and a log component name (a constant named "request_parameters").
+            event_time: A tuple containing the event time and their feature names and a log component name (a constant named "event_time").
+            extra_logging_features: A tuple containing extra logging features and their feature names and a log component name (a constant named "extra_logging_features").
+            request_id: A tuple containing the request id and their feature names and a log component name (a constant named "request_id").
+            td_col_name: The name of the training dataset version column.
+            time_col_name: The name of the time column.
+            model_col_name: The name of the model column.
+            training_dataset_version: The version of the training dataset.
+            model_name: The name of the model.
+            model_version: The version of the model.
 
         Returns:
-            `DataFrame`: A spark dataframe with all the logging components.
-            `List[str]`: Names of additional logging features passed in the Logging Dataframe.
-            `List[str]`: Names of missing logging features passed in the Logging Dataframe.
+            A tuple of (dataframe, additional_feature_names, missing_feature_names).
         """
         TEMP_JOIN_KEY = "row_id"
 
@@ -2291,16 +2304,16 @@ class Engine:
     def get_spark_version(self):
         return self._spark_session.version
 
-    def check_supported_dataframe(self, dataframe: Any) -> bool:
+    def check_supported_dataframe(self, dataframe: Any) -> bool | None:
         """Check if a dataframe is supported by the engine.
 
         Both Pandas and Spark dataframes are supported in the Spark Engine.
 
         Parameters:
-            dataframe `Any`: A dataframe to check.
+            dataframe: A dataframe to check.
 
         Returns:
-            `bool`: True if the dataframe is supported, False otherwise.
+            `True` if the dataframe is supported, `False` otherwise.
         """
         if isinstance(dataframe, (DataFrame, pd.DataFrame)):
             return True

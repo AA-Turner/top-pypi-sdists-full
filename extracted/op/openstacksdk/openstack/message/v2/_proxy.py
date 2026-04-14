@@ -10,7 +10,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing as ty
+from typing import ClassVar, Literal
+from collections.abc import Callable
 
 from openstack.message.v2 import claim as _claim
 from openstack.message.v2 import message as _message
@@ -21,6 +22,8 @@ from openstack import resource
 
 
 class Proxy(proxy.Proxy):
+    api_version: ClassVar[Literal['2']] = '2'
+
     _resource_registry = {
         "claim": _claim.Claim,
         "message": _message.Message,
@@ -315,7 +318,7 @@ class Proxy(proxy.Proxy):
         interval: int | float | None = 2,
         wait: int | None = None,
         attribute: str = 'status',
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for the resource to be in a particular status.
 
@@ -351,7 +354,7 @@ class Proxy(proxy.Proxy):
         res: resource.ResourceT,
         interval: int = 2,
         wait: int = 120,
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.
 

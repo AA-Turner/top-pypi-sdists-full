@@ -25,10 +25,11 @@
 
 try:
     import typer
-except ImportError:  # pragma: no cover
-    raise ImportError(
-        "typer is required for the CLI. Please install with 'pip install pyaedt[all]' or 'pip install typer'"
-    )
+except ImportError as e:  # pragma: no cover
+    from ansys.aedt.core.internal.checks import install_message
+
+    msg = install_message("typer", "all", level="module")
+    raise ImportError(msg) from e
 
 from ansys.aedt.core.cli import common
 from ansys.aedt.core.cli.common import DEFAULT_TEST_CONFIG
@@ -242,7 +243,7 @@ def test_callback(
 
 
 @test_app.command()
-def desktop_version(value: str = typer.Argument(None, help="AEDT version (format: YYYY.R, e.g., 2025.2)")) -> None:
+def desktop_version(value: str = typer.Argument(None, help="AEDT version (format: YYYY.R, e.g., 2026.1)")) -> None:
     """Set AEDT desktop version."""
     import re
 
@@ -250,7 +251,7 @@ def desktop_version(value: str = typer.Argument(None, help="AEDT version (format
         """Validate version format."""
         if re.match(r"^\d{4}\.\d$", v):
             return True, ""
-        return False, "Invalid format. Please use YYYY.R (e.g., 2025.2)"
+        return False, "Invalid format. Please use YYYY.R (e.g., 2026.1)"
 
     _update_string_config("desktopVersion", value, "desktopVersion", validate_version)
 

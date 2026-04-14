@@ -340,7 +340,7 @@ import os
 from catboost import CatBoostRegressor
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 import matplotlib.pyplot as plt
-from tqdm import tqdm
+from tqdm.rich import tqdm
 from sklearn.linear_model import LinearRegression
 from numpy.polynomial import Polynomial
 

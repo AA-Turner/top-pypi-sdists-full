@@ -17,7 +17,7 @@ from stamina._core import Attempt, _make_stop
 
 
 @pytest.mark.parametrize("attempts", [None, -1, 0, 1])
-@pytest.mark.parametrize("timeout", [None, -1, 0, 1, dt.timedelta(days=1)])
+@pytest.mark.parametrize("timeout", [None, -1, 1, dt.timedelta(days=1)])
 @pytest.mark.parametrize("duration", [1, dt.timedelta(days=1)])
 def test_ok(attempts, timeout, duration):
     """
@@ -36,6 +36,33 @@ def test_ok(attempts, timeout, duration):
         return 42
 
     assert 42 == f()
+
+
+@pytest.mark.parametrize(
+    "timeout", [0, 0.0, dt.timedelta(0)], ids=["int", "float", "timedelta"]
+)
+def test_timeout_zero_warns(timeout):
+    """
+    timeout=0 raises a helpful warning with the correct code location.
+    """
+    with pytest.warns(
+        UserWarning,
+        match="timeout=0 means no retries will be attempted",
+    ) as wi:
+        stamina.retry_context(on=Exception, timeout=timeout)
+
+    assert wi.pop().filename.endswith("test_sync.py")
+
+    with pytest.warns(
+        UserWarning,
+        match="timeout=0 means no retries will be attempted",
+    ) as wi:
+
+        @stamina.retry(on=ValueError, timeout=timeout)
+        def func():
+            pass
+
+    assert wi.pop().filename.endswith("test_sync.py")
 
 
 @pytest.mark.parametrize(
@@ -199,6 +226,29 @@ def test_backoff_computation_clamps():
             SimpleNamespace(attempt_number=i)
         )
         assert jittered <= 0.42
+
+
+def test_backoff_no_overflow_on_high_attempt_numbers():
+    """
+    Exponential backoff with a float base does not raise OverflowError when
+    the attempt number exceeds 1024.
+
+    Regression test for https://github.com/hynek/stamina/issues/104.
+    """
+    rci = stamina.retry_context(
+        on=ValueError, wait_max=5.0, attempts=None, timeout=None
+    )
+
+    for num in (1025, 2000, 10_000):
+        backoff = rci._backoff_for_attempt_number(num)
+
+        assert 5.0 == backoff
+
+        jittered = rci._jittered_backoff_for_rcs(
+            SimpleNamespace(attempt_number=num)
+        )
+
+        assert jittered <= 5.0
 
 
 def test_testing_mode():

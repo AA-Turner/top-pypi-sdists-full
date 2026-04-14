@@ -678,11 +678,18 @@ impl SourcedConfig<ConfigLoaded> {
         Ok(())
     }
 
-    /// Load user config as fallback when no project config exists
-    fn load_user_config_as_fallback(
-        sourced_config: &mut Self,
-        user_config_dir: Option<&Path>,
-    ) -> Result<(), ConfigError> {
+    /// Load and merge user-level configuration into this `SourcedConfig`.
+    ///
+    /// Discovers the user config file from the platform config directory
+    /// (or `user_config_dir` if provided for testing). Resolves any `extends`
+    /// chain and merges each fragment with `ConfigSource::UserConfig` precedence.
+    ///
+    /// Called in two contexts:
+    /// - When no project config is found: provides user defaults as the sole base
+    /// - When a markdownlint project config is found: provides rumdl-specific
+    ///   defaults that the markdownlint format cannot express; the markdownlint
+    ///   fragment is merged on top and wins on any overlapping key
+    fn load_user_config(sourced_config: &mut Self, user_config_dir: Option<&Path>) -> Result<(), ConfigError> {
         let user_config_path = if let Some(dir) = user_config_dir {
             Self::user_configuration_path_impl(dir)
         } else {
@@ -692,7 +699,7 @@ impl SourcedConfig<ConfigLoaded> {
         if let Some(user_config_path) = user_config_path {
             let path_str = user_config_path.display().to_string();
 
-            log::debug!("[rumdl-config] Loading user config as fallback: {path_str}");
+            log::debug!("[rumdl-config] Loading user config: {path_str}");
 
             // User config fallback also supports extends chains.
             // Use a uniform source across the chain so child overrides are determined by chain order.
@@ -748,7 +755,9 @@ impl SourcedConfig<ConfigLoaded> {
 
             // Try to discover project config first
             if let Some((config_file, project_root)) = Self::discover_config_upward() {
-                // Project config found - use ONLY this (standalone, no user config)
+                // Project config found - use ONLY this (standalone, no user config).
+                // Rumdl project configs can express all settings directly, so user config
+                // is not needed and omitting it ensures CI and local runs are identical.
                 log::debug!("[rumdl-config] Found project config: {}", config_file.display());
                 log::debug!("[rumdl-config] Project root: {}", project_root.display());
 
@@ -766,20 +775,24 @@ impl SourcedConfig<ConfigLoaded> {
                 if let Some(markdownlint_path) = Self::discover_markdownlint_config_upward() {
                     let path_str = markdownlint_path.display().to_string();
                     log::debug!("[rumdl-config] Found markdownlint config: {path_str}");
+                    // Load user config first as a base so rumdl-specific settings (e.g. flavor,
+                    // cache) take effect. Markdownlint configs cannot express these settings.
+                    // The markdownlint fragment uses ConfigSource::ProjectConfig (precedence 3)
+                    // vs UserConfig (precedence 1), so project settings always win on overlap.
+                    Self::load_user_config(&mut sourced_config, user_config_dir)?;
                     match parsers::load_from_markdownlint(&path_str) {
                         Ok(fragment) => {
                             sourced_config.merge(fragment);
                             sourced_config.loaded_files.push(path_str);
                         }
                         Err(_e) => {
-                            log::debug!("[rumdl-config] Failed to load markdownlint config, trying user config");
-                            Self::load_user_config_as_fallback(&mut sourced_config, user_config_dir)?;
+                            log::debug!("[rumdl-config] Failed to load markdownlint config");
                         }
                     }
                 } else {
                     // No project config at all - use user config as fallback
                     log::debug!("[rumdl-config] No project config found, using user config as fallback");
-                    Self::load_user_config_as_fallback(&mut sourced_config, user_config_dir)?;
+                    Self::load_user_config(&mut sourced_config, user_config_dir)?;
                 }
             }
         }

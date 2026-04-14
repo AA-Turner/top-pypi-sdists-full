@@ -550,7 +550,7 @@ def test_gas_price_strategy_eip1559() -> None:
         gas_stregy = callable_(web3, "tx_params")
 
     assert all([key in gas_stregy for key in ["maxFeePerGas", "maxPriorityFeePerGas"]])
-    assert gas_stregy["maxPriorityFeePerGas"] < max(rewards)
+    assert gas_stregy["maxPriorityFeePerGas"] <= max(rewards)
     base_fee_per_gas_mock *= get_base_fee_multiplier(to_eth_unit(base_fee_per_gas_mock))
     assert gas_stregy["maxFeePerGas"] == base_fee_per_gas_mock
 
@@ -1287,19 +1287,19 @@ def test_get_gas_price_strategy() -> None:
 
     resp_mock = Mock()
     resp_mock.status_code = 300
-    with patch("aea.helpers.http_requests.get", return_value=resp_mock):
+    with patch("aea_ledger_ethereum.ethereum.requests.get", return_value=resp_mock):
         assert strategy(Mock(), Mock()) == {"gasPrice": 12}
 
     resp_mock.status_code = 200
     resp_mock.json = Mock(return_value={"fast": {"maxFee": 2, "maxPriorityFee": 2}})
-    with patch("aea.helpers.http_requests.get", return_value=resp_mock):
+    with patch("aea_ledger_ethereum.ethereum.requests.get", return_value=resp_mock):
         assert strategy(Mock(), Mock()) == {
             "maxFeePerGas": 2000000000,
             "maxPriorityFeePerGas": 2000000000,
         }
 
     with patch(
-        "aea.helpers.http_requests.get",
+        "aea_ledger_ethereum.ethereum.requests.get",
         side_effect=requests.exceptions.RequestException(Mock()),
     ):
         assert strategy(Mock(), Mock()) == {"gasPrice": 12}

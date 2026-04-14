@@ -1,5 +1,10 @@
+from __future__ import annotations
+
+from typing import Any
+
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponse, HttpResponseBase
+from django.core.exceptions import PermissionDenied
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseBase
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
@@ -8,6 +13,7 @@ from django.views.generic.edit import FormView
 
 from allauth.account import app_settings as account_settings
 from allauth.account.decorators import reauthentication_required
+from allauth.core.internal.httpkit import authenticated_user
 from allauth.mfa import app_settings
 from allauth.mfa.models import Authenticator
 from allauth.mfa.recovery_codes.forms import GenerateRecoveryCodesForm
@@ -25,11 +31,12 @@ class GenerateRecoveryCodesView(FormView):
         flows.generate_recovery_codes(self.request)
         return super().form_valid(form)
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> dict:
         ret = super().get_context_data(**kwargs)
         unused_codes = []
         authenticator = Authenticator.objects.filter(
-            user=self.request.user, type=Authenticator.Type.RECOVERY_CODES
+            user_id=authenticated_user(self.request).pk,
+            type=Authenticator.Type.RECOVERY_CODES,
         ).first()
         if authenticator:
             unused_codes = authenticator.wrap().get_unused_codes()
@@ -56,11 +63,16 @@ class DownloadRecoveryCodesView(TemplateView):
     template_name = "mfa/recovery_codes/download.txt"
     content_type = "text/plain"
 
-    def dispatch(self, request, *args, **kwargs) -> HttpResponseBase:
-        self.authenticator = flows.view_recovery_codes(self.request)
-        if not self.authenticator:
+    def dispatch(
+        self, request: HttpRequest, *args: Any, **kwargs: Any
+    ) -> HttpResponseBase:
+        recovery_codes, can_view = flows.view_recovery_codes(self.request)
+        if not recovery_codes:
             raise Http404()
-        self.unused_codes = self.authenticator.wrap().get_unused_codes()
+        if not can_view:
+            raise PermissionDenied
+        self.authenticator = recovery_codes.instance
+        self.unused_codes = recovery_codes.get_unused_codes()
         if not self.unused_codes:
             raise Http404()
         return super().dispatch(request, *args, **kwargs)
@@ -85,13 +97,23 @@ class ViewRecoveryCodesView(TemplateView):
 
     def get_context_data(self, **kwargs) -> dict:
         ret = super().get_context_data(**kwargs)
-        authenticator = flows.view_recovery_codes(self.request)
-        if not authenticator:
+        recovery_codes, can_view = flows.view_recovery_codes(self.request)
+        if not recovery_codes:
             raise Http404()
+        unused_codes = recovery_codes.get_unused_codes()
+        if not can_view:
+            # Prevent accidental leakage into templates at all costs.
+            unused_codes = ["****" for _ in unused_codes]
         ret.update(
             {
-                "unused_codes": authenticator.wrap().get_unused_codes(),
+                "unused_codes": unused_codes,
+                "can_view_codes": can_view,
+                "can_download_codes": not app_settings.RECOVERY_CODES_SHOW_ONCE
+                and len(unused_codes) > 0,
                 "total_count": app_settings.RECOVERY_CODE_COUNT,
+                "MFA_RECOVERY_CODES_SHOW_ONCE": app_settings.RECOVERY_CODES_SHOW_ONCE,
+                "can_generate_codes": not app_settings.RECOVERY_CODES_SHOW_ONCE
+                or not can_view,
             }
         )
         return ret

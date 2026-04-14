@@ -6,6 +6,7 @@ import asyncio
 from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -28,6 +29,7 @@ from anteroom.cli.repl import (
     _show_resume_info,
     _show_usage_stats,
 )
+from anteroom.cli.skills import SkillPolicy
 
 
 class _FakeProc:
@@ -197,10 +199,13 @@ async def test_drain_input_to_msg_queue_warns_on_unknown_command() -> None:
 async def test_drain_input_to_msg_queue_expands_skill_invocation() -> None:
     input_queue: asyncio.Queue[str] = asyncio.Queue()
     input_queue.put_nowait("/skill do thing")
-    msg_queue: asyncio.Queue[dict[str, str]] = asyncio.Queue()
+    msg_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
     db = MagicMock()
     skill_registry = MagicMock()
-    skill_registry.resolve_input.return_value = (True, "expanded prompt")
+    # resolve_input_with_skill returns (is_skill, prompt, skill_obj)
+    mock_skill = MagicMock()
+    mock_skill.policy = SkillPolicy(denied_tools=frozenset({"bash"}))
+    skill_registry.resolve_input_with_skill.return_value = (True, "expanded prompt", mock_skill)
 
     with patch("anteroom.cli.repl.storage.create_message") as create_message:
         await _drain_input_to_msg_queue(
@@ -216,7 +221,10 @@ async def test_drain_input_to_msg_queue_expands_skill_invocation() -> None:
         )
 
     create_message.assert_called_once()
-    assert await msg_queue.get() == {"role": "user", "content": "expanded prompt"}
+    queued = await msg_queue.get()
+    assert queued["role"] == "user"
+    assert queued["content"] == "expanded prompt"
+    assert queued["_skill_policy"] == SkillPolicy(denied_tools=frozenset({"bash"}))
 
 
 def test_parse_bang_command_variants() -> None:

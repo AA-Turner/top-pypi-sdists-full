@@ -183,15 +183,6 @@ class InvalidEncryptedKeyError(JoseError):
     description = "JWE Encrypted Key value SHOULD be an empty octet sequence"
 
 
-class InvalidCEKLengthError(JoseError):
-    error = "invalid_cek_length"
-    description = "Invalid 'cek' length"
-
-    def __init__(self, cek_size: int):  # pragma: no cover
-        description = f"A key of size {cek_size} bits MUST be used"
-        super(InvalidCEKLengthError, self).__init__(description=description)
-
-
 # --- JWT related errors --- #
 
 

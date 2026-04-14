@@ -8958,6 +8958,16 @@ class CfnSegmentDefinition(
                 )],
                 include="include"
             ),
+            segment_sort=customerprofiles.CfnSegmentDefinition.SegmentSortProperty(
+                attributes=[customerprofiles.CfnSegmentDefinition.SortAttributeProperty(
+                    name="name",
+                    order="order",
+        
+                    # the properties below are optional
+                    data_type="dataType",
+                    type="type"
+                )]
+            ),
             segment_sql_query="segmentSqlQuery",
             tags=[CfnTag(
                 key="key",
@@ -8976,6 +8986,7 @@ class CfnSegmentDefinition(
         segment_definition_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         segment_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.SegmentGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        segment_sort: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.SegmentSortProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         segment_sql_query: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -8988,6 +8999,7 @@ class CfnSegmentDefinition(
         :param segment_definition_name: Name of the segment definition.
         :param description: The description of the segment definition.
         :param segment_groups: Contains all groups of the segment definition.
+        :param segment_sort: Defines how segments should be sorted and ordered in the results.
         :param segment_sql_query: The SQL query that defines the segment criteria.
         :param tags: The tags belonging to the segment definition.
         '''
@@ -9001,6 +9013,7 @@ class CfnSegmentDefinition(
             segment_definition_name=segment_definition_name,
             description=description,
             segment_groups=segment_groups,
+            segment_sort=segment_sort,
             segment_sql_query=segment_sql_query,
             tags=tags,
         )
@@ -9180,6 +9193,24 @@ class CfnSegmentDefinition(
             type_hints = typing.get_type_hints(_typecheckingstub__744689fb47e84da608e8ce7c410f0a6489728b4132c9e51efab1802d01b77340)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "segmentGroups", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="segmentSort")
+    def segment_sort(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SegmentSortProperty"]]:
+        '''Defines how segments should be sorted and ordered in the results.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SegmentSortProperty"]], jsii.get(self, "segmentSort"))
+
+    @segment_sort.setter
+    def segment_sort(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SegmentSortProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b0d3a6734c37a70bd1dbc7e6696ea08e721663cd16bf61b3c7ca22e1d3bf7384)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "segmentSort", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="segmentSqlQuery")
@@ -11433,6 +11464,179 @@ class CfnSegmentDefinition(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnSegmentDefinition.SegmentSortProperty",
+        jsii_struct_bases=[],
+        name_mapping={"attributes": "attributes"},
+    )
+    class SegmentSortProperty:
+        def __init__(
+            self,
+            *,
+            attributes: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.SortAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''Defines how segments should be sorted and ordered in the results.
+
+            :param attributes: A list of attributes used to sort the segments and their ordering preferences.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-segmentsort.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                segment_sort_property = customerprofiles.CfnSegmentDefinition.SegmentSortProperty(
+                    attributes=[customerprofiles.CfnSegmentDefinition.SortAttributeProperty(
+                        name="name",
+                        order="order",
+                
+                        # the properties below are optional
+                        data_type="dataType",
+                        type="type"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d1da739790be23a5b5f507b4137c0f67c1a8842a153c1993f49da928b7ea453a)
+                check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "attributes": attributes,
+            }
+
+        @builtins.property
+        def attributes(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SortAttributeProperty"]]]:
+            '''A list of attributes used to sort the segments and their ordering preferences.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-segmentsort.html#cfn-customerprofiles-segmentdefinition-segmentsort-attributes
+            '''
+            result = self._values.get("attributes")
+            assert result is not None, "Required property 'attributes' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SortAttributeProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SegmentSortProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnSegmentDefinition.SortAttributeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "name": "name",
+            "order": "order",
+            "data_type": "dataType",
+            "type": "type",
+        },
+    )
+    class SortAttributeProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            order: builtins.str,
+            data_type: typing.Optional[builtins.str] = None,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Defines the characteristics and rules for sorting by a specific attribute.
+
+            :param name: The name of the attribute to sort by.
+            :param order: The sort order for the attribute (ascending or descending).
+            :param data_type: The data type of the sort attribute (e.g., string, number, date).
+            :param type: The type of attribute (e.g., profile, calculated).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-sortattribute.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                sort_attribute_property = customerprofiles.CfnSegmentDefinition.SortAttributeProperty(
+                    name="name",
+                    order="order",
+                
+                    # the properties below are optional
+                    data_type="dataType",
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7d3ffc62c002535e954af49b12c72e92190090b38674a2e19bb4d5f9a9b6a70f)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument order", value=order, expected_type=type_hints["order"])
+                check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "order": order,
+            }
+            if data_type is not None:
+                self._values["data_type"] = data_type
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the attribute to sort by.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-sortattribute.html#cfn-customerprofiles-segmentdefinition-sortattribute-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def order(self) -> builtins.str:
+            '''The sort order for the attribute (ascending or descending).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-sortattribute.html#cfn-customerprofiles-segmentdefinition-sortattribute-order
+            '''
+            result = self._values.get("order")
+            assert result is not None, "Required property 'order' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def data_type(self) -> typing.Optional[builtins.str]:
+            '''The data type of the sort attribute (e.g., string, number, date).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-sortattribute.html#cfn-customerprofiles-segmentdefinition-sortattribute-datatype
+            '''
+            result = self._values.get("data_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''The type of attribute (e.g., profile, calculated).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-sortattribute.html#cfn-customerprofiles-segmentdefinition-sortattribute-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SortAttributeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnSegmentDefinition.SourceSegmentProperty",
         jsii_struct_bases=[],
         name_mapping={"segment_definition_name": "segmentDefinitionName"},
@@ -11497,6 +11701,7 @@ class CfnSegmentDefinition(
         "segment_definition_name": "segmentDefinitionName",
         "description": "description",
         "segment_groups": "segmentGroups",
+        "segment_sort": "segmentSort",
         "segment_sql_query": "segmentSqlQuery",
         "tags": "tags",
     },
@@ -11510,6 +11715,7 @@ class CfnSegmentDefinitionProps:
         segment_definition_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         segment_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.SegmentGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        segment_sort: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.SegmentSortProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         segment_sql_query: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -11520,6 +11726,7 @@ class CfnSegmentDefinitionProps:
         :param segment_definition_name: Name of the segment definition.
         :param description: The description of the segment definition.
         :param segment_groups: Contains all groups of the segment definition.
+        :param segment_sort: Defines how segments should be sorted and ordered in the results.
         :param segment_sql_query: The SQL query that defines the segment criteria.
         :param tags: The tags belonging to the segment definition.
 
@@ -11749,6 +11956,16 @@ class CfnSegmentDefinitionProps:
                     )],
                     include="include"
                 ),
+                segment_sort=customerprofiles.CfnSegmentDefinition.SegmentSortProperty(
+                    attributes=[customerprofiles.CfnSegmentDefinition.SortAttributeProperty(
+                        name="name",
+                        order="order",
+            
+                        # the properties below are optional
+                        data_type="dataType",
+                        type="type"
+                    )]
+                ),
                 segment_sql_query="segmentSqlQuery",
                 tags=[CfnTag(
                     key="key",
@@ -11763,6 +11980,7 @@ class CfnSegmentDefinitionProps:
             check_type(argname="argument segment_definition_name", value=segment_definition_name, expected_type=type_hints["segment_definition_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument segment_groups", value=segment_groups, expected_type=type_hints["segment_groups"])
+            check_type(argname="argument segment_sort", value=segment_sort, expected_type=type_hints["segment_sort"])
             check_type(argname="argument segment_sql_query", value=segment_sql_query, expected_type=type_hints["segment_sql_query"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11774,6 +11992,8 @@ class CfnSegmentDefinitionProps:
             self._values["description"] = description
         if segment_groups is not None:
             self._values["segment_groups"] = segment_groups
+        if segment_sort is not None:
+            self._values["segment_sort"] = segment_sort
         if segment_sql_query is not None:
             self._values["segment_sql_query"] = segment_sql_query
         if tags is not None:
@@ -11828,6 +12048,17 @@ class CfnSegmentDefinitionProps:
         '''
         result = self._values.get("segment_groups")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SegmentGroupProperty"]], result)
+
+    @builtins.property
+    def segment_sort(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SegmentSortProperty"]]:
+        '''Defines how segments should be sorted and ordered in the results.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-segmentsort
+        '''
+        result = self._values.get("segment_sort")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SegmentSortProperty"]], result)
 
     @builtins.property
     def segment_sql_query(self) -> typing.Optional[builtins.str]:
@@ -13042,6 +13273,7 @@ def _typecheckingstub__350e170fd13ca6586a78a39785ca961e3b7fa8982a5b03ff0799f34c2
     segment_definition_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     segment_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.SegmentGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    segment_sort: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.SegmentSortProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     segment_sql_query: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -13098,6 +13330,12 @@ def _typecheckingstub__223f2ad9551b0ca745b7b727aa69f874d90c37d42f2d71a6e2b2fb44e
 
 def _typecheckingstub__744689fb47e84da608e8ce7c410f0a6489728b4132c9e51efab1802d01b77340(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSegmentDefinition.SegmentGroupProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0d3a6734c37a70bd1dbc7e6696ea08e721663cd16bf61b3c7ca22e1d3bf7384(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSegmentDefinition.SegmentSortProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -13245,6 +13483,23 @@ def _typecheckingstub__49a789743f5ac4162a8c53d6f5aae978c5989a590155f77804b52b379
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d1da739790be23a5b5f507b4137c0f67c1a8842a153c1993f49da928b7ea453a(
+    *,
+    attributes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.SortAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d3ffc62c002535e954af49b12c72e92190090b38674a2e19bb4d5f9a9b6a70f(
+    *,
+    name: builtins.str,
+    order: builtins.str,
+    data_type: typing.Optional[builtins.str] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__002c938fccce270fc597ae5653583b8a9910031239e0daaf523e0c4431d75ed7(
     *,
     segment_definition_name: typing.Optional[builtins.str] = None,
@@ -13259,6 +13514,7 @@ def _typecheckingstub__bfe3927b013a59f4b37e001ce8d373fe3d8d8bc374ee6c206d37e74f6
     segment_definition_name: builtins.str,
     description: typing.Optional[builtins.str] = None,
     segment_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.SegmentGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    segment_sort: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.SegmentSortProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     segment_sql_query: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

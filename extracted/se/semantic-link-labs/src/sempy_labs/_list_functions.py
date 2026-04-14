@@ -515,7 +515,7 @@ def list_columns(
     fabric.refresh_tom_cache(workspace=workspace)
     dfP = fabric.list_partitions(dataset=dataset_id, workspace=workspace_id)
 
-    isDirectLake = any(r["Mode"] == "DirectLake" for i, r in dfP.iterrows())
+    isDirectLake = any(r["Mode"] == "DirectLake" for _, r in dfP.iterrows())
 
     dfC = fabric.list_columns(dataset=dataset_id, workspace=workspace_id)
 

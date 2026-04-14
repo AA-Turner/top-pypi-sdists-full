@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-fmt
-Version: 2.21.0
+Version: 2.21.1
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -32,8 +32,12 @@ Apply a consistent format to your ``pyproject.toml`` file with comment support. 
 Recent Changes
 ~~~~~~~~~~~~~~~~
 
-- ✨ feat(pyproject-fmt): add pixi support by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#283 <https://github.com/tox-dev/toml-fmt/pull/283>`_ <a id="2.20.0"></a>
+- 🐛 fix(pyproject-fmt): produce valid TOML when sorting arrays with value on bracket line by
+  `@gaborbernat <https://github.com/gaborbernat>`_ in `#293 <https://github.com/tox-dev/toml-fmt/pull/293>`_
+- Update Rust dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#287 <https://github.com/tox-dev/toml-fmt/pull/287>`_
+- Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#286 <https://github.com/tox-dev/toml-fmt/pull/286>`_ <a id="2.20.0"></a>
 
 Philosophy
 ----------

@@ -163,6 +163,7 @@ def list_settable_fields(*, include_sensitive: bool = False) -> list[ConfigField
         ("safety.output_filter", "system_prompt_leak_detection"),
         ("safety.output_filter", "log_detections"),
         ("rag", "enabled"),
+        ("rag", "show_status"),
         ("rag", "include_sources"),
         ("rag", "include_conversations"),
         ("rag", "exclude_current"),
@@ -185,6 +186,7 @@ def list_settable_fields(*, include_sensitive: bool = False) -> list[ConfigField
         ("safety", "denied_tools"),
         ("proxy", "allowed_origins"),
         ("ai", "allowed_domains"),
+        ("ai", "allowed_models"),
         ("session", "allowed_ips"),
     ]
     for section_path, key in list_field_paths:

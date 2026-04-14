@@ -147,6 +147,8 @@ from .type_defs import (
     GetLimitResponseTypeDef,
     GetMonitorRequestTypeDef,
     GetMonitorResponseTypeDef,
+    GetMonitorSettingsRequestTypeDef,
+    GetMonitorSettingsResponseTypeDef,
     GetQueueEnvironmentRequestTypeDef,
     GetQueueEnvironmentResponseTypeDef,
     GetQueueFleetAssociationRequestTypeDef,
@@ -248,6 +250,7 @@ from .type_defs import (
     UpdateJobRequestTypeDef,
     UpdateLimitRequestTypeDef,
     UpdateMonitorRequestTypeDef,
+    UpdateMonitorSettingsRequestTypeDef,
     UpdateQueueEnvironmentRequestTypeDef,
     UpdateQueueFleetAssociationRequestTypeDef,
     UpdateQueueLimitAssociationRequestTypeDef,
@@ -860,6 +863,16 @@ class DeadlineCloudClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/client/#get_monitor)
         """
 
+    def get_monitor_settings(
+        self, **kwargs: Unpack[GetMonitorSettingsRequestTypeDef]
+    ) -> GetMonitorSettingsResponseTypeDef:
+        """
+        Gets the settings for a Deadline Cloud monitor.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/get_monitor_settings.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/client/#get_monitor_settings)
+        """
+
     def get_queue(self, **kwargs: Unpack[GetQueueRequestTypeDef]) -> GetQueueResponseTypeDef:
         """
         Gets a queue.
@@ -1367,6 +1380,16 @@ class DeadlineCloudClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/update_monitor.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/client/#update_monitor)
+        """
+
+    def update_monitor_settings(
+        self, **kwargs: Unpack[UpdateMonitorSettingsRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the settings for a Deadline Cloud monitor.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/update_monitor_settings.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/client/#update_monitor_settings)
         """
 
     def update_queue(self, **kwargs: Unpack[UpdateQueueRequestTypeDef]) -> dict[str, Any]:

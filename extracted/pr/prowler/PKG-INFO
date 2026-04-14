@@ -1,15 +1,17 @@
 Metadata-Version: 2.3
 Name: prowler
-Version: 5.22.0
+Version: 5.23.0
 Summary: Prowler is an Open Source security tool to perform AWS, GCP and Azure security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains hundreds of controls covering CIS, NIST 800, NIST CSF, CISA, RBI, FedRAMP, PCI-DSS, GDPR, HIPAA, FFIEC, SOC2, GXP, AWS Well-Architected Framework Security Pillar, AWS Foundational Technical Review (FTR), ENS (Spanish National Security Scheme) and your custom security frameworks.
 License: Apache-2.0
 Author: Toni de la Fuente
 Author-email: toni@blyx.com
 Maintainer: Prowler Engineering
 Maintainer-email: engineering@prowler.com
-Requires-Python: >3.9.1,<3.13
+Requires-Python: >=3.10,<3.13
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: Apache Software License
 Requires-Dist: alibabacloud-gateway-oss-util (==0.0.3)
 Requires-Dist: alibabacloud-rds20140815 (==12.0.0)
@@ -22,7 +24,7 @@ Requires-Dist: alibabacloud_oss20190517 (==1.0.6)
 Requires-Dist: alibabacloud_ram20150501 (==1.2.0)
 Requires-Dist: alibabacloud_sas20181203 (==6.1.0)
 Requires-Dist: alibabacloud_sts20150401 (==1.1.6)
-Requires-Dist: alibabacloud_tea_openapi (==0.4.1)
+Requires-Dist: alibabacloud_tea_openapi (==0.4.4)
 Requires-Dist: alibabacloud_vpc20160428 (==6.13.0)
 Requires-Dist: alive-progress (==3.3.0)
 Requires-Dist: awsipranges (==0.3.3)
@@ -57,29 +59,29 @@ Requires-Dist: boto3 (==1.40.61)
 Requires-Dist: botocore (==1.40.61)
 Requires-Dist: cloudflare (==4.3.1)
 Requires-Dist: colorama (==0.4.6)
-Requires-Dist: cryptography (==44.0.3)
+Requires-Dist: cryptography (==46.0.6)
 Requires-Dist: dash (==3.1.1)
 Requires-Dist: dash-bootstrap-components (==2.0.3)
-Requires-Dist: defusedxml (>=0.7.1)
+Requires-Dist: defusedxml (==0.7.1)
 Requires-Dist: detect-secrets (==1.5.0)
 Requires-Dist: dulwich (==0.23.0)
 Requires-Dist: google-api-python-client (==2.163.0)
-Requires-Dist: google-auth-httplib2 (>=0.1,<0.3)
+Requires-Dist: google-auth-httplib2 (==0.2.0)
 Requires-Dist: h2 (==4.3.0)
 Requires-Dist: jsonschema (==4.23.0)
 Requires-Dist: kubernetes (==32.0.1)
-Requires-Dist: markdown (==3.9.0)
+Requires-Dist: markdown (==3.10.2)
 Requires-Dist: microsoft-kiota-abstractions (==1.9.2)
 Requires-Dist: msgraph-sdk (==1.23.0)
 Requires-Dist: numpy (==2.0.2)
-Requires-Dist: oci (==2.160.3)
+Requires-Dist: oci (==2.169.0)
 Requires-Dist: openstacksdk (==4.2.0)
 Requires-Dist: pandas (==2.2.3)
 Requires-Dist: py-iam-expand (==0.1.0)
 Requires-Dist: py-ocsf-models (==0.8.1)
-Requires-Dist: pydantic (>=2.0,<3.0)
+Requires-Dist: pydantic (==2.12.5)
 Requires-Dist: pygithub (==2.8.0)
-Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
+Requires-Dist: python-dateutil (==2.9.0.post0)
 Requires-Dist: pytz (==2025.1)
 Requires-Dist: schema (==0.7.5)
 Requires-Dist: shodan (==1.31.0)
@@ -98,7 +100,7 @@ Description-Content-Type: text/markdown
   <img align="center" src="https://github.com/prowler-cloud/prowler/blob/master/docs/img/prowler-logo-white.png#gh-dark-mode-only" width="50%" height="50%">
 </p>
 <p align="center">
-  <b><i>Prowler</b> is the Open Cloud Security platform trusted by thousands to automate security and compliance in any cloud environment. With hundreds of ready-to-use checks and compliance frameworks, Prowler delivers real-time, customizable monitoring and seamless integrations, making cloud security simple, scalable, and cost-effective for organizations of any size.
+  <b><i>Prowler</b> is the Open Cloud Security Platform trusted by thousands to automate security and compliance in any cloud environment. With hundreds of ready-to-use checks and compliance frameworks, Prowler delivers real-time, customizable monitoring and seamless integrations, making cloud security simple, scalable, and cost-effective for organizations of any size.
 </p>
 <p align="center">
 <b>Secure ANY cloud at AI Speed at <a href="https://prowler.com">prowler.com</i></b>
@@ -136,7 +138,7 @@ Description-Content-Type: text/markdown
 
 # Description
 
-**Prowler** is the world’s most widely used _open-source cloud security platform_ that automates security and compliance across **any cloud environment**. With hundreds of ready-to-use security checks, remediation guidance, and compliance frameworks, Prowler is built to _“Secure ANY cloud at AI Speed”_. Prowler delivers **AI-driven**, **customizable**, and **easy-to-use** assessments, dashboards, reports, and integrations, making cloud security **simple**, **scalable**, and **cost-effective** for organizations of any size.
+**Prowler** is the world’s most widely used _Open-Source Cloud Security Platform_ that automates security and compliance across **any cloud environment**. With hundreds of ready-to-use security checks, remediation guidance, and compliance frameworks, Prowler is built to _“Secure ANY Cloud at AI Speed”_. Prowler delivers **AI-driven**, **customizable**, and **easy-to-use** assessments, dashboards, reports, and integrations, making cloud security **simple**, **scalable**, and **cost-effective** for organizations of any size.
 
 Prowler includes hundreds of built-in controls to ensure compliance with standards and frameworks, including:
 
@@ -214,6 +216,7 @@ Every AWS provider scan will enqueue an Attack Paths ingestion job automatically
 | Image | N/A | N/A | N/A | N/A | Official | CLI, API |
 | Google Workspace | 1 | 1 | 0 | 1 | Official | CLI |
 | OpenStack | 27 | 4 | 0 | 8 | Official | UI, API, CLI |
+| Vercel | 30 | 6 | 0 | 5 | Official | CLI |
 | NHN | 6 | 2 | 1 | 0 | Unofficial | CLI |
 
 > [!Note]
@@ -334,9 +337,24 @@ pnpm start
 
 > Once configured, access the Prowler App at http://localhost:3000. Sign up using your email and password to get started.
 
+**Pre-commit Hooks Setup**
+
+Some pre-commit hooks require tools installed on your system:
+
+1. **Install [TruffleHog](https://github.com/trufflesecurity/trufflehog#install)** (secret scanning) — see the [official installation options](https://github.com/trufflesecurity/trufflehog#install).
+
+2. **Install [Safety](https://github.com/pyupio/safety)** (dependency vulnerability checking):
+
+    ```console
+    # Requires a Python environment (e.g. via pyenv)
+    pip install safety
+    ```
+
+3. **Install [Hadolint](https://github.com/hadolint/hadolint#install)** (Dockerfile linting) — see the [official installation options](https://github.com/hadolint/hadolint#install).
+
 ## Prowler CLI
 ### Pip package
-Prowler CLI is available as a project in [PyPI](https://pypi.org/project/prowler-cloud/). Consequently, it can be installed using pip with Python >3.9.1, <3.13:
+Prowler CLI is available as a project in [PyPI](https://pypi.org/project/prowler-cloud/). Consequently, it can be installed using pip with Python >=3.10, <3.13:
 
 ```console
 pip install prowler
@@ -368,7 +386,7 @@ The container images are available here:
 
 ### From GitHub
 
-Python >3.9.1, <3.13 is required with pip and Poetry:
+Python >=3.10, <3.13 is required with pip and Poetry:
 
 ``` console
 git clone https://github.com/prowler-cloud/prowler
@@ -396,7 +414,10 @@ python prowler-cli.py -v
 - **Prowler SDK**: A Python SDK designed to extend the functionality of the Prowler CLI for advanced capabilities.
 - **Prowler MCP Server**: A Model Context Protocol server that provides AI tools for Lighthouse, the AI-powered security assistant. This is a critical dependency for Lighthouse functionality.
 
-![Prowler App Architecture](docs/products/img/prowler-app-architecture.png)
+![Prowler App Architecture](docs/images/products/prowler-app-architecture.png)
+
+<!-- Diagram source: docs/images/products/prowler-app-architecture.mmd — edit there, re-render at https://mermaid.live, and replace the PNG. -->
+
 
 ## Prowler CLI
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-core
-Version: 0.38.2
+Version: 0.39.2
 Summary: Open edX Core: Foundational Packages for a Teaching & Learning Platform
 Home-page: https://github.com/openedx/openedx-core
 Author: David Ormsbee
@@ -18,13 +18,14 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.12
 License-File: LICENSE.txt
 Requires-Dist: djangorestframework<4.0
-Requires-Dist: celery
-Requires-Dist: edx-drf-extensions
-Requires-Dist: attrs
-Requires-Dist: edx-organizations
-Requires-Dist: rules<4.0
 Requires-Dist: tomlkit
+Requires-Dist: rules<4.0
 Requires-Dist: Django
+Requires-Dist: edx-organizations
+Requires-Dist: celery
+Requires-Dist: attrs
+Requires-Dist: edx-drf-extensions
+Requires-Dist: openedx-events
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

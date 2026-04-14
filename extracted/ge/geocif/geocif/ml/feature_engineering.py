@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 
 def compute_last_year_yield(df, target_col="Yield (tn per ha)"):

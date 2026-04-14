@@ -1,4 +1,6 @@
 """
+from __future__ import annotations
+
 Parts derived from socialregistration and authorized by: alen, pinda
 Inspired by:
     https://github.com/leah/python-oauth/blob/master/oauth/example/client.py
@@ -8,7 +10,7 @@ Inspired by:
 from http import HTTPStatus
 from urllib.parse import parse_qsl, urlparse
 
-from django.http import HttpResponseRedirect
+from django.http import HttpRequest, HttpResponseRedirect
 from django.utils.http import urlencode
 from django.utils.translation import gettext as _
 
@@ -38,7 +40,7 @@ class OAuthError(Exception):
 class OAuthClient:
     def __init__(
         self,
-        request,
+        request: HttpRequest,
         consumer_key,
         consumer_secret,
         request_token_url,
@@ -46,7 +48,7 @@ class OAuthClient:
         callback_url,
         parameters=None,
         provider=None,
-    ):
+    ) -> None:
         self.request = request
 
         self.request_token_url = request_token_url
@@ -60,7 +62,7 @@ class OAuthClient:
         self.callback_url = callback_url
         self.provider = provider
 
-        self.errors = []
+        self.errors: list[str] = []
         self.request_token = None
         self.access_token = None
 
@@ -174,7 +176,9 @@ class OAuth:
     example.
     """
 
-    def __init__(self, request, consumer_key, secret_key, request_token_url):
+    def __init__(
+        self, request: HttpRequest, consumer_key, secret_key, request_token_url
+    ) -> None:
         self.request = request
         self.consumer_key = consumer_key
         self.secret_key = secret_key

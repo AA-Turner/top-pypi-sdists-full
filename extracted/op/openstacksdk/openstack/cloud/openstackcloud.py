@@ -16,7 +16,8 @@ import copy
 import functools
 import queue
 import types
-import typing as ty
+from typing import Any, Optional, TYPE_CHECKING
+from collections.abc import Callable
 import warnings
 import weakref
 
@@ -24,8 +25,8 @@ import dogpile.cache
 import keystoneauth1.exceptions
 from keystoneauth1.identity import base as ks_plugin_base
 import requests.models
-import requestsexceptions
-import typing_extensions as ty_ext
+from typing_extensions import Self
+import urllib3.exceptions
 
 from openstack import _log
 from openstack import _services_mixin
@@ -39,7 +40,7 @@ from openstack import resource
 from openstack import utils
 from openstack import warnings as os_warnings
 
-if ty.TYPE_CHECKING:
+if TYPE_CHECKING:
     from dogpile.cache import region as cache_region
     from keystoneauth1.access import service_catalog as ks_service_catalog
     from keystoneauth1 import session as ks_session
@@ -84,21 +85,21 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
         self,
         cloud: str | None = None,
         config: cloud_region.CloudRegion | None = None,
-        session: ty.Optional['ks_session.Session'] = None,
+        session: Optional['ks_session.Session'] = None,
         app_name: str | None = None,
         app_version: str | None = None,
         extra_services: list['service_description.ServiceDescription']
         | None = None,
         strict: bool = False,
         use_direct_get: bool | None = None,
-        task_manager: ty.Any = None,
+        task_manager: Any = None,
         rate_limit: float | dict[str, float] | None = None,
-        oslo_conf: ty.Optional['cfg.ConfigOpts'] = None,
+        oslo_conf: Optional['cfg.ConfigOpts'] = None,
         service_types: list[str] | None = None,
         global_request_id: str | None = None,
         strict_proxies: bool = False,
         pool_executor: concurrent.futures.Executor | None = None,
-        **kwargs: ty.Any,
+        **kwargs: Any,
     ) -> None:
         """Create a connection to a cloud.
 
@@ -244,10 +245,9 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
             self.log.debug(
                 "Turning off Insecure SSL warnings since verify=False"
             )
-            category = requestsexceptions.InsecureRequestWarning
-            if category:
-                # InsecureRequestWarning references a Warning class or is None
-                warnings.filterwarnings('ignore', category=category)
+            warnings.filterwarnings(
+                'ignore', category=urllib3.exceptions.InsecureRequestWarning
+            )
 
         self._disable_warnings: dict[str, bool] = {}
 
@@ -304,7 +304,7 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
             self.__pool_executor.shutdown()
         atexit.unregister(self.close)
 
-    def __enter__(self) -> ty_ext.Self:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
@@ -318,7 +318,7 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
     def set_global_request_id(self, global_request_id: str) -> None:
         self._global_request_id = global_request_id
 
-    def global_request(self, global_request_id: str) -> ty_ext.Self:
+    def global_request(self, global_request_id: str) -> Self:
         """Make a new Connection object with a global request id set.
 
         Take the existing settings from the current Connection and construct a
@@ -372,7 +372,7 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
         self,
         cache_class: str,
         expiration_time: int,
-        arguments: dict[str, ty.Any] | None,
+        arguments: dict[str, Any] | None,
     ) -> 'cache_region.CacheRegion':
         return dogpile.cache.make_region(
             function_key_generator=self._make_cache_key
@@ -381,8 +381,8 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
         )
 
     def _make_cache_key(
-        self, namespace: str, fn: ty.Callable[..., ty.Any]
-    ) -> ty.Callable[..., str]:
+        self, namespace: str, fn: Callable[..., Any]
+    ) -> Callable[..., str]:
         fname = fn.__name__
         if namespace is None:
             name_key = self.name
@@ -434,7 +434,7 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
         return self.session.auth.get_access(self.session).service_catalog
 
     @property
-    def service_catalog(self) -> list[dict[str, ty.Any]]:
+    def service_catalog(self) -> list[dict[str, Any]]:
         return self._keystone_catalog.catalog
 
     @property
@@ -670,11 +670,12 @@ class _OpenStackCloudMixin(_services_mixin.ServicesMixin):
 
         # User used string notation. Try to find proper
         # resource
-        (service_name, resource_name) = resource_type.split('.')
+        service_name, resource_name = resource_type.split('.')
         if not hasattr(self, service_name):
             raise exceptions.SDKException(
                 f"service {service_name} is not existing/enabled"
             )
+
         service_proxy = getattr(self, service_name)
         try:
             resource_type = service_proxy._resource_registry[resource_name]

@@ -1,12 +1,13 @@
-# Copyright 2019-2025 The University of Manchester, UK
-# Copyright 2020-2025 Vlaams Instituut voor Biotechnologie (VIB), BE
-# Copyright 2020-2025 Barcelona Supercomputing Center (BSC), ES
-# Copyright 2020-2025 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
-# Copyright 2022-2025 École Polytechnique Fédérale de Lausanne, CH
-# Copyright 2024-2025 Data Centre, SciLifeLab, SE
-# Copyright 2024-2025 National Institute of Informatics (NII), JP
-# Copyright 2025 Senckenberg Society for Nature Research (SGN), DE
-# Copyright 2025 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2019-2026 The University of Manchester, UK
+# Copyright 2020-2026 Vlaams Instituut voor Biotechnologie (VIB), BE
+# Copyright 2020-2026 Barcelona Supercomputing Center (BSC), ES
+# Copyright 2020-2026 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
+# Copyright 2022-2026 École Polytechnique Fédérale de Lausanne, CH
+# Copyright 2024-2026 Data Centre, SciLifeLab, SE
+# Copyright 2024-2026 National Institute of Informatics (NII), JP
+# Copyright 2025-2026 Senckenberg Society for Nature Research (SGN), DE
+# Copyright 2025-2026 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2026 Spanish National Research Council (CSIC), ES
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,24 +22,22 @@
 # limitations under the License.
 
 import json
-import pathlib
 import shutil
+from pathlib import Path
 
 import pytest
 from rocrate.utils import get_norm_value
 
 
-THIS_DIR = pathlib.Path(__file__).absolute().parent
+THIS_DIR = Path(__file__).absolute().parent
 TEST_DATA_NAME = 'test-data'
 BASE_URL = 'https://w3id.org/ro/crate'
-VERSION = '1.1'
+DEFAULT_VERSION = '1.2'
 LEGACY_VERSION = '1.0'
 
 
 class Helpers:
 
-    PROFILE = f"{BASE_URL}/{VERSION}"
-    LEGACY_PROFILE = f"{BASE_URL}/{LEGACY_VERSION}"
     WORKFLOW_PROFILE = "https://w3id.org/workflowhub/workflow-ro-crate/1.0"
     METADATA_FILE_NAME = 'ro-crate-metadata.json'
     LEGACY_METADATA_FILE_NAME = 'ro-crate-metadata.jsonld'
@@ -49,20 +48,23 @@ class Helpers:
 
     @classmethod
     def read_json_entities(cls, crate_base_path):
-        metadata_path = pathlib.Path(crate_base_path) / cls.METADATA_FILE_NAME
+        crate_base_path = Path(crate_base_path)
+        metadata_path = crate_base_path / cls.METADATA_FILE_NAME
+        if not metadata_path.is_file():
+            metadata_path = crate_base_path / cls.LEGACY_METADATA_FILE_NAME
         with open(metadata_path, "rt") as f:
             json_data = json.load(f)
         return {_["@id"]: _ for _ in json_data["@graph"]}
 
     @classmethod
-    def check_crate(cls, json_entities, root_id="./", data_entity_ids=None):
+    def check_crate(cls, json_entities, root_id="./", data_entity_ids=None, version=DEFAULT_VERSION):
         assert root_id in json_entities
         root = json_entities[root_id]
         assert root["@type"] == "Dataset"
         assert cls.METADATA_FILE_NAME in json_entities
         metadata = json_entities[cls.METADATA_FILE_NAME]
         assert metadata["@type"] == "CreativeWork"
-        assert cls.PROFILE in get_norm_value(metadata, "conformsTo")
+        assert f"{BASE_URL}/{version}" in get_norm_value(metadata, "conformsTo")
         assert metadata["about"] == {"@id": root_id}
         if data_entity_ids:
             data_entity_ids = set(data_entity_ids)
@@ -91,7 +93,7 @@ def helpers():
 # pytest's default tmpdir returns a py.path object
 @pytest.fixture
 def tmpdir(tmpdir):
-    return pathlib.Path(tmpdir)
+    return Path(tmpdir)
 
 
 @pytest.fixture

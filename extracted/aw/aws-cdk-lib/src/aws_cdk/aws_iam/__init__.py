@@ -2012,19 +2012,6 @@ class CfnGroupPolicy(
         jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="policyName")
-    def policy_name(self) -> builtins.str:
-        '''The name of the policy document.'''
-        return typing.cast(builtins.str, jsii.get(self, "policyName"))
-
-    @policy_name.setter
-    def policy_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98fde951f7da16e6788d849111dc918395ada4b5134156e2bc4d29caf92e119f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="policyDocument")
     def policy_document(self) -> typing.Any:
         '''The policy document.'''
@@ -2036,6 +2023,19 @@ class CfnGroupPolicy(
             type_hints = typing.get_type_hints(_typecheckingstub__252a63b1958f4306e76e5da346149aa1087fd66fc85306f6c6c58ab5571644a4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''The name of the policy document.'''
+        return typing.cast(builtins.str, jsii.get(self, "policyName"))
+
+    @policy_name.setter
+    def policy_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98fde951f7da16e6788d849111dc918395ada4b5134156e2bc4d29caf92e119f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -4293,6 +4293,19 @@ class CfnRolePolicy(
         return typing.cast("_RolePolicyReference_0cf19357", jsii.get(self, "rolePolicyRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> typing.Any:
+        '''The policy document.'''
+        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2153da01bebec26c385aa83a08c1b544e6c1e15dfda33c546698c885cbf1e9b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="policyName")
     def policy_name(self) -> builtins.str:
         '''The name of the policy document.'''
@@ -4317,19 +4330,6 @@ class CfnRolePolicy(
             type_hints = typing.get_type_hints(_typecheckingstub__c89cdd638f3704d6ca88c2e6c9c5c301322b1ed12de337f2ec3c4bfdee661f0f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policyDocument")
-    def policy_document(self) -> typing.Any:
-        '''The policy document.'''
-        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
-
-    @policy_document.setter
-    def policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2153da01bebec26c385aa83a08c1b544e6c1e15dfda33c546698c885cbf1e9b9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -6419,6 +6419,19 @@ class CfnUserPolicy(
         return typing.cast("_UserPolicyReference_4aa6daa0", jsii.get(self, "userPolicyRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> typing.Any:
+        '''The policy document.'''
+        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__868920d1b0a57c789262fb64d7c1ce084d6f3da90f834b2da8cc620e6553bad8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="policyName")
     def policy_name(self) -> builtins.str:
         '''The name of the policy document.'''
@@ -6443,19 +6456,6 @@ class CfnUserPolicy(
             type_hints = typing.get_type_hints(_typecheckingstub__c87f136af227b9d80b9c996ebad3cd0115cf869a0b881cdc44f69822e5d676a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policyDocument")
-    def policy_document(self) -> typing.Any:
-        '''The policy document.'''
-        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
-
-    @policy_document.setter
-    def policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__868920d1b0a57c789262fb64d7c1ce084d6f3da90f834b2da8cc620e6553bad8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -17495,14 +17495,14 @@ def _typecheckingstub__789fa1310fa5f0c8a58c7721ec65bb7fb38294aa983f688e92a477a4e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__98fde951f7da16e6788d849111dc918395ada4b5134156e2bc4d29caf92e119f(
-    value: builtins.str,
+def _typecheckingstub__252a63b1958f4306e76e5da346149aa1087fd66fc85306f6c6c58ab5571644a4(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__252a63b1958f4306e76e5da346149aa1087fd66fc85306f6c6c58ab5571644a4(
-    value: typing.Any,
+def _typecheckingstub__98fde951f7da16e6788d849111dc918395ada4b5134156e2bc4d29caf92e119f(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17950,6 +17950,12 @@ def _typecheckingstub__0db54a249a715ade4f26735343ca5a55eb1952e807ce57e2d7ec4b843
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2153da01bebec26c385aa83a08c1b544e6c1e15dfda33c546698c885cbf1e9b9(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7042bd66e9ba283ac19987752cc24a822d1f227ca8217dbbae1ca253f583b373(
     value: builtins.str,
 ) -> None:
@@ -17958,12 +17964,6 @@ def _typecheckingstub__7042bd66e9ba283ac19987752cc24a822d1f227ca8217dbbae1ca253f
 
 def _typecheckingstub__c89cdd638f3704d6ca88c2e6c9c5c301322b1ed12de337f2ec3c4bfdee661f0f(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2153da01bebec26c385aa83a08c1b544e6c1e15dfda33c546698c885cbf1e9b9(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18369,6 +18369,12 @@ def _typecheckingstub__3ce5c91a6c338867856c8d0c8e4fb1baca52b1340f6738e4b2d9310ae
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__868920d1b0a57c789262fb64d7c1ce084d6f3da90f834b2da8cc620e6553bad8(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e1863a06ff9856e56ddfef1835185f36375de9aab427703c632667bf53aed26d(
     value: builtins.str,
 ) -> None:
@@ -18377,12 +18383,6 @@ def _typecheckingstub__e1863a06ff9856e56ddfef1835185f36375de9aab427703c632667bf5
 
 def _typecheckingstub__c87f136af227b9d80b9c996ebad3cd0115cf869a0b881cdc44f69822e5d676a7(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__868920d1b0a57c789262fb64d7c1ce084d6f3da90f834b2da8cc620e6553bad8(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

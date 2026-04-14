@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Sequence
 
 from .plan import parse_plan_command
-from .skills import SkillRegistry
+from .skills import SkillPolicy, SkillRegistry
 
 # ---------------------------------------------------------------------------
 # Command kind: exhaustive intent classification
@@ -39,6 +39,7 @@ CommandKind = Literal[
     "show_conventions",
     "show_model",
     "set_model",
+    "list_models",
     "show_slug",
     "set_slug",
     "show_tools",
@@ -125,6 +126,9 @@ class SkillDescription:
     description: str
     source: str
     accepts_args: bool = False
+    policy_summary: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+    update_guidance: str = ""
 
 
 @dataclass(frozen=True)
@@ -301,6 +305,7 @@ SUBCOMMAND_COMPLETIONS: dict[str, list[str]] = {
         "link-source",
         "unlink-source",
     ],
+    "model": ["list"],
     "config": ["list", "get", "set", "reset"],
     "mcp": ["status", "connect", "disconnect", "reconnect"],
     "plan": ["on", "off", "status", "approve", "edit", "reject"],
@@ -596,6 +601,8 @@ def execute_slash_command(prompt: str, context: CommandContext) -> CommandResult
     if parsed.name == "/model":
         if not parsed.arg:
             return CommandResult(kind="show_model", command=parsed, model_name=context.current_model)
+        if parsed.arg == "list":
+            return CommandResult(kind="list_models", command=parsed, model_name=context.current_model)
         return CommandResult(kind="set_model", command=parsed, model_name=parsed.arg)
 
     # -- Usage --
@@ -1218,12 +1225,18 @@ def _skills_result(parsed: ParsedSlashCommand, context: CommandContext) -> Comma
     entries: list[SkillDescription] = []
     for display_name, description in context.skill_registry.get_skill_descriptions():
         skill = context.skill_registry.get(display_name)
+        policy_summary = ""
+        if skill and skill.policy != SkillPolicy():
+            policy_summary = skill.policy.summary()
         entries.append(
             SkillDescription(
                 display_name=display_name,
                 description=description or "",
                 source=skill.source if skill else "unknown",
                 accepts_args=bool(skill and "{args}" in skill.prompt),
+                policy_summary=policy_summary,
+                metadata=dict(skill.metadata) if skill and skill.metadata else {},
+                update_guidance=skill.update_guidance if skill else "",
             )
         )
 
@@ -1286,7 +1299,7 @@ def build_help_markdown() -> str:
         "- `/tools` list the currently available tools\n"
         "- `/skills` list available slash skills\n"
         "- `/reload-skills` reload skill files from disk\n"
-        "- `/model [NAME]` show or change the active model\n"
+        "- `/model [list|NAME]` show, list, or change the active model\n"
         "- `/usage` show token usage totals\n"
         "- `/artifact-check` run artifact health checks\n"
         "- `/quit` or `/exit` leave the app\n\n"
@@ -1314,7 +1327,15 @@ def build_skills_markdown(
     if entries:
         for entry in entries:
             description = entry.description or "No description."
-            lines.append(f"- `/{entry.display_name}` — {description} ({entry.source})")
+            suffix = f" ({entry.source})"
+            if entry.policy_summary:
+                suffix = f" [{entry.policy_summary}] ({entry.source})"
+            meta_str = ""
+            if entry.metadata:
+                meta_parts = [f"{k}={str(v)}" for k, v in sorted(entry.metadata.items())]
+                meta_str = f" [metadata: {', '.join(meta_parts)}]"
+            guidance_str = f"\n    Update: {entry.update_guidance}" if entry.update_guidance else ""
+            lines.append(f"- `/{entry.display_name}` — {description}{meta_str}{suffix}{guidance_str}")
     else:
         lines.append("No skills loaded. Add YAML files under `~/.anteroom/skills/` or a project `.anteroom/skills/`.")
     if warnings:

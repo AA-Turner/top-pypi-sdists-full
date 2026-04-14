@@ -10,7 +10,7 @@ import arrow as ar
 import numpy as np
 import pandas as pd
 from heapq import nsmallest
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 from geoprepare import base
 from geocif.agmet import plot, utils

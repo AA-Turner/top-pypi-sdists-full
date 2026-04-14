@@ -1138,7 +1138,9 @@ def _run_artifact(config: AppConfig, args: argparse.Namespace) -> None:
                 for detail in result.details:
                     console.print(f"  {detail}")
             if do_instructions:
-                for name in (".anteroom.md", "ANTEROOM.md", "anteroom.md"):
+                from .cli.instructions import _SEARCH_FILENAMES
+
+                for name in _SEARCH_FILENAMES:
                     path = Path.cwd() / name
                     if path.is_file():
                         result = import_instructions(db, path)
@@ -1147,7 +1149,7 @@ def _run_artifact(config: AppConfig, args: argparse.Namespace) -> None:
                             console.print(f"  {detail}")
                         break
                 else:
-                    console.print("[dim]No ANTEROOM.md found in current directory.[/dim]")
+                    console.print("[dim]No project instructions file found in current directory.[/dim]")
 
     elif action == "create":
         from pathlib import Path
@@ -2300,12 +2302,12 @@ def main() -> None:
     chat_parser.add_argument(
         "--trust-project",
         action="store_true",
-        help="Auto-trust the current project's ANTEROOM.md without prompting",
+        help="Auto-trust the current project's instructions file (ANTEROOM.md / AGENTS.md) without prompting",
     )
     chat_parser.add_argument(
         "--no-project-context",
         action="store_true",
-        help="Skip loading project-level ANTEROOM.md entirely",
+        help="Skip loading project-level instructions (ANTEROOM.md / AGENTS.md) entirely",
     )
     chat_parser.add_argument(
         "--plan",
@@ -2328,11 +2330,11 @@ def main() -> None:
     )
     exec_parser.add_argument("-q", "--quiet", action="store_true", help="Suppress all stderr progress")
     exec_parser.add_argument("-v", "--verbose", action="store_true", help="Show full tool call detail on stderr")
-    exec_parser.add_argument("--no-project-context", action="store_true", help="Skip loading ANTEROOM.md")
+    exec_parser.add_argument("--no-project-context", action="store_true", help="Skip loading project instructions")
     exec_parser.add_argument(
         "--trust-project",
         action="store_true",
-        help="Trust and load the project's ANTEROOM.md (skipped by default in exec mode)",
+        help="Trust and load the project's instructions file (skipped by default in exec mode)",
     )
 
     # `aroom usage` subcommand
@@ -2793,7 +2795,9 @@ def main() -> None:
     # `aroom artifact import` subcommand
     art_import_parser = artifact_subparsers.add_parser("import", help="Import skills/instructions into artifacts")
     art_import_parser.add_argument("--skills", action="store_true", help="Import skills from ~/.anteroom/skills/")
-    art_import_parser.add_argument("--instructions", action="store_true", help="Import ANTEROOM.md as artifacts")
+    art_import_parser.add_argument(
+        "--instructions", action="store_true", help="Import project instructions as artifacts"
+    )
     art_import_parser.add_argument("--all", action="store_true", dest="import_all", help="Import everything")
 
     # `aroom artifact create` subcommand

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: alibabacloud-gateway-sls-util
-Version: 0.4.0
+Version: 0.4.1
 Summary: Alibaba Cloud SLS Util Library for Python
 Home-page: https://github.com/aliyun/alibabacloud-gateway
 Author: Alibaba Cloud SDK

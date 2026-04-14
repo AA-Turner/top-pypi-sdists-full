@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "singlestoredb"
-version = "1.16.9"
+version = "1.16.10"
 description = "Interface to the SingleStoreDB database and workspace management APIs"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {text = "Apache-2.0"}
@@ -31,12 +31,12 @@ dependencies = [
 Homepage = "https://github.com/singlestore-labs/singlestoredb-python"
 
 [project.optional-dependencies]
-dataframe = ["ibis-singlestoredb"]
+dataframe = ["ibis-framework[singlestoredb]"]
 dbt = ["dbt-singlestore"]
 docker = ["docker"]
 ed22519 = ["PyNaCl>=1.4.0"]
 gssapi = ["gssapi"]
-ibis = ["ibis-singlestoredb"]
+ibis = ["ibis-framework[singlestoredb]"]
 kerberos = ["gssapi"]
 pytest = ["pytest"]
 rsa = ["cryptography"]

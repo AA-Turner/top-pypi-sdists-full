@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cmd2
-Version: 3.4.0
+Version: 3.5.0
 Summary: cmd2 - quickly build feature-rich and user-friendly interactive command line applications in Python
 Author: cmd2 Contributors
 License-Expression: MIT
@@ -26,8 +26,8 @@ Requires-Dist: backports.strenum; python_version == "3.10"
 Requires-Dist: gnureadline>=8; platform_system == "Darwin"
 Requires-Dist: pyperclip>=1.8.2
 Requires-Dist: pyreadline3>=3.4; platform_system == "Windows"
-Requires-Dist: rich>=14.3.0
-Requires-Dist: rich-argparse>=1.7.1
+Requires-Dist: rich>=15.0.0
+Requires-Dist: rich-argparse>=1.7.2
 Requires-Dist: typing-extensions; python_version == "3.10"
 Dynamic: license-file
 

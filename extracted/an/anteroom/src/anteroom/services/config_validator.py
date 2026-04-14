@@ -116,9 +116,11 @@ _KNOWN_KEYS: dict[str, set[str]] = {
         "top_p",
         "seed",
         "allowed_domains",
+        "allowed_models",
         "block_localhost_api",
         "provider",
         "max_output_tokens",
+        "model_family_aliases",
     },
     "app": {"host", "port", "data_dir", "tls"},
     "cli": {
@@ -608,6 +610,7 @@ def validate_config(raw: dict[str, Any]) -> ValidationResult:
         ("safety", "denied_tools"),
         ("proxy", "allowed_origins"),
         ("ai", "allowed_domains"),
+        ("ai", "allowed_models"),
     ]:
         section = _get_section(raw, section_path)
         if section is None or key not in section:

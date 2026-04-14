@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docstring_parser
-Version: 0.17.0
+Version: 0.18.0
 Summary: Parse Python docstrings in reST, Google and Numpydoc format
 Project-URL: homepage, https://github.com/rr-/docstring_parser
 Project-URL: repository, https://github.com/rr-/docstring_parser
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation :: Sphinx
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup

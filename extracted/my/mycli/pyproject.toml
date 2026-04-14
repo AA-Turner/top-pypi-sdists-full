@@ -46,7 +46,8 @@ ssh = [
     "sshtunnel ~= 0.4.0",
 ]
 llm = [
-    "llm ~= 0.28.0",
+    "llm ~= 0.30.0",
+    "pydantic_core ~= 2.41.5",              # Required by llm; force a newer version
     "setuptools == 82.*",                   # Required by llm commands to install models
     "pip == 26.*",
 ]
@@ -61,11 +62,13 @@ dev = [
     "pexpect ~= 4.9.0",
     "pytest ~= 9.0.2",
     "pytest-cov ~= 7.0.0",
+    "pytest-random-order ~= 1.2.0",
     "tox ~= 4.35.0",
     "pdbpp ~= 0.11.7",
     "paramiko ~= 3.5.1",
     "sshtunnel ~= 0.4.0",
-    "llm ~= 0.28.0",
+    "llm ~= 0.30.0",
+    "pydantic_core ~= 2.41.5",              # Required by llm; force a newer version
     "setuptools == 82.*",                   # Required by llm commands to install models
     "pip == 26.*",
     "ruff ~= 0.15.0",
@@ -135,7 +138,7 @@ passenv = ['PYTEST_HOST',
            'PYTEST_CHARSET']
 commands = [['uv', 'pip', 'install', '-e', '.[dev,ssh,llm]'],
             ['coverage', 'run', '-m', 'pytest', '-v', 'test'],
-            ['coverage', 'report', '-m'],
+            ['coverage', 'report', '-m', '--sort=Miss'],
             ['behave', 'test/features']]
 commands_post = [['rm', '-f', '--', './.myclirc']]
 allowlist_externals = ['rm']
@@ -147,7 +150,11 @@ commands = [['ruff', 'check'],
             ['ruff', 'format', '--diff']]
 
 [tool.pytest]
-addopts = ['--ignore=mycli/packages/paramiko_stub/__init__.py']
+addopts = ['--ignore=mycli/packages/paramiko_stub/__init__.py', '--random-order']
 
 [tool.coverage.run]
 source = ['mycli']
+omit = [
+    # deprecated
+    'mycli/packages/paramiko_stub/__init__.py',
+]

@@ -10,7 +10,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing as ty
+from typing import ClassVar, Literal
+from collections.abc import Callable
 import warnings
 
 from openstack.block_storage.v3 import volume as _volume
@@ -34,6 +35,7 @@ from openstack.compute.v2 import server_interface as _server_interface
 from openstack.compute.v2 import server_ip
 from openstack.compute.v2 import server_migration as _server_migration
 from openstack.compute.v2 import server_remote_console as _src
+from openstack.compute.v2 import server_share as _server_share
 from openstack.compute.v2 import service as _service
 from openstack.compute.v2 import usage as _usage
 from openstack.compute.v2 import volume_attachment as _volume_attachment
@@ -49,6 +51,8 @@ from openstack import warnings as os_warnings
 
 
 class Proxy(proxy.Proxy):
+    api_version: ClassVar[Literal['2']] = '2'
+
     _resource_registry = {
         "aggregate": _aggregate.Aggregate,
         "availability_zone": availability_zone.AvailabilityZone,
@@ -70,6 +74,7 @@ class Proxy(proxy.Proxy):
         "server_ip": server_ip.ServerIP,
         "server_migration": _server_migration.ServerMigration,
         "server_remote_console": _src.ServerRemoteConsole,
+        "server_share": _server_share.ShareMapping,
         "service": _service.Service,
         "usage": _usage.Usage,
         "volume_attachment": _volume_attachment.VolumeAttachment,
@@ -2635,17 +2640,23 @@ class Proxy(proxy.Proxy):
             ignore_missing=ignore_missing,
         )
 
-    def server_actions(self, server):
+    def server_actions(self, server, **query):
         """Return a generator of server actions
 
         :param server: The server can be either the ID of a server or a
             :class:`~openstack.compute.v2.server.Server`.
+        :param kwargs query: Optional query parameters to be sent to limit
+            the actions being returned.
 
         :returns: A generator of ServerAction objects
         :rtype: :class:`~openstack.compute.v2.server_action.ServerAction`
         """
         server_id = resource.Resource._get_id(server)
-        return self._list(_server_action.ServerAction, server_id=server_id)
+        return self._list(
+            _server_action.ServerAction,
+            server_id=server_id,
+            **query,
+        )
 
     # ========== Utilities ==========
 
@@ -2656,7 +2667,7 @@ class Proxy(proxy.Proxy):
         failures: list[str] | None = None,
         interval: int | float | None = 2,
         wait: int | None = 120,
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> _server.Server:
         """Wait for a server to be in a particular status.
 
@@ -2703,7 +2714,7 @@ class Proxy(proxy.Proxy):
         interval: int | float | None = 2,
         wait: int | None = None,
         attribute: str = 'status',
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for the resource to be in a particular status.
 
@@ -2739,7 +2750,7 @@ class Proxy(proxy.Proxy):
         res: resource.ResourceT,
         interval: int = 2,
         wait: int = 120,
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.
 
@@ -2813,3 +2824,99 @@ class Proxy(proxy.Proxy):
                 filters=filters,
                 resource_evaluation_fn=resource_evaluation_fn,
             )
+
+    # ========== Server Share ==========
+
+    def create_share_attachment(self, server, share, **attrs):
+        """Create a new share attachment from attributes
+
+        :param server: The value can be either the ID of a server or a
+            :class:`~openstack.compute.v2.server.Server` instance that the
+            share is attached to.
+        :param share: The value can be the ID of a share or a
+            :class:`~openstack.shared_file_system.v2.Share` instance.
+        :param dict attrs: Keyword arguments which will be used to create a
+            :class:`~openstack.compute.v2.server_share.ShareMapping`,
+            comprised of the properties on the ShareMapping class.
+
+        :returns: The results of create share
+        :rtype:
+            :class:`~openstack.compute.v2.server_share.ShareMapping`
+        """
+
+        server_id = resource.Resource._get_id(server)
+        share_id = resource.Resource._get_id(share)
+        return self._create(
+            _server_share.ShareMapping,
+            server_id=server_id,
+            share_id=share_id,
+            **attrs,
+        )
+
+    def delete_share_attachment(self, server, share, ignore_missing=False):
+        """Delete a share attachment
+
+        :param server: The value can be either the ID of a server or a
+            :class:`~openstack.compute.v2.server.Server` instance that the
+            share is attached to.
+        :param share: The value can be the ID of a share or a
+            :class:`~openstack.shared_file_system.v2.Share` instance.
+        :param bool ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be
+            raised when the resource does not exist.
+            When set to ``True``, no exception will be set when
+            attempting to delete a nonexistent resource.
+
+        :returns: ``None``
+        """
+        server_id = resource.Resource._get_id(server)
+        share_id = resource.Resource._get_id(share)
+
+        self._delete(
+            _server_share.ShareMapping,
+            None,
+            server_id=server_id,
+            id=share_id,
+            ignore_missing=ignore_missing,
+        )
+
+    def get_share_attachment(self, server, share):
+        """Get a single share attachment
+
+        :param server: The value can be either the ID of a server or a
+            :class:`~openstack.compute.v2.server.Server` instance that the
+            share is attached to.
+        :param share: The value can be the ID of a share or a
+            :class:`~openstack.shared_file_system.v2.Share` instance.
+
+        :returns: One
+            :class:`~openstack.compute.v2.server_share.ShareMapping`
+        :raises: :class:`~openstack.exceptions.NotFoundException`
+            when no resource can be found.
+        """
+        server_id = resource.Resource._get_id(server)
+        share_id = resource.Resource._get_id(share)
+
+        return self._get(
+            _server_share.ShareMapping,
+            server_id=server_id,
+            id=share_id,
+        )
+
+    def share_attachments(self, server, **query):
+        """Return a generator of share attachments
+
+        :param server: The server can be either the ID of a server or a
+            :class:`~openstack.compute.v2.server.Server`.
+        :params dict query: Query parameters
+
+        :returns: A generator of ShareMapping objects
+        :rtype:
+            :class:`~openstack.compute.v2.server_share.ShareMapping`
+        """
+        server_id = resource.Resource._get_id(server)
+        return self._list(
+            _server_share.ShareMapping,
+            server_id=server_id,
+            **query,
+        )

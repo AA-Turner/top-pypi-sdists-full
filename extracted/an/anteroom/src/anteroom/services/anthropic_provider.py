@@ -133,6 +133,7 @@ class AnthropicService:
             )
         self.config = config
         self._token_provider = token_provider
+        self._cached_models: list[str] | None = None
         self._validate_egress()
         self._build_client()
 
@@ -620,6 +621,16 @@ class AnthropicService:
         except Exception:
             logger.exception("Connection validation failed")
             return False, "Connection validation failed.", []
+
+    async def list_models(self) -> list[str]:
+        """Return available models. Anthropic has no listing endpoint."""
+        if self._cached_models is not None:
+            return self._cached_models
+        if self.config.allowed_models:
+            self._cached_models = sorted(self.config.allowed_models)
+        else:
+            self._cached_models = [self.config.model]
+        return self._cached_models
 
     async def complete(
         self,

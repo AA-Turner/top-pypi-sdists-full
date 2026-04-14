@@ -1,7 +1,7 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
-use wrf_core::StormMotion;
+use wrf_core::{StormMotion, StormMotionMethod};
 
 fn flatten_component_grid(
     grid: Vec<Vec<f64>>,
@@ -71,6 +71,51 @@ or a stacked array with shape (2, {ny}, {nx})"
     )))
 }
 
+fn parse_storm_motion_method(
+    storm_motion_method: Option<String>,
+) -> PyResult<Option<StormMotionMethod>> {
+    let Some(method) = storm_motion_method else {
+        return Ok(None);
+    };
+
+    let normalized = method.trim().to_ascii_lowercase().replace('-', "_");
+    match normalized.as_str() {
+        "pressure_weighted" | "weighted" => Ok(Some(StormMotionMethod::PressureWeighted)),
+        "non_pressure_weighted" | "unweighted" | "classic" => {
+            Ok(Some(StormMotionMethod::NonPressureWeighted))
+        }
+        _ => Err(PyErr::new::<PyValueError, _>(
+            "storm_motion_method must be one of 'pressure_weighted', 'weighted', \
+'non_pressure_weighted', 'unweighted', or 'classic'",
+        )),
+    }
+}
+
+fn parse_storm_motion_type(storm_motion_type: Option<String>) -> PyResult<Option<String>> {
+    let Some(motion_type) = storm_motion_type else {
+        return Ok(None);
+    };
+
+    let normalized = motion_type
+        .trim()
+        .to_ascii_lowercase()
+        .replace('-', "_")
+        .replace(' ', "_");
+
+    let canonical = match normalized.as_str() {
+        "bunkers_rm" | "bunkers_right" | "right_moving" | "right" | "rm" => "bunkers_rm",
+        "bunkers_lm" | "bunkers_left" | "left_moving" | "left" | "lm" => "bunkers_lm",
+        "mean_wind" | "meanwind" | "mean" | "mw" => "mean_wind",
+        _ => {
+            return Err(PyErr::new::<PyValueError, _>(
+                "storm_motion_type must be one of 'bunkers_rm', 'bunkers_lm', or 'mean_wind'",
+            ));
+        }
+    };
+
+    Ok(Some(canonical.to_string()))
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn build_compute_opts(
     py: Python<'_>,
@@ -79,6 +124,10 @@ pub fn build_compute_opts(
     units: Option<String>,
     parcel_type: Option<String>,
     storm_motion: Option<Py<PyAny>>,
+    storm_motion_method: Option<String>,
+    storm_motion_type: Option<String>,
+    entrainment_rate: Option<f64>,
+    pseudoadiabatic: Option<bool>,
     top_m: Option<f64>,
     bottom_m: Option<f64>,
     depth_m: Option<f64>,
@@ -94,11 +143,17 @@ pub fn build_compute_opts(
     use_liqskin: Option<bool>,
 ) -> PyResult<wrf_core::ComputeOpts> {
     let storm_motion = parse_storm_motion(storm_motion.as_ref().map(|obj| obj.bind(py)), ny, nx)?;
+    let storm_motion_method = parse_storm_motion_method(storm_motion_method)?;
+    let storm_motion_type = parse_storm_motion_type(storm_motion_type)?;
 
     Ok(wrf_core::ComputeOpts {
         units,
         parcel_type,
         storm_motion,
+        storm_motion_method,
+        storm_motion_type,
+        entrainment_rate,
+        pseudoadiabatic,
         top_m,
         bottom_m,
         depth_m,
@@ -117,9 +172,9 @@ pub fn build_compute_opts(
 
 #[cfg(test)]
 mod tests {
-    use super::parse_storm_motion;
+    use super::{parse_storm_motion, parse_storm_motion_method, parse_storm_motion_type};
     use pyo3::prelude::*;
-    use wrf_core::StormMotion;
+    use wrf_core::{StormMotion, StormMotionMethod};
 
     #[test]
     fn parses_uniform_storm_motion_tuple() {
@@ -154,5 +209,25 @@ mod tests {
                 })
             );
         });
+    }
+
+    #[test]
+    fn parses_pressure_weighted_storm_motion_method_alias() {
+        assert_eq!(
+            parse_storm_motion_method(Some("weighted".to_string())).unwrap(),
+            Some(StormMotionMethod::PressureWeighted)
+        );
+    }
+
+    #[test]
+    fn parses_storm_motion_type_aliases() {
+        assert_eq!(
+            parse_storm_motion_type(Some("right-moving".to_string())).unwrap(),
+            Some("bunkers_rm".to_string())
+        );
+        assert_eq!(
+            parse_storm_motion_type(Some("mean wind".to_string())).unwrap(),
+            Some("mean_wind".to_string())
+        );
     }
 }

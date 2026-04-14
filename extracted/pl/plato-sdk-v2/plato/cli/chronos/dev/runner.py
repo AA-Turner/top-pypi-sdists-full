@@ -857,7 +857,9 @@ class DevRunner:
         if not self.sync_manager:
             raise RuntimeError("sync_manager must be initialized")
 
-        world_name, _ = parse_package_string(self.config.world.package)
+        world_name = self.config.world.world_name
+        if not world_name:
+            world_name, _ = parse_package_string(self.config.world.package)
 
         # Start file watcher
         watch_task = asyncio.create_task(self.sync_manager.watch())

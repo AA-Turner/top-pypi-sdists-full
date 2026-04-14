@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from django.contrib.auth import get_user_model
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.core.management.base import BaseCommand
 from django.db.models import Count
 
@@ -7,7 +10,7 @@ from allauth.account.utils import user_email
 
 
 class Command(BaseCommand):
-    def handle(self, *args, **options):
+    def handle(self, *args, **options) -> None:
         for user in self.get_users_with_multiple_primary_email():
             self.unprimary_extra_primary_emails(user)
 
@@ -22,8 +25,10 @@ class Command(BaseCommand):
             user_pks.append(email_address_dict["user"])
         return get_user_model().objects.filter(pk__in=user_pks)
 
-    def unprimary_extra_primary_emails(self, user):
-        primary_email_addresses = EmailAddress.objects.filter(user=user, primary=True)
+    def unprimary_extra_primary_emails(self, user: AbstractBaseUser) -> None:
+        primary_email_addresses = EmailAddress.objects.filter(
+            user_id=user.pk, primary=True
+        )
 
         for primary_email_address in primary_email_addresses:
             if primary_email_address.email == user_email(user):

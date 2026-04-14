@@ -1,12 +1,13 @@
-# Copyright 2019-2025 The University of Manchester, UK
-# Copyright 2020-2025 Vlaams Instituut voor Biotechnologie (VIB), BE
-# Copyright 2020-2025 Barcelona Supercomputing Center (BSC), ES
-# Copyright 2020-2025 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
-# Copyright 2022-2025 École Polytechnique Fédérale de Lausanne, CH
-# Copyright 2024-2025 Data Centre, SciLifeLab, SE
-# Copyright 2024-2025 National Institute of Informatics (NII), JP
-# Copyright 2025 Senckenberg Society for Nature Research (SGN), DE
-# Copyright 2025 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2019-2026 The University of Manchester, UK
+# Copyright 2020-2026 Vlaams Instituut voor Biotechnologie (VIB), BE
+# Copyright 2020-2026 Barcelona Supercomputing Center (BSC), ES
+# Copyright 2020-2026 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
+# Copyright 2022-2026 École Polytechnique Fédérale de Lausanne, CH
+# Copyright 2024-2026 Data Centre, SciLifeLab, SE
+# Copyright 2024-2026 National Institute of Informatics (NII), JP
+# Copyright 2025-2026 Senckenberg Society for Nature Research (SGN), DE
+# Copyright 2025-2026 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2026 Spanish National Research Council (CSIC), ES
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +22,7 @@
 # limitations under the License.
 
 import io
+import json
 import pytest
 import requests
 import os
@@ -176,6 +178,59 @@ def test_remote_uri(tmpdir, helpers, fetch_remote, validate_url, to_zip):
             assert "sdDatePublished" in props
 
 
+def test_local_path(test_data_dir, tmpdir):
+    crate = ROCrate()
+    url = ("https://raw.githubusercontent.com/ResearchObject/ro-crate-py/"
+           "master/test/test-data/sample_file.txt")
+    sample_file = crate.add_file(url)
+    assert sample_file.id == url
+    sample_file["localPath"] = "test-data/sample_file.txt"
+    sample_file.fetch_remote = True
+    test_file_galaxy = crate.add_file(test_data_dir / "test_file_galaxy.txt")
+    assert test_file_galaxy.id == "test_file_galaxy.txt"
+    test_file_galaxy["localPath"] = "foo/bar.txt"
+    out_path = tmpdir / "ro_crate_out"
+    crate.write(out_path)
+    assert (out_path / "test-data" / "sample_file.txt").is_file()
+    assert not (out_path / "sample_file.txt").exists()
+    assert not (out_path / "foo" / "bar.txt").exists()
+    assert (out_path / "test_file_galaxy.txt").is_file()
+
+
+def test_local_path_vs_relative_id(test_data_dir, tmpdir):
+    crate = ROCrate()
+    url = ("https://raw.githubusercontent.com/ResearchObject/ro-crate-py/"
+           "master/test/test-data/sample_file.txt")
+    sample_file = crate.add_file(url, dest_path="examples/sample_file.txt")
+    assert sample_file.id == "examples/sample_file.txt"
+    sample_file["localPath"] = "test-data/sample_file.txt"
+    sample_file.fetch_remote = True
+    out_path = tmpdir / "ro_crate_out"
+    crate.write(out_path)
+    assert (out_path / "examples" / "sample_file.txt").is_file()
+    assert not (out_path / "test-data" / "sample_file.txt").exists()
+
+
+def test_local_path_vs_relative_id_dataset(test_data_dir, tmpdir):
+    crate = ROCrate()
+    f1 = crate.add_file("https://ftp.mozilla.org/pub/misc/errorpages/404.html")
+    f2 = crate.add_file("https://ftp.mozilla.org/pub/misc/errorpages/500.html")
+    dataset = crate.add_dataset(
+        "https://ftp.mozilla.org/pub/misc/errorpages/",
+        dest_path="errorpages/",
+        fetch_remote=True,
+    )
+    assert dataset.id == "errorpages/"
+    dataset["hasPart"] = [f1, f2]
+    dataset["localPath"] = "mozilla_error_pages"
+    out_path = tmpdir / "ro_crate_out"
+    crate.write(out_path)
+    assert (out_path / "errorpages").is_dir()
+    assert (out_path / "errorpages" / "404.html").is_file()
+    assert (out_path / "errorpages" / "500.html").is_file()
+    assert not (out_path / "mozilla_error_pages").exists()
+
+
 def test_file_uri(tmpdir):
     f_name = uuid.uuid4().hex
     f_path = (tmpdir / f_name).resolve()
@@ -261,8 +316,8 @@ def test_remote_dir(tmpdir, helpers, fetch_remote, validate_url):
     relpath = "pub/misc/errorpages/"
     properties = {
         "hasPart": [
-            {"@id": "404.html"},
-            {"@id": "500.html"},
+            {"@id": "https://ftp.mozilla.org/pub/misc/errorpages/404.html"},
+            {"@id": "https://ftp.mozilla.org/pub/misc/errorpages/500.html"},
         ],
     }
     kw = {
@@ -285,7 +340,8 @@ def test_remote_dir(tmpdir, helpers, fetch_remote, validate_url):
         out_dataset = out_crate.dereference(relpath)
         assert (out_path / relpath).is_dir()
         for entry in properties["hasPart"]:
-            assert (out_path / relpath / entry["@id"]).is_file()
+            basename = entry["@id"].rsplit("/", 1)[-1]
+            assert (out_path / relpath / basename).is_file()
     else:
         out_dataset = out_crate.dereference(url)
         assert not (out_path / relpath).exists()
@@ -467,7 +523,7 @@ def test_add_tree(test_data_dir, tmpdir):
 
 def test_http_header(tmpdir):
     crate = ROCrate()
-    url = "https://zenodo.org/records/10782431/files/lysozyme_datasets.zip"
+    url = "https://ftp.mozilla.org/pub/js/js-1.60.tar.gz"
     file_ = crate.add_file(url, validate_url=True)
     assert file_.id == url
     out_path = tmpdir / 'ro_crate_out'
@@ -475,7 +531,7 @@ def test_http_header(tmpdir):
     out_crate = ROCrate(out_path)
     out_file = out_crate.dereference(url)
     props = out_file.properties()
-    assert props.get("encodingFormat") == "application/octet-stream"
+    assert props.get("encodingFormat") == "application/x-tar"
     assert "sdDatePublished" in props
     with requests.head(url) as response:
         assert props["sdDatePublished"] == response.headers.get("last-modified")
@@ -508,17 +564,31 @@ def test_percent_escape(test_data_dir, tmpdir, helpers):
     f_path = test_data_dir / "read_crate" / "with space.txt"
     f1 = crate.add_file(f_path)
     assert f1.id == "with%20space.txt"
+    assert f1.source.is_file()
+    assert str(f1.source) == str(f_path)
     f2 = crate.add_file(f_path, dest_path="subdir/with space.txt")
     assert f2.id == "subdir/with%20space.txt"
-    f3 = crate.add_file(test_data_dir / "read_crate" / "without%20space.txt")
+    assert f2.source.is_file()
+    assert str(f2.source) == str(f_path)
+    f3_path = test_data_dir / "read_crate" / "without%20space.txt"
+    f3 = crate.add_file(f3_path)
     assert f3.id == "without%2520space.txt"
+    assert f3.source.is_file()
+    assert str(f3.source) == str(f3_path)
     d_path = test_data_dir / "read_crate" / "a b"
     d1 = crate.add_dataset(d_path)
     assert d1.id == "a%20b/"
+    assert d1.source.is_dir()
+    assert str(d1.source) == str(d_path)
     d2 = crate.add_dataset(d_path, dest_path="subdir/a b")
     assert d2.id == "subdir/a%20b/"
-    d3 = crate.add_dataset(test_data_dir / "read_crate" / "j%20k")
+    assert d2.source.is_dir()
+    assert str(d2.source) == str(d_path)
+    d3_path = test_data_dir / "read_crate" / "j%20k"
+    d3 = crate.add_dataset(d3_path)
     assert d3.id == "j%2520k/"
+    assert d3.source.is_dir()
+    assert str(d3.source) == str(d3_path)
     out_path = tmpdir / "ro_crate_out"
     crate.write(out_path)
     json_entities = helpers.read_json_entities(out_path)
@@ -552,6 +622,19 @@ def test_percent_escape(test_data_dir, tmpdir, helpers):
     assert (unpack_path / "a b" / "c d.txt").is_file()
     assert (unpack_path / "subdir" / "a b" / "c d.txt").is_file()
     assert (unpack_path / "j%20k" / "l%20m.txt").is_file()
+    rcrate = ROCrate(out_path)
+    rf1 = rcrate.get("with%20space.txt")
+    assert str(rf1.source) == str(out_path / "with space.txt")
+    rf2 = rcrate.get("subdir/with%20space.txt")
+    assert str(rf2.source) == str(out_path / "subdir/with space.txt")
+    rf3 = rcrate.get("without%2520space.txt")
+    assert str(rf3.source) == str(out_path / "without%20space.txt")
+    df1 = rcrate.get("a%20b/")
+    assert str(df1.source) == str(out_path / "a b/")
+    df2 = rcrate.get("subdir/a%20b/")
+    assert str(df2.source) == str(out_path / "subdir/a b/")
+    df3 = rcrate.get("j%2520k/")
+    assert str(df3.source) == str(out_path / "j%20k/")
 
 
 def test_stream_empty_file(test_data_dir, tmpdir):
@@ -597,3 +680,205 @@ def test_write_zip_nested_dest(tmpdir, helpers):
     assert "subdir/a%20b/" in json_entities
     assert (unpack_path / "subdir" / "a b" / "c d.txt").is_file()
     assert (unpack_path / "subdir" / "a b" / "j k" / "l m.txt").is_file()
+
+
+@pytest.mark.parametrize("to_zip", [False, True])
+def test_write_subcrate(test_data_dir, tmpdir, to_zip):
+    """Read the test crate with subcrate and write it to a new location.
+    Check that the subcrate contents are correctly written."""
+    crate = ROCrate(test_data_dir / "crate_with_subcrates", load_subcrates=True)
+    out_path = tmpdir / "ro_crate_out"
+    if to_zip:
+        zip_path = tmpdir / 'ro_crate_out.zip'
+        crate.write_zip(zip_path)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(out_path)
+    else:
+        crate.write(out_path)
+
+    assert (out_path / "file.txt").is_file()
+    assert (out_path / "ro-crate-metadata.json").is_file()
+
+    assert (out_path / "subcrate" / "ro-crate-metadata.json").is_file()
+    assert (out_path / "subcrate" / "subfile.txt").is_file()
+
+    assert (out_path / "subcrate" / "subsubcrate" / "deepfile.txt").is_file()
+    assert (out_path / "subcrate" / "subsubcrate" / "ro-crate-metadata.json").is_file()
+
+
+@pytest.mark.parametrize("to_zip", [False, True])
+def test_subcrates_creation(test_data_dir, tmpdir, to_zip):
+    crate = ROCrate()
+    crate.add_file(test_data_dir / "read_crate" / "with space.txt")
+    subcrate = crate.add_subcrate(dest_path="subcrate/")
+    assert subcrate.get("conformsTo") == "https://w3id.org/ro/crate"
+    assert crate.subcrate_entities == [subcrate]
+    assert not subcrate._crate
+    subcrate_crate = subcrate.get_crate()
+    assert subcrate._crate is subcrate_crate
+    assert subcrate_crate.source is None
+    test_file_galaxy_path = (test_data_dir / "test_file_galaxy.txt").rename(
+        test_data_dir / "test file galaxy.txt"
+    )
+    subf = subcrate_crate.add_file(test_file_galaxy_path)
+    subsubcrate = subcrate_crate.add_subcrate(dest_path="subsubcrate/")
+    assert subcrate_crate.subcrate_entities == [subsubcrate]
+    subsubcrate_crate = subsubcrate.get_crate()
+    subsubf = subsubcrate_crate.add_file("setup.cfg")
+    assert crate.get("subcrate/test%20file%20galaxy.txt") is subf
+    assert crate.get("subcrate/subsubcrate/setup.cfg") is subsubf
+    assert subcrate_crate.get("subsubcrate/setup.cfg") is subsubf
+
+    out_path = tmpdir / "ro_crate_out"
+    if to_zip:
+        zip_path = tmpdir / 'ro_crate_out.zip'
+        crate.write_zip(zip_path)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(out_path)
+    else:
+        crate.write(out_path)
+
+    assert (out_path / "ro-crate-metadata.json").is_file()
+    assert (out_path / "with space.txt").is_file()
+    assert (out_path / "subcrate" / "ro-crate-metadata.json").is_file()
+    assert (out_path / "subcrate" / "test file galaxy.txt").is_file()
+    assert (out_path / "subcrate" / "subsubcrate" / "ro-crate-metadata.json").is_file()
+    assert (out_path / "subcrate" / "subsubcrate" / "setup.cfg").is_file()
+    out_crate = ROCrate(out_path, load_subcrates=True)
+    assert out_crate.get("with%20space.txt")
+    out_subcrate = out_crate.get("subcrate/")
+    assert out_subcrate.get("conformsTo") == "https://w3id.org/ro/crate"
+    assert out_crate.subcrate_entities == [out_subcrate]
+    out_subf = out_crate.get("subcrate/test%20file%20galaxy.txt")
+    assert out_subf
+    out_subsubf = out_crate.get("subcrate/subsubcrate/setup.cfg")
+    assert out_subsubf
+    out_subcrate_crate = out_subcrate.get_crate()
+    assert out_subcrate_crate.get("subsubcrate/setup.cfg") is out_subsubf
+
+
+@pytest.mark.parametrize("version", ["1.0", "1.1", "1.2"])
+def test_write_version(tmpdir, helpers, version):
+    basename = helpers.LEGACY_METADATA_FILE_NAME if version == "1.0" else helpers.METADATA_FILE_NAME
+    crate = ROCrate(version=version)
+    assert crate.metadata.version == version
+    out_path = tmpdir / "ro_crate_out"
+    crate.write(out_path)
+    assert (out_path / basename).is_file()
+    json_entities = helpers.read_json_entities(out_path)
+    assert (md := json_entities.get(basename)) is not None
+    assert md["conformsTo"]["@id"] == f"https://w3id.org/ro/crate/{version}"
+    with open(out_path / basename, "rt") as f:
+        data = json.load(f)
+    assert data["@context"] == f"https://w3id.org/ro/crate/{version}/context"
+
+
+@pytest.mark.parametrize("to_zip", [False, True])
+def test_detached_creation(tmpdir, to_zip):
+    base_uri = "http://example.com/crate/"
+    orcid = "https://orcid.org/0000-0002-1825-0097"
+    name = "Josiah Carberry"
+    crate = ROCrate(root_dataset_id=base_uri)
+    assert crate.source is None
+    assert crate.metadata.source is None
+    assert crate.root_dataset.id == base_uri
+    assert crate.metadata.id == "ro-crate-metadata.json"
+    assert crate.metadata["about"] is crate.root_dataset
+    crate.add_dataset(f"{base_uri}d1")
+    crate.add_file(f"{base_uri}f1")
+    p = crate.add(Person(crate, orcid, properties={"name": name}))
+    crate.root_dataset["creator"] = p
+
+    out_path = tmpdir / "ro_crate_out"
+    if to_zip:
+        zip_path = tmpdir / 'ro_crate_out.zip'
+        crate.write_zip(zip_path)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(out_path)
+    else:
+        crate.write(out_path)
+
+    assert (out_path / "ro-crate-metadata.json").is_file()
+    rcrate = ROCrate(out_path)
+    # this crate is attached, even though all its data entities are web-based
+    assert rcrate.source == out_path
+    assert rcrate.metadata.source == "ro-crate-metadata.json"
+    assert rcrate.root_dataset.id == base_uri
+    assert rcrate.metadata.id == "ro-crate-metadata.json"
+    assert rcrate.metadata["about"] is rcrate.root_dataset
+    assert rcrate.get(f"{base_uri}d1")
+    assert rcrate.get(f"{base_uri}f1")
+    rp = rcrate.get(orcid)
+    assert rp["name"] == name
+
+
+def test_detached_creation_write_detached(tmpdir):
+    base_uri = "http://example.com/crate/"
+    orcid = "https://orcid.org/0000-0002-1825-0097"
+    name = "Josiah Carberry"
+    crate = ROCrate(root_dataset_id=base_uri)
+    crate.add_dataset(f"{base_uri}d1")
+    crate.add_file(f"{base_uri}f1")
+    crate.add(Person(crate, orcid, properties={"name": name}))
+    detached_md_path = tmpdir / "example-ro-crate-metadata.json"
+    crate.write_detached(detached_md_path)
+    assert detached_md_path.is_file()
+    rcrate = ROCrate(detached_md_path)
+    assert rcrate.source == detached_md_path
+    assert rcrate.metadata.source == "ro-crate-metadata.json"
+    assert rcrate.root_dataset.id == base_uri
+    assert rcrate.metadata.id == "ro-crate-metadata.json"
+    assert rcrate.metadata["about"] is rcrate.root_dataset
+    assert rcrate.get(f"{base_uri}d1")
+    assert rcrate.get(f"{base_uri}f1")
+    rp = rcrate.get(orcid)
+    assert rp["name"] == name
+
+
+def test_detached_creation_exceptions():
+    with pytest.raises(ValueError):
+        ROCrate(root_dataset_id="foo/bar")
+    with pytest.raises(ValueError):
+        ROCrate(root_dataset_id="/foo/bar")
+
+
+def test_metadata_utf8_encoding(tmpdir, helpers):
+    crate = ROCrate()
+    crate_name = 'Test crate with non-ASCII characters'
+    crate.name = crate_name
+    creator_name = 'Orviz Fernández'
+    creator_affiliation = 'Consejo Superior de Investigaciones Científicas (CSIC)'
+    non_ascii_person_name = Person(
+        crate,
+        "https://orcid.org/0000-0000-0000-0000",
+        {
+            'name': creator_name,
+            'affiliation': creator_affiliation
+        }
+    )
+    crate.add(non_ascii_person_name)
+
+    out_path = tmpdir / 'ro_crate_out'
+    out_path.mkdir()
+    crate.write(out_path)
+
+    metadata_path = out_path / helpers.METADATA_FILE_NAME
+    assert metadata_path.exists()
+
+    with open(metadata_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    assert creator_name in content, (
+        f"Creator name '{creator_name}' as found in {helpers.METADATA_FILE_NAME} does not match with the real name: "
+        "not found as raw UTF-8 text or incorrectly encoded"
+    )
+    assert creator_affiliation in content, (
+        f"Creator affiliation '{creator_affiliation}' as found in {helpers.METADATA_FILE_NAME} "
+        "does not match with the real organization name: not found as raw UTF-8 text or incorrectly encoded"
+    )
+    import re
+    unicode_escape_pattern = r"\\u[0-9a-fA-F]{4}"
+    escape_sequences_match = re.findall(unicode_escape_pattern, content)
+    assert not escape_sequences_match, (
+        f"Found Unicode escape sequences: {escape_sequences_match}: expected raw UTF-8 characters."
+    )

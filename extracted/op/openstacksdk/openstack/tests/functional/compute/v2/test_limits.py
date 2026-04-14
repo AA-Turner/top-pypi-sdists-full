@@ -10,12 +10,12 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from openstack.tests.functional import base
+from openstack.tests.functional.compute.v2 import base
 
 
-class TestLimits(base.BaseFunctionalTest):
+class TestLimits(base.BaseComputeTest):
     def test_limits(self):
-        sot = self.operator_cloud.compute.get_limits()
+        sot = self.admin_compute_client.get_limits()
         self.assertIsNotNone(sot.absolute['instances'])
         self.assertIsNotNone(sot.absolute['total_ram'])
         self.assertIsNotNone(sot.absolute['keypairs'])

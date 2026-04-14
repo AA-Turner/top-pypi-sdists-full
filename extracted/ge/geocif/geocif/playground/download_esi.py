@@ -1,7 +1,7 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-from tqdm import tqdm
+from tqdm.rich import tqdm
 from concurrent.futures import ThreadPoolExecutor
 
 # URL of the directory listing

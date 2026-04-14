@@ -5,6 +5,11 @@ extensibility pieces: skills, rules, instructions, context, memories,
 MCP server configs, and config overlays.
 
 FQN format: @namespace/type/name
+
+Metadata conventions
+--------------------
+Bundled skills store resource info in the ``metadata`` dict:
+``{"bundle": True, "resource_count": N, "resource_names": ["file.md", ...]}``
 """
 
 from __future__ import annotations
@@ -81,6 +86,7 @@ class Artifact:
     source: ArtifactSource = ArtifactSource.LOCAL
     metadata: dict[str, Any] = field(default_factory=dict)
     content_hash: str = ""
+    artifact_id: str = ""  # DB primary key; used for pack provenance lookup
 
     def __post_init__(self) -> None:
         if not validate_fqn(self.fqn):

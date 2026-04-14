@@ -3159,6 +3159,7 @@ class ChalkGRPCClient:
         upper_bound: dt.datetime | None = None,
         resolver: str | None = None,
         query_tags: list[str] | None = None,
+        store_offline: bool | None = None,
     ) -> CreateAggregateBackfillJobResponse:
         """Trigger an aggregate backfill job.
 
@@ -3174,6 +3175,8 @@ class ChalkGRPCClient:
             The resolver to use for the backfill.
         query_tags : list[str], optional
             Resolver tags to prefer when running the backfill.
+        store_offline : bool, optional
+            If `True`, store materialized aggregate values in the offline store.
         """
         from chalk._gen.chalk.aggregate.v1.service_pb2 import CreateAggregateBackfillJobRequest
 
@@ -3184,6 +3187,9 @@ class ChalkGRPCClient:
             resolver=resolver or "",
             query_tags=query_tags or [],
         )
+        if store_offline is not None:
+            req.store_offline = store_offline
+
         return self._stub_refresher.call_aggregate_stub(lambda stub: stub.CreateAggregateBackfillJob(req, timeout=None))
 
     def deploy_model_version_to_scaling_group(

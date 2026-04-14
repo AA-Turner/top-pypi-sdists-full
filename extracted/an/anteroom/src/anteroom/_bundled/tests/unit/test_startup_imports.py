@@ -198,3 +198,129 @@ class TestUpdateCheckNonBlocking:
             f"repl.py contains asyncio.wait_for on _update_task: {matches}. "
             f"This blocks time-to-prompt. Use add_done_callback instead. See #1377."
         )
+
+
+class TestUpdateCheckConfig:
+    """Tests for configurable version check (#1384).
+
+    Covers: config gate at the REPL call site, custom command path,
+    default pip index path, and error handling.
+    """
+
+    @staticmethod
+    def _get_repl_source() -> str:
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent.parent / "src" / "anteroom" / "cli" / "repl.py").read_text(
+            encoding="utf-8"
+        )
+
+    def test_check_for_update_guarded_by_update_check_config(self) -> None:
+        """The _check_for_update call in repl.py must be inside an
+        ``if config.cli.update_check:`` guard. This tests the REAL
+        call site, not the function in isolation."""
+        source = self._get_repl_source()
+        # The pattern: config.cli.update_check must gate _check_for_update
+        assert "config.cli.update_check" in source, (
+            "repl.py does not reference config.cli.update_check. "
+            "The update check must be gated by this config field. See #1384."
+        )
+        # Verify the guard appears BEFORE the _check_for_update call
+        guard_pos = source.index("config.cli.update_check")
+        call_pos = source.index("_check_for_update(__version__")
+        assert guard_pos < call_pos, (
+            f"config.cli.update_check (pos {guard_pos}) appears AFTER "
+            f"_check_for_update call (pos {call_pos}). The guard must come first."
+        )
+
+    def test_check_for_update_passes_command_kwarg(self) -> None:
+        """The call site must pass command=config.cli.update_check_command."""
+        source = self._get_repl_source()
+        assert "command=config.cli.update_check_command" in source, (
+            "repl.py does not pass command=config.cli.update_check_command to _check_for_update. See #1384."
+        )
+
+    @pytest.mark.asyncio
+    async def test_custom_command_returns_version(self) -> None:
+        """_check_for_update with a custom command that prints a version."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(b"2.0.0\n", b""))
+
+        with patch("anteroom.cli.repl.asyncio.create_subprocess_shell", AsyncMock(return_value=mock_proc)):
+            from anteroom.cli.repl import _check_for_update
+
+            result = await _check_for_update("1.0.0", command="echo 2.0.0")
+
+        assert result == "2.0.0"
+
+    @pytest.mark.asyncio
+    async def test_custom_command_failure_returns_none(self) -> None:
+        """_check_for_update with a custom command that exits non-zero."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 1
+        mock_proc.communicate = AsyncMock(return_value=(b"", b"error"))
+
+        with patch("anteroom.cli.repl.asyncio.create_subprocess_shell", AsyncMock(return_value=mock_proc)):
+            from anteroom.cli.repl import _check_for_update
+
+            result = await _check_for_update("1.0.0", command="false")
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_custom_command_whitespace_stripped(self) -> None:
+        """Custom command output with extra whitespace is stripped."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(b"  2.0.0  \n", b""))
+
+        with patch("anteroom.cli.repl.asyncio.create_subprocess_shell", AsyncMock(return_value=mock_proc)):
+            from anteroom.cli.repl import _check_for_update
+
+            result = await _check_for_update("1.0.0", command="echo version")
+
+        assert result == "2.0.0"
+
+    @pytest.mark.asyncio
+    async def test_default_uses_pip_index(self) -> None:
+        """Without a command, _check_for_update uses pip index versions."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(b"anteroom (2.0.0)", b""))
+
+        with patch("anteroom.cli.repl.asyncio.create_subprocess_exec", AsyncMock(return_value=mock_proc)) as mock_exec:
+            from anteroom.cli.repl import _check_for_update
+
+            result = await _check_for_update("1.0.0")
+
+        assert result == "2.0.0"
+        # Verify pip index was called, not shell
+        mock_exec.assert_called_once()
+        call_args = mock_exec.call_args[0]
+        assert "pip" in call_args
+        assert "index" in call_args
+
+    @pytest.mark.asyncio
+    async def test_same_version_returns_none(self) -> None:
+        """If the remote version equals current, return None."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(b"1.0.0\n", b""))
+
+        with patch("anteroom.cli.repl.asyncio.create_subprocess_shell", AsyncMock(return_value=mock_proc)):
+            from anteroom.cli.repl import _check_for_update
+
+            result = await _check_for_update("1.0.0", command="echo 1.0.0")
+
+        assert result is None

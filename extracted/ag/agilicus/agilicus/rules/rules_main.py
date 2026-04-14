@@ -50,6 +50,7 @@ def cli_command_add_rules_from_file(ctx, rule_json_file, **kwargs):
 @click.option("--prefix", default=None)
 @click.option("--org-id", default=None)
 @click.option("--page-at-id", default=None)
+@click.option("--limit", type=int, default=None)
 @click.option("--rule-id", default=None)
 @click.option("--standalone-rule-policy-id", multiple=True, default=None)
 @click.pass_context
@@ -133,6 +134,7 @@ def cli_command_add_rule_trees_from_file(ctx, rule_tree_json_file, **kwargs):
 @click.option("--name", default=None)
 @click.option("--org-id", default=None)
 @click.option("--page-at-id", default=None)
+@click.option("--limit", type=int, default=None)
 @click.option("--rule-tree-id", default=None)
 @click.option("--standalone-rule-policy-id", multiple=True, default=None)
 @click.pass_context
@@ -182,6 +184,7 @@ def cli_command_delete_rule_tree(ctx, **kwargs):
 @click.option("--label", default=None, multiple=True)
 @click.option("--org-id", default=None)
 @click.option("--scope", default=None, multiple=True)
+@click.option("--default-rule-tree-name", default=None)
 @click.option("--standalone-rule-policy-id", default=None)
 @click.pass_context
 def cli_command_add_ruleset(ctx, tree_name, label, scope, **kwargs):
@@ -203,6 +206,7 @@ def cli_command_add_rulesets_from_file(ctx, ruleset_json_file, **kwargs):
 @click.option("--name", default=None)
 @click.option("--org-id", default=None)
 @click.option("--page-at-id", default=None)
+@click.option("--limit", type=int, default=None)
 @click.option("--standalone-rule-policy-id", multiple=True, default=None)
 @click.pass_context
 def cli_command_list_rulesets(ctx, **kwargs):
@@ -226,6 +230,8 @@ def cli_command_get_ruleset(ctx, **kwargs):
 @click.option("--org-id", default=None)
 @click.option("--scope", default=None, multiple=True)
 @click.option("--standalone-rule-policy-id", default=None)
+@click.option("--default-rule-tree-name", default=None)
+@click.option("--clear-default-rule-tree", is_flag=True, default=None)
 @click.pass_context
 def cli_command_update_ruleset(ctx, tree_name, label, scope, **kwargs):
     output_entry(
@@ -256,6 +262,8 @@ def cli_command_add_host_label(ctx, label, **kwargs):
 
 @click.command(name="list-standalone-ruleset-labels")
 @click.option("--org-id", default=None)
+@click.option("--page-at-name", default=None)
+@click.option("--limit", type=int, default=None)
 @click.pass_context
 def cli_command_list_ruleset_labels(ctx, **kwargs):
     results = rules.list_labels(ctx, **kwargs)
@@ -310,7 +318,7 @@ def cli_command_delete_rulesets_bundle(ctx, bundle_id, **kwargs):
 @click.option("--page-at-id", default=None)
 @click.option("--get-rulesets", is_flag=True, default=None)
 @click.option("--standalone-ruleset-bundles-etag", default=None)
-@click.option("--limit", default=None, type=int)
+@click.option("--limit", type=int, default=None)
 @click.pass_context
 def cli_command_list_rulesets_bundle(ctx, **kwargs):
     results = rules.list_bundles(ctx, **kwargs)
@@ -354,6 +362,8 @@ def cli_command_add_rule_policy(ctx, annotations_json, **kwargs):
 @click.option("--org-id", default=None)
 @click.option("--object-type")
 @click.option("--object-id")
+@click.option("--page-at-id", default=None)
+@click.option("--limit", type=int, default=None)
 @click.option("--policy-class", multiple=True)
 @click.option("--policy-instance")
 @click.pass_context

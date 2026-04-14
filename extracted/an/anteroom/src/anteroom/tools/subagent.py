@@ -10,7 +10,7 @@ import time
 from typing import Any, Callable, Coroutine
 
 from ..config import SubagentConfig
-from ..services.agent_loop import AgentEvent, run_agent_loop
+from ..services.agent_loop import AgentEvent, active_skill_policy, run_agent_loop
 from ..services.ai_service import AIService
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,10 @@ SUBAGENT_MAX_ITERATIONS = 15
 SUBAGENT_TIMEOUT = 120
 
 _MODEL_PATTERN = re.compile(r"^[a-zA-Z0-9._:/-]{1,128}$")
+
+# Known Claude model-family names that should be aliased, not passed through.
+# Update this set when Anthropic introduces new family names.
+KNOWN_CLAUDE_FAMILIES: frozenset[str] = frozenset({"haiku", "sonnet", "opus"})
 
 EventSink = Callable[[str, AgentEvent], Coroutine[Any, Any, None]]
 
@@ -165,6 +169,21 @@ async def handle(
     if len(prompt) > max_prompt:
         return {"error": f"Prompt exceeds maximum length ({max_prompt} characters)"}
 
+    # Resolve model-family aliases (#1393)
+    if model is not None:
+        aliases = getattr(_ai_service.config, "model_family_aliases", {})
+        model_lower = model.lower()
+        # Check alias table (case-insensitive)
+        matched_alias = next((v for k, v in aliases.items() if k.lower() == model_lower), None)
+        if matched_alias is not None:
+            model = matched_alias if matched_alias else None  # empty string = use default
+        elif model_lower in KNOWN_CLAUDE_FAMILIES:
+            return {
+                "error": f"Unknown model family '{model}'. "
+                "Configure it in ai.model_family_aliases or use a full model ID "
+                "like 'claude-3-haiku-20240307'."
+            }
+
     if model is not None and not _MODEL_PATTERN.match(model):
         return {"error": "Invalid model identifier"}
 
@@ -284,6 +303,12 @@ async def _run_subagent(
 
     async def child_tool_executor(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         nonlocal _child_counter
+        # Enforce parent skill policy in sub-agents (#857)
+        _sp = active_skill_policy.get(None)
+        if _sp is not None:
+            _sp_ok, _sp_reason = _sp.check_tool(tool_name)
+            if not _sp_ok:
+                return {"error": _sp_reason, "safety_blocked": True}
         if tool_name == "run_agent":
             _child_counter += 1
             arguments = dict(arguments)

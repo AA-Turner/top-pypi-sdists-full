@@ -1,6 +1,6 @@
 [project]
 name = "runloop_api_client"
-version = "1.18.1"
+version = "1.19.0"
 description = "The official Python library for the runloop API"
 dynamic = ["readme"]
 license = "MIT"
@@ -72,6 +72,7 @@ docs = [
     "furo>=2025.9.25",
     "sphinx>=7.4.7",
     "sphinx-autodoc-typehints>=2.3.0",
+    "sphinx-tabs>=3.4.0",
     "sphinx-toolbox>=4.0.0",
 ]
 

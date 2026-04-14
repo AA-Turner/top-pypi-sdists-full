@@ -320,6 +320,14 @@ def set_verbosity(v: Verbosity) -> None:
     _verbosity = v
 
 
+_show_rag_status: bool = True
+
+
+def set_rag_status_visible(show: bool) -> None:
+    global _show_rag_status
+    _show_rag_status = show
+
+
 def set_tool_dedup(enabled: bool) -> None:
     global _tool_dedup_enabled
     _tool_dedup_enabled = enabled
@@ -2290,6 +2298,8 @@ def render_rag_status(status: str, chunk_count: int = 0, reason: str | None = No
     In COMPACT mode (default), suppress low-value diagnostics and soften
     failure wording.  DETAILED/VERBOSE modes show full diagnostic output.
     """
+    if not _show_rag_status:
+        return
     if _verbosity == Verbosity.COMPACT:
         # Only surface actionable status; suppress ok/no_results noise
         if status == "failed":

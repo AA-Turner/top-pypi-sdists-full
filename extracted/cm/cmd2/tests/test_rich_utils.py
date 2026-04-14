@@ -1,5 +1,7 @@
 """Unit testing for cmd2/rich_utils.py module"""
 
+from unittest import mock
+
 import pytest
 import rich.box
 from rich.console import Console
@@ -18,6 +20,10 @@ from .conftest import with_ansi_style
 
 def test_cmd2_base_console() -> None:
     # Test the keyword arguments which are not allowed.
+    with pytest.raises(TypeError) as excinfo:
+        ru.Cmd2BaseConsole(color_system="auto")
+    assert 'color_system' in str(excinfo.value)
+
     with pytest.raises(TypeError) as excinfo:
         ru.Cmd2BaseConsole(force_terminal=True)
     assert 'force_terminal' in str(excinfo.value)
@@ -74,7 +80,12 @@ def test_indented_table() -> None:
     [
         (Text("Hello"), "Hello"),
         (Text("Hello\n"), "Hello\n"),
-        (Text("Hello", style="blue"), "\x1b[34mHello\x1b[0m"),
+        # Test standard color support
+        (Text("Standard", style="blue"), "\x1b[34mStandard\x1b[0m"),
+        # Test 256-color support
+        (Text("256-color", style=Color.NAVY_BLUE), "\x1b[38;5;17m256-color\x1b[0m"),
+        # Test 24-bit color (TrueColor) support
+        (Text("TrueColor", style="#123456"), "\x1b[38;2;18;52;86mTrueColor\x1b[0m"),
     ],
 )
 def test_rich_text_to_string(rich_text: Text, string: str) -> None:
@@ -108,42 +119,6 @@ def test_set_theme() -> None:
 
     assert ru.APP_THEME.styles[rich_style_key] != orig_rich_style
     assert ru.APP_THEME.styles[rich_style_key] == theme[rich_style_key]
-
-
-def test_from_ansi_wrapper() -> None:
-    # Check if we are still patching Text.from_ansi(). If this check fails, then Rich
-    # has fixed the bug. Therefore, we can remove this test function and ru._from_ansi_wrapper.
-    assert Text.from_ansi.__func__ is ru._from_ansi_wrapper.__func__  # type: ignore[attr-defined]
-
-    # Line breaks recognized by str.splitlines().
-    # Source: https://docs.python.org/3/library/stdtypes.html#str.splitlines
-    line_breaks = {
-        "\n",  # Line Feed
-        "\r",  # Carriage Return
-        "\r\n",  # Carriage Return + Line Feed
-        "\v",  # Vertical Tab
-        "\f",  # Form Feed
-        "\x1c",  # File Separator
-        "\x1d",  # Group Separator
-        "\x1e",  # Record Separator
-        "\x85",  # Next Line (NEL)
-        "\u2028",  # Line Separator
-        "\u2029",  # Paragraph Separator
-    }
-
-    # Test all line breaks
-    for lb in line_breaks:
-        input_string = f"Text{lb}"
-        expected_output = input_string.replace(lb, "\n")
-        assert Text.from_ansi(input_string).plain == expected_output
-
-    # Test string without trailing line break
-    input_string = "No trailing\nline break"
-    assert Text.from_ansi(input_string).plain == input_string
-
-    # Test empty string
-    input_string = ""
-    assert Text.from_ansi(input_string).plain == input_string
 
 
 @with_ansi_style(ru.AllowStyle.ALWAYS)
@@ -192,3 +167,88 @@ def test_cmd2_base_console_log() -> None:
     # Verify stack offset: the log line should point to this file, not rich_utils.py
     # Rich logs include the filename and line number on the right.
     assert "test_rich_utils.py" in result
+
+
+@with_ansi_style(ru.AllowStyle.ALWAYS)
+def test_cmd2_base_console_init_always_interactive_true() -> None:
+    """Test Cmd2BaseConsole initialization when ALLOW_STYLE is ALWAYS and is_interactive is True."""
+    with (
+        mock.patch('rich.console.Console.__init__', return_value=None) as mock_base_init,
+        mock.patch('cmd2.rich_utils.Console', autospec=True) as mock_detect_console_class,
+    ):
+        mock_detect_console = mock_detect_console_class.return_value
+        mock_detect_console.is_interactive = True
+
+        ru.Cmd2BaseConsole()
+
+        # Verify arguments passed to super().__init__
+        _, kwargs = mock_base_init.call_args
+        assert kwargs['color_system'] == "truecolor"
+        assert kwargs['force_terminal'] is True
+        assert kwargs['force_interactive'] is True
+
+
+@with_ansi_style(ru.AllowStyle.ALWAYS)
+def test_cmd2_base_console_init_always_interactive_false() -> None:
+    """Test Cmd2BaseConsole initialization when ALLOW_STYLE is ALWAYS and is_interactive is False."""
+    with (
+        mock.patch('rich.console.Console.__init__', return_value=None) as mock_base_init,
+        mock.patch('cmd2.rich_utils.Console', autospec=True) as mock_detect_console_class,
+    ):
+        mock_detect_console = mock_detect_console_class.return_value
+        mock_detect_console.is_interactive = False
+
+        ru.Cmd2BaseConsole()
+
+        _, kwargs = mock_base_init.call_args
+        assert kwargs['color_system'] == "truecolor"
+        assert kwargs['force_terminal'] is True
+        assert kwargs['force_interactive'] is False
+
+
+@with_ansi_style(ru.AllowStyle.TERMINAL)
+def test_cmd2_base_console_init_terminal_true() -> None:
+    """Test Cmd2BaseConsole initialization when ALLOW_STYLE is TERMINAL and it is a terminal."""
+    with (
+        mock.patch('rich.console.Console.__init__', return_value=None) as mock_base_init,
+        mock.patch('cmd2.rich_utils.Console', autospec=True) as mock_detect_console_class,
+    ):
+        mock_detect_console = mock_detect_console_class.return_value
+        mock_detect_console.is_terminal = True
+
+        ru.Cmd2BaseConsole()
+
+        _, kwargs = mock_base_init.call_args
+        assert kwargs['color_system'] == "truecolor"
+        assert kwargs['force_terminal'] is None
+        assert kwargs['force_interactive'] is None
+
+
+@with_ansi_style(ru.AllowStyle.TERMINAL)
+def test_cmd2_base_console_init_terminal_false() -> None:
+    """Test Cmd2BaseConsole initialization when ALLOW_STYLE is TERMINAL and it is not a terminal."""
+    with (
+        mock.patch('rich.console.Console.__init__', return_value=None) as mock_base_init,
+        mock.patch('cmd2.rich_utils.Console', autospec=True) as mock_detect_console_class,
+    ):
+        mock_detect_console = mock_detect_console_class.return_value
+        mock_detect_console.is_terminal = False
+
+        ru.Cmd2BaseConsole()
+
+        _, kwargs = mock_base_init.call_args
+        assert kwargs['color_system'] is None
+        assert kwargs['force_terminal'] is None
+        assert kwargs['force_interactive'] is None
+
+
+@with_ansi_style(ru.AllowStyle.NEVER)
+def test_cmd2_base_console_init_never() -> None:
+    """Test Cmd2BaseConsole initialization when ALLOW_STYLE is NEVER."""
+    with mock.patch('rich.console.Console.__init__', return_value=None) as mock_base_init:
+        ru.Cmd2BaseConsole()
+
+        _, kwargs = mock_base_init.call_args
+        assert kwargs['color_system'] is None
+        assert kwargs['force_terminal'] is False
+        assert kwargs['force_interactive'] is None

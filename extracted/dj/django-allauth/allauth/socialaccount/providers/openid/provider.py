@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from urllib.parse import urlparse
 
+from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.http import urlencode
 
@@ -35,7 +38,7 @@ class OpenIDProvider(Provider):
     account_class = OpenIDAccount
     uses_apps = False
 
-    def get_login_url(self, request, **kwargs):
+    def get_login_url(self, request: HttpRequest, **kwargs):
         url = reverse("openid_login")
         if kwargs:
             url += f"?{urlencode(kwargs)}"

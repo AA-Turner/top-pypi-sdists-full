@@ -1328,7 +1328,7 @@ def _build_softioc_detail(task_entry, project_dir):
         else name.upper().replace('-', '_')
     )
     task_pv = f"pva://{task_pv}"
-    n_builtin = 4  # ENABLE, STATUS, MESSAGE, CYCLE_COUNT/RUN
+    n_builtin = 7  # ENABLE, STATUS, MESSAGE, CYCLE_COUNT/RUN, VERSION, CLEAR, RESET
     n_inputs = len(inputs)
     n_outputs = len(outputs)
     n_rules = len(rules)
@@ -1428,6 +1428,44 @@ def _build_softioc_detail(task_entry, project_dir):
                                     SIOC_LEFT + SIOC_LABEL_W + 4, y, 120, SIOC_ROW_H)
         cc_val.font_size(11)
         scr.add_widget(cc_val)
+    y += SIOC_ROW_H + SIOC_GAP
+
+    # VERSION
+    ver_lbl = widget.Label("ver-l", "Version", SIOC_LEFT, y, SIOC_LABEL_W, SIOC_ROW_H)
+    ver_lbl.font_size(11)
+    scr.add_widget(ver_lbl)
+    ver_val = widget.TextUpdate("ver-v", f"{task_pv}:VERSION",
+                                 SIOC_LEFT + SIOC_LABEL_W + 4, y, 180, SIOC_ROW_H)
+    ver_val.font_size(11)
+    scr.add_widget(ver_val)
+    y += SIOC_ROW_H + SIOC_GAP
+
+    # CLEAR — release all latched outputs
+    cl_lbl = widget.Label("cl-l", "Clear Latches", SIOC_LEFT, y, SIOC_LABEL_W, SIOC_ROW_H)
+    cl_lbl.font_size(11)
+    scr.add_widget(cl_lbl)
+    cl_btn = widget.BooleanButton("cl-v", f"{task_pv}:CLEAR",
+                                   SIOC_LEFT + SIOC_LABEL_W + 4, y, 80, SIOC_ROW_H)
+    cl_btn.on_label("CLEAR")
+    cl_btn.off_label("CLEAR")
+    cl_btn.on_color(220, 130, 0)
+    cl_btn.off_color(220, 130, 0)
+    cl_btn.mode_push()
+    scr.add_widget(cl_btn)
+    y += SIOC_ROW_H + SIOC_GAP
+
+    # RESET — clear latches + reset cycle counter + re-init connectivity
+    rs_lbl = widget.Label("rs-l", "Reset", SIOC_LEFT, y, SIOC_LABEL_W, SIOC_ROW_H)
+    rs_lbl.font_size(11)
+    scr.add_widget(rs_lbl)
+    rs_btn = widget.BooleanButton("rs-v", f"{task_pv}:RESET",
+                                   SIOC_LEFT + SIOC_LABEL_W + 4, y, 80, SIOC_ROW_H)
+    rs_btn.on_label("RESET")
+    rs_btn.off_label("RESET")
+    rs_btn.on_color(180, 30, 30)
+    rs_btn.off_color(180, 30, 30)
+    rs_btn.mode_push()
+    scr.add_widget(rs_btn)
     y += SIOC_ROW_H + SIOC_GAP + 8
 
     # ── Parameters section ──
@@ -1473,6 +1511,8 @@ def _build_softioc_detail(task_entry, project_dir):
             label_text = pv_key
             if unit:
                 label_text += f" ({unit})"
+            if spec.get('latch'):
+                label_text += "  [LATCH]"
             y = _sioc_pv_row(scr, f"out-{idx}", pv_name, label_text,
                               pv_type, spec, SIOC_LEFT, y, writable=False)
         y += 8
@@ -1545,6 +1585,82 @@ def _build_softioc_detail(task_entry, project_dir):
                 scr.add_widget(out_lbl)
                 y += SIOC_ROW_H - 2
             y += SIOC_GAP
+
+    # ── Link Connectivity section ──────────────────────────────────────────────
+    # Shows the framework-generated CONN_INP / CONN_OUT system PVs which track
+    # live CA/PVA connection state for every wired input and output port.
+    wired_inputs = [(n, s) for n, s in inputs.items() if s.get('link')]
+    wired_outputs = [(n, s) for n, s in outputs.items() if s.get('link')]
+
+    if wired_inputs or wired_outputs:
+        n_wi = len(wired_inputs)
+        n_wo = len(wired_outputs)
+        y = _sioc_section_label(scr, "conn",
+                                f"Link Connectivity  ({n_wi} inputs / {n_wo} outputs)",
+                                y, SIOC_DETAIL_W)
+
+        if wired_inputs:
+            # Aggregate waveform row
+            ci_lbl = widget.Label("conn-ci-l", "CONN_INP  [1=connected, 0=disconnected]",
+                                   SIOC_LEFT, y, SIOC_LABEL_W + 80, SIOC_ROW_H)
+            ci_lbl.font_size(11)
+            ci_lbl.font_style_bold()
+            scr.add_widget(ci_lbl)
+            ci_val = widget.TextUpdate("conn-ci-v", f"{task_pv}:CONN_INP",
+                                        SIOC_LEFT + SIOC_LABEL_W + 84, y, 250, SIOC_ROW_H)
+            ci_val.font_size(10)
+            scr.add_widget(ci_val)
+            y += SIOC_ROW_H + SIOC_GAP
+
+            # Per-port annotation rows (static labels + linked PV)
+            for idx, (port_name, spec) in enumerate(wired_inputs):
+                link_pv = spec.get('link', '')
+                pl = widget.Label(f"conn-ci-pl-{idx}",
+                                   f"  [{idx}]  {port_name}",
+                                   SIOC_LEFT + 16, y, SIOC_LABEL_W + 60, SIOC_ROW_H)
+                pl.font_size(10)
+                pl.foreground_color(60, 60, 60)
+                scr.add_widget(pl)
+                if link_pv:
+                    ll = widget.Label(f"conn-ci-ll-{idx}", f"← {link_pv}",
+                                       SIOC_LEFT + SIOC_LABEL_W + 80, y,
+                                       SIOC_LINK_W + SIOC_UNIT_W, SIOC_ROW_H)
+                    ll.font_size(9)
+                    ll.foreground_color(130, 130, 130)
+                    scr.add_widget(ll)
+                y += SIOC_ROW_H + 1
+            y += SIOC_GAP + 4
+
+        if wired_outputs:
+            # Aggregate waveform row
+            co_lbl = widget.Label("conn-co-l", "CONN_OUT  [1=connected, 0=disconnected]",
+                                   SIOC_LEFT, y, SIOC_LABEL_W + 80, SIOC_ROW_H)
+            co_lbl.font_size(11)
+            co_lbl.font_style_bold()
+            scr.add_widget(co_lbl)
+            co_val = widget.TextUpdate("conn-co-v", f"{task_pv}:CONN_OUT",
+                                        SIOC_LEFT + SIOC_LABEL_W + 84, y, 250, SIOC_ROW_H)
+            co_val.font_size(10)
+            scr.add_widget(co_val)
+            y += SIOC_ROW_H + SIOC_GAP
+
+            for idx, (port_name, spec) in enumerate(wired_outputs):
+                link_pv = spec.get('link', '')
+                pl = widget.Label(f"conn-co-pl-{idx}",
+                                   f"  [{idx}]  {port_name}",
+                                   SIOC_LEFT + 16, y, SIOC_LABEL_W + 60, SIOC_ROW_H)
+                pl.font_size(10)
+                pl.foreground_color(60, 60, 60)
+                scr.add_widget(pl)
+                if link_pv:
+                    ll = widget.Label(f"conn-co-ll-{idx}", f"← {link_pv}",
+                                       SIOC_LEFT + SIOC_LABEL_W + 80, y,
+                                       SIOC_LINK_W + SIOC_UNIT_W, SIOC_ROW_H)
+                    ll.font_size(9)
+                    ll.foreground_color(130, 130, 130)
+                    scr.add_widget(ll)
+                y += SIOC_ROW_H + 1
+            y += SIOC_GAP + 4
 
     # Adjust final height
     scr.height(y + 20)

@@ -3,8 +3,8 @@ package wbapi
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -13,11 +13,9 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/wandb/simplejsonext"
 
-	"github.com/wandb/wandb/core/internal/observability"
 	"github.com/wandb/wandb/core/internal/runhistoryreader"
 	"github.com/wandb/wandb/core/internal/runhistoryreader/parquet"
-	"github.com/wandb/wandb/core/internal/settings"
-	"github.com/wandb/wandb/core/internal/stream"
+	"github.com/wandb/wandb/core/internal/runhistoryreader/parquet/ffi"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 )
 
@@ -26,6 +24,21 @@ import (
 type RunHistoryAPIHandler struct {
 	graphqlClient graphql.Client
 	httpClient    *retryablehttp.Client
+
+	// mu protects scanHistoryReaders and downloadOperations from
+	// concurrent access by goroutines spawned in handleApi.
+	// RWMutex allows concurrent map reads while serializing writes.
+	mu sync.RWMutex
+
+	// rustArrowOnce guards one-time initialization of rustArrowWrapper.
+	rustArrowOnce sync.Once
+
+	// rustArrowWrapper is the wrapper for the Rust Arrow library.
+	// It is used to provide FFI functions to the Go code for reading parquet files.
+	rustArrowWrapper *ffi.RustArrowWrapper
+
+	// rustArrowInitializationErr records an error from initializing rustArrowWrapper.
+	rustArrowInitializationErr error
 
 	// currentRequestId is the id of the last scan init request made.
 	//
@@ -45,28 +58,10 @@ type RunHistoryAPIHandler struct {
 	downloadOperations map[int32]*parquet.RunHistoryDownloadOperation
 }
 
-func NewRunHistoryAPIHandler(s *settings.Settings) *RunHistoryAPIHandler {
-	logger := observability.NewNoOpLogger()
-	baseURL := stream.BaseURLFromSettings(logger, s)
-	credentialProvider := stream.CredentialsFromSettings(logger, s)
-	graphqlClient := stream.NewGraphQLClient(
-		baseURL,
-		"", /*clientID*/
-		credentialProvider,
-		logger,
-		&observability.Peeker{},
-		s,
-	)
-
-	httpClient := retryablehttp.NewClient()
-	httpClient.RetryMax = int(s.GetFileTransferMaxRetries())
-	httpClient.RetryWaitMin = s.GetFileTransferRetryWaitMin()
-	httpClient.RetryWaitMax = s.GetFileTransferRetryWaitMax()
-	httpClient.HTTPClient.Timeout = s.GetFileTransferTimeout()
-	httpClient.Logger = observability.NewCoreLogger(
-		slog.Default(),
-		nil,
-	)
+func NewRunHistoryAPIHandler(
+	graphqlClient graphql.Client,
+	httpClient *retryablehttp.Client,
+) *RunHistoryAPIHandler {
 
 	return &RunHistoryAPIHandler{
 		graphqlClient:      graphqlClient,
@@ -108,6 +103,22 @@ func (f *RunHistoryAPIHandler) HandleRequest(
 func (f *RunHistoryAPIHandler) handleScanRunHistoryInit(
 	request *spb.ScanRunHistoryInit,
 ) *spb.ApiResponse {
+	f.rustArrowOnce.Do(func() {
+		f.rustArrowWrapper, f.rustArrowInitializationErr = ffi.NewRustArrowWrapper()
+	})
+	if f.rustArrowInitializationErr != nil {
+		return &spb.ApiResponse{
+			Response: &spb.ApiResponse_ApiErrorResponse{
+				ApiErrorResponse: &spb.ApiErrorResponse{
+					Message: fmt.Sprintf(
+						"RustArrowWrapper initialization failed: %v",
+						f.rustArrowInitializationErr,
+					),
+				},
+			},
+		}
+	}
+
 	localHub := sentry.CurrentHub().Clone()
 	localHub.WithScope(func(scope *sentry.Scope) {
 		scope.SetTags(map[string]string{
@@ -130,6 +141,7 @@ func (f *RunHistoryAPIHandler) handleScanRunHistoryInit(
 		f.httpClient,
 		requestKeys,
 		request.UseCache,
+		f.rustArrowWrapper,
 	)
 	if err != nil {
 		return &spb.ApiResponse{
@@ -141,7 +153,9 @@ func (f *RunHistoryAPIHandler) handleScanRunHistoryInit(
 		}
 	}
 
+	f.mu.Lock()
 	f.scanHistoryReaders[requestId] = historyReader
+	f.mu.Unlock()
 
 	return &spb.ApiResponse{
 		Response: &spb.ApiResponse_ReadRunHistoryResponse{
@@ -163,7 +177,9 @@ func (f *RunHistoryAPIHandler) handleScanRunHistoryRead(
 ) *spb.ApiResponse {
 	requestId := request.GetRequestId()
 
+	f.mu.RLock()
 	historyReader, ok := f.scanHistoryReaders[requestId]
+	f.mu.RUnlock()
 
 	if !ok || historyReader == nil {
 		return &spb.ApiResponse{
@@ -254,10 +270,16 @@ func (f *RunHistoryAPIHandler) handleScanRunHistoryCleanup(
 	request *spb.ScanRunHistoryCleanup,
 ) *spb.ApiResponse {
 	requestId := request.GetRequestId()
+
+	f.mu.Lock()
 	historyReader, ok := f.scanHistoryReaders[requestId]
 	if ok && historyReader != nil {
-		historyReader.Release()
 		delete(f.scanHistoryReaders, requestId)
+	}
+	f.mu.Unlock()
+
+	if ok && historyReader != nil {
+		historyReader.Release()
 	}
 
 	return &spb.ApiResponse{
@@ -333,7 +355,10 @@ func (f *RunHistoryAPIHandler) handleDownloadRunHistoryInit(
 	}
 
 	requestId := f.currentRequestId.Add(1)
+
+	f.mu.Lock()
 	f.downloadOperations[requestId] = downloadOperation
+	f.mu.Unlock()
 
 	return &spb.ApiResponse{
 		Response: &spb.ApiResponse_ReadRunHistoryResponse{
@@ -353,7 +378,13 @@ func (f *RunHistoryAPIHandler) handleDownloadRunHistoryInit(
 func (f *RunHistoryAPIHandler) handleDownloadRunHistory(
 	request *spb.DownloadRunHistory,
 ) *spb.ApiResponse {
+	f.mu.Lock()
 	downloadOperation, ok := f.downloadOperations[request.GetRequestId()]
+	if ok {
+		delete(f.downloadOperations, request.GetRequestId())
+	}
+	f.mu.Unlock()
+
 	if !ok || downloadOperation == nil {
 		return &spb.ApiResponse{
 			Response: &spb.ApiResponse_ApiErrorResponse{
@@ -369,8 +400,6 @@ func (f *RunHistoryAPIHandler) handleDownloadRunHistory(
 	for file, err := range errors {
 		errorsMap[file] = err.Error()
 	}
-
-	delete(f.downloadOperations, request.GetRequestId())
 	return &spb.ApiResponse{
 		Response: &spb.ApiResponse_ReadRunHistoryResponse{
 			ReadRunHistoryResponse: &spb.ReadRunHistoryResponse{
@@ -392,7 +421,10 @@ func (f *RunHistoryAPIHandler) handleDownloadRunHistoryStatus(
 ) *spb.ApiResponse {
 	requestId := request.GetRequestId()
 
+	f.mu.RLock()
 	downloadOperation, ok := f.downloadOperations[requestId]
+	f.mu.RUnlock()
+
 	if !ok || downloadOperation == nil {
 		return &spb.ApiResponse{
 			Response: &spb.ApiResponse_ApiErrorResponse{

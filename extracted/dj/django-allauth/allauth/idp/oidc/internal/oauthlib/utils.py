@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from urllib.parse import urlparse, urlunparse
 
 from django.forms import Form
@@ -31,7 +33,7 @@ def extract_params(request: HttpRequest) -> tuple[str, str, str, dict[str, str]]
     return uri, request.method, body, headers
 
 
-def extract_headers(request) -> dict[str, str]:
+def extract_headers(request: HttpRequest) -> dict[str, str]:
     """
     You need to define extract_params and make sure it does not include file
     like objects waiting for input. In Django this is request.META['wsgi.input']
@@ -49,7 +51,8 @@ def extract_headers(request) -> dict[str, str]:
     return headers
 
 
-def convert_response(headers, body, status):
+def convert_response(headers, body, status) -> HttpResponse:
+    response: HttpResponse
     if isinstance(body, dict):
         response = JsonResponse(body, status=status)
     else:

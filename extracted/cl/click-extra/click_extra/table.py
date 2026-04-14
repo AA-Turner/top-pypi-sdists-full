@@ -30,12 +30,13 @@ import tabulate
 from boltons.strutils import strip_ansi
 from tabulate import DataRow, TableFormat as TabulateTableFormat
 
-from . import EnumChoice, echo
+from . import EnumChoice, echo, style
 from .parameters import ExtraOption
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+    from typing import Any
 
 
 tabulate.MIN_PADDING = 0
@@ -283,14 +284,7 @@ def _render_yaml(
 
     Requires the ``pyyaml`` package (installable via the ``[yaml]`` extra).
     """
-    try:
-        import yaml
-    except ImportError as exc:
-        msg = (
-            "PyYAML is required for YAML table output."
-            " Install it with: pip install click-extra[yaml]"
-        )
-        raise ImportError(msg) from exc
+    import yaml
 
     data = _rows_as_dicts(table_data, headers)
     defaults: dict = {"allow_unicode": True, "default_flow_style": False}
@@ -308,14 +302,7 @@ def _render_toml(
     ``None`` values are omitted (TOML has no null type). Requires the ``tomlkit``
     package (installable via the ``[toml]`` extra).
     """
-    try:
-        import tomlkit
-    except ImportError as exc:
-        msg = (
-            "tomlkit is required for TOML table output."
-            " Install it with: pip install click-extra[toml]"
-        )
-        raise ImportError(msg) from exc
+    import tomlkit
 
     aot = tomlkit.aot()
     for row in table_data:
@@ -344,14 +331,7 @@ def _render_hjson(
 
     Requires the ``hjson`` package (installable via the ``[hjson]`` extra).
     """
-    try:
-        import hjson
-    except ImportError as exc:
-        msg = (
-            "hjson is required for HJSON table output."
-            " Install it with: pip install click-extra[hjson]"
-        )
-        raise ImportError(msg) from exc
+    import hjson
 
     data = _rows_as_dicts(table_data, headers)
     defaults: dict = {"ensure_ascii": False}
@@ -369,14 +349,7 @@ def _render_xml(
     ``None`` values are omitted. Requires the ``xmltodict`` package (installable
     via the ``[xml]`` extra).
     """
-    try:
-        import xmltodict
-    except ImportError as exc:
-        msg = (
-            "xmltodict is required for XML table output."
-            " Install it with: pip install click-extra[xml]"
-        )
-        raise ImportError(msg) from exc
+    import xmltodict
 
     def _xml_safe_name(name: str) -> str:
         """Replace characters invalid in XML element names."""
@@ -471,7 +444,11 @@ def _pad_gfm_separator(text: str) -> str:
         new_parts = [parts[0]]
         for cell in parts[1:-1]:
             stripped = cell.strip()
-            if not stripped or "-" not in stripped or not all(c in "-:" for c in stripped):
+            if (
+                not stripped
+                or "-" not in stripped
+                or not all(c in "-:" for c in stripped)
+            ):
                 new_parts.append(cell)
                 continue
             # Already padded.
@@ -564,9 +541,16 @@ def render_table(
     table_data: Sequence[Sequence[str | None]],
     headers: Sequence[str | None] | None = None,
     table_format: TableFormat | None = None,
+    sort_key: Callable[[Sequence[str | None]], Any] | None = None,
     **kwargs,
 ) -> str:
-    """Render a table and return it as a string."""
+    """Render a table and return it as a string.
+
+    :param sort_key: Optional callable passed to :py:func:`sorted` as the ``key``
+        argument. When provided, rows are sorted before rendering.
+    """
+    if sort_key is not None:
+        table_data = sorted(table_data, key=sort_key)
     render_func, _ = _select_table_funcs(table_format)
     return render_func(table_data, headers, **kwargs)
 
@@ -591,13 +575,19 @@ def print_table(
     table_data: Sequence[Sequence[str | None]],
     headers: Sequence[str | None] | None = None,
     table_format: TableFormat | None = None,
+    sort_key: Callable[[Sequence[str | None]], Any] | None = None,
     **kwargs,
 ) -> None:
     """Render a table and print it to the console.
 
     For markup formats, ANSI color codes are stripped from cell values before
     rendering unless ``--color`` is explicitly set.
+
+    :param sort_key: Optional callable passed to :py:func:`sorted` as the ``key``
+        argument. When provided, rows are sorted before rendering.
     """
+    if sort_key is not None:
+        table_data = sorted(table_data, key=sort_key)
     # Strip ANSI codes from cell data before rendering for markup formats.
     # Pre-render stripping is necessary because some renderers (JSON, YAML) escape
     # raw ESC bytes, making post-render strip_ansi() ineffective.
@@ -616,7 +606,182 @@ def print_table(
             table_data, headers = _strip_ansi_cells(table_data, headers)
 
     render_func, print_func = _select_table_funcs(table_format)
-    print_func(render_func(table_data, headers, **kwargs))
+    try:
+        print_func(render_func(table_data, headers, **kwargs))
+    except ImportError:
+        assert table_format is not None
+        raise SystemExit(f"Error: {_missing_extra_message(table_format)}") from None
+
+
+def _missing_extra_message(
+    table_format: TableFormat,
+    package: str = "click-extra",
+) -> str:
+    """Build a user-friendly error message for a missing optional dependency."""
+    extra = table_format.value
+    return (
+        f"{extra} output requires an optional dependency."
+        f" Install it with: pip install {package}[{extra}]"
+    )
+
+
+def _strip_none(data: Any) -> Any:
+    """Recursively drop ``None`` values from dicts.
+
+    Needed for formats without a null type (TOML, XML).
+    """
+    if isinstance(data, dict):
+        return {k: _strip_none(v) for k, v in data.items() if v is not None}
+    if isinstance(data, (list, tuple)):
+        return [_strip_none(v) for v in data]
+    return data
+
+
+def _strip_none_and_wrap(data: Any) -> dict:
+    """Strip ``None`` values and wrap bare lists under the ``record`` key.
+
+    Shared preprocessing for TOML and XML, which have no null type and require a
+    top-level mapping.
+    """
+    stripped = _strip_none(data)
+    if isinstance(stripped, list):
+        return {RECORD_KEY: stripped}
+    assert isinstance(stripped, dict)
+    return stripped
+
+
+def serialize_data(
+    data: Any,
+    table_format: TableFormat,
+    *,
+    default: Callable | None = None,
+    root_element: str = XML_ROOT_KEY,
+    **kwargs,
+) -> str:
+    """Serialize arbitrary Python data to a structured format.
+
+    Unlike :py:func:`render_table` which expects tabular rows and headers, this
+    function accepts any JSON-compatible data structure (dicts, lists, nested
+    combinations) and serializes it to the requested format.
+
+    Only formats in :py:data:`SERIALIZATION_FORMATS` are supported.
+
+    :param data: Arbitrary data to serialize (dicts, lists, scalars).
+    :param table_format: Target serialization format.
+    :param default: Fallback serializer for types not natively supported. Defaults
+        to :py:func:`str`, so :py:class:`~pathlib.Path` and similar types are
+        stringified automatically. Set to a custom callable for different behavior.
+    :param root_element: Root element name for XML output.
+    :param kwargs: Extra keyword arguments forwarded to the underlying serializer
+        (e.g. ``sort_keys``, ``indent`` for JSON).
+    :raises ValueError: If the format is not a serialization format.
+    """
+    if table_format not in SERIALIZATION_FORMATS:
+        msg = f"Unsupported serialization format: {table_format}"
+        raise ValueError(msg)
+
+    clean = _apply_default(data, default if default is not None else str)
+
+    match table_format:
+        case TableFormat.JSON | TableFormat.JSON5 | TableFormat.JSONC:
+            return (
+                json.dumps(clean, **{"ensure_ascii": False, "indent": 2, **kwargs})
+                + "\n"
+            )
+
+        case TableFormat.HJSON:
+            import hjson
+
+            return str(hjson.dumps(clean, **{"ensure_ascii": False, **kwargs})) + "\n"
+
+        case TableFormat.TOML:
+            import tomlkit
+
+            stripped = _strip_none_and_wrap(clean)
+            doc = tomlkit.document()
+            for k, v in stripped.items():
+                doc.add(k, v)
+            return tomlkit.dumps(doc)
+
+        case TableFormat.YAML:
+            import yaml
+
+            return str(
+                yaml.dump(
+                    clean,
+                    **{"allow_unicode": True, "default_flow_style": False, **kwargs},
+                )
+            )
+
+        case TableFormat.XML:
+            import xmltodict
+
+            stripped = _strip_none_and_wrap(clean)
+            result: str = xmltodict.unparse(
+                {root_element: stripped},
+                **{
+                    "pretty": True,
+                    "encoding": "unicode",
+                    "full_document": False,
+                    **kwargs,
+                },
+            )
+            return result + "\n"
+
+        case _:
+            msg = f"Unhandled serialization format: {table_format}"
+            raise NotImplementedError(msg)
+
+
+def _apply_default(data: Any, default: Callable) -> Any:
+    """Recursively apply a ``default`` callback to non-native types.
+
+    Walks dicts, lists, and tuples. For any other type, calls ``default(obj)``
+    which should return a JSON-serializable value or raise :py:class:`TypeError`.
+    """
+    if isinstance(data, dict):
+        return {k: _apply_default(v, default) for k, v in data.items()}
+    if isinstance(data, (list, tuple)):
+        return [_apply_default(v, default) for v in data]
+    if isinstance(data, (str, int, float, bool)) or data is None:
+        return data
+    return default(data)
+
+
+def print_data(
+    data: Any,
+    table_format: TableFormat,
+    *,
+    default: Callable | None = None,
+    root_element: str = XML_ROOT_KEY,
+    package: str = "click-extra",
+    **kwargs,
+) -> None:
+    """Serialize arbitrary Python data and print it to the console.
+
+    Wraps :py:func:`serialize_data` with user-friendly error handling for missing
+    optional dependencies.
+
+    :param data: Arbitrary data to serialize.
+    :param table_format: Target serialization format.
+    :param default: Fallback serializer for custom types. Defaults to :py:func:`str`.
+    :param root_element: Root element name for XML output.
+    :param package: Package name for install instructions in error messages.
+    :param kwargs: Extra keyword arguments forwarded to the underlying serializer.
+    """
+    try:
+        output = serialize_data(
+            data,
+            table_format,
+            default=default,
+            root_element=root_element,
+            **kwargs,
+        )
+    except ImportError:
+        raise SystemExit(
+            f"Error: {_missing_extra_message(table_format, package)}"
+        ) from None
+    echo(output, color=False)
 
 
 class TableFormatOption(ExtraOption):
@@ -680,4 +845,153 @@ class TableFormatOption(ExtraOption):
         ctx.print_table = partial(  # type: ignore[attr-defined]
             print_table,
             table_format=table_format,
+        )
+
+
+def _column_sort_key(
+    header_defs: Sequence[tuple[str, str | None]],
+    sort_columns: Sequence[str] | None = None,
+    cell_key: Callable[[str | None], Any] | None = None,
+) -> Callable[[Sequence[str | None]], tuple]:
+    """Build a multi-column sort key from header definitions.
+
+    Specified sort columns are moved to the front of the comparison order;
+    remaining columns provide tie-breaking in their natural (header) order.
+    Each cell is passed through ``cell_key`` before comparison. Defaults to
+    ANSI-stripped, case-folded string comparison.
+    """
+    if cell_key is None:
+
+        def cell_key(v):
+            return strip_ansi(v).casefold() if v else ""
+
+    column_count = len(header_defs)
+    sort_order = list(range(column_count))
+
+    if sort_columns:
+        col_index = {col_id: i for i, (_, col_id) in enumerate(header_defs) if col_id}
+        # Move specified columns to the front in reverse order so the first
+        # specified column ends up at position 0.
+        for sort_col in reversed(sort_columns):
+            if sort_col in col_index:
+                idx = col_index[sort_col]
+                sort_order.remove(idx)
+                sort_order.insert(0, idx)
+
+    def key_func(row: Sequence[str | None]) -> tuple:
+        return tuple(cell_key(row[i]) for i in sort_order)
+
+    return key_func
+
+
+def print_sorted_table(
+    header_defs: Sequence[tuple[str, str | None]],
+    table_data: Sequence[Sequence[str | None]],
+    sort_columns: Sequence[str] | None = None,
+    table_format: TableFormat | None = None,
+    *,
+    cell_key: Callable[[str | None], Any] | None = None,
+    **kwargs,
+) -> None:
+    """Sort and print a table using named column definitions.
+
+    ``header_defs`` is an ordered sequence of ``(label, column_id)`` tuples. Columns
+    with ``column_id=None`` are not selectable for sorting but still participate in
+    tie-breaking.
+
+    :param header_defs: Column definitions as ``(label, column_id)`` pairs.
+    :param table_data: Rows of cell values.
+    :param sort_columns: Column IDs to sort by, in priority order. Falls back to
+        natural header order.
+    :param table_format: Rendering format.
+    :param cell_key: Per-cell comparison key. Defaults to ANSI-stripped, case-folded
+        string comparison.
+    """
+    if not table_data:
+        return
+
+    headers = tuple(style(label, bold=True) for label, _ in header_defs)
+    sort_key = _column_sort_key(header_defs, sort_columns, cell_key)
+    print_table(
+        table_data=table_data,
+        headers=headers,
+        table_format=table_format,
+        sort_key=sort_key,
+        **kwargs,
+    )
+
+
+class SortByOption(ExtraOption):
+    """A ``--sort-by`` option whose choices are derived from column definitions.
+
+    Stores the selected column IDs in ``ctx.meta["click_extra.sort_by"]`` and replaces
+    ``ctx.print_table`` with :py:func:`print_sorted_table` so that table output is
+    automatically sorted. The option accepts ``multiple=True``, so users can repeat
+    ``--sort-by`` to define a multi-column sort priority.
+
+    .. code-block:: python
+
+        @command
+        @table_format_option
+        @sort_by_option(
+            ("Package ID", "package_id"),
+            ("Name", "package_name"),
+            ("Manager", "manager_id"),
+            ("Version", None),
+        )
+        @pass_context
+        def my_cmd(ctx):
+            ctx.print_table(header_defs, rows)
+    """
+
+    def __init__(
+        self,
+        *header_defs: tuple[str, str | None],
+        param_decls: Sequence[str] | None = None,
+        default: str | Sequence[str] | None = None,
+        expose_value: bool = False,
+        cell_key: Callable[[str | None], Any] | None = None,
+        help: str = _("Sort table by this column. Repeat to set priority."),
+        **kwargs,
+    ) -> None:
+        if not param_decls:
+            param_decls = ("--sort-by",)
+
+        self.header_defs = header_defs
+        self.cell_key = cell_key
+        sortable_ids = [col_id for _, col_id in header_defs if col_id]
+
+        # Normalize default to a tuple for multiple mode.
+        if not default:
+            default = (sortable_ids[0],) if sortable_ids else ()
+        elif isinstance(default, str):
+            default = (default,)
+
+        kwargs.setdefault("callback", self.init_sort)
+
+        super().__init__(
+            param_decls=param_decls,
+            type=click.Choice(sortable_ids, case_sensitive=False),
+            default=default,
+            expose_value=expose_value,
+            help=help,
+            multiple=True,
+            **kwargs,
+        )
+
+    def init_sort(
+        self,
+        ctx: click.Context,
+        param: click.Parameter,
+        sort_columns: tuple[str, ...],
+    ) -> None:
+        """Store sort columns and override ``ctx.print_table`` with sorted variant."""
+        ctx.meta["click_extra.sort_by"] = sort_columns
+
+        table_format = ctx.meta.get("click_extra.table_format")
+        ctx.print_table = partial(  # type: ignore[attr-defined]
+            print_sorted_table,
+            table_format=table_format,
+            sort_columns=sort_columns,
+            cell_key=self.cell_key,
         )

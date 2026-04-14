@@ -10,10 +10,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing as ty
+from typing import Any
 
 import requests
-import typing_extensions as ty_ext
+from typing_extensions import Self
 
 from openstack import exceptions
 from openstack import resource
@@ -62,8 +62,8 @@ class QuotaSet(resource.Resource):
         *,
         resource_response_key: str | None = None,
         microversion: str | None = None,
-        **params: ty.Any,
-    ) -> ty_ext.Self:
+        **params: Any,
+    ) -> Self:
         return super().fetch(
             session,
             requires_id,
@@ -108,7 +108,7 @@ class QuotaSet(resource.Resource):
                 body.pop("self", None)
 
                 # Process body_attrs to strip usage and reservation out
-                normalized_attrs: dict[str, ty.Any] = dict(
+                normalized_attrs: dict[str, Any] = dict(
                     reservation={},
                     usage={},
                 )
@@ -150,7 +150,7 @@ class QuotaSet(resource.Resource):
         prepend_key: bool,
         *,
         resource_request_key: str | None = None,
-    ) -> dict[str, ty.Any] | list[ty.Any]:
+    ) -> dict[str, Any] | list[Any]:
         body = self._body.dirty
         # Ensure we never try to send meta props reservation and usage
         body.pop('reservation', None)

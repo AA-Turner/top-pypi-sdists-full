@@ -20,6 +20,8 @@ from tinybird.context import (
 from .datatypes import testers
 from .tornado_template import VALID_CUSTOM_FUNCTION_NAMES, SecurityException, Template
 
+VALID_ACTIVATE_FEATURES = frozenset(["analyzer", "parallel_replicas", "optimize_aggregation_in_order"])
+
 TB_SECRET_IN_TEST_MODE = "tb_secret_dont_raise"
 TB_SECRET_PREFIX = "tb_secret_"
 CH_PARAM_PREFIX = "param_"
@@ -1463,10 +1465,9 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
         return Expression(f"-- cache_ttl {ttl_expression}\n")
 
     def set_activate(feature):
-        valid_features = ("analyzer", "parallel_replicas")
-        if feature not in valid_features:
+        if feature not in VALID_ACTIVATE_FEATURES:
             raise SQLTemplateException(f"'{feature}' is not a valid 'activate' argument")
-        template_execution_results["activate"] = feature
+        template_execution_results.setdefault("activate", set()).add(feature)
         return Expression(f"-- activate {feature}\n")
 
     def set_disable_feature(feature):

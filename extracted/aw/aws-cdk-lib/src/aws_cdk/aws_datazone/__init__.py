@@ -133,6 +133,8 @@ class CfnConnection(
         # The values are placeholders you should change.
         from aws_cdk import aws_datazone as datazone
         
+        # workflows_serverless_properties: Any
+        
         cfn_connection = datazone.CfnConnection(self, "MyCfnConnection",
             domain_identifier="domainIdentifier",
             name="name",
@@ -276,7 +278,11 @@ class CfnConnection(
                     number_of_workers=123,
                     python_virtual_env="pythonVirtualEnv",
                     worker_type="workerType"
-                )
+                ),
+                workflows_mwaa_properties=datazone.CfnConnection.WorkflowsMwaaPropertiesInputProperty(
+                    mwaa_environment_name="mwaaEnvironmentName"
+                ),
+                workflows_serverless_properties=workflows_serverless_properties
             ),
             scope="scope"
         )
@@ -1149,6 +1155,8 @@ class CfnConnection(
             "s3_properties": "s3Properties",
             "spark_emr_properties": "sparkEmrProperties",
             "spark_glue_properties": "sparkGlueProperties",
+            "workflows_mwaa_properties": "workflowsMwaaProperties",
+            "workflows_serverless_properties": "workflowsServerlessProperties",
         },
     )
     class ConnectionPropertiesInputProperty:
@@ -1165,6 +1173,8 @@ class CfnConnection(
             s3_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.S3PropertiesInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             spark_emr_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.SparkEmrPropertiesInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             spark_glue_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.SparkGluePropertiesInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            workflows_mwaa_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConnection.WorkflowsMwaaPropertiesInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            workflows_serverless_properties: typing.Any = None,
         ) -> None:
             '''The properties of a connection.
 
@@ -1178,6 +1188,8 @@ class CfnConnection(
             :param s3_properties: S3 Properties Input.
             :param spark_emr_properties: The Spark EMR properties of a connection.
             :param spark_glue_properties: The Spark AWS Glue properties of a connection.
+            :param workflows_mwaa_properties: Workflows MWAA Properties Input.
+            :param workflows_serverless_properties: Workflows Serverless Properties Input.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-connectionpropertiesinput.html
             :exampleMetadata: fixture=_generated
@@ -1187,6 +1199,8 @@ class CfnConnection(
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_datazone as datazone
+                
+                # workflows_serverless_properties: Any
                 
                 connection_properties_input_property = datazone.CfnConnection.ConnectionPropertiesInputProperty(
                     amazon_qProperties=datazone.CfnConnection.AmazonQPropertiesInputProperty(
@@ -1316,7 +1330,11 @@ class CfnConnection(
                         number_of_workers=123,
                         python_virtual_env="pythonVirtualEnv",
                         worker_type="workerType"
-                    )
+                    ),
+                    workflows_mwaa_properties=datazone.CfnConnection.WorkflowsMwaaPropertiesInputProperty(
+                        mwaa_environment_name="mwaaEnvironmentName"
+                    ),
+                    workflows_serverless_properties=workflows_serverless_properties
                 )
             '''
             if __debug__:
@@ -1331,6 +1349,8 @@ class CfnConnection(
                 check_type(argname="argument s3_properties", value=s3_properties, expected_type=type_hints["s3_properties"])
                 check_type(argname="argument spark_emr_properties", value=spark_emr_properties, expected_type=type_hints["spark_emr_properties"])
                 check_type(argname="argument spark_glue_properties", value=spark_glue_properties, expected_type=type_hints["spark_glue_properties"])
+                check_type(argname="argument workflows_mwaa_properties", value=workflows_mwaa_properties, expected_type=type_hints["workflows_mwaa_properties"])
+                check_type(argname="argument workflows_serverless_properties", value=workflows_serverless_properties, expected_type=type_hints["workflows_serverless_properties"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if amazon_q_properties is not None:
                 self._values["amazon_q_properties"] = amazon_q_properties
@@ -1352,6 +1372,10 @@ class CfnConnection(
                 self._values["spark_emr_properties"] = spark_emr_properties
             if spark_glue_properties is not None:
                 self._values["spark_glue_properties"] = spark_glue_properties
+            if workflows_mwaa_properties is not None:
+                self._values["workflows_mwaa_properties"] = workflows_mwaa_properties
+            if workflows_serverless_properties is not None:
+                self._values["workflows_serverless_properties"] = workflows_serverless_properties
 
         @builtins.property
         def amazon_q_properties(
@@ -1462,6 +1486,26 @@ class CfnConnection(
             '''
             result = self._values.get("spark_glue_properties")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.SparkGluePropertiesInputProperty"]], result)
+
+        @builtins.property
+        def workflows_mwaa_properties(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.WorkflowsMwaaPropertiesInputProperty"]]:
+            '''Workflows MWAA Properties Input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-connectionpropertiesinput.html#cfn-datazone-connection-connectionpropertiesinput-workflowsmwaaproperties
+            '''
+            result = self._values.get("workflows_mwaa_properties")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConnection.WorkflowsMwaaPropertiesInputProperty"]], result)
+
+        @builtins.property
+        def workflows_serverless_properties(self) -> typing.Any:
+            '''Workflows Serverless Properties Input.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-connectionpropertiesinput.html#cfn-datazone-connection-connectionpropertiesinput-workflowsserverlessproperties
+            '''
+            result = self._values.get("workflows_serverless_properties")
+            return typing.cast(typing.Any, result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3463,6 +3507,61 @@ class CfnConnection(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnConnection.WorkflowsMwaaPropertiesInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={"mwaa_environment_name": "mwaaEnvironmentName"},
+    )
+    class WorkflowsMwaaPropertiesInputProperty:
+        def __init__(
+            self,
+            *,
+            mwaa_environment_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Workflows MWAA Properties Input.
+
+            :param mwaa_environment_name: The name of the MWAA environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-workflowsmwaapropertiesinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                workflows_mwaa_properties_input_property = datazone.CfnConnection.WorkflowsMwaaPropertiesInputProperty(
+                    mwaa_environment_name="mwaaEnvironmentName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a499d4276d22e98c3e581007a2351120640d3c16bd03714f5e43a37406e88c18)
+                check_type(argname="argument mwaa_environment_name", value=mwaa_environment_name, expected_type=type_hints["mwaa_environment_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if mwaa_environment_name is not None:
+                self._values["mwaa_environment_name"] = mwaa_environment_name
+
+        @builtins.property
+        def mwaa_environment_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the MWAA environment.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-connection-workflowsmwaapropertiesinput.html#cfn-datazone-connection-workflowsmwaapropertiesinput-mwaaenvironmentname
+            '''
+            result = self._values.get("mwaa_environment_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WorkflowsMwaaPropertiesInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_datazone.CfnConnectionProps",
@@ -3513,6 +3612,8 @@ class CfnConnectionProps:
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_datazone as datazone
+            
+            # workflows_serverless_properties: Any
             
             cfn_connection_props = datazone.CfnConnectionProps(
                 domain_identifier="domainIdentifier",
@@ -3657,7 +3758,11 @@ class CfnConnectionProps:
                         number_of_workers=123,
                         python_virtual_env="pythonVirtualEnv",
                         worker_type="workerType"
-                    )
+                    ),
+                    workflows_mwaa_properties=datazone.CfnConnection.WorkflowsMwaaPropertiesInputProperty(
+                        mwaa_environment_name="mwaaEnvironmentName"
+                    ),
+                    workflows_serverless_properties=workflows_serverless_properties
                 ),
                 scope="scope"
             )
@@ -12528,6 +12633,10 @@ class CfnProject(
             glossary_terms=["glossaryTerms"],
             project_profile_id="projectProfileId",
             project_profile_version="projectProfileVersion",
+            resource_tags=[datazone.CfnProject.ResourceTagProperty(
+                key="key",
+                value="value"
+            )],
             user_parameters=[datazone.CfnProject.EnvironmentConfigurationUserParameterProperty(
                 environment_configuration_name="environmentConfigurationName",
                 environment_id="environmentId",
@@ -12551,6 +12660,7 @@ class CfnProject(
         glossary_terms: typing.Optional[typing.Sequence[builtins.str]] = None,
         project_profile_id: typing.Optional[builtins.str] = None,
         project_profile_version: typing.Optional[builtins.str] = None,
+        resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         user_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.EnvironmentConfigurationUserParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DataZone::Project``.
@@ -12564,6 +12674,7 @@ class CfnProject(
         :param glossary_terms: The glossary terms that can be used in this Amazon DataZone project.
         :param project_profile_id: The ID of the project profile.
         :param project_profile_version: The project profile version to which the project should be updated. You can only specify the following string for this parameter: ``latest`` .
+        :param resource_tags: The resource tags of the project.
         :param user_parameters: The user parameters of the project.
         '''
         if __debug__:
@@ -12578,6 +12689,7 @@ class CfnProject(
             glossary_terms=glossary_terms,
             project_profile_id=project_profile_id,
             project_profile_version=project_profile_version,
+            resource_tags=resource_tags,
             user_parameters=user_parameters,
         )
 
@@ -12782,6 +12894,24 @@ class CfnProject(
         jsii.set(self, "projectProfileVersion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="resourceTags")
+    def resource_tags(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.ResourceTagProperty"]]]]:
+        '''The resource tags of the project.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.ResourceTagProperty"]]]], jsii.get(self, "resourceTags"))
+
+    @resource_tags.setter
+    def resource_tags(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.ResourceTagProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12d3fd6b95b19121ca28109eadab78de7fb90f9e5962237bfd2719813a7548d6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="userParameters")
     def user_parameters(
         self,
@@ -12960,6 +13090,69 @@ class CfnProject(
 
         def __repr__(self) -> str:
             return "EnvironmentParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnProject.ResourceTagProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class ResourceTagProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-resourcetag.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                resource_tag_property = datazone.CfnProject.ResourceTagProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8adc0577bf07d7a56c5832ce5d689d76f20216873a4a71877913952b1eabbbbd)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-resourcetag.html#cfn-datazone-project-resourcetag-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-project-resourcetag.html#cfn-datazone-project-resourcetag-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourceTagProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -13363,6 +13556,7 @@ class CfnProjectProfile(
             name="name",
         
             # the properties below are optional
+            allow_custom_project_resource_tags=False,
             description="description",
             domain_identifier="domainIdentifier",
             domain_unit_identifier="domainUnitIdentifier",
@@ -13395,6 +13589,12 @@ class CfnProjectProfile(
                 description="description",
                 environment_configuration_id="environmentConfigurationId"
             )],
+            project_resource_tags=[datazone.CfnProjectProfile.ResourceTagParameterProperty(
+                is_value_editable=False,
+                key="key",
+                value="value"
+            )],
+            project_resource_tags_description="projectResourceTagsDescription",
             status="status",
             use_default_configurations=False
         )
@@ -13406,10 +13606,13 @@ class CfnProjectProfile(
         id: builtins.str,
         *,
         name: builtins.str,
+        allow_custom_project_resource_tags: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         description: typing.Optional[builtins.str] = None,
         domain_identifier: typing.Optional[builtins.str] = None,
         domain_unit_identifier: typing.Optional[builtins.str] = None,
         environment_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProjectProfile.EnvironmentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        project_resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProjectProfile.ResourceTagParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        project_resource_tags_description: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
         use_default_configurations: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
     ) -> None:
@@ -13418,10 +13621,13 @@ class CfnProjectProfile(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of a project profile.
+        :param allow_custom_project_resource_tags: 
         :param description: The description of the project profile.
         :param domain_identifier: A domain ID of the project profile.
         :param domain_unit_identifier: A domain unit ID of the project profile.
         :param environment_configurations: Environment configurations of a project profile.
+        :param project_resource_tags: 
+        :param project_resource_tags_description: 
         :param status: The status of a project profile.
         :param use_default_configurations: 
         '''
@@ -13431,10 +13637,13 @@ class CfnProjectProfile(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnProjectProfileProps(
             name=name,
+            allow_custom_project_resource_tags=allow_custom_project_resource_tags,
             description=description,
             domain_identifier=domain_identifier,
             domain_unit_identifier=domain_unit_identifier,
             environment_configurations=environment_configurations,
+            project_resource_tags=project_resource_tags,
+            project_resource_tags_description=project_resource_tags_description,
             status=status,
             use_default_configurations=use_default_configurations,
         )
@@ -13571,6 +13780,23 @@ class CfnProjectProfile(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="allowCustomProjectResourceTags")
+    def allow_custom_project_resource_tags(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "allowCustomProjectResourceTags"))
+
+    @allow_custom_project_resource_tags.setter
+    def allow_custom_project_resource_tags(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1098c21741af77171fc8c4cea0b9b3d737c8191be13ac2d687a0d3bb4f7942ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "allowCustomProjectResourceTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the project profile.'''
@@ -13626,6 +13852,38 @@ class CfnProjectProfile(
             type_hints = typing.get_type_hints(_typecheckingstub__11d2d41d817a0c6b3e1fb33f36874d8544dda639fa89db0b3de59a24198ab098)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "environmentConfigurations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="projectResourceTags")
+    def project_resource_tags(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProjectProfile.ResourceTagParameterProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProjectProfile.ResourceTagParameterProperty"]]]], jsii.get(self, "projectResourceTags"))
+
+    @project_resource_tags.setter
+    def project_resource_tags(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProjectProfile.ResourceTagParameterProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4f16ccce708f1a5f79b68ed228bd3b68e0ab8c95dfa4306b9f7782f90f9f2961)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "projectResourceTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="projectResourceTagsDescription")
+    def project_resource_tags_description(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "projectResourceTagsDescription"))
+
+    @project_resource_tags_description.setter
+    def project_resource_tags_description(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75bc084b6246b7011eb60472bdb88e732c2abf67532bf415ba8be9f0aec82baf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "projectResourceTagsDescription", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="status")
@@ -14158,16 +14416,107 @@ class CfnProjectProfile(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_datazone.CfnProjectProfile.ResourceTagParameterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "is_value_editable": "isValueEditable",
+            "key": "key",
+            "value": "value",
+        },
+    )
+    class ResourceTagParameterProperty:
+        def __init__(
+            self,
+            *,
+            is_value_editable: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            key: builtins.str,
+            value: builtins.str,
+        ) -> None:
+            '''
+            :param is_value_editable: 
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-resourcetagparameter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_datazone as datazone
+                
+                resource_tag_parameter_property = datazone.CfnProjectProfile.ResourceTagParameterProperty(
+                    is_value_editable=False,
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1763d2bf4bcaaf6e9e6f7c658cf8754270dd80b66d95f68f166a256931eedbcd)
+                check_type(argname="argument is_value_editable", value=is_value_editable, expected_type=type_hints["is_value_editable"])
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "is_value_editable": is_value_editable,
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def is_value_editable(
+            self,
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-resourcetagparameter.html#cfn-datazone-projectprofile-resourcetagparameter-isvalueeditable
+            '''
+            result = self._values.get("is_value_editable")
+            assert result is not None, "Required property 'is_value_editable' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-resourcetagparameter.html#cfn-datazone-projectprofile-resourcetagparameter-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-datazone-projectprofile-resourcetagparameter.html#cfn-datazone-projectprofile-resourcetagparameter-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourceTagParameterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_datazone.CfnProjectProfileProps",
     jsii_struct_bases=[],
     name_mapping={
         "name": "name",
+        "allow_custom_project_resource_tags": "allowCustomProjectResourceTags",
         "description": "description",
         "domain_identifier": "domainIdentifier",
         "domain_unit_identifier": "domainUnitIdentifier",
         "environment_configurations": "environmentConfigurations",
+        "project_resource_tags": "projectResourceTags",
+        "project_resource_tags_description": "projectResourceTagsDescription",
         "status": "status",
         "use_default_configurations": "useDefaultConfigurations",
     },
@@ -14177,20 +14526,26 @@ class CfnProjectProfileProps:
         self,
         *,
         name: builtins.str,
+        allow_custom_project_resource_tags: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         description: typing.Optional[builtins.str] = None,
         domain_identifier: typing.Optional[builtins.str] = None,
         domain_unit_identifier: typing.Optional[builtins.str] = None,
         environment_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProjectProfile.EnvironmentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        project_resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProjectProfile.ResourceTagParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        project_resource_tags_description: typing.Optional[builtins.str] = None,
         status: typing.Optional[builtins.str] = None,
         use_default_configurations: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
     ) -> None:
         '''Properties for defining a ``CfnProjectProfile``.
 
         :param name: The name of a project profile.
+        :param allow_custom_project_resource_tags: 
         :param description: The description of the project profile.
         :param domain_identifier: A domain ID of the project profile.
         :param domain_unit_identifier: A domain unit ID of the project profile.
         :param environment_configurations: Environment configurations of a project profile.
+        :param project_resource_tags: 
+        :param project_resource_tags_description: 
         :param status: The status of a project profile.
         :param use_default_configurations: 
 
@@ -14207,6 +14562,7 @@ class CfnProjectProfileProps:
                 name="name",
             
                 # the properties below are optional
+                allow_custom_project_resource_tags=False,
                 description="description",
                 domain_identifier="domainIdentifier",
                 domain_unit_identifier="domainUnitIdentifier",
@@ -14239,6 +14595,12 @@ class CfnProjectProfileProps:
                     description="description",
                     environment_configuration_id="environmentConfigurationId"
                 )],
+                project_resource_tags=[datazone.CfnProjectProfile.ResourceTagParameterProperty(
+                    is_value_editable=False,
+                    key="key",
+                    value="value"
+                )],
+                project_resource_tags_description="projectResourceTagsDescription",
                 status="status",
                 use_default_configurations=False
             )
@@ -14246,15 +14608,20 @@ class CfnProjectProfileProps:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16088b85440c601f18ad4a194ccb23740aedaa1b4f93a76e720d939c57cb4d2e)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument allow_custom_project_resource_tags", value=allow_custom_project_resource_tags, expected_type=type_hints["allow_custom_project_resource_tags"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument domain_identifier", value=domain_identifier, expected_type=type_hints["domain_identifier"])
             check_type(argname="argument domain_unit_identifier", value=domain_unit_identifier, expected_type=type_hints["domain_unit_identifier"])
             check_type(argname="argument environment_configurations", value=environment_configurations, expected_type=type_hints["environment_configurations"])
+            check_type(argname="argument project_resource_tags", value=project_resource_tags, expected_type=type_hints["project_resource_tags"])
+            check_type(argname="argument project_resource_tags_description", value=project_resource_tags_description, expected_type=type_hints["project_resource_tags_description"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             check_type(argname="argument use_default_configurations", value=use_default_configurations, expected_type=type_hints["use_default_configurations"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
         }
+        if allow_custom_project_resource_tags is not None:
+            self._values["allow_custom_project_resource_tags"] = allow_custom_project_resource_tags
         if description is not None:
             self._values["description"] = description
         if domain_identifier is not None:
@@ -14263,6 +14630,10 @@ class CfnProjectProfileProps:
             self._values["domain_unit_identifier"] = domain_unit_identifier
         if environment_configurations is not None:
             self._values["environment_configurations"] = environment_configurations
+        if project_resource_tags is not None:
+            self._values["project_resource_tags"] = project_resource_tags
+        if project_resource_tags_description is not None:
+            self._values["project_resource_tags_description"] = project_resource_tags_description
         if status is not None:
             self._values["status"] = status
         if use_default_configurations is not None:
@@ -14277,6 +14648,16 @@ class CfnProjectProfileProps:
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def allow_custom_project_resource_tags(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-projectprofile.html#cfn-datazone-projectprofile-allowcustomprojectresourcetags
+        '''
+        result = self._values.get("allow_custom_project_resource_tags")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -14315,6 +14696,24 @@ class CfnProjectProfileProps:
         '''
         result = self._values.get("environment_configurations")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProjectProfile.EnvironmentConfigurationProperty"]]]], result)
+
+    @builtins.property
+    def project_resource_tags(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProjectProfile.ResourceTagParameterProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-projectprofile.html#cfn-datazone-projectprofile-projectresourcetags
+        '''
+        result = self._values.get("project_resource_tags")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProjectProfile.ResourceTagParameterProperty"]]]], result)
+
+    @builtins.property
+    def project_resource_tags_description(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-projectprofile.html#cfn-datazone-projectprofile-projectresourcetagsdescription
+        '''
+        result = self._values.get("project_resource_tags_description")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
@@ -14358,6 +14757,7 @@ class CfnProjectProfileProps:
         "glossary_terms": "glossaryTerms",
         "project_profile_id": "projectProfileId",
         "project_profile_version": "projectProfileVersion",
+        "resource_tags": "resourceTags",
         "user_parameters": "userParameters",
     },
 )
@@ -14372,6 +14772,7 @@ class CfnProjectProps:
         glossary_terms: typing.Optional[typing.Sequence[builtins.str]] = None,
         project_profile_id: typing.Optional[builtins.str] = None,
         project_profile_version: typing.Optional[builtins.str] = None,
+        resource_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.ResourceTagProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         user_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.EnvironmentConfigurationUserParameterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnProject``.
@@ -14383,6 +14784,7 @@ class CfnProjectProps:
         :param glossary_terms: The glossary terms that can be used in this Amazon DataZone project.
         :param project_profile_id: The ID of the project profile.
         :param project_profile_version: The project profile version to which the project should be updated. You can only specify the following string for this parameter: ``latest`` .
+        :param resource_tags: The resource tags of the project.
         :param user_parameters: The user parameters of the project.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-project.html
@@ -14404,6 +14806,10 @@ class CfnProjectProps:
                 glossary_terms=["glossaryTerms"],
                 project_profile_id="projectProfileId",
                 project_profile_version="projectProfileVersion",
+                resource_tags=[datazone.CfnProject.ResourceTagProperty(
+                    key="key",
+                    value="value"
+                )],
                 user_parameters=[datazone.CfnProject.EnvironmentConfigurationUserParameterProperty(
                     environment_configuration_name="environmentConfigurationName",
                     environment_id="environmentId",
@@ -14423,6 +14829,7 @@ class CfnProjectProps:
             check_type(argname="argument glossary_terms", value=glossary_terms, expected_type=type_hints["glossary_terms"])
             check_type(argname="argument project_profile_id", value=project_profile_id, expected_type=type_hints["project_profile_id"])
             check_type(argname="argument project_profile_version", value=project_profile_version, expected_type=type_hints["project_profile_version"])
+            check_type(argname="argument resource_tags", value=resource_tags, expected_type=type_hints["resource_tags"])
             check_type(argname="argument user_parameters", value=user_parameters, expected_type=type_hints["user_parameters"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "domain_identifier": domain_identifier,
@@ -14438,6 +14845,8 @@ class CfnProjectProps:
             self._values["project_profile_id"] = project_profile_id
         if project_profile_version is not None:
             self._values["project_profile_version"] = project_profile_version
+        if resource_tags is not None:
+            self._values["resource_tags"] = resource_tags
         if user_parameters is not None:
             self._values["user_parameters"] = user_parameters
 
@@ -14509,6 +14918,17 @@ class CfnProjectProps:
         '''
         result = self._values.get("project_profile_version")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_tags(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.ResourceTagProperty"]]]]:
+        '''The resource tags of the project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-datazone-project.html#cfn-datazone-project-resourcetags
+        '''
+        result = self._values.get("resource_tags")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.ResourceTagProperty"]]]], result)
 
     @builtins.property
     def user_parameters(
@@ -15849,6 +16269,8 @@ def _typecheckingstub__afac89e500a9d5f348ce1c21e174ddef9825d543c744b00c3ff73a0c8
     s3_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.S3PropertiesInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     spark_emr_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.SparkEmrPropertiesInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     spark_glue_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.SparkGluePropertiesInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workflows_mwaa_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConnection.WorkflowsMwaaPropertiesInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workflows_serverless_properties: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16029,6 +16451,13 @@ def _typecheckingstub__09aad17749e39aa1e36aa16e65e288bbdbfd74b1ed996ed966f666f40
     *,
     password: builtins.str,
     username: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a499d4276d22e98c3e581007a2351120640d3c16bd03714f5e43a37406e88c18(
+    *,
+    mwaa_environment_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17431,6 +17860,7 @@ def _typecheckingstub__2dd190e348e5421f499a11e44b2fb0c69295587e5e7717b13a56786a8
     glossary_terms: typing.Optional[typing.Sequence[builtins.str]] = None,
     project_profile_id: typing.Optional[builtins.str] = None,
     project_profile_version: typing.Optional[builtins.str] = None,
+    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     user_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.EnvironmentConfigurationUserParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -17496,6 +17926,12 @@ def _typecheckingstub__5fea851298bf6dff2224e18bba1dcf8117578fd86b764925c8087d78e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__12d3fd6b95b19121ca28109eadab78de7fb90f9e5962237bfd2719813a7548d6(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProject.ResourceTagProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3a8a1e223cb296d2e10e4a3c700e7f0c868d2c481c6f8c40ddf1c6a06e86a604(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProject.EnvironmentConfigurationUserParameterProperty]]]],
 ) -> None:
@@ -17515,6 +17951,14 @@ def _typecheckingstub__4bfbfca939a617b6012dc8847e17b3567d673ec789228318c5d1c3971
     *,
     name: typing.Optional[builtins.str] = None,
     value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8adc0577bf07d7a56c5832ce5d689d76f20216873a4a71877913952b1eabbbbd(
+    *,
+    key: builtins.str,
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17596,10 +18040,13 @@ def _typecheckingstub__be64eda6c4825457191dba5045e07eaa3e14f5b1d6605cefc1c291b8f
     id: builtins.str,
     *,
     name: builtins.str,
+    allow_custom_project_resource_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     description: typing.Optional[builtins.str] = None,
     domain_identifier: typing.Optional[builtins.str] = None,
     domain_unit_identifier: typing.Optional[builtins.str] = None,
     environment_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProjectProfile.EnvironmentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    project_resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProjectProfile.ResourceTagParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    project_resource_tags_description: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
     use_default_configurations: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
@@ -17630,6 +18077,12 @@ def _typecheckingstub__e5acf0d662fb5f406ca391f15c3cadba1d68d0dc161876b2305e49570
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1098c21741af77171fc8c4cea0b9b3d737c8191be13ac2d687a0d3bb4f7942ed(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d3e1ff90e5fbfc5a555174f254ce075a9c3654511436a8acf04928992020df04(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -17650,6 +18103,18 @@ def _typecheckingstub__0b87add426c25b8a2eafdfd51a8707432f3ee35363162b07265e414b1
 
 def _typecheckingstub__11d2d41d817a0c6b3e1fb33f36874d8544dda639fa89db0b3de59a24198ab098(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProjectProfile.EnvironmentConfigurationProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f16ccce708f1a5f79b68ed228bd3b68e0ab8c95dfa4306b9f7782f90f9f2961(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProjectProfile.ResourceTagParameterProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75bc084b6246b7011eb60472bdb88e732c2abf67532bf415ba8be9f0aec82baf(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17713,13 +18178,25 @@ def _typecheckingstub__cc189c16fcab170d1d8d250893b0e4741d23998acae1597f3faa4ca36
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1763d2bf4bcaaf6e9e6f7c658cf8754270dd80b66d95f68f166a256931eedbcd(
+    *,
+    is_value_editable: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__16088b85440c601f18ad4a194ccb23740aedaa1b4f93a76e720d939c57cb4d2e(
     *,
     name: builtins.str,
+    allow_custom_project_resource_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     description: typing.Optional[builtins.str] = None,
     domain_identifier: typing.Optional[builtins.str] = None,
     domain_unit_identifier: typing.Optional[builtins.str] = None,
     environment_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProjectProfile.EnvironmentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    project_resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProjectProfile.ResourceTagParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    project_resource_tags_description: typing.Optional[builtins.str] = None,
     status: typing.Optional[builtins.str] = None,
     use_default_configurations: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
@@ -17735,6 +18212,7 @@ def _typecheckingstub__d519699f8d5d172880216006cab9e8c1595fc99339cf485d2be1f6c37
     glossary_terms: typing.Optional[typing.Sequence[builtins.str]] = None,
     project_profile_id: typing.Optional[builtins.str] = None,
     project_profile_version: typing.Optional[builtins.str] = None,
+    resource_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.ResourceTagProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     user_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.EnvironmentConfigurationUserParameterProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""

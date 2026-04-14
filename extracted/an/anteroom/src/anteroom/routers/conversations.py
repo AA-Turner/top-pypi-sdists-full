@@ -214,6 +214,9 @@ async def update_conversation(conversation_id: str, body: ConversationUpdate, re
     if body.type is not None:
         conv = storage.update_conversation_type(db, conversation_id, body.type)
     if body.model is not None:
+        config = request.app.state.config
+        if config.ai.allowed_models and body.model and body.model not in config.ai.allowed_models:
+            raise HTTPException(status_code=422, detail="Model not in allowed_models list")
         conv = storage.update_conversation_model(db, conversation_id, body.model)
     if body.folder_id is not None:
         folder_id = body.folder_id if body.folder_id != "" else None

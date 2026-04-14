@@ -1970,6 +1970,14 @@ class CfnEvaluator(
         
         cfn_evaluator = bedrockagentcore.CfnEvaluator(self, "MyCfnEvaluator",
             evaluator_config=bedrockagentcore.CfnEvaluator.EvaluatorConfigProperty(
+                code_based=bedrockagentcore.CfnEvaluator.CodeBasedEvaluatorConfigProperty(
+                    lambda_config=bedrockagentcore.CfnEvaluator.LambdaEvaluatorConfigProperty(
+                        lambda_arn="lambdaArn",
+        
+                        # the properties below are optional
+                        lambda_timeout_in_seconds=123
+                    )
+                ),
                 llm_as_aJudge=bedrockagentcore.CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty(
                     instructions="instructions",
                     model_config=bedrockagentcore.CfnEvaluator.EvaluatorModelConfigProperty(
@@ -2395,18 +2403,83 @@ class CfnEvaluator(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluator.CodeBasedEvaluatorConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"lambda_config": "lambdaConfig"},
+    )
+    class CodeBasedEvaluatorConfigProperty:
+        def __init__(
+            self,
+            *,
+            lambda_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.LambdaEvaluatorConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The configuration for code-based evaluation using a Lambda function.
+
+            :param lambda_config: The Lambda function configuration for code-based evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-codebasedevaluatorconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                code_based_evaluator_config_property = bedrockagentcore.CfnEvaluator.CodeBasedEvaluatorConfigProperty(
+                    lambda_config=bedrockagentcore.CfnEvaluator.LambdaEvaluatorConfigProperty(
+                        lambda_arn="lambdaArn",
+                
+                        # the properties below are optional
+                        lambda_timeout_in_seconds=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1471b61ea475b2e94e167b72d9be44c30438ef0d072fb68c87e7d37dcea8833b)
+                check_type(argname="argument lambda_config", value=lambda_config, expected_type=type_hints["lambda_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "lambda_config": lambda_config,
+            }
+
+        @builtins.property
+        def lambda_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnEvaluator.LambdaEvaluatorConfigProperty"]:
+            '''The Lambda function configuration for code-based evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-codebasedevaluatorconfig.html#cfn-bedrockagentcore-evaluator-codebasedevaluatorconfig-lambdaconfig
+            '''
+            result = self._values.get("lambda_config")
+            assert result is not None, "Required property 'lambda_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEvaluator.LambdaEvaluatorConfigProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeBasedEvaluatorConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluator.EvaluatorConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"llm_as_a_judge": "llmAsAJudge"},
+        name_mapping={"code_based": "codeBased", "llm_as_a_judge": "llmAsAJudge"},
     )
     class EvaluatorConfigProperty:
         def __init__(
             self,
             *,
-            llm_as_a_judge: typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            code_based: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.CodeBasedEvaluatorConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            llm_as_a_judge: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration that defines how an evaluator assesses agent performance.
 
+            :param code_based: The configuration for code-based evaluation using a Lambda function.
             :param llm_as_a_judge: The configuration for LLM-as-a-Judge evaluation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-evaluatorconfig.html
@@ -2421,6 +2494,14 @@ class CfnEvaluator(
                 # additional_model_request_fields: Any
                 
                 evaluator_config_property = bedrockagentcore.CfnEvaluator.EvaluatorConfigProperty(
+                    code_based=bedrockagentcore.CfnEvaluator.CodeBasedEvaluatorConfigProperty(
+                        lambda_config=bedrockagentcore.CfnEvaluator.LambdaEvaluatorConfigProperty(
+                            lambda_arn="lambdaArn",
+                
+                            # the properties below are optional
+                            lambda_timeout_in_seconds=123
+                        )
+                    ),
                     llm_as_aJudge=bedrockagentcore.CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty(
                         instructions="instructions",
                         model_config=bedrockagentcore.CfnEvaluator.EvaluatorModelConfigProperty(
@@ -2452,22 +2533,35 @@ class CfnEvaluator(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__68fedf7916817af17038fada535f709885d9e4602b0228fd6e545877cc7a08c4)
+                check_type(argname="argument code_based", value=code_based, expected_type=type_hints["code_based"])
                 check_type(argname="argument llm_as_a_judge", value=llm_as_a_judge, expected_type=type_hints["llm_as_a_judge"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "llm_as_a_judge": llm_as_a_judge,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if code_based is not None:
+                self._values["code_based"] = code_based
+            if llm_as_a_judge is not None:
+                self._values["llm_as_a_judge"] = llm_as_a_judge
+
+        @builtins.property
+        def code_based(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEvaluator.CodeBasedEvaluatorConfigProperty"]]:
+            '''The configuration for code-based evaluation using a Lambda function.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-evaluatorconfig.html#cfn-bedrockagentcore-evaluator-evaluatorconfig-codebased
+            '''
+            result = self._values.get("code_based")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEvaluator.CodeBasedEvaluatorConfigProperty"]], result)
 
         @builtins.property
         def llm_as_a_judge(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty"]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty"]]:
             '''The configuration for LLM-as-a-Judge evaluation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-evaluatorconfig.html#cfn-bedrockagentcore-evaluator-evaluatorconfig-llmasajudge
             '''
             result = self._values.get("llm_as_a_judge")
-            assert result is not None, "Required property 'llm_as_a_judge' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2636,6 +2730,82 @@ class CfnEvaluator(
 
         def __repr__(self) -> str:
             return "InferenceConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnEvaluator.LambdaEvaluatorConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "lambda_arn": "lambdaArn",
+            "lambda_timeout_in_seconds": "lambdaTimeoutInSeconds",
+        },
+    )
+    class LambdaEvaluatorConfigProperty:
+        def __init__(
+            self,
+            *,
+            lambda_arn: builtins.str,
+            lambda_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The Lambda function configuration for code-based evaluation.
+
+            :param lambda_arn: The ARN of the Lambda function used for evaluation.
+            :param lambda_timeout_in_seconds: The timeout in seconds for the Lambda function invocation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-lambdaevaluatorconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                lambda_evaluator_config_property = bedrockagentcore.CfnEvaluator.LambdaEvaluatorConfigProperty(
+                    lambda_arn="lambdaArn",
+                
+                    # the properties below are optional
+                    lambda_timeout_in_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d890c82dd53e0c4744b1aa8d26c42660b2ad041b92908eafe68a7058652410d6)
+                check_type(argname="argument lambda_arn", value=lambda_arn, expected_type=type_hints["lambda_arn"])
+                check_type(argname="argument lambda_timeout_in_seconds", value=lambda_timeout_in_seconds, expected_type=type_hints["lambda_timeout_in_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "lambda_arn": lambda_arn,
+            }
+            if lambda_timeout_in_seconds is not None:
+                self._values["lambda_timeout_in_seconds"] = lambda_timeout_in_seconds
+
+        @builtins.property
+        def lambda_arn(self) -> builtins.str:
+            '''The ARN of the Lambda function used for evaluation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-lambdaevaluatorconfig.html#cfn-bedrockagentcore-evaluator-lambdaevaluatorconfig-lambdaarn
+            '''
+            result = self._values.get("lambda_arn")
+            assert result is not None, "Required property 'lambda_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def lambda_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The timeout in seconds for the Lambda function invocation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-lambdaevaluatorconfig.html#cfn-bedrockagentcore-evaluator-lambdaevaluatorconfig-lambdatimeoutinseconds
+            '''
+            result = self._values.get("lambda_timeout_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LambdaEvaluatorConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2966,6 +3136,14 @@ class CfnEvaluatorProps:
             
             cfn_evaluator_props = bedrockagentcore.CfnEvaluatorProps(
                 evaluator_config=bedrockagentcore.CfnEvaluator.EvaluatorConfigProperty(
+                    code_based=bedrockagentcore.CfnEvaluator.CodeBasedEvaluatorConfigProperty(
+                        lambda_config=bedrockagentcore.CfnEvaluator.LambdaEvaluatorConfigProperty(
+                            lambda_arn="lambdaArn",
+            
+                            # the properties below are optional
+                            lambda_timeout_in_seconds=123
+                        )
+                    ),
                     llm_as_aJudge=bedrockagentcore.CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty(
                         instructions="instructions",
                         model_config=bedrockagentcore.CfnEvaluator.EvaluatorModelConfigProperty(
@@ -7394,7 +7572,8 @@ class CfnMemory(
                                 model_id="modelId",
         
                                 # the properties below are optional
-                                namespaces=["namespaces"]
+                                namespaces=["namespaces"],
+                                namespace_templates=["namespaceTemplates"]
                             )
                         ),
                         self_managed_configuration=bedrockagentcore.CfnMemory.SelfManagedConfigurationProperty(
@@ -7445,6 +7624,7 @@ class CfnMemory(
                     created_at="createdAt",
                     description="description",
                     namespaces=["namespaces"],
+                    namespace_templates=["namespaceTemplates"],
                     status="status",
                     strategy_id="strategyId",
                     type="type",
@@ -7457,8 +7637,12 @@ class CfnMemory(
                     created_at="createdAt",
                     description="description",
                     namespaces=["namespaces"],
+                    namespace_templates=["namespaceTemplates"],
                     reflection_configuration=bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
-                        namespaces=["namespaces"]
+                        namespaces=["namespaces"],
+        
+                        # the properties below are optional
+                        namespace_templates=["namespaceTemplates"]
                     ),
                     status="status",
                     strategy_id="strategyId",
@@ -7472,6 +7656,7 @@ class CfnMemory(
                     created_at="createdAt",
                     description="description",
                     namespaces=["namespaces"],
+                    namespace_templates=["namespaceTemplates"],
                     status="status",
                     strategy_id="strategyId",
                     type="type",
@@ -7484,6 +7669,7 @@ class CfnMemory(
                     created_at="createdAt",
                     description="description",
                     namespaces=["namespaces"],
+                    namespace_templates=["namespaceTemplates"],
                     status="status",
                     strategy_id="strategyId",
                     type="type",
@@ -7496,6 +7682,7 @@ class CfnMemory(
                     created_at="createdAt",
                     description="description",
                     namespaces=["namespaces"],
+                    namespace_templates=["namespaceTemplates"],
                     status="status",
                     strategy_id="strategyId",
                     type="type",
@@ -7928,7 +8115,8 @@ class CfnMemory(
                             model_id="modelId",
                 
                             # the properties below are optional
-                            namespaces=["namespaces"]
+                            namespaces=["namespaces"],
+                            namespace_templates=["namespaceTemplates"]
                         )
                     ),
                     self_managed_configuration=bedrockagentcore.CfnMemory.SelfManagedConfigurationProperty(
@@ -8070,6 +8258,7 @@ class CfnMemory(
             "created_at": "createdAt",
             "description": "description",
             "namespaces": "namespaces",
+            "namespace_templates": "namespaceTemplates",
             "status": "status",
             "strategy_id": "strategyId",
             "type": "type",
@@ -8085,6 +8274,7 @@ class CfnMemory(
             created_at: typing.Optional[builtins.str] = None,
             description: typing.Optional[builtins.str] = None,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+            namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
             status: typing.Optional[builtins.str] = None,
             strategy_id: typing.Optional[builtins.str] = None,
             type: typing.Optional[builtins.str] = None,
@@ -8097,6 +8287,7 @@ class CfnMemory(
             :param created_at: Creation timestamp of the memory strategy.
             :param description: The memory strategy description.
             :param namespaces: The memory strategy namespaces.
+            :param namespace_templates: List of namespaces for memory strategy.
             :param status: The memory strategy status.
             :param strategy_id: The memory strategy ID.
             :param type: The memory strategy type.
@@ -8130,7 +8321,8 @@ class CfnMemory(
                                 model_id="modelId",
                 
                                 # the properties below are optional
-                                namespaces=["namespaces"]
+                                namespaces=["namespaces"],
+                                namespace_templates=["namespaceTemplates"]
                             )
                         ),
                         self_managed_configuration=bedrockagentcore.CfnMemory.SelfManagedConfigurationProperty(
@@ -8181,6 +8373,7 @@ class CfnMemory(
                     created_at="createdAt",
                     description="description",
                     namespaces=["namespaces"],
+                    namespace_templates=["namespaceTemplates"],
                     status="status",
                     strategy_id="strategyId",
                     type="type",
@@ -8194,6 +8387,7 @@ class CfnMemory(
                 check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
+                check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
                 check_type(argname="argument strategy_id", value=strategy_id, expected_type=type_hints["strategy_id"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -8209,6 +8403,8 @@ class CfnMemory(
                 self._values["description"] = description
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
+            if namespace_templates is not None:
+                self._values["namespace_templates"] = namespace_templates
             if status is not None:
                 self._values["status"] = status
             if strategy_id is not None:
@@ -8267,6 +8463,15 @@ class CfnMemory(
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
+        def namespace_templates(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of namespaces for memory strategy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-custommemorystrategy.html#cfn-bedrockagentcore-memory-custommemorystrategy-namespacetemplates
+            '''
+            result = self._values.get("namespace_templates")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
         def status(self) -> typing.Optional[builtins.str]:
             '''The memory strategy status.
 
@@ -8321,6 +8526,7 @@ class CfnMemory(
             "created_at": "createdAt",
             "description": "description",
             "namespaces": "namespaces",
+            "namespace_templates": "namespaceTemplates",
             "reflection_configuration": "reflectionConfiguration",
             "status": "status",
             "strategy_id": "strategyId",
@@ -8336,6 +8542,7 @@ class CfnMemory(
             created_at: typing.Optional[builtins.str] = None,
             description: typing.Optional[builtins.str] = None,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+            namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
             reflection_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMemory.EpisodicReflectionConfigurationInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             status: typing.Optional[builtins.str] = None,
             strategy_id: typing.Optional[builtins.str] = None,
@@ -8347,6 +8554,7 @@ class CfnMemory(
             :param created_at: Creation timestamp of the memory strategy.
             :param description: Description of the Memory resource.
             :param namespaces: List of namespaces for memory strategy.
+            :param namespace_templates: List of namespaces for memory strategy.
             :param reflection_configuration: 
             :param status: Status of the memory strategy.
             :param strategy_id: Unique identifier for the memory strategy.
@@ -8369,8 +8577,12 @@ class CfnMemory(
                     created_at="createdAt",
                     description="description",
                     namespaces=["namespaces"],
+                    namespace_templates=["namespaceTemplates"],
                     reflection_configuration=bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
-                        namespaces=["namespaces"]
+                        namespaces=["namespaces"],
+                
+                        # the properties below are optional
+                        namespace_templates=["namespaceTemplates"]
                     ),
                     status="status",
                     strategy_id="strategyId",
@@ -8384,6 +8596,7 @@ class CfnMemory(
                 check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
+                check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
                 check_type(argname="argument reflection_configuration", value=reflection_configuration, expected_type=type_hints["reflection_configuration"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
                 check_type(argname="argument strategy_id", value=strategy_id, expected_type=type_hints["strategy_id"])
@@ -8398,6 +8611,8 @@ class CfnMemory(
                 self._values["description"] = description
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
+            if namespace_templates is not None:
+                self._values["namespace_templates"] = namespace_templates
             if reflection_configuration is not None:
                 self._values["reflection_configuration"] = reflection_configuration
             if status is not None:
@@ -8444,6 +8659,15 @@ class CfnMemory(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-episodicmemorystrategy.html#cfn-bedrockagentcore-memory-episodicmemorystrategy-namespaces
             '''
             result = self._values.get("namespaces")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def namespace_templates(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of namespaces for memory strategy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-episodicmemorystrategy.html#cfn-bedrockagentcore-memory-episodicmemorystrategy-namespacetemplates
+            '''
+            result = self._values.get("namespace_templates")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
@@ -8686,7 +8910,8 @@ class CfnMemory(
                         model_id="modelId",
                 
                         # the properties below are optional
-                        namespaces=["namespaces"]
+                        namespaces=["namespaces"],
+                        namespace_templates=["namespaceTemplates"]
                     )
                 )
             '''
@@ -8751,6 +8976,7 @@ class CfnMemory(
             "append_to_prompt": "appendToPrompt",
             "model_id": "modelId",
             "namespaces": "namespaces",
+            "namespace_templates": "namespaceTemplates",
         },
     )
     class EpisodicOverrideReflectionConfigurationInputProperty:
@@ -8760,11 +8986,13 @@ class CfnMemory(
             append_to_prompt: builtins.str,
             model_id: builtins.str,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+            namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''
             :param append_to_prompt: Text prompt for model instructions.
             :param model_id: 
             :param namespaces: List of namespaces for memory strategy.
+            :param namespace_templates: List of namespaces for memory strategy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-episodicoverridereflectionconfigurationinput.html
             :exampleMetadata: fixture=_generated
@@ -8780,7 +9008,8 @@ class CfnMemory(
                     model_id="modelId",
                 
                     # the properties below are optional
-                    namespaces=["namespaces"]
+                    namespaces=["namespaces"],
+                    namespace_templates=["namespaceTemplates"]
                 )
             '''
             if __debug__:
@@ -8788,12 +9017,15 @@ class CfnMemory(
                 check_type(argname="argument append_to_prompt", value=append_to_prompt, expected_type=type_hints["append_to_prompt"])
                 check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
+                check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "append_to_prompt": append_to_prompt,
                 "model_id": model_id,
             }
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
+            if namespace_templates is not None:
+                self._values["namespace_templates"] = namespace_templates
 
         @builtins.property
         def append_to_prompt(self) -> builtins.str:
@@ -8823,6 +9055,15 @@ class CfnMemory(
             result = self._values.get("namespaces")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
+        @builtins.property
+        def namespace_templates(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of namespaces for memory strategy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-episodicoverridereflectionconfigurationinput.html#cfn-bedrockagentcore-memory-episodicoverridereflectionconfigurationinput-namespacetemplates
+            '''
+            result = self._values.get("namespace_templates")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -8837,12 +9078,21 @@ class CfnMemory(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty",
         jsii_struct_bases=[],
-        name_mapping={"namespaces": "namespaces"},
+        name_mapping={
+            "namespaces": "namespaces",
+            "namespace_templates": "namespaceTemplates",
+        },
     )
     class EpisodicReflectionConfigurationInputProperty:
-        def __init__(self, *, namespaces: typing.Sequence[builtins.str]) -> None:
+        def __init__(
+            self,
+            *,
+            namespaces: typing.Sequence[builtins.str],
+            namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
             '''
             :param namespaces: List of namespaces for memory strategy.
+            :param namespace_templates: List of namespaces for memory strategy.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-episodicreflectionconfigurationinput.html
             :exampleMetadata: fixture=_generated
@@ -8854,15 +9104,21 @@ class CfnMemory(
                 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
                 
                 episodic_reflection_configuration_input_property = bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
-                    namespaces=["namespaces"]
+                    namespaces=["namespaces"],
+                
+                    # the properties below are optional
+                    namespace_templates=["namespaceTemplates"]
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__4d10801b6b457e9912061807464c00e48d36901349246d4c00671ab17eaee367)
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
+                check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "namespaces": namespaces,
             }
+            if namespace_templates is not None:
+                self._values["namespace_templates"] = namespace_templates
 
         @builtins.property
         def namespaces(self) -> typing.List[builtins.str]:
@@ -8873,6 +9129,15 @@ class CfnMemory(
             result = self._values.get("namespaces")
             assert result is not None, "Required property 'namespaces' is missing"
             return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def namespace_templates(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of namespaces for memory strategy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-episodicreflectionconfigurationinput.html#cfn-bedrockagentcore-memory-episodicreflectionconfigurationinput-namespacetemplates
+            '''
+            result = self._values.get("namespace_templates")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9095,7 +9360,8 @@ class CfnMemory(
                                     model_id="modelId",
                 
                                     # the properties below are optional
-                                    namespaces=["namespaces"]
+                                    namespaces=["namespaces"],
+                                    namespace_templates=["namespaceTemplates"]
                                 )
                             ),
                             self_managed_configuration=bedrockagentcore.CfnMemory.SelfManagedConfigurationProperty(
@@ -9146,6 +9412,7 @@ class CfnMemory(
                         created_at="createdAt",
                         description="description",
                         namespaces=["namespaces"],
+                        namespace_templates=["namespaceTemplates"],
                         status="status",
                         strategy_id="strategyId",
                         type="type",
@@ -9158,8 +9425,12 @@ class CfnMemory(
                         created_at="createdAt",
                         description="description",
                         namespaces=["namespaces"],
+                        namespace_templates=["namespaceTemplates"],
                         reflection_configuration=bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
-                            namespaces=["namespaces"]
+                            namespaces=["namespaces"],
+                
+                            # the properties below are optional
+                            namespace_templates=["namespaceTemplates"]
                         ),
                         status="status",
                         strategy_id="strategyId",
@@ -9173,6 +9444,7 @@ class CfnMemory(
                         created_at="createdAt",
                         description="description",
                         namespaces=["namespaces"],
+                        namespace_templates=["namespaceTemplates"],
                         status="status",
                         strategy_id="strategyId",
                         type="type",
@@ -9185,6 +9457,7 @@ class CfnMemory(
                         created_at="createdAt",
                         description="description",
                         namespaces=["namespaces"],
+                        namespace_templates=["namespaceTemplates"],
                         status="status",
                         strategy_id="strategyId",
                         type="type",
@@ -9197,6 +9470,7 @@ class CfnMemory(
                         created_at="createdAt",
                         description="description",
                         namespaces=["namespaces"],
+                        namespace_templates=["namespaceTemplates"],
                         status="status",
                         strategy_id="strategyId",
                         type="type",
@@ -9456,6 +9730,7 @@ class CfnMemory(
             "created_at": "createdAt",
             "description": "description",
             "namespaces": "namespaces",
+            "namespace_templates": "namespaceTemplates",
             "status": "status",
             "strategy_id": "strategyId",
             "type": "type",
@@ -9470,6 +9745,7 @@ class CfnMemory(
             created_at: typing.Optional[builtins.str] = None,
             description: typing.Optional[builtins.str] = None,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+            namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
             status: typing.Optional[builtins.str] = None,
             strategy_id: typing.Optional[builtins.str] = None,
             type: typing.Optional[builtins.str] = None,
@@ -9481,6 +9757,7 @@ class CfnMemory(
             :param created_at: Creation timestamp of the memory strategy.
             :param description: The memory strategy description.
             :param namespaces: The memory strategy namespaces.
+            :param namespace_templates: List of namespaces for memory strategy.
             :param status: Status of the memory strategy.
             :param strategy_id: The memory strategy ID.
             :param type: The memory strategy type.
@@ -9502,6 +9779,7 @@ class CfnMemory(
                     created_at="createdAt",
                     description="description",
                     namespaces=["namespaces"],
+                    namespace_templates=["namespaceTemplates"],
                     status="status",
                     strategy_id="strategyId",
                     type="type",
@@ -9514,6 +9792,7 @@ class CfnMemory(
                 check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
+                check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
                 check_type(argname="argument strategy_id", value=strategy_id, expected_type=type_hints["strategy_id"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -9527,6 +9806,8 @@ class CfnMemory(
                 self._values["description"] = description
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
+            if namespace_templates is not None:
+                self._values["namespace_templates"] = namespace_templates
             if status is not None:
                 self._values["status"] = status
             if strategy_id is not None:
@@ -9571,6 +9852,15 @@ class CfnMemory(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-semanticmemorystrategy.html#cfn-bedrockagentcore-memory-semanticmemorystrategy-namespaces
             '''
             result = self._values.get("namespaces")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def namespace_templates(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of namespaces for memory strategy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-semanticmemorystrategy.html#cfn-bedrockagentcore-memory-semanticmemorystrategy-namespacetemplates
+            '''
+            result = self._values.get("namespace_templates")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
@@ -9979,6 +10269,7 @@ class CfnMemory(
             "created_at": "createdAt",
             "description": "description",
             "namespaces": "namespaces",
+            "namespace_templates": "namespaceTemplates",
             "status": "status",
             "strategy_id": "strategyId",
             "type": "type",
@@ -9993,6 +10284,7 @@ class CfnMemory(
             created_at: typing.Optional[builtins.str] = None,
             description: typing.Optional[builtins.str] = None,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+            namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
             status: typing.Optional[builtins.str] = None,
             strategy_id: typing.Optional[builtins.str] = None,
             type: typing.Optional[builtins.str] = None,
@@ -10004,6 +10296,7 @@ class CfnMemory(
             :param created_at: Creation timestamp of the memory strategy.
             :param description: The memory strategy description.
             :param namespaces: The summary memory strategy.
+            :param namespace_templates: List of namespaces for memory strategy.
             :param status: The memory strategy status.
             :param strategy_id: The memory strategy ID.
             :param type: The memory strategy type.
@@ -10025,6 +10318,7 @@ class CfnMemory(
                     created_at="createdAt",
                     description="description",
                     namespaces=["namespaces"],
+                    namespace_templates=["namespaceTemplates"],
                     status="status",
                     strategy_id="strategyId",
                     type="type",
@@ -10037,6 +10331,7 @@ class CfnMemory(
                 check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
+                check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
                 check_type(argname="argument strategy_id", value=strategy_id, expected_type=type_hints["strategy_id"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -10050,6 +10345,8 @@ class CfnMemory(
                 self._values["description"] = description
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
+            if namespace_templates is not None:
+                self._values["namespace_templates"] = namespace_templates
             if status is not None:
                 self._values["status"] = status
             if strategy_id is not None:
@@ -10094,6 +10391,15 @@ class CfnMemory(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-summarymemorystrategy.html#cfn-bedrockagentcore-memory-summarymemorystrategy-namespaces
             '''
             result = self._values.get("namespaces")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def namespace_templates(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of namespaces for memory strategy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-summarymemorystrategy.html#cfn-bedrockagentcore-memory-summarymemorystrategy-namespacetemplates
+            '''
+            result = self._values.get("namespace_templates")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
@@ -10489,6 +10795,7 @@ class CfnMemory(
             "created_at": "createdAt",
             "description": "description",
             "namespaces": "namespaces",
+            "namespace_templates": "namespaceTemplates",
             "status": "status",
             "strategy_id": "strategyId",
             "type": "type",
@@ -10503,6 +10810,7 @@ class CfnMemory(
             created_at: typing.Optional[builtins.str] = None,
             description: typing.Optional[builtins.str] = None,
             namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+            namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
             status: typing.Optional[builtins.str] = None,
             strategy_id: typing.Optional[builtins.str] = None,
             type: typing.Optional[builtins.str] = None,
@@ -10514,6 +10822,7 @@ class CfnMemory(
             :param created_at: Creation timestamp of the memory strategy.
             :param description: The memory strategy description.
             :param namespaces: The memory namespaces.
+            :param namespace_templates: List of namespaces for memory strategy.
             :param status: The memory strategy status.
             :param strategy_id: The memory strategy ID.
             :param type: The memory strategy type.
@@ -10535,6 +10844,7 @@ class CfnMemory(
                     created_at="createdAt",
                     description="description",
                     namespaces=["namespaces"],
+                    namespace_templates=["namespaceTemplates"],
                     status="status",
                     strategy_id="strategyId",
                     type="type",
@@ -10547,6 +10857,7 @@ class CfnMemory(
                 check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
                 check_type(argname="argument namespaces", value=namespaces, expected_type=type_hints["namespaces"])
+                check_type(argname="argument namespace_templates", value=namespace_templates, expected_type=type_hints["namespace_templates"])
                 check_type(argname="argument status", value=status, expected_type=type_hints["status"])
                 check_type(argname="argument strategy_id", value=strategy_id, expected_type=type_hints["strategy_id"])
                 check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -10560,6 +10871,8 @@ class CfnMemory(
                 self._values["description"] = description
             if namespaces is not None:
                 self._values["namespaces"] = namespaces
+            if namespace_templates is not None:
+                self._values["namespace_templates"] = namespace_templates
             if status is not None:
                 self._values["status"] = status
             if strategy_id is not None:
@@ -10604,6 +10917,15 @@ class CfnMemory(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-userpreferencememorystrategy.html#cfn-bedrockagentcore-memory-userpreferencememorystrategy-namespaces
             '''
             result = self._values.get("namespaces")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def namespace_templates(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''List of namespaces for memory strategy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-userpreferencememorystrategy.html#cfn-bedrockagentcore-memory-userpreferencememorystrategy-namespacetemplates
+            '''
+            result = self._values.get("namespace_templates")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
@@ -10951,7 +11273,8 @@ class CfnMemoryProps:
                                     model_id="modelId",
             
                                     # the properties below are optional
-                                    namespaces=["namespaces"]
+                                    namespaces=["namespaces"],
+                                    namespace_templates=["namespaceTemplates"]
                                 )
                             ),
                             self_managed_configuration=bedrockagentcore.CfnMemory.SelfManagedConfigurationProperty(
@@ -11002,6 +11325,7 @@ class CfnMemoryProps:
                         created_at="createdAt",
                         description="description",
                         namespaces=["namespaces"],
+                        namespace_templates=["namespaceTemplates"],
                         status="status",
                         strategy_id="strategyId",
                         type="type",
@@ -11014,8 +11338,12 @@ class CfnMemoryProps:
                         created_at="createdAt",
                         description="description",
                         namespaces=["namespaces"],
+                        namespace_templates=["namespaceTemplates"],
                         reflection_configuration=bedrockagentcore.CfnMemory.EpisodicReflectionConfigurationInputProperty(
-                            namespaces=["namespaces"]
+                            namespaces=["namespaces"],
+            
+                            # the properties below are optional
+                            namespace_templates=["namespaceTemplates"]
                         ),
                         status="status",
                         strategy_id="strategyId",
@@ -11029,6 +11357,7 @@ class CfnMemoryProps:
                         created_at="createdAt",
                         description="description",
                         namespaces=["namespaces"],
+                        namespace_templates=["namespaceTemplates"],
                         status="status",
                         strategy_id="strategyId",
                         type="type",
@@ -11041,6 +11370,7 @@ class CfnMemoryProps:
                         created_at="createdAt",
                         description="description",
                         namespaces=["namespaces"],
+                        namespace_templates=["namespaceTemplates"],
                         status="status",
                         strategy_id="strategyId",
                         type="type",
@@ -11053,6 +11383,7 @@ class CfnMemoryProps:
                         created_at="createdAt",
                         description="description",
                         namespaces=["namespaces"],
+                        namespace_templates=["namespaceTemplates"],
                         status="status",
                         strategy_id="strategyId",
                         type="type",
@@ -16420,9 +16751,17 @@ def _typecheckingstub__0138c4dab895be263ca856078c54d7f7dc17e4a1e5fa14530ef199b88
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1471b61ea475b2e94e167b72d9be44c30438ef0d072fb68c87e7d37dcea8833b(
+    *,
+    lambda_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.LambdaEvaluatorConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__68fedf7916817af17038fada535f709885d9e4602b0228fd6e545877cc7a08c4(
     *,
-    llm_as_a_judge: typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    code_based: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.CodeBasedEvaluatorConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    llm_as_a_judge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEvaluator.LlmAsAJudgeEvaluatorConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16439,6 +16778,14 @@ def _typecheckingstub__fe32f79956eba54fe76f4cfd3e9550d9001beda9560e6f4c55b2f8ab9
     max_tokens: typing.Optional[jsii.Number] = None,
     temperature: typing.Optional[jsii.Number] = None,
     top_p: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d890c82dd53e0c4744b1aa8d26c42660b2ad041b92908eafe68a7058652410d6(
+    *,
+    lambda_arn: builtins.str,
+    lambda_timeout_in_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17071,6 +17418,7 @@ def _typecheckingstub__68f9ef2809f813258bef3dcd9ec460d2f237f2127d9f7cb9aae325616
     created_at: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+    namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
     status: typing.Optional[builtins.str] = None,
     strategy_id: typing.Optional[builtins.str] = None,
     type: typing.Optional[builtins.str] = None,
@@ -17085,6 +17433,7 @@ def _typecheckingstub__4010f11a9f956fe10befa570e47005124fa04732849c4143a5219ad03
     created_at: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+    namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
     reflection_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMemory.EpisodicReflectionConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     status: typing.Optional[builtins.str] = None,
     strategy_id: typing.Optional[builtins.str] = None,
@@ -17124,6 +17473,7 @@ def _typecheckingstub__df10fcf9a92c0373c158e2aa4763d8107995e1f7b4403a8c8001a6afe
     append_to_prompt: builtins.str,
     model_id: builtins.str,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+    namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17131,6 +17481,7 @@ def _typecheckingstub__df10fcf9a92c0373c158e2aa4763d8107995e1f7b4403a8c8001a6afe
 def _typecheckingstub__4d10801b6b457e9912061807464c00e48d36901349246d4c00671ab17eaee367(
     *,
     namespaces: typing.Sequence[builtins.str],
+    namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17184,6 +17535,7 @@ def _typecheckingstub__fdd1426fa7487dcb02499d9f810acd963031578a3c30fd4be0b076b09
     created_at: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+    namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
     status: typing.Optional[builtins.str] = None,
     strategy_id: typing.Optional[builtins.str] = None,
     type: typing.Optional[builtins.str] = None,
@@ -17236,6 +17588,7 @@ def _typecheckingstub__eee517e4354bf11f650f3de6c9e3789b5ced3c958c97582b32deda0a2
     created_at: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+    namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
     status: typing.Optional[builtins.str] = None,
     strategy_id: typing.Optional[builtins.str] = None,
     type: typing.Optional[builtins.str] = None,
@@ -17288,6 +17641,7 @@ def _typecheckingstub__404072c850abd871eb86ee8d04d20a311da6fb4147c983194a800b234
     created_at: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     namespaces: typing.Optional[typing.Sequence[builtins.str]] = None,
+    namespace_templates: typing.Optional[typing.Sequence[builtins.str]] = None,
     status: typing.Optional[builtins.str] = None,
     strategy_id: typing.Optional[builtins.str] = None,
     type: typing.Optional[builtins.str] = None,

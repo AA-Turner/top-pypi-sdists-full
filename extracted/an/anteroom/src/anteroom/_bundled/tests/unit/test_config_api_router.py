@@ -28,6 +28,7 @@ def _make_config(
     config.ai.user_system_prompt = user_system_prompt
     config.ai.system_prompt = system_prompt
     config.safety.read_only = read_only
+    config.ai.allowed_models = []
     config.identity = None
     return config
 
@@ -261,7 +262,7 @@ def test_get_models_returns_sorted_list() -> None:
     client = TestClient(app)
 
     mock_service = AsyncMock()
-    mock_service.validate_connection = AsyncMock(return_value=(True, "ok", ["gpt-4o", "gpt-3.5-turbo", "gpt-4"]))
+    mock_service.list_models = AsyncMock(return_value=["gpt-3.5-turbo", "gpt-4", "gpt-4o"])
 
     with patch("anteroom.routers.config_api.create_ai_service", return_value=mock_service):
         resp = client.get("/api/models")
@@ -278,7 +279,7 @@ def test_get_models_returns_empty_on_error() -> None:
     client = TestClient(app)
 
     mock_service = AsyncMock()
-    mock_service.validate_connection = AsyncMock(side_effect=Exception("connection error"))
+    mock_service.list_models = AsyncMock(side_effect=Exception("connection error"))
 
     with patch("anteroom.routers.config_api.create_ai_service", return_value=mock_service):
         resp = client.get("/api/models")

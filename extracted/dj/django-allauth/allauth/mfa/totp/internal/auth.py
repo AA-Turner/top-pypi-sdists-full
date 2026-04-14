@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import hashlib
 import hmac
@@ -6,6 +8,7 @@ import struct
 import time
 from collections.abc import Iterator
 
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.core.cache import cache
 
 from allauth.core import context
@@ -70,7 +73,7 @@ def validate_totp_code(secret: str, code: str) -> bool:
     counters = yield_hotp_counters_from_time()
     for counter in counters:
         value = hotp_value(secret, counter)
-        if code == format_hotp_value(value):
+        if secrets.compare_digest(code, format_hotp_value(value)):
             return True
     return False
 
@@ -80,9 +83,11 @@ class TOTP:
         self.instance = instance
 
     @classmethod
-    def activate(cls, user, secret: str) -> "TOTP":
+    def activate(cls, user: AbstractBaseUser, secret: str) -> "TOTP":
         instance = Authenticator(
-            user=user, type=Authenticator.Type.TOTP, data={"secret": encrypt(secret)}
+            user=user,  # type:ignore[misc]
+            type=Authenticator.Type.TOTP,
+            data={"secret": encrypt(secret)},
         )
         instance.save()
         return cls(instance)

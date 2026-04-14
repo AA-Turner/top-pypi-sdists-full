@@ -1569,6 +1569,7 @@ enable = ["MD001"]
     );
 }
 
+#[serial_test::serial]
 #[test]
 fn test_user_config_as_fallback_when_no_project_config() {
     // Ruff model: User config is used as fallback when no project config exists
@@ -1621,6 +1622,7 @@ line-length = 88
     env::set_current_dir(original_dir).unwrap();
 }
 
+#[serial_test::serial]
 #[test]
 fn test_user_config_fallback_supports_extends() {
     // User fallback config should support extends chains
@@ -3032,5 +3034,169 @@ fn test_extends_depth_limit_returns_error() {
     assert!(
         matches!(result, Err(ConfigError::ExtendsDepthExceeded { .. })),
         "Expected ExtendsDepthExceeded error, got: {result:?}"
+    );
+}
+
+#[serial_test::serial]
+#[test]
+fn test_user_config_loaded_alongside_markdownlint_config() {
+    // When a markdownlint project config is discovered, the user config
+    // must also be loaded as a base layer so rumdl-specific settings apply.
+    use std::env;
+
+    let temp_dir = tempdir().unwrap();
+    let original_dir = env::current_dir().unwrap();
+
+    // User config sets a rumdl-specific setting (flavor) that markdownlint cannot express
+    let user_config_dir = temp_dir.path().join("user_config");
+    let rumdl_config_dir = user_config_dir.join("rumdl");
+    fs::create_dir_all(&rumdl_config_dir).unwrap();
+    fs::write(rumdl_config_dir.join("rumdl.toml"), "[global]\nflavor = \"mkdocs\"\n").unwrap();
+
+    // Project directory has a .markdownlint.yaml that disables MD013
+    let project_dir = temp_dir.path().join("project");
+    fs::create_dir_all(&project_dir).unwrap();
+    fs::write(project_dir.join(".markdownlint.yaml"), "MD013: false\n").unwrap();
+
+    env::set_current_dir(&project_dir).unwrap();
+
+    let sourced = SourcedConfig::load_with_discovery_impl(None, None, false, Some(&user_config_dir)).unwrap();
+    let config: Config = sourced.into_validated_unchecked().into();
+
+    env::set_current_dir(&original_dir).unwrap();
+
+    // Markdownlint config setting must apply
+    assert!(
+        config.global.disable.contains(&"MD013".to_string()),
+        "Markdownlint config should disable MD013, got disable={:?}",
+        config.global.disable
+    );
+
+    // User config setting must also apply (rumdl-specific, not expressible in markdownlint format)
+    assert_eq!(
+        config.global.flavor,
+        MarkdownFlavor::MkDocs,
+        "User config flavor should be loaded alongside markdownlint project config"
+    );
+}
+
+#[serial_test::serial]
+#[test]
+fn test_user_config_settings_apply_when_markdownlint_present() {
+    // User config settings that markdownlint does not override must still apply
+    // after the fix (user config is loaded as a base layer).
+    use std::env;
+
+    let temp_dir = tempdir().unwrap();
+    let original_dir = env::current_dir().unwrap();
+
+    // User config sets a non-default line-length
+    let user_config_dir = temp_dir.path().join("user_config2");
+    let rumdl_config_dir = user_config_dir.join("rumdl");
+    fs::create_dir_all(&rumdl_config_dir).unwrap();
+    fs::write(rumdl_config_dir.join("rumdl.toml"), "[global]\nline-length = 200\n").unwrap();
+
+    // Project directory has a .markdownlint.yaml that does NOT set line-length
+    let project_dir = temp_dir.path().join("project2");
+    fs::create_dir_all(&project_dir).unwrap();
+    fs::write(project_dir.join(".markdownlint.yaml"), "default: true\n").unwrap();
+
+    env::set_current_dir(&project_dir).unwrap();
+
+    let sourced = SourcedConfig::load_with_discovery_impl(None, None, false, Some(&user_config_dir)).unwrap();
+    let config: Config = sourced.into_validated_unchecked().into();
+
+    env::set_current_dir(&original_dir).unwrap();
+
+    // Without the fix: user config never loaded → line-length stays at default (80)
+    // With the fix: user config loaded → line-length = 200
+    assert_eq!(
+        config.global.line_length.get(),
+        200,
+        "User config line-length should apply when markdownlint project config is present"
+    );
+}
+
+#[serial_test::serial]
+#[test]
+fn test_markdownlint_config_overrides_user_config_on_conflict() {
+    // When user config and markdownlint project config set the same field,
+    // the markdownlint config (ProjectConfig, precedence 3) must win over
+    // user config (UserConfig, precedence 1) via merge_override.
+    //
+    // Scenario: user wants MD001 disabled; the project's markdownlint config
+    // disables MD013 instead. The project's disable list replaces the user's.
+    use std::env;
+
+    let temp_dir = tempdir().unwrap();
+    let original_dir = env::current_dir().unwrap();
+
+    let user_config_dir = temp_dir.path().join("user_config3");
+    let rumdl_config_dir = user_config_dir.join("rumdl");
+    fs::create_dir_all(&rumdl_config_dir).unwrap();
+    fs::write(rumdl_config_dir.join("rumdl.toml"), "[global]\ndisable = [\"MD001\"]\n").unwrap();
+
+    // Markdownlint config disables MD013, does not mention MD001
+    let project_dir = temp_dir.path().join("project3");
+    fs::create_dir_all(&project_dir).unwrap();
+    fs::write(project_dir.join(".markdownlint.yaml"), "MD013: false\n").unwrap();
+
+    env::set_current_dir(&project_dir).unwrap();
+
+    let sourced = SourcedConfig::load_with_discovery_impl(None, None, false, Some(&user_config_dir)).unwrap();
+    let config: Config = sourced.into_validated_unchecked().into();
+
+    env::set_current_dir(&original_dir).unwrap();
+
+    // Markdownlint disable list has higher precedence and replaces the user config's list
+    assert!(
+        config.global.disable.contains(&"MD013".to_string()),
+        "Markdownlint config should disable MD013, got disable={:?}",
+        config.global.disable
+    );
+    assert!(
+        !config.global.disable.contains(&"MD001".to_string()),
+        "Markdownlint config's disable list replaces user config's; MD001 should not be disabled, got disable={:?}",
+        config.global.disable
+    );
+}
+
+#[serial_test::serial]
+#[test]
+fn test_user_config_applies_when_markdownlint_config_is_malformed() {
+    // When the discovered markdownlint config fails to parse, the user config
+    // that was already loaded as a base layer must still apply.
+    use std::env;
+
+    let temp_dir = tempdir().unwrap();
+    let original_dir = env::current_dir().unwrap();
+
+    let user_config_dir = temp_dir.path().join("user_config_malformed");
+    let rumdl_config_dir = user_config_dir.join("rumdl");
+    fs::create_dir_all(&rumdl_config_dir).unwrap();
+    fs::write(rumdl_config_dir.join("rumdl.toml"), "[global]\nflavor = \"obsidian\"\n").unwrap();
+
+    let project_dir = temp_dir.path().join("project_malformed");
+    fs::create_dir_all(&project_dir).unwrap();
+    // Unclosed YAML mapping — guaranteed parse failure
+    fs::write(project_dir.join(".markdownlint.yaml"), "{ not: [valid yaml\n").unwrap();
+
+    env::set_current_dir(&project_dir).unwrap();
+
+    let result = SourcedConfig::load_with_discovery_impl(None, None, false, Some(&user_config_dir));
+
+    env::set_current_dir(&original_dir).unwrap();
+
+    // Load must succeed — a bad markdownlint file is not a fatal error
+    let config: Config = result
+        .expect("load_with_discovery_impl should succeed even with malformed markdownlint config")
+        .into_validated_unchecked()
+        .into();
+
+    // User config flavor must still apply because it was loaded before the parse attempt
+    assert_eq!(
+        config.global.flavor,
+        MarkdownFlavor::Obsidian,
+        "User config flavor should apply when markdownlint config is malformed"
     );
 }

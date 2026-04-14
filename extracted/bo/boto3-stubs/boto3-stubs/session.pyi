@@ -210,6 +210,7 @@ from mypy_boto3_importexport.client import ImportExportClient
 from mypy_boto3_inspector.client import InspectorClient
 from mypy_boto3_inspector2.client import Inspector2Client
 from mypy_boto3_inspector_scan.client import InspectorscanClient
+from mypy_boto3_interconnect.client import InterconnectClient
 from mypy_boto3_internetmonitor.client import CloudWatchInternetMonitorClient
 from mypy_boto3_invoicing.client import InvoicingClient
 from mypy_boto3_iot.client import IoTClient
@@ -3993,6 +3994,25 @@ class Session:
     ) -> Inspector2Client:
         """
         Create client for Inspector2 service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["interconnect"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> InterconnectClient:
+        """
+        Create client for Interconnect service.
         """
 
     @overload

@@ -64,6 +64,8 @@ class _DataCategoryEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._E
     """Profile chunks."""
     DATA_CATEGORY_PROFILE_CHUNK_UI: _DataCategory.ValueType  # 20
     """UI profile chunks."""
+    DATA_CATEGORY_SPAN_INDEXED: _DataCategory.ValueType  # 21
+    """Spans stored in full (indexed)."""
     DATA_CATEGORY_UNKNOWN: _DataCategory.ValueType  # -1
     """Any other data category not known by this version."""
 
@@ -116,6 +118,8 @@ DATA_CATEGORY_PROFILE_CHUNK: DataCategory.ValueType  # 19
 """Profile chunks."""
 DATA_CATEGORY_PROFILE_CHUNK_UI: DataCategory.ValueType  # 20
 """UI profile chunks."""
+DATA_CATEGORY_SPAN_INDEXED: DataCategory.ValueType  # 21
+"""Spans stored in full (indexed)."""
 DATA_CATEGORY_UNKNOWN: DataCategory.ValueType  # -1
 """Any other data category not known by this version."""
 global___DataCategory = DataCategory

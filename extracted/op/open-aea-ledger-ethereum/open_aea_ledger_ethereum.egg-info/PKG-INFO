@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: open-aea-ledger-ethereum
-Version: 2.1.0
+Version: 2.2.0
 Summary: Python package wrapping the public and private key cryptography and ledger api of Ethereum.
 Author: Valory AG
 License: Apache-2.0
@@ -21,19 +21,25 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Communications
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development
+Requires-Python: >=3.10,<3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: open-aea<3.0.0,>=2.0.0
 Requires-Dist: web3<8,>=7.0.0
-Requires-Dist: ipfshttpclient==0.8.0a2
 Requires-Dist: eth-account<0.14.0,>=0.13.0
+Requires-Dist: requests<3,>=2.32.5
+Provides-Extra: test-tools
+Requires-Dist: pytest<10,>=7.0; extra == "test-tools"
+Requires-Dist: docker==7.1.0; extra == "test-tools"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: license
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 Python package wrapping the public and private key cryptography and ledger api of Ethereum.

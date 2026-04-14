@@ -62,11 +62,11 @@ def run_preview_cloud(
     check: bool,
     output: str,
 ) -> None:
-    cloud_client = _get_tb_client(config.get("token", ""), config["host"])
+    cloud_client, _ = _get_tb_client(config.get("token", ""), config["host"])
     _delete_preview_branch_if_exists(cloud_client, preview_branch_name)
     _create_preview_branch(cloud_client, preview_branch_name)
 
-    branch_client = _get_tb_client(
+    branch_client, _ = _get_tb_client(
         config.get("token", ""),
         config["host"],
         branch=preview_branch_name,

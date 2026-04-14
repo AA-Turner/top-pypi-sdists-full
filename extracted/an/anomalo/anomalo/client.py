@@ -280,8 +280,24 @@ class Client:
             offset=offset,
         )
 
-    def tables(self, limit: int = 0, offset: int = 0):
-        return self._api_call("tables", limit=limit, offset=offset)
+    def tables(
+        self,
+        limit: int = 0,
+        offset: int = 0,
+        warehouse_id: int | None = None,
+        label_id: int | None = None,
+        without_access_groups: bool | None = None,
+    ):
+        params = {
+            "limit": limit,
+            "offset": offset,
+            "warehouse_id": warehouse_id,
+            "label_id": label_id,
+            "without_access_groups": without_access_groups,
+        }
+        return self._api_call(
+            "tables", **{k: v for k, v in params.items() if v is not None}
+        )
 
     def filter_tables_by_label(self, label_id):
         return self._api_call(f"tables?label_id={label_id}")

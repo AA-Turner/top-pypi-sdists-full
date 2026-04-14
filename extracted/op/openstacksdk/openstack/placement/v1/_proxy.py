@@ -10,7 +10,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing as ty
+from typing import ClassVar, Literal
+from collections.abc import Callable
 
 from openstack.placement.v1 import resource_class as _resource_class
 from openstack.placement.v1 import resource_provider as _resource_provider
@@ -23,6 +24,8 @@ from openstack import resource
 
 
 class Proxy(proxy.Proxy):
+    api_version: ClassVar[Literal['1']] = '1'
+
     _resource_registry = {
         "resource_class": _resource_class.ResourceClass,
         "resource_provider": _resource_provider.ResourceProvider,
@@ -473,7 +476,7 @@ class Proxy(proxy.Proxy):
         interval: int | float | None = 2,
         wait: int | None = None,
         attribute: str = 'status',
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for the resource to be in a particular status.
 
@@ -509,7 +512,7 @@ class Proxy(proxy.Proxy):
         res: resource.ResourceT,
         interval: int = 2,
         wait: int = 120,
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.
 

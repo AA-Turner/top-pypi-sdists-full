@@ -16,10 +16,8 @@ import polars as pl
 import polars.exceptions as plexc
 from polars._typing import FileSource
 
-from dataframely._compat import deltalake
-
 from ._base_schema import ORIGINAL_COLUMN_PREFIX, BaseSchema
-from ._compat import PartitionSchemeOrSinkDirectory, pa, sa
+from ._compat import PartitionSchemeOrSinkDirectory, deltalake, pa, pydantic, sa
 from ._match_to_schema import match_to_schema
 from ._native import format_rule_failures
 from ._plugin import all_rules, all_rules_horizontal, all_rules_required
@@ -813,9 +811,7 @@ class Schema(BaseSchema, ABC):
             the lazy frame's schema but also means that a call to :meth:`polars.LazyFrame.collect`
             further down the line might fail because of the cast and/or missing columns.
         """
-        lf = df.lazy().select(
-            pl.col(name).cast(col.dtype) for name, col in cls.columns().items()
-        )
+        lf = match_to_schema(df.lazy(), cls, casting="strict")
         if isinstance(df, pl.DataFrame):
             return lf.collect()  # type: ignore
         return lf  # type: ignore
@@ -1340,6 +1336,32 @@ class Schema(BaseSchema, ABC):
         return pa.schema(
             [col.pyarrow_field(name) for name, col in cls.columns().items()]
         )
+
+    @classmethod
+    def to_pydantic_model(cls, name: str | None = None) -> type[pydantic.BaseModel]:
+        """Convert this schema to a pydantic model.
+
+        The pydantic model includes all columns defined in the schema along with their
+        (structured) constraints. Custom checks and schema-level rules are not included
+        in the pydantic model.
+
+        Args:
+            name: The name of the returned pydantic model. If `None`, a default name is
+                generated based on the name of this schema.
+
+        Returns:
+            A :mod:`pydantic` model class.
+        """
+        if cls._schema_validation_rules():
+            warnings.warn(
+                "Schema-level rules are not translated to pydantic validators."
+            )
+
+        model_name = name or f"{cls.__name__.removesuffix('Schema')}Model"
+        fields = {
+            col_name: col.pydantic_field() for col_name, col in cls.columns().items()
+        }
+        return pydantic.create_model(model_name, **fields)
 
     # ----------------------------------- EQUALITY ----------------------------------- #
 

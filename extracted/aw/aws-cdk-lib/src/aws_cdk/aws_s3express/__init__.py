@@ -328,6 +328,19 @@ class CfnAccessPoint(
         jsii.set(self, "bucket", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> typing.Any:
+        '''The access point policy associated with the specified access point.'''
+        return typing.cast(typing.Any, jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b6b671117e34b3e667db8b935f30294f0e6c79bf19d6262224f7c031a23ddab9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="bucketAccountId")
     def bucket_account_id(self) -> typing.Optional[builtins.str]:
         '''The AWS account ID that owns the bucket associated with this access point.'''
@@ -352,19 +365,6 @@ class CfnAccessPoint(
             type_hints = typing.get_type_hints(_typecheckingstub__a0faa6f9099f8475e8a679e37d0229c90adb5b32bd05a99c722d02ab6db01577)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policy")
-    def policy(self) -> typing.Any:
-        '''The access point policy associated with the specified access point.'''
-        return typing.cast(typing.Any, jsii.get(self, "policy"))
-
-    @policy.setter
-    def policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6b671117e34b3e667db8b935f30294f0e6c79bf19d6262224f7c031a23ddab9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="publicAccessBlockConfiguration")
@@ -2299,6 +2299,12 @@ def _typecheckingstub__e1f9ad27f3884dc957ca655b1b0d301bb0cc041fcb3497da06d2fcb1e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b6b671117e34b3e667db8b935f30294f0e6c79bf19d6262224f7c031a23ddab9(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__05bbf2a5aafbce5a9896abd9ca234cb47f6f4131c53b7226517aee28187499f5(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -2307,12 +2313,6 @@ def _typecheckingstub__05bbf2a5aafbce5a9896abd9ca234cb47f6f4131c53b7226517aee281
 
 def _typecheckingstub__a0faa6f9099f8475e8a679e37d0229c90adb5b32bd05a99c722d02ab6db01577(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b6b671117e34b3e667db8b935f30294f0e6c79bf19d6262224f7c031a23ddab9(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

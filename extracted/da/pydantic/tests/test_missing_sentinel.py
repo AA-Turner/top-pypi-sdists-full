@@ -1,7 +1,8 @@
 import pickle
-from typing import Union
+from typing import Annotated, Union
 
 import pytest
+from annotated_types import Ge
 from pydantic_core import MISSING, PydanticSerializationUnexpectedValue
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
@@ -80,3 +81,63 @@ def test_model_construct_with_missing_default_does_not_crash() -> None:
     assert hasattr(m, 'a')
     # Keep sentinel by identity
     assert getattr(m, 'a') is MISSING
+
+
+def test_no_warning_when_excluded_in_nested_model() -> None:
+    """https://github.com/pydantic/pydantic/issues/12628"""
+
+    class Inner(BaseModel):
+        f1: Union[int, MISSING] = MISSING
+        f2: Union[int, MISSING] = MISSING
+
+    class Outer(BaseModel):
+        inner: Union[Inner, MISSING] = MISSING
+
+    s = Outer(
+        inner={'f1': 1},
+    )
+
+    # Shouldn't raise a serialization warning about missing fields:
+    assert s.model_dump() == {'inner': {'f1': 1}}
+
+
+def test_missing_sentinel_constraints_pushdown() -> None:
+    class Model(BaseModel):
+        f1: Annotated[Union[int, MISSING], Ge(1)] = MISSING
+        f2: Annotated[Union[MISSING, int], Ge(1)] = MISSING
+        f3: Annotated[Union[int, str, MISSING], Ge(1)] = MISSING
+        f4: Annotated[Union[int, str, None, MISSING], Ge(1)] = MISSING
+
+    js_schema = Model.model_json_schema()
+
+    assert js_schema['properties']['f1'] == {'minimum': 1, 'title': 'F1', 'type': 'integer'}
+    assert js_schema['properties']['f2'] == {'minimum': 1, 'title': 'F2', 'type': 'integer'}
+    # Note: 'ge' is still wrong (see https://github.com/pydantic/pydantic/issues/11576)
+    assert js_schema['properties']['f3'] == {'anyOf': [{'type': 'integer'}, {'type': 'string'}], 'ge': 1, 'title': 'F3'}
+    assert js_schema['properties']['f4'] == {
+        'anyOf': [{'anyOf': [{'type': 'integer'}, {'type': 'string'}], 'ge': 1}, {'type': 'null'}],
+        'title': 'F4',
+    }
+
+
+def test_missing_sentinel_child_fields() -> None:
+    """https://github.com/pydantic/pydantic/issues/13001."""
+
+    class Base(BaseModel, extra='forbid'):
+        base_field: Union[str, MISSING] = MISSING
+
+    class Parent(Base):
+        parent_field: str
+
+    class Child(Parent):
+        child_field: str
+
+    class Container(BaseModel, extra='forbid'):
+        item: Union[Parent, MISSING] = MISSING
+
+    child = Child(parent_field='p', child_field='c')
+    container = Container(item=child)
+
+    result = TypeAdapter(Container).dump_python(container)
+
+    assert result == {'item': {'parent_field': 'p'}}

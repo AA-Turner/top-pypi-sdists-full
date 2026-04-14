@@ -5,7 +5,7 @@ import os
 
 # Version
 
-VERSION = "5.18.1"
+VERSION = "5.19.0"
 
 # General
 
@@ -34,7 +34,7 @@ DEFAULT_FLOAT_NUMBERS = False
 DEFAULT_MISSING_VALUES = [""]
 DEFAULT_LIMIT_ERRORS = 1000
 DEFAULT_LIMIT_MEMORY = 1000
-DEFAULT_BUFFER_SIZE = 10000
+DEFAULT_BUFFER_SIZE = 100000
 DEFAULT_SAMPLE_SIZE = 100
 DEFAULT_ENCODING_CONFIDENCE = 0.5
 DEFAULT_FIELD_CONFIDENCE = 0.9
@@ -54,11 +54,7 @@ DEFAULT_FLOAT_NUMBER = False
 DEFAULT_GROUP_CHAR = ""
 DEFAULT_DECIMAL_CHAR = "."
 DEFAULT_HTTP_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/54.0.2840.87 Safari/537.36"
-    )
+    "User-Agent": "frictionless-py/" + VERSION
 }
 DEFAULT_FIELD_CANDIDATES = [
     {"type": "yearmonth"},

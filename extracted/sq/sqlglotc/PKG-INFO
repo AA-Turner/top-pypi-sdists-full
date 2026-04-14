@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlglotc
-Version: 30.4.2
+Version: 30.4.3
 Summary: mypyc-compiled extensions for sqlglot
 Author-email: Toby Mao <toby.mao@gmail.com>
 License-Expression: MIT

@@ -55,6 +55,7 @@ class ManifestArtifact:
     type: str
     name: str
     file: str = ""
+    resources: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -123,7 +124,11 @@ def parse_manifest(manifest_path: Path) -> PackManifest:
             msg = f"Artifact entry {i}: missing required field 'name'"
             raise ValueError(msg)
         art_file = str(entry.get("file", "")).strip()
-        artifacts.append(ManifestArtifact(type=art_type, name=art_name, file=art_file))
+        raw_resources = entry.get("resources", [])
+        art_resources: tuple[str, ...] = ()
+        if isinstance(raw_resources, list):
+            art_resources = tuple(str(r) for r in raw_resources if isinstance(r, str) and r)
+        artifacts.append(ManifestArtifact(type=art_type, name=art_name, file=art_file, resources=art_resources))
 
     return PackManifest(
         name=name,
@@ -163,6 +168,8 @@ def validate_manifest(manifest: PackManifest, pack_dir: Path) -> list[str]:
             art_path = pack_dir / type_dir / f"{art.name}.yaml"
             if not art_path.is_file():
                 art_path = pack_dir / type_dir / f"{art.name}.md"
+            if not art_path.is_file() and art.type == ArtifactType.SKILL:
+                art_path = pack_dir / type_dir / art.name / "SKILL.md"
             if _is_symlink(art_path):
                 errors.append(f"Symlink not allowed for artifact {art.type}/{art.name}: {art_path.name}")
                 continue
@@ -185,6 +192,22 @@ def validate_manifest(manifest: PackManifest, pack_dir: Path) -> list[str]:
                 errors.append(
                     f"Rule {art.type}/{art.name} declares enforce: hard but has no 'matches' field in front matter"
                 )
+
+        # Validate declared resources for bundled skill artifacts
+        if art.type == ArtifactType.SKILL and art_path.name == "SKILL.md":
+            resource_list = (
+                list(art.resources)
+                if art.resources
+                else _parse_resource_list_from_frontmatter(art_path.read_text(encoding="utf-8"), art_path)
+            )
+            for res_path in resource_list:
+                res_candidate = art_path.parent / res_path
+                if _is_symlink(res_candidate):
+                    errors.append(f"Symlink not allowed for resource {art.type}/{art.name}: {res_path}")
+                elif not res_candidate.resolve().is_relative_to(resolved_pack):
+                    errors.append(f"Path traversal in resource {art.type}/{art.name}: {res_path}")
+                elif not res_candidate.is_file():
+                    errors.append(f"Missing resource file for {art.type}/{art.name}: {res_path}")
 
     return errors
 
@@ -210,6 +233,16 @@ def _resolve_artifact_file(art: ManifestArtifact, pack_dir: Path) -> Path | None
                 logger.warning("Symlink rejected: %s", candidate)
                 return None
             return candidate
+
+    # Directory-based SKILL.md layout: skills/<name>/SKILL.md
+    if art.type == ArtifactType.SKILL:
+        candidate = pack_dir / type_dir / art.name / "SKILL.md"
+        if candidate.is_file():
+            if _is_symlink(candidate):
+                logger.warning("Symlink rejected: %s", candidate)
+                return None
+            return candidate
+
     return None
 
 
@@ -267,6 +300,79 @@ def _extract_yaml_frontmatter(text: str, path: Path) -> tuple[str, dict[str, Any
     return body, data
 
 
+# ---------------------------------------------------------------------------
+# Bundle resource utilities
+# ---------------------------------------------------------------------------
+
+_RESOURCE_EXTENSIONS = frozenset({".md", ".txt", ".yaml", ".yml", ".json", ".xml", ".csv", ".py", ".js", ".ts", ".sh"})
+
+
+def _parse_resource_list_from_frontmatter(content: str, skill_path: Path) -> list[str]:
+    """Extract ``resources:`` list from SKILL.md frontmatter.
+
+    Returns an empty list if the field is absent or the content lacks
+    frontmatter.
+    """
+    if not content.startswith("---\n") and not content.startswith("---\r\n"):
+        return []
+    try:
+        _body, meta = _extract_yaml_frontmatter(content, skill_path)
+    except ValueError:
+        return []
+    raw = meta.get("resources")
+    if not raw or not isinstance(raw, list):
+        return []
+    return [str(r) for r in raw if isinstance(r, str) and r]
+
+
+def _resolve_bundle_resources(
+    skill_dir: Path,
+    resource_list: list[str],
+    boundary_dir: Path,
+) -> list[tuple[str, str]]:
+    """Resolve and read declared resource files for a bundled skill.
+
+    Returns a list of ``(relative_path, content)`` tuples.
+    Raises ``ValueError`` for path traversal or symlink violations.
+    """
+    resolved_boundary = boundary_dir.resolve()
+    results: list[tuple[str, str]] = []
+    for rel_path in resource_list:
+        candidate = (skill_dir / rel_path).resolve()
+        if _is_symlink(skill_dir / rel_path):
+            msg = f"Symlink not allowed for resource: {rel_path}"
+            raise ValueError(msg)
+        if not candidate.is_relative_to(resolved_boundary):
+            msg = f"Path traversal blocked for resource: {rel_path}"
+            raise ValueError(msg)
+        if not candidate.is_file():
+            msg = f"Declared resource not found: {rel_path}"
+            raise ValueError(msg)
+        if candidate.suffix not in _RESOURCE_EXTENSIONS:
+            msg = f"Unsupported resource extension: {rel_path} (allowed: {', '.join(sorted(_RESOURCE_EXTENSIONS))})"
+            raise ValueError(msg)
+        # Skip binary files (null bytes in first 512 bytes)
+        raw = candidate.read_bytes()
+        if b"\x00" in raw[:512]:
+            msg = f"Binary file not allowed as resource: {rel_path}"
+            raise ValueError(msg)
+        results.append((rel_path, raw.decode("utf-8")))
+    return results
+
+
+def _inline_resources(skill_content: str, resources: list[tuple[str, str]]) -> str:
+    """Append resource files as a structured section after skill content."""
+    if not resources:
+        return skill_content
+    parts = [skill_content.rstrip(), "\n\n<bundled_resources>"]
+    for rel_path, content in resources:
+        parts.append(f'\n<resource path="{rel_path}">')
+        parts.append(content)
+        parts.append("</resource>")
+    parts.append("\n</bundled_resources>\n")
+    return "\n".join(parts)
+
+
 def _read_artifact_content(
     path: Path,
     *,
@@ -303,6 +409,27 @@ def _read_artifact_content(
 
     if path.suffix == ".md" and artifact_type == ArtifactType.RULE:
         return _extract_yaml_frontmatter(raw, path)
+
+    # SKILL.md: extract non-core frontmatter into metadata (#1395)
+    if path.name == "SKILL.md" and artifact_type == ArtifactType.SKILL:
+        if raw.startswith("---\n") or raw.startswith("---\r\n"):
+            try:
+                _body, fm = _extract_yaml_frontmatter(raw, path)
+                _core_keys = {
+                    "name",
+                    "description",
+                    "prompt",
+                    "allowed-tools",
+                    "allowed_tools",
+                    "denied-tools",
+                    "denied_tools",
+                    "resources",
+                }
+                metadata = {k: v for k, v in fm.items() if k not in _core_keys}
+                return raw, metadata
+            except Exception:
+                pass
+        return raw, {}
 
     return raw, {}
 
@@ -347,6 +474,38 @@ def install_pack(
             continue
 
         content, metadata = _read_artifact_content(art_path, artifact_type=art.type)
+
+        # Bundle resources for skill artifacts
+        if art.type == ArtifactType.SKILL and art_path.name == "SKILL.md":
+            resource_list = (
+                list(art.resources) if art.resources else _parse_resource_list_from_frontmatter(content, art_path)
+            )
+            if resource_list:
+                try:
+                    resources = _resolve_bundle_resources(art_path.parent, resource_list, pack_dir)
+                    content = _inline_resources(content, resources)
+                    metadata = {
+                        **metadata,
+                        "bundle": True,
+                        "resource_count": len(resources),
+                        "resource_names": [r[0] for r in resources],
+                    }
+                except ValueError as e:
+                    skipped.append(f"{art.type}/{art.name}")
+                    logger.warning("Skipping %s/%s: resource error: %s", art.type, art.name, e)
+                    continue
+                from ..cli.skills import MAX_PROMPT_SIZE
+
+                if len(content) > MAX_PROMPT_SIZE:
+                    skipped.append(f"{art.type}/{art.name}")
+                    logger.warning(
+                        "Skipping %s/%s: bundled content exceeds %dKB limit (%dKB)",
+                        art.type,
+                        art.name,
+                        MAX_PROMPT_SIZE // 1000,
+                        len(content) // 1000,
+                    )
+                    continue
 
         # Validate and initialize spec artifacts
         if art.type == ArtifactType.SPEC:
@@ -489,6 +648,38 @@ def update_pack(
             logger.warning("Skipping %s/%s: file not found", art.type, art.name)
             continue
         content, metadata = _read_artifact_content(art_path, artifact_type=art.type)
+
+        # Bundle resources for skill artifacts
+        if art.type == ArtifactType.SKILL and art_path.name == "SKILL.md":
+            resource_list = (
+                list(art.resources) if art.resources else _parse_resource_list_from_frontmatter(content, art_path)
+            )
+            if resource_list:
+                try:
+                    resources = _resolve_bundle_resources(art_path.parent, resource_list, pack_dir)
+                    content = _inline_resources(content, resources)
+                    metadata = {
+                        **metadata,
+                        "bundle": True,
+                        "resource_count": len(resources),
+                        "resource_names": [r[0] for r in resources],
+                    }
+                except ValueError as e:
+                    skipped.append(f"{art.type}/{art.name}")
+                    logger.warning("Skipping %s/%s: resource error: %s", art.type, art.name, e)
+                    continue
+                from ..cli.skills import MAX_PROMPT_SIZE
+
+                if len(content) > MAX_PROMPT_SIZE:
+                    skipped.append(f"{art.type}/{art.name}")
+                    logger.warning(
+                        "Skipping %s/%s: bundled content exceeds %dKB limit (%dKB)",
+                        art.type,
+                        art.name,
+                        MAX_PROMPT_SIZE // 1000,
+                        len(content) // 1000,
+                    )
+                    continue
 
         # Validate and handle spec artifacts on update
         if art.type == ArtifactType.SPEC:
@@ -656,7 +847,7 @@ def get_pack(db: ThreadSafeConnection, namespace: str, name: str) -> dict[str, A
     pack_id = result["id"]
 
     art_rows = db.execute(
-        """SELECT a.id, a.fqn, a.type, a.namespace, a.name, a.content, a.content_hash
+        """SELECT a.id, a.fqn, a.type, a.namespace, a.name, a.content, a.content_hash, a.metadata
            FROM artifacts a
            JOIN pack_artifacts pa ON a.id = pa.artifact_id
            WHERE pa.pack_id = ?
@@ -734,6 +925,20 @@ def _copy_to_project(pack_dir: Path, manifest: PackManifest, project_dir: Path) 
         dest_file.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(art_path, dest_file)
 
+        # Copy declared resource files for bundled skills
+        if art.type == ArtifactType.SKILL and art_path.name == "SKILL.md":
+            resource_list = (
+                list(art.resources)
+                if art.resources
+                else _parse_resource_list_from_frontmatter(art_path.read_text(encoding="utf-8"), art_path)
+            )
+            for res_path in resource_list:
+                res_src = art_path.parent / res_path
+                if res_src.is_file() and not _is_symlink(res_src):
+                    res_dest = dest_file.parent / res_path
+                    res_dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(res_src, res_dest)
+
     logger.info("Copied pack to project: %s", dest)
 
 
@@ -769,7 +974,7 @@ def get_pack_by_id(db: ThreadSafeConnection, pack_id: str) -> dict[str, Any] | N
         return None
     result = _pack_row_to_dict(row)
     art_rows = db.execute(
-        """SELECT a.id, a.fqn, a.type, a.namespace, a.name, a.content, a.content_hash
+        """SELECT a.id, a.fqn, a.type, a.namespace, a.name, a.content, a.content_hash, a.metadata
            FROM artifacts a
            JOIN pack_artifacts pa ON a.id = pa.artifact_id
            WHERE pa.pack_id = ?

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.367
+Version: 0.4.388
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -419,6 +419,22 @@ When FLDAS columns are present in the merged data (e.g. `fldas_tair_tavg_lead0` 
 | `fldas_soilmoist_tavg` | Soil moisture (surface) |
 
 Each lead time (0–5) appears as a diamond marker with decreasing opacity (lead 0 = most opaque). Dots beyond the harvest date are suppressed. No config changes are needed — detection is automatic.
+
+## Release
+
+To publish a new version to PyPI:
+
+1. Bump `__version__` in `geocif/__init__.py` and `version` in `pyproject.toml`
+2. Build and upload:
+   ```bash
+   uv build
+   uvx twine upload dist/geocif-<version>*
+   ```
+3. Commit:
+   ```bash
+   git add geocif/__init__.py pyproject.toml
+   git commit -m "Bump to <version>"
+   ```
 
 ## Credits
 

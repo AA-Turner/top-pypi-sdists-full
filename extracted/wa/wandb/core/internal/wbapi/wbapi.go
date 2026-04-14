@@ -1,10 +1,20 @@
-// Package wbapi implements logic for handling
-// requests from Wandb API clients
-// which communicate with the W&B backend server.
+// Package wbapi implements logic for handling "API requests" from clients.
+//
+// API requests generally query a W&B backend. In practice, these are usually
+// GraphQL operations, but some requests can involve more complex combinations
+// of GraphQL and other network operations (like file downloads).
 package wbapi
 
 import (
+	"context"
+	"log/slog"
+
+	"github.com/hashicorp/go-retryablehttp"
+
+	"github.com/wandb/wandb/core/internal/featurechecker"
+	"github.com/wandb/wandb/core/internal/observability"
 	"github.com/wandb/wandb/core/internal/settings"
+	"github.com/wandb/wandb/core/internal/stream"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 )
 
@@ -14,30 +24,59 @@ const (
 	maxConcurrency = 10
 )
 
-// WandbAPI handles processing API requests
-// from the SDK API clients, and returning API responses to those requests.
+// WandbAPI processes API requests for a specific account on a W&B deployment.
 type WandbAPI struct {
 	// semaphore is a buffered channel limiting concurrent request handling
 	semaphore chan struct{}
 
 	settings *settings.Settings
 
+	featuresHandler      *FeaturesHandler
 	runHistoryApiHandler *RunHistoryAPIHandler
 }
 
-func NewWandbAPI(s *settings.Settings) *WandbAPI {
+// New returns a new WandbAPI.
+func New(s *settings.Settings) *WandbAPI {
+	logger := observability.NewNoOpLogger()
+
+	baseURL := stream.BaseURLFromSettings(logger, s)
+	credentialProvider := stream.CredentialsFromSettings(logger, s)
+	graphqlClient := stream.NewGraphQLClient(
+		baseURL,
+		"", /*clientID*/
+		credentialProvider,
+		logger,
+		&observability.Peeker{},
+		s,
+	)
+
+	httpClient := retryablehttp.NewClient()
+	httpClient.RetryMax = int(s.GetFileTransferMaxRetries())
+	httpClient.RetryWaitMin = s.GetFileTransferRetryWaitMin()
+	httpClient.RetryWaitMax = s.GetFileTransferRetryWaitMax()
+	httpClient.HTTPClient.Timeout = s.GetFileTransferTimeout()
+	httpClient.Logger = observability.NewCoreLogger(
+		slog.Default(),
+		nil,
+	)
+
+	featureProvider := featurechecker.New(graphqlClient, logger)
+
 	return &WandbAPI{
-		semaphore:            make(chan struct{}, maxConcurrency),
-		settings:             s,
-		runHistoryApiHandler: NewRunHistoryAPIHandler(s),
+		semaphore: make(chan struct{}, maxConcurrency),
+		settings:  s,
+
+		featuresHandler:      NewFeaturesHandler(featureProvider),
+		runHistoryApiHandler: NewRunHistoryAPIHandler(graphqlClient, httpClient),
 	}
 }
 
 // HandleRequest handles an API request and returns an API response,
 // or nil if not response is needed.
 //
-// HandleRequest Blocks until the request is processed.
+// HandleRequest blocks until the request is processed.
 func (p *WandbAPI) HandleRequest(
+	ctx context.Context,
 	id string,
 	request *spb.ApiRequest,
 ) *spb.ApiResponse {
@@ -45,10 +84,12 @@ func (p *WandbAPI) HandleRequest(
 	p.semaphore <- struct{}{}
 	defer func() { <-p.semaphore }()
 
-	if _, ok := request.Request.(*spb.ApiRequest_ReadRunHistoryRequest); ok {
-		return p.runHistoryApiHandler.HandleRequest(
-			request.GetReadRunHistoryRequest(),
-		)
+	switch req := request.Request.(type) {
+	case *spb.ApiRequest_FeaturesRequest:
+		return p.featuresHandler.HandleRequest(ctx, req.FeaturesRequest)
+	case *spb.ApiRequest_ReadRunHistoryRequest:
+		// TODO: Propagate ctx here.
+		return p.runHistoryApiHandler.HandleRequest(req.ReadRunHistoryRequest)
 	}
 
 	return nil

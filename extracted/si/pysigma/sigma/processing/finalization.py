@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from abc import abstractmethod
 from dataclasses import dataclass, field
 import json
-from typing import Any, Optional, Type, TYPE_CHECKING
+from typing import Any, Type, TYPE_CHECKING
 
 import yaml
 from sigma.exceptions import SigmaConfigurationError, SigmaTransformationError
@@ -16,7 +18,7 @@ if TYPE_CHECKING:
 class Finalizer:
     """Conversion output transformation base class."""
 
-    _pipeline: Optional["ProcessingPipeline"] = field(init=False, compare=False, default=None)
+    _pipeline: "ProcessingPipeline" | None = field(init=False, compare=False, default=None)
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "Finalizer":
@@ -57,7 +59,7 @@ class ConcatenateQueriesFinalizer(Finalizer):
 
 @dataclass
 class JSONFinalizer(Finalizer):
-    indent: Optional[int] = None
+    indent: int | None = None
 
     def apply(self, queries: list[Any]) -> str:
         return json.dumps(queries, indent=self.indent)
@@ -65,7 +67,7 @@ class JSONFinalizer(Finalizer):
 
 @dataclass
 class YAMLFinalizer(Finalizer):
-    indent: Optional[int] = None
+    indent: int | None = None
 
     def apply(self, queries: list[Any]) -> str:
         return yaml.safe_dump(queries, indent=self.indent)
@@ -107,16 +109,38 @@ class NestedFinalizer(Finalizer):
         self._nested_pipeline = ProcessingPipeline(finalizers=self.finalizers)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "NestedFinalizer":
+    def from_dict(
+        cls,
+        d: dict[str, Any],
+        allow_template_vars: bool = False,
+        vars_allowed_paths: tuple[str, ...] | None = None,
+    ) -> "NestedFinalizer":
         if "finalizers" not in d:
             raise SigmaConfigurationError("Nested finalizer requires a 'finalizers' key.")
-        fs = []
+        fs: list[Finalizer] = []
         for finalizer in d["finalizers"]:
+            finalizer.pop("allow_template_vars", None)  # Strip untrusted YAML value
+            finalizer.pop("vars_allowed_paths", None)  # Strip untrusted YAML value
             try:
                 finalizer_type = finalizer.pop("type")
             except KeyError:
                 raise SigmaConfigurationError("Finalizer type not specified for: " + str(finalizer))
-            fs.append(finalizers[finalizer_type].from_dict(finalizer))
+
+            finalizer_cls = finalizers[finalizer_type]
+            if issubclass(finalizer_cls, TemplateBase):
+                finalizer["allow_template_vars"] = allow_template_vars
+                finalizer["vars_allowed_paths"] = vars_allowed_paths
+                fs.append(finalizer_cls.from_dict(finalizer))
+            elif finalizer_cls is cls:
+                fs.append(
+                    cls.from_dict(
+                        finalizer,
+                        allow_template_vars=allow_template_vars,
+                        vars_allowed_paths=vars_allowed_paths,
+                    )
+                )
+            else:
+                fs.append(finalizer_cls.from_dict(finalizer))
         return cls(finalizers=fs)
 
     def apply(self, queries: list[Any]) -> Any:

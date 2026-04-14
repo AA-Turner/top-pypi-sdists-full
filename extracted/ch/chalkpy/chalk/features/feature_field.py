@@ -66,7 +66,7 @@ if TYPE_CHECKING:
     from google.protobuf.message import Message as ProtobufMessage
 
     from chalk.features.feature_set import Features
-    from chalk.streams._windows import GroupByWindowed, MaterializationWindowConfig
+    from chalk.streams._windows import GroupByWindowed, MaterializationWindowConfig, Windowed
 
 _TRich = TypeVar("_TRich")
 _TPrim = TypeVar("_TPrim", bound=TPrimitive)
@@ -93,7 +93,7 @@ class VersionInfo:
     version: int
     maximum: int
     default: int
-    reference: MutableMapping[int, Feature]
+    reference: MutableMapping[int, "Feature | Windowed"]
     explicitly_enumerated: bool  # see the `versions` argument to feature.
     base_name: str = ""
 
@@ -370,7 +370,7 @@ class Feature(Generic[_TPrim, _TRich]):
                 version=default_version,
                 maximum=maximum_version,
                 default=default_version,
-                reference=cast(MutableMapping[int, Feature], dict(version_mapping)),
+                reference=cast(MutableMapping[int, "Feature | Windowed"], dict(version_mapping)),
                 explicitly_enumerated=True,
             )
         elif version is not None:
@@ -1330,6 +1330,10 @@ class Feature(Generic[_TPrim, _TRich]):
             )
 
         versioned_feature = self.version.reference[version]
+        assert isinstance(versioned_feature, Feature), (
+            f"version.reference[{version}] is {type(versioned_feature).__name__}, not Feature; "
+            f"Windowed entries should have been expanded by the decorator before for_version() is called"
+        )
         if len(self.path) == 0:
             return versioned_feature
 

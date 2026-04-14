@@ -132,6 +132,7 @@ Domain: TypeAlias = Literal[
     "bibliometrics",
     "experiment",
     "genetic code",
+    "mathematics",
 ]
 
 
@@ -339,12 +340,15 @@ class Publication(BaseModel):
     pmc: str | None = Field(
         default=None, title="PMC", description="The PubMed Central identifier for the article"
     )
+    arxiv: str | None = Field(
+        default=None, title="arXiv", description="The arXiv identifier for the article"
+    )
     title: str | None = Field(default=None, description="The title of the article")
     year: int | None = Field(default=None, description="The year the article was published")
 
     def key(self) -> tuple[str, ...]:
         """Create a key based on identifiers in this data structure."""
-        return self.pubmed or "", self.doi or "", self.pmc or ""
+        return self.pubmed or "", self.doi or "", self.pmc or "", self.arxiv or ""
 
     def get_url(self) -> str:
         """Get a URL link."""
@@ -352,6 +356,7 @@ class Publication(BaseModel):
             ("pubmed", self.pubmed),
             ("doi", self.doi),
             ("pmc", self.pmc),
+            ("arxiv", self.arxiv),
         ]:
             if identifier is not None:
                 return f"https://bioregistry.io/{prefix}:{identifier}"
@@ -362,6 +367,7 @@ class Publication(BaseModel):
             (self.pubmed is not None and self.pubmed == other.pubmed)
             or (self.doi is not None and self.doi == other.doi)
             or (self.pmc is not None and self.pmc == other.pmc)
+            or (self.arxiv is not None and self.arxiv == other.arxiv)
         )
 
     def _sort_key(self) -> tuple[int, str, str]:
@@ -2470,6 +2476,13 @@ class Resource(BaseModel):
             self.get_download_rdf(get_format=False),
         ]
 
+    def get_download(self) -> str | None:
+        """Get a download link."""
+        for url in self._downloads():
+            if url is not None:
+                return url
+        return None
+
     def get_license(self) -> str | None:
         """Get the license for the resource."""
         if self.license:
@@ -2572,11 +2585,8 @@ class Resource(BaseModel):
         if license_ := self.get_license():
             description += f" Licensed under {license_}."
 
-        for url in self._downloads():
-            if url is not None:
-                ontology_purl = url
-                break
-        else:
+        ontology_purl = self.get_download()
+        if not ontology_purl:
             raise ValueError("no OWL nor OBO download available")
 
         values = {

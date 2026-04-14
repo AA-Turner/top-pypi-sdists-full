@@ -240,6 +240,7 @@ class OAuthProxy(OAuthProvider, ConsentMixin):
         token_verifier: TokenVerifier,
         # FastMCP server configuration
         base_url: AnyHttpUrl | str,
+        resource_base_url: AnyHttpUrl | str | None = None,
         redirect_path: str | None = None,
         issuer_url: AnyHttpUrl | str | None = None,
         service_documentation_url: AnyHttpUrl | str | None = None,
@@ -281,6 +282,8 @@ class OAuthProxy(OAuthProvider, ConsentMixin):
             token_verifier: Token verifier for validating access tokens
             base_url: Public URL of the server that exposes this FastMCP server; redirect path is
                 relative to this URL
+            resource_base_url: Optional public base URL for the protected resource metadata
+                and token audience. Defaults to ``base_url``.
             redirect_path: Redirect path configured in upstream OAuth app (defaults to "/auth/callback")
             issuer_url: Issuer URL for OAuth metadata (defaults to base_url)
             service_documentation_url: Optional service documentation URL
@@ -343,6 +346,7 @@ class OAuthProxy(OAuthProvider, ConsentMixin):
 
         super().__init__(
             base_url=base_url,
+            resource_base_url=resource_base_url,
             issuer_url=issuer_url,
             service_documentation_url=service_documentation_url,
             client_registration_options=client_registration_options,
@@ -360,7 +364,9 @@ class OAuthProxy(OAuthProvider, ConsentMixin):
             else None
         )
         self._upstream_revocation_endpoint: str | None = upstream_revocation_endpoint
-        self._default_scope_str: str = " ".join(self.required_scopes or [])
+        self._default_scope_str: str = " ".join(
+            valid_scopes or self.required_scopes or []
+        )
 
         # Store redirect configuration
         if not redirect_path:
@@ -376,7 +382,7 @@ class OAuthProxy(OAuthProvider, ConsentMixin):
         ):
             logger.warning(
                 "allowed_client_redirect_uris is empty list; no redirect URIs will be accepted. "
-                + "This will block all OAuth clients."
+                "This will block all OAuth clients."
             )
         self._allowed_client_redirect_uris: list[str] | None = (
             allowed_client_redirect_uris
@@ -402,7 +408,7 @@ class OAuthProxy(OAuthProvider, ConsentMixin):
         elif not require_authorization_consent:
             logger.warning(
                 "Authorization consent screen disabled - only use for local development or testing. "
-                + "In production, this screen protects against confused deputy attacks."
+                "In production, this screen protects against confused deputy attacks."
             )
 
         # Extra parameters for authorization and token endpoints
@@ -429,7 +435,7 @@ class OAuthProxy(OAuthProvider, ConsentMixin):
             if len(jwt_signing_key) < 12:
                 logger.warning(
                     "jwt_signing_key is less than 12 characters; it is recommended to use a longer. "
-                    + "string for the key derivation."
+                    "string for the key derivation."
                 )
             jwt_signing_key = derive_jwt_key(
                 low_entropy_material=jwt_signing_key,

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import arrow as ar
 import pandas as pd
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 warnings.filterwarnings("ignore")
 
@@ -120,10 +120,16 @@ class cid_runner(base.BaseGeo):
             self.do_parallel = self.parser.getboolean("DEFAULT", "do_parallel_indices")
         else:
             self.do_parallel = False
+
+        if self.parser.has_option("DEFAULT", "fraction_cpus"):
+            self.fraction_cpus = self.parser.getfloat("DEFAULT", "fraction_cpus")
+        else:
+            self.fraction_cpus = 0.75
         
         # Read countries and methods from config file
         self.countries = ast.literal_eval(self.parser.get("DEFAULT", "countries"))
         self.method = self.parser.get("DEFAULT", "method")
+        self.stage_mode = self.parser.get("DEFAULT", "stage_mode", fallback="cumulative")
 
     _FILE_COLUMNS = ["directory", "path", "filename", "admin_zone"]
 
@@ -219,13 +225,15 @@ class cid_runner(base.BaseGeo):
 
     def main(self):
         """
-
-        :param method:
-        :return:
+        Three-phase pipeline:
+        1. Discover regions per file (sequential preprocessing).
+        2. Build flat (file, year, region) task list.
+        3. Execute all tasks via multiprocessing.Pool (or sequentially).
+        Main process handles CSV output writing (serial, no race conditions).
         """
         # Create a dataframe of the files to be analyzed
         df_files = self.collect_files()
-        
+
         if df_files.empty:
             logger.warning(
                 "No files found for data_source='%s' and countries=%s",
@@ -245,56 +253,118 @@ class cid_runner(base.BaseGeo):
                     break
         crops_found = sorted(crops_found)
 
-        num_cpu = int(cpu_count() * 0.75) if self.do_parallel else 0
-        params = [
+        num_cpu = max(1, int(cpu_count() * self.fraction_cpus)) if self.do_parallel else 0
+        combinations = self.process_combinations(df_files, self.method)
+        years = list(range(2001, ar.utcnow().year + 1))
+
+        # ── Phase 1: Discover regions per file ──
+        file_regions = {}
+        for combo in tqdm(combinations, desc="Discovering regions", unit="file"):
+            status, path, filename, admin_zone, category = combo
+            regions = indices.discover_regions(
+                self.parser, status, path, filename, admin_zone, category, "ndvi"
+            )
+            file_regions[combo] = regions
+
+        # ── Phase 2: Build flat (file, year, region) task list ──
+        # Skip old years (< current_year - 1) that already have output files,
+        # unless redo is True.  This mirrors manage_existing_files() logic that
+        # used to live inside _run_one_year.
+        current_year = pd.Timestamp.now().year
+        flat_tasks = []
+        skipped_years = 0
+        for combo, regions in file_regions.items():
+            if not regions:
+                continue
+            status, path, filename, admin_zone, category = combo
+            # Build a CIDs instance once per file to get output paths
+            crop, season = ut.get_crop_season(filename)
+            country = regions[0][0].lower().replace(" ", "_")
+            obj_probe = indices.CIDs(
+                parser=self.parser, process_type=status, file_path=path,
+                file_name=filename, admin_zone=admin_zone, method=category,
+                harvest_year=years[0], redo=False,
+            )
+            obj_probe.crop = crop
+            obj_probe.season = season
+            obj_probe.country = country
+            obj_probe.prepare_directories()
+
+            for year in years:
+                # Check skip logic: old years with existing output
+                if year < (current_year - 1):
+                    out_fname = f"{country}_{crop}_s{season}_{year}.csv"
+                    out_path = obj_probe.dir_output / out_fname
+                    if out_path.is_file():
+                        skipped_years += 1
+                        continue
+                for region in regions:
+                    flat_tasks.append(indices.ProcessTaskArgs(
+                        parser=self.parser,
+                        process_type=status,
+                        file_path=path,
+                        file_name=filename,
+                        admin_zone=admin_zone,
+                        method=category,
+                        year=year,
+                        region=region,
+                        vi_var="ndvi",
+                        redo=False,
+                        stage_mode=self.stage_mode,
+                    ))
+        if skipped_years:
+            logger.info("Skipped %d file-year combos (output already exists)", skipped_years)
+
+        total_regions = sum(len(r) for r in file_regions.values())
+        ut.display_run_summary("Producing Climatic Impact-Drivers", [
             ("Countries", self.countries),
             ("Crops", crops_found if crops_found else ["(from filenames)"]),
+            ("Files", str(len(combinations))),
+            ("Years", str(len(years))),
+            ("Regions", str(total_regions)),
+            ("Total tasks", str(len(flat_tasks))),
             ("Data source", self.data_source),
             ("Method", self.method),
+            ("Stage mode", self.stage_mode),
             ("Parallel", str(self.do_parallel)),
-        ]
-        if self.do_parallel:
-            params.append(("CPUs", str(num_cpu)))
-        ut.display_run_summary("Producing Climatic Impact-Drivers", params, wait=20)
+            ("CPUs", str(num_cpu) if self.do_parallel else "0"),
+        ], wait=20)
 
-        combinations = self.process_combinations(df_files, self.method)
+        # ── Phase 3: Execute tasks ──
+        # Track which output files have been started so we delete stale data
+        # on first write (previously done per-year in _run_one_year).
+        started_outputs: set = set()
 
-        # One task per file, covering all harvest years in a single call so the
-        # ICCLIM result cache inside process_file amortizes icclim.index calls
-        # across years (~25x speedup on the cached path). The redo flag is
-        # False here; process_file / CIDs still force recomputation for the
-        # current and previous harvest years regardless.
-        years = list(range(2001, ar.utcnow().year + 1))
-        tasks = [
-            (
-                self.parser,
-                status,
-                path,
-                filename,
-                admin_zone,
-                category,
-                years,
-                "ndvi",
-                False,  # redo
-            )
-            for status, path, filename, admin_zone, category in combinations
-        ]
-        # Note: countries have already been filtered at collect_files_* time;
-        # no redundant post-filter on `i[3].lower()` needed.
+        def _write_result(output_path_str: str, df_result) -> None:
+            if not output_path_str or df_result.empty:
+                return
+            out = Path(output_path_str)
+            if output_path_str not in started_outputs:
+                # First write for this output file — delete stale data
+                if out.exists():
+                    out.unlink()
+                started_outputs.add(output_path_str)
+            write_header = not out.exists()
+            df_result.to_csv(out, index=False, mode="a", header=write_header)
 
         if self.do_parallel:
             with Pool(num_cpu) as p:
-                for _ in tqdm(
-                    p.imap_unordered(indices.process_file, tasks),
-                    total=len(tasks),
-                    desc="CID files",
+                pbar = tqdm(total=len(flat_tasks), desc="CID", unit="task", mininterval=2)
+                for output_path_str, df_result, task_desc in p.imap_unordered(
+                    indices.process_task, flat_tasks
                 ):
-                    pass
+                    pbar.set_description(task_desc)
+                    pbar.update(1)
+                    _write_result(output_path_str, df_result)
+                pbar.close()
         else:
-            pbar = tqdm(tasks, desc="CID files")
-            for val in pbar:
-                pbar.set_description(f"Main loop {val[3]} {val[5]}")
-                indices.process_file(val)
+            pbar = tqdm(flat_tasks, desc="CID", unit="task", mininterval=5)
+            for task in pbar:
+                pbar.set_description(
+                    f"{task.file_name} | {task.year} | {task.region[1]}"
+                )
+                output_path_str, df_result, _ = indices.process_task(task)
+                _write_result(output_path_str, df_result)
 
 
 def run(path_config_files=[]):

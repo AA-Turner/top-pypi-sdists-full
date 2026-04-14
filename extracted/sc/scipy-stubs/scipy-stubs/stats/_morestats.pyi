@@ -1,7 +1,20 @@
 from collections.abc import Callable
 from types import ModuleType
-from typing import Any, Generic, Literal, NamedTuple, Never, Protocol, Self, TypeAlias, final, overload, type_check_only
-from typing_extensions import TypeVar, deprecated
+from typing import (
+    Any,
+    Generic,
+    Literal,
+    NamedTuple,
+    Never,
+    Protocol,
+    Self,
+    SupportsIndex,
+    TypeAlias,
+    final,
+    overload,
+    type_check_only,
+)
+from typing_extensions import TypeVar, deprecated, override
 
 import numpy as np
 import optype as op
@@ -201,10 +214,12 @@ class AndersonResult(BaseBunch[np.float64, _Float1D, _Float1D]):
     def fit_result(self, /) -> _AndersonResult: ...
 
     #
-    def __new__(
+    @override
+    def __new__(  # pyrefly:ignore[bad-override]
         _cls, statistic: np.float64, critical_values: _Float1D, significance_level: _Float1D, *, fit_result: _AndersonResult
     ) -> Self: ...
-    def __init__(
+    @override
+    def __init__(  # pyrefly:ignore[bad-override]
         self, /, statistic: np.float64, critical_values: _Float1D, significance_level: _Float1D, *, fit_result: _AndersonResult
     ) -> None: ...
 
@@ -216,16 +231,24 @@ class Anderson_ksampResult(BaseBunch[np.float64, _Float1D, np.float64]):
     def critical_values(self, /) -> _Float1D: ...
     @property
     def pvalue(self, /) -> np.float64: ...
-    def __new__(_cls, statistic: np.float64, critical_values: _Float1D, pvalue: np.float64) -> Self: ...
-    def __init__(self, /, statistic: np.float64, critical_values: _Float1D, pvalue: np.float64) -> None: ...
+
+    #
+    @override
+    def __new__(_cls, statistic: np.float64, critical_values: _Float1D, pvalue: np.float64) -> Self: ...  # pyrefly:ignore[bad-override]
+    @override
+    def __init__(self, /, statistic: np.float64, critical_values: _Float1D, pvalue: np.float64) -> None: ...  # pyrefly:ignore[bad-override]
 
 class WilcoxonResult(BaseBunch[_NDT_co, _NDT_co], Generic[_NDT_co]):  # pyright: ignore[reportInvalidTypeArguments]  # pyrefly: ignore[invalid-variance]
     @property
     def statistic(self, /) -> _NDT_co: ...
     @property
     def pvalue(self, /) -> _NDT_co: ...
-    def __new__(_cls, statistic: _NDT_co, pvalue: _NDT_co) -> Self: ...
-    def __init__(self, /, statistic: _NDT_co, pvalue: _NDT_co) -> None: ...
+
+    #
+    @override
+    def __new__(_cls, statistic: _NDT_co, pvalue: _NDT_co) -> Self: ...  # pyrefly:ignore[bad-override]
+    @override
+    def __init__(self, /, statistic: _NDT_co, pvalue: _NDT_co) -> None: ...  # pyrefly:ignore[bad-override]
 
 class MedianTestResult(BaseBunch[np.float64, np.float64, np.float64, onp.Array2D[np.float64]]):
     @property
@@ -236,8 +259,12 @@ class MedianTestResult(BaseBunch[np.float64, np.float64, np.float64, onp.Array2D
     def median(self, /) -> np.float64: ...
     @property
     def table(self, /) -> onp.Array2D[np.float64]: ...
-    def __new__(_cls, statistic: np.float64, pvalue: np.float64, median: np.float64, table: onp.Array2D[np.float64]) -> Self: ...
-    def __init__(
+
+    #
+    @override
+    def __new__(_cls, statistic: np.float64, pvalue: np.float64, median: np.float64, table: onp.Array2D[np.float64]) -> Self: ...  # pyrefly:ignore[bad-override]
+    @override
+    def __init__(  # pyrefly:ignore[bad-override]
         self, /, statistic: np.float64, pvalue: np.float64, median: np.float64, table: onp.Array2D[np.float64]
     ) -> None: ...
 
@@ -267,25 +294,25 @@ def kstat(
     *,
     axis: None = None,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToFalse = False,
+    keepdims: Literal[False] = False,
 ) -> np.float64: ...
 @overload
 def kstat(
     data: onp.ToFloatND,
     n: _KStatOrder = 2,
     *,
-    axis: op.CanIndex | None = None,
+    axis: SupportsIndex | None = None,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToTrue,
+    keepdims: Literal[True],
 ) -> onp.ArrayND[np.float64]: ...
 @overload
 def kstat(
     data: onp.ToFloatND,
     n: _KStatOrder = 2,
     *,
-    axis: op.CanIndex | None = None,
+    axis: SupportsIndex | None = None,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToBool = False,
+    keepdims: bool = False,
 ) -> np.float64 | onp.ArrayND[np.float64]: ...
 
 #
@@ -296,25 +323,25 @@ def kstatvar(
     *,
     axis: None = None,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToFalse = False,
+    keepdims: Literal[False] = False,
 ) -> np.float64: ...
 @overload
 def kstatvar(
     data: onp.ToFloatND,
     n: _KStatOrder = 2,
     *,
-    axis: op.CanIndex | None = None,
+    axis: SupportsIndex | None = None,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToTrue,
+    keepdims: Literal[True],
 ) -> onp.ArrayND[np.float64]: ...
 @overload
 def kstatvar(
     data: onp.ToFloatND,
     n: _KStatOrder = 2,
     *,
-    axis: op.CanIndex | None = None,
+    axis: SupportsIndex | None = None,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToBool = False,
+    keepdims: bool = False,
 ) -> np.float64 | onp.ArrayND[np.float64]: ...
 
 #
@@ -323,9 +350,9 @@ def probplot(
     x: onp.ToFloat | onp.ToFloatND,
     sparams: tuple[()] = (),
     dist: _RVC0 | _CanPPF = "norm",
-    fit: onp.ToTrue = True,
+    fit: Literal[True] = True,
     plot: _CanPlotText | ModuleType | None = None,
-    rvalue: onp.ToBool = False,
+    rvalue: bool = False,
 ) -> tuple[_Tuple2[onp.ArrayND[np.float64]], _Tuple3[np.float64]]: ...
 @overload
 def probplot(
@@ -333,18 +360,18 @@ def probplot(
     sparams: tuple[()] = (),
     dist: _RVC0 | _CanPPF = "norm",
     *,
-    fit: onp.ToFalse,
+    fit: Literal[False],
     plot: _CanPlotText | ModuleType | None = None,
-    rvalue: onp.ToBool = False,
+    rvalue: bool = False,
 ) -> _Tuple2[onp.ArrayND[np.float64]]: ...
 @overload
 def probplot(
     x: onp.ToFloat | onp.ToFloatND,
     sparams: tuple[onp.ToFloat, ...],
     dist: str | _CanPPF = "norm",
-    fit: onp.ToTrue = True,
+    fit: Literal[True] = True,
     plot: _CanPlotText | ModuleType | None = None,
-    rvalue: onp.ToBool = False,
+    rvalue: bool = False,
 ) -> tuple[_Tuple2[onp.ArrayND[np.float64]], _Tuple3[np.float64]]: ...
 @overload
 def probplot(
@@ -352,9 +379,9 @@ def probplot(
     sparams: tuple[onp.ToFloat],
     dist: str | _CanPPF = "norm",
     *,
-    fit: onp.ToFalse,
+    fit: Literal[False],
     plot: _CanPlotText | ModuleType | None = None,
-    rvalue: onp.ToBool = False,
+    rvalue: bool = False,
 ) -> _Tuple2[onp.ArrayND[np.float64]]: ...
 
 #
@@ -743,19 +770,23 @@ def anderson_ksamp(
 #
 @overload
 def shapiro(
-    x: onp.ToFloat | onp.ToFloatND, *, axis: None = None, nan_policy: NanPolicy = "propagate", keepdims: onp.ToFalse = False
+    x: onp.ToFloat | onp.ToFloatND, *, axis: None = None, nan_policy: NanPolicy = "propagate", keepdims: Literal[False] = False
 ) -> ShapiroResult[np.float64]: ...
 @overload
 def shapiro(
-    x: onp.ToFloat | onp.ToFloatND, *, axis: op.CanIndex | None = None, nan_policy: NanPolicy = "propagate", keepdims: onp.ToTrue
+    x: onp.ToFloat | onp.ToFloatND,
+    *,
+    axis: SupportsIndex | None = None,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: Literal[True],
 ) -> ShapiroResult[onp.ArrayND[np.float64]]: ...
 @overload
 def shapiro(
     x: onp.ToFloat | onp.ToFloatND,
     *,
-    axis: op.CanIndex | None = None,
+    axis: SupportsIndex | None = None,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToBool = False,
+    keepdims: bool = False,
 ) -> ShapiroResult: ...
 
 #
@@ -767,7 +798,7 @@ def ansari(
     *,
     axis: None,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToFalse = False,
+    keepdims: Literal[False] = False,
 ) -> AnsariResult[np.float64]: ...
 @overload
 def ansari(
@@ -775,9 +806,9 @@ def ansari(
     y: onp.ToFloat | onp.ToFloatND,
     alternative: Alternative = "two-sided",
     *,
-    axis: op.CanIndex | None = 0,
+    axis: SupportsIndex | None = 0,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToTrue,
+    keepdims: Literal[True],
 ) -> AnsariResult[onp.ArrayND[np.float64]]: ...
 @overload
 def ansari(
@@ -785,23 +816,23 @@ def ansari(
     y: onp.ToFloat | onp.ToFloatND,
     alternative: Alternative = "two-sided",
     *,
-    axis: op.CanIndex | None = 0,
+    axis: SupportsIndex | None = 0,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToBool = False,
+    keepdims: bool = False,
 ) -> AnsariResult: ...
 
 #
 @overload
 def bartlett(
-    *samples: onp.ToFloatND, axis: None, nan_policy: NanPolicy = "propagate", keepdims: onp.ToFalse = False
+    *samples: onp.ToFloatND, axis: None, nan_policy: NanPolicy = "propagate", keepdims: Literal[False] = False
 ) -> BartlettResult[np.float64]: ...
 @overload
 def bartlett(
-    *samples: onp.ToFloatND, axis: op.CanIndex | None = 0, nan_policy: NanPolicy = "propagate", keepdims: onp.ToTrue
+    *samples: onp.ToFloatND, axis: SupportsIndex | None = 0, nan_policy: NanPolicy = "propagate", keepdims: Literal[True]
 ) -> BartlettResult[onp.ArrayND[np.float64]]: ...
 @overload
 def bartlett(
-    *samples: onp.ToFloatND, axis: op.CanIndex | None = 0, nan_policy: NanPolicy = "propagate", keepdims: onp.ToBool = False
+    *samples: onp.ToFloatND, axis: SupportsIndex | None = 0, nan_policy: NanPolicy = "propagate", keepdims: bool = False
 ) -> BartlettResult: ...
 
 #
@@ -812,25 +843,25 @@ def levene(
     proportiontocut: onp.ToFloat = 0.05,
     axis: None,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToFalse = False,
+    keepdims: Literal[False] = False,
 ) -> LeveneResult[np.float64]: ...
 @overload
 def levene(
     *samples: onp.ToFloatND,
     center: _CenterMethod = "median",
     proportiontocut: onp.ToFloat = 0.05,
-    axis: op.CanIndex | None = 0,
+    axis: SupportsIndex | None = 0,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToTrue,
+    keepdims: Literal[True],
 ) -> LeveneResult[onp.ArrayND[np.float64]]: ...
 @overload
 def levene(
     *samples: onp.ToFloatND,
     center: _CenterMethod = "median",
     proportiontocut: onp.ToFloat = 0.05,
-    axis: op.CanIndex | None = 0,
+    axis: SupportsIndex | None = 0,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToBool = False,
+    keepdims: bool = False,
 ) -> LeveneResult: ...
 
 #
@@ -841,25 +872,25 @@ def fligner(
     proportiontocut: onp.ToFloat = 0.05,
     axis: None,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToFalse = False,
+    keepdims: Literal[False] = False,
 ) -> FlignerResult[np.float64]: ...
 @overload
 def fligner(
     *samples: onp.ToFloatND,
     center: _CenterMethod = "median",
     proportiontocut: onp.ToFloat = 0.05,
-    axis: op.CanIndex | None = 0,
+    axis: SupportsIndex | None = 0,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToTrue,
+    keepdims: Literal[True],
 ) -> FlignerResult[onp.ArrayND[np.float64]]: ...
 @overload
 def fligner(
     *samples: onp.ToFloatND,
     center: _CenterMethod = "median",
     proportiontocut: onp.ToFloat = 0.05,
-    axis: op.CanIndex | None = 0,
+    axis: SupportsIndex | None = 0,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToBool = False,
+    keepdims: bool = False,
 ) -> FlignerResult: ...
 
 #
@@ -871,27 +902,27 @@ def mood(
     alternative: Alternative = "two-sided",
     *,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToFalse = False,
+    keepdims: Literal[False] = False,
 ) -> SignificanceResult[np.float64]: ...
 @overload
 def mood(
     x: onp.ToFloat | onp.ToFloatND,
     y: onp.ToFloat | onp.ToFloatND,
-    axis: op.CanIndex | None = 0,
+    axis: SupportsIndex | None = 0,
     alternative: Alternative = "two-sided",
     *,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToTrue,
+    keepdims: Literal[True],
 ) -> SignificanceResult[onp.ArrayND[np.float64]]: ...
 @overload
 def mood(
     x: onp.ToFloat | onp.ToFloatND,
     y: onp.ToFloat | onp.ToFloatND,
-    axis: op.CanIndex | None = 0,
+    axis: SupportsIndex | None = 0,
     alternative: Alternative = "two-sided",
     *,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToBool = False,
+    keepdims: bool = False,
 ) -> SignificanceResult[np.float64 | onp.ArrayND[np.float64]]: ...
 
 #
@@ -900,39 +931,39 @@ def wilcoxon(
     x: onp.ToFloat | onp.ToFloatND,
     y: onp.ToFloat | onp.ToFloatND | None = None,
     zero_method: Literal["wilcox", "pratt", "zsplit"] = "wilcox",
-    correction: onp.ToBool = False,
+    correction: bool = False,
     alternative: Alternative = "two-sided",
     method: Literal["auto", "exact", "approx"] | PermutationMethod = "auto",
     *,
     axis: None,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToFalse = False,
+    keepdims: Literal[False] = False,
 ) -> WilcoxonResult[np.float64]: ...
 @overload
 def wilcoxon(
     x: onp.ToFloat | onp.ToFloatND,
     y: onp.ToFloat | onp.ToFloatND | None = None,
     zero_method: Literal["wilcox", "pratt", "zsplit"] = "wilcox",
-    correction: onp.ToBool = False,
+    correction: bool = False,
     alternative: Alternative = "two-sided",
     method: Literal["auto", "exact", "approx", "asymptotic"] | PermutationMethod = "auto",
     *,
-    axis: op.CanIndex | None = 0,
+    axis: SupportsIndex | None = 0,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToTrue,
+    keepdims: Literal[True],
 ) -> WilcoxonResult[onp.ArrayND[np.float64]]: ...
 @overload
 def wilcoxon(
     x: onp.ToFloat | onp.ToFloatND,
     y: onp.ToFloat | onp.ToFloatND | None = None,
     zero_method: Literal["wilcox", "pratt", "zsplit"] = "wilcox",
-    correction: onp.ToBool = False,
+    correction: bool = False,
     alternative: Alternative = "two-sided",
     method: Literal["auto", "exact", "approx"] | PermutationMethod = "auto",
     *,
-    axis: op.CanIndex | None = 0,
+    axis: SupportsIndex | None = 0,
     nan_policy: NanPolicy = "propagate",
-    keepdims: onp.ToBool = False,
+    keepdims: bool = False,
 ) -> WilcoxonResult: ...
 
 #
@@ -946,7 +977,7 @@ def wilcoxon_outputs(kwds: dict[str, str]) -> Literal[2, 3]: ...  # undocumented
 def median_test(
     *samples: onp.ToFloatND,
     ties: Literal["below", "above", "ignore"] = "below",
-    correction: onp.ToBool = True,
+    correction: bool = True,
     lambda_: onp.ToFloat | str = 1,
     nan_policy: NanPolicy = "propagate",
 ) -> MedianTestResult: ...
@@ -960,27 +991,27 @@ def circmean(
     axis: None = None,
     nan_policy: NanPolicy = "propagate",
     *,
-    keepdims: onp.ToFalse = False,
+    keepdims: Literal[False] = False,
 ) -> np.float64: ...
 @overload
 def circmean(
     samples: onp.ToFloatND,
     high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
-    axis: op.CanIndex | None = None,
+    axis: SupportsIndex | None = None,
     nan_policy: NanPolicy = "propagate",
     *,
-    keepdims: onp.ToTrue,
+    keepdims: Literal[True],
 ) -> onp.ArrayND[np.float64]: ...
 @overload
 def circmean(
     samples: onp.ToFloatND,
     high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
-    axis: op.CanIndex | None = None,
+    axis: SupportsIndex | None = None,
     nan_policy: NanPolicy = "propagate",
     *,
-    keepdims: onp.ToBool = False,
+    keepdims: bool = False,
 ) -> np.float64 | onp.ArrayND[np.float64]: ...
 
 #
@@ -992,27 +1023,27 @@ def circvar(
     axis: None = None,
     nan_policy: NanPolicy = "propagate",
     *,
-    keepdims: onp.ToFalse = False,
+    keepdims: Literal[False] = False,
 ) -> np.float64: ...
 @overload
 def circvar(
     samples: onp.ToFloatND,
     high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
-    axis: op.CanIndex | None = None,
+    axis: SupportsIndex | None = None,
     nan_policy: NanPolicy = "propagate",
     *,
-    keepdims: onp.ToTrue,
+    keepdims: Literal[True],
 ) -> onp.ArrayND[np.float64]: ...
 @overload
 def circvar(
     samples: onp.ToFloatND,
     high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
-    axis: op.CanIndex | None = None,
+    axis: SupportsIndex | None = None,
     nan_policy: NanPolicy = "propagate",
     *,
-    keepdims: onp.ToBool = False,
+    keepdims: bool = False,
 ) -> np.float64 | onp.ArrayND[np.float64]: ...
 
 #
@@ -1024,38 +1055,36 @@ def circstd(
     axis: None = None,
     nan_policy: NanPolicy = "propagate",
     *,
-    normalize: onp.ToBool = False,
-    keepdims: onp.ToFalse = False,
+    normalize: bool = False,
+    keepdims: Literal[False] = False,
 ) -> np.float64: ...
 @overload
 def circstd(
     samples: onp.ToFloatND,
     high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
-    axis: op.CanIndex | None = None,
+    axis: SupportsIndex | None = None,
     nan_policy: NanPolicy = "propagate",
     *,
-    normalize: onp.ToBool = False,
-    keepdims: onp.ToTrue,
+    normalize: bool = False,
+    keepdims: Literal[True],
 ) -> onp.ArrayND[np.float64]: ...
 @overload
 def circstd(
     samples: onp.ToFloatND,
     high: onp.ToFloat = 6.283_185_307_179_586,  # 2 * pi
     low: onp.ToFloat = 0,
-    axis: op.CanIndex | None = None,
+    axis: SupportsIndex | None = None,
     nan_policy: NanPolicy = "propagate",
     *,
-    normalize: onp.ToBool = False,
-    keepdims: onp.ToBool = False,
+    normalize: bool = False,
+    keepdims: bool = False,
 ) -> np.float64 | onp.ArrayND[np.float64]: ...
 
 #
-def directional_stats(
-    samples: onp.ToFloatND, *, axis: op.CanIndex | None = 0, normalize: onp.ToBool = True
-) -> DirectionalStats: ...
+def directional_stats(samples: onp.ToFloatND, *, axis: SupportsIndex | None = 0, normalize: bool = True) -> DirectionalStats: ...
 
 #
 def false_discovery_control(
-    ps: onp.ToFloat | onp.ToFloatND, *, axis: op.CanIndex | None = 0, method: Literal["bh", "by"] = "bh"
+    ps: onp.ToFloat | onp.ToFloatND, *, axis: SupportsIndex | None = 0, method: Literal["bh", "by"] = "bh"
 ) -> onp.ArrayND[np.float64]: ...

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: satkit
-Version: 0.16.1
+Version: 0.16.2
 Summary: Satellite Orbital Dynamics Toolkit
 Author-email: Steven Michael <ssmichael@gmail.com>
 Maintainer-email: Steven Michael <ssmichael@gmail.com>
@@ -133,7 +133,7 @@ let (pos, vel) = jplephem::geocentric_state(SolarSystem::Moon, &time)?;
 
 ### Coordinate Frames
 
-Full IAU-2006/2000 reduction with Earth orientation parameters:
+Full IERS 2010 Conventions reduction (IAU 2006/2000A precession-nutation) with Earth orientation parameters:
 
 | Frame | Description |
 |-------|-------------|

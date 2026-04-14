@@ -445,3 +445,79 @@ class TestInstructionsSnapshot:
 
         with patch("anteroom.cli.instructions.find_global_instructions_path", return_value=None):
             assert snap.has_changed(str(child)) is True
+
+
+# ---------------------------------------------------------------------------
+# AGENTS.md support (#1394)
+# ---------------------------------------------------------------------------
+
+
+class TestAgentsMdDiscovery:
+    """AGENTS.md and .agents.md are discovered at lowest precedence (#1394)."""
+
+    def test_agents_md_discovered_alone(self, tmp_path: Path):
+        (tmp_path / "AGENTS.md").write_text("agent instructions")
+        result = find_project_instructions_path(str(tmp_path))
+        assert result is not None
+        _, content = result
+        assert content == "agent instructions"
+
+    def test_hidden_agents_md_discovered(self, tmp_path: Path):
+        (tmp_path / ".agents.md").write_text("hidden agent instructions")
+        result = find_project_instructions_path(str(tmp_path))
+        assert result is not None
+        _, content = result
+        assert content == "hidden agent instructions"
+
+    def test_anteroom_beats_agents(self, tmp_path: Path):
+        (tmp_path / "ANTEROOM.md").write_text("anteroom wins")
+        (tmp_path / "AGENTS.md").write_text("agents loses")
+        result = find_project_instructions_path(str(tmp_path))
+        assert result is not None
+        _, content = result
+        assert content == "anteroom wins"
+
+    def test_claude_beats_agents(self, tmp_path: Path):
+        (tmp_path / "CLAUDE.md").write_text("claude wins")
+        (tmp_path / "AGENTS.md").write_text("agents loses")
+        result = find_project_instructions_path(str(tmp_path))
+        assert result is not None
+        _, content = result
+        assert content == "claude wins"
+
+    def test_hidden_agents_beats_visible_agents(self, tmp_path: Path):
+        (tmp_path / ".agents.md").write_text("hidden wins")
+        (tmp_path / "AGENTS.md").write_text("visible loses")
+        result = find_project_instructions_path(str(tmp_path))
+        assert result is not None
+        _, content = result
+        assert content == "hidden wins"
+
+    def test_walkup_finds_agents_in_parent(self, tmp_path: Path):
+        (tmp_path / "AGENTS.md").write_text("parent agents")
+        child = tmp_path / "subdir"
+        child.mkdir()
+        result = find_project_instructions_path(str(child))
+        assert result is not None
+        _, content = result
+        assert content == "parent agents"
+
+    def test_child_agents_beats_parent_agents(self, tmp_path: Path):
+        (tmp_path / "AGENTS.md").write_text("parent agents")
+        child = tmp_path / "subdir"
+        child.mkdir()
+        (child / "AGENTS.md").write_text("child agents")
+        result = find_project_instructions_path(str(child))
+        assert result is not None
+        _, content = result
+        assert content == "child agents"
+
+    def test_child_claude_beats_parent_agents(self, tmp_path: Path):
+        (tmp_path / "AGENTS.md").write_text("parent agents")
+        child = tmp_path / "subdir"
+        child.mkdir()
+        (child / ".claude.md").write_text("child claude")
+        result = find_project_instructions_path(str(child))
+        assert result is not None
+        _, content = result
+        assert content == "child claude"

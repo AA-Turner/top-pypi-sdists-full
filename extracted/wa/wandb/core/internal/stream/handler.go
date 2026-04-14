@@ -202,7 +202,7 @@ func (h *Handler) fwdRecord(record *spb.Record) {
 		return
 	}
 
-	h.fwdWork(runwork.WorkRecord{Record: record})
+	h.fwdWork(runwork.NoRequest(runwork.WorkFromRecord(record)))
 }
 
 // fwdRecordWithControl forwards a record to the next component with control options
@@ -280,7 +280,6 @@ func (h *Handler) handleRequest(record *spb.Record) {
 	case *spb.Request_ServerInfo:
 	case *spb.Request_CheckVersion:
 	case *spb.Request_Defer:
-	case *spb.Request_ServerFeature:
 		// The above been removed from the client but are kept here for now.
 		// Should be removed in the future.
 
@@ -609,18 +608,27 @@ func (h *Handler) handlePatchSave() {
 	if err := git.SavePatch("HEAD", file); err != nil {
 		h.logger.Error("error generating diff", "error", err)
 	} else {
-		files = append(files, &spb.FilesItem{Path: DiffFileName, Type: spb.FilesItem_WANDB})
+		files = append(
+			files,
+			&spb.FilesItem{Path: DiffFileName, Type: spb.FilesItem_WANDB},
+		)
 	}
 
-	if output, err := git.LatestCommit("@{u}"); err != nil {
+	output, err := git.GetLatestUpstreamCommit(
+		h.settings.IsDisableGitForkPoint(),
+	)
+	if err != nil {
 		h.logger.Error("error getting latest commit", "error", err)
 	} else {
 		diffFileName := fmt.Sprintf("diff_%s.patch", output)
 		file = filepath.Join(filesDirPath, diffFileName)
-		if err := git.SavePatch("@{u}", file); err != nil {
+		if err := git.SavePatch(output, file); err != nil {
 			h.logger.Error("error generating diff", "error", err)
 		} else {
-			files = append(files, &spb.FilesItem{Path: diffFileName, Type: spb.FilesItem_WANDB})
+			files = append(
+				files,
+				&spb.FilesItem{Path: diffFileName, Type: spb.FilesItem_WANDB},
+			)
 		}
 	}
 

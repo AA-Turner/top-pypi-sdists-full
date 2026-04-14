@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sling
-Version: 1.5.14
+Version: 1.5.14.post2
 Summary: Slings data from a source to a target
 Home-page: https://github.com/slingdata-io/sling-python
 Download-URL: https://github.com/slingdata-io/sling-python/archive/master.zip
@@ -39,6 +39,12 @@ Dynamic: summary
 `pip install sling` or `pip install sling[arrow]` for streaming.
 
 Then you should be able to run `sling --help` from command line.
+
+## Environment Variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `SLING_PYTHON_USE_SHELL` | Set to `true` to run the sling binary with `shell=True` in subprocess calls. | `false` |
 
 ## Running a Extract-Load Task
 

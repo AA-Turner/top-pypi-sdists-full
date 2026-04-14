@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import time
 
 from django.contrib.auth import get_user_model
@@ -23,15 +25,15 @@ from allauth.core.internal.cryptokit import compare_user_code
 from allauth.idp.oidc.models import Client
 
 
-def cache_user_code_key(user_code: str):
+def cache_user_code_key(user_code: str) -> str:
     return f"allauth.idp.oidc.user_code[{user_code.lower()}]"
 
 
-def cache_device_code_key(device_code: str):
+def cache_device_code_key(device_code: str) -> str:
     return f"allauth.idp.oidc.device_code[{device_code}]"
 
 
-def create(client_id: str, scope: list[str] | None, data: dict):
+def create(client_id: str, scope: list[str] | None, data: dict) -> None:
     cache.set(
         cache_user_code_key(data["user_code"]),
         data["device_code"],
@@ -77,7 +79,9 @@ def validate_user_code(code: str) -> tuple[str, Client]:
     return device_code, client
 
 
-def confirm_or_deny_device_code(user, device_code: str, confirm: bool) -> bool:
+def confirm_or_deny_device_code(
+    user: AbstractBaseUser, device_code: str, confirm: bool
+) -> bool:
     data = cache.get(cache_device_code_key(device_code))
     if data is None or data["granted"] is not None:
         return False

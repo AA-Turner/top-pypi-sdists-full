@@ -49970,6 +49970,7 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
     _not_: Optional["scout_compute_api_NotSeries"] = None
     _and_: Optional["scout_compute_api_AndSeries"] = None
     _or_: Optional["scout_compute_api_OrSeries"] = None
+    _on_change: Optional["scout_compute_api_OnChangeSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -49982,7 +49983,8 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
             'less_than_or_equal_to': ConjureFieldDefinition('lessThanOrEqualTo', scout_compute_api_LessThanOrEqualToSeries),
             'not_': ConjureFieldDefinition('not', scout_compute_api_NotSeries),
             'and_': ConjureFieldDefinition('and', scout_compute_api_AndSeries),
-            'or_': ConjureFieldDefinition('or', scout_compute_api_OrSeries)
+            'or_': ConjureFieldDefinition('or', scout_compute_api_OrSeries),
+            'on_change': ConjureFieldDefinition('onChange', scout_compute_api_OnChangeSeries)
         }
 
     def __init__(
@@ -49996,10 +49998,11 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
             not_: Optional["scout_compute_api_NotSeries"] = None,
             and_: Optional["scout_compute_api_AndSeries"] = None,
             or_: Optional["scout_compute_api_OrSeries"] = None,
+            on_change: Optional["scout_compute_api_OnChangeSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (greater_than is not None) + (less_than is not None) + (equal_to is not None) + (not_equal_to is not None) + (greater_than_or_equal_to is not None) + (less_than_or_equal_to is not None) + (not_ is not None) + (and_ is not None) + (or_ is not None) != 1:
+            if (greater_than is not None) + (less_than is not None) + (equal_to is not None) + (not_equal_to is not None) + (greater_than_or_equal_to is not None) + (less_than_or_equal_to is not None) + (not_ is not None) + (and_ is not None) + (or_ is not None) + (on_change is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if greater_than is not None:
@@ -50029,6 +50032,9 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
             if or_ is not None:
                 self._or_ = or_
                 self._type = 'or'
+            if on_change is not None:
+                self._on_change = on_change
+                self._type = 'onChange'
 
         elif type_of_union == 'greaterThan':
             if greater_than is None:
@@ -50075,6 +50081,11 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._or_ = or_
             self._type = 'or'
+        elif type_of_union == 'onChange':
+            if on_change is None:
+                raise ValueError('a union value must not be None')
+            self._on_change = on_change
+            self._type = 'onChange'
 
     @builtins.property
     def greater_than(self) -> Optional["scout_compute_api_GreaterThanSeries"]:
@@ -50112,6 +50123,10 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
     def or_(self) -> Optional["scout_compute_api_OrSeries"]:
         return self._or_
 
+    @builtins.property
+    def on_change(self) -> Optional["scout_compute_api_OnChangeSeries"]:
+        return self._on_change
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_BooleanSeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_BooleanSeriesVisitor'.format(visitor.__class__.__name__))
@@ -50133,6 +50148,8 @@ class scout_compute_api_BooleanSeries(ConjureUnionType):
             return visitor._and(self.and_)
         if self._type == 'or' and self.or_ is not None:
             return visitor._or(self.or_)
+        if self._type == 'onChange' and self.on_change is not None:
+            return visitor._on_change(self.on_change)
 
 
 scout_compute_api_BooleanSeries.__name__ = "BooleanSeries"
@@ -50176,6 +50193,10 @@ class scout_compute_api_BooleanSeriesVisitor:
 
     @abstractmethod
     def _or(self, or_: "scout_compute_api_OrSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _on_change(self, on_change: "scout_compute_api_OnChangeSeries") -> Any:
         pass
 
 
@@ -61925,6 +61946,32 @@ scout_compute_api_OnChangeRanges.__qualname__ = "OnChangeRanges"
 scout_compute_api_OnChangeRanges.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_OnChangeSeries(ConjureBeanType):
+    """Outputs a boolean series that is true at each point where the series value differs from the
+preceding point, and false otherwise. The first point always outputs false.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_Series)
+        }
+
+    __slots__: List[str] = ['_input']
+
+    def __init__(self, input: "scout_compute_api_Series") -> None:
+        self._input = input
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_Series":
+        return self._input
+
+
+scout_compute_api_OnChangeSeries.__name__ = "OnChangeSeries"
+scout_compute_api_OnChangeSeries.__qualname__ = "OnChangeSeries"
+scout_compute_api_OnChangeSeries.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_OrSeries(ConjureBeanType):
     """Combines two boolean series point-wise using logical OR, producing true where either input is true and false otherwise.
     """
@@ -70913,6 +70960,7 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
     _not_: Optional["scout_compute_resolved_api_NotSeriesNode"] = None
     _and_: Optional["scout_compute_resolved_api_AndSeriesNode"] = None
     _or_: Optional["scout_compute_resolved_api_OrSeriesNode"] = None
+    _on_change: Optional["scout_compute_resolved_api_OnChangeSeriesNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -70925,7 +70973,8 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
             'less_than_or_equal_to': ConjureFieldDefinition('lessThanOrEqualTo', scout_compute_resolved_api_LessThanOrEqualToSeriesNode),
             'not_': ConjureFieldDefinition('not', scout_compute_resolved_api_NotSeriesNode),
             'and_': ConjureFieldDefinition('and', scout_compute_resolved_api_AndSeriesNode),
-            'or_': ConjureFieldDefinition('or', scout_compute_resolved_api_OrSeriesNode)
+            'or_': ConjureFieldDefinition('or', scout_compute_resolved_api_OrSeriesNode),
+            'on_change': ConjureFieldDefinition('onChange', scout_compute_resolved_api_OnChangeSeriesNode)
         }
 
     def __init__(
@@ -70939,10 +70988,11 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
             not_: Optional["scout_compute_resolved_api_NotSeriesNode"] = None,
             and_: Optional["scout_compute_resolved_api_AndSeriesNode"] = None,
             or_: Optional["scout_compute_resolved_api_OrSeriesNode"] = None,
+            on_change: Optional["scout_compute_resolved_api_OnChangeSeriesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (greater_than is not None) + (less_than is not None) + (equal_to is not None) + (not_equal_to is not None) + (greater_than_or_equal_to is not None) + (less_than_or_equal_to is not None) + (not_ is not None) + (and_ is not None) + (or_ is not None) != 1:
+            if (greater_than is not None) + (less_than is not None) + (equal_to is not None) + (not_equal_to is not None) + (greater_than_or_equal_to is not None) + (less_than_or_equal_to is not None) + (not_ is not None) + (and_ is not None) + (or_ is not None) + (on_change is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if greater_than is not None:
@@ -70972,6 +71022,9 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
             if or_ is not None:
                 self._or_ = or_
                 self._type = 'or'
+            if on_change is not None:
+                self._on_change = on_change
+                self._type = 'onChange'
 
         elif type_of_union == 'greaterThan':
             if greater_than is None:
@@ -71018,6 +71071,11 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._or_ = or_
             self._type = 'or'
+        elif type_of_union == 'onChange':
+            if on_change is None:
+                raise ValueError('a union value must not be None')
+            self._on_change = on_change
+            self._type = 'onChange'
 
     @builtins.property
     def greater_than(self) -> Optional["scout_compute_resolved_api_GreaterThanSeriesNode"]:
@@ -71055,6 +71113,10 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
     def or_(self) -> Optional["scout_compute_resolved_api_OrSeriesNode"]:
         return self._or_
 
+    @builtins.property
+    def on_change(self) -> Optional["scout_compute_resolved_api_OnChangeSeriesNode"]:
+        return self._on_change
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_BooleanSeriesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_BooleanSeriesNodeVisitor'.format(visitor.__class__.__name__))
@@ -71076,6 +71138,8 @@ class scout_compute_resolved_api_BooleanSeriesNode(ConjureUnionType):
             return visitor._and(self.and_)
         if self._type == 'or' and self.or_ is not None:
             return visitor._or(self.or_)
+        if self._type == 'onChange' and self.on_change is not None:
+            return visitor._on_change(self.on_change)
 
 
 scout_compute_resolved_api_BooleanSeriesNode.__name__ = "BooleanSeriesNode"
@@ -71119,6 +71183,10 @@ class scout_compute_resolved_api_BooleanSeriesNodeVisitor:
 
     @abstractmethod
     def _or(self, or_: "scout_compute_resolved_api_OrSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _on_change(self, on_change: "scout_compute_resolved_api_OnChangeSeriesNode") -> Any:
         pass
 
 
@@ -75451,6 +75519,29 @@ class scout_compute_resolved_api_OnChangeRangesNode(ConjureBeanType):
 scout_compute_resolved_api_OnChangeRangesNode.__name__ = "OnChangeRangesNode"
 scout_compute_resolved_api_OnChangeRangesNode.__qualname__ = "OnChangeRangesNode"
 scout_compute_resolved_api_OnChangeRangesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_OnChangeSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_SeriesNode)
+        }
+
+    __slots__: List[str] = ['_input']
+
+    def __init__(self, input: "scout_compute_resolved_api_SeriesNode") -> None:
+        self._input = input
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_SeriesNode":
+        return self._input
+
+
+scout_compute_resolved_api_OnChangeSeriesNode.__name__ = "OnChangeSeriesNode"
+scout_compute_resolved_api_OnChangeSeriesNode.__qualname__ = "OnChangeSeriesNode"
+scout_compute_resolved_api_OnChangeSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_OrSeriesNode(ConjureBeanType):
@@ -104469,6 +104560,40 @@ Enforces write permission on the video.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), scout_video_api_GenerateWhipStreamResponse, self._return_none_for_unknown_union_types)
 
+    def generate_whip_stream_v2(self, auth_header: str, request: "scout_video_api_GenerateWhipStreamV2Request") -> "scout_video_api_GenerateWhipStreamResponse":
+        """Generates a stream ID scoped to a channel-backed live video series and returns a WHIP URL with
+a MediaMTX JWT and ICE servers.
+Currently only datasource-backed dataset channels are supported.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/video/v2/videos/streaming/whip'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_video_api_GenerateWhipStreamResponse, self._return_none_for_unknown_union_types)
+
     def generate_whep_stream(self, auth_header: str, video_rid: str) -> Optional["scout_video_api_GenerateWhepStreamResponse"]:
         """Returns WHEP URL, ICE servers, and token for playing back the active stream.
 Returns empty if there is no active stream.
@@ -105304,6 +105429,31 @@ class scout_video_api_GenerateWhipStreamResponse(ConjureBeanType):
 scout_video_api_GenerateWhipStreamResponse.__name__ = "GenerateWhipStreamResponse"
 scout_video_api_GenerateWhipStreamResponse.__qualname__ = "GenerateWhipStreamResponse"
 scout_video_api_GenerateWhipStreamResponse.__module__ = "nominal_api.scout_video_api"
+
+
+class scout_video_api_GenerateWhipStreamV2Request(ConjureBeanType):
+    """Request to generate a WHIP stream for a channel-backed live video series.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'channel_series': ConjureFieldDefinition('channelSeries', scout_video_api_VideoChannelSeries)
+        }
+
+    __slots__: List[str] = ['_channel_series']
+
+    def __init__(self, channel_series: "scout_video_api_VideoChannelSeries") -> None:
+        self._channel_series = channel_series
+
+    @builtins.property
+    def channel_series(self) -> "scout_video_api_VideoChannelSeries":
+        return self._channel_series
+
+
+scout_video_api_GenerateWhipStreamV2Request.__name__ = "GenerateWhipStreamV2Request"
+scout_video_api_GenerateWhipStreamV2Request.__qualname__ = "GenerateWhipStreamV2Request"
+scout_video_api_GenerateWhipStreamV2Request.__module__ = "nominal_api.scout_video_api"
 
 
 class scout_video_api_GetEnrichedVideoIngestStatusRequest(ConjureBeanType):

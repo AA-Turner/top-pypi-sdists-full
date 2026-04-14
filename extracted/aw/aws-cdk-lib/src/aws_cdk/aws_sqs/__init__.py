@@ -415,6 +415,32 @@ class CfnQueue(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="redriveAllowPolicy")
+    def redrive_allow_policy(self) -> typing.Any:
+        '''The string that includes the parameters for the permissions for the dead-letter queue redrive permission and which source queues can specify dead-letter queues as a JSON object.'''
+        return typing.cast(typing.Any, jsii.get(self, "redriveAllowPolicy"))
+
+    @redrive_allow_policy.setter
+    def redrive_allow_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db0ff171bd6351ca00648941c1a4e2897fef47d7337bb85fe5c4a497a80027e4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "redriveAllowPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="redrivePolicy")
+    def redrive_policy(self) -> typing.Any:
+        '''The string that includes the parameters for the dead-letter queue functionality of the source queue as a JSON object.'''
+        return typing.cast(typing.Any, jsii.get(self, "redrivePolicy"))
+
+    @redrive_policy.setter
+    def redrive_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b963b86b3da4c35f99da3a5bfe88b50cccb02e5ec2f34a6f0aa7eeed8f72a053)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "redrivePolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="contentBasedDeduplication")
     def content_based_deduplication(
         self,
@@ -572,32 +598,6 @@ class CfnQueue(
             type_hints = typing.get_type_hints(_typecheckingstub__36c40902941bddb77771bd30f9789767280cd44830c59480705de79a17bdb360)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "receiveMessageWaitTimeSeconds", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="redriveAllowPolicy")
-    def redrive_allow_policy(self) -> typing.Any:
-        '''The string that includes the parameters for the permissions for the dead-letter queue redrive permission and which source queues can specify dead-letter queues as a JSON object.'''
-        return typing.cast(typing.Any, jsii.get(self, "redriveAllowPolicy"))
-
-    @redrive_allow_policy.setter
-    def redrive_allow_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db0ff171bd6351ca00648941c1a4e2897fef47d7337bb85fe5c4a497a80027e4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "redriveAllowPolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="redrivePolicy")
-    def redrive_policy(self) -> typing.Any:
-        '''The string that includes the parameters for the dead-letter queue functionality of the source queue as a JSON object.'''
-        return typing.cast(typing.Any, jsii.get(self, "redrivePolicy"))
-
-    @redrive_policy.setter
-    def redrive_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b963b86b3da4c35f99da3a5bfe88b50cccb02e5ec2f34a6f0aa7eeed8f72a053)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "redrivePolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="sqsManagedSseEnabled")
@@ -4709,6 +4709,18 @@ def _typecheckingstub__236dcd91758bc5c11159f148d82348c81a166a523238d27a181e043a6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__db0ff171bd6351ca00648941c1a4e2897fef47d7337bb85fe5c4a497a80027e4(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b963b86b3da4c35f99da3a5bfe88b50cccb02e5ec2f34a6f0aa7eeed8f72a053(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3049bb9c4d3214ce412c7c75abae5ce0267cacc5d249bfb1aa4677d8a7828b5a(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
@@ -4771,18 +4783,6 @@ def _typecheckingstub__271d59baa6eda03382693b81f2f08123b48af66737983ada2ed68a61d
 
 def _typecheckingstub__36c40902941bddb77771bd30f9789767280cd44830c59480705de79a17bdb360(
     value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__db0ff171bd6351ca00648941c1a4e2897fef47d7337bb85fe5c4a497a80027e4(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b963b86b3da4c35f99da3a5bfe88b50cccb02e5ec2f34a6f0aa7eeed8f72a053(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -387,9 +387,10 @@ def substr(expr: Underscore | Any, start: int, length: int | None = None):
     ...    category: str
     ...    cat_first_three: str = F.substr(_.category, 0, 3)
     """
+    adjusted_start = start + 1 if start >= 0 else start
     if length is None:
-        return UnderscoreFunction("substr", expr, start + 1)
-    return UnderscoreFunction("substr", expr, start + 1, length)
+        return UnderscoreFunction("substr", expr, adjusted_start)
+    return UnderscoreFunction("substr", expr, adjusted_start, length)
 
 
 def str_slice(expr: Underscore | Any, start: int, end: int):
@@ -6290,7 +6291,32 @@ def catalog_call(qualified_name: str, *args: Any, **kwargs: Any):
     return UnderscoreFunction("catalog_call", qualified_name, *args, **kwargs)
 
 
+def call_resolver(resolver_fqn: str, output_type: "pa.DataType", *args: Any):
+    """Call another resolver as a blocking expression inside a static resolver.
+
+    Parameters
+    ----------
+    resolver_fqn
+        Fully qualified name of the resolver to call.
+    output_type
+        The PyArrow data type of the resolver's output.
+    *args
+        Column expressions (underscore expressions) to pass as inputs.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> import pyarrow as pa
+    >>> from chalk.features import _
+    >>> @online(static=True)
+    ... def my_resolver(df: FeaturesDataFrame[User.id, User.a, User.b]) -> FeaturesDataFrame[User.id, User.c]:
+    ...     return df.with_columns({str(User.c): F.call_resolver("my.add_resolver", pa.int64(), _.a, _.b)})
+    """
+    return UnderscoreFunction("call_resolver", resolver_fqn, output_type, *args)
+
+
 __all__ = (
+    "call_resolver",
     "catalog_call",
     "DayOfWeek",
     "Then",

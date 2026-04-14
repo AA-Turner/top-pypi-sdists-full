@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esp_idf_panic_decoder
-Version: 1.4.2
+Version: 1.5.0
 Summary: ESP-IDF panic decoder
 Author: Espressif Systems
 License:                                  Apache License
@@ -227,6 +227,7 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyelftools
+Requires-Dist: pyparsing
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: czespressif; extra == "dev"

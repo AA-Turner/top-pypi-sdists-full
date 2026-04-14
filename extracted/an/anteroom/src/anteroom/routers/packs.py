@@ -123,7 +123,10 @@ def _reload_registries_only(request: Request, db: Any) -> None:
         rule_enforcer.load_rules(registry.list_all(artifact_type=ArtifactType.RULE))
     skill_registry = getattr(request.app.state, "skill_registry", None)
     if skill_registry is not None and registry is not None:
-        skill_registry.load_from_artifacts(registry)
+        skill_registry.load_from_artifacts(registry, db=db)
+    config = getattr(request.app.state, "config", None)
+    if skill_registry is not None and config is not None and config.references.skills:
+        skill_registry.load_from_references(config.references.skills)
 
 
 def _reload_registries(request: Request, db: Any) -> None:

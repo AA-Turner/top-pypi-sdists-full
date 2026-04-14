@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 
-# Copyright 2019-2025 The University of Manchester, UK
-# Copyright 2020-2025 Vlaams Instituut voor Biotechnologie (VIB), BE
-# Copyright 2020-2025 Barcelona Supercomputing Center (BSC), ES
-# Copyright 2020-2025 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
-# Copyright 2022-2025 École Polytechnique Fédérale de Lausanne, CH
-# Copyright 2024-2025 Data Centre, SciLifeLab, SE
-# Copyright 2024-2025 National Institute of Informatics (NII), JP
-# Copyright 2025 Senckenberg Society for Nature Research (SGN), DE
-# Copyright 2025 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2019-2026 The University of Manchester, UK
+# Copyright 2020-2026 Vlaams Instituut voor Biotechnologie (VIB), BE
+# Copyright 2020-2026 Barcelona Supercomputing Center (BSC), ES
+# Copyright 2020-2026 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
+# Copyright 2022-2026 École Polytechnique Fédérale de Lausanne, CH
+# Copyright 2024-2026 Data Centre, SciLifeLab, SE
+# Copyright 2024-2026 National Institute of Informatics (NII), JP
+# Copyright 2025-2026 Senckenberg Society for Nature Research (SGN), DE
+# Copyright 2025-2026 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2026 Spanish National Research Council (CSIC), ES
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +32,7 @@ from io import BytesIO, StringIO
 from urllib.parse import unquote
 
 from .file_or_dir import FileOrDir
-from ..utils import is_url, iso_now, Mode
+from ..utils import is_url, iso_now
 
 
 class File(FileOrDir):
@@ -71,18 +72,26 @@ class File(FileOrDir):
             self._jsonld['contentSize'] = str(out_file_path.stat().st_size)
 
     def write(self, base_path):
-        out_file_path = Path(base_path) / unquote(self.id)
+        if self.fetch_remote and is_url(str(self.source)):
+            if is_url(self.id):
+                relative_dest_uri = self.get("localPath") or self.id
+            else:
+                relative_dest_uri = self.id
+            if is_url(relative_dest_uri):
+                if relative_dest_uri.startswith(self.crate.root_dataset.id):
+                    relative_dest_uri = relative_dest_uri[len(self.crate.root_dataset.id):]
+                else:
+                    relative_dest_uri = relative_dest_uri.rsplit("/", 1)[-1]
+        else:
+            relative_dest_uri = self.id
+        out_file_path = Path(base_path) / unquote(relative_dest_uri)
         if isinstance(self.source, (BytesIO, StringIO)) or is_url(str(self.source)):
             self._write_from_stream(out_file_path)
         elif self.source is None:
             # Allows to record a File entity whose @id does not exist, see #73
             warnings.warn(f"No source for {self.id}")
         else:
-            if self.crate.mode == Mode.READ:
-                in_file_path = unquote(str(self.source))
-            else:
-                in_file_path = self.source
-            self._copy_file(in_file_path, out_file_path)
+            self._copy_file(self.source, out_file_path)
 
     def _stream_from_stream(self, stream):
         size = 0
@@ -149,8 +158,4 @@ class File(FileOrDir):
             # Allows to record a File entity whose @id does not exist, see #73
             warnings.warn(f"No source for {self.id}")
         else:
-            if self.crate.mode == Mode.READ:
-                path = unquote(str(self.source))
-            else:
-                path = self.source
-            yield from self._stream_from_file(path, chunk_size)
+            yield from self._stream_from_file(self.source, chunk_size)

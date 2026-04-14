@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zipp
-Version: 3.23.0
+Version: 3.23.1
 Summary: Backport of pathlib-compatible object wrapper for zip files
 Author-email: "Jason R. Coombs" <jaraco@jaraco.com>
 License-Expression: MIT
@@ -77,6 +77,8 @@ were contributed to different versions in the standard library:
 
    * - zipp
      - stdlib
+   * - 3.21
+     - 3.15
    * - 3.18
      - 3.13
    * - 3.16

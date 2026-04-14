@@ -60,6 +60,7 @@ class BrowserView:
     current_menu = None
 
     cascade_loc = Foundation.NSMakePoint(100.0, 0.0)
+    _shared_app_delegate = None
 
     class AppDelegate(AppKit.NSObject):
         def applicationShouldTerminate_(self, app):
@@ -79,25 +80,30 @@ class BrowserView:
         def windowDidBecomeKey_(self, notification):
             i = BrowserView.get_instance('window', notification.object())
 
-            if i.menu and BrowserView.current_menu != i.menu:
+            if i and i.menu and BrowserView.current_menu != i.menu:
                 BrowserView.current_menu = i.menu
                 new_menu = i._recreate_menus(BrowserView.current_menu)
                 BrowserView.app.setMainMenu_(new_menu)
+
+            if not i:
+                logger.error('No BrowserView instance found for windowDidBecomeKey_')
 
         def windowShouldClose_(self, window):
             i = BrowserView.get_instance('window', window)
             return BrowserView.should_close(i.pywebview_window)
 
         def windowWillClose_(self, notification):
-            # Delete the closed instance from the dict
             i = BrowserView.get_instance('window', notification.object())
+
+            # Clear delegates before removing from instances dict so no
+            # callbacks can arrive after get_instance would return None.
+            i.webview.setNavigationDelegate_(None)
+            i.webview.setUIDelegate_(None)
+
             del BrowserView.instances[i.uid]
 
             if i.pywebview_window in windows:
                 windows.remove(i.pywebview_window)
-
-            i.webview.setNavigationDelegate_(None)
-            i.webview.setUIDelegate_(None)
 
             # this seems to be a bug in WkWebView, so we need to load blank html
             # see https://stackoverflow.com/questions/27410413/wkwebview-embed-video-keeps-playing-sound-after-release
@@ -107,6 +113,8 @@ class BrowserView:
 
             i.closed.set()
             if BrowserView.instances == {}:
+                BrowserView.app.setDelegate_(None)
+                BrowserView._shared_app_delegate = None
                 BrowserView.app.stop_(self)
                 BrowserView.app.abortModal()
 
@@ -495,7 +503,7 @@ class BrowserView:
                 if not _state['debug']:
                     return
 
-            super(BrowserView.WebKitHost, self).mouseDown_(event)
+            super(BrowserView.WebKitHost, self).mouseDragged_(event)
 
         def willOpenMenu_withEvent_(self, menu, event):
             if not _state['debug']:
@@ -504,7 +512,7 @@ class BrowserView:
         def keyDown_(self, event):
             if event.modifierFlags() & AppKit.NSCommandKeyMask:
                 responder = self.window().firstResponder()
-                if responder != None:
+                if responder is not None:
                     range_ = responder.selectedRange()
                     hasSelectedText = len(range_) > 0
 
@@ -580,15 +588,10 @@ class BrowserView:
 
         self.menu = window.menu or _state['menu']
 
-        # The allocated resources are retained because we would explicitly delete
-        # this instance when its window is closed
-        self.window = (
-            BrowserView.WindowHost.alloc()
-            .initWithContentRect_styleMask_backing_defer_(
-                rect, window_mask, AppKit.NSBackingStoreBuffered, False
-            )
-            .retain()
+        self.window = BrowserView.WindowHost.alloc().initWithContentRect_styleMask_backing_defer_(
+            rect, window_mask, AppKit.NSBackingStoreBuffered, False
         )
+        self.window.setReleasedWhenClosed_(False)
         self.pywebview_window.native = self.window
 
         self.window.focus = window.focus
@@ -603,16 +606,15 @@ class BrowserView:
         self.window.setFrame_display_(frame, True)
 
         config = WebKit.WKWebViewConfiguration.alloc().init()
-        self.webview = (
-            BrowserView.WebKitHost.alloc().initWithFrame_configuration_(rect, config).retain()
-        )
+        self.webview = BrowserView.WebKitHost.alloc().initWithFrame_configuration_(rect, config)
         self.webview.pywebview_window = window
 
-        self._browserDelegate = BrowserView.BrowserDelegate.alloc().init().retain()
-        self._windowDelegate = BrowserView.WindowDelegate.alloc().init().retain()
-        self._appDelegate = BrowserView.AppDelegate.alloc().init().retain()
+        self._browserDelegate = BrowserView.BrowserDelegate.alloc().init()
+        self._windowDelegate = BrowserView.WindowDelegate.alloc().init()
 
-        BrowserView.app.setDelegate_(self._appDelegate)
+        if BrowserView._shared_app_delegate is None:
+            BrowserView._shared_app_delegate = BrowserView.AppDelegate.alloc().init()
+        BrowserView.app.setDelegate_(BrowserView._shared_app_delegate)
         self.webview.setUIDelegate_(self._browserDelegate)
         self.webview.setNavigationDelegate_(self._browserDelegate)
         self.window.setDelegate_(self._windowDelegate)
@@ -622,6 +624,10 @@ class BrowserView:
         )
 
         self.datastore = WebKit.WKWebsiteDataStore.defaultDataStore()
+
+        if _state['icon'] and os.path.isfile(_state['icon']):
+            ns_image = AppKit.NSImage.alloc().initByReferencingFile_(_state['icon'])
+            BrowserView.app.setApplicationIconImage_(ns_image)
 
         if _state['private_mode']:
             # nonPersisentDataStore preserves cookies for some unknown reason. For this reason we use default datastore
@@ -960,7 +966,27 @@ class BrowserView:
                         except ImportError:
                             UTType = None  # Fallback if UTType is not available
 
-                        open_dlg.setAllowedContentTypes_([UTType.typeWithMIMEType_('image/jpg')])
+                        if UTType is not None:
+                            # Map wildcard MIME types to supertype UTIs because
+                            # typeWithMIMEType_ returns unusable dynamic types for them.
+                            _wildcard_uti = {
+                                'image/*': 'public.image',
+                                'video/*': 'public.movie',
+                                'audio/*': 'public.audio',
+                                'text/*': 'public.text',
+                            }
+                            content_types = []
+                            for mime in file_filter:
+                                mime_str = str(mime)
+                                uti_id = _wildcard_uti.get(mime_str)
+                                if uti_id:
+                                    ut = UTType.typeWithIdentifier_(uti_id)
+                                else:
+                                    ut = UTType.typeWithMIMEType_(mime_str)
+                                if ut is not None and not str(ut).startswith('dyn.'):
+                                    content_types.append(ut)
+                            if content_types:
+                                open_dlg.setAllowedContentTypes_(content_types)
                     else:
                         open_dlg.setAllowedFileTypes_(file_filter[0][1])
 
@@ -1138,7 +1164,7 @@ class BrowserView:
             (self.localization['cocoa.menu.paste'], 'paste:', 'v'),
             (self.localization['cocoa.menu.selectAll'], 'selectAll:', 'a'),
         ]:
-            menuItem = editMenu.addItemWithTitle_action_keyEquivalent_(title, action, keyEquivalent)
+            editMenu.addItemWithTitle_action_keyEquivalent_(title, action, keyEquivalent)
 
     def _process_menu_items(self, menu_items, parent_menu):
         """
@@ -1563,7 +1589,7 @@ def get_position(uid):
 
     try:
         _position(coordinates)
-    except:
+    except Exception:
         AppHelper.callAfter(_position, coordinates)
         semaphore.acquire()
 
@@ -1586,7 +1612,7 @@ def get_size(uid):
 
     try:
         _size(dimensions)
-    except:
+    except Exception:
         AppHelper.callAfter(_size, dimensions)
         semaphore.acquire()
 
@@ -1601,6 +1627,7 @@ def get_screens():
             s.frame().size.width,
             s.frame().size.height,
             s.frame(),
+            s.backingScaleFactor(),
         )
         for s in AppKit.NSScreen.screens()
     ]

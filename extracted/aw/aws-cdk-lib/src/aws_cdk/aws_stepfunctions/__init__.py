@@ -2863,19 +2863,6 @@ class CfnStateMachine(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="roleArn")
-    def role_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IAM role to use for this state machine.'''
-        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
-
-    @role_arn.setter
-    def role_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="definition")
     def definition(self) -> typing.Any:
         '''The Amazon States Language definition of the state machine.'''
@@ -2887,6 +2874,19 @@ class CfnStateMachine(
             type_hints = typing.get_type_hints(_typecheckingstub__f82f2a7642ea2ac7bdf170a2733a41594fd40eb07f7e540d495f22c6fa06b147)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "definition", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IAM role to use for this state machine.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="definitionS3Location")
@@ -3616,7 +3616,8 @@ class CfnStateMachineAlias(
             routing_configuration=[stepfunctions.CfnStateMachineAlias.RoutingConfigurationVersionProperty(
                 state_machine_version_arn="stateMachineVersionArn",
                 weight=123
-            )]
+            )],
+            state_machine_arn="stateMachineArn"
         )
     '''
 
@@ -3629,6 +3630,7 @@ class CfnStateMachineAlias(
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         routing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachineAlias.RoutingConfigurationVersionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        state_machine_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::StepFunctions::StateMachineAlias``.
 
@@ -3638,6 +3640,7 @@ class CfnStateMachineAlias(
         :param description: An optional description of the state machine alias.
         :param name: The name of the state machine alias. If you don't provide a name, it uses an automatically generated name based on the logical ID.
         :param routing_configuration: The routing configuration of an alias. Routing configuration splits `StartExecution <https://docs.aws.amazon.com/step-functions/latest/apireference/API_StartExecution.html>`_ requests between one or two versions of the same state machine. Use ``RoutingConfiguration`` if you want to explicitly set the alias `weights <https://docs.aws.amazon.com/step-functions/latest/apireference/API_RoutingConfigurationListItem.html#StepFunctions-Type-RoutingConfigurationListItem-weight>`_ . Weight is the percentage of traffic you want to route to a state machine version. .. epigraph:: ``RoutingConfiguration`` and ``DeploymentPreference`` are mutually exclusive properties. You must define only one of these properties.
+        :param state_machine_arn: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85744ef2fdff2d756e7a5ede3f88cb39b6c23cf8c88315a30006ec164aeda913)
@@ -3648,6 +3651,7 @@ class CfnStateMachineAlias(
             description=description,
             name=name,
             routing_configuration=routing_configuration,
+            state_machine_arn=state_machine_arn,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -3791,6 +3795,18 @@ class CfnStateMachineAlias(
             type_hints = typing.get_type_hints(_typecheckingstub__91c36ec8b9a1fe59c6e03fb3ba3b15d8849aa3ea74c639879915303e21486168)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "routingConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="stateMachineArn")
+    def state_machine_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "stateMachineArn"))
+
+    @state_machine_arn.setter
+    def state_machine_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b975826a4e0a48c932ac41d98df227a50cb83d83aee5858c4882080781bcb002)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "stateMachineArn", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_stepfunctions.CfnStateMachineAlias.DeploymentPreferenceProperty",
@@ -4021,6 +4037,7 @@ class CfnStateMachineAlias(
         "description": "description",
         "name": "name",
         "routing_configuration": "routingConfiguration",
+        "state_machine_arn": "stateMachineArn",
     },
 )
 class CfnStateMachineAliasProps:
@@ -4031,6 +4048,7 @@ class CfnStateMachineAliasProps:
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         routing_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStateMachineAlias.RoutingConfigurationVersionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        state_machine_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnStateMachineAlias``.
 
@@ -4038,6 +4056,7 @@ class CfnStateMachineAliasProps:
         :param description: An optional description of the state machine alias.
         :param name: The name of the state machine alias. If you don't provide a name, it uses an automatically generated name based on the logical ID.
         :param routing_configuration: The routing configuration of an alias. Routing configuration splits `StartExecution <https://docs.aws.amazon.com/step-functions/latest/apireference/API_StartExecution.html>`_ requests between one or two versions of the same state machine. Use ``RoutingConfiguration`` if you want to explicitly set the alias `weights <https://docs.aws.amazon.com/step-functions/latest/apireference/API_RoutingConfigurationListItem.html#StepFunctions-Type-RoutingConfigurationListItem-weight>`_ . Weight is the percentage of traffic you want to route to a state machine version. .. epigraph:: ``RoutingConfiguration`` and ``DeploymentPreference`` are mutually exclusive properties. You must define only one of these properties.
+        :param state_machine_arn: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachinealias.html
         :exampleMetadata: fixture=_generated
@@ -4063,7 +4082,8 @@ class CfnStateMachineAliasProps:
                 routing_configuration=[stepfunctions.CfnStateMachineAlias.RoutingConfigurationVersionProperty(
                     state_machine_version_arn="stateMachineVersionArn",
                     weight=123
-                )]
+                )],
+                state_machine_arn="stateMachineArn"
             )
         '''
         if __debug__:
@@ -4072,6 +4092,7 @@ class CfnStateMachineAliasProps:
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument routing_configuration", value=routing_configuration, expected_type=type_hints["routing_configuration"])
+            check_type(argname="argument state_machine_arn", value=state_machine_arn, expected_type=type_hints["state_machine_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if deployment_preference is not None:
             self._values["deployment_preference"] = deployment_preference
@@ -4081,6 +4102,8 @@ class CfnStateMachineAliasProps:
             self._values["name"] = name
         if routing_configuration is not None:
             self._values["routing_configuration"] = routing_configuration
+        if state_machine_arn is not None:
+            self._values["state_machine_arn"] = state_machine_arn
 
     @builtins.property
     def deployment_preference(
@@ -4148,6 +4171,14 @@ class CfnStateMachineAliasProps:
         '''
         result = self._values.get("routing_configuration")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnStateMachineAlias.RoutingConfigurationVersionProperty"]]]], result)
+
+    @builtins.property
+    def state_machine_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-stepfunctions-statemachinealias.html#cfn-stepfunctions-statemachinealias-statemachinearn
+        '''
+        result = self._values.get("state_machine_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -26954,14 +26985,14 @@ def _typecheckingstub__d81dc102aa24fdc5c42fa4ed2ff7c70c77beb876a92e54f87c1584898
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b(
-    value: builtins.str,
+def _typecheckingstub__f82f2a7642ea2ac7bdf170a2733a41594fd40eb07f7e540d495f22c6fa06b147(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f82f2a7642ea2ac7bdf170a2733a41594fd40eb07f7e540d495f22c6fa06b147(
-    value: typing.Any,
+def _typecheckingstub__3004fba1e9c0225151457c38edd4c7effc7d187628b86416f39849b982f49a1b(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27084,6 +27115,7 @@ def _typecheckingstub__85744ef2fdff2d756e7a5ede3f88cb39b6c23cf8c88315a30006ec164
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachineAlias.RoutingConfigurationVersionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    state_machine_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27136,6 +27168,12 @@ def _typecheckingstub__91c36ec8b9a1fe59c6e03fb3ba3b15d8849aa3ea74c639879915303e2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b975826a4e0a48c932ac41d98df227a50cb83d83aee5858c4882080781bcb002(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8bf8e2b40097e36c0d014ffb281643658dd6d26279ce8e06bb1e9ce944fffb43(
     *,
     state_machine_version_arn: builtins.str,
@@ -27161,6 +27199,7 @@ def _typecheckingstub__48d59745dc4c655a3bf10278f9b74e39163a7b157ca93bafdd0e7939d
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     routing_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStateMachineAlias.RoutingConfigurationVersionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    state_machine_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

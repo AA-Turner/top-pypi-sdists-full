@@ -10,7 +10,7 @@ For reference documentation, see https://docs.wandb.ai/models/ref/python.
 """
 from __future__ import annotations
 
-__version__ = "0.25.1"
+__version__ = "0.26.0"
 
 
 from wandb.errors import Error
@@ -116,6 +116,9 @@ mark_preempting = _preinit.PreInitCallable(
 )
 
 alert = _preinit.PreInitCallable("wandb.alert", Run.alert)  # type: ignore
+pin_config_keys = _preinit.PreInitCallable(
+    "wandb.pin_config_keys", Run.pin_config_keys  # type: ignore
+)
 
 # record of patched libraries
 patched = {"tensorboard": [], "keras": [], "gym": []}  # type: ignore

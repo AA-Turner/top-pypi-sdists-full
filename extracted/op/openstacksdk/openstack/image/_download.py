@@ -10,17 +10,17 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import collections.abc
+from collections.abc import Iterable, Iterator
 import hashlib
 import io
-import typing as ty
+from typing import Any
 
 from openstack import exceptions
 from openstack import utils
 
 
 def _verify_checksum(
-    hasher: ty.Any,
+    hasher: Any,
     expected_hash: str | None,
     hash_algo: str | None = None,
 ) -> None:
@@ -41,11 +41,11 @@ def _verify_checksum(
 
 
 def _integrity_iter(
-    iterable: collections.abc.Iterable[bytes],
-    hasher: ty.Any,
+    iterable: Iterable[bytes],
+    hasher: Any,
     expected_hash: str | None,
     hash_algo: str | None,
-) -> collections.abc.Iterator[bytes]:
+) -> Iterator[bytes]:
     """Check image data integrity
 
     :param iterable: Iterable containing the image data chunks
@@ -61,9 +61,7 @@ def _integrity_iter(
     _verify_checksum(hasher, expected_hash, hash_algo)
 
 
-def _write_chunks(
-    fd: io.IOBase, chunks: collections.abc.Iterable[bytes]
-) -> None:
+def _write_chunks(fd: io.IOBase, chunks: Iterable[bytes]) -> None:
     """Write chunks to file descriptor."""
     for chunk in chunks:
         fd.write(chunk)

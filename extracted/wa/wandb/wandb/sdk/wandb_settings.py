@@ -92,6 +92,16 @@ class Settings(BaseModel, validate_assignment=True):
 
     # Public settings.
 
+    allow_media_symlink: bool = False
+    """Whether to symlink media files to the run directory.
+
+    If true, media files will be symlinked or hardlinked to the
+    run directory instead of copied. This may result in faster
+    logging and reduced disk usage. However, deleting or modifying
+    the original files before upload to the W&B server will be
+    reflected in the uploaded data.
+    """
+
     allow_offline_artifacts: bool = True
     """Flag to allow table artifacts to be synced in offline mode.
 
@@ -196,6 +206,18 @@ class Settings(BaseModel, validate_assignment=True):
 
     disable_git: bool = False
     """Whether to disable capturing the git state."""
+
+    disable_git_fork_point: bool = True
+    """Whether to disable inferring fork point from remote branches
+
+    When set to True, the SDK will use the latest commit from the upstream
+    branch, if one is set. Otherwise skip generating the diff patch.
+
+    When set to False, the SDK will try to use the latest commit from the upstream branch,
+    if one is set.
+    Otherwise, it will find the closest commit from all remote branches.
+    This may impact performance for repos with many upstream branches.
+    """
 
     disable_job_creation: bool = True
     """Whether to disable the creation of a job artifact for W&B Launch."""

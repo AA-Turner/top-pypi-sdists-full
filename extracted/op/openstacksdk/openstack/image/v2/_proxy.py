@@ -12,7 +12,8 @@
 
 import os
 import time
-import typing as ty
+from typing import ClassVar, Literal
+from collections.abc import Callable
 import warnings
 
 from openstack import exceptions
@@ -54,6 +55,8 @@ def _get_name_and_filename(name, image_format):
 
 
 class Proxy(proxy.Proxy):
+    api_version: ClassVar[Literal['2']] = '2'
+
     _resource_registry = {
         "cache": _cache.Cache,
         "image": _image.Image,
@@ -87,12 +90,11 @@ class Proxy(proxy.Proxy):
     def cache_delete_image(self, image, ignore_missing=True):
         """Delete an image from cache.
 
-        :param image: The value can be either the name of an image or a
-            :class:`~openstack.image.v2.image.Image`
-            instance.
+        :param image: The value can be either the ID of an image or a
+            :class:`~openstack.image.v2.image.Image` instance.
         :param bool ignore_missing: When set to ``False``,
             :class:`~openstack.exceptions.NotFoundException` will be raised
-            when the metadef namespace does not exist.
+            when the image or cache entry does not exist.
         :returns: ``None``
         """
         return self._delete(_cache.Cache, image, ignore_missing=ignore_missing)
@@ -112,6 +114,21 @@ class Proxy(proxy.Proxy):
         return cache.clear(self, target)
 
     # ====== IMAGES ======
+
+    def _make_v2_image_params(self, meta, properties):
+        ret: dict = {}
+        for k, v in iter(properties.items()):
+            if k in _INT_PROPERTIES:
+                ret[k] = int(v)
+            elif k in _RAW_PROPERTIES:
+                ret[k] = v
+            else:
+                if v is None:
+                    ret[k] = None
+                else:
+                    ret[k] = str(v)
+        ret.update(meta)
+        return ret
 
     def create_image(
         self,
@@ -587,6 +604,12 @@ class Proxy(proxy.Proxy):
         # is_public, we know what they mean. If they give us visibility, they
         # know that they mean.
         if 'is_public' in kwargs['properties']:
+            warnings.warn(
+                "The 'is_public' property is not supported by Glance v2: use "
+                "'visibility=public/private' instead",
+                os_warnings.RemovedInSDK60Warning,
+            )
+
             is_public = kwargs['properties'].pop('is_public')
             if is_public:
                 kwargs['visibility'] = 'public'
@@ -636,21 +659,6 @@ class Proxy(proxy.Proxy):
             raise exceptions.SDKException(
                 f"Image creation failed: {e!s}"
             ) from e
-
-    def _make_v2_image_params(self, meta, properties):
-        ret: dict = {}
-        for k, v in iter(properties.items()):
-            if k in _INT_PROPERTIES:
-                ret[k] = int(v)
-            elif k in _RAW_PROPERTIES:
-                ret[k] = v
-            else:
-                if v is None:
-                    ret[k] = None
-                else:
-                    ret[k] = str(v)
-        ret.update(meta)
-        return ret
 
     def _upload_image_put(
         self,
@@ -2024,7 +2032,7 @@ class Proxy(proxy.Proxy):
         interval: int | float | None = 2,
         wait: int | None = None,
         attribute: str = 'status',
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for the resource to be in a particular status.
 
@@ -2060,7 +2068,7 @@ class Proxy(proxy.Proxy):
         res: resource.ResourceT,
         interval: int = 2,
         wait: int = 120,
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.
 

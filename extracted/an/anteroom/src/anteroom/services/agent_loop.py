@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import time
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, AsyncGenerator
 
@@ -15,6 +16,11 @@ from .token_budget import BudgetCheckResult, check_all_budgets
 from .tool_result_compact import compact_tool_output
 
 logger = logging.getLogger(__name__)
+
+# Per-turn skill policy, set when dequeuing a skill message or by the
+# direct /skill-name REPL path.  Task-scoped via contextvars so
+# concurrent web requests are isolated.
+active_skill_policy: ContextVar[Any] = ContextVar("active_skill_policy", default=None)
 
 
 @dataclass
@@ -646,10 +652,16 @@ async def run_agent_loop(
                 messages.append({"role": "assistant", "content": assistant_content})
             yield AgentEvent(kind="done", data={})
 
+            # Clear skill policy from the completed turn before checking
+            # the queue — prevents leaking into a non-skill follow-up.
+            active_skill_policy.set(None)
+
             # Check message queue for follow-up messages
             if message_queue is not None:
                 try:
                     queued_msg = message_queue.get_nowait()
+                    _turn_policy = queued_msg.pop("_skill_policy", None)
+                    active_skill_policy.set(_turn_policy)
                     queue_depth = message_queue.qsize()
                     messages.append(queued_msg)
                     yield AgentEvent(
@@ -918,10 +930,13 @@ async def run_agent_loop(
         # of calling the LLM again.
         if _end_turn_requested:
             logger.debug("_end_turn requested — yielding turn to queue checkpoint")
+            active_skill_policy.set(None)
             yield AgentEvent(kind="done", data={})
             if message_queue is not None:
                 try:
                     queued_msg = message_queue.get_nowait()
+                    _turn_policy = queued_msg.pop("_skill_policy", None)
+                    active_skill_policy.set(_turn_policy)
                     queue_depth = message_queue.qsize()
                     messages.append(queued_msg)
                     yield AgentEvent(

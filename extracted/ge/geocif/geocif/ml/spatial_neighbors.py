@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

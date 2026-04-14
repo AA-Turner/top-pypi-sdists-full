@@ -11,7 +11,7 @@ from .deprecated_functions import DeprecatedFunctionUsage
 from .duplicate_package_in_requirements import DuplicatePackagesInRequirements
 from .env_in_bundle import EnvInBundle
 from .file_outside_project import FileOutsideProjectRoot
-from .html_syntax import HtmlSyntax
+from .html_and_jinja2_syntax import HtmlAndJinja2Syntax
 from .imports_requirements_analyzer import ImportsRequirementsAnalyzer
 from .invalid_package_in_requirements import InvalidPackageInRequirements
 from .js_syntax import JsSyntax
@@ -50,7 +50,7 @@ _env_in_bundle = EnvInBundle()
 _venv_in_bundle = VenvInBundle()
 _imports_analyzer = ImportsRequirementsAnalyzer()
 _vulnerable_requirements = VulnerableRequirements()
-_html_syntax = HtmlSyntax()
+_html_and_jinja2_syntax = HtmlAndJinja2Syntax()
 _css_syntax = CssSyntax()
 _js_syntax = JsSyntax()
 
@@ -106,7 +106,7 @@ run_after_package_install: List[LinterRule] = [
 ]
 
 run_after_html_change: List[LinterRule] = [
-    _html_syntax,
+    _html_and_jinja2_syntax,
 ]
 
 run_after_css_change: List[LinterRule] = [

@@ -4497,6 +4497,26 @@ def test_nested_python_dataclasses():
     }
 
 
+def test_stdlib_dataclass_custom_docstring_preserved() -> None:
+    """https://github.com/pydantic/pydantic/issues/12812"""
+
+    @dataclasses.dataclass
+    class WithCustomDoc:
+        """A custom description that should appear."""
+
+        x: int = 1
+
+    @dataclasses.dataclass
+    class WithoutDoc:
+        x: int = 1
+
+    schema_with_doc = TypeAdapter(WithCustomDoc).json_schema()
+    assert schema_with_doc.get('description') == 'A custom description that should appear.'
+
+    schema_without_doc = TypeAdapter(WithoutDoc).json_schema()
+    assert 'description' not in schema_without_doc
+
+
 def test_discriminated_union_in_list():
     class BlackCat(BaseModel):
         pet_type: Literal['cat']
@@ -7193,3 +7213,27 @@ def test_union_format_primitive_type_array_deduplicated() -> None:
             ]
         )
     ) == {'anyOf': [{'type': 'integer'}, {'type': 'string'}, {'type': 'string', 'maxLength': 1}]}
+
+
+def test_nested_model_deduplication() -> None:
+    """https://github.com/pydantic/pydantic/issues/12492"""
+
+    class Level3(BaseModel):
+        level_4: str
+
+    class Level2(BaseModel):
+        level_3: Level3
+
+    class Level1(BaseModel):
+        level_2: Level2
+
+    _, definitions = GenerateJsonSchema().generate_definitions(
+        [
+            (Level1.__name__, 'validation', Level1.__pydantic_core_schema__),
+            (Level1.__name__, 'serialization', Level1.__pydantic_core_schema__),
+        ],
+    )
+
+    assert 'Level1' in definitions
+    assert 'Level1-Input' not in definitions
+    assert 'Level1-Output' not in definitions

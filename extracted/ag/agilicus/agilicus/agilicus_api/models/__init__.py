@@ -619,6 +619,7 @@ from agilicus_api.model.network_protocol_condition import NetworkProtocolConditi
 from agilicus_api.model.network_service_config import NetworkServiceConfig
 from agilicus_api.model.network_summary_stats import NetworkSummaryStats
 from agilicus_api.model.next_page_email import NextPageEmail
+from agilicus_api.model.nullable_standalone_rule_name import NullableStandaloneRuleName
 from agilicus_api.model.oidc_auth_config import OIDCAuthConfig
 from agilicus_api.model.oidc_auth_path_config import OIDCAuthPathConfig
 from agilicus_api.model.oidc_auth_uri import OIDCAuthURI

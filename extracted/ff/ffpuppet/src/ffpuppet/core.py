@@ -151,6 +151,7 @@ class FFPuppet:
 
     def _benign_sanitizer_report(self, report: Path) -> bool:
         """Scan file for benign sanitizer reports.
+        # TODO: remove this function.
 
         Args:
             report: File to scan.
@@ -199,14 +200,11 @@ class FFPuppet:
 
         return False
 
-    def _crashreports(
-        self, skip_md: bool = False, skip_benign: bool = True
-    ) -> Generator[Path]:
+    def _crashreports(self, skip_md: bool = False) -> Generator[Path]:
         """Collect crash logs/reports.
 
         Args:
             skip_md: Do not scan for minidumps.
-            skip_benign: Skip reports that only contain benign non-fatal warnings.
 
         Yields:
             Log on the filesystem.
@@ -214,8 +212,6 @@ class FFPuppet:
         assert self._logs.path is not None
         # scan for sanitizer logs
         for entry in self._logs.path.glob(f"{self._logs.PREFIX_SAN}*"):
-            if skip_benign and self._benign_sanitizer_report(entry):
-                continue
             yield entry.resolve()
         # scan for Valgrind logs
         if self._dbg == Debugger.VALGRIND:
@@ -489,7 +485,7 @@ class FFPuppet:
         assert self._proc_tree is not None
         LOG.debug("processes found: %d", self._proc_tree.wait_procs())
         # check state of browser processes and set the close reason
-        if any(self._crashreports(skip_benign=True)):
+        if any(self._crashreports()):
             r_code = Reason.ALERT
             # Wait a moment for processes to exit automatically.
             # This will allow crash reports to be fully written to disk.
@@ -504,7 +500,7 @@ class FFPuppet:
                     "Slow shutdown detected, %d process(es) still running",
                     proc_count,
                 )
-            crash_reports = set(self._crashreports(skip_benign=True))
+            crash_reports = set(self._crashreports())
             LOG.debug("%d crash report(s) found", len(crash_reports))
             if crash_reports:
                 # additional delay to allow crash reports to be completed/closed
@@ -538,7 +534,7 @@ class FFPuppet:
                         dst_fp=self._logs.add_log(f"ffp_worker_{check.name}")
                     )
             # collect logs (excluding minidumps)
-            for log_path in self._crashreports(skip_md=True, skip_benign=False):
+            for log_path in self._crashreports(skip_md=True):
                 try:
                     self._logs.add_log(log_path.name, log_path.open("rb"))
                 except PermissionError:  # noqa: PERF203
@@ -743,6 +739,10 @@ class FFPuppet:
 
         # need the path to help find symbols
         self._bin_path = bin_path.parent
+        llvm_sym: str | None = None
+        if (self._bin_path / LLVM_SYMBOLIZER).exists():
+            llvm_sym = str(self._bin_path / LLVM_SYMBOLIZER)
+            LOG.debug("found llvm_symbolizer: %s", llvm_sym)
 
         if location is not None:
             LOG.debug("requested location '%s'", location)
@@ -843,12 +843,13 @@ class FFPuppet:
                     self._logs.path / self._logs.PREFIX_SAN,
                     env_mod=env_mod,
                     sanitizer=detected_sanitizer,
+                    llvm_symbolizer=llvm_sym,
                 ),
                 shell=False,
                 stderr=stderr,
                 stdout=self._logs.get_fp("stdout"),
             )
-            self._proc_tree = ProcessTree(proc)
+            self._proc_tree = ProcessTree(proc.pid)
             if sys.platform == "win32":
                 # pylint: disable=possibly-used-before-assignment
                 if memory_limit:
@@ -860,6 +861,7 @@ class FFPuppet:
                     )
                     resume_suspended_process(proc.pid)
             bootstrapper.wait(self.is_healthy, timeout=launch_timeout, url=location)
+            self._proc_tree.detect_launcher()
             # check if launcher process is in use
             if self._proc_tree.launcher is not None:
                 LOG.debug("browser launcher pid %d", self._proc_tree.launcher.pid)
@@ -900,10 +902,7 @@ class FFPuppet:
         if self._abort_tokens:
             self._checks.append(
                 CheckLogContents(
-                    [
-                        logs_fp_stderr.name,
-                        logs_fp_stdout.name,
-                    ],
+                    (logs_fp_stderr.name, logs_fp_stdout.name),
                     self._abort_tokens,
                 )
             )

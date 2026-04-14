@@ -40,8 +40,8 @@ from ansys.aedt.core.generic.file_utils import open_file
 from ansys.aedt.core.generic.file_utils import read_component_file
 from ansys.aedt.core.generic.general_methods import pyaedt_function_handler
 from ansys.aedt.core.generic.settings import settings
-from ansys.aedt.core.internal.checks import graphics_required
 from ansys.aedt.core.internal.checks import min_aedt_version
+from ansys.aedt.core.internal.checks import requires_graphical_dependency
 
 if TYPE_CHECKING:
     from ansys.aedt.core.modeler.advanced_cad.stackup_3d import Stackup3D
@@ -534,6 +534,7 @@ class FieldAnalysis3D(Analysis, PyAedtBase):
         reduce_percentage: int = 0,
         reduce_error: int = 0,
         merge_planar_faces: bool = True,
+        input_file_unit: str = "Auto",
     ) -> bool:
         """Import a CAD model.
 
@@ -571,6 +572,8 @@ class FieldAnalysis3D(Analysis, PyAedtBase):
             Error percentage during STL reduction operation. The default is ``0``.
         merge_planar_faces : bool, optional
             Whether to merge planar faces during import. The default is ``True``.
+        input_file_unit: str, optional
+            Unit for the stl file. The default is ``"Auto"``, which means that the unit is automatically detected.
 
         Returns
         -------
@@ -598,6 +601,7 @@ class FieldAnalysis3D(Analysis, PyAedtBase):
             reduce_percentage=reduce_percentage,
             reduce_error=reduce_error,
             merge_planar_faces=merge_planar_faces,
+            input_file_unit=input_file_unit,
         )
 
     @pyaedt_function_handler()
@@ -1141,7 +1145,7 @@ class FieldAnalysis3D(Analysis, PyAedtBase):
         return True
 
     @pyaedt_function_handler()
-    @graphics_required
+    @requires_graphical_dependency("pyvista")
     @min_aedt_version("2023.2")
     def identify_touching_conductors(self, assignment: str = None) -> dict:
         """Identify all touching components and group in a dictionary.
@@ -1176,7 +1180,6 @@ class FieldAnalysis3D(Analysis, PyAedtBase):
         nets = {}
         inputs = []
         for cad in plt_obj.objects:
-            # if (self.modeler[cad.name].is_conductor):
             filedata = pv.read(cad.path)
             cad._cached_polydata = filedata
             inputs.append(cad)

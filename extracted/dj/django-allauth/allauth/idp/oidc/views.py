@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from http import HTTPStatus
+from typing import Any
 
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.decorators import login_required
@@ -30,7 +33,11 @@ from allauth.account import app_settings as account_settings
 from allauth.account.adapter import get_adapter as get_account_adapter
 from allauth.account.internal.decorators import login_not_required
 from allauth.core.internal import jwkkit
-from allauth.core.internal.httpkit import add_query_params, del_query_params
+from allauth.core.internal.httpkit import (
+    add_query_params,
+    authenticated_user,
+    del_query_params,
+)
 from allauth.idp.oidc import app_settings
 from allauth.idp.oidc.adapter import get_adapter
 from allauth.idp.oidc.forms import (
@@ -52,7 +59,7 @@ from allauth.idp.oidc.models import Client
 from allauth.utils import build_absolute_uri
 
 
-def _enforce_csrf(request) -> HttpResponseForbidden | None:
+def _enforce_csrf(request: HttpRequest) -> HttpResponseForbidden | None:
     """
     Scenario: view is CSRF exempt, but, if this is not a client initial POST
     request, we do want a properly CSRF protected view.
@@ -67,7 +74,7 @@ def _enforce_csrf(request) -> HttpResponseForbidden | None:
 
 @method_decorator(login_not_required, name="dispatch")
 class ConfigurationView(View):
-    def get(self, request) -> JsonResponse:
+    def get(self, request: HttpRequest) -> JsonResponse:
         userinfo_endpoint = app_settings.USERINFO_ENDPOINT
         if not userinfo_endpoint:
             userinfo_endpoint = build_absolute_uri(
@@ -115,7 +122,7 @@ class AuthorizationView(FormView):
     form_class = AuthorizationForm
     template_name = f"idp/oidc/authorization_form.{account_settings.TEMPLATE_EXTENSION}"
 
-    def get(self, request, *args, **kwargs) -> HttpResponse:
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         response = self._login_required(request)
         if response:
             return response
@@ -140,7 +147,7 @@ class AuthorizationView(FormView):
             return self._skip_consent()
         return super().get(request, *args, **kwargs)
 
-    def post(self, request, *args, **kwargs) -> HttpResponse:
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         signed_request_info = request.POST.get("request")
         if not signed_request_info:
             return HttpResponseRedirect(
@@ -163,7 +170,7 @@ class AuthorizationView(FormView):
             return self._respond_with_access_denied()
         return super().post(request, *args, **kwargs)
 
-    def _login_required(self, request) -> HttpResponse | None:
+    def _login_required(self, request: HttpRequest) -> HttpResponse | None:
         prompts = []
         prompt = request.GET.get("prompt")
         if prompt:
@@ -194,7 +201,7 @@ class AuthorizationView(FormView):
         )
         return HttpResponseRedirect(add_query_params(path, params))
 
-    def _skip_consent(self):
+    def _skip_consent(self) -> HttpResponse:
         scopes = self._request_info["request"].scopes
         form_kwargs = self.get_form_kwargs()
         form_kwargs["data"] = {
@@ -207,7 +214,7 @@ class AuthorizationView(FormView):
             raise PermissionDenied()
         return self.form_valid(form)
 
-    def _respond_with_access_denied(self):
+    def _respond_with_access_denied(self) -> HttpResponseRedirect:
         redirect_uri = self._request_info.get("redirect_uri")
         state = self._request_info.get("state")
         params = {"error": "access_denied"}
@@ -293,7 +300,7 @@ device_code = DeviceCodeView.as_view()
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(login_required, name="dispatch")
 class DeviceAuthorizationView(View):
-    def dispatch(self, request, *args, **kwargs) -> HttpResponse:
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         if "code" in request.GET:
             form = ConfirmCodeForm(request.GET)
             if form.is_valid():
@@ -316,15 +323,15 @@ class DeviceAuthorizationView(View):
         )
 
     def _dispatch_authorization(
-        self, request, user_code: str, device_code: str, client: Client
-    ):
+        self, request: HttpRequest, user_code: str, device_code: str, client: Client
+    ) -> HttpResponse:
         context = {"user_code": user_code, "client": client}
         if request.method == "POST":
             form = DeviceAuthorizationForm(request.POST)
             if form.is_valid():
                 confirm = form.cleaned_data["action"] == "confirm"
                 device_codes.confirm_or_deny_device_code(
-                    request.user, device_code, confirm=confirm
+                    authenticated_user(request), device_code, confirm=confirm
                 )
                 if confirm:
                     template_name = f"idp/oidc/device_authorization_confirmed.{account_settings.TEMPLATE_EXTENSION}"
@@ -353,25 +360,27 @@ device_authorization = DeviceAuthorizationView.as_view()
 @method_decorator(login_not_required, name="dispatch")
 class TokenView(View):
 
-    def post(self, request) -> HttpResponse:
+    def post(self, request: HttpRequest) -> HttpResponse:
         if request.POST.get("grant_type") == Client.GrantType.DEVICE_CODE:
             return self._post_device_token(request)
         return self._create_token_response(request)
 
     def _create_token_response(
         self,
-        request,
+        request: HttpRequest,
         *,
         user: AbstractBaseUser | None = None,
         data: dict | None = None,
-    ):
+    ) -> HttpResponse:
         orequest = extract_params(request)
         oresponse = get_server(
             pre_token=[lambda orequest: self._pre_token(orequest, user, data)]
         ).create_token_response(*orequest)
         return convert_response(*oresponse)
 
-    def _pre_token(self, orequest, user: AbstractBaseUser | None, data: dict | None):
+    def _pre_token(
+        self, orequest, user: AbstractBaseUser | None, data: dict | None
+    ) -> None:
         if orequest.grant_type == Client.GrantType.DEVICE_CODE:
             assert user is not None  # nosec
             assert data is not None  # nosec
@@ -379,7 +388,7 @@ class TokenView(View):
                 orequest.scope = scope
             orequest.user = user
 
-    def _post_device_token(self, request):
+    def _post_device_token(self, request: HttpRequest) -> HttpResponse:
         try:
             user, data = device_codes.poll_device_code(request)
         except OAuth2Error as e:
@@ -420,7 +429,7 @@ user_info = UserInfoView.as_view()
 
 @method_decorator(login_not_required, name="dispatch")
 class JwksView(View):
-    def get(self, request, *args, **kwargs) -> JsonResponse:
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         keys = []
         for pem in [app_settings.PRIVATE_KEY]:
             jwk, _ = jwkkit.load_jwk_from_pem(pem)
@@ -436,7 +445,7 @@ jwks = JwksView.as_view()
 @method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(login_not_required, name="dispatch")
 class RevokeView(View):
-    def post(self, request, *args, **kwargs) -> HttpResponse:
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         orequest = extract_params(request)
         oresponse = get_server().create_revocation_response(*orequest)
         return convert_response(*oresponse)
@@ -455,7 +464,7 @@ class LogoutView(FormView):
     form_class = RPInitiatedLogoutForm
     template_name = f"idp/oidc/logout.{account_settings.TEMPLATE_EXTENSION}"
 
-    def get(self, request) -> HttpResponse:
+    def get(self, request: HttpRequest) -> HttpResponse:
         form = self.form_class(request.GET)
         if not form.is_valid():
             return self.form_invalid(form)

@@ -4196,6 +4196,32 @@ class CfnLogGroup(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="dataProtectionPolicy")
+    def data_protection_policy(self) -> typing.Any:
+        '''Creates a data protection policy and assigns it to the log group.'''
+        return typing.cast(typing.Any, jsii.get(self, "dataProtectionPolicy"))
+
+    @data_protection_policy.setter
+    def data_protection_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__427539e290b46019fba84ec8aa72f953c2d26dfe978de85330819964c3cea37e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dataProtectionPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyDocument")
+    def resource_policy_document(self) -> typing.Any:
+        '''Creates or updates a resource policy for the specified log group that allows other services to put log events to this account.'''
+        return typing.cast(typing.Any, jsii.get(self, "resourcePolicyDocument"))
+
+    @resource_policy_document.setter
+    def resource_policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d6853e85debe88051bdf2f6ab68103e166533560e34248419263b9c0f7dd03e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourcePolicyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="bearerTokenAuthenticationEnabled")
     def bearer_token_authentication_enabled(
         self,
@@ -4211,19 +4237,6 @@ class CfnLogGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__acecbdab5d0cee71811ac415b107972ac56533d17e350c1fbe427477b072d3ba)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "bearerTokenAuthenticationEnabled", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dataProtectionPolicy")
-    def data_protection_policy(self) -> typing.Any:
-        '''Creates a data protection policy and assigns it to the log group.'''
-        return typing.cast(typing.Any, jsii.get(self, "dataProtectionPolicy"))
-
-    @data_protection_policy.setter
-    def data_protection_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__427539e290b46019fba84ec8aa72f953c2d26dfe978de85330819964c3cea37e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataProtectionPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="deletionProtectionEnabled")
@@ -4302,19 +4315,6 @@ class CfnLogGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__08bea1f6b59cbce316d19aa0ff5db07ed0da20b04cc322eb41788ce24f8f2d31)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "logGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resourcePolicyDocument")
-    def resource_policy_document(self) -> typing.Any:
-        '''Creates or updates a resource policy for the specified log group that allows other services to put log events to this account.'''
-        return typing.cast(typing.Any, jsii.get(self, "resourcePolicyDocument"))
-
-    @resource_policy_document.setter
-    def resource_policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d6853e85debe88051bdf2f6ab68103e166533560e34248419263b9c0f7dd03e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcePolicyDocument", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="retentionInDays")
@@ -20571,14 +20571,20 @@ def _typecheckingstub__167d66406821a4fe8a6ca05ec99424e7c4abd7946ba6eb30ee37e0444
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__acecbdab5d0cee71811ac415b107972ac56533d17e350c1fbe427477b072d3ba(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+def _typecheckingstub__427539e290b46019fba84ec8aa72f953c2d26dfe978de85330819964c3cea37e(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__427539e290b46019fba84ec8aa72f953c2d26dfe978de85330819964c3cea37e(
+def _typecheckingstub__8d6853e85debe88051bdf2f6ab68103e166533560e34248419263b9c0f7dd03e(
     value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__acecbdab5d0cee71811ac415b107972ac56533d17e350c1fbe427477b072d3ba(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20609,12 +20615,6 @@ def _typecheckingstub__dc12e80d5e08442f63a358d7f964b44915adb40d9341cdbd7ae2bf730
 
 def _typecheckingstub__08bea1f6b59cbce316d19aa0ff5db07ed0da20b04cc322eb41788ce24f8f2d31(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8d6853e85debe88051bdf2f6ab68103e166533560e34248419263b9c0f7dd03e(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

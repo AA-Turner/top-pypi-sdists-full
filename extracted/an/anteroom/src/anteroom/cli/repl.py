@@ -47,7 +47,7 @@ from .instructions import (
     find_global_instructions,
     find_project_instructions_path,
 )
-from .skills import SkillRegistry
+from .skills import SkillPolicy, SkillRegistry
 from .themes import CliTheme
 
 # Module-level color aliases — updated by run_cli() after theme is set.
@@ -418,31 +418,50 @@ class _LazyAIService:
         self._ai_config = value
 
 
-async def _check_for_update(current: str) -> str | None:
-    """Check PyPI for a newer version. Returns latest if newer, else None."""
+async def _check_for_update(current: str, *, command: str = "") -> str | None:
+    """Check for a newer version. Returns latest if newer, else None.
+
+    When *command* is set, runs it as a shell command and parses stdout as
+    a bare version string (e.g. ``1.161.0``).  When empty, falls back to
+    ``pip index versions anteroom``.
+    """
     proc = None
     try:
-        proc = await asyncio.create_subprocess_exec(
-            sys.executable,
-            "-m",
-            "pip",
-            "index",
-            "versions",
-            "anteroom",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+        if command:
+            proc = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        else:
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-m",
+                "pip",
+                "index",
+                "versions",
+                "anteroom",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
         if proc.returncode != 0:
             return None
         output = stdout.decode().strip()
-        # Output format: "anteroom (X.Y.Z)"
-        if "(" in output and ")" in output:
+        if command:
+            # Custom command: stdout is a bare version string
+            latest = output.strip()
+        else:
+            # pip index: output format "anteroom (X.Y.Z)"
+            if "(" not in output or ")" not in output:
+                return None
             latest = output.split("(")[1].split(")")[0].strip()
-            from packaging.version import Version
+        if not latest:
+            return None
+        from packaging.version import Version
 
-            if Version(latest) > Version(current):
-                return latest
+        if Version(latest) > Version(current):
+            return latest
     except Exception:
         if proc and proc.returncode is None:
             try:
@@ -788,11 +807,14 @@ async def _drain_input_to_msg_queue(
                     break
                 # Try expanding as a skill invocation
                 if skill_registry:
-                    is_skill, skill_prompt = skill_registry.resolve_input(queued_text)
+                    is_skill, skill_prompt, _skill_obj = skill_registry.resolve_input_with_skill(queued_text)
                     if is_skill:
                         q_expanded = _expand_file_references(skill_prompt, working_dir, file_max_chars=file_max_chars)
                         storage.create_message(db, conversation_id, "user", q_expanded, **(identity_kwargs or {}))
-                        await msg_queue.put({"role": "user", "content": q_expanded})
+                        msg: dict[str, Any] = {"role": "user", "content": q_expanded}
+                        if _skill_obj is not None and _skill_obj.policy != SkillPolicy():
+                            msg["_skill_policy"] = _skill_obj.policy
+                        await msg_queue.put(msg)
                         continue
                 if warn_callback:
                     warn_callback(cmd)
@@ -1045,7 +1067,7 @@ async def _check_project_trust(
     trust_project: bool = False,
     data_dir: Path | None = None,
 ) -> str | None:
-    """Gate project-level ANTEROOM.md behind user trust consent.
+    """Gate project-level instructions file behind user trust consent.
 
     Returns the file content if trusted, or None if denied/skipped.
     Caller must check no_project_context before calling this function.
@@ -1067,11 +1089,12 @@ async def _check_project_trust(
     # Both "changed" and "untrusted" require user consent
     file_size = len(content.encode("utf-8"))
 
+    fname = file_path.name
     if status == "changed":
-        renderer.console.print("\n[yellow bold]Warning:[/yellow bold] ANTEROOM.md has changed since last trusted.")
+        renderer.console.print(f"\n[yellow bold]Warning:[/yellow bold] {fname} has changed since last trusted.")
     else:
         renderer.console.print(
-            "\n[yellow bold]Warning:[/yellow bold] This project contains an ANTEROOM.md "
+            f"\n[yellow bold]Warning:[/yellow bold] This project contains a {fname} "
             "file that will be loaded into the AI context."
         )
 
@@ -1131,7 +1154,7 @@ async def _load_instructions_with_trust(
     """Load global + project instructions with trust gating on project files."""
     parts: list[str] = []
 
-    # Global instructions (~/.anteroom/ANTEROOM.md) are loaded unconditionally.
+    # Global instructions (~/.anteroom/ANTEROOM.md or AGENTS.md) are loaded unconditionally.
     # They share the same trust boundary as the config file itself — if an attacker
     # can write to ~/.anteroom/, they already control the app configuration.
     global_inst = find_global_instructions()
@@ -1152,7 +1175,7 @@ async def _load_instructions_with_trust(
                 tokens = estimate_tokens(trusted_content)
                 if tokens > CONVENTIONS_TOKEN_WARNING_THRESHOLD:
                     renderer.console.print(
-                        f"  [yellow]Warning: ANTEROOM.md is ~{tokens:,} tokens "
+                        f"  [yellow]Warning: {file_path.name} is ~{tokens:,} tokens "
                         f"(threshold: {CONVENTIONS_TOKEN_WARNING_THRESHOLD:,}). "
                         f"Large files reduce prompt effectiveness.[/yellow]\n"
                     )
@@ -2462,11 +2485,14 @@ async def run_cli(
     mission_session_id: str | None = None,
 ) -> None:
     """Main entry point for CLI mode."""
+    from ..services.agent_loop import active_skill_policy
+
     working_dir = os.getcwd()
 
     # Initialize CLI theme from config
     theme = CliTheme.load(config.cli.theme)
     renderer.set_theme(theme)
+    renderer.set_rag_status_visible(config.rag.show_status)
     # Update module-level color aliases from active theme
     global GOLD, MUTED, CHROME, _SUCCESS, _ERROR
     GOLD = renderer.GOLD
@@ -2800,6 +2826,12 @@ async def run_cli(
 
     async def tool_executor(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         nonlocal _subagent_counter
+        # Skill-scoped tool policy enforcement (#857)
+        _sp = active_skill_policy.get(None)
+        if _sp is not None:
+            _sp_ok, _sp_reason = _sp.check_tool(tool_name)
+            if not _sp_ok:
+                return {"error": _sp_reason, "skill_policy_blocked": True}
         if tool_name == "invoke_skill":
             # Apply safety tier check (invoke_skill is READ tier but respects denied_tools)
             verdict = tool_registry.check_safety(tool_name, arguments)
@@ -2826,7 +2858,10 @@ async def run_cli(
 
                 args = sanitize_trust_tags(args[:2000])
                 prompt = _expand_args(prompt, f"<skill_args>{args}</skill_args>")
-            await queue.put({"role": "user", "content": prompt})
+            msg_to_queue: dict[str, Any] = {"role": "user", "content": prompt}
+            if skill.policy != SkillPolicy():
+                msg_to_queue["_skill_policy"] = skill.policy
+            await queue.put(msg_to_queue)
             return {"status": "skill_invoked", "skill": skill_name}
         if tool_name == "run_agent":
             _subagent_counter += 1
@@ -2977,7 +3012,9 @@ async def run_cli(
         _artifact_registry = ArtifactRegistry()
         _artifact_registry.load_from_db(db, space_id=space_id, project_path=working_dir)
         if _artifact_registry.count:
-            skill_registry.load_from_artifacts(_artifact_registry)
+            skill_registry.load_from_artifacts(_artifact_registry, db=db)
+        if config.references.skills:
+            skill_registry.load_from_references(config.references.skills)
         # Load hard-enforced rules from the registry
         from ..services.artifacts import ArtifactType as _ArtType
         from ..services.rule_enforcer import RuleEnforcer
@@ -3082,7 +3119,10 @@ async def run_cli(
         else:
             git_branch = _detect_git_branch()
             build_date = renderer._get_build_date()
-            _update_task = asyncio.create_task(_check_for_update(__version__))
+            if config.cli.update_check:
+                _update_task = asyncio.create_task(
+                    _check_for_update(__version__, command=config.cli.update_check_command)
+                )
             installed_packs = packs_service.list_packs(db)
             pack_count = len(installed_packs)
             pack_names = [p["name"] for p in installed_packs] if installed_packs else None
@@ -3104,15 +3144,17 @@ async def run_cli(
 
             # Update check runs fully in background — never blocks the prompt.
             # The result is rendered via a done-callback when available.
-            def _on_update_check_done(task: asyncio.Task[str | None]) -> None:
-                try:
-                    latest = task.result()
-                    if latest:
-                        renderer.render_update_available(__version__, latest)
-                except Exception:
-                    pass
+            if config.cli.update_check:
 
-            _update_task.add_done_callback(_on_update_check_done)
+                def _on_update_check_done(task: asyncio.Task[str | None]) -> None:
+                    try:
+                        latest = task.result()
+                        if latest:
+                            renderer.render_update_available(__version__, latest)
+                    except Exception:
+                        pass
+
+                _update_task.add_done_callback(_on_update_check_done)
             # MCP startup runs in background so the prompt appears immediately.
             # Tools become available once startup completes — the list is mutated
             # in-place so _run_repl sees the update on the next agent turn.
@@ -3949,8 +3991,8 @@ async def _run_repl(
                 (desc, "          Summarize history to free context\n"),
                 (cmd, "  /copy"),
                 (desc, "             Copy the last assistant response\n"),
-                (cmd, "  /model <name>"),
-                (desc, "     Switch AI model mid-session\n"),
+                (cmd, "  /model [list|NAME]"),
+                (desc, " Show, list, or switch AI model\n"),
                 (cmd, "  /tools"),
                 (desc, "            List available tools\n"),
                 (cmd, "  /skills"),
@@ -3960,7 +4002,7 @@ async def _run_repl(
                 (cmd, "  /mcp"),
                 (desc, "              Show MCP server status\n"),
                 (cmd, "  /conventions"),
-                (desc, "      Show loaded ANTEROOM.md conventions\n"),
+                (desc, "      Show loaded project instructions\n"),
                 (cmd, "  /plan"),
                 (desc, "             Plan mode: on/approve/status/off\n"),
                 (cmd, "  /verbose"),
@@ -4697,7 +4739,8 @@ async def _run_repl(
                     if info.source == "none":
                         renderer.console.print(
                             f"[{CHROME}]No conventions file found.[/{CHROME}]\n"
-                            f"  [{MUTED}]Create ANTEROOM.md in your project root to define conventions.[/{MUTED}]\n"
+                            f"  [{MUTED}]Create ANTEROOM.md or AGENTS.md in your project root"
+                            f" to define conventions.[/{MUTED}]\n"
                         )
                     else:
                         label = "Project" if info.source == "project" else "Global"
@@ -5087,17 +5130,24 @@ async def _run_repl(
                     if skill_registry:
                         skill_registry.reload(working_dir)
                         if artifact_registry is not None:
-                            skill_registry.load_from_artifacts(artifact_registry)
+                            skill_registry.load_from_artifacts(artifact_registry, db=db)
+                        if config.references.skills:
+                            skill_registry.load_from_references(config.references.skills)
                         descs = skill_registry.get_skill_descriptions()
                         if descs:
                             renderer.console.print("\n[bold]Available skills:[/bold]")
                             for display_name, desc in descs:
                                 sk = skill_registry.get(display_name)
                                 src = sk.source if sk else "unknown"
-                                renderer.console.print(f"  /{display_name} - {desc} [{CHROME}]({src})[/{CHROME}]")
+                                bundle_tag = (
+                                    f" [bundle: {sk.resource_count} resources]" if sk and sk.resource_count else ""
+                                )
+                                renderer.console.print(
+                                    f"  /{display_name} - {desc}{bundle_tag} [{CHROME}]({src})[/{CHROME}]"
+                                )
                         else:
                             renderer.console.print(
-                                f"\n[{CHROME}]No skills loaded. Add .yaml files to"
+                                f"\n[{CHROME}]No skills loaded. Add SKILL.md files to"
                                 f" ~/.anteroom/skills/ or .anteroom/skills/[/{CHROME}]"
                             )
                         if skill_registry.load_warnings:
@@ -5755,7 +5805,9 @@ async def _run_repl(
                                     project_path=working_dir,
                                 )
                                 if skill_registry is not None:
-                                    skill_registry.load_from_artifacts(artifact_registry)
+                                    skill_registry.load_from_artifacts(artifact_registry, db=db)
+                                    if config.references.skills:
+                                        skill_registry.load_from_references(config.references.skills)
                                 _refresh_artifact_prompt()
                                 _refresh_skill_tools()
                         except ValueError as exc:
@@ -5785,7 +5837,9 @@ async def _run_repl(
                                     project_path=working_dir,
                                 )
                                 if skill_registry is not None:
-                                    skill_registry.load_from_artifacts(artifact_registry)
+                                    skill_registry.load_from_artifacts(artifact_registry, db=db)
+                                    if config.references.skills:
+                                        skill_registry.load_from_references(config.references.skills)
                                 _refresh_artifact_prompt()
                                 _refresh_skill_tools()
                         else:
@@ -5862,7 +5916,9 @@ async def _run_repl(
                                 if artifact_registry is not None:
                                     artifact_registry.load_from_db(db, space_id=space["id"] if space else None)
                                     if skill_registry is not None:
-                                        skill_registry.load_from_artifacts(artifact_registry)
+                                        skill_registry.load_from_artifacts(artifact_registry, db=db)
+                                        if config.references.skills:
+                                            skill_registry.load_from_references(config.references.skills)
                                     _refresh_artifact_prompt()
                             else:
                                 # Quarantine: detach changed packs, then rebuild
@@ -5884,7 +5940,9 @@ async def _run_repl(
                                 if artifact_registry is not None:
                                     artifact_registry.load_from_db(db, space_id=space["id"] if space else None)
                                     if skill_registry is not None:
-                                        skill_registry.load_from_artifacts(artifact_registry)
+                                        skill_registry.load_from_artifacts(artifact_registry, db=db)
+                                        if config.references.skills:
+                                            skill_registry.load_from_references(config.references.skills)
                                     _refresh_artifact_prompt()
                         if total_installed > 0 and total_attached == 0:
                             renderer.console.print(
@@ -5956,7 +6014,9 @@ async def _run_repl(
                                     project_path=working_dir,
                                 )
                                 if skill_registry is not None:
-                                    skill_registry.load_from_artifacts(artifact_registry)
+                                    skill_registry.load_from_artifacts(artifact_registry, db=db)
+                                    if config.references.skills:
+                                        skill_registry.load_from_references(config.references.skills)
                                 _refresh_artifact_prompt()
                                 _refresh_skill_tools()
 
@@ -6002,7 +6062,9 @@ async def _run_repl(
                                         project_path=working_dir,
                                     )
                                     if skill_registry is not None:
-                                        skill_registry.load_from_artifacts(artifact_registry)
+                                        skill_registry.load_from_artifacts(artifact_registry, db=db)
+                                        if config.references.skills:
+                                            skill_registry.load_from_references(config.references.skills)
                                     _refresh_artifact_prompt()
                                     _refresh_skill_tools()
                         else:
@@ -6374,11 +6436,84 @@ async def _run_repl(
                     continue
                 elif cmd == "/model":
                     parts = user_input.split(maxsplit=1)
-                    if len(parts) < 2:
-                        renderer.console.print(f"[{CHROME}]Current model: {current_model}[/{CHROME}]")
-                        renderer.console.print(f"[{CHROME}]Usage: /model <model_name>[/{CHROME}]\n")
+                    sub_arg = parts[1].strip() if len(parts) >= 2 else ""
+
+                    if sub_arg == "list":
+                        # /model list — display available models
+                        try:
+                            available = await ai_service.list_models()
+                        except Exception:
+                            available = [current_model]
+                        renderer.console.print(f"[{CHROME}]Available models:[/{CHROME}]")
+                        for i, m in enumerate(available, 1):
+                            marker = " *" if m == current_model else ""
+                            renderer.console.print(f"[{CHROME}]  {i}. {m}{marker}[/{CHROME}]")
+                        if config.ai.allowed_models:
+                            renderer.console.print(f"[{MUTED}](filtered by allowed_models)[/{MUTED}]")
+                        renderer.console.print("")
                         continue
-                    new_model = parts[1].strip()
+
+                    if not sub_arg:
+                        # /model — interactive picker
+                        try:
+                            available = await ai_service.list_models()
+                        except Exception:
+                            available = [current_model]
+                        if len(available) == 1:
+                            new_model = available[0]
+                            if new_model == current_model:
+                                renderer.console.print(
+                                    f"[{CHROME}]Current model: {current_model} (only model available)[/{CHROME}]\n"
+                                )
+                                continue
+                        else:
+                            renderer.console.print(f"[{CHROME}]Available models:[/{CHROME}]")
+                            for i, m in enumerate(available, 1):
+                                marker = " *" if m == current_model else ""
+                                renderer.console.print(f"[{CHROME}]  {i}. {m}{marker}[/{CHROME}]")
+                            if config.ai.allowed_models:
+                                renderer.console.print(f"[{MUTED}](filtered by allowed_models)[/{MUTED}]")
+                            from prompt_toolkit import PromptSession as _ModelPickerSession
+
+                            try:
+                                _picker = _ModelPickerSession()
+                                selection = await _picker.prompt_async(
+                                    f"  Select model [1-{len(available)}] or press Enter to cancel: "
+                                )
+                            except (EOFError, KeyboardInterrupt):
+                                renderer.console.print("")
+                                continue
+                            selection = (selection or "").strip()
+                            if not selection:
+                                continue
+                            try:
+                                idx = int(selection)
+                                if 1 <= idx <= len(available):
+                                    new_model = available[idx - 1]
+                                else:
+                                    renderer.console.print(f"[{CHROME}]Invalid selection[/{CHROME}]\n")
+                                    continue
+                            except ValueError:
+                                renderer.console.print(f"[{CHROME}]Invalid selection[/{CHROME}]\n")
+                                continue
+
+                        current_model = new_model
+                        from ..services.ai_service import create_ai_service
+
+                        ai_service = create_ai_service(config.ai)
+                        ai_service.config.model = new_model
+                        _toolbar_refresh()
+                        renderer.console.print(f"[{CHROME}]Switched to model: {new_model}[/{CHROME}]\n")
+                        continue
+
+                    # /model <name> — direct switch with allowlist enforcement
+                    new_model = sub_arg
+                    if config.ai.allowed_models and new_model not in config.ai.allowed_models:
+                        renderer.console.print(
+                            f"[{CHROME}]Model '{new_model}' is not in the allowed models list.[/{CHROME}]"
+                        )
+                        renderer.console.print(f"[{CHROME}]Run /model list to see available models.[/{CHROME}]\n")
+                        continue
                     current_model = new_model
                     from ..services.ai_service import create_ai_service
 
@@ -6655,10 +6790,13 @@ async def _run_repl(
 
             # Check for skill invocation — preserve original for title generation
             original_user_input = user_input
+            _direct_skill_policy: Any = None
             if skill_registry and user_input.startswith("/"):
-                is_skill, skill_prompt = skill_registry.resolve_input(user_input)
+                is_skill, skill_prompt, _skill_obj = skill_registry.resolve_input_with_skill(user_input)
                 if is_skill:
                     user_input = skill_prompt
+                    if _skill_obj is not None and _skill_obj.policy != SkillPolicy():
+                        _direct_skill_policy = _skill_obj.policy
 
             # For note/document types, save message without AI response
             current_conv_type = conv.get("type", "chat")
@@ -6816,8 +6954,9 @@ async def _run_repl(
                     config=config,
                 )
 
-                from ..services.agent_loop import run_agent_loop
+                from ..services.agent_loop import active_skill_policy, run_agent_loop
 
+                active_skill_policy.set(_direct_skill_policy)
                 while True:
                     user_attempt += 1
                     should_retry = False
@@ -7080,6 +7219,10 @@ async def _run_repl(
                     if not should_retry:
                         break
 
+                # Clear skill policy after the agent loop completes — prevents
+                # leaking into the next REPL iteration.
+                active_skill_policy.set(None)
+
                 # Generate title on first exchange (skip if user cancelled)
                 if is_first_message:
                     is_first_message = False
@@ -7098,6 +7241,13 @@ async def _run_repl(
                 if thinking:
                     renderer.stop_thinking_sync()
                     thinking = False
+                # Ensure skill policy is cleared even on exceptions/cancellation
+                try:
+                    from ..services.agent_loop import active_skill_policy as _asp
+
+                    _asp.set(None)
+                except Exception:
+                    pass
                 _cleanup_after_turn(cancel_event, agent_busy, msg_queue, ai_messages, _has_pending_work)
                 _current_cancel_event[0] = None
                 if cancel_event_ref is not None:

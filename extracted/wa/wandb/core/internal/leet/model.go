@@ -19,6 +19,7 @@ const (
 	viewModeUndefined viewMode = iota
 	viewModeWorkspace
 	viewModeRun
+	viewModeSymon
 )
 
 // latestRunLinkName is the conventional symlink name that wandb creates to
@@ -121,7 +122,7 @@ func NewModel(params ModelParams) *Model {
 // regardless of the starting mode. If starting in single-run mode, the run's
 // reader and watcher commands are also started.
 func (m *Model) Init() tea.Cmd {
-	cmds := []tea.Cmd{}
+	cmds := []tea.Cmd{tea.RequestBackgroundColor}
 
 	// Workspace always exists; initialize its long‑running commands.
 	if m.workspace != nil {
@@ -146,6 +147,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.help.SetSize(wsMsg.Width, wsMsg.Height)
 	}
 
+	if bgMsg, ok := msg.(tea.BackgroundColorMsg); ok {
+		SetDarkBackground(bgMsg.IsDark())
+	}
+
 	if handled, cmd := m.handleHelp(msg); handled {
 		return m, cmd
 	}
@@ -154,12 +159,22 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	// Snapshot input state before sub-models see this key.
-	awaitingUserInput := m.isAwaitingUserInput()
+	// Snapshot before sub-models consume the key — a filter's Enter
+	// exits filter mode, so checking after would miss it.
+	awaitingInput := m.isAwaitingUserInput()
 
+	cmds := m.updateSubComponents(msg)
+
+	if cmd := m.handleModeSwitch(msg, awaitingInput); cmd != nil {
+		return m, cmd
+	}
+
+	return m, tea.Batch(cmds...)
+}
+
+// updateSubComponents forwards the message to the active sub-models.
+func (m *Model) updateSubComponents(msg tea.Msg) []tea.Cmd {
 	var cmds []tea.Cmd
-
-	// Handle sub-component updates.
 	switch m.mode {
 	case viewModeWorkspace:
 		if cmd := m.workspace.Update(msg); cmd != nil {
@@ -177,26 +192,35 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 	}
+	return cmds
+}
 
-	// Handle mode switching.
-	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
-		switch m.mode {
-		case viewModeWorkspace:
-			if keyMsg.Code == tea.KeyEnter &&
-				!awaitingUserInput &&
-				m.workspace.RunSelectorActive() {
-				cmd := m.enterRunView()
-				return m, cmd
-			}
-		case viewModeRun:
-			if keyMsg.Code == tea.KeyEsc && !awaitingUserInput {
-				cmd := m.exitRunView()
-				return m, cmd
-			}
-		}
+// handleModeSwitch checks for Enter/Esc and transitions between views.
+//
+// awaitingInput must be snapshotted before sub-components process the
+// message, because an Enter in filter mode exits the filter and would
+// otherwise fall through to a view switch.
+func (m *Model) handleModeSwitch(msg tea.Msg, awaitingInput bool) tea.Cmd {
+	keyMsg, ok := msg.(tea.KeyPressMsg)
+	if !ok {
+		return nil
 	}
 
-	return m, tea.Batch(cmds...)
+	switch m.mode {
+	case viewModeWorkspace:
+		if keyMsg.Code == tea.KeyEnter &&
+			!awaitingInput &&
+			m.workspace.RunSelectorActive() {
+			return m.enterRunView()
+		}
+	case viewModeRun:
+		runCapturesEsc := m.run != nil && m.run.MediaFullscreen()
+		if keyMsg.Code == tea.KeyEsc &&
+			!awaitingInput && !runCapturesEsc {
+			return m.exitRunView()
+		}
+	}
+	return nil
 }
 
 // View renders the UI based on the data in the model.
@@ -340,6 +364,16 @@ func (m *Model) enterRunView() tea.Cmd {
 	m.run = NewRun(wandbFile, m.config, m.logger)
 	m.mode = viewModeRun
 
+	// Share the workspace's media store so data persists across transitions.
+	runKey := m.workspace.SelectedRunKey()
+	if store := m.workspace.MediaStoreForRun(runKey); store != nil {
+		m.run.SetMediaStore(store)
+	}
+	// Restore saved media pane view state (scroll position, selection).
+	if state := m.workspace.LoadMediaPaneState(runKey); state != nil {
+		m.run.mediaPane.RestoreViewState(*state)
+	}
+
 	// Initialize with current dimensions and start loading.
 	return tea.Batch(
 		m.run.Init(),
@@ -351,8 +385,14 @@ func (m *Model) enterRunView() tea.Cmd {
 
 // exitRunView returns to the workspace view.
 func (m *Model) exitRunView() tea.Cmd {
-	// TODO: add caching?
 	if m.run != nil {
+		// Save media pane view state for later restoration.
+		runKey := m.workspace.SelectedRunKey()
+		if runKey != "" {
+			m.workspace.SaveMediaPaneState(runKey, m.run.mediaPane.SaveViewState())
+			// Force the workspace pane to re-sync from the saved per-run state on return.
+			m.workspace.currentMediaRunKey = ""
+		}
 		m.run.Cleanup()
 		m.run = nil
 	}

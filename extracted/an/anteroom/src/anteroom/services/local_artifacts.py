@@ -95,6 +95,64 @@ def discover_local_artifacts(
                 if content is None:
                     continue
 
+                # Bundle resources declared in frontmatter
+                metadata: dict[str, Any] = {}
+                from .packs import (
+                    _inline_resources,
+                    _parse_resource_list_from_frontmatter,
+                    _resolve_bundle_resources,
+                )
+
+                resource_list = _parse_resource_list_from_frontmatter(content, path)
+                if resource_list:
+                    try:
+                        resources = _resolve_bundle_resources(path.parent, resource_list, local_dir)
+                        content = _inline_resources(content, resources)
+                        metadata = {
+                            "bundle": True,
+                            "resource_count": len(resources),
+                            "resource_names": [r[0] for r in resources],
+                        }
+                    except ValueError as e:
+                        logger.warning("Skipping resources for %s: %s", name, e)
+                    from ..cli.skills import MAX_PROMPT_SIZE
+
+                    if len(content) > MAX_PROMPT_SIZE:
+                        logger.warning("Skipping %s: bundled content exceeds %dKB limit", name, MAX_PROMPT_SIZE // 1000)
+                        continue
+
+                # Extract non-core frontmatter into metadata (#1395)
+                from .packs import _extract_yaml_frontmatter
+
+                _raw = _read_content(path, art_type) or ""
+                if _raw.startswith("---\n") or _raw.startswith("---\r\n"):
+                    try:
+                        _body, _fm = _extract_yaml_frontmatter(_raw, path)
+                        _core_keys = {
+                            "name",
+                            "description",
+                            "prompt",
+                            "allowed-tools",
+                            "allowed_tools",
+                            "denied-tools",
+                            "denied_tools",
+                            "resources",
+                        }
+                        for k, v in _fm.items():
+                            if k not in _core_keys and k not in metadata:
+                                metadata[k] = v
+                    except Exception:
+                        pass
+
+                # Resource-directory detection (recognized, not loaded)
+                for rdir in ("scripts", "references", "assets"):
+                    if (path.parent / rdir).is_dir():
+                        logger.debug(
+                            "Skill '%s' has %s/ directory (recognized, not loaded)",
+                            name,
+                            rdir,
+                        )
+
                 try:
                     fqn = build_fqn(_LOCAL_NAMESPACE, art_type.value, name)
                 except ValueError:
@@ -110,6 +168,7 @@ def discover_local_artifacts(
                         "content": content,
                         "source": ArtifactSource.LOCAL,
                         "path": str(path),
+                        "metadata": metadata,
                     }
                 )
             continue
@@ -172,6 +231,7 @@ def load_local_artifacts(
             name=art["name"],
             content=art["content"],
             source=ArtifactSource.LOCAL,
+            metadata=art.get("metadata", {}),
         )
         count += 1
 
@@ -187,6 +247,7 @@ def load_local_artifacts(
                 name=art["name"],
                 content=art["content"],
                 source=ArtifactSource.LOCAL,
+                metadata=art.get("metadata", {}),
             )
             count += 1
 
@@ -205,6 +266,7 @@ def load_local_artifacts(
                     name=art["name"],
                     content=art["content"],
                     source=ArtifactSource.LOCAL,
+                    metadata=art.get("metadata", {}),
                 )
                 count += 1
 

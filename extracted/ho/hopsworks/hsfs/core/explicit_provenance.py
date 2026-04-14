@@ -141,8 +141,8 @@ class Links:
 
     @public
     @property
-    def deleted(self):
-        """List of [Artifact objects] which contains minimal information (name, version) about the entities (storage connectors, feature groups, feature views, models) they represent.
+    def deleted(self) -> list[Artifact]:
+        """List of objects which contains minimal information (name, version) about the entities (storage connectors, feature groups, feature views, models) they represent.
 
         These entities have been removed from the feature store/model registry.
         """
@@ -150,8 +150,8 @@ class Links:
 
     @public
     @property
-    def inaccessible(self):
-        """List of [Artifact objects] which contains minimal information (name, version) about the entities (storage connectors, feature groups, feature views, models) they represent.
+    def inaccessible(self) -> list[Artifact]:
+        """List of objects which contains minimal information (name, version) about the entities (storage connectors, feature groups, feature views, models) they represent.
 
         These entities exist in the feature store/model registry, however the user
         does not have access to them anymore.
@@ -160,8 +160,14 @@ class Links:
 
     @public
     @property
-    def accessible(self):
-        """List of [StorageConnectors|FeatureGroups|FeatureViews|Models] objects which are part of the provenance graph requested.
+    def accessible(
+        self,
+    ) -> list[
+        storage_connector.StorageConnector
+        | feature_group.FeatureGroup
+        | feature_view.FeatureView
+    ]:
+        """List of objects which are part of the provenance graph requested.
 
         These entities
         exist in the feature store/model registry and the user has access to them.
@@ -170,8 +176,8 @@ class Links:
 
     @public
     @property
-    def faulty(self):
-        """List of [Artifact objects] which contains minimal information (name, version) about the entities (storage connectors, feature groups, feature views, models) they represent.
+    def faulty(self) -> list[Artifact]:
+        """List of objects which contains minimal information (name, version) about the entities (storage connectors, feature groups, feature views, models) they represent.
 
         These entities exist in the feature store/model registry, however they are corrupted.
         """
@@ -194,6 +200,7 @@ class Links:
         FEATURE_VIEW = 2
         MODEL = 3
         STORAGE_CONNECTOR = 4
+        TRAINING_DATASET = 5
 
     def __str__(self, indent=None):
         return json.dumps(self, cls=ProvenanceEncoder, indent=indent)
@@ -262,6 +269,27 @@ class Links:
                 elif bool(link_json["node"]["accessible"]):
                     links.accessible.append(
                         feature_view.FeatureView.from_response_json(
+                            link_json["node"]["artifact"]
+                        )
+                    )
+                elif bool(link_json["node"]["deleted"]):
+                    links.deleted.append(Artifact.from_response_json(link_json["node"]))
+                else:
+                    links.inaccessible.append(
+                        Artifact.from_response_json(link_json["node"])
+                    )
+        return links
+
+    @staticmethod
+    def __parse_training_datasets(links_json: dict, artifacts: set[str]):
+        links = Links()
+        for link_json in links_json:
+            if link_json["node"]["artifact_type"] in artifacts:
+                if link_json["node"].get("exception_cause") is not None:
+                    links._faulty.append(Artifact.from_response_json(link_json["node"]))
+                elif bool(link_json["node"]["accessible"]):
+                    links.accessible.append(
+                        training_dataset.TrainingDataset.from_response_json(
                             link_json["node"]["artifact"]
                         )
                     )
@@ -396,8 +424,13 @@ class Links:
                 return Links.__parse_feature_views(
                     links_json["downstream"], {"FEATURE_VIEW"}
                 )
+            if artifact == Links.Type.TRAINING_DATASET:
+                return Links.__parse_training_datasets(
+                    links_json["downstream"], {"TRAINING_DATASET"}
+                )
             return Links()
-        return None
+
+        return Links()
 
 
 class ProvenanceEncoder(json.JSONEncoder):

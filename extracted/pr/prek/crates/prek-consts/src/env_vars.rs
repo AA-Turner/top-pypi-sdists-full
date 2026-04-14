@@ -41,6 +41,7 @@ impl EnvVars {
         "PREK_INTERNAL__RUN_ORIGINAL_PRE_COMMIT";
     pub const PREK_INTERNAL__BUN_BINARY_NAME: &'static str = "PREK_INTERNAL__BUN_BINARY_NAME";
     pub const PREK_INTERNAL__DENO_BINARY_NAME: &'static str = "PREK_INTERNAL__DENO_BINARY_NAME";
+    pub const PREK_INTERNAL__DOTNET_BINARY_NAME: &'static str = "PREK_INTERNAL_DOTNET_BINARY_NAME";
     pub const PREK_INTERNAL__GO_BINARY_NAME: &'static str = "PREK_INTERNAL__GO_BINARY_NAME";
     pub const PREK_INTERNAL__NODE_BINARY_NAME: &'static str = "PREK_INTERNAL__NODE_BINARY_NAME";
     pub const PREK_INTERNAL__RUSTUP_BINARY_NAME: &'static str = "PREK_INTERNAL__RUSTUP_BINARY_NAME";
@@ -96,6 +97,9 @@ impl EnvVars {
     pub const RUSTUP_AUTO_INSTALL: &'static str = "RUSTUP_AUTO_INSTALL";
     pub const CARGO_HOME: &'static str = "CARGO_HOME";
     pub const RUSTUP_HOME: &'static str = "RUSTUP_HOME";
+
+    // .NET related
+    pub const DOTNET_ROOT: &'static str = "DOTNET_ROOT";
 }
 
 impl EnvVars {

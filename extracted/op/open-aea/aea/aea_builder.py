@@ -32,7 +32,6 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, Collection, Dict, List, Optional, Set, Tuple, Type, Union, cast
 
-import jsonschema
 from packaging.specifiers import SpecifierSet
 
 from aea.aea import AEA
@@ -104,6 +103,7 @@ from aea.helpers.env_vars import apply_env_variables
 from aea.helpers.exception_policy import ExceptionPolicyEnum
 from aea.helpers.install_dependency import install_dependency
 from aea.helpers.io import open_file
+from aea.helpers.json_schema import ValidationError
 from aea.helpers.logging import AgentLoggerAdapter, WithLogger, get_logger
 from aea.identity.base import Identity
 from aea.registries.resources import Resources
@@ -306,6 +306,14 @@ class AEABuilder(WithLogger):  # pylint: disable=too-many-public-methods
         # second call
         my_aea_2 = builder.builder()
 
+    Known limitations:
+
+    - Package consistency is only checked at the ``add`` stage, not again
+      at ``load``. If a package is tampered with after being added to the
+      builder, the inconsistency may not be detected.
+    - If two packages are registered with public ids that share the same
+      author and package name but differ in version, the builder does not
+      detect the mismatch and simply uses the last-loaded package.
     """
 
     DEFAULT_LEDGER = DEFAULT_LEDGER
@@ -1701,7 +1709,7 @@ class AEABuilder(WithLogger):  # pylint: disable=too-many-public-methods
             )
         except (
             AEAValidationError,
-            jsonschema.exceptions.ValidationError,
+            ValidationError,
             ExtraPropertiesError,
         ) as e:  # pragma: nocover
             raise AEAValidationError(
@@ -1819,9 +1827,17 @@ class AEABuilder(WithLogger):  # pylint: disable=too-many-public-methods
                 skip_consistency_check,
             )
 
-        self._custom_component_configurations = (
-            agent_configuration.component_configurations
-        )
+        self._custom_component_configurations = {
+            component_id: cast(
+                Dict,
+                apply_env_variables(
+                    config,
+                    os.environ,
+                    path=[str(component_id.component_type.value), component_id.name],
+                ),
+            )
+            for component_id, config in agent_configuration.component_configurations.items()
+        }
 
         self.set_default_connection(agent_configuration.default_connection)
         self.set_default_routing(agent_configuration.default_routing)

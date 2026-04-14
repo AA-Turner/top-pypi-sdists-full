@@ -1,6 +1,7 @@
 Metadata-Version: 2.4
 Name: ZODB
-Version: 6.2
+Version: 6.3
+Summary: ZODB, a Python object-oriented database
 Author-email: Jim Fulton <jim@zope.com>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
 License-Expression: ZPL-2.1
@@ -99,6 +100,14 @@ If you're interested in contributing to ZODB itself, see the
 ================
  Change History
 ================
+
+6.3 (2026-04-14)
+----------------
+
+- Add ``class_factory`` parameter to ``DB.__init__()`` and
+  ``class-factory`` option to ZConfig database configuration.
+  See `issue #420 <https://github.com/zopefoundation/ZODB/issues/420>`_.
+
 
 6.2 (2026-01-23)
 ================

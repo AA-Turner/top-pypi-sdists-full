@@ -69,7 +69,9 @@ from .. import (
 )
 from ..interfaces.aws_omics import (
     AnnotationStoreReference as _AnnotationStoreReference_bb5ff456,
+    ConfigurationReference as _ConfigurationReference_280e0710,
     IAnnotationStoreRef as _IAnnotationStoreRef_c33c98b4,
+    IConfigurationRef as _IConfigurationRef_ce2c89fe,
     IReferenceStoreRef as _IReferenceStoreRef_e44b493e,
     IRunGroupRef as _IRunGroupRef_937b5363,
     ISequenceStoreRef as _ISequenceStoreRef_d8ce7b6b,
@@ -913,6 +915,487 @@ class CfnAnnotationStoreProps:
 
     def __repr__(self) -> str:
         return "CfnAnnotationStoreProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IConfigurationRef_ce2c89fe, _ITaggableV2_4e6798f8)
+class CfnConfiguration(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_omics.CfnConfiguration",
+):
+    '''Resource schema for AWS::Omics::Configuration.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-configuration.html
+    :cloudformationResource: AWS::Omics::Configuration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_omics as omics
+        
+        cfn_configuration = omics.CfnConfiguration(self, "MyCfnConfiguration",
+            name="name",
+            run_configurations=omics.CfnConfiguration.RunConfigurationsProperty(
+                vpc_config=omics.CfnConfiguration.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            ),
+        
+            # the properties below are optional
+            description="description",
+            tags={
+                "tags_key": "tags"
+            }
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        run_configurations: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfiguration.RunConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Omics::Configuration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: User-friendly name for the configuration.
+        :param run_configurations: 
+        :param description: Optional description for the configuration.
+        :param tags: A map of resource tags.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16258b00eb2a3ce6f8a1b9db80e87f71499e7dd98e6c352e4e497259995ede81)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnConfigurationProps(
+            name=name,
+            run_configurations=run_configurations,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForConfiguration")
+    @builtins.classmethod
+    def arn_for_configuration(
+        cls,
+        resource: "_IConfigurationRef_ce2c89fe",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e53a9324baca4d137958281e4e4cc4621eaadab75d8a0d0beba0710fbed552c7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnConfiguration")
+    @builtins.classmethod
+    def is_cfn_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26e6dec79dbb018f73bb6b8013dcdbc6e24f212df62f041cffd886cff4cbae7a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConfiguration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49fd8e42b090439d3158c78b30d89cd22cd586ddbb507019daa4a623dc770acf)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1789add866a88eae476bfeb6593a81c9d85ed16fb197d94db1dcdeb8d129451)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Unique resource identifier for the configuration.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''Configuration creation timestamp.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Current configuration status.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUuid")
+    def attr_uuid(self) -> builtins.str:
+        '''Unique identifier for the configuration.
+
+        :cloudformationAttribute: Uuid
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUuid"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationRef")
+    def configuration_ref(self) -> "_ConfigurationReference_280e0710":
+        '''A reference to a Configuration resource.'''
+        return typing.cast("_ConfigurationReference_280e0710", jsii.get(self, "configurationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''User-friendly name for the configuration.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f607ddac63b10850ad7058b02727ecb5c77eed8a13da317f43b79292e2b65023)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="runConfigurations")
+    def run_configurations(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnConfiguration.RunConfigurationsProperty"]:
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfiguration.RunConfigurationsProperty"], jsii.get(self, "runConfigurations"))
+
+    @run_configurations.setter
+    def run_configurations(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnConfiguration.RunConfigurationsProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98aec16a2a53d88d5a20a91967c18fcd8b0c90375e3e2f2ab16c39835745a615)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "runConfigurations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Optional description for the configuration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52daebef1bf246e4639dc4600164041ef0f734d1b199c992c2d403bf949d6703)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A map of resource tags.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4c66eeb9250c940ed0ad145bf9c1f5e0acecd22e8b9fe2d60933b2d3b52894b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_omics.CfnConfiguration.RunConfigurationsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"vpc_config": "vpcConfig"},
+    )
+    class RunConfigurationsProperty:
+        def __init__(
+            self,
+            *,
+            vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfiguration.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param vpc_config: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-configuration-runconfigurations.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_omics as omics
+                
+                run_configurations_property = omics.CfnConfiguration.RunConfigurationsProperty(
+                    vpc_config=omics.CfnConfiguration.VpcConfigProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnet_ids=["subnetIds"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cc870135f8edf3aa7957db4360d70f8de8b091e3217f53aad7cbe4ee2460d946)
+                check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if vpc_config is not None:
+                self._values["vpc_config"] = vpc_config
+
+        @builtins.property
+        def vpc_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfiguration.VpcConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-configuration-runconfigurations.html#cfn-omics-configuration-runconfigurations-vpcconfig
+            '''
+            result = self._values.get("vpc_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfiguration.VpcConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RunConfigurationsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_omics.CfnConfiguration.VpcConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "security_group_ids": "securityGroupIds",
+            "subnet_ids": "subnetIds",
+        },
+    )
+    class VpcConfigProperty:
+        def __init__(
+            self,
+            *,
+            security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+            subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param security_group_ids: 
+            :param subnet_ids: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-configuration-vpcconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_omics as omics
+                
+                vpc_config_property = omics.CfnConfiguration.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__954d7722568637425d55b8627379f43f21f29454601056839c48d65b4716fe81)
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if security_group_ids is not None:
+                self._values["security_group_ids"] = security_group_ids
+            if subnet_ids is not None:
+                self._values["subnet_ids"] = subnet_ids
+
+        @builtins.property
+        def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-configuration-vpcconfig.html#cfn-omics-configuration-vpcconfig-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-omics-configuration-vpcconfig.html#cfn-omics-configuration-vpcconfig-subnetids
+            '''
+            result = self._values.get("subnet_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VpcConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_omics.CfnConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "run_configurations": "runConfigurations",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnConfigurationProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        run_configurations: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfiguration.RunConfigurationsProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConfiguration``.
+
+        :param name: User-friendly name for the configuration.
+        :param run_configurations: 
+        :param description: Optional description for the configuration.
+        :param tags: A map of resource tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-configuration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_omics as omics
+            
+            cfn_configuration_props = omics.CfnConfigurationProps(
+                name="name",
+                run_configurations=omics.CfnConfiguration.RunConfigurationsProperty(
+                    vpc_config=omics.CfnConfiguration.VpcConfigProperty(
+                        security_group_ids=["securityGroupIds"],
+                        subnet_ids=["subnetIds"]
+                    )
+                ),
+            
+                # the properties below are optional
+                description="description",
+                tags={
+                    "tags_key": "tags"
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3db57ee01781a1e8ad5b9e09fde7f31cc086a9ae74327c12233037330afdf382)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument run_configurations", value=run_configurations, expected_type=type_hints["run_configurations"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "run_configurations": run_configurations,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''User-friendly name for the configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-configuration.html#cfn-omics-configuration-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def run_configurations(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnConfiguration.RunConfigurationsProperty"]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-configuration.html#cfn-omics-configuration-runconfigurations
+        '''
+        result = self._values.get("run_configurations")
+        assert result is not None, "Required property 'run_configurations' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfiguration.RunConfigurationsProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Optional description for the configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-configuration.html#cfn-omics-configuration-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''A map of resource tags.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-omics-configuration.html#cfn-omics-configuration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConfigurationProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -2054,6 +2537,19 @@ class CfnSequenceStore(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="s3AccessPolicy")
+    def s3_access_policy(self) -> typing.Any:
+        '''The resource policy that controls S3 access on the store.'''
+        return typing.cast(typing.Any, jsii.get(self, "s3AccessPolicy"))
+
+    @s3_access_policy.setter
+    def s3_access_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__48d38bc4fc98e65bd66719d736641dbe0eef30ad1a6a932a71665c6fd3c7a01c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "s3AccessPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="accessLogLocation")
     def access_log_location(self) -> typing.Optional[builtins.str]:
         '''Location of the access logs.'''
@@ -2120,19 +2616,6 @@ class CfnSequenceStore(
             type_hints = typing.get_type_hints(_typecheckingstub__94d2835859304a00ff97481068a5f88aa75e5f963a8554869a9bb60a55200b93)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "propagatedSetLevelTags", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="s3AccessPolicy")
-    def s3_access_policy(self) -> typing.Any:
-        '''The resource policy that controls S3 access on the store.'''
-        return typing.cast(typing.Any, jsii.get(self, "s3AccessPolicy"))
-
-    @s3_access_policy.setter
-    def s3_access_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__48d38bc4fc98e65bd66719d736641dbe0eef30ad1a6a932a71665c6fd3c7a01c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "s3AccessPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="sseConfig")
@@ -5858,6 +6341,8 @@ class CfnWorkflowVersionProps:
 __all__ = [
     "CfnAnnotationStore",
     "CfnAnnotationStoreProps",
+    "CfnConfiguration",
+    "CfnConfigurationProps",
     "CfnReferenceStore",
     "CfnReferenceStoreProps",
     "CfnRunGroup",
@@ -6002,6 +6487,91 @@ def _typecheckingstub__db27a54e4b1e96ecf8263cf950eaa96b8620641082ddea726be734d30
     reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnnotationStore.ReferenceItemProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sse_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnnotationStore.SseConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     store_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAnnotationStore.StoreOptionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16258b00eb2a3ce6f8a1b9db80e87f71499e7dd98e6c352e4e497259995ede81(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    run_configurations: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfiguration.RunConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e53a9324baca4d137958281e4e4cc4621eaadab75d8a0d0beba0710fbed552c7(
+    resource: _IConfigurationRef_ce2c89fe,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__26e6dec79dbb018f73bb6b8013dcdbc6e24f212df62f041cffd886cff4cbae7a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49fd8e42b090439d3158c78b30d89cd22cd586ddbb507019daa4a623dc770acf(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1789add866a88eae476bfeb6593a81c9d85ed16fb197d94db1dcdeb8d129451(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f607ddac63b10850ad7058b02727ecb5c77eed8a13da317f43b79292e2b65023(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98aec16a2a53d88d5a20a91967c18fcd8b0c90375e3e2f2ab16c39835745a615(
+    value: typing.Union[_IResolvable_da3f097b, CfnConfiguration.RunConfigurationsProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52daebef1bf246e4639dc4600164041ef0f734d1b199c992c2d403bf949d6703(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4c66eeb9250c940ed0ad145bf9c1f5e0acecd22e8b9fe2d60933b2d3b52894b(
+    value: typing.Optional[typing.Mapping[builtins.str, builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc870135f8edf3aa7957db4360d70f8de8b091e3217f53aad7cbe4ee2460d946(
+    *,
+    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfiguration.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__954d7722568637425d55b8627379f43f21f29454601056839c48d65b4716fe81(
+    *,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3db57ee01781a1e8ad5b9e09fde7f31cc086a9ae74327c12233037330afdf382(
+    *,
+    name: builtins.str,
+    run_configurations: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfiguration.RunConfigurationsProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -6250,6 +6820,12 @@ def _typecheckingstub__f8e53b0b20084e7e23dc393ceafe95167d7bce2ef95f48e5bca0556a2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__48d38bc4fc98e65bd66719d736641dbe0eef30ad1a6a932a71665c6fd3c7a01c(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7549c525ad472ac7db5f5282211a0aac7a47906e8ed893e7de2371f8677691f0(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -6276,12 +6852,6 @@ def _typecheckingstub__1f87faaa51a41810707e9283275d0283e54c3ebebf2803e01abef2984
 
 def _typecheckingstub__94d2835859304a00ff97481068a5f88aa75e5f963a8554869a9bb60a55200b93(
     value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__48d38bc4fc98e65bd66719d736641dbe0eef30ad1a6a932a71665c6fd3c7a01c(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import palettable as pal
 import pandas as pd
 import seaborn as sns  # Moved to module level
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 from geocif import utils
 from geocif.ml import embedding

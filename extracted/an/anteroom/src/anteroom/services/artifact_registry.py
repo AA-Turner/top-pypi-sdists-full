@@ -161,4 +161,5 @@ def _artifact_from_row(row: dict[str, Any]) -> Artifact:
         source=ArtifactSource(row["source"]),
         metadata=row.get("metadata") or {},
         content_hash=row.get("content_hash", ""),
+        artifact_id=row.get("id", ""),
     )

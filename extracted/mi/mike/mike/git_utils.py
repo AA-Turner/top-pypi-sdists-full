@@ -4,9 +4,9 @@ import subprocess as sp
 import sys
 import textwrap
 import threading
-import time
 import unicodedata
-
+from datetime import datetime
+from email.utils import parsedate_to_datetime
 from enum import Enum
 
 BranchStatus = Enum('BranchState', ['even', 'ahead', 'behind', 'diverged'])
@@ -56,9 +56,21 @@ def git_path(path):
 
 def make_when(timestamp=None):
     if timestamp is None:
-        timestamp = int(time.time())
-    timezone = '{:+05d}'.format(-1 * time.timezone // 3600 * 100)
-    return '{} {}'.format(timestamp, timezone)
+        when = datetime.now()
+    elif re.match(r'^\d+ [+-]\d{4}', timestamp):
+        return timestamp
+    else:
+        try:
+            when = datetime.fromisoformat(timestamp)
+        except ValueError:
+            try:
+                when = parsedate_to_datetime(timestamp)
+            except Exception:
+                raise ValueError('invalid timestamp {}'.format(timestamp))
+
+    if not when.tzinfo:
+        when = when.astimezone()
+    return '{} {}'.format(int(when.timestamp()), datetime.strftime(when, '%z'))
 
 
 def get_config(key, encoding='utf-8'):
@@ -278,7 +290,7 @@ class Commit:
                  get_config('user.email', encoding))
         email = re.sub(r'[<>\n]', '', email)
 
-        when = os.getenv('GIT_COMMITTER_DATE') or make_when()
+        when = make_when(os.getenv('GIT_COMMITTER_DATE'))
 
         self._write('commit {}\n'.format(get_ref(branch, nonexist_ok=True)))
         self._write('committer {name}<{email}> {time}\n'.format(
@@ -393,7 +405,7 @@ def walk_files(branch, path=''):
                  universal_newlines=True)
 
     for line in p.stdout:
-        strmode, _, _, filename = re.split(r'\s', line.rstrip(), 3)
+        strmode, _, _, filename = re.split(r'\s', line.rstrip(), maxsplit=3)
         mode = int(strmode, 8)
         filepath = os.path.join(path, os.path.normpath(filename))
         yield FileInfo(filepath, read_file(branch, filepath), mode)

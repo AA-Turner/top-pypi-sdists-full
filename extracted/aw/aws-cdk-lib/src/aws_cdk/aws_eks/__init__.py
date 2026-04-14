@@ -11734,7 +11734,14 @@ class CfnNodegroup(
                 max_unavailable_percentage=123,
                 update_strategy="updateStrategy"
             ),
-            version="version"
+            version="version",
+            warm_pool_config=eks.CfnNodegroup.WarmPoolConfigProperty(
+                enabled=False,
+                max_group_prepared_capacity=123,
+                min_size=123,
+                pool_state="poolState",
+                reuse_on_scale_in=False
+            )
         )
     '''
 
@@ -11762,6 +11769,7 @@ class CfnNodegroup(
         taints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNodegroup.TaintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         update_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNodegroup.UpdateConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         version: typing.Optional[builtins.str] = None,
+        warm_pool_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNodegroup.WarmPoolConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::EKS::Nodegroup``.
 
@@ -11786,6 +11794,7 @@ class CfnNodegroup(
         :param taints: The Kubernetes taints to be applied to the nodes in the node group when they are created. Effect is one of ``No_Schedule`` , ``Prefer_No_Schedule`` , or ``No_Execute`` . Kubernetes taints can be used together with tolerations to control how workloads are scheduled to your nodes. For more information, see `Node taints on managed node groups <https://docs.aws.amazon.com/eks/latest/userguide/node-taints-managed-node-groups.html>`_ .
         :param update_config: The node group update configuration.
         :param version: The Kubernetes version to use for your managed nodes. By default, the Kubernetes version of the cluster is used, and this is the only accepted specified value. If you specify ``launchTemplate`` , and your launch template uses a custom AMI, then don't specify ``version`` , or the node group deployment will fail. For more information about using launch templates with Amazon EKS, see `Launch template support <https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html>`_ in the *Amazon EKS User Guide* . .. epigraph:: You can't update other properties at the same time as updating ``Version`` .
+        :param warm_pool_config: The warm pool configuration for the node group.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__27ebd660a66f96284eec036f7614b1586f77d9990c9dd345fe73522c7eac4866)
@@ -11811,6 +11820,7 @@ class CfnNodegroup(
             taints=taints,
             update_config=update_config,
             version=version,
+            warm_pool_config=warm_pool_config,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -12209,6 +12219,24 @@ class CfnNodegroup(
             type_hints = typing.get_type_hints(_typecheckingstub__7c7b5dd411ee27c14eb459522efe494a08bd3f2592d384283dbbcc7a5c3e8834)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "version", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="warmPoolConfig")
+    def warm_pool_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnNodegroup.WarmPoolConfigProperty"]]:
+        '''The warm pool configuration for the node group.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnNodegroup.WarmPoolConfigProperty"]], jsii.get(self, "warmPoolConfig"))
+
+    @warm_pool_config.setter
+    def warm_pool_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnNodegroup.WarmPoolConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b87ca981008fc4b80b57151a129b691b6f7ad1dfb3889e67c46b10c274c18fcc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "warmPoolConfig", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnNodegroup.LaunchTemplateSpecificationProperty",
@@ -12939,6 +12967,131 @@ class CfnNodegroup(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnNodegroup.WarmPoolConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "max_group_prepared_capacity": "maxGroupPreparedCapacity",
+            "min_size": "minSize",
+            "pool_state": "poolState",
+            "reuse_on_scale_in": "reuseOnScaleIn",
+        },
+    )
+    class WarmPoolConfigProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            max_group_prepared_capacity: typing.Optional[jsii.Number] = None,
+            min_size: typing.Optional[jsii.Number] = None,
+            pool_state: typing.Optional[builtins.str] = None,
+            reuse_on_scale_in: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''The warm pool configuration for the node group.
+
+            :param enabled: Enable or disable warm pool for the node group.
+            :param max_group_prepared_capacity: The maximum number of instances that are allowed to be in the warm pool.
+            :param min_size: The minimum number of instances to maintain in the warm pool.
+            :param pool_state: The desired state of warm pool instances.
+            :param reuse_on_scale_in: Whether to return instances to the warm pool during scale-in instead of terminating them.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-nodegroup-warmpoolconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                warm_pool_config_property = eks.CfnNodegroup.WarmPoolConfigProperty(
+                    enabled=False,
+                    max_group_prepared_capacity=123,
+                    min_size=123,
+                    pool_state="poolState",
+                    reuse_on_scale_in=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e6329363d5ac1226a5d5d3017e81204014358e26cc799d2dd457657a224cc151)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument max_group_prepared_capacity", value=max_group_prepared_capacity, expected_type=type_hints["max_group_prepared_capacity"])
+                check_type(argname="argument min_size", value=min_size, expected_type=type_hints["min_size"])
+                check_type(argname="argument pool_state", value=pool_state, expected_type=type_hints["pool_state"])
+                check_type(argname="argument reuse_on_scale_in", value=reuse_on_scale_in, expected_type=type_hints["reuse_on_scale_in"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+            if max_group_prepared_capacity is not None:
+                self._values["max_group_prepared_capacity"] = max_group_prepared_capacity
+            if min_size is not None:
+                self._values["min_size"] = min_size
+            if pool_state is not None:
+                self._values["pool_state"] = pool_state
+            if reuse_on_scale_in is not None:
+                self._values["reuse_on_scale_in"] = reuse_on_scale_in
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Enable or disable warm pool for the node group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-nodegroup-warmpoolconfig.html#cfn-eks-nodegroup-warmpoolconfig-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def max_group_prepared_capacity(self) -> typing.Optional[jsii.Number]:
+            '''The maximum number of instances that are allowed to be in the warm pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-nodegroup-warmpoolconfig.html#cfn-eks-nodegroup-warmpoolconfig-maxgrouppreparedcapacity
+            '''
+            result = self._values.get("max_group_prepared_capacity")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def min_size(self) -> typing.Optional[jsii.Number]:
+            '''The minimum number of instances to maintain in the warm pool.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-nodegroup-warmpoolconfig.html#cfn-eks-nodegroup-warmpoolconfig-minsize
+            '''
+            result = self._values.get("min_size")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def pool_state(self) -> typing.Optional[builtins.str]:
+            '''The desired state of warm pool instances.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-nodegroup-warmpoolconfig.html#cfn-eks-nodegroup-warmpoolconfig-poolstate
+            '''
+            result = self._values.get("pool_state")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def reuse_on_scale_in(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Whether to return instances to the warm pool during scale-in instead of terminating them.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-nodegroup-warmpoolconfig.html#cfn-eks-nodegroup-warmpoolconfig-reuseonscalein
+            '''
+            result = self._values.get("reuse_on_scale_in")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WarmPoolConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_eks.CfnNodegroupProps",
@@ -12963,6 +13116,7 @@ class CfnNodegroup(
         "taints": "taints",
         "update_config": "updateConfig",
         "version": "version",
+        "warm_pool_config": "warmPoolConfig",
     },
 )
 class CfnNodegroupProps:
@@ -12988,6 +13142,7 @@ class CfnNodegroupProps:
         taints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNodegroup.TaintProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         update_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNodegroup.UpdateConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         version: typing.Optional[builtins.str] = None,
+        warm_pool_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnNodegroup.WarmPoolConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnNodegroup``.
 
@@ -13010,6 +13165,7 @@ class CfnNodegroupProps:
         :param taints: The Kubernetes taints to be applied to the nodes in the node group when they are created. Effect is one of ``No_Schedule`` , ``Prefer_No_Schedule`` , or ``No_Execute`` . Kubernetes taints can be used together with tolerations to control how workloads are scheduled to your nodes. For more information, see `Node taints on managed node groups <https://docs.aws.amazon.com/eks/latest/userguide/node-taints-managed-node-groups.html>`_ .
         :param update_config: The node group update configuration.
         :param version: The Kubernetes version to use for your managed nodes. By default, the Kubernetes version of the cluster is used, and this is the only accepted specified value. If you specify ``launchTemplate`` , and your launch template uses a custom AMI, then don't specify ``version`` , or the node group deployment will fail. For more information about using launch templates with Amazon EKS, see `Launch template support <https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html>`_ in the *Amazon EKS User Guide* . .. epigraph:: You can't update other properties at the same time as updating ``Version`` .
+        :param warm_pool_config: The warm pool configuration for the node group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-nodegroup.html
         :exampleMetadata: fixture=_generated
@@ -13078,7 +13234,14 @@ class CfnNodegroupProps:
                     max_unavailable_percentage=123,
                     update_strategy="updateStrategy"
                 ),
-                version="version"
+                version="version",
+                warm_pool_config=eks.CfnNodegroup.WarmPoolConfigProperty(
+                    enabled=False,
+                    max_group_prepared_capacity=123,
+                    min_size=123,
+                    pool_state="poolState",
+                    reuse_on_scale_in=False
+                )
             )
         '''
         if __debug__:
@@ -13102,6 +13265,7 @@ class CfnNodegroupProps:
             check_type(argname="argument taints", value=taints, expected_type=type_hints["taints"])
             check_type(argname="argument update_config", value=update_config, expected_type=type_hints["update_config"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+            check_type(argname="argument warm_pool_config", value=warm_pool_config, expected_type=type_hints["warm_pool_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_name": cluster_name,
             "node_role": node_role,
@@ -13139,6 +13303,8 @@ class CfnNodegroupProps:
             self._values["update_config"] = update_config
         if version is not None:
             self._values["version"] = version
+        if warm_pool_config is not None:
+            self._values["warm_pool_config"] = warm_pool_config
 
     @builtins.property
     def cluster_name(self) -> typing.Union[builtins.str, "_IClusterRef_5527f448"]:
@@ -13368,6 +13534,17 @@ class CfnNodegroupProps:
         '''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def warm_pool_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnNodegroup.WarmPoolConfigProperty"]]:
+        '''The warm pool configuration for the node group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-nodegroup.html#cfn-eks-nodegroup-warmpoolconfig
+        '''
+        result = self._values.get("warm_pool_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnNodegroup.WarmPoolConfigProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -26190,6 +26367,7 @@ def _typecheckingstub__27ebd660a66f96284eec036f7614b1586f77d9990c9dd345fe73522c7
     taints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNodegroup.TaintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     update_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNodegroup.UpdateConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     version: typing.Optional[builtins.str] = None,
+    warm_pool_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNodegroup.WarmPoolConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26332,6 +26510,12 @@ def _typecheckingstub__7c7b5dd411ee27c14eb459522efe494a08bd3f2592d384283dbbcc7a5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b87ca981008fc4b80b57151a129b691b6f7ad1dfb3889e67c46b10c274c18fcc(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnNodegroup.WarmPoolConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e659212680af90c8732b5ec096030b6902f35121f1ca1a82a513ebaa5a9cabb4(
     *,
     id: typing.Optional[builtins.str] = None,
@@ -26398,6 +26582,17 @@ def _typecheckingstub__883c5208b02930e4808e078b3ecb98b51411fa92d248a8031301fe543
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e6329363d5ac1226a5d5d3017e81204014358e26cc799d2dd457657a224cc151(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    max_group_prepared_capacity: typing.Optional[jsii.Number] = None,
+    min_size: typing.Optional[jsii.Number] = None,
+    pool_state: typing.Optional[builtins.str] = None,
+    reuse_on_scale_in: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__61a7b4277678abead400083fb1974a4f71ee28a78b5e79235fc3a458144e88c3(
     *,
     cluster_name: typing.Union[builtins.str, _IClusterRef_5527f448],
@@ -26419,6 +26614,7 @@ def _typecheckingstub__61a7b4277678abead400083fb1974a4f71ee28a78b5e79235fc3a4581
     taints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNodegroup.TaintProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     update_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNodegroup.UpdateConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     version: typing.Optional[builtins.str] = None,
+    warm_pool_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnNodegroup.WarmPoolConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

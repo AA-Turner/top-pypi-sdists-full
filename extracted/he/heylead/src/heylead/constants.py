@@ -88,14 +88,14 @@ PRO_FOLLOWUP_SCHEDULE_DAYS = [1, 7, 14, 21, 28]
 # Values are set ~10% below known LinkedIn safe thresholds.
 # Total daily budget: ~180 visible actions (was uncapped → ~350/day → ban).
 
-DAILY_CAP_INVITATIONS = 22           # Safe: ~25/day, reduced 10%
-DAILY_CAP_FOLLOWS = 27               # Safe: ~30/day, reduced 10%
-DAILY_CAP_PROFILE_VIEWS = 70         # Safe: ~80/day, reduced 10%
-DAILY_CAP_COMMENTS = 18              # Safe: ~20/day, reduced 10%
-DAILY_CAP_REACTIONS = 36             # Safe: ~40/day, reduced 10%
-DAILY_CAP_DMS = 18                   # Safe: ~20/day, reduced 10%
-DAILY_CAP_AUTO_REPLIES = 18          # Safe: ~20/day, reduced 10%
-DAILY_CAP_TOTAL_ACTIONS = 180        # Total visible LinkedIn actions per day
+DAILY_CAP_INVITATIONS = 12           # Halved — invites are most flagged action
+DAILY_CAP_FOLLOWS = 15               # Halved — reduce visible footprint
+DAILY_CAP_PROFILE_VIEWS = 35         # Halved — high volume = detectable pattern
+DAILY_CAP_COMMENTS = 10              # Halved — comments are highly visible
+DAILY_CAP_REACTIONS = 20             # Halved — less visible but still counted
+DAILY_CAP_DMS = 12                   # Reduced ~33% — keep reasonable for active campaigns
+DAILY_CAP_AUTO_REPLIES = 12          # Match DM cap
+DAILY_CAP_TOTAL_ACTIONS = 100        # Hard ceiling ~55% of previous 180
 DAILY_CAP_WITHDRAWALS = 15           # Stale invite withdrawals per day
 
 # Ban risk thresholds (% of daily cap consumed)
@@ -259,16 +259,16 @@ SCHEDULER_AUTO_RESUME_CHECK_SECONDS = 300  # Check for auto-resumable campaigns 
 SCHEDULER_ENGAGEMENT_SECONDS = 600   # Schedule engagements every 10 min
 
 # Action delays (seconds, randomized — increased ~10% for ban safety)
-INVITE_DELAY_MIN = 14 * 60           # 14 min between invitations (was 12)
-INVITE_DELAY_MAX = 33 * 60           # 33 min (was 30)
-DM_DELAY_MIN = 4 * 60               # 4 min between DMs (was 3)
-DM_DELAY_MAX = 9 * 60               # 9 min (was 8)
-FOLLOWUP_DELAY_MIN = 22 * 60         # 22 min between follow-up messages (was 20)
-FOLLOWUP_DELAY_MAX = 38 * 60         # 38 min (was 35)
-ENGAGEMENT_DELAY_MIN = 6 * 60        # 6 min between engagements (was 5)
-ENGAGEMENT_DELAY_MAX = 17 * 60       # 17 min (was 15)
-FOLLOW_DELAY_MIN = 11 * 60           # 11 min between follows (was 10)
-FOLLOW_DELAY_MAX = 28 * 60           # 28 min (was 25)
+INVITE_DELAY_MIN = 22 * 60           # 22 min between invitations (was 14)
+INVITE_DELAY_MAX = 45 * 60           # 45 min (was 33)
+DM_DELAY_MIN = 7 * 60               # 7 min between DMs (was 4)
+DM_DELAY_MAX = 15 * 60              # 15 min (was 9)
+FOLLOWUP_DELAY_MIN = 30 * 60         # 30 min between follow-up messages (was 22)
+FOLLOWUP_DELAY_MAX = 55 * 60         # 55 min (was 38)
+ENGAGEMENT_DELAY_MIN = 10 * 60       # 10 min between engagements (was 6)
+ENGAGEMENT_DELAY_MAX = 25 * 60       # 25 min (was 17)
+FOLLOW_DELAY_MIN = 18 * 60           # 18 min between follows (was 11)
+FOLLOW_DELAY_MAX = 40 * 60           # 40 min (was 28)
 SCHEDULER_FOLLOW_SECONDS = 900       # Schedule follows every 15 min
 
 # Invite attempt limits
@@ -288,13 +288,13 @@ ENDORSE_DELAY_MAX = 25 * 60          # 25 min
 SCHEDULER_ENDORSE_SECONDS = 900      # Schedule endorsements every 15 min
 
 # Profile view warm-up (lightest touch — first step before follow)
-PROFILE_VIEW_DELAY_MIN = 6 * 60      # 6 min between profile views (was 5)
-PROFILE_VIEW_DELAY_MAX = 17 * 60     # 17 min (was 15)
+PROFILE_VIEW_DELAY_MIN = 10 * 60     # 10 min between profile views (was 6)
+PROFILE_VIEW_DELAY_MAX = 25 * 60     # 25 min (was 17)
 SCHEDULER_PROFILE_VIEW_WARMUP_SECONDS = 660  # Schedule profile views every 11 min (was 10)
 
 # Auto-reply delays (seconds, randomized — feel human, not robotic)
-AUTO_REPLY_DELAY_MIN = 6 * 60        # 6 min minimum delay after reply detected (was 5)
-AUTO_REPLY_DELAY_MAX = 17 * 60       # 17 min maximum delay (was 15)
+AUTO_REPLY_DELAY_MIN = 10 * 60       # 10 min minimum delay after reply detected (was 6)
+AUTO_REPLY_DELAY_MAX = 25 * 60       # 25 min maximum delay (was 17)
 SCHEDULER_AUTO_REPLY_SECONDS = 300   # Check for auto-reply candidates every 5 min
 # Stale invite withdrawal
 STALE_INVITE_DAYS = 21               # Withdraw invites older than 21 days

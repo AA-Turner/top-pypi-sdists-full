@@ -1,7 +1,7 @@
 import json
 import subprocess
 import sys
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from packaging.version import Version
 
@@ -14,69 +14,59 @@ from abstra_internals.services.requirements import RequirementsRepository
 from abstra_internals.settings import Settings
 
 
-class UpgradePackage(LinterFix):
-    def __init__(self, package_name: str, fix_version: str) -> None:
-        self.package_name = package_name
-        self.fix_version = fix_version
-        self.label = f"Update {package_name} to {fix_version}"
+class UpgradeAllPackages(LinterFix):
+    def __init__(self, packages: List[Tuple[str, str]]) -> None:
+        self.packages = packages
+        self.label = "Update all packages"
 
     @property
     def name(self) -> str:
-        return f"UpgradePackage:{self.package_name}"
+        return "UpgradeAllPackages"
 
     def fix(self):
         requirements = RequirementsRepository.load()
-        requirements.ensure(self.package_name, self.fix_version)
+        for package_name, fix_version in self.packages:
+            requirements.ensure(package_name, fix_version)
         RequirementsRepository.save(requirements)
 
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "pip",
-                "install",
-                f"{self.package_name}=={self.fix_version}",
-            ],
-            check=False,
-        )
+        for package_name, fix_version in self.packages:
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    f"{package_name}=={fix_version}",
+                ],
+                check=False,
+            )
 
 
-class VulnerableDependencyFound(LinterIssue):
+class VulnerableDependenciesFound(LinterIssue):
     def __init__(
         self,
-        package_name: str,
-        version: str,
-        vuln_ids: List[str],
-        fix_version: str,
-        descriptions: List[str],
+        fixable: List[Tuple[str, str, str]],
+        unfixable: List[Tuple[str, str]],
     ) -> None:
-        ids = ", ".join(vuln_ids)
-        if fix_version:
-            self.label = (
-                f"{package_name}=={version} has {len(vuln_ids)} "
-                f"{'vulnerability' if len(vuln_ids) == 1 else 'vulnerabilities'}: "
-                f"{ids}. Update to {fix_version} to fix the vulnerability."
+        total = len(fixable) + len(unfixable)
+        summary = (
+            f"{total} {'dependency has' if total == 1 else 'dependencies have'}"
+            " security updates available"
+        )
+
+        details: List[str] = []
+        for name, version, fix_version in fixable:
+            details.append(f"- {name} {version} → {fix_version}")
+        for name, version in unfixable:
+            details.append(
+                f"- {name} {version} (no update available, consider removing)"
             )
-            self.fixes = [UpgradePackage(package_name, fix_version)]
+
+        self.label = "\n".join([summary] + details)
+
+        if fixable:
+            self.fixes = [UpgradeAllPackages([(name, fv) for name, _, fv in fixable])]
         else:
-            descs = (
-                "\n".join(
-                    f"- {vid}: {d}" for vid, d in zip(vuln_ids, descriptions) if d
-                )
-                if descriptions
-                else ""
-            )
-            vuln_count = len(vuln_ids)
-            vuln_word = "vulnerability" if vuln_count == 1 else "vulnerabilities"
-            no_fix_hint = (
-                "No fix is available in another version. "
-                "We suggest you to remove this dependency and adapt your code accordingly."
-            )
-            summary = (
-                f"{package_name}=={version} has {vuln_count} "
-                f"{vuln_word}: {ids}. {no_fix_hint}"
-            )
-            self.label = f"{summary}\n{descs}" if descs else summary
             self.fixes = []
 
 
@@ -94,7 +84,7 @@ def _highest_version(versions: List[str]) -> str:
 
 
 def _parse_findings(stdout: str) -> List[LinterIssue]:
-    """Parse pip-audit JSON, grouping vulnerabilities per package."""
+    """Parse pip-audit JSON into a single grouped issue."""
     if not stdout.strip():
         return []
 
@@ -103,53 +93,39 @@ def _parse_findings(stdout: str) -> List[LinterIssue]:
     except json.JSONDecodeError:
         return []
 
-    # Group by package: {name: {version, vuln_ids, fix_versions, descriptions}}
     grouped: Dict[str, Dict] = {}
     for dep in report.get("dependencies", []):
         name = dep.get("name")
         version = dep.get("version")
-        if not name or not version:
+        vulns = dep.get("vulns", [])
+        if not name or not version or not vulns:
             continue
 
         if name not in grouped:
             grouped[name] = {
                 "version": version,
-                "vuln_ids": [],
                 "fix_versions": [],
-                "descriptions": [],
             }
 
-        for vuln in dep.get("vulns", []):
-            vuln_id = vuln.get("id", "")
-            if vuln_id:
-                grouped[name]["vuln_ids"].append(vuln_id)
-
-            description = vuln.get("description", "")
-            if description:
-                grouped[name]["descriptions"].append(description)
-
+        for vuln in vulns:
             for fv in vuln.get("fix_versions", []):
                 if fv:
                     grouped[name]["fix_versions"].append(fv)
 
-    issues: List[LinterIssue] = []
+    fixable: List[Tuple[str, str, str]] = []
+    unfixable: List[Tuple[str, str]] = []
+
     for name, info in grouped.items():
-        if not info["vuln_ids"]:
-            continue
-
         best_fix = _highest_version(info["fix_versions"])
+        if best_fix:
+            fixable.append((name, info["version"], best_fix))
+        else:
+            unfixable.append((name, info["version"]))
 
-        issues.append(
-            VulnerableDependencyFound(
-                package_name=name,
-                version=info["version"],
-                vuln_ids=info["vuln_ids"],
-                fix_version=best_fix,
-                descriptions=info["descriptions"],
-            )
-        )
+    if not fixable and not unfixable:
+        return []
 
-    return issues
+    return [VulnerableDependenciesFound(fixable=fixable, unfixable=unfixable)]
 
 
 def _run_pip_audit(extra_args: Optional[List[str]] = None) -> List[LinterIssue]:
@@ -188,8 +164,8 @@ class VulnerableRequirements(LinterRule):
     """Scans requirements.txt for known CVEs — blocks deploy."""
 
     label = "Vulnerable dependencies in requirements.txt"
-    type = "security"
-    fix_with_ai = True
+    type = "info"
+    fix_with_ai = False
 
     def find_issues(self) -> Sequence[LinterIssue]:
         requirements_path = Settings.root_path / "requirements.txt"

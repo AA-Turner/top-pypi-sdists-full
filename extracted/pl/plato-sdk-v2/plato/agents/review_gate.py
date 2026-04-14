@@ -9,7 +9,7 @@ Usage::
 
     from plato.agents.review_gate import ReviewGateResult, attach_review_gate
 
-    async def my_review(hostname: str) -> ReviewGateResult:
+    async def my_review(hostname: str, *, attempt_number: int = 1) -> ReviewGateResult:
         result = await run_my_review_pipeline(hostname)
         return ReviewGateResult(
             passed=result.passed,
@@ -73,7 +73,7 @@ class ReviewGateMergeResult:
 def attach_review_gate(
     runner: AgentTask,
     *,
-    review_fn: Callable[[str], Awaitable[ReviewGateResult]],
+    review_fn: Callable[..., Awaitable[ReviewGateResult]],
     branch_name: str,
     merge_fn: Callable[[], Awaitable[bool | ReviewGateMergeResult]] | None = None,
     reviewed_commit_fn: Callable[[], str | None] | None = None,
@@ -91,7 +91,8 @@ def attach_review_gate(
 
     Args:
         runner: The AgentTask to attach the gate to.
-        review_fn: Async function that takes the agent hostname and returns a ReviewGateResult.
+        review_fn: Async function that takes the agent hostname and an ``attempt_number``
+            keyword argument (1-indexed) and returns a ReviewGateResult.
         branch_name: Git branch name for span naming and result persistence.
         merge_fn: Optional async function that merges the branch. Returns True on success.
         reviewed_commit_fn: Optional function that returns the commit SHA currently
@@ -114,12 +115,17 @@ def attach_review_gate(
         tracer = trace.get_tracer("plato.agents.review_gate")
         hostname = runner.runtime_info.hostname if runner.runtime_info else ""
 
+        attempt_number = len(_review_history) + 1
+
         with tracer.start_as_current_span(
             f"pr_review.{branch_name}",
-            attributes={"plato.review.branch": branch_name},
+            attributes={
+                "plato.review.branch": branch_name,
+                "plato.review.attempt_number": attempt_number,
+            },
         ) as review_span:
             reviewed_commit = reviewed_commit_fn() if reviewed_commit_fn is not None else None
-            gate_result = await review_fn(hostname)
+            gate_result = await review_fn(hostname, attempt_number=attempt_number)
 
             result_dict = gate_result.result_data
             overall_passed = gate_result.passed
@@ -173,6 +179,8 @@ def attach_review_gate(
                         "Re-run the task or inspect the git state before making code changes."
                     )
                     logger.error("Merge error for branch %s: %s", branch_name, exc)
+            elif overall_passed and checkpoint_fn is not None:
+                await checkpoint_fn(f"reviewed.{branch_name.replace('/', '.')}")
 
             _last_result.clear()
             _last_result.update(result_dict)

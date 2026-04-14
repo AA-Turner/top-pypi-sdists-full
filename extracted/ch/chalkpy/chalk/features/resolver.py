@@ -3855,7 +3855,7 @@ def make_stream_resolver(
     source: StreamSource,
     message_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
     output_features: "Mapping[FeatureWrapper, Underscore]",
-    parse: Underscore | Callable[[str | bytes], Any] | None = None,
+    parse: Underscore | None = None,
     environment: Optional[Environments] = None,
     machine_type: Optional[MachineType] = None,
     owner: Optional[str] = None,
@@ -3945,8 +3945,6 @@ def make_stream_resolver(
     assert frame is not None
     caller_frame = frame.f_back
     assert caller_frame is not None
-    caller_globals = caller_frame.f_globals
-    caller_locals = caller_frame.f_locals
     del frame
 
     if not isinstance(source, StreamSource):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -4061,19 +4059,10 @@ def make_stream_resolver(
             parse_function_captured_globals=None,
             parse_expression=parse,
         )
-    elif callable(parse):
-        parse_info = _validate_parse_function(
-            name,
-            parse_fn=parse,
-            globals=caller_globals,
-            locals=caller_locals,
-            stream_fn_input_type=message_type,
-            name=name,
+    elif callable(cast(Any, parse)):
+        raise ValueError(
+            f"Stream resolver '{name}' does not accept a callable for 'parse'. Please pass chalk expressions instead (e.g. parse=F.if_then_else(...))."
         )
-        if parse_info.input_type != bytes:
-            raise ValueError(
-                f"Native streaming resolvers only support python parse functions with input bytes 'bytes'. Function {parse} has input type {parse_info.input_type}"
-            )
 
     # Validate and parse sink or additional_output_features before creating StreamResolver
     message_producer_parsed: StreamResolverMessageProducerParsed | None = None

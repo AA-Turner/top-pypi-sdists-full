@@ -99,6 +99,7 @@ class render_widget_base(Renderer[ValueT], Generic[ValueT, WidgetT]):
         return {
             "model_id": str(widget.model_id),
             "fill": fill,
+            "widget_pkg": widget_pkg(widget),
         }
 
     @property
@@ -173,8 +174,8 @@ def set_layout_defaults(widget: Widget) -> Tuple[Widget, bool]:
 
     # Plotly provides it's own layout API (which isn't a subclass of ipywidgets.Layout)
     if pkg == "plotly":
-        from plotly.graph_objs import Layout as PlotlyLayout
         from plotly.basewidget import BaseFigureWidget
+        from plotly.graph_objs import Layout as PlotlyLayout
 
         if isinstance(layout, PlotlyLayout):
             if layout.height is not None:
@@ -225,6 +226,7 @@ def set_layout_defaults(widget: Widget) -> Tuple[Widget, bool]:
 
     return (widget, fill)
 
+
 class WidgetRenderContext:
     """
     Let the session know when a widget is currently being rendered.
@@ -237,6 +239,7 @@ class WidgetRenderContext:
     constructed inside a reactive.isolate() block (which temporarily replaces the
     current Context with a short-lived temporary one).
     """
+
     def __init__(self, output_id):
         self.session = require_active_session(None)
         self.output_id = output_id

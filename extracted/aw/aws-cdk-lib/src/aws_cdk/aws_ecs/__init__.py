@@ -2706,10 +2706,14 @@ from ..interfaces.aws_ecs import (
     CapacityProviderReference as _CapacityProviderReference_8f5b3a97,
     ClusterCapacityProviderAssociationsReference as _ClusterCapacityProviderAssociationsReference_cd3177fa,
     ClusterReference as _ClusterReference_91201a3a,
+    DaemonReference as _DaemonReference_4da3dc67,
+    DaemonTaskDefinitionReference as _DaemonTaskDefinitionReference_42bb0663,
     ExpressGatewayServiceReference as _ExpressGatewayServiceReference_e96d24a4,
     ICapacityProviderRef as _ICapacityProviderRef_2d421d38,
     IClusterCapacityProviderAssociationsRef as _IClusterCapacityProviderAssociationsRef_e242d7db,
     IClusterRef as _IClusterRef_7ad11494,
+    IDaemonRef as _IDaemonRef_964ef8b8,
+    IDaemonTaskDefinitionRef as _IDaemonTaskDefinitionRef_941907e7,
     IExpressGatewayServiceRef as _IExpressGatewayServiceRef_5fb21ea1,
     IPrimaryTaskSetRef as _IPrimaryTaskSetRef_4bfb7e88,
     IServiceRef as _IServiceRef_adcb3d02,
@@ -7353,6 +7357,9 @@ class CfnCapacityProvider(
                             min=123
                         )
                     ),
+                    local_storage_configuration=ecs.CfnCapacityProvider.ManagedInstancesLocalStorageConfigurationProperty(
+                        use_local_storage=False
+                    ),
                     monitoring="monitoring",
                     storage_configuration=ecs.CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty(
                         storage_size_gi_b=123
@@ -8076,6 +8083,7 @@ class CfnCapacityProvider(
             "fips_enabled": "fipsEnabled",
             "instance_metadata_tags_propagation": "instanceMetadataTagsPropagation",
             "instance_requirements": "instanceRequirements",
+            "local_storage_configuration": "localStorageConfiguration",
             "monitoring": "monitoring",
             "storage_configuration": "storageConfiguration",
         },
@@ -8091,6 +8099,7 @@ class CfnCapacityProvider(
             fips_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             instance_metadata_tags_propagation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             instance_requirements: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.InstanceRequirementsRequestProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            local_storage_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.ManagedInstancesLocalStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             monitoring: typing.Optional[builtins.str] = None,
             storage_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -8105,6 +8114,7 @@ class CfnCapacityProvider(
             :param fips_enabled: 
             :param instance_metadata_tags_propagation: 
             :param instance_requirements: The instance requirements. You can specify:. - The instance types - Instance requirements such as vCPU count, memory, network performance, and accelerator specifications Amazon ECS automatically selects the instances that match the specified criteria.
+            :param local_storage_configuration: 
             :param monitoring: CloudWatch provides two categories of monitoring: basic monitoring and detailed monitoring. By default, your managed instance is configured for basic monitoring. You can optionally enable detailed monitoring to help you more quickly identify and act on operational issues. You can enable or turn off detailed monitoring at launch or when the managed instance is running or stopped. For more information, see `Detailed monitoring for Amazon ECS Managed Instances <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/detailed-monitoring-managed-instances.html>`_ in the Amazon ECS Developer Guide.
             :param storage_configuration: The storage configuration for Amazon ECS Managed Instances. This defines the root volume size and type for the instances.
 
@@ -8191,6 +8201,9 @@ class CfnCapacityProvider(
                             min=123
                         )
                     ),
+                    local_storage_configuration=ecs.CfnCapacityProvider.ManagedInstancesLocalStorageConfigurationProperty(
+                        use_local_storage=False
+                    ),
                     monitoring="monitoring",
                     storage_configuration=ecs.CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty(
                         storage_size_gi_b=123
@@ -8206,6 +8219,7 @@ class CfnCapacityProvider(
                 check_type(argname="argument fips_enabled", value=fips_enabled, expected_type=type_hints["fips_enabled"])
                 check_type(argname="argument instance_metadata_tags_propagation", value=instance_metadata_tags_propagation, expected_type=type_hints["instance_metadata_tags_propagation"])
                 check_type(argname="argument instance_requirements", value=instance_requirements, expected_type=type_hints["instance_requirements"])
+                check_type(argname="argument local_storage_configuration", value=local_storage_configuration, expected_type=type_hints["local_storage_configuration"])
                 check_type(argname="argument monitoring", value=monitoring, expected_type=type_hints["monitoring"])
                 check_type(argname="argument storage_configuration", value=storage_configuration, expected_type=type_hints["storage_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8222,6 +8236,8 @@ class CfnCapacityProvider(
                 self._values["instance_metadata_tags_propagation"] = instance_metadata_tags_propagation
             if instance_requirements is not None:
                 self._values["instance_requirements"] = instance_requirements
+            if local_storage_configuration is not None:
+                self._values["local_storage_configuration"] = local_storage_configuration
             if monitoring is not None:
                 self._values["monitoring"] = monitoring
             if storage_configuration is not None:
@@ -8320,6 +8336,16 @@ class CfnCapacityProvider(
             '''
             result = self._values.get("instance_requirements")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.InstanceRequirementsRequestProperty"]], result)
+
+        @builtins.property
+        def local_storage_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.ManagedInstancesLocalStorageConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-instancelaunchtemplate.html#cfn-ecs-capacityprovider-instancelaunchtemplate-localstorageconfiguration
+            '''
+            result = self._values.get("local_storage_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.ManagedInstancesLocalStorageConfigurationProperty"]], result)
 
         @builtins.property
         def monitoring(self) -> typing.Optional[builtins.str]:
@@ -8892,6 +8918,61 @@ class CfnCapacityProvider(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnCapacityProvider.ManagedInstancesLocalStorageConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"use_local_storage": "useLocalStorage"},
+    )
+    class ManagedInstancesLocalStorageConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            use_local_storage: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''
+            :param use_local_storage: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-managedinstanceslocalstorageconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                managed_instances_local_storage_configuration_property = ecs.CfnCapacityProvider.ManagedInstancesLocalStorageConfigurationProperty(
+                    use_local_storage=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c52ac664522160e77fce63837e0abe0b8d4e5c628d6d0e218ed5474f08743bfd)
+                check_type(argname="argument use_local_storage", value=use_local_storage, expected_type=type_hints["use_local_storage"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if use_local_storage is not None:
+                self._values["use_local_storage"] = use_local_storage
+
+        @builtins.property
+        def use_local_storage(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-capacityprovider-managedinstanceslocalstorageconfiguration.html#cfn-ecs-capacityprovider-managedinstanceslocalstorageconfiguration-uselocalstorage
+            '''
+            result = self._values.get("use_local_storage")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedInstancesLocalStorageConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_ecs.CfnCapacityProvider.ManagedInstancesNetworkConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"security_groups": "securityGroups", "subnets": "subnets"},
@@ -9080,6 +9161,9 @@ class CfnCapacityProvider(
                                 max=123,
                                 min=123
                             )
+                        ),
+                        local_storage_configuration=ecs.CfnCapacityProvider.ManagedInstancesLocalStorageConfigurationProperty(
+                            use_local_storage=False
                         ),
                         monitoring="monitoring",
                         storage_configuration=ecs.CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty(
@@ -9956,6 +10040,9 @@ class CfnCapacityProviderProps:
                                 max=123,
                                 min=123
                             )
+                        ),
+                        local_storage_configuration=ecs.CfnCapacityProvider.ManagedInstancesLocalStorageConfigurationProperty(
+                            use_local_storage=False
                         ),
                         monitoring="monitoring",
                         storage_configuration=ecs.CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty(
@@ -11687,6 +11774,3332 @@ class CfnClusterProps:
 
     def __repr__(self) -> str:
         return "CfnClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IDaemonRef_964ef8b8, _ITaggableV2_4e6798f8)
+class CfnDaemon(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ecs.CfnDaemon",
+):
+    '''Resource schema for AWS ECS Daemon.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html
+    :cloudformationResource: AWS::ECS::Daemon
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ecs as ecs
+        
+        cfn_daemon = ecs.CfnDaemon(self, "MyCfnDaemon",
+            capacity_provider_arns=["capacityProviderArns"],
+            cluster_arn="clusterArn",
+            daemon_name="daemonName",
+            daemon_task_definition_arn="daemonTaskDefinitionArn",
+            deployment_configuration=ecs.CfnDaemon.DaemonDeploymentConfigurationProperty(
+                alarms=ecs.CfnDaemon.DaemonAlarmConfigurationProperty(
+                    alarm_names=["alarmNames"],
+                    enable=False
+                ),
+                bake_time_in_minutes=123,
+                drain_percent=123
+            ),
+            enable_ecs_managed_tags=False,
+            enable_execute_command=False,
+            propagate_tags="propagateTags",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cluster_arn: typing.Optional[builtins.str] = None,
+        daemon_name: typing.Optional[builtins.str] = None,
+        daemon_task_definition_arn: typing.Optional[builtins.str] = None,
+        deployment_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemon.DaemonDeploymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_execute_command: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        propagate_tags: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::ECS::Daemon``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param capacity_provider_arns: 
+        :param cluster_arn: 
+        :param daemon_name: 
+        :param daemon_task_definition_arn: 
+        :param deployment_configuration: 
+        :param enable_ecs_managed_tags: 
+        :param enable_execute_command: 
+        :param propagate_tags: 
+        :param tags: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a98a65092791927beecc4d4f9faec65e71003c426bc5d6adeac27c4846a361c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDaemonProps(
+            capacity_provider_arns=capacity_provider_arns,
+            cluster_arn=cluster_arn,
+            daemon_name=daemon_name,
+            daemon_task_definition_arn=daemon_task_definition_arn,
+            deployment_configuration=deployment_configuration,
+            enable_ecs_managed_tags=enable_ecs_managed_tags,
+            enable_execute_command=enable_execute_command,
+            propagate_tags=propagate_tags,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDaemon")
+    @builtins.classmethod
+    def arn_for_daemon(cls, resource: "_IDaemonRef_964ef8b8") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__782091b60a8db1e55ddcf7fecba902627bbf77c894fc98514ee914a13e670c30)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDaemon", [resource]))
+
+    @jsii.member(jsii_name="isCfnDaemon")
+    @builtins.classmethod
+    def is_cfn_daemon(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDaemon.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7174aec38930d4a3f2caf0060bde64174dd75f1cea45a58a9845e844146e3e28)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDaemon", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__373b22acc1d451c361688a1d25cfbf625b8b18ffbe6c1809e83b94ef8911f3da)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d8a33b2de23210303324bd94d7219b4e63967b2a030b733658bd125165861e0)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDaemonArn")
+    def attr_daemon_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: DaemonArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDaemonArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDaemonStatus")
+    def attr_daemon_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: DaemonStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDaemonStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDeploymentArn")
+    def attr_deployment_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: DeploymentArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDeploymentArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="daemonRef")
+    def daemon_ref(self) -> "_DaemonReference_4da3dc67":
+        '''A reference to a Daemon resource.'''
+        return typing.cast("_DaemonReference_4da3dc67", jsii.get(self, "daemonRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="capacityProviderArns")
+    def capacity_provider_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "capacityProviderArns"))
+
+    @capacity_provider_arns.setter
+    def capacity_provider_arns(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd87e24629d3a613ef53e3bd1a119fd77176e36c3efc00b96d2e092e51455c89)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "capacityProviderArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterArn")
+    def cluster_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "clusterArn"))
+
+    @cluster_arn.setter
+    def cluster_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__84059ae9f43c73fc4b2e0616b63c00c81e0c7c6708ec1b35e2fbe8c76cf1d12b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="daemonName")
+    def daemon_name(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "daemonName"))
+
+    @daemon_name.setter
+    def daemon_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__329d9d1ffd10b807e0a8b59ead810f63927d345a582481e0e8e26806a40a22e9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "daemonName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="daemonTaskDefinitionArn")
+    def daemon_task_definition_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "daemonTaskDefinitionArn"))
+
+    @daemon_task_definition_arn.setter
+    def daemon_task_definition_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f64e70918f229bf526d0a5fb9ee7158453994afda40b29cd58c4be1042430785)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "daemonTaskDefinitionArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deploymentConfiguration")
+    def deployment_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemon.DaemonDeploymentConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemon.DaemonDeploymentConfigurationProperty"]], jsii.get(self, "deploymentConfiguration"))
+
+    @deployment_configuration.setter
+    def deployment_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemon.DaemonDeploymentConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4127bb954b18a458a7b0e29e166e833fe88a1a6bd3580946289cef991e4a9ed6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deploymentConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enableEcsManagedTags")
+    def enable_ecs_managed_tags(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableEcsManagedTags"))
+
+    @enable_ecs_managed_tags.setter
+    def enable_ecs_managed_tags(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42c84cdf2ddb32b0cb4c6b81512ce286e29213aef701962028daa0539c457518)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enableEcsManagedTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enableExecuteCommand")
+    def enable_execute_command(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enableExecuteCommand"))
+
+    @enable_execute_command.setter
+    def enable_execute_command(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8f174ac3fd9afd193a0d451b4921c35db433f5f1398c6ae2cc73f33171ed134c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enableExecuteCommand", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="propagateTags")
+    def propagate_tags(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "propagateTags"))
+
+    @propagate_tags.setter
+    def propagate_tags(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d81aa56811c31cd705aed3f7883853f3b05bb6856ba560c11dc2397d7fb2c8f8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "propagateTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__222aaec18715d6cacb07b5f6cbd89b44b194b95c0cee308a894c228b49afb2f8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemon.DaemonAlarmConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"alarm_names": "alarmNames", "enable": "enable"},
+    )
+    class DaemonAlarmConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            alarm_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+            enable: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''
+            :param alarm_names: 
+            :param enable: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemonalarmconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                daemon_alarm_configuration_property = ecs.CfnDaemon.DaemonAlarmConfigurationProperty(
+                    alarm_names=["alarmNames"],
+                    enable=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__29c0436a9798e13ea840206a3daeb84163e5d1ff2ffc73235d5524a621b14d8a)
+                check_type(argname="argument alarm_names", value=alarm_names, expected_type=type_hints["alarm_names"])
+                check_type(argname="argument enable", value=enable, expected_type=type_hints["enable"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if alarm_names is not None:
+                self._values["alarm_names"] = alarm_names
+            if enable is not None:
+                self._values["enable"] = enable
+
+        @builtins.property
+        def alarm_names(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemonalarmconfiguration.html#cfn-ecs-daemon-daemonalarmconfiguration-alarmnames
+            '''
+            result = self._values.get("alarm_names")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def enable(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemonalarmconfiguration.html#cfn-ecs-daemon-daemonalarmconfiguration-enable
+            '''
+            result = self._values.get("enable")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DaemonAlarmConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemon.DaemonDeploymentConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "alarms": "alarms",
+            "bake_time_in_minutes": "bakeTimeInMinutes",
+            "drain_percent": "drainPercent",
+        },
+    )
+    class DaemonDeploymentConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            alarms: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemon.DaemonAlarmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            bake_time_in_minutes: typing.Optional[jsii.Number] = None,
+            drain_percent: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param alarms: 
+            :param bake_time_in_minutes: 
+            :param drain_percent: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemondeploymentconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                daemon_deployment_configuration_property = ecs.CfnDaemon.DaemonDeploymentConfigurationProperty(
+                    alarms=ecs.CfnDaemon.DaemonAlarmConfigurationProperty(
+                        alarm_names=["alarmNames"],
+                        enable=False
+                    ),
+                    bake_time_in_minutes=123,
+                    drain_percent=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__51740841645480e2f05858f59b3fa2678dc06bddc3607721147a085168fe851b)
+                check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
+                check_type(argname="argument bake_time_in_minutes", value=bake_time_in_minutes, expected_type=type_hints["bake_time_in_minutes"])
+                check_type(argname="argument drain_percent", value=drain_percent, expected_type=type_hints["drain_percent"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if alarms is not None:
+                self._values["alarms"] = alarms
+            if bake_time_in_minutes is not None:
+                self._values["bake_time_in_minutes"] = bake_time_in_minutes
+            if drain_percent is not None:
+                self._values["drain_percent"] = drain_percent
+
+        @builtins.property
+        def alarms(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemon.DaemonAlarmConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemondeploymentconfiguration.html#cfn-ecs-daemon-daemondeploymentconfiguration-alarms
+            '''
+            result = self._values.get("alarms")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemon.DaemonAlarmConfigurationProperty"]], result)
+
+        @builtins.property
+        def bake_time_in_minutes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemondeploymentconfiguration.html#cfn-ecs-daemon-daemondeploymentconfiguration-baketimeinminutes
+            '''
+            result = self._values.get("bake_time_in_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def drain_percent(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemon-daemondeploymentconfiguration.html#cfn-ecs-daemon-daemondeploymentconfiguration-drainpercent
+            '''
+            result = self._values.get("drain_percent")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DaemonDeploymentConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "capacity_provider_arns": "capacityProviderArns",
+        "cluster_arn": "clusterArn",
+        "daemon_name": "daemonName",
+        "daemon_task_definition_arn": "daemonTaskDefinitionArn",
+        "deployment_configuration": "deploymentConfiguration",
+        "enable_ecs_managed_tags": "enableEcsManagedTags",
+        "enable_execute_command": "enableExecuteCommand",
+        "propagate_tags": "propagateTags",
+        "tags": "tags",
+    },
+)
+class CfnDaemonProps:
+    def __init__(
+        self,
+        *,
+        capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        cluster_arn: typing.Optional[builtins.str] = None,
+        daemon_name: typing.Optional[builtins.str] = None,
+        daemon_task_definition_arn: typing.Optional[builtins.str] = None,
+        deployment_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemon.DaemonDeploymentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        enable_execute_command: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        propagate_tags: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDaemon``.
+
+        :param capacity_provider_arns: 
+        :param cluster_arn: 
+        :param daemon_name: 
+        :param daemon_task_definition_arn: 
+        :param deployment_configuration: 
+        :param enable_ecs_managed_tags: 
+        :param enable_execute_command: 
+        :param propagate_tags: 
+        :param tags: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ecs as ecs
+            
+            cfn_daemon_props = ecs.CfnDaemonProps(
+                capacity_provider_arns=["capacityProviderArns"],
+                cluster_arn="clusterArn",
+                daemon_name="daemonName",
+                daemon_task_definition_arn="daemonTaskDefinitionArn",
+                deployment_configuration=ecs.CfnDaemon.DaemonDeploymentConfigurationProperty(
+                    alarms=ecs.CfnDaemon.DaemonAlarmConfigurationProperty(
+                        alarm_names=["alarmNames"],
+                        enable=False
+                    ),
+                    bake_time_in_minutes=123,
+                    drain_percent=123
+                ),
+                enable_ecs_managed_tags=False,
+                enable_execute_command=False,
+                propagate_tags="propagateTags",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6cb41b86cc2919a74a22c4baa4c7787d893e475d6aa593236526298875122ea1)
+            check_type(argname="argument capacity_provider_arns", value=capacity_provider_arns, expected_type=type_hints["capacity_provider_arns"])
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+            check_type(argname="argument daemon_name", value=daemon_name, expected_type=type_hints["daemon_name"])
+            check_type(argname="argument daemon_task_definition_arn", value=daemon_task_definition_arn, expected_type=type_hints["daemon_task_definition_arn"])
+            check_type(argname="argument deployment_configuration", value=deployment_configuration, expected_type=type_hints["deployment_configuration"])
+            check_type(argname="argument enable_ecs_managed_tags", value=enable_ecs_managed_tags, expected_type=type_hints["enable_ecs_managed_tags"])
+            check_type(argname="argument enable_execute_command", value=enable_execute_command, expected_type=type_hints["enable_execute_command"])
+            check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if capacity_provider_arns is not None:
+            self._values["capacity_provider_arns"] = capacity_provider_arns
+        if cluster_arn is not None:
+            self._values["cluster_arn"] = cluster_arn
+        if daemon_name is not None:
+            self._values["daemon_name"] = daemon_name
+        if daemon_task_definition_arn is not None:
+            self._values["daemon_task_definition_arn"] = daemon_task_definition_arn
+        if deployment_configuration is not None:
+            self._values["deployment_configuration"] = deployment_configuration
+        if enable_ecs_managed_tags is not None:
+            self._values["enable_ecs_managed_tags"] = enable_ecs_managed_tags
+        if enable_execute_command is not None:
+            self._values["enable_execute_command"] = enable_execute_command
+        if propagate_tags is not None:
+            self._values["propagate_tags"] = propagate_tags
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def capacity_provider_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-capacityproviderarns
+        '''
+        result = self._values.get("capacity_provider_arns")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def cluster_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-clusterarn
+        '''
+        result = self._values.get("cluster_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def daemon_name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-daemonname
+        '''
+        result = self._values.get("daemon_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def daemon_task_definition_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-daemontaskdefinitionarn
+        '''
+        result = self._values.get("daemon_task_definition_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deployment_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemon.DaemonDeploymentConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-deploymentconfiguration
+        '''
+        result = self._values.get("deployment_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemon.DaemonDeploymentConfigurationProperty"]], result)
+
+    @builtins.property
+    def enable_ecs_managed_tags(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-enableecsmanagedtags
+        '''
+        result = self._values.get("enable_ecs_managed_tags")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def enable_execute_command(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-enableexecutecommand
+        '''
+        result = self._values.get("enable_execute_command")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def propagate_tags(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-propagatetags
+        '''
+        result = self._values.get("propagate_tags")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemon.html#cfn-ecs-daemon-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDaemonProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IDaemonTaskDefinitionRef_941907e7, _ITaggableV2_4e6798f8)
+class CfnDaemonTaskDefinition(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition",
+):
+    '''Resource Schema describing various properties for ECS DaemonTaskDefinition.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html
+    :cloudformationResource: AWS::ECS::DaemonTaskDefinition
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ecs as ecs
+        
+        cfn_daemon_task_definition = ecs.CfnDaemonTaskDefinition(self, "MyCfnDaemonTaskDefinition",
+            container_definitions=[ecs.CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty(
+                image="image",
+                name="name",
+        
+                # the properties below are optional
+                command=["command"],
+                cpu=123,
+                depends_on=[ecs.CfnDaemonTaskDefinition.ContainerDependencyProperty(
+                    condition="condition",
+                    container_name="containerName"
+                )],
+                entry_point=["entryPoint"],
+                environment=[ecs.CfnDaemonTaskDefinition.KeyValuePairProperty(
+                    name="name",
+                    value="value"
+                )],
+                environment_files=[ecs.CfnDaemonTaskDefinition.EnvironmentFileProperty(
+                    type="type",
+                    value="value"
+                )],
+                essential=False,
+                firelens_configuration=ecs.CfnDaemonTaskDefinition.FirelensConfigurationProperty(
+                    options={
+                        "options_key": "options"
+                    },
+                    type="type"
+                ),
+                health_check=ecs.CfnDaemonTaskDefinition.HealthCheckProperty(
+                    command=["command"],
+                    interval=123,
+                    retries=123,
+                    start_period=123,
+                    timeout=123
+                ),
+                interactive=False,
+                linux_parameters=ecs.CfnDaemonTaskDefinition.LinuxParametersProperty(
+                    capabilities=ecs.CfnDaemonTaskDefinition.KernelCapabilitiesProperty(
+                        add=["add"],
+                        drop=["drop"]
+                    ),
+                    devices=[ecs.CfnDaemonTaskDefinition.DeviceProperty(
+                        container_path="containerPath",
+                        host_path="hostPath",
+                        permissions=["permissions"]
+                    )],
+                    init_process_enabled=False,
+                    tmpfs=[ecs.CfnDaemonTaskDefinition.TmpfsProperty(
+                        size=123,
+        
+                        # the properties below are optional
+                        container_path="containerPath",
+                        mount_options=["mountOptions"]
+                    )]
+                ),
+                log_configuration=ecs.CfnDaemonTaskDefinition.LogConfigurationProperty(
+                    log_driver="logDriver",
+        
+                    # the properties below are optional
+                    options={
+                        "options_key": "options"
+                    },
+                    secret_options=[ecs.CfnDaemonTaskDefinition.SecretProperty(
+                        name="name",
+                        value_from="valueFrom"
+                    )]
+                ),
+                memory=123,
+                memory_reservation=123,
+                mount_points=[ecs.CfnDaemonTaskDefinition.MountPointProperty(
+                    container_path="containerPath",
+                    read_only=False,
+                    source_volume="sourceVolume"
+                )],
+                privileged=False,
+                pseudo_terminal=False,
+                readonly_root_filesystem=False,
+                repository_credentials=ecs.CfnDaemonTaskDefinition.RepositoryCredentialsProperty(
+                    credentials_parameter="credentialsParameter"
+                ),
+                restart_policy=ecs.CfnDaemonTaskDefinition.RestartPolicyProperty(
+                    enabled=False,
+                    ignored_exit_codes=[123],
+                    restart_attempt_period=123
+                ),
+                secrets=[ecs.CfnDaemonTaskDefinition.SecretProperty(
+                    name="name",
+                    value_from="valueFrom"
+                )],
+                start_timeout=123,
+                stop_timeout=123,
+                system_controls=[ecs.CfnDaemonTaskDefinition.SystemControlProperty(
+                    namespace="namespace",
+                    value="value"
+                )],
+                ulimits=[ecs.CfnDaemonTaskDefinition.UlimitProperty(
+                    hard_limit=123,
+                    name="name",
+                    soft_limit=123
+                )],
+                user="user",
+                working_directory="workingDirectory"
+            )],
+            cpu="cpu",
+            execution_role_arn="executionRoleArn",
+            family="family",
+            memory="memory",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            task_role_arn="taskRoleArn",
+            volumes=[ecs.CfnDaemonTaskDefinition.VolumeProperty(
+                host=ecs.CfnDaemonTaskDefinition.HostVolumePropertiesProperty(
+                    source_path="sourcePath"
+                ),
+                name="name"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        container_definitions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        cpu: typing.Optional[builtins.str] = None,
+        execution_role_arn: typing.Optional[builtins.str] = None,
+        family: typing.Optional[builtins.str] = None,
+        memory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        task_role_arn: typing.Optional[builtins.str] = None,
+        volumes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.VolumeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::ECS::DaemonTaskDefinition``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param container_definitions: 
+        :param cpu: 
+        :param execution_role_arn: 
+        :param family: 
+        :param memory: 
+        :param tags: 
+        :param task_role_arn: 
+        :param volumes: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7893a90b02c25e9e2bfca6bbdc63398520e865b88812618aee19452d4cb92687)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDaemonTaskDefinitionProps(
+            container_definitions=container_definitions,
+            cpu=cpu,
+            execution_role_arn=execution_role_arn,
+            family=family,
+            memory=memory,
+            tags=tags,
+            task_role_arn=task_role_arn,
+            volumes=volumes,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDaemonTaskDefinition")
+    @builtins.classmethod
+    def arn_for_daemon_task_definition(
+        cls,
+        resource: "_IDaemonTaskDefinitionRef_941907e7",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b55c76978ee6a8a1899a30323afe7e574007a3cf9d100c9cd7942082c9bdb05e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDaemonTaskDefinition", [resource]))
+
+    @jsii.member(jsii_name="isCfnDaemonTaskDefinition")
+    @builtins.classmethod
+    def is_cfn_daemon_task_definition(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDaemonTaskDefinition.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b61db29263ebf96f937136523aade24ae676596a4b4b7a4f838c8624249186b6)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDaemonTaskDefinition", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d320489803dc0194571e28a617066150ddc1c73b9329979ada24eeea1fdd00b7)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c9b6211f4a4b06acb98a80a07e540d75c8e0a8bc0ac18182c45ed10fc7dd318)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDaemonTaskDefinitionArn")
+    def attr_daemon_task_definition_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Amazon ECS daemon task definition.
+
+        :cloudformationAttribute: DaemonTaskDefinitionArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDaemonTaskDefinitionArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="daemonTaskDefinitionRef")
+    def daemon_task_definition_ref(self) -> "_DaemonTaskDefinitionReference_42bb0663":
+        '''A reference to a DaemonTaskDefinition resource.'''
+        return typing.cast("_DaemonTaskDefinitionReference_42bb0663", jsii.get(self, "daemonTaskDefinitionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="containerDefinitions")
+    def container_definitions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty"]]]], jsii.get(self, "containerDefinitions"))
+
+    @container_definitions.setter
+    def container_definitions(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0334c6f381a8a4127d16256b00041a311a50cca2484443f4f55a1f60d89a1db3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "containerDefinitions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="cpu")
+    def cpu(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "cpu"))
+
+    @cpu.setter
+    def cpu(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b8c538becb12653b1c5fc5db4f51930fee7cfbb11d39ae5f8944dbd61d56156b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "cpu", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRoleArn")
+    def execution_role_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionRoleArn"))
+
+    @execution_role_arn.setter
+    def execution_role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae99263fc9f08129230d4bddef54bee3a8a250ff655527fb277a03425cc55da6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="family")
+    def family(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "family"))
+
+    @family.setter
+    def family(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce93c21604c08f3f855ab575d5630159de347d53629aa82e271cad57786b1c90)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "family", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="memory")
+    def memory(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "memory"))
+
+    @memory.setter
+    def memory(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af6bd6f6a06af1c3f227a76a661eb205e7d3e83a3d490a7d9bb2a4a819a3a150)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "memory", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f7f3f8388627ca3ba08d6ad424ac976251f657450e43352cc9c8e99b9c52ffa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="taskRoleArn")
+    def task_role_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "taskRoleArn"))
+
+    @task_role_arn.setter
+    def task_role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__111b097635f55b6ce68a12de46028ac73955d53627b5b2fb0ac99663b478c4d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "taskRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="volumes")
+    def volumes(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.VolumeProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.VolumeProperty"]]]], jsii.get(self, "volumes"))
+
+    @volumes.setter
+    def volumes(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.VolumeProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b3a529ef4508a3b4e9dfa688c129273fb03bf93345f144d161a2a981dff7886d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "volumes", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.ContainerDependencyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"condition": "condition", "container_name": "containerName"},
+    )
+    class ContainerDependencyProperty:
+        def __init__(
+            self,
+            *,
+            condition: typing.Optional[builtins.str] = None,
+            container_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param condition: 
+            :param container_name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-containerdependency.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                container_dependency_property = ecs.CfnDaemonTaskDefinition.ContainerDependencyProperty(
+                    condition="condition",
+                    container_name="containerName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0b8d635786edd31a208c99c0c415abe49f4969d63a996108e0874ff91226ad51)
+                check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
+                check_type(argname="argument container_name", value=container_name, expected_type=type_hints["container_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if condition is not None:
+                self._values["condition"] = condition
+            if container_name is not None:
+                self._values["container_name"] = container_name
+
+        @builtins.property
+        def condition(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-containerdependency.html#cfn-ecs-daemontaskdefinition-containerdependency-condition
+            '''
+            result = self._values.get("condition")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def container_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-containerdependency.html#cfn-ecs-daemontaskdefinition-containerdependency-containername
+            '''
+            result = self._values.get("container_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContainerDependencyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "image": "image",
+            "name": "name",
+            "command": "command",
+            "cpu": "cpu",
+            "depends_on": "dependsOn",
+            "entry_point": "entryPoint",
+            "environment": "environment",
+            "environment_files": "environmentFiles",
+            "essential": "essential",
+            "firelens_configuration": "firelensConfiguration",
+            "health_check": "healthCheck",
+            "interactive": "interactive",
+            "linux_parameters": "linuxParameters",
+            "log_configuration": "logConfiguration",
+            "memory": "memory",
+            "memory_reservation": "memoryReservation",
+            "mount_points": "mountPoints",
+            "privileged": "privileged",
+            "pseudo_terminal": "pseudoTerminal",
+            "readonly_root_filesystem": "readonlyRootFilesystem",
+            "repository_credentials": "repositoryCredentials",
+            "restart_policy": "restartPolicy",
+            "secrets": "secrets",
+            "start_timeout": "startTimeout",
+            "stop_timeout": "stopTimeout",
+            "system_controls": "systemControls",
+            "ulimits": "ulimits",
+            "user": "user",
+            "working_directory": "workingDirectory",
+        },
+    )
+    class DaemonContainerDefinitionProperty:
+        def __init__(
+            self,
+            *,
+            image: builtins.str,
+            name: builtins.str,
+            command: typing.Optional[typing.Sequence[builtins.str]] = None,
+            cpu: typing.Optional[jsii.Number] = None,
+            depends_on: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.ContainerDependencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            entry_point: typing.Optional[typing.Sequence[builtins.str]] = None,
+            environment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            environment_files: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.EnvironmentFileProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            essential: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            firelens_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.FirelensConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            health_check: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.HealthCheckProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            interactive: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            linux_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.LinuxParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            log_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.LogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            memory: typing.Optional[jsii.Number] = None,
+            memory_reservation: typing.Optional[jsii.Number] = None,
+            mount_points: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.MountPointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            privileged: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            pseudo_terminal: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            readonly_root_filesystem: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            repository_credentials: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.RepositoryCredentialsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            restart_policy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.RestartPolicyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            secrets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.SecretProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            start_timeout: typing.Optional[jsii.Number] = None,
+            stop_timeout: typing.Optional[jsii.Number] = None,
+            system_controls: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.SystemControlProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            ulimits: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.UlimitProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            user: typing.Optional[builtins.str] = None,
+            working_directory: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Container definition for daemon task definition.
+
+            :param image: 
+            :param name: 
+            :param command: 
+            :param cpu: 
+            :param depends_on: 
+            :param entry_point: 
+            :param environment: 
+            :param environment_files: 
+            :param essential: 
+            :param firelens_configuration: 
+            :param health_check: 
+            :param interactive: 
+            :param linux_parameters: 
+            :param log_configuration: 
+            :param memory: 
+            :param memory_reservation: 
+            :param mount_points: 
+            :param privileged: 
+            :param pseudo_terminal: 
+            :param readonly_root_filesystem: 
+            :param repository_credentials: 
+            :param restart_policy: 
+            :param secrets: 
+            :param start_timeout: 
+            :param stop_timeout: 
+            :param system_controls: 
+            :param ulimits: 
+            :param user: 
+            :param working_directory: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                daemon_container_definition_property = ecs.CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty(
+                    image="image",
+                    name="name",
+                
+                    # the properties below are optional
+                    command=["command"],
+                    cpu=123,
+                    depends_on=[ecs.CfnDaemonTaskDefinition.ContainerDependencyProperty(
+                        condition="condition",
+                        container_name="containerName"
+                    )],
+                    entry_point=["entryPoint"],
+                    environment=[ecs.CfnDaemonTaskDefinition.KeyValuePairProperty(
+                        name="name",
+                        value="value"
+                    )],
+                    environment_files=[ecs.CfnDaemonTaskDefinition.EnvironmentFileProperty(
+                        type="type",
+                        value="value"
+                    )],
+                    essential=False,
+                    firelens_configuration=ecs.CfnDaemonTaskDefinition.FirelensConfigurationProperty(
+                        options={
+                            "options_key": "options"
+                        },
+                        type="type"
+                    ),
+                    health_check=ecs.CfnDaemonTaskDefinition.HealthCheckProperty(
+                        command=["command"],
+                        interval=123,
+                        retries=123,
+                        start_period=123,
+                        timeout=123
+                    ),
+                    interactive=False,
+                    linux_parameters=ecs.CfnDaemonTaskDefinition.LinuxParametersProperty(
+                        capabilities=ecs.CfnDaemonTaskDefinition.KernelCapabilitiesProperty(
+                            add=["add"],
+                            drop=["drop"]
+                        ),
+                        devices=[ecs.CfnDaemonTaskDefinition.DeviceProperty(
+                            container_path="containerPath",
+                            host_path="hostPath",
+                            permissions=["permissions"]
+                        )],
+                        init_process_enabled=False,
+                        tmpfs=[ecs.CfnDaemonTaskDefinition.TmpfsProperty(
+                            size=123,
+                
+                            # the properties below are optional
+                            container_path="containerPath",
+                            mount_options=["mountOptions"]
+                        )]
+                    ),
+                    log_configuration=ecs.CfnDaemonTaskDefinition.LogConfigurationProperty(
+                        log_driver="logDriver",
+                
+                        # the properties below are optional
+                        options={
+                            "options_key": "options"
+                        },
+                        secret_options=[ecs.CfnDaemonTaskDefinition.SecretProperty(
+                            name="name",
+                            value_from="valueFrom"
+                        )]
+                    ),
+                    memory=123,
+                    memory_reservation=123,
+                    mount_points=[ecs.CfnDaemonTaskDefinition.MountPointProperty(
+                        container_path="containerPath",
+                        read_only=False,
+                        source_volume="sourceVolume"
+                    )],
+                    privileged=False,
+                    pseudo_terminal=False,
+                    readonly_root_filesystem=False,
+                    repository_credentials=ecs.CfnDaemonTaskDefinition.RepositoryCredentialsProperty(
+                        credentials_parameter="credentialsParameter"
+                    ),
+                    restart_policy=ecs.CfnDaemonTaskDefinition.RestartPolicyProperty(
+                        enabled=False,
+                        ignored_exit_codes=[123],
+                        restart_attempt_period=123
+                    ),
+                    secrets=[ecs.CfnDaemonTaskDefinition.SecretProperty(
+                        name="name",
+                        value_from="valueFrom"
+                    )],
+                    start_timeout=123,
+                    stop_timeout=123,
+                    system_controls=[ecs.CfnDaemonTaskDefinition.SystemControlProperty(
+                        namespace="namespace",
+                        value="value"
+                    )],
+                    ulimits=[ecs.CfnDaemonTaskDefinition.UlimitProperty(
+                        hard_limit=123,
+                        name="name",
+                        soft_limit=123
+                    )],
+                    user="user",
+                    working_directory="workingDirectory"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7571bde2f9240f1214118967d6ce1a020c80c696d1b36961a4a418e32703d26f)
+                check_type(argname="argument image", value=image, expected_type=type_hints["image"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument command", value=command, expected_type=type_hints["command"])
+                check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
+                check_type(argname="argument depends_on", value=depends_on, expected_type=type_hints["depends_on"])
+                check_type(argname="argument entry_point", value=entry_point, expected_type=type_hints["entry_point"])
+                check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
+                check_type(argname="argument environment_files", value=environment_files, expected_type=type_hints["environment_files"])
+                check_type(argname="argument essential", value=essential, expected_type=type_hints["essential"])
+                check_type(argname="argument firelens_configuration", value=firelens_configuration, expected_type=type_hints["firelens_configuration"])
+                check_type(argname="argument health_check", value=health_check, expected_type=type_hints["health_check"])
+                check_type(argname="argument interactive", value=interactive, expected_type=type_hints["interactive"])
+                check_type(argname="argument linux_parameters", value=linux_parameters, expected_type=type_hints["linux_parameters"])
+                check_type(argname="argument log_configuration", value=log_configuration, expected_type=type_hints["log_configuration"])
+                check_type(argname="argument memory", value=memory, expected_type=type_hints["memory"])
+                check_type(argname="argument memory_reservation", value=memory_reservation, expected_type=type_hints["memory_reservation"])
+                check_type(argname="argument mount_points", value=mount_points, expected_type=type_hints["mount_points"])
+                check_type(argname="argument privileged", value=privileged, expected_type=type_hints["privileged"])
+                check_type(argname="argument pseudo_terminal", value=pseudo_terminal, expected_type=type_hints["pseudo_terminal"])
+                check_type(argname="argument readonly_root_filesystem", value=readonly_root_filesystem, expected_type=type_hints["readonly_root_filesystem"])
+                check_type(argname="argument repository_credentials", value=repository_credentials, expected_type=type_hints["repository_credentials"])
+                check_type(argname="argument restart_policy", value=restart_policy, expected_type=type_hints["restart_policy"])
+                check_type(argname="argument secrets", value=secrets, expected_type=type_hints["secrets"])
+                check_type(argname="argument start_timeout", value=start_timeout, expected_type=type_hints["start_timeout"])
+                check_type(argname="argument stop_timeout", value=stop_timeout, expected_type=type_hints["stop_timeout"])
+                check_type(argname="argument system_controls", value=system_controls, expected_type=type_hints["system_controls"])
+                check_type(argname="argument ulimits", value=ulimits, expected_type=type_hints["ulimits"])
+                check_type(argname="argument user", value=user, expected_type=type_hints["user"])
+                check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "image": image,
+                "name": name,
+            }
+            if command is not None:
+                self._values["command"] = command
+            if cpu is not None:
+                self._values["cpu"] = cpu
+            if depends_on is not None:
+                self._values["depends_on"] = depends_on
+            if entry_point is not None:
+                self._values["entry_point"] = entry_point
+            if environment is not None:
+                self._values["environment"] = environment
+            if environment_files is not None:
+                self._values["environment_files"] = environment_files
+            if essential is not None:
+                self._values["essential"] = essential
+            if firelens_configuration is not None:
+                self._values["firelens_configuration"] = firelens_configuration
+            if health_check is not None:
+                self._values["health_check"] = health_check
+            if interactive is not None:
+                self._values["interactive"] = interactive
+            if linux_parameters is not None:
+                self._values["linux_parameters"] = linux_parameters
+            if log_configuration is not None:
+                self._values["log_configuration"] = log_configuration
+            if memory is not None:
+                self._values["memory"] = memory
+            if memory_reservation is not None:
+                self._values["memory_reservation"] = memory_reservation
+            if mount_points is not None:
+                self._values["mount_points"] = mount_points
+            if privileged is not None:
+                self._values["privileged"] = privileged
+            if pseudo_terminal is not None:
+                self._values["pseudo_terminal"] = pseudo_terminal
+            if readonly_root_filesystem is not None:
+                self._values["readonly_root_filesystem"] = readonly_root_filesystem
+            if repository_credentials is not None:
+                self._values["repository_credentials"] = repository_credentials
+            if restart_policy is not None:
+                self._values["restart_policy"] = restart_policy
+            if secrets is not None:
+                self._values["secrets"] = secrets
+            if start_timeout is not None:
+                self._values["start_timeout"] = start_timeout
+            if stop_timeout is not None:
+                self._values["stop_timeout"] = stop_timeout
+            if system_controls is not None:
+                self._values["system_controls"] = system_controls
+            if ulimits is not None:
+                self._values["ulimits"] = ulimits
+            if user is not None:
+                self._values["user"] = user
+            if working_directory is not None:
+                self._values["working_directory"] = working_directory
+
+        @builtins.property
+        def image(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-image
+            '''
+            result = self._values.get("image")
+            assert result is not None, "Required property 'image' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def command(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-command
+            '''
+            result = self._values.get("command")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def cpu(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-cpu
+            '''
+            result = self._values.get("cpu")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def depends_on(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.ContainerDependencyProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-dependson
+            '''
+            result = self._values.get("depends_on")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.ContainerDependencyProperty"]]]], result)
+
+        @builtins.property
+        def entry_point(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-entrypoint
+            '''
+            result = self._values.get("entry_point")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def environment(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.KeyValuePairProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-environment
+            '''
+            result = self._values.get("environment")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.KeyValuePairProperty"]]]], result)
+
+        @builtins.property
+        def environment_files(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.EnvironmentFileProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-environmentfiles
+            '''
+            result = self._values.get("environment_files")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.EnvironmentFileProperty"]]]], result)
+
+        @builtins.property
+        def essential(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-essential
+            '''
+            result = self._values.get("essential")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def firelens_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.FirelensConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-firelensconfiguration
+            '''
+            result = self._values.get("firelens_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.FirelensConfigurationProperty"]], result)
+
+        @builtins.property
+        def health_check(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.HealthCheckProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-healthcheck
+            '''
+            result = self._values.get("health_check")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.HealthCheckProperty"]], result)
+
+        @builtins.property
+        def interactive(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-interactive
+            '''
+            result = self._values.get("interactive")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def linux_parameters(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.LinuxParametersProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-linuxparameters
+            '''
+            result = self._values.get("linux_parameters")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.LinuxParametersProperty"]], result)
+
+        @builtins.property
+        def log_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.LogConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-logconfiguration
+            '''
+            result = self._values.get("log_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.LogConfigurationProperty"]], result)
+
+        @builtins.property
+        def memory(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-memory
+            '''
+            result = self._values.get("memory")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def memory_reservation(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-memoryreservation
+            '''
+            result = self._values.get("memory_reservation")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def mount_points(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.MountPointProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-mountpoints
+            '''
+            result = self._values.get("mount_points")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.MountPointProperty"]]]], result)
+
+        @builtins.property
+        def privileged(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-privileged
+            '''
+            result = self._values.get("privileged")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def pseudo_terminal(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-pseudoterminal
+            '''
+            result = self._values.get("pseudo_terminal")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def readonly_root_filesystem(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-readonlyrootfilesystem
+            '''
+            result = self._values.get("readonly_root_filesystem")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def repository_credentials(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.RepositoryCredentialsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-repositorycredentials
+            '''
+            result = self._values.get("repository_credentials")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.RepositoryCredentialsProperty"]], result)
+
+        @builtins.property
+        def restart_policy(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.RestartPolicyProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-restartpolicy
+            '''
+            result = self._values.get("restart_policy")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.RestartPolicyProperty"]], result)
+
+        @builtins.property
+        def secrets(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.SecretProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-secrets
+            '''
+            result = self._values.get("secrets")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.SecretProperty"]]]], result)
+
+        @builtins.property
+        def start_timeout(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-starttimeout
+            '''
+            result = self._values.get("start_timeout")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def stop_timeout(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-stoptimeout
+            '''
+            result = self._values.get("stop_timeout")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def system_controls(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.SystemControlProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-systemcontrols
+            '''
+            result = self._values.get("system_controls")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.SystemControlProperty"]]]], result)
+
+        @builtins.property
+        def ulimits(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.UlimitProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-ulimits
+            '''
+            result = self._values.get("ulimits")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.UlimitProperty"]]]], result)
+
+        @builtins.property
+        def user(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-user
+            '''
+            result = self._values.get("user")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def working_directory(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-daemoncontainerdefinition.html#cfn-ecs-daemontaskdefinition-daemoncontainerdefinition-workingdirectory
+            '''
+            result = self._values.get("working_directory")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DaemonContainerDefinitionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.DeviceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "container_path": "containerPath",
+            "host_path": "hostPath",
+            "permissions": "permissions",
+        },
+    )
+    class DeviceProperty:
+        def __init__(
+            self,
+            *,
+            container_path: typing.Optional[builtins.str] = None,
+            host_path: typing.Optional[builtins.str] = None,
+            permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param container_path: 
+            :param host_path: 
+            :param permissions: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-device.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                device_property = ecs.CfnDaemonTaskDefinition.DeviceProperty(
+                    container_path="containerPath",
+                    host_path="hostPath",
+                    permissions=["permissions"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e706e103a16362a0839712caf2b359f1497e1793c80ad270496d8c9562e5d91f)
+                check_type(argname="argument container_path", value=container_path, expected_type=type_hints["container_path"])
+                check_type(argname="argument host_path", value=host_path, expected_type=type_hints["host_path"])
+                check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if container_path is not None:
+                self._values["container_path"] = container_path
+            if host_path is not None:
+                self._values["host_path"] = host_path
+            if permissions is not None:
+                self._values["permissions"] = permissions
+
+        @builtins.property
+        def container_path(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-device.html#cfn-ecs-daemontaskdefinition-device-containerpath
+            '''
+            result = self._values.get("container_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def host_path(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-device.html#cfn-ecs-daemontaskdefinition-device-hostpath
+            '''
+            result = self._values.get("host_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def permissions(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-device.html#cfn-ecs-daemontaskdefinition-device-permissions
+            '''
+            result = self._values.get("permissions")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeviceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.EnvironmentFileProperty",
+        jsii_struct_bases=[],
+        name_mapping={"type": "type", "value": "value"},
+    )
+    class EnvironmentFileProperty:
+        def __init__(
+            self,
+            *,
+            type: typing.Optional[builtins.str] = None,
+            value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param type: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-environmentfile.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                environment_file_property = ecs.CfnDaemonTaskDefinition.EnvironmentFileProperty(
+                    type="type",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ab18b2cf0429f6f7c72c8e9a575159004ba822bbe75fb125d17e3d9e0c9a5b4e)
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if type is not None:
+                self._values["type"] = type
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-environmentfile.html#cfn-ecs-daemontaskdefinition-environmentfile-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-environmentfile.html#cfn-ecs-daemontaskdefinition-environmentfile-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EnvironmentFileProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.FirelensConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"options": "options", "type": "type"},
+    )
+    class FirelensConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param options: 
+            :param type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-firelensconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                firelens_configuration_property = ecs.CfnDaemonTaskDefinition.FirelensConfigurationProperty(
+                    options={
+                        "options_key": "options"
+                    },
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c4e49d3d5b22bcd2c2ac6ace3b8fd2a6b8d134eba28bf7bbe0130a8a97507833)
+                check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if options is not None:
+                self._values["options"] = options
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def options(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-firelensconfiguration.html#cfn-ecs-daemontaskdefinition-firelensconfiguration-options
+            '''
+            result = self._values.get("options")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-firelensconfiguration.html#cfn-ecs-daemontaskdefinition-firelensconfiguration-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FirelensConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.HealthCheckProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "command": "command",
+            "interval": "interval",
+            "retries": "retries",
+            "start_period": "startPeriod",
+            "timeout": "timeout",
+        },
+    )
+    class HealthCheckProperty:
+        def __init__(
+            self,
+            *,
+            command: typing.Optional[typing.Sequence[builtins.str]] = None,
+            interval: typing.Optional[jsii.Number] = None,
+            retries: typing.Optional[jsii.Number] = None,
+            start_period: typing.Optional[jsii.Number] = None,
+            timeout: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param command: 
+            :param interval: 
+            :param retries: 
+            :param start_period: 
+            :param timeout: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-healthcheck.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                health_check_property = ecs.CfnDaemonTaskDefinition.HealthCheckProperty(
+                    command=["command"],
+                    interval=123,
+                    retries=123,
+                    start_period=123,
+                    timeout=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__27cf3ec4a280e87dcfd7232e8313837fa19ddf7606c96b3b7bb1e6e9211ca9b3)
+                check_type(argname="argument command", value=command, expected_type=type_hints["command"])
+                check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
+                check_type(argname="argument retries", value=retries, expected_type=type_hints["retries"])
+                check_type(argname="argument start_period", value=start_period, expected_type=type_hints["start_period"])
+                check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if command is not None:
+                self._values["command"] = command
+            if interval is not None:
+                self._values["interval"] = interval
+            if retries is not None:
+                self._values["retries"] = retries
+            if start_period is not None:
+                self._values["start_period"] = start_period
+            if timeout is not None:
+                self._values["timeout"] = timeout
+
+        @builtins.property
+        def command(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-healthcheck.html#cfn-ecs-daemontaskdefinition-healthcheck-command
+            '''
+            result = self._values.get("command")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def interval(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-healthcheck.html#cfn-ecs-daemontaskdefinition-healthcheck-interval
+            '''
+            result = self._values.get("interval")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def retries(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-healthcheck.html#cfn-ecs-daemontaskdefinition-healthcheck-retries
+            '''
+            result = self._values.get("retries")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def start_period(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-healthcheck.html#cfn-ecs-daemontaskdefinition-healthcheck-startperiod
+            '''
+            result = self._values.get("start_period")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def timeout(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-healthcheck.html#cfn-ecs-daemontaskdefinition-healthcheck-timeout
+            '''
+            result = self._values.get("timeout")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HealthCheckProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.HostVolumePropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source_path": "sourcePath"},
+    )
+    class HostVolumePropertiesProperty:
+        def __init__(
+            self,
+            *,
+            source_path: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param source_path: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-hostvolumeproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                host_volume_properties_property = ecs.CfnDaemonTaskDefinition.HostVolumePropertiesProperty(
+                    source_path="sourcePath"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b445c3de3d299da6bd9d97ab20c57473a0da22f0ae3a873de05e173b59edcbe9)
+                check_type(argname="argument source_path", value=source_path, expected_type=type_hints["source_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if source_path is not None:
+                self._values["source_path"] = source_path
+
+        @builtins.property
+        def source_path(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-hostvolumeproperties.html#cfn-ecs-daemontaskdefinition-hostvolumeproperties-sourcepath
+            '''
+            result = self._values.get("source_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HostVolumePropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.KernelCapabilitiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"add": "add", "drop": "drop"},
+    )
+    class KernelCapabilitiesProperty:
+        def __init__(
+            self,
+            *,
+            add: typing.Optional[typing.Sequence[builtins.str]] = None,
+            drop: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param add: 
+            :param drop: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-kernelcapabilities.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                kernel_capabilities_property = ecs.CfnDaemonTaskDefinition.KernelCapabilitiesProperty(
+                    add=["add"],
+                    drop=["drop"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bb90b422465388cfe6272f52c80834299bee64b406a27e3ff7f14314d03e7b36)
+                check_type(argname="argument add", value=add, expected_type=type_hints["add"])
+                check_type(argname="argument drop", value=drop, expected_type=type_hints["drop"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if add is not None:
+                self._values["add"] = add
+            if drop is not None:
+                self._values["drop"] = drop
+
+        @builtins.property
+        def add(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-kernelcapabilities.html#cfn-ecs-daemontaskdefinition-kernelcapabilities-add
+            '''
+            result = self._values.get("add")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def drop(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-kernelcapabilities.html#cfn-ecs-daemontaskdefinition-kernelcapabilities-drop
+            '''
+            result = self._values.get("drop")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KernelCapabilitiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.KeyValuePairProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "value": "value"},
+    )
+    class KeyValuePairProperty:
+        def __init__(
+            self,
+            *,
+            name: typing.Optional[builtins.str] = None,
+            value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param name: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-keyvaluepair.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                key_value_pair_property = ecs.CfnDaemonTaskDefinition.KeyValuePairProperty(
+                    name="name",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bc0bcf0dcd76744860e68c1198d7a7a6d692c1f074bca8f1122eecca15b00b63)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if name is not None:
+                self._values["name"] = name
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-keyvaluepair.html#cfn-ecs-daemontaskdefinition-keyvaluepair-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-keyvaluepair.html#cfn-ecs-daemontaskdefinition-keyvaluepair-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KeyValuePairProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.LinuxParametersProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "capabilities": "capabilities",
+            "devices": "devices",
+            "init_process_enabled": "initProcessEnabled",
+            "tmpfs": "tmpfs",
+        },
+    )
+    class LinuxParametersProperty:
+        def __init__(
+            self,
+            *,
+            capabilities: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.KernelCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            devices: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.DeviceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            init_process_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            tmpfs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.TmpfsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param capabilities: 
+            :param devices: 
+            :param init_process_enabled: 
+            :param tmpfs: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-linuxparameters.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                linux_parameters_property = ecs.CfnDaemonTaskDefinition.LinuxParametersProperty(
+                    capabilities=ecs.CfnDaemonTaskDefinition.KernelCapabilitiesProperty(
+                        add=["add"],
+                        drop=["drop"]
+                    ),
+                    devices=[ecs.CfnDaemonTaskDefinition.DeviceProperty(
+                        container_path="containerPath",
+                        host_path="hostPath",
+                        permissions=["permissions"]
+                    )],
+                    init_process_enabled=False,
+                    tmpfs=[ecs.CfnDaemonTaskDefinition.TmpfsProperty(
+                        size=123,
+                
+                        # the properties below are optional
+                        container_path="containerPath",
+                        mount_options=["mountOptions"]
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__85677654708b7e668fcd228ab119d542215e588c9b69f865271f4f9757f5306f)
+                check_type(argname="argument capabilities", value=capabilities, expected_type=type_hints["capabilities"])
+                check_type(argname="argument devices", value=devices, expected_type=type_hints["devices"])
+                check_type(argname="argument init_process_enabled", value=init_process_enabled, expected_type=type_hints["init_process_enabled"])
+                check_type(argname="argument tmpfs", value=tmpfs, expected_type=type_hints["tmpfs"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if capabilities is not None:
+                self._values["capabilities"] = capabilities
+            if devices is not None:
+                self._values["devices"] = devices
+            if init_process_enabled is not None:
+                self._values["init_process_enabled"] = init_process_enabled
+            if tmpfs is not None:
+                self._values["tmpfs"] = tmpfs
+
+        @builtins.property
+        def capabilities(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.KernelCapabilitiesProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-linuxparameters.html#cfn-ecs-daemontaskdefinition-linuxparameters-capabilities
+            '''
+            result = self._values.get("capabilities")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.KernelCapabilitiesProperty"]], result)
+
+        @builtins.property
+        def devices(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.DeviceProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-linuxparameters.html#cfn-ecs-daemontaskdefinition-linuxparameters-devices
+            '''
+            result = self._values.get("devices")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.DeviceProperty"]]]], result)
+
+        @builtins.property
+        def init_process_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-linuxparameters.html#cfn-ecs-daemontaskdefinition-linuxparameters-initprocessenabled
+            '''
+            result = self._values.get("init_process_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def tmpfs(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.TmpfsProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-linuxparameters.html#cfn-ecs-daemontaskdefinition-linuxparameters-tmpfs
+            '''
+            result = self._values.get("tmpfs")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.TmpfsProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LinuxParametersProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.LogConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "log_driver": "logDriver",
+            "options": "options",
+            "secret_options": "secretOptions",
+        },
+    )
+    class LogConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            log_driver: builtins.str,
+            options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            secret_options: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.SecretProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param log_driver: 
+            :param options: 
+            :param secret_options: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-logconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                log_configuration_property = ecs.CfnDaemonTaskDefinition.LogConfigurationProperty(
+                    log_driver="logDriver",
+                
+                    # the properties below are optional
+                    options={
+                        "options_key": "options"
+                    },
+                    secret_options=[ecs.CfnDaemonTaskDefinition.SecretProperty(
+                        name="name",
+                        value_from="valueFrom"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3fe1e11a28d614f592d1b30aca089b75d4f20edba9b1261711f3cb30799b5629)
+                check_type(argname="argument log_driver", value=log_driver, expected_type=type_hints["log_driver"])
+                check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+                check_type(argname="argument secret_options", value=secret_options, expected_type=type_hints["secret_options"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "log_driver": log_driver,
+            }
+            if options is not None:
+                self._values["options"] = options
+            if secret_options is not None:
+                self._values["secret_options"] = secret_options
+
+        @builtins.property
+        def log_driver(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-logconfiguration.html#cfn-ecs-daemontaskdefinition-logconfiguration-logdriver
+            '''
+            result = self._values.get("log_driver")
+            assert result is not None, "Required property 'log_driver' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def options(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-logconfiguration.html#cfn-ecs-daemontaskdefinition-logconfiguration-options
+            '''
+            result = self._values.get("options")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def secret_options(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.SecretProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-logconfiguration.html#cfn-ecs-daemontaskdefinition-logconfiguration-secretoptions
+            '''
+            result = self._values.get("secret_options")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.SecretProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LogConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.MountPointProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "container_path": "containerPath",
+            "read_only": "readOnly",
+            "source_volume": "sourceVolume",
+        },
+    )
+    class MountPointProperty:
+        def __init__(
+            self,
+            *,
+            container_path: typing.Optional[builtins.str] = None,
+            read_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            source_volume: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param container_path: 
+            :param read_only: 
+            :param source_volume: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-mountpoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                mount_point_property = ecs.CfnDaemonTaskDefinition.MountPointProperty(
+                    container_path="containerPath",
+                    read_only=False,
+                    source_volume="sourceVolume"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9b380c1e71ca74e37c209f7a877811b4c98b820a4a890455aefa53c771947320)
+                check_type(argname="argument container_path", value=container_path, expected_type=type_hints["container_path"])
+                check_type(argname="argument read_only", value=read_only, expected_type=type_hints["read_only"])
+                check_type(argname="argument source_volume", value=source_volume, expected_type=type_hints["source_volume"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if container_path is not None:
+                self._values["container_path"] = container_path
+            if read_only is not None:
+                self._values["read_only"] = read_only
+            if source_volume is not None:
+                self._values["source_volume"] = source_volume
+
+        @builtins.property
+        def container_path(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-mountpoint.html#cfn-ecs-daemontaskdefinition-mountpoint-containerpath
+            '''
+            result = self._values.get("container_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def read_only(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-mountpoint.html#cfn-ecs-daemontaskdefinition-mountpoint-readonly
+            '''
+            result = self._values.get("read_only")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def source_volume(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-mountpoint.html#cfn-ecs-daemontaskdefinition-mountpoint-sourcevolume
+            '''
+            result = self._values.get("source_volume")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MountPointProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.RepositoryCredentialsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"credentials_parameter": "credentialsParameter"},
+    )
+    class RepositoryCredentialsProperty:
+        def __init__(
+            self,
+            *,
+            credentials_parameter: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param credentials_parameter: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-repositorycredentials.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                repository_credentials_property = ecs.CfnDaemonTaskDefinition.RepositoryCredentialsProperty(
+                    credentials_parameter="credentialsParameter"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f621cda2972269103abf9344b5b9cf0055f2d542de62e172add28b72ba4f699c)
+                check_type(argname="argument credentials_parameter", value=credentials_parameter, expected_type=type_hints["credentials_parameter"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if credentials_parameter is not None:
+                self._values["credentials_parameter"] = credentials_parameter
+
+        @builtins.property
+        def credentials_parameter(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-repositorycredentials.html#cfn-ecs-daemontaskdefinition-repositorycredentials-credentialsparameter
+            '''
+            result = self._values.get("credentials_parameter")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RepositoryCredentialsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.RestartPolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "ignored_exit_codes": "ignoredExitCodes",
+            "restart_attempt_period": "restartAttemptPeriod",
+        },
+    )
+    class RestartPolicyProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            ignored_exit_codes: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            restart_attempt_period: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param enabled: 
+            :param ignored_exit_codes: 
+            :param restart_attempt_period: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-restartpolicy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                restart_policy_property = ecs.CfnDaemonTaskDefinition.RestartPolicyProperty(
+                    enabled=False,
+                    ignored_exit_codes=[123],
+                    restart_attempt_period=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a1db66ee80df32b6944353d13b05d6481caaa15f344f545e6ee538a5af3aae8d)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument ignored_exit_codes", value=ignored_exit_codes, expected_type=type_hints["ignored_exit_codes"])
+                check_type(argname="argument restart_attempt_period", value=restart_attempt_period, expected_type=type_hints["restart_attempt_period"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+            if ignored_exit_codes is not None:
+                self._values["ignored_exit_codes"] = ignored_exit_codes
+            if restart_attempt_period is not None:
+                self._values["restart_attempt_period"] = restart_attempt_period
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-restartpolicy.html#cfn-ecs-daemontaskdefinition-restartpolicy-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def ignored_exit_codes(
+            self,
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-restartpolicy.html#cfn-ecs-daemontaskdefinition-restartpolicy-ignoredexitcodes
+            '''
+            result = self._values.get("ignored_exit_codes")
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def restart_attempt_period(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-restartpolicy.html#cfn-ecs-daemontaskdefinition-restartpolicy-restartattemptperiod
+            '''
+            result = self._values.get("restart_attempt_period")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RestartPolicyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.SecretProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "value_from": "valueFrom"},
+    )
+    class SecretProperty:
+        def __init__(self, *, name: builtins.str, value_from: builtins.str) -> None:
+            '''
+            :param name: 
+            :param value_from: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-secret.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                secret_property = ecs.CfnDaemonTaskDefinition.SecretProperty(
+                    name="name",
+                    value_from="valueFrom"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__55e87d60bf214877a014fcecaa56e6b9f37b0025a6b768294f2b60d83af8b856)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument value_from", value=value_from, expected_type=type_hints["value_from"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "value_from": value_from,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-secret.html#cfn-ecs-daemontaskdefinition-secret-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value_from(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-secret.html#cfn-ecs-daemontaskdefinition-secret-valuefrom
+            '''
+            result = self._values.get("value_from")
+            assert result is not None, "Required property 'value_from' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SecretProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.SystemControlProperty",
+        jsii_struct_bases=[],
+        name_mapping={"namespace": "namespace", "value": "value"},
+    )
+    class SystemControlProperty:
+        def __init__(
+            self,
+            *,
+            namespace: typing.Optional[builtins.str] = None,
+            value: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param namespace: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-systemcontrol.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                system_control_property = ecs.CfnDaemonTaskDefinition.SystemControlProperty(
+                    namespace="namespace",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__dd8c64f64009728d106f9327ecabb9747cd48646b6867ae601ccd5f2b6dc79e0)
+                check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if namespace is not None:
+                self._values["namespace"] = namespace
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def namespace(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-systemcontrol.html#cfn-ecs-daemontaskdefinition-systemcontrol-namespace
+            '''
+            result = self._values.get("namespace")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-systemcontrol.html#cfn-ecs-daemontaskdefinition-systemcontrol-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SystemControlProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.TmpfsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "size": "size",
+            "container_path": "containerPath",
+            "mount_options": "mountOptions",
+        },
+    )
+    class TmpfsProperty:
+        def __init__(
+            self,
+            *,
+            size: jsii.Number,
+            container_path: typing.Optional[builtins.str] = None,
+            mount_options: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param size: 
+            :param container_path: 
+            :param mount_options: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-tmpfs.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                tmpfs_property = ecs.CfnDaemonTaskDefinition.TmpfsProperty(
+                    size=123,
+                
+                    # the properties below are optional
+                    container_path="containerPath",
+                    mount_options=["mountOptions"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fa2c291088bafb232645775222f6d526486519cd7940e43896d8dd7222acd2ec)
+                check_type(argname="argument size", value=size, expected_type=type_hints["size"])
+                check_type(argname="argument container_path", value=container_path, expected_type=type_hints["container_path"])
+                check_type(argname="argument mount_options", value=mount_options, expected_type=type_hints["mount_options"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "size": size,
+            }
+            if container_path is not None:
+                self._values["container_path"] = container_path
+            if mount_options is not None:
+                self._values["mount_options"] = mount_options
+
+        @builtins.property
+        def size(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-tmpfs.html#cfn-ecs-daemontaskdefinition-tmpfs-size
+            '''
+            result = self._values.get("size")
+            assert result is not None, "Required property 'size' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def container_path(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-tmpfs.html#cfn-ecs-daemontaskdefinition-tmpfs-containerpath
+            '''
+            result = self._values.get("container_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def mount_options(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-tmpfs.html#cfn-ecs-daemontaskdefinition-tmpfs-mountoptions
+            '''
+            result = self._values.get("mount_options")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TmpfsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.UlimitProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "hard_limit": "hardLimit",
+            "name": "name",
+            "soft_limit": "softLimit",
+        },
+    )
+    class UlimitProperty:
+        def __init__(
+            self,
+            *,
+            hard_limit: jsii.Number,
+            name: builtins.str,
+            soft_limit: jsii.Number,
+        ) -> None:
+            '''
+            :param hard_limit: 
+            :param name: 
+            :param soft_limit: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-ulimit.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                ulimit_property = ecs.CfnDaemonTaskDefinition.UlimitProperty(
+                    hard_limit=123,
+                    name="name",
+                    soft_limit=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3c10c9aa5f1a60c8a4a40ebfc35eb9e45958bb1af917e27c552293ae432b07af)
+                check_type(argname="argument hard_limit", value=hard_limit, expected_type=type_hints["hard_limit"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument soft_limit", value=soft_limit, expected_type=type_hints["soft_limit"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "hard_limit": hard_limit,
+                "name": name,
+                "soft_limit": soft_limit,
+            }
+
+        @builtins.property
+        def hard_limit(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-ulimit.html#cfn-ecs-daemontaskdefinition-ulimit-hardlimit
+            '''
+            result = self._values.get("hard_limit")
+            assert result is not None, "Required property 'hard_limit' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-ulimit.html#cfn-ecs-daemontaskdefinition-ulimit-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def soft_limit(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-ulimit.html#cfn-ecs-daemontaskdefinition-ulimit-softlimit
+            '''
+            result = self._values.get("soft_limit")
+            assert result is not None, "Required property 'soft_limit' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UlimitProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinition.VolumeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"host": "host", "name": "name"},
+    )
+    class VolumeProperty:
+        def __init__(
+            self,
+            *,
+            host: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.HostVolumePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param host: 
+            :param name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-volume.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ecs as ecs
+                
+                volume_property = ecs.CfnDaemonTaskDefinition.VolumeProperty(
+                    host=ecs.CfnDaemonTaskDefinition.HostVolumePropertiesProperty(
+                        source_path="sourcePath"
+                    ),
+                    name="name"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fb797bf96afe598182ca2171fda91348e7c6bc8e4a8513ade1490c3fd3268bd3)
+                check_type(argname="argument host", value=host, expected_type=type_hints["host"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if host is not None:
+                self._values["host"] = host
+            if name is not None:
+                self._values["name"] = name
+
+        @builtins.property
+        def host(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.HostVolumePropertiesProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-volume.html#cfn-ecs-daemontaskdefinition-volume-host
+            '''
+            result = self._values.get("host")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.HostVolumePropertiesProperty"]], result)
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-daemontaskdefinition-volume.html#cfn-ecs-daemontaskdefinition-volume-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VolumeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.CfnDaemonTaskDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "container_definitions": "containerDefinitions",
+        "cpu": "cpu",
+        "execution_role_arn": "executionRoleArn",
+        "family": "family",
+        "memory": "memory",
+        "tags": "tags",
+        "task_role_arn": "taskRoleArn",
+        "volumes": "volumes",
+    },
+)
+class CfnDaemonTaskDefinitionProps:
+    def __init__(
+        self,
+        *,
+        container_definitions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        cpu: typing.Optional[builtins.str] = None,
+        execution_role_arn: typing.Optional[builtins.str] = None,
+        family: typing.Optional[builtins.str] = None,
+        memory: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        task_role_arn: typing.Optional[builtins.str] = None,
+        volumes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.VolumeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDaemonTaskDefinition``.
+
+        :param container_definitions: 
+        :param cpu: 
+        :param execution_role_arn: 
+        :param family: 
+        :param memory: 
+        :param tags: 
+        :param task_role_arn: 
+        :param volumes: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ecs as ecs
+            
+            cfn_daemon_task_definition_props = ecs.CfnDaemonTaskDefinitionProps(
+                container_definitions=[ecs.CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty(
+                    image="image",
+                    name="name",
+            
+                    # the properties below are optional
+                    command=["command"],
+                    cpu=123,
+                    depends_on=[ecs.CfnDaemonTaskDefinition.ContainerDependencyProperty(
+                        condition="condition",
+                        container_name="containerName"
+                    )],
+                    entry_point=["entryPoint"],
+                    environment=[ecs.CfnDaemonTaskDefinition.KeyValuePairProperty(
+                        name="name",
+                        value="value"
+                    )],
+                    environment_files=[ecs.CfnDaemonTaskDefinition.EnvironmentFileProperty(
+                        type="type",
+                        value="value"
+                    )],
+                    essential=False,
+                    firelens_configuration=ecs.CfnDaemonTaskDefinition.FirelensConfigurationProperty(
+                        options={
+                            "options_key": "options"
+                        },
+                        type="type"
+                    ),
+                    health_check=ecs.CfnDaemonTaskDefinition.HealthCheckProperty(
+                        command=["command"],
+                        interval=123,
+                        retries=123,
+                        start_period=123,
+                        timeout=123
+                    ),
+                    interactive=False,
+                    linux_parameters=ecs.CfnDaemonTaskDefinition.LinuxParametersProperty(
+                        capabilities=ecs.CfnDaemonTaskDefinition.KernelCapabilitiesProperty(
+                            add=["add"],
+                            drop=["drop"]
+                        ),
+                        devices=[ecs.CfnDaemonTaskDefinition.DeviceProperty(
+                            container_path="containerPath",
+                            host_path="hostPath",
+                            permissions=["permissions"]
+                        )],
+                        init_process_enabled=False,
+                        tmpfs=[ecs.CfnDaemonTaskDefinition.TmpfsProperty(
+                            size=123,
+            
+                            # the properties below are optional
+                            container_path="containerPath",
+                            mount_options=["mountOptions"]
+                        )]
+                    ),
+                    log_configuration=ecs.CfnDaemonTaskDefinition.LogConfigurationProperty(
+                        log_driver="logDriver",
+            
+                        # the properties below are optional
+                        options={
+                            "options_key": "options"
+                        },
+                        secret_options=[ecs.CfnDaemonTaskDefinition.SecretProperty(
+                            name="name",
+                            value_from="valueFrom"
+                        )]
+                    ),
+                    memory=123,
+                    memory_reservation=123,
+                    mount_points=[ecs.CfnDaemonTaskDefinition.MountPointProperty(
+                        container_path="containerPath",
+                        read_only=False,
+                        source_volume="sourceVolume"
+                    )],
+                    privileged=False,
+                    pseudo_terminal=False,
+                    readonly_root_filesystem=False,
+                    repository_credentials=ecs.CfnDaemonTaskDefinition.RepositoryCredentialsProperty(
+                        credentials_parameter="credentialsParameter"
+                    ),
+                    restart_policy=ecs.CfnDaemonTaskDefinition.RestartPolicyProperty(
+                        enabled=False,
+                        ignored_exit_codes=[123],
+                        restart_attempt_period=123
+                    ),
+                    secrets=[ecs.CfnDaemonTaskDefinition.SecretProperty(
+                        name="name",
+                        value_from="valueFrom"
+                    )],
+                    start_timeout=123,
+                    stop_timeout=123,
+                    system_controls=[ecs.CfnDaemonTaskDefinition.SystemControlProperty(
+                        namespace="namespace",
+                        value="value"
+                    )],
+                    ulimits=[ecs.CfnDaemonTaskDefinition.UlimitProperty(
+                        hard_limit=123,
+                        name="name",
+                        soft_limit=123
+                    )],
+                    user="user",
+                    working_directory="workingDirectory"
+                )],
+                cpu="cpu",
+                execution_role_arn="executionRoleArn",
+                family="family",
+                memory="memory",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                task_role_arn="taskRoleArn",
+                volumes=[ecs.CfnDaemonTaskDefinition.VolumeProperty(
+                    host=ecs.CfnDaemonTaskDefinition.HostVolumePropertiesProperty(
+                        source_path="sourcePath"
+                    ),
+                    name="name"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a514393dd11b68400df8f222905e004a36e4d60c7c0be5f0dc999cbf03945b20)
+            check_type(argname="argument container_definitions", value=container_definitions, expected_type=type_hints["container_definitions"])
+            check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+            check_type(argname="argument family", value=family, expected_type=type_hints["family"])
+            check_type(argname="argument memory", value=memory, expected_type=type_hints["memory"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument task_role_arn", value=task_role_arn, expected_type=type_hints["task_role_arn"])
+            check_type(argname="argument volumes", value=volumes, expected_type=type_hints["volumes"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if container_definitions is not None:
+            self._values["container_definitions"] = container_definitions
+        if cpu is not None:
+            self._values["cpu"] = cpu
+        if execution_role_arn is not None:
+            self._values["execution_role_arn"] = execution_role_arn
+        if family is not None:
+            self._values["family"] = family
+        if memory is not None:
+            self._values["memory"] = memory
+        if tags is not None:
+            self._values["tags"] = tags
+        if task_role_arn is not None:
+            self._values["task_role_arn"] = task_role_arn
+        if volumes is not None:
+            self._values["volumes"] = volumes
+
+    @builtins.property
+    def container_definitions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-containerdefinitions
+        '''
+        result = self._values.get("container_definitions")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty"]]]], result)
+
+    @builtins.property
+    def cpu(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-cpu
+        '''
+        result = self._values.get("cpu")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def execution_role_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-executionrolearn
+        '''
+        result = self._values.get("execution_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def family(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-family
+        '''
+        result = self._values.get("family")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def memory(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-memory
+        '''
+        result = self._values.get("memory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def task_role_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-taskrolearn
+        '''
+        result = self._values.get("task_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def volumes(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.VolumeProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-volumes
+        '''
+        result = self._values.get("volumes")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDaemonTaskDefinition.VolumeProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDaemonTaskDefinitionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -51989,6 +55402,10 @@ __all__ = [
     "CfnClusterCapacityProviderAssociations",
     "CfnClusterCapacityProviderAssociationsProps",
     "CfnClusterProps",
+    "CfnDaemon",
+    "CfnDaemonProps",
+    "CfnDaemonTaskDefinition",
+    "CfnDaemonTaskDefinitionProps",
     "CfnExpressGatewayService",
     "CfnExpressGatewayServiceProps",
     "CfnPrimaryTaskSet",
@@ -52638,6 +56055,7 @@ def _typecheckingstub__cb545da33f3067adee24bf90d3e903b06a7562a7e6ea6b3785f5b0ae6
     fips_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     instance_metadata_tags_propagation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     instance_requirements: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.InstanceRequirementsRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    local_storage_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.ManagedInstancesLocalStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     monitoring: typing.Optional[builtins.str] = None,
     storage_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.ManagedInstancesStorageConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -52670,6 +56088,13 @@ def _typecheckingstub__d2fd7f319e7a3e49a0d45d342ee067f3719bf8c8519bbab1a3a3c81f4
     require_hibernate_support: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     spot_max_price_percentage_over_lowest_price: typing.Optional[jsii.Number] = None,
     total_local_storage_gb: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.TotalLocalStorageGBRequestProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c52ac664522160e77fce63837e0abe0b8d4e5c628d6d0e218ed5474f08743bfd(
+    *,
+    use_local_storage: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -53000,6 +56425,423 @@ def _typecheckingstub__a7ff73a79103ae391f3b72b66851726ce38d98e8f5615c045aee9f3b8
     default_capacity_provider_strategy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.CapacityProviderStrategyItemProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     service_connect_defaults: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ServiceConnectDefaultsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a98a65092791927beecc4d4f9faec65e71003c426bc5d6adeac27c4846a361c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cluster_arn: typing.Optional[builtins.str] = None,
+    daemon_name: typing.Optional[builtins.str] = None,
+    daemon_task_definition_arn: typing.Optional[builtins.str] = None,
+    deployment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemon.DaemonDeploymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_execute_command: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    propagate_tags: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__782091b60a8db1e55ddcf7fecba902627bbf77c894fc98514ee914a13e670c30(
+    resource: _IDaemonRef_964ef8b8,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7174aec38930d4a3f2caf0060bde64174dd75f1cea45a58a9845e844146e3e28(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__373b22acc1d451c361688a1d25cfbf625b8b18ffbe6c1809e83b94ef8911f3da(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d8a33b2de23210303324bd94d7219b4e63967b2a030b733658bd125165861e0(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd87e24629d3a613ef53e3bd1a119fd77176e36c3efc00b96d2e092e51455c89(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84059ae9f43c73fc4b2e0616b63c00c81e0c7c6708ec1b35e2fbe8c76cf1d12b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__329d9d1ffd10b807e0a8b59ead810f63927d345a582481e0e8e26806a40a22e9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f64e70918f229bf526d0a5fb9ee7158453994afda40b29cd58c4be1042430785(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4127bb954b18a458a7b0e29e166e833fe88a1a6bd3580946289cef991e4a9ed6(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDaemon.DaemonDeploymentConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42c84cdf2ddb32b0cb4c6b81512ce286e29213aef701962028daa0539c457518(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f174ac3fd9afd193a0d451b4921c35db433f5f1398c6ae2cc73f33171ed134c(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d81aa56811c31cd705aed3f7883853f3b05bb6856ba560c11dc2397d7fb2c8f8(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__222aaec18715d6cacb07b5f6cbd89b44b194b95c0cee308a894c228b49afb2f8(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__29c0436a9798e13ea840206a3daeb84163e5d1ff2ffc73235d5524a621b14d8a(
+    *,
+    alarm_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+    enable: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51740841645480e2f05858f59b3fa2678dc06bddc3607721147a085168fe851b(
+    *,
+    alarms: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemon.DaemonAlarmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    bake_time_in_minutes: typing.Optional[jsii.Number] = None,
+    drain_percent: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6cb41b86cc2919a74a22c4baa4c7787d893e475d6aa593236526298875122ea1(
+    *,
+    capacity_provider_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cluster_arn: typing.Optional[builtins.str] = None,
+    daemon_name: typing.Optional[builtins.str] = None,
+    daemon_task_definition_arn: typing.Optional[builtins.str] = None,
+    deployment_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemon.DaemonDeploymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enable_ecs_managed_tags: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    enable_execute_command: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    propagate_tags: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7893a90b02c25e9e2bfca6bbdc63398520e865b88812618aee19452d4cb92687(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    container_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    cpu: typing.Optional[builtins.str] = None,
+    execution_role_arn: typing.Optional[builtins.str] = None,
+    family: typing.Optional[builtins.str] = None,
+    memory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    task_role_arn: typing.Optional[builtins.str] = None,
+    volumes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.VolumeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b55c76978ee6a8a1899a30323afe7e574007a3cf9d100c9cd7942082c9bdb05e(
+    resource: _IDaemonTaskDefinitionRef_941907e7,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b61db29263ebf96f937136523aade24ae676596a4b4b7a4f838c8624249186b6(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d320489803dc0194571e28a617066150ddc1c73b9329979ada24eeea1fdd00b7(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c9b6211f4a4b06acb98a80a07e540d75c8e0a8bc0ac18182c45ed10fc7dd318(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0334c6f381a8a4127d16256b00041a311a50cca2484443f4f55a1f60d89a1db3(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8c538becb12653b1c5fc5db4f51930fee7cfbb11d39ae5f8944dbd61d56156b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae99263fc9f08129230d4bddef54bee3a8a250ff655527fb277a03425cc55da6(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce93c21604c08f3f855ab575d5630159de347d53629aa82e271cad57786b1c90(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af6bd6f6a06af1c3f227a76a661eb205e7d3e83a3d490a7d9bb2a4a819a3a150(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f7f3f8388627ca3ba08d6ad424ac976251f657450e43352cc9c8e99b9c52ffa(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__111b097635f55b6ce68a12de46028ac73955d53627b5b2fb0ac99663b478c4d3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3a529ef4508a3b4e9dfa688c129273fb03bf93345f144d161a2a981dff7886d(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnDaemonTaskDefinition.VolumeProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b8d635786edd31a208c99c0c415abe49f4969d63a996108e0874ff91226ad51(
+    *,
+    condition: typing.Optional[builtins.str] = None,
+    container_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7571bde2f9240f1214118967d6ce1a020c80c696d1b36961a4a418e32703d26f(
+    *,
+    image: builtins.str,
+    name: builtins.str,
+    command: typing.Optional[typing.Sequence[builtins.str]] = None,
+    cpu: typing.Optional[jsii.Number] = None,
+    depends_on: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.ContainerDependencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    entry_point: typing.Optional[typing.Sequence[builtins.str]] = None,
+    environment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    environment_files: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.EnvironmentFileProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    essential: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    firelens_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.FirelensConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    health_check: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.HealthCheckProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    interactive: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    linux_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.LinuxParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.LogConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    memory: typing.Optional[jsii.Number] = None,
+    memory_reservation: typing.Optional[jsii.Number] = None,
+    mount_points: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.MountPointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    privileged: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    pseudo_terminal: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    readonly_root_filesystem: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    repository_credentials: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.RepositoryCredentialsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    restart_policy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.RestartPolicyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    secrets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.SecretProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    start_timeout: typing.Optional[jsii.Number] = None,
+    stop_timeout: typing.Optional[jsii.Number] = None,
+    system_controls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.SystemControlProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ulimits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.UlimitProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    user: typing.Optional[builtins.str] = None,
+    working_directory: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e706e103a16362a0839712caf2b359f1497e1793c80ad270496d8c9562e5d91f(
+    *,
+    container_path: typing.Optional[builtins.str] = None,
+    host_path: typing.Optional[builtins.str] = None,
+    permissions: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab18b2cf0429f6f7c72c8e9a575159004ba822bbe75fb125d17e3d9e0c9a5b4e(
+    *,
+    type: typing.Optional[builtins.str] = None,
+    value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4e49d3d5b22bcd2c2ac6ace3b8fd2a6b8d134eba28bf7bbe0130a8a97507833(
+    *,
+    options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27cf3ec4a280e87dcfd7232e8313837fa19ddf7606c96b3b7bb1e6e9211ca9b3(
+    *,
+    command: typing.Optional[typing.Sequence[builtins.str]] = None,
+    interval: typing.Optional[jsii.Number] = None,
+    retries: typing.Optional[jsii.Number] = None,
+    start_period: typing.Optional[jsii.Number] = None,
+    timeout: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b445c3de3d299da6bd9d97ab20c57473a0da22f0ae3a873de05e173b59edcbe9(
+    *,
+    source_path: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb90b422465388cfe6272f52c80834299bee64b406a27e3ff7f14314d03e7b36(
+    *,
+    add: typing.Optional[typing.Sequence[builtins.str]] = None,
+    drop: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc0bcf0dcd76744860e68c1198d7a7a6d692c1f074bca8f1122eecca15b00b63(
+    *,
+    name: typing.Optional[builtins.str] = None,
+    value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85677654708b7e668fcd228ab119d542215e588c9b69f865271f4f9757f5306f(
+    *,
+    capabilities: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.KernelCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    devices: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.DeviceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    init_process_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tmpfs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.TmpfsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3fe1e11a28d614f592d1b30aca089b75d4f20edba9b1261711f3cb30799b5629(
+    *,
+    log_driver: builtins.str,
+    options: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
+    secret_options: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.SecretProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b380c1e71ca74e37c209f7a877811b4c98b820a4a890455aefa53c771947320(
+    *,
+    container_path: typing.Optional[builtins.str] = None,
+    read_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    source_volume: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f621cda2972269103abf9344b5b9cf0055f2d542de62e172add28b72ba4f699c(
+    *,
+    credentials_parameter: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1db66ee80df32b6944353d13b05d6481caaa15f344f545e6ee538a5af3aae8d(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    ignored_exit_codes: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
+    restart_attempt_period: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55e87d60bf214877a014fcecaa56e6b9f37b0025a6b768294f2b60d83af8b856(
+    *,
+    name: builtins.str,
+    value_from: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd8c64f64009728d106f9327ecabb9747cd48646b6867ae601ccd5f2b6dc79e0(
+    *,
+    namespace: typing.Optional[builtins.str] = None,
+    value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa2c291088bafb232645775222f6d526486519cd7940e43896d8dd7222acd2ec(
+    *,
+    size: jsii.Number,
+    container_path: typing.Optional[builtins.str] = None,
+    mount_options: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c10c9aa5f1a60c8a4a40ebfc35eb9e45958bb1af917e27c552293ae432b07af(
+    *,
+    hard_limit: jsii.Number,
+    name: builtins.str,
+    soft_limit: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb797bf96afe598182ca2171fda91348e7c6bc8e4a8513ade1490c3fd3268bd3(
+    *,
+    host: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.HostVolumePropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a514393dd11b68400df8f222905e004a36e4d60c7c0be5f0dc999cbf03945b20(
+    *,
+    container_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.DaemonContainerDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    cpu: typing.Optional[builtins.str] = None,
+    execution_role_arn: typing.Optional[builtins.str] = None,
+    family: typing.Optional[builtins.str] = None,
+    memory: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    task_role_arn: typing.Optional[builtins.str] = None,
+    volumes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.VolumeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

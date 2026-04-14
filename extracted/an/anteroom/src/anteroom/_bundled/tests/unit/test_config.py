@@ -1076,3 +1076,67 @@ class TestUtf8Bom:
 
         with pytest.raises(ValueError, match="base_url is required"):
             load_config(cfg_file)
+
+
+class TestModelFamilyAliasesConfig:
+    """Tests for ai.model_family_aliases config loading (#1393)."""
+
+    def test_yaml_aliases_loaded(self, tmp_path: Path) -> None:
+        config_file = _write_config(
+            tmp_path,
+            {
+                "ai": {
+                    "base_url": "http://localhost:1234",
+                    "api_key": "test",
+                    "model_family_aliases": {"haiku": "claude-3-haiku-20240307"},
+                }
+            },
+        )
+        cfg, _ = load_config(config_file)
+        assert cfg.ai.model_family_aliases == {"haiku": "claude-3-haiku-20240307"}
+
+    def test_empty_aliases_default(self, tmp_path: Path) -> None:
+        config_file = _write_config(tmp_path, {"ai": {"base_url": "http://localhost:1234", "api_key": "test"}})
+        cfg, _ = load_config(config_file)
+        assert cfg.ai.model_family_aliases == {}
+
+    def test_env_var_json_overrides(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MODEL_FAMILY_ALIASES", '{"sonnet": "claude-sonnet-4-20250514"}')
+        config_file = _write_config(
+            tmp_path,
+            {
+                "ai": {
+                    "base_url": "http://localhost:1234",
+                    "api_key": "test",
+                    "model_family_aliases": {"haiku": "old-model"},
+                }
+            },
+        )
+        cfg, _ = load_config(config_file)
+        assert cfg.ai.model_family_aliases == {"sonnet": "claude-sonnet-4-20250514"}
+
+    def test_env_var_invalid_json_ignored(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MODEL_FAMILY_ALIASES", "not-valid-json")
+        config_file = _write_config(tmp_path, {"ai": {"base_url": "http://localhost:1234", "api_key": "test"}})
+        cfg, _ = load_config(config_file)
+        assert cfg.ai.model_family_aliases == {}
+
+    def test_env_var_non_dict_json_ignored(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_MODEL_FAMILY_ALIASES", '["not", "a", "dict"]')
+        config_file = _write_config(tmp_path, {"ai": {"base_url": "http://localhost:1234", "api_key": "test"}})
+        cfg, _ = load_config(config_file)
+        assert cfg.ai.model_family_aliases == {}
+
+    def test_non_dict_yaml_value_ignored(self, tmp_path: Path) -> None:
+        config_file = _write_config(
+            tmp_path,
+            {
+                "ai": {
+                    "base_url": "http://localhost:1234",
+                    "api_key": "test",
+                    "model_family_aliases": "not-a-dict",
+                }
+            },
+        )
+        cfg, _ = load_config(config_file)
+        assert cfg.ai.model_family_aliases == {}

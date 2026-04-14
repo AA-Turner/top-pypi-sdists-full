@@ -175,16 +175,16 @@ class CfnCluster(
         :param log_encryption_kms_key_id: The AWS KMS key used for encrypting log files. This attribute is only available with Amazon EMR 5.30.0 and later, excluding Amazon EMR 6.0.0.
         :param log_uri: The path to the Amazon S3 location where logs for this cluster are stored.
         :param managed_scaling_policy: Creates or updates a managed scaling policy for an Amazon EMR cluster. The managed scaling policy defines the limits for resources, such as Amazon EC2 instances that can be added or terminated from a cluster. The policy only applies to the core and task nodes. The master node cannot be scaled after initial configuration.
-        :param monitoring_configuration: Contains CloudWatch log configuration metadata and settings.
+        :param monitoring_configuration: 
         :param os_release_label: The Amazon Linux release specified in a cluster launch RunJobFlow request. If no Amazon Linux release was specified, the default Amazon Linux release is shown in the response.
-        :param placement_group_configs: The configuration specifies the placement strategy that can be applied to instance roles during cluster creation.
+        :param placement_group_configs: 
         :param release_label: The Amazon EMR release label, which determines the version of open-source application packages installed on the cluster. Release labels are in the form ``emr-x.x.x`` , where x.x.x is an Amazon EMR release version such as ``emr-5.14.0`` . For more information about Amazon EMR release versions and included application versions and features, see ` <https://docs.aws.amazon.com/emr/latest/ReleaseGuide/>`_ . The release label applies only to Amazon EMR releases version 4.0 and later. Earlier versions use ``AmiVersion`` .
         :param scale_down_behavior: The way that individual Amazon EC2 instances terminate when an automatic scale-in activity occurs or an instance group is resized. ``TERMINATE_AT_INSTANCE_HOUR`` indicates that Amazon EMR terminates nodes at the instance-hour boundary, regardless of when the request to terminate the instance was submitted. This option is only available with Amazon EMR 5.1.0 and later and is the default for clusters created using that version. ``TERMINATE_AT_TASK_COMPLETION`` indicates that Amazon EMR adds nodes to a deny list and drains tasks from nodes before terminating the Amazon EC2 instances, regardless of the instance-hour boundary. With either behavior, Amazon EMR removes the least active nodes first and blocks instance termination if it could lead to HDFS corruption. ``TERMINATE_AT_TASK_COMPLETION`` is available only in Amazon EMR releases 4.1.0 and later, and is the default for versions of Amazon EMR earlier than 5.1.0.
         :param security_configuration: The name of the security configuration applied to the cluster.
         :param step_concurrency_level: Specifies the number of steps that can be executed concurrently. The default value is ``1`` . The maximum value is ``256`` .
         :param steps: A list of steps to run.
         :param tags: A list of tags associated with a cluster.
-        :param visible_to_all_users: (deprecated) Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster. If this value is set to ``true`` , all IAM users of that AWS account can view and manage the cluster if they have the proper policy permissions set. If this value is ``false`` , only the IAM user that created the cluster can view and manage it. This value can be changed using the SetVisibleToAllUsers action. .. epigraph:: When you create clusters directly through the EMR console or API, this value is set to ``true`` by default. However, for ``AWS::EMR::Cluster`` resources in CloudFormation, the default is ``false`` .
+        :param visible_to_all_users: Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster. If this value is set to ``true`` , all IAM users of that AWS account can view and manage the cluster if they have the proper policy permissions set. If this value is ``false`` , only the IAM user that created the cluster can view and manage it. This value can be changed using the SetVisibleToAllUsers action. .. epigraph:: When you create clusters directly through the EMR console or API, this value is set to ``true`` by default. However, for ``AWS::EMR::Cluster`` resources in CloudFormation, the default is ``false`` .
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__078ec582504b982aedaecb6e8181c3cf53ae51c1b43cd59a31f8379e104620a3)
@@ -333,6 +333,19 @@ class CfnCluster(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="additionalInfo")
+    def additional_info(self) -> typing.Any:
+        '''A JSON string for selecting additional features.'''
+        return typing.cast(typing.Any, jsii.get(self, "additionalInfo"))
+
+    @additional_info.setter
+    def additional_info(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__348f0a3a57b5e0506d5065002305d702fe48d937d3cf7901229ca7dd35b22175)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "additionalInfo", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="instances")
     def instances(
         self,
@@ -388,19 +401,6 @@ class CfnCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__7d66a155fe1abdff7c63e4e37d410af54a782aafe35f5b0624479ed23d224711)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceRole", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="additionalInfo")
-    def additional_info(self) -> typing.Any:
-        '''A JSON string for selecting additional features.'''
-        return typing.cast(typing.Any, jsii.get(self, "additionalInfo"))
-
-    @additional_info.setter
-    def additional_info(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__348f0a3a57b5e0506d5065002305d702fe48d937d3cf7901229ca7dd35b22175)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "additionalInfo", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="applications")
@@ -606,7 +606,6 @@ class CfnCluster(
     def monitoring_configuration(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.MonitoringConfigurationProperty"]]:
-        '''Contains CloudWatch log configuration metadata and settings.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.MonitoringConfigurationProperty"]], jsii.get(self, "monitoringConfiguration"))
 
     @monitoring_configuration.setter
@@ -637,7 +636,6 @@ class CfnCluster(
     def placement_group_configs(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.PlacementGroupConfigProperty"]]]]:
-        '''The configuration specifies the placement strategy that can be applied to instance roles during cluster creation.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.PlacementGroupConfigProperty"]]]], jsii.get(self, "placementGroupConfigs"))
 
     @placement_group_configs.setter
@@ -738,12 +736,7 @@ class CfnCluster(
     def visible_to_all_users(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-        '''(deprecated) Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster.
-
-        :deprecated: this property has been deprecated
-
-        :stability: deprecated
-        '''
+        '''Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "visibleToAllUsers"))
 
     @visible_to_all_users.setter
@@ -1356,15 +1349,14 @@ class CfnCluster(
             encryption_key_arn: typing.Optional[builtins.str] = None,
             log_group_name: typing.Optional[builtins.str] = None,
             log_stream_name_prefix: typing.Optional[builtins.str] = None,
-            log_types: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Sequence[builtins.str]]]] = None,
+            log_types: typing.Any = None,
         ) -> None:
-            '''Holds CloudWatch log configuration settings and metadata that specify settings like log files to monitor and where to send them.
-
-            :param enabled: Specifies if CloudWatch logging is enabled.
-            :param encryption_key_arn: The ARN of the encryption key used to encrypt the logs.
-            :param log_group_name: The name of the CloudWatch log group where logs are published.
-            :param log_stream_name_prefix: The prefix of the log stream name.
-            :param log_types: A map of log types to file names for publishing logs to the standard output or standard error streams for CloudWatch. Valid log types include STEP_LOGS, SPARK_DRIVER, and SPARK_EXECUTOR. Valid file names for each type include STDOUT and STDERR.
+            '''
+            :param enabled: 
+            :param encryption_key_arn: 
+            :param log_group_name: 
+            :param log_stream_name_prefix: 
+            :param log_types: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-cloudwatchlogconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1375,6 +1367,8 @@ class CfnCluster(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_emr as emr
                 
+                # log_types: Any
+                
                 cloud_watch_log_configuration_property = emr.CfnCluster.CloudWatchLogConfigurationProperty(
                     enabled=False,
                 
@@ -1382,9 +1376,7 @@ class CfnCluster(
                     encryption_key_arn="encryptionKeyArn",
                     log_group_name="logGroupName",
                     log_stream_name_prefix="logStreamNamePrefix",
-                    log_types={
-                        "log_types_key": ["logTypes"]
-                    }
+                    log_types=log_types
                 )
             '''
             if __debug__:
@@ -1408,8 +1400,7 @@ class CfnCluster(
 
         @builtins.property
         def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
-            '''Specifies if CloudWatch logging is enabled.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-cloudwatchlogconfiguration.html#cfn-emr-cluster-cloudwatchlogconfiguration-enabled
             '''
             result = self._values.get("enabled")
@@ -1418,8 +1409,7 @@ class CfnCluster(
 
         @builtins.property
         def encryption_key_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the encryption key used to encrypt the logs.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-cloudwatchlogconfiguration.html#cfn-emr-cluster-cloudwatchlogconfiguration-encryptionkeyarn
             '''
             result = self._values.get("encryption_key_arn")
@@ -1427,8 +1417,7 @@ class CfnCluster(
 
         @builtins.property
         def log_group_name(self) -> typing.Optional[builtins.str]:
-            '''The name of the CloudWatch log group where logs are published.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-cloudwatchlogconfiguration.html#cfn-emr-cluster-cloudwatchlogconfiguration-loggroupname
             '''
             result = self._values.get("log_group_name")
@@ -1436,25 +1425,19 @@ class CfnCluster(
 
         @builtins.property
         def log_stream_name_prefix(self) -> typing.Optional[builtins.str]:
-            '''The prefix of the log stream name.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-cloudwatchlogconfiguration.html#cfn-emr-cluster-cloudwatchlogconfiguration-logstreamnameprefix
             '''
             result = self._values.get("log_stream_name_prefix")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
-        def log_types(
-            self,
-        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.List[builtins.str]]]]:
-            '''A map of log types to file names for publishing logs to the standard output or standard error streams for CloudWatch.
-
-            Valid log types include STEP_LOGS, SPARK_DRIVER, and SPARK_EXECUTOR. Valid file names for each type include STDOUT and STDERR.
-
+        def log_types(self) -> typing.Any:
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-cloudwatchlogconfiguration.html#cfn-emr-cluster-cloudwatchlogconfiguration-logtypes
             '''
             result = self._values.get("log_types")
-            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.List[builtins.str]]]], result)
+            return typing.cast(typing.Any, result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1720,7 +1703,7 @@ class CfnCluster(
             configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EMRConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''
-            :param classification: The classification within a configuration.
+            :param classification: 
             :param configuration_properties: 
             :param configurations: 
 
@@ -1758,8 +1741,7 @@ class CfnCluster(
 
         @builtins.property
         def classification(self) -> typing.Optional[builtins.str]:
-            '''The classification within a configuration.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-emrconfiguration.html#cfn-emr-cluster-emrconfiguration-classification
             '''
             result = self._values.get("classification")
@@ -4217,9 +4199,8 @@ class CfnCluster(
             *,
             cloud_watch_log_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.CloudWatchLogConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''Contains CloudWatch log configuration metadata and settings.
-
-            :param cloud_watch_log_configuration: Holds CloudWatch log configuration settings and metadata that specify settings like log files to monitor and where to send them.
+            '''
+            :param cloud_watch_log_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-monitoringconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -4230,6 +4211,8 @@ class CfnCluster(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_emr as emr
                 
+                # log_types: Any
+                
                 monitoring_configuration_property = emr.CfnCluster.MonitoringConfigurationProperty(
                     cloud_watch_log_configuration=emr.CfnCluster.CloudWatchLogConfigurationProperty(
                         enabled=False,
@@ -4238,9 +4221,7 @@ class CfnCluster(
                         encryption_key_arn="encryptionKeyArn",
                         log_group_name="logGroupName",
                         log_stream_name_prefix="logStreamNamePrefix",
-                        log_types={
-                            "log_types_key": ["logTypes"]
-                        }
+                        log_types=log_types
                     )
                 )
             '''
@@ -4255,8 +4236,7 @@ class CfnCluster(
         def cloud_watch_log_configuration(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.CloudWatchLogConfigurationProperty"]]:
-            '''Holds CloudWatch log configuration settings and metadata that specify settings like log files to monitor and where to send them.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-monitoringconfiguration.html#cfn-emr-cluster-monitoringconfiguration-cloudwatchlogconfiguration
             '''
             result = self._values.get("cloud_watch_log_configuration")
@@ -5774,16 +5754,16 @@ class CfnClusterProps:
         :param log_encryption_kms_key_id: The AWS KMS key used for encrypting log files. This attribute is only available with Amazon EMR 5.30.0 and later, excluding Amazon EMR 6.0.0.
         :param log_uri: The path to the Amazon S3 location where logs for this cluster are stored.
         :param managed_scaling_policy: Creates or updates a managed scaling policy for an Amazon EMR cluster. The managed scaling policy defines the limits for resources, such as Amazon EC2 instances that can be added or terminated from a cluster. The policy only applies to the core and task nodes. The master node cannot be scaled after initial configuration.
-        :param monitoring_configuration: Contains CloudWatch log configuration metadata and settings.
+        :param monitoring_configuration: 
         :param os_release_label: The Amazon Linux release specified in a cluster launch RunJobFlow request. If no Amazon Linux release was specified, the default Amazon Linux release is shown in the response.
-        :param placement_group_configs: The configuration specifies the placement strategy that can be applied to instance roles during cluster creation.
+        :param placement_group_configs: 
         :param release_label: The Amazon EMR release label, which determines the version of open-source application packages installed on the cluster. Release labels are in the form ``emr-x.x.x`` , where x.x.x is an Amazon EMR release version such as ``emr-5.14.0`` . For more information about Amazon EMR release versions and included application versions and features, see ` <https://docs.aws.amazon.com/emr/latest/ReleaseGuide/>`_ . The release label applies only to Amazon EMR releases version 4.0 and later. Earlier versions use ``AmiVersion`` .
         :param scale_down_behavior: The way that individual Amazon EC2 instances terminate when an automatic scale-in activity occurs or an instance group is resized. ``TERMINATE_AT_INSTANCE_HOUR`` indicates that Amazon EMR terminates nodes at the instance-hour boundary, regardless of when the request to terminate the instance was submitted. This option is only available with Amazon EMR 5.1.0 and later and is the default for clusters created using that version. ``TERMINATE_AT_TASK_COMPLETION`` indicates that Amazon EMR adds nodes to a deny list and drains tasks from nodes before terminating the Amazon EC2 instances, regardless of the instance-hour boundary. With either behavior, Amazon EMR removes the least active nodes first and blocks instance termination if it could lead to HDFS corruption. ``TERMINATE_AT_TASK_COMPLETION`` is available only in Amazon EMR releases 4.1.0 and later, and is the default for versions of Amazon EMR earlier than 5.1.0.
         :param security_configuration: The name of the security configuration applied to the cluster.
         :param step_concurrency_level: Specifies the number of steps that can be executed concurrently. The default value is ``1`` . The maximum value is ``256`` .
         :param steps: A list of steps to run.
         :param tags: A list of tags associated with a cluster.
-        :param visible_to_all_users: (deprecated) Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster. If this value is set to ``true`` , all IAM users of that AWS account can view and manage the cluster if they have the proper policy permissions set. If this value is ``false`` , only the IAM user that created the cluster can view and manage it. This value can be changed using the SetVisibleToAllUsers action. .. epigraph:: When you create clusters directly through the EMR console or API, this value is set to ``true`` by default. However, for ``AWS::EMR::Cluster`` resources in CloudFormation, the default is ``false`` .
+        :param visible_to_all_users: Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster. If this value is set to ``true`` , all IAM users of that AWS account can view and manage the cluster if they have the proper policy permissions set. If this value is ``false`` , only the IAM user that created the cluster can view and manage it. This value can be changed using the SetVisibleToAllUsers action. .. epigraph:: When you create clusters directly through the EMR console or API, this value is set to ``true`` by default. However, for ``AWS::EMR::Cluster`` resources in CloudFormation, the default is ``false`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html
         :exampleMetadata: fixture=_generated
@@ -6081,8 +6061,7 @@ class CfnClusterProps:
     def monitoring_configuration(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.MonitoringConfigurationProperty"]]:
-        '''Contains CloudWatch log configuration metadata and settings.
-
+        '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-monitoringconfiguration
         '''
         result = self._values.get("monitoring_configuration")
@@ -6103,8 +6082,7 @@ class CfnClusterProps:
     def placement_group_configs(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCluster.PlacementGroupConfigProperty"]]]]:
-        '''The configuration specifies the placement strategy that can be applied to instance roles during cluster creation.
-
+        '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-placementgroupconfigs
         '''
         result = self._values.get("placement_group_configs")
@@ -6176,17 +6154,14 @@ class CfnClusterProps:
     def visible_to_all_users(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-        '''(deprecated) Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster.
+        '''Indicates whether the cluster is visible to all IAM users of the AWS account associated with the cluster.
 
         If this value is set to ``true`` , all IAM users of that AWS account can view and manage the cluster if they have the proper policy permissions set. If this value is ``false`` , only the IAM user that created the cluster can view and manage it. This value can be changed using the SetVisibleToAllUsers action.
         .. epigraph::
 
            When you create clusters directly through the EMR console or API, this value is set to ``true`` by default. However, for ``AWS::EMR::Cluster`` resources in CloudFormation, the default is ``false`` .
 
-        :deprecated: this property has been deprecated
-
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-cluster.html#cfn-emr-cluster-visibletoallusers
-        :stability: deprecated
         '''
         result = self._values.get("visible_to_all_users")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
@@ -12345,6 +12320,12 @@ def _typecheckingstub__ee2b9fd8d133889786966e4e13fa9f42593ed4a152172b2a5f46f0087
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__348f0a3a57b5e0506d5065002305d702fe48d937d3cf7901229ca7dd35b22175(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3db10eb80ac95a4595d858fdb0ef7856bf908495b5881a437e2418e12ef04e2f(
     value: typing.Union[_IResolvable_da3f097b, CfnCluster.JobFlowInstancesConfigProperty],
 ) -> None:
@@ -12365,12 +12346,6 @@ def _typecheckingstub__f422fb80835fbbe27ca5ef52cdf0b51d324e042c174b5bbf7f5b6c241
 
 def _typecheckingstub__7d66a155fe1abdff7c63e4e37d410af54a782aafe35f5b0624479ed23d224711(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__348f0a3a57b5e0506d5065002305d702fe48d937d3cf7901229ca7dd35b22175(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12567,7 +12542,7 @@ def _typecheckingstub__736c01598b8b99087fba57b38689bd29146d3bae065951c8c930b7a74
     encryption_key_arn: typing.Optional[builtins.str] = None,
     log_group_name: typing.Optional[builtins.str] = None,
     log_stream_name_prefix: typing.Optional[builtins.str] = None,
-    log_types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Sequence[builtins.str]]]] = None,
+    log_types: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass

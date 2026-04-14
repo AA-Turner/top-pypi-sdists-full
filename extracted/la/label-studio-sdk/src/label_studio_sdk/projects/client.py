@@ -11,6 +11,7 @@ from ..core.request_options import RequestOptions
 from ..types.agreement_methodology_enum import AgreementMethodologyEnum
 from ..types.all_roles_project_list import AllRolesProjectList
 from ..types.assignment_settings_request import AssignmentSettingsRequest
+from ..types.control_tag_weight_request import ControlTagWeightRequest
 from ..types.import_api_request import ImportApiRequest
 from ..types.lse_project_create import LseProjectCreate
 from ..types.lse_project_response import LseProjectResponse
@@ -68,6 +69,7 @@ class ProjectsClient:
     def list(
         self,
         *,
+        archived: typing.Optional[bool] = None,
         filter: typing.Optional[str] = None,
         ids: typing.Optional[str] = None,
         include: typing.Optional[str] = None,
@@ -86,6 +88,9 @@ class ProjectsClient:
 
         Parameters
         ----------
+        archived : typing.Optional[bool]
+            Filter by projects that belong to archived workspaces
+
         filter : typing.Optional[str]
             Filter projects by pinned status. Use 'pinned_only' to return only pinned projects, 'exclude_pinned' to return only non-pinned projects, or 'all' to return all projects.
 
@@ -142,6 +147,7 @@ class ProjectsClient:
             yield page
         """
         return self._raw_client.list(
+            archived=archived,
             filter=filter,
             ids=ids,
             include=include,
@@ -161,7 +167,7 @@ class ProjectsClient:
         *,
         annotator_evaluation_enabled: typing.Optional[bool] = OMIT,
         color: typing.Optional[str] = OMIT,
-        control_weights: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        control_weights: typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
         description: typing.Optional[str] = OMIT,
         enable_empty_annotation: typing.Optional[bool] = OMIT,
@@ -201,8 +207,8 @@ class ProjectsClient:
 
         color : typing.Optional[str]
 
-        control_weights : typing.Optional[typing.Dict[str, typing.Any]]
-            Dict of weights for each control tag in metric calculation.
+        control_weights : typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]]
+            Dict of weights for each control tag in metric calculation. Keys are control tag names from the labeling config. At least one tag must have a non-zero overall weight.
 
         created_by : typing.Optional[UserSimpleRequest]
             Project owner
@@ -335,6 +341,7 @@ class ProjectsClient:
     def list_counts(
         self,
         *,
+        archived: typing.Optional[bool] = None,
         filter: typing.Optional[str] = None,
         ids: typing.Optional[str] = None,
         include: typing.Optional[str] = None,
@@ -352,6 +359,9 @@ class ProjectsClient:
 
         Parameters
         ----------
+        archived : typing.Optional[bool]
+            Filter by projects that belong to archived workspaces
+
         filter : typing.Optional[str]
             Filter projects by pinned status. Use 'pinned_only' to return only pinned projects, 'exclude_pinned' to return only non-pinned projects, or 'all' to return all projects.
 
@@ -400,6 +410,7 @@ class ProjectsClient:
         client.projects.list_counts()
         """
         _response = self._raw_client.list_counts(
+            archived=archived,
             filter=filter,
             ids=ids,
             include=include,
@@ -499,7 +510,7 @@ class ProjectsClient:
         assignment_settings: typing.Optional[AssignmentSettingsRequest] = OMIT,
         color: typing.Optional[str] = OMIT,
         comment_classification_config: typing.Optional[str] = OMIT,
-        control_weights: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        control_weights: typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
         custom_script: typing.Optional[str] = OMIT,
         custom_task_lock_ttl: typing.Optional[int] = OMIT,
@@ -584,8 +595,8 @@ class ProjectsClient:
 
         comment_classification_config : typing.Optional[str]
 
-        control_weights : typing.Optional[typing.Dict[str, typing.Any]]
-            Dict of weights for each control tag in metric calculation.
+        control_weights : typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]]
+            Dict of weights for each control tag in metric calculation. Keys are control tag names from the labeling config. At least one tag must have a non-zero overall weight.
 
         created_by : typing.Optional[UserSimpleRequest]
             Project owner
@@ -963,14 +974,18 @@ class ProjectsClient:
         
         Examples
         --------
-        from label_studio_sdk import LabelStudio
+        from label_studio_sdk import ImportApiRequest, LabelStudio
         
         client = LabelStudio(
             api_key="YOUR_API_KEY",
         )
         client.projects.import_tasks(
             id=1,
-            request=[],
+            request=[
+                ImportApiRequest(
+                    data={"key": "value"},
+                )
+            ],
         )
         """
         _response = self._raw_client.import_tasks(
@@ -1150,6 +1165,7 @@ class AsyncProjectsClient:
     async def list(
         self,
         *,
+        archived: typing.Optional[bool] = None,
         filter: typing.Optional[str] = None,
         ids: typing.Optional[str] = None,
         include: typing.Optional[str] = None,
@@ -1168,6 +1184,9 @@ class AsyncProjectsClient:
 
         Parameters
         ----------
+        archived : typing.Optional[bool]
+            Filter by projects that belong to archived workspaces
+
         filter : typing.Optional[str]
             Filter projects by pinned status. Use 'pinned_only' to return only pinned projects, 'exclude_pinned' to return only non-pinned projects, or 'all' to return all projects.
 
@@ -1233,6 +1252,7 @@ class AsyncProjectsClient:
         asyncio.run(main())
         """
         return await self._raw_client.list(
+            archived=archived,
             filter=filter,
             ids=ids,
             include=include,
@@ -1252,7 +1272,7 @@ class AsyncProjectsClient:
         *,
         annotator_evaluation_enabled: typing.Optional[bool] = OMIT,
         color: typing.Optional[str] = OMIT,
-        control_weights: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        control_weights: typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
         description: typing.Optional[str] = OMIT,
         enable_empty_annotation: typing.Optional[bool] = OMIT,
@@ -1292,8 +1312,8 @@ class AsyncProjectsClient:
 
         color : typing.Optional[str]
 
-        control_weights : typing.Optional[typing.Dict[str, typing.Any]]
-            Dict of weights for each control tag in metric calculation.
+        control_weights : typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]]
+            Dict of weights for each control tag in metric calculation. Keys are control tag names from the labeling config. At least one tag must have a non-zero overall weight.
 
         created_by : typing.Optional[UserSimpleRequest]
             Project owner
@@ -1434,6 +1454,7 @@ class AsyncProjectsClient:
     async def list_counts(
         self,
         *,
+        archived: typing.Optional[bool] = None,
         filter: typing.Optional[str] = None,
         ids: typing.Optional[str] = None,
         include: typing.Optional[str] = None,
@@ -1451,6 +1472,9 @@ class AsyncProjectsClient:
 
         Parameters
         ----------
+        archived : typing.Optional[bool]
+            Filter by projects that belong to archived workspaces
+
         filter : typing.Optional[str]
             Filter projects by pinned status. Use 'pinned_only' to return only pinned projects, 'exclude_pinned' to return only non-pinned projects, or 'all' to return all projects.
 
@@ -1507,6 +1531,7 @@ class AsyncProjectsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.list_counts(
+            archived=archived,
             filter=filter,
             ids=ids,
             include=include,
@@ -1622,7 +1647,7 @@ class AsyncProjectsClient:
         assignment_settings: typing.Optional[AssignmentSettingsRequest] = OMIT,
         color: typing.Optional[str] = OMIT,
         comment_classification_config: typing.Optional[str] = OMIT,
-        control_weights: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        control_weights: typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
         custom_script: typing.Optional[str] = OMIT,
         custom_task_lock_ttl: typing.Optional[int] = OMIT,
@@ -1707,8 +1732,8 @@ class AsyncProjectsClient:
 
         comment_classification_config : typing.Optional[str]
 
-        control_weights : typing.Optional[typing.Dict[str, typing.Any]]
-            Dict of weights for each control tag in metric calculation.
+        control_weights : typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]]
+            Dict of weights for each control tag in metric calculation. Keys are control tag names from the labeling config. At least one tag must have a non-zero overall weight.
 
         created_by : typing.Optional[UserSimpleRequest]
             Project owner
@@ -2112,7 +2137,7 @@ class AsyncProjectsClient:
         --------
         import asyncio
         
-        from label_studio_sdk import AsyncLabelStudio
+        from label_studio_sdk import AsyncLabelStudio, ImportApiRequest
         
         client = AsyncLabelStudio(
             api_key="YOUR_API_KEY",
@@ -2122,7 +2147,11 @@ class AsyncProjectsClient:
         async def main() -> None:
             await client.projects.import_tasks(
                 id=1,
-                request=[],
+                request=[
+                    ImportApiRequest(
+                        data={"key": "value"},
+                    )
+                ],
             )
         
         

@@ -1,31 +1,25 @@
 from __future__ import annotations
 
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
-import functools
 from io import TextIOWrapper
 import logging
 import os
-import random
 import re
 import shutil
-import subprocess
 import sys
 import threading
 import traceback
-from typing import IO, Any, Callable, Generator, Iterable, Literal
+from typing import IO, Any, Generator, Iterable, Literal
 
 try:
     from pwd import getpwuid
 except ImportError:
     pass
 from datetime import datetime
-from importlib import resources
 import itertools
-from random import choice
 from textwrap import dedent
-from time import sleep, time
 from urllib.parse import parse_qs, unquote, urlparse
 
 from cli_helpers.tabular_output import TabularOutputFormatter, preprocessors
@@ -35,14 +29,7 @@ import click
 import clickdc
 from configobj import ConfigObj
 import keyring
-import prompt_toolkit
 from prompt_toolkit import print_formatted_text
-from prompt_toolkit.application.current import get_app
-from prompt_toolkit.auto_suggest import AutoSuggestFromHistory, ThreadedAutoSuggest
-from prompt_toolkit.completion import Completion, DynamicCompleter
-from prompt_toolkit.document import Document
-from prompt_toolkit.enums import DEFAULT_BUFFER, EditingMode
-from prompt_toolkit.filters import Condition, HasFocus, IsDone
 from prompt_toolkit.formatted_text import (
     ANSI,
     HTML,
@@ -51,99 +38,56 @@ from prompt_toolkit.formatted_text import (
     to_formatted_text,
     to_plain_text,
 )
-from prompt_toolkit.key_binding.bindings.named_commands import register as prompt_register
-from prompt_toolkit.key_binding.key_processor import KeyPressEvent
-from prompt_toolkit.layout.processors import ConditionalProcessor, HighlightMatchingBracketProcessor
-from prompt_toolkit.lexers import PygmentsLexer
-from prompt_toolkit.output import ColorDepth
-from prompt_toolkit.shortcuts import CompleteStyle, ProgressBar, PromptSession
-from prompt_toolkit.shortcuts.progress_bar import formatters as progress_bar_formatters
+from prompt_toolkit.shortcuts import PromptSession
 import pymysql
 from pymysql.constants.CR import CR_SERVER_LOST
 from pymysql.constants.ER import ACCESS_DENIED_ERROR, HANDSHAKE_ERROR
 from pymysql.cursors import Cursor
-import sqlglot
 import sqlparse
 
-from mycli import __version__
-from mycli.clibuffer import cli_is_multiline
-from mycli.clistyle import style_factory_helpers, style_factory_toolkit
-from mycli.clitoolbar import create_toolbar_tokens_func
+import mycli as mycli_package
+from mycli.clistyle import style_factory_helpers, style_factory_ptoolkit
 from mycli.compat import WIN
 from mycli.completion_refresher import CompletionRefresher
 from mycli.config import get_mylogin_cnf_path, open_mylogin_cnf, read_config_files, str_to_bool, strip_matching_quotes, write_default_config
 from mycli.constants import (
     DEFAULT_CHARSET,
+    DEFAULT_HEIGHT,
     DEFAULT_HOST,
     DEFAULT_PORT,
-    HOME_URL,
+    DEFAULT_WIDTH,
+    ER_MUST_CHANGE_PASSWORD_LOGIN,
     ISSUES_URL,
     REPO_URL,
 )
-from mycli.key_bindings import mycli_bindings
-from mycli.lexer import MyCliLexer
+from mycli.main_modes import repl as repl_package
+from mycli.main_modes.batch import (
+    main_batch_from_stdin,
+    main_batch_with_progress_bar,
+    main_batch_without_progress_bar,
+)
+from mycli.main_modes.checkup import main_checkup
+from mycli.main_modes.execute import main_execute_from_cli
+from mycli.main_modes.list_dsn import main_list_dsn
+from mycli.main_modes.list_ssh_config import main_list_ssh_config
+from mycli.main_modes.repl import get_prompt, main_repl, set_all_external_titles
 from mycli.packages import special
-from mycli.packages.batch_utils import statements_from_filehandle
-from mycli.packages.checkup import do_checkup
+from mycli.packages.cli_utils import filtered_sys_argv, is_valid_connection_scheme
 from mycli.packages.filepaths import dir_path_exists, guess_socket_location
-from mycli.packages.hybrid_redirection import get_redirect_components, is_redirect_command
-from mycli.packages.parseutils import is_destructive, is_dropping_database, is_valid_connection_scheme
-from mycli.packages.prompt_utils import confirm, confirm_destructive_query
-from mycli.packages.ptoolkit.history import FileHistoryWithTimestamp
+from mycli.packages.interactive_utils import confirm_destructive_query
 from mycli.packages.special.favoritequeries import FavoriteQueries
 from mycli.packages.special.main import ArgType
-from mycli.packages.special.utils import format_uptime, get_ssl_version, get_uptime, get_warning_count
 from mycli.packages.sqlresult import SQLResult
-from mycli.packages.string_utils import sanitize_terminal_title
+from mycli.packages.ssh_utils import read_ssh_config
 from mycli.packages.tabular_output import sql_format
 from mycli.sqlcompleter import SQLCompleter
 from mycli.sqlexecute import FIELD_TYPES, SQLExecute
-
-try:
-    import paramiko
-except ImportError:
-    from mycli.packages.paramiko_stub import paramiko  # type: ignore[no-redef]
+from mycli.types import Query
 
 sqlparse.engine.grouping.MAX_GROUPING_DEPTH = None  # type: ignore[assignment]
 sqlparse.engine.grouping.MAX_GROUPING_TOKENS = None  # type: ignore[assignment]
 
-# Query tuples are used for maintaining history
-Query = namedtuple("Query", ["query", "successful", "mutating"])
-
-SUPPORT_INFO = f"Home: {HOME_URL}\nBug tracker: {ISSUES_URL}"
-DEFAULT_WIDTH = 80
-DEFAULT_HEIGHT = 25
-MIN_COMPLETION_TRIGGER = 1
 EMPTY_PASSWORD_FLAG_SENTINEL = -1
-
-
-@Condition
-def complete_while_typing_filter() -> bool:
-    """Whether enough characters have been typed to trigger completion.
-
-    Written in a verbose way, with a string slice, for efficiency."""
-    if MIN_COMPLETION_TRIGGER <= 1:
-        return True
-    app = get_app()
-    text = app.current_buffer.text.lstrip()
-    text_len = len(text)
-    if text_len < MIN_COMPLETION_TRIGGER:
-        return False
-    last_word = text[-MIN_COMPLETION_TRIGGER:]
-    if len(last_word) == text_len:
-        return text_len >= MIN_COMPLETION_TRIGGER
-    if text[:6].lower() in ['source', r'\.']:
-        # Different word characters for paths; see comment below.
-        # In fact, it might be nice if paths had a different threshold.
-        return not bool(re.search(r'[\s!-,:-@\[-^\{\}-]', last_word))
-    else:
-        # This is "whitespace and all punctuation except underscore and backtick"
-        # acting as word breaks, but it would be neat if we could complete differently
-        # when inside a backtick, accepting all legal characters towards the trigger
-        # limit.  We would have to parse the statement, or at least go back more
-        # characters, costing performance.  This still works within a backtick!  So
-        # long as there are three trailing non-punctuation characters.
-        return not bool(re.search(r'[\s!-/:-@\[-^\{-~]', last_word))
 
 
 class IntOrStringClickParamType(click.ParamType):
@@ -198,17 +142,17 @@ class MyCli:
         auto_vertical_output: bool = False,
         warn: bool | None = None,
         myclirc: str = "~/.myclirc",
+        show_warnings: bool | None = None,
     ) -> None:
-        global MIN_COMPLETION_TRIGGER
-
         self.sqlexecute = sqlexecute
         self.logfile = logfile
         self.defaults_suffix = defaults_suffix
         self.login_path = login_path
         self.toolbar_error_message: str | None = None
-        self.prompt_app: PromptSession | None = None
+        self.prompt_session: PromptSession | None = None
         self._keepalive_counter = 0
         self.keepalive_ticks: int | None = 0
+        self.sandbox_mode: bool = False
 
         # self.cnf_files is a class variable that stores the list of mysql
         # config files to read in at launch.
@@ -233,6 +177,10 @@ class MyCli:
         self.vi_ttimeoutlen = c['keys'].as_float('vi_ttimeoutlen')
         special.set_timing_enabled(c["main"].as_bool("timing"))
         special.set_show_favorite_query(c["main"].as_bool("show_favorite_query"))
+        if show_warnings is not None:
+            special.set_show_warnings_enabled(show_warnings)
+        else:
+            special.set_show_warnings_enabled(c['main'].as_bool('show_warnings'))
         self.beep_after_seconds = float(c["main"]["beep_after_seconds"] or 0)
         self.default_keepalive_ticks = c['connection'].as_int('default_keepalive_ticks')
 
@@ -248,7 +196,7 @@ class MyCli:
         self.syntax_style = c["main"]["syntax_style"]
         self.less_chatty = c["main"].as_bool("less_chatty")
         self.cli_style = c["colors"]
-        self.toolkit_style = style_factory_toolkit(self.syntax_style, self.cli_style)
+        self.ptoolkit_style = style_factory_ptoolkit(self.syntax_style, self.cli_style)
         self.helpers_style = style_factory_helpers(self.syntax_style, self.cli_style)
         self.helpers_warnings_style = style_factory_helpers(self.syntax_style, self.cli_style, warnings=True)
         self.wider_completion_menu = c["main"].as_bool("wider_completion_menu")
@@ -278,7 +226,6 @@ class MyCli:
 
         # read from cli argument or user config file
         self.auto_vertical_output = auto_vertical_output or c["main"].as_bool("auto_vertical_output")
-        self.show_warnings = c["main"].as_bool("show_warnings")
 
         # Write user config if system config wasn't the last config loaded.
         if c.filename not in self.system_config_files and not os.path.exists(myclirc):
@@ -311,7 +258,8 @@ class MyCli:
         self._completer_lock = threading.Lock()
 
         self.min_completion_trigger = c["main"].as_int("min_completion_trigger")
-        MIN_COMPLETION_TRIGGER = self.min_completion_trigger
+        # a hack, pending a better way to handle settings and state
+        repl_package.MIN_COMPLETION_TRIGGER = self.min_completion_trigger
         self.last_prompt_message = ANSI('')
         self.last_custom_toolbar_message = ANSI('')
 
@@ -343,7 +291,7 @@ class MyCli:
         self.terminal_window_title_format = c['main']['terminal_window_title']
         self.multiplex_window_title_format = c['main']['multiplex_window_title']
         self.multiplex_pane_title_format = c['main']['multiplex_pane_title']
-        self.prompt_app = None
+        self.prompt_session = None
         self.destructive_keywords = [
             keyword for keyword in c["main"].get("destructive_keywords", "DROP SHUTDOWN DELETE TRUNCATE ALTER UPDATE").split(' ') if keyword
         ]
@@ -383,22 +331,6 @@ class MyCli:
             case_sensitive=True,
         )
         special.register_special_command(
-            self.disable_show_warnings,
-            "nowarnings",
-            "nowarnings",
-            "Disable automatic warnings display.",
-            aliases=["\\w"],
-            case_sensitive=True,
-        )
-        special.register_special_command(
-            self.enable_show_warnings,
-            "warnings",
-            "warnings",
-            "Enable automatic warnings display.",
-            aliases=["\\W"],
-            case_sensitive=True,
-        )
-        special.register_special_command(
             self.execute_from_file, "source", "source <filename>", "Execute queries from a file.", aliases=["\\."]
         )
         special.register_special_command(
@@ -416,16 +348,6 @@ class MyCli:
             yield SQLResult()
         else:
             yield self.change_db(arg).send(None)
-
-    def enable_show_warnings(self, **_) -> Generator[SQLResult, None, None]:
-        self.show_warnings = True
-        msg = "Show warnings enabled."
-        yield SQLResult(status=msg)
-
-    def disable_show_warnings(self, **_) -> Generator[SQLResult, None, None]:
-        self.show_warnings = False
-        msg = "Show warnings disabled."
-        yield SQLResult(status=msg)
 
     def change_table_format(self, arg: str, **_) -> Generator[SQLResult, None, None]:
         try:
@@ -464,7 +386,9 @@ class MyCli:
             self.sqlexecute.change_db(arg)
             msg = f'You are now connected to database "{self.sqlexecute.dbname}" as user "{self.sqlexecute.user}"'
 
-        self.set_all_external_titles()
+        # todo: this jump back to repl.py is a sign that separation is incomplete.
+        # also: it should not be needed.  Don't titles update on every new prompt?
+        set_all_external_titles(self)
 
         yield SQLResult(status=msg)
 
@@ -609,7 +533,6 @@ class MyCli:
         use_keyring: bool | None = None,
         reset_keyring: bool | None = None,
         keepalive_ticks: int | None = None,
-        show_warnings: bool | None = None,
     ) -> None:
         cnf = {
             "database": None,
@@ -639,8 +562,6 @@ class MyCli:
         ssl_config: dict[str, Any] = ssl or {}
         user_connection_config = self.config_without_package_defaults.get('connection', {})
         self.keepalive_ticks = keepalive_ticks
-        if show_warnings is not None:
-            self.show_warnings = show_warnings
 
         int_port = port and int(port)
         if not int_port:
@@ -804,6 +725,13 @@ class MyCli:
                         keyring_retrieved_cleanly=keyring_retrieved_cleanly,
                         keyring_save_eligible=keyring_save_eligible,
                     )
+                elif e1.args[0] == ER_MUST_CHANGE_PASSWORD_LOGIN:
+                    self.echo(
+                        "Your password has expired and the server rejected the connection.",
+                        err=True,
+                        fg='red',
+                    )
+                    raise e1
                 elif e1.args[0] == CR_SERVER_LOST:
                     self.echo(
                         (
@@ -857,540 +785,30 @@ class MyCli:
                     sys.exit(1)
 
                 _connect(keyring_retrieved_cleanly=keyring_retrieved_cleanly)
+
+            # Check if SQLExecute detected sandbox mode during connection
+            if self.sqlexecute and self.sqlexecute.sandbox_mode:
+                self.sandbox_mode = True
+                self.echo(
+                    "Your password has expired. Use ALTER USER or SET PASSWSORD to set a new password, or quit.",
+                    err=True,
+                    fg='yellow',
+                )
         except Exception as e:  # Connecting to a database could fail.
             self.logger.debug("Database connection failed: %r.", e)
             self.logger.error("traceback: %r", traceback.format_exc())
             self.echo(str(e), err=True, fg="red")
             sys.exit(1)
 
-    def handle_editor_command(
-        self,
-        text: str,
-        inputhook: Callable | None,
-        loaded_message_fn: Callable,
-    ) -> str:
-        r"""Editor command is any query that is prefixed or suffixed by a '\e'.
-        The reason for a while loop is because a user might edit a query
-        multiple times. For eg:
-
-        "select * from \e"<enter> to edit it in vim, then come
-        back to the prompt with the edited query "select * from
-        blah where q = 'abc'\e" to edit it again.
-        :param text: Document
-        :return: Document
-
-        """
-
-        while special.editor_command(text):
-            filename = special.get_filename(text)
-            query = special.get_editor_query(text) or self.get_last_query()
-            sql, message = special.open_external_editor(filename=filename, sql=query)
-            if message:
-                # Something went wrong. Raise an exception and bail.
-                raise RuntimeError(message)
-            while True:
-                try:
-                    assert isinstance(self.prompt_app, PromptSession)
-                    text = self.prompt_app.prompt(
-                        default=sql,
-                        inputhook=inputhook,
-                        message=loaded_message_fn,
-                    )
-                    break
-                except KeyboardInterrupt:
-                    sql = ""
-
-            continue
-        return text
-
-    def handle_clip_command(self, text: str) -> bool:
-        r"""A clip command is any query that is prefixed or suffixed by a
-        '\clip'.
-
-        :param text: Document
-        :return: Boolean
-
-        """
-
-        if special.clip_command(text):
-            query = special.get_clip_query(text) or self.get_last_query()
-            message = special.copy_query_to_clipboard(sql=query)
-            if message:
-                raise RuntimeError(message)
-            return True
-        return False
-
-    def handle_prettify_binding(self, text: str) -> str:
-        if not text:
-            return ''
-        try:
-            statements = sqlglot.parse(text, read='mysql')
-        except Exception:
-            statements = []
-        if len(statements) == 1 and statements[0]:
-            parse_succeeded = True
-            pretty_text = statements[0].sql(pretty=True, pad=4, dialect='mysql')
-        else:
-            parse_succeeded = False
-            pretty_text = text.rstrip(';')
-            self.toolbar_error_message = 'Prettify failed to parse single statement'
-        if pretty_text and parse_succeeded:
-            pretty_text = pretty_text + ';'
-        return pretty_text
-
-    def handle_unprettify_binding(self, text: str) -> str:
-        if not text:
-            return ''
-        try:
-            statements = sqlglot.parse(text, read='mysql')
-        except Exception:
-            statements = []
-        if len(statements) == 1 and statements[0]:
-            parse_succeeded = True
-            unpretty_text = statements[0].sql(pretty=False, dialect='mysql')
-        else:
-            parse_succeeded = False
-            unpretty_text = text.rstrip(';')
-            self.toolbar_error_message = 'Unprettify failed to parse single statement'
-        if unpretty_text and parse_succeeded:
-            unpretty_text = unpretty_text + ';'
-        return unpretty_text
-
     def output_timing(self, timing: str, is_warnings_style: bool = False) -> None:
         self.log_output(timing)
         add_style = 'class:warnings.timing' if is_warnings_style else 'class:output.timing'
         formatted_timing = FormattedText([('', timing)])
         styled_timing = to_formatted_text(formatted_timing, style=add_style)
-        print_formatted_text(styled_timing, style=self.toolkit_style)
+        print_formatted_text(styled_timing, style=self.ptoolkit_style)
 
     def run_cli(self) -> None:
-        iterations = 0
-        sqlexecute = self.sqlexecute
-        assert isinstance(sqlexecute, SQLExecute)
-        logger = self.logger
-        self.configure_pager()
-
-        if self.smart_completion:
-            self.refresh_completions()
-
-        history_file = os.path.expanduser(os.environ.get("MYCLI_HISTFILE", self.config.get("history_file", "~/.mycli-history")))
-        if dir_path_exists(history_file):
-            history = FileHistoryWithTimestamp(history_file)
-        else:
-            history = None
-            self.echo(
-                f'Error: Unable to open the history file "{history_file}". Your query history will not be saved.',
-                err=True,
-                fg="red",
-            )
-
-        key_bindings = mycli_bindings(self)
-
-        if not self.less_chatty:
-            print(sqlexecute.server_info)
-            print("mycli", __version__)
-            print(SUPPORT_INFO)
-            if random.random() <= 0.5:
-                print("Thanks to the contributor —", thanks_picker())
-            else:
-                print("Tip —", tips_picker())
-
-        def get_prompt_message(app) -> ANSI:
-            if app.current_buffer.text:
-                return self.last_prompt_message
-            prompt = self.get_prompt(self.prompt_format, app.render_counter)
-            if self.prompt_format == self.default_prompt and len(prompt) > self.max_len_prompt:
-                prompt = self.get_prompt(self.default_prompt_splitln, app.render_counter)
-                self.prompt_lines = prompt.count('\n') + 1
-            prompt = prompt.replace("\\x1b", "\x1b")
-            if not self.prompt_lines:
-                self.prompt_lines = prompt.count('\n') + 1
-            self.last_prompt_message = ANSI(prompt)
-            return self.last_prompt_message
-
-        def get_continuation(width: int, _two: int, _three: int) -> AnyFormattedText:
-            if self.multiline_continuation_char == "":
-                continuation = ""
-            elif self.multiline_continuation_char:
-                left_padding = width - len(self.multiline_continuation_char)
-                continuation = " " * max((left_padding - 1), 0) + self.multiline_continuation_char + " "
-            else:
-                continuation = " "
-            return [("class:continuation", continuation)]
-
-        def show_initial_toolbar_help() -> bool:
-            return iterations == 0
-
-        # Keep track of whether or not the query is mutating. In case
-        # of a multi-statement query, the overall query is considered
-        # mutating if any one of the component statements is mutating
-        mutating = False
-
-        def output_res(results: Generator[SQLResult], start: float) -> None:
-            nonlocal mutating
-            result_count = watch_count = 0
-            for result in results:
-                logger.debug("preamble: %r", result.preamble)
-                logger.debug("header: %r", result.header)
-                logger.debug("rows: %r", result.rows)
-                logger.debug("status: %r", result.status)
-                logger.debug("command: %r", result.command)
-                threshold = 1000
-                # If this is a watch query, offset the start time on the 2nd+ iteration
-                # to account for the sleep duration
-                if result.command is not None and result.command["name"] == "watch":
-                    if watch_count > 0:
-                        try:
-                            watch_seconds = float(result.command["seconds"])
-                            start += watch_seconds
-                        except ValueError as e:
-                            self.echo(f"Invalid watch sleep time provided ({e}).", err=True, fg="red")
-                            sys.exit(1)
-                    else:
-                        watch_count += 1
-                if is_select(result.status_plain) and isinstance(result.rows, Cursor) and result.rows.rowcount > threshold:
-                    self.echo(
-                        f"The result set has more than {threshold} rows.",
-                        fg="red",
-                    )
-                    if not confirm("Do you want to continue?"):
-                        self.echo("Aborted!", err=True, fg="red")
-                        break
-
-                if self.auto_vertical_output:
-                    if self.prompt_app is not None:
-                        max_width = self.prompt_app.output.get_size().columns
-                    else:
-                        max_width = DEFAULT_WIDTH
-                else:
-                    max_width = None
-
-                formatted = self.format_sqlresult(
-                    result,
-                    is_expanded=special.is_expanded_output(),
-                    is_redirected=special.is_redirected(),
-                    null_string=self.null_string,
-                    numeric_alignment=self.numeric_alignment,
-                    binary_display=self.binary_display,
-                    max_width=max_width,
-                )
-
-                t = time() - start
-                try:
-                    if result_count > 0:
-                        self.echo("")
-                    try:
-                        self.output(formatted, result)
-                    except KeyboardInterrupt:
-                        pass
-                    if self.beep_after_seconds > 0 and t >= self.beep_after_seconds:
-                        assert self.prompt_app is not None
-                        self.prompt_app.output.bell()
-                    if special.is_timing_enabled():
-                        self.output_timing(f"Time: {t:0.03f}s")
-                except KeyboardInterrupt:
-                    pass
-
-                start = time()
-                result_count += 1
-                mutating = mutating or is_mutating(result.status_plain)
-
-                # get and display warnings if enabled
-                if self.show_warnings and isinstance(result.rows, Cursor) and result.rows.warning_count > 0:
-                    warnings = sqlexecute.run("SHOW WARNINGS")
-                    t = time() - start
-                    saw_warning = False
-                    for warning in warnings:
-                        saw_warning = True
-                        formatted = self.format_sqlresult(
-                            warning,
-                            is_expanded=special.is_expanded_output(),
-                            is_redirected=special.is_redirected(),
-                            null_string=self.null_string,
-                            numeric_alignment=self.numeric_alignment,
-                            binary_display=self.binary_display,
-                            max_width=max_width,
-                            is_warnings_style=True,
-                        )
-                        self.echo("")
-                        self.output(formatted, warning, is_warnings_style=True)
-
-                    if saw_warning and special.is_timing_enabled():
-                        self.output_timing(f"Time: {t:0.03f}s", is_warnings_style=True)
-
-        def keepalive_hook(_context):
-            """
-            prompt_toolkit shares the event loop with this hook, which seems
-            to get called a bit faster than once/second on one machine.
-
-            It would be nice to reset the counter whenever user input is made,
-            but was not clear how to do that with context.input_is_ready().
-
-            Example at https://github.com/prompt-toolkit/python-prompt-toolkit/blob/main/examples/prompts/inputhook.py
-            """
-            if self.keepalive_ticks is None:
-                return
-            if self.keepalive_ticks < 1:
-                return
-            self._keepalive_counter += 1
-            if self._keepalive_counter > self.keepalive_ticks:
-                self._keepalive_counter = 0
-                self.logger.debug('keepalive ping')
-                try:
-                    assert self.sqlexecute is not None
-                    assert self.sqlexecute.conn is not None
-                    self.sqlexecute.conn.ping(reconnect=False)
-                except Exception as e:
-                    self.logger.debug('keepalive ping error %r', e)
-
-        def one_iteration(text: str | None = None) -> None:
-            inputhook = keepalive_hook if self.keepalive_ticks and self.keepalive_ticks >= 1 else None
-            if text is None:
-                try:
-                    assert self.prompt_app is not None
-                    loaded_message_fn = functools.partial(get_prompt_message, self.prompt_app.app)
-                    text = self.prompt_app.prompt(
-                        inputhook=inputhook,
-                        message=loaded_message_fn,
-                    )
-                except KeyboardInterrupt:
-                    return
-
-                special.set_expanded_output(False)
-                special.set_forced_horizontal_output(False)
-
-                try:
-                    text = self.handle_editor_command(
-                        text,
-                        inputhook,
-                        loaded_message_fn,
-                    )
-                except RuntimeError as e:
-                    logger.error("sql: %r, error: %r", text, e)
-                    logger.error("traceback: %r", traceback.format_exc())
-                    self.echo(str(e), err=True, fg="red")
-                    return
-
-                try:
-                    if self.handle_clip_command(text):
-                        return
-                except RuntimeError as e:
-                    logger.error("sql: %r, error: %r", text, e)
-                    logger.error("traceback: %r", traceback.format_exc())
-                    self.echo(str(e), err=True, fg="red")
-                    return
-                # LLM command support
-                while special.is_llm_command(text):
-                    start = time()
-                    try:
-                        assert isinstance(self.sqlexecute, SQLExecute)
-                        assert sqlexecute.conn is not None
-                        cur = sqlexecute.conn.cursor()
-                        context, sql, duration = special.handle_llm(
-                            text,
-                            cur,
-                            sqlexecute.dbname or '',
-                            self.llm_prompt_field_truncate,
-                            self.llm_prompt_section_truncate,
-                        )
-                        if context:
-                            click.echo("LLM Response:")
-                            click.echo(context)
-                            click.echo("---")
-                        if special.is_timing_enabled():
-                            self.output_timing(f"Time: {duration:.2f} seconds")
-                        text = self.prompt_app.prompt(
-                            default=sql or '',
-                            inputhook=inputhook,
-                            message=loaded_message_fn,
-                        )
-                    except KeyboardInterrupt:
-                        return
-                    except special.FinishIteration as e:
-                        if e.results:
-                            return output_res(e.results, start)
-                        else:
-                            return None
-                    except RuntimeError as e:
-                        logger.error("sql: %r, error: %r", text, e)
-                        logger.error("traceback: %r", traceback.format_exc())
-                        self.echo(str(e), err=True, fg="red")
-                        return
-
-            text = text.strip()
-
-            if not text:
-                return
-
-            if is_redirect_command(text):
-                sql_part, command_part, file_operator_part, file_part = get_redirect_components(text)
-                text = sql_part or ''
-                try:
-                    special.set_redirect(command_part, file_operator_part, file_part)
-                except (FileNotFoundError, OSError, RuntimeError) as e:
-                    logger.error("sql: %r, error: %r", text, e)
-                    logger.error("traceback: %r", traceback.format_exc())
-                    self.echo(str(e), err=True, fg="red")
-                    return
-
-            if self.destructive_warning:
-                destroy = confirm_destructive_query(self.destructive_keywords, text)
-                if destroy is None:
-                    pass  # Query was not destructive. Nothing to do here.
-                elif destroy is True:
-                    self.echo("Your call!")
-                else:
-                    self.echo("Wise choice!")
-                    return
-            else:
-                destroy = True
-
-            try:
-                logger.debug("sql: %r", text)
-
-                special.write_tee(self.last_prompt_message, nl=False)
-                special.write_tee(text)
-                self.log_query(text)
-
-                successful = False
-                start = time()
-                res = sqlexecute.run(text)
-                self.main_formatter.query = text
-                self.redirect_formatter.query = text
-                successful = True
-                output_res(res, start)
-                special.unset_once_if_written(self.post_redirect_command)
-                special.flush_pipe_once_if_written(self.post_redirect_command)
-            except pymysql.err.InterfaceError:
-                # attempt to reconnect
-                if not self.reconnect():
-                    return
-                one_iteration(text)
-                return  # OK to just return, cuz the recursion call runs to the end.
-            except EOFError as e:
-                raise e
-            except KeyboardInterrupt:
-                # get last connection id
-                connection_id_to_kill = sqlexecute.connection_id or 0
-                # some mysql-compatible databases may not implement connection_id()
-                if connection_id_to_kill > 0:
-                    logger.debug("connection id to kill: %r", connection_id_to_kill)
-                    try:
-                        sqlexecute.connect()
-                        for kill_result in sqlexecute.run(f"kill {connection_id_to_kill}"):
-                            status_str = str(kill_result.status_plain).lower()
-                            if status_str.find("ok") > -1:
-                                logger.debug("cancelled query, connection id: %r, sql: %r", connection_id_to_kill, text)
-                                self.echo(f"Cancelled query id: {connection_id_to_kill}", err=True, fg="blue")
-                            else:
-                                logger.debug(
-                                    "Failed to confirm query cancellation, connection id: %r, sql: %r",
-                                    connection_id_to_kill,
-                                    text,
-                                )
-                                self.echo(f"Failed to confirm query cancellation, id: {connection_id_to_kill}", err=True, fg="red")
-                    except Exception as e2:
-                        self.echo(f"Encountered error while cancelling query: {e2}", err=True, fg="red")
-                else:
-                    logger.debug("Did not get a connection id, skip cancelling query")
-                    self.echo("Did not get a connection id, skip cancelling query", err=True, fg="red")
-            except NotImplementedError:
-                self.echo("Not Yet Implemented.", fg="yellow")
-            except pymysql.OperationalError as e1:
-                logger.debug("Exception: %r", e1)
-                if e1.args[0] in (2003, 2006, 2013):
-                    # attempt to reconnect
-                    if not self.reconnect():
-                        return
-                    one_iteration(text)
-                    return  # OK to just return, cuz the recursion call runs to the end.
-                else:
-                    logger.error("sql: %r, error: %r", text, e1)
-                    logger.error("traceback: %r", traceback.format_exc())
-                    self.echo(str(e1), err=True, fg="red")
-            except Exception as e:
-                logger.error("sql: %r, error: %r", text, e)
-                logger.error("traceback: %r", traceback.format_exc())
-                self.echo(str(e), err=True, fg="red")
-            else:
-                if is_dropping_database(text, sqlexecute.dbname):
-                    sqlexecute.dbname = None
-                    sqlexecute.connect()
-
-                # Refresh the table names and column names if necessary.
-                if need_completion_refresh(text):
-                    self.refresh_completions(reset=need_completion_reset(text))
-            finally:
-                if self.logfile is False:
-                    self.echo("Warning: This query was not logged.", err=True, fg="red")
-            query = Query(text, successful, mutating)
-            self.query_history.append(query)
-
-        if self.toolbar_format.lower() == 'none':
-            get_toolbar_tokens = None
-        else:
-            get_toolbar_tokens = create_toolbar_tokens_func(
-                self,
-                show_initial_toolbar_help,
-                self.toolbar_format,
-            )
-
-        if self.wider_completion_menu:
-            complete_style = CompleteStyle.MULTI_COLUMN
-        else:
-            complete_style = CompleteStyle.COLUMN
-
-        with self._completer_lock:
-            if self.key_bindings == "vi":
-                editing_mode = EditingMode.VI
-            else:
-                editing_mode = EditingMode.EMACS
-
-            self.prompt_app = PromptSession(
-                color_depth=ColorDepth.DEPTH_24_BIT if 'truecolor' in os.getenv('COLORTERM', '').lower() else None,
-                lexer=PygmentsLexer(MyCliLexer),
-                reserve_space_for_menu=self.get_reserved_space(),
-                prompt_continuation=get_continuation,
-                bottom_toolbar=get_toolbar_tokens,
-                complete_style=complete_style,
-                input_processors=[
-                    ConditionalProcessor(
-                        processor=HighlightMatchingBracketProcessor(chars="[](){}"), filter=HasFocus(DEFAULT_BUFFER) & ~IsDone()
-                    )
-                ],
-                tempfile_suffix=".sql",
-                completer=DynamicCompleter(lambda: self.completer),
-                complete_in_thread=True,
-                history=history,
-                auto_suggest=ThreadedAutoSuggest(AutoSuggestFromHistory()),
-                complete_while_typing=complete_while_typing_filter,
-                multiline=cli_is_multiline(self),
-                # why not self.toolkit_style here?
-                style=style_factory_toolkit(self.syntax_style, self.cli_style),
-                include_default_pygments_style=False,
-                key_bindings=key_bindings,
-                enable_open_in_editor=True,
-                enable_system_prompt=True,
-                enable_suspend=True,
-                editing_mode=editing_mode,
-                search_ignore_case=True,
-            )
-
-            if self.key_bindings == 'vi':
-                self.prompt_app.app.ttimeoutlen = self.vi_ttimeoutlen
-            else:
-                self.prompt_app.app.ttimeoutlen = self.emacs_ttimeoutlen
-
-        self.set_all_external_titles()
-
-        try:
-            while True:
-                one_iteration()
-                iterations += 1
-        except EOFError:
-            special.close_tee()
-            if not self.less_chatty:
-                self.echo("Goodbye!")
+        main_repl(self)
 
     def reconnect(self, database: str = "") -> bool:
         """
@@ -1475,11 +893,12 @@ class MyCli:
         """Get the output margin (number of rows for the prompt, footer and
         timing message."""
         if not self.prompt_lines:
-            if self.prompt_app and self.prompt_app.app:
-                render_counter = self.prompt_app.app.render_counter
+            if self.prompt_session and self.prompt_session.app:
+                render_counter = self.prompt_session.app.render_counter
             else:
                 render_counter = 0
-            self.prompt_lines = self.get_prompt(self.prompt_format, render_counter).count('\n') + 1
+            # todo: this jump back to get_prompt() in repl.py is a sign that separation is incomplete
+            self.prompt_lines = get_prompt(self, self.prompt_format, render_counter).count('\n') + 1
         margin = self.get_reserved_space() + self.prompt_lines
         if special.is_timing_enabled():
             margin += 1
@@ -1504,8 +923,8 @@ class MyCli:
 
         """
         if output:
-            if self.prompt_app is not None:
-                size = self.prompt_app.output.get_size()
+            if self.prompt_session is not None:
+                size = self.prompt_session.output.get_size()
                 size_columns = size.columns
                 size_rows = size.rows
             else:
@@ -1562,7 +981,7 @@ class MyCli:
             else:
                 status = FormattedText([('', result.status_plain)])
             styled_status = to_formatted_text(status, style=add_style)
-            print_formatted_text(styled_status, style=self.toolkit_style)
+            print_formatted_text(styled_status, style=self.ptoolkit_style)
 
     def configure_pager(self) -> None:
         # Provide sane defaults for less if they are empty.
@@ -1607,163 +1026,10 @@ class MyCli:
         with self._completer_lock:
             self.completer = new_completer
 
-        if self.prompt_app:
+        if self.prompt_session:
             # After refreshing, redraw the CLI to clear the statusbar
             # "Refreshing completions..." indicator
-            self.prompt_app.app.invalidate()
-
-    def get_completions(self, text: str, cursor_position: int) -> Iterable[Completion]:
-        with self._completer_lock:
-            return self.completer.get_completions(Document(text=text, cursor_position=cursor_position), None)
-
-    def set_all_external_titles(self) -> None:
-        self.set_external_terminal_tab_title()
-        self.set_external_terminal_window_title()
-        self.set_external_multiplex_window_title()
-        self.set_external_multiplex_pane_title()
-
-    def set_external_terminal_tab_title(self) -> None:
-        if not self.terminal_tab_title_format:
-            return
-        if not self.prompt_app:
-            return
-        if not sys.stderr.isatty():
-            return
-        title = sanitize_terminal_title(self.get_prompt(self.terminal_tab_title_format, self.prompt_app.app.render_counter))
-        print(f'\x1b]1;{title}\a', file=sys.stderr, end='')
-        sys.stderr.flush()
-
-    def set_external_terminal_window_title(self) -> None:
-        if not self.terminal_window_title_format:
-            return
-        if not self.prompt_app:
-            return
-        if not sys.stderr.isatty():
-            return
-        title = sanitize_terminal_title(self.get_prompt(self.terminal_window_title_format, self.prompt_app.app.render_counter))
-        print(f'\x1b]2;{title}\a', file=sys.stderr, end='')
-        sys.stderr.flush()
-
-    def set_external_multiplex_window_title(self) -> None:
-        if not self.multiplex_window_title_format:
-            return
-        if not os.getenv('TMUX'):
-            return
-        if not self.prompt_app:
-            return
-        title = sanitize_terminal_title(self.get_prompt(self.multiplex_window_title_format, self.prompt_app.app.render_counter))
-        try:
-            subprocess.run(
-                ['tmux', 'rename-window', title],
-                check=False,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except FileNotFoundError:
-            pass
-
-    def set_external_multiplex_pane_title(self) -> None:
-        if not self.multiplex_pane_title_format:
-            return
-        if not os.getenv('TMUX'):
-            return
-        if not self.prompt_app:
-            return
-        if not sys.stderr.isatty():
-            return
-        title = sanitize_terminal_title(self.get_prompt(self.multiplex_pane_title_format, self.prompt_app.app.render_counter))
-        print(f'\x1b]2;{title}\x1b\\', file=sys.stderr, end='')
-        sys.stderr.flush()
-
-    def get_custom_toolbar(self, toolbar_format: str) -> ANSI:
-        if not self.prompt_app:
-            return ANSI('')
-        if not self.prompt_app.app:
-            return ANSI('')
-        if self.prompt_app.app.current_buffer.text:
-            return self.last_custom_toolbar_message
-        toolbar = self.get_prompt(toolbar_format, self.prompt_app.app.render_counter)
-        toolbar = toolbar.replace("\\x1b", "\x1b")
-        self.last_custom_toolbar_message = ANSI(toolbar)
-        return self.last_custom_toolbar_message
-
-    # Memoizing a method leaks the instance, but we only expect one MyCli instance.
-    # Before memoizing, get_prompt() was called dozens of times per prompt.
-    # Even after memoizing, get_prompt's logic gets called twice per prompt, which
-    # should be addressed, because some format strings take a trip to the server.
-    @functools.lru_cache(maxsize=256)  # noqa: B019
-    def get_prompt(self, string: str, _render_counter: int) -> str:
-        sqlexecute = self.sqlexecute
-        assert sqlexecute is not None
-        assert sqlexecute.server_info is not None
-        assert sqlexecute.server_info.species is not None
-        if self.login_path and self.login_path_as_host:
-            prompt_host = self.login_path
-        elif sqlexecute.host is not None:
-            prompt_host = sqlexecute.host
-        else:
-            prompt_host = DEFAULT_HOST
-        short_prompt_host, _, _ = prompt_host.partition('.')
-        if re.match(r'^[\d\.]+$', short_prompt_host):
-            short_prompt_host = prompt_host
-        now = datetime.now()
-        backslash_placeholder = '\ufffc_backslash'
-        string = string.replace('\\\\', backslash_placeholder)
-        string = string.replace("\\u", sqlexecute.user or "(none)")
-        string = string.replace("\\h", prompt_host or "(none)")
-        string = string.replace("\\H", short_prompt_host or "(none)")
-        string = string.replace("\\d", sqlexecute.dbname or "(none)")
-        string = string.replace("\\t", sqlexecute.server_info.species.name)
-        string = string.replace("\\n", "\n")
-        string = string.replace("\\D", now.strftime("%a %b %d %H:%M:%S %Y"))
-        string = string.replace("\\m", now.strftime("%M"))
-        string = string.replace("\\P", now.strftime("%p"))
-        string = string.replace("\\R", now.strftime("%H"))
-        string = string.replace("\\r", now.strftime("%I"))
-        string = string.replace("\\s", now.strftime("%S"))
-        string = string.replace("\\p", str(sqlexecute.port))
-        string = string.replace("\\j", os.path.basename(sqlexecute.socket or '(none)'))
-        string = string.replace("\\J", sqlexecute.socket or '(none)')
-        string = string.replace("\\k", os.path.basename(sqlexecute.socket or str(sqlexecute.port)))
-        string = string.replace("\\K", sqlexecute.socket or str(sqlexecute.port))
-        string = string.replace("\\A", self.dsn_alias or "(none)")
-        string = string.replace("\\_", " ")
-        string = string.replace(backslash_placeholder, '\\')
-
-        # jump through hoops for the test environment, and for efficiency
-        if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:
-            if '\\y' in string:
-                with sqlexecute.conn.cursor() as cur:
-                    string = string.replace('\\y', str(get_uptime(cur)) or '(none)')
-            if '\\Y' in string:
-                with sqlexecute.conn.cursor() as cur:
-                    string = string.replace('\\Y', format_uptime(str(get_uptime(cur))) or '(none)')
-        else:
-            string = string.replace('\\y', '(none)')
-            string = string.replace('\\Y', '(none)')
-
-        if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:
-            if '\\T' in string:
-                with sqlexecute.conn.cursor() as cur:
-                    string = string.replace('\\T', get_ssl_version(cur) or '(none)')
-        else:
-            string = string.replace('\\T', '(none)')
-
-        if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:
-            if '\\w' in string:
-                with sqlexecute.conn.cursor() as cur:
-                    string = string.replace('\\w', str(get_warning_count(cur) or '(none)'))
-        else:
-            string = string.replace('\\w', '(none)')
-        if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:
-            if '\\W' in string:
-                with sqlexecute.conn.cursor() as cur:
-                    string = string.replace('\\W', str(get_warning_count(cur) or ''))
-        else:
-            string = string.replace('\\W', '')
-
-        return string
+            self.prompt_session.app.invalidate()
 
     def run_query(
         self,
@@ -1791,7 +1057,7 @@ class MyCli:
                 click.echo(line, nl=new_line)
 
             # get and display warnings if enabled
-            if self.show_warnings and isinstance(result.rows, Cursor) and result.rows.warning_count > 0:
+            if special.is_show_warnings_enabled() and isinstance(result.rows, Cursor) and result.rows.warning_count > 0:
                 warnings = self.sqlexecute.run("SHOW WARNINGS")
                 for warning in warnings:
                     output = self.format_sqlresult(
@@ -2190,7 +1456,7 @@ class CliArgs:
 
 @click.command()
 @clickdc.adddc('cli_args', CliArgs)
-@click.version_option(__version__, '--version', '-V', help='Output mycli\'s version.')
+@click.version_option(mycli_package.__version__, '--version', '-V', help="Output mycli's version.")
 def click_entrypoint(
     cli_args: CliArgs,
 ) -> None:
@@ -2209,7 +1475,7 @@ def click_entrypoint(
             return None
         try:
             with open(password_file) as fp:
-                password = fp.readline().strip()
+                password = fp.readline().removesuffix('\n')
                 return password
         except FileNotFoundError:
             click.secho(f"Password file '{password_file}' not found", err=True, fg="red")
@@ -2258,10 +1524,11 @@ def click_entrypoint(
         auto_vertical_output=cli_args.auto_vertical_output,
         warn=cli_args.warn,
         myclirc=cli_args.myclirc,
+        show_warnings=cli_args.show_warnings,
     )
 
     if cli_args.checkup:
-        do_checkup(mycli)
+        main_checkup(mycli)
         sys.exit(0)
 
     if cli_args.csv and cli_args.format not in [None, 'csv']:
@@ -2309,35 +1576,10 @@ def click_entrypoint(
         )
 
     if cli_args.list_dsn:
-        try:
-            alias_dsn = mycli.config["alias_dsn"]
-        except KeyError:
-            click.secho("Invalid DSNs found in the config file. Please check the \"[alias_dsn]\" section in myclirc.", err=True, fg="red")
-            sys.exit(1)
-        except Exception as e:
-            click.secho(str(e), err=True, fg="red")
-            sys.exit(1)
-        for alias, value in alias_dsn.items():
-            if cli_args.verbose:
-                click.secho(f"{alias} : {value}")
-            else:
-                click.secho(alias)
-        sys.exit(0)
+        sys.exit(main_list_dsn(mycli, cli_args))
 
     if cli_args.list_ssh_config:
-        ssh_config = read_ssh_config(cli_args.ssh_config_path)
-        try:
-            host_entries = ssh_config.get_hostnames()
-        except KeyError:
-            click.secho('Error reading ssh config', err=True, fg="red")
-            sys.exit(1)
-        for host_entry in host_entries:
-            if cli_args.verbose:
-                host_config = ssh_config.lookup(host_entry)
-                click.secho(f"{host_entry} : {host_config.get('hostname')}")
-            else:
-                click.secho(host_entry)
-        sys.exit(0)
+        sys.exit(main_list_ssh_config(mycli, cli_args))
 
     if 'MYSQL_UNIX_PORT' in os.environ:
         # deprecated 2026-03
@@ -2644,7 +1886,6 @@ def click_entrypoint(
         use_keyring=use_keyring,
         reset_keyring=reset_keyring,
         keepalive_ticks=keepalive_ticks,
-        show_warnings=cli_args.show_warnings,
     )
 
     if combined_init_cmd:
@@ -2658,267 +1899,20 @@ def click_entrypoint(
         cli_args.port,
     )
 
-    #  --execute argument
-    if cli_args.execute:
-        if not sys.stdin.isatty():
-            click.secho('Ignoring STDIN since --execute was also given.', err=True, fg='red')
-        if cli_args.batch:
-            click.secho('Ignoring --batch since --execute was also given.', err=True, fg='red')
-        try:
-            execute_sql = cli_args.execute
-            if cli_args.format == 'csv':
-                mycli.main_formatter.format_name = 'csv'
-                if execute_sql.endswith(r'\G'):
-                    execute_sql = execute_sql[:-2]
-            elif cli_args.format == 'tsv':
-                mycli.main_formatter.format_name = 'tsv'
-                if execute_sql.endswith(r'\G'):
-                    execute_sql = execute_sql[:-2]
-            elif cli_args.format == 'table':
-                mycli.main_formatter.format_name = 'ascii'
-                if execute_sql.endswith(r'\G'):
-                    execute_sql = execute_sql[:-2]
-            else:
-                mycli.main_formatter.format_name = 'tsv'
+    if cli_args.execute is not None:
+        sys.exit(main_execute_from_cli(mycli, cli_args))
 
-            mycli.run_query(execute_sql, checkpoint=cli_args.checkpoint)
-            sys.exit(0)
-        except Exception as e:
-            click.secho(str(e), err=True, fg="red")
-            sys.exit(1)
+    if cli_args.batch is not None and cli_args.batch != '-' and cli_args.progress and sys.stderr.isatty():
+        sys.exit(main_batch_with_progress_bar(mycli, cli_args))
 
-    def dispatch_batch_statements(statements: str, batch_counter: int) -> None:
-        if batch_counter:
-            # this is imperfect if the first line of input has multiple statements
-            if cli_args.format == 'csv':
-                mycli.main_formatter.format_name = 'csv-noheader'
-            elif cli_args.format == 'tsv':
-                mycli.main_formatter.format_name = 'tsv_noheader'
-            elif cli_args.format == 'table':
-                mycli.main_formatter.format_name = 'ascii'
-            else:
-                mycli.main_formatter.format_name = 'tsv'
-        else:
-            if cli_args.format == 'csv':
-                mycli.main_formatter.format_name = 'csv'
-            elif cli_args.format == 'tsv':
-                mycli.main_formatter.format_name = 'tsv'
-            elif cli_args.format == 'table':
-                mycli.main_formatter.format_name = 'ascii'
-            else:
-                mycli.main_formatter.format_name = 'tsv'
-
-        warn_confirmed: bool | None = True
-        if not cli_args.noninteractive and mycli.destructive_warning and is_destructive(mycli.destructive_keywords, statements):
-            try:
-                # this seems to work, even though we are reading from stdin above
-                sys.stdin = open("/dev/tty")
-                # bug: the prompt will not be visible if stdout is redirected
-                warn_confirmed = confirm_destructive_query(mycli.destructive_keywords, statements)
-            except (IOError, OSError):
-                mycli.logger.warning("Unable to open TTY as stdin.")
-                sys.exit(1)
-        try:
-            if warn_confirmed:
-                if cli_args.throttle > 0 and batch_counter >= 1:
-                    sleep(cli_args.throttle)
-                mycli.run_query(statements, checkpoint=cli_args.checkpoint, new_line=True)
-        except Exception as e:
-            click.secho(str(e), err=True, fg="red")
-            sys.exit(1)
-
-    if cli_args.batch and cli_args.batch != '-' and cli_args.progress and sys.stderr.isatty():
-        # The actual number of SQL statements can be greater, if there is more than
-        # one statement per line, but this is how the  progress bar will count.
-        goal_statements = 0
-        if not sys.stdin.isatty() and cli_args.batch != '-':
-            click.secho('Ignoring STDIN since --batch was also given.', err=True, fg='yellow')
-        if os.path.exists(cli_args.batch) and not os.path.isfile(cli_args.batch):
-            click.secho('--progress is only compatible with a plain file.', err=True, fg='red')
-            sys.exit(1)
-        try:
-            batch_count_h = click.open_file(cli_args.batch)
-            for _statement, _counter in statements_from_filehandle(batch_count_h):
-                goal_statements += 1
-            batch_count_h.close()
-            batch_h = click.open_file(cli_args.batch)
-        except (OSError, FileNotFoundError):
-            click.secho(f'Failed to open --batch file: {cli_args.batch}', err=True, fg='red')
-            sys.exit(1)
-        except ValueError as e:
-            click.secho(f'Error reading --batch file: {cli_args.batch}: {e}', err=True, fg='red')
-            sys.exit(1)
-        try:
-            if goal_statements:
-                pb_style = prompt_toolkit.styles.Style.from_dict({'bar-a': 'reverse'})
-                custom_formatters = [
-                    progress_bar_formatters.Bar(start='[', end=']', sym_a=' ', sym_b=' ', sym_c=' '),
-                    progress_bar_formatters.Text(' '),
-                    progress_bar_formatters.Progress(),
-                    progress_bar_formatters.Text(' '),
-                    progress_bar_formatters.Text('eta ', style='class:time-left'),
-                    progress_bar_formatters.TimeLeft(),
-                    progress_bar_formatters.Text(' ', style='class:time-left'),
-                ]
-                err_output = prompt_toolkit.output.create_output(stdout=sys.stderr, always_prefer_tty=True)
-                with ProgressBar(style=pb_style, formatters=custom_formatters, output=err_output) as pb:
-                    for pb_counter in pb(range(goal_statements)):
-                        statement, _untrusted_counter = next(statements_from_filehandle(batch_h))
-                        dispatch_batch_statements(statement, pb_counter)
-        except (ValueError, StopIteration) as e:
-            click.secho(str(e), err=True, fg='red')
-            sys.exit(1)
-        finally:
-            batch_h.close()
-        sys.exit(0)
-
-    if cli_args.batch:
-        if not sys.stdin.isatty() and cli_args.batch != '-':
-            click.secho('Ignoring STDIN since --batch was also given.', err=True, fg='red')
-        try:
-            batch_h = click.open_file(cli_args.batch)
-        except (OSError, FileNotFoundError):
-            click.secho(f'Failed to open --batch file: {cli_args.batch}', err=True, fg='red')
-            sys.exit(1)
-        try:
-            for statement, counter in statements_from_filehandle(batch_h):
-                dispatch_batch_statements(statement, counter)
-            batch_h.close()
-        except ValueError as e:
-            click.secho(str(e), err=True, fg='red')
-            sys.exit(1)
-        sys.exit(0)
+    if cli_args.batch is not None:
+        sys.exit(main_batch_without_progress_bar(mycli, cli_args))
 
     if not sys.stdin.isatty():
-        batch_h = click.get_text_stream('stdin')
-        try:
-            for statement, counter in statements_from_filehandle(batch_h):
-                dispatch_batch_statements(statement, counter)
-        except ValueError as e:
-            click.secho(str(e), err=True, fg='red')
-            sys.exit(1)
-        sys.exit(0)
+        sys.exit(main_batch_from_stdin(mycli, cli_args))
 
     mycli.run_cli()
     mycli.close()
-
-
-def need_completion_refresh(queries: str) -> bool:
-    """Determines if the completion needs a refresh by checking if the sql
-    statement is an alter, create, drop or change db."""
-    for query in sqlparse.split(queries):
-        try:
-            first_token = query.split()[0]
-            if first_token.lower() in ("alter", "create", "use", "\\r", "\\u", "connect", "drop", "rename"):
-                return True
-        except Exception:
-            return False
-    return False
-
-
-def need_completion_reset(queries: str) -> bool:
-    """Determines if the statement is a database switch such as 'use' or '\\u'.
-    When a database is changed the existing completions must be reset before we
-    start the completion refresh for the new database.
-    """
-    for query in sqlparse.split(queries):
-        try:
-            first_token = query.split()[0]
-            if first_token.lower() in ("use", "\\u"):
-                return True
-        except Exception:
-            return False
-    return False
-
-
-def is_mutating(status_plain: str | None) -> bool:
-    """Determines if the statement is mutating based on the status."""
-    if not status_plain:
-        return False
-
-    mutating = {"insert", "update", "delete", "alter", "create", "drop", "replace", "truncate", "load", "rename"}
-    return status_plain.split(None, 1)[0].lower() in mutating
-
-
-def is_select(status_plain: str | None) -> bool:
-    """Returns true if the first word in status is 'select'."""
-    if not status_plain:
-        return False
-    return status_plain.split(None, 1)[0].lower() == "select"
-
-
-def thanks_picker() -> str:
-    import mycli
-
-    lines: str = ""
-    try:
-        with resources.files(mycli).joinpath("AUTHORS").open('r') as f:
-            lines += f.read()
-    except FileNotFoundError:
-        pass
-
-    try:
-        with resources.files(mycli).joinpath("SPONSORS").open('r') as f:
-            lines += f.read()
-    except FileNotFoundError:
-        pass
-
-    contents = []
-    for line in lines.split("\n"):
-        if m := re.match(r"^ *\* (.*)", line):
-            contents.append(m.group(1))
-    return choice(contents) if contents else 'our sponsors'
-
-
-def tips_picker() -> str:
-    import mycli
-
-    tips = []
-
-    try:
-        with resources.files(mycli).joinpath('TIPS').open('r') as f:
-            for line in f:
-                if line.startswith("#"):
-                    continue
-                if tip := line.strip():
-                    tips.append(tip)
-    except FileNotFoundError:
-        pass
-
-    return choice(tips) if tips else r'\? or "help" for help!'
-
-
-@prompt_register("edit-and-execute-command")
-def edit_and_execute(event: KeyPressEvent) -> None:
-    """Different from the prompt-toolkit default, we want to have a choice not
-    to execute a query after editing, hence validate_and_handle=False."""
-    buff = event.current_buffer
-    buff.open_in_editor(validate_and_handle=False)
-
-
-def read_ssh_config(ssh_config_path: str):
-    ssh_config = paramiko.config.SSHConfig()
-    try:
-        with open(ssh_config_path) as f:
-            ssh_config.parse(f)
-    except FileNotFoundError as e:
-        click.secho(str(e), err=True, fg="red")
-        sys.exit(1)
-    # Paramiko prior to version 2.7 raises Exception on parse errors.
-    # In 2.7 it has become paramiko.ssh_exception.SSHException,
-    # but let's catch everything for compatibility
-    except Exception as err:
-        click.secho(f"Could not parse SSH configuration file {ssh_config_path}:\n{err} ", err=True, fg="red")
-        sys.exit(1)
-    else:
-        return ssh_config
-
-
-def filtered_sys_argv() -> list[str]:
-    args = sys.argv[1:]
-    if args == ['-h']:
-        args = ['--help']
-    return args
 
 
 def main() -> int | None:

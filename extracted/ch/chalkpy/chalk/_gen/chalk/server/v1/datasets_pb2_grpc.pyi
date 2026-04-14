@@ -14,6 +14,8 @@ from chalk._gen.chalk.server.v1.datasets_pb2 import (
     ArchiveDatasetRevisionsResponse,
     DeleteDatasetRequest,
     DeleteDatasetResponse,
+    DeleteMaterializedAggregateTileRequest,
+    DeleteMaterializedAggregateTileResponse,
     GenerateDatasetEdfsRequest,
     GenerateDatasetEdfsResponse,
     GenerateDatasetStatsRequest,
@@ -32,6 +34,10 @@ from chalk._gen.chalk.server.v1.datasets_pb2 import (
     ListDatasetRevisionsResponse,
     ListDatasetsRequest,
     ListDatasetsResponse,
+    ListMaterializedAggregateTileFilesRequest,
+    ListMaterializedAggregateTileFilesResponse,
+    ListMaterializedAggregateTilesRequest,
+    ListMaterializedAggregateTilesResponse,
     RenameDatasetRequest,
     RenameDatasetResponse,
 )
@@ -79,6 +85,18 @@ class DatasetMetadataServiceStub:
     DeleteDataset: UnaryUnaryMultiCallable[
         DeleteDatasetRequest,
         DeleteDatasetResponse,
+    ]
+    ListMaterializedAggregateTiles: UnaryUnaryMultiCallable[
+        ListMaterializedAggregateTilesRequest,
+        ListMaterializedAggregateTilesResponse,
+    ]
+    ListMaterializedAggregateTileFiles: UnaryUnaryMultiCallable[
+        ListMaterializedAggregateTileFilesRequest,
+        ListMaterializedAggregateTileFilesResponse,
+    ]
+    DeleteMaterializedAggregateTile: UnaryUnaryMultiCallable[
+        DeleteMaterializedAggregateTileRequest,
+        DeleteMaterializedAggregateTileResponse,
     ]
     GetDatasetRevisionPreview: UnaryUnaryMultiCallable[
         GetDatasetRevisionPreviewRequest,
@@ -152,6 +170,24 @@ class DatasetMetadataServiceServicer(metaclass=ABCMeta):
         request: DeleteDatasetRequest,
         context: ServicerContext,
     ) -> DeleteDatasetResponse: ...
+    @abstractmethod
+    def ListMaterializedAggregateTiles(
+        self,
+        request: ListMaterializedAggregateTilesRequest,
+        context: ServicerContext,
+    ) -> ListMaterializedAggregateTilesResponse: ...
+    @abstractmethod
+    def ListMaterializedAggregateTileFiles(
+        self,
+        request: ListMaterializedAggregateTileFilesRequest,
+        context: ServicerContext,
+    ) -> ListMaterializedAggregateTileFilesResponse: ...
+    @abstractmethod
+    def DeleteMaterializedAggregateTile(
+        self,
+        request: DeleteMaterializedAggregateTileRequest,
+        context: ServicerContext,
+    ) -> DeleteMaterializedAggregateTileResponse: ...
     @abstractmethod
     def GetDatasetRevisionPreview(
         self,

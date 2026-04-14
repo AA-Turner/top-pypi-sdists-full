@@ -381,6 +381,7 @@ __all__ = [
     "aws_nimblestudio",
     "aws_notifications",
     "aws_notificationscontacts",
+    "aws_novaact",
     "aws_oam",
     "aws_observabilityadmin",
     "aws_odb",
@@ -435,6 +436,7 @@ __all__ = [
     "aws_scheduler",
     "aws_sdb",
     "aws_secretsmanager",
+    "aws_securityagent",
     "aws_securityhub",
     "aws_securitylake",
     "aws_servicecatalog",
@@ -664,6 +666,7 @@ from . import aws_networkmanager
 from . import aws_nimblestudio
 from . import aws_notifications
 from . import aws_notificationscontacts
+from . import aws_novaact
 from . import aws_oam
 from . import aws_observabilityadmin
 from . import aws_odb
@@ -718,6 +721,7 @@ from . import aws_sam
 from . import aws_scheduler
 from . import aws_sdb
 from . import aws_secretsmanager
+from . import aws_securityagent
 from . import aws_securityhub
 from . import aws_securitylake
 from . import aws_servicecatalog

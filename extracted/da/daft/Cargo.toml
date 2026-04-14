@@ -245,7 +245,7 @@ name = "daft"
 [package]
 name = "daft"
 publish = false
-version = "0.7.8"
+version = "0.7.9"
 exclude = ["examples/dvector", "tests/", "benchmarking/", "tutorials/", "k8s/", "ci/", "docs/", "assets/", "tools/", "*.md", "codecov.yml", "mkdocs.yml"]
 
 [package.edition]
@@ -355,7 +355,7 @@ sysinfo = "0.38.4"
 tango-bench = "0.6.0"
 test-log = "0.2.19"
 thiserror = "2.0.17"
-tiktoken-rs = "0.7.0"
+tiktoken-rs = "0.9.1"
 tokio-util = "0.7.17"
 tonic = "0.14.2"
 tonic-build = "0.14.2"
@@ -687,4 +687,4 @@ priority = 1
 
 [workspace.package]
 edition = "2024"
-version = "0.7.8"
+version = "0.7.9"

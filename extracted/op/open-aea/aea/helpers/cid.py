@@ -26,11 +26,18 @@ Original implementation: https://github.com/ipld/py-cid/
 from abc import abstractmethod
 from typing import Union, cast
 
-import base58
-import multibase
-import multicodec
-import multihash as mh
-from morphys import ensure_bytes, ensure_unicode
+from aea.helpers.multiformat import (
+    b58decode,
+    b58encode,
+    multibase_decode,
+    multibase_encode,
+    multibase_is_encoded,
+    multicodec_add_prefix,
+    multicodec_get_codec,
+    multicodec_is_codec,
+    multicodec_remove_prefix,
+    multihash_decode,
+)
 
 DEFAULT_ENCODING = "base32"
 BTC_ENCODING = "base58btc"
@@ -48,7 +55,9 @@ class BaseCID:
 
         self._version = version
         self._codec = codec
-        self._multihash = ensure_bytes(multihash)
+        self._multihash = (
+            multihash if isinstance(multihash, bytes) else multihash.encode("utf-8")
+        )
 
     @property
     def version(self) -> int:
@@ -88,7 +97,8 @@ class BaseCID:
     def __str__(self) -> str:
         """String representation."""
 
-        return ensure_unicode(self.encode())
+        encoded = self.encode()
+        return encoded if isinstance(encoded, str) else encoded.decode("utf-8")
 
     def __eq__(self, other: object) -> bool:
         """Dunder to check object equivalence."""
@@ -118,7 +128,7 @@ class CIDv0(BaseCID):
     def encode(self, encoding: str = DEFAULT_ENCODING) -> bytes:
         """base58-encoded buffer"""
 
-        return ensure_bytes(base58.b58encode(self.buffer))
+        return b58encode(self.buffer)
 
     def to_v1(self) -> "CIDv1":
         """Get an equivalent `CIDv1` object."""
@@ -139,13 +149,13 @@ class CIDv1(BaseCID):
         """The raw representation of the CID"""
 
         return b"".join(
-            [bytes([self.version]), multicodec.add_prefix(self.codec, self.multihash)]
+            [bytes([self.version]), multicodec_add_prefix(self.codec, self.multihash)]
         )
 
     def encode(self, encoding: str = DEFAULT_ENCODING) -> bytes:
         """Encoded version of the raw representation"""
 
-        return multibase.encode(encoding, self.buffer)
+        return multibase_encode(encoding, self.buffer)
 
     def to_v0(self) -> CIDv0:
         """Get an equivalent `CIDv0` object."""
@@ -178,7 +188,7 @@ class CID:
                 "version should be 0 or 1, {} was provided".format(version)
             )
 
-        if not multicodec.is_codec(codec):
+        if not multicodec_is_codec(codec):
             raise ValueError("invalid codec {} provided, please check".format(codec))
 
         if not isinstance(multihash, bytes):
@@ -208,7 +218,7 @@ class CID:
     def from_string(cls, cid: str) -> CIDObject:
         """Creates a CID object from a encoded form"""
 
-        cid_bytes = ensure_bytes(cid, "utf-8")
+        cid_bytes = cid if isinstance(cid, bytes) else cid.encode("utf-8")
         return cls.from_bytes(cid_bytes)
 
     @classmethod
@@ -222,34 +232,37 @@ class CID:
         # putting in assumption that multibase for CIDv0 can not be identity
         # refer: https://github.com/ipld/cid/issues/13#issuecomment-326490275
 
-        if cid[0] != 0 and multibase.is_encoded(cid):
+        if cid[0] != 0 and multibase_is_encoded(cid):
             # if the bytestream is multibase encoded
-            cid = multibase.decode(cid)
+            try:
+                cid = multibase_decode(cid)
+            except ValueError as e:
+                raise ValueError(f"invalid multibase encoding: {e}") from e
             if len(cid) < 2:
                 raise ValueError("cid length is invalid")
 
             data = cid[1:]
             version = int(cid[0])
-            codec = multicodec.get_codec(data)
-            multihash = multicodec.remove_prefix(data)
+            codec = multicodec_get_codec(data)
+            multihash = multicodec_remove_prefix(data)
 
         elif cid[0] in (0, 1):
             # if the bytestream is a CID
             version = cid[0]
             data = cid[1:]
-            codec = multicodec.get_codec(data)
-            multihash = multicodec.remove_prefix(data)
+            codec = multicodec_get_codec(data)
+            multihash = multicodec_remove_prefix(data)
 
         else:
             # otherwise its just base58-encoded multihash
             try:
                 version = 0
                 codec = CIDv0.CODEC
-                multihash = base58.b58decode(cid)
+                multihash = b58decode(cid)
             except ValueError:
                 raise ValueError("multihash is not a valid base58 encoded multihash")
 
-        mh.decode(multihash)
+        multihash_decode(multihash)
         return cls.make(version, codec, multihash)
 
 

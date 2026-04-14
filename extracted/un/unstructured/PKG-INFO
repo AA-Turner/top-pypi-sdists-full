@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured
-Version: 0.22.18
+Version: 0.22.20
 Summary: A library that prepares raw documents for downstream ML tasks.
 Project-URL: Homepage, https://github.com/Unstructured-IO/unstructured
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
@@ -49,7 +49,7 @@ Requires-Dist: msoffcrypto-tool<7.0.0,>=6.0.0; extra == 'all-docs'
 Requires-Dist: networkx<4.0.0,>=3.2.0; extra == 'all-docs'
 Requires-Dist: openai-whisper<20270000,>=20231117; extra == 'all-docs'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'all-docs'
-Requires-Dist: pandas<4.0.0,>=2.0.0; extra == 'all-docs'
+Requires-Dist: pandas<3.0.0,>=2.0.0; extra == 'all-docs'
 Requires-Dist: pdf2image<2.0.0,>=1.17.0; extra == 'all-docs'
 Requires-Dist: pdfminer-six<20270000,>=20251230; extra == 'all-docs'
 Requires-Dist: pi-heif<2.0.0,>=1.2.0; extra == 'all-docs'
@@ -60,8 +60,8 @@ Requires-Dist: pypdf<7.0.0,>=6.6.2; extra == 'all-docs'
 Requires-Dist: python-docx<2.0.0,>=1.2.0; extra == 'all-docs'
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'all-docs'
 Requires-Dist: unstructured-inference<2.0.0,>=1.2.0; (platform_system != 'Windows' and python_version < '3.12') and extra == 'all-docs'
-Requires-Dist: unstructured-inference<2.0.0,>=1.6.2; (platform_system != 'Windows' and python_version >= '3.12') and extra == 'all-docs'
-Requires-Dist: unstructured-inference<2.0.0,>=1.6.2; (platform_system == 'Windows' and python_version >= '3.12' and python_version < '3.13') and extra == 'all-docs'
+Requires-Dist: unstructured-inference<2.0.0,>=1.6.6; (platform_system != 'Windows' and python_version >= '3.12') and extra == 'all-docs'
+Requires-Dist: unstructured-inference<2.0.0,>=1.6.6; (platform_system == 'Windows' and python_version >= '3.12' and python_version < '3.13') and extra == 'all-docs'
 Requires-Dist: unstructured-pytesseract<1.0.0,>=0.3.15; extra == 'all-docs'
 Requires-Dist: xlrd<3.0.0,>=2.0.1; extra == 'all-docs'
 Provides-Extra: audio
@@ -69,7 +69,7 @@ Requires-Dist: openai-whisper<20270000,>=20231117; extra == 'audio'
 Provides-Extra: chunking-tokens
 Requires-Dist: tiktoken<1.0.0,>=0.12.0; extra == 'chunking-tokens'
 Provides-Extra: csv
-Requires-Dist: pandas<4.0.0,>=2.0.0; extra == 'csv'
+Requires-Dist: pandas<3.0.0,>=2.0.0; extra == 'csv'
 Provides-Extra: doc
 Requires-Dist: python-docx<2.0.0,>=1.2.0; extra == 'doc'
 Provides-Extra: docx
@@ -90,8 +90,8 @@ Requires-Dist: pi-heif<2.0.0,>=1.2.0; extra == 'image'
 Requires-Dist: pikepdf<11.0.0,>=10.3.0; extra == 'image'
 Requires-Dist: pypdf<7.0.0,>=6.6.2; extra == 'image'
 Requires-Dist: unstructured-inference<2.0.0,>=1.2.0; (platform_system != 'Windows' and python_version < '3.12') and extra == 'image'
-Requires-Dist: unstructured-inference<2.0.0,>=1.6.2; (platform_system != 'Windows' and python_version >= '3.12') and extra == 'image'
-Requires-Dist: unstructured-inference<2.0.0,>=1.6.2; (platform_system == 'Windows' and python_version >= '3.12' and python_version < '3.13') and extra == 'image'
+Requires-Dist: unstructured-inference<2.0.0,>=1.6.6; (platform_system != 'Windows' and python_version >= '3.12') and extra == 'image'
+Requires-Dist: unstructured-inference<2.0.0,>=1.6.6; (platform_system == 'Windows' and python_version >= '3.12' and python_version < '3.13') and extra == 'image'
 Requires-Dist: unstructured-pytesseract<1.0.0,>=0.3.15; extra == 'image'
 Provides-Extra: ingest
 Requires-Dist: unstructured-ingest[airtable,astradb,azure,azure-ai-search,bedrock,biomed,box,chroma,confluence,couchbase,databricks-volumes,delta-table,discord,dropbox,elasticsearch,gcs,github,gitlab,google-drive,hubspot,huggingface,jira,kafka,kdbai,milvus,mongodb,notion,octoai,onedrive,openai,opensearch,outlook,pinecone,postgres,qdrant,reddit,remote,s3,salesforce,sftp,sharepoint,singlestore,slack,vectara,vertexai,voyageai,weaviate,wikipedia]<2.0.0,>=1.4.0; (platform_system != 'Windows') and extra == 'ingest'
@@ -103,7 +103,7 @@ Requires-Dist: msoffcrypto-tool<7.0.0,>=6.0.0; extra == 'local-inference'
 Requires-Dist: networkx<4.0.0,>=3.2.0; extra == 'local-inference'
 Requires-Dist: openai-whisper<20270000,>=20231117; extra == 'local-inference'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'local-inference'
-Requires-Dist: pandas<4.0.0,>=2.0.0; extra == 'local-inference'
+Requires-Dist: pandas<3.0.0,>=2.0.0; extra == 'local-inference'
 Requires-Dist: pdf2image<2.0.0,>=1.17.0; extra == 'local-inference'
 Requires-Dist: pdfminer-six<20270000,>=20251230; extra == 'local-inference'
 Requires-Dist: pi-heif<2.0.0,>=1.2.0; extra == 'local-inference'
@@ -114,8 +114,8 @@ Requires-Dist: pypdf<7.0.0,>=6.6.2; extra == 'local-inference'
 Requires-Dist: python-docx<2.0.0,>=1.2.0; extra == 'local-inference'
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'local-inference'
 Requires-Dist: unstructured-inference<2.0.0,>=1.2.0; (platform_system != 'Windows' and python_version < '3.12') and extra == 'local-inference'
-Requires-Dist: unstructured-inference<2.0.0,>=1.6.2; (platform_system != 'Windows' and python_version >= '3.12') and extra == 'local-inference'
-Requires-Dist: unstructured-inference<2.0.0,>=1.6.2; (platform_system == 'Windows' and python_version >= '3.12' and python_version < '3.13') and extra == 'local-inference'
+Requires-Dist: unstructured-inference<2.0.0,>=1.6.6; (platform_system != 'Windows' and python_version >= '3.12') and extra == 'local-inference'
+Requires-Dist: unstructured-inference<2.0.0,>=1.6.6; (platform_system == 'Windows' and python_version >= '3.12' and python_version < '3.13') and extra == 'local-inference'
 Requires-Dist: unstructured-pytesseract<1.0.0,>=0.3.15; extra == 'local-inference'
 Requires-Dist: xlrd<3.0.0,>=2.0.1; extra == 'local-inference'
 Provides-Extra: md
@@ -139,8 +139,8 @@ Requires-Dist: pi-heif<2.0.0,>=1.2.0; extra == 'pdf'
 Requires-Dist: pikepdf<11.0.0,>=10.3.0; extra == 'pdf'
 Requires-Dist: pypdf<7.0.0,>=6.6.2; extra == 'pdf'
 Requires-Dist: unstructured-inference<2.0.0,>=1.2.0; (platform_system != 'Windows' and python_version < '3.12') and extra == 'pdf'
-Requires-Dist: unstructured-inference<2.0.0,>=1.6.2; (platform_system != 'Windows' and python_version >= '3.12') and extra == 'pdf'
-Requires-Dist: unstructured-inference<2.0.0,>=1.6.2; (platform_system == 'Windows' and python_version >= '3.12' and python_version < '3.13') and extra == 'pdf'
+Requires-Dist: unstructured-inference<2.0.0,>=1.6.6; (platform_system != 'Windows' and python_version >= '3.12') and extra == 'pdf'
+Requires-Dist: unstructured-inference<2.0.0,>=1.6.6; (platform_system == 'Windows' and python_version >= '3.12' and python_version < '3.13') and extra == 'pdf'
 Requires-Dist: unstructured-pytesseract<1.0.0,>=0.3.15; extra == 'pdf'
 Provides-Extra: ppt
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'ppt'
@@ -153,12 +153,12 @@ Provides-Extra: rtf
 Requires-Dist: pypandoc-binary<2.0.0,>=1.16.2; (platform_system != 'Windows') and extra == 'rtf'
 Requires-Dist: pypandoc-binary<2.0.0,>=1.16.2; (platform_system == 'Windows' and python_version < '3.13') and extra == 'rtf'
 Provides-Extra: tsv
-Requires-Dist: pandas<4.0.0,>=2.0.0; extra == 'tsv'
+Requires-Dist: pandas<3.0.0,>=2.0.0; extra == 'tsv'
 Provides-Extra: xlsx
 Requires-Dist: msoffcrypto-tool<7.0.0,>=6.0.0; extra == 'xlsx'
 Requires-Dist: networkx<4.0.0,>=3.2.0; extra == 'xlsx'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'xlsx'
-Requires-Dist: pandas<4.0.0,>=2.0.0; extra == 'xlsx'
+Requires-Dist: pandas<3.0.0,>=2.0.0; extra == 'xlsx'
 Requires-Dist: xlrd<3.0.0,>=2.0.1; extra == 'xlsx'
 Description-Content-Type: text/markdown
 

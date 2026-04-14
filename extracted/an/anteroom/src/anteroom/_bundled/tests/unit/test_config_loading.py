@@ -1658,6 +1658,28 @@ class TestRagConfig:
         config, _ = load_config(cfg)
         assert config.rag.retrieval_mode == "dense"
 
+    def test_rag_show_status_default_true(self, tmp_path: Path) -> None:
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.rag.show_status is True
+
+    def test_rag_show_status_yaml_false(self, tmp_path: Path) -> None:
+        cfg = _write_config(
+            tmp_path,
+            {
+                "ai": {"base_url": "http://t", "api_key": "k"},
+                "rag": {"show_status": False},
+            },
+        )
+        config, _ = load_config(cfg)
+        assert config.rag.show_status is False
+
+    def test_rag_show_status_env_var_false(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AI_CHAT_RAG_SHOW_STATUS", "false")
+        cfg = _minimal(tmp_path)
+        config, _ = load_config(cfg)
+        assert config.rag.show_status is False
+
 
 # ---------------------------------------------------------------------------
 # Reranker config
@@ -2425,7 +2447,9 @@ class TestReferencesConfig:
             },
         )
         config, _ = load_config(cfg)
-        assert config.references.instructions == ["valid.md"]
+        # Non-string entries filtered; surviving path resolved to absolute
+        assert len(config.references.instructions) == 1
+        assert Path(config.references.instructions[0]).is_absolute()
 
     def test_references_not_a_dict_uses_defaults(self, tmp_path: Path) -> None:
         cfg = _write_config(

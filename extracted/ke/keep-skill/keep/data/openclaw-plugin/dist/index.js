@@ -21519,6 +21519,29 @@ var DEFAULT_CALL_TIMEOUT_MS = 1e4;
 var WRITE_CALL_TIMEOUT_MS = 15e3;
 var ASSEMBLE_TIMEOUT_MS = 8e3;
 var LONG_CALL_TIMEOUT_MS = 3e4;
+var FORWARDED_ENV_KEYS = /* @__PURE__ */ new Set([
+  "ANTHROPIC_API_KEY",
+  "CLAUDE_CODE_OAUTH_TOKEN",
+  "GEMINI_API_KEY",
+  "GOOGLE_API_KEY",
+  "GOOGLE_CLOUD_LOCATION",
+  "GOOGLE_CLOUD_PROJECT",
+  "HERMES_HOME",
+  "KEEP_CONFIG",
+  "KEEP_EMBED_PROBE",
+  "KEEP_LOCAL_ONLY",
+  "KEEP_STORE_PATH",
+  "KEEP_TRACE",
+  "KEEP_VERBOSE",
+  "KEEPNOTES_API_KEY",
+  "KEEPNOTES_API_URL",
+  "KEEPNOTES_PROJECT",
+  "MISTRAL_API_KEY",
+  "OLLAMA_HOST",
+  "OPENAI_API_KEY",
+  "OPENROUTER_API_KEY",
+  "VOYAGE_API_KEY"
+]);
 function withTimeout(promise2, ms, label) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -21535,6 +21558,22 @@ function withTimeout(promise2, ms, label) {
       }
     );
   });
+}
+function buildKeepMcpLaunch(keepCommand, baseEnv = process.env) {
+  const env = {};
+  for (const [key, value] of Object.entries(baseEnv)) {
+    if (typeof value !== "string" || value.trim() === "") continue;
+    if (key.startsWith("KEEP_") || FORWARDED_ENV_KEYS.has(key)) {
+      env[key] = value;
+    }
+  }
+  const args = ["mcp"];
+  const storePath = (baseEnv.KEEP_STORE_PATH || "").trim();
+  if (storePath) {
+    args.unshift(storePath);
+    args.unshift("--store");
+  }
+  return { command: keepCommand, args, env };
 }
 var KeepMcpTransport = class {
   client = null;
@@ -21570,13 +21609,13 @@ var KeepMcpTransport = class {
     if (!this.client && (this.transport || this.childPid)) {
       await this.disconnect();
     }
-    this.logger.info("Spawning keep mcp process");
-    this.transport = new StdioClientTransport({
-      command: this.keepCommand,
-      args: ["mcp"]
-    });
+    const launch = buildKeepMcpLaunch(this.keepCommand);
+    this.logger.info(
+      launch.args[0] === "--store" ? `Spawning keep mcp process (store=${launch.args[1]})` : "Spawning keep mcp process"
+    );
+    this.transport = new StdioClientTransport(launch);
     this.client = new Client(
-      { name: "keep-openclaw-plugin", version: "0.136.8" },
+      { name: "keep-openclaw-plugin", version: "0.138.1" },
       { capabilities: {} }
     );
     const thisTransport = this.transport;
@@ -21829,7 +21868,7 @@ function registerBootstrapContextEngine(api, mode) {
       info: {
         id: "keep",
         name: "keep (setup required)",
-        version: "0.136.8",
+        version: "0.138.1",
         ownsCompaction: false
       },
       async assemble(params) {
@@ -22146,7 +22185,7 @@ function register(api) {
       info: {
         id: "keep",
         name: "keep reflective memory",
-        version: "0.136.8",
+        version: "0.138.1",
         ownsCompaction: false
       },
       // -------------------------------------------------------------------

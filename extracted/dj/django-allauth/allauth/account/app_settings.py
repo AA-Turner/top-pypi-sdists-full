@@ -1,8 +1,14 @@
+from __future__ import annotations
+
 import warnings
 from enum import Enum
+from typing import TypeVar
 
 from allauth import app_settings as allauth_settings
 from allauth.core.internal.cryptokit import UserCodeFormat
+
+
+_T = TypeVar("_T")
 
 
 class AppSettings:
@@ -26,10 +32,10 @@ class AppSettings:
         # Don't send email verification mails during signup
         NONE = "none"
 
-    def __init__(self, prefix):
+    def __init__(self, prefix) -> None:
         self.prefix = prefix
 
-    def _setting(self, name, dflt):
+    def _setting(self, name: str, dflt: _T) -> _T:
         from allauth.utils import get_setting
 
         return get_setting(self.prefix + name, dflt)
@@ -118,7 +124,7 @@ class AppSettings:
         The maximum number of times the email can be changed after signup at
         the email veriication stage.
         """
-        v = self._setting("EMAIL_VERIFICATION_SUPPORTS_CHANGE", False)
+        v: bool | int = self._setting("EMAIL_VERIFICATION_SUPPORTS_CHANGE", False)
         if isinstance(v, bool):
             v = 2 if v else 0
         return v
@@ -128,7 +134,7 @@ class AppSettings:
         """
         The maximum number of times the user can request a new email verification code.
         """
-        v = self._setting("EMAIL_VERIFICATION_SUPPORTS_RESEND", False)
+        v: bool | int = self._setting("EMAIL_VERIFICATION_SUPPORTS_RESEND", False)
         if isinstance(v, bool):
             v = 2 if v else 0
         return v
@@ -191,7 +197,7 @@ class AppSettings:
         The maximum number of times the phone number can be changed after
         signup at the phone number verification stage.
         """
-        v = self._setting("PHONE_VERIFICATION_SUPPORTS_CHANGE", False)
+        v: bool | int = self._setting("PHONE_VERIFICATION_SUPPORTS_CHANGE", False)
         if isinstance(v, bool):
             v = 2 if v else 0
         return v
@@ -202,7 +208,7 @@ class AppSettings:
         The maximum number of times the user can request a new phone number
         verification code.
         """
-        v = self._setting("PHONE_VERIFICATION_SUPPORTS_RESEND", False)
+        v: bool | int = self._setting("PHONE_VERIFICATION_SUPPORTS_RESEND", False)
         if isinstance(v, bool):
             v = 2 if v else 0
         return v
@@ -328,7 +334,7 @@ class AppSettings:
 
     @property
     def SIGNUP_FIELDS(self) -> dict:
-        fields = self._setting("SIGNUP_FIELDS", None)
+        fields: list | None = self._setting("SIGNUP_FIELDS", None)
         if not fields:
             fields = []
             username = self._setting("USERNAME_REQUIRED", True)
@@ -560,7 +566,7 @@ class AppSettings:
         """
         The maximum number of times the user can request a new login code.
         """
-        v = self._setting("LOGIN_BY_CODE_SUPPORTS_RESEND", False)
+        v: bool | int = self._setting("LOGIN_BY_CODE_SUPPORTS_RESEND", False)
         if isinstance(v, bool):
             v = 2 if v else 0
         return v

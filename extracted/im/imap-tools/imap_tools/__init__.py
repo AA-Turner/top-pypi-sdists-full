@@ -5,7 +5,7 @@
 
 from .query import AND, OR, NOT, Header, UidRange, A, O, N, H, U
 from .mailbox import BaseMailBox, MailBox, MailBoxUnencrypted, MailBoxStartTls
-from .message import MailMessage, MailAttachment
+from .message import MailMessage, MailAttachment, LazyHeaders
 from .folder import MailBoxFolderManager, FolderInfo
 from .consts import MailMessageFlags, MailBoxFolderStatusOptions, SortCriteria
 from .utils import EmailAddress
@@ -16,7 +16,7 @@ from .errors import (
     MailboxLoginError, MailboxLogoutError, MailboxMoveError, MailboxNumbersError, MailboxStarttlsError,
     MailboxTaggedResponseError, MailboxUidsError, UnexpectedCommandStatusError)
 
-__version__ = '1.11.1'
+__version__ = '1.12.0'
 
 __all__ = [
     'A', 'AND', 'BaseMailBox', 'EmailAddress', 'FolderInfo', 'H', 'Header', 'ImapToolsError', 'MailAttachment',

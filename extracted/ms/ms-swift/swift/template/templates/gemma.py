@@ -1,6 +1,7 @@
 # Copyright (c) ModelScope Contributors. All rights reserved.
 import numpy as np
 import torch
+import torch.nn.functional as F
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional
 
@@ -255,6 +256,18 @@ class Gemma4Template(Template):
         elif media_type == 'video':
             return ['\n\n<|video|>\n\n']
 
+    def _get_system(self, inputs: StdTemplateInputs) -> Optional[str]:
+        system = super()._get_system(inputs)
+        if self.enable_thinking:
+            system = '<|think|>\n' + (system or '')
+        return system
+
+    def _add_non_thinking_prefix(self, inputs: StdTemplateInputs, thinking_prefix: str = '<|channel>thought'):
+        return super()._add_non_thinking_prefix(inputs, thinking_prefix=thinking_prefix)
+
+    def _remove_thinking_content(self, content: str, thinking_suffix: str = '<channel|>') -> str:
+        return super()._remove_thinking_content(content, thinking_suffix=thinking_suffix)
+
     def _encode(self, inputs: StdTemplateInputs) -> Dict[str, Any]:
         encoded = super()._encode(inputs)
         split_token = self._tokenize('\n')
@@ -305,10 +318,17 @@ class Gemma4Template(Template):
 
     def _data_collator_mm_data(self, batch: List[Dict[str, Any]]) -> Dict[str, Any]:
         res = super()._data_collator_mm_data(batch)
-        for key in ['image_position_ids', 'video_position_ids', 'input_features', 'input_features_mask']:
+        for key in ['image_position_ids', 'video_position_ids']:
             value = [b[key] for b in batch if b.get(key) is not None]
             if value:
                 res[key] = torch.concat(value)
+        input_features = [b['input_features'] for b in batch if b.get('input_features') is not None]
+        if input_features:
+            input_features_mask = [b['input_features_mask'] for b in batch if b.get('input_features_mask') is not None]
+            max_len = max([x.shape[1] for x in input_features_mask])
+            res['input_features'] = torch.concat([F.pad(x, (0, 0, 0, max_len - x.shape[1])) for x in input_features])
+            res['input_features_mask'] = torch.concat(
+                [F.pad(x, (0, max_len - x.shape[1])) for x in input_features_mask])
         return res
 
 
@@ -321,4 +341,11 @@ class Gemma4TemplateMeta(TemplateMeta):
     system_prefix: Optional[Prompt] = field(default_factory=lambda: ['<bos><|turn>system\n{{SYSTEM}}<turn|>\n'])
 
 
-register_template(Gemma4TemplateMeta(MLLMTemplateType.gemma4, template_cls=Gemma4Template))
+register_template(Gemma4TemplateMeta(MLLMTemplateType.gemma4_nothinking, template_cls=Gemma4Template))
+
+register_template(
+    Gemma4TemplateMeta(
+        MLLMTemplateType.gemma4,
+        template_cls=Gemma4Template,
+        is_thinking=True,
+        non_thinking_prefix='<|channel>thought\n<channel|>'))

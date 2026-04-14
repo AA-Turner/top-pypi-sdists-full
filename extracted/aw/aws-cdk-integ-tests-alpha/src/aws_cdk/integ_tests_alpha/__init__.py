@@ -5124,7 +5124,7 @@ class WaiterStateMachineOptions:
             delivery_stream = firehose.DeliveryStream(stack, "DeliveryStream",
                 destination=firehose.S3Bucket(bucket,
                     logging_config=firehose.EnableLogging(log_group),
-                    processor=processor,
+                    processors=[processor],
                     compression=firehose.Compression.GZIP,
                     data_output_prefix="regularPrefix",
                     error_output_prefix="errorPrefix",

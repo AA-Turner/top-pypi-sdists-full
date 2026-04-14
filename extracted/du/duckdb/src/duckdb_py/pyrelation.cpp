@@ -969,8 +969,7 @@ duckdb::pyarrow::Table DuckDBPyRelation::ToArrowTableInternal(idx_t batch_size, 
 		ScopedConfigSetting scoped_setting(
 		    config,
 		    [&batch_size](ClientConfig &config) {
-			    config.get_result_collector = [&batch_size](ClientContext &context,
-			                                                PreparedStatementData &data) -> PhysicalOperator & {
+			    config.get_result_collector = [&batch_size](ClientContext &context, PreparedStatementData &data) {
 				    return PhysicalArrowCollector::Create(context, data, batch_size);
 			    };
 		    },
@@ -999,8 +998,7 @@ py::object DuckDBPyRelation::ToArrowCapsule(const py::object &requested_schema) 
 		ScopedConfigSetting scoped_setting(
 		    config,
 		    [&batch_size](ClientConfig &config) {
-			    config.get_result_collector = [&batch_size](ClientContext &context,
-			                                                PreparedStatementData &data) -> PhysicalOperator & {
+			    config.get_result_collector = [&batch_size](ClientContext &context, PreparedStatementData &data) {
 				    return PhysicalArrowCollector::Create(context, data, batch_size);
 			    };
 		    },
@@ -1190,6 +1188,9 @@ static JoinType ParseJoinType(const string &type) {
 
 unique_ptr<DuckDBPyRelation> DuckDBPyRelation::Join(DuckDBPyRelation *other, const py::object &condition,
                                                     const string &type) {
+	if (!other) {
+		throw InvalidInputException("No relation provided for join");
+	}
 
 	JoinType join_type;
 	string type_string = StringUtil::Lower(type);

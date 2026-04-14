@@ -2627,6 +2627,106 @@ class HasteConfig:
         )
 
 
+@jsii.enum(jsii_type="projen.javascript.InstallReason")
+class InstallReason(enum.Enum):
+    '''(experimental) Why a dependency install was triggered during synthesis.
+
+    :stability: experimental
+    '''
+
+    NO_NODE_MODULES = "NO_NODE_MODULES"
+    '''(experimental) The node_modules directory does not exist.
+
+    :stability: experimental
+    '''
+    PACKAGE_JSON_CHANGED = "PACKAGE_JSON_CHANGED"
+    '''(experimental) The package.json file was modified during synthesis.
+
+    :stability: experimental
+    '''
+    DEPS_RESOLVED = "DEPS_RESOLVED"
+    '''(experimental) Wildcard dependency versions were resolved to concrete ranges.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.InstallTrigger",
+    jsii_struct_bases=[],
+    name_mapping={"reason": "reason", "diff": "diff", "resolutions": "resolutions"},
+)
+class InstallTrigger:
+    def __init__(
+        self,
+        *,
+        reason: "InstallReason",
+        diff: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resolutions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Describes why dependencies need to be installed.
+
+        :param reason: (experimental) The reason for the install.
+        :param diff: (experimental) A unified diff of the package.json changes. Only present when reason is ``PACKAGE_JSON_CHANGED``.
+        :param resolutions: (experimental) Human-readable descriptions of resolved dependency version changes. Only present when reason is ``DEPS_RESOLVED``.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__179bd2bfcbc666e12244fe4363b6de53963491ba8b206152f877e3cd316e3318)
+            check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
+            check_type(argname="argument diff", value=diff, expected_type=type_hints["diff"])
+            check_type(argname="argument resolutions", value=resolutions, expected_type=type_hints["resolutions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "reason": reason,
+        }
+        if diff is not None:
+            self._values["diff"] = diff
+        if resolutions is not None:
+            self._values["resolutions"] = resolutions
+
+    @builtins.property
+    def reason(self) -> "InstallReason":
+        '''(experimental) The reason for the install.
+
+        :stability: experimental
+        '''
+        result = self._values.get("reason")
+        assert result is not None, "Required property 'reason' is missing"
+        return typing.cast("InstallReason", result)
+
+    @builtins.property
+    def diff(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) A unified diff of the package.json changes. Only present when reason is ``PACKAGE_JSON_CHANGED``.
+
+        :stability: experimental
+        '''
+        result = self._values.get("diff")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def resolutions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Human-readable descriptions of resolved dependency version changes.
+
+        Only present when reason is ``DEPS_RESOLVED``.
+
+        :stability: experimental
+        '''
+        result = self._values.get("resolutions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstallTrigger(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class Jest(
     _Component_2b0ad27f,
     metaclass=jsii.JSIIMeta,
@@ -4996,6 +5096,29 @@ class NodePackage(
             type_hints = typing.get_type_hints(_typecheckingstub__b12c7fbb63b42bcfe1afac4c97478186870515282ad2fec02e2dfe5256265514)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(builtins.bool, jsii.invoke(self, "hasScript", [name]))
+
+    @jsii.member(jsii_name="installDependencies")
+    def _install_dependencies(
+        self,
+        *,
+        reason: "InstallReason",
+        diff: typing.Optional[typing.Sequence[builtins.str]] = None,
+        resolutions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Runs the install or install:ci task.
+
+        Does not log — the caller is
+        responsible for informing the user before calling this method.
+
+        :param reason: (experimental) The reason for the install.
+        :param diff: (experimental) A unified diff of the package.json changes. Only present when reason is ``PACKAGE_JSON_CHANGED``.
+        :param resolutions: (experimental) Human-readable descriptions of resolved dependency version changes. Only present when reason is ``DEPS_RESOLVED``.
+
+        :stability: experimental
+        '''
+        _trigger = InstallTrigger(reason=reason, diff=diff, resolutions=resolutions)
+
+        return typing.cast(None, jsii.invoke(self, "installDependencies", [_trigger]))
 
     @jsii.member(jsii_name="postSynthesize")
     def post_synthesize(self) -> None:
@@ -16898,6 +17021,8 @@ __all__ = [
     "EslintOverride",
     "HTMLWhitespaceSensitivity",
     "HasteConfig",
+    "InstallReason",
+    "InstallTrigger",
     "Jest",
     "JestConfigOptions",
     "JestDiscoverTestMatchPatternsForDirsOptions",
@@ -17262,6 +17387,15 @@ def _typecheckingstub__1d0f97663aee053bcca0e3b33c8be45ef5c6271b8e0c683a67d717aa9
     haste_impl_module_path: typing.Optional[builtins.str] = None,
     platforms: typing.Optional[typing.Sequence[builtins.str]] = None,
     throw_on_module_collision: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__179bd2bfcbc666e12244fe4363b6de53963491ba8b206152f877e3cd316e3318(
+    *,
+    reason: InstallReason,
+    diff: typing.Optional[typing.Sequence[builtins.str]] = None,
+    resolutions: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

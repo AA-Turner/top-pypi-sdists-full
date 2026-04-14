@@ -5,14 +5,15 @@ from __future__ import annotations
 
 import inspect
 import sys
+import warnings
 from abc import ABC, abstractmethod
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, TypeAlias, cast
+from typing import Annotated, Any, TypeAlias, cast
 
 import polars as pl
 
-from dataframely._compat import pa, sa, sa_TypeEngine
+from dataframely._compat import pa, pydantic, sa, sa_TypeEngine
 from dataframely._polars import PolarsDataType
 from dataframely.random import Generator
 
@@ -222,6 +223,50 @@ class Column(ABC):
     def pyarrow_dtype(self) -> pa.DataType:
         """The :mod:`pyarrow` dtype equivalent of this column data type."""
 
+    # ----------------------------------- PYDANTIC ----------------------------------- #
+
+    def pydantic_field(self) -> Any:
+        """Obtain a pydantic field type for this column definition.
+
+        Returns:
+            A pydantic-compatible type annotation that includes structured constraints
+            (such as `min`, `max`, ...).
+
+        Warning:
+            Custom checks are not translated to pydantic validators.
+        """
+        if self.check is not None:
+            warnings.warn(
+                f"Custom checks for column '{self.name or self.__class__.__name__}' "
+                "are not translated to pydantic constraints."
+            )
+
+        python_type = self._python_type
+        if self.nullable:
+            python_type = python_type | None
+
+        field_kwargs = self._pydantic_field_kwargs()
+        if field_kwargs:
+            return Annotated[python_type, pydantic.Field(**field_kwargs)]
+        return python_type
+
+    @property
+    @abstractmethod
+    def _python_type(self) -> Any:
+        """The native Python type corresponding to this column definition."""
+
+    def _pydantic_field_kwargs(self) -> dict[str, Any]:
+        """Return kwargs for pydantic.Field initialization.
+
+        This method should be extended by subclasses and mixins to add their
+        specific constraints. Subclasses should call super() and extend the
+        returned dictionary.
+
+        Returns:
+            A dictionary of kwargs to pass to pydantic.Field.
+        """
+        return {}
+
     # ------------------------------------ HELPER ------------------------------------ #
 
     @property
@@ -233,6 +278,77 @@ class Column(ABC):
     def col(self) -> pl.Expr:
         """Obtain a Polars column expression for the column."""
         return pl.col(self.name)
+
+    def with_properties(self, **kwargs: Any) -> Self:
+        """Copy the current column definition while updating the provided properties.
+
+        All other properties from the original column are preserved.
+
+        Args:
+            **kwargs: Properties to update on the new column instance. The set of allowed properties depends on the type of the column.
+
+        Returns:
+            A new column instance with updated properties.
+        """
+        new_kwargs = {
+            k: getattr(self, k) for k in inspect.signature(self.__class__).parameters
+        } | kwargs
+        return self.__class__(**new_kwargs)
+
+    def with_nullable(self, nullable: bool) -> Self:
+        """Return a new column definition with specified nullability.
+
+        Args:
+            nullable: Whether the new column may contain null values.
+
+        Returns:
+            A new column instance with updated nullability.
+        """
+        return self.with_properties(nullable=nullable)
+
+    def with_alias(self, alias: str) -> Self:
+        """Return a new column definition with a specified alias.
+
+        Args:
+            alias: The alias to use for the column name.
+
+        Returns:
+            A new column instance with the specified alias.
+        """
+        return self.with_properties(alias=alias)
+
+    def with_check(self, check: Check) -> Self:
+        """Return a new column definition with a specified check.
+
+        Args:
+            check: A custom validation rule or rules for the column.
+
+        Returns:
+            A new column instance with the specified check.
+        """
+        return self.with_properties(check=check)
+
+    def with_primary_key(self, primary_key: bool) -> Self:
+        """Return a new column definition with a specified primary key status.
+
+        Args:
+            primary_key: Whether the column should be part of the primary key.
+
+        Returns:
+            A new column instance with updated primary key status.
+        """
+        return self.with_properties(primary_key=primary_key)
+
+    def with_metadata(self, metadata: dict[str, Any]) -> Self:
+        """Return a new column definition with specified metadata.
+
+        Args:
+            metadata: A dictionary of metadata to attach to the column.
+
+        Returns:
+            A new column instance with the specified metadata.
+        """
+        return self.with_properties(metadata=metadata)
 
     # ----------------------------------- SAMPLING ----------------------------------- #
 

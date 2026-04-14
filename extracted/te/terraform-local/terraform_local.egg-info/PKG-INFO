@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: terraform-local
-Version: 0.25.0
+Version: 0.26.0
 Summary: Thin wrapper script to run Terraform against LocalStack
 Home-page: https://github.com/localstack/terraform-local
 Author: LocalStack Team
@@ -18,7 +18,7 @@ Classifier: Topic :: Software Development :: Testing
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: localstack-client
-Requires-Dist: python-hcl2!=7.3.0
+Requires-Dist: python-hcl2>=8
 Requires-Dist: packaging
 Provides-Extra: test
 Requires-Dist: flake8; extra == "test"
@@ -35,7 +35,7 @@ This package provides `tflocal` - a small wrapper script to run [Terraform](http
 ## Prerequisites
 
 * Python 3.x
-* `pip`
+* `pip` or `pipx`
 * `terraform`
 
 ## How it works
@@ -44,10 +44,50 @@ The script uses the [Terraform Override mechanism](https://www.terraform.io/lang
 
 ## Installation
 
-The `tflocal` command line interface can be installed via `pip`:
+The recommended way to install tflocal is using pipx, which installs Python CLI tools in their own isolated environments. This avoids conflicts with system packages and the externally-managed-environment error (PEP 668) seen on modern Linux distributions.
+
+##### 1) Recommended: Using pipx
+
+    
+First, ensure pipx is installed.
+
+On Debian/Ubuntu:
+
+```
+sudo apt install pipx
+```
+Or, using pip (for other systems):
+
+```
+pip install --user pipx
+```
+Then, run pipx ensurepath to add pipx's binaries to your system's PATH. You may need to restart your shell for this to take effect.
+
+#### Install tflocal with pipx:
+```Bash
+pipx install terraform-local
+```
+To upgrade tflocal in the future, run: pipx upgrade terraform-local.
+
+##### 2) Alternative: Using a Virtual Environment
+
+If you prefer not to use pipx, you can install tflocal into a standard Python virtual environment (venv):
+Bash
+
+# Create a virtual environment (e.g., in your project directory)
+```
+python3 -m venv .venv
+```
+# Activate it
+```
+source .venv/bin/activate
+```
+# Install the package
 ```
 pip install terraform-local
 ```
+
+# Note: You must activate this venv (source .venv/bin/activate) every time you want to use the tflocal command.
 
 ## Configurations
 
@@ -105,6 +145,7 @@ ADDITIONAL_TF_OVERRIDE_LOCATIONS=/path/to/module1,path/to/module2 tflocal plan
 
 ## Change Log
 
+* v0.26.0: Fix compatibility with `python-hcl2` v8+ by using `SerializationOptions` to handle quoted dict keys, block metadata, and comments
 * v0.25.0: Improve `s3control` local endpoint override and respect `AWS_ENDPOINT_URL` configuration for `mwaa`
 * v0.24.1: Exclude broken `python-hcl2` version from requirements
 * v0.24.0: Add support to return `terraform-local` version when calling `tflocal -version` and fix AWS provider detection

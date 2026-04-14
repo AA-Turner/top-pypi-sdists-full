@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import optuna
 from catboost import CatBoostRegressor
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 
 def loocv(

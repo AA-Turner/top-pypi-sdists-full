@@ -60,6 +60,21 @@ class DatasetMetadataServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteDatasetRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteDatasetResponse.FromString,
         )
+        self.ListMaterializedAggregateTiles = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/ListMaterializedAggregateTiles",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTilesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTilesResponse.FromString,
+        )
+        self.ListMaterializedAggregateTileFiles = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/ListMaterializedAggregateTileFiles",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTileFilesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTileFilesResponse.FromString,
+        )
+        self.DeleteMaterializedAggregateTile = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/DeleteMaterializedAggregateTile",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteMaterializedAggregateTileRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteMaterializedAggregateTileResponse.FromString,
+        )
         self.GetDatasetRevisionPreview = channel.unary_unary(
             "/chalk.server.v1.DatasetMetadataService/GetDatasetRevisionPreview",
             request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetDatasetRevisionPreviewRequest.SerializeToString,
@@ -139,6 +154,24 @@ class DatasetMetadataServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListMaterializedAggregateTiles(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListMaterializedAggregateTileFiles(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteMaterializedAggregateTile(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetDatasetRevisionPreview(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -210,6 +243,21 @@ def add_DatasetMetadataServiceServicer_to_server(servicer, server):
             servicer.DeleteDataset,
             request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteDatasetRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteDatasetResponse.SerializeToString,
+        ),
+        "ListMaterializedAggregateTiles": grpc.unary_unary_rpc_method_handler(
+            servicer.ListMaterializedAggregateTiles,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTilesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTilesResponse.SerializeToString,
+        ),
+        "ListMaterializedAggregateTileFiles": grpc.unary_unary_rpc_method_handler(
+            servicer.ListMaterializedAggregateTileFiles,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTileFilesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTileFilesResponse.SerializeToString,
+        ),
+        "DeleteMaterializedAggregateTile": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteMaterializedAggregateTile,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteMaterializedAggregateTileRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteMaterializedAggregateTileResponse.SerializeToString,
         ),
         "GetDatasetRevisionPreview": grpc.unary_unary_rpc_method_handler(
             servicer.GetDatasetRevisionPreview,
@@ -493,6 +541,93 @@ class DatasetMetadataService(object):
             "/chalk.server.v1.DatasetMetadataService/DeleteDataset",
             chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteDatasetRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteDatasetResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListMaterializedAggregateTiles(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/ListMaterializedAggregateTiles",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTilesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTilesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListMaterializedAggregateTileFiles(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/ListMaterializedAggregateTileFiles",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTileFilesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTileFilesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteMaterializedAggregateTile(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/DeleteMaterializedAggregateTile",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteMaterializedAggregateTileRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteMaterializedAggregateTileResponse.FromString,
             options,
             channel_credentials,
             insecure,

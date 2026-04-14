@@ -461,10 +461,12 @@ class AgmetPlotter:
         if init_month_grp is None:
             return
 
-        init_mid = init_month_grp.index[len(init_month_grp) // 2]
+        # Determine initialization month from the group
+        init_date = init_month_grp.index[0]
+        init_year, init_mo = init_date.year, init_date.month
 
         added_legend = False
-        for lead in range(6):
+        for lead in range(1, 6):  # skip lead 0 (init month, not a forecast)
             col = f"fldas_{fldas_var}_lead{lead}"
             if col not in init_month_grp.columns:
                 continue
@@ -472,8 +474,11 @@ class AgmetPlotter:
             if val.empty:
                 continue
 
-            # Target date = init month + lead months
-            target_date = init_mid + pd.DateOffset(months=lead)
+            # Place dot at 15th of the target month (monthly average data)
+            tgt_mo = init_mo + lead
+            tgt_yr = init_year + (tgt_mo - 1) // 12
+            tgt_mo = ((tgt_mo - 1) % 12) + 1
+            target_date = pd.Timestamp(tgt_yr, tgt_mo, 15)
 
             if target_date < today:
                 continue
@@ -499,9 +504,15 @@ class AgmetPlotter:
         im = image.imread(str(self.logos[1]))
         fig.figimage(im, 450, 2300, zorder=3)
 
+        # Configure legend FIRST so its title position can be measured
+        leg.get_frame().set_facecolor("none")
+        leg.set_title("Legend", prop={"size": 14, "weight": "heavy"})
+        leg.get_frame().set_linewidth(0.0)
+        leg._legend_box.align = "left"
+
         # Data Sources — position title at same y as Legend title
-        # Read Legend title y-position for alignment
         try:
+            fig.canvas.draw()
             renderer = fig.canvas.get_renderer()
             leg_title_bbox = leg.get_title().get_window_extent(renderer)
             ds_y = leg_title_bbox.transformed(fig.transFigure.inverted()).y0
@@ -555,11 +566,6 @@ class AgmetPlotter:
             fontsize=9,
         )
 
-        leg.get_frame().set_facecolor("none")
-        leg.set_title("Legend", prop={"size": 14, "weight": "heavy"})
-        leg.get_frame().set_linewidth(0.0)
-        leg._legend_box.align = "left"
-
     def _add_inset_map(self, fig):
         """Draw a small country map with the current region highlighted in black."""
         if self.boundary_gdf is None or self.boundary_gdf.empty:
@@ -605,13 +611,16 @@ class AgmetPlotter:
             # Keep only polygon geometries (drop stray points/lines)
             gdf = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])].copy()
 
-            # Draw regions with thin edges, then country outline with thick edge
-            gdf.plot(ax=ax_map, color="lightgray", edgecolor="gray", linewidth=0.3)
-            gdf.dissolve().boundary.plot(ax=ax_map, color="black", linewidth=1.0)
+            # Draw country as single dissolved polygon (avoids tiny admin_2 dots)
+            gdf.dissolve().plot(ax=ax_map, color="lightgray", edgecolor="black", linewidth=1.0)
 
             # Highlight region: use highlight_gdf (district) or match by name (adm1)
             if self.highlight_gdf is not None and not self.highlight_gdf.empty:
-                self.highlight_gdf.plot(ax=ax_map, color="royalblue", edgecolor="royalblue")
+                hgdf = self.highlight_gdf[
+                    self.highlight_gdf.geometry.type.isin(["Polygon", "MultiPolygon"])
+                ]
+                if not hgdf.empty:
+                    hgdf.plot(ax=ax_map, color="royalblue", edgecolor="royalblue")
             elif self.region:
                 region_clean = self.region.replace("_", " ").lower()
                 mask = gdf[name_col].str.lower().str.replace("_", " ") == region_clean

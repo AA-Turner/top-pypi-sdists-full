@@ -28,6 +28,7 @@ def _make_app() -> FastAPI:
 
     mock_config = MagicMock()
     mock_config.identity = None
+    mock_config.ai.allowed_models = []
     mock_config.app.data_dir = MagicMock()
     app.state.config = mock_config
 

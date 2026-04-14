@@ -9,7 +9,7 @@ from catboost import CatBoostRegressor
 from boruta import BorutaPy
 from sklearn.metrics import mean_squared_error
 from deap import base, creator, tools, algorithms
-from tqdm import tqdm
+from tqdm.rich import tqdm
 import matplotlib.pyplot as plt
 import random
 from sklearn.ensemble import RandomForestRegressor

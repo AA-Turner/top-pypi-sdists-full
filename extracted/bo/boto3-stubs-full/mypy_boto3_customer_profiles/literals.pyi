@@ -81,9 +81,12 @@ __all__ = (
     "SalesforceConnectorOperatorType",
     "ScopeType",
     "SegmentSnapshotStatusType",
+    "SegmentSortDataTypeType",
+    "SegmentSortOrderType",
     "SegmentTypeType",
     "ServiceName",
     "ServiceNowConnectorOperatorType",
+    "SortAttributeTypeType",
     "SourceConnectorTypeType",
     "StandardIdentifierType",
     "StatisticType",
@@ -309,6 +312,8 @@ SalesforceConnectorOperatorType = Literal[
 ]
 ScopeType = Literal["DOMAIN", "PROFILE"]
 SegmentSnapshotStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
+SegmentSortDataTypeType = Literal["DATE", "NUMBER", "STRING"]
+SegmentSortOrderType = Literal["ASC", "DESC"]
 SegmentTypeType = Literal["CLASSIC", "ENHANCED"]
 ServiceNowConnectorOperatorType = Literal[
     "ADDITION",
@@ -333,6 +338,7 @@ ServiceNowConnectorOperatorType = Literal[
     "VALIDATE_NON_ZERO",
     "VALIDATE_NUMERIC",
 ]
+SortAttributeTypeType = Literal["CALCULATED", "PROFILE"]
 SourceConnectorTypeType = Literal["Marketo", "S3", "Salesforce", "Servicenow", "Zendesk"]
 StandardIdentifierType = Literal[
     "AIR_BOOKING",
@@ -584,6 +590,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",

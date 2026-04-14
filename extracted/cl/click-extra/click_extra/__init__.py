@@ -36,11 +36,13 @@ from .colorize import (
     ColorOption,
     HelpExtraFormatter,
     HelpExtraTheme,
+    HelpKeywords,
 )
 from .commands import (
     ExtraCommand,
     ExtraContext,
     ExtraGroup,
+    HelpCommand,
     LazyGroup,
 )
 from .config import (
@@ -93,10 +95,14 @@ from .parameters import (
     search_params,
 )
 from .table import (
+    SortByOption,
     TableFormat,
     TableFormatOption,
+    print_data,
+    print_sorted_table,
     print_table,
     render_table,
+    serialize_data,
 )
 from .telemetry import TelemetryOption
 from .testing import ExtraCliRunner
@@ -145,9 +151,11 @@ __all__ = [
     "FileError",
     "FloatRange",
     "Group",
+    "HelpCommand",
     "HelpExtraFormatter",
     "HelpExtraTheme",
     "HelpFormatter",
+    "HelpKeywords",
     "HelpSection",
     "HelpTheme",
     "IntRange",
@@ -167,6 +175,7 @@ __all__ = [
     "Section",
     "SectionMixin",
     "ShowParamsOption",
+    "SortByOption",
     "Style",
     "TableFormat",
     "TableFormatOption",
@@ -218,12 +227,15 @@ __all__ = [
     "password_option",
     "path",
     "pause",
+    "print_data",
+    "print_sorted_table",
     "print_table",
     "progressbar",
     "prompt",
     "render_table",
     "search_params",
     "secho",
+    "serialize_data",
     "show_params_option",
     "style",
     "table_format_option",
@@ -245,13 +257,13 @@ __all__ = [
 """
 
 
-__version__ = "7.10.1"
+__version__ = "7.11.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "3d7ce0726cd308c71fbcec4b1876c73eb5918110"
+__git_tag_sha__ = "8991839cb5e83c54e30a9d9eb8edca05b6ec44a5"
 
 
 def __getattr__(name: str) -> object:

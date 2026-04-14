@@ -266,19 +266,6 @@ class CfnDomain(
         jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional[builtins.str]:
-        '''The key used to encrypt the domain.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "encryptionKey"))
-
-    @encryption_key.setter
-    def encryption_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a60707c2e5754637c6feec657151278ead04566ec407a5201952b87113e7daa8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="permissionsPolicyDocument")
     def permissions_policy_document(self) -> typing.Any:
         '''The document that defines the resource policy that is set on a domain.'''
@@ -290,6 +277,19 @@ class CfnDomain(
             type_hints = typing.get_type_hints(_typecheckingstub__912eada525b5990b51696702eabe0044019487d7cefa00a70be77c94c889c313)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "permissionsPolicyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionKey")
+    def encryption_key(self) -> typing.Optional[builtins.str]:
+        '''The key used to encrypt the domain.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "encryptionKey"))
+
+    @encryption_key.setter
+    def encryption_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a60707c2e5754637c6feec657151278ead04566ec407a5201952b87113e7daa8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1344,6 +1344,19 @@ class CfnRepository(
         jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="permissionsPolicyDocument")
+    def permissions_policy_document(self) -> typing.Any:
+        '''The document that defines the resource policy that is set on a repository.'''
+        return typing.cast(typing.Any, jsii.get(self, "permissionsPolicyDocument"))
+
+    @permissions_policy_document.setter
+    def permissions_policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a46a16b2d085bb751bab7c709cfc8d98bdb0183c734e7aae69ecfaa0c762cfab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "permissionsPolicyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="repositoryName")
     def repository_name(self) -> builtins.str:
         '''The name of an upstream repository.'''
@@ -1397,19 +1410,6 @@ class CfnRepository(
             type_hints = typing.get_type_hints(_typecheckingstub__b57d3ca6e53363d4e96e0ea3b4abadc4b325c54502d845d394fe93954e1440d9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "externalConnections", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="permissionsPolicyDocument")
-    def permissions_policy_document(self) -> typing.Any:
-        '''The document that defines the resource policy that is set on a repository.'''
-        return typing.cast(typing.Any, jsii.get(self, "permissionsPolicyDocument"))
-
-    @permissions_policy_document.setter
-    def permissions_policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a46a16b2d085bb751bab7c709cfc8d98bdb0183c734e7aae69ecfaa0c762cfab)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "permissionsPolicyDocument", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -1676,14 +1676,14 @@ def _typecheckingstub__020dc2753ebcfeb3fc3126169a639eb6863967fddf54f8990d248b3c1
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a60707c2e5754637c6feec657151278ead04566ec407a5201952b87113e7daa8(
-    value: typing.Optional[builtins.str],
+def _typecheckingstub__912eada525b5990b51696702eabe0044019487d7cefa00a70be77c94c889c313(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__912eada525b5990b51696702eabe0044019487d7cefa00a70be77c94c889c313(
-    value: typing.Any,
+def _typecheckingstub__a60707c2e5754637c6feec657151278ead04566ec407a5201952b87113e7daa8(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1868,6 +1868,12 @@ def _typecheckingstub__00ba74acfa0c33c4fae675e1b25d2be0f71988064b24926c12199963d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a46a16b2d085bb751bab7c709cfc8d98bdb0183c734e7aae69ecfaa0c762cfab(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a83fb63b6e2c7629433d470d902d70a3909aadfa55f55d4269da462d63250ad9(
     value: builtins.str,
 ) -> None:
@@ -1888,12 +1894,6 @@ def _typecheckingstub__0d28afb901607f9ab6b3fe057b5807de7e3feeb54a77c448871ba1021
 
 def _typecheckingstub__b57d3ca6e53363d4e96e0ea3b4abadc4b325c54502d845d394fe93954e1440d9(
     value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a46a16b2d085bb751bab7c709cfc8d98bdb0183c734e7aae69ecfaa0c762cfab(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

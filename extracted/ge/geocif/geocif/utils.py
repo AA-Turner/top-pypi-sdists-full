@@ -7,7 +7,7 @@ import sqlite3
 import numpy as np
 import pandas as pd
 import arrow as ar
-from tqdm.auto import tqdm
+from tqdm.rich import tqdm
 import matplotlib.pyplot as plt
 
 

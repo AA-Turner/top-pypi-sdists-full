@@ -1,6 +1,7 @@
 import ctypes
 import logging
 import os
+import signal
 import sys
 import tempfile
 import threading
@@ -9,7 +10,11 @@ from ctypes import windll, wintypes
 from platform import machine
 from threading import Event, Semaphore
 
-import clr
+try:
+    import clr
+except Exception:
+    os.environ['PYTHONNET_RUNTIME'] = 'coreclr'
+    import clr
 
 from webview import FileDialog, _state, settings, windows
 from webview.guilib import forced_gui_
@@ -23,16 +28,30 @@ clr.AddReference('System.Collections')
 clr.AddReference('System.Threading')
 clr.AddReference('System.Reflection')
 
-import System.Windows.Forms as WinForms
-from Microsoft.Win32 import SystemEvents
-from System import Array, Environment, Func, Int32, IntPtr, Object, Type, UInt32
-from System.Drawing import Color, ColorTranslator, Icon, Point, Size, SizeF
-from System.Reflection import Assembly, BindingFlags
-from System.Threading import ApartmentState, Thread, ThreadStart
+import System.Windows.Forms as WinForms  # noqa: E402
+from Microsoft.Win32 import SystemEvents  # noqa: E402
+from System import Array, Environment, Func, Int32, IntPtr, Object, Type, UInt32  # noqa: E402
+from System.Drawing import Color, ColorTranslator, Icon, Point, Size, SizeF  # noqa: E402
+from System.Reflection import Assembly, BindingFlags  # noqa: E402
+from System.Threading import ApartmentState, Thread, ThreadStart  # noqa: E402
 
 kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
 logger = logging.getLogger('pywebview')
 cache_dir = None
+_sigint_received = False
+
+
+def _sigint_handler(signum, frame):
+    """
+    Handler for SIGINT signal (Ctrl+C).
+
+    Sets a flag that's checked by the timer in the GUI thread. This is necessary because
+    the signal handler runs in the main thread, but Application.Exit() must be called
+    from the GUI thread. The timer in create_window() checks this flag periodically and
+    exits the application when it's set.
+    """
+    global _sigint_received
+    _sigint_received = True
 
 
 def _is_new_version(current_version: str, new_version: str) -> bool:
@@ -51,7 +70,6 @@ def _is_chromium():
 
     def edge_build(key_type, key, description=''):
         try:
-            windows_key = None
             if machine() == 'x86' or key_type == 'HKEY_CURRENT_USER':
                 path = rf'Microsoft\EdgeUpdate\Clients\{key}'
             else:
@@ -176,40 +194,36 @@ class BrowserView:
             self.pywebview_window.native = self
             self.real_url = None
             self.Text = window.title
-            self.Size = Size(window.initial_width, window.initial_height)
-            self.MinimumSize = Size(window.min_size[0], window.min_size[1])
+            # Store initial window size as logical pixels, will be converted later
+            self._initial_width = window.initial_width
+            self._initial_height = window.initial_height
 
             self.AutoScaleDimensions = SizeF(96.0, 96.0)
             self.AutoScaleMode = WinForms.AutoScaleMode.Dpi
             hwnd = self.Handle.ToInt32()
 
-            # for chromium edge, need this factor to modify the coordinates
-            try:
-                self.scale_factor = (
-                    windll.shcore.GetScaleFactorForDevice(0) / 100 if is_chromium else 1
-                )
-            except:
-                self.scale_factor = 1
+            # Set the initial size now that we have a window handle and can get DPI
+            # Size and MinimumSize need to be in physical pixels
+            scale = self._scale
+            self.Size = Size(int(window.initial_width * scale), int(window.initial_height * scale))
+            self.MinimumSize = Size(
+                int(window.min_size[0] * scale), int(window.min_size[1] * scale)
+            )
 
             if window.initial_x is not None and window.initial_y is not None:
                 self.StartPosition = WinForms.FormStartPosition.Manual
+                # Convert logical pixel coordinates to physical for WinForms
                 self.Location = Point(
-                    int(window.initial_x * self.scale_factor),
-                    int(window.initial_y * self.scale_factor),
+                    int(window.initial_x * scale),
+                    int(window.initial_y * scale),
                 )
             elif window.screen:
                 self.StartPosition = WinForms.FormStartPosition.Manual
-                x = int(
-                    window.screen.x * self.scale_factor
-                    + (window.screen.width - window.initial_width) * self.scale_factor / 2
-                    if window.screen.x >= 0
-                    else window.screen.x * self.scale_factor + window.screen.width / 2
-                )
-                y = int(
-                    window.screen.y * self.scale_factor
-                    + (window.screen.height - window.initial_height) * self.scale_factor / 2
-                )
-                self.Location = Point(x, y)
+                # Screen coordinates are in logical pixels, center the window
+                # Calculate center position in logical pixels first, then convert to physical
+                logical_x = window.screen.x + (window.screen.width - window.initial_width) // 2
+                logical_y = window.screen.y + (window.screen.height - window.initial_height) // 2
+                self.Location = Point(int(logical_x * scale), int(logical_y * scale))
             else:
                 self.StartPosition = WinForms.FormStartPosition.CenterScreen
 
@@ -225,12 +239,15 @@ class BrowserView:
             self.old_state = self.WindowState
 
             # Application icon
-            handle = kernel32.GetModuleHandleW(None)
-            icon_handle = windll.shell32.ExtractIconW(handle, sys.executable, 0)
+            if _state['icon'] and os.path.isfile(_state['icon']):
+                self.Icon = Icon(_state['icon'])
+            else:
+                handle = kernel32.GetModuleHandleW(None)
+                icon_handle = windll.shell32.ExtractIconW(handle, sys.executable, 0)
 
-            if icon_handle != 0:
-                self.Icon = Icon.FromHandle(IntPtr.op_Explicit(Int32(icon_handle))).Clone()
-                windll.user32.DestroyIcon(icon_handle)
+                if icon_handle != 0:
+                    self.Icon = Icon.FromHandle(IntPtr.op_Explicit(Int32(icon_handle))).Clone()
+                    windll.user32.DestroyIcon(icon_handle)
 
             self.closed = window.events.closed
             self.closing = window.events.closing
@@ -295,6 +312,20 @@ class BrowserView:
         def __str__(self):
             return f'<System.Windows.Forms object with {self.Handle} handle>'
 
+        @property
+        def _scale(self):
+            """Logical-to-physical pixel scale for the monitor this window is on."""
+            if is_chromium:
+                try:
+                    # Use per-window DPI for accurate multi-monitor support
+                    return windll.user32.GetDpiForWindow(self.Handle.ToInt32()) / 96
+                except Exception as e:
+                    logger.warning(f'Failed to get DPI for window: {e}')
+                    return 1.0
+            else:
+                # MSHTML doesn't need scaling
+                return 1.0
+
         def on_system_theme_changed(self, sender, e):
             self.update_title_bar_theme()
 
@@ -314,7 +345,7 @@ class BrowserView:
                     0,
                     winreg.KEY_READ,
                 )
-                system_theme, _ = winreg.QueryValueEx(personalize_key, 'SystemUsesLightTheme')
+                system_theme, _ = winreg.QueryValueEx(personalize_key, 'AppsUseLightTheme')
                 winreg.CloseKey(personalize_key)
                 if system_theme == 0:
                     return True
@@ -400,10 +431,19 @@ class BrowserView:
             if is_cef:
                 CEF.resize(self.Width, self.Height, self.uid)
 
-            self.pywebview_window.events.resized.set(self.Width, self.Height)
+            # Convert physical pixel dimensions to logical pixels for the API
+            scale = self._scale
+            self.pywebview_window.events.resized.set(
+                int(self.Width / scale), int(self.Height / scale)
+            )
 
         def on_move(self, sender, args):
-            self.pywebview_window.events.moved.set(self.Location.X, self.Location.Y)
+            # Convert physical pixel location to logical pixels for the API
+            scale = self._scale
+            self.pywebview_window.events.moved.set(
+                int(self.Location.X / scale),
+                int(self.Location.Y / scale),
+            )
 
         def evaluate_js(self, script, parse_json):
             result = self.browser.evaluate_js(script, parse_json)
@@ -557,44 +597,49 @@ class BrowserView:
                 _toggle()
 
         def resize(self, width, height, fix_point):
+            # Input width/height are in logical pixels, need to convert to physical
+            scale = self._scale
+            phys_width = int(width * scale)
+            phys_height = int(height * scale)
+
+            # Location is already in physical pixels
             x = self.Location.X
             y = self.Location.Y
 
             if fix_point & FixPoint.EAST:
-                x = x + self.Width - width
+                x = x + self.Width - phys_width
 
             if fix_point & FixPoint.SOUTH:
-                y = y + self.Height - height
+                y = y + self.Height - phys_height
 
-            windll.user32.SetWindowPos(self.Handle.ToInt32(), None, x, y, width, height, 64)
+            windll.user32.SetWindowPos(
+                self.Handle.ToInt32(), None, x, y, phys_width, phys_height, 64
+            )
 
         def move(self, x, y):
+            # Input x/y are in logical pixels, need to convert to physical
             SWP_NOSIZE = 0x0001  # Retains the current size
             SWP_NOZORDER = 0x0004  # Retains the current Z order
             SWP_SHOWWINDOW = 0x0040  # Displays the window
-            if self.scale_factor != 1:
-                # The coordinates needed to be scaled
-                x_modified = x * self.scale_factor
-                y_modified = y * self.scale_factor
-                windll.user32.SetWindowPos(
-                    self.Handle.ToInt32(),
-                    None,
-                    int(x_modified),
-                    int(y_modified),
-                    None,
-                    None,
-                    SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW,
-                )
+
+            scale = self._scale
+            if scale != 1:
+                # Convert logical pixels to physical pixels
+                x_phys = int(x * scale)
+                y_phys = int(y * scale)
             else:
-                windll.user32.SetWindowPos(
-                    self.Handle.ToInt32(),
-                    None,
-                    int(x),
-                    int(y),
-                    None,
-                    None,
-                    SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW,
-                )
+                x_phys = int(x)
+                y_phys = int(y)
+
+            windll.user32.SetWindowPos(
+                self.Handle.ToInt32(),
+                None,
+                x_phys,
+                y_phys,
+                None,
+                None,
+                SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW,
+            )
 
         def maximize(self):
             def _maximize():
@@ -745,11 +790,28 @@ def create_window(window):
         _main_window_created.set()
 
         if window.uid == 'master':
+
+            def timer_tick(sender, e):
+                # Check if SIGINT was received and exit from GUI thread
+                global _sigint_received
+                if _sigint_received:
+                    app.Exit()
+
+            # Create a timer to periodically allow the Python interpreter to run
+            # This enables the signal handler to be called even when the WinForms event loop is running
+            timer = WinForms.Timer()
+            timer.Interval = 500  # 500ms
+            timer.Tick += timer_tick
+            timer.Start()
+
             app.Run()
 
     app = WinForms.Application
 
     if window.uid == 'master':
+        # Set up Ctrl+C handler in main thread (before starting GUI thread)
+        signal.signal(signal.SIGINT, _sigint_handler)
+
         if is_chromium:
             init_storage()
 
@@ -762,7 +824,13 @@ def create_window(window):
         thread = Thread(ThreadStart(create))
         thread.SetApartmentState(ApartmentState.STA)
         thread.Start()
-        thread.Join()
+
+        # Don't use thread.Join() as it blocks the main thread indefinitely,
+        # preventing signal handlers from being processed. Instead, periodically
+        # check if the thread is still alive, which allows the Python interpreter
+        # to process pending signals (like SIGINT from Ctrl+C)
+        while thread.IsAlive:
+            thread.Join(500)
 
     else:
         _main_window_created.wait()
@@ -846,8 +914,8 @@ def create_file_dialog(dialog_type, directory, allow_multiple, save_filename, fi
                 file_path = None
 
         return file_path
-    except:
-        logger.exception('Error invoking %s dialog', dialog_type)
+    except Exception as e:
+        logger.exception(f'Error invoking {dialog_type} dialog: {e}')
         return None
 
 
@@ -902,7 +970,7 @@ def get_active_window():
     active_window = None
     try:
         active_window = WinForms.Form.ActiveForm
-    except:
+    except Exception:
         return None
 
     if active_window:
@@ -992,21 +1060,65 @@ def evaluate_js(script, uid, parse_json, result_id=None):
 def get_position(uid):
     i = BrowserView.instances.get(uid)
     if i:
-        return i.Left, i.Top
+        # Convert physical pixel position to logical pixels
+        scale = i._scale
+        return int(i.Left / scale), int(i.Top / scale)
 
 
 def get_size(uid):
     i = BrowserView.instances.get(uid)
     if i:
+        # Size is in physical pixels, convert to logical pixels
         size = i.Size
-        return size.Width, size.Height
+        scale = i._scale
+        return int(size.Width / scale), int(size.Height / scale)
 
 
 def get_screens():
-    screens = [
-        Screen(s.Bounds.X, s.Bounds.Y, s.Bounds.Width, s.Bounds.Height, s.WorkingArea)
-        for s in WinForms.Screen.AllScreens
-    ]
+    """Get all screens with coordinates in logical pixels."""
+    screens = []
+
+    for s in WinForms.Screen.AllScreens:
+        # WinForms.Screen.Bounds returns physical pixels on high-DPI systems
+        # We need to convert to logical pixels for API consistency
+        # Try to get DPI for this monitor
+        try:
+            # Use MonitorFromPoint to get HMONITOR for this screen
+            # Point at top-left of screen's bounds
+            point = wintypes.POINT(s.Bounds.X, s.Bounds.Y)
+            hmonitor = windll.user32.MonitorFromPoint(
+                ctypes.c_longlong(point.x | (point.y << 32)),
+                2,  # MONITOR_DEFAULTTONEAREST
+            )
+
+            # Get DPI for this monitor
+            dpi_x = ctypes.c_uint()
+            dpi_y = ctypes.c_uint()
+            # MDT_EFFECTIVE_DPI = 0
+            hr = windll.shcore.GetDpiForMonitor(
+                hmonitor, 0, ctypes.byref(dpi_x), ctypes.byref(dpi_y)
+            )
+
+            if hr == 0:  # S_OK
+                scale = dpi_x.value / 96.0
+            else:
+                scale = 1.0
+        except Exception as e:
+            logger.debug(f'Failed to get DPI for monitor, using scale 1.0: {e}')
+            scale = 1.0
+
+        # Convert physical pixels to logical pixels
+        screens.append(
+            Screen(
+                int(s.Bounds.X / scale),
+                int(s.Bounds.Y / scale),
+                int(s.Bounds.Width / scale),
+                int(s.Bounds.Height / scale),
+                s.WorkingArea,
+                scale,
+            )
+        )
+
     return screens
 
 

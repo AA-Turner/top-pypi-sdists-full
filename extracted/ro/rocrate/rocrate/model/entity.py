@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 
-# Copyright 2019-2025 The University of Manchester, UK
-# Copyright 2020-2025 Vlaams Instituut voor Biotechnologie (VIB), BE
-# Copyright 2020-2025 Barcelona Supercomputing Center (BSC), ES
-# Copyright 2020-2025 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
-# Copyright 2022-2025 École Polytechnique Fédérale de Lausanne, CH
-# Copyright 2024-2025 Data Centre, SciLifeLab, SE
-# Copyright 2024-2025 National Institute of Informatics (NII), JP
-# Copyright 2025 Senckenberg Society for Nature Research (SGN), DE
-# Copyright 2025 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2019-2026 The University of Manchester, UK
+# Copyright 2020-2026 Vlaams Instituut voor Biotechnologie (VIB), BE
+# Copyright 2020-2026 Barcelona Supercomputing Center (BSC), ES
+# Copyright 2020-2026 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
+# Copyright 2022-2026 École Polytechnique Fédérale de Lausanne, CH
+# Copyright 2024-2026 Data Centre, SciLifeLab, SE
+# Copyright 2024-2026 National Institute of Informatics (NII), JP
+# Copyright 2025-2026 Senckenberg Society for Nature Research (SGN), DE
+# Copyright 2025-2026 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2026 Spanish National Research Council (CSIC), ES
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,6 +44,7 @@ class Entity(MutableMapping):
                 if name.startswith("@"):
                     self._jsonld[name] = value
                 else:
+                    # this will call the __setitem__ method defined below
                     self[name] = value
 
     @property
@@ -105,9 +107,13 @@ class Entity(MutableMapping):
         if key.startswith("@"):
             raise KeyError(f"cannot set '{key}'")
         values = value if isinstance(value, list) else [value]
-        for v in values:
+        for i, v in enumerate(values):
             if isinstance(v, dict) and "@id" not in v:
-                raise ValueError(f"no @id in {v}")
+                # https://www.w3.org/TR/json-ld11/#value-objects
+                if "@value" in v:
+                    values[i] = v["@value"]
+                else:
+                    raise ValueError(f"no @id in {v}")
         ref_values = [{"@id": _.id} if isinstance(_, Entity) else _ for _ in values]
         self._jsonld[key] = ref_values if isinstance(value, list) else ref_values[0]
 

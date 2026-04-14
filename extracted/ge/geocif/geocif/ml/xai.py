@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import shap
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 from geocif import utils
 

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: ibm-cos-sdk-s3transfer
-Version: 2.16.1
+Version: 2.16.2
 Summary: IBM S3 Transfer Manager
 Home-page: https://github.com/IBM/ibm-cos-sdk-python-s3transfer
 Author: IBM
@@ -24,7 +24,7 @@ Requires-Python: >= 3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: NOTICE.txt
-Requires-Dist: ibm-cos-sdk-core==2.16.1
+Requires-Dist: ibm-cos-sdk-core==2.16.2
 Provides-Extra: crt
 Requires-Dist: ibm_botocore[crt]<2.0a0,>=1.37.4; extra == "crt"
 Dynamic: author
@@ -33,6 +33,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

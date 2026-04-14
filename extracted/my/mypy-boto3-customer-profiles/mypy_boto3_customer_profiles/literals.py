@@ -82,9 +82,12 @@ __all__ = (
     "SalesforceConnectorOperatorType",
     "ScopeType",
     "SegmentSnapshotStatusType",
+    "SegmentSortDataTypeType",
+    "SegmentSortOrderType",
     "SegmentTypeType",
     "ServiceName",
     "ServiceNowConnectorOperatorType",
+    "SortAttributeTypeType",
     "SourceConnectorTypeType",
     "StandardIdentifierType",
     "StatisticType",
@@ -311,6 +314,8 @@ SalesforceConnectorOperatorType = Literal[
 ]
 ScopeType = Literal["DOMAIN", "PROFILE"]
 SegmentSnapshotStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
+SegmentSortDataTypeType = Literal["DATE", "NUMBER", "STRING"]
+SegmentSortOrderType = Literal["ASC", "DESC"]
 SegmentTypeType = Literal["CLASSIC", "ENHANCED"]
 ServiceNowConnectorOperatorType = Literal[
     "ADDITION",
@@ -335,6 +340,7 @@ ServiceNowConnectorOperatorType = Literal[
     "VALIDATE_NON_ZERO",
     "VALIDATE_NUMERIC",
 ]
+SortAttributeTypeType = Literal["CALCULATED", "PROFILE"]
 SourceConnectorTypeType = Literal["Marketo", "S3", "Salesforce", "Servicenow", "Zendesk"]
 StandardIdentifierType = Literal[
     "AIR_BOOKING",
@@ -519,6 +525,7 @@ ServiceName = Literal[
     "deadline",
     "detective",
     "devicefarm",
+    "devops-agent",
     "devops-guru",
     "directconnect",
     "discovery",
@@ -585,6 +592,7 @@ ServiceName = Literal[
     "inspector",
     "inspector-scan",
     "inspector2",
+    "interconnect",
     "internetmonitor",
     "invoicing",
     "iot",
@@ -641,6 +649,7 @@ ServiceName = Literal[
     "marketplace-agreement",
     "marketplace-catalog",
     "marketplace-deployment",
+    "marketplace-discovery",
     "marketplace-entitlement",
     "marketplace-reporting",
     "marketplacecommerceanalytics",
@@ -738,6 +747,7 @@ ServiceName = Literal[
     "rum",
     "s3",
     "s3control",
+    "s3files",
     "s3outposts",
     "s3tables",
     "s3vectors",
@@ -754,6 +764,7 @@ ServiceName = Literal[
     "sdb",
     "secretsmanager",
     "security-ir",
+    "securityagent",
     "securityhub",
     "securitylake",
     "serverlessrepo",
@@ -789,6 +800,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "sustainability",
     "swf",
     "synthetics",
     "taxsettings",
@@ -801,6 +813,7 @@ ServiceName = Literal[
     "transfer",
     "translate",
     "trustedadvisor",
+    "uxc",
     "verifiedpermissions",
     "voice-id",
     "vpc-lattice",

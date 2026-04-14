@@ -520,9 +520,126 @@ class SMTPClient(netius.StreamClient):
         mark=True,
         comply=False,
         ensure_loop=True,
+        sequential=True,
+        mx_dedup=False,
         callback=None,
         callback_error=None,
     ):
+        """
+        Sends an email message to the provided recipients, establishing
+        one or more SMTP connections as needed based on the target hosts.
+
+        This method operates in two distinct modes depending on whether
+        the host parameter is provided:
+
+        **Direct host mode** (host is set): connects directly to the
+        specified host and sends the message to all recipients through
+        that single connection. This is the typical mode for relay
+        operations where a smart host or specific SMTP server is used.
+        The method returns the connection object synchronously.
+
+        **MX resolution mode** (host is None): resolves MX records for
+        each unique recipient domain via DNS, groups recipients by
+        resolved MX host, and opens one connection per unique MX server.
+        This avoids opening multiple connections to the same server when
+        different domains share the same MX (eg. multiple Google Workspace
+        domains), which could cause the remote to drop extra connections.
+        The method returns None as connections are established
+        asynchronously through DNS callbacks.
+
+        In both modes the callback is invoked once all SMTP sessions
+        have completed (not per-connection), receiving the client instance
+        and a context dictionary containing deliverability information
+        accumulated across all sessions. The callback_error on the other
+        hand fires per-connection whenever an exception occurs during
+        an individual SMTP session.
+
+        STARTTLS is auto-negotiated based on server capabilities
+        regardless of the stls parameter. When the remote server
+        advertises starttls in its EHLO capabilities the connection
+        is automatically upgraded. The stls parameter controls the
+        initial connection sequence: when True the sequence assumes
+        STARTTLS from the start, when False (default) the sequence
+        starts plain and upgrades dynamically if supported.
+
+        :type froms: List
+        :param froms: The list of sender email addresses, typically
+        a single-element list. Only the first element is used as the
+        MAIL FROM address in the SMTP envelope.
+        :type tos: List
+        :param tos: The list of recipient email addresses. In MX
+        resolution mode these are grouped by domain and then by
+        resolved MX host for connection deduplication.
+        :type contents: String
+        :param contents: The raw email message contents including
+        headers and body in RFC 2822 format.
+        :type message_id: String
+        :param message_id: Optional message identifier to be set in
+        the headers when the comply flag is enabled.
+        :type host: String
+        :param host: The target SMTP host to connect to directly,
+        bypassing MX resolution. When set the method operates in
+        direct host mode, when None it operates in MX resolution mode.
+        :type port: int
+        :param port: The target SMTP port, defaults to 25.
+        :type username: String
+        :param username: Optional username for SMTP authentication
+        on the target server.
+        :type password: String
+        :param password: Optional password for SMTP authentication
+        on the target server.
+        :type ehlo: bool
+        :param ehlo: If True uses EHLO for the greeting (default),
+        if False uses the legacy HELO command instead.
+        :type stls: bool
+        :param stls: If True the initial connection sequence includes
+        STARTTLS negotiation before sending. Note that STARTTLS is
+        auto-negotiated from server capabilities regardless of this
+        flag, so this primarily controls the initial sequence setup.
+        :type mark: bool
+        :param mark: If True (default) the contents are marked with
+        the client's user agent and date headers. Should be set to
+        False when relaying messages to preserve original headers.
+        :type comply: bool
+        :param comply: If True ensures that mandatory RFC headers
+        (From, To, Message-ID) are present in the contents, adding
+        them if missing.
+        :type ensure_loop: bool
+        :param ensure_loop: If True (default) ensures the event loop
+        thread is started before initiating DNS queries. This is
+        required for standalone usage where no event loop is running
+        yet. Should be disabled when the client is already running
+        within an active event loop.
+        :type sequential: bool
+        :param sequential: If True the SMTP connections to different
+        MX hosts are established one at a time, waiting for each
+        session to complete before starting the next. This reduces
+        pressure on remote servers that may drop concurrent connections
+        from the same source IP. Defaults to True (sequential).
+        :type mx_dedup: bool
+        :param mx_dedup: If True recipients on different email domains
+        that resolve to the same MX host are grouped into a single
+        SMTP connection. Should be disabled when the remote server
+        rejects multiple destination domains per transaction (eg.
+        Google returns 451 4.3.0). Defaults to False.
+        :type callback: Callable
+        :param callback: Optional callback invoked once all SMTP
+        sessions for this message have completed. Called with
+        (smtp_client, context) where context is a dictionary
+        containing froms, tos, contents, and a sessions list with
+        per-connection deliverability information (greeting, queue
+        response, TLS details, transcript, duration, etc).
+        :type callback_error: Callable
+        :param callback_error: Optional callback invoked per-connection
+        when an exception occurs during an SMTP session. Called with
+        (smtp_client, context, exception). Unlike callback this may
+        fire multiple times if multiple connections encounter errors.
+        :rtype: SMTPConnection/None
+        :return: The connection object in direct host mode, or None
+        in MX resolution mode where connections are established
+        asynchronously.
+        """
+
         # in case the comply flag is set then ensure that a series
         # of mandatory fields are present in the contents
         if comply:
@@ -561,45 +678,64 @@ class SMTPClient(netius.StreamClient):
                 sessions=sessions,
             )
 
-            def on_close(connection=None):
-                # captures the deliverability information from the
-                # SMTP session that has just completed, including the
-                # remote server greeting, queue response, session
-                # duration and the recipients for this session
-                if connection:
-                    end_time = time.time()
-                    duration = (
-                        end_time - connection.start_time
-                        if not connection.start_time == None
+            def capture_session(connection):
+                """
+                Captures the deliverability information from the SMTP
+                session into the shared sessions list, including the
+                remote server greeting, queue response, TLS details,
+                session duration, recipients and transcript. Skips
+                if already captured to avoid duplicates when both
+                `on_exception` and `on_close` fire for the same
+                connection.
+
+                :type connection: SMTPConnection
+                :param connection: The SMTP connection to capture
+                session information from, or None if not available.
+                """
+
+                if not connection:
+                    return
+                if getattr(connection, "_session_captured", False):
+                    return
+                connection._session_captured = True
+                end_time = time.time()
+                duration = (
+                    end_time - connection.start_time
+                    if not connection.start_time == None
+                    else None
+                )
+                session = dict(
+                    domain=domain,
+                    host=(
+                        netius.legacy.str(connection.address[0])
+                        if connection.address
                         else None
-                    )
-                    session = dict(
-                        domain=domain,
-                        host=(
-                            netius.legacy.str(connection.address[0])
-                            if connection.address
-                            else None
-                        ),
-                        port=connection.address[1] if connection.address else None,
-                        mx_host=(
-                            netius.legacy.str(connection.mx_host)
-                            if getattr(connection, "mx_host", None)
-                            else None
-                        ),
-                        greeting=connection.greeting,
-                        queue_response=connection.queue_response,
-                        capabilities=list(connection.capabilities),
-                        starttls=not connection.tls_version == None,
-                        tls_version=connection.tls_version,
-                        tls_cipher=connection.tls_cipher,
-                        start_time=connection.start_time,
-                        end_time=end_time,
-                        duration=duration,
-                        recipients=list(tos),
-                        error=getattr(connection, "_session_error", None),
-                        transcript=connection.transcript,
-                    )
-                    context["sessions"].append(session)
+                    ),
+                    port=connection.address[1] if connection.address else None,
+                    mx_host=(
+                        netius.legacy.str(connection.mx_host)
+                        if getattr(connection, "mx_host", None)
+                        else None
+                    ),
+                    greeting=connection.greeting,
+                    queue_response=connection.queue_response,
+                    capabilities=list(connection.capabilities),
+                    starttls=not connection.tls_version == None,
+                    tls_version=connection.tls_version,
+                    tls_cipher=connection.tls_cipher,
+                    start_time=connection.start_time,
+                    end_time=end_time,
+                    duration=duration,
+                    recipients=list(tos),
+                    error=getattr(connection, "_session_error", None),
+                    transcript=connection.transcript,
+                )
+                context["sessions"].append(session)
+
+            def on_close(connection=None):
+                # ensures the session deliverability information is
+                # persisted before the completion tracking runs
+                capture_session(connection)
 
                 # verifies if the current handler has been built with a
                 # domain based closure and if that's the case removes the
@@ -621,46 +757,30 @@ class SMTPClient(netius.StreamClient):
             def on_exception(connection=None, exception=None):
                 if connection:
                     connection._session_error = str(exception) if exception else None
+
+                # captures session before calling `callback_error` so
+                # that the error report includes all session data
+                capture_session(connection)
+
                 if callback_error:
                     callback_error(self, context, exception)
 
-            def handler(response=None):
-                # in case the provided response value is invalid returns
-                # immediately, as this should represent a resolution error,
-                # this is only done in case the host is also not defined
-                # as for such situations an address is not retrievable
-                if response == None and host == None:
-                    return
+            def connect_mx(address, _tos=None):
+                """
+                Establishes an SMTP connection to the provided MX address
+                and configures it for message delivery. Binds the `on_close`
+                and `on_exception` handlers from the enclosing `build_handler`
+                context for session completion tracking.
 
-                # in case there's a valid response provided must parse it
-                # to try to "recover" the final address that is going to be
-                # used in the establishment of the SMTP connection
-                if response:
-                    # in case there are no answers present in the response
-                    # of the DNS resolution an exception must be raised, note
-                    # that the on close handler is called so that proper
-                    # fallback for this connections is handled
-                    if not response.answers:
-                        on_close()
-                        if self.auto_close:
-                            self.close()
-                        exception = netius.NetiusError(
-                            "Not possible to resolve MX for '%s'" % domain
-                        )
-                        if callback_error:
-                            callback_error(self, context, exception)
-                        raise exception
-
-                    # retrieves the first answer (probably the most accurate)
-                    # and then unpacks it until the mx address is retrieved
-                    first = response.answers[0]
-                    extra = first[4]
-                    address = extra[1]
-
-                # otherwise the host should have been provided and as such the
-                # address value is set with the provided host
-                else:
-                    address = host
+                :type address: String
+                :param address: The resolved MX host address to connect to.
+                :type _tos: List
+                :param _tos: Optional override for the recipient list, used
+                when multiple domains have been merged into a single
+                connection after MX deduplication.
+                :rtype: SMTPConnection
+                :return: The established SMTP connection.
+                """
 
                 # sets the proper address (host) and port values that are
                 # going to be used to establish the connection, notice that
@@ -668,6 +788,7 @@ class SMTPClient(netius.StreamClient):
                 # method are valid they are used instead of the "resolved"
                 _host = host or address
                 _port = port or 25
+                _tos = _tos or tos
 
                 # prints a debug message about the connection that is now
                 # going to be established (helps with debugging purposes)
@@ -684,22 +805,22 @@ class SMTPClient(netius.StreamClient):
                 else:
                     connection.set_message_seq(ehlo=ehlo)
                 connection.set_smtp(
-                    froms, tos, contents, username=username, password=password
+                    froms, _tos, contents, username=username, password=password
                 )
                 connection.bind("close", on_close)
                 connection.bind("exception", on_exception)
                 return connection
 
-            # returns the clojure bound handler method, ready
-            # to be used under a specific context
-            return handler
+            # returns the connect method bound to the current
+            # handler context, ready to be used for connection
+            return connect_mx
 
         # in case the host address has been provided by argument the
         # handler method is called immediately to trigger the processing
         # of the SMTP connection using the current host and port
         if host:
-            handler = build_handler(tos)
-            connection = handler()
+            connect_mx = build_handler(tos)
+            connection = connect_mx(host)
             return connection
 
         # ensures that the proper main loop is started so that the current
@@ -712,29 +833,182 @@ class SMTPClient(netius.StreamClient):
         # creates the map that is going to be used to associate each of
         # the domains with the proper to (email) addresses, this is going
         # to allow aggregated based SMTP sessions (performance wise)
-        tos_map = dict()
+        domains_map = dict()
         for to in tos:
             _name, domain = to.split("@", 1)
-            _tos = tos_map.get(domain, [])
+            _tos = domains_map.get(domain, [])
             _tos.append(to)
-            tos_map[domain] = _tos
+            domains_map[domain] = _tos
 
-        # iterates over the complete set of domain and associated
-        # to addresses list for each of them to run the mx based
-        # query operation and then start the SMTP session
-        for domain, tos in netius.legacy.items(tos_map):
-            # creates a new handler method bound to the to addresses
-            # associated with the current domain in iteration
-            handler = build_handler(tos, domain=domain, tos_map=tos_map)
+        # creates the structures used to collect the DNS MX resolutions
+        # before initiating any connections, this ensures that domains
+        # resolving to the same MX host are grouped into a single
+        # connection avoiding drops from the remote server
+        mx_resolved = dict()
+        domains_pending = list(domains_map.keys())
 
-            # prints a small debug message about the resolution of the
-            # domain for the current message (debugging purposes)
-            self.debug("Resolving MX domain for'%s' ...", domain)
+        def on_mx_resolved(domain, response):
+            """
+            Callback for MX DNS resolution that collects the resolved
+            address and once all domains are resolved triggers the
+            connection initiation phase via `initiate_mx`.
 
-            # runs the DNS query to be able to retrieve the proper
-            # mail exchange host for the target email address and then
-            # sets the proper callback for sending
-            dns.DNSClient.query_s(domain, type="mx", callback=handler)
+            :type domain: String
+            :param domain: The email domain that was resolved.
+            :type response: DNSResponse
+            :param response: The DNS response containing the MX
+            records for the domain, or None if resolution failed.
+            """
+
+            # stores the resolved MX address for the domain or none
+            # in case the resolution has failed
+            if response and response.answers:
+                first = response.answers[0]
+                extra = first[4]
+                mx_resolved[domain] = extra[1]
+            else:
+                mx_resolved[domain] = None
+
+            # removes the current domain from the pending list, in
+            # case there are still pending domains returns immediately
+            # waiting for all resolutions to complete
+            domains_pending.remove(domain)
+            if domains_pending:
+                return
+
+            # all domains have been resolved, triggers the connection
+            # initiation phase that groups recipients by MX host
+            initiate_mx()
+
+        def initiate_mx():
+            """
+            Groups recipients by resolved MX host and initiates one
+            SMTP connection per unique server. Domains that failed MX
+            resolution are reported via `callback_error` and tracked
+            for completion. Called once all DNS resolutions complete.
+            """
+
+            # groups the recipients by resolved MX host so that a
+            # single connection is used per unique MX server address,
+            # when `mx_dedup` is disabled each domain gets its own
+            # connection even if they share the same MX host, domains
+            # that failed resolution are tracked separately
+            mx_map = dict()
+            mx_failed = []
+            for domain, tos in netius.legacy.items(domains_map):
+                mx_host = mx_resolved.get(domain)
+                if mx_host == None:
+                    mx_failed.append(domain)
+                    continue
+                mx_host_s = netius.legacy.str(mx_host).rstrip(".").lower()
+                if mx_dedup:
+                    mx_key = mx_host_s
+                else:
+                    mx_key = domain
+                existing = mx_map.get(mx_key, ([], [], mx_host_s))
+                existing[0].extend(tos)
+                existing[1].append(domain)
+                mx_map[mx_key] = existing
+
+            # creates the tos map keyed by MX host for the completion
+            # tracking of the send operation, failed domains are also
+            # included so that the on close fallback fires properly
+            tos_map = dict(
+                (mx_key, value[0]) for mx_key, value in netius.legacy.items(mx_map)
+            )
+            for domain in mx_failed:
+                tos_map[domain] = domains_map[domain]
+
+            # handles any domains that failed MX resolution by
+            # raising the proper error and triggering the on close
+            # handler for completion tracking
+            for domain in mx_failed:
+                _tos = domains_map[domain]
+                connect_mx = build_handler(_tos, domain=domain, tos_map=tos_map)
+                exception = netius.NetiusError(
+                    "Not possible to resolve MX for '%s'" % domain
+                )
+                if callback_error:
+                    callback_error(
+                        self,
+                        dict(
+                            froms=froms,
+                            tos=_tos,
+                            contents=contents,
+                            mark=mark,
+                            comply=comply,
+                            ensure_loop=ensure_loop,
+                            domain=domain,
+                            tos_map=tos_map,
+                            sessions=sessions,
+                        ),
+                        exception,
+                    )
+                del tos_map[domain]
+                if not tos_map:
+                    if callback:
+                        callback(
+                            self,
+                            dict(
+                                froms=froms,
+                                tos=list(tos),
+                                contents=contents,
+                                mark=mark,
+                                comply=comply,
+                                ensure_loop=ensure_loop,
+                                domain=None,
+                                tos_map=tos_map,
+                                sessions=sessions,
+                            ),
+                        )
+                    return
+
+            # retrieves the list of MX entries to be processed, in
+            # sequential mode these are processed one at a time with
+            # each connection starting only after the previous completes
+            mx_entries = netius.legacy.items(mx_map)
+
+            # in sequential mode the connections are established one
+            # at a time, each starting only after the previous one
+            # completes, reducing pressure on remote MX servers that
+            # may drop concurrent connections from the same source,
+            # in parallel mode all connections are started immediately
+            if sequential:
+                _connect_next_mx(mx_entries, tos_map)
+            else:
+                for mx_key, (tos, _domains, mx_host_s) in mx_entries:
+                    connect_mx = build_handler(tos, domain=mx_key, tos_map=tos_map)
+                    connect_mx(mx_host_s, _tos=tos)
+
+        def _connect_next_mx(pending, tos_map):
+            # in case there are no more pending MX entries returns
+            # immediately as all connections have been processed
+            if not pending:
+                return
+
+            # retrieves the next MX entry from the pending list
+            # and establishes the connection for it
+            mx_key, (tos, _domains, mx_host_s) = pending[0]
+            remaining = pending[1:]
+            connect_mx = build_handler(tos, domain=mx_key, tos_map=tos_map)
+            connection = connect_mx(mx_host_s, _tos=tos)
+
+            # binds an additional close handler that triggers the
+            # next connection once the current one completes
+            connection.bind(
+                "close",
+                lambda connection=None: _connect_next_mx(remaining, tos_map),
+            )
+
+        # iterates over the complete set of domains to run the MX
+        # based query operation collecting the results
+        for domain in domains_map:
+            self.debug("Resolving MX domain for '%s' ...", domain)
+
+            def build_mx_callback(_domain):
+                return lambda response: on_mx_resolved(_domain, response)
+
+            dns.DNSClient.query_s(domain, type="mx", callback=build_mx_callback(domain))
 
     def on_connect(self, connection):
         netius.StreamClient.on_connect(self, connection)

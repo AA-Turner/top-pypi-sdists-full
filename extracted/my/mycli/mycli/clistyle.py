@@ -1,4 +1,5 @@
 import logging
+from typing import cast
 
 from prompt_toolkit.styles import Style, merge_styles
 from prompt_toolkit.styles.pygments import style_from_pygments_cls
@@ -22,6 +23,8 @@ TOKEN_TO_PROMPT_STYLE: dict[Token, str] = {
     Token.SelectedText: "selected",
     Token.SearchMatch: "search",
     Token.SearchMatch.Current: "search.current",
+    Token.MatchingBracket.Cursor: "matching-bracket.cursor",
+    Token.MatchingBracket.Other: "matching-bracket.other",
     Token.Toolbar: "bottom-toolbar",
     Token.Toolbar.Off: "bottom-toolbar.off",
     Token.Toolbar.On: "bottom-toolbar.on",
@@ -89,7 +92,7 @@ OVERRIDE_STYLE_TO_TOKEN: dict[str, Token] = {
 
 def parse_pygments_style(
     token_name: str,
-    style_object: PygmentsStyle | str,
+    style_object: type[PygmentsStyle] | PygmentsStyle | dict[object, str] | str,
     style_dict: dict[str, str],
 ) -> tuple[Token, str]:
     """Parse token type and style string.
@@ -100,8 +103,12 @@ def parse_pygments_style(
 
     """
     token_type = string_to_tokentype(token_name)
-    if isinstance(style_object, PygmentsStyle):
+    if isinstance(style_object, type) and issubclass(style_object, PygmentsStyle):
         # When a Pygments Style class is passed, use its "styles" mapping.
+        other_token_type = string_to_tokentype(style_dict[token_name])
+        style_class = cast(type[PygmentsStyle], style_object)
+        return token_type, style_class.styles[other_token_type]
+    elif isinstance(style_object, PygmentsStyle):
         other_token_type = string_to_tokentype(style_dict[token_name])
         return token_type, style_object.styles[other_token_type]
     else:
@@ -130,7 +137,7 @@ def is_valid_ptoolkit(name: str) -> bool:
         return False
 
 
-def style_factory_toolkit(name: str, cli_style: dict[str, str]) -> _MergedStyle:
+def style_factory_ptoolkit(name: str, cli_style: dict[str, str]) -> _MergedStyle:
     try:
         style: PygmentsStyle = pygments.styles.get_style_by_name(name)
     except ClassNotFound:

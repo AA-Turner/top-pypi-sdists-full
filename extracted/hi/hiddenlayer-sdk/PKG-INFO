@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: hiddenlayer-sdk
-Version: 3.5.0
+Version: 3.6.0
 Summary: The official Python library for the hiddenlayer API
 Project-URL: Homepage, https://github.com/hiddenlayerai/hiddenlayer-sdk-python
 Project-URL: Repository, https://github.com/hiddenlayerai/hiddenlayer-sdk-python
@@ -30,7 +30,7 @@ Requires-Dist: requests-auth>=8.0.0
 Requires-Dist: requests>=2.32.4
 Requires-Dist: sniffio
 Requires-Dist: types-requests>=2.32.0.20241016
-Requires-Dist: typing-extensions<5,>=4.10
+Requires-Dist: typing-extensions<5,>=4.14
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
 Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
@@ -50,6 +50,13 @@ It is generated with [Stainless](https://www.stainless.com/).
 ## Documentation
 
 The REST API documentation can be found on [dev.hiddenlayer.ai](https://dev.hiddenlayer.ai). The full API of this library can be found in [api.md](https://github.com/hiddenlayerai/hiddenlayer-sdk-python/tree/main/api.md).
+
+## Beta APIs
+
+Some HiddenLayer APIs are marked as **Beta**, meaning they are not yet generally available (GA) or production ready. Beta APIs can be used in a production environment, but at your own risk and discretion. For full details, see the [Beta API Guidelines](https://dev.hiddenlayer.ai/docs/beta-api-faq) on the developer portal.
+
+- HiddenLayer does not provide compatibility guarantees for Beta APIs. Breaking changes may occur at any time.
+- SDK functions and types associated with Beta APIs are excluded when determining semver release versions.
 
 ## Installation
 

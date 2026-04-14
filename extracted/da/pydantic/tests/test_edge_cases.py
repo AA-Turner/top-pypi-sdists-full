@@ -974,7 +974,7 @@ def test_inheritance():
         a: float = ...
 
     with pytest.raises(
-        TypeError,
+        PydanticUserError,
         match=(
             "Field 'a' defined on a base class was overridden by a non-annotated attribute. "
             'All field definitions, including overrides, require a type annotation.'
@@ -1139,7 +1139,7 @@ def test_annotation_inheritance():
     assert C.model_fields['integer'].annotation == str
 
     with pytest.raises(
-        TypeError,
+        PydanticUserError,
         match=(
             "Field 'integer' defined on a base class was overridden by a non-annotated attribute. "
             'All field definitions, including overrides, require a type annotation.'
@@ -1345,6 +1345,22 @@ def test_custom_init():
 
     # For documentation purposes: type hints on __init__ are not currently used for validation:
     assert Model.model_validate({'x': 1, 'y': 'abc'}).x == 4
+
+
+def test_custom_init_validate_strings() -> None:
+    """https://github.com/pydantic/pydantic/issues/12718."""
+    calls: list[dict[str, object]] = []
+
+    class Model(BaseModel):
+        x: int
+
+        def __init__(self, **data: object) -> None:
+            calls.append(data)
+            super().__init__(**data)
+
+    Model.model_validate_strings({'x': '1'})
+
+    assert calls == [{'x': '1'}]
 
 
 def test_nested_custom_init():
@@ -2155,7 +2171,7 @@ def test_custom_generic_disallowed():
         r'Unable to generate pydantic-core schema for (.*)MyGen\[str, bool\](.*). '
         r'Set `arbitrary_types_allowed=True` in the model_config to ignore this error'
     )
-    with pytest.raises(TypeError, match=match):
+    with pytest.raises(PydanticUserError, match=match):
 
         class Model(BaseModel):
             a: str
@@ -3135,3 +3151,22 @@ def test_get_schema_on_classes_with_both_v1_and_v2_apis() -> None:
         @classmethod
         def __get_validators__(cls):
             raise AssertionError('This should not be called')
+
+
+def test_model_fields_set_includes_extra_after_assignment():
+    """Regression test for https://github.com/pydantic/pydantic/issues/11134.
+
+    Extra fields set after initialization should be included in model_fields_set.
+    """
+    from pydantic import BaseModel, ConfigDict
+
+    class Model(BaseModel):
+        model_config = ConfigDict(extra='allow')
+        field: int
+
+    m = Model.model_validate({'field': 1, 'extra_at_init': 2})
+    assert m.model_fields_set == {'field', 'extra_at_init'}
+
+    m.extra_after_init = 3
+    assert m.model_fields_set == {'field', 'extra_at_init', 'extra_after_init'}
+    assert m.model_extra == {'extra_at_init': 2, 'extra_after_init': 3}

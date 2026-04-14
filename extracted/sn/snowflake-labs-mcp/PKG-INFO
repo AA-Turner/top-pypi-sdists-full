@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-labs-mcp
-Version: 1.4.0
+Version: 1.4.1
 Summary: MCP server for Snowflake
 Project-URL: Repository, https://github.com/Snowflake-Labs/mcp.git
 Project-URL: Issues, https://github.com/Snowflake-Labs/mcp/issues
@@ -96,6 +96,7 @@ sql_statement_permissions: # List SQL statements to explicitly allow (True) or d
   - Command: True
   - Comment: True
   - Commit: True
+  - Copy: True
   - Create: True
   - Delete: True
   - Describe: True

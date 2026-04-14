@@ -1,6 +1,10 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.core.exceptions import ImproperlyConfigured
-from django.http import HttpResponsePermanentRedirect, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponsePermanentRedirect, HttpResponseRedirect
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html
 from django.views.decorators.cache import never_cache
@@ -22,7 +26,7 @@ from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.utils import get_request_param
 
 
-def _ajax_response(request, response, form=None, data=None):
+def _ajax_response(request: HttpRequest, response, form=None, data=None):
     adapter = get_adapter()
     if adapter.is_ajax(request):
         if isinstance(response, HttpResponseRedirect) or isinstance(
@@ -40,7 +44,7 @@ def _ajax_response(request, response, form=None, data=None):
 class RedirectAuthenticatedUserMixin:
     @method_decorator(login_not_required)
     @method_decorator(never_cache)
-    def dispatch(self, request, *args, **kwargs):
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any):
         if app_settings.AUTHENTICATED_LOGIN_REDIRECTS:
             if request.user.is_authenticated:
                 redirect_to = self.get_authenticated_redirect_url()
@@ -50,7 +54,7 @@ class RedirectAuthenticatedUserMixin:
                 stage = get_pending_stage(request)
                 if stage and stage.is_resumable(request):
                     return redirect_to_pending_stage(request, stage)
-        response = super().dispatch(request, *args, **kwargs)
+        response = super().dispatch(request, *args, **kwargs)  # type:ignore[misc]
         return response
 
     def get_authenticated_redirect_url(self):
@@ -72,19 +76,31 @@ class RedirectAuthenticatedUserMixin:
 
 
 class LogoutFunctionalityMixin:
-    def logout(self):
+    request: HttpRequest
+
+    def logout(self) -> None:
         flows.logout.logout(self.request)
 
 
 class AjaxCapableProcessFormViewMixin:
-    def get(self, request, *args, **kwargs):
-        response = super().get(request, *args, **kwargs)
+    if TYPE_CHECKING:
+        request: HttpRequest
+
+        # Expected to be provided by FormView
+        def get_form_class(self) -> Any: ...  # noqa: E704
+
+        def form_valid(self, form: Any) -> Any: ...  # noqa: E704
+
+        def form_invalid(self, form: Any) -> Any: ...  # noqa: E704
+
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any):
+        response = super().get(request, *args, **kwargs)  # type:ignore[misc]
         form = self.get_form()
         return _ajax_response(
             self.request, response, form=form, data=self._get_ajax_data_if()
         )
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any):
         form_class = self.get_form_class()
         form = self.get_form(form_class)
         if form.is_valid():
@@ -118,13 +134,13 @@ class CloseableSignupMixin:
         f"account/signup_closed.{app_settings.TEMPLATE_EXTENSION}"
     )
 
-    def dispatch(self, request, *args, **kwargs):
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any):
         try:
             if not self.is_open():
                 return self.closed()
         except ImmediateHttpResponse as e:
             return e.response
-        return super().dispatch(request, *args, **kwargs)
+        return super().dispatch(request, *args, **kwargs)  # type:ignore[misc]
 
     def is_open(self):
         return get_adapter(self.request).is_open_for_signup(self.request)

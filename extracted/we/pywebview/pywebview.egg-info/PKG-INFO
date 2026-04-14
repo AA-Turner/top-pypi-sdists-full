@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywebview
-Version: 6.1
+Version: 6.2
 Summary: Build GUI for your Python program with JavaScript, HTML, and CSS
 Author-email: Roman Sirokov <roman@flowrl.com>
 License: BSD 3-Clause License
@@ -50,20 +50,22 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: User Interfaces
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 License-File: LICENSE
 Requires-Dist: pythonnet; sys_platform == "win32"
-Requires-Dist: pyobjc-core; sys_platform == "darwin"
-Requires-Dist: pyobjc-framework-Cocoa; sys_platform == "darwin"
-Requires-Dist: pyobjc-framework-Quartz; sys_platform == "darwin"
-Requires-Dist: pyobjc-framework-WebKit; sys_platform == "darwin"
-Requires-Dist: pyobjc-framework-security; sys_platform == "darwin"
-Requires-Dist: pyobjc-framework-UniformTypeIdentifiers; sys_platform == "darwin"
+Requires-Dist: pyobjc-core>=9.0; sys_platform == "darwin"
+Requires-Dist: pyobjc-framework-Cocoa>=9.0; sys_platform == "darwin"
+Requires-Dist: pyobjc-framework-Quartz>=9.0; sys_platform == "darwin"
+Requires-Dist: pyobjc-framework-WebKit>=9.0; sys_platform == "darwin"
+Requires-Dist: pyobjc-framework-security>=9.0; sys_platform == "darwin"
+Requires-Dist: pyobjc-framework-UniformTypeIdentifiers>=9.0; sys_platform == "darwin"
 Requires-Dist: QtPy; sys_platform == "openbsd6"
-Requires-Dist: importlib_resources; python_version < "3.7"
+Requires-Dist: importlib_resources; python_version < "3.9"
 Requires-Dist: proxy_tools
 Requires-Dist: bottle
 Requires-Dist: typing_extensions
@@ -91,11 +93,13 @@ Requires-Dist: QtPy; extra == "qt6"
 Requires-Dist: PyQt6; extra == "qt6"
 Requires-Dist: PyQt6-WebEngine; extra == "qt6"
 Provides-Extra: android
-Requires-Dist: kivy; extra == "android"
 Requires-Dist: jnius; extra == "android"
 Provides-Extra: ssl
 Requires-Dist: cryptography; extra == "ssl"
 Provides-Extra: dev
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
 Dynamic: license-file

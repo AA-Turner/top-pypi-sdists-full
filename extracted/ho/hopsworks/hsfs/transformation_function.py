@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
+@public
 class TransformationType(Enum):
     """Class that store the possible types of transformation functions."""
 
@@ -52,16 +53,7 @@ class TransformationType(Enum):
 @typechecked
 class TransformationFunction:
     NOT_FOUND_ERROR_CODE = 270160
-    """
-    DTO class for transformation functions.
-
-    Parameters:
-        featurestore_id : `int`. Id of the feature store in which the transformation function is saved.
-        hopsworks_udf : `HopsworksUDF`. The meta data object for UDF in Hopsworks, which can be created using the `@udf` decorator.
-        version : `int`. The version of the transformation function.
-        id : `int`. The id of the transformation function in the feature store.
-        transformation_type : `UDFType`. The type of the transformation function. Can be "on-demand" or "model-dependent"
-    """
+    """DTO class for transformation functions."""
 
     def __init__(
         self,
@@ -76,6 +68,15 @@ class TransformationFunction:
         href=None,
         **kwargs,
     ):
+        """Construct a TransformationFunction.
+
+        Parameters:
+            featurestore_id: Id of the feature store in which the transformation function is saved.
+            hopsworks_udf: The meta data object for UDF in Hopsworks, which can be created using the `@udf` decorator.
+            version: The version of the transformation function.
+            id: The id of the transformation function in the feature store.
+            transformation_type: The type of the transformation function. Can be "on-demand" or "model-dependent"
+        """
         self._id: int = id
         self._featurestore_id: int = featurestore_id
         self._version: int = version
@@ -167,13 +168,13 @@ class TransformationFunction:
         """Update the feature to be using in the transformation function.
 
         Parameters:
-            features: `List[str]`. Name of features to be passed to the User Defined function.
+            features: Name of features to be passed to the User Defined function.
 
         Returns:
-            `HopsworksUdf`: Meta data class for the user defined function.
+            Meta data class for the user defined function.
 
         Raises:
-            `hopsworks.client.exceptions.FeatureStoreException`: If the provided number of features do not match the number of arguments in the defined UDF or if the provided feature names are not strings.
+            hopsworks.client.exceptions.FeatureStoreException: If the provided number of features do not match the number of arguments in the defined UDF or if the provided feature names are not strings.
         """
         # Deep copy so that the same transformation function can be used to create multiple new transformation function with different features.
         transformation = copy.deepcopy(self)
@@ -188,10 +189,10 @@ class TransformationFunction:
         """Function that constructs the class object from its json serialization.
 
         Parameters:
-            json_dict: `Dict[str, Any]`. Json serialized dictionary for the class.
+            json_dict: Json serialized dictionary for the class.
 
         Returns:
-            `TransformationFunction`: Json deserialized class object.
+            Json deserialized class object.
         """
         json_decamelized = humps.decamelize(json_dict)
 
@@ -218,10 +219,10 @@ class TransformationFunction:
         """Function that updates the class object from its json serialization.
 
         Parameters:
-            json_dict: `Dict[str, Any]`. Json serialized dictionary for the class.
+            json_dict: Json serialized dictionary for the class.
 
         Returns:
-            `TransformationFunction`: Json deserialized class object.
+            Json deserialized class object.
         """
         json_decamelized = humps.decamelize(json_dict)
         self.__init__(**json_decamelized)
@@ -231,7 +232,7 @@ class TransformationFunction:
         """Convert class into its json serialized form.
 
         Returns:
-            `str`: Json serialized object.
+            Json serialized object.
         """
         return json.dumps(self, cls=util.Encoder)
 
@@ -239,7 +240,7 @@ class TransformationFunction:
         """Convert class into a dictionary.
 
         Returns:
-            `Dict`: Dictionary that contains all data required to json serialize the object.
+            Dictionary that contains all data required to json serialize the object.
         """
         backend_version = client.get_connection().backend_version
 
@@ -257,7 +258,13 @@ class TransformationFunction:
 
     @public
     def alias(self, *args: str):
-        """Set the names of the transformed features output by the transformation function."""
+        """Set the names of the transformed features output by the transformation function.
+
+        Parameters:
+            args:
+                The names of the transformed features.
+                The number of names provided must match the number of output features of the transformation function.
+        """
         self.__hopsworks_udf.alias(*args)
 
         return self
@@ -322,6 +329,216 @@ class TransformationFunction:
                 output_col_names = [output_col_names[0][: FEATURES.MAX_LENGTH_NAME]]
 
         return output_col_names
+
+    def executor(
+        self,
+        statistics: TransformationStatistics
+        | list[FeatureDescriptiveStatistics]
+        | dict[str, dict[str, Any]] = None,
+        context: dict[str, Any] = None,
+        online: bool = False,
+    ) -> Any:
+        """Create an executable transformation with optional statistics and context for unit testing.
+
+        This method returns a callable object that can execute the transformation function with
+        the specified configuration. It is designed for unit testing transformation functions locally.
+
+        The executor allows you to:
+        - Inject mock statistics for testing model-dependent transformations
+        - Provide transformation context for testing transformation functions using context variables
+        - Switch between online (single-value) and offline (batch) execution modes
+
+        !!! example "Testing transformation with pandas execution mode"
+            ```python
+            @udf(return_type=float, mode="pandas")
+            def add_one(value):
+                return value + 1
+
+            tf = TransformationFunction(
+                featurestore_id=1,
+                hopsworks_udf=add_one,
+                transformation_type=TransformationType.ON_DEMAND
+            )
+
+            # Create executor and test
+            executor = tf.executor()
+            result = executor.execute(pd.Series([1.0, 2.0, 3.0]))
+            assert result.tolist() == [2.0, 3.0, 4.0]
+            ```
+
+        !!! example "Testing transformation with python execution mode"
+            ```python
+            @udf(return_type=float, mode="python")
+            def add_one(value):
+                return value + 1
+
+            tf = TransformationFunction(
+                featurestore_id=1,
+                hopsworks_udf=add_one,
+                transformation_type=TransformationType.ON_DEMAND
+            )
+
+            # Create executor and test
+            executor = tf.executor()
+            result = executor.execute(1.0)
+            assert result == 2.0
+            ```
+
+        !!! example "Testing transformation with default execution mode"
+            ```python
+            # In the default execution mode, Hopsworks executes the transformation function as pandas UDF for batch processing and as python function for online processing to get optimal.
+            # Hence, the function should should be able to handle both online and offline execution modes and unit-test musts be written for both these use-cases.
+            # In the offline mode, Hopsworks would pass a pandas Series to the function.
+            # In the online mode, Hopsworks would pass a single value to the function.
+
+            @udf(return_type=float)
+            def double_value(value):
+                return value * 2
+
+            tf = TransformationFunction(
+                featurestore_id=1,
+                hopsworks_udf=double_value,
+                transformation_type=TransformationType.ON_DEMAND
+            )
+
+            # Offline mode (batch processing with pandas Series)
+            offline_executor = tf.executor(online=False)
+            batch_result = offline_executor.execute(pd.Series([1.0, 2.0, 3.0]))
+
+            # Online mode (single value processing)
+            online_executor = tf.executor(online=True)
+            single_result = online_executor.execute(5.0)
+            assert single_result == 10.0
+            ```
+
+        !!! example "Unit test with mocked statistics"
+            ```python
+            from hsfs.transformation_statistics import TransformationStatistics
+
+            @udf(return_type=float)
+            def normalize(value, statistics=TransformationStatistics("value")):
+                return (value - statistics.value.mean) / statistics.value.std_dev
+
+            tf = TransformationFunction(
+                featurestore_id=1,
+                hopsworks_udf=normalize,
+                transformation_type=TransformationType.MODEL_DEPENDENT
+            )
+
+            # Test with mock statistics
+            executor = tf.executor(statistics={"value": {"mean": 100.0, "std_dev": 25.0}})
+            result = executor.execute(pd.Series([100.0, 125.0, 150.0]))
+            assert result.tolist() == [0.0, 1.0, 2.0]
+            ```
+
+        !!! example "Unit test with transformation context"
+            ```python
+            @udf(return_type=float)
+            def apply_discount(price, context):
+                return price * (1 - context["discount_rate"])
+
+            tf = TransformationFunction(
+                featurestore_id=1,
+                hopsworks_udf=apply_discount,
+                transformation_type=TransformationType.ON_DEMAND
+            )
+
+            executor = tf.executor(context={"discount_rate": 0.1})
+            result = executor.execute(pd.Series([100.0, 200.0]))
+            assert result.tolist() == [90.0, 180.0]
+            ```
+
+        !!! example "Testing online vs offline execution modes"
+            ```python
+            # For transformation functions using the default execution mode `default`.
+            # The function should should be able to handle both online and offline execution modes.
+            # In the offline mode, Hopsworks would pass a pandas Series to the function.
+            # In the online mode, Hopsworks would pass a single value to the function.
+            @udf(return_type=float, mode="default")
+            def double_value(value):
+                return value * 2
+
+            tf = TransformationFunction(
+                featurestore_id=1,
+                hopsworks_udf=double_value,
+                transformation_type=TransformationType.ON_DEMAND
+            )
+
+            # Offline mode (batch processing with pandas Series)
+            offline_executor = tf.executor(online=False)
+            batch_result = offline_executor.execute(pd.Series([1.0, 2.0, 3.0]))
+
+            # Online mode (single value processing)
+            online_executor = tf.executor(online=True)
+            single_result = online_executor.execute(5.0)
+            assert single_result == 10.0
+            ```
+
+        Parameters:
+            statistics: Statistics for model-dependent transformations.
+                Can be provided as:
+
+                - `TransformationStatistics`: Pre-built statistics object
+                - `dict[str, dict[str, Any]]`: Dictionary mapping feature names to their statistics (e.g., `{"amount": {"mean": 100.0, "std_dev": 25.0}}`)
+                - `list[FeatureDescriptiveStatistics]`: List of statistics objects from Hopsworks
+            context: A dictionary mapping variable names to values that provide contextual
+                information to the transformation function at runtime.
+                The keys must match parameter names defined in the transformation function.
+            online: Whether to execute in online mode (single values) or offline mode (batch/vectorized).
+                Only applicable when the transformation uses `mode="default"`.
+
+        Returns:
+            A callable object with an `execute(*args)` method to run the transformation.
+            - pd.Series - Single output Pandas UDFs.
+            - pd.DataFrame - Multi-output Pandas UDFs.
+            - int | float | str | bool | datetime | time | date - Single output Python UDFs.
+            - tuple[int | float | str | bool | datetime | time | date] - Multi-output Python UDFs.
+        """
+        return self.hopsworks_udf.executor(
+            statistics=statistics, context=context, online=online
+        )
+
+    def execute(self, *args) -> Any:
+        """Execute the transformation function directly with the provided arguments.
+
+        This is a convenience method for quick testing of simple transformations that don't
+        require statistics or transformation context. It executes in offline mode (batch processing).
+
+        !!! example "Quick transformation testing"
+            ```python
+            @udf(return_type=float)
+            def add_one(value):
+                return value + 1
+
+            tf = TransformationFunction(
+                featurestore_id=1,
+                hopsworks_udf=add_one,
+                transformation_type=TransformationType.ON_DEMAND
+            )
+
+            # Direct execution for simple tests
+            result = tf.execute(pd.Series([1.0, 2.0, 3.0]))
+            assert result.tolist() == [2.0, 3.0, 4.0]
+            ```
+
+        !!! note
+            For transformations that require statistics or transformation context or need to be executed in online mode, use [`executor()`][hsfs.transformation_function.TransformationFunction.executor] instead:
+            ```python
+            result = tf.executor(statistics=stats, context=ctx).execute(data)
+            ```
+
+        Parameters:
+            *args: Input arguments matching the transformation function's parameter signature.
+                For batch processing, pass pandas Series or DataFrames.
+
+        Returns:
+            The transformed values.
+            - pd.Series - Single output Pandas UDFs.
+            - pd.DataFrame - Multi-output Pandas UDFs.
+            - int | float | str | bool | datetime | time | date - Single output Python UDFs.
+            - tuple[int | float | str | bool | datetime | time | date] - Multi-output Python UDFs.
+        """
+        return self.hopsworks_udf.executor().execute(*args)
 
     @staticmethod
     def _validate_transformation_type(

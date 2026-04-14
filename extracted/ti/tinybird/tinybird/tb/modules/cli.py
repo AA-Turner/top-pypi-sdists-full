@@ -417,7 +417,7 @@ def get_project_type_from_tinybird_config(start_dir: str) -> Optional[str]:
 
 
 def _set_config_to_main_workspace(config: Dict[str, Any], staging: bool) -> None:
-    client = _get_tb_client(config.get("token", ""), config["host"], staging=staging)
+    client, _ = _get_tb_client(config.get("token", ""), config["host"], staging=staging)
     response = client.user_workspaces_and_branches(version="v1")
     workspaces = response.get("workspaces", [])
     if not workspaces:
@@ -618,7 +618,7 @@ def cli(
     config = get_config(host, token, user_token=user_token, config_file=config_temp._path)
     project_type = get_project_type_from_tinybird_config(os.getcwd()) or PROJECT_TYPE_CLI
     ctx.ensure_object(dict)["project_type"] = project_type
-    client = _get_tb_client(config.get("token", ""), config["host"], request_from=project_type)
+    client, _ = _get_tb_client(config.get("token", ""), config["host"], request_from=project_type)
 
     tinybird_dev_mode = get_dev_mode_from_tinybird_config(os.getcwd())
     if tinybird_dev_mode:
@@ -1067,7 +1067,7 @@ def create_ctx_client(
         if method and show_warnings:
             click.echo(FeedbackManager.gray(message=f"Authentication method: {method}"))
 
-        return _get_tb_client(
+        client, branch_created = _get_tb_client(
             config.get("token", ""),
             config["host"],
             staging=staging,
@@ -1075,10 +1075,22 @@ def create_ctx_client(
             create_branch_if_missing=create_branch_if_missing,
             request_from=project_type,
         )
+        ctx.ensure_object(dict)["branch_created"] = branch_created
+        return client
     test = command in command_always_test
     if show_warnings and command:
         click.echo(FeedbackManager.gray(message="Running against Tinybird Local"))
-    return get_tinybird_local_client(config, test=test, staging=staging)
+    local_branch = None
+    if command in ("build", "dev") and not test:
+        git_branch = get_current_git_branch()
+        if git_branch and not is_main_git_branch(git_branch):
+            local_branch = get_tinybird_branch_name_from_git_branch(git_branch)
+            ctx.ensure_object(dict)["git_branch"] = git_branch
+    client, workspace_created = get_tinybird_local_client(config, test=test, staging=staging, branch=local_branch)
+    if local_branch:
+        ctx.ensure_object(dict)["local_branch"] = local_branch
+        ctx.ensure_object(dict)["branch_created"] = workspace_created
+    return client
 
 
 def get_target_env(cloud: bool, branch: Optional[str]) -> str:

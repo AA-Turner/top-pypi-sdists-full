@@ -3,6 +3,7 @@ import glob
 import os
 import re
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from http import HTTPStatus
 from typing import Callable, Dict, Generator, List, Optional, Sequence, Tuple, Union
 
@@ -578,19 +579,25 @@ def tests(
                         print(unparse_test_path(t['testPath']))
                     return
 
+                MAX_UPLOAD_WORKERS = 3
+
                 start = time_ns()
                 exceptions = []
-                for chunk in ichunked(tc, post_chunk):
-                    p, es = payload(
-                        cases=chunk,
-                        test_runner=test_runner,
-                        group=group,
-                        test_suite_name=test_suite if test_suite else "",
-                        flavors=dict(flavor),
-                    )
+                with ThreadPoolExecutor(max_workers=MAX_UPLOAD_WORKERS) as executor:
+                    futures = []
+                    for chunk in ichunked(tc, post_chunk):
+                        p, es = payload(
+                            cases=chunk,
+                            test_runner=test_runner,
+                            group=group,
+                            test_suite_name=test_suite if test_suite else "",
+                            flavors=dict(flavor),
+                        )
+                        exceptions.extend(es)
+                        futures.append(executor.submit(send, p))
 
-                    send(p)
-                    exceptions.extend(es)
+                    for future in as_completed(futures):
+                        future.result()
                 end = time_ns()
                 tracking_client.send_event(
                     event_name=Tracking.Event.PERFORMANCE,

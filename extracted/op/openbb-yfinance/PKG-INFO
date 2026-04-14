@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openbb-yfinance
-Version: 1.6.0
+Version: 1.6.1
 Summary: yfinance extension for OpenBB
 License: AGPL-3.0-only
 Author: OpenBB Team
@@ -13,8 +13,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: openbb-core (>=1.6.1,<2.0.0)
-Requires-Dist: yfinance (>=1.2.0,<2.0.0)
+Requires-Dist: openbb-core (>=1.6.7,<2.0.0)
+Requires-Dist: yfinance (>=1.2.2,<2.0.0)
 Description-Content-Type: text/markdown
 
 # OpenBB Yahoo!Finance Provider

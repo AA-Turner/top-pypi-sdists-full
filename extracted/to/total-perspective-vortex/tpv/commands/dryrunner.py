@@ -25,9 +25,9 @@ class TPVDryRunner:
         if tpv_confs:
             self.tpv_config_files = tpv_confs
         else:
-            tpv_config_list: list[str] = self.galaxy_app.job_config.get_destination(  # type: ignore[no-untyped-call]
-                "tpv_dispatcher"
-            ).params["tpv_config_files"]
+            tpv_config_list: list[str] = self.galaxy_app.job_config.get_destination("tpv_dispatcher").params[
+                "tpv_config_files"
+            ]
             self.tpv_config_files = self.resolve_relative_config_paths(tpv_config_list, job_conf)
 
     @staticmethod

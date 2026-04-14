@@ -1,17 +1,26 @@
-Metadata-Version: 1.1
+Metadata-Version: 2.1
 Name: mastercard-oauth1-signer
-Version: 1.9.1
+Version: 1.9.2
 Summary: Mastercard OAuth1 Signer.
 Home-page: https://github.com/Mastercard/oauth1-signer-python
 Author: Mastercard
-Author-email: UNKNOWN
 License: MIT
-Description: Python library for generating a Mastercard API compliant OAuth signature. 
-Platform: UNKNOWN
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.8,<3.13
+License-File: LICENSE
+Requires-Dist: cryptography>=42.0.0
+Requires-Dist: urllib3
+Requires-Dist: Deprecated
+Requires-Dist: requests<2.32.5,>=2.31.0; python_version < "3.10"
+Requires-Dist: requests>=2.33.0; python_version >= "3.10"
+
+Python library for generating a Mastercard API compliant OAuth signature. 

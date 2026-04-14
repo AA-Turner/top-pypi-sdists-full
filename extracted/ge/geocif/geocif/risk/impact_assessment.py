@@ -4,7 +4,7 @@ import ast
 import multiprocessing as mp
 from pathlib import Path
 
-from tqdm import tqdm
+from tqdm.rich import tqdm
 import matplotlib.pyplot as plt
 
 from geocif import logger as log

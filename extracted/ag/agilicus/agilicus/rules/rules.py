@@ -531,6 +531,7 @@ def add_ruleset(
     org_id=None,
     scopes=None,
     standalone_rule_policy_id=None,
+    default_rule_tree_name=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -546,6 +547,11 @@ def add_ruleset(
 
     if standalone_rule_policy_id is not None:
         spec.standalone_rule_policy_id = standalone_rule_policy_id
+
+    if default_rule_tree_name is not None:
+        spec.default_rule_tree_name = agilicus.NullableStandaloneRuleName(
+            default_rule_tree_name
+        )
 
     _add_object_conditions(spec, scopes)
 
@@ -618,6 +624,8 @@ def replace_ruleset(
     labels=None,
     scopes=None,
     standalone_rule_policy_id=None,
+    default_rule_tree_name=None,
+    clear_default_rule_tree=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -627,10 +635,10 @@ def replace_ruleset(
         standalone_ruleset_id=ruleset_id, org_id=org_id
     )
     spec = base.spec
-    if trees is not None:
+    if trees is not None and len(trees) > 0:
         spec.rule_trees = _rule_tree_ref_list(trees)
 
-    if labels is not None:
+    if labels is not None and len(labels) > 0:
         spec.labels = [agilicus.StandaloneRulesetLabelName(label) for label in labels]
 
     if name is not None:
@@ -638,6 +646,13 @@ def replace_ruleset(
 
     if standalone_rule_policy_id is not None:
         spec.standalone_rule_policy_id = standalone_rule_policy_id
+    if default_rule_tree_name is not None:
+        spec.default_rule_tree_name = agilicus.NullableStandaloneRuleName(
+            default_rule_tree_name
+        )
+
+    if clear_default_rule_tree:
+        spec.default_rule_tree_name = None
 
     _add_object_conditions(spec, scopes)
 

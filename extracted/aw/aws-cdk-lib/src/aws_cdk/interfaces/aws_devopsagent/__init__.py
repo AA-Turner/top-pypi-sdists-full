@@ -305,12 +305,13 @@ typing.cast(typing.Any, IServiceRef).__jsii_proxy_class__ = lambda : _IServiceRe
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_devopsagent.ServiceReference",
     jsii_struct_bases=[],
-    name_mapping={"service_id": "serviceId"},
+    name_mapping={"service_arn": "serviceArn", "service_id": "serviceId"},
 )
 class ServiceReference:
-    def __init__(self, *, service_id: builtins.str) -> None:
+    def __init__(self, *, service_arn: builtins.str, service_id: builtins.str) -> None:
         '''A reference to a Service resource.
 
+        :param service_arn: The ARN of the Service resource.
         :param service_id: The ServiceId of the Service resource.
 
         :exampleMetadata: fixture=_generated
@@ -322,15 +323,25 @@ class ServiceReference:
             from aws_cdk.interfaces import aws_devopsagent as interfaces_devopsagent
             
             service_reference = interfaces_devopsagent.ServiceReference(
+                service_arn="serviceArn",
                 service_id="serviceId"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__07ccf3b3910b4e346e3aafaa8df25d00cb1ad66f67f835fb8c05b14d4cf5ce22)
+            check_type(argname="argument service_arn", value=service_arn, expected_type=type_hints["service_arn"])
             check_type(argname="argument service_id", value=service_id, expected_type=type_hints["service_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "service_arn": service_arn,
             "service_id": service_id,
         }
+
+    @builtins.property
+    def service_arn(self) -> builtins.str:
+        '''The ARN of the Service resource.'''
+        result = self._values.get("service_arn")
+        assert result is not None, "Required property 'service_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def service_id(self) -> builtins.str:
@@ -380,6 +391,7 @@ def _typecheckingstub__02318c63b2a10c35692903fce2e2a91bd6e6b83485fb019a8dd7f1e3e
 
 def _typecheckingstub__07ccf3b3910b4e346e3aafaa8df25d00cb1ad66f67f835fb8c05b14d4cf5ce22(
     *,
+    service_arn: builtins.str,
     service_id: builtins.str,
 ) -> None:
     """Type checking stubs"""

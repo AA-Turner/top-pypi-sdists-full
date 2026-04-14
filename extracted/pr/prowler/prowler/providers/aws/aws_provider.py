@@ -96,7 +96,7 @@ class AwsProvider(Provider):
     _audit_resources: list = []
     _audit_config: dict
     _scan_unused_services: bool = False
-    _enabled_regions: set = set()
+    _enabled_regions: set | None = None
     _mutelist: AWSMutelist
     # TODO: this is not optional, enforce for all providers
     audit_metadata: Audit_Metadata
@@ -747,7 +747,7 @@ class AwsProvider(Provider):
             )
 
             # Get the regions enabled for the account and get the intersection with the service available regions
-            if self._enabled_regions:
+            if self._enabled_regions is not None:
                 enabled_regions = service_regions.intersection(self._enabled_regions)
             else:
                 enabled_regions = service_regions
@@ -942,20 +942,23 @@ class AwsProvider(Provider):
             )
             raise error
 
-    def get_default_region(self, service: str) -> str:
-        """get_default_region returns the default region based on the profile and audited service regions
+    def get_default_region(self, service: str, global_service: bool = False) -> str:
+        """get_default_region returns the default region based on the profile and audited service regions.
+
+        For global services (CloudFront, Route53, Shield, FMS) the partition's
+        global region is always returned, ignoring profile and audited regions.
 
         Args:
             - service: The AWS service name
+            - global_service: If True, return the partition's global region directly
 
         Returns:
             - str: The default region for the given service
-
-        Example:
-            service = "ec2"
-            default_region = get_default_region(service)
         """
         try:
+            if global_service:
+                return self.get_global_region()
+
             service_regions = AwsProvider.get_available_aws_service_regions(
                 service, self._identity.partition, self._identity.audited_regions
             )
@@ -1101,14 +1104,14 @@ class AwsProvider(Provider):
                 file=pathlib.Path(__file__).name,
             )
 
-    def get_aws_enabled_regions(self, current_session: Session) -> set:
-        """get_aws_enabled_regions returns a set of enabled AWS regions
+    def get_aws_enabled_regions(self, current_session: Session) -> set | None:
+        """get_aws_enabled_regions returns a set of enabled AWS regions, or None on failure.
 
         Args:
             - current_session: The AWS session object
 
         Returns:
-            - set: set of strings representing the enabled AWS regions
+            - set | None: set of enabled AWS region strings, or None if regions could not be determined
         """
         try:
             # EC2 Client to check enabled regions
@@ -1128,7 +1131,7 @@ class AwsProvider(Provider):
             logger.error(
                 f"{error.__class__.__name__}[{error.__traceback__.tb_lineno}]: {error}"
             )
-            return set()
+            return None
 
     # TODO: review this function
     # Maybe this should be done within the AwsProvider and not in __main__.py

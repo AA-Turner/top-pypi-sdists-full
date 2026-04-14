@@ -277,25 +277,34 @@ def storage_plugin(request):
 
 @pytest.fixture(scope="session")
 def storage_info(request, storage_plugin):
+    settings = {}
     fsbackend = getattr(request.config.option, "devpi_server_storage_fs_backend", None)
-    if fsbackend is None:
-        fsbackend = "fs"
-    return storage_plugin.devpiserver_storage_backend(
-        settings=dict(fsbackend=fsbackend)
-    )
+    if fsbackend is not None:
+        settings["fsbackend"] = fsbackend
+    return storage_plugin.devpiserver_storage_backend(settings=settings)
 
 
 @pytest.fixture(scope="session")
 def storage_args(storage_info):
     def storage_args(basedir):
         args = []
-        if storage_info["name"] != "sqlite":
+        if storage_info["name"] != "sqlite" or storage_info["settings"]:
             storage_option = "--storage=%s" % storage_info["name"]
             _get_test_storage_options = getattr(
                 storage_info["storage"], "_get_test_storage_options", None)
+            got_options = False
             if _get_test_storage_options:
                 storage_options = _get_test_storage_options(str(basedir))
+                got_options = storage_options
                 storage_option = storage_option + storage_options
+            settings = storage_info.get("settings", {})
+            if settings:
+                storage_options = ",".join(f"{k}={v}" for k, v in settings.items())
+                storage_option = (
+                    f"{storage_option},{storage_options}"
+                    if got_options
+                    else f"{storage_option}:{storage_options}"
+                )
             args.append(storage_option)
         return args
     return storage_args
@@ -317,7 +326,7 @@ def storage_io_file_factory(storage_info):
 def makexom(
     request, gen_path, http, httpget, monkeypatch, storage_args, storage_plugin
 ):
-    def makexom(opts=(), http=http, httpget=httpget, plugins=()):  # noqa: PLR0912
+    def makexom(opts=(), http=http, httpget=httpget, plugins=()):
         from devpi_server import auth_basic
         from devpi_server import auth_devpi
         from devpi_server import model
@@ -328,23 +337,34 @@ def makexom(
         plugins = [
             plugin[0] if isinstance(plugin, tuple) else plugin
             for plugin in plugins]
-        default_plugins = [
-            auth_basic, auth_devpi, mirror, model, replica, view_auth, views,
-            storage_plugin]
-        for plugin in default_plugins:
-            if plugin not in plugins:
-                plugins.append(plugin)
+        plugins.extend(
+            plugin
+            for plugin in (
+                auth_basic,
+                auth_devpi,
+                mirror,
+                model,
+                replica,
+                view_auth,
+                views,
+                storage_plugin,
+            )
+            if plugin not in plugins
+        )
         pm = get_pluginmanager(load_entrypoints=False)
         for plugin in plugins:
             pm.register(plugin)
+        no_storage_option = request.node.get_closest_marker("no_storage_option")
         serverdir = gen_path()
-        if "--serverdir" in opts:
-            fullopts = ["devpi-server"] + list(opts)
-        else:
-            fullopts = ["devpi-server", "--serverdir", serverdir] + list(opts)
-        if not request.node.get_closest_marker("no_storage_option"):
-            fullopts.extend(storage_args(serverdir))
-        fullopts = [str(x) for x in fullopts]
+        fullopts = [
+            str(x)
+            for x in (
+                "devpi-server",
+                *([] if "--serverdir" in opts else ["--serverdir", serverdir]),
+                *opts,
+                *([] if no_storage_option else storage_args(serverdir)),
+            )
+        ]
         config = parseoptions(pm, fullopts)
         config.init_nodeinfo()
         for marker in ("storage_with_filesystem",):
@@ -360,9 +380,20 @@ def makexom(
             add_pypistage_mocks(monkeypatch, http, httpget)
         request.addfinalizer(xom.thread_pool.kill)
         request.addfinalizer(xom._close_sessions)
-        if not request.node.get_closest_marker("no_storage_option"):
+        if not no_storage_option:
             assert storage_plugin.__name__ in {
                 x.__module__ for x in xom.keyfs._storage.__class__.__mro__}
+            fsbackend = getattr(
+                request.config.option, "devpi_server_storage_fs_backend", None
+            )
+            if fsbackend is not None:
+                with xom.keyfs.get_connection() as conn:
+                    assert (
+                        xom.keyfs.io_file_factory(conn)
+                        .__module__.split(".")[-1]
+                        .removeprefix("filestore_")
+                        == fsbackend
+                    )
         # verify storage interface
         with xom.keyfs.get_connection() as conn:
             verify_connection_interface(conn)
@@ -1479,10 +1510,15 @@ def primary_host_port(primary_server_path, secretfile, storage_args):
         "--serverdir", str(primary_server_path),
         *storage_args(primary_server_path)]
     if not primary_server_path.joinpath('.nodeinfo').exists():
-        subprocess.check_call([  # noqa: S607
-            "devpi-init",
-            "--serverdir", str(primary_server_path),
-            *storage_args(primary_server_path)])
+        subprocess.check_call(
+            [  # noqa: S607
+                "devpi-init",
+                "--serverdir",
+                str(primary_server_path),
+                "--no-root-pypi",
+                *storage_args(primary_server_path),
+            ]
+        )
     p = subprocess.Popen(args)
     try:
         wait_for_port(host, port)

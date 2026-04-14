@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: label-studio-sdk
-Version: 2.0.19
+Version: 2.0.20
 Summary: 
 Requires-Python: >=3.10,<4
 Classifier: Intended Audience :: Developers
@@ -27,15 +27,16 @@ Requires-Dist: ijson (>=3.2.3)
 Requires-Dist: jsf (>=0.11.2,<0.12.0)
 Requires-Dist: jsonschema (>=4.23.0)
 Requires-Dist: lxml (>=4.2.5)
-Requires-Dist: nltk (>=3.9.1,<4.0.0)
+Requires-Dist: nltk (>=3.9.4,<4.0.0)
 Requires-Dist: numpy (>=2.2,<3.0.0)
-Requires-Dist: opencv-python-headless (>=4.12.0,<5.0.0)
+Requires-Dist: opencv-python-headless (>=4.12.0,<4.13)
 Requires-Dist: pandas (>=0.24.0)
 Requires-Dist: pydantic (>=1.9.2)
 Requires-Dist: pydantic-core (>=2.18.2)
-Requires-Dist: pyjwt (>=2.10.1,<3.0.0)
-Requires-Dist: requests (>=2.22.0)
+Requires-Dist: pyjwt (>=2.12.0,<3.0.0)
+Requires-Dist: requests (>=2.33.0)
 Requires-Dist: requests-mock (==1.12.1)
+Requires-Dist: typer (>=0.12.3)
 Requires-Dist: typing_extensions (>=4.0.0)
 Requires-Dist: ujson (>=5.8.0)
 Requires-Dist: urllib3 (>=2.5.0)
@@ -75,6 +76,47 @@ client = LabelStudio(
     base_url='YOUR_LABEL_STUDIO_URL',  
     api_key="YOUR_API_KEY",
 )
+```
+
+## CLI
+
+The SDK also includes a CLI entrypoint that mirrors SDK resources and methods.
+
+On **leaf commands** (for example `projects create`), use **`-h`** for minimal help (one-line summary, SDK signature, and options) and **`--help`** for the full generated documentation (parameters, examples, return shape, and options). Top-level groups only register **`--help`**.
+
+```bash
+export LABEL_STUDIO_API_KEY="YOUR_API_KEY"
+export LABEL_STUDIO_URL="YOUR_BASE_URL"
+
+# minimal help for one command
+label-studio-sdk projects create -h
+
+# full help (longer)
+label-studio-sdk projects create --help
+
+# top-level
+label-studio-sdk --help
+
+# List projects
+label-studio-sdk projects list
+
+# Create a project (generic key=value params)
+label-studio-sdk projects create \
+  --param title="CLI Example" \
+  --param 'label_config=<View><Text name="text" value="$text"/></View>'
+```
+
+### Running the CLI with uv
+
+```bash
+# from PyPI
+uv run --with label_studio_sdk label-studio-sdk --help
+
+# from github
+uv run --with git+https://github.com/HumanSignal/label-studio-sdk.git label-studio-sdk --help
+
+# from local
+uv run --with-editable . label-studio-sdk --help
 ```
 
 # Versions

@@ -136,8 +136,9 @@ class Cmd2BaseConsole(Console):
         :param kwargs: keyword arguments passed to the parent Console class.
         :raises TypeError: if disallowed keyword argument is passed in.
         """
-        # Don't allow force_terminal or force_interactive to be passed in, as their
-        # behavior is controlled by the ALLOW_STYLE setting.
+        # These settings are controlled by the ALLOW_STYLE setting and cannot be overridden.
+        if "color_system" in kwargs:
+            raise TypeError("Passing 'color_system' is not allowed. Its behavior is controlled by the 'ALLOW_STYLE' setting.")
         if "force_terminal" in kwargs:
             raise TypeError(
                 "Passing 'force_terminal' is not allowed. Its behavior is controlled by the 'ALLOW_STYLE' setting."
@@ -157,18 +158,24 @@ class Cmd2BaseConsole(Console):
 
         force_terminal: bool | None = None
         force_interactive: bool | None = None
+        allow_style = False
 
         if ALLOW_STYLE == AllowStyle.ALWAYS:
             force_terminal = True
+            allow_style = True
 
             # Turn off interactive mode if dest is not actually a terminal which supports it
             tmp_console = Console(file=file)
             force_interactive = tmp_console.is_interactive
+        elif ALLOW_STYLE == AllowStyle.TERMINAL:
+            tmp_console = Console(file=file)
+            allow_style = tmp_console.is_terminal
         elif ALLOW_STYLE == AllowStyle.NEVER:
             force_terminal = False
 
         super().__init__(
             file=file,
+            color_system="truecolor" if allow_style else None,
             force_terminal=force_terminal,
             force_interactive=force_interactive,
             theme=APP_THEME,
@@ -412,6 +419,7 @@ def rich_text_to_string(text: Text) -> str:
     """
     console = Console(
         force_terminal=True,
+        color_system="truecolor",
         soft_wrap=True,
         no_color=False,
         theme=APP_THEME,
@@ -477,64 +485,3 @@ def prepare_objects_for_rendering(*objects: Any) -> tuple[Any, ...]:
             object_list[i] = Text.from_ansi(renderable_as_str)
 
     return tuple(object_list)
-
-
-###################################################################################
-# Rich Library Monkey Patches
-#
-# These patches fix specific bugs in the Rich library. They are conditional and
-# will only be applied if the bug is detected. When the bugs are fixed in a
-# future Rich release, these patches and their corresponding tests should be
-# removed.
-###################################################################################
-
-###################################################################################
-# Text.from_ansi() monkey patch
-###################################################################################
-
-# Save original Text.from_ansi() so we can call it in our wrapper
-_orig_text_from_ansi = Text.from_ansi
-
-
-@classmethod  # type: ignore[misc]
-def _from_ansi_wrapper(cls: type[Text], text: str, *args: Any, **kwargs: Any) -> Text:  # noqa: ARG001
-    r"""Wrap Text.from_ansi() to fix its trailing newline bug.
-
-    This wrapper handles an issue where Text.from_ansi() removes the
-    trailing line break from a string (e.g. "Hello\n" becomes "Hello").
-
-    There is currently a pull request on Rich to fix this.
-    https://github.com/Textualize/rich/pull/3793
-    """
-    result = _orig_text_from_ansi(text, *args, **kwargs)
-
-    # If the original string ends with a recognized line break character,
-    # then restore the missing newline. We use "\n" because Text.from_ansi()
-    # converts all line breaks into newlines.
-    # Source: https://docs.python.org/3/library/stdtypes.html#str.splitlines
-    line_break_chars = {
-        "\n",  # Line Feed
-        "\r",  # Carriage Return
-        "\v",  # Vertical Tab
-        "\f",  # Form Feed
-        "\x1c",  # File Separator
-        "\x1d",  # Group Separator
-        "\x1e",  # Record Separator
-        "\x85",  # Next Line (NEL)
-        "\u2028",  # Line Separator
-        "\u2029",  # Paragraph Separator
-    }
-    if text and text[-1] in line_break_chars:
-        result.append("\n")
-
-    return result
-
-
-def _from_ansi_has_newline_bug() -> bool:
-    """Check if Test.from_ansi() strips the trailing line break from a string."""
-    return Text.from_ansi("\n") == Text.from_ansi("")
-
-
-# Only apply the monkey patch if the bug is present
-if _from_ansi_has_newline_bug():
-    Text.from_ansi = _from_ansi_wrapper  # type: ignore[assignment]

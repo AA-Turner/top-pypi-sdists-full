@@ -20,7 +20,7 @@ use tracing_subscriber::{EnvFilter, Layer};
 
 use crate::cleanup::cleanup;
 use crate::cli::{
-    CacheCommand, CacheNamespace, Cli, Command, ExitStatus, UtilCommand, UtilNamespace,
+    CacheCommand, CacheNamespace, Cli, Command, ExitStatus, UtilCommand, UtilNamespace, flag,
 };
 #[cfg(feature = "self-update")]
 use crate::cli::{SelfCommand, SelfNamespace, SelfUpdateArgs};
@@ -110,6 +110,7 @@ fn setup_logging(level: Level, log_file: LogFile, store: &Store) -> Result<()> {
         .with_span_events(FmtSpan::CLOSE)
         .event_format(stderr_format)
         .with_writer(anstream::stderr)
+        .with_ansi_sanitization(false)
         .with_filter(stderr_filter);
 
     let registry = tracing_subscriber::registry().with(stderr_layer);
@@ -270,7 +271,14 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
         Command::Uninstall(args) => {
             show_settings!(args);
 
-            cli::uninstall(cli.globals.config, args.hook_types, args.all, printer).await
+            cli::uninstall(
+                cli.globals.config,
+                args.hook_types,
+                args.all,
+                printer,
+                args.git_dir.as_deref(),
+            )
+            .await
         }
         Command::Run(args) => {
             show_settings!(args);
@@ -288,7 +296,7 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 args.directory,
                 args.last_commit,
                 args.show_diff_on_failure,
-                args.fail_fast,
+                flag(args.fail_fast, args.no_fail_fast),
                 args.dry_run,
                 cli.globals.refresh,
                 args.extra,
@@ -371,7 +379,8 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
                 args.bleeding_edge,
                 args.freeze,
                 args.jobs,
-                args.dry_run,
+                args.dry_run || args.check,
+                args.check,
                 args.cooldown_days,
                 printer,
             )

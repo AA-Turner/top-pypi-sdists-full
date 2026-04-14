@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import requests
 from http import HTTPStatus
 from urllib.parse import parse_qsl
 
+from django.http import HttpRequest
 from django.utils.http import urlencode
 
 from allauth.socialaccount.adapter import get_adapter
@@ -16,7 +19,7 @@ class OAuth2Client:
 
     def __init__(
         self,
-        request,
+        request: HttpRequest,
         consumer_key,
         consumer_secret,
         access_token_method,
@@ -25,7 +28,7 @@ class OAuth2Client:
         scope_delimiter=" ",
         headers=None,
         basic_auth=False,
-    ):
+    ) -> None:
         self.request = request
         self.access_token_method = access_token_method
         self.access_token_url = access_token_url

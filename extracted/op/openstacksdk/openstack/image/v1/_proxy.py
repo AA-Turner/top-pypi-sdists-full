@@ -11,7 +11,8 @@
 # under the License.
 
 import os
-import typing as ty
+from typing import ClassVar, Literal
+from collections.abc import Callable
 import warnings
 
 from openstack import exceptions as exc
@@ -37,6 +38,8 @@ def _get_name_and_filename(name, image_format):
 
 
 class Proxy(proxy.Proxy):
+    api_version: ClassVar[Literal['1']] = '1'
+
     retriable_status_codes = [503]
 
     _IMAGE_MD5_KEY = 'owner_specified.openstack.md5'
@@ -486,7 +489,7 @@ class Proxy(proxy.Proxy):
         interval: int | float | None = 2,
         wait: int | None = None,
         attribute: str = 'status',
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for the resource to be in a particular status.
 
@@ -522,7 +525,7 @@ class Proxy(proxy.Proxy):
         res: resource.ResourceT,
         interval: int = 2,
         wait: int = 120,
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.
 

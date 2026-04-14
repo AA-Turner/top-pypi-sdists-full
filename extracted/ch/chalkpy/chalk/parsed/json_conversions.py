@@ -583,8 +583,21 @@ def convert_type_to_gql(
                     default_json = json.dumps(t.converter.from_rich_to_json(t.default))
                 except:
                     pass
+            # For versioned features with explicitly enumerated versions, use the
+            # default version's dtype instead of the outer annotation's dtype.
+            # The outer annotation (e.g. Optional[int] -> int64) may not match the
+            # per-version dtype (e.g. uint32), causing false "type change detected" lint warnings.
+            dtype_source: Feature = t
+            if (
+                feature_version is not None
+                and feature_version.explicitly_enumerated
+                and feature_version.default in feature_version.reference
+            ):
+                _ref = feature_version.reference[feature_version.default]
+                if isinstance(_ref, Feature):
+                    dtype_source = _ref
             try:
-                serialized_dtype = serialize_dtype(t.converter.pyarrow_dtype)
+                serialized_dtype = serialize_dtype(dtype_source.converter.pyarrow_dtype)
             except Exception as e:
                 builder = t.features_cls.__chalk_error_builder__
                 if builder:
@@ -596,6 +609,8 @@ def convert_type_to_gql(
                         code_href="https://docs.chalk.ai/docs/feature-types",
                     )
                 raise e
+
+            has_explicit_dtype = dtype_source._pyarrow_dtype is not None  # pyright: ignore[reportPrivateUsage]
 
             scalar_kind_gql = UpsertScalarKindGQL(
                 scalarKind=pretty_name,
@@ -609,12 +624,12 @@ def convert_type_to_gql(
                         version=feature_version.version,
                         maximum=feature_version.maximum,
                         default=feature_version.default,
-                        versions=[f.fqn for f in feature_version.reference.values()],
+                        versions=[f.fqn for f in feature_version.reference.values() if isinstance(f, Feature)],
                     )
                 ),
                 dtype=serialized_dtype,
                 defaultValueJson=default_json,
-                hasExplicitDtype=t._pyarrow_dtype is not None,  # pyright: ignore[reportPrivateUsage]
+                hasExplicitDtype=has_explicit_dtype,
             )
 
         window_buckets = None

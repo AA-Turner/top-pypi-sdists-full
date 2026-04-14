@@ -31,14 +31,15 @@ import psutil
 
 try:
     import typer
-except ImportError:  # pragma: no cover
-    raise ImportError(
-        "typer is required for the CLI. Please install with 'pip install pyaedt[all]' or 'pip install typer'"
-    )
+except ImportError as e:  # pragma: no cover
+    from ansys.aedt.core.internal.checks import install_message
+
+    msg = install_message("typer", "all", level="module")
+    raise ImportError(msg) from e
 
 # Default configuration for local_config.json
 DEFAULT_TEST_CONFIG = {
-    "desktopVersion": "2025.2",
+    "desktopVersion": "2026.1",
     "NonGraphical": True,
     "NewThread": True,
     "skip_circuits": False,
@@ -138,7 +139,7 @@ def _prompt_config_value(key: str, current_value) -> any:
         if key == "desktopVersion":
             while True:
                 new_value = typer.prompt(
-                    "New value (format: YYYY.R, e.g., 2025.2)", default=current_value, show_default=False
+                    "New value (format: YYYY.R, e.g., 2026.1)", default=current_value, show_default=False
                 )
                 # Remove quotes if user entered them
                 new_value = new_value.strip().strip('"').strip("'")
@@ -149,7 +150,7 @@ def _prompt_config_value(key: str, current_value) -> any:
                 if re.match(r"^\d{4}\.\d$", new_value):
                     return new_value
                 else:
-                    typer.secho("      ✗ Invalid format. Please use YYYY.R (e.g., 2025.2)", fg="red")
+                    typer.secho("      ✗ Invalid format. Please use YYYY.R (e.g., 2026.1)", fg="red")
                     typer.echo("      ", nl=False)
         else:
             new_value = typer.prompt("New value", default=current_value, show_default=False)
@@ -296,8 +297,13 @@ def _get_port(proc: psutil.Process) -> int | None:
     if "-grpcsrv" in cmd_line:
         res = int(cmd_line[cmd_line.index("-grpcsrv") + 1])
     else:
+        if hasattr(psutil, "net_connections"):
+            prc_connections = psutil.net_connections()
+        else:  # pragma: no cover
+            prc_connections = psutil.connections()
+
         # Look in the typical port range for AEDT
-        for i in psutil.net_connections():
+        for i in prc_connections:
             if i.pid == proc.pid and i.status == "LISTEN" and 50000 <= i.laddr.port <= 50100:
                 res = i.laddr.port
                 break

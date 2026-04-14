@@ -142,9 +142,11 @@ def import_all(
     if skills_dir.is_dir():
         results["skills"] = import_skills(db, skills_dir)
 
-    # Import instructions from common locations
+    # Import instructions from common locations (shared search list)
     if project_dir is not None:
-        for inst_name in (".anteroom.md", "ANTEROOM.md", "anteroom.md"):
+        from ..cli.instructions import _SEARCH_FILENAMES
+
+        for inst_name in _SEARCH_FILENAMES:
             inst_path = project_dir / inst_name
             if inst_path.is_file():
                 results["instructions"] = import_instructions(db, inst_path)

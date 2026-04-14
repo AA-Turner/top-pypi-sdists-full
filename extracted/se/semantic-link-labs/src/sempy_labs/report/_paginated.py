@@ -48,7 +48,7 @@ def get_report_datasources(
 
     workspace_id = resolve_workspace_id(workspace)
     report_id = resolve_item_id(
-        item=report, type="PaginatedReport", workspace=workspace
+        item=report, type="Report", workspace=workspace_id
     )
 
     response = _base_api(

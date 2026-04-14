@@ -11,22 +11,26 @@
 # under the License.
 
 from openstack.tests.functional import base
+from openstack import utils
 
 
 class TestService(base.BaseFunctionalTest):
     # listing services is slooowwww
-    TIMEOUT_SCALING_FACTOR = 2.0
+    TIMEOUT_SCALING_FACTOR = 2
 
     def test_list(self):
         sot = list(self.operator_cloud.block_storage.services())
         self.assertIsNotNone(sot)
 
     def test_disable_enable(self):
-        for srv in self.operator_cloud.block_storage.services():
+        block_storage = utils.ensure_service_version(
+            self.operator_cloud.block_storage, '3'
+        )
+        for srv in block_storage.services():
             # only nova-block_storage can be updated
             if srv.name == 'nova-block_storage':
-                self.operator_cloud.block_storage.disable_service(srv)
-                self.operator_cloud.block_storage.enable_service(srv)
+                block_storage.disable_service(srv)
+                block_storage.enable_service(srv)
                 break
 
     def test_find(self):

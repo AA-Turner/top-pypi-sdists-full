@@ -6,6 +6,7 @@ import copy
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from functools import partial
+from types import SimpleNamespace
 from typing import Any, Union
 
 import numpy as np
@@ -13,9 +14,11 @@ import pandas as pd
 import pytest
 
 from pandera.api.pandas.array import ArraySchema
+from pandera.backends.pandas.array import ArraySchemaBackend
 from pandera.dtypes import UniqueSettings
 from pandera.engines.pandas_engine import Engine
 from pandera.engines.utils import pandas_version
+from pandera.errors import SchemaErrorReason
 from pandera.pandas import (
     Category,
     Check,
@@ -120,11 +123,12 @@ def test_dataframe_single_element_coerce() -> None:
     """Test that coercing a single element dataframe works correctly."""
     schema = DataFrameSchema({"x": Column(int, coerce=True)})
     assert isinstance(schema(pd.DataFrame({"x": [1]})), pd.DataFrame)
-    with pytest.raises(
-        errors.SchemaError,
-        match="Error while coercing 'x' to type int64",
-    ):
+    with pytest.raises(errors.SchemaErrors) as exc_info:
         schema(pd.DataFrame({"x": [None]}))
+    assert any(
+        "Error while coercing 'x' to type int64" in str(e.args[0])
+        for e in exc_info.value.schema_errors
+    )
 
 
 def test_dataframe_empty_coerce() -> None:
@@ -158,7 +162,7 @@ def test_dataframe_schema_strict() -> None:
     df = pd.DataFrame({"a": [1, 2, 3], "b": [1, 2, 3], "c": [1, 2, 3]})
 
     assert isinstance(schema.validate(df.loc[:, ["a", "b"]]), pd.DataFrame)
-    with pytest.raises(errors.SchemaError):
+    with pytest.raises(errors.SchemaErrors):
         schema.validate(df)
 
     schema.strict = "filter"
@@ -180,6 +184,32 @@ def test_dataframe_schema_strict() -> None:
         schema.validate(df.loc[:, ["a", "c"]])
 
 
+def test_dataframe_schema_strict_and_ordered_raises_both_errors() -> None:
+    """Regression test for #2213: strict=True and ordered=True raise both
+    COLUMN_NOT_ORDERED and COLUMN_NOT_IN_SCHEMA when dataframe has both."""
+    schema = DataFrameSchema(
+        columns={
+            "id": Column(int, nullable=False),
+            "name": Column(str, nullable=True),
+        },
+        strict=True,
+        ordered=True,
+    )
+    # Wrong order (name before id) and extra column
+    df = pd.DataFrame(
+        {
+            "name": ["Alice", "Bob", "Charlie"],
+            "id": [1, 2, 3],
+            "extra_column": ["extra1", "extra2", "extra3"],
+        }
+    )
+    with pytest.raises(errors.SchemaErrors) as exc_info:
+        schema.validate(df)
+    reason_codes = {e.reason_code for e in exc_info.value.schema_errors}
+    assert errors.SchemaErrorReason.COLUMN_NOT_ORDERED in reason_codes
+    assert errors.SchemaErrorReason.COLUMN_NOT_IN_SCHEMA in reason_codes
+
+
 def test_dataframe_schema_strict_regex() -> None:
     """Test that strict dataframe schema checks for regex matches."""
     schema = DataFrameSchema(
@@ -190,9 +220,9 @@ def test_dataframe_schema_strict_regex() -> None:
 
     assert isinstance(schema.validate(df), pd.DataFrame)
 
-    # Raise a SchemaError if schema is strict and a regex pattern yields
+    # Raise SchemaErrors if schema is strict and a regex pattern yields
     # no matches
-    with pytest.raises(errors.SchemaError):
+    with pytest.raises(errors.SchemaErrors):
         schema.validate(
             pd.DataFrame({f"bar_{i}": range(10) for i in range(5)})
         )
@@ -448,7 +478,7 @@ def test_add_missing_columns_order():
         data=[[1, 2, 3]], columns=["a", "missing", "c"]
     )
     with pytest.raises(
-        errors.SchemaError,
+        errors.SchemaErrors,
         match="column 'missing' not in DataFrameSchema",
     ):
         schema.validate(frame_unknown_col)
@@ -603,6 +633,138 @@ def test_series_schema() -> None:
         match="Error while coercing",
     ):
         SeriesSchema(float, coerce=True).validate(pd.Series(list("abcdefg")))
+
+
+class _FakePysparkSeries(pd.Series):
+    __module__ = "pyspark.pandas.series"
+
+    @property
+    def _constructor(self):
+        return _FakePysparkSeries
+
+
+class _DummyDtype:
+    def __init__(self, coerced):
+        self._coerced = coerced
+
+    def try_coerce(self, _check_obj):
+        return self._coerced
+
+    def __str__(self) -> str:
+        return "float64"
+
+
+class _BrokenMask:
+    def __and__(self, _other):
+        return self
+
+    def any(self):
+        raise RuntimeError("boom")
+
+
+class _CoercedWithBrokenMask:
+    def isna(self):
+        return _BrokenMask()
+
+
+def test_array_backend_coerce_detects_introduced_nulls() -> None:
+    """Raised error should include introduced-null failure cases."""
+
+    backend = ArraySchemaBackend()
+    check_obj = _FakePysparkSeries(["1.0", "bad"], name="distance")
+    coerced = _FakePysparkSeries([1.0, pd.NA], name="distance")
+    schema = SimpleNamespace(
+        dtype=_DummyDtype(coerced), coerce=True, name="distance"
+    )
+
+    with pytest.raises(errors.SchemaError) as exc_info:
+        backend.coerce_dtype(check_obj, schema=schema)
+
+    err = exc_info.value
+    assert err.reason_code == SchemaErrorReason.DATATYPE_COERCION
+    assert "coercion introduced null values" in str(err)
+    assert set(err.failure_cases["failure_case"].astype(str).tolist()) == {
+        "bad"
+    }
+
+
+def test_array_backend_coerce_returns_value_without_new_nulls() -> None:
+    """Successful coercion should return the coerced object."""
+
+    backend = ArraySchemaBackend()
+    check_obj = _FakePysparkSeries(["1.0", "2.0"], name="distance")
+    coerced = _FakePysparkSeries([1.0, 2.0], name="distance")
+    schema = SimpleNamespace(
+        dtype=_DummyDtype(coerced), coerce=True, name="distance"
+    )
+
+    result = backend.coerce_dtype(check_obj, schema=schema)
+
+    assert result is coerced
+
+
+def test_array_backend_coerce_wraps_inner_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unexpected errors are wrapped in SchemaError with failure cases."""
+
+    backend = ArraySchemaBackend()
+    check_obj = _FakePysparkSeries(["a"], name="distance")
+    schema = SimpleNamespace(
+        dtype=_DummyDtype(_CoercedWithBrokenMask()),
+        coerce=True,
+        name="distance",
+    )
+    failure_cases = pd.DataFrame(
+        {
+            "index": [0],
+            "failure_case": ["a"],
+            "column": ["distance"],
+        }
+    )
+
+    monkeypatch.setattr(
+        "pandera.engines.utils.numpy_pandas_coerce_failure_cases",
+        lambda *_args, **_kwargs: failure_cases,
+    )
+
+    with pytest.raises(errors.SchemaError) as exc_info:
+        backend.coerce_dtype(check_obj, schema=schema)
+
+    err = exc_info.value
+    assert err.reason_code == SchemaErrorReason.DATATYPE_COERCION
+    assert "boom" in str(err)
+    assert err.failure_cases is failure_cases
+
+
+def test_array_backend_coerce_handles_failure_case_extraction_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Failure-case extraction errors should not mask SchemaError."""
+
+    backend = ArraySchemaBackend()
+    check_obj = _FakePysparkSeries(["a"], name="distance")
+    schema = SimpleNamespace(
+        dtype=_DummyDtype(_CoercedWithBrokenMask()),
+        coerce=True,
+        name="distance",
+    )
+
+    def _raise(*_args, **_kwargs):
+        raise ValueError("cannot extract")
+
+    monkeypatch.setattr(
+        "pandera.engines.utils.numpy_pandas_coerce_failure_cases",
+        _raise,
+    )
+
+    with pytest.raises(errors.SchemaError) as exc_info:
+        backend.coerce_dtype(check_obj, schema=schema)
+
+    err = exc_info.value
+    assert err.reason_code == SchemaErrorReason.DATATYPE_COERCION
+    assert "boom" in str(err)
+    assert err.failure_cases is None
 
 
 def test_series_schema_checks() -> None:
@@ -786,12 +948,13 @@ def test_coerce_dtype_in_dataframe():
     # make sure that correct error is raised when null values are present
     # in a float column that's coerced to an int
     schema = DataFrameSchema({"column4": Column(int, coerce=True)})
-    with pytest.raises(
-        errors.SchemaError,
-        match=r"^Error while coercing .+ to type u{0,1}int[0-9]{1,2}: "
-        r"Could not coerce .+ data_container into type",
-    ):
+    with pytest.raises(errors.SchemaErrors) as exc_info:
         schema.validate(df)
+    assert len(exc_info.value.schema_errors) == 1
+    assert "Error while coercing" in str(
+        exc_info.value.schema_errors[0].args[0]
+    )
+    assert "Could not coerce" in str(exc_info.value.schema_errors[0].args[0])
 
 
 def test_no_dtype_dataframe():
@@ -2063,7 +2226,7 @@ def test_series_schema_dtype(dtype):
             pd.DataFrame(
                 [[1, 2, 3], list("xyz"), [7, 8, 9]], columns=["a", "a", "b"]
             ),
-            errors.SchemaError,
+            (errors.SchemaError, errors.SchemaErrors),
         ],
     ],
 )

@@ -16,6 +16,7 @@ class TestUtil(TestCase):
 
     def test_int_to_base64(self):
         self.assertRaises(ValueError, util.int_to_base64, -1)
+        self.assertRaises(ValueError, util.int_to_base64, 256, 1)
 
     def test_urlsafe_b64decode(self):
         self.assertEqual(util.urlsafe_b64decode(b"_foo123-"), b"\xfd\xfa(\xd7m\xfe")

@@ -3101,6 +3101,19 @@ class CfnLayer(
         jsii.set(self, "autoAssignPublicIps", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="customJson")
+    def custom_json(self) -> typing.Any:
+        '''A JSON-formatted string containing custom stack configuration and deployment attributes to be installed on the layer's instances.'''
+        return typing.cast(typing.Any, jsii.get(self, "customJson"))
+
+    @custom_json.setter
+    def custom_json(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__51213828c84c59f5b40dc3f53612fe0e252973a059400094e40e3bf915b9fc80)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customJson", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="enableAutoHealing")
     def enable_auto_healing(
         self,
@@ -3200,19 +3213,6 @@ class CfnLayer(
             type_hints = typing.get_type_hints(_typecheckingstub__e6bd9eae8e2c43a63cc326dd83cd4cf25a20c2fda16a523fe488beec31c627be)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customInstanceProfileArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="customJson")
-    def custom_json(self) -> typing.Any:
-        '''A JSON-formatted string containing custom stack configuration and deployment attributes to be installed on the layer's instances.'''
-        return typing.cast(typing.Any, jsii.get(self, "customJson"))
-
-    @custom_json.setter
-    def custom_json(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__51213828c84c59f5b40dc3f53612fe0e252973a059400094e40e3bf915b9fc80)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customJson", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="customRecipes")
@@ -4751,6 +4751,19 @@ class CfnStack(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="customJson")
+    def custom_json(self) -> typing.Any:
+        '''A string that contains user-defined, custom JSON.'''
+        return typing.cast(typing.Any, jsii.get(self, "customJson"))
+
+    @custom_json.setter
+    def custom_json(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5afc13f67b5e304c063782f4f1baebe0e122de72c58ff0422ee442b028862b1f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customJson", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="defaultInstanceProfileArn")
     def default_instance_profile_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of an IAM profile that is the default profile for all of the stack's EC2 instances.'''
@@ -4907,19 +4920,6 @@ class CfnStack(
             type_hints = typing.get_type_hints(_typecheckingstub__b869d48381b55b175cfbaba7ef0f8953ebdc1078d9d078e8bc09422eee78ec0d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "customCookbooksSource", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="customJson")
-    def custom_json(self) -> typing.Any:
-        '''A string that contains user-defined, custom JSON.'''
-        return typing.cast(typing.Any, jsii.get(self, "customJson"))
-
-    @custom_json.setter
-    def custom_json(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5afc13f67b5e304c063782f4f1baebe0e122de72c58ff0422ee442b028862b1f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customJson", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="defaultAvailabilityZone")
@@ -7290,6 +7290,12 @@ def _typecheckingstub__a8ba55dbdeca1c05ff112a4836e57cd64cee40b72e11ac77b619cf736
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__51213828c84c59f5b40dc3f53612fe0e252973a059400094e40e3bf915b9fc80(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2351ccfe7eb13aba979ae0e393a2fd47e40926de22ecf6aba42a950ceba9ccca(
     value: typing.Union[builtins.bool, _IResolvable_da3f097b],
 ) -> None:
@@ -7328,12 +7334,6 @@ def _typecheckingstub__9395644dbf3af1a765e40fb019bf24792671a4e69e059385183e9f7d8
 
 def _typecheckingstub__e6bd9eae8e2c43a63cc326dd83cd4cf25a20c2fda16a523fe488beec31c627be(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__51213828c84c59f5b40dc3f53612fe0e252973a059400094e40e3bf915b9fc80(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7542,6 +7542,12 @@ def _typecheckingstub__c9d5d71f906760fc69e166fb118bdbe1cc995ea63682ce754be4ac9b1
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5afc13f67b5e304c063782f4f1baebe0e122de72c58ff0422ee442b028862b1f(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fcd2146f03d53d0bae14a634773ac910108f90fe74c5850ae2cd62dcdba8ff91(
     value: builtins.str,
 ) -> None:
@@ -7598,12 +7604,6 @@ def _typecheckingstub__f4a10239804abfac0b9d5794c751a6f72e554b611f7631b0a15f7bae4
 
 def _typecheckingstub__b869d48381b55b175cfbaba7ef0f8953ebdc1078d9d078e8bc09422eee78ec0d(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStack.SourceProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5afc13f67b5e304c063782f4f1baebe0e122de72c58ff0422ee442b028862b1f(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

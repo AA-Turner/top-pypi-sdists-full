@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: ibm-cos-sdk
-Version: 2.16.1
+Version: 2.16.2
 Summary: IBM SDK for Python
 Home-page: https://github.com/ibm/ibm-cos-sdk-python
 Author: IBM
@@ -24,8 +24,8 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >= 3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ibm-cos-sdk-core==2.16.1
-Requires-Dist: ibm-cos-sdk-s3transfer==2.16.1
+Requires-Dist: ibm-cos-sdk-core==2.16.2
+Requires-Dist: ibm-cos-sdk-s3transfer==2.16.2
 Requires-Dist: jmespath<=1.0.1,>=0.10.0
 Provides-Extra: crt
 Requires-Dist: ibm_botocore[crt]<2.0a0,>=1.21.0; extra == "crt"
@@ -35,6 +35,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: project-url
 Dynamic: requires-dist
 Dynamic: requires-python
@@ -73,7 +74,7 @@ These values can be found in the IBM Cloud Console by [generating a \'service cr
 
 ## Using Python
 
-Use of the Python SDK and example code can be found [here](https://cloud.ibm.com/docs/cloud-object-storage?topic=cloud-object-storage-python).
+Use of the Python SDK and example code can be found at [IBM COS Python SDK Documentation](https://cloud.ibm.com/docs/cloud-object-storage?topic=cloud-object-storage-python).
 
 ## Using a Service Credential
 

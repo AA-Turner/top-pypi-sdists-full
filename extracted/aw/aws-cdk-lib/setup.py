@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-lib",
-    "version": "2.248.0",
+    "version": "2.249.0",
     "description": "Version 2 of the AWS Cloud Development Kit library",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -232,6 +232,7 @@ kwargs = json.loads(
         "aws_cdk.aws_nimblestudio",
         "aws_cdk.aws_notifications",
         "aws_cdk.aws_notificationscontacts",
+        "aws_cdk.aws_novaact",
         "aws_cdk.aws_oam",
         "aws_cdk.aws_observabilityadmin",
         "aws_cdk.aws_odb",
@@ -293,6 +294,7 @@ kwargs = json.loads(
         "aws_cdk.aws_scheduler_targets",
         "aws_cdk.aws_sdb",
         "aws_cdk.aws_secretsmanager",
+        "aws_cdk.aws_securityagent",
         "aws_cdk.aws_securityhub",
         "aws_cdk.aws_securitylake",
         "aws_cdk.aws_servicecatalog",
@@ -525,6 +527,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_nimblestudio",
         "aws_cdk.interfaces.aws_notifications",
         "aws_cdk.interfaces.aws_notificationscontacts",
+        "aws_cdk.interfaces.aws_novaact",
         "aws_cdk.interfaces.aws_oam",
         "aws_cdk.interfaces.aws_observabilityadmin",
         "aws_cdk.interfaces.aws_odb",
@@ -579,6 +582,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_scheduler",
         "aws_cdk.interfaces.aws_sdb",
         "aws_cdk.interfaces.aws_secretsmanager",
+        "aws_cdk.interfaces.aws_securityagent",
         "aws_cdk.interfaces.aws_securityhub",
         "aws_cdk.interfaces.aws_securitylake",
         "aws_cdk.interfaces.aws_servicecatalog",
@@ -624,7 +628,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk._jsii": [
-            "aws-cdk-lib@2.248.0.jsii.tgz"
+            "aws-cdk-lib@2.249.0.jsii.tgz"
         ],
         "aws_cdk": [
             "py.typed"

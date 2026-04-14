@@ -1364,6 +1364,8 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
     * `CLICKHOUSE`None
     * `CONFLUENT_KAFKA`None
     * `CONFLUENT_KAFKA_CONNECT`None
+    * `CUSTOM_CONNECTOR`None
+    * `CUSTOM_INTEGRATION`None
     * `DATABRICKS_METASTORE_SQL_WAREHOUSE`None
     * `DATABRICKS_SQL_WAREHOUSE`None
     * `DB2`None
@@ -1416,6 +1418,8 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
         "CLICKHOUSE",
         "CONFLUENT_KAFKA",
         "CONFLUENT_KAFKA_CONNECT",
+        "CUSTOM_CONNECTOR",
+        "CUSTOM_INTEGRATION",
         "DATABRICKS_METASTORE_SQL_WAREHOUSE",
         "DATABRICKS_SQL_WAREHOUSE",
         "DB2",
@@ -6273,12 +6277,13 @@ class TsaAnalysisStatus(sgqlc.types.Enum):
     Enumeration Choices:
 
     * `COMPLETED`None
+    * `FAILED`None
     * `IN_PROGRESS`None
     * `NOT_STARTED`None
     """
 
     __schema__ = schema
-    __choices__ = ("COMPLETED", "IN_PROGRESS", "NOT_STARTED")
+    __choices__ = ("COMPLETED", "FAILED", "IN_PROGRESS", "NOT_STARTED")
 
 
 class TutorialStatusType(sgqlc.types.Enum):
@@ -13207,6 +13212,7 @@ class IMonitor(sgqlc.types.Interface):
         "dashboards",
         "is_hidden_for_asset",
         "agent_mcon",
+        "is_auto_created",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Unique identifier for monitors"""
@@ -13442,6 +13448,11 @@ class IMonitor(sgqlc.types.Interface):
     agent_mcon = sgqlc.types.Field(String, graphql_name="agentMcon")
     """MCON identifying the platform agent, if this is a platform agent
     monitor.
+    """
+
+    is_auto_created = sgqlc.types.Field(Boolean, graphql_name="isAutoCreated")
+    """Whether this monitor was auto-created by the recommendation
+    service.
     """
 
 
@@ -31389,6 +31400,10 @@ class MonitorLabelObject(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "is_auto_created",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -31455,6 +31470,9 @@ class MonitorLabelObject(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
+    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
+      status. When true, returns only monitors auto-created by the
+      recommendation service.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -62991,6 +63009,8 @@ class Query(sgqlc.types.Type):
                     "trace_timestamp",
                     sgqlc.types.Arg(DateTime, graphql_name="traceTimestamp", default=None),
                 ),
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
             )
         ),
     )
@@ -63005,6 +63025,8 @@ class Query(sgqlc.types.Type):
     * `trace_ids` (`[String!]`): Filter by specific trace IDs
     * `trace_timestamp` (`DateTime`): Filter by trace timestamp
       (inclusive) +- 1 hr
+    * `start_time` (`DateTime`): Filter by span start time (inclusive)
+    * `end_time` (`DateTime`): Filter by span end time (inclusive)
     """
 
     get_agent_span_sample = sgqlc.types.Field(
@@ -63679,6 +63701,10 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "is_auto_created",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -63745,6 +63771,9 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
+    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
+      status. When true, returns only monitors auto-created by the
+      recommendation service.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -63938,6 +63967,10 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "is_auto_created",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -64004,6 +64037,9 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
+    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
+      status. When true, returns only monitors auto-created by the
+      recommendation service.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -64197,6 +64233,10 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "is_auto_created",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -64263,6 +64303,9 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
+    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
+      status. When true, returns only monitors auto-created by the
+      recommendation service.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -64456,6 +64499,10 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "is_auto_created",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -64522,6 +64569,9 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
+    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
+      status. When true, returns only monitors auto-created by the
+      recommendation service.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -64715,6 +64765,10 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "is_auto_created",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -64781,6 +64835,9 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
+    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
+      status. When true, returns only monitors auto-created by the
+      recommendation service.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -64974,6 +65031,10 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "is_auto_created",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -65040,6 +65101,9 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
+    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
+      status. When true, returns only monitors auto-created by the
+      recommendation service.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -65233,6 +65297,10 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "is_auto_created",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -65299,6 +65367,9 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
+    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
+      status. When true, returns only monitors auto-created by the
+      recommendation service.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -65492,6 +65563,10 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "is_auto_created",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -65558,6 +65633,9 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
+    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
+      status. When true, returns only monitors auto-created by the
+      recommendation service.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -65751,6 +65829,10 @@ class Query(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "is_auto_created",
+                    sgqlc.types.Arg(Boolean, graphql_name="isAutoCreated", default=None),
+                ),
                 ("order_by", sgqlc.types.Arg(String, graphql_name="orderBy", default=None)),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
@@ -65817,6 +65899,9 @@ class Query(sgqlc.types.Type):
     * `agent_filters` (`[AgentFilterInput!]`): Filter monitors by
       agent. Returns monitors associated with the specified agent(s),
       identified by agent_name and/or trace_table_mcon.
+    * `is_auto_created` (`Boolean`): Filter monitors by auto-creation
+      status. When true, returns only monitors auto-created by the
+      recommendation service.
     * `order_by` (`String`): Field and direction to order monitors by
     * `limit` (`Int`): Number of monitors to return
     * `offset` (`Int`): From which monitor to return the next results
@@ -84889,6 +84974,7 @@ class AgentTraceTable(sgqlc.types.Type, Node):
         "table",
         "span_format",
         "schedule",
+        "recommendations_generated_at",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -84910,6 +84996,13 @@ class AgentTraceTable(sgqlc.types.Type, Node):
     schedule = sgqlc.types.Field(
         sgqlc.types.non_null(DataCollectorSchedule), graphql_name="schedule"
     )
+
+    recommendations_generated_at = sgqlc.types.Field(
+        DateTime, graphql_name="recommendationsGeneratedAt"
+    )
+    """Timestamp when auto-recommended monitors were generated for this
+    trace table.
+    """
 
 
 class AirflowDag(sgqlc.types.Type, Node):
@@ -87817,6 +87910,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "comparisons",
         "is_paused",
         "is_draft",
+        "is_auto_created",
         "rule_type",
         "warehouse_uuid",
         "interval_minutes",
@@ -87947,6 +88041,9 @@ class CustomRule(sgqlc.types.Type, Node):
 
     is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
     """True if rule is a draft"""
+
+    is_auto_created = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isAutoCreated")
+    """Was this monitor auto-created by the recommendation service?"""
 
     rule_type = sgqlc.types.Field(CustomRuleModelRuleType, graphql_name="ruleType")
 
@@ -91474,6 +91571,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "comparisons",
         "is_paused",
         "is_draft",
+        "is_auto_created",
         "type",
         "warehouse_uuid",
         "controlled_by",
@@ -91585,6 +91683,9 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
     """Is this a draft monitor?"""
+
+    is_auto_created = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isAutoCreated")
+    """Was this monitor auto-created by the recommendation service?"""
 
     type = sgqlc.types.Field(sgqlc.types.non_null(MetricMonitoringModelType), graphql_name="type")
 
@@ -91903,6 +92004,7 @@ class PlatformAgent(sgqlc.types.Type, Node):
         "agent_database",
         "agent_schema",
         "schedule",
+        "recommendations_generated_at",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -91936,6 +92038,13 @@ class PlatformAgent(sgqlc.types.Type, Node):
     schedule = sgqlc.types.Field(
         sgqlc.types.non_null(DataCollectorSchedule), graphql_name="schedule"
     )
+
+    recommendations_generated_at = sgqlc.types.Field(
+        DateTime, graphql_name="recommendationsGeneratedAt"
+    )
+    """Timestamp when auto-recommended monitors were generated for this
+    platform agent.
+    """
 
 
 class Project(sgqlc.types.Type, Node):
@@ -94408,6 +94517,7 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "snooze_until_time",
         "is_paused",
         "is_draft",
+        "is_auto_created",
         "where_condition",
         "use_partition_clause",
         "namespace",
@@ -94540,6 +94650,9 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
     is_paused = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isPaused")
 
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
+
+    is_auto_created = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isAutoCreated")
+    """Was this monitor auto-created by the recommendation service?"""
 
     where_condition = sgqlc.types.Field(String, graphql_name="whereCondition")
 

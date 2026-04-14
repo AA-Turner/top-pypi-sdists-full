@@ -582,7 +582,9 @@ def _create_engine(config: AppConfig, db: Any, *, space_id: str | None = None) -
         artifact_registry.load_from_db(db, space_id=space_id)
         skill_registry = SkillRegistry()
         skill_registry.load()
-        skill_registry.load_from_artifacts(artifact_registry)
+        skill_registry.load_from_artifacts(artifact_registry, db=db)
+        if config.references.skills:
+            skill_registry.load_from_references(config.references.skills)
     except Exception as exc:
         logger.debug("Could not initialize artifact/skill registries: %s", exc)
 

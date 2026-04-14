@@ -773,6 +773,32 @@ class CfnSubscription(
         return typing.cast("_SubscriptionReference_58957c21", jsii.get(self, "subscriptionRef"))
 
     @builtins.property
+    @jsii.member(jsii_name="deliveryPolicy")
+    def delivery_policy(self) -> typing.Any:
+        '''The delivery policy JSON assigned to the subscription.'''
+        return typing.cast(typing.Any, jsii.get(self, "deliveryPolicy"))
+
+    @delivery_policy.setter
+    def delivery_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__363ef69700500450c12f41b43c0226475a42d465d0e2c1eb2c6a62103297a77d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deliveryPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="filterPolicy")
+    def filter_policy(self) -> typing.Any:
+        '''The filter policy JSON assigned to the subscription.'''
+        return typing.cast(typing.Any, jsii.get(self, "filterPolicy"))
+
+    @filter_policy.setter
+    def filter_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e0ead2904ccf72657e766b50c2aef479b86c25ba314b73f122eedee3bf8f859)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "filterPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="protocol")
     def protocol(self) -> builtins.str:
         '''The subscription's protocol.'''
@@ -784,6 +810,32 @@ class CfnSubscription(
             type_hints = typing.get_type_hints(_typecheckingstub__b7edc75a221f1678a2af2a8200b26975f38bc8f1f405e735dbdeff306d6b51f8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "protocol", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="redrivePolicy")
+    def redrive_policy(self) -> typing.Any:
+        '''When specified, sends undeliverable messages to the specified Amazon SQS dead-letter queue.'''
+        return typing.cast(typing.Any, jsii.get(self, "redrivePolicy"))
+
+    @redrive_policy.setter
+    def redrive_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5fbcc2d22ef7dec8cd3d31ce95fa8e065175f8957313872e3b1a02015210c603)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "redrivePolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replayPolicy")
+    def replay_policy(self) -> typing.Any:
+        '''Specifies whether Amazon  resends the notification to the subscription when a message's attribute changes.'''
+        return typing.cast(typing.Any, jsii.get(self, "replayPolicy"))
+
+    @replay_policy.setter
+    def replay_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a75cc1735865b82732f90f42a2ba55634431d8bdec48d0a7752a79354f0c850d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replayPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="topicArn")
@@ -799,19 +851,6 @@ class CfnSubscription(
         jsii.set(self, "topicArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="deliveryPolicy")
-    def delivery_policy(self) -> typing.Any:
-        '''The delivery policy JSON assigned to the subscription.'''
-        return typing.cast(typing.Any, jsii.get(self, "deliveryPolicy"))
-
-    @delivery_policy.setter
-    def delivery_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__363ef69700500450c12f41b43c0226475a42d465d0e2c1eb2c6a62103297a77d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deliveryPolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="endpoint")
     def endpoint(self) -> typing.Optional[builtins.str]:
         '''The subscription's endpoint.'''
@@ -823,19 +862,6 @@ class CfnSubscription(
             type_hints = typing.get_type_hints(_typecheckingstub__51bd5ec550058313034fb332f79c3420c0ab46be8aaa0abb6b7489748ace3b8f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endpoint", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="filterPolicy")
-    def filter_policy(self) -> typing.Any:
-        '''The filter policy JSON assigned to the subscription.'''
-        return typing.cast(typing.Any, jsii.get(self, "filterPolicy"))
-
-    @filter_policy.setter
-    def filter_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e0ead2904ccf72657e766b50c2aef479b86c25ba314b73f122eedee3bf8f859)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "filterPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="filterPolicyScope")
@@ -869,19 +895,6 @@ class CfnSubscription(
         jsii.set(self, "rawMessageDelivery", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="redrivePolicy")
-    def redrive_policy(self) -> typing.Any:
-        '''When specified, sends undeliverable messages to the specified Amazon SQS dead-letter queue.'''
-        return typing.cast(typing.Any, jsii.get(self, "redrivePolicy"))
-
-    @redrive_policy.setter
-    def redrive_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fbcc2d22ef7dec8cd3d31ce95fa8e065175f8957313872e3b1a02015210c603)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "redrivePolicy", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="region")
     def region(self) -> typing.Optional[builtins.str]:
         '''For cross-region subscriptions, the region in which the topic resides.'''
@@ -893,19 +906,6 @@ class CfnSubscription(
             type_hints = typing.get_type_hints(_typecheckingstub__22cba62b05c6e7ecdf0102d83ee908ae549d02df6eb8dd5643c2c42074fdf936)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "region", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="replayPolicy")
-    def replay_policy(self) -> typing.Any:
-        '''Specifies whether Amazon  resends the notification to the subscription when a message's attribute changes.'''
-        return typing.cast(typing.Any, jsii.get(self, "replayPolicy"))
-
-    @replay_policy.setter
-    def replay_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a75cc1735865b82732f90f42a2ba55634431d8bdec48d0a7752a79354f0c850d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replayPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="subscriptionRoleArn")
@@ -1405,6 +1405,19 @@ class CfnTopic(
         jsii.set(self, "archivePolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="dataProtectionPolicy")
+    def data_protection_policy(self) -> typing.Any:
+        '''The body of the policy document you want to use for this topic.'''
+        return typing.cast(typing.Any, jsii.get(self, "dataProtectionPolicy"))
+
+    @data_protection_policy.setter
+    def data_protection_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0fa01cdb622f9c1239adaa1d51fb0035fbf98f9f42d4c5cf2e419e59e007298b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dataProtectionPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="contentBasedDeduplication")
     def content_based_deduplication(
         self,
@@ -1421,19 +1434,6 @@ class CfnTopic(
             type_hints = typing.get_type_hints(_typecheckingstub__61855b81d1d953ec33b8c0af7bad8099bc0ec45c2624d213b520131ecf95b724)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "contentBasedDeduplication", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dataProtectionPolicy")
-    def data_protection_policy(self) -> typing.Any:
-        '''The body of the policy document you want to use for this topic.'''
-        return typing.cast(typing.Any, jsii.get(self, "dataProtectionPolicy"))
-
-    @data_protection_policy.setter
-    def data_protection_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0fa01cdb622f9c1239adaa1d51fb0035fbf98f9f42d4c5cf2e419e59e007298b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dataProtectionPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="deliveryStatusLogging")
@@ -7389,8 +7389,32 @@ def _typecheckingstub__97d8f48dcae3735a971499612987e1098d379f23b6c7cd953ea2feccf
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__363ef69700500450c12f41b43c0226475a42d465d0e2c1eb2c6a62103297a77d(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e0ead2904ccf72657e766b50c2aef479b86c25ba314b73f122eedee3bf8f859(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b7edc75a221f1678a2af2a8200b26975f38bc8f1f405e735dbdeff306d6b51f8(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5fbcc2d22ef7dec8cd3d31ce95fa8e065175f8957313872e3b1a02015210c603(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a75cc1735865b82732f90f42a2ba55634431d8bdec48d0a7752a79354f0c850d(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7401,20 +7425,8 @@ def _typecheckingstub__695665f02c816a5f5b8823c7113d6f83dc37a450f1e44a469efc6b646
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__363ef69700500450c12f41b43c0226475a42d465d0e2c1eb2c6a62103297a77d(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__51bd5ec550058313034fb332f79c3420c0ab46be8aaa0abb6b7489748ace3b8f(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9e0ead2904ccf72657e766b50c2aef479b86c25ba314b73f122eedee3bf8f859(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7431,20 +7443,8 @@ def _typecheckingstub__b31b31d2e697eb675dfd0da4695e87324259ab34307bec1a543ab628d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__5fbcc2d22ef7dec8cd3d31ce95fa8e065175f8957313872e3b1a02015210c603(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__22cba62b05c6e7ecdf0102d83ee908ae549d02df6eb8dd5643c2c42074fdf936(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a75cc1735865b82732f90f42a2ba55634431d8bdec48d0a7752a79354f0c850d(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7523,14 +7523,14 @@ def _typecheckingstub__d4e735a5dfc67b4dafec2e9df7180dd3143cb26437dc792dcb49e9563
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__61855b81d1d953ec33b8c0af7bad8099bc0ec45c2624d213b520131ecf95b724(
-    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+def _typecheckingstub__0fa01cdb622f9c1239adaa1d51fb0035fbf98f9f42d4c5cf2e419e59e007298b(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0fa01cdb622f9c1239adaa1d51fb0035fbf98f9f42d4c5cf2e419e59e007298b(
-    value: typing.Any,
+def _typecheckingstub__61855b81d1d953ec33b8c0af7bad8099bc0ec45c2624d213b520131ecf95b724(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
     """Type checking stubs"""
     pass

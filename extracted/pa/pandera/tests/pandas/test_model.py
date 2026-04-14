@@ -18,6 +18,7 @@ import pandera.pandas as pa
 from pandera.api.base.model import MetaModel
 from pandera.errors import SchemaError, SchemaInitError
 from pandera.typing import DataFrame, Index, Series, String
+from pandera.typing import pandas as pandas_typing
 
 
 def test_idempotent_magics() -> None:
@@ -200,6 +201,18 @@ def test_optional_column() -> None:
     assert not schema.columns["b"].required
     assert not schema.columns["c"].required
     assert not schema.columns["d"].required
+
+
+def test_optional_column_with_typing_module_alias() -> None:
+    """Test optional column annotations with pandera.typing.pandas alias."""
+
+    class Schema(pa.DataFrameModel):
+        size: pandas_typing.Series[int]
+        label: pandas_typing.Series[str]
+        note: pandas_typing.Series[str] | None
+
+    schema = Schema.to_schema()
+    assert not schema.columns["note"].required
 
 
 def test_optional_index() -> None:
@@ -912,6 +925,28 @@ def test_multiindex_unique() -> None:
     )
 
     assert expected == Base.to_schema()
+
+
+def test_add_missing_columns_nullable_date_with_nat_default() -> None:
+    """Ensure nullable Date fields with NaT defaults validate when auto-added."""
+
+    class Schema(pa.DataFrameModel):
+        index: Series[int] = pa.Field(ge=0)
+        confirmation_date: pa.Date = pa.Field(
+            nullable=True,
+            coerce=True,
+            default=pd.NaT,
+        )
+
+        class Config:
+            add_missing_columns = True
+            coerce = True
+            strict = "filter"
+
+    validated = Schema.validate(pd.DataFrame({"index": [1, 1]}))
+
+    assert validated["confirmation_date"].isna().all()
+    assert validated["confirmation_date"].dtype == object
 
 
 def test_multiindex_strict_valid_schema() -> None:
@@ -1677,7 +1712,7 @@ def test_validate_on_init_module():
 
 
 def test_from_records_validates_the_schema():
-    """Test that DataFrame[Schema] validates the schema"""
+    """Test that DataFrame.from_records validates against the model."""
 
     class Schema(pa.DataFrameModel):
         state: Series[str]
@@ -1718,11 +1753,52 @@ def test_from_records_validates_the_schema():
         pa.errors.SchemaError,
         match="^column 'price' not in dataframe",
     ):
-        DataFrame[Schema](raw_data)
+        DataFrame.from_records(Schema, raw_data)
+
+
+def test_from_records_raises_on_check_failure():
+    """Field checks run when building a dataframe via from_records."""
+
+    class Schema(pa.DataFrameModel):
+        state: Series[str]
+        city: Series[str]
+        price: Series[int] = pa.Field(
+            in_range={"min_value": 5, "max_value": 20}
+        )
+
+    raw_data = {
+        "state": ["NY", "FL", "GA", "CA"],
+        "city": ["New York", "Miami", "Atlanta", "San Francisco"],
+        "price": [8, 12, 10, 40],
+    }
+    with pytest.raises(
+        pa.errors.SchemaError,
+        match=r"Column 'price' failed element-wise validator",
+    ):
+        DataFrame.from_records(Schema, raw_data)
+
+
+def test_from_records_invokes_parser_when_coerce_true() -> None:
+    """Ensure from_records uses DataFrameModel validation hooks."""
+
+    class Schema(pa.DataFrameModel):
+        c: Series[float] = pa.Field(alias="B", coerce=True)
+
+        @pa.parser("B")
+        def my_parser(cls, series: pd.Series) -> Series[float]:
+            return series.astype(float) + 1
+
+    raw_data = [
+        {"B": "1"},
+        {"B": "2"},
+    ]
+
+    expected = pd.DataFrame({"B": [2.0, 3.0]})
+    assert_frame_equal(DataFrame.from_records(Schema, raw_data), expected)
 
 
 def test_from_records_sets_the_index_from_schema():
-    """Test that DataFrame[Schema] validates the schema"""
+    """Test that DataFrame.from_records applies index kwargs from the schema."""
 
     class Schema(pa.DataFrameModel):
         state: Index[str] = pa.Field(check_name=True)
@@ -1749,7 +1825,7 @@ def test_from_records_sets_the_index_from_schema():
 
 
 def test_from_records_sorts_the_columns():
-    """Test that DataFrame[Schema] validates the schema"""
+    """Test that from_records orders columns to match the schema."""
 
     class Schema(pa.DataFrameModel):
         state: Series[str]
@@ -2005,6 +2081,19 @@ def test_pandas_fields_metadata():
         }
     }
     assert PanderaSchema.get_metadata() == expected
+
+
+def test_index_field_metadata_persistence() -> None:
+    test_metadata = {"test_key": "test_value"}
+
+    class MyModel(pa.DataFrameModel):
+        index_field: Index[float] = pa.Field(
+            title="Index Field", metadata=test_metadata
+        )
+
+    class_schema = MyModel.to_schema()
+
+    assert class_schema.index.metadata == test_metadata
 
 
 def test_parse_single_column():

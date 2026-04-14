@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: runloop_api_client
-Version: 1.18.1
+Version: 1.19.0
 Summary: The official Python library for the runloop API
 Project-URL: Homepage, https://github.com/runloopai/api-client-python
 Project-URL: Repository, https://github.com/runloopai/api-client-python
@@ -325,7 +325,7 @@ Error codes are as follows:
 
 Certain errors are automatically retried 5 times by default, with a short exponential backoff.
 Connection errors (for example, due to a network connectivity problem), 408 Request Timeout, 409 Conflict,
-429 Rate Limit, and >=500 Internal errors are all retried by default for GET requests. For POST requests, only 
+429 Rate Limit, and >=500 Internal errors are all retried by default for GET requests. For POST requests, only
 429 errors will be retried.
 
 You can use the `max_retries` option to configure or disable retry settings:

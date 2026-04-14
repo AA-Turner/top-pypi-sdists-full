@@ -35,9 +35,9 @@ class Recipient(t.Generic[KeyType]):
         self.__parent = parent
         self.header = header
         self.recipient_key = recipient_key
-        self.sender_key: t.Optional[KeyType] = None
-        self.encrypted_key: t.Optional[bytes] = None
-        self.ephemeral_key: t.Optional[KeyType] = None
+        self.sender_key: KeyType | None = None
+        self.encrypted_key: bytes | None = None
+        self.ephemeral_key: KeyType | None = None
 
     def headers(self) -> Header:
         rv: Header = {}

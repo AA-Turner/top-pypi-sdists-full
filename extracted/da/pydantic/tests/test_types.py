@@ -26,6 +26,7 @@ from typing import (
     Any,
     Callable,
     Literal,
+    NamedTuple,
     NewType,
     Optional,
     TypeVar,
@@ -860,9 +861,9 @@ def test_string_import_callable(annotation):
         {
             'type': 'import_error',
             'loc': ('callable',),
-            'msg': "Invalid python path: No module named 'os.missing'",
+            'msg': "Invalid python path: No module named 'os.missing'; 'os' is not a package",
             'input': 'os.missing',
-            'ctx': {'error': "No module named 'os.missing'"},
+            'ctx': {'error': "No module named 'os.missing'; 'os' is not a package"},
         }
     ]
 
@@ -974,10 +975,10 @@ def test_string_import_examples():
             'collections.abc.def',
             [
                 {
-                    'ctx': {'error': "No module named 'collections.abc.def'"},
+                    'ctx': {'error': "No module named 'collections.abc.def'; 'collections.abc' is not a package"},
                     'input': 'collections.abc.def',
                     'loc': (),
-                    'msg': "Invalid python path: No module named 'collections.abc.def'",
+                    'msg': "Invalid python path: No module named 'collections.abc.def'; 'collections.abc' is not a package",
                     'type': 'import_error',
                 }
             ],
@@ -6267,14 +6268,22 @@ def test_instanceof_invalid_core_schema():
     class MyClass:
         pass
 
+    @dataclass
+    class ClassWithInvalidAnnotations:
+        a: 'Unknown' = 1  # noqa: F821
+        b: NotRequired[int] = 1
+
     class MyModel(BaseModel):
         a: InstanceOf[MyClass]
         b: Optional[InstanceOf[MyClass]]
+        c: InstanceOf[ClassWithInvalidAnnotations]
 
-    MyModel(a=MyClass(), b=None)
-    MyModel(a=MyClass(), b=MyClass())
+    MyModel(a=MyClass(), b=None, c=ClassWithInvalidAnnotations())
+    MyModel(a=MyClass(), b=MyClass(), c=ClassWithInvalidAnnotations())
+
     with pytest.raises(ValidationError) as exc_info:
-        MyModel(a=1, b=1)
+        MyModel(a=1, b=1, c=1)
+
     assert exc_info.value.errors(include_url=False) == [
         {
             'ctx': {'class': 'test_instanceof_invalid_core_schema.<locals>.MyClass'},
@@ -6288,6 +6297,13 @@ def test_instanceof_invalid_core_schema():
             'input': 1,
             'loc': ('b',),
             'msg': 'Input should be an instance of test_instanceof_invalid_core_schema.<locals>.MyClass',
+            'type': 'is_instance_of',
+        },
+        {
+            'ctx': {'class': 'test_instanceof_invalid_core_schema.<locals>.ClassWithInvalidAnnotations'},
+            'input': 1,
+            'loc': ('c',),
+            'msg': 'Input should be an instance of test_instanceof_invalid_core_schema.<locals>.ClassWithInvalidAnnotations',
             'type': 'is_instance_of',
         },
     ]
@@ -6488,6 +6504,29 @@ def test_annotated_default_value_functional_validator() -> None:
 
         # insert_assert(t.json_schema())
         assert t.json_schema() == {'type': 'array', 'items': {'type': 'integer'}, 'default': ['1', '2']}
+
+
+def test_importstring_reports_internal_import_error(tmp_path, monkeypatch):
+    # Create a module that exists, but fails to import due to missing dependency
+    (tmp_path / 'my_module.py').write_text('import definitely_missing_dep_xyz\n\nclass MyClass:\n    pass\n')
+    monkeypatch.syspath_prepend(tmp_path)
+
+    adapter = TypeAdapter(ImportString)
+
+    with pytest.raises(ValidationError, match="No module named 'definitely_missing_dep_xyz'"):
+        adapter.validate_python('my_module.MyClass')
+
+
+def test_import_string_explicit_colon_does_not_try_dot_fallback():
+    # Regression test: if the input already contains ':attr', we should NOT try
+    # to reinterpret dots as module/attribute splits (which could accidentally
+    # create an invalid import string containing two colons).
+    adapter = TypeAdapter(ImportString)
+
+    # A buggy implementation might try to split 'collections.defaultdict' further
+    # and create 'collections:defaultdict:get', which would be invalid
+    with pytest.raises(ValidationError):
+        adapter.validate_python('collections.defaultdict:get')
 
 
 @pytest.mark.parametrize(
@@ -6832,6 +6871,29 @@ def test_strict_enum_with_use_enum_values() -> None:
     # validation error raised bc foo field uses strict mode
     with pytest.raises(ValidationError):
         Foo(foo='1')
+
+
+def test_enum_with_namedtuple_values() -> None:
+    """https://github.com/pydantic/pydantic/issues/12503"""
+
+    class NT(NamedTuple):
+        f: str
+
+    class SomeEnum(NT, Enum):
+        FOO = 'foo'
+
+    class Model1(BaseModel):
+        value: SomeEnum
+
+    assert Model1(value=SomeEnum.FOO).value is SomeEnum.FOO
+
+    class Model2(BaseModel, use_enum_values=True):
+        value: SomeEnum
+
+    assert Model2(value=NT('foo')).value == NT('foo')
+
+    with pytest.raises(ValidationError):
+        Model2(value=NT('bar'))
 
 
 @pytest.mark.skipif(
@@ -7199,3 +7261,18 @@ def test_union_abc() -> None:
 
     X(x=a1)
     X(x=a2)
+
+
+def test_string_constraints_ascii_only() -> None:
+    class Model(BaseModel):
+        v: Annotated[str, StringConstraints(ascii_only=True)]
+
+    assert Model(v='hello').v == 'hello'
+    with pytest.raises(ValidationError) as exc_info:
+        Model(v='caf\xe9')
+    assert exc_info.value.errors(include_url=False)[0] == {
+        'type': 'string_not_ascii',
+        'loc': ('v',),
+        'msg': 'String should contain only ASCII characters',
+        'input': 'caf\xe9',
+    }

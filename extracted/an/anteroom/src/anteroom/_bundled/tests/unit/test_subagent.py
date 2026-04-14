@@ -638,6 +638,100 @@ class TestSubagentNestedAgentId:
         assert captured_agent_ids == ["agent-1.1", "agent-1.2"]
 
 
+class TestSubagentSkillPolicyEnforcement:
+    @pytest.mark.asyncio
+    async def test_child_tool_executor_blocks_denied_tool_via_skill_policy(self) -> None:
+        """Sub-agent must enforce active_skill_policy — denied tools are blocked."""
+        from anteroom.cli.skills import SkillPolicy
+        from anteroom.services.agent_loop import active_skill_policy
+
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = [
+            {"function": {"name": "bash"}, "type": "function"},
+            {"function": {"name": "read_file"}, "type": "function"},
+        ]
+
+        captured_results: list[dict] = []
+
+        async def mock_agent_loop(**kwargs):
+            executor = kwargs["tool_executor"]
+            # bash should be blocked by skill policy
+            result_bash = await executor("bash", {"command": "echo hi"})
+            captured_results.append(result_bash)
+            # read_file should be allowed
+            result_read = await executor("read_file", {"path": "/tmp/f"})
+            captured_results.append(result_read)
+            yield AgentEvent(kind="done", data={})
+
+        async def mock_call_tool(name, args, confirm_callback=None):
+            return {"output": f"ran {name}"}
+
+        mock_registry.call_tool = mock_call_tool
+        mock_registry.has_tool.return_value = True
+
+        policy = SkillPolicy(denied_tools=frozenset({"bash"}))
+        token = active_skill_policy.set(policy)
+        try:
+            with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+                with patch("anteroom.tools.subagent.AIService"):
+                    await handle(
+                        prompt="do something",
+                        _ai_service=_mock_ai(),
+                        _tool_registry=mock_registry,
+                        _depth=0,
+                        _agent_id="agent-1",
+                        _limiter=_make_limiter(),
+                    )
+        finally:
+            active_skill_policy.reset(token)
+
+        assert captured_results[0]["safety_blocked"] is True
+        assert "denied by skill policy" in captured_results[0]["error"]
+        assert captured_results[1]["output"] == "ran read_file"
+
+    @pytest.mark.asyncio
+    async def test_child_tool_executor_allows_all_when_no_policy(self) -> None:
+        """Without an active skill policy, sub-agent allows all tools."""
+        from anteroom.services.agent_loop import active_skill_policy
+
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = [
+            {"function": {"name": "bash"}, "type": "function"},
+        ]
+
+        captured_results: list[dict] = []
+
+        async def mock_agent_loop(**kwargs):
+            executor = kwargs["tool_executor"]
+            result = await executor("bash", {"command": "echo hi"})
+            captured_results.append(result)
+            yield AgentEvent(kind="done", data={})
+
+        async def mock_call_tool(name, args, confirm_callback=None):
+            return {"output": f"ran {name}"}
+
+        mock_registry.call_tool = mock_call_tool
+        mock_registry.has_tool.return_value = True
+
+        # Ensure no active policy
+        token = active_skill_policy.set(None)
+        try:
+            with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+                with patch("anteroom.tools.subagent.AIService"):
+                    await handle(
+                        prompt="do something",
+                        _ai_service=_mock_ai(),
+                        _tool_registry=mock_registry,
+                        _depth=0,
+                        _agent_id="agent-1",
+                        _limiter=_make_limiter(),
+                    )
+        finally:
+            active_skill_policy.reset(token)
+
+        assert captured_results[0]["output"] == "ran bash"
+
+
 class TestRendererSubagentState:
     def test_clear_subagent_state(self) -> None:
         """clear_subagent_state should empty the tracking dict."""
@@ -1459,3 +1553,275 @@ class TestSubagentMcpTools:
 
         assert len(captured_mcp_managers) == 1
         assert captured_mcp_managers[0] is mock_mcp
+
+
+class TestModelFamilyAliases:
+    """Tests for model-family alias resolution (#1393)."""
+
+    def _mock_ai_with_aliases(self, aliases: dict[str, str]) -> MagicMock:
+        mock = _mock_ai()
+        mock.config.model_family_aliases = aliases
+        return mock
+
+    @pytest.mark.asyncio
+    async def test_alias_resolved(self) -> None:
+        """Configured alias substitutes the model value."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        async def mock_agent_loop(**kwargs):
+            yield AgentEvent(kind="done", data={})
+
+        ai = self._mock_ai_with_aliases({"haiku": "claude-3-haiku-20240307"})
+        with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+            with patch("anteroom.tools.subagent.AIService") as mock_cls:
+                await handle(
+                    prompt="test",
+                    model="haiku",
+                    _ai_service=ai,
+                    _tool_registry=mock_registry,
+                    _depth=0,
+                    _limiter=_make_limiter(),
+                )
+        # The deep-copied config should have the resolved model
+        child_config = mock_cls.call_args[0][0]
+        assert child_config.model == "claude-3-haiku-20240307"
+
+    @pytest.mark.asyncio
+    async def test_alias_case_insensitive(self) -> None:
+        """Alias lookup is case-insensitive."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        async def mock_agent_loop(**kwargs):
+            yield AgentEvent(kind="done", data={})
+
+        ai = self._mock_ai_with_aliases({"Sonnet": "claude-sonnet-4-20250514"})
+        with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+            with patch("anteroom.tools.subagent.AIService") as mock_cls:
+                await handle(
+                    prompt="test",
+                    model="sonnet",
+                    _ai_service=ai,
+                    _tool_registry=mock_registry,
+                    _depth=0,
+                    _limiter=_make_limiter(),
+                )
+        child_config = mock_cls.call_args[0][0]
+        assert child_config.model == "claude-sonnet-4-20250514"
+
+    @pytest.mark.asyncio
+    async def test_alias_empty_value_uses_default(self) -> None:
+        """Empty alias value means 'use default model' (no override)."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        async def mock_agent_loop(**kwargs):
+            yield AgentEvent(kind="done", data={})
+
+        ai = self._mock_ai_with_aliases({"haiku": ""})
+        ai.config.model = "gpt-4"
+        with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+            with patch("anteroom.tools.subagent.AIService") as mock_cls:
+                await handle(
+                    prompt="test",
+                    model="haiku",
+                    _ai_service=ai,
+                    _tool_registry=mock_registry,
+                    _depth=0,
+                    _limiter=_make_limiter(),
+                )
+        # model=None after alias resolution → no override, keeps default
+        child_config = mock_cls.call_args[0][0]
+        assert child_config.model == "gpt-4"
+
+    @pytest.mark.asyncio
+    async def test_claude_family_rejected_without_alias(self) -> None:
+        """Known Claude family name without alias config is rejected."""
+        ai = self._mock_ai_with_aliases({})
+        result = await handle(
+            prompt="test",
+            model="haiku",
+            _ai_service=ai,
+            _tool_registry=MagicMock(),
+            _depth=0,
+            _limiter=_make_limiter(),
+        )
+        assert "error" in result
+        assert "Unknown model family" in result["error"]
+        assert "model_family_aliases" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_claude_family_opus_rejected(self) -> None:
+        """Opus family name is also rejected when not aliased."""
+        ai = self._mock_ai_with_aliases({})
+        result = await handle(
+            prompt="test",
+            model="Opus",
+            _ai_service=ai,
+            _tool_registry=MagicMock(),
+            _depth=0,
+            _limiter=_make_limiter(),
+        )
+        assert "error" in result
+        assert "Unknown model family" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_o1_passes_through(self) -> None:
+        """Real model ID 'o1' is not a Claude family — passes through."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        async def mock_agent_loop(**kwargs):
+            yield AgentEvent(kind="done", data={})
+
+        ai = self._mock_ai_with_aliases({})
+        with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+            with patch("anteroom.tools.subagent.AIService"):
+                result = await handle(
+                    prompt="test",
+                    model="o1",
+                    _ai_service=ai,
+                    _tool_registry=mock_registry,
+                    _depth=0,
+                    _limiter=_make_limiter(),
+                )
+        assert "error" not in result
+
+    @pytest.mark.asyncio
+    async def test_o3_passes_through(self) -> None:
+        """Real model ID 'o3' is not a Claude family — passes through."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        async def mock_agent_loop(**kwargs):
+            yield AgentEvent(kind="done", data={})
+
+        ai = self._mock_ai_with_aliases({})
+        with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+            with patch("anteroom.tools.subagent.AIService"):
+                result = await handle(
+                    prompt="test",
+                    model="o3",
+                    _ai_service=ai,
+                    _tool_registry=mock_registry,
+                    _depth=0,
+                    _limiter=_make_limiter(),
+                )
+        assert "error" not in result
+
+    @pytest.mark.asyncio
+    async def test_gpt4o_passes_through(self) -> None:
+        """Real model ID 'gpt-4o' passes through unchanged."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        async def mock_agent_loop(**kwargs):
+            yield AgentEvent(kind="done", data={})
+
+        ai = self._mock_ai_with_aliases({})
+        with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+            with patch("anteroom.tools.subagent.AIService") as mock_cls:
+                await handle(
+                    prompt="test",
+                    model="gpt-4o",
+                    _ai_service=ai,
+                    _tool_registry=mock_registry,
+                    _depth=0,
+                    _limiter=_make_limiter(),
+                )
+        child_config = mock_cls.call_args[0][0]
+        assert child_config.model == "gpt-4o"
+
+    @pytest.mark.asyncio
+    async def test_slashed_model_passes_through(self) -> None:
+        """Model with slash (e.g. openrouter path) passes through."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        async def mock_agent_loop(**kwargs):
+            yield AgentEvent(kind="done", data={})
+
+        ai = self._mock_ai_with_aliases({})
+        with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+            with patch("anteroom.tools.subagent.AIService") as mock_cls:
+                await handle(
+                    prompt="test",
+                    model="openrouter/anthropic/claude-3-haiku",
+                    _ai_service=ai,
+                    _tool_registry=mock_registry,
+                    _depth=0,
+                    _limiter=_make_limiter(),
+                )
+        child_config = mock_cls.call_args[0][0]
+        assert child_config.model == "openrouter/anthropic/claude-3-haiku"
+
+    @pytest.mark.asyncio
+    async def test_no_model_arg_uses_default(self) -> None:
+        """When model is None, no alias resolution happens."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        async def mock_agent_loop(**kwargs):
+            yield AgentEvent(kind="done", data={})
+
+        ai = self._mock_ai_with_aliases({"haiku": "claude-3-haiku"})
+        ai.config.model = "gpt-4"
+        with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+            with patch("anteroom.tools.subagent.AIService") as mock_cls:
+                await handle(
+                    prompt="test",
+                    model=None,
+                    _ai_service=ai,
+                    _tool_registry=mock_registry,
+                    _depth=0,
+                    _limiter=_make_limiter(),
+                )
+        child_config = mock_cls.call_args[0][0]
+        assert child_config.model == "gpt-4"
+
+    @pytest.mark.asyncio
+    async def test_empty_config_is_noop(self) -> None:
+        """Empty alias config doesn't affect non-Claude models."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        async def mock_agent_loop(**kwargs):
+            yield AgentEvent(kind="done", data={})
+
+        ai = self._mock_ai_with_aliases({})
+        with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+            with patch("anteroom.tools.subagent.AIService") as mock_cls:
+                await handle(
+                    prompt="test",
+                    model="deepseek-r1",
+                    _ai_service=ai,
+                    _tool_registry=mock_registry,
+                    _depth=0,
+                    _limiter=_make_limiter(),
+                )
+        child_config = mock_cls.call_args[0][0]
+        assert child_config.model == "deepseek-r1"
+
+    @pytest.mark.asyncio
+    async def test_custom_single_word_model_passes_through(self) -> None:
+        """A single-word model that's not a Claude family passes through."""
+        mock_registry = MagicMock()
+        mock_registry.get_openai_tools.return_value = []
+
+        async def mock_agent_loop(**kwargs):
+            yield AgentEvent(kind="done", data={})
+
+        ai = self._mock_ai_with_aliases({})
+        with patch("anteroom.tools.subagent.run_agent_loop", side_effect=mock_agent_loop):
+            with patch("anteroom.tools.subagent.AIService") as mock_cls:
+                await handle(
+                    prompt="test",
+                    model="MyCustomModel",
+                    _ai_service=ai,
+                    _tool_registry=mock_registry,
+                    _depth=0,
+                    _limiter=_make_limiter(),
+                )
+        child_config = mock_cls.call_args[0][0]
+        assert child_config.model == "MyCustomModel"

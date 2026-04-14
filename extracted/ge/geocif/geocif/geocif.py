@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from statsmodels.tools.tools import add_constant
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 from geocif import logger as log
 from geocif import utils
@@ -1152,10 +1152,21 @@ class Geocif:
     def _update_column_names(self, df: pd.DataFrame) -> pd.DataFrame:
         """Update column names to be human-readable."""
         df = stages.update_feature_names(df, self.method)
-        
+
+        # update_feature_names can collapse distinct raw columns to the same
+        # label (different stage numbers mapping to the same stage name).
+        # pandas forbids .loc[:, cols] assignment when columns are non-unique,
+        # so drop duplicates keeping the first occurrence.
+        if df.columns.duplicated().any():
+            dupes = df.columns[df.columns.duplicated()].unique().tolist()
+            self.logger.warning(
+                f"  Duplicate columns after rename: {dupes} — keeping first occurrence"
+            )
+            df = df.loc[:, ~df.columns.duplicated()]
+
         all_cid_columns = self.get_cid_column_names(df)
         df.loc[:, all_cid_columns] = df.loc[:, all_cid_columns].fillna(0)
-        
+
         return df
 
     def _add_engineered_features(self, df: pd.DataFrame) -> pd.DataFrame:

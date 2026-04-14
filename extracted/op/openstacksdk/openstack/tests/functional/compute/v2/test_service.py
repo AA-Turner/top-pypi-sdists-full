@@ -10,16 +10,16 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from openstack.tests.functional import base
+from openstack.tests.functional.compute.v2 import base
 
 
-class TestService(base.BaseFunctionalTest):
+class TestService(base.BaseComputeTest):
     def test_service(self):
         # list all services
-        services = list(self.operator_cloud.compute.services())
+        services = list(self.admin_compute_client.services())
         self.assertIsNotNone(services)
 
         # find a service
-        self.operator_cloud.compute.find_service(
+        self.admin_compute_client.find_service(
             services[0].name, host=services[0].host, ignore_missing=False
         )

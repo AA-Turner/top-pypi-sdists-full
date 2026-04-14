@@ -63,8 +63,11 @@ from .literals import (
     SalesforceConnectorOperatorType,
     ScopeType,
     SegmentSnapshotStatusType,
+    SegmentSortDataTypeType,
+    SegmentSortOrderType,
     SegmentTypeType,
     ServiceNowConnectorOperatorType,
+    SortAttributeTypeType,
     SourceConnectorTypeType,
     StandardIdentifierType,
     StatisticType,
@@ -440,7 +443,11 @@ __all__ = (
     "SegmentGroupStructureTypeDef",
     "SegmentGroupTypeDef",
     "SegmentGroupUnionTypeDef",
+    "SegmentSortOutputTypeDef",
+    "SegmentSortTypeDef",
+    "SegmentSortUnionTypeDef",
     "ServiceNowSourcePropertiesTypeDef",
+    "SortAttributeTypeDef",
     "SourceConnectorPropertiesTypeDef",
     "SourceFlowConfigTypeDef",
     "SourceSegmentTypeDef",
@@ -1489,6 +1496,17 @@ class SalesforceSourcePropertiesTypeDef(TypedDict):
     IncludeDeletedRecords: NotRequired[bool]
 
 
+SortAttributeTypeDef = TypedDict(
+    "SortAttributeTypeDef",
+    {
+        "Name": str,
+        "Order": SegmentSortOrderType,
+        "DataType": NotRequired[SegmentSortDataTypeType],
+        "Type": NotRequired[SortAttributeTypeType],
+    },
+)
+
+
 class ServiceNowSourcePropertiesTypeDef(TypedDict):
     Object: str
 
@@ -2380,6 +2398,14 @@ class RangeTypeDef(TypedDict):
     TimestampFormat: NotRequired[str]
 
 
+class SegmentSortOutputTypeDef(TypedDict):
+    Attributes: list[SortAttributeTypeDef]
+
+
+class SegmentSortTypeDef(TypedDict):
+    Attributes: Sequence[SortAttributeTypeDef]
+
+
 class SourceConnectorPropertiesTypeDef(TypedDict):
     Marketo: NotRequired[MarketoSourcePropertiesTypeDef]
     S3: NotRequired[S3SourcePropertiesTypeDef]
@@ -2660,6 +2686,9 @@ class ConditionsTypeDef(TypedDict):
     Range: NotRequired[RangeTypeDef]
     ObjectCount: NotRequired[int]
     Threshold: NotRequired[ThresholdTypeDef]
+
+
+SegmentSortUnionTypeDef = Union[SegmentSortTypeDef, SegmentSortOutputTypeDef]
 
 
 class SourceFlowConfigTypeDef(TypedDict):
@@ -3125,6 +3154,7 @@ class GetSegmentDefinitionResponseTypeDef(TypedDict):
     DisplayName: str
     Description: str
     SegmentGroups: SegmentGroupOutputTypeDef
+    SegmentSort: SegmentSortOutputTypeDef
     SegmentDefinitionArn: str
     CreatedAt: datetime
     Tags: dict[str, str]
@@ -3207,4 +3237,5 @@ class CreateSegmentDefinitionRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     SegmentGroups: NotRequired[SegmentGroupUnionTypeDef]
     SegmentSqlQuery: NotRequired[str]
+    SegmentSort: NotRequired[SegmentSortUnionTypeDef]
     Tags: NotRequired[Mapping[str, str]]

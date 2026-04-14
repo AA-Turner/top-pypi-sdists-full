@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from abc import abstractmethod
-from typing import Any, Optional, Callable
+from typing import Any, Callable, ClassVar
 
 from sigma.processing.pipeline import ProcessingPipeline
 
@@ -12,16 +14,18 @@ class Pipeline:
     https://github.com/SigmaHQ/pySigma/discussions/110#discussioncomment-6179682
     """
 
+    _instance: ClassVar[Pipeline | None] = None
+
     def __init__(
         self,
-        func: Optional[Callable[[], ProcessingPipeline]] = None,
+        func: Callable[[], ProcessingPipeline] | None = None,
     ):
         """
         Initialize the pipeline. If the function is set, then it is a class decorator.
         Otherwise, it is an inherited class, so we return the class itself.
 
         Keyword Arguments:
-            func (Optional[Callable[[], ProcessingPipeline]]): The function to be
+            func (Callable[[], ProcessingPipeline] | None): The function to be
                 decorated. If None, the class is inherited. Defaults to None.
         """
         self.func = func
@@ -52,6 +56,6 @@ class Pipeline:
         Returns:
             Pipeline: The class instance.
         """
-        if not hasattr(cls, "_instance"):
+        if cls._instance is None:
             cls._instance = super(Pipeline, cls).__new__(cls)
         return cls._instance

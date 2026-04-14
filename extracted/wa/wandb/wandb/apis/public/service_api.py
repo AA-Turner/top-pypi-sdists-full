@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import uuid
 import weakref
+from typing import cast
 
-from wandb.proto.wandb_api_pb2 import ApiRequest, ApiResponse
+from wandb.proto import wandb_internal_pb2 as pb
+from wandb.proto.wandb_api_pb2 import ApiRequest, ApiResponse, FeaturesRequest
 from wandb.sdk import wandb_settings, wandb_setup
-from wandb.sdk.lib.service.service_connection import ServiceConnection
+from wandb.sdk.lib.service.service_connection import (
+    ServiceConnection,
+    WandbApiFailedError,
+)
 from wandb.sdk.mailbox.mailbox_handle import MailboxHandle
+
+_logger = logging.getLogger(__name__)
 
 
 def _cleanup(connection: ServiceConnection | None, api_id: str) -> None:
@@ -35,7 +43,7 @@ class ServiceApi:
             response = self._service_connection.api_init_request(
                 self._settings.to_proto(),
             )
-            self._api_id = response.id
+            self._api_id = response.api_id
 
             weakref.finalize(
                 self,
@@ -56,7 +64,7 @@ class ServiceApi:
         Creates the backend service connection if it has not been created yet.
         """
         conn = self._get_service_connection()
-        request.id = self._api_id
+        request.api_id = self._api_id
         return conn.api_request(request, timeout=timeout)
 
     async def send_api_request_async(
@@ -70,5 +78,45 @@ class ServiceApi:
             timeout: The timeout for the request.
         """
         conn = self._get_service_connection()
-        request.id = self._api_id
+        request.api_id = self._api_id
         return await conn.api_request_async(request)
+
+    def feature_enabled(
+        self,
+        feature: pb.ServerFeature | str,
+        *,
+        timeout: float = 10,
+    ) -> bool:
+        """Returns whether a single server feature is enabled.
+
+        On timeout or normal error, this logs and returns False.
+
+        Args:
+            feature: The enum constant or name of the boolean feature to
+                check. Prefer to use the enum constants when possible, since
+                they have better type-checking. For unknown or incorrect names,
+                this returns False.
+            timeout: The timeout to use. Defaults to 10 seconds.
+        """
+        if isinstance(feature, str):
+            try:
+                # NOTE: pb.ServerFeature is not an actual runtime type.
+                #
+                # All protobuf enums are represented as integers.
+                # It is guaranteed that the return value of Value
+                # is a valid enum (if it exists), hence the cast.
+                feature = cast(pb.ServerFeature, pb.ServerFeature.Value(feature))
+            except ValueError:
+                # SERVER_FEATURE_UNSPECIFIED is always disabled.
+                return False
+
+        req = ApiRequest(features_request=FeaturesRequest(features=[feature]))
+
+        try:
+            resp = self.send_api_request(req, timeout=timeout)
+        except WandbApiFailedError:
+            # NOTE: The feature's integer value is logged here.
+            _logger.exception("Failed to load feature %s", feature)
+            return False
+
+        return feature in resp.features_response.enabled

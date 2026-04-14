@@ -10,7 +10,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing as ty
+from typing import Any, ClassVar, Literal, overload
+from collections.abc import Callable, Generator
 import warnings
 
 from openstack.block_storage.v2 import backup as _backup
@@ -34,6 +35,8 @@ from openstack import warnings as os_warnings
 
 
 class Proxy(proxy.Proxy):
+    api_version: ClassVar[Literal['2']] = '2'
+
     # ========== Extensions ==========
 
     def extensions(self):
@@ -988,37 +991,27 @@ class Proxy(proxy.Proxy):
             return self._update(_quota_set.QuotaSet, None, **attrs)
 
     # ========== Services ==========
-    @ty.overload
+    @overload
     def find_service(
         self,
         name_or_id: str,
-        ignore_missing: ty.Literal[True] = True,
-        **query: ty.Any,
-    ) -> _service.Service | None: ...
-
-    @ty.overload
-    def find_service(
-        self,
-        name_or_id: str,
-        ignore_missing: ty.Literal[False],
-        **query: ty.Any,
+        ignore_missing: Literal[False],
+        **query: Any,
     ) -> _service.Service: ...
 
-    # excuse the duplication here: it's mypy's fault
-    # https://github.com/python/mypy/issues/14764
-    @ty.overload
+    @overload
     def find_service(
         self,
         name_or_id: str,
-        ignore_missing: bool,
-        **query: ty.Any,
+        ignore_missing: bool = True,
+        **query: Any,
     ) -> _service.Service | None: ...
 
     def find_service(
         self,
         name_or_id: str,
         ignore_missing: bool = True,
-        **query: ty.Any,
+        **query: Any,
     ) -> _service.Service | None:
         """Find a single service
 
@@ -1045,8 +1038,8 @@ class Proxy(proxy.Proxy):
 
     def services(
         self,
-        **query: ty.Any,
-    ) -> ty.Generator[_service.Service, None, None]:
+        **query: Any,
+    ) -> Generator[_service.Service, None, None]:
         """Return a generator of service
 
         :param kwargs query: Optional query parameters to be sent to limit
@@ -1347,7 +1340,7 @@ class Proxy(proxy.Proxy):
         interval: int | float | None = 2,
         wait: int | None = None,
         attribute: str = 'status',
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for the resource to be in a particular status.
 
@@ -1386,7 +1379,7 @@ class Proxy(proxy.Proxy):
         res: resource.ResourceT,
         interval: int = 2,
         wait: int = 120,
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.
 

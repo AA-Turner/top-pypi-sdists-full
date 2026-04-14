@@ -5,7 +5,7 @@ import pendulum
 import pytest
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from pydantic_extra_types.pendulum_dt import Date, DateTime, Duration, Interval, Time
+from pydantic_extra_types.pendulum_dt import Date, DateTime, Duration, Time
 
 UTC = tz.utc
 
@@ -34,10 +34,6 @@ class DateModel(BaseModel):
 
 class DurationModel(BaseModel):
     delta_t: Duration
-
-
-class IntervalModel(BaseModel):
-    interval: Interval
 
 
 @pytest.mark.parametrize(
@@ -291,31 +287,6 @@ def test_pendulum_duration_from_serialized(delta_t_str):
     assert isinstance(model.delta_t, pendulum.Duration)
 
 
-def test_pendulum_interval_existing_instance():
-    """Verifies that constructing a model with an existing pendulum interval doesn't throw."""
-    start = pendulum.datetime(2024, 1, 1, tz='UTC')
-    end = pendulum.datetime(2024, 1, 2, tz='UTC')
-    interval = end - start
-
-    model = IntervalModel(interval=interval)
-
-    assert type(model.interval) is Interval
-    assert isinstance(model.interval, pendulum.Interval)
-    assert model.interval.start == start
-    assert model.interval.end == end
-
-
-def test_pendulum_interval_from_serialized():
-    """Verifies that interval strings are parsed into pendulum interval objects."""
-    interval_str = '2024-01-01T00:00:00Z/2024-01-02T00:00:00Z'
-    parsed = pendulum.parse(interval_str)
-    model = IntervalModel(interval=interval_str)
-
-    assert parsed == model.interval
-    assert type(model.interval) is Interval
-    assert isinstance(model.interval, pendulum.Interval)
-
-
 @pytest.mark.parametrize(
     'duration',
     [
@@ -342,39 +313,6 @@ def test_pendulum_duration_serialization_roundtrip(duration):
     assert deserialized == python_serialized == duration
     assert deserialized.years == python_serialized.years == duration.years
     assert deserialized.months == python_serialized.months == duration.months
-
-
-@pytest.mark.parametrize(
-    'duration',
-    [
-        Duration(days=-1),
-        Duration(days=-10),
-        Duration(seconds=-10),
-        Duration(hours=-5),
-        Duration(weeks=-2),
-        Duration(months=-3),
-        Duration(years=-1),
-        Duration(days=-1, hours=-2, minutes=-30),
-    ],
-)
-def test_pendulum_negative_duration_serialization_roundtrip(duration):
-    """Verifies that negative durations serialize and deserialize correctly."""
-    adapter = TypeAdapter(Duration)
-    json_serialized = adapter.dump_json(duration)
-    deserialized = TypeAdapter.validate_json(adapter, json_serialized)
-    assert deserialized == duration
-    assert deserialized.total_seconds() == duration.total_seconds()
-
-
-def test_pendulum_duration_iso8601_negative():
-    """Verifies that to_iso8601_string produces valid ISO 8601 for negative durations."""
-    d = Duration(days=-10)
-    iso = d.to_iso8601_string()
-    assert iso == '-P10D', f'Expected "-P10D", got "{iso}"'
-
-    d2 = Duration(seconds=-10)
-    iso2 = d2.to_iso8601_string()
-    assert iso2 == '-PT10S', f'Expected "-PT10S", got "{iso2}"'
 
 
 def get_invalid_dt_common():
@@ -547,22 +485,6 @@ def test_pendulum_duration_malformed(delta_t):
 
 
 @pytest.mark.parametrize(
-    'interval',
-    [
-        None,
-        'malformed',
-        pendulum.today().to_iso8601_string()[:5],
-        42,
-        'P1DT25H',
-    ],
-)
-def test_pendulum_interval_malformed(interval):
-    """Verifies that the instance fails to validate if malformed intervals are passed."""
-    with pytest.raises(ValidationError):
-        IntervalModel(interval=interval)
-
-
-@pytest.mark.parametrize(
     'input_type, value, is_instance',
     [
         (Date, '2021-01-01', pendulum.Date),
@@ -577,12 +499,6 @@ def test_pendulum_interval_malformed(interval):
         (Duration, 'P1DT25H', pendulum.Duration),
         (Duration, timedelta(days=1, hours=25), pendulum.Duration),
         (Duration, pendulum.duration(days=1, hours=25), pendulum.Duration),
-        (Interval, '2024-01-01T00:00:00Z/2024-01-02T00:00:00Z', pendulum.Interval),
-        (
-            Interval,
-            pendulum.datetime(2024, 1, 2, tz='UTC') - pendulum.datetime(2024, 1, 1, tz='UTC'),
-            pendulum.Interval,
-        ),
     ],
 )
 def test_date_type_adapter(input_type: type, value, is_instance: type):

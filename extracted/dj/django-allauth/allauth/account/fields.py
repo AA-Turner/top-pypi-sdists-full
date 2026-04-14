@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from django import forms
 from django.contrib.auth import password_validation
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.core.validators import RegexValidator
 from django.utils.translation import gettext_lazy as _
 
@@ -27,7 +30,7 @@ class EmailField(forms.EmailField):
 
 
 class PasswordField(forms.CharField):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         render_value = kwargs.pop(
             "render_value", app_settings.PASSWORD_INPUT_RENDER_VALUE
         )
@@ -42,7 +45,9 @@ class PasswordField(forms.CharField):
 
 
 class SetPasswordField(PasswordField):
-    def __init__(self, *args, **kwargs):
+    user: AbstractBaseUser | None
+
+    def __init__(self, *args, **kwargs) -> None:
         kwargs["autocomplete"] = "new-password"
         kwargs.setdefault(
             "help_text", password_validation.password_validators_help_text_html()
@@ -63,7 +68,7 @@ class PhoneField(forms.CharField):
         code="invalid_phone",
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         widget = forms.TextInput(
             attrs={"placeholder": _("Phone"), "autocomplete": "tel", "type": "tel"}
         )

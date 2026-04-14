@@ -9528,6 +9528,19 @@ class CfnDomainNameV2(
         return typing.cast("_DomainNameV2Reference_ca1122a1", jsii.get(self, "domainNameV2Ref"))
 
     @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> typing.Any:
+        '''A stringified JSON policy document that applies to the ``execute-api`` service for this DomainName regardless of the caller and Method configuration.'''
+        return typing.cast(typing.Any, jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a0c6989179a94e32b700994895064456ee57af9eb39330638ade9b7801085b38)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="certificateArn")
     def certificate_arn(self) -> typing.Optional[builtins.str]:
         '''The reference to an AWS -managed certificate that will be used by the private endpoint for this domain name.'''
@@ -9583,19 +9596,6 @@ class CfnDomainNameV2(
             type_hints = typing.get_type_hints(_typecheckingstub__a1f648b520c9d40bb72a9028880e48540125da8ba68522e25c483400d79142dc)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "endpointConfiguration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policy")
-    def policy(self) -> typing.Any:
-        '''A stringified JSON policy document that applies to the ``execute-api`` service for this DomainName regardless of the caller and Method configuration.'''
-        return typing.cast(typing.Any, jsii.get(self, "policy"))
-
-    @policy.setter
-    def policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0c6989179a94e32b700994895064456ee57af9eb39330638ade9b7801085b38)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="routingMode")
@@ -11705,6 +11705,19 @@ class CfnModel(
         jsii.set(self, "restApiId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="schema")
+    def schema(self) -> typing.Any:
+        '''The schema for the model.'''
+        return typing.cast(typing.Any, jsii.get(self, "schema"))
+
+    @schema.setter
+    def schema(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__189ff15874544c903e011bd25d8e6463925d43c41be7532a43378df709f954e5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "schema", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="contentType")
     def content_type(self) -> typing.Optional[builtins.str]:
         '''The content-type for the model.'''
@@ -11742,19 +11755,6 @@ class CfnModel(
             type_hints = typing.get_type_hints(_typecheckingstub__7970ef90ab7e30e7216cfcd425ee6821d9f9f51870d49472d5510bba9479cc61)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="schema")
-    def schema(self) -> typing.Any:
-        '''The schema for the model.'''
-        return typing.cast(typing.Any, jsii.get(self, "schema"))
-
-    @schema.setter
-    def schema(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__189ff15874544c903e011bd25d8e6463925d43c41be7532a43378df709f954e5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schema", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -12683,6 +12683,32 @@ class CfnRestApi(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="body")
+    def body(self) -> typing.Any:
+        '''An OpenAPI specification that defines a set of RESTful APIs in JSON format.'''
+        return typing.cast(typing.Any, jsii.get(self, "body"))
+
+    @body.setter
+    def body(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__531f017906edab784c1a550cefadd535f6de66c5fb156fb602b44dbb6ddf59c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "body", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> typing.Any:
+        '''A policy document that contains the permissions for the ``RestApi`` resource.'''
+        return typing.cast(typing.Any, jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7c411e289712e4a9bfc8e944902e0103f628540a4cf7e48a8c9167888e17d8f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="apiKeySourceType")
     def api_key_source_type(self) -> typing.Optional[builtins.str]:
         '''The source of the API key for metering requests according to a usage plan.'''
@@ -12710,19 +12736,6 @@ class CfnRestApi(
             type_hints = typing.get_type_hints(_typecheckingstub__e5382629090fca37327ab38dbd9d2807d25d11bdd4aa29ea10df0383a905ff97)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "binaryMediaTypes", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="body")
-    def body(self) -> typing.Any:
-        '''An OpenAPI specification that defines a set of RESTful APIs in JSON format.'''
-        return typing.cast(typing.Any, jsii.get(self, "body"))
-
-    @body.setter
-    def body(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__531f017906edab784c1a550cefadd535f6de66c5fb156fb602b44dbb6ddf59c5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "body", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="bodyS3Location")
@@ -12891,19 +12904,6 @@ class CfnRestApi(
             type_hints = typing.get_type_hints(_typecheckingstub__ccaf03012418784e0b764088769b0e23937e2028288348151f0ccfbfd74daa7b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policy")
-    def policy(self) -> typing.Any:
-        '''A policy document that contains the permissions for the ``RestApi`` resource.'''
-        return typing.cast(typing.Any, jsii.get(self, "policy"))
-
-    @policy.setter
-    def policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7c411e289712e4a9bfc8e944902e0103f628540a4cf7e48a8c9167888e17d8f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="securityPolicy")
@@ -36528,6 +36528,12 @@ def _typecheckingstub__84c84802ec05ba723e240d805b21796f43a8f3cf08c5ef8677460e77d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a0c6989179a94e32b700994895064456ee57af9eb39330638ade9b7801085b38(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__02e36a521e1f2c0c18cff2c52c016e6370b767eb2b459e2c294bb4288285a448(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -36548,12 +36554,6 @@ def _typecheckingstub__e259ce12277488ce391f0eb54686afe0ca24479695df161a2825a54da
 
 def _typecheckingstub__a1f648b520c9d40bb72a9028880e48540125da8ba68522e25c483400d79142dc(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomainNameV2.EndpointConfigurationProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a0c6989179a94e32b700994895064456ee57af9eb39330638ade9b7801085b38(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36885,6 +36885,12 @@ def _typecheckingstub__4a3c5b423cee3a8c0b9103f5d4563c6257372b12489d27543585737ab
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__189ff15874544c903e011bd25d8e6463925d43c41be7532a43378df709f954e5(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7e9538583fde25d5a4bfbf9ad18d6b8e965c725934d293324f3ddd0a2b541cff(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -36899,12 +36905,6 @@ def _typecheckingstub__e14bcaa67c5515b8d1e714c0cd74ace7e6734c83e3b4142cb061c1050
 
 def _typecheckingstub__7970ef90ab7e30e7216cfcd425ee6821d9f9f51870d49472d5510bba9479cc61(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__189ff15874544c903e011bd25d8e6463925d43c41be7532a43378df709f954e5(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37097,6 +37097,18 @@ def _typecheckingstub__9846c0a8b4800d5a296f9aea67a49cdaf59a24f4ab25ea67ad14c7a44
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__531f017906edab784c1a550cefadd535f6de66c5fb156fb602b44dbb6ddf59c5(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7c411e289712e4a9bfc8e944902e0103f628540a4cf7e48a8c9167888e17d8f(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__885692d26cf256ea028d4888289ae060ae3d89b80470c8ff0f82559c7623a155(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -37105,12 +37117,6 @@ def _typecheckingstub__885692d26cf256ea028d4888289ae060ae3d89b80470c8ff0f82559c7
 
 def _typecheckingstub__e5382629090fca37327ab38dbd9d2807d25d11bdd4aa29ea10df0383a905ff97(
     value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__531f017906edab784c1a550cefadd535f6de66c5fb156fb602b44dbb6ddf59c5(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -37177,12 +37183,6 @@ def _typecheckingstub__3b2f687ba486b97daef3efdc148372d3d51144ffda7dc8bf1ef44bc77
 
 def _typecheckingstub__ccaf03012418784e0b764088769b0e23937e2028288348151f0ccfbfd74daa7b(
     value: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b7c411e289712e4a9bfc8e944902e0103f628540a4cf7e48a8c9167888e17d8f(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

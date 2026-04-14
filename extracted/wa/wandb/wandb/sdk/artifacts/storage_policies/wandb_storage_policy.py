@@ -125,9 +125,8 @@ class WandbStoragePolicy(StoragePolicy):
         """Use cache or download the file using signed url.
 
         Args:
-            executor: A thread pool provided by the caller for multi-file
-                downloads. Reuse the thread pool for multipart downloads; it is
-                closed when the artifact download completes. If this is `None`,
+            executor: A dedicated thread pool for multipart downloads,
+                separate from the file-level executor. If this is `None`,
                 download the file serially.
         """
         from requests import HTTPError
@@ -243,6 +242,11 @@ class WandbStoragePolicy(StoragePolicy):
 
         if layout is StorageLayout.V2:
             birth_artifact_id = entry.birth_artifact_id or ""
+            artifact_id = artifact.id or ""
+            if server_supports(
+                api.client, pb.ARTIFACT_V2_DOWNLOAD_HANDLER_SUPPORTS_ARTIFACT_ID
+            ):
+                return f"{base_url}/artifactsV2/{region}/{quote(entity)}/{quote(project)}/{quote(collection)}/{quote(artifact_id)}/{quote(birth_artifact_id)}/{hexhash}/{entry.path.name}"
             if server_supports(
                 api.client, pb.ARTIFACT_COLLECTION_MEMBERSHIP_FILE_DOWNLOAD_HANDLER
             ):

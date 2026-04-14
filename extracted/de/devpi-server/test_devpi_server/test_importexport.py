@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from devpi_common.archive import Archive
 from devpi_common.archive import zip_dict
 from devpi_common.metadata import Version
@@ -19,6 +20,7 @@ import json
 import os
 import pytest
 import re
+import shutil
 import sys
 
 
@@ -224,6 +226,13 @@ class TestImportExport:
                 set_state_version(self.mapp1.xom.config)
                 self.options = options
 
+            def copy_testdata(self, name):
+                files = importlib.resources.files("test_devpi_server")
+                with importlib.resources.as_file(
+                    files / "importexportdata" / name
+                ) as path:
+                    shutil.copytree(path, self.exportdir, dirs_exist_ok=True)
+
             def export(self):
                 from devpi_server.importexport import export
                 argv = [
@@ -268,6 +277,19 @@ class TestImportExport:
                 if plugin is not None:
                     mapp2.xom.config.pluginmanager.register(plugin)
                 return mapp2
+
+            @contextmanager
+            def update_dataindex_json(self):
+                path = self.exportdir.joinpath("dataindex.json")
+                if path.exists():
+                    with path.open() as f:
+                        data = json.load(f)
+                else:
+                    data = {}
+                yield data
+                with path.open("w") as f:
+                    json.dump(data, f)
+
         return ImpExp
 
     @pytest.fixture
@@ -281,12 +303,13 @@ class TestImportExport:
         hashes = get_hashes(content)
         mapp1.upload_file_pypi("hello-1.0.tar.gz", content, "hello", "1.0")
         impexp.export()
-        data = json.loads(impexp.exportdir.joinpath('dataindex.json').read_bytes())
-        (filedata,) = data['indexes'][api1.stagename]['files']
-        assert filedata["entrymapping"].pop("hash_spec") == hashes.get_default_spec()
-        filedata["entrymapping"].pop("hashes")
-        filedata['entrymapping']['md5'] = 'foo'
-        impexp.exportdir.joinpath('dataindex.json').write_text(json.dumps(data))
+        with impexp.update_dataindex_json() as data:
+            (filedata,) = data["indexes"][api1.stagename]["files"]
+            assert (
+                filedata["entrymapping"].pop("hash_spec") == hashes.get_default_spec()
+            )
+            filedata["entrymapping"].pop("hashes")
+            filedata["entrymapping"]["md5"] = "foo"
         with pytest.raises(
             Fatal,
             match=re.escape(
@@ -400,6 +423,39 @@ class TestImportExport:
         indexlist = mapp2.getindexlist(api.user)
         assert indexlist[api.stagename]["mirror_whitelist"] == ["*"]
 
+    def test_indexes_mirror_whitelist_project(self, impexp):
+        mapp1 = impexp.mapp1
+        api = mapp1.create_and_use()
+        mapp1.upload_file_pypi("hello-1.0.tar.gz", b"content1", "hello", "1.0")
+        mapp1.set_mirror_whitelist("hello")
+        impexp.export()
+        mapp2 = impexp.new_import()
+        assert api.user in mapp2.getuserlist()
+        indexlist = mapp2.getindexlist(api.user)
+        assert indexlist[api.stagename]["mirror_whitelist"] == ["hello"]
+
+    def test_indexes_pypi_whitelist(self, impexp):
+        mapp1 = impexp.mapp1
+        api1 = mapp1.create_and_use()
+        api2 = mapp1.create_and_use()
+        impexp.export()
+        with impexp.update_dataindex_json() as data:
+            for k in list(data["indexes"][api1.stagename]["indexconfig"]):
+                if k.startswith("mirror_"):
+                    data["indexes"][api1.stagename]["indexconfig"].pop(k)
+            data["indexes"][api1.stagename]["indexconfig"]["pypi_whitelist"] = []
+            for k in list(data["indexes"][api2.stagename]["indexconfig"]):
+                if k.startswith("mirror_"):
+                    data["indexes"][api2.stagename]["indexconfig"].pop(k)
+            data["indexes"][api2.stagename]["indexconfig"]["pypi_whitelist"] = ["*"]
+        mapp2 = impexp.new_import()
+        assert api1.user in mapp2.getuserlist()
+        indexlist1 = mapp2.getindexlist(api1.user)
+        assert indexlist1[api1.stagename]["mirror_whitelist"] == []
+        assert api2.user in mapp2.getuserlist()
+        indexlist2 = mapp2.getindexlist(api2.user)
+        assert indexlist2[api2.stagename]["mirror_whitelist"] == ["*"]
+
     @pytest.mark.parametrize('acltype', ('upload', 'toxresult_upload'))
     def test_indexes_acl(self, impexp, acltype):
         mapp1 = impexp.mapp1
@@ -468,6 +524,19 @@ class TestImportExport:
                 assert stage is None
             else:
                 assert stage.ixconfig == _pypi_ixconfig_default
+
+    def test_import_user_with_extra_data(self, impexp):
+        mapp1 = impexp.mapp1
+        api1 = mapp1.create_and_use()
+        impexp.export()
+        with impexp.update_dataindex_json() as data:
+            data["users"][api1.user]["gobbledygook"] = "foo"
+        mapp2 = impexp.new_import()
+        with mapp2.xom.keyfs.read_transaction():
+            user = mapp2.xom.model.get_user(api1.user)
+            # unknown keys are not shown by default
+            assert "gobbledygook" not in user.get()
+            assert user.get(credentials=True)["gobbledygook"] == "foo"
 
     @pytest.mark.parametrize("norootpypi", [False, True])
     def test_import_no_root_pypi(self, impexp, norootpypi):
@@ -661,60 +730,42 @@ class TestImportExport:
             # we expect the name from the imported data
             assert toxresult.basename == "hello-0.9.tar.gz.toxresult0"
 
-    def test_import_without_history_log(self, impexp, tox_result_data):
-        DUMP_FILE = {
-          "users": {
-            "root": {
-              "username": "root",
-              "pwsalt": "ACs/Jhs5Tt7jKCV4xAjFzQ==",
-              "pwhash": "55d0627f48422ba020337d40fbabaa684be46c47a4e53f306121fd216d9bbbaf"
-            },
-            "user1": {
-              "username": "user1", "email": "hello@example.com",
-              "pwsalt": "NYDXeETIJmAxQhMBgg3oWw==",
-              "pwhash": "fce28cd56a2c6028a54133007fea8afe6ed8f3657722b213fcb19ef339b8efc6"
-            }
-          },
-          "devpi_server": "2.0.6", "pythonversion": [2, 7, 6, "final", 0],
-          "secret": "xtOAH1d8ZPhWNTMmWUdZrp9pa0urEq4Qvc7itn5SCWE=",
-          "dumpversion": "2",
-          "indexes": {
-            "user1/dev": {
-              "files": [
-                {
-                  "projectname": "hello", "version": "1.0",
-                  "entrymapping": {
-                    "projectname": "hello", "version": "1.0",
-                    "last_modified": "Fri, 12 Sep 2014 13:18:55 GMT",
-                    "md5": "9a0364b9e99bb480dd25e1f0284c8555"},
-                  "type": "releasefile", "relpath": "user1/dev/hello/hello-1.0.tar.gz"},
-                {
-                  "projectname": "hello", "version": "1.0", "type": "toxresult",
-                  "for_entrypath": "user1/dev/+f/9a0/364b9e99bb480/hello-1.0.tar.gz",
-                  "relpath": "user1/dev/hello/9a0364b9e99bb480dd25e1f0284c8555/hello-1.0.tar.gz.toxresult0"}
-              ],
-              "indexconfig": {
-                "bases": ["root/pypi"], "pypi_whitelist": ["hello"],
-                "acl_upload": ["user1"], "uploadtrigger_jenkins": None,
-                "volatile": True, "type": "stage"},
-              "projects": {
-                "hello": {
-                  "1.0": {
-                    "description": "", "license": "", "author": "", "download_url": "",
-                    "summary": "", "author_email": "", "version": "1.0", "platform": [],
-                    "home_page": "", "keywords": "", "classifiers": [], "name": "hello"}}}
-            }
-          },
-          "uuid": "72f86a504b14446e98ba840d0f4609ec"
-        }
-        impexp.exportdir.joinpath('dataindex.json').write_text(json.dumps(DUMP_FILE))
+    def test_import_with_wrong_toxresult_hash(self, impexp, tox_result_data):
+        mapp1 = impexp.mapp1
+        api = mapp1.create_and_use()
+        content = b"content"
+        mapp1.upload_file_pypi("hello-1.0.tar.gz", content, "hello", "1.0")
+        (path,) = mapp1.get_release_paths("hello")
+        path = path.strip("/")
+        toxresult_dump = json.dumps(tox_result_data)
+        toxresult_hashes = get_hashes(toxresult_dump.encode())
+        toxresult_hash = toxresult_hashes.get_default_value()
+        r = mapp1.upload_toxresult(f"/{path}", toxresult_dump)
+        toxresult_path = f"/{r.json['result']}"
+        impexp.export()
+        with impexp.update_dataindex_json() as data:
+            files = data["indexes"][api.stagename]["files"]
+            (releasefile,) = (x for x in files if x["type"] == "releasefile")
+            (toxresult,) = (x for x in files if x["type"] == "toxresult")
+            toxresult["entrymapping"]["hash_spec"] = releasefile["entrymapping"][
+                "hash_spec"
+            ]
+            toxresult["entrymapping"]["hashes"] = releasefile["entrymapping"]["hashes"]
+        mapp2 = impexp.new_import()
+        toxresult_link = mapp2.getjson(toxresult_path)["result"]
+        (_hash_algo, hash_value) = parse_hash_spec(toxresult_link["hash_spec"])
+        assert toxresult_link["hashes"] == toxresult_hashes
+        assert hash_value == toxresult_hash
 
-        filedir = impexp.exportdir
-        for dir in ['user1', 'dev', 'hello']:
-            filedir = filedir / dir
-            filedir.mkdir()
-        filedir.joinpath('hello-1.0.tar.gz').write_text('content')
-        filedir = filedir / '9a0364b9e99bb480dd25e1f0284c8555'
+    def test_import_without_history_log(self, impexp, tox_result_data):
+        impexp.copy_testdata("no_history_log")
+        filedir = (
+            impexp.exportdir
+            / "user1"
+            / "dev"
+            / "hello"
+            / "9a0364b9e99bb480dd25e1f0284c8555"
+        )
         filedir.mkdir()
         filedir.joinpath('hello-1.0.tar.gz.toxresult0').write_text(json.dumps(tox_result_data))
 
@@ -823,85 +874,9 @@ class TestImportExport:
             In this case the Registration entry won't match the inferred version
             data for the file.
         """
-        mapp1 = impexp.mapp1
-        api = mapp1.create_and_use()
-
-        # This is the raw json of the data that shows up this issue.
-        DUMP_FILE = {
-          "dumpversion": "1",
-          "secret": "qREGpVy0mj2auDp/z/7JpQe/as9XJQl3GZGW75SSH9U=",
-          "pythonversion": list(sys.version_info),
-          "devpi_server": "1.2",
-          "indexes": {
-              "user1/dev": {
-                  "projects": {
-                      "hello": {
-                          "1.2-3": {
-                              "author": "",
-                              "home_page": "",
-                              "version": "1.2-3",
-                              "keywords": "",
-                              "name": "hello",
-                              "classifiers": [],
-                              "download_url": "",
-                              "author_email": "",
-                              "license": "",
-                              "platform": [],
-                              "summary": "",
-                              "description": "",
-                           },
-                      },
-                  },
-                  "files": [
-                      {
-                          "entrymapping": {
-                            "last_modified": "Fri, 04 Jul 2014 14:40:13 GMT",
-                            "md5": "9a0364b9e99bb480dd25e1f0284c8555",
-                            "size": "7"
-                          },
-                          "projectname": "hello",
-                          "type": "releasefile",
-                          "relpath": "user1/dev/hello/hello-1.2_3.tar.gz"
-                      },
-                  ],
-                  "indexconfig": {
-                      "uploadtrigger_jenkins": None,
-                      "volatile": True,
-                      "bases": [
-                          "root/pypi"
-                      ],
-                      "acl_upload": [
-                          "user1"
-                      ],
-                      "type": "stage"
-                  },
-              },
-          },
-          "users": {
-              "root": {
-                "pwhash": "265ed9fb83bef361764838b7099e9627570016629db4e8e1b930817b1a4793af",
-                "username": "root",
-                "pwsalt": "A/4FsRp5oTkovbtTfhlx1g=="
-              },
-              "user1": {
-                  "username": "user1",
-                  "pwsalt": "RMAM7ycp8aqw4vytBOBEKA==",
-                  "pwhash": "d9f98f41f8cbdeb6a30a7b6c376d0ccdd76e862ad1fa508b79d4c2098cc9d69a"
-              }
-          }
-        }
-        impexp.exportdir.joinpath('dataindex.json').write_text(json.dumps(DUMP_FILE))
-
-        filedir = impexp.exportdir
-        for dir in ['user1', 'dev', 'hello']:
-            filedir = filedir / dir
-            filedir.mkdir()
-        filedir.joinpath('hello-1.2_3.tar.gz').write_text('content')
-
-        # Run the import and check the version data
-        mapp2 = impexp.new_import()
+        mapp2 = impexp.import_testdata("dashes_v1")
         with mapp2.xom.keyfs.read_transaction():
-            stage = mapp2.xom.model.getstage(api.stagename)
+            stage = mapp2.xom.model.getstage("user1/dev")
             verdata = stage.get_versiondata_perstage("hello", "1.2-3")
             assert verdata["version"] == "1.2-3"
 

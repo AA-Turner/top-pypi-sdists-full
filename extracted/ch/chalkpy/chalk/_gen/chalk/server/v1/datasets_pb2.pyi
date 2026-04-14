@@ -384,6 +384,157 @@ class DeleteDatasetResponse(_message.Message):
     dataset_id: str
     def __init__(self, dataset_id: _Optional[str] = ...) -> None: ...
 
+class MaterializedAggregateTileMeta(_message.Message):
+    __slots__ = (
+        "id",
+        "deployment_id",
+        "operation_id",
+        "aggregate_backfill_id",
+        "materialization_key_hash",
+        "aggregation",
+        "aggregate_on",
+        "groups",
+        "bucket_on",
+        "bucket_duration_ms",
+        "coverage_lower_bound",
+        "coverage_upper_bound",
+        "source_kind",
+        "file_count",
+        "total_rows",
+        "created_at",
+        "updated_at",
+        "environment_id",
+        "materialization_key_json",
+        "output_schema_bytes_base64",
+        "source_meta_json",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATE_BACKFILL_ID_FIELD_NUMBER: _ClassVar[int]
+    MATERIALIZATION_KEY_HASH_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATION_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATE_ON_FIELD_NUMBER: _ClassVar[int]
+    GROUPS_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_ON_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_DURATION_MS_FIELD_NUMBER: _ClassVar[int]
+    COVERAGE_LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    COVERAGE_UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_KIND_FIELD_NUMBER: _ClassVar[int]
+    FILE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_ROWS_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    MATERIALIZATION_KEY_JSON_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_SCHEMA_BYTES_BASE64_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_META_JSON_FIELD_NUMBER: _ClassVar[int]
+    id: int
+    deployment_id: str
+    operation_id: str
+    aggregate_backfill_id: str
+    materialization_key_hash: str
+    aggregation: str
+    aggregate_on: str
+    groups: _containers.RepeatedScalarFieldContainer[str]
+    bucket_on: str
+    bucket_duration_ms: int
+    coverage_lower_bound: _timestamp_pb2.Timestamp
+    coverage_upper_bound: _timestamp_pb2.Timestamp
+    source_kind: str
+    file_count: int
+    total_rows: int
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    environment_id: str
+    materialization_key_json: str
+    output_schema_bytes_base64: str
+    source_meta_json: str
+    def __init__(
+        self,
+        id: _Optional[int] = ...,
+        deployment_id: _Optional[str] = ...,
+        operation_id: _Optional[str] = ...,
+        aggregate_backfill_id: _Optional[str] = ...,
+        materialization_key_hash: _Optional[str] = ...,
+        aggregation: _Optional[str] = ...,
+        aggregate_on: _Optional[str] = ...,
+        groups: _Optional[_Iterable[str]] = ...,
+        bucket_on: _Optional[str] = ...,
+        bucket_duration_ms: _Optional[int] = ...,
+        coverage_lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        coverage_upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        source_kind: _Optional[str] = ...,
+        file_count: _Optional[int] = ...,
+        total_rows: _Optional[int] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        environment_id: _Optional[str] = ...,
+        materialization_key_json: _Optional[str] = ...,
+        output_schema_bytes_base64: _Optional[str] = ...,
+        source_meta_json: _Optional[str] = ...,
+    ) -> None: ...
+
+class MaterializedAggregateTileFileMeta(_message.Message):
+    __slots__ = ("id", "deployment_id", "file_ordinal", "row_count", "uri", "created_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    FILE_ORDINAL_FIELD_NUMBER: _ClassVar[int]
+    ROW_COUNT_FIELD_NUMBER: _ClassVar[int]
+    URI_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: int
+    deployment_id: str
+    file_ordinal: int
+    row_count: int
+    uri: str
+    created_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[int] = ...,
+        deployment_id: _Optional[str] = ...,
+        file_ordinal: _Optional[int] = ...,
+        row_count: _Optional[int] = ...,
+        uri: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListMaterializedAggregateTilesRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListMaterializedAggregateTilesResponse(_message.Message):
+    __slots__ = ("tiles",)
+    TILES_FIELD_NUMBER: _ClassVar[int]
+    tiles: _containers.RepeatedCompositeFieldContainer[MaterializedAggregateTileMeta]
+    def __init__(self, tiles: _Optional[_Iterable[_Union[MaterializedAggregateTileMeta, _Mapping]]] = ...) -> None: ...
+
+class ListMaterializedAggregateTileFilesRequest(_message.Message):
+    __slots__ = ("manifest_id",)
+    MANIFEST_ID_FIELD_NUMBER: _ClassVar[int]
+    manifest_id: int
+    def __init__(self, manifest_id: _Optional[int] = ...) -> None: ...
+
+class ListMaterializedAggregateTileFilesResponse(_message.Message):
+    __slots__ = ("files",)
+    FILES_FIELD_NUMBER: _ClassVar[int]
+    files: _containers.RepeatedCompositeFieldContainer[MaterializedAggregateTileFileMeta]
+    def __init__(
+        self, files: _Optional[_Iterable[_Union[MaterializedAggregateTileFileMeta, _Mapping]]] = ...
+    ) -> None: ...
+
+class DeleteMaterializedAggregateTileRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: int
+    def __init__(self, id: _Optional[int] = ...) -> None: ...
+
+class DeleteMaterializedAggregateTileResponse(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: int
+    def __init__(self, id: _Optional[int] = ...) -> None: ...
+
 class GetDatasetRevisionPreviewRequest(_message.Message):
     __slots__ = ("revision_id",)
     REVISION_ID_FIELD_NUMBER: _ClassVar[int]

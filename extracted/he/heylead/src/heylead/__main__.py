@@ -161,11 +161,12 @@ def main() -> None:
         print("  --host <addr>        Bind address for HTTP (default: 0.0.0.0)")
         print("  --port <num>         Port for HTTP (default: 8080)")
         print()
-        print("Add to Cursor (one click):")
-        print("  cursor://anysphere.cursor-deeplink/mcp/install?name=heylead&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJoZXlsZWFkIl19")
+        print("Cloud install (recommended — always up to date):")
+        print("  Cursor:      Settings → MCP → Add → Type: URL, Name: heylead, URL: https://heylead.dev/mcp")
+        print("  Claude Code: claude mcp add heylead --transport http https://heylead.dev/mcp")
         print()
-        print("Or add manually:")
-        print("  Cursor:     Settings → MCP → Add → Name: heylead, Command: uvx heylead")
+        print("Local install (offline/self-hosted):")
+        print("  Cursor:      Settings → MCP → Add → Name: heylead, Command: uvx heylead")
         print("  Claude Code: claude mcp add heylead -- uvx heylead")
 
     else:

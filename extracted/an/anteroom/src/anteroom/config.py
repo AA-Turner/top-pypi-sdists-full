@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -275,10 +276,12 @@ class AIConfig:
     top_p: float | None = None  # None = provider default; 0.0-1.0
     seed: int | None = None  # None = provider default; any int for deterministic output
     allowed_domains: list[str] = field(default_factory=list)  # empty = no restriction
+    allowed_models: list[str] = field(default_factory=list)  # empty = show all
     block_localhost_api: bool = False  # when True, reject loopback/localhost base_url
     provider: str = "openai"  # "openai", "anthropic", or "litellm"
     max_output_tokens: int = 4096  # required by Anthropic; used as max_tokens for Anthropic provider
     litellm_bedrock_tools_confirmed: bool = False  # opt-in for Bedrock tool calling via LiteLLM
+    model_family_aliases: dict[str, str] = field(default_factory=dict)  # map family names to model IDs
 
 
 @dataclass
@@ -384,6 +387,8 @@ class CliConfig:
     model_context_window: int = 128_000  # model context window size for usage bar
     background_suggest_seconds: int = 30  # advisory threshold for background shell tasks (0 = disabled)
     detach_suggest_seconds: int = 120  # advisory threshold for detached subagents (0 = disabled)
+    update_check: bool = True  # check PyPI for newer versions on startup
+    update_check_command: str = ""  # custom command returning latest version (replaces pip index)
     planning: PlanningConfig = field(default_factory=PlanningConfig)
     usage: UsageConfig = field(default_factory=UsageConfig)
     skills: SkillsConfig = field(default_factory=SkillsConfig)
@@ -623,6 +628,7 @@ class RagConfig:
     include_conversations: bool = True  # search past conversation messages
     exclude_current: bool = True  # exclude current conversation from results
     retrieval_mode: str = "dense"  # "dense", "keyword", or "hybrid"
+    show_status: bool = True  # show RAG status messages in CLI
 
 
 @dataclass
@@ -995,6 +1001,37 @@ def _get_config_path(data_dir: Path | None = None) -> Path:
     return _resolve_data_dir() / "config.yaml"
 
 
+def _resolve_reference_paths(raw: dict[str, Any], base_dir: Path) -> dict[str, Any]:
+    """Resolve relative paths in ``references`` to absolute before merge.
+
+    Called on each config layer (personal, team, project) before
+    ``deep_merge`` so that path provenance is preserved — after merge you
+    can no longer tell which layer contributed which paths.
+    """
+    refs = raw.get("references")
+    if not refs or not isinstance(refs, dict):
+        return raw
+    changed = False
+    for key in ("instructions", "rules", "skills"):
+        paths = refs.get(key)
+        if not paths or not isinstance(paths, list):
+            continue
+        resolved: list[str] = []
+        for p in paths:
+            if not isinstance(p, str) or not p:
+                continue
+            path_obj = Path(p)
+            if not path_obj.is_absolute():
+                path_obj = (base_dir / path_obj).resolve()
+            resolved.append(str(path_obj))
+        if resolved != paths:
+            changed = True
+        refs[key] = resolved
+    if changed:
+        raw = {**raw, "references": refs}
+    return raw
+
+
 def load_config(
     config_path: Path | None = None,
     *,
@@ -1060,6 +1097,9 @@ def load_config(
         with open(path, encoding="utf-8-sig") as f:
             raw = yaml.safe_load(f) or {}
 
+    # Resolve reference paths relative to the personal config file
+    raw = _resolve_reference_paths(raw, path.parent)
+
     # Validate raw config before parsing into dataclasses
     from .services.config_validator import validate_config
 
@@ -1102,6 +1142,7 @@ def load_config(
         data_dir = path.parent if path.exists() else None
         team_raw, enforced_fields = load_team_config(team_path, data_dir, interactive=interactive)
         if team_raw:
+            team_raw = _resolve_reference_paths(team_raw, Path(team_path).parent)
             raw = deep_merge(team_raw, raw)
             # Re-apply enforced fields so neither packs nor personal can override them
             raw = apply_enforcement(raw, team_raw, enforced_fields)
@@ -1124,6 +1165,7 @@ def load_config(
         data_dir_for_trust = path.parent if path.exists() else None
         proj_raw, _required_keys = load_project_config(proj_path, data_dir_for_trust, interactive=interactive)
         if proj_raw:
+            proj_raw = _resolve_reference_paths(proj_raw, Path(proj_path).parent)
             raw = deep_merge(raw, proj_raw)
             # Re-apply enforced fields so project config can't override them
             if enforced_fields and team_raw:
@@ -1263,8 +1305,29 @@ def load_config(
     if _env_allowed_domains:
         allowed_domains = [d.strip() for d in _env_allowed_domains.split(",") if d.strip()]
 
+    _raw_allowed_models = ai_raw.get("allowed_models", [])
+    if not isinstance(_raw_allowed_models, list):
+        _raw_allowed_models = []
+    allowed_models: list[str] = [str(m).strip() for m in _raw_allowed_models if m]
+    _env_allowed_models = os.environ.get("AI_CHAT_ALLOWED_MODELS", "")
+    if _env_allowed_models:
+        allowed_models = [m.strip() for m in _env_allowed_models.split(",") if m.strip()]
+
     _raw_block_localhost = ai_raw.get("block_localhost_api", os.environ.get("AI_CHAT_BLOCK_LOCALHOST_API", "false"))
     block_localhost_api = str(_raw_block_localhost).lower() not in ("false", "0", "no")
+
+    _raw_family_aliases = ai_raw.get("model_family_aliases", {})
+    if not isinstance(_raw_family_aliases, dict):
+        _raw_family_aliases = {}
+    model_family_aliases: dict[str, str] = {str(k).strip(): str(v).strip() for k, v in _raw_family_aliases.items() if k}
+    _env_family_aliases = os.environ.get("AI_CHAT_MODEL_FAMILY_ALIASES", "")
+    if _env_family_aliases:
+        try:
+            _parsed = json.loads(_env_family_aliases)
+            if isinstance(_parsed, dict):
+                model_family_aliases = {str(k).strip(): str(v).strip() for k, v in _parsed.items() if k}
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass  # graceful degradation — ignore malformed env var
 
     if narration_cadence > 0:
         system_prompt += (
@@ -1298,10 +1361,12 @@ def load_config(
         top_p=top_p,
         seed=seed,
         allowed_domains=allowed_domains,
+        allowed_models=allowed_models,
         block_localhost_api=block_localhost_api,
         provider=provider,
         max_output_tokens=max_output_tokens,
         litellm_bedrock_tools_confirmed=litellm_bedrock_tools_confirmed,
+        model_family_aliases=model_family_aliases,
     )
 
     app_raw = raw.get("app", {})
@@ -1486,6 +1551,10 @@ def load_config(
     except (ValueError, TypeError):
         detach_suggest_seconds = 120
 
+    _raw_update_check = cli_raw.get("update_check", os.environ.get("AI_CHAT_UPDATE_CHECK", "true"))
+    update_check = str(_raw_update_check).lower() not in ("false", "0", "no")
+    update_check_command = str(cli_raw.get("update_check_command", os.environ.get("AI_CHAT_UPDATE_CHECK_COMMAND", "")))
+
     planning_raw = cli_raw.get("planning", {})
     if not isinstance(planning_raw, dict):
         planning_raw = {}
@@ -1634,6 +1703,8 @@ def load_config(
         model_context_window=model_context_window,
         background_suggest_seconds=background_suggest_seconds,
         detach_suggest_seconds=detach_suggest_seconds,
+        update_check=update_check,
+        update_check_command=update_check_command,
         planning=planning_config,
         usage=usage_config,
         skills=skills_config,
@@ -1979,6 +2050,9 @@ def load_config(
         rag_raw.get("retrieval_mode", os.environ.get("AI_CHAT_RAG_RETRIEVAL_MODE", "dense"))
     ).lower()
     rag_retrieval_mode = _raw_retrieval_mode if _raw_retrieval_mode in ("dense", "keyword", "hybrid") else "dense"
+    rag_show_status = str(
+        rag_raw.get("show_status", os.environ.get("AI_CHAT_RAG_SHOW_STATUS", "true"))
+    ).lower() not in ("false", "0", "no")
     rag_config = RagConfig(
         enabled=rag_enabled,
         max_chunks=rag_max_chunks,
@@ -1988,6 +2062,7 @@ def load_config(
         include_conversations=rag_include_conversations,
         exclude_current=rag_exclude_current,
         retrieval_mode=rag_retrieval_mode,
+        show_status=rag_show_status,
     )
 
     # Reranker config

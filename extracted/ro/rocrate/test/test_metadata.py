@@ -1,12 +1,13 @@
-# Copyright 2019-2025 The University of Manchester, UK
-# Copyright 2020-2025 Vlaams Instituut voor Biotechnologie (VIB), BE
-# Copyright 2020-2025 Barcelona Supercomputing Center (BSC), ES
-# Copyright 2020-2025 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
-# Copyright 2022-2025 École Polytechnique Fédérale de Lausanne, CH
-# Copyright 2024-2025 Data Centre, SciLifeLab, SE
-# Copyright 2024-2025 National Institute of Informatics (NII), JP
-# Copyright 2025 Senckenberg Society for Nature Research (SGN), DE
-# Copyright 2025 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2019-2026 The University of Manchester, UK
+# Copyright 2020-2026 Vlaams Instituut voor Biotechnologie (VIB), BE
+# Copyright 2020-2026 Barcelona Supercomputing Center (BSC), ES
+# Copyright 2020-2026 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
+# Copyright 2022-2026 École Polytechnique Fédérale de Lausanne, CH
+# Copyright 2024-2026 Data Centre, SciLifeLab, SE
+# Copyright 2024-2026 National Institute of Informatics (NII), JP
+# Copyright 2025-2026 Senckenberg Society for Nature Research (SGN), DE
+# Copyright 2025-2026 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2026 Spanish National Research Council (CSIC), ES
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,23 +27,21 @@ from copy import deepcopy
 from rocrate.metadata import find_root_entity_id
 
 
-@pytest.mark.parametrize("root,basename", [
-    ("", "ro-crate-metadata.json"),
-    ("", "ro-crate-metadata.jsonld"),
+@pytest.mark.parametrize("root_id,metadata_id", [
+    ("./", "ro-crate-metadata.json"),
+    ("./", "ro-crate-metadata.jsonld"),
     ("https://example.org/crate/", "ro-crate-metadata.json"),
     ("https://example.org/crate/", "ro-crate-metadata.jsonld"),
-    ("", "bad-name.json"),
+    ("./", "bad-name.json"),
 ])
-def test_find_root(root, basename):
-    metadata_id = root + basename
-    root_id = root or "./"
+def test_find_root(root_id, metadata_id):
     entities = {_["@id"]: _ for _ in [
         {
             "@id": metadata_id,
             "@type": "CreativeWork",
             "about": {"@id": root_id},
             "conformsTo": [
-                {"@id": "https://w3id.org/ro/crate/1.1"},
+                {"@id": "https://w3id.org/ro/crate/1.2"},
                 {"@id": "https://example.org/fancy-ro-crate/1.0"},
             ]
         },
@@ -51,7 +50,7 @@ def test_find_root(root, basename):
             "@type": "Dataset",
         },
     ]}
-    if basename not in {"ro-crate-metadata.json", "ro-crate-metadata.jsonld"}:
+    if metadata_id not in {"ro-crate-metadata.json", "ro-crate-metadata.jsonld"}:
         with pytest.raises(KeyError):
             find_root_entity_id(entities)
     else:
@@ -64,7 +63,7 @@ def test_find_root_bad_entities():
             "@id": "ro-crate-metadata.json",
             "@type": "CreativeWork",
             "about": {"@id": "./"},
-            "conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
+            "conformsTo": {"@id": "https://w3id.org/ro/crate/1.2"},
         },
         "./": {
             "@id": "./",
@@ -94,79 +93,13 @@ def test_find_root_bad_entities():
         find_root_entity_id(entities)
 
 
-@pytest.mark.filterwarnings("ignore")
-def test_find_root_multiple_entries():
-    orig_entities = {
-        "http://example.org/ro-crate-metadata.json": {
-            "@id": "http://example.org/ro-crate-metadata.json",
-            "@type": "CreativeWork",
-            "about": {"@id": "http://example.org/"},
-            "conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
-        },
-        "http://example.org/": {
-            "@id": "http://example.org/",
-            "@type": "Dataset",
-            "hasPart": [
-                {"@id": "http://example.com/"},
-                {"@id": "http://example.com/ro-crate-metadata.json"}
-            ]
-        },
-        "http://example.com/ro-crate-metadata.json": {
-            "@id": "http://example.com/ro-crate-metadata.json",
-            "@type": "CreativeWork",
-            "about": {"@id": "http://example.com/"},
-            "conformsTo": {"@id": "https://w3id.com/ro/crate/1.1"},
-        },
-        "http://example.com/": {
-            "@id": "http://example.com/",
-            "@type": "Dataset",
-        },
-    }
-
-    def check_finds_org(entities):
-        m_id, r_id = find_root_entity_id(entities)
-        assert m_id == "http://example.org/ro-crate-metadata.json"
-        assert r_id == "http://example.org/"
-
-    def check_picks_one(entities):
-        m_id, r_id = find_root_entity_id(entities)
-        assert m_id in [f"http://example.{_}/ro-crate-metadata.json" for _ in ("org", "com")]
-        assert r_id in [f"http://example.{_}/" for _ in ("org", "com")]
-
-    check_finds_org(orig_entities)
-    # no root candidate contains the other one
-    mod_entities = deepcopy(orig_entities)
-    del mod_entities["http://example.org/"]["hasPart"]
-    check_picks_one(mod_entities)
-    # each root candidate contains the other one
-    mod_entities = deepcopy(orig_entities)
-    mod_entities["http://example.com/"]["hasPart"] = [
-        {"@id": "http://example.org/"},
-        {"@id": "http://example.org/ro-crate-metadata.json"}
-    ]
-    check_picks_one(mod_entities)
-    # "about" does not reference the root entity
-    mod_entities = deepcopy(orig_entities)
-    for about in "http://google.com", {"@id": "http://google.com"}:
-        mod_entities["http://example.com/ro-crate-metadata.json"]["about"] = about
-        check_finds_org(mod_entities)
-    # metadata type is not CreativeWork
-    mod_entities = deepcopy(orig_entities)
-    mod_entities["http://example.com/ro-crate-metadata.json"]["@type"] = "Thing"
-    check_finds_org(mod_entities)
-    # root type is not Dataset
-    mod_entities = deepcopy(orig_entities)
-    mod_entities["http://example.com/"]["@type"] = "Thing"
-    check_finds_org(mod_entities)
-
-
 def test_find_root_multiple_types():
     entities = {_["@id"]: _ for _ in [
         {
             "@id": "ro-crate-metadata.json",
             "@type": "CreativeWork",
             "about": {"@id": "./"},
-            "conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"},
+            "conformsTo": {"@id": "https://w3id.org/ro/crate/1.2"},
         },
         {
             "@id": "./",

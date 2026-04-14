@@ -1,14 +1,14 @@
 """Use the Public API to export or update data that you have saved to W&B.
 
 Before using this API, you'll want to log data from your script — check the
-[Quickstart](https://docs.wandb.ai/quickstart) for more details.
+[Quickstart](https://docs.wandb.ai/models/quickstart) for more details.
 
 You might use the Public API to
  - update metadata or metrics for an experiment after it has been completed,
  - pull down your results as a dataframe for post-hoc analysis in a Jupyter notebook, or
  - check your saved model artifacts for those tagged as `ready-to-deploy`.
 
-For more on using the Public API, check out [our guide](https://docs.wandb.com/guides/track/public-api-guide).
+For more on using the Public API, check out [our guide](https://docs.wandb.ai/models/track/public-api-guide).
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ from wandb.errors import UsageError
 from wandb.proto import wandb_internal_pb2 as pb
 from wandb.proto.wandb_telemetry_pb2 import Deprecated
 from wandb.sdk import wandb_login, wandb_setup
-from wandb.sdk.artifacts._gqlutils import resolve_org_entity_name, server_supports
+from wandb.sdk.artifacts._gqlutils import resolve_org_entity_name
 from wandb.sdk.internal.internal_api import Api as InternalApi
 from wandb.sdk.launch.utils import LAUNCH_DEFAULT_PROJECT
 from wandb.sdk.lib import retry, runid, wbauth
@@ -692,7 +692,7 @@ class Api:
             if (viewer := result.viewer) is None:
                 msg = "Unable to fetch user data from W&B, please verify your API key is valid."
                 raise ValueError(msg)
-            self._viewer = User(self._client, viewer.model_dump())
+            self._viewer = User(self._client, viewer.model_dump(), api_key=self.api_key)
             self._default_entity = self._viewer.entity
         return self._viewer
 
@@ -1024,7 +1024,7 @@ class Api:
         if len(edges) > 1:
             msg = f"Found multiple users, returning the first user matching {username_or_email!r}"
             wandb.termwarn(msg)
-        return User(self._client, edges[0].node.model_dump())
+        return User(self._client, edges[0].node.model_dump(), api_key=self.api_key)
 
     def users(self, username_or_email: str) -> list[User]:
         """Return all users from a partial username or email address query.
@@ -1046,7 +1046,10 @@ class Api:
         result = SearchUsers.model_validate(data)
         if not ((conn := result.users) and (edges := conn.edges)):
             return []
-        return [User(self._client, edge.node.model_dump()) for edge in edges]
+        return [
+            User(self._client, edge.node.model_dump(), api_key=self.api_key)
+            for edge in edges
+        ]
 
     def runs(
         self,
@@ -1801,10 +1804,11 @@ class Api:
         )
         ```
         """
-        if not server_supports(self.client, pb.ARTIFACT_REGISTRY_SEARCH):
+        if not self._service_api.feature_enabled(pb.ARTIFACT_REGISTRY_SEARCH):
             raise RuntimeError(
-                "Registry search API is not enabled on this wandb server version. "
-                "Please upgrade your server version or contact support at support@wandb.com."
+                "Registry search API is not enabled on this wandb server version."
+                + " Please upgrade your server version or contact support"
+                + " at support@wandb.com."
             )
 
         organization = organization or fetch_org_from_settings_or_entity(
@@ -1841,10 +1845,11 @@ class Api:
         registry.save()
         ```
         """
-        if not server_supports(self.client, pb.ARTIFACT_REGISTRY_SEARCH):
+        if not self._service_api.feature_enabled(pb.ARTIFACT_REGISTRY_SEARCH):
             raise RuntimeError(
-                "api.registry() is not enabled on this wandb server version. "
-                "Please upgrade your server version or contact support at support@wandb.com."
+                "api.registry() is not enabled on this wandb server version."
+                + " Please upgrade your server version or contact support"
+                + " at support@wandb.com."
             )
         organization = organization or fetch_org_from_settings_or_entity(
             self.settings, self.default_entity
@@ -1898,12 +1903,13 @@ class Api:
         )
         ```
         """
-        if not server_supports(
-            self.client, pb.INCLUDE_ARTIFACT_TYPES_IN_REGISTRY_CREATION
+        if not self._service_api.feature_enabled(
+            pb.INCLUDE_ARTIFACT_TYPES_IN_REGISTRY_CREATION,
         ):
             raise RuntimeError(
-                "create_registry api is not enabled on this wandb server version. "
-                "Please upgrade your server version or contact support at support@wandb.com."
+                "create_registry api is not enabled on this wandb server version."
+                + " Please upgrade your server version or contact support"
+                + " at support@wandb.com."
             )
 
         organization = organization or fetch_org_from_settings_or_entity(
@@ -2052,12 +2058,12 @@ class Api:
         supports_event = (
             (event is None)
             or (event in ALWAYS_SUPPORTED_EVENTS)
-            or server_supports(self.client, f"AUTOMATION_EVENT_{event.value}")
+            or self._service_api.feature_enabled(f"AUTOMATION_EVENT_{event.value}")
         )
         supports_action = (
             (action is None)
             or (action in ALWAYS_SUPPORTED_ACTIONS)
-            or server_supports(self.client, f"AUTOMATION_ACTION_{action.value}")
+            or self._service_api.feature_enabled(f"AUTOMATION_ACTION_{action.value}")
         )
         return supports_event and supports_action
 

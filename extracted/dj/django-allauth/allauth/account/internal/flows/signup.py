@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from importlib import import_module
 
 from django import forms
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.core import exceptions
 from django.http import HttpRequest, HttpResponse
 from django.urls import reverse
@@ -15,7 +18,7 @@ from allauth.utils import build_absolute_uri
 
 
 class DummyCustomSignupForm(forms.Form):
-    def signup(self, request, user) -> None:
+    def signup(self, request: HttpRequest, user: AbstractBaseUser) -> None:
         """
         Invoked at signup time to complete the signup of the user.
         """
@@ -88,14 +91,14 @@ def get_signup_url(request: HttpRequest) -> str:
 
 
 def complete_signup(
-    request,
+    request: HttpRequest,
     *,
     user,
     email_verification=None,
     redirect_url=None,
     signal_kwargs=None,
     by_passkey=False,
-):
+) -> HttpResponse:
     if signal_kwargs is None:
         signal_kwargs = {}
     signals.user_signed_up.send(

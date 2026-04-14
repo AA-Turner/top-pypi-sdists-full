@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: phonic
-Version: 0.31.12
+Version: 0.31.13
 Summary: 
 License: MIT
 License-File: LICENSE
@@ -105,6 +105,7 @@ client.agents.create(
         "es"
     ],
     multilingual_mode="request",
+    push_to_talk=False,
     boosted_keywords=[
         "Load ID",
         "dispatch"
@@ -165,6 +166,7 @@ async def main() -> None:
             "es"
         ],
         multilingual_mode="request",
+        push_to_talk=False,
         boosted_keywords=[
             "Load ID",
             "dispatch"

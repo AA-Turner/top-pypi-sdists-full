@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: ibm-cos-sdk-core
-Version: 2.16.1
+Version: 2.16.2
 Summary: Low-level, data-driven core of IBM SDK for Python
 Home-page: https://github.com/ibm/ibm-cos-sdk-python-core
 Author: IBM
@@ -26,7 +26,7 @@ License-File: LICENSE.txt
 License-File: NOTICE
 Requires-Dist: jmespath<=1.0.1,>=0.10.0
 Requires-Dist: python-dateutil<3.0.0,>=2.9.0
-Requires-Dist: requests<3.0.0,>=2.32.5
+Requires-Dist: requests<3.0.0,>=2.33.0
 Requires-Dist: urllib3<3,>=2.6.2
 Provides-Extra: crt
 Requires-Dist: awscrt==0.30.0; extra == "crt"
@@ -36,6 +36,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
@@ -47,7 +48,7 @@ A low-level interface to IBM Cloud Object Storage based on the `ibm_botocore` pa
 
 ## Documentation
 
-Documentation for `ibm-cos-sdk-python-core` can be found [here](https://ibm.github.io/ibm-cos-sdk-python-core/).
+Documentation for `ibm-cos-sdk-python-core` can be found [IBM COS Python Core SDK Documentation](https://ibm.github.io/ibm-cos-sdk-python-core/).
 
 ## Getting Help
 

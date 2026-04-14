@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: policy_sentry
-Version: 0.15.1
+Version: 0.15.2
 Summary: Generate locked-down AWS IAM Policies
 Project-URL: Homepage, https://github.com/salesforce/policy_sentry
 Project-URL: Repository, https://github.com/salesforce/policy_sentry
@@ -25,7 +25,7 @@ Requires-Dist: beautifulsoup4<5.0.0,>=4.14.0
 Requires-Dist: click<9.0.0,>=8.1.0
 Requires-Dist: orjson<4.0.0,>=3.11.0
 Requires-Dist: pyyaml<7.0.0,>=6.0.0
-Requires-Dist: requests<3.0.0,>=2.32.0
+Requires-Dist: requests<3.0.0,>=2.33.0
 Requires-Dist: schema<0.8.0,>=0.7.0
 Description-Content-Type: text/markdown
 

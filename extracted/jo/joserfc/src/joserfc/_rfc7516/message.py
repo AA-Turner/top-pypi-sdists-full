@@ -1,4 +1,6 @@
+import secrets
 import typing as t
+
 from .models import (
     CompactEncryption,
     BaseJSONEncryption,
@@ -16,7 +18,6 @@ from .registry import JWERegistry
 from ..errors import (
     JoseError,
     DecodeError,
-    InvalidCEKLengthError,
     InvalidEncryptedKeyError,
     InvalidExchangeKeyError,
     ConflictAlgorithmError,
@@ -121,7 +122,7 @@ def _perform_decrypt(obj: EncryptionData, registry: JWERegistry) -> None:
 
     cek = cek_set.pop()
     if len(cek) * 8 != enc.cek_size:  # pragma: no cover
-        raise InvalidCEKLengthError(enc.cek_size)
+        cek = secrets.token_bytes(enc.cek_size // 8)
 
     aad = json_b64encode(obj.protected)
     if isinstance(obj, BaseJSONEncryption) and obj.aad:
@@ -187,7 +188,7 @@ def __pre_encrypt_direct_mode(alg: JWEAlgModel, enc: JWEEncModel, recipient: Rec
         # let the CEK be the agreed upon key.
         cek = alg.encrypt_agreed_upon_key(enc, recipient)
         if len(cek) * 8 != enc.cek_size:  # pragma: no cover
-            raise InvalidCEKLengthError(enc.cek_size)
+            cek = secrets.token_bytes(enc.cek_size // 8)
     else:
         # 6. When Direct Encryption is employed, let the CEK be the shared
         # symmetric key.

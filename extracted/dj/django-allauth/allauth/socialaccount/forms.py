@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 from django import forms
+from django.contrib.auth.models import AbstractBaseUser
+from django.http import HttpRequest
 
 from allauth.account.forms import BaseSignupForm
 from allauth.socialaccount.internal import flows
@@ -22,7 +26,7 @@ class SignupForm(BaseSignupForm):
         )
         super().__init__(*args, **kwargs)
 
-    def save(self, request):
+    def save(self, request: HttpRequest) -> AbstractBaseUser:
         adapter = get_adapter()
         user = adapter.save_user(request, self.sociallogin, form=self)
         self.custom_signup(request, user)
@@ -44,11 +48,12 @@ class DisconnectForm(forms.Form):
         required=True,
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self.request = kwargs.pop("request")
         self.accounts = SocialAccount.objects.filter(user=self.request.user)
         super().__init__(*args, **kwargs)
-        self.fields["account"].queryset = self.accounts
+        account_field: forms.ModelChoiceField = self.fields["account"]  # type: ignore[assignment]
+        account_field.queryset = self.accounts
 
     def clean(self):
         cleaned_data = super().clean()

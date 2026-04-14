@@ -289,19 +289,6 @@ class CfnProfilingGroup(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
-    @jsii.member(jsii_name="profilingGroupName")
-    def profiling_group_name(self) -> builtins.str:
-        '''The name of the profiling group.'''
-        return typing.cast(builtins.str, jsii.get(self, "profilingGroupName"))
-
-    @profiling_group_name.setter
-    def profiling_group_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c5573a5208adffdf4734f691eb4ff7539202b1db0e5b1ca78bff1b5df9d85c73)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "profilingGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="agentPermissions")
     def agent_permissions(self) -> typing.Any:
         '''The agent permissions attached to this profiling group.'''
@@ -313,6 +300,19 @@ class CfnProfilingGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__17d718bda323291cfa3fcddd8a1a5bb1086c9c8fc294cbc26895b278f35c89d1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "agentPermissions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="profilingGroupName")
+    def profiling_group_name(self) -> builtins.str:
+        '''The name of the profiling group.'''
+        return typing.cast(builtins.str, jsii.get(self, "profilingGroupName"))
+
+    @profiling_group_name.setter
+    def profiling_group_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c5573a5208adffdf4734f691eb4ff7539202b1db0e5b1ca78bff1b5df9d85c73)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "profilingGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="anomalyDetectionNotificationConfiguration")
@@ -1155,14 +1155,14 @@ def _typecheckingstub__fafc590c253689aa6dbe3ece2a14715971b41a0287ac3abea2185200d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c5573a5208adffdf4734f691eb4ff7539202b1db0e5b1ca78bff1b5df9d85c73(
-    value: builtins.str,
+def _typecheckingstub__17d718bda323291cfa3fcddd8a1a5bb1086c9c8fc294cbc26895b278f35c89d1(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__17d718bda323291cfa3fcddd8a1a5bb1086c9c8fc294cbc26895b278f35c89d1(
-    value: typing.Any,
+def _typecheckingstub__c5573a5208adffdf4734f691eb4ff7539202b1db0e5b1ca78bff1b5df9d85c73(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

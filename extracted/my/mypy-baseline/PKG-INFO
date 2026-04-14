@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mypy_baseline
-Version: 0.7.3
+Version: 0.7.4
 Summary: Integrate mypy with existing codebase.
 Keywords: mypy,baseline,typing,annotations,type annotations
 Author-email: Gram <git@orsinium.dev>

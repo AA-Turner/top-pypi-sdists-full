@@ -1,6 +1,9 @@
-from http import HTTPStatus
+from __future__ import annotations
 
-from django.http import HttpResponse
+from http import HTTPStatus
+from typing import Any
+
+from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.utils.decorators import method_decorator
 
 from allauth.account import app_settings as account_settings
@@ -21,6 +24,7 @@ from allauth.account.internal.flows.email_verification_by_code import (
     EmailVerificationProcess,
 )
 from allauth.account.internal.flows.phone_verification import (
+    PhoneVerificationProcess,
     PhoneVerificationStageProcess,
 )
 from allauth.account.stages import (
@@ -30,6 +34,7 @@ from allauth.account.stages import (
 )
 from allauth.core import ratelimit
 from allauth.core.exceptions import ImmediateHttpResponse, RateLimited
+from allauth.core.internal.httpkit import authenticated_user
 from allauth.decorators import rate_limit
 from allauth.headless.account import response
 from allauth.headless.account.inputs import (
@@ -52,7 +57,6 @@ from allauth.headless.account.inputs import (
     VerifyPhoneInput,
 )
 from allauth.headless.base.response import (
-    APIResponse,
     AuthenticationResponse,
     ConflictResponse,
     ForbiddenResponse,
@@ -60,13 +64,15 @@ from allauth.headless.base.response import (
 )
 from allauth.headless.base.views import APIView, AuthenticatedAPIView
 from allauth.headless.internal import authkit
-from allauth.headless.internal.restkit.response import ErrorResponse
+from allauth.headless.internal.restkit.inputs import Input
+from allauth.headless.internal.restkit.response import APIResponse, ErrorResponse
 
 
 class RequestLoginCodeView(APIView):
     input_class = RequestLoginCodeInput
+    input: RequestLoginCodeInput
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         flows.login_by_code.LoginCodeVerificationProcess.initiate(
             request=self.request,
             user=self.input._user,
@@ -79,7 +85,7 @@ class RequestLoginCodeView(APIView):
 class ResendLoginCodeView(APIView):
     handle_json_input = False
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         process = None
         stage = LoginStageController.enter(request, LoginStageKey.LOGIN_BY_CODE)
         if stage:
@@ -96,7 +102,9 @@ class ResendLoginCodeView(APIView):
 class ConfirmLoginCodeView(APIView):
     input_class = ConfirmLoginCodeInput
 
-    def dispatch(self, request, *args, **kwargs):
+    def dispatch(
+        self, request: HttpRequest, *args: Any, **kwargs: Any
+    ) -> HttpResponseBase:
         auth_status = authkit.AuthenticationStatus(request)
         self.stage = auth_status.get_pending_stage()
         if not self.stage or self.stage.key != LoginStageKey.LOGIN_BY_CODE:
@@ -108,7 +116,7 @@ class ConfirmLoginCodeView(APIView):
             return ConflictResponse(request)
         return super().dispatch(request, *args, **kwargs)
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         response = self.process.finish(None)
         return AuthenticationResponse.from_response(request, response)
 
@@ -117,7 +125,7 @@ class ConfirmLoginCodeView(APIView):
         kwargs["code"] = self.process.code
         return kwargs
 
-    def handle_invalid_input(self, input):
+    def handle_invalid_input(self, input) -> ErrorResponse:
         self.process.record_invalid_attempt()
         return super().handle_invalid_input(input)
 
@@ -125,8 +133,9 @@ class ConfirmLoginCodeView(APIView):
 @method_decorator(rate_limit(action="login"), name="handle")
 class LoginView(APIView):
     input_class = LoginInput
+    input: LoginInput
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         if request.user.is_authenticated:
             return ConflictResponse(request)
         credentials = self.input.cleaned_data
@@ -139,9 +148,10 @@ class LoginView(APIView):
 @method_decorator(rate_limit(action="signup"), name="handle")
 class SignupView(APIView):
     input_class = {"POST": SignupInput}
+    input: SignupInput
     by_passkey = False
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         if request.user.is_authenticated:
             return ConflictResponse(request)
         if not get_account_adapter().is_open_for_signup(request):
@@ -158,10 +168,10 @@ class SignupView(APIView):
 
 
 class SessionView(APIView):
-    def get(self, request, *args, **kwargs) -> HttpResponse:
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         return AuthenticationResponse(request)
 
-    def delete(self, request, *args, **kwargs):
+    def delete(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         adapter = get_account_adapter()
         adapter.logout(request)
         return AuthenticationResponse(request)
@@ -169,8 +179,11 @@ class SessionView(APIView):
 
 class VerifyEmailView(APIView):
     input_class = VerifyEmailInput
+    input: VerifyEmailInput
 
-    def handle(self, request, *args, **kwargs):
+    def handle(
+        self, request: HttpRequest, *args: Any, **kwargs: Any
+    ) -> HttpResponseBase:
         self.stage = LoginStageController.enter(request, EmailVerificationStage.key)
         if (
             not self.stage
@@ -192,12 +205,12 @@ class VerifyEmailView(APIView):
     def get_input_kwargs(self) -> dict:
         return {"process": self.process}
 
-    def handle_invalid_input(self, input: VerifyEmailInput):
+    def handle_invalid_input(self, input: VerifyEmailInput) -> ErrorResponse:
         if self.process:
             self.process.record_invalid_attempt()
         return super().handle_invalid_input(input)
 
-    def get(self, request, *args, **kwargs) -> HttpResponse:
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         key = request.headers.get("x-email-verification-key", "")
         input = self.input_class({"key": key}, process=self.process)
         if not input.is_valid():
@@ -210,7 +223,7 @@ class VerifyEmailView(APIView):
             email_address = input.verification.email_address
         return response.VerifyEmailResponse(request, email_address, stage=self.stage)
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         if self.process:
             email_address = self.process.finish()
         else:
@@ -230,8 +243,11 @@ class VerifyEmailView(APIView):
 class VerifyPhoneView(APIView):
     input_class = VerifyPhoneInput
 
-    def handle(self, request, *args, **kwargs):
+    def handle(
+        self, request: HttpRequest, *args: Any, **kwargs: Any
+    ) -> HttpResponseBase:
         self.stage = LoginStageController.enter(request, PhoneVerificationStage.key)
+        self.process: PhoneVerificationProcess | None = None
         if self.stage:
             self.process = (
                 flows.phone_verification.PhoneVerificationStageProcess.resume(
@@ -249,17 +265,20 @@ class VerifyPhoneView(APIView):
         return super().handle(request, *args, **kwargs)
 
     def get_input_kwargs(self) -> dict:
+        assert self.process is not None  # nosec
         return {
             "code": self.process.code,
             "user": self.process.user,
             "phone": self.process.phone,
         }
 
-    def handle_invalid_input(self, input: VerifyPhoneInput):
+    def handle_invalid_input(self, input: VerifyPhoneInput) -> ErrorResponse:
+        assert self.process is not None  # nosec
         self.process.record_invalid_attempt()
         return super().handle_invalid_input(input)
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        assert self.process is not None  # nosec
         self.process.finish()
         response = None
         if self.stage:
@@ -270,7 +289,7 @@ class VerifyPhoneView(APIView):
 class ResendPhoneVerificationCodeView(APIView):
     handle_json_input = False
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         process = None
         stage = LoginStageController.enter(request, PhoneVerificationStage.key)
         if stage:
@@ -289,7 +308,7 @@ class ResendPhoneVerificationCodeView(APIView):
 class ResendEmailVerificationCodeView(APIView):
     handle_json_input = False
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         if not account_settings.EMAIL_VERIFICATION_BY_CODE_ENABLED:
             return ConflictResponse(request)
         process = flows.email_verification_by_code.EmailVerificationProcess.resume(
@@ -306,8 +325,9 @@ class ResendEmailVerificationCodeView(APIView):
 
 class RequestPasswordResetView(APIView):
     input_class = RequestPasswordResetInput
+    input: RequestPasswordResetInput
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         r429 = ratelimit.consume_or_429(
             self.request,
             action="reset_password",
@@ -324,13 +344,16 @@ class RequestPasswordResetView(APIView):
 @method_decorator(rate_limit(action="reset_password_from_key"), name="handle")
 class ResetPasswordView(APIView):
     input_class = ResetPasswordInput
+    input: ResetPasswordInput
 
-    def handle_invalid_input(self, input: ResetPasswordInput):
+    def handle_invalid_input(self, input: ResetPasswordInput) -> ErrorResponse:
         if self.process and "key" in input.errors:
             self.process.record_invalid_attempt()
         return super().handle_invalid_input(input)
 
-    def handle(self, request, *args, **kwargs):
+    def handle(
+        self, request: HttpRequest, *args: Any, **kwargs: Any
+    ) -> HttpResponseBase:
         self.process = None
         if account_settings.PASSWORD_RESET_BY_CODE_ENABLED:
             self.process = (
@@ -342,9 +365,9 @@ class ResetPasswordView(APIView):
                 return ConflictResponse(request)
         return super().handle(request, *args, **kwargs)
 
-    def get(self, request, *args, **kwargs) -> HttpResponse:
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         key = request.headers.get("X-Password-Reset-Key", "")
-        if self.process:
+        if self.process and self.process.user:
             input = ResetPasswordKeyInput({"key": key}, code=self.process.code)
             if not input.is_valid():
                 self.process.record_invalid_attempt()
@@ -363,7 +386,7 @@ class ResetPasswordView(APIView):
             ret.update({"code": self.process.code, "user": self.process.user})
         return ret
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         user = self.input.user
         flows.password_reset.reset_password(user, self.input.cleaned_data["password"])
         if self.process:
@@ -378,9 +401,10 @@ class ResetPasswordView(APIView):
 class ChangePasswordView(AuthenticatedAPIView):
     input_class = ChangePasswordInput
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        assert request.user.is_authenticated  # nosec
         password_change.change_password(
-            self.request.user, self.input.cleaned_data["new_password"]
+            request.user, self.input.cleaned_data["new_password"]
         )
         is_set = not self.input.cleaned_data.get("current_password")
         if is_set:
@@ -401,7 +425,9 @@ class ManageEmailView(APIView):
         "PATCH": MarkAsPrimaryEmailInput,
     }
 
-    def dispatch(self, request, *args, **kwargs):
+    def dispatch(
+        self, request: HttpRequest, *args: Any, **kwargs: Any
+    ) -> HttpResponseBase:
         self.verification_stage_process = None
         if request.user.is_authenticated:
             self.user = request.user
@@ -414,49 +440,50 @@ class ManageEmailView(APIView):
                 or not self.verification_stage_process.can_change
             ):
                 return ConflictResponse(request)
-            self.user = self.verification_stage_process.user
+            self.user = self.verification_stage_process.user  # type:ignore[assignment]
         resp = ratelimit.consume_or_429(request, action="manage_email", user=self.user)
         if resp:
             return resp
         return super().dispatch(request, *args, **kwargs)
 
-    def get(self, request, *args, **kwargs) -> HttpResponse:
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         return self._respond_email_list()
 
-    def _respond_email_list(self):
+    def _respond_email_list(self) -> response.EmailAddressesResponse:
         addrs = manage_email.list_email_addresses(self.request, self.user)
         return response.EmailAddressesResponse(self.request, addrs)
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         if self.verification_stage_process:
+            input: ChangeEmailInput = self.input  # type:ignore[assignment]
             self.verification_stage_process.change_to(
-                email=self.input.cleaned_data["email"],
-                account_already_exists=self.input.account_already_exists,
+                email=input.cleaned_data["email"],
+                account_already_exists=input.account_already_exists,
             )
         else:
             flows.manage_email.add_email(request, self.input)
         return self._respond_email_list()
 
-    def delete(self, request, *args, **kwargs):
+    def delete(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         addr = self.input.cleaned_data["email"]
         if addr.pk:
             flows.manage_email.delete_email(request, addr)
         else:
-            self.input.process.abort()
+            self.input.process.abort()  # type:ignore[attr-defined]
         return self._respond_email_list()
 
-    def patch(self, request, *args, **kwargs):
+    def patch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         addr = self.input.cleaned_data["email"]
         flows.manage_email.mark_as_primary(request, addr)
         return self._respond_email_list()
 
-    def put(self, request, *args, **kwargs):
+    def put(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         addr = self.input.cleaned_data["email"]
-        if process := self.input.process:
+        if process := self.input.process:  # type:ignore[attr-defined]
             sent = False
             if process.can_resend:
                 try:
-                    self.input.process.resend()
+                    process.resend()
                     sent = True
                 except RateLimited:
                     pass
@@ -466,7 +493,7 @@ class ManageEmailView(APIView):
             request, verification_sent=sent
         )
 
-    def get_input_class(self):
+    def get_input_class(self) -> type[Input] | None:
         if self.verification_stage_process:
             return ChangeEmailInput
         return super().get_input_class()
@@ -479,8 +506,11 @@ class ManageEmailView(APIView):
 
 class ManagePhoneView(APIView):
     input_class = ChangePhoneInput
+    input: ChangePhoneInput
 
-    def dispatch(self, request, *args, **kwargs):
+    def dispatch(
+        self, request: HttpRequest, *args: Any, **kwargs: Any
+    ) -> HttpResponseBase:
         self.verification_stage_process = None
         if request.user.is_authenticated:
             self.user = request.user
@@ -497,22 +527,24 @@ class ManagePhoneView(APIView):
                 or not self.verification_stage_process.can_change
             ):
                 return ConflictResponse(request)
-            self.user = self.verification_stage_process.user
+            self.user = self.verification_stage_process.user  # type:ignore[assignment]
         resp = ratelimit.consume_or_429(request, action="change_phone", user=self.user)
         if resp:
             return resp
         return super().dispatch(request, *args, **kwargs)
 
-    def get(self, request, *args, **kwargs) -> HttpResponse:
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         phone_numbers = []
-        phone_verified = get_account_adapter().get_phone(self.request.user)
+        phone_verified = get_account_adapter().get_phone(
+            authenticated_user(self.request)
+        )
         if phone_verified:
             phone_numbers.append(
                 {"phone": phone_verified[0], "verified": phone_verified[1]}
             )
         return response.PhoneNumbersResponse(self.request, phone_numbers)
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         phone = self.input.cleaned_data["phone"]
         if self.verification_stage_process:
             self.verification_stage_process.change_to(
@@ -546,7 +578,7 @@ class ManagePhoneView(APIView):
 class ReauthenticateView(AuthenticatedAPIView):
     input_class = ReauthenticateInput
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         flows.reauthentication.reauthenticate_by_password(self.request)
         return AuthenticationResponse(self.request)
 

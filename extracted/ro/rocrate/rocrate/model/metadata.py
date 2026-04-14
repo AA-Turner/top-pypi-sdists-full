@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 
-# Copyright 2019-2025 The University of Manchester, UK
-# Copyright 2020-2025 Vlaams Instituut voor Biotechnologie (VIB), BE
-# Copyright 2020-2025 Barcelona Supercomputing Center (BSC), ES
-# Copyright 2020-2025 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
-# Copyright 2022-2025 École Polytechnique Fédérale de Lausanne, CH
-# Copyright 2024-2025 Data Centre, SciLifeLab, SE
-# Copyright 2024-2025 National Institute of Informatics (NII), JP
-# Copyright 2025 Senckenberg Society for Nature Research (SGN), DE
-# Copyright 2025 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2019-2026 The University of Manchester, UK
+# Copyright 2020-2026 Vlaams Instituut voor Biotechnologie (VIB), BE
+# Copyright 2020-2026 Barcelona Supercomputing Center (BSC), ES
+# Copyright 2020-2026 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
+# Copyright 2022-2026 École Polytechnique Fédérale de Lausanne, CH
+# Copyright 2024-2026 Data Centre, SciLifeLab, SE
+# Copyright 2024-2026 National Institute of Informatics (NII), JP
+# Copyright 2025-2026 Senckenberg Society for Nature Research (SGN), DE
+# Copyright 2025-2026 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2026 Spanish National Research Council (CSIC), ES
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,10 +25,22 @@
 
 import json
 from pathlib import Path
+import re
+import warnings
 
 from .file import File
 from .dataset import Dataset
 
+
+SUPPORTED_VERSIONS = {
+    "1.0", "1.0-DRAFT",
+    "1.1", "1.1-DRAFT",
+    "1.2", "1.2-DRAFT"
+}
+DEFAULT_VERSION = "1.2"
+BASENAME = "ro-crate-metadata.json"
+LEGACY_BASENAME = "ro-crate-metadata.jsonld"
+DETACHED_MD_NAME = re.compile(r".*-ro-crate-metadata.json$")
 
 WORKFLOW_PROFILE = "https://w3id.org/workflowhub/workflow-ro-crate/1.0"
 
@@ -36,12 +49,13 @@ class Metadata(File):
     """\
     RO-Crate metadata file.
     """
-    BASENAME = "ro-crate-metadata.json"
-    PROFILE = "https://w3id.org/ro/crate/1.1"
-
-    def __init__(self, crate, source=None, dest_path=None, properties=None):
+    def __init__(self, crate, source=None, dest_path=None, properties=None, version=DEFAULT_VERSION):
+        if version not in SUPPORTED_VERSIONS:
+            raise ValueError(f"version {version!r} not supported")
+        self.version = version
+        self.profile = f"https://w3id.org/ro/crate/{self.version}"
         if source is None and dest_path is None:
-            dest_path = self.BASENAME
+            dest_path = LEGACY_BASENAME if version == "1.0" else BASENAME
         super().__init__(
             crate,
             source=source,
@@ -58,7 +72,7 @@ class Metadata(File):
         # default properties of the metadata entry
         val = {"@id": self.id,
                "@type": "CreativeWork",
-               "conformsTo": {"@id": self.PROFILE},
+               "conformsTo": {"@id": self.profile},
                "about": {"@id": "./"}}
         return val
 
@@ -68,7 +82,7 @@ class Metadata(File):
         graph = []
         for entity in self.crate.get_entities():
             graph.append(entity.properties())
-        context = [f'{self.PROFILE}/context']
+        context = [f'{self.profile}/context']
         context.extend(self.extra_contexts)
         if self.extra_terms:
             context.append(self.extra_terms)
@@ -78,24 +92,24 @@ class Metadata(File):
 
     def stream(self, chunk_size=8192):
         content = self.generate()
-        yield self.id, str.encode(json.dumps(content, indent=4, sort_keys=True), encoding='utf-8')
+        yield self.id, str.encode(json.dumps(content, indent=4, sort_keys=True, ensure_ascii=False), encoding='utf-8')
 
     def _has_writeable_stream(self):
         return True
 
     def write(self, dest_base):
-        write_path = Path(dest_base) / self.id
+        write_path = Path(dest_base) / self.id.rsplit("/", 1)[-1]
         super()._write_from_stream(write_path)
+
+    def write_detached(self, path):
+        if not DETACHED_MD_NAME.match(str(path)):
+            warnings.warn(f"{path} should follow the pattern {DETACHED_MD_NAME.pattern!r}")
+        path = Path(path)
+        super()._write_from_stream(path)
 
     @property
     def root(self) -> Dataset:
         return self.crate.root_dataset
-
-
-class LegacyMetadata(Metadata):
-
-    BASENAME = "ro-crate-metadata.jsonld"
-    PROFILE = "https://w3id.org/ro/crate/1.0"
 
 
 # https://github.com/ResearchObject/ro-terms/tree/master/test
@@ -114,13 +128,3 @@ TESTING_EXTRA_TERMS = {
     "definition": "https://w3id.org/ro/terms/test#definition",
     "engineVersion": "https://w3id.org/ro/terms/test#engineVersion"
 }
-
-
-def metadata_class(descriptor_id):
-    basename = descriptor_id.rsplit("/", 1)[-1]
-    if basename == Metadata.BASENAME:
-        return Metadata
-    elif basename == LegacyMetadata.BASENAME:
-        return LegacyMetadata
-    else:
-        raise ValueError(f"Invalid metadata descriptor ID: {descriptor_id!r}")

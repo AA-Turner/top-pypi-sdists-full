@@ -1,4 +1,3 @@
-import os
 from typing import (
     Any,
     Dict,
@@ -10,6 +9,7 @@ import jsonref
 import yaml
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Field,
     field_validator,
     ValidationInfo,
@@ -21,7 +21,10 @@ from pydantic_settings import (
 )
 from typing_extensions import Annotated
 
-from gravity.util import StrEnum
+from gravity.util import (
+    StrEnum,
+    is_root,
+)
 
 DEFAULT_INSTANCE_NAME = "_default_"
 GX_IT_PROXY_MIN_VERSION = "0.0.6"
@@ -149,8 +152,7 @@ Extra environment variables and their values to set when running the service. A 
 names.
 """)] = {}
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class GunicornSettings(BaseModel):
@@ -434,7 +436,7 @@ See https://docs.galaxyproject.org/en/latest/admin/scaling.html#dynamically-defi
     @classmethod
     def _process_manager_systemd_if_root(cls, value: Union[ProcessManager, None]) -> Union[ProcessManager, None]:
         if value is None:
-            if os.geteuid() == 0:
+            if is_root():
                 value = ProcessManager.systemd
         return value
 
@@ -442,7 +444,7 @@ See https://docs.galaxyproject.org/en/latest/admin/scaling.html#dynamically-defi
     @field_validator("galaxy_user", mode="after")
     @classmethod
     def _user_required_if_root(cls, value: Union[str, None], info: ValidationInfo) -> Union[str, None]:
-        if os.geteuid() == 0:
+        if is_root():
             is_systemd = info.data["process_manager"] == ProcessManager.systemd
             if is_systemd and not value:
                 raise ValueError("galaxy_user is required when running as root")
@@ -461,8 +463,10 @@ See https://docs.galaxyproject.org/en/latest/admin/scaling.html#dynamically-defi
 
 def process_property(key, value, depth=0):
     extra_white_space = "  " * depth
-    default = value.get("default", "")
-    if isinstance(default, dict):
+    default = value.get("default")
+    if default is None:
+        default = ""
+    elif isinstance(default, dict):
         # Little hack that prevents listing the default value for tusd in the sample config
         default = {}
     if default != "":
@@ -472,11 +476,14 @@ def process_property(key, value, depth=0):
             default = default[: -(len("\n...\n"))]
         default = default.strip()
     description = "\n".join(f"{extra_white_space}# {desc}".rstrip() for desc in value["description"].strip().split("\n"))
-    combined = value.get("allOf", [])
-    if not combined and value.get("anyOf"):
+    if value.get("anyOf"):
         # we've got a union
-        combined = [c for c in value["anyOf"] if c["type"] == "object"]
-    if combined and combined[0].get("properties"):
+        combined = [c for c in value["anyOf"] if c["type"] != "null"]
+    elif "enum" in value or "properties" in value:
+        combined = [value]
+    else:
+        combined = []
+    if combined and any(item.get("properties") for item in combined):
         # we've got a nested map, add key once
         description = f"{description}\n{extra_white_space}{key}:\n"
     has_child = False
@@ -506,7 +513,5 @@ def settings_to_sample():
     # expand schema for easier processing
     data = jsonref.replace_refs(schema, merge_props=True)
     strings = [process_property("gravity", data)]
-    for key, value in data["properties"].items():
-        strings.append(process_property(key, value, 1))
     concat = "\n".join(strings)
     return concat

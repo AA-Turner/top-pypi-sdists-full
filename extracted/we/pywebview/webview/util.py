@@ -157,7 +157,7 @@ def parse_file_type(file_type: str) -> tuple[str, str]:
     :param file_type: file type string 'description (*.file_extension1;*.file_extension2)' as required by file filter in create_file_dialog
     :return: (description, file extensions) tuple
     """
-    valid_file_filter = r'^([\w ]+)\((\*(?:\.(?:\w+|\*))*(?:;\*\.\w+)*)\)$'
+    valid_file_filter = r'^([\w ]+)\((\*(?:\.(?:\w+|\*))*(?:;\*(?:\.(?:\w+|\*))*)*)\)$'
     match = re.search(valid_file_filter, file_type)
 
     if match:
@@ -190,13 +190,14 @@ def inject_pywebview(platform: str, window: Window) -> str:
         for name in dir(obj):
             try:
                 full_name = f'{base_name}.{name}' if base_name else name
-                target_obj = getattr(obj, name)
-
-                if name.startswith('_') or getattr(target_obj, '_serializable', True) == False:
+                if name.startswith('_'):
                     continue
 
                 attr = getattr(obj, name)
-                if inspect.ismethod(attr):
+                if not getattr(attr, '_serializable', True):
+                    continue
+
+                if inspect.ismethod(attr) or inspect.isfunction(attr):
                     functions[full_name] = get_args(attr)[1:]
                 # If the attribute is a class or a non-callable object, make a recursive call
                 elif inspect.isclass(attr) or (
@@ -223,13 +224,13 @@ def inject_pywebview(platform: str, window: Window) -> str:
 
     def generate_js_object():
         window.run_js(js_code)
-        window.events._pywebviewready.set()
         logger.debug('_pywebviewready event fired')
 
         try:
             with window._expose_lock:
                 func_list = generate_func()
                 window.run_js(finish_script % {'functions': json.dumps(func_list)})
+                window.events._pywebviewready.set()
                 window.events.loaded.set()
                 logger.debug('loaded event fired')
         except Exception as e:
@@ -413,7 +414,7 @@ def get_js_dir() -> str:
                 if os.path.exists(js_path):
                     return js_path
 
-    raise FileNotFoundError('Cannot find JS directory in %s' % path)
+    raise FileNotFoundError(f'Cannot find JS directory in {path}')
 
 
 def sort_js_files(js_files: list[str]) -> list[str]:

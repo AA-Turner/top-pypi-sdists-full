@@ -10,10 +10,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing as ty
+from collections.abc import Generator
+from typing import Any
 
 from keystoneauth1 import adapter
-import typing_extensions as ty_ext
+from typing_extensions import Self
 
 from openstack import resource
 from openstack import utils
@@ -49,8 +50,8 @@ class ServerIP(resource.Resource):
         max_items: int | None = None,
         server_id: str | None = None,
         network_label: str | None = None,
-        **params: ty.Any,
-    ) -> ty.Generator[ty_ext.Self, None, None]:
+        **params: Any,
+    ) -> Generator[Self, None, None]:
         if base_path is None:
             base_path = cls.base_path
 

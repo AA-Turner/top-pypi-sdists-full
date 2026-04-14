@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 
-# Copyright 2019-2025 The University of Manchester, UK
-# Copyright 2020-2025 Vlaams Instituut voor Biotechnologie (VIB), BE
-# Copyright 2020-2025 Barcelona Supercomputing Center (BSC), ES
-# Copyright 2020-2025 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
-# Copyright 2022-2025 École Polytechnique Fédérale de Lausanne, CH
-# Copyright 2024-2025 Data Centre, SciLifeLab, SE
-# Copyright 2024-2025 National Institute of Informatics (NII), JP
-# Copyright 2025 Senckenberg Society for Nature Research (SGN), DE
-# Copyright 2025 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2019-2026 The University of Manchester, UK
+# Copyright 2020-2026 Vlaams Instituut voor Biotechnologie (VIB), BE
+# Copyright 2020-2026 Barcelona Supercomputing Center (BSC), ES
+# Copyright 2020-2026 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
+# Copyright 2022-2026 École Polytechnique Fédérale de Lausanne, CH
+# Copyright 2024-2026 Data Centre, SciLifeLab, SE
+# Copyright 2024-2026 National Institute of Informatics (NII), JP
+# Copyright 2025-2026 Senckenberg Society for Nature Research (SGN), DE
+# Copyright 2025-2026 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2026 Spanish National Research Council (CSIC), ES
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +31,7 @@ from urllib.request import urlopen
 from urllib.parse import unquote
 
 from .file_or_dir import FileOrDir
-from ..utils import is_url, iso_now, Mode
+from ..utils import as_list, is_url, iso_now, Mode
 
 
 class Dataset(FileOrDir):
@@ -69,10 +70,7 @@ class Dataset(FileOrDir):
         if self.source is None:
             abs_out_path.mkdir(parents=True, exist_ok=True)
         else:
-            if self.crate.mode == Mode.READ:
-                path = unquote(str(self.source))
-            else:
-                path = self.source
+            path = self.source
             if not Path(path).exists():
                 raise FileNotFoundError(
                     errno.ENOENT, os.strerror(errno.ENOENT), path
@@ -97,10 +95,7 @@ class Dataset(FileOrDir):
             yield from self._stream_folder_from_path(chunk_size)
 
     def _stream_folder_from_path(self, chunk_size=8192):
-        if self.crate.mode == Mode.READ:
-            path = unquote(str(self.source))
-        else:
-            path = self.source
+        path = self.source
         if not Path(path).exists():
             raise FileNotFoundError(
                 errno.ENOENT, os.strerror(errno.ENOENT), str(path)
@@ -127,17 +122,32 @@ class Dataset(FileOrDir):
                 with urlopen(self.source) as _:
                     self._jsonld['sdDatePublished'] = iso_now()
         else:
-            base = self.source.rstrip("/")
+            if is_url(self.id):
+                relative_dest_uri = self.get("localPath") or self.id
+            else:
+                relative_dest_uri = self.id
+            if is_url(relative_dest_uri):
+                if relative_dest_uri.startswith(self.crate.root_dataset.id):
+                    relative_dest_uri = relative_dest_uri[len(self.crate.root_dataset.id):]
+                else:
+                    relative_dest_uri = relative_dest_uri.rsplit("/", 1)[-1]
+            out_dir_path = Path(unquote(relative_dest_uri))
+
             for entry in self._jsonld.get("hasPart", []):
                 try:
                     part = entry["@id"]
-                    if is_url(part) or part.startswith("/"):
-                        raise RuntimeError(f"'{self.source}': part '{part}' is not a relative path")
-                    part_uri = f"{base}/{part}"
-                    rel_out_path = Path(self.id) / part
-
+                    if not is_url(part):
+                        raise RuntimeError(f"'{self.source}' is a URL, but part '{part}' is not a URL")
+                    rel_out_path = out_dir_path / part.rsplit("/", 1)[-1]
+                    if part_entity := self.crate.get(part):
+                        if "Dataset" in as_list(part_entity.type):
+                            continue
+                        # override with file localPath if set
+                        if "File" in as_list(part_entity.type):
+                            if file_local_path := part_entity.get("localPath"):
+                                rel_out_path = file_local_path
                     is_empty = True
-                    with urlopen(part_uri) as response:
+                    with urlopen(part) as response:
                         while chunk := response.read(chunk_size):
                             is_empty = False
                             yield str(rel_out_path), chunk

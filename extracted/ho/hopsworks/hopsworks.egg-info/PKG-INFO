@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hopsworks
-Version: 4.7.3
+Version: 4.8.1
 Summary: Hopsworks Python SDK to interact with Hopsworks Platform, Feature Store, Model Registry and Model Serving
 Author-email: Hopsworks AB <robin@hopsworks.ai>
 License: Apache-2.0
@@ -41,40 +41,42 @@ Requires-Dist: tqdm
 Requires-Dist: grpcio<2.0.0,>=1.49.1
 Requires-Dist: protobuf<5.0.0,>=4.25.4
 Requires-Dist: packaging
-Requires-Dist: hopsworks-apigen
+Requires-Dist: hopsworks-apigen<2.0.0,>=1.0.4
 Provides-Extra: python
 Requires-Dist: pyarrow>=17.0; extra == "python"
 Requires-Dist: confluent-kafka<=2.11.1; extra == "python"
 Requires-Dist: fastavro<=1.12.0,>=1.4.11; extra == "python"
 Requires-Dist: tqdm; extra == "python"
-Requires-Dist: hops-deltalake==1.1.2.post2; (python_version >= "3.9" and (sys_platform == "linux" or (sys_platform == "darwin" and platform_machine == "arm64"))) and extra == "python"
+Requires-Dist: hops-deltalake==1.4.0-post1; (python_version >= "3.10" and (sys_platform == "linux" or (sys_platform == "darwin" and platform_machine == "arm64"))) and extra == "python"
 Provides-Extra: sqlalchemy-1
 Requires-Dist: pandas<2.2.0; python_version < "3.13" and extra == "sqlalchemy-1"
 Requires-Dist: sqlalchemy<2.0.0; extra == "sqlalchemy-1"
 Provides-Extra: great-expectations
 Requires-Dist: great_expectations==0.18.12; extra == "great-expectations"
 Provides-Extra: dev-no-opt
-Requires-Dist: hopsworks[python]; extra == "dev-no-opt"
+Requires-Dist: hopsworks[python,trino]; extra == "dev-no-opt"
 Requires-Dist: pytest==7.4.4; extra == "dev-no-opt"
 Requires-Dist: pytest-mock==3.12.0; extra == "dev-no-opt"
-Requires-Dist: ruff==0.14.8; extra == "dev-no-opt"
+Requires-Dist: ruff==0.15.6; extra == "dev-no-opt"
+Requires-Dist: docsig==0.79.0; python_version >= "3.10" and extra == "dev-no-opt"
 Requires-Dist: pyspark==3.5.5; extra == "dev-no-opt"
 Requires-Dist: moto[s3]==5.0.0; extra == "dev-no-opt"
 Requires-Dist: pandas>=2.2.0; extra == "dev-no-opt"
 Requires-Dist: typeguard==4.2.1; extra == "dev-no-opt"
 Requires-Dist: delta-spark==3.3.1; extra == "dev-no-opt"
 Provides-Extra: dev-pandas1
-Requires-Dist: hopsworks[python]; extra == "dev-pandas1"
+Requires-Dist: hopsworks[python,trino]; extra == "dev-pandas1"
 Requires-Dist: pytest==7.4.4; extra == "dev-pandas1"
 Requires-Dist: pytest-mock==3.12.0; extra == "dev-pandas1"
-Requires-Dist: ruff==0.14.8; extra == "dev-pandas1"
+Requires-Dist: ruff==0.15.6; extra == "dev-pandas1"
+Requires-Dist: docsig==0.79.0; python_version >= "3.10" and extra == "dev-pandas1"
 Requires-Dist: pyspark==3.5.5; extra == "dev-pandas1"
 Requires-Dist: moto[s3]==5.0.0; extra == "dev-pandas1"
 Requires-Dist: pandas<=1.5.3; python_version < "3.12" and extra == "dev-pandas1"
 Requires-Dist: sqlalchemy<=1.4.48; extra == "dev-pandas1"
 Requires-Dist: delta-spark==3.3.1; extra == "dev-pandas1"
 Provides-Extra: dev
-Requires-Dist: hopsworks[dev-no-opt,great-expectations,mcp,polars,python]; extra == "dev"
+Requires-Dist: hopsworks[dev-no-opt,great-expectations,mcp,polars,python,trino]; extra == "dev"
 Provides-Extra: polars
 Requires-Dist: polars<=0.21.0,>=0.20.18; extra == "polars"
 Requires-Dist: pyarrow>=17.0; extra == "polars"
@@ -86,6 +88,8 @@ Requires-Dist: httptools; extra == "mcp"
 Requires-Dist: uvicorn; extra == "mcp"
 Requires-Dist: uvloop; sys_platform != "win32" and extra == "mcp"
 Requires-Dist: pydantic>=2.11.7; extra == "mcp"
+Provides-Extra: trino
+Requires-Dist: trino[sqlalchemy]==0.336.0; extra == "trino"
 Dynamic: license-file
 
 # Hopsworks Client

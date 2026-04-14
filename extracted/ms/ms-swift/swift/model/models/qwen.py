@@ -792,6 +792,8 @@ register_model(
             ModelGroup([
                 Model('Qwen/QVQ-72B-Preview', 'Qwen/QVQ-72B-Preview'),
             ], TemplateType.qvq),
+            ModelGroup([Model('OpenDataLab/MinerU2.5-Pro-2604-1.2B', 'opendatalab/MinerU2.5-Pro-2604-1.2B')],
+                       TemplateType.qwen2_vl),
         ],
         Qwen2VLLoader,
         model_arch=ModelArch.qwen2_vl,
@@ -1461,6 +1463,37 @@ register_model(
     ))
 
 
+class Qwen3ASRLoader(ModelLoader):
+
+    def get_config(self, model_dir: str):
+        import qwen_asr
+        return super().get_config(model_dir)
+
+    def get_model(self, model_dir: str, config, processor, model_kwargs) -> PreTrainedModel:
+        from transformers import AutoModel
+        self.auto_model_cls = self.auto_model_cls or AutoModel
+        model = super().get_model(model_dir, config, processor, model_kwargs)
+        use_submodel_func(model, 'thinker')
+        return model
+
+
+register_model(
+    ModelMeta(
+        MLLMModelType.qwen3_asr,
+        [
+            ModelGroup([
+                Model('Qwen/Qwen3-ASR-1.7B', 'Qwen/Qwen3-ASR-1.7B'),
+                Model('Qwen/Qwen3-ASR-0.6B', 'Qwen/Qwen3-ASR-0.6B'),
+            ], TemplateType.qwen3_asr)
+        ],
+        Qwen3ASRLoader,
+        model_arch=ModelArch.qwen3_asr,
+        architectures=['Qwen3ASRForConditionalGeneration'],
+        requires=['qwen-asr', 'transformers==4.57.6'],
+        tags=['audio'],
+    ))
+
+
 class MidashengLMLoader(ModelLoader):
 
     def get_model(self, model_dir: str, *args, **kwargs) -> PreTrainedModel:
@@ -1683,7 +1716,7 @@ register_model(
             ]),
         ],
         template=TemplateType.qwen3_reranker,
-        mcore_model_type='qwen3',
+        mcore_model_type='gpt',
         architectures=['Qwen3ForCausalLM'],
     ))
 

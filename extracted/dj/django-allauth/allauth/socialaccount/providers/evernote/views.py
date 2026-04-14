@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 from datetime import datetime
+
+from django.http import HttpRequest
 
 from allauth.socialaccount import app_settings
 from allauth.socialaccount.providers.oauth.views import (
@@ -17,7 +21,8 @@ class EvernoteOAuthAdapter(OAuthAdapter):
     authorize_url = f"https://{_hostname}/OAuth.action"
     del _hostname
 
-    def complete_login(self, request, app, token, response):
+    def complete_login(self, request: HttpRequest, app, token, **kwargs):
+        response = kwargs["response"]
         token.expires_at = datetime.fromtimestamp(
             int(response["edam_expires"]) / 1000.0
         )

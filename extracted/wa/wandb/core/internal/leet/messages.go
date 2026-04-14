@@ -17,6 +17,7 @@ type MetricData struct {
 type HistoryMsg struct {
 	RunPath string
 	Metrics map[string]MetricData
+	Media   map[string][]MediaPoint
 }
 
 // RunMsg contains data from the wandb run record.
@@ -25,6 +26,8 @@ type RunMsg struct {
 	ID          string
 	Project     string
 	DisplayName string
+	Notes       string
+	Tags        []string
 	Config      *spb.ConfigRecord
 }
 
@@ -69,9 +72,9 @@ type ErrorMsg struct {
 	Err error
 }
 
-// InitMsg contains the initialized reader.
+// InitMsg contains the initialized history source.
 type InitMsg struct {
-	Reader *WandbReader
+	Source HistorySource
 }
 
 // BatchedRecordsMsg contains all messages read during a batch read.
@@ -107,7 +110,7 @@ type WorkspaceRunOverviewAnimationMsg struct{}
 type WorkspaceRunInitMsg struct {
 	RunKey  string
 	RunPath string
-	Reader  *WandbReader
+	Reader  HistorySource
 }
 
 // WorkspaceChunkedBatchMsg wraps a ChunkedBatchMsg with the originating run key.
@@ -145,7 +148,7 @@ type WorkspaceRunDirsMsg struct {
 // for runs that haven't been selected/streamed yet).
 type WorkspaceRunOverviewPreloadedMsg struct {
 	RunKey string
-	Run    RunMsg
+	Run    *RunMsg
 	Err    error
 }
 
@@ -165,3 +168,15 @@ type WorkspaceConsoleLogsPaneAnimationMsg struct{}
 
 // WorkspaceSystemMetricsPaneAnimationMsg drives animation for the workspace system metrics pane.
 type WorkspaceSystemMetricsPaneAnimationMsg struct{}
+
+// MetricsGridAnimationMsg drives animation for the run view metrics grid collapse/expand.
+type MetricsGridAnimationMsg struct{}
+
+// WorkspaceMetricsGridAnimationMsg drives animation for the workspace metrics grid.
+type WorkspaceMetricsGridAnimationMsg struct{}
+
+// MediaPaneAnimationMsg drives animation for the run view media pane.
+type MediaPaneAnimationMsg struct{}
+
+// WorkspaceMediaPaneAnimationMsg drives animation for the workspace media pane.
+type WorkspaceMediaPaneAnimationMsg struct{}

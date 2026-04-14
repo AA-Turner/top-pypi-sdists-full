@@ -11,6 +11,11 @@ from functools import partial
 from threading import Event, Semaphore, Thread
 from uuid import uuid1
 
+from qtpy import PYQT6, PYSIDE6, QtCore
+from qtpy.QtCore import QByteArray, QJsonValue
+from qtpy.QtGui import QColor, QIcon, QScreen
+from qtpy.QtWidgets import QAction, QApplication, QFileDialog, QMainWindow, QMenuBar, QMessageBox
+
 from webview import FileDialog, _state, settings, windows
 from webview.dom import _dnd_state
 from webview.menu import Menu, MenuAction, MenuSeparator
@@ -24,15 +29,6 @@ from webview.util import (
     js_bridge_call,
 )
 from webview.window import FixPoint, Window
-
-
-from qtpy import QtCore
-
-
-from qtpy import PYQT6, PYSIDE6
-from qtpy.QtCore import QByteArray, QJsonValue
-from qtpy.QtGui import QColor, QIcon, QScreen
-from qtpy.QtWidgets import QAction, QApplication, QFileDialog, QMainWindow, QMenuBar, QMessageBox
 
 try:
     from qtpy.QtNetwork import QSslCertificate, QSslConfiguration
@@ -52,7 +48,7 @@ except ImportError:
     renderer = 'qtwebkit'
 
 logger = logging.getLogger('pywebview')
-logger.debug('Using Qt %s' % QtCore.__version__)
+logger.debug(f'Using Qt {QtCore.__version__}')
 
 if is_webengine and QtCore.QSysInfo.productType() in ['arch', 'manjaro', 'nixos', 'rhel', 'pop']:
     # I don't know why, but it's a common solution for #890 (White screen displayed)
@@ -65,6 +61,7 @@ if is_webengine and QtCore.QSysInfo.productType() in ['arch', 'manjaro', 'nixos'
     environ_append('QTWEBENGINE_CHROMIUM_FLAGS', '--no-sandbox', '--no-sandbox')
     logger.debug('Enable --no-sandbox flag for arch/manjaro/nixos')
 
+_app_menu = None
 _main_window_created = Event()
 _main_window_created.clear()
 
@@ -124,7 +121,7 @@ class BrowserView(QMainWindow):
 
         def __init__(self, parent):
             super(BrowserView.JSBridge, self).__init__()
-            self.parent = parent
+            self._parent = parent
             self.window = parent.pywebview_window
 
         @QtCore.Slot(str, qtype, str, result=str)
@@ -133,7 +130,7 @@ class BrowserView(QMainWindow):
             param = BrowserView._convert_string(param)
 
             if func_name == '_pywebviewAlert':
-                QMessageBox.information(self.parent, 'Message', str(param))
+                QMessageBox.information(self._parent, 'Message', str(param))
             else:
                 return js_bridge_call(self.window, func_name, json.loads(param), value_id)
 
@@ -219,7 +216,7 @@ class BrowserView(QMainWindow):
         def mouseMoveEvent(self, event):
             parent = self.parent()
             if (
-                parent.frameless and parent.easy_drag and event.buttons().value == 1
+                parent.frameless and parent.easy_drag and event.buttons() & QtCore.Qt.LeftButton
             ):  # left button is pressed
                 parent.move(event.globalPos() - self.drag_pos)
 
@@ -321,7 +318,7 @@ class BrowserView(QMainWindow):
             return self.nav_handler
 
     def __init__(self, window):
-        super(BrowserView, self).__init__()
+        super().__init__()
         BrowserView.instances[window.uid] = self
         self.uid = window.uid
         self.pywebview_window = window
@@ -678,8 +675,12 @@ class BrowserView(QMainWindow):
             # Keep the top of the window in the same place
             geo.setY(geo.y() + geo.height() - height)
 
+        geo.setWidth(width)
+        geo.setHeight(height)
         self.setGeometry(geo)
-        self.setFixedSize(width, height)
+
+        if not self.pywebview_window.resizable:
+            self.setFixedSize(width, height)
 
     def on_window_move(self, x, y):
         self.move(x, y)
@@ -890,9 +891,9 @@ class BrowserView(QMainWindow):
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.bind(('localhost', port))
                 port_available = True
-            except:
+            except Exception as e:
                 port_available = False
-                logger.warning('Port %s is in use' % port)
+                logger.warning(f'Port {port} is in use: {e}')
                 port += 1
             finally:
                 sock.close()
@@ -909,6 +910,11 @@ def setup_app():
     global _app
     if settings['IGNORE_SSL_ERRORS']:
         environ_append('QTWEBENGINE_CHROMIUM_FLAGS', '--ignore-certificate-errors')
+    if settings['REMOTE_DEBUGGING_PORT']:
+        environ_append(
+            'QTWEBENGINE_CHROMIUM_FLAGS',
+            f'--remote-debugging-port={settings["REMOTE_DEBUGGING_PORT"]}',
+        )
     _app = QApplication.instance() or QApplication(sys.argv)
 
 
@@ -1042,7 +1048,8 @@ def get_active_window():
     active_window = None
     try:
         active_window = _app.activeWindow()
-    except:
+    except Exception as e:
+        logger.warning(f'Failed to get active window: {e}')
         return None
 
     if active_window:
@@ -1156,7 +1163,14 @@ def get_screens():
     global _app
     _app = QApplication.instance() or QApplication(sys.argv)
     screens = [
-        Screen(s.geometry().x(), s.geometry().y(), s.geometry().width(), s.geometry().height(), s)
+        Screen(
+            s.geometry().x(),
+            s.geometry().y(),
+            s.geometry().width(),
+            s.geometry().height(),
+            s,
+            s.devicePixelRatio(),
+        )
         for s in _app.screens()
     ]
 

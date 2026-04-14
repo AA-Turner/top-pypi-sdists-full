@@ -124,7 +124,6 @@ def get_local_path(
           f"  project_dir: {project_dir}\n"
           f"  hostname: {hostname}\n"
           f"  image_dir: {image_dir}\n"
-          f"  access_token: {access_token}\n"
           f"  download_resources: {download_resources}\n"
           f"  task_id: {task_id}")
     
@@ -311,7 +310,7 @@ def download_and_cache(
         return os.path.basename(parsed.path)
 
     def _cache_path(target_url, fname):
-        return os.path.join(cache_dir, hashlib.md5(target_url.encode()).hexdigest()[:8] + "__" + fname)
+        return os.path.join(cache_dir, hashlib.md5(target_url.encode(), usedforsecurity=False).hexdigest()[:8] + "__" + fname)
 
     cache_dir = cache_dir or get_cache_dir()
     current_filename = _filename_for(url, storage_filepath)

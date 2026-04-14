@@ -2511,7 +2511,9 @@ fn expr_bp(p: &mut Parser<'_>, bp: u8, r: &Restrictions) -> Option<CompletedMark
         // could be start of `is distinct from`
         && !(p.at(IS_KW) && p.nth_at(1, DISTINCT_KW))
     {
+        let m = p.start();
         col_label(p);
+        m.complete(p, AS_NAME);
         return Some(lhs);
     }
     if r.order_by_allowed && p.at(ORDER_KW) {
@@ -3662,12 +3664,12 @@ fn opt_column_list_with(p: &mut Parser<'_>, kind: ColumnDefKind) -> bool {
 fn column(p: &mut Parser<'_>, kind: &ColumnDefKind) -> CompletedMarker {
     assert!(p.at_ts(COLUMN_FIRST));
     let m = p.start();
-    // https://www.depesz.com/2024/10/03/waiting-for-postgresql-18-add-temporal-foreign-key-contraints/
-    // TODO: add validation to ensure this is in the right position
-    p.eat(PERIOD_KW);
     match kind {
         ColumnDefKind::Name => name(p),
         ColumnDefKind::NameRef => {
+            // https://www.depesz.com/2024/10/03/waiting-for-postgresql-18-add-temporal-foreign-key-contraints/
+            // TODO: add validation to ensure this is in the right position
+            p.eat(PERIOD_KW);
             // supports parsing things like:
             // INSERT INTO tictactoe (game, board[1:3][1:3])
             name_ref(p).map(|lhs| postfix_expr(p, lhs, true));

@@ -95,6 +95,21 @@ class TestRenderRagStatus:
                 render_rag_status(status)
                 mock_console.print.assert_not_called()
 
+    def test_render_rag_status_suppressed_when_show_status_false(self) -> None:
+        from unittest.mock import patch
+
+        from anteroom.cli import renderer
+        from anteroom.cli.renderer import render_rag_status
+
+        renderer.set_rag_status_visible(False)
+        try:
+            for status in ("ok", "no_results", "failed", "no_vec_support"):
+                with patch("anteroom.cli.renderer.console") as mock_console:
+                    render_rag_status(status, chunk_count=3)
+                    mock_console.print.assert_not_called()
+        finally:
+            renderer.set_rag_status_visible(True)
+
 
 class TestSpaceSourcesTagEnrichment:
     """Verify the spaces router enriches sources with tag_ids (#853)."""

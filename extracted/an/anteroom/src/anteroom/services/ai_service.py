@@ -55,6 +55,7 @@ class AIService:
     def __init__(self, config: AIConfig, token_provider: TokenProvider | None = None) -> None:
         self.config = config
         self._token_provider = token_provider
+        self._cached_models: list[str] | None = None
         self._validate_egress()
         self._build_client()
 
@@ -939,3 +940,24 @@ class AIService:
         except Exception as e:
             logger.error("AI connection validation failed: %s", e)
             return False, "Connection to AI service failed", []
+
+    async def list_models(self) -> list[str]:
+        """Return available model IDs, filtered by allowed_models config if set."""
+        if self._cached_models is not None:
+            return self._cached_models
+        try:
+            models = await self.client.models.list()
+            model_ids = sorted(m.id for m in models.data)
+        except Exception:
+            logger.warning("Failed to list models from provider")
+            model_ids = [self.config.model]
+        if self.config.allowed_models:
+            allowed = set(self.config.allowed_models)
+            model_ids = [m for m in model_ids if m in allowed]
+            if not model_ids:
+                # Provider didn't list any allowed models; return the
+                # allowlist itself so the picker/list never shows a
+                # model outside the configured set.
+                model_ids = sorted(self.config.allowed_models)
+        self._cached_models = model_ids
+        return model_ids

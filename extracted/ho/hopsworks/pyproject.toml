@@ -56,7 +56,7 @@ dependencies = [
     "grpcio>=1.49.1,<2.0.0",         # ^1.49.1
     "protobuf>=4.25.4,<5.0.0",       # ^4.25.4
     "packaging",                     # ^21.0
-    "hopsworks-apigen",
+    "hopsworks-apigen>=1.0.4,<2.0.0",
 ]
 
 [project.scripts]
@@ -68,7 +68,7 @@ python = [
     "confluent-kafka<=2.11.1",
     "fastavro>=1.4.11,<=1.12.0",
     "tqdm",
-    "hops-deltalake==1.1.2.post2; python_version >= '3.9' and (sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'arm64'))",
+    "hops-deltalake==1.4.0-post1; python_version >= '3.10' and (sys_platform == 'linux' or (sys_platform == 'darwin' and platform_machine == 'arm64'))",
 ]
 sqlalchemy-1 = [
     "pandas<2.2.0; python_version < '3.13'",
@@ -76,33 +76,35 @@ sqlalchemy-1 = [
 ]
 great-expectations = ["great_expectations==0.18.12"]
 dev-no-opt = [
-    "hopsworks[python]",
+    "hopsworks[python,trino]",
     "pytest==7.4.4",
     "pytest-mock==3.12.0",
-    "ruff==0.14.8",
+    "ruff==0.15.6",
+    "docsig==0.79.0; python_version >= '3.10'",
     "pyspark==3.5.5",
     "moto[s3]==5.0.0",
     "pandas>=2.2.0",
     "typeguard==4.2.1",
-    "delta-spark==3.3.1"
+    "delta-spark==3.3.1",
 ]
 dev-pandas1 = [
-    "hopsworks[python]",
+    "hopsworks[python,trino]",
     "pytest==7.4.4",
     "pytest-mock==3.12.0",
-    "ruff==0.14.8",
+    "ruff==0.15.6",
+    "docsig==0.79.0; python_version >= '3.10'",
     "pyspark==3.5.5",
     "moto[s3]==5.0.0",
     "pandas<=1.5.3; python_version < '3.12'",
     "sqlalchemy<=1.4.48",
-    "delta-spark==3.3.1"
+    "delta-spark==3.3.1",
 ]
-dev = ["hopsworks[dev-no-opt,great-expectations,polars,python,mcp]"]
-polars=[
+dev = ["hopsworks[dev-no-opt,great-expectations,polars,python,mcp,trino]"]
+polars = [
     "polars>=0.20.18,<=0.21.0",
     "pyarrow>=17.0",
 ]
-mcp=[
+mcp = [
     "fastmcp>=2.10.5,<=2.13.3; python_version >= '3.10'",
     "filelock",
     "httpx",
@@ -111,9 +113,15 @@ mcp=[
     "uvloop; sys_platform != 'win32'",
     "pydantic>=2.11.7",
 ]
+trino=[
+    "trino[sqlalchemy]==0.336.0"
+]
 
 [dependency-groups]
 pre-commit = ["pre-commit"]
+docs = [
+    "hopsworks-docs[cli]@git+https://github.com/logicalclocks/logicalclocks.github.io.git; python_version ~= '3.13.0'",
+]
 
 [tool.uv]
 conflicts = [
@@ -124,7 +132,7 @@ conflicts = [
 ]
 
 [build-system]
-requires = ["setuptools", "hopsworks-apigen[build]"]
+requires = ["setuptools", "hopsworks-apigen[build]>=1.0.4,<2.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
@@ -177,7 +185,7 @@ exclude = [
     "site-packages",
     "venv",
     "java",
-    "transformation_test_helper.py"  # File excluded from ruff formatting to maintain formatting required for tests
+    "transformation_test_helper.py", # File excluded from ruff formatting to maintain formatting required for tests
 ]
 
 # Same as Black.
@@ -243,3 +251,13 @@ skip-magic-trailing-comma = false
 
 # Like Black, automatically detect the appropriate line ending.
 line-ending = "auto"
+
+
+[tool.docsig]
+disable = [
+    "SIG101",
+    "SIG102",
+    "SIG501",
+    "SIG305",
+]
+ignore_kwargs = true

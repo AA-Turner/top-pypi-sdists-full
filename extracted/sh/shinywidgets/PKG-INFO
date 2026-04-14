@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: shinywidgets
-Version: 0.7.2
+Version: 0.8.0
 Summary: Render ipywidgets in Shiny applications
-Home-page: https://github.com/rstudio/py-shinywidgets
-Author: Carson Sievert
-Author-email: carson@rstudio.com
-License: MIT
-Project-URL: Bug Tracker, https://github.com/rstudio/py-shinywidgets/issues
+Project-URL: Homepage, https://github.com/rstudio/py-shinywidgets
 Project-URL: Documentation, https://github.com/rstudio/py-shinywidgets/
-Project-URL: Source Code, https://github.com/rstudio/py-shinywidgets/
-Platform: any
+Project-URL: Source, https://github.com/rstudio/py-shinywidgets/
+Project-URL: Issues, https://github.com/rstudio/py-shinywidgets/issues
+Author-email: Carson Sievert <carson@posit.co>
+License: MIT
+License-File: LICENSE
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -20,27 +19,39 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: ipywidgets>=7.6.5
-Requires-Dist: jupyter_core
-Requires-Dist: shiny>=0.6.1.9005
-Requires-Dist: python-dateutil>=2.8.2
 Requires-Dist: anywidget
-Provides-Extra: test
-Requires-Dist: pytest>=6.2.4; extra == "test"
+Requires-Dist: ipywidgets>=7.6.5
+Requires-Dist: jupyter-core
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: shiny>=0.6.1.9005
 Provides-Extra: dev
-Requires-Dist: black>=23.1.0; extra == "dev"
-Requires-Dist: flake8>=6.0.0; extra == "dev"
-Requires-Dist: isort>=5.11.2; extra == "dev"
-Requires-Dist: pyright>=1.1.284; extra == "dev"
-Requires-Dist: wheel; extra == "dev"
-Requires-Dist: altair; extra == "dev"
-Requires-Dist: bokeh; extra == "dev"
-Requires-Dist: jupyter_bokeh; extra == "dev"
-Requires-Dist: plotly; extra == "dev"
-Requires-Dist: pydeck; extra == "dev"
-Dynamic: license-file
+Requires-Dist: altair; extra == 'dev'
+Requires-Dist: bokeh; extra == 'dev'
+Requires-Dist: coverage>=7; extra == 'dev'
+Requires-Dist: ipyleaflet>=0.20.0; extra == 'dev'
+Requires-Dist: jupyter-bokeh; extra == 'dev'
+Requires-Dist: playwright>=1.40.0; extra == 'dev'
+Requires-Dist: plotly>=5.0.0; extra == 'dev'
+Requires-Dist: pydeck; extra == 'dev'
+Requires-Dist: pyright>=1.1.284; extra == 'dev'
+Requires-Dist: pytest-playwright>=0.3.0; extra == 'dev'
+Requires-Dist: pytest>=6.2.4; extra == 'dev'
+Requires-Dist: ruff>=0.6.5; extra == 'dev'
+Requires-Dist: tox-uv>=1; extra == 'dev'
+Provides-Extra: test
+Requires-Dist: altair; extra == 'test'
+Requires-Dist: bokeh; extra == 'test'
+Requires-Dist: coverage>=7; extra == 'test'
+Requires-Dist: ipyleaflet>=0.20.0; extra == 'test'
+Requires-Dist: jupyter-bokeh; extra == 'test'
+Requires-Dist: playwright>=1.40.0; extra == 'test'
+Requires-Dist: plotly>=5.0.0; extra == 'test'
+Requires-Dist: pydeck; extra == 'test'
+Requires-Dist: pyright>=1.1.284; extra == 'test'
+Requires-Dist: pytest-playwright>=0.3.0; extra == 'test'
+Requires-Dist: pytest>=6.2.4; extra == 'test'
+Requires-Dist: tox-uv>=1; extra == 'test'
+Description-Content-Type: text/markdown
 
 shinywidgets
 ================
@@ -61,6 +72,23 @@ pip install shinywidgets
 If you want to do development on `{shinywidgets}`, run:
 
 ```sh
-pip install -e ".[dev,test]"
+uv sync --all-groups
+uv run pre-commit install
+uv run playwright install chromium
 cd js && yarn watch
+```
+
+If you need the older editable-install flow for tooling compatibility, this
+also works:
+
+```sh
+pip install -e ".[dev]"
+```
+
+Common Python workflows:
+
+```sh
+make py-check
+make test-playwright
+make py-build
 ```

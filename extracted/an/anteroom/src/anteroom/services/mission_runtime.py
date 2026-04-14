@@ -66,7 +66,9 @@ def create_workflow_engine_factory(
                 resolved_artifact_registry.load_from_db(db)
                 resolved_skill_registry = SkillRegistry()
                 resolved_skill_registry.load()
-                resolved_skill_registry.load_from_artifacts(resolved_artifact_registry)
+                resolved_skill_registry.load_from_artifacts(resolved_artifact_registry, db=db)
+                if config.references.skills:
+                    resolved_skill_registry.load_from_references(config.references.skills)
             except Exception as exc:
                 logger.debug("Could not initialize artifact/skill registries: %s", exc)
                 resolved_artifact_registry = artifact_registry

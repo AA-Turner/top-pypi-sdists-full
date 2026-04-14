@@ -73,7 +73,7 @@ deprecation_warning()
 #
 
 pyaedt_path = os.path.dirname(__file__)
-__version__ = "0.25.1"
+__version__ = "0.26.1"
 version = __version__
 
 # isort: off
@@ -82,9 +82,6 @@ from ansys.aedt.core.generic.settings import settings
 from ansys.aedt.core.generic.settings import inner_project_settings
 
 # isort: on
-
-if ".NETFramework" not in sys.version:  # pragma: no cover
-    import ansys.aedt.core.examples.downloads as downloads
 
 from ansys.aedt.core.circuit import Circuit
 from ansys.aedt.core.circuit_netlist import CircuitNetlist
@@ -123,7 +120,6 @@ from ansys.aedt.core.twinbuilder import TwinBuilder
 __all__ = [
     "settings",
     "inner_project_settings",
-    "downloads",
     "Edb",
     "Siwave",
     "constants",

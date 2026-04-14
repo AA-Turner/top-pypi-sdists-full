@@ -27,6 +27,10 @@ from ..utils.launchable_client import LaunchableClient
 from .helper import find_or_create_session
 from .test_path_writer import TestPathWriter
 
+LARGE_TEST_PATHS_THRESHOLD = 100000
+DEFAULT_CONNECT_TIMEOUT = 5
+LARGE_PAYLOAD_CONNECT_TIMEOUT = 60
+
 # TODO: rename files and function accordingly once the PR landscape
 
 
@@ -567,7 +571,10 @@ def subset(
             # temporarily extend the timeout because subset API response has become slow
             # TODO: remove this line when API response return response
             # within 300 sec
-            timeout = (5, 300)
+            connect_timeout = DEFAULT_CONNECT_TIMEOUT
+            if len(self.test_paths) >= LARGE_TEST_PATHS_THRESHOLD:
+                connect_timeout = LARGE_PAYLOAD_CONNECT_TIMEOUT
+            timeout = (connect_timeout, 300)
             payload = self.get_payload(str(session_id), target, duration, str(test_runner))
 
             if is_non_blocking:

@@ -2736,6 +2736,37 @@ class FileBase(
 
         jsii.create(self.__class__, self, [scope, file_path, options])
 
+    @jsii.member(jsii_name="diff")
+    def diff(
+        self,
+        colorize: typing.Optional[builtins.bool] = None,
+        context_lines: typing.Optional[jsii.Number] = None,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Returns a unified diff of the old and new file contents with context lines and hunk headers.
+
+        Only available after synthesis.
+
+        This is an expensive operation and should only be used on non time-critical
+        code paths, like debug output.
+
+        :param colorize: Whether to colorize the diff output.
+        :param context_lines: Number of context lines around changes.
+
+        :default: 3
+
+        :return:
+
+        the diff as an array of lines, or ``undefined`` if the file was
+        not changed or has not been synthesized yet.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb56dcd627047f022c69b2211a8243078cbfefa166a74a240019ac4da14c201e)
+            check_type(argname="argument colorize", value=colorize, expected_type=type_hints["colorize"])
+            check_type(argname="argument context_lines", value=context_lines, expected_type=type_hints["context_lines"])
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.invoke(self, "diff", [colorize, context_lines]))
+
     @jsii.member(jsii_name="synthesize")
     def synthesize(self) -> None:
         '''(experimental) Writes the file to the project's output directory.
@@ -13471,6 +13502,13 @@ def _typecheckingstub__2cecf514142ea351ec43b0f632ba832e665a18f91b6e46531fd8bb688
     executable: typing.Optional[builtins.bool] = None,
     marker: typing.Optional[builtins.bool] = None,
     readonly: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb56dcd627047f022c69b2211a8243078cbfefa166a74a240019ac4da14c201e(
+    colorize: typing.Optional[builtins.bool] = None,
+    context_lines: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

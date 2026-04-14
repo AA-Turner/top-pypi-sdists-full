@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix
-Version: 14.2.1
+Version: 14.3.1
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -60,7 +60,7 @@ Requires-Dist: sqlean-py<3.50,>=3.45.1; platform_system == 'Windows'
 Requires-Dist: sqlean-py>=3.45.1; platform_system != 'Windows' and python_version < '3.14'
 Requires-Dist: sqlean-py>=3.50; platform_system != 'Windows' and python_version >= '3.14'
 Requires-Dist: starlette>=0.37.0
-Requires-Dist: strawberry-graphql==0.287.3
+Requires-Dist: strawberry-graphql==0.314.3
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions>=4.6
 Requires-Dist: uvicorn
@@ -84,7 +84,7 @@ Requires-Dist: opentelemetry-sdk==1.39.1; extra == 'container'
 Requires-Dist: opentelemetry-semantic-conventions==0.60b1; extra == 'container'
 Requires-Dist: prometheus-client; extra == 'container'
 Requires-Dist: py-grpc-prometheus; extra == 'container'
-Requires-Dist: strawberry-graphql[opentelemetry]==0.287.3; extra == 'container'
+Requires-Dist: strawberry-graphql[opentelemetry]==0.314.3; extra == 'container'
 Requires-Dist: uvloop; (platform_system != 'Windows') and extra == 'container'
 Provides-Extra: evals
 Provides-Extra: experimental

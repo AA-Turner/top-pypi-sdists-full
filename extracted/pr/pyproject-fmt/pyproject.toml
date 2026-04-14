@@ -35,8 +35,8 @@ dependencies = [
   "toml-fmt-common",
 ]
 urls."Bug Tracker" = "https://github.com/tox-dev/toml-fmt/issues"
-urls."Changelog" = "https://github.com/tox-dev/toml-fmt/blob/main/pyproject-fmt/CHANGELOG.md"
 urls."Source Code" = "https://github.com/tox-dev/toml-fmt/tree/main/pyproject-fmt"
+urls.Changelog = "https://github.com/tox-dev/toml-fmt/blob/main/pyproject-fmt/CHANGELOG.md"
 urls.Documentation = "https://pyproject-fmt.readthedocs.io/en/latest/"
 scripts.pyproject-fmt = "pyproject_fmt.__main__:runner"
 
@@ -49,20 +49,20 @@ dev = [
 test = [
   "covdefaults>=2.3",
   "pytest>=9.0.2",
-  "pytest-cov>=7",
+  "pytest-cov>=7.1",
   "pytest-mock>=3.15.1",
 ]
 type = [
-  "mypy==1.19.1",
-  "types-cachetools>=6.2.0.20251022",
+  "mypy==1.20",
+  "types-cachetools>=6.2.0.20260317",
   "types-chardet>=5.0.4.6",
   { include-group = "test" },
 ]
 docs = [
   "furo>=2025.12.19; python_version>='3.14'",
   "sphinx>=9.1; python_version>='3.14'",
-  "sphinx-argparse-cli>=1.21.2; python_version>='3.14'",
-  "sphinx-autodoc-typehints>=3.9.8; python_version>='3.14'",
+  "sphinx-argparse-cli>=1.21.3; python_version>='3.14'",
+  "sphinx-autodoc-typehints>=3.9.11; python_version>='3.14'",
   "sphinx-copybutton>=0.5.2; python_version>='3.14'",
   "sphinx-inline-tabs>=2025.12.21.14; python_version>='3.14'",
 ]
@@ -72,7 +72,7 @@ fix = [
 pkg-meta = [
   "check-wheel-contents>=0.6.3",
   "twine>=6.2",
-  "uv>=0.10.10",
+  "uv>=0.11.2",
 ]
 
 [tool.maturin]
@@ -102,6 +102,10 @@ skip = [
 [tool.pyproject-fmt]
 max_supported_python = "3.14"
 
+[tool.mypy]
+show_error_codes = true
+strict = true
+
 [tool.coverage]
 run.parallel = true
 run.plugins = [
@@ -119,7 +123,3 @@ paths.source = [
 report.fail_under = 100
 html.show_contexts = true
 html.skip_covered = false
-
-[tool.mypy]
-show_error_codes = true
-strict = true

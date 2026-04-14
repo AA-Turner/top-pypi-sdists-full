@@ -16,11 +16,13 @@ from mergify_cli.stack import (
     github_action_auto_rebase as stack_github_action_auto_rebase_mod,
 )
 from mergify_cli.stack import list as stack_list_mod
+from mergify_cli.stack import move as stack_move_mod
 from mergify_cli.stack import new as stack_new_mod
 from mergify_cli.stack import open as stack_open_mod
 from mergify_cli.stack import push as stack_push_mod
+from mergify_cli.stack import reorder as stack_reorder_mod
 from mergify_cli.stack import setup as stack_setup_mod
-from mergify_cli.stack import skill as stack_skill_mod
+from mergify_cli.stack import sync as stack_sync_mod
 
 
 def trunk_type(
@@ -196,9 +198,51 @@ async def setup(*, force: bool, check: bool) -> None:
 
 
 @stack.command(help="Edit the stack history")
+@click.argument("commit", required=False, default=None)
 @utils.run_with_asyncio
-async def edit() -> None:
-    await stack_edit_mod.stack_edit()
+async def edit(*, commit: str | None) -> None:
+    await stack_edit_mod.stack_edit(commit_prefix=commit)
+
+
+@stack.command(help="Reorder the stack's commits")
+@click.argument("commits", nargs=-1, required=True)
+@click.option(
+    "--dry-run",
+    "-n",
+    is_flag=True,
+    default=False,
+    help="Show the plan without reordering",
+)
+@utils.run_with_asyncio
+async def reorder(*, commits: tuple[str, ...], dry_run: bool) -> None:
+    await stack_reorder_mod.stack_reorder(list(commits), dry_run=dry_run)
+
+
+@stack.command(help="Move a commit within the stack")
+@click.argument("commit")
+@click.argument("position", type=click.Choice(["before", "after", "first", "last"]))
+@click.argument("target", required=False, default=None)
+@click.option(
+    "--dry-run",
+    "-n",
+    is_flag=True,
+    default=False,
+    help="Show the plan without moving",
+)
+@utils.run_with_asyncio
+async def move(
+    *,
+    commit: str,
+    position: str,
+    target: str | None,
+    dry_run: bool,
+) -> None:
+    await stack_move_mod.stack_move(
+        commit_prefix=commit,
+        position=position,
+        target_prefix=target,
+        dry_run=dry_run,
+    )
 
 
 @stack.command(help="Create a new stack branch")
@@ -426,9 +470,36 @@ async def github_action_auto_rebase(ctx: click.Context) -> None:
     )
 
 
-@stack.command(help="Output the AI skill for the Mergify stack workflow")
-def skill() -> None:
-    click.echo(stack_skill_mod.get_skill_content(), nl=False)
+@stack.command(help="Sync the stack: fetch trunk, remove merged commits, rebase")
+@click.pass_context
+@click.option(
+    "--dry-run",
+    "-n",
+    is_flag=True,
+    default=False,
+    help="Show what would happen without making changes",
+)
+@click.option(
+    "--trunk",
+    "-t",
+    type=click.UNPROCESSED,
+    default=lambda: asyncio.run(utils.get_trunk()),
+    callback=trunk_type,
+    help="Change the target branch of the stack.",
+)
+@utils.run_with_asyncio
+async def sync(
+    ctx: click.Context,
+    *,
+    dry_run: bool,
+    trunk: tuple[str, str],
+) -> None:
+    await stack_sync_mod.stack_sync(
+        github_server=ctx.obj["github_server"],
+        token=ctx.obj["token"],
+        trunk=trunk,
+        dry_run=dry_run,
+    )
 
 
 @stack.command(name="list", help="List the stack's commits and their associated PRs")
@@ -447,18 +518,26 @@ def skill() -> None:
     is_flag=True,
     help="Output in JSON format for scripting",
 )
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show detailed CI check names and reviewer names",
+)
 @utils.run_with_asyncio
 async def list_cmd(
     ctx: click.Context,
     *,
     trunk: tuple[str, str],
     output_json: bool,
+    verbose: bool,
 ) -> None:
     await stack_list_mod.stack_list(
         github_server=ctx.obj["github_server"],
         token=ctx.obj["token"],
         trunk=trunk,
         output_json=output_json,
+        verbose=verbose,
     )
 
 

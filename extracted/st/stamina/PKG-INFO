@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stamina
-Version: 25.2.0
+Version: 26.1.0
 Summary: Production-grade retries made easy.
 Project-URL: Documentation, https://stamina.hynek.me/
 Project-URL: GitHub, https://github.com/hynek/stamina
@@ -25,7 +25,6 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: tenacity
-Requires-Dist: typing-extensions; python_version < '3.10'
 Description-Content-Type: text/markdown
 
 # *stamina*: Production-grade Retries Made Easy
@@ -74,37 +73,17 @@ Or, if you prefer video, here's a brief introduction into retries and *stamina*:
 
 ## Release Information
 
-### Removed
+### Changed
 
-- Support for Python 3.8 and 3.9.
-
-
-### Added
-
-- The type hints for our public API are now also verified using [Pyrefly](https://pyrefly.org/) and [*ty*](https://docs.astral.sh/ty/).
-  [#124](https://github.com/hynek/stamina/pull/124)
-
-- `stamina.retry()` now retries wrapped generator functions and async generator functions.
-
-  **Warning**: Being able to `asend` and `athrow` into wrapped async generators introduced nontrivial complexity in the implementation and is therefore **provisional**.
-  If supporting these features causes problems, they may be removed again in a future version.
-  [#123](https://github.com/hynek/stamina/pull/123)
-
-- An *on* hook can now return a float or a `datetime.timedelta` to specify a custom backoff that overrides the default backoff.
-  [#103](https://github.com/hynek/stamina/discussions/103)
-  [#125](https://github.com/hynek/stamina/pull/125)
+- Passing `timeout=0` now raises a warning since it counterintuitively disables all retries.
+  If you explicitly want to disable the timeout, use `timeout=None`.
 
 
 ### Fixed
 
-- Prevent unbounded stop condition when both *attempts* and *timeout* are non-`None` falsy values.
-  [#109](https://github.com/hynek/stamina/pull/109)
-
-- Default `wait_exp_base` parameter is now an integer to prevent an `OverflowError` after the 1023th retry.
-  [#104](https://github.com/hynek/stamina/pull/104)
-
-- `Attempt.next_wait` now returns the correct value.
-  [#115](https://github.com/hynek/stamina/pull/115)
+- `_compute_backoff()` no longer raises `OverflowError` when the attempt number exceeds 1024 with a float *wait_exp_base*.
+  The exponential result is now clamped to *wait_max* on overflow.
+  [#137](https://github.com/hynek/stamina/issues/137)
 
 
 ---

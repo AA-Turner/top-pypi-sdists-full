@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: total-perspective-vortex
-Version: 3.2.0
+Version: 3.2.1
 Summary: A library for routing entities (jobs, users or groups) to destinations in Galaxy
 Author: Galaxy Contributors
 Maintainer-email: Galaxy Committers <galaxy-committers@lists.galaxyproject.org>
@@ -10,6 +10,7 @@ Project-URL: Documentation, https://total-perspective-vortex.readthedocs.io
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pydantic>=2
 Requires-Dist: cachetools>=3.1.0
 Requires-Dist: types-cachetools
 Requires-Dist: watchdog

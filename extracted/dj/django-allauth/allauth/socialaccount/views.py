@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from http import HTTPStatus
+from typing import Any
 
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.generic.base import TemplateView
@@ -9,9 +12,10 @@ from django.views.generic.edit import FormView
 
 from allauth.account.internal.decorators import login_not_required
 from allauth.account.internal.templatekit import get_entrance_context_data
+from allauth.core.internal.httpkit import authenticated_user
 from allauth.socialaccount.forms import DisconnectForm, SignupForm
 from allauth.socialaccount.internal import flows
-from allauth.socialaccount.models import SocialAccount
+from allauth.socialaccount.models import SocialAccount, SocialLogin
 
 from ..account import app_settings as account_settings
 from ..account.views import (
@@ -32,15 +36,17 @@ class SignupView(
 ):
     form_class = SignupForm
     template_name = f"socialaccount/signup.{account_settings.TEMPLATE_EXTENSION}"
+    sociallogin: SocialLogin
 
     def get_form_class(self):
         return get_form_class(app_settings.FORMS, "signup", self.form_class)
 
     @method_decorator(login_not_required)
-    def dispatch(self, request, *args, **kwargs) -> HttpResponse:
-        self.sociallogin = flows.signup.get_pending_signup(request)
-        if not self.sociallogin:
+    def dispatch(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        sociallogin = flows.signup.get_pending_signup(request)
+        if not sociallogin:
             return HttpResponseRedirect(reverse("account_login"))
+        self.sociallogin = sociallogin
         return super().dispatch(request, *args, **kwargs)
 
     def is_open(self) -> bool:
@@ -56,7 +62,7 @@ class SignupView(
     def form_valid(self, form) -> HttpResponse:
         return flows.signup.signup_by_form(self.request, self.sociallogin, form)
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> dict:
         ret = super().get_context_data(**kwargs)
         ret.update(get_entrance_context_data(self.request))
         ret.update(
@@ -93,7 +99,7 @@ class LoginErrorView(TemplateView):
         f"socialaccount/authentication_error.{account_settings.TEMPLATE_EXTENSION}"
     )
 
-    def get(self, request, *args, **kwargs) -> HttpResponse:
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         return self.render_to_response(
             self.get_context_data(**kwargs),
             status=HTTPStatus.UNAUTHORIZED,
@@ -126,9 +132,11 @@ class ConnectionsView(AjaxCapableProcessFormViewMixin, FormView):
         form.save()
         return super().form_valid(form)
 
-    def get_ajax_data(self):
+    def get_ajax_data(self) -> dict:
         account_data = []
-        for account in SocialAccount.objects.filter(user=self.request.user):
+        for account in SocialAccount.objects.filter(
+            user_id=authenticated_user(self.request).pk
+        ):
             provider_account = account.get_provider_account()
             account_data.append(
                 {

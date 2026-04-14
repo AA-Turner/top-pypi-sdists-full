@@ -288,6 +288,15 @@ class RunConfig(BaseModel):
         description="Send Slack notifications when this session completes, fails, or is cancelled.",
     )
 
+    # Minimum VM timeout for warm pools (default: 12 hours)
+    min_warmpool_timeout: int = Field(
+        default=43200,
+        ge=0,
+        description="Minimum VM sandbox timeout in seconds for warm-pooled agents. "
+        "The effective timeout is max(computed_timeout, min_warmpool_timeout). "
+        "Default: 43200 (12 hours).",
+    )
+
     # Checkpoint configuration for automatic snapshots after steps
     checkpoint: CheckpointConfig = Field(default_factory=CheckpointConfig)
 

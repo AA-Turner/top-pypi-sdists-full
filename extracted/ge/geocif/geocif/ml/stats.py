@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 
 def get_yld_prd(df, name_crop, cntr, region, calendar_year, region_column="ADM1_NAME"):

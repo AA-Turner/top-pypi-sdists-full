@@ -198,6 +198,104 @@ class ClusterReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ecs.DaemonReference",
+    jsii_struct_bases=[],
+    name_mapping={"daemon_arn": "daemonArn"},
+)
+class DaemonReference:
+    def __init__(self, *, daemon_arn: builtins.str) -> None:
+        '''A reference to a Daemon resource.
+
+        :param daemon_arn: The DaemonArn of the Daemon resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ecs as interfaces_ecs
+            
+            daemon_reference = interfaces_ecs.DaemonReference(
+                daemon_arn="daemonArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a6281626ad0801af7b5a2684814c2cb7d3661f663a66f2574d9724bcc76e09b)
+            check_type(argname="argument daemon_arn", value=daemon_arn, expected_type=type_hints["daemon_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "daemon_arn": daemon_arn,
+        }
+
+    @builtins.property
+    def daemon_arn(self) -> builtins.str:
+        '''The DaemonArn of the Daemon resource.'''
+        result = self._values.get("daemon_arn")
+        assert result is not None, "Required property 'daemon_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DaemonReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ecs.DaemonTaskDefinitionReference",
+    jsii_struct_bases=[],
+    name_mapping={"daemon_task_definition_arn": "daemonTaskDefinitionArn"},
+)
+class DaemonTaskDefinitionReference:
+    def __init__(self, *, daemon_task_definition_arn: builtins.str) -> None:
+        '''A reference to a DaemonTaskDefinition resource.
+
+        :param daemon_task_definition_arn: The DaemonTaskDefinitionArn of the DaemonTaskDefinition resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ecs as interfaces_ecs
+            
+            daemon_task_definition_reference = interfaces_ecs.DaemonTaskDefinitionReference(
+                daemon_task_definition_arn="daemonTaskDefinitionArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bfc2d11cece02ba970bec80710e61caa1ce876d833d597161139719d4dc06f4e)
+            check_type(argname="argument daemon_task_definition_arn", value=daemon_task_definition_arn, expected_type=type_hints["daemon_task_definition_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "daemon_task_definition_arn": daemon_task_definition_arn,
+        }
+
+    @builtins.property
+    def daemon_task_definition_arn(self) -> builtins.str:
+        '''The DaemonTaskDefinitionArn of the DaemonTaskDefinition resource.'''
+        result = self._values.get("daemon_task_definition_arn")
+        assert result is not None, "Required property 'daemon_task_definition_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DaemonTaskDefinitionReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ecs.ExpressGatewayServiceReference",
     jsii_struct_bases=[],
     name_mapping={"service_arn": "serviceArn"},
@@ -385,6 +483,96 @@ class _IClusterRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IClusterRef).__jsii_proxy_class__ = lambda : _IClusterRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.IDaemonRef")
+class IDaemonRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Daemon.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="daemonRef")
+    def daemon_ref(self) -> "DaemonReference":
+        '''(experimental) A reference to a Daemon resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDaemonRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Daemon.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ecs.IDaemonRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="daemonRef")
+    def daemon_ref(self) -> "DaemonReference":
+        '''(experimental) A reference to a Daemon resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DaemonReference", jsii.get(self, "daemonRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDaemonRef).__jsii_proxy_class__ = lambda : _IDaemonRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.IDaemonTaskDefinitionRef")
+class IDaemonTaskDefinitionRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DaemonTaskDefinition.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="daemonTaskDefinitionRef")
+    def daemon_task_definition_ref(self) -> "DaemonTaskDefinitionReference":
+        '''(experimental) A reference to a DaemonTaskDefinition resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDaemonTaskDefinitionRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DaemonTaskDefinition.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ecs.IDaemonTaskDefinitionRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="daemonTaskDefinitionRef")
+    def daemon_task_definition_ref(self) -> "DaemonTaskDefinitionReference":
+        '''(experimental) A reference to a DaemonTaskDefinition resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DaemonTaskDefinitionReference", jsii.get(self, "daemonTaskDefinitionRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDaemonTaskDefinitionRef).__jsii_proxy_class__ = lambda : _IDaemonTaskDefinitionRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ecs.IExpressGatewayServiceRef")
@@ -855,10 +1043,14 @@ __all__ = [
     "CapacityProviderReference",
     "ClusterCapacityProviderAssociationsReference",
     "ClusterReference",
+    "DaemonReference",
+    "DaemonTaskDefinitionReference",
     "ExpressGatewayServiceReference",
     "ICapacityProviderRef",
     "IClusterCapacityProviderAssociationsRef",
     "IClusterRef",
+    "IDaemonRef",
+    "IDaemonTaskDefinitionRef",
     "IExpressGatewayServiceRef",
     "IPrimaryTaskSetRef",
     "IServiceRef",
@@ -890,6 +1082,20 @@ def _typecheckingstub__e9e5dd6081100ec0e14557c42f52e5c06875846f7f419b115ab533eaa
     *,
     cluster_arn: builtins.str,
     cluster_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a6281626ad0801af7b5a2684814c2cb7d3661f663a66f2574d9724bcc76e09b(
+    *,
+    daemon_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bfc2d11cece02ba970bec80710e61caa1ce876d833d597161139719d4dc06f4e(
+    *,
+    daemon_task_definition_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -932,5 +1138,5 @@ def _typecheckingstub__74cd9665edddb0a5616888159b532fdbf6e5e802106c342a4e8d6846d
     """Type checking stubs"""
     pass
 
-for cls in [ICapacityProviderRef, IClusterCapacityProviderAssociationsRef, IClusterRef, IExpressGatewayServiceRef, IPrimaryTaskSetRef, IServiceRef, ITaskDefinitionRef, ITaskSetRef]:
+for cls in [ICapacityProviderRef, IClusterCapacityProviderAssociationsRef, IClusterRef, IDaemonRef, IDaemonTaskDefinitionRef, IExpressGatewayServiceRef, IPrimaryTaskSetRef, IServiceRef, ITaskDefinitionRef, ITaskSetRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

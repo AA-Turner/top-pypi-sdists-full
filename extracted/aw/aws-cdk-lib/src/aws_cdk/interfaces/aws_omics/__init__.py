@@ -83,6 +83,74 @@ class AnnotationStoreReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_omics.ConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "configuration_arn": "configurationArn",
+        "configuration_name": "configurationName",
+    },
+)
+class ConfigurationReference:
+    def __init__(
+        self,
+        *,
+        configuration_arn: builtins.str,
+        configuration_name: builtins.str,
+    ) -> None:
+        '''A reference to a Configuration resource.
+
+        :param configuration_arn: The ARN of the Configuration resource.
+        :param configuration_name: The Name of the Configuration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_omics as interfaces_omics
+            
+            configuration_reference = interfaces_omics.ConfigurationReference(
+                configuration_arn="configurationArn",
+                configuration_name="configurationName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2d43aa4510f7e0dba2288d04893e8564a3e670ecf937d52f252c22a841d3e8bd)
+            check_type(argname="argument configuration_arn", value=configuration_arn, expected_type=type_hints["configuration_arn"])
+            check_type(argname="argument configuration_name", value=configuration_name, expected_type=type_hints["configuration_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "configuration_arn": configuration_arn,
+            "configuration_name": configuration_name,
+        }
+
+    @builtins.property
+    def configuration_arn(self) -> builtins.str:
+        '''The ARN of the Configuration resource.'''
+        result = self._values.get("configuration_arn")
+        assert result is not None, "Required property 'configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configuration_name(self) -> builtins.str:
+        '''The Name of the Configuration resource.'''
+        result = self._values.get("configuration_name")
+        assert result is not None, "Required property 'configuration_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_omics.IAnnotationStoreRef")
 class IAnnotationStoreRef(
     _constructs_77d1e7e8.IConstruct,
@@ -126,6 +194,51 @@ class _IAnnotationStoreRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IAnnotationStoreRef).__jsii_proxy_class__ = lambda : _IAnnotationStoreRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_omics.IConfigurationRef")
+class IConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Configuration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationRef")
+    def configuration_ref(self) -> "ConfigurationReference":
+        '''(experimental) A reference to a Configuration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Configuration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_omics.IConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationRef")
+    def configuration_ref(self) -> "ConfigurationReference":
+        '''(experimental) A reference to a Configuration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConfigurationReference", jsii.get(self, "configurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigurationRef).__jsii_proxy_class__ = lambda : _IConfigurationRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_omics.IReferenceStoreRef")
@@ -764,7 +877,9 @@ class WorkflowVersionReference:
 
 __all__ = [
     "AnnotationStoreReference",
+    "ConfigurationReference",
     "IAnnotationStoreRef",
+    "IConfigurationRef",
     "IReferenceStoreRef",
     "IRunGroupRef",
     "ISequenceStoreRef",
@@ -784,6 +899,14 @@ publication.publish()
 def _typecheckingstub__430e4feb750862574ea45c9c05b0ad5b146c26a568b63a51016e4499db2e690d(
     *,
     annotation_store_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d43aa4510f7e0dba2288d04893e8564a3e670ecf937d52f252c22a841d3e8bd(
+    *,
+    configuration_arn: builtins.str,
+    configuration_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -834,5 +957,5 @@ def _typecheckingstub__4351d465b39f1db743cbdd04337465acfe258d84589dd69fb98120660
     """Type checking stubs"""
     pass
 
-for cls in [IAnnotationStoreRef, IReferenceStoreRef, IRunGroupRef, ISequenceStoreRef, IVariantStoreRef, IWorkflowRef, IWorkflowVersionRef]:
+for cls in [IAnnotationStoreRef, IConfigurationRef, IReferenceStoreRef, IRunGroupRef, ISequenceStoreRef, IVariantStoreRef, IWorkflowRef, IWorkflowVersionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

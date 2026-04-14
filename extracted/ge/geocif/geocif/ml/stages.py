@@ -1,6 +1,6 @@
 import numpy as np
 from typing import Union
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 from geocif import utils
 

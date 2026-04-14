@@ -1211,13 +1211,13 @@ class StackFleetAssociationReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_appstream.StackReference",
     jsii_struct_bases=[],
-    name_mapping={"stack_id": "stackId"},
+    name_mapping={"stack_name": "stackName"},
 )
 class StackReference:
-    def __init__(self, *, stack_id: builtins.str) -> None:
+    def __init__(self, *, stack_name: builtins.str) -> None:
         '''A reference to a Stack resource.
 
-        :param stack_id: The Id of the Stack resource.
+        :param stack_name: The Name of the Stack resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -1228,21 +1228,21 @@ class StackReference:
             from aws_cdk.interfaces import aws_appstream as interfaces_appstream
             
             stack_reference = interfaces_appstream.StackReference(
-                stack_id="stackId"
+                stack_name="stackName"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18e2db2f88ee8958e1ce93ecd8dee4f9694f7bd4fd83892ea90f8bae81bdabfb)
-            check_type(argname="argument stack_id", value=stack_id, expected_type=type_hints["stack_id"])
+            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "stack_id": stack_id,
+            "stack_name": stack_name,
         }
 
     @builtins.property
-    def stack_id(self) -> builtins.str:
-        '''The Id of the Stack resource.'''
-        result = self._values.get("stack_id")
-        assert result is not None, "Required property 'stack_id' is missing"
+    def stack_name(self) -> builtins.str:
+        '''The Name of the Stack resource.'''
+        result = self._values.get("stack_name")
+        assert result is not None, "Required property 'stack_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1463,7 +1463,7 @@ def _typecheckingstub__75af852a1fd8c23c7edb9bd59224cb6cbb18155271a51d4cad9dbd81f
 
 def _typecheckingstub__18e2db2f88ee8958e1ce93ecd8dee4f9694f7bd4fd83892ea90f8bae81bdabfb(
     *,
-    stack_id: builtins.str,
+    stack_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

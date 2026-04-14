@@ -10942,8 +10942,10 @@ class CfnGraphQLApi(
             ),
             log_config=appsync.CfnGraphQLApi.LogConfigProperty(
                 cloud_watch_logs_role_arn="cloudWatchLogsRoleArn",
-                exclude_verbose_content=False,
-                field_log_level="fieldLogLevel"
+                field_log_level="fieldLogLevel",
+        
+                # the properties below are optional
+                exclude_verbose_content=False
             ),
             merged_api_execution_role_arn="mergedApiExecutionRoleArn",
             open_id_connect_config=appsync.CfnGraphQLApi.OpenIDConnectConfigProperty(
@@ -11893,25 +11895,25 @@ class CfnGraphQLApi(
         jsii_struct_bases=[],
         name_mapping={
             "cloud_watch_logs_role_arn": "cloudWatchLogsRoleArn",
-            "exclude_verbose_content": "excludeVerboseContent",
             "field_log_level": "fieldLogLevel",
+            "exclude_verbose_content": "excludeVerboseContent",
         },
     )
     class LogConfigProperty:
         def __init__(
             self,
             *,
-            cloud_watch_logs_role_arn: typing.Optional[builtins.str] = None,
+            cloud_watch_logs_role_arn: builtins.str,
+            field_log_level: builtins.str,
             exclude_verbose_content: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
-            field_log_level: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The ``LogConfig`` property type specifies the logging configuration when writing GraphQL operations and tracing to Amazon CloudWatch for an AWS AppSync GraphQL API.
 
             ``LogConfig`` is a property of the `AWS::AppSync::GraphQLApi <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appsync-graphqlapi.html>`_ property type.
 
             :param cloud_watch_logs_role_arn: The service role that AWS AppSync will assume to publish to Amazon CloudWatch Logs in your account.
-            :param exclude_verbose_content: Set to TRUE to exclude sections that contain information such as headers, context, and evaluated mapping templates, regardless of logging level.
             :param field_log_level: The field logging level. Values can be NONE, ERROR, INFO, DEBUG, or ALL. - *NONE* : No field-level logs are captured. - *ERROR* : Logs the following information *only* for the fields that are in the error category: - The error section in the server response. - Field-level errors. - The generated request/response functions that got resolved for error fields. - *INFO* : Logs the following information *only* for the fields that are in the info and error categories: - Info-level messages. - The user messages sent through ``$util.log.info`` and ``console.log`` . - Field-level tracing and mapping logs are not shown. - *DEBUG* : Logs the following information *only* for the fields that are in the debug, info, and error categories: - Debug-level messages. - The user messages sent through ``$util.log.info`` , ``$util.log.debug`` , ``console.log`` , and ``console.debug`` . - Field-level tracing and mapping logs are not shown. - *ALL* : The following information is logged for all fields in the query: - Field-level tracing information. - The generated request/response functions that were resolved for each field.
+            :param exclude_verbose_content: Set to TRUE to exclude sections that contain information such as headers, context, and evaluated mapping templates, regardless of logging level.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-graphqlapi-logconfig.html
             :exampleMetadata: fixture=_generated
@@ -11924,45 +11926,36 @@ class CfnGraphQLApi(
                 
                 log_config_property = appsync.CfnGraphQLApi.LogConfigProperty(
                     cloud_watch_logs_role_arn="cloudWatchLogsRoleArn",
-                    exclude_verbose_content=False,
-                    field_log_level="fieldLogLevel"
+                    field_log_level="fieldLogLevel",
+                
+                    # the properties below are optional
+                    exclude_verbose_content=False
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__b9ff7e1cb756f4b27770bf07bfb18b0936eea6dc27410d5c20b3b259d960d7a3)
                 check_type(argname="argument cloud_watch_logs_role_arn", value=cloud_watch_logs_role_arn, expected_type=type_hints["cloud_watch_logs_role_arn"])
-                check_type(argname="argument exclude_verbose_content", value=exclude_verbose_content, expected_type=type_hints["exclude_verbose_content"])
                 check_type(argname="argument field_log_level", value=field_log_level, expected_type=type_hints["field_log_level"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if cloud_watch_logs_role_arn is not None:
-                self._values["cloud_watch_logs_role_arn"] = cloud_watch_logs_role_arn
+                check_type(argname="argument exclude_verbose_content", value=exclude_verbose_content, expected_type=type_hints["exclude_verbose_content"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "cloud_watch_logs_role_arn": cloud_watch_logs_role_arn,
+                "field_log_level": field_log_level,
+            }
             if exclude_verbose_content is not None:
                 self._values["exclude_verbose_content"] = exclude_verbose_content
-            if field_log_level is not None:
-                self._values["field_log_level"] = field_log_level
 
         @builtins.property
-        def cloud_watch_logs_role_arn(self) -> typing.Optional[builtins.str]:
+        def cloud_watch_logs_role_arn(self) -> builtins.str:
             '''The service role that AWS AppSync will assume to publish to Amazon CloudWatch Logs in your account.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-graphqlapi-logconfig.html#cfn-appsync-graphqlapi-logconfig-cloudwatchlogsrolearn
             '''
             result = self._values.get("cloud_watch_logs_role_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
+            assert result is not None, "Required property 'cloud_watch_logs_role_arn' is missing"
+            return typing.cast(builtins.str, result)
 
         @builtins.property
-        def exclude_verbose_content(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
-            '''Set to TRUE to exclude sections that contain information such as headers, context, and evaluated mapping templates, regardless of logging level.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-graphqlapi-logconfig.html#cfn-appsync-graphqlapi-logconfig-excludeverbosecontent
-            '''
-            result = self._values.get("exclude_verbose_content")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
-
-        @builtins.property
-        def field_log_level(self) -> typing.Optional[builtins.str]:
+        def field_log_level(self) -> builtins.str:
             '''The field logging level. Values can be NONE, ERROR, INFO, DEBUG, or ALL.
 
             - *NONE* : No field-level logs are captured.
@@ -11985,7 +11978,19 @@ class CfnGraphQLApi(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-graphqlapi-logconfig.html#cfn-appsync-graphqlapi-logconfig-fieldloglevel
             '''
             result = self._values.get("field_log_level")
-            return typing.cast(typing.Optional[builtins.str], result)
+            assert result is not None, "Required property 'field_log_level' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def exclude_verbose_content(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Set to TRUE to exclude sections that contain information such as headers, context, and evaluated mapping templates, regardless of logging level.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appsync-graphqlapi-logconfig.html#cfn-appsync-graphqlapi-logconfig-excludeverbosecontent
+            '''
+            result = self._values.get("exclude_verbose_content")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12340,8 +12345,10 @@ class CfnGraphQLApiProps:
                 ),
                 log_config=appsync.CfnGraphQLApi.LogConfigProperty(
                     cloud_watch_logs_role_arn="cloudWatchLogsRoleArn",
-                    exclude_verbose_content=False,
-                    field_log_level="fieldLogLevel"
+                    field_log_level="fieldLogLevel",
+            
+                    # the properties below are optional
+                    exclude_verbose_content=False
                 ),
                 merged_api_execution_role_arn="mergedApiExecutionRoleArn",
                 open_id_connect_config=appsync.CfnGraphQLApi.OpenIDConnectConfigProperty(
@@ -29029,9 +29036,9 @@ def _typecheckingstub__5f9291a235c0bd7ecea6f37d1aa830ec180ae9518e0555f8a98722d80
 
 def _typecheckingstub__b9ff7e1cb756f4b27770bf07bfb18b0936eea6dc27410d5c20b3b259d960d7a3(
     *,
-    cloud_watch_logs_role_arn: typing.Optional[builtins.str] = None,
+    cloud_watch_logs_role_arn: builtins.str,
+    field_log_level: builtins.str,
     exclude_verbose_content: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    field_log_level: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

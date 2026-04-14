@@ -110,6 +110,8 @@ logger = logging.getLogger(__name__)
 
 
 _MB: Final[int] = 1024 * 1024
+_FILE_EXECUTOR_WORKERS = 32
+_MP_EXECUTOR_WORKERS = 32
 
 
 class Artifact:
@@ -952,7 +954,7 @@ class Artifact:
 
         Aliases are mutable references that you can programmatically reference.
         Change an artifact's alias with the W&B App UI or programmatically.
-        See [Create new artifact versions](https://docs.wandb.ai/guides/artifacts/create-a-new-artifact-version)
+        See [Create new artifact versions](https://docs.wandb.ai/models/artifacts/create-a-new-artifact-version)
         for more information.
         """
         return self._aliases
@@ -1577,7 +1579,7 @@ class Artifact:
 
         Unlike files or directories that you add to an artifact, references are not
         uploaded to W&B. For more information,
-        see [Track external files](https://docs.wandb.ai/guides/artifacts/track-external-files).
+        see [Track external files](https://docs.wandb.ai/models/artifacts/track-external-files).
 
         By default, the following schemes are supported:
 
@@ -1997,7 +1999,6 @@ class Artifact:
 
             settings.sync_dir.value = str(tmp_dir)
             settings.sync_file.value = str(tmp_dir / f"{stream_id}.wandb")
-            settings.files_dir.value = str(tmp_dir / "files")
             settings.run_id.value = stream_id
 
             service = wl.ensure_service()
@@ -2054,9 +2055,11 @@ class Artifact:
 
         download_logger = ArtifactDownloadLogger(nfiles=nfiles)
 
-        def _download_entry(entry: ArtifactManifestEntry, executor: Executor) -> None:
+        def _download_entry(
+            entry: ArtifactManifestEntry, mp_executor: Executor
+        ) -> None:
             multipart_executor = (
-                executor
+                mp_executor
                 if should_multipart_download(entry.size, override=multipart)
                 else None
             )
@@ -2082,7 +2085,10 @@ class Artifact:
                 return
             download_logger.notify_downloaded()
 
-        with ThreadPoolExecutor(max_workers=64) as executor:
+        with (
+            ThreadPoolExecutor(max_workers=_FILE_EXECUTOR_WORKERS) as file_executor,
+            ThreadPoolExecutor(max_workers=_MP_EXECUTOR_WORKERS) as mp_executor,
+        ):
             batch_size = env.get_artifact_fetch_file_url_batch_size()
 
             active_futures = set()
@@ -2104,7 +2110,9 @@ class Artifact:
                     entry._download_url = node.direct_url
                     if (not path_prefix) or entry.path.startswith(str(path_prefix)):
                         active_futures.add(
-                            executor.submit(_download_entry, entry, executor=executor)
+                            file_executor.submit(
+                                _download_entry, entry, mp_executor=mp_executor
+                            )
                         )
 
                 # Wait for download threads to catch up.

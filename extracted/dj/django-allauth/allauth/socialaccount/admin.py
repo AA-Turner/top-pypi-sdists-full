@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from django import forms
 from django.contrib import admin
+from django.http import HttpRequest
 
 from allauth import app_settings
 from allauth.account.adapter import get_adapter
@@ -17,7 +20,7 @@ class SocialAppForm(forms.ModelForm):
             "secret": forms.TextInput(attrs={"size": "100"}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.fields["provider"] = forms.ChoiceField(
             choices=providers.registry.as_choices()
@@ -39,10 +42,12 @@ class SocialAccountAdmin(admin.ModelAdmin):
     list_display = ("user", "uid", "provider")
     list_filter = ("provider",)
 
-    def get_search_fields(self, request):
+    def get_search_fields(self, request: HttpRequest) -> list:
         search_fields = super().get_search_fields(request)
         user_search_fields = get_adapter().get_user_search_fields()
-        return search_fields + list(map(lambda a: f"user__{a}", user_search_fields))
+        return list(search_fields) + list(
+            map(lambda a: f"user__{a}", user_search_fields)
+        )
 
 
 class SocialTokenAdmin(admin.ModelAdmin):
@@ -53,7 +58,7 @@ class SocialTokenAdmin(admin.ModelAdmin):
     list_display = ("app", "account", "truncated_token", "expires_at")
     list_filter = ("app", "app__provider", "expires_at")
 
-    def truncated_token(self, token):
+    def truncated_token(self, token) -> str:
         max_chars = 40
         ret = token.token
         if len(ret) > max_chars:

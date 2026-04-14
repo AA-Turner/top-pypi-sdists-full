@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bgen
-Version: 1.9.8
+Version: 1.9.9
 Summary: Package for loading data from bgen files
 Author-email: Jeremy McRae <jmcrae@illumina.com>
 Project-URL: homepage, https://github.com/jeremymcrae/bgen

@@ -3,14 +3,71 @@ import email
 import base64
 import imaplib
 import datetime
+from collections.abc import Mapping
 from itertools import chain
 from functools import cached_property
 from email.header import decode_header
-from email.message import _parseparam, _unquotevalue  # noqa
-from typing import Tuple, Dict, Optional, List
+from email.message import _parseparam, _unquotevalue, Message  # noqa
+from typing import Tuple, Optional, List
 
 from .utils import decode_value, parse_email_addresses, parse_email_date, EmailAddress, replace_html_ct_charset
 from .consts import UID_PATTERN, CODECS_OFFICIAL_REPLACEMENT_CHAR
+
+
+class LazyHeaders(Mapping):
+    """Lazy dict-like mapping, it fetches header values when accessed only."""
+    def __init__(self, email_obj: Message):
+        self._email_obj = email_obj
+        self._cache = {}
+        # all keys in lowercase
+        self._keys = []
+        for k, v in getattr(self._email_obj, '_headers', ()):
+            key_lower = k.lower()
+            if key_lower not in self._keys:
+                self._keys.append(key_lower)
+
+    def __getitem__(self, key: str):
+        key_lower = key.lower()
+        if key_lower not in self._keys:
+            raise KeyError(key)
+        if key_lower not in self._cache:
+            val_list = []
+            for k, v in getattr(self._email_obj, '_headers', ()):
+                if k.lower() == key_lower:
+                    val_list.append(v)
+            self._cache[key_lower] = tuple(val_list)
+        return self._cache[key_lower]
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __contains__(self, key: str):
+        key_lower = key.lower()
+        if key_lower in self._cache:
+            return True
+        return key_lower in self._keys
+
+    def __iter__(self):
+        return iter(self._keys)
+
+    def __len__(self):
+        return len(self._keys)
+
+    def keys(self):
+        return list(self._keys)
+
+    def values(self):
+        return [self[key] for key in self._keys]
+
+    def items(self):
+        return [(key, self[key]) for key in self._keys]
+
+    def __repr__(self):
+        items = ', '.join(f"{k!r}: {v!r}" for k, v in self.items())
+        return f'{{{items}}}'
 
 
 class MailMessage:
@@ -20,7 +77,7 @@ class MailMessage:
         raw_message_data, raw_uid_data, raw_flag_data = self._get_message_data_parts(fetch_data)
         self._raw_uid_data = raw_uid_data
         self._raw_flag_data = raw_flag_data
-        self.obj = email.message_from_bytes(raw_message_data)
+        self.obj: Message = email.message_from_bytes(raw_message_data)
 
     @classmethod
     def from_bytes(cls, raw_message_data: bytes):
@@ -181,15 +238,14 @@ class MailMessage:
         return ''.join(results)
 
     @cached_property
-    def headers(self) -> Dict[str, Tuple[str, ...]]:
+    def headers(self) -> LazyHeaders:
         """
-        Message headers
-        Keys in result dict are in lower register (email headers are not case-sensitive)
+        Message headers mapping
+        All keys are in lower register - email headers are NOT case-sensitive.
+        Headers not decoding by design:
+        most of the time custom headers don't need this, typical header decoded at his properties.
         """
-        result = {}
-        for key, val in getattr(self.obj, '_headers', ()):
-            result.setdefault(key.lower(), []).append(val)
-        return {k: tuple(v) for k, v in result.items()}
+        return LazyHeaders(self.obj)
 
     @cached_property
     def attachments(self) -> List['MailAttachment']:

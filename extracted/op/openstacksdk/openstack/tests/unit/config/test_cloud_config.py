@@ -34,8 +34,10 @@ fake_services_dict = {
     'volume_api_version': '1',
     'auth': {'password': 'hunter2', 'username': 'AzureDiamond'},
     'connect_retries': 1,
+    'connect_retry_delay': 0.5,
     'baremetal_status_code_retries': 5,
     'baremetal_connect_retries': 3,
+    'baremetal_connect_retry_delay': 1.5,
 }
 
 
@@ -82,6 +84,21 @@ class TestCloudRegion(base.TestCase):
 
         cc2 = cloud_region.CloudRegion("test1", "region-al", {})
         self.assertNotEqual(cc1, cc2)
+
+    def test_deepcopy(self):
+        """Test that CloudRegion can be deep copied.
+
+        This is a regression test for a bug where copy.deepcopy() would cause
+        infinite recursion in __getattr__ because deepcopy creates instances
+        without calling __init__, so self.config doesn't exist.
+        """
+        cc = cloud_region.CloudRegion("test1", "region-al", fake_config_dict)
+        cc_copy = copy.deepcopy(cc)
+        self.assertEqual(cc.name, cc_copy.name)
+        self.assertEqual(cc.region_name, cc_copy.region_name)
+        self.assertEqual(cc.config, cc_copy.config)
+        # Verify the copy is independent
+        self.assertIsNot(cc.config, cc_copy.config)
 
     def test_get_config(self):
         cc = cloud_region.CloudRegion("test1", "region-al", fake_services_dict)
@@ -183,6 +200,8 @@ class TestCloudRegion(base.TestCase):
         self.assertEqual(5, cc.get_status_code_retries('baremetal'))
         self.assertEqual(1, cc.get_connect_retries('compute'))
         self.assertEqual(3, cc.get_connect_retries('baremetal'))
+        self.assertEqual(0.5, cc.get_connect_retry_delay('compute'))
+        self.assertEqual(1.5, cc.get_connect_retry_delay('baremetal'))
 
     def test_rackspace_workaround(self):
         # We're skipping loader here, so we have to expand relevant

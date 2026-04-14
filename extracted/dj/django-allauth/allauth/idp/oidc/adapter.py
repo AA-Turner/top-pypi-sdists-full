@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import hashlib
 import uuid
 from collections.abc import Iterable
 from typing import Any, Literal
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.base_user import AbstractBaseUser
 from django.core.management.utils import get_random_secret_key
 from django.utils.translation import gettext_lazy as _
 
@@ -72,7 +75,13 @@ class DefaultOIDCAdapter(BaseAdapter):
         pass
 
     def populate_access_token(
-        self, access_token: dict, *, client, scopes: Iterable[str], user, **kwargs
+        self,
+        access_token: dict,
+        *,
+        client,
+        scopes: Iterable[str],
+        user: AbstractBaseUser,
+        **kwargs,
     ) -> None:
         """
         This method can be used to alter the JWT access token payload. It is already
@@ -83,7 +92,7 @@ class DefaultOIDCAdapter(BaseAdapter):
     def get_claims(
         self,
         purpose: Literal["id_token", "userinfo"],
-        user,
+        user: AbstractBaseUser,
         client,
         scopes: Iterable[str],
         email: str | None = None,
@@ -92,8 +101,9 @@ class DefaultOIDCAdapter(BaseAdapter):
         """
         Return the claims to be included in the ID token or userinfo response.
         """
-        claims = {"sub": self.get_user_sub(client, user)}
+        claims: dict = {"sub": self.get_user_sub(client, user)}
         if "email" in scopes:
+            address: EmailAddress | None = None
             if email:
                 try:
                     address = EmailAddress.objects.get_for_user(user, email)
@@ -109,7 +119,10 @@ class DefaultOIDCAdapter(BaseAdapter):
                     }
                 )
         if "profile" in scopes:
-            full_name = user.get_full_name()
+            if hasattr(user, "get_full_name"):
+                full_name = user.get_full_name()
+            else:
+                full_name = ""
             last_name = getattr(user, "last_name", None)
             first_name = getattr(user, "first_name", None)
             username = user_username(user)
@@ -124,7 +137,7 @@ class DefaultOIDCAdapter(BaseAdapter):
                     claims[claim_key] = claim_value
         return claims
 
-    def get_user_sub(self, client, user) -> str:
+    def get_user_sub(self, client, user: AbstractBaseUser) -> str:
         """
         Returns the "sub" (subject identifier) for the given user.
         """

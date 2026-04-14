@@ -6223,6 +6223,38 @@ class CfnStack(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForStack")
+    @builtins.classmethod
+    def arn_for_stack(cls, resource: "_IStackRef_8745962d") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc56e24720c5308e6a81b885fc1c8e0d47e491b01a900cb8870bec7169b1dea2)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForStack", [resource]))
+
+    @jsii.member(jsii_name="fromStackName")
+    @builtins.classmethod
+    def from_stack_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        stack_name: builtins.str,
+    ) -> "_IStackRef_8745962d":
+        '''Creates a new IStackRef from a stackName.
+
+        :param scope: -
+        :param id: -
+        :param stack_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf8eedb7dc14b6da4517de6d5e8a677fc8abf1c39eb0f1e7dc15871a202a6b96)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
+        return typing.cast("_IStackRef_8745962d", jsii.sinvoke(cls, "fromStackName", [scope, id, stack_name]))
+
     @jsii.member(jsii_name="isCfnStack")
     @builtins.classmethod
     def is_cfn_stack(cls, x: typing.Any) -> builtins.bool:
@@ -6264,14 +6296,6 @@ class CfnStack(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -9244,6 +9268,20 @@ def _typecheckingstub__add685d2c205e11b1f2727c7c09ea99b5fd4739effbaca1fd079659e5
     streaming_experience_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.StreamingExperienceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.UserSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc56e24720c5308e6a81b885fc1c8e0d47e491b01a900cb8870bec7169b1dea2(
+    resource: _IStackRef_8745962d,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf8eedb7dc14b6da4517de6d5e8a677fc8abf1c39eb0f1e7dc15871a202a6b96(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    stack_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

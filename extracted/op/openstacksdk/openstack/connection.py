@@ -279,13 +279,11 @@ import argparse
 import concurrent.futures
 import copy
 import importlib.metadata as importlib_metadata
-import typing as ty
-import warnings
+from typing import Any, Optional, TYPE_CHECKING, cast
 
 import keystoneauth1.exceptions
 from keystoneauth1 import session as ks_session
-import requestsexceptions
-import typing_extensions as ty_ext
+from typing_extensions import Self
 
 from openstack import _log
 from openstack.cloud import _accelerator
@@ -305,7 +303,7 @@ import openstack.config.cloud_region
 from openstack import exceptions
 from openstack import service_description
 
-if ty.TYPE_CHECKING:
+if TYPE_CHECKING:
     from oslo_config import cfg
 
     from openstack.config import cloud_region
@@ -316,19 +314,14 @@ __all__ = [
     'from_config',
 ]
 
-if requestsexceptions.SubjectAltNameWarning:
-    warnings.filterwarnings(
-        'ignore', category=requestsexceptions.SubjectAltNameWarning
-    )
-
 _logger = _log.setup_logging('openstack')
 
 
 def from_config(
     cloud: str | None = None,
-    config: ty.Optional['cloud_region.CloudRegion'] = None,
+    config: Optional['cloud_region.CloudRegion'] = None,
     options: argparse.Namespace | None = None,
-    **kwargs: ty.Any,
+    **kwargs: Any,
 ) -> 'Connection':
     """Create a Connection using openstack.config
 
@@ -376,22 +369,23 @@ class Connection(
     def __init__(
         self,
         cloud: str | None = None,
-        config: ty.Optional['cloud_region.CloudRegion'] = None,
+        config: Optional['cloud_region.CloudRegion'] = None,
         session: ks_session.Session | None = None,
         app_name: str | None = None,
         app_version: str | None = None,
-        extra_services: list[service_description.ServiceDescription]
-        | None = None,
+        extra_services: (
+            list[service_description.ServiceDescription[Any]] | None
+        ) = None,
         strict: bool = False,
         use_direct_get: bool | None = None,
-        task_manager: ty.Any = None,
+        task_manager: Any = None,
         rate_limit: float | dict[str, float] | None = None,
-        oslo_conf: ty.Optional['cfg.ConfigOpts'] = None,
+        oslo_conf: Optional['cfg.ConfigOpts'] = None,
         service_types: list[str] | None = None,
         global_request_id: str | None = None,
         strict_proxies: bool = False,
         pool_executor: concurrent.futures.Executor | None = None,
-        **kwargs: ty.Any,
+        **kwargs: Any,
     ):
         """Create a connection to a cloud.
 
@@ -529,7 +523,7 @@ class Connection(
             )
 
     def add_service(
-        self, service: service_description.ServiceDescription
+        self, service: service_description.ServiceDescription['proxy.Proxy']
     ) -> None:
         """Add a service to the Connection.
 
@@ -550,13 +544,13 @@ class Connection(
         # If we don't have a proxy, just instantiate Proxy so that
         # we get an adapter.
         if isinstance(service, str):
-            service = service_description.ServiceDescription(service)
+            service = service_description.ServiceDescription['proxy.Proxy'](
+                service
+            )
 
         # Directly invoke descriptor of the ServiceDescription
         def getter(self: 'Connection') -> 'proxy.Proxy':
-            # TODO(stephenfin): Remove ignore once we have typed
-            # ServiceDescription
-            return service.__get__(self, service)  # type: ignore
+            return service.__get__(self, type(self))
 
         # Register the ServiceDescription class (as property)
         # with every known alias for a "runtime descriptor"
@@ -584,11 +578,11 @@ class Connection(
             etc.
         """
         try:
-            return ty.cast(str, self.session.get_token())
+            return cast(str, self.session.get_token())
         except keystoneauth1.exceptions.ClientException as e:
             raise exceptions.SDKException(str(e))
 
-    def connect_as(self, **kwargs: ty.Any) -> ty_ext.Self:
+    def connect_as(self, **kwargs: Any) -> Self:
         """Make a new Connection object with new auth context.
 
         Take the existing settings from the current cloud and construct a new
@@ -665,7 +659,7 @@ class Connection(
         # a subclass in the case of shade wrapping sdk.
         return self.__class__(config=cloud_region)
 
-    def connect_as_project(self, project: str) -> ty_ext.Self:
+    def connect_as_project(self, project: str) -> Self:
         """Make a new Connection object with a new project.
 
         Take the existing settings from the current cloud and construct a new

@@ -23,11 +23,17 @@
 from binascii import unhexlify
 from typing import Optional
 
-import base58
-import multihash  # type: ignore
-from ecdsa import VerifyingKey, curves, keys
-
 from aea.helpers.multiaddr.crypto_pb2 import KeyType, PublicKey  # type: ignore
+from aea.helpers.multiformat import (
+    IDENTITY_HASH_CODE,
+    SHA2_256_CODE,
+    b58decode,
+    b58encode,
+    multihash_decode,
+    multihash_digest,
+    multihash_encode,
+)
+from aea.helpers.secp256k1 import validate_secp256k1_compressed_pubkey
 
 # NOTE:
 # - Reference: https://github.com/libp2p/specs/blob/master/peer-ids/peer-ids.md#keys
@@ -37,41 +43,9 @@ from aea.helpers.multiaddr.crypto_pb2 import KeyType, PublicKey  # type: ignore
 
 ENABLE_INLINING = True
 MAX_INLINE_KEY_LENGTH = 42
-IDENTITY_MULTIHASH_CODE = 0x00
 
 KEY_SIZE = 32
 ZERO = b"\x00"
-
-if ENABLE_INLINING:
-
-    class IdentityHash:
-        """Neutral hashing implementation for inline multihashing."""
-
-        _digest: bytes
-
-        def __init__(self) -> None:
-            """Initialize IdentityHash object."""
-            self._digest = bytearray()
-
-        def update(self, input_data: bytes) -> None:
-            """
-            Update data to hash.
-
-            :param input_data: the data
-            """
-            self._digest += input_data
-
-        def digest(self) -> bytes:
-            """
-            Get hash of input data.
-
-            :return: the hash
-            """
-            return self._digest
-
-    multihash.FuncReg.register(
-        IDENTITY_MULTIHASH_CODE, "identity", hash_new=IdentityHash
-    )
 
 
 def _pad_scalar(scalar: bytes) -> bytes:
@@ -113,10 +87,8 @@ class MultiAddr:
 
         if public_key is not None:
             try:
-                VerifyingKey._from_compressed(
-                    _hex_to_bytes(public_key), curves.SECP256k1
-                )
-            except keys.MalformedPointError as e:  # pragma: no cover
+                validate_secp256k1_compressed_pubkey(_hex_to_bytes(public_key))
+            except ValueError as e:  # pragma: no cover
                 raise ValueError(
                     "Malformed public key '{}': {}".format(public_key, str(e))
                 )
@@ -125,7 +97,7 @@ class MultiAddr:
             self._peerid = self.compute_peerid(self._public_key)
         elif multihash_id is not None:
             try:
-                multihash.decode(base58.b58decode(multihash_id))
+                multihash_decode(b58decode(multihash_id))
             except Exception as e:  # pylint: disable=broad-except
                 raise ValueError(
                     "Malformed multihash '{}': {}".format(multihash_id, str(e))
@@ -153,11 +125,11 @@ class MultiAddr:
             key_type=KeyType.Secp256k1, data=_hex_to_bytes(public_key)  # type: ignore
         )
         key_serialized = key_protobuf.SerializeToString()
-        algo = multihash.Func.sha2_256
+        algo = SHA2_256_CODE
         if ENABLE_INLINING and len(key_serialized) <= MAX_INLINE_KEY_LENGTH:
-            algo = IDENTITY_MULTIHASH_CODE
-        key_mh = multihash.digest(key_serialized, algo)
-        return base58.b58encode(key_mh.encode()).decode()
+            algo = IDENTITY_HASH_CODE
+        func_code, digest = multihash_digest(key_serialized, algo)
+        return b58encode(multihash_encode(func_code, digest)).decode()
 
     @classmethod
     def from_string(cls, maddr: str) -> "MultiAddr":

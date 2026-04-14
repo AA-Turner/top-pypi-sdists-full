@@ -70,7 +70,7 @@ class TestEntity(unittest.TestCase):
         # create a destination
         destination = loader.config.destinations["k8s_environment"]
         # serialize the destination
-        serialized_destination = destination.dict()
+        serialized_destination = destination.model_dump()
         # deserialize the same destination
         deserialized_destination = Destination(evaluator=loader, **serialized_destination)
         # make sure the deserialized destination is the same as the original
@@ -83,7 +83,7 @@ class TestEntity(unittest.TestCase):
         # create a tool
         tool = loader.config.tools["limbo"]
         # serialize the tool
-        serialized_tool = tool.dict()
+        serialized_tool = tool.model_dump()
         # deserialize the same tool
         deserialized_tool = Tool(evaluator=loader, **serialized_tool)
         # make sure the deserialized tool is the same as the original

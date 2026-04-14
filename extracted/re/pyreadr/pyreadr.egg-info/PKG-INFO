@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyreadr
-Version: 0.5.4
+Version: 0.5.6
 Summary: Reads/writes R RData and Rds files into/from pandas data frames.
 Home-page: https://github.com/ofajardo/pyreadr
 Download-URL: https://pypi.org/project/pyreadr/#files

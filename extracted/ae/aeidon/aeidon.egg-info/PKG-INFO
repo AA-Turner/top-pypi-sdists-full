@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: aeidon
-Version: 1.15
+Version: 1.16
 Summary: Reading, writing and manipulating text-based subtitle files
 Home-page: https://github.com/otsaloma/gaupol
 Author: Osmo Salomaa
@@ -11,6 +11,16 @@ Description-Content-Type: text/markdown
 License-File: COPYING
 License-File: AUTHORS.md
 Requires-Dist: charset-normalizer>2.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Python Package aeidon for Subtitles
 ===================================

@@ -70,8 +70,11 @@ from .._jsii import *
 import constructs as _constructs_77d1e7e8
 from .. import (
     CfnResource as _CfnResource_9df397a6,
+    CfnTag as _CfnTag_f6864754,
     IInspectable as _IInspectable_c2943556,
     IResolvable as _IResolvable_da3f097b,
+    ITaggableV2 as _ITaggableV2_4e6798f8,
+    TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
 from ..interfaces.aws_devopsagent import (
@@ -84,7 +87,7 @@ from ..interfaces.aws_devopsagent import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAgentSpaceRef_2ffb48ed)
+@jsii.implements(_IInspectable_c2943556, _IAgentSpaceRef_2ffb48ed, _ITaggableV2_4e6798f8)
 class CfnAgentSpace(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -98,6 +101,7 @@ class CfnAgentSpace(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_devopsagent as devopsagent
@@ -107,6 +111,7 @@ class CfnAgentSpace(
         
             # the properties below are optional
             description="description",
+            kms_key_arn="kmsKeyArn",
             operator_app=devopsagent.CfnAgentSpace.OperatorAppProperty(
                 iam=devopsagent.CfnAgentSpace.IamAuthConfigurationProperty(
                     operator_app_role_arn="operatorAppRoleArn",
@@ -124,7 +129,11 @@ class CfnAgentSpace(
                     idc_application_arn="idcApplicationArn",
                     updated_at="updatedAt"
                 )
-            )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -135,7 +144,9 @@ class CfnAgentSpace(
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
         operator_app: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAgentSpace.OperatorAppProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DevOpsAgent::AgentSpace``.
 
@@ -143,14 +154,20 @@ class CfnAgentSpace(
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the Agent Space.
         :param description: The description of the Agent Space.
+        :param kms_key_arn: The ARN of the KMS key to use for encryption.
         :param operator_app: 
+        :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3897cdc52c2bc2a74bdd32702e32905947b3c0fc36798edcdac7875cc9939456)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnAgentSpaceProps(
-            name=name, description=description, operator_app=operator_app
+            name=name,
+            description=description,
+            kms_key_arn=kms_key_arn,
+            operator_app=operator_app,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -333,6 +350,12 @@ class CfnAgentSpace(
         return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -364,6 +387,19 @@ class CfnAgentSpace(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="kmsKeyArn")
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key to use for encryption.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyArn"))
+
+    @kms_key_arn.setter
+    def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b76e61f2aed973e234fd4e93bccf47cc83cb11b8379358a7715db1a908b35af7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="operatorApp")
     def operator_app(
         self,
@@ -379,6 +415,19 @@ class CfnAgentSpace(
             type_hints = typing.get_type_hints(_typecheckingstub__833bedcb900be3dc99153bbcef5866a753457156d32ebc2661b687708cf7f6fa)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "operatorApp", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__86b6d290ea55548645e8a386c5c88e557975dfe7624596a7c926c0d9166190a3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAgentSpace.IamAuthConfigurationProperty",
@@ -678,7 +727,9 @@ class CfnAgentSpace(
     name_mapping={
         "name": "name",
         "description": "description",
+        "kms_key_arn": "kmsKeyArn",
         "operator_app": "operatorApp",
+        "tags": "tags",
     },
 )
 class CfnAgentSpaceProps:
@@ -687,19 +738,24 @@ class CfnAgentSpaceProps:
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
         operator_app: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAgentSpace.OperatorAppProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAgentSpace``.
 
         :param name: The name of the Agent Space.
         :param description: The description of the Agent Space.
+        :param kms_key_arn: The ARN of the KMS key to use for encryption.
         :param operator_app: 
+        :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-agentspace.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_devopsagent as devopsagent
@@ -709,6 +765,7 @@ class CfnAgentSpaceProps:
             
                 # the properties below are optional
                 description="description",
+                kms_key_arn="kmsKeyArn",
                 operator_app=devopsagent.CfnAgentSpace.OperatorAppProperty(
                     iam=devopsagent.CfnAgentSpace.IamAuthConfigurationProperty(
                         operator_app_role_arn="operatorAppRoleArn",
@@ -726,21 +783,31 @@ class CfnAgentSpaceProps:
                         idc_application_arn="idcApplicationArn",
                         updated_at="updatedAt"
                     )
-                )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ea00a21cf40eafce14a4e6e1a4cd3e9f843a2f2e416299a20a2159ce8cdb6d5f)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument operator_app", value=operator_app, expected_type=type_hints["operator_app"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
         }
         if description is not None:
             self._values["description"] = description
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
         if operator_app is not None:
             self._values["operator_app"] = operator_app
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -762,6 +829,15 @@ class CfnAgentSpaceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key to use for encryption.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-agentspace.html#cfn-devopsagent-agentspace-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def operator_app(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAgentSpace.OperatorAppProperty"]]:
@@ -770,6 +846,15 @@ class CfnAgentSpaceProps:
         '''
         result = self._values.get("operator_app")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAgentSpace.OperatorAppProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-agentspace.html#cfn-devopsagent-agentspace-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3248,7 +3333,7 @@ class CfnAssociationProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IServiceRef_a4cfa131)
+@jsii.implements(_IInspectable_c2943556, _IServiceRef_a4cfa131, _ITaggableV2_4e6798f8)
 class CfnService(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3262,6 +3347,7 @@ class CfnService(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_devopsagent as devopsagent
@@ -3272,6 +3358,7 @@ class CfnService(
             service_type="serviceType",
         
             # the properties below are optional
+            kms_key_arn="kmsKeyArn",
             service_details=devopsagent.CfnService.ServiceDetailsProperty(
                 dynatrace=devopsagent.CfnService.DynatraceServiceDetailsProperty(
                     account_urn="accountUrn",
@@ -3365,7 +3452,11 @@ class CfnService(
                         )
                     )
                 )
-            )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
         )
     '''
 
@@ -3375,21 +3466,28 @@ class CfnService(
         id: builtins.str,
         *,
         service_type: builtins.str,
+        kms_key_arn: typing.Optional[builtins.str] = None,
         service_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::DevOpsAgent::Service``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param service_type: The type of service being registered.
+        :param kms_key_arn: The ARN of the KMS key to use for encryption.
         :param service_details: Service-specific configuration details.
+        :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__76700bf71c0ca9d7d21edc970f56dd1c8a41f67b248c3228096feb30580cca07)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnServiceProps(
-            service_type=service_type, service_details=service_details
+            service_type=service_type,
+            kms_key_arn=kms_key_arn,
+            service_details=service_details,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -3404,6 +3502,27 @@ class CfnService(
             type_hints = typing.get_type_hints(_typecheckingstub__63b98edcc349c49d41c8d702a2d1265560096df266726e9b32106a9232bfcb58)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForService", [resource]))
+
+    @jsii.member(jsii_name="fromServiceArn")
+    @builtins.classmethod
+    def from_service_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_IServiceRef_a4cfa131":
+        '''Creates a new IServiceRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__09dac337ffc2a1d1d7fb46435d2a134c4e49f2a645ad48d49ae315cb8a30b8e1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_IServiceRef_a4cfa131", jsii.sinvoke(cls, "fromServiceArn", [scope, id, arn]))
 
     @jsii.member(jsii_name="fromServiceId")
     @builtins.classmethod
@@ -3487,6 +3606,15 @@ class CfnService(
         return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrAdditionalServiceDetails"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Service.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrServiceId")
     def attr_service_id(self) -> builtins.str:
         '''The unique identifier of the service.
@@ -3494,6 +3622,12 @@ class CfnService(
         :cloudformationAttribute: ServiceId
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrServiceId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3520,6 +3654,19 @@ class CfnService(
         jsii.set(self, "serviceType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="kmsKeyArn")
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key to use for encryption.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyArn"))
+
+    @kms_key_arn.setter
+    def kms_key_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e3ab3739f548aec69137bae335dee8322f36ef0dcddbdf6693dea63fc64500cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="serviceDetails")
     def service_details(
         self,
@@ -3536,6 +3683,19 @@ class CfnService(
             type_hints = typing.get_type_hints(_typecheckingstub__38b28b2539546ba11e45199a6bde41e432e6246da9ea58bba29ece3bbf5c4193)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceDetails", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6618cd62adcc1e863b754d59ca807f0c557b1efa334823690aa1f3f9465528a1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.AdditionalServiceDetailsProperty",
@@ -5900,25 +6060,35 @@ class CfnService(
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_devopsagent.CfnServiceProps",
     jsii_struct_bases=[],
-    name_mapping={"service_type": "serviceType", "service_details": "serviceDetails"},
+    name_mapping={
+        "service_type": "serviceType",
+        "kms_key_arn": "kmsKeyArn",
+        "service_details": "serviceDetails",
+        "tags": "tags",
+    },
 )
 class CfnServiceProps:
     def __init__(
         self,
         *,
         service_type: builtins.str,
+        kms_key_arn: typing.Optional[builtins.str] = None,
         service_details: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnService.ServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnService``.
 
         :param service_type: The type of service being registered.
+        :param kms_key_arn: The ARN of the KMS key to use for encryption.
         :param service_details: Service-specific configuration details.
+        :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_devopsagent as devopsagent
@@ -5929,6 +6099,7 @@ class CfnServiceProps:
                 service_type="serviceType",
             
                 # the properties below are optional
+                kms_key_arn="kmsKeyArn",
                 service_details=devopsagent.CfnService.ServiceDetailsProperty(
                     dynatrace=devopsagent.CfnService.DynatraceServiceDetailsProperty(
                         account_urn="accountUrn",
@@ -6022,18 +6193,28 @@ class CfnServiceProps:
                             )
                         )
                     )
-                )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a12adbc62e2ac0f5b7caf0c232882e56ee71ed33922d8b268e225ddc848413f6)
             check_type(argname="argument service_type", value=service_type, expected_type=type_hints["service_type"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument service_details", value=service_details, expected_type=type_hints["service_details"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "service_type": service_type,
         }
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
         if service_details is not None:
             self._values["service_details"] = service_details
+        if tags is not None:
+            self._values["tags"] = tags
 
     @builtins.property
     def service_type(self) -> builtins.str:
@@ -6046,6 +6227,15 @@ class CfnServiceProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the KMS key to use for encryption.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def service_details(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceDetailsProperty"]]:
@@ -6055,6 +6245,15 @@ class CfnServiceProps:
         '''
         result = self._values.get("service_details")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnService.ServiceDetailsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6085,7 +6284,9 @@ def _typecheckingstub__3897cdc52c2bc2a74bdd32702e32905947b3c0fc36798edcdac7875cc
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     operator_app: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgentSpace.OperatorAppProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6142,8 +6343,20 @@ def _typecheckingstub__2b7561d8cdcaf93c81d1cf0a9a4cc5790c03232e494d49db5171a9359
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b76e61f2aed973e234fd4e93bccf47cc83cb11b8379358a7715db1a908b35af7(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__833bedcb900be3dc99153bbcef5866a753457156d32ebc2661b687708cf7f6fa(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnAgentSpace.OperatorAppProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86b6d290ea55548645e8a386c5c88e557975dfe7624596a7c926c0d9166190a3(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6180,7 +6393,9 @@ def _typecheckingstub__ea00a21cf40eafce14a4e6e1a4cd3e9f843a2f2e416299a20a2159ce8
     *,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     operator_app: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAgentSpace.OperatorAppProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6418,13 +6633,23 @@ def _typecheckingstub__76700bf71c0ca9d7d21edc970f56dd1c8a41f67b248c3228096feb305
     id: builtins.str,
     *,
     service_type: builtins.str,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     service_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__63b98edcc349c49d41c8d702a2d1265560096df266726e9b32106a9232bfcb58(
     resource: _IServiceRef_a4cfa131,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09dac337ffc2a1d1d7fb46435d2a134c4e49f2a645ad48d49ae315cb8a30b8e1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6461,8 +6686,20 @@ def _typecheckingstub__a87d815016e64b5bdf47334ae0b9ef194602b4aa5a9e6cd5a5d9b1d6b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e3ab3739f548aec69137bae335dee8322f36ef0dcddbdf6693dea63fc64500cd(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__38b28b2539546ba11e45199a6bde41e432e6246da9ea58bba29ece3bbf5c4193(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.ServiceDetailsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6618cd62adcc1e863b754d59ca807f0c557b1efa334823690aa1f3f9465528a1(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6678,7 +6915,9 @@ def _typecheckingstub__d187ccd94caa63f84c780709217fd146f3bb8a30928a00c86283e0e43
 def _typecheckingstub__a12adbc62e2ac0f5b7caf0c232882e56ee71ed33922d8b268e225ddc848413f6(
     *,
     service_type: builtins.str,
+    kms_key_arn: typing.Optional[builtins.str] = None,
     service_details: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnService.ServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

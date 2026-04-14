@@ -66,12 +66,13 @@ def leet(ctx: click.Context) -> None:
     Examples:
         wandb beta leet                 View latest run
         wandb beta leet ./wandb         View runs in directory
+        wandb beta leet symon           View live local system metrics
     """
     pass
 
 
 @leet.command()
-@click.argument("path", nargs=1, type=click.Path(exists=True), required=False)
+@click.argument("path", nargs=1, type=click.STRING, required=False)
 @click.option(
     "--pprof",
     default="",
@@ -82,12 +83,35 @@ def leet(ctx: click.Context) -> None:
 def run(path: str | None = None, pprof: str = "") -> None:
     """Launch the LEET TUI.
 
-    PATH can be a .wandb file, a run directory, or a wandb directory.
-    If omitted, searches for the latest run.
+    LEET is a terminal UI for viewing a W&B run specified by an optional PATH.
+
+    PATH can include a .wandb file or a run directory containing a .wandb file.
+    If PATH is not provided, the command will look for the latest run.
     """
     from . import beta_leet
 
     beta_leet.launch(path, pprof)
+
+
+@leet.command()
+@click.option(
+    "--pprof",
+    default="",
+    hidden=True,
+    help="Serve /debug/pprof/* on this address (e.g. 127.0.0.1:6060).",
+)
+@click.option(
+    "--interval",
+    default="",
+    metavar="DURATION",
+    help="Sampling interval for system metrics (e.g. 500ms, 2s, 1m).",
+)
+@click.help_option("-h", "--help")
+def symon(pprof: str = "", interval: str = "") -> None:
+    """Launch the standalone system monitor."""
+    from . import beta_leet
+
+    beta_leet.launch_symon(pprof=pprof, interval=interval)
 
 
 @leet.command()
@@ -195,17 +219,17 @@ def sync(
     PATHS can include .wandb files, run directories containing .wandb files,
     and "wandb" directories containing run directories.
 
-    For example, to sync all runs in a directory:
+    For example, to sync all runs in the current .wandb directory:
 
-        wandb beta sync ./wandb
+        $ wandb beta sync ./wandb
 
-    To sync a specific run:
+    To sync a specific run by specifying the run directory:
 
-        wandb beta sync ./wandb/run-20250813_124246-n67z9ude
+        $ wandb beta sync ./wandb/run-20250813_124246-n67z9ude
 
     Or equivalently:
 
-        wandb beta sync ./wandb/run-20250813_124246-n67z9ude/run-n67z9ude.wandb
+        $ wandb beta sync ./wandb/run-20250813_124246-n67z9ude/run-n67z9ude.wandb
     """
     from . import beta_sync
 
@@ -222,3 +246,63 @@ def sync(
         verbose=verbose,
         parallelism=n,
     )
+
+
+@beta.group()
+def core() -> None:
+    """Manage a shared local wandb-core service for multi-process workloads.
+
+    wandb-core is the local backend process that handles run data,
+    file uploads, and system metrics collection. By default, each
+    process that calls `wandb.init()` starts its own backend. On a
+    machine running many independent workers, that duplicates work
+    and wastes CPU and memory.
+
+    Use these commands to start one detached wandb-core instance and
+    point multiple workers on the same machine at it with the
+    WANDB_SERVICE environment variable.
+
+    Typical workflow:
+
+        $ wandb beta core start
+        $ export WANDB_SERVICE=printed_value
+        $ python -m your_launcher
+        $ wandb beta core stop
+
+    For shell scripts, capture the raw WANDB_SERVICE value from stdout:
+
+        $ export WANDB_SERVICE="$(wandb beta core start)"
+
+    The shared service exits after 10 minutes of idleness by default.
+    Override this with --idle-timeout on the start command.
+    """
+
+
+@core.command()
+@click.option(
+    "--idle-timeout",
+    default="10m",
+    show_default=True,
+    metavar="DURATION",
+    help=(
+        "Shut down wandb-core after this much idle time with no connected "
+        "clients. Uses Go duration syntax, for example 30s, 10m, or 0 to "
+        "disable idle shutdown."
+    ),
+)
+def start(idle_timeout: str) -> None:
+    """Start a detached wandb-core service."""
+    from . import beta_core
+
+    beta_core.start(idle_timeout=idle_timeout)
+
+
+@core.command()
+def stop() -> None:
+    """Stop a detached wandb-core service.
+
+    The service address is taken from the WANDB_SERVICE environment variable.
+    """
+    from . import beta_core
+
+    beta_core.stop()

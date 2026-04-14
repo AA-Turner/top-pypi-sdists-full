@@ -48,11 +48,16 @@ def base64_to_int(s: str) -> int:
     return int("".join(["%02x" % byte for byte in buf]), 16)
 
 
-def int_to_base64(num: int) -> str:
+def int_to_base64(num: int, byte_count: int | None = None) -> str:
     if num < 0:
         raise ValueError("Must be a positive integer")
 
-    s = num.to_bytes((num.bit_length() + 7) // 8, "big", signed=False)
+    if byte_count is None:
+        byte_count = (num.bit_length() + 7) // 8
+    elif num.bit_length() > byte_count * 8:
+        raise ValueError("Number too large for byte count")
+
+    s = num.to_bytes(byte_count, "big", signed=False)
     return urlsafe_b64encode(s).decode("utf-8", "strict")
 
 

@@ -222,6 +222,7 @@ class CfnLifecyclePolicy(
                         interval_unit="intervalUnit"
                     ),
                     fast_restore_rule=dlm.CfnLifecyclePolicy.FastRestoreRuleProperty(
+                        availability_zone_ids=["availabilityZoneIds"],
                         availability_zones=["availabilityZones"],
                         count=123,
                         interval=123,
@@ -1945,6 +1946,7 @@ class CfnLifecyclePolicy(
         jsii_type="aws-cdk-lib.aws_dlm.CfnLifecyclePolicy.FastRestoreRuleProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "availability_zone_ids": "availabilityZoneIds",
             "availability_zones": "availabilityZones",
             "count": "count",
             "interval": "interval",
@@ -1955,6 +1957,7 @@ class CfnLifecyclePolicy(
         def __init__(
             self,
             *,
+            availability_zone_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
             availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
             count: typing.Optional[jsii.Number] = None,
             interval: typing.Optional[jsii.Number] = None,
@@ -1964,6 +1967,7 @@ class CfnLifecyclePolicy(
 
             You can enable fast snapshot restore based on either a count or a time interval.
 
+            :param availability_zone_ids: 
             :param availability_zones: The Availability Zones in which to enable fast snapshot restore.
             :param count: The number of snapshots to be enabled with fast snapshot restore.
             :param interval: The amount of time to enable fast snapshot restore. The maximum is 100 years. This is equivalent to 1200 months, 5200 weeks, or 36500 days.
@@ -1979,6 +1983,7 @@ class CfnLifecyclePolicy(
                 from aws_cdk import aws_dlm as dlm
                 
                 fast_restore_rule_property = dlm.CfnLifecyclePolicy.FastRestoreRuleProperty(
+                    availability_zone_ids=["availabilityZoneIds"],
                     availability_zones=["availabilityZones"],
                     count=123,
                     interval=123,
@@ -1987,11 +1992,14 @@ class CfnLifecyclePolicy(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__3c6091dc8881dc1eefedb91f093e87a24b9de27bbfd0785b7629a26e2bca19c9)
+                check_type(argname="argument availability_zone_ids", value=availability_zone_ids, expected_type=type_hints["availability_zone_ids"])
                 check_type(argname="argument availability_zones", value=availability_zones, expected_type=type_hints["availability_zones"])
                 check_type(argname="argument count", value=count, expected_type=type_hints["count"])
                 check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
                 check_type(argname="argument interval_unit", value=interval_unit, expected_type=type_hints["interval_unit"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if availability_zone_ids is not None:
+                self._values["availability_zone_ids"] = availability_zone_ids
             if availability_zones is not None:
                 self._values["availability_zones"] = availability_zones
             if count is not None:
@@ -2000,6 +2008,14 @@ class CfnLifecyclePolicy(
                 self._values["interval"] = interval
             if interval_unit is not None:
                 self._values["interval_unit"] = interval_unit
+
+        @builtins.property
+        def availability_zone_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dlm-lifecyclepolicy-fastrestorerule.html#cfn-dlm-lifecyclepolicy-fastrestorerule-availabilityzoneids
+            '''
+            result = self._values.get("availability_zone_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
         def availability_zones(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2341,6 +2357,7 @@ class CfnLifecyclePolicy(
                             interval_unit="intervalUnit"
                         ),
                         fast_restore_rule=dlm.CfnLifecyclePolicy.FastRestoreRuleProperty(
+                            availability_zone_ids=["availabilityZoneIds"],
                             availability_zones=["availabilityZones"],
                             count=123,
                             interval=123,
@@ -2969,6 +2986,7 @@ class CfnLifecyclePolicy(
                         interval_unit="intervalUnit"
                     ),
                     fast_restore_rule=dlm.CfnLifecyclePolicy.FastRestoreRuleProperty(
+                        availability_zone_ids=["availabilityZoneIds"],
                         availability_zones=["availabilityZones"],
                         count=123,
                         interval=123,
@@ -3632,6 +3650,7 @@ class CfnLifecyclePolicyProps:
                             interval_unit="intervalUnit"
                         ),
                         fast_restore_rule=dlm.CfnLifecyclePolicy.FastRestoreRuleProperty(
+                            availability_zone_ids=["availabilityZoneIds"],
                             availability_zones=["availabilityZones"],
                             count=123,
                             interval=123,
@@ -4123,6 +4142,7 @@ def _typecheckingstub__5692b64ab6dee50c1d5309ad0a3d609805882baacd6ea4c1c2d0733bc
 
 def _typecheckingstub__3c6091dc8881dc1eefedb91f093e87a24b9de27bbfd0785b7629a26e2bca19c9(
     *,
+    availability_zone_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
     count: typing.Optional[jsii.Number] = None,
     interval: typing.Optional[jsii.Number] = None,

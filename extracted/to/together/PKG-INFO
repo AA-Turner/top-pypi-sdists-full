@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: together
-Version: 2.7.0
+Version: 2.8.0
 Summary: The official Python library for the together API
 Project-URL: Homepage, https://github.com/togethercomputer/together-py
 Project-URL: Repository, https://github.com/togethercomputer/together-py
@@ -26,6 +26,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Requires-Dist: anyio<5,>=3.5.0
 Requires-Dist: click>=8.1.7
+Requires-Dist: detect-agent>=0.1.1
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: filelock>=3.13.1
 Requires-Dist: httpx<1,>=0.23.0

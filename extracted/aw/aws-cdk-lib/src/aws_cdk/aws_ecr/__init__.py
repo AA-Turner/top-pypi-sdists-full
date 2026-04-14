@@ -629,19 +629,6 @@ class CfnPublicRepository(
         jsii.set(self, "repositoryCatalogData", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="repositoryName")
-    def repository_name(self) -> typing.Optional[builtins.str]:
-        '''The name to use for the public repository.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "repositoryName"))
-
-    @repository_name.setter
-    def repository_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c540342cfab06c3e938dc25340d0df062558f4ba1bb13c342e9740ee0e1e909a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "repositoryName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="repositoryPolicyText")
     def repository_policy_text(self) -> typing.Any:
         '''The JSON repository policy text to apply to the public repository.'''
@@ -653,6 +640,19 @@ class CfnPublicRepository(
             type_hints = typing.get_type_hints(_typecheckingstub__3a5d0a391359eb22e8e450fd43d68011135dcfa6d843724b27da64f19e19aad7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryPolicyText", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="repositoryName")
+    def repository_name(self) -> typing.Optional[builtins.str]:
+        '''The name to use for the public repository.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "repositoryName"))
+
+    @repository_name.setter
+    def repository_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c540342cfab06c3e938dc25340d0df062558f4ba1bb13c342e9740ee0e1e909a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "repositoryName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -2697,6 +2697,19 @@ class CfnRepository(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="repositoryPolicyText")
+    def repository_policy_text(self) -> typing.Any:
+        '''The JSON repository policy text to apply to the repository.'''
+        return typing.cast(typing.Any, jsii.get(self, "repositoryPolicyText"))
+
+    @repository_policy_text.setter
+    def repository_policy_text(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ab6f8914cd6d9319d4c072a32100fe3532bf6bfdfe1b069100045f46efd7f432)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "repositoryPolicyText", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="emptyOnDelete")
     def empty_on_delete(
         self,
@@ -2813,19 +2826,6 @@ class CfnRepository(
             type_hints = typing.get_type_hints(_typecheckingstub__320e28aebae3ff1053b4006047e990e27e37c3a2753340ee0372d4f8e354bc2b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "repositoryName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="repositoryPolicyText")
-    def repository_policy_text(self) -> typing.Any:
-        '''The JSON repository policy text to apply to the repository.'''
-        return typing.cast(typing.Any, jsii.get(self, "repositoryPolicyText"))
-
-    @repository_policy_text.setter
-    def repository_policy_text(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab6f8914cd6d9319d4c072a32100fe3532bf6bfdfe1b069100045f46efd7f432)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "repositoryPolicyText", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -6814,14 +6814,14 @@ def _typecheckingstub__ff52c4c89f76461de2458e82c2bfd20f4de3951ad8eab58aec1b52004
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c540342cfab06c3e938dc25340d0df062558f4ba1bb13c342e9740ee0e1e909a(
-    value: typing.Optional[builtins.str],
+def _typecheckingstub__3a5d0a391359eb22e8e450fd43d68011135dcfa6d843724b27da64f19e19aad7(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__3a5d0a391359eb22e8e450fd43d68011135dcfa6d843724b27da64f19e19aad7(
-    value: typing.Any,
+def _typecheckingstub__c540342cfab06c3e938dc25340d0df062558f4ba1bb13c342e9740ee0e1e909a(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7205,6 +7205,12 @@ def _typecheckingstub__6ddcf78870d9e7c9d8fc7a3b39e380fe70edfa62cae47c7ae43d73f1d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ab6f8914cd6d9319d4c072a32100fe3532bf6bfdfe1b069100045f46efd7f432(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0cdf31a68d1403243dabdc584938d9cf5b1769c665a1d405daaaa8438f7d0367(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
@@ -7243,12 +7249,6 @@ def _typecheckingstub__47418c52de9eb82b5a96dfa3524d84345309cf3a2f06fbbc30eaa7da8
 
 def _typecheckingstub__320e28aebae3ff1053b4006047e990e27e37c3a2753340ee0372d4f8e354bc2b(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ab6f8914cd6d9319d4c072a32100fe3532bf6bfdfe1b069100045f46efd7f432(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

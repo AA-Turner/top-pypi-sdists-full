@@ -4296,7 +4296,7 @@ class UsageLimitInvalidError(BadRequestError):
 class UsernameInvalidError(BadRequestError):
     def __init__(self, request):
         self.request = request
-        super(Exception, self).__init__('Nobody is using this username, or the username is unacceptable. If the latter, it must match r"[a-zA-Z][\\w\\d]{3,30}[a-zA-Z\\d]"' + self._fmt_request(self.request))
+        super(Exception, self).__init__('Nobody is using this username or the username is unacceptable' + self._fmt_request(self.request))
 
     def __reduce__(self):
         return type(self), (self.request,)

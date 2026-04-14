@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import datetime
-from tqdm import tqdm
+from tqdm.rich import tqdm
 import math
 
 # -----------------------------------------------------------------------------

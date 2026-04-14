@@ -1,6 +1,7 @@
 """
 Data models used for communicating with the MailerSend API.
 """
+
 from .base import BaseModel
 from .email import (
     EmailContact,
@@ -158,6 +159,16 @@ from .sms_inbounds import (
     SmsInboundDeleteRequest,
     SmsInbound,
 )
+from .dmarc_monitoring import (
+    DmarcMonitoringListRequest,
+    DmarcMonitoringCreateRequest,
+    DmarcMonitoringUpdateRequest,
+    DmarcMonitoringDeleteRequest,
+    DmarcMonitoringReportRequest,
+    DmarcMonitoringIpReportRequest,
+    DmarcMonitoringReportSourcesRequest,
+    DmarcMonitoringFavoriteRequest,
+)
 
 __all__ = [
     "BaseModel",
@@ -288,4 +299,13 @@ __all__ = [
     "SmsInboundUpdateRequest",
     "SmsInboundDeleteRequest",
     "SmsInbound",
+    # DMARC Monitoring models
+    "DmarcMonitoringListRequest",
+    "DmarcMonitoringCreateRequest",
+    "DmarcMonitoringUpdateRequest",
+    "DmarcMonitoringDeleteRequest",
+    "DmarcMonitoringReportRequest",
+    "DmarcMonitoringIpReportRequest",
+    "DmarcMonitoringReportSourcesRequest",
+    "DmarcMonitoringFavoriteRequest",
 ]

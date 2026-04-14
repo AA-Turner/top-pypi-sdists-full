@@ -87,9 +87,7 @@ def tpv_dump_config(args: Any) -> None:
 
         galaxy_app = mock_galaxy.App(job_conf=args.job_conf, create_model=True)
         config_files = TPVDryRunner.resolve_relative_config_paths(
-            galaxy_app.job_config.get_destination("tpv_dispatcher").params[  # type: ignore[no-untyped-call]
-                "tpv_config_files"
-            ],
+            galaxy_app.job_config.get_destination("tpv_dispatcher").params["tpv_config_files"],
             args.job_conf,
         )
     if not config_files:

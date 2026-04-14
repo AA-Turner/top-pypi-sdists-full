@@ -25,7 +25,7 @@ import (
 // InjectStream returns a new Stream.
 func InjectStream(
 	commit GitCommitHash,
-	gpuResourceManager *monitor.GPUResourceManager,
+	xpuResourceManager *monitor.XPUResourceManager,
 	debugCorePath DebugCorePath,
 	logLevel slog.Level,
 	settings *settings.Settings,
@@ -40,7 +40,7 @@ var streamProviders = wire.NewSet(
 	wire.Struct(new(observability.Peeker)),
 	BaseURLFromSettings,
 	CredentialsFromSettings,
-	featurechecker.NewServerFeaturesCache,
+	featurechecker.New,
 	filestream.FileStreamProviders,
 	filetransfer.NewFileTransferStats,
 	flowControlProviders,

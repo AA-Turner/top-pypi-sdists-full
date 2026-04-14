@@ -551,7 +551,7 @@ def brute(
     Ns: int = 20,
     full_output: onp.ToFalse = 0,
     finish: _DoesFMin | None = ...,  # default: `fmin`
-    disp: onp.ToBool = False,
+    disp: bool = False,
     workers: int | Callable[[Callable[[_VT], _RT], Iterable[_VT]], Sequence[_RT]] = 1,
 ) -> _Float1D: ...
 @overload  # full_output: True (keyword)
@@ -563,7 +563,7 @@ def brute(
     *,
     full_output: onp.ToTrue,
     finish: _DoesFMin | None = ...,  # default: `fmin`
-    disp: onp.ToBool = False,
+    disp: bool = False,
     workers: int | Callable[[Callable[[_VT], _RT], Iterable[_VT]], Sequence[_RT]] = 1,
 ) -> tuple[_Float1D, np.float64, onp.Array3D[np.float64], onp.Array2D[npc.floating]]: ...
 
@@ -642,7 +642,14 @@ def show_options(solver: Solver | None, method: MethodAll | None, disp: onp.ToFa
 def show_options(solver: Solver | None = None, method: MethodAll | None = None, *, disp: onp.ToFalse) -> str: ...
 
 #
-def approx_fprime(xk: onp.ToFloat1D, f: _Fn1_1d, epsilon: onp.ToFloat | _FloatingCoND = ..., *args: object) -> _Float1D: ...
+@overload
+def approx_fprime(
+    xk: onp.ToFloat1D, f: _Fn1_1d[_Float], epsilon: onp.ToFloat | _FloatingCoND = ..., *args: object
+) -> _Float1D: ...
+@overload
+def approx_fprime(
+    xk: onp.ToFloat1D, f: _Fn1_1d[_Float1D], epsilon: onp.ToFloat | _FloatingCoND = ..., *args: object
+) -> _Float2D: ...
 
 #
 def check_grad(

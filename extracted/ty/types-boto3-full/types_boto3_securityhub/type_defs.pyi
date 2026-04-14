@@ -736,6 +736,7 @@ __all__ = (
     "AwsOpenSearchServiceDomainVpcOptionsDetailsOutputTypeDef",
     "AwsOpenSearchServiceDomainVpcOptionsDetailsTypeDef",
     "AwsOpenSearchServiceDomainVpcOptionsDetailsUnionTypeDef",
+    "AwsOrganizationScopeTypeDef",
     "AwsRdsDbClusterAssociatedRoleTypeDef",
     "AwsRdsDbClusterDetailsOutputTypeDef",
     "AwsRdsDbClusterDetailsTypeDef",
@@ -1122,6 +1123,7 @@ __all__ = (
     "FindingProviderFieldsTypeDef",
     "FindingProviderFieldsUnionTypeDef",
     "FindingProviderSeverityTypeDef",
+    "FindingScopesTypeDef",
     "FindingsTrendsCompositeFilterPaginatorTypeDef",
     "FindingsTrendsCompositeFilterTypeDef",
     "FindingsTrendsFiltersPaginatorTypeDef",
@@ -1328,6 +1330,7 @@ __all__ = (
     "ResourceGroupByRuleTypeDef",
     "ResourceOutputTypeDef",
     "ResourceResultTypeDef",
+    "ResourceScopesTypeDef",
     "ResourceSeverityBreakdownTypeDef",
     "ResourceTagTypeDef",
     "ResourceTypeDef",
@@ -3108,6 +3111,10 @@ class AwsOpenSearchServiceDomainLogPublishingOptionTypeDef(TypedDict):
 class AwsOpenSearchServiceDomainVpcOptionsDetailsTypeDef(TypedDict):
     SecurityGroupIds: NotRequired[Sequence[str]]
     SubnetIds: NotRequired[Sequence[str]]
+
+class AwsOrganizationScopeTypeDef(TypedDict):
+    OrganizationId: NotRequired[str]
+    OrganizationalUnitId: NotRequired[str]
 
 class AwsRdsDbClusterAssociatedRoleTypeDef(TypedDict):
     RoleArn: NotRequired[str]
@@ -5739,6 +5746,12 @@ AwsOpenSearchServiceDomainVpcOptionsDetailsUnionTypeDef = Union[
     AwsOpenSearchServiceDomainVpcOptionsDetailsTypeDef,
     AwsOpenSearchServiceDomainVpcOptionsDetailsOutputTypeDef,
 ]
+
+class FindingScopesTypeDef(TypedDict):
+    AwsOrganizations: NotRequired[Sequence[AwsOrganizationScopeTypeDef]]
+
+class ResourceScopesTypeDef(TypedDict):
+    AwsOrganizations: NotRequired[Sequence[AwsOrganizationScopeTypeDef]]
 
 class AwsRdsDbClusterDetailsOutputTypeDef(TypedDict):
     AllocatedStorage: NotRequired[int]
@@ -10426,6 +10439,7 @@ class CriteriaOutputTypeDef(TypedDict):
 
 class GetFindingsV2RequestPaginateTypeDef(TypedDict):
     Filters: NotRequired[OcsfFindingFiltersPaginatorTypeDef]
+    Scopes: NotRequired[FindingScopesTypeDef]
     SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -10435,11 +10449,13 @@ class OcsfFindingFiltersTypeDef(TypedDict):
 
 class GetResourcesV2RequestPaginateTypeDef(TypedDict):
     Filters: NotRequired[ResourcesFiltersPaginatorTypeDef]
+    Scopes: NotRequired[ResourceScopesTypeDef]
     SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class GetResourcesV2RequestTypeDef(TypedDict):
     Filters: NotRequired[ResourcesFiltersTypeDef]
+    Scopes: NotRequired[ResourceScopesTypeDef]
     SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -10635,6 +10651,7 @@ OcsfFindingFiltersUnionTypeDef = Union[OcsfFindingFiltersTypeDef, OcsfFindingFil
 
 class GetResourcesStatisticsV2RequestTypeDef(TypedDict):
     GroupByRules: Sequence[ResourceGroupByRuleTypeDef]
+    Scopes: NotRequired[ResourceScopesTypeDef]
     SortOrder: NotRequired[SortOrderType]
     MaxStatisticResults: NotRequired[int]
 
@@ -10738,6 +10755,7 @@ CriteriaUnionTypeDef = Union[CriteriaTypeDef, CriteriaOutputTypeDef]
 
 class GetFindingsV2RequestTypeDef(TypedDict):
     Filters: NotRequired[OcsfFindingFiltersUnionTypeDef]
+    Scopes: NotRequired[FindingScopesTypeDef]
     SortCriteria: NotRequired[Sequence[SortCriterionTypeDef]]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -10839,6 +10857,7 @@ class UpdateAutomationRuleV2RequestTypeDef(TypedDict):
 
 class GetFindingStatisticsV2RequestTypeDef(TypedDict):
     GroupByRules: Sequence[GroupByRuleTypeDef]
+    Scopes: NotRequired[FindingScopesTypeDef]
     SortOrder: NotRequired[SortOrderType]
     MaxStatisticResults: NotRequired[int]
 

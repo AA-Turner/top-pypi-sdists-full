@@ -17729,32 +17729,6 @@ class CfnFeatureGroup(
         jsii.set(self, "featureGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="recordIdentifierFeatureName")
-    def record_identifier_feature_name(self) -> builtins.str:
-        '''The name of the ``Feature`` whose value uniquely identifies a ``Record`` defined in the ``FeatureGroup`` ``FeatureDefinitions`` .'''
-        return typing.cast(builtins.str, jsii.get(self, "recordIdentifierFeatureName"))
-
-    @record_identifier_feature_name.setter
-    def record_identifier_feature_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b78873bd7aeb067f399e0d34bbfcead148ee8cd93f599510cd64c6e738908832)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "recordIdentifierFeatureName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A free form description of a ``FeatureGroup`` .'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b3eb81281cd3d68bb6a0b5a3ea79863153df71f1420743d27c3d773a2fd6c98)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="offlineStoreConfig")
     def offline_store_config(self) -> typing.Any:
         '''The configuration of an ``OfflineStore`` .'''
@@ -17779,6 +17753,32 @@ class CfnFeatureGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__36874ea58589f290874ec1f6e4483a6eaf3b42f76d17dd0b2c0aa81106ea1710)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "onlineStoreConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="recordIdentifierFeatureName")
+    def record_identifier_feature_name(self) -> builtins.str:
+        '''The name of the ``Feature`` whose value uniquely identifies a ``Record`` defined in the ``FeatureGroup`` ``FeatureDefinitions`` .'''
+        return typing.cast(builtins.str, jsii.get(self, "recordIdentifierFeatureName"))
+
+    @record_identifier_feature_name.setter
+    def record_identifier_feature_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b78873bd7aeb067f399e0d34bbfcead148ee8cd93f599510cd64c6e738908832)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "recordIdentifierFeatureName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A free form description of a ``FeatureGroup`` .'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b3eb81281cd3d68bb6a0b5a3ea79863153df71f1420743d27c3d773a2fd6c98)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -23666,6 +23666,15 @@ class CfnModel(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrModelArn")
+    def attr_model_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the model.
+
+        :cloudformationAttribute: ModelArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrModelArn"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrModelName")
     def attr_model_name(self) -> builtins.str:
         '''The name of the model, such as ``MyModel`` .
@@ -24555,11 +24564,11 @@ class CfnModel(
 
             Your input bucket must be in the same AWS region as your training job.
 
-            :param compression_type: 
+            :param compression_type: Specifies how the ML model data is prepared.
             :param s3_data_type: If you choose ``S3Prefix`` , ``S3Uri`` identifies a key name prefix. SageMaker uses all objects that match the specified key name prefix for model training. If you choose ``ManifestFile`` , ``S3Uri`` identifies an object that is a manifest file containing a list of object keys that you want SageMaker to use for model training. If you choose ``AugmentedManifestFile`` , ``S3Uri`` identifies an object that is an augmented manifest file in JSON lines format. This file contains the data you want to use for model training. ``AugmentedManifestFile`` can only be used if the Channel's input mode is ``Pipe`` . If you choose ``Converse`` , ``S3Uri`` identifies an Amazon S3 location that contains data formatted according to Converse format. This format structures conversational messages with specific roles and content types used for training and fine-tuning foundational models.
             :param s3_uri: Depending on the value specified for the ``S3DataType`` , identifies either a key name prefix or a manifest. For example: - A key name prefix might look like this: ``s3://bucketname/exampleprefix/`` - A manifest might look like this: ``s3://bucketname/example.manifest`` A manifest is an S3 object which is a JSON file consisting of an array of elements. The first element is a prefix which is followed by one or more suffixes. SageMaker appends the suffix elements to the prefix to get a full set of ``S3Uri`` . Note that the prefix must be a valid non-empty ``S3Uri`` that precludes users from specifying a manifest whose individual ``S3Uri`` is sourced from different S3 buckets. The following code example shows a valid manifest format: ``[ {"prefix": "s3://customer_bucket/some/prefix/"},`` ``"relative/path/to/custdata-1",`` ``"relative/path/custdata-2",`` ``...`` ``"relative/path/custdata-N"`` ``]`` This JSON is equivalent to the following ``S3Uri`` list: ``s3://customer_bucket/some/prefix/relative/path/to/custdata-1`` ``s3://customer_bucket/some/prefix/relative/path/custdata-2`` ``...`` ``s3://customer_bucket/some/prefix/relative/path/custdata-N`` The complete set of ``S3Uri`` in this manifest is the input data for the channel for this data source. The object that each ``S3Uri`` points to must be readable by the IAM role that SageMaker uses to perform tasks on your behalf. Your input bucket must be located in same AWS region as your training job.
             :param hub_access_config: The configuration for a private hub model reference that points to a SageMaker JumpStart public hub model.
-            :param model_access_config: 
+            :param model_access_config: The access configuration file to control access to the ML model. You can explicitly accept the model end-user license agreement (EULA) within the ``ModelAccessConfig``.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-model-s3datasource.html
             :exampleMetadata: fixture=_generated
@@ -24603,7 +24612,8 @@ class CfnModel(
 
         @builtins.property
         def compression_type(self) -> builtins.str:
-            '''
+            '''Specifies how the ML model data is prepared.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-model-s3datasource.html#cfn-sagemaker-model-s3datasource-compressiontype
             '''
             result = self._values.get("compression_type")
@@ -24688,7 +24698,10 @@ class CfnModel(
         def model_access_config(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnModel.ModelAccessConfigProperty"]]:
-            '''
+            '''The access configuration file to control access to the ML model.
+
+            You can explicitly accept the model end-user license agreement (EULA) within the ``ModelAccessConfig``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-model-s3datasource.html#cfn-sagemaker-model-s3datasource-modelaccessconfig
             '''
             result = self._values.get("model_access_config")
@@ -37993,6 +38006,19 @@ class CfnModelPackageGroup(
         jsii.set(self, "modelPackageGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="modelPackageGroupPolicy")
+    def model_package_group_policy(self) -> typing.Any:
+        '''A resouce policy to control access to a model group.'''
+        return typing.cast(typing.Any, jsii.get(self, "modelPackageGroupPolicy"))
+
+    @model_package_group_policy.setter
+    def model_package_group_policy(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf026534ccea2b3126cb94af5d3a36a2aedfe86f89479e5b10e0cc06eb20d7dd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "modelPackageGroupPolicy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="modelPackageGroupDescription")
     def model_package_group_description(self) -> typing.Optional[builtins.str]:
         '''The description for the model group.'''
@@ -38007,19 +38033,6 @@ class CfnModelPackageGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__4355427f5a6cfe7448fead52d53481adcb15a61d6238fd6aa476aec9b29dd90a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "modelPackageGroupDescription", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="modelPackageGroupPolicy")
-    def model_package_group_policy(self) -> typing.Any:
-        '''A resouce policy to control access to a model group.'''
-        return typing.cast(typing.Any, jsii.get(self, "modelPackageGroupPolicy"))
-
-    @model_package_group_policy.setter
-    def model_package_group_policy(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf026534ccea2b3126cb94af5d3a36a2aedfe86f89479e5b10e0cc06eb20d7dd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "modelPackageGroupPolicy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -47026,6 +47039,19 @@ class CfnPipeline(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="parallelismConfiguration")
+    def parallelism_configuration(self) -> typing.Any:
+        '''The parallelism configuration applied to the pipeline.'''
+        return typing.cast(typing.Any, jsii.get(self, "parallelismConfiguration"))
+
+    @parallelism_configuration.setter
+    def parallelism_configuration(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__75edf709dbf33ce1b709c54ac74b477fea0c18696074d2323b37200cab9c21f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parallelismConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="pipelineDefinition")
     def pipeline_definition(self) -> typing.Any:
         '''The definition of the pipeline.'''
@@ -47063,19 +47089,6 @@ class CfnPipeline(
             type_hints = typing.get_type_hints(_typecheckingstub__fe03258e998279120b3ba766d655d0768128ecb7802ac4645154217adf786b50)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="parallelismConfiguration")
-    def parallelism_configuration(self) -> typing.Any:
-        '''The parallelism configuration applied to the pipeline.'''
-        return typing.cast(typing.Any, jsii.get(self, "parallelismConfiguration"))
-
-    @parallelism_configuration.setter
-    def parallelism_configuration(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75edf709dbf33ce1b709c54ac74b477fea0c18696074d2323b37200cab9c21f4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parallelismConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="pipelineDescription")
@@ -50469,6 +50482,19 @@ class CfnProject(
         jsii.set(self, "projectName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="serviceCatalogProvisioningDetails")
+    def service_catalog_provisioning_details(self) -> typing.Any:
+        '''The product ID and provisioning artifact ID to provision a service catalog.'''
+        return typing.cast(typing.Any, jsii.get(self, "serviceCatalogProvisioningDetails"))
+
+    @service_catalog_provisioning_details.setter
+    def service_catalog_provisioning_details(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d718ddafa3c422dac1f0d00451c0ed5aa622263f6d29b78b9bf867f3295e22c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serviceCatalogProvisioningDetails", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="projectDescription")
     def project_description(self) -> typing.Optional[builtins.str]:
         '''The description of the project.'''
@@ -50498,19 +50524,6 @@ class CfnProject(
             type_hints = typing.get_type_hints(_typecheckingstub__718846b7774e70e41ab8c08d9dd7855efeff4369da6fb321666c7229a186b3c6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "serviceCatalogProvisionedProductDetails", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="serviceCatalogProvisioningDetails")
-    def service_catalog_provisioning_details(self) -> typing.Any:
-        '''The product ID and provisioning artifact ID to provision a service catalog.'''
-        return typing.cast(typing.Any, jsii.get(self, "serviceCatalogProvisioningDetails"))
-
-    @service_catalog_provisioning_details.setter
-    def service_catalog_provisioning_details(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d718ddafa3c422dac1f0d00451c0ed5aa622263f6d29b78b9bf867f3295e22c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serviceCatalogProvisioningDetails", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -59662,18 +59675,6 @@ def _typecheckingstub__d6f4169fe264f570e3e6859737b587e566b9716d614cf3a24902f6b04
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__b78873bd7aeb067f399e0d34bbfcead148ee8cd93f599510cd64c6e738908832(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2b3eb81281cd3d68bb6a0b5a3ea79863153df71f1420743d27c3d773a2fd6c98(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__35a3cd1a7f2eeb38ecbdecb8d787b667dd2fb89f595b3887438fb9c49ebe2125(
     value: typing.Any,
 ) -> None:
@@ -59682,6 +59683,18 @@ def _typecheckingstub__35a3cd1a7f2eeb38ecbdecb8d787b667dd2fb89f595b3887438fb9c49
 
 def _typecheckingstub__36874ea58589f290874ec1f6e4483a6eaf3b42f76d17dd0b2c0aa81106ea1710(
     value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b78873bd7aeb067f399e0d34bbfcead148ee8cd93f599510cd64c6e738908832(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b3eb81281cd3d68bb6a0b5a3ea79863153df71f1420743d27c3d773a2fd6c98(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -62144,14 +62157,14 @@ def _typecheckingstub__f733d2395a5b964f60911bc23f1df2182dfade19e251f7d463a9b030d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4355427f5a6cfe7448fead52d53481adcb15a61d6238fd6aa476aec9b29dd90a(
-    value: typing.Optional[builtins.str],
+def _typecheckingstub__cf026534ccea2b3126cb94af5d3a36a2aedfe86f89479e5b10e0cc06eb20d7dd(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__cf026534ccea2b3126cb94af5d3a36a2aedfe86f89479e5b10e0cc06eb20d7dd(
-    value: typing.Any,
+def _typecheckingstub__4355427f5a6cfe7448fead52d53481adcb15a61d6238fd6aa476aec9b29dd90a(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -63242,6 +63255,12 @@ def _typecheckingstub__425cff485a7d607913cd5619367319f69abc05063f5c69dcc0187a86a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__75edf709dbf33ce1b709c54ac74b477fea0c18696074d2323b37200cab9c21f4(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a4d6de343d0d5e8951289fbc8da9e379dea874e19819164a97a48f37b0d2054a(
     value: typing.Any,
 ) -> None:
@@ -63256,12 +63275,6 @@ def _typecheckingstub__cbcf88f32c798e6042f4f042e947c84b0b73f17edf4d203ce943e3ad2
 
 def _typecheckingstub__fe03258e998279120b3ba766d655d0768128ecb7802ac4645154217adf786b50(
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__75edf709dbf33ce1b709c54ac74b477fea0c18696074d2323b37200cab9c21f4(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -63648,6 +63661,12 @@ def _typecheckingstub__e671a1f8a3c6667e300b84008f581f9371ad7d9618076d90853fed714
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9d718ddafa3c422dac1f0d00451c0ed5aa622263f6d29b78b9bf867f3295e22c(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__bbba1d96ca34775b9d6bb59929ffa5affcca7733f06a146a63b8176d032affec(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -63656,12 +63675,6 @@ def _typecheckingstub__bbba1d96ca34775b9d6bb59929ffa5affcca7733f06a146a63b8176d0
 
 def _typecheckingstub__718846b7774e70e41ab8c08d9dd7855efeff4369da6fb321666c7229a186b3c6(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProject.ServiceCatalogProvisionedProductDetailsProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9d718ddafa3c422dac1f0d00451c0ed5aa622263f6d29b78b9bf867f3295e22c(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

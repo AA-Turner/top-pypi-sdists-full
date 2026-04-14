@@ -5963,6 +5963,7 @@ https://docs.chalk.ai/cli/apply
         upper_bound: datetime | None = None,
         resolver: str | None = None,
         query_tags: list[str] | None = None,
+        store_offline: bool | None = None,
     ):
         from chalk.client.client_grpc import ChalkGRPCClient
 
@@ -5978,6 +5979,7 @@ https://docs.chalk.ai/cli/apply
             upper_bound=upper_bound,
             resolver=resolver,
             query_tags=query_tags,
+            store_offline=store_offline,
         )
 
 

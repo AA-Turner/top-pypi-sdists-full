@@ -113,10 +113,8 @@ class CfnConnector(
                     max_autoscaling_task_count=123
                 ),
                 provisioned_capacity=kafkaconnect.CfnConnector.ProvisionedCapacityProperty(
-                    worker_count=123,
-        
-                    # the properties below are optional
-                    mcu_count=123
+                    mcu_count=123,
+                    worker_count=123
                 )
             ),
             connector_configuration={
@@ -818,10 +816,8 @@ class CfnConnector(
                         max_autoscaling_task_count=123
                     ),
                     provisioned_capacity=kafkaconnect.CfnConnector.ProvisionedCapacityProperty(
-                        worker_count=123,
-                
-                        # the properties below are optional
-                        mcu_count=123
+                        mcu_count=123,
+                        worker_count=123
                     )
                 )
             '''
@@ -1399,19 +1395,19 @@ class CfnConnector(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_kafkaconnect.CfnConnector.ProvisionedCapacityProperty",
         jsii_struct_bases=[],
-        name_mapping={"worker_count": "workerCount", "mcu_count": "mcuCount"},
+        name_mapping={"mcu_count": "mcuCount", "worker_count": "workerCount"},
     )
     class ProvisionedCapacityProperty:
         def __init__(
             self,
             *,
+            mcu_count: jsii.Number,
             worker_count: jsii.Number,
-            mcu_count: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Details about a connector's provisioned capacity.
 
-            :param worker_count: The number of workers that are allocated to the connector.
             :param mcu_count: The number of microcontroller units (MCUs) allocated to each connector worker. The valid values are 1,2,4,8.
+            :param worker_count: The number of workers that are allocated to the connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-provisionedcapacity.html
             :exampleMetadata: fixture=_generated
@@ -1423,21 +1419,30 @@ class CfnConnector(
                 from aws_cdk import aws_kafkaconnect as kafkaconnect
                 
                 provisioned_capacity_property = kafkaconnect.CfnConnector.ProvisionedCapacityProperty(
-                    worker_count=123,
-                
-                    # the properties below are optional
-                    mcu_count=123
+                    mcu_count=123,
+                    worker_count=123
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__bf9af2fbdc2eecf97de30bc43ea6a6be8266e58490ff4a55318a2c6b110af1b8)
-                check_type(argname="argument worker_count", value=worker_count, expected_type=type_hints["worker_count"])
                 check_type(argname="argument mcu_count", value=mcu_count, expected_type=type_hints["mcu_count"])
+                check_type(argname="argument worker_count", value=worker_count, expected_type=type_hints["worker_count"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
+                "mcu_count": mcu_count,
                 "worker_count": worker_count,
             }
-            if mcu_count is not None:
-                self._values["mcu_count"] = mcu_count
+
+        @builtins.property
+        def mcu_count(self) -> jsii.Number:
+            '''The number of microcontroller units (MCUs) allocated to each connector worker.
+
+            The valid values are 1,2,4,8.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-provisionedcapacity.html#cfn-kafkaconnect-connector-provisionedcapacity-mcucount
+            '''
+            result = self._values.get("mcu_count")
+            assert result is not None, "Required property 'mcu_count' is missing"
+            return typing.cast(jsii.Number, result)
 
         @builtins.property
         def worker_count(self) -> jsii.Number:
@@ -1448,17 +1453,6 @@ class CfnConnector(
             result = self._values.get("worker_count")
             assert result is not None, "Required property 'worker_count' is missing"
             return typing.cast(jsii.Number, result)
-
-        @builtins.property
-        def mcu_count(self) -> typing.Optional[jsii.Number]:
-            '''The number of microcontroller units (MCUs) allocated to each connector worker.
-
-            The valid values are 1,2,4,8.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kafkaconnect-connector-provisionedcapacity.html#cfn-kafkaconnect-connector-provisionedcapacity-mcucount
-            '''
-            result = self._values.get("mcu_count")
-            return typing.cast(typing.Optional[jsii.Number], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2005,10 +1999,8 @@ class CfnConnectorProps:
                         max_autoscaling_task_count=123
                     ),
                     provisioned_capacity=kafkaconnect.CfnConnector.ProvisionedCapacityProperty(
-                        worker_count=123,
-            
-                        # the properties below are optional
-                        mcu_count=123
+                        mcu_count=123,
+                        worker_count=123
                     )
                 ),
                 connector_configuration={
@@ -3453,8 +3445,8 @@ def _typecheckingstub__35948a4a66b01f82e5bedaf253946f464f4c86608300c9773f71dce12
 
 def _typecheckingstub__bf9af2fbdc2eecf97de30bc43ea6a6be8266e58490ff4a55318a2c6b110af1b8(
     *,
+    mcu_count: jsii.Number,
     worker_count: jsii.Number,
-    mcu_count: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

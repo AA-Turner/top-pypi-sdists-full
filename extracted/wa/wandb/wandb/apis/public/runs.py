@@ -43,6 +43,7 @@ import urllib
 from collections.abc import Collection, Iterator, Mapping
 from typing import TYPE_CHECKING, Any, Literal
 
+from typing_extensions import override
 from wandb_gql import gql
 
 import wandb
@@ -50,6 +51,8 @@ import wandb.apis.public.runhistory as runhistory
 from wandb import env, util
 from wandb._strutils import nameof
 from wandb.apis import public
+from wandb.apis._generated import GET_AGENT_RUNS_GQL
+from wandb.apis._generated.get_agent_runs import GetAgentRuns
 from wandb.apis.attrs import Attrs
 from wandb.apis.internal import Api as InternalApi
 from wandb.apis.normalize import normalize_exceptions
@@ -127,9 +130,7 @@ RUN_FRAGMENT_NAME = "RunFragment"
 LIGHTWEIGHT_RUN_FRAGMENT_NAME = "LightweightRunFragment"
 
 
-def _create_runs_query(
-    *, lazy: bool, with_internal_id: bool, with_project_id: bool
-) -> gql:
+def _create_runs_query(*, lazy: bool) -> gql:
     """Create GraphQL query for runs with appropriate fragment."""
     fragment = LIGHTWEIGHT_RUN_FRAGMENT if lazy else RUN_FRAGMENT
     fragment_name = LIGHTWEIGHT_RUN_FRAGMENT_NAME if lazy else RUN_FRAGMENT_NAME
@@ -138,13 +139,13 @@ def _create_runs_query(
         f"""#graphql
         query Runs($project: String!, $entity: String!, $cursor: String, $perPage: Int = 50, $order: String, $filters: JSONString) {{
             project(name: $project, entityName: $entity) {{
-                {"internalId" if with_internal_id else ""}
+                internalId
                 runCount(filters: $filters)
                 readOnly
                 runs(filters: $filters, after: $cursor, first: $perPage, order: $order) {{
                     edges {{
                         node {{
-                            {"projectId" if with_project_id else ""}
+                            projectId
                             ...{fragment_name}
                         }}
                         cursor
@@ -159,48 +160,6 @@ def _create_runs_query(
         {fragment}
         """
     )
-
-
-@normalize_exceptions
-def _server_provides_internal_id_for_project(client: RetryingClient) -> bool:
-    """Returns True if the server allows us to query the internalId field for a project."""
-    query_string = """
-       query ProbeProjectInput {
-            ProjectType: __type(name:"Project") {
-                fields {
-                    name
-                }
-            }
-        }
-    """
-
-    # Only perform the query once to avoid extra network calls
-    query = gql(query_string)
-    res = client.execute(query)
-    return "internalId" in [
-        x["name"] for x in (res.get("ProjectType", {}).get("fields", [{}]))
-    ]
-
-
-@normalize_exceptions
-def _server_provides_project_id_for_run(client: RetryingClient) -> bool:
-    """Returns True if the server allows us to query the projectId field for a run."""
-    query_string = """
-       query ProbeRunInput {
-            RunType: __type(name:"Run") {
-                fields {
-                    name
-                }
-            }
-        }
-    """
-
-    # Only perform the query once to avoid extra network calls
-    query = gql(query_string)
-    res = client.execute(query)
-    return "projectId" in [
-        x["name"] for x in (res.get("RunType", {}).get("fields", [{}]))
-    ]
 
 
 @normalize_exceptions
@@ -265,11 +224,7 @@ class Runs(SizedPaginator["Run"]):
         if not order:
             order = "+created_at"
 
-        self.QUERY = _create_runs_query(
-            lazy=lazy,
-            with_internal_id=_server_provides_internal_id_for_project(client),
-            with_project_id=_server_provides_project_id_for_run(client),
-        )
+        self.QUERY = _create_runs_query(lazy=lazy)
 
         self.entity = entity
         self.project = project
@@ -480,11 +435,7 @@ class Runs(SizedPaginator["Run"]):
         self._lazy = False
 
         # Regenerate query with full fragment
-        self.QUERY = _create_runs_query(
-            lazy=False,
-            with_internal_id=_server_provides_internal_id_for_project(self.client),
-            with_project_id=_server_provides_project_id_for_run(self.client),
-        )
+        self.QUERY = _create_runs_query(lazy=False)
 
         # Upgrade any existing runs that have been loaded - use parallel loading for performance
         lazy_runs = [run for run in self.objects if run._lazy]
@@ -498,6 +449,122 @@ class Runs(SizedPaginator["Run"]):
                 # Wait for all to complete
                 for future in futures:
                     future.result()
+
+
+class AgentRuns(SizedPaginator["Run"]):
+    """A lazy iterator of `Run` objects for a single sweep agent.
+
+    <!-- lazydoc-ignore-class: internal -->
+    """
+
+    def __init__(
+        self,
+        client: RetryingClient,
+        entity: str,
+        project: str,
+        sweep_id: str,
+        agent_key: str,
+        *,
+        total_runs: int,
+        order: str = "+created_at",
+        per_page: int = 50,
+        service_api: ServiceApi | None = None,
+    ) -> None:
+        self.QUERY = gql(GET_AGENT_RUNS_GQL)
+        self.entity = entity
+        self.project = project
+        self._sweep_id = sweep_id
+        self._agent_key = agent_key
+        self.order = order
+        self._sweeps: dict[str, public.Sweep] = {}
+        self._service_api = service_api
+        self._total_runs = total_runs
+        self.per_page = per_page
+
+        variables = {
+            "project": self.project,
+            "entity": self.entity,
+            "order": self.order,
+            "agentID": self._agent_key,
+            "sweep": self._sweep_id,
+            "after": None,
+            "before": None,
+            "first": self.per_page,
+            "last": None,
+        }
+        super().__init__(client, variables, per_page)
+
+    @override
+    def update_variables(self) -> None:
+        """Map paginator state to GetAgentRuns variables (after/first, not cursor/perPage)."""
+        self.variables.update(
+            {
+                "first": self.per_page,
+                "after": self.cursor,
+                "before": None,
+                "last": None,
+            }
+        )
+
+    @property
+    @override
+    def _length(self) -> int:
+        return self._total_runs
+
+    def _parsed(self) -> GetAgentRuns:
+        assert self.last_response is not None
+        return GetAgentRuns.model_validate(self.last_response)
+
+    def _agent_runs_connection(self):
+        parsed = self._parsed()
+        if not parsed.project:
+            raise ValueError(f"Could not find project {self.project!r} for agent runs.")
+        if not parsed.project.sweep:
+            raise ValueError(f"Could not find sweep {self._sweep_id!r} for agent runs.")
+        if not parsed.project.sweep.agent:
+            raise ValueError(
+                f"Could not find agent {self._agent_key!r} for agent runs."
+            )
+        return parsed.project.sweep.agent.runs
+
+    @property
+    @override
+    def more(self) -> bool:
+        return self.last_response is None or bool(
+            self._agent_runs_connection().page_info.has_next_page
+        )
+
+    @property
+    @override
+    def cursor(self) -> str | None:
+        if not self.last_response:
+            return None
+        edges = self._agent_runs_connection().edges
+        return edges[-1].cursor if edges else None
+
+    @override
+    def convert_objects(self) -> list[Run]:
+        """Convert the current GraphQL page into :class:`Run` instances for this agent."""
+        objs = []
+        for edge in self._agent_runs_connection().edges:
+            node = edge.node.model_dump(by_alias=True)
+            run = Run(
+                self.client,
+                self.entity,
+                self.project,
+                node["name"],
+                node,
+                include_sweeps=False,
+                lazy=True,
+                service_api=self._service_api,
+            )
+            objs.append(run)
+
+        return objs
+
+    @override
+    def __repr__(self) -> str:
+        return f"<{nameof(type(self))} {self.entity}/{self.project} agent={self._agent_key!r}>"
 
 
 class Run(Attrs):
@@ -570,7 +637,6 @@ class Run(Attrs):
         self._metadata: dict[str, Any] | None = None
         self._state = _attrs.get("state", "not found")
         self.server_provides_internal_id_field: bool | None = None
-        self._server_provides_project_id_field: bool | None = None
         self._is_loaded: bool = False
         self._service_api: ServiceApi | None = service_api
 
@@ -722,18 +788,12 @@ class Run(Attrs):
         self, fragment: str, fragment_name: str, force: bool = False
     ) -> dict[str, Any]:
         """Load run data using specified GraphQL fragment."""
-        # Cache the server capability check to avoid repeated network calls
-        if self._server_provides_project_id_field is None:
-            self._server_provides_project_id_field = (
-                _server_provides_project_id_for_run(self.client)
-            )
-
         query = gql(
             f"""#graphql
         query Run($project: String!, $entity: String!, $name: String!) {{
             project(name: $project, entityName: $entity) {{
                 run(name: $name) {{
-                    {"projectId" if self._server_provides_project_id_field else ""}
+                    projectId
                     ...{fragment_name}
                 }}
             }}
@@ -789,10 +849,13 @@ class Run(Attrs):
         return self._attrs
 
     def _load_from_attrs(self) -> dict[str, Any]:
+        # Snapshot before mutating: only persist config/rawconfig when the response
+        # included a config field (lazy runs omit it until load_full_data()).
+        had_config_field = "config" in self._attrs
         self._state = self._attrs.get("state", None)
 
         # Only convert fields if they exist in _attrs
-        if "config" in self._attrs:
+        if had_config_field:
             self._attrs["config"] = _convert_to_dict(self._attrs.get("config"))
         if "summaryMetrics" in self._attrs:
             self._attrs["summaryMetrics"] = _convert_to_dict(
@@ -828,9 +891,10 @@ class Run(Attrs):
                 # Handle case where config is malformed or not a dict
                 pass
 
-        config_raw.update(config_user)
-        self._attrs["config"] = config_user
-        self._attrs["rawconfig"] = config_raw
+        if had_config_field:
+            config_raw.update(config_user)
+            self._attrs["config"] = config_user
+            self._attrs["rawconfig"] = config_raw
 
         if "user" in self._attrs:
             self.user = public.User(self.client, self._attrs["user"])

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from os import SEEK_SET, stat
 from platform import system
 from typing import IO, TYPE_CHECKING
@@ -20,13 +21,11 @@ __author__ = "Tyson Smith"
 __credits__ = ["Tyson Smith"]
 
 
+@dataclass(eq=False, slots=True)
 class _LogContentsCheckState:
-    __slots__ = ("buffer", "fname", "offset")
-
-    def __init__(self, fname: str) -> None:
-        self.fname: str = fname
-        self.buffer: bytes = b""
-        self.offset: int = 0
+    fname: str
+    buffer: bytes = b""
+    offset: int = 0
 
 
 class Check(ABC):
@@ -145,9 +144,9 @@ class CheckLogSize(Check):
         if total_size > self.limit:
             self.message = (
                 f"LOG_SIZE_LIMIT_EXCEEDED: {total_size:,}\n"
-                f"Limit: {self.limit:,} ({self.limit / 1_048_576}MB)\n"
-                f"stderr log: {err_size:,} ({err_size / 1_048_576}MB)\n"
-                f"stdout log: {out_size:,} ({out_size / 1_048_576}MB)\n"
+                f"Limit: {self.limit:,} ({self.limit / 1_048_576:0.1f}MB)\n"
+                f"stderr log: {err_size:,} ({err_size / 1_048_576:0.1f}MB)\n"
+                f"stdout log: {out_size:,} ({out_size / 1_048_576:0.1f}MB)\n"
             )
         return self.message is not None
 
@@ -202,7 +201,7 @@ class CheckMemoryUsage(Check):
         if total_usage >= self.limit:
             msg = [
                 f"MEMORY_LIMIT_EXCEEDED: {total_usage:,}\n",
-                f"Limit: {self.limit:,} ({self.limit / 1_048_576}MB)\n",
+                f"Limit: {self.limit:,} ({self.limit / 1_048_576:0.1f}MB)\n",
                 f"Parent PID: {self.pid}\n",
             ]
             for pid, usage in proc_info:

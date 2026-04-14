@@ -1170,6 +1170,12 @@ class CfnFileSystem(
                     iops=123,
                     mode="mode"
                 ),
+                fsrm_configuration=fsx.CfnFileSystem.FsrmConfigurationProperty(
+                    fsrm_service_enabled=False,
+        
+                    # the properties below are optional
+                    event_log_destination="eventLogDestination"
+                ),
                 preferred_subnet_id="preferredSubnetId",
                 self_managed_active_directory_configuration=fsx.CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty(
                     dns_ips=["dnsIps"],
@@ -1899,6 +1905,81 @@ class CfnFileSystem(
 
         def __repr__(self) -> str:
             return "DiskIopsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_fsx.CfnFileSystem.FsrmConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "fsrm_service_enabled": "fsrmServiceEnabled",
+            "event_log_destination": "eventLogDestination",
+        },
+    )
+    class FsrmConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            fsrm_service_enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            event_log_destination: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param fsrm_service_enabled: 
+            :param event_log_destination: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-fsrmconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_fsx as fsx
+                
+                fsrm_configuration_property = fsx.CfnFileSystem.FsrmConfigurationProperty(
+                    fsrm_service_enabled=False,
+                
+                    # the properties below are optional
+                    event_log_destination="eventLogDestination"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a1a87e74515d95b12117202a812c1704adfe7df1f960c4cd056bd07d4f31cfe5)
+                check_type(argname="argument fsrm_service_enabled", value=fsrm_service_enabled, expected_type=type_hints["fsrm_service_enabled"])
+                check_type(argname="argument event_log_destination", value=event_log_destination, expected_type=type_hints["event_log_destination"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "fsrm_service_enabled": fsrm_service_enabled,
+            }
+            if event_log_destination is not None:
+                self._values["event_log_destination"] = event_log_destination
+
+        @builtins.property
+        def fsrm_service_enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-fsrmconfiguration.html#cfn-fsx-filesystem-fsrmconfiguration-fsrmserviceenabled
+            '''
+            result = self._values.get("fsrm_service_enabled")
+            assert result is not None, "Required property 'fsrm_service_enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def event_log_destination(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-fsrmconfiguration.html#cfn-fsx-filesystem-fsrmconfiguration-eventlogdestination
+            '''
+            result = self._values.get("event_log_destination")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FsrmConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3604,6 +3685,7 @@ class CfnFileSystem(
             "daily_automatic_backup_start_time": "dailyAutomaticBackupStartTime",
             "deployment_type": "deploymentType",
             "disk_iops_configuration": "diskIopsConfiguration",
+            "fsrm_configuration": "fsrmConfiguration",
             "preferred_subnet_id": "preferredSubnetId",
             "self_managed_active_directory_configuration": "selfManagedActiveDirectoryConfiguration",
             "weekly_maintenance_start_time": "weeklyMaintenanceStartTime",
@@ -3622,6 +3704,7 @@ class CfnFileSystem(
             daily_automatic_backup_start_time: typing.Optional[builtins.str] = None,
             deployment_type: typing.Optional[builtins.str] = None,
             disk_iops_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.DiskIopsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fsrm_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.FsrmConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             preferred_subnet_id: typing.Optional[builtins.str] = None,
             self_managed_active_directory_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             weekly_maintenance_start_time: typing.Optional[builtins.str] = None,
@@ -3637,6 +3720,7 @@ class CfnFileSystem(
             :param daily_automatic_backup_start_time: A recurring daily time, in the format ``HH:MM`` . ``HH`` is the zero-padded hour of the day (0-23), and ``MM`` is the zero-padded minute of the hour. For example, ``05:00`` specifies 5 AM daily.
             :param deployment_type: Specifies the file system deployment type, valid values are the following:. - ``MULTI_AZ_1`` - Deploys a high availability file system that is configured for Multi-AZ redundancy to tolerate temporary Availability Zone (AZ) unavailability. You can only deploy a Multi-AZ file system in AWS Regions that have a minimum of three Availability Zones. Also supports HDD storage type - ``SINGLE_AZ_1`` - (Default) Choose to deploy a file system that is configured for single AZ redundancy. - ``SINGLE_AZ_2`` - The latest generation Single AZ file system. Specifies a file system that is configured for single AZ redundancy and supports HDD storage type. For more information, see `Availability and Durability: Single-AZ and Multi-AZ File Systems <https://docs.aws.amazon.com/fsx/latest/WindowsGuide/high-availability-multiAZ.html>`_ .
             :param disk_iops_configuration: The SSD IOPS (input/output operations per second) configuration for an Amazon FSx for Windows file system. By default, Amazon FSx automatically provisions 3 IOPS per GiB of storage capacity. You can provision additional IOPS per GiB of storage, up to the maximum limit associated with your chosen throughput capacity.
+            :param fsrm_configuration: 
             :param preferred_subnet_id: Required when ``DeploymentType`` is set to ``MULTI_AZ_1`` . This specifies the subnet in which you want the preferred file server to be located. For in- AWS applications, we recommend that you launch your clients in the same availability zone as your preferred file server to reduce cross-availability zone data transfer costs and minimize latency.
             :param self_managed_active_directory_configuration: The configuration that Amazon FSx uses to join a FSx for Windows File Server file system or an FSx for ONTAP storage virtual machine (SVM) to a self-managed (including on-premises) Microsoft Active Directory (AD) directory. For more information, see `Using Amazon FSx for Windows with your self-managed Microsoft Active Directory <https://docs.aws.amazon.com/fsx/latest/WindowsGuide/self-managed-AD.html>`_ or `Managing FSx for ONTAP SVMs <https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/managing-svms.html>`_ .
             :param weekly_maintenance_start_time: The preferred start time to perform weekly maintenance, formatted d:HH:MM in the UTC time zone, where d is the weekday number, from 1 through 7, beginning with Monday and ending with Sunday.
@@ -3671,6 +3755,12 @@ class CfnFileSystem(
                         iops=123,
                         mode="mode"
                     ),
+                    fsrm_configuration=fsx.CfnFileSystem.FsrmConfigurationProperty(
+                        fsrm_service_enabled=False,
+                
+                        # the properties below are optional
+                        event_log_destination="eventLogDestination"
+                    ),
                     preferred_subnet_id="preferredSubnetId",
                     self_managed_active_directory_configuration=fsx.CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty(
                         dns_ips=["dnsIps"],
@@ -3695,6 +3785,7 @@ class CfnFileSystem(
                 check_type(argname="argument daily_automatic_backup_start_time", value=daily_automatic_backup_start_time, expected_type=type_hints["daily_automatic_backup_start_time"])
                 check_type(argname="argument deployment_type", value=deployment_type, expected_type=type_hints["deployment_type"])
                 check_type(argname="argument disk_iops_configuration", value=disk_iops_configuration, expected_type=type_hints["disk_iops_configuration"])
+                check_type(argname="argument fsrm_configuration", value=fsrm_configuration, expected_type=type_hints["fsrm_configuration"])
                 check_type(argname="argument preferred_subnet_id", value=preferred_subnet_id, expected_type=type_hints["preferred_subnet_id"])
                 check_type(argname="argument self_managed_active_directory_configuration", value=self_managed_active_directory_configuration, expected_type=type_hints["self_managed_active_directory_configuration"])
                 check_type(argname="argument weekly_maintenance_start_time", value=weekly_maintenance_start_time, expected_type=type_hints["weekly_maintenance_start_time"])
@@ -3717,6 +3808,8 @@ class CfnFileSystem(
                 self._values["deployment_type"] = deployment_type
             if disk_iops_configuration is not None:
                 self._values["disk_iops_configuration"] = disk_iops_configuration
+            if fsrm_configuration is not None:
+                self._values["fsrm_configuration"] = fsrm_configuration
             if preferred_subnet_id is not None:
                 self._values["preferred_subnet_id"] = preferred_subnet_id
             if self_managed_active_directory_configuration is not None:
@@ -3844,6 +3937,16 @@ class CfnFileSystem(
             '''
             result = self._values.get("disk_iops_configuration")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.DiskIopsConfigurationProperty"]], result)
+
+        @builtins.property
+        def fsrm_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.FsrmConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-windowsconfiguration.html#cfn-fsx-filesystem-windowsconfiguration-fsrmconfiguration
+            '''
+            result = self._values.get("fsrm_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFileSystem.FsrmConfigurationProperty"]], result)
 
         @builtins.property
         def preferred_subnet_id(self) -> typing.Optional[builtins.str]:
@@ -4077,6 +4180,12 @@ class CfnFileSystemProps:
                     disk_iops_configuration=fsx.CfnFileSystem.DiskIopsConfigurationProperty(
                         iops=123,
                         mode="mode"
+                    ),
+                    fsrm_configuration=fsx.CfnFileSystem.FsrmConfigurationProperty(
+                        fsrm_service_enabled=False,
+            
+                        # the properties below are optional
+                        event_log_destination="eventLogDestination"
                     ),
                     preferred_subnet_id="preferredSubnetId",
                     self_managed_active_directory_configuration=fsx.CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty(
@@ -10404,6 +10513,14 @@ def _typecheckingstub__ae47548d0ff6b28a7e7311347d5b08153a4d8130c5f4cd5b7ebd25883
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a1a87e74515d95b12117202a812c1704adfe7df1f960c4cd056bd07d4f31cfe5(
+    *,
+    fsrm_service_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    event_log_destination: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8e1fe808b96f0eb1b8b6ed8eb3d551c8d995fe2c98c9be554bed33160d615a99(
     *,
     auto_import_policy: typing.Optional[builtins.str] = None,
@@ -10534,6 +10651,7 @@ def _typecheckingstub__6f9cac75c57fdd9a5bd887a9ae65722d8acdd7a64ee9180917b3aa6b9
     daily_automatic_backup_start_time: typing.Optional[builtins.str] = None,
     deployment_type: typing.Optional[builtins.str] = None,
     disk_iops_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.DiskIopsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    fsrm_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.FsrmConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     preferred_subnet_id: typing.Optional[builtins.str] = None,
     self_managed_active_directory_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFileSystem.SelfManagedActiveDirectoryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     weekly_maintenance_start_time: typing.Optional[builtins.str] = None,

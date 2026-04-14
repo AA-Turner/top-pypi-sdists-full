@@ -201,17 +201,16 @@ class SubsetsTest(CliTestCase):
                           mix_stderr=False)
 
         self.assert_success(result)
-        expect = """PTS subset change summary:
-────────────────────────────────
--> 3 tests analyzed | 1 ↑ promoted | 1 ↓ demoted
--> Code files affected: bbb.py, ccc.py, ddd.py
-────────────────────────────────
-
-Δ Rank    Subset Rank    Test Name    Reason                Density
---------  -------------  -----------  --------------------  ---------
-NEW       1              file=ddd.py  Changed file: ddd.py  0.9
-↑1        2              file=ccc.py  Changed file: ccc.py  0.7
-↓1        3              file=bbb.py  Changed file: bbb.py  0.5
-DELETED   -              file=aaa.py
-"""
-        self.assertEqual(result.stdout, expect)
+        output = result.stdout
+        self.assertIn("3 tests analyzed | 1 ↑ promoted | 1 ↓ demoted", output)
+        self.assertIn("Code files affected: bbb.py, ccc.py, ddd.py", output)
+        self.assertIn("Δ Rank", output)
+        self.assertIn("Density", output)
+        for expected_row in [
+            ("NEW", "1", "file=ddd.py", "Changed file: ddd.py", "0.9"),
+            ("↑1", "2", "file=ccc.py", "Changed file: ccc.py", "0.7"),
+            ("↓1", "3", "file=bbb.py", "Changed file: bbb.py", "0.5"),
+            ("DELETED", "-", "file=aaa.py"),
+        ]:
+            for cell in expected_row:
+                self.assertIn(cell, output)

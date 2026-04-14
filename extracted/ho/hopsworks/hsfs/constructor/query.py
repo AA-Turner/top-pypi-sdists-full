@@ -26,7 +26,7 @@ from hopsworks_common.client.exceptions import FeatureStoreException
 from hopsworks_common.core.constants import HAS_NUMPY
 from hsfs import engine, storage_connector, util
 from hsfs import feature_group as fg_mod
-from hsfs.constructor import join
+from hsfs.constructor import join as join_module
 from hsfs.constructor.filter import Filter, Logic
 from hsfs.core import query_constructor_api, storage_connector_api
 from hsfs.decorators import typechecked
@@ -77,8 +77,9 @@ class Query:
         feature_store_id: int | None = None,
         left_feature_group_start_time: str | int | date | datetime | None = None,
         left_feature_group_end_time: str | int | date | datetime | None = None,
-        joins: list[join.Join] | None = None,
+        joins: list[join_module.Join] | None = None,
         filter: Filter | Logic | dict[str, Any] | None = None,
+        limit: int | None = None,
         **kwargs,
     ) -> None:
         self._feature_store_name = feature_store_name
@@ -89,6 +90,7 @@ class Query:
         self._left_feature_group_end_time = left_feature_group_end_time
         self._joins = joins or []
         self._filter = Logic.from_response_json(filter)
+        self._limit = limit
         self._python_engine: bool = engine.get_type() == "python"
         self._query_constructor_api: query_constructor_api.QueryConstructorApi = (
             query_constructor_api.QueryConstructorApi()
@@ -162,7 +164,7 @@ class Query:
 
     def _extract_feature_to_feature_group_mapping_joins(
         self,
-        joins: list[join.Join],
+        joins: list[join_module.Join],
         ambiguous_feature_feature_group_mapping: dict[str, set[str]],
     ) -> tuple[dict[str, set[str]], set[str]]:
         """Function that extracts all the features in the list of joins and maps them to the feature group they are selected from.
@@ -170,11 +172,11 @@ class Query:
         The function will return a dictionary that maps the feature names to the set of feature group names and version they are selected from.
 
         Parameters:
-            `joins` : List of joins in the query.
-            `ambiguous_feature_feature_group_mapping` : Dictionary with feature name to feature group names and version.
+            joins: List of joins in the query.
+            ambiguous_feature_feature_group_mapping: Dictionary with feature name to feature group names and version.
 
         Returns:
-            `Dict[str, List[str]]`: Dictionary with feature name as key and set of feature groups name and version they are selected from as value.
+            Dictionary with feature name as key and set of feature groups name and version they are selected from as value.
         """
         for query_join in joins:
             query = query_join._query
@@ -211,7 +213,7 @@ class Query:
         """Function to check ambiguous features in the query. The function will return a dictionary with feature name of the ambiguous features as key and list feature groups they are in as value.
 
         Returns:
-            `Dict[str, List[str]]`: Dictionary with ambiguous feature name as key and corresponding set of feature group names and version as value.
+            Dictionary with ambiguous feature name as key and corresponding set of feature group names and version as value.
         """
         query_feature_feature_group_mapping: dict[str, set[str]] = {}
 
@@ -243,6 +245,8 @@ class Query:
         online: bool = False,
         dataframe_type: str = "default",
         read_options: dict[str, Any] | None = None,
+        start_time: str | int | date | datetime | None = None,
+        end_time: str | int | date | datetime | None = None,
     ) -> (
         pd.DataFrame
         | np.ndarray
@@ -263,18 +267,59 @@ class Query:
             however, you can use the Query API to create Feature Views/Training
             Data containing External Feature Groups.
 
+        Example: Reading with filters and time-based filtering:
+            ```python
+            fg = fs.get_feature_group(...)
+            # Using strings
+            fg.filter(fg.category == "A").read(start_time="2024-01-01", end_time="2024-01-31")
+            # Using datetime objects
+            from datetime import datetime
+            fg.filter(fg.category == "A").read(start_time=datetime(2024, 1, 1), end_time=datetime(2024, 1, 31))
+            # Reading data from yesterday to now
+            from datetime import datetime, timedelta
+            fg.filter(fg.category == "A").read(start_time=datetime.now() - timedelta(days=1), end_time=datetime.now())
+            ```
+
         Parameters:
-            online: Read from online storage. Defaults to `False`.
-            dataframe_type: DataFrame type to return. Defaults to `"default"`.
-            read_options: Dictionary of read options for Spark in spark engine.
+            online: Read from online storage.
+            dataframe_type: DataFrame type to return.
+            read_options:
+                Dictionary of read options for Spark in spark engine.
                 Only for python engine:
                 * key `"arrow_flight_config"` to pass a dictionary of arrow flight configurations.
                   For example: `{"arrow_flight_config": {"timeout": 900}}`
-                Defaults to `{}`.
+                `None` is converted to `{}`.
+            start_time:
+                Filter data to only include records where the event_time column of the
+                left feature group is greater than start_time.
+                Can be a `datetime`, `date`, Unix timestamp (int), pandas `Timestamp`, or a string
+                formatted as `%Y-%m-%d`, `%Y-%m-%d %H`, `%Y-%m-%d %H:%M`, `%Y-%m-%d %H:%M:%S`,
+                or `%Y-%m-%d %H:%M:%S.%f`.
+            end_time:
+                Filter data to only include records where the event_time column of the
+                left feature group is less than end_time.
+                Can be a `datetime`, `date`, Unix timestamp (int), pandas `Timestamp`, or a string
+                formatted as `%Y-%m-%d`, `%Y-%m-%d %H`, `%Y-%m-%d %H:%M`, `%Y-%m-%d %H:%M:%S`,
+                or `%Y-%m-%d %H:%M:%S.%f`.
 
         Returns:
-            `DataFrame`: DataFrame depending on the chosen type.
+            DataFrame depending on the chosen type.
+
+        Raises:
+            hopsworks.client.exceptions.FeatureStoreException: If start_time or end_time
+                is specified but no event_time column is defined for the left feature group.
         """
+        if start_time is not None or end_time is not None:
+            if self._left_feature_group.event_time is None:
+                raise FeatureStoreException(
+                    "Cannot filter by start_time/end_time: no event_time column is defined "
+                    "for the left feature group. Set event_time when creating the feature group "
+                    "to enable time-based filtering."
+                )
+            return self._read_with_time_filter(
+                online, dataframe_type, read_options, start_time, end_time
+            )
+
         if not isinstance(online, bool):
             warnings.warn(
                 f"Passed {online} as value to online kwarg for `read` method. The `online` parameter is expected to be a boolean"
@@ -284,7 +329,9 @@ class Query:
         self._check_read_supported(online)
         if online and self._left_feature_group.embedding_index:
             return engine.get_instance().read_vector_db(
-                self._left_feature_group, dataframe_type=dataframe_type
+                self._left_feature_group,
+                dataframe_type=dataframe_type,
+                filter=self._filter,
             )
         self.check_and_warn_ambiguous_features()
 
@@ -313,6 +360,32 @@ class Query:
             schema,
         )
 
+    def _read_with_time_filter(
+        self,
+        online: bool,
+        dataframe_type: str,
+        read_options: dict[str, Any] | None,
+        start_time: str | int | date | datetime | None,
+        end_time: str | int | date | datetime | None,
+    ) -> (
+        pd.DataFrame
+        | np.ndarray
+        | list[list[Any]]
+        | TypeVar("pyspark.sql.DataFrame")
+        | TypeVar("pyspark.RDD")
+    ):
+        """Internal method to handle read with time-based filtering on event_time."""
+        event_time_feature = self._left_feature_group.get_feature(
+            self._left_feature_group.event_time
+        )
+        time_filter = util.build_time_filter(event_time_feature, start_time, end_time)
+        filtered_query = self.filter(time_filter)
+        return filtered_query.read(
+            online=online,
+            dataframe_type=dataframe_type,
+            read_options=read_options,
+        )
+
     @public
     def show(self, n: int, online: bool = False) -> list[list[Any]]:
         """Show the first N rows of the Query.
@@ -329,13 +402,23 @@ class Query:
 
         Parameters:
             n: Number of rows to show.
-            online: Show from online storage. Defaults to `False`.
+            online: Show from online storage.
+
+        Returns:
+            A list of rows, where each row is represented as a list of feature values.
         """
         self._check_read_supported(online)
         read_options = {}
         if online and self._left_feature_group.embedding_index:
-            return engine.get_instance().read_vector_db(self._left_feature_group, n)
-        sql_query, online_conn = self._prep_read(online, read_options)
+            return engine.get_instance().read_vector_db(
+                self._left_feature_group, n, filter=self._filter
+            )
+        previous_limit = self._limit
+        try:
+            self._limit = n
+            sql_query, online_conn = self._prep_read(online, read_options)
+        finally:
+            self._limit = previous_limit
         return engine.get_instance().show(
             sql_query, self._feature_store_name, n, online_conn, read_options
         )
@@ -377,23 +460,25 @@ class Query:
         Parameters:
             sub_query: Right-hand side query to join.
             on: List of feature names to join on if they are available in both
-                feature groups. Defaults to `[]`.
+                feature groups.
+                Defaults to `[]`.
             left_on: List of feature names to join on from the left feature group of the
-                join. Defaults to `[]`.
+                join.
+                Defaults to `[]`.
             right_on: List of feature names to join on from the right feature group of
-                the join. Defaults to `[]`.
-            join_type: Type of join to perform, can be `"inner"`, `"outer"`, `"left"` or
-                `"right"`. Defaults to "left".
+                the join.
+                Defaults to `[]`.
+            join_type:
+                Type of join to perform, can be `"inner"`, `"outer"`, `"left"` or `"right"`.
             prefix: User provided prefix to avoid feature name clash. If no prefix was provided and there is feature
                 name clash then prefixes will be automatically generated and applied. Generated prefix is feature group
                 alias in the query (e.g. fg1, fg2). Prefix is applied to the right feature group of the query.
-                Defaults to `None`.
 
         Returns:
-            `Query`: A new Query object representing the join.
+            A new Query object representing the join.
         """
         self._joins.append(
-            join.Join(
+            join_module.Join(
                 sub_query,
                 on or [],
                 left_on or [],
@@ -488,7 +573,7 @@ class Query:
                 following formats `%Y-%m-%d`, `%Y-%m-%d %H`, `%Y-%m-%d %H:%M`, or `%Y-%m-%d %H:%M:%S`.
 
         Returns:
-            `Query`. The query object with the applied time travel condition.
+            The query object with the applied time travel condition.
         """
         wallclock_timestamp = util.convert_event_time_to_timestamp(wallclock_time)
 
@@ -512,6 +597,17 @@ class Query:
         Warning: Deprecated
             `pull_changes` method is deprecated.
             Use `as_of(end_wallclock_time, exclude_until=start_wallclock_time) instead.
+
+        Parameters:
+            wallclock_start_time:
+                Start time of the interval to pull changes for.
+                Strings should be formatted in one of the following formats `%Y-%m-%d`, `%Y-%m-%d %H`, `%Y-%m-%d %H:%M`, or `%Y-%m-%d %H:%M:%S`.
+            wallclock_end_time:
+                End time of the interval to pull changes for.
+                Strings should be formatted in one of the following formats `%Y-%m-%d`, `%Y-%m-%d %H`, `%Y-%m-%d %H:%M`, or `%Y-%m-%d %H:%M:%S`.
+
+        Returns:
+            The query object with the applied time travel condition.
         """
         self.left_feature_group_start_time = util.convert_event_time_to_timestamp(
             wallclock_start_time
@@ -577,7 +673,7 @@ class Query:
             f: Filter object.
 
         Returns:
-            `Query`. The query object with the applied filter.
+            The query object with the applied filter.
         """
         if self._filter is None:
             if isinstance(f, Filter):
@@ -589,6 +685,25 @@ class Query:
         elif self._filter is not None:
             self._filter = self._filter & f
 
+        return self
+
+    @public
+    def limit(self, n: int) -> Query:
+        """Limit the number of rows returned by the query.
+
+        Example:
+            ```python
+            fg = fs.get_feature_group("...")
+            query = fg.select_all().limit(100)
+            ```
+
+        Parameters:
+            n: Maximum number of rows to return.
+
+        Returns:
+            The query object with the applied limit.
+        """
+        self._limit = n
         return self
 
     def json(self) -> str:
@@ -604,6 +719,7 @@ class Query:
             "leftFeatureGroupEndTime": self._left_feature_group_end_time,
             "joins": self._joins,
             "filter": self._filter,
+            "limit": self._limit,
             "hiveEngine": self._python_engine,
         }
 
@@ -639,10 +755,11 @@ class Query:
                 "left_feature_group_end_time", None
             ),
             joins=[
-                join.Join.from_response_json(_join)
+                join_module.Join.from_response_json(_join)
                 for _join in json_decamelized.get("joins", [])
             ],
             filter=json_decamelized.get("filter", None),
+            limit=json_decamelized.get("limit", None),
         )
 
     def _check_read_supported(self, online: bool) -> None:
@@ -679,7 +796,7 @@ class Query:
         send it straight back to Hopsworks to read the content of the query.
 
         Parameters:
-            json_dict (str): a json string containing a query object
+            json_dict: a json string containing a query object
 
         Returns:
             A partially deserialize query object
@@ -703,6 +820,13 @@ class Query:
 
             query.to_string()
             ```
+
+        Parameters:
+            online: Whether to return the query for online or offline storage.
+            arrow_flight: Whether to return the query for Arrow Flight.
+
+        Returns:
+            The string representation of the Query.
         """
         fs_query = self._query_constructor_api.construct_query(self)
 
@@ -762,7 +886,10 @@ class Query:
         """Append a feature to the query.
 
         Parameters:
-            feature: `[str, Feature]`. Name of the feature to append to the query.
+            feature: Name of the feature to append to the query.
+
+        Returns:
+            The query object with the appended feature.
         """
         feature = util.validate_feature(feature)
 
@@ -772,7 +899,11 @@ class Query:
 
     @public
     def is_time_travel(self) -> bool:
-        """Query contains time travel."""
+        """Query contains time travel.
+
+        Returns:
+            Whether the query contains time travel.
+        """
         return (
             self.left_feature_group_start_time
             or self.left_feature_group_end_time
@@ -781,7 +912,11 @@ class Query:
 
     @public
     def is_cache_feature_group_only(self) -> bool:
-        """Query contains only cached feature groups."""
+        """Query contains only cached feature groups.
+
+        Returns:
+            Whether the query contains only cached feature groups.
+        """
         return all(isinstance(fg, fg_mod.FeatureGroup) for fg in self.featuregroups)
 
     def _get_featuregroup_by_feature(
@@ -876,7 +1011,7 @@ class Query:
 
     @public
     @property
-    def joins(self) -> list[join.Join]:
+    def joins(self) -> list[join_module.Join]:
         """List of joins in the query."""
         return self._joins
 
@@ -923,10 +1058,10 @@ class Query:
         """Get a feature by name.
 
         Parameters:
-            feature_name: `str`. Name of the feature to get.
+            feature_name: Name of the feature to get.
 
         Returns:
-            `Feature`. Feature object.
+            Feature object.
         """
         return self._get_feature_by_name(feature_name)[0]
 

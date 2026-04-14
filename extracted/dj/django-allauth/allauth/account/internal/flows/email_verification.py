@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.contrib import messages
 from django.contrib.auth.base_user import AbstractBaseUser
 from django.http import HttpRequest, HttpResponse
@@ -103,7 +105,7 @@ def get_email_verification_url(request: HttpRequest, emailconfirmation) -> str:
     return url
 
 
-def login_on_verification(request, email_address) -> HttpResponse | None:
+def login_on_verification(request: HttpRequest, email_address) -> HttpResponse | None:
     """Simply logging in the user may become a security issue. If you
     do not take proper care (e.g. don't purge used email
     confirmations), a malicious person that got hold of the link
@@ -165,7 +167,7 @@ def consume_email_verification_rate_limit(
 
 
 def handle_verification_email_rate_limit(
-    request, email: str, raise_exception: bool = False
+    request: HttpRequest, email: str, raise_exception: bool = False
 ) -> bool:
     """
     For email verification by link, it is not an issue if the user runs into rate
@@ -196,7 +198,7 @@ def get_address_for_user(user: AbstractBaseUser) -> EmailAddress | None:
     return address
 
 
-def get_address_for_login(login: Login):
+def get_address_for_login(login: Login) -> EmailAddress | None:
     assert login.user  # nosec
     if login.email:
         try:
@@ -319,7 +321,9 @@ def send_verification_email_at_fake_login(request: HttpRequest, login: Login) ->
     return send_verification_email_to_address(request, address, signup=True)
 
 
-def add_email_verification_sent_message(request: HttpRequest, email: str, signup: bool):
+def add_email_verification_sent_message(
+    request: HttpRequest, email: str, signup: bool
+) -> None:
     get_adapter().add_message(
         request,
         messages.INFO,
@@ -335,6 +339,7 @@ def is_verification_rate_limited(request: HttpRequest, login: Login) -> bool:
     """
     if (
         (not login.email)
+        or (not login.user)
         or (not app_settings.EMAIL_VERIFICATION_BY_CODE_ENABLED)
         or login.email_verification != app_settings.EmailVerificationMethod.MANDATORY
     ):

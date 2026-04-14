@@ -71,7 +71,7 @@ VERSION=0.0.0
 # TB_SKIP_REGRESSION=0
 
 # Use `OBFUSCATE_REGEX_PATTERN` and `OBFUSCATE_PATTERN_SEPARATOR` environment variables to define a regex pattern and a separator (in case of a single string with multiple regex) to obfuscate secrets in the CLI output.
-# OBFUSCATE_REGEX_PATTERN="https://(www\.)?[^/]+||^Follow these instructions =>"
+# OBFUSCATE_REGEX_PATTERN="https://(www\\.)?[^/]+||^Follow these instructions =>"
 # OBFUSCATE_PATTERN_SEPARATOR=||
 ##########
 """

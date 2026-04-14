@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-tables2
-Version: 2.9.0
+Version: 3.0.0
 Summary: Table/data-grid framework for Django
 Project-URL: Changelog, https://github.com/jieter/django-tables2/blob/master/CHANGELOG.md
 Project-URL: Documentation, https://django-tables2.readthedocs.io/en/latest/
@@ -47,8 +47,6 @@ License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers

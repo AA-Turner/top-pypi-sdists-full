@@ -6,15 +6,18 @@ import csv
 import io
 import os
 import shutil
-import sys
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from types import SimpleNamespace
+from typing import Any, cast
 
 import click
 from click.testing import CliRunner
+import pymysql
 from pymysql.err import OperationalError
+import pytest
 
+from mycli import main
 from mycli.constants import (
     DEFAULT_DATABASE,
     DEFAULT_HOST,
@@ -22,13 +25,30 @@ from mycli.constants import (
     DEFAULT_USER,
     TEST_DATABASE,
 )
-from mycli.main import EMPTY_PASSWORD_FLAG_SENTINEL, MyCli, click_entrypoint, thanks_picker
-from mycli.packages.parseutils import is_valid_connection_scheme
+from mycli.main import EMPTY_PASSWORD_FLAG_SENTINEL, MyCli, click_entrypoint
+import mycli.main_modes.repl as repl_mode
 import mycli.packages.special
 from mycli.packages.special.main import COMMANDS as SPECIAL_COMMANDS
 from mycli.packages.sqlresult import SQLResult
 from mycli.sqlexecute import ServerInfo, SQLExecute
-from test.utils import DATABASE, HOST, PASSWORD, PORT, TEMPFILE_PREFIX, USER, dbtest, run
+from test.utils import (
+    DATABASE,
+    HOST,
+    PASSWORD,
+    PORT,
+    TEMPFILE_PREFIX,
+    USER,
+    DummyFormatter,
+    DummyLogger,
+    FakeCursorBase,
+    RecordingSQLExecute,
+    ReusableLock,
+    call_click_entrypoint_direct,
+    dbtest,
+    make_bare_mycli,
+    make_dummy_mycli_class,
+    run,
+)
 
 pytests_dir = os.path.abspath(os.path.dirname(__file__))
 project_root_dir = os.path.abspath(os.path.join(pytests_dir, '..', '..'))
@@ -36,7 +56,7 @@ default_config_file = os.path.join(project_root_dir, 'test', 'myclirc')
 login_path_file = os.path.join(project_root_dir, 'test', 'mylogin.cnf')
 
 os.environ["MYSQL_TEST_LOGIN_FILE"] = login_path_file
-CLI_ARGS = [
+CLI_ARGS_WITHOUT_DB = [
     "--user",
     USER,
     "--host",
@@ -49,8 +69,8 @@ CLI_ARGS = [
     default_config_file,
     "--defaults-file",
     default_config_file,
-    TEST_DATABASE,
 ]
+CLI_ARGS = CLI_ARGS_WITHOUT_DB + [TEST_DATABASE]
 
 
 @dbtest
@@ -143,16 +163,6 @@ def test_select_from_empty_table(executor):
         +----+
         +----+""")
     assert expected in result.output
-
-
-def test_is_valid_connection_scheme_valid(executor, capsys):
-    is_valid, scheme = is_valid_connection_scheme(f"mysql://test@{DEFAULT_HOST}:{DEFAULT_PORT}/dev")
-    assert is_valid
-
-
-def test_is_valid_connection_scheme_invalid(executor, capsys):
-    is_valid, scheme = is_valid_connection_scheme(f"nope://test@{DEFAULT_HOST}:{DEFAULT_PORT}/dev")
-    assert not is_valid
 
 
 def test_filtered_sys_argv_maps_single_dash_h_to_help(monkeypatch):
@@ -381,7 +391,7 @@ def test_prompt_no_host_only_socket(executor):
     mycli.sqlexecute.user = DEFAULT_USER
     mycli.sqlexecute.dbname = DEFAULT_DATABASE
     mycli.sqlexecute.port = DEFAULT_PORT
-    prompt = mycli.get_prompt(mycli.prompt_format, 0)
+    prompt = repl_mode.get_prompt(mycli, mycli.prompt_format, 0)
     assert prompt == f"MySQL {DEFAULT_USER}@{DEFAULT_HOST}:{DEFAULT_DATABASE}> "
 
 
@@ -396,7 +406,7 @@ def test_prompt_socket_overrides_port(executor):
     mycli.sqlexecute.user = DEFAULT_USER
     mycli.sqlexecute.dbname = DEFAULT_DATABASE
     mycli.sqlexecute.port = DEFAULT_PORT
-    prompt = mycli.get_prompt(mycli.prompt_format, 0)
+    prompt = repl_mode.get_prompt(mycli, mycli.prompt_format, 0)
     assert prompt == f"MySQL {DEFAULT_USER}@{DEFAULT_HOST}:mysqld.sock {DEFAULT_DATABASE}> "
 
 
@@ -411,7 +421,7 @@ def test_prompt_socket_short_host(executor):
     mycli.sqlexecute.user = DEFAULT_USER
     mycli.sqlexecute.dbname = DEFAULT_DATABASE
     mycli.sqlexecute.port = DEFAULT_PORT
-    prompt = mycli.get_prompt(mycli.prompt_format, 0)
+    prompt = repl_mode.get_prompt(mycli, mycli.prompt_format, 0)
     assert prompt == f"MySQL {DEFAULT_USER}@{DEFAULT_HOST}:{DEFAULT_PORT} {DEFAULT_DATABASE}> "
 
 
@@ -463,7 +473,8 @@ def test_output_with_warning_and_show_warnings_disabled(executor):
 
 
 @dbtest
-def test_no_show_warnings_overrides_myclirc_setting(executor):
+def test_no_show_warnings_overrides_myclirc_setting(executor, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     runner = CliRunner()
     sql = 'EXPLAIN SELECT 1'
     expected = 'select 1'
@@ -694,11 +705,6 @@ def test_batch_mode_csv(executor):
     assert expected in "".join(result.output)
 
 
-def test_thanks_picker_utf8():
-    name = thanks_picker()
-    assert name and isinstance(name, str)
-
-
 def test_help_strings_end_with_periods():
     """Make sure click options have help text that end with a period."""
     for param in click_entrypoint.params:
@@ -736,11 +742,11 @@ def output(monkeypatch, terminal_size, testdata, explicit_pager, expect_pager):
         def server_type(self):
             return ["test"]
 
-    class PromptBuffer:
+    class TestPromptSession:
         output = TestOutput()
         app = None
 
-    m.prompt_app = PromptBuffer()
+    m.prompt_session = TestPromptSession()
     m.sqlexecute = TestExecute()
     m.explicit_pager = explicit_pager
 
@@ -815,20 +821,6 @@ def test_list_dsn(monkeypatch):
             os.remove(myclirc.name)
     except Exception as e:
         print(f"An error occurred while attempting to delete the file: {e}")
-
-
-def test_prettify_statement():
-    statement = "SELECT 1"
-    m = MyCli()
-    pretty_statement = m.handle_prettify_binding(statement)
-    assert pretty_statement == "SELECT\n    1;"
-
-
-def test_unprettify_statement():
-    statement = "SELECT\n    1"
-    m = MyCli()
-    unpretty_statement = m.handle_unprettify_binding(statement)
-    assert unpretty_statement == "SELECT 1;"
 
 
 def test_list_ssh_config():
@@ -2066,7 +2058,7 @@ def test_execute_with_short_logfile_option(executor):
         print(f"An error occurred while attempting to delete the file: {e}")
 
 
-def _noninteractive_mock_mycli(monkeypatch):
+def noninteractive_mock_mycli(monkeypatch):
     class Formatter:
         format_name = None
 
@@ -2115,105 +2107,14 @@ def _noninteractive_mock_mycli(monkeypatch):
             pass
 
     import mycli.main
+    import mycli.main_modes.batch
 
     monkeypatch.setattr(mycli.main, 'MyCli', MockMyCli)
-    return mycli.main, MockMyCli
-
-
-def test_batch_file(monkeypatch):
-    mycli_main, MockMyCli = _noninteractive_mock_mycli(monkeypatch)
-    runner = CliRunner()
-
-    with NamedTemporaryFile(prefix=TEMPFILE_PREFIX, mode='w', delete=False) as batch_file:
-        batch_file.write('select 2;')
-        batch_file.flush()
-
-    try:
-        result = runner.invoke(
-            mycli_main.click_entrypoint,
-            args=['--batch', batch_file.name],
-        )
-        assert result.exit_code == 0
-        assert MockMyCli.ran_queries == ['select 2;']
-    finally:
-        os.remove(batch_file.name)
-
-
-def test_batch_file_with_progress(monkeypatch):
-    mycli_main, MockMyCli = _noninteractive_mock_mycli(monkeypatch)
-    runner = CliRunner()
-
-    class DummyProgressBar:
-        calls = []
-
-        def __init__(self, *args, **kwargs):
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def __call__(self, iterable):
-            values = list(iterable)
-            DummyProgressBar.calls.append(values)
-            return values
-
-    monkeypatch.setattr(mycli_main, 'ProgressBar', DummyProgressBar)
-    monkeypatch.setattr(mycli_main.prompt_toolkit.output, 'create_output', lambda **kwargs: object())
-    monkeypatch.setattr(
-        mycli_main,
-        'sys',
-        SimpleNamespace(
-            stdin=SimpleNamespace(isatty=lambda: False),
-            stderr=SimpleNamespace(isatty=lambda: True),
-            exit=sys.exit,
-        ),
-    )
-
-    with NamedTemporaryFile(prefix=TEMPFILE_PREFIX, mode='w', delete=False) as batch_file:
-        batch_file.write('select 2;\nselect 2;\nselect 2;\n')
-        batch_file.flush()
-
-    try:
-        result = runner.invoke(
-            mycli_main.click_entrypoint,
-            args=['--batch', batch_file.name, '--progress'],
-        )
-        assert result.exit_code == 0
-        assert MockMyCli.ran_queries == ['select 2;\n', 'select 2;\n', 'select 2;\n']
-        assert DummyProgressBar.calls == [[0, 1, 2]]
-    finally:
-        os.remove(batch_file.name)
-
-
-def test_batch_file_with_progress_requires_plain_file(monkeypatch, tmp_path):
-    mycli_main, MockMyCli = _noninteractive_mock_mycli(monkeypatch)
-    runner = CliRunner()
-
-    monkeypatch.setattr(
-        mycli_main,
-        'sys',
-        SimpleNamespace(
-            stdin=SimpleNamespace(isatty=lambda: False),
-            stderr=SimpleNamespace(isatty=lambda: True),
-            exit=sys.exit,
-        ),
-    )
-
-    result = runner.invoke(
-        mycli_main.click_entrypoint,
-        args=['--batch', str(tmp_path), '--progress'],
-    )
-
-    assert result.exit_code != 0
-    assert '--progress is only compatible with a plain file.' in result.output
-    assert MockMyCli.ran_queries == []
+    return mycli.main, mycli.main_modes.batch, MockMyCli
 
 
 def test_execute_arg_warns_about_ignoring_stdin(monkeypatch):
-    mycli_main, MockMyCli = _noninteractive_mock_mycli(monkeypatch)
+    mycli_main, mycli_main_batch, MockMyCli = noninteractive_mock_mycli(monkeypatch)
     runner = CliRunner()
 
     # the test env should make sure stdin is not a TTY
@@ -2225,18 +2126,8 @@ def test_execute_arg_warns_about_ignoring_stdin(monkeypatch):
     assert 'Ignoring STDIN' in result.output
 
 
-def test_batch_file_open_error(monkeypatch):
-    mycli_main, MockMyCli = _noninteractive_mock_mycli(monkeypatch)
-    runner = CliRunner()
-
-    result = runner.invoke(mycli_main.click_entrypoint, args=['--batch', 'definitely_missing_file.sql'])
-
-    assert result.exit_code != 0
-    assert 'Failed to open --batch file' in result.output
-
-
 def test_execute_arg_supersedes_batch_file(monkeypatch):
-    mycli_main, MockMyCli = _noninteractive_mock_mycli(monkeypatch)
+    mycli_main, mycli_main_batch, MockMyCli = noninteractive_mock_mycli(monkeypatch)
     runner = CliRunner()
 
     with NamedTemporaryFile(prefix=TEMPFILE_PREFIX, mode='w', delete=False) as batch_file:
@@ -2256,6 +2147,7 @@ def test_execute_arg_supersedes_batch_file(monkeypatch):
         os.remove(batch_file.name)
 
 
+@dbtest
 def test_null_string_config(monkeypatch):
     monkeypatch.setattr(MyCli, 'system_config_files', [])
     monkeypatch.setattr(MyCli, 'pwd_config_file', os.devnull)
@@ -2269,7 +2161,7 @@ def test_null_string_config(monkeypatch):
             """)
         )
         myclirc.flush()
-        args = CLI_ARGS + ['--myclirc', myclirc.name, '--format=table', '--execute', 'SELECT NULL']
+        args = CLI_ARGS_WITHOUT_DB + ['--myclirc', myclirc.name, '--format=table', '--execute', 'SELECT NULL']
         result = runner.invoke(mycli.main.click_entrypoint, args=args)
         assert '<nope>' in result.output
         assert '<null>' not in result.output
@@ -2280,3 +2172,240 @@ def test_null_string_config(monkeypatch):
             os.remove(myclirc.name)
     except Exception as e:
         print(f'An error occurred while attempting to delete the file: {e}')
+
+
+def test_change_prompt_format_requires_argument() -> None:
+    cli = make_bare_mycli()
+    assert main.MyCli.change_prompt_format(cli, '')[0].status == 'Missing required argument, format.'
+
+
+def test_change_prompt_format_updates_prompt() -> None:
+    cli = make_bare_mycli()
+    assert main.MyCli.change_prompt_format(cli, '\\u@\\h> ')[0].status == 'Changed prompt format to \\u@\\h> '
+
+
+def test_output_timing_logs_and_prints_with_warning_style(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli = make_bare_mycli()
+    timings_logged: list[str] = []
+    cli.log_output = lambda text: timings_logged.append(text)  # type: ignore[assignment]
+    printed: list[tuple[Any, Any]] = []
+    monkeypatch.setattr(main, 'print_formatted_text', lambda text, style=None: printed.append((text, style)))
+    main.MyCli.output_timing(cli, 'Time: 1.000s', is_warnings_style=True)
+    assert timings_logged == ['Time: 1.000s']
+    assert printed[-1][1] == cli.ptoolkit_style
+
+
+def test_run_cli_delegates_to_main_repl(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli = make_bare_mycli()
+    run_cli_calls: list[Any] = []
+    monkeypatch.setattr(main, 'main_repl', lambda target: run_cli_calls.append(target))
+    main.MyCli.run_cli(cli)
+    assert run_cli_calls == [cli]
+
+
+def test_get_output_margin_uses_prompt_session_render_counter(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli = make_bare_mycli()
+    render_counters: list[int] = []
+    cli.prompt_lines = 0
+    cli.get_reserved_space = lambda: 2  # type: ignore[assignment]
+    cli.prompt_session = cast(
+        Any,
+        SimpleNamespace(app=SimpleNamespace(render_counter=7)),
+    )
+
+    def fake_get_prompt(mycli: Any, string: str, render_counter: int) -> str:
+        render_counters.append(render_counter)
+        return 'line1\nline2'
+
+    monkeypatch.setattr(main, 'get_prompt', fake_get_prompt)
+    monkeypatch.setattr(main.special, 'is_timing_enabled', lambda: False)
+    assert main.MyCli.get_output_margin(cli, 'ok') == 5
+    assert render_counters == [7]
+
+
+def test_on_completions_refreshed_updates_completer_and_invalidates_prompt() -> None:
+    cli = make_bare_mycli()
+    entered_lock = {'count': 0}
+    invalidated: list[bool] = []
+    cli._completer_lock = cast(Any, ReusableLock(lambda: entered_lock.__setitem__('count', entered_lock['count'] + 1)))
+    cli.prompt_session = cast(Any, SimpleNamespace(app=SimpleNamespace(invalidate=lambda: invalidated.append(True))))
+    new_completer = cast(Any, SimpleNamespace(get_completions=lambda document, event: ['done']))
+    main.MyCli._on_completions_refreshed(cli, new_completer)
+    assert cli.completer is new_completer
+    assert invalidated == [True]
+    assert entered_lock['count'] == 1
+
+
+def test_click_entrypoint_callback_covers_dsn_list_init_commands(monkeypatch: pytest.MonkeyPatch) -> None:
+    dummy_class = make_dummy_mycli_class(
+        config={
+            'main': {'use_keyring': 'false', 'my_cnf_transition_done': 'true'},
+            'connection': {'default_keepalive_ticks': 0},
+            'alias_dsn': {'prod': 'mysql://u:p@h/db'},
+            'alias_dsn.init-commands': {'prod': ['set a=1', 'set b=2']},
+        }
+    )
+    monkeypatch.setattr(main, 'MyCli', dummy_class)
+    monkeypatch.setattr(main.sys, 'stdin', SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(main.sys.stderr, 'isatty', lambda: True)
+
+    cli_args = main.CliArgs()
+    cli_args.dsn = 'prod'
+    cli_args.init_command = 'set c=3'
+    call_click_entrypoint_direct(cli_args)
+
+    dummy = dummy_class.last_instance
+    assert dummy is not None
+    assert dummy.connect_calls[-1]['init_command'] == 'set a=1; set b=2; set c=3'
+
+
+def test_click_entrypoint_callback_uses_batch_with_progress_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    dummy_class = make_dummy_mycli_class(
+        config={
+            'main': {'use_keyring': 'false', 'my_cnf_transition_done': 'true'},
+            'connection': {'default_keepalive_ticks': 0},
+            'alias_dsn': {},
+        }
+    )
+    monkeypatch.setattr(main, 'MyCli', dummy_class)
+    monkeypatch.setattr(main.sys, 'stdin', SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(main.sys.stderr, 'isatty', lambda: True)
+    monkeypatch.setattr(main, 'main_batch_with_progress_bar', lambda mycli, cli_args: 12)
+
+    cli_args = main.CliArgs()
+    cli_args.batch = 'queries.sql'
+    cli_args.progress = True
+    with pytest.raises(SystemExit) as excinfo:
+        call_click_entrypoint_direct(cli_args)
+    assert excinfo.value.code == 12
+
+
+def test_click_entrypoint_callback_uses_batch_without_progress_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    dummy_class = make_dummy_mycli_class(
+        config={
+            'main': {'use_keyring': 'false', 'my_cnf_transition_done': 'true'},
+            'connection': {'default_keepalive_ticks': 0},
+            'alias_dsn': {},
+        }
+    )
+    monkeypatch.setattr(main, 'MyCli', dummy_class)
+    monkeypatch.setattr(main.sys, 'stdin', SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(main.sys.stderr, 'isatty', lambda: True)
+    monkeypatch.setattr(main, 'main_batch_without_progress_bar', lambda mycli, cli_args: 13)
+
+    cli_args = main.CliArgs()
+    cli_args.batch = 'queries.sql'
+    cli_args.progress = False
+    with pytest.raises(SystemExit) as excinfo:
+        call_click_entrypoint_direct(cli_args)
+    assert excinfo.value.code == 13
+
+
+def test_click_entrypoint_callback_covers_mycnf_underscore_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    click_lines: list[str] = []
+    monkeypatch.setattr(click, 'secho', lambda message='', **kwargs: click_lines.append(str(message)))
+    monkeypatch.setattr(main.sys, 'stdin', SimpleNamespace(isatty=lambda: True))
+    monkeypatch.setattr(main.sys.stderr, 'isatty', lambda: False)
+
+    dummy_class = make_dummy_mycli_class(
+        config={
+            'main': {'use_keyring': 'false', 'my_cnf_transition_done': 'false'},
+            'connection': {'default_keepalive_ticks': 0},
+            'alias_dsn': {},
+        },
+        my_cnf={'client': {'ssl_ca': '/tmp/ca.pem'}, 'mysqld': {}},
+        config_without_package_defaults={'main': {}},
+    )
+    monkeypatch.setattr(main, 'MyCli', dummy_class)
+
+    call_click_entrypoint_direct(main.CliArgs())
+    assert any('ssl-ca = /tmp/ca.pem' in line for line in click_lines)
+
+
+def test_format_sqlresult_uses_redirect_formatter_when_redirected() -> None:
+    cli = make_bare_mycli()
+    cli.main_formatter = DummyFormatter()
+    cli.redirect_formatter = DummyFormatter()
+
+    result = SQLResult(header=['id'], rows=[(1,)], status='ok')
+    assert list(main.MyCli.format_sqlresult(cli, result, is_redirected=True)) == ['plain output']
+
+    assert cli.main_formatter.calls == []
+    assert len(cli.redirect_formatter.calls) == 1
+
+
+def test_format_sqlresult_materializes_cursor_rows_when_width_is_limited(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli = make_bare_mycli()
+    cli.main_formatter = DummyFormatter()
+    rows = FakeCursorBase(rows=[(1,)], rowcount=1, description=[('id', 3)])
+    monkeypatch.setattr(main, 'Cursor', FakeCursorBase)
+
+    result = SQLResult(header=['id'], rows=cast(Any, rows), status='ok')
+    list(main.MyCli.format_sqlresult(cli, result, max_width=100))
+
+    formatted_rows = cli.main_formatter.calls[-1][0][0]
+    assert formatted_rows == [(1,)]
+
+
+def test_format_sqlresult_appends_postamble() -> None:
+    cli = make_bare_mycli()
+    result = SQLResult(header=['id'], rows=[(1,)], status='ok', postamble='done')
+
+    assert list(main.MyCli.format_sqlresult(cli, result))[-1] == 'done'
+
+
+def test_get_last_query_returns_latest_query() -> None:
+    cli = make_bare_mycli()
+    cli.query_history = [main.Query('select 1', True, False)]
+
+    assert main.MyCli.get_last_query(cli) == 'select 1'
+
+
+def test_connect_reports_expired_password_login_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli = make_bare_mycli()
+    cli.my_cnf = {'client': {}, 'mysqld': {}}
+    cli.config_without_package_defaults = {'connection': {}}
+    cli.config = {'connection': {}, 'main': {}}
+    cli.logger = cast(Any, DummyLogger())
+    echo_calls: list[str] = []
+    cli.echo = lambda message, **kwargs: echo_calls.append(str(message))  # type: ignore[assignment]
+    monkeypatch.setattr(main, 'WIN', False)
+    monkeypatch.setattr(main, 'str_to_bool', lambda value: False)
+
+    class ExpiredPasswordSQLExecute(RecordingSQLExecute):
+        calls: list[dict[str, Any]] = []
+        side_effects: list[Any] = [pymysql.OperationalError(main.ER_MUST_CHANGE_PASSWORD_LOGIN, 'must change password')]
+
+    monkeypatch.setattr(main, 'SQLExecute', ExpiredPasswordSQLExecute)
+
+    with pytest.raises(SystemExit):
+        main.MyCli.connect(cli, host='db', port=3307)
+
+    assert any('password has expired' in message for message in echo_calls)
+
+
+def test_connect_sets_cli_sandbox_mode_when_sqlexecute_enters_sandbox(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli = make_bare_mycli()
+    cli.my_cnf = {'client': {}, 'mysqld': {}}
+    cli.config_without_package_defaults = {'connection': {}}
+    cli.config = {'connection': {}, 'main': {}}
+    cli.logger = cast(Any, DummyLogger())
+    echo_calls: list[str] = []
+    cli.echo = lambda message, **kwargs: echo_calls.append(str(message))  # type: ignore[assignment]
+    monkeypatch.setattr(main, 'WIN', False)
+    monkeypatch.setattr(main, 'str_to_bool', lambda value: False)
+
+    class SandboxSQLExecute(RecordingSQLExecute):
+        calls: list[dict[str, Any]] = []
+        side_effects: list[Any] = []
+
+        def __init__(self, **kwargs: Any) -> None:
+            super().__init__(**kwargs)
+            self.sandbox_mode = True
+
+    monkeypatch.setattr(main, 'SQLExecute', SandboxSQLExecute)
+
+    main.MyCli.connect(cli, host='db', port=3307)
+
+    assert cli.sandbox_mode is True
+    assert any('password has expired' in message for message in echo_calls)

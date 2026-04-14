@@ -49,6 +49,7 @@ class ScalingGroupResponse(_message.Message):
     __slots__ = (
         "id",
         "name",
+        "revision_id",
         "status",
         "status_message",
         "spec",
@@ -71,6 +72,7 @@ class ScalingGroupResponse(_message.Message):
 
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
+    REVISION_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     STATUS_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     SPEC_FIELD_NUMBER: _ClassVar[int]
@@ -82,6 +84,7 @@ class ScalingGroupResponse(_message.Message):
     METADATA_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
+    revision_id: str
     status: str
     status_message: str
     spec: ScalingGroupSpec
@@ -95,6 +98,7 @@ class ScalingGroupResponse(_message.Message):
         self,
         id: _Optional[str] = ...,
         name: _Optional[str] = ...,
+        revision_id: _Optional[str] = ...,
         status: _Optional[str] = ...,
         status_message: _Optional[str] = ...,
         spec: _Optional[_Union[ScalingGroupSpec, _Mapping]] = ...,

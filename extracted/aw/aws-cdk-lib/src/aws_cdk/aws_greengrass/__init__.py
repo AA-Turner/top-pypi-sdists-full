@@ -341,6 +341,19 @@ class CfnConnectorDefinition(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''Application-specific metadata to attach to the connector definition.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60332b2bd3d1f19c86feea95dba6bf261745105b22e69096e4be69004bdad03b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
@@ -357,19 +370,6 @@ class CfnConnectorDefinition(
             type_hints = typing.get_type_hints(_typecheckingstub__0415a38346fbe03d6f5624bc1964761ae159cabc533cd2810f1187fb94a9e76e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''Application-specific metadata to attach to the connector definition.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60332b2bd3d1f19c86feea95dba6bf261745105b22e69096e4be69004bdad03b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnConnectorDefinition.ConnectorDefinitionVersionProperty",
@@ -1255,6 +1255,19 @@ class CfnCoreDefinition(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''Application-specific metadata to attach to the core definition.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__99697b8dad691477ff836e154bb3c9f516a73f2882f23a90d55ddc3f167aadd8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
@@ -1271,19 +1284,6 @@ class CfnCoreDefinition(
             type_hints = typing.get_type_hints(_typecheckingstub__92abb907cfcf9216f792b317f8eb26a0b6c421a027b2e96eefee9e1fd17d6fc7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''Application-specific metadata to attach to the core definition.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99697b8dad691477ff836e154bb3c9f516a73f2882f23a90d55ddc3f167aadd8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnCoreDefinition.CoreDefinitionVersionProperty",
@@ -2193,6 +2193,19 @@ class CfnDeviceDefinition(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''Application-specific metadata to attach to the device definition.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fa56b64210e79fff38ab545ae87d1988b94100fdbaa646f7ebeda88559aeeacb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
@@ -2209,19 +2222,6 @@ class CfnDeviceDefinition(
             type_hints = typing.get_type_hints(_typecheckingstub__860ed955c6c53de09524817b41d262c302d0a99f94c5e829c77f1df83b034260)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''Application-specific metadata to attach to the device definition.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa56b64210e79fff38ab545ae87d1988b94100fdbaa646f7ebeda88559aeeacb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnDeviceDefinition.DeviceDefinitionVersionProperty",
@@ -3158,6 +3158,19 @@ class CfnFunctionDefinition(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''Application-specific metadata to attach to the function definition.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de5a19ed9c188b2bb1a6eecf3c47192c7edf18069ffe0cdf6838d6eadee8effd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
@@ -3174,19 +3187,6 @@ class CfnFunctionDefinition(
             type_hints = typing.get_type_hints(_typecheckingstub__09ef946c280aa3fe299d97090ecfb5dfa4af0a16702b75c593ec39701a3cb62b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''Application-specific metadata to attach to the function definition.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de5a19ed9c188b2bb1a6eecf3c47192c7edf18069ffe0cdf6838d6eadee8effd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnFunctionDefinition.DefaultConfigProperty",
@@ -5631,6 +5631,19 @@ class CfnGroup(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''Application-specific metadata to attach to the group.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf681fed500903d683fa2fe379335268fbe2011999bfef05177c39ea864332eb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
@@ -5660,19 +5673,6 @@ class CfnGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__6675e04cf0ab21e346afb29e4e19bde19ea87ea432acc7787de29c5be10f7aa2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''Application-specific metadata to attach to the group.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf681fed500903d683fa2fe379335268fbe2011999bfef05177c39ea864332eb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnGroup.GroupVersionProperty",
@@ -6651,6 +6651,19 @@ class CfnLoggerDefinition(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''Application-specific metadata to attach to the logger definition.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1467bdc61b875959389bcefa758a86026e2fb80e0b9db5da7327a4e0b2c1c6b3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
@@ -6667,19 +6680,6 @@ class CfnLoggerDefinition(
             type_hints = typing.get_type_hints(_typecheckingstub__d933992b8def94152adabe1624210ae1c6c2ac626a5a9fd2af376a7f9128d123)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''Application-specific metadata to attach to the logger definition.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1467bdc61b875959389bcefa758a86026e2fb80e0b9db5da7327a4e0b2c1c6b3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnLoggerDefinition.LoggerDefinitionVersionProperty",
@@ -7674,6 +7674,19 @@ class CfnResourceDefinition(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''Application-specific metadata to attach to the resource definition.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9f8767a6e08f9caeed0ccc0cab826c0939740af34c6b569658174c0ac9284975)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
@@ -7690,19 +7703,6 @@ class CfnResourceDefinition(
             type_hints = typing.get_type_hints(_typecheckingstub__0e477611b342531c61501bce71bad63149180465d67fa02234b702f1d04ed88e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''Application-specific metadata to attach to the resource definition.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f8767a6e08f9caeed0ccc0cab826c0939740af34c6b569658174c0ac9284975)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnResourceDefinition.GroupOwnerSettingProperty",
@@ -10543,6 +10543,19 @@ class CfnSubscriptionDefinition(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''Application-specific metadata to attach to the subscription definition.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f3c68b21f52fe99f3d6a88bd9e881c4d030dd6c2bef09d8ac0a05a8c5ff59c37)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="initialVersion")
     def initial_version(
         self,
@@ -10559,19 +10572,6 @@ class CfnSubscriptionDefinition(
             type_hints = typing.get_type_hints(_typecheckingstub__bb5bd9630745b54bebd6a65c27d16ed4621705d8b40d785efc3fcf8eda69d66a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "initialVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''Application-specific metadata to attach to the subscription definition.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3c68b21f52fe99f3d6a88bd9e881c4d030dd6c2bef09d8ac0a05a8c5ff59c37)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_greengrass.CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty",
@@ -11322,14 +11322,14 @@ def _typecheckingstub__ab45f89ff0cfe141f0220b75cd71c3d899658dfb0c0d902360ceac264
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0415a38346fbe03d6f5624bc1964761ae159cabc533cd2810f1187fb94a9e76e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnectorDefinition.ConnectorDefinitionVersionProperty]],
+def _typecheckingstub__60332b2bd3d1f19c86feea95dba6bf261745105b22e69096e4be69004bdad03b(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__60332b2bd3d1f19c86feea95dba6bf261745105b22e69096e4be69004bdad03b(
-    value: typing.Any,
+def _typecheckingstub__0415a38346fbe03d6f5624bc1964761ae159cabc533cd2810f1187fb94a9e76e(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConnectorDefinition.ConnectorDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11473,14 +11473,14 @@ def _typecheckingstub__ac51622030b12c5c1ad466a72f36fc6ae109a83246daf2e9b37011f5d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__92abb907cfcf9216f792b317f8eb26a0b6c421a027b2e96eefee9e1fd17d6fc7(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCoreDefinition.CoreDefinitionVersionProperty]],
+def _typecheckingstub__99697b8dad691477ff836e154bb3c9f516a73f2882f23a90d55ddc3f167aadd8(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__99697b8dad691477ff836e154bb3c9f516a73f2882f23a90d55ddc3f167aadd8(
-    value: typing.Any,
+def _typecheckingstub__92abb907cfcf9216f792b317f8eb26a0b6c421a027b2e96eefee9e1fd17d6fc7(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCoreDefinition.CoreDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11626,14 +11626,14 @@ def _typecheckingstub__3a2194bc46e61deb1c1fcc4553ae866524155d250a4d6110495f31209
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__860ed955c6c53de09524817b41d262c302d0a99f94c5e829c77f1df83b034260(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeviceDefinition.DeviceDefinitionVersionProperty]],
+def _typecheckingstub__fa56b64210e79fff38ab545ae87d1988b94100fdbaa646f7ebeda88559aeeacb(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__fa56b64210e79fff38ab545ae87d1988b94100fdbaa646f7ebeda88559aeeacb(
-    value: typing.Any,
+def _typecheckingstub__860ed955c6c53de09524817b41d262c302d0a99f94c5e829c77f1df83b034260(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDeviceDefinition.DeviceDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11779,14 +11779,14 @@ def _typecheckingstub__63f3586ebd22c8d7efa859e3b07e7a1d59b40ead5bd2fcda78d352eb3
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__09ef946c280aa3fe299d97090ecfb5dfa4af0a16702b75c593ec39701a3cb62b(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunctionDefinition.FunctionDefinitionVersionProperty]],
+def _typecheckingstub__de5a19ed9c188b2bb1a6eecf3c47192c7edf18069ffe0cdf6838d6eadee8effd(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__de5a19ed9c188b2bb1a6eecf3c47192c7edf18069ffe0cdf6838d6eadee8effd(
-    value: typing.Any,
+def _typecheckingstub__09ef946c280aa3fe299d97090ecfb5dfa4af0a16702b75c593ec39701a3cb62b(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnFunctionDefinition.FunctionDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12048,6 +12048,12 @@ def _typecheckingstub__7ea2b1b818ef0cc72e4ff310dbf9eae157f92e5c04d08514478628c08
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bf681fed500903d683fa2fe379335268fbe2011999bfef05177c39ea864332eb(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7a38b6bf42dcdd50e398f34bf87a366c206fb7d56a14edcfa088d38beb0169bc(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGroup.GroupVersionProperty]],
 ) -> None:
@@ -12056,12 +12062,6 @@ def _typecheckingstub__7a38b6bf42dcdd50e398f34bf87a366c206fb7d56a14edcfa088d38be
 
 def _typecheckingstub__6675e04cf0ab21e346afb29e4e19bde19ea87ea432acc7787de29c5be10f7aa2(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bf681fed500903d683fa2fe379335268fbe2011999bfef05177c39ea864332eb(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12242,14 +12242,14 @@ def _typecheckingstub__03643a56201d8ee41ec6cb2d06bf4a744b44f9e140baade1eee0f8923
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d933992b8def94152adabe1624210ae1c6c2ac626a5a9fd2af376a7f9128d123(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoggerDefinition.LoggerDefinitionVersionProperty]],
+def _typecheckingstub__1467bdc61b875959389bcefa758a86026e2fb80e0b9db5da7327a4e0b2c1c6b3(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__1467bdc61b875959389bcefa758a86026e2fb80e0b9db5da7327a4e0b2c1c6b3(
-    value: typing.Any,
+def _typecheckingstub__d933992b8def94152adabe1624210ae1c6c2ac626a5a9fd2af376a7f9128d123(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnLoggerDefinition.LoggerDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12397,14 +12397,14 @@ def _typecheckingstub__0256b19a6270c50864dd0afa1219a1b6be7518258daea855f19ca6074
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0e477611b342531c61501bce71bad63149180465d67fa02234b702f1d04ed88e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResourceDefinition.ResourceDefinitionVersionProperty]],
+def _typecheckingstub__9f8767a6e08f9caeed0ccc0cab826c0939740af34c6b569658174c0ac9284975(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9f8767a6e08f9caeed0ccc0cab826c0939740af34c6b569658174c0ac9284975(
-    value: typing.Any,
+def _typecheckingstub__0e477611b342531c61501bce71bad63149180465d67fa02234b702f1d04ed88e(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResourceDefinition.ResourceDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12688,14 +12688,14 @@ def _typecheckingstub__c7419a41b1a2fd9cbc8893cf41814a9d4402f8bbf4b3926c9d4eae105
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__bb5bd9630745b54bebd6a65c27d16ed4621705d8b40d785efc3fcf8eda69d66a(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty]],
+def _typecheckingstub__f3c68b21f52fe99f3d6a88bd9e881c4d030dd6c2bef09d8ac0a05a8c5ff59c37(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f3c68b21f52fe99f3d6a88bd9e881c4d030dd6c2bef09d8ac0a05a8c5ff59c37(
-    value: typing.Any,
+def _typecheckingstub__bb5bd9630745b54bebd6a65c27d16ed4621705d8b40d785efc3fcf8eda69d66a(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSubscriptionDefinition.SubscriptionDefinitionVersionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass

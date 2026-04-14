@@ -16,7 +16,7 @@ import numpy as np
 import palettable as pal
 import pandas as pd
 import seaborn as sns
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 from geocif import logger as log
 from geocif import utils

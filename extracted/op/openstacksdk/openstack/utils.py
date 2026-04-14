@@ -10,14 +10,15 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import collections.abc
+from collections.abc import Mapping
 import hashlib
 import io
 import queue
 import string
 import threading
 import time
-import typing as ty
+from typing import Any, Literal, TYPE_CHECKING, TypeVar, cast, overload
+from collections.abc import Generator, Iterable
 
 import keystoneauth1
 from keystoneauth1 import adapter as ks_adapter
@@ -25,6 +26,16 @@ from keystoneauth1 import discover
 
 from openstack import _log
 from openstack import exceptions
+
+_ProxyT = TypeVar('_ProxyT')
+
+if TYPE_CHECKING:
+    from openstack.block_storage.v2 import _proxy as _block_storage_v2
+    from openstack.block_storage.v3 import _proxy as _block_storage_v3
+    from openstack.identity.v2 import _proxy as _identity_v2
+    from openstack.identity.v3 import _proxy as _identity_v3
+    from openstack.image.v1 import _proxy as _image_v1
+    from openstack.image.v2 import _proxy as _image_v2
 
 
 def urljoin(*args: str | None) -> str:
@@ -41,7 +52,7 @@ def iterate_timeout(
     timeout: int | None,
     message: str,
     wait: int | float | None = 2,
-) -> ty.Generator[int, None, None]:
+) -> Generator[int, None, None]:
     """Iterate and raise an exception on timeout.
 
     This is a generator that will continually yield and sleep for
@@ -161,9 +172,74 @@ def supports_version(
     return supported
 
 
+@overload
+def ensure_service_version(
+    proxy: '_identity_v2.Proxy | _identity_v3.Proxy',
+    version: Literal['2'],
+) -> '_identity_v2.Proxy': ...
+
+
+@overload
+def ensure_service_version(
+    proxy: '_identity_v2.Proxy | _identity_v3.Proxy',
+    version: Literal['3'],
+) -> '_identity_v3.Proxy': ...
+
+
+@overload
+def ensure_service_version(
+    proxy: '_block_storage_v2.Proxy | _block_storage_v3.Proxy',
+    version: Literal['2'],
+) -> '_block_storage_v2.Proxy': ...
+
+
+@overload
+def ensure_service_version(
+    proxy: '_block_storage_v2.Proxy | _block_storage_v3.Proxy',
+    version: Literal['3'],
+) -> '_block_storage_v3.Proxy': ...
+
+
+@overload
+def ensure_service_version(
+    proxy: '_image_v1.Proxy | _image_v2.Proxy',
+    version: Literal['1'],
+) -> '_image_v1.Proxy': ...
+
+
+@overload
+def ensure_service_version(
+    proxy: '_image_v1.Proxy | _image_v2.Proxy',
+    version: Literal['2'],
+) -> '_image_v2.Proxy': ...
+
+
+@overload
+def ensure_service_version(proxy: _ProxyT, version: str) -> _ProxyT: ...
+
+
+def ensure_service_version(proxy: Any, version: str) -> Any:
+    """Ensure the provided proxy is for a given version.
+
+    This is intended for type narrowing.
+
+    :param proxy: A versioned service proxy.
+    :param version: The required API version string.
+    :returns: The proxy, typed as the specific version requested.
+    :raises: :class:`~openstack.exceptions.SDKException` if the proxy is not
+        the requested version.
+    """
+    if proxy.api_version != version:
+        raise exceptions.SDKException(
+            f"Service requires API version {version!r} but the configured "
+            f"version is {proxy.api_version!r}"
+        )
+    return proxy
+
+
 def supports_microversion(
     adapter: ks_adapter.Adapter,
-    microversion: str | int | float | ty.Iterable[str | int | float],
+    microversion: str | int | float | Iterable[str | int | float],
     raise_exception: bool = False,
 ) -> bool:
     """Determine if the given adapter supports the given microversion.
@@ -481,14 +557,14 @@ class TinyDAG:
 # Importing Munch is a relatively expensive operation (0.3s) while we do not
 # really even need much of it. Before we can rework all places where we rely on
 # it we can have a reduced version.
-class Munch(dict[str, ty.Any]):
+class Munch(dict[str, Any]):
     """A slightly stripped version of munch.Munch class"""
 
-    def __init__(self, *args: ty.Any, **kwargs: ty.Any):
+    def __init__(self, *args: Any, **kwargs: Any):
         self.update(*args, **kwargs)
 
     # only called if k not found in normal places
-    def __getattr__(self, k: str) -> ty.Any:
+    def __getattr__(self, k: str) -> Any:
         """Gets key if it exists, otherwise throws AttributeError."""
         try:
             return object.__getattribute__(self, k)
@@ -498,7 +574,7 @@ class Munch(dict[str, ty.Any]):
             except KeyError:
                 raise AttributeError(k)
 
-    def __setattr__(self, k: str, v: ty.Any) -> None:
+    def __setattr__(self, k: str, v: Any) -> None:
         """Sets attribute k if it exists, otherwise sets key k. A KeyError
         raised by set-item (only likely if you subclass Munch) will
         propagate as an AttributeError instead.
@@ -531,12 +607,12 @@ class Munch(dict[str, ty.Any]):
         else:
             object.__delattr__(self, k)
 
-    def toDict(self) -> dict[str, ty.Any]:
+    def toDict(self) -> dict[str, Any]:
         """Recursively converts a munch back into a dictionary."""
         return unmunchify(self)
 
     @property
-    def __dict__(self) -> dict[str, ty.Any]:  # type: ignore[override]
+    def __dict__(self) -> dict[str, Any]:  # type: ignore[override]
         return self.toDict()
 
     def __repr__(self) -> str:
@@ -546,13 +622,13 @@ class Munch(dict[str, ty.Any]):
     def __dir__(self) -> list[str]:
         return list(self.keys())
 
-    def __getstate__(self) -> dict[str, ty.Any]:
+    def __getstate__(self) -> dict[str, Any]:
         """Implement a serializable interface used for pickling.
         See https://docs.python.org/3.6/library/pickle.html.
         """
         return {k: v for k, v in self.items()}
 
-    def __setstate__(self, state: dict[str, ty.Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         """Implement a serializable interface used for pickling.
         See https://docs.python.org/3.6/library/pickle.html.
         """
@@ -564,12 +640,12 @@ class Munch(dict[str, ty.Any]):
     # should cover everything we (sdk) care about and will be able to type the
     # results.
     @classmethod
-    def fromDict(cls, d: dict[str, ty.Any]) -> 'Munch':
+    def fromDict(cls, d: dict[str, Any]) -> 'Munch':
         """Recursively transforms a dictionary into a Munch via copy."""
         # Munchify x, using `seen` to track object cycles
-        seen: dict[int, ty.Any] = dict()
+        seen: dict[int, Any] = dict()
 
-        def munchify_cycles(obj: ty.Any) -> ty.Any:
+        def munchify_cycles(obj: Any) -> Any:
             try:
                 return seen[id(obj)]
             except KeyError:
@@ -578,8 +654,8 @@ class Munch(dict[str, ty.Any]):
             seen[id(obj)] = partial = pre_munchify(obj)
             return post_munchify(partial, obj)
 
-        def pre_munchify(obj: ty.Any) -> ty.Any:
-            if isinstance(obj, collections.abc.Mapping):
+        def pre_munchify(obj: Any) -> Any:
+            if isinstance(obj, Mapping):
                 return cls({})
             elif isinstance(obj, list):
                 return type(obj)()
@@ -589,8 +665,8 @@ class Munch(dict[str, ty.Any]):
             else:
                 return obj
 
-        def post_munchify(partial: ty.Any, obj: ty.Any) -> ty.Any:
-            if isinstance(obj, collections.abc.Mapping):
+        def post_munchify(partial: Any, obj: Any) -> Any:
+            if isinstance(obj, Mapping):
                 partial.update(
                     (k, munchify_cycles(obj[k])) for k in obj.keys()
                 )
@@ -602,12 +678,12 @@ class Munch(dict[str, ty.Any]):
 
             return partial
 
-        return ty.cast('Munch', munchify_cycles(d))
+        return cast('Munch', munchify_cycles(d))
 
     def copy(self) -> 'Munch':
         return self.fromDict(self)
 
-    def update(self, *args: ty.Any, **kwargs: ty.Any) -> None:
+    def update(self, *args: Any, **kwargs: Any) -> None:
         """
         Override built-in method to call custom __setitem__ method that may
         be defined in subclasses.
@@ -615,7 +691,7 @@ class Munch(dict[str, ty.Any]):
         for k, v in dict(*args, **kwargs).items():
             self[k] = v
 
-    def get(self, k: str, d: ty.Any = None) -> ty.Any:
+    def get(self, k: str, d: Any = None) -> Any:
         """
         D.get(k[,d]) -> D[k] if k in D, else d.  d defaults to None.
         """
@@ -623,7 +699,7 @@ class Munch(dict[str, ty.Any]):
             return d
         return self[k]
 
-    def setdefault(self, k: str, d: ty.Any = None) -> ty.Any:
+    def setdefault(self, k: str, d: Any = None) -> Any:
         """
         D.setdefault(k[,d]) -> D.get(k,d), also set D[k]=d if k not in D
         """
@@ -632,18 +708,18 @@ class Munch(dict[str, ty.Any]):
         return self[k]
 
 
-def munchify(x: dict[str, ty.Any], factory: type[Munch] = Munch) -> Munch:
+def munchify(x: dict[str, Any], factory: type[Munch] = Munch) -> Munch:
     """Recursively transforms a dictionary into a Munch via copy."""
     return Munch.fromDict(x)
 
 
-def unmunchify(x: Munch) -> dict[str, ty.Any]:
+def unmunchify(x: Munch) -> dict[str, Any]:
     """Recursively converts a Munch into a dictionary."""
 
     # Munchify x, using `seen` to track object cycles
-    seen: dict[int, ty.Any] = dict()
+    seen: dict[int, Any] = dict()
 
-    def unmunchify_cycles(obj: ty.Any) -> ty.Any:
+    def unmunchify_cycles(obj: Any) -> Any:
         try:
             return seen[id(obj)]
         except KeyError:
@@ -652,8 +728,8 @@ def unmunchify(x: Munch) -> dict[str, ty.Any]:
         seen[id(obj)] = partial = pre_unmunchify(obj)
         return post_unmunchify(partial, obj)
 
-    def pre_unmunchify(obj: ty.Any) -> ty.Any:
-        if isinstance(obj, collections.abc.Mapping):
+    def pre_unmunchify(obj: Any) -> Any:
+        if isinstance(obj, Mapping):
             return dict()
         elif isinstance(obj, list):
             return type(obj)()
@@ -663,8 +739,8 @@ def unmunchify(x: Munch) -> dict[str, ty.Any]:
         else:
             return obj
 
-    def post_unmunchify(partial: ty.Any, obj: ty.Any) -> ty.Any:
-        if isinstance(obj, collections.abc.Mapping):
+    def post_unmunchify(partial: Any, obj: Any) -> Any:
+        if isinstance(obj, Mapping):
             partial.update((k, unmunchify_cycles(obj[k])) for k in obj.keys())
         elif isinstance(obj, list):
             partial.extend(unmunchify_cycles(v) for v in obj)
@@ -674,4 +750,4 @@ def unmunchify(x: Munch) -> dict[str, ty.Any]:
 
         return partial
 
-    return ty.cast(dict[str, ty.Any], unmunchify_cycles(x))
+    return cast(dict[str, Any], unmunchify_cycles(x))

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import typing as t
 from functools import cached_property
 from cryptography.hazmat.primitives import hashes
@@ -74,11 +75,12 @@ class ECBinding(CryptographyBinding):
     @classmethod
     def export_private_key(cls, key: EllipticCurvePrivateKey) -> ECDictKey:
         numbers = key.private_numbers()
+        byte_count = (key.key_size + 7) // 8
         return {
             "crv": cls._curves_dss[key.curve.name],
-            "x": int_to_base64(numbers.public_numbers.x),
-            "y": int_to_base64(numbers.public_numbers.y),
-            "d": int_to_base64(numbers.private_value),
+            "x": int_to_base64(numbers.public_numbers.x, byte_count),
+            "y": int_to_base64(numbers.public_numbers.y, byte_count),
+            "d": int_to_base64(numbers.private_value, byte_count),
         }
 
     @classmethod
@@ -94,10 +96,11 @@ class ECBinding(CryptographyBinding):
     @classmethod
     def export_public_key(cls, key: EllipticCurvePublicKey) -> ECDictKey:
         numbers = key.public_numbers()
+        byte_count = (key.key_size + 7) // 8
         return {
             "crv": cls._curves_dss[numbers.curve.name],
-            "x": int_to_base64(numbers.x),
-            "y": int_to_base64(numbers.y),
+            "x": int_to_base64(numbers.x, byte_count),
+            "y": int_to_base64(numbers.y, byte_count),
         }
 
 

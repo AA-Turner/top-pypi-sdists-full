@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llm-tracekit
-Version: 2.5.2
+Version: 2.6.2
 Summary: Meta-package for LLM Tracekit - OpenTelemetry instrumentations for LLM providers.
 Project-URL: homepage, https://coralogix.com
 Project-URL: repository, https://github.com/coralogix/llm-tracekit.git
@@ -19,6 +19,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: llm-tracekit-core>=1.0.0
+Provides-Extra: anthropic
+Requires-Dist: llm-tracekit-anthropic>=1.0.0; extra == 'anthropic'
 Provides-Extra: bedrock
 Requires-Dist: llm-tracekit-bedrock>=1.1.0; extra == 'bedrock'
 Provides-Extra: gemini
@@ -61,6 +63,7 @@ pip install llm-tracekit-langchain     # For LangChain
 pip install llm-tracekit-langgraph     # For LangGraph
 pip install llm-tracekit-openai-agents # For OpenAI Agents SDK
 pip install llm-tracekit-strands      # For Strands Agents
+pip install llm-tracekit-anthropic    # For Anthropic (Claude API)
 ```
 
 Then instrument your code:
@@ -92,6 +95,7 @@ response = client.chat.completions.create(
 | [OpenAI](https://openai.com/) | `llm-tracekit-openai` | `OpenAIInstrumentor` |
 | [AWS Bedrock](https://aws.amazon.com/bedrock/) | `llm-tracekit-bedrock` | `BedrockInstrumentor` |
 | [Google Gemini](https://ai.google.dev/) | `llm-tracekit-gemini` | `GeminiInstrumentor` |
+| [Anthropic](https://www.anthropic.com/) | `llm-tracekit-anthropic` | `AnthropicInstrumentor` |
 
 ### Frameworks
 

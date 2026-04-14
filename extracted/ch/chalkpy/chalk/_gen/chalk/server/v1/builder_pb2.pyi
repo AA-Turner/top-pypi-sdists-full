@@ -134,20 +134,17 @@ class IndexDeploymentRequest(_message.Message):
         "shadow_force_venv_rebuild",
         "shadow_skip_handle_conversion_errors",
         "shadow",
-        "shadow_run_id",
     )
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DRY_RUN_FIELD_NUMBER: _ClassVar[int]
     SHADOW_FORCE_VENV_REBUILD_FIELD_NUMBER: _ClassVar[int]
     SHADOW_SKIP_HANDLE_CONVERSION_ERRORS_FIELD_NUMBER: _ClassVar[int]
     SHADOW_FIELD_NUMBER: _ClassVar[int]
-    SHADOW_RUN_ID_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     dry_run: bool
     shadow_force_venv_rebuild: bool
     shadow_skip_handle_conversion_errors: bool
     shadow: bool
-    shadow_run_id: str
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
@@ -155,7 +152,6 @@ class IndexDeploymentRequest(_message.Message):
         shadow_force_venv_rebuild: bool = ...,
         shadow_skip_handle_conversion_errors: bool = ...,
         shadow: bool = ...,
-        shadow_run_id: _Optional[str] = ...,
     ) -> None: ...
 
 class IndexDeploymentResponse(_message.Message):
@@ -1653,6 +1649,24 @@ class OtelCollectorSpec(_message.Message):
         toleration_mode: _Optional[_Union[TelemetryCollectorTolerationMode, str]] = ...,
     ) -> None: ...
 
+class GpuTelemetrySpec(_message.Message):
+    __slots__ = ("enabled", "request", "limit", "node_selectors")
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    NODE_SELECTORS_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    request: KubeResourceConfig
+    limit: KubeResourceConfig
+    node_selectors: _containers.RepeatedCompositeFieldContainer[KubeNodeSelector]
+    def __init__(
+        self,
+        enabled: bool = ...,
+        request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        node_selectors: _Optional[_Iterable[_Union[KubeNodeSelector, _Mapping]]] = ...,
+    ) -> None: ...
+
 class ClickHouseSpec(_message.Message):
     __slots__ = ("click_house_version", "request", "limit", "storage", "gateway_id", "instance_type", "serve_over_http")
     CLICK_HOUSE_VERSION_FIELD_NUMBER: _ClassVar[int]
@@ -1994,6 +2008,7 @@ class TelemetryDeploymentSpec(_message.Message):
         "observability_daemons",
         "customer_collector",
         "require_infrastructure_nodepool",
+        "gpu_telemetry",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     CLICK_HOUSE_FIELD_NUMBER: _ClassVar[int]
@@ -2004,6 +2019,7 @@ class TelemetryDeploymentSpec(_message.Message):
     OBSERVABILITY_DAEMONS_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_COLLECTOR_FIELD_NUMBER: _ClassVar[int]
     REQUIRE_INFRASTRUCTURE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    GPU_TELEMETRY_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     click_house: ClickHouseSpec
     otel: OtelCollectorSpec
@@ -2013,6 +2029,7 @@ class TelemetryDeploymentSpec(_message.Message):
     observability_daemons: _containers.RepeatedCompositeFieldContainer[ObservabilityDaemonSpec]
     customer_collector: CustomerCollectorConfig
     require_infrastructure_nodepool: bool
+    gpu_telemetry: GpuTelemetrySpec
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -2024,6 +2041,7 @@ class TelemetryDeploymentSpec(_message.Message):
         observability_daemons: _Optional[_Iterable[_Union[ObservabilityDaemonSpec, _Mapping]]] = ...,
         customer_collector: _Optional[_Union[CustomerCollectorConfig, _Mapping]] = ...,
         require_infrastructure_nodepool: bool = ...,
+        gpu_telemetry: _Optional[_Union[GpuTelemetrySpec, _Mapping]] = ...,
     ) -> None: ...
 
 class TelemetryDeployment(_message.Message):

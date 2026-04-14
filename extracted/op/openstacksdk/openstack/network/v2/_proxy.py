@@ -10,7 +10,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import typing as ty
+from typing import Any, ClassVar, Literal
+from collections.abc import Callable
 
 from openstack import exceptions
 from openstack.network.v2 import _base
@@ -109,6 +110,8 @@ from openstack import resource
 
 
 class Proxy(proxy.Proxy):
+    api_version: ClassVar[Literal['2']] = '2'
+
     _resource_registry = {
         "address_group": _address_group.AddressGroup,
         "address_scope": _address_scope.AddressScope,
@@ -202,7 +205,7 @@ class Proxy(proxy.Proxy):
         value: str | resource.ResourceT | None,
         base_path: str | None = None,
         if_revision: int | None = None,
-        **attrs: ty.Any,
+        **attrs: Any,
     ) -> resource.ResourceT:
         if (
             issubclass(resource_type, _base.NetworkResource)
@@ -220,7 +223,7 @@ class Proxy(proxy.Proxy):
         value: str | resource.ResourceT | None,
         ignore_missing: bool = True,
         if_revision: int | None = None,
-        **attrs: ty.Any,
+        **attrs: Any,
     ) -> resource.ResourceT | None:
         if (
             issubclass(resource_type, _base.NetworkResource)
@@ -323,7 +326,7 @@ class Proxy(proxy.Proxy):
     def update_address_group(
         self,
         address_group: str | _address_group.AddressGroup,
-        **attrs: ty.Any,
+        **attrs: Any,
     ) -> _address_group.AddressGroup:
         """Update an address group
 
@@ -3000,7 +3003,7 @@ class Proxy(proxy.Proxy):
         self,
         port: str | _port.Port,
         if_revision: int | None = None,
-        **attrs: ty.Any,
+        **attrs: Any,
     ) -> _port.Port:
         """Update a port
 
@@ -3055,25 +3058,22 @@ class Proxy(proxy.Proxy):
     def activate_port_binding(
         self,
         port,
-        **attrs,
+        host,
     ):
         """Activate a port binding
 
         :param port: The value can be the ID of a port or a
             :class:`~openstack.network.v2.port.Port` instance.
-        :param attrs: Keyword arguments which will be used to create
-            a :class:`~openstack.network.v2.port.Port`,
-            comprised of the properties on the Port class.
+        :param host: The hostname of the system where the port is bound.
 
-        :returns: The results of port binding creation
+        :returns: The results of port binding activation
         :rtype: :class:`~openstack.network.v2.port_binding.PortBinding`
         """
         port_id = self._get(_port.Port, port).id
-        host = attrs['host']
         bindings_on_host = self.port_bindings(port=port_id, host=host)
         # There can be only 1 binding on a host at a time
         for binding in bindings_on_host:
-            return binding.activate_port_binding(self, **attrs)
+            return binding.activate_port_binding(self, host)
 
     def port_bindings(self, port, **query):
         """Get a single port binding
@@ -3116,7 +3116,7 @@ class Proxy(proxy.Proxy):
         bindings_on_host = self.port_bindings(port=port_id, host=host)
         # There can be only 1 binding on a host at a time
         for binding in bindings_on_host:
-            return binding.delete_port_binding(self, host=host)
+            return binding.delete_port_binding(self, host)
 
     def create_qos_bandwidth_limit_rule(self, qos_policy, **attrs):
         """Create a new bandwidth limit rule
@@ -7243,7 +7243,7 @@ class Proxy(proxy.Proxy):
         interval: int | float | None = 2,
         wait: int | None = None,
         attribute: str = 'status',
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for the resource to be in a particular status.
 
@@ -7279,7 +7279,7 @@ class Proxy(proxy.Proxy):
         res: resource.ResourceT,
         interval: int = 2,
         wait: int = 120,
-        callback: ty.Callable[[int], None] | None = None,
+        callback: Callable[[int], None] | None = None,
     ) -> resource.ResourceT:
         """Wait for a resource to be deleted.
 

@@ -4554,6 +4554,12 @@ class AuroraPostgresEngineVersion(
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_11_LIMITLESS"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_16_13")
+    def VER_16_13(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "16.13".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_13"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_2")
     def VER_16_2(cls) -> "AuroraPostgresEngineVersion":
         '''(deprecated) Version "16.2".
@@ -6076,6 +6082,14 @@ class CfnDBCluster(
         :cloudformationAttribute: ReadEndpoint.Address
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrReadEndpointAddress"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStorageEncryptionType")
+    def attr_storage_encryption_type(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: StorageEncryptionType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStorageEncryptionType"))
 
     @builtins.property
     @jsii.member(jsii_name="attrStorageThroughput")
@@ -14614,19 +14628,6 @@ class CfnDBParameterGroup(
         jsii.set(self, "family", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="dbParameterGroupName")
-    def db_parameter_group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the DB parameter group.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbParameterGroupName"))
-
-    @db_parameter_group_name.setter
-    def db_parameter_group_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a22c7ecd784517cdedb05f2be1ead50de4ec8f05506992db84a909159e60e408)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dbParameterGroupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="parameters")
     def parameters(self) -> typing.Any:
         '''A mapping of parameter names and values for the parameter update.'''
@@ -14638,6 +14639,19 @@ class CfnDBParameterGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__987f1082fdf4a5da0b26fcc782aacbe415062f22410b31c0cf4ce6fdbfcf67ab)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbParameterGroupName")
+    def db_parameter_group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the DB parameter group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dbParameterGroupName"))
+
+    @db_parameter_group_name.setter
+    def db_parameter_group_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a22c7ecd784517cdedb05f2be1ead50de4ec8f05506992db84a909159e60e408)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbParameterGroupName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
@@ -53739,14 +53753,14 @@ def _typecheckingstub__9e21a919c5d348b9b21e85ad530ebd9d61da372e1b23e938e25fddde0
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__a22c7ecd784517cdedb05f2be1ead50de4ec8f05506992db84a909159e60e408(
-    value: typing.Optional[builtins.str],
+def _typecheckingstub__987f1082fdf4a5da0b26fcc782aacbe415062f22410b31c0cf4ce6fdbfcf67ab(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__987f1082fdf4a5da0b26fcc782aacbe415062f22410b31c0cf4ce6fdbfcf67ab(
-    value: typing.Any,
+def _typecheckingstub__a22c7ecd784517cdedb05f2be1ead50de4ec8f05506992db84a909159e60e408(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass

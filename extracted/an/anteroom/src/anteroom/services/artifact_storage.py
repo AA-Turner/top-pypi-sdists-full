@@ -399,3 +399,42 @@ def _row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
             logger.warning("Malformed metadata JSON for artifact %s, defaulting to {}", d.get("fqn", d.get("id", "?")))
             d["metadata"] = {}
     return d
+
+
+def get_pack_for_artifact(
+    db: Any,
+    artifact_id: str,
+) -> dict[str, Any] | None:
+    """Look up the pack that owns an artifact via the pack_artifacts join table.
+
+    Returns ``{"pack_id": ..., "pack_name": ..., "namespace": ..., "source_path": ...}``
+    or ``None`` if the artifact is standalone (not linked to a pack).
+    """
+    row = db.execute_fetchone(
+        "SELECT pa.pack_id, p.name, p.namespace, p.source_path"
+        " FROM pack_artifacts pa"
+        " JOIN packs p ON p.id = pa.pack_id"
+        " WHERE pa.artifact_id = ?"
+        " LIMIT 1",
+        (artifact_id,),
+    )
+    if row is None:
+        return None
+    if isinstance(row, (tuple, list)):
+        return {
+            "pack_id": row[0],
+            "pack_name": row[1],
+            "namespace": row[2],
+            "source_path": row[3] or "",
+        }
+    # sqlite3.Row supports row["key"] but not .get(); use try/except for safety
+    try:
+        source_path = row["source_path"] or ""
+    except (IndexError, KeyError):
+        source_path = ""
+    return {
+        "pack_id": row["pack_id"],
+        "pack_name": row["name"],
+        "namespace": row["namespace"],
+        "source_path": source_path,
+    }

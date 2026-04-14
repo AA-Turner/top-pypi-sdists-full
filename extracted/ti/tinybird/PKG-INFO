@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.4.1
+Version: 4.4.2
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.4.2
+*******
+
+- `Added` `tb build` and `tb dev` now display git branch, Tinybird branch name, and dashboard URL before building. In local mode, a separate workspace is created per git branch.
 
 4.4.1
 *******

@@ -363,7 +363,9 @@ class ResearchMixin(BaseClient):
             source_array.append(source_data)
 
         params = [None, [1], task_id, notebook_id, source_array]
-        result = self._call_rpc(self.RPC_IMPORT_RESEARCH, params, f"/notebook/{notebook_id}", timeout=timeout)
+        result = self._call_rpc(
+            self.RPC_IMPORT_RESEARCH, params, f"/notebook/{notebook_id}", timeout=timeout
+        )
 
         imported_sources = []
         if result and isinstance(result, list):

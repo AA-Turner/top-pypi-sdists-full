@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: anomalo
-Version: 0.40.0
+Version: 0.40.1
 Summary: Python bindings for the Anomalo API
 License: Apache-2.0
 Author: Anomalo

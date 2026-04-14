@@ -1023,3 +1023,308 @@ class TestMaxPromptSizeEnforcement:
             reg.load(tmpdir)
             assert not reg.has_skill("huge")
             assert any("exceeds" in w for w in reg.load_warnings)
+
+
+class TestLoadFromReferences:
+    def test_valid_directory(self, tmp_path: Path) -> None:
+        skill_dir = tmp_path / "deploy"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("---\nname: deploy\ndescription: Deploy\n---\nDeploy prompt")
+        reg = SkillRegistry()
+        n = reg.load_from_references([str(skill_dir)])
+        assert n == 1
+        assert reg.has_skill("deploy")
+        assert reg.get("deploy").source == "reference"
+
+    def test_valid_md_file(self, tmp_path: Path) -> None:
+        skill_dir = tmp_path / "review"
+        skill_dir.mkdir()
+        md = skill_dir / "SKILL.md"
+        md.write_text("---\nname: review\ndescription: Review\n---\nReview prompt")
+        reg = SkillRegistry()
+        n = reg.load_from_references([str(md)])
+        assert n == 1
+        assert reg.has_skill("review")
+
+    def test_missing_path(self, tmp_path: Path) -> None:
+        reg = SkillRegistry()
+        n = reg.load_from_references([str(tmp_path / "nonexistent")])
+        assert n == 0
+
+    def test_overrides_existing(self, tmp_path: Path) -> None:
+        reg = SkillRegistry()
+        reg._skills["deploy"] = Skill(name="deploy", description="Old", prompt="old prompt", source="default")
+        skill_dir = tmp_path / "deploy"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("---\nname: deploy\ndescription: New\n---\nNew prompt")
+        n = reg.load_from_references([str(skill_dir)])
+        assert n == 1
+        assert reg.get("deploy").prompt == "New prompt"
+        assert reg.get("deploy").source == "reference"
+
+    def test_invalid_frontmatter(self, tmp_path: Path) -> None:
+        skill_dir = tmp_path / "bad"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("not a valid skill file")
+        reg = SkillRegistry()
+        n = reg.load_from_references([str(skill_dir)])
+        assert n == 0
+
+
+class TestMetadataPreservation:
+    """Tests for non-core frontmatter field preservation (#1395)."""
+
+    def test_metadata_preserved_from_filesystem(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir)
+            skill_dir = skills_dir / "deploy"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: deploy\ndescription: Deploy tool\n"
+                "license: MIT\ncompatibility: claude\ncustom_field: hello\n---\n\nDo deploy\n"
+            )
+            result = _load_skills_from_dir(skills_dir, "project")
+            assert len(result.skills) == 1
+            skill = result.skills[0]
+            assert skill.metadata["license"] == "MIT"
+            assert skill.metadata["compatibility"] == "claude"
+            assert skill.metadata["custom_field"] == "hello"
+
+    def test_metadata_empty_when_no_extra_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir)
+            _write_skill(skills_dir, "basic", description="Basic skill")
+            result = _load_skills_from_dir(skills_dir, "project")
+            assert len(result.skills) == 1
+            assert result.skills[0].metadata == {}
+
+    def test_metadata_excludes_core_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir)
+            skill_dir = skills_dir / "test"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: test\ndescription: A test\nlicense: Apache-2.0\n---\n\nTest prompt\n"
+            )
+            result = _load_skills_from_dir(skills_dir, "project")
+            skill = result.skills[0]
+            assert "name" not in skill.metadata
+            assert "description" not in skill.metadata
+            assert "license" in skill.metadata
+
+    def test_metadata_from_references(self, tmp_path: Path) -> None:
+        skill_dir = tmp_path / "review"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: review\ndescription: Code review\nlicense: BSD-3\n---\n\nReview code\n"
+        )
+        reg = SkillRegistry()
+        reg.load_from_references([str(skill_dir)])
+        skill = reg.get("review")
+        assert skill is not None
+        assert skill.metadata["license"] == "BSD-3"
+
+    def test_structured_metadata_preserved(self) -> None:
+        """List and dict values in frontmatter are preserved, not stringified."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir)
+            skill_dir = skills_dir / "rich"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: rich\ndescription: Rich metadata\n"
+                "compatibility:\n  - claude\n  - anteroom\n"
+                "metadata:\n  version: 2\n  author: test\n"
+                "---\n\nDo rich things\n"
+            )
+            result = _load_skills_from_dir(skills_dir, "project")
+            assert len(result.skills) == 1
+            skill = result.skills[0]
+            assert skill.metadata["compatibility"] == ["claude", "anteroom"]
+            assert skill.metadata["metadata"] == {"version": 2, "author": "test"}
+
+    def test_underscores_accepted_with_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir)
+            skill_dir = skills_dir / "my_skill"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text("---\nname: my_skill\ndescription: test\n---\n\nDo thing\n")
+            result = _load_skills_from_dir(skills_dir, "project")
+            assert len(result.skills) == 1
+            assert result.skills[0].name == "my_skill"
+
+
+class TestSpecComplianceWarnings:
+    """Tests for spec-compliance advisory warnings (#1395)."""
+
+    def test_resource_dir_detected(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir)
+            skill_dir = skills_dir / "deploy"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text("---\nname: deploy\n---\n\nDeploy\n")
+            (skill_dir / "scripts").mkdir()
+            (skill_dir / "assets").mkdir()
+            with caplog.at_level(logging.DEBUG, logger="anteroom.cli.skills"):
+                _load_skills_from_dir(skills_dir, "project")
+            assert any("scripts/" in r.message for r in caplog.records)
+            assert any("assets/" in r.message for r in caplog.records)
+
+    def test_consecutive_hyphens_warned(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir)
+            skill_dir = skills_dir / "my--skill"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text("---\nname: my--skill\n---\n\nTest\n")
+            with caplog.at_level(logging.DEBUG, logger="anteroom.cli.skills"):
+                _load_skills_from_dir(skills_dir, "project")
+            assert any("consecutive hyphens" in r.message for r in caplog.records)
+
+    def test_underscore_warned(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir)
+            skill_dir = skills_dir / "my_skill"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text("---\nname: my_skill\n---\n\nTest\n")
+            with caplog.at_level(logging.DEBUG, logger="anteroom.cli.skills"):
+                _load_skills_from_dir(skills_dir, "project")
+            assert any("underscores" in r.message for r in caplog.records)
+
+    def test_dir_name_mismatch_warned(self, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            skills_dir = Path(tmpdir)
+            skill_dir = skills_dir / "deploy"
+            skill_dir.mkdir()
+            (skill_dir / "SKILL.md").write_text("---\nname: deploy-tool\ndescription: test\n---\n\nDeploy\n")
+            with caplog.at_level(logging.DEBUG, logger="anteroom.cli.skills"):
+                _load_skills_from_dir(skills_dir, "project")
+            assert any("does not match directory" in r.message for r in caplog.records)
+
+
+class TestSkillsDisplay:
+    """Tests for metadata in /skills output (#1395)."""
+
+    def test_metadata_in_display(self) -> None:
+        from anteroom.cli.commands import SkillDescription, build_skills_markdown
+
+        entries = [
+            SkillDescription(
+                display_name="deploy",
+                description="Deploy tool",
+                source="project",
+                metadata={"license": "MIT", "compatibility": "claude"},
+            )
+        ]
+        output = build_skills_markdown(entries, [])
+        assert "metadata:" in output
+        assert "license=MIT" in output
+        assert "compatibility=claude" in output
+
+    def test_empty_metadata_not_shown(self) -> None:
+        from anteroom.cli.commands import SkillDescription, build_skills_markdown
+
+        entries = [
+            SkillDescription(
+                display_name="basic",
+                description="Basic skill",
+                source="project",
+            )
+        ]
+        output = build_skills_markdown(entries, [])
+        assert "metadata:" not in output
+
+
+# ---------------------------------------------------------------------------
+# Update guidance (#1397)
+# ---------------------------------------------------------------------------
+
+
+class TestComputeUpdateGuidance:
+    """Test _compute_update_guidance for all 5 source types."""
+
+    def test_default_skill(self) -> None:
+        from anteroom.cli.skills import _compute_update_guidance
+
+        g = _compute_update_guidance("default", "deploy")
+        assert "Built-in" in g
+        assert "/new-skill deploy" in g
+
+    def test_local_skill_with_path(self) -> None:
+        from anteroom.cli.skills import _compute_update_guidance
+
+        g = _compute_update_guidance("project", "deploy", path="/home/user/.anteroom/skills/deploy/SKILL.md")
+        assert "Local skill at" in g
+        assert "Edit directly" in g
+
+    def test_local_skill_without_path(self) -> None:
+        from anteroom.cli.skills import _compute_update_guidance
+
+        g = _compute_update_guidance("global", "deploy")
+        assert "Local skill" in g
+
+    def test_reference_skill(self) -> None:
+        from anteroom.cli.skills import _compute_update_guidance
+
+        g = _compute_update_guidance("reference", "deploy", path="/etc/skills/deploy/SKILL.md")
+        assert "Reference skill at" in g
+        assert "Edit directly" in g
+
+    def test_pack_artifact_no_source_path(self) -> None:
+        from anteroom.cli.skills import _compute_update_guidance
+
+        g = _compute_update_guidance("artifact:project", "deploy", namespace="my-pack")
+        assert "From pack my-pack" in g
+        assert "/new-skill deploy" in g
+        assert "override" in g.lower()
+
+    def test_pack_artifact_with_source_path(self) -> None:
+        from anteroom.cli.skills import _compute_update_guidance
+
+        g = _compute_update_guidance(
+            "artifact:global",
+            "deploy",
+            namespace="my-pack",
+            pack_source_path="/home/user/packs/my-pack",
+        )
+        assert "From pack my-pack" in g
+        assert "/home/user/packs/my-pack" in g
+        assert "/pack update" in g
+
+    def test_guidance_set_on_local_skill_load(self, tmp_path: Path) -> None:
+        """Skills loaded from filesystem have update_guidance set."""
+        skill_dir = tmp_path / "test-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("---\nname: test-skill\ndescription: test\n---\nDo stuff.\n")
+        from anteroom.cli.skills import _load_skills_from_dir
+
+        result = _load_skills_from_dir(tmp_path, "project")
+        assert len(result.skills) == 1
+        assert result.skills[0].update_guidance
+        assert "Local skill" in result.skills[0].update_guidance
+
+    def test_catalog_includes_guidance(self) -> None:
+        """get_skill_descriptions() includes update guidance in description."""
+        from anteroom.cli.skills import Skill, SkillRegistry
+
+        reg = SkillRegistry()
+        reg._skills = {
+            "test": Skill(
+                name="test",
+                description="A test skill",
+                prompt="do stuff",
+                source="default",
+                update_guidance="Built-in skill — create a local override.",
+            )
+        }
+        reg._rebuild_name_index()
+        descs = reg.get_skill_descriptions()
+        assert len(descs) == 1
+        assert "[update:" in descs[0][1]
+        assert "Built-in" in descs[0][1]

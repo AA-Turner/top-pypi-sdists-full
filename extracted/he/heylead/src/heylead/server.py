@@ -1,10 +1,11 @@
 """HeyLead MCP Server — the heart of the product.
 
-Registers all 23 tools and runs via stdio transport for Claude Code / Cursor.
+Registers all 23 tools and runs via stdio or streamable-http transport.
 
-Usage:
-    claude mcp add heylead -- python -m heylead
-    # or after PyPI publish:
+Usage (cloud — recommended, always up to date):
+    claude mcp add heylead --transport http https://heylead.dev/mcp
+
+Usage (local — offline/self-hosted):
     claude mcp add heylead -- uvx heylead
 """
 

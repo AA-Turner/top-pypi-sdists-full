@@ -41,6 +41,13 @@ log = structlog.get_logger(__name__)
 VALID_TRANSPORTS: frozenset[str] = frozenset({"stdio", "sse"})
 
 
+def _default_interview_state_dir() -> Path:
+    """Return the global interview state directory for MCP handlers."""
+    from ouroboros.config.models import get_config_dir
+
+    return get_config_dir() / "data"
+
+
 def validate_transport(transport: str) -> str:
     """Normalize and validate a transport string.
 
@@ -726,7 +733,8 @@ def create_ouroboros_server(
         rate_limit_config: Optional rate limiting configuration.
         event_store: Optional EventStore instance. If not provided, creates default.
         state_dir: Optional pathlib.Path for interview state directory.
-                   If not provided, uses ~/.ouroboros/data.
+                   If not provided, uses ``get_config_dir() / "data"``
+                   (typically ``~/.ouroboros/data``).
         runtime_backend: Optional orchestrator runtime backend override.
         llm_backend: Optional LLM-only backend override.
 
@@ -801,7 +809,9 @@ def create_ouroboros_server(
         llm_backend=llm_backend,
     )
 
-    # Create shared LLM adapter for interview/seed/evaluation paths.
+    # Create shared LLM adapter for interview/seed paths.
+    # Evaluation constructs its own adapter with higher max_turns — see
+    # EvaluateHandler.handle in mcp/tools/evaluation_handlers.py.
     llm_adapter = create_llm_adapter(
         backend=llm_backend,
         max_turns=1,
@@ -815,14 +825,15 @@ def create_ouroboros_server(
         event_store = EventStore()
 
     # Create state directory for interviews
-    if state_dir is None:
-        state_dir = Path.home() / ".ouroboros" / "data"
-    state_dir.mkdir(parents=True, exist_ok=True)
+    state_dir_path = (
+        _default_interview_state_dir() if state_dir is None else Path(state_dir).expanduser()
+    )
+    state_dir_path.mkdir(parents=True, exist_ok=True)
 
     # Create core service instances
     interview_engine = InterviewEngine(
         llm_adapter=llm_adapter,
-        state_dir=state_dir,
+        state_dir=state_dir_path,
         model=get_clarification_model(llm_backend),
     )
 
@@ -1346,7 +1357,7 @@ def create_ouroboros_server(
             llm_backend=llm_backend,
         ),
         PMInterviewHandler(
-            data_dir=state_dir,
+            data_dir=state_dir_path,
             llm_adapter=llm_adapter,
             llm_backend=llm_backend,
         ),
@@ -1387,7 +1398,6 @@ def create_ouroboros_server(
         ),
         EvaluateHandler(
             event_store=event_store,
-            llm_adapter=llm_adapter,
             llm_backend=llm_backend,
         ),
         LateralThinkHandler(),

@@ -93,10 +93,10 @@ class FeatureViewApi:
         """Get a feature view from the backend using its name.
 
         Parameters:
-            name `str`: Name of the feature view.
+            name: Name of the feature view.
 
         Returns:
-            `List[FeatureView]`: A list that contains all version of the feature view.
+            A list that contains all version of the feature view.
 
         Raises:
             ValueError: If the feature group associated with the feature view cannot be found.
@@ -126,11 +126,11 @@ class FeatureViewApi:
         """Get a feature view from the backend using both name and version.
 
         Parameters:
-            name `str`: Name of feature view.
-            version `version`: Version of the feature view.
+            name: Name of feature view.
+            version: Version of the feature view.
 
         Returns:
-            `FeatureView`
+            The feature view with the specified name and version.
 
         Raises:
             ValueError: If the feature group associated with the feature view cannot be found.
@@ -169,13 +169,17 @@ class FeatureViewApi:
             query_params={"expand": ["features"]} if with_features else None,
         )["items"]
 
-    def delete_by_name(self, name: str) -> None:
+    def delete_by_name(self, name: str, force: bool = False) -> None:
         path = self._base_path + [name]
-        self._client._send_request(self._DELETE, path)
+        query_params = {"force": force} if force else {}
+        self._client._send_request(self._DELETE, path, query_params)
 
-    def delete_by_name_version(self, name: str, version: int) -> None:
+    def delete_by_name_version(
+        self, name: str, version: int, force: bool = False
+    ) -> None:
         path = self._base_path + [name, self._VERSION, version]
-        self._client._send_request(self._DELETE, path)
+        query_params = {"force": force} if force else {}
+        self._client._send_request(self._DELETE, path, query_params)
 
     def get_batch_query(
         self,
@@ -228,12 +232,15 @@ class FeatureViewApi:
         """Get the prepared statement for fetching feature vectors.
 
         Parameters:
-            name : `str`. Name of the feature view.
-            version : `int`. Version of the feature view.
-            batch : `bool`. Whether to get the prepared statement for batch feature vector retrieval.
-            inference_helper_columns : `bool`. Whether to include inference helper columns in the prepared statement.
-            logging_meta_data : `bool`. Whether to include logging meta data in the prepared statement. i.e return feature vector along with inference helper columns and event time of the root feature group.
-            feature_vector_with_inference_helpers : `bool`. Whether to include inference helper columns along with regular features in the prepared statement.
+            name: Name of the feature view.
+            version: Version of the feature view.
+            batch: Whether to get the prepared statement for batch feature vector retrieval.
+            inference_helper_columns: Whether to include inference helper columns in the prepared statement.
+            logging_meta_data: Whether to include logging meta data in the prepared statement. i.e return feature vector along with inference helper columns and event time of the root feature group.
+            feature_vector_with_inference_helpers: Whether to include inference helper columns along with regular features in the prepared statement.
+
+        Returns:
+            The prepared statement for fetching feature vectors.
         """
         path = self._base_path + [
             name,
@@ -352,11 +359,11 @@ class FeatureViewApi:
         returned.
 
         Parameters:
-            feature_view_instance: Metadata object of feature view.
+            name: Name of the feature view.
+            version: Version of the feature view.
 
         Returns:
-            `ExplicitProvenance.Links`: the feature groups used to generated this
-            feature view
+            The feature groups used to generated this feature view.
         """
         _client = client.get_instance()
         path_params = self._base_path + [
@@ -397,8 +404,7 @@ class FeatureViewApi:
             training_dataset_version: Filter generated models based on the used training dataset version.
 
         Returns:
-            `ExplicitProvenance.Links`: the models generated using this feature
-            group
+            The models generated using this feature view.
         """
         _client = client.get_instance()
         path_params = self._base_path + [

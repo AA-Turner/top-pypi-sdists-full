@@ -2837,14 +2837,13 @@ class ModelQualityJobDefinitionReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.ModelReference",
     jsii_struct_bases=[],
-    name_mapping={"model_id": "modelId", "model_name": "modelName"},
+    name_mapping={"model_arn": "modelArn"},
 )
 class ModelReference:
-    def __init__(self, *, model_id: builtins.str, model_name: builtins.str) -> None:
+    def __init__(self, *, model_arn: builtins.str) -> None:
         '''A reference to a Model resource.
 
-        :param model_id: The Id of the Model resource.
-        :param model_name: The ModelName of the Model resource.
+        :param model_arn: The ModelArn of the Model resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -2855,31 +2854,21 @@ class ModelReference:
             from aws_cdk.interfaces import aws_sagemaker as interfaces_sagemaker
             
             model_reference = interfaces_sagemaker.ModelReference(
-                model_id="modelId",
-                model_name="modelName"
+                model_arn="modelArn"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8cd61af7df82fd40369c69cb9d02ff44230d37cd682d4ca1b498121f1cc8b4c5)
-            check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
-            check_type(argname="argument model_name", value=model_name, expected_type=type_hints["model_name"])
+            check_type(argname="argument model_arn", value=model_arn, expected_type=type_hints["model_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "model_id": model_id,
-            "model_name": model_name,
+            "model_arn": model_arn,
         }
 
     @builtins.property
-    def model_id(self) -> builtins.str:
-        '''The Id of the Model resource.'''
-        result = self._values.get("model_id")
-        assert result is not None, "Required property 'model_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def model_name(self) -> builtins.str:
-        '''The ModelName of the Model resource.'''
-        result = self._values.get("model_name")
-        assert result is not None, "Required property 'model_name' is missing"
+    def model_arn(self) -> builtins.str:
+        '''The ModelArn of the Model resource.'''
+        result = self._values.get("model_arn")
+        assert result is not None, "Required property 'model_arn' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -3809,8 +3798,7 @@ def _typecheckingstub__3bbb410da1ba18623b904a946e29f21cdc36bdf281f4a84f6f7791580
 
 def _typecheckingstub__8cd61af7df82fd40369c69cb9d02ff44230d37cd682d4ca1b498121f1cc8b4c5(
     *,
-    model_id: builtins.str,
-    model_name: builtins.str,
+    model_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

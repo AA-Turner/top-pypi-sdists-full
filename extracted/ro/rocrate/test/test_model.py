@@ -1,12 +1,13 @@
-# Copyright 2019-2025 The University of Manchester, UK
-# Copyright 2020-2025 Vlaams Instituut voor Biotechnologie (VIB), BE
-# Copyright 2020-2025 Barcelona Supercomputing Center (BSC), ES
-# Copyright 2020-2025 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
-# Copyright 2022-2025 École Polytechnique Fédérale de Lausanne, CH
-# Copyright 2024-2025 Data Centre, SciLifeLab, SE
-# Copyright 2024-2025 National Institute of Informatics (NII), JP
-# Copyright 2025 Senckenberg Society for Nature Research (SGN), DE
-# Copyright 2025 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2019-2026 The University of Manchester, UK
+# Copyright 2020-2026 Vlaams Instituut voor Biotechnologie (VIB), BE
+# Copyright 2020-2026 Barcelona Supercomputing Center (BSC), ES
+# Copyright 2020-2026 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
+# Copyright 2022-2026 École Polytechnique Fédérale de Lausanne, CH
+# Copyright 2024-2026 Data Centre, SciLifeLab, SE
+# Copyright 2024-2026 National Institute of Informatics (NII), JP
+# Copyright 2025-2026 Senckenberg Society for Nature Research (SGN), DE
+# Copyright 2025-2026 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+# Copyright 2026 Spanish National Research Council (CSIC), ES
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +30,7 @@ import uuid
 from pathlib import Path
 
 import pytest
-from rocrate.rocrate import ROCrate
+from rocrate.rocrate import ROCrate, Subcrate
 from rocrate.model import (
     DataEntity,
     File,
@@ -39,6 +40,7 @@ from rocrate.model import (
     Preview,
     ContextEntity
 )
+from .conftest import BASE_URL, DEFAULT_VERSION
 
 
 RAW_REPO_URL = "https://raw.githubusercontent.com/ResearchObject/ro-crate-py"
@@ -102,10 +104,11 @@ def test_data_entities(test_data_dir):
     crate = ROCrate()
     file_ = crate.add(File(crate, test_data_dir / 'sample_file.txt'))
     dataset = crate.add(Dataset(crate, test_data_dir / 'test_add_dir'))
+    subcrate = crate.add(Subcrate(crate, test_data_dir / 'crate-1.0'))
     data_entity = crate.add(DataEntity(crate, '#mysterious'))
-    assert set(crate.data_entities) == {file_, dataset, data_entity}
+    assert set(crate.data_entities) == {file_, dataset, subcrate, data_entity}
     part_ids = set(_["@id"] for _ in crate.root_dataset._jsonld["hasPart"])
-    assert set(_.id for _ in (file_, dataset, data_entity)) <= part_ids
+    assert set(_.id for _ in (file_, dataset, subcrate, data_entity)) <= part_ids
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="CI sometimes fails on macOS")
@@ -314,7 +317,7 @@ def test_self_delete(test_data_dir):
 def test_entity_as_mapping(tmpdir, helpers):
     orcid = "https://orcid.org/0000-0002-1825-0097"
     metadata = {
-        "@context": "https://w3id.org/ro/crate/1.1/context",
+        "@context": "https://w3id.org/ro/crate/1.2/context",
         "@graph": [
             {"@id": "ro-crate-metadata.json",
              "@type": "CreativeWork",
@@ -323,7 +326,7 @@ def test_entity_as_mapping(tmpdir, helpers):
                  "application/json",
                  {"@id": "https://www.json.org"},
              ],
-             "conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"}},
+             "conformsTo": {"@id": "https://w3id.org/ro/crate/1.2"}},
             {"@id": "./",
              "@type": "Dataset",
              "correction": [
@@ -456,7 +459,7 @@ def test_get_by_type(test_data_dir):
 def test_context(helpers):
     crate = ROCrate()
     jsonld = crate.metadata.generate()
-    base_context = f"{helpers.PROFILE}/context"
+    base_context = f"{BASE_URL}/{DEFAULT_VERSION}/context"
     assert jsonld["@context"] == base_context
     wfrun_ctx = "https://w3id.org/ro/terms/workflow-run"
     crate.metadata.extra_contexts.append(wfrun_ctx)
@@ -552,3 +555,41 @@ def test_entity_in_properties(tmpdir):
     assert out_authors[1] is out_bob
     assert out_alice == alice
     assert out_bob == bob
+
+
+def test_value_objects(tmpdir):
+    description = "A collection of my pictures"
+    date_published = "2024-05-17T01:04:52+01:00"
+    metadata = {
+        "@context": "https://w3id.org/ro/crate/1.2/context",
+        "@graph": [
+            {
+                "@id": "ro-crate-metadata.json",
+                "@type": "CreativeWork",
+                "conformsTo": {"@id": "https://w3id.org/ro/crate/1.2"},
+                "about": {"@id": "./"},
+            },
+            {
+                "@id": "./",
+                "@type": "Dataset",
+                "name": "My pictures",
+                "description": {
+                    "@value": description,
+                    "@language": "en"
+                },
+                "datePublished": {
+                    "@value": date_published,
+                    "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+                },
+                "license": "CC0-1.0",
+            },
+        ]
+    }
+    crate = ROCrate(metadata)
+    assert crate.root_dataset.get("description") == description
+    assert crate.root_dataset.get("datePublished") == date_published
+    out_path = tmpdir / "ro_crate_out"
+    crate.write(out_path)
+    rcrate = ROCrate(out_path)
+    assert rcrate.root_dataset.get("description") == description
+    assert rcrate.root_dataset.get("datePublished") == date_published

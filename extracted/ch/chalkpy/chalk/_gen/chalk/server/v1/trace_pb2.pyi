@@ -263,6 +263,14 @@ class GetSpanResponse(_message.Message):
     span: ChalkSpan
     def __init__(self, span: _Optional[_Union[ChalkSpan, _Mapping]] = ...) -> None: ...
 
+class AttributeFilter(_message.Message):
+    __slots__ = ("key", "value")
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    key: str
+    value: str
+    def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
 class ListSpanRequest(_message.Message):
     __slots__ = (
         "trace_id",
@@ -276,6 +284,7 @@ class ListSpanRequest(_message.Message):
         "status_code",
         "min_duration_us",
         "max_duration_us",
+        "attribute_filters",
     )
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -288,6 +297,7 @@ class ListSpanRequest(_message.Message):
     STATUS_CODE_FIELD_NUMBER: _ClassVar[int]
     MIN_DURATION_US_FIELD_NUMBER: _ClassVar[int]
     MAX_DURATION_US_FIELD_NUMBER: _ClassVar[int]
+    ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
     trace_id: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -299,6 +309,7 @@ class ListSpanRequest(_message.Message):
     status_code: ChalkStatusCode
     min_duration_us: int
     max_duration_us: int
+    attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
     def __init__(
         self,
         trace_id: _Optional[str] = ...,
@@ -312,6 +323,7 @@ class ListSpanRequest(_message.Message):
         status_code: _Optional[_Union[ChalkStatusCode, str]] = ...,
         min_duration_us: _Optional[int] = ...,
         max_duration_us: _Optional[int] = ...,
+        attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
     ) -> None: ...
 
 class ListSpanResponse(_message.Message):

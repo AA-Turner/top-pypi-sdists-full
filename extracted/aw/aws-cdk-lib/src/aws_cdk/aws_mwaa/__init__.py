@@ -468,6 +468,19 @@ class CfnEnvironment(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="airflowConfigurationOptions")
+    def airflow_configuration_options(self) -> typing.Any:
+        '''A list of key-value pairs containing the Airflow configuration options for your environment.'''
+        return typing.cast(typing.Any, jsii.get(self, "airflowConfigurationOptions"))
+
+    @airflow_configuration_options.setter
+    def airflow_configuration_options(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__476e2a2b5d2734b1339237aa0804e10a76308f821b346eabe830695103d4317b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "airflowConfigurationOptions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
         '''The name of your Amazon MWAA environment.'''
@@ -481,17 +494,20 @@ class CfnEnvironment(
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="airflowConfigurationOptions")
-    def airflow_configuration_options(self) -> typing.Any:
-        '''A list of key-value pairs containing the Airflow configuration options for your environment.'''
-        return typing.cast(typing.Any, jsii.get(self, "airflowConfigurationOptions"))
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''The key-value tag pairs associated to your environment.
 
-    @airflow_configuration_options.setter
-    def airflow_configuration_options(self, value: typing.Any) -> None:
+        For example, ``"Environment": "Staging"`` . To learn more, see `Tagging <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
+        '''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__476e2a2b5d2734b1339237aa0804e10a76308f821b346eabe830695103d4317b)
+            type_hints = typing.get_type_hints(_typecheckingstub__4f022348b4c8dbea9004993f4e6a341f2e6f188d4320fbe4c6029630f93c61e8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "airflowConfigurationOptions", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="airflowVersion")
@@ -774,22 +790,6 @@ class CfnEnvironment(
             type_hints = typing.get_type_hints(_typecheckingstub__9be888a29bdd036c7a17e6251a771f0f88b203aacc22033b8c42adc9dc7ed8c7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startupScriptS3Path", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''The key-value tag pairs associated to your environment.
-
-        For example, ``"Environment": "Staging"`` . To learn more, see `Tagging <https://docs.aws.amazon.com/general/latest/gr/aws_tagging.html>`_ .
-        '''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f022348b4c8dbea9004993f4e6a341f2e6f188d4320fbe4c6029630f93c61e8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="webserverAccessMode")
@@ -1800,13 +1800,19 @@ def _typecheckingstub__a60d7a2655a02c98c9d573b0523e09e82b17523acc47348eac66b5063
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__476e2a2b5d2734b1339237aa0804e10a76308f821b346eabe830695103d4317b(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a37ddb6096a60d8065a1dc2caf7d063561818ed0c4e6e97ad86b9a3d907d4c8f(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__476e2a2b5d2734b1339237aa0804e10a76308f821b346eabe830695103d4317b(
+def _typecheckingstub__4f022348b4c8dbea9004993f4e6a341f2e6f188d4320fbe4c6029630f93c61e8(
     value: typing.Any,
 ) -> None:
     """Type checking stubs"""
@@ -1928,12 +1934,6 @@ def _typecheckingstub__6027cf352b46c42abb5a9a07b830322d6a170945f459de6ceae996b6e
 
 def _typecheckingstub__9be888a29bdd036c7a17e6251a771f0f88b203aacc22033b8c42adc9dc7ed8c7(
     value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4f022348b4c8dbea9004993f4e6a341f2e6f188d4320fbe4c6029630f93c61e8(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

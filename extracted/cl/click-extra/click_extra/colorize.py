@@ -21,10 +21,10 @@ import dataclasses
 import os
 import re
 from configparser import RawConfigParser
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
+from enum import Enum
 from functools import lru_cache
 from gettext import gettext as _
-from itertools import chain
 
 import click
 import cloup
@@ -316,10 +316,27 @@ class HelpKeywords:
     long_options: set[str] = field(default_factory=set)
     short_options: set[str] = field(default_factory=set)
     choices: set[str] = field(default_factory=set)
+    choice_metavars: set[str] = field(default_factory=set)
     metavars: set[str] = field(default_factory=set)
     envvars: set[str] = field(default_factory=set)
     defaults: set[str] = field(default_factory=set)
-    deprecated_messages: set[str] = field(default_factory=set)
+
+    def merge(self, other: HelpKeywords) -> None:
+        """Merge another ``HelpKeywords`` into this one.
+
+        Each set field is updated with the corresponding set from ``other``.
+        """
+        for f in fields(self):
+            getattr(self, f.name).update(getattr(other, f.name))
+
+    def subtract(self, other: HelpKeywords) -> None:
+        """Remove keywords found in ``other`` from this instance.
+
+        Each set field is difference-updated with the corresponding set from
+        ``other``. Mirror of :meth:`merge`.
+        """
+        for f in fields(self):
+            getattr(self, f.name).difference_update(getattr(other, f.name))
 
 
 class ExtraHelpColorsMixin:  # (Command)??
@@ -330,11 +347,22 @@ class ExtraHelpColorsMixin:  # (Command)??
     implemented at this stage so we have access to the global context.
     """
 
-    def _collect_keywords(self, ctx: click.Context) -> HelpKeywords:
+    #: Extra keywords to merge into the auto-collected set. Consumers can set
+    #: this attribute on a command instance to inject additional keywords for
+    #: help screen highlighting (e.g. placeholder option names like
+    #: ``--<manager-id>`` that appear in prose but are not real parameters).
+    extra_keywords: HelpKeywords | None = None
+
+    #: Keywords to remove from the auto-collected set. Mirror of
+    #: :attr:`extra_keywords`: any string listed here will not be highlighted
+    #: even if it was collected from the Click context.
+    excluded_keywords: HelpKeywords | None = None
+
+    def collect_keywords(self, ctx: click.Context) -> HelpKeywords:
         """Parse click context to collect option names, choices and metavar keywords.
 
-        This is Click Extra-specific and is not part of the upstream ``click.Command``
-        API.
+        Override this method to customize keyword collection. Call ``super()`` and
+        mutate the returned ``HelpKeywords`` to extend the default set.
         """
         kw = HelpKeywords()
         subcommand_objs: set[click.Command] = set()
@@ -385,10 +413,7 @@ class ExtraHelpColorsMixin:  # (Command)??
                     options.update(param.opts)
                     options.update(param.secondary_opts)
                     if isinstance(param.type, click.Choice):
-                        kw.choices.update(
-                            param.type.normalize_choice(c, parent_ctx)
-                            for c in param.type.choices
-                        )
+                        self._collect_choice_keywords(param, parent_ctx, kw)
             parent_ctx = parent_ctx.parent
 
         # Split options into short and long by length heuristic. Short options
@@ -402,18 +427,50 @@ class ExtraHelpColorsMixin:  # (Command)??
             else:
                 kw.long_options.add(name)
 
-        # Collect deprecated messages from subcommands and parameters,
-        # matching the format Click generates internally.
-        for obj in chain(subcommand_objs, command.get_params(ctx)):
-            deprecated = getattr(obj, "deprecated", None)
-            if deprecated:
-                kw.deprecated_messages.add(
-                    f"(DEPRECATED: {deprecated})"
-                    if isinstance(deprecated, str)
-                    else "(DEPRECATED)"
-                )
+        # Merge consumer-provided extra keywords.
+        if self.extra_keywords is not None:
+            kw.merge(self.extra_keywords)
+
+        # Note: excluded_keywords is NOT applied here. It is applied later
+        # in highlight_extra_keywords(), after choice metavars have been
+        # placeholdered, so that exclusions only affect cross-ref passes.
 
         return kw
+
+    @staticmethod
+    def _collect_choice_keywords(
+        param: click.Parameter,
+        ctx: click.Context,
+        kw: HelpKeywords,
+    ) -> None:
+        """Collect choice keywords from a ``click.Choice`` parameter.
+
+        When a custom metavar (e.g. ``LEVEL``) replaces the standard
+        ``[choice1|choice2]`` rendering, original-case choice strings are
+        collected to match developer-written prose (e.g. "Either CRITICAL,
+        ERROR, ...") without producing false-positive highlights for common
+        English words like "error" and "info".
+        """
+        assert isinstance(param.type, click.Choice)
+        if isinstance(param, click.Option) and param.metavar:
+            # Custom metavar hides the normalized choice list. Collect
+            # original-case values. This is the first step of Click's own
+            # ``normalize_choice()`` before case folding is applied.
+            kw.choices.update(
+                c.name if isinstance(c, Enum) else str(c) for c in param.type.choices
+            )
+        else:
+            # Standard metavar: collect the normalized forms that
+            # match what Click renders in ``[choice1|choice2]``.
+            kw.choices.update(
+                param.type.normalize_choice(c, ctx) for c in param.type.choices
+            )
+            # Also collect the rendered metavar string (e.g.
+            # ``[json|xml|csv]``) so it can be styled and placeholdered
+            # before cross-ref highlighting. This protects choices that
+            # appear in ``excluded_keywords`` from losing their
+            # highlight inside their own metavar.
+            kw.choice_metavars.add(param.make_metavar(ctx=ctx))
 
     @staticmethod
     def _collect_params(
@@ -444,11 +501,7 @@ class ExtraHelpColorsMixin:  # (Command)??
             # metavar (with delimiters like brackets and pipes). All other
             # types fall back to a plain uppercased name (e.g. TEXT, INTEGER).
             if isinstance(param.type, click.Choice):
-                # Use normalize_choice() to get the exact strings shown in the
-                # metavar. Handles Enum names, case-folding, EnumChoice source.
-                kw.choices.update(
-                    param.type.normalize_choice(c, ctx) for c in param.type.choices
-                )
+                ExtraHelpColorsMixin._collect_choice_keywords(param, ctx, kw)
             elif isinstance(param.type, click.DateTime):
                 # Highlight each datetime format string as a choice.
                 kw.choices.update(param.type.formats)
@@ -477,9 +530,29 @@ class ExtraHelpColorsMixin:  # (Command)??
         ctx.formatter_class = HelpExtraFormatter
         return super().get_help(ctx)  # type: ignore[no-any-return,misc]
 
+    @staticmethod
+    def _collect_excluded_keywords(ctx: click.Context) -> HelpKeywords | None:
+        """Merge ``excluded_keywords`` from the current command and all ancestors.
+
+        Mirrors the parent-context traversal that collects parent choices in
+        :meth:`collect_keywords`. Returns a fresh :class:`HelpKeywords` so that
+        no command's original ``excluded_keywords`` is mutated.
+        """
+        excluded: HelpKeywords | None = None
+        cmd_ctx: click.Context | None = ctx
+        while cmd_ctx:
+            cmd_excluded = getattr(cmd_ctx.command, "excluded_keywords", None)
+            if cmd_excluded is not None:
+                if excluded is None:
+                    excluded = HelpKeywords()
+                excluded.merge(cmd_excluded)
+            cmd_ctx = cmd_ctx.parent
+        return excluded
+
     def format_help(self, ctx: click.Context, formatter: HelpExtraFormatter) -> None:
         """Feed our custom formatter instance with the keywords to highlight."""
-        formatter.keywords = self._collect_keywords(ctx)
+        formatter.keywords = self.collect_keywords(ctx)
+        formatter.excluded_keywords = self._collect_excluded_keywords(ctx)
         super().format_help(ctx, formatter)  # type: ignore[misc]
 
 
@@ -525,6 +598,7 @@ class HelpExtraFormatter(cloup.HelpFormatter):
         super().__init__(*args, **kwargs)
 
     keywords: HelpKeywords = HelpKeywords()
+    excluded_keywords: HelpKeywords | None = None
 
     #: Matches range expressions like ``0<=x<=9``, ``x>=1024``, ``0<=x<100``.
     _range_re: ClassVar[re.Pattern] = re.compile(r"(?:\S+(?:<|<=))?x(?:<|<=|>|>=)\S+")
@@ -542,6 +616,14 @@ class HelpExtraFormatter(cloup.HelpFormatter):
     _sep_re: ClassVar[re.Pattern] = re.compile(r";\s+")
     _envvar_re: ClassVar[re.Pattern] = re.compile(r"(env\s+var:\s+)(.*)", re.DOTALL)
     _default_re: ClassVar[re.Pattern] = re.compile(r"(default:\s+)(.*)", re.DOTALL)
+
+    #: Matches ``(Deprecated)``, ``(DEPRECATED)``, ``(DEPRECATED: reason)``,
+    #: etc., regardless of casing. Catches both Click-native deprecated markers
+    #: and manually-added ones in help strings.
+    _deprecated_re: ClassVar[re.Pattern] = re.compile(
+        r"\(deprecated(?::\s[^)]+)?\)",
+        re.IGNORECASE,
+    )
 
     def _style_bracket_fields(self, match: re.Match) -> str:
         """Style a trailing ``[env var: ...; default: ...; ...]`` block.
@@ -586,6 +668,34 @@ class HelpExtraFormatter(cloup.HelpFormatter):
             prefix + self.theme.bracket("[") + "".join(styled) + self.theme.bracket("]")
         )
 
+    def _style_choice_metavar(self, metavar: str, choices: set[str]) -> str | None:
+        """Style individual choices inside a choice metavar string.
+
+        Takes a rendered metavar like ``[json|xml|csv]`` and returns a styled
+        version where each known choice is wrapped with ``theme.choice``.
+        Returns ``None`` if ``metavar`` does not look like a choice list.
+        """
+        # Strip the surrounding brackets.
+        if not (metavar.startswith("[") and metavar.endswith("]")):
+            return None
+        inner = metavar[1:-1]
+        parts = inner.split("|")
+        styled_parts = [
+            self.theme.choice(part) if part in choices else part for part in parts
+        ]
+        return "[" + "|".join(styled_parts) + "]"
+
+    @staticmethod
+    def _add_placeholder(styled: str, store: dict[str, str]) -> str:
+        """Register a styled fragment as a null-byte placeholder.
+
+        Returns the placeholder key. Used to protect already-styled regions
+        from subsequent regex passes.
+        """
+        key = f"\x00B{len(store)}\x00"
+        store[key] = styled
+        return key
+
     def highlight_extra_keywords(self, help_text: str) -> str:
         """Highlight extra keywords in help screens based on the theme.
 
@@ -595,26 +705,32 @@ class HelpExtraFormatter(cloup.HelpFormatter):
         """
         kw = self.keywords
 
-        # Highlight deprecated messages.
-        if kw.deprecated_messages:
-            help_text = highlight(
-                help_text,
-                (
-                    re.compile(_escape_for_help_screen(msg))
-                    for msg in kw.deprecated_messages
-                ),
-                self.theme.deprecated,
-            )
+        # Highlight deprecated messages. Uses a case-insensitive regex to catch
+        # both Click-native "(DEPRECATED)" markers and manually-added variants
+        # like "(Deprecated)" in help strings.
+        help_text = highlight(help_text, [self._deprecated_re], self.theme.deprecated)
 
-        # Highlight subcommands and their aliases. Both share the subcommand
-        # style and require 2-space indentation as a leading boundary.
-        all_subcommands = kw.subcommands | kw.command_aliases
-        if all_subcommands:
+        # Highlight subcommand names. Requires 2-space indentation as a
+        # leading boundary.
+        if kw.subcommands:
             help_text = highlight(
                 help_text,
                 (
                     re.compile(rf"(?<=  ){re.escape(name)}(?=\s)")
-                    for name in sorted(all_subcommands, key=len, reverse=True)
+                    for name in sorted(kw.subcommands, key=len, reverse=True)
+                ),
+                self.theme.subcommand,
+            )
+
+        # Highlight command aliases inside parenthetical groups like
+        # "(lock, freeze, snapshot)". Aliases are preceded by "(" or ", "
+        # and followed by "," or ")".
+        if kw.command_aliases:
+            help_text = highlight(
+                help_text,
+                (
+                    re.compile(rf"(?<=[(, ]){re.escape(name)}(?=[,)])")
+                    for name in sorted(kw.command_aliases, key=len, reverse=True)
                 ),
                 self.theme.subcommand,
             )
@@ -623,81 +739,117 @@ class HelpExtraFormatter(cloup.HelpFormatter):
         # This must happen post-wrapping because Click's text wrapper splits
         # lines after get_help_record() returns, which would break pre-styled
         # ANSI codes.
-        help_text = self._bracket_re.sub(self._style_bracket_fields, help_text)
+        #
+        # To prevent cross-reference highlighting from restyling keywords that
+        # appear inside bracket field content (e.g. a choice value like
+        # "outline" within a default value "rounded-outline"), we replace each
+        # styled bracket field with a null-byte placeholder, run all cross-ref
+        # passes on the placeholder text, then restore the styled fields.
+        bracket_placeholders: dict[str, str] = {}
+
+        def _bracket_to_placeholder(match: re.Match) -> str:
+            return self._add_placeholder(
+                self._style_bracket_fields(match), bracket_placeholders
+            )
+
+        help_text = self._bracket_re.sub(_bracket_to_placeholder, help_text)
+
+        # Style and placeholder choice metavars (e.g. ``[json|xml|csv]``)
+        # before applying excluded_keywords and running cross-ref passes.
+        # This ensures that choices excluded from cross-ref highlighting
+        # (like "version") are still highlighted inside their own metavar.
+        for metavar_str in kw.choice_metavars:
+            styled = self._style_choice_metavar(metavar_str, kw.choices)
+            if styled is None:
+                continue
+            pattern = re.compile(_escape_for_help_screen(metavar_str))
+            help_text = pattern.sub(
+                lambda m, s=styled: self._add_placeholder(s, bracket_placeholders),  # type: ignore[misc]
+                help_text,
+            )
+
+        # Apply excluded_keywords after metavar placeholdering so that
+        # exclusions only affect the cross-ref passes below.
+        if self.excluded_keywords is not None:
+            kw.subtract(self.excluded_keywords)
 
         # The remaining passes search free-form text (descriptions, docstrings)
-        # for option names, choices, arguments, metavars and CLI names. This
-        # cross-reference highlighting can be disabled via the theme to avoid
+        # for option names, choices, arguments, metavars and CLI names.
+        # Cross-reference highlighting can be disabled via the theme to avoid
         # over-interpretation in help text that references external identifiers.
-        if not self.theme.cross_ref_highlight:
-            return help_text
-
-        # Highlight CLI names and commands.
-        if kw.cli_names:
-            help_text = highlight(
-                help_text,
-                (
-                    re.compile(rf"(?<=\s){re.escape(name)}(?=\s)")
-                    for name in sorted(kw.cli_names, key=len, reverse=True)
-                ),
-                self.theme.invoked_command,
-            )
-
-        # Highlight options (long and short combined). Per-keyword lookbehind
-        # excludes the option's own leading symbol to prevent matching repeated
-        # prefixes (e.g. "---debug" should not match "--debug").
-        all_options = sorted(kw.long_options | kw.short_options, key=len, reverse=True)
-        if all_options:
-            help_text = highlight(
-                help_text,
-                (
-                    re.compile(
-                        rf"(?<=[^\w{re.escape(kw[0])}])"
-                        rf"{_escape_for_help_screen(kw)}"
-                        rf"(?=[^\w\-])"
-                    )
-                    for kw in all_options
-                ),
-                self.theme.option,
-            )
-
-        # Highlight other keywords, which are expected to be separated by any
-        # character but word characters.
-        for keywords, style_func in (
-            # Arguments before metavars: argument names like MY_ARG are a
-            # subset of metavars, so highlighting them first with a distinct
-            # style takes priority.
-            (kw.arguments, self.theme.argument),
-            # Choices are already featured in metavars, so we process them
-            # before metavars to avoid double-highlighting.
-            (kw.choices, self.theme.choice),
-            (kw.metavars, self.theme.metavar),
-        ):
-            if keywords:
-                # Transform keywords into regex patterns.
-                patterns = (
-                    # Negative lookbehind rejects matches preceded by:
-                    # - a word character (\w),
-                    # - a dot: "pyproject.toml" (\.),
-                    # - a hyphen: "rounded-outline" (\-),
-                    # - a slash: "https://github.com" (\/),
-                    # - an exclamation mark: "[!WARNING]" (!),
-                    # - an ANSI escape: already-styled text (\x1b).
-                    # Negative lookahead rejects matches followed by:
-                    # - a word character (\w),
-                    # - a hyphen: "github-actions" (\-).
-                    re.compile(
-                        rf"(?<![\w\.\x1b\-/!])"
-                        rf"{_escape_for_help_screen(keyword)}"
-                        rf"(?![\w\-])"
-                    )
-                    for keyword in sorted(keywords, reverse=True)
-                )
+        if self.theme.cross_ref_highlight:
+            # Highlight CLI names and commands.
+            if kw.cli_names:
                 help_text = highlight(
-                    content=help_text,
-                    patterns=patterns,
-                    styling_func=style_func,
+                    help_text,
+                    (
+                        re.compile(rf"(?<=\s){re.escape(name)}(?=\s)")
+                        for name in sorted(kw.cli_names, key=len, reverse=True)
+                    ),
+                    self.theme.invoked_command,
                 )
+
+            # Highlight options (long and short combined). Per-keyword lookbehind
+            # excludes the option's own leading symbol to prevent matching repeated
+            # prefixes (e.g. "---debug" should not match "--debug").
+            all_options = sorted(
+                kw.long_options | kw.short_options, key=len, reverse=True
+            )
+            if all_options:
+                help_text = highlight(
+                    help_text,
+                    (
+                        re.compile(
+                            rf"(?<=[^\w{re.escape(kw[0])}])"
+                            rf"{_escape_for_help_screen(kw)}"
+                            rf"(?=[^\w\-])"
+                        )
+                        for kw in all_options
+                    ),
+                    self.theme.option,
+                )
+
+            # Highlight other keywords, which are expected to be separated by
+            # any character but word characters.
+            for keywords, style_func in (
+                # Arguments before metavars: argument names like MY_ARG are a
+                # subset of metavars, so highlighting them first with a distinct
+                # style takes priority.
+                (kw.arguments, self.theme.argument),
+                # Choices are already featured in metavars, so we process them
+                # before metavars to avoid double-highlighting.
+                (kw.choices, self.theme.choice),
+                (kw.metavars, self.theme.metavar),
+            ):
+                if keywords:
+                    # Transform keywords into regex patterns.
+                    patterns = (
+                        # Negative lookbehind rejects matches preceded by:
+                        # - a word character (\w),
+                        # - a dot: "pyproject.toml" (\.),
+                        # - a hyphen: "rounded-outline" (\-),
+                        # - a slash: "https://github.com" (\/),
+                        # - an exclamation mark: "[!WARNING]" (!),
+                        # - an ANSI escape: already-styled text (\x1b).
+                        # Negative lookahead rejects matches followed by:
+                        # - a word character (\w),
+                        # - a hyphen: "github-actions" (\-).
+                        re.compile(
+                            rf"(?<![\w\.\x1b\-/!])"
+                            rf"{_escape_for_help_screen(keyword)}"
+                            rf"(?![\w\-])"
+                        )
+                        for keyword in sorted(keywords, reverse=True)
+                    )
+                    help_text = highlight(
+                        content=help_text,
+                        patterns=patterns,
+                        styling_func=style_func,
+                    )
+
+        # Restore styled bracket fields.
+        for key, styled in bracket_placeholders.items():
+            help_text = help_text.replace(key, styled)
 
         return help_text
 

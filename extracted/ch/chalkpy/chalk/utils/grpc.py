@@ -120,17 +120,14 @@ class UnauthenticatedChalkClientInterceptor(grpc.UnaryUnaryClientInterceptor):
         client_call_details: grpc.ClientCallDetails,
         request: RequestType,
     ) -> grpc.CallFuture[ResponseType]:
-        if client_call_details.metadata is None:
-            headers = self._headers
-        else:
-            headers_dict: dict[str, str | bytes] = dict(self._headers)
+        headers_dict: dict[str, str | bytes] = dict(self._headers)
+        if client_call_details.metadata is not None:
             headers_dict.update(client_call_details.metadata)
-            headers = tuple(headers_dict.items())
         return continuation(
             _ClientCallDetails(
                 method=client_call_details.method,
                 timeout=client_call_details.timeout,
-                metadata=headers,
+                metadata=tuple(headers_dict.items()),
                 credentials=client_call_details.credentials,
             ),
             request,
@@ -196,16 +193,15 @@ class AsyncAuthenticatedChalkClientInterceptor(grpc.aio.UnaryUnaryClientIntercep
         request: RequestType,
     ):
         token = await self._refresher.get_token()
-        metadata: tuple[tuple[str, str | bytes], ...] = (
-            *self._constant_headers,
-            ("authorization", f"Bearer {token.access_token}"),
-            *(client_call_details.metadata or ()),
-        )
+        headers: dict[str, str | bytes] = dict(self._constant_headers)
+        headers["authorization"] = f"Bearer {token.access_token}"
+        if client_call_details.metadata:
+            headers.update(client_call_details.metadata)
         return await continuation(
             grpc.aio.ClientCallDetails(
                 method=client_call_details.method,
                 timeout=client_call_details.timeout,
-                metadata=metadata,  # pyright: ignore[reportArgumentType]
+                metadata=tuple(headers.items()),  # pyright: ignore[reportArgumentType]
                 credentials=client_call_details.credentials,
                 wait_for_ready=getattr(client_call_details, "wait_for_ready", None),
             ),
@@ -233,15 +229,14 @@ class AsyncUnauthenticatedChalkClientInterceptor(grpc.aio.UnaryUnaryClientInterc
         client_call_details: grpc.aio.ClientCallDetails,
         request: RequestType,
     ):
-        if client_call_details.metadata is None:
-            headers = self._headers
-        else:
-            headers = self._headers + tuple(client_call_details.metadata)
+        headers_dict: dict[str, str | bytes] = dict(self._headers)
+        if client_call_details.metadata is not None:
+            headers_dict.update(client_call_details.metadata)
         return await continuation(
             grpc.aio.ClientCallDetails(
                 method=client_call_details.method,
                 timeout=client_call_details.timeout,
-                metadata=headers,  # pyright: ignore[reportArgumentType]
+                metadata=tuple(headers_dict.items()),  # pyright: ignore[reportArgumentType]
                 credentials=client_call_details.credentials,
                 wait_for_ready=getattr(client_call_details, "wait_for_ready", None),
             ),

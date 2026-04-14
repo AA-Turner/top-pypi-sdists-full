@@ -402,6 +402,14 @@ class CfnLoadBalancer(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrSourceSecurityGroup")
+    def attr_source_security_group(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: SourceSecurityGroup
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrSourceSecurityGroup"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrSourceSecurityGroupGroupName")
     def attr_source_security_group_group_name(self) -> builtins.str:
         '''The name of the security group that you can use as part of your inbound rules for your load balancer's back-end instances.
@@ -1510,6 +1518,75 @@ class CfnLoadBalancer(
 
         def __repr__(self) -> str:
             return "PoliciesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticloadbalancing.CfnLoadBalancer.SourceSecurityGroupProperty",
+        jsii_struct_bases=[],
+        name_mapping={"group_name": "groupName", "owner_alias": "ownerAlias"},
+    )
+    class SourceSecurityGroupProperty:
+        def __init__(
+            self,
+            *,
+            group_name: typing.Optional[builtins.str] = None,
+            owner_alias: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param group_name: The name of the security group that you can use as part of your inbound rules for your load balancer's back-end instances.
+            :param owner_alias: The owner of the source security group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancing-loadbalancer-sourcesecuritygroup.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticloadbalancing as elb
+                
+                source_security_group_property = elb.CfnLoadBalancer.SourceSecurityGroupProperty(
+                    group_name="groupName",
+                    owner_alias="ownerAlias"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__554b6b96c2695ba9d0e34f7f15cdf8493cb5a64c36750aeeedab3b028b3eb5c6)
+                check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
+                check_type(argname="argument owner_alias", value=owner_alias, expected_type=type_hints["owner_alias"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if group_name is not None:
+                self._values["group_name"] = group_name
+            if owner_alias is not None:
+                self._values["owner_alias"] = owner_alias
+
+        @builtins.property
+        def group_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the security group that you can use as part of your inbound rules for your load balancer's back-end instances.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancing-loadbalancer-sourcesecuritygroup.html#cfn-elasticloadbalancing-loadbalancer-sourcesecuritygroup-groupname
+            '''
+            result = self._values.get("group_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def owner_alias(self) -> typing.Optional[builtins.str]:
+            '''The owner of the source security group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticloadbalancing-loadbalancer-sourcesecuritygroup.html#cfn-elasticloadbalancing-loadbalancer-sourcesecuritygroup-owneralias
+            '''
+            result = self._values.get("owner_alias")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceSecurityGroupProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3036,6 +3113,14 @@ def _typecheckingstub__59a10349817ed5e601360f9aae1ffe6f0222e05d576372a8f753e0362
     policy_type: builtins.str,
     instance_ports: typing.Optional[typing.Sequence[builtins.str]] = None,
     load_balancer_ports: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__554b6b96c2695ba9d0e34f7f15cdf8493cb5a64c36750aeeedab3b028b3eb5c6(
+    *,
+    group_name: typing.Optional[builtins.str] = None,
+    owner_alias: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -158,3 +158,39 @@ class TestScaffoldLocalArtifact:
     def test_project_without_dir_raises(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="project_dir required"):
             scaffold_local_artifact("rule", "r1", tmp_path, project=True)
+
+
+class TestLocalArtifactBundledSkills:
+    def test_discover_bundled_skill(self, tmp_path: Path) -> None:
+        skills_dir = tmp_path / "skills"
+        skill_dir = skills_dir / "deploy"
+        skill_dir.mkdir(parents=True)
+        skill_content = (
+            "---\nname: deploy\ndescription: Deploy skill\nresources:\n  - data.md\n---\n\nDeploy the thing.\n"
+        )
+        (skill_dir / "SKILL.md").write_text(skill_content, encoding="utf-8")
+        (skill_dir / "data.md").write_text("## Deploy data\nsome content\n", encoding="utf-8")
+
+        result = discover_local_artifacts(tmp_path)
+        skills = [a for a in result if a["type"] == "skill"]
+        assert len(skills) == 1
+        art = skills[0]
+        assert "<bundled_resources>" in art["content"]
+        assert '<resource path="data.md">' in art["content"]
+        meta = art.get("metadata", {})
+        assert meta.get("bundle") is True
+        assert meta.get("resource_count") == 1
+
+    def test_discover_skill_no_resources(self, tmp_path: Path) -> None:
+        skills_dir = tmp_path / "skills"
+        skill_dir = skills_dir / "greet"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: greet\n---\n\nSay hello.\n", encoding="utf-8")
+
+        result = discover_local_artifacts(tmp_path)
+        skills = [a for a in result if a["type"] == "skill"]
+        assert len(skills) == 1
+        art = skills[0]
+        assert "<bundled_resources>" not in art["content"]
+        meta = art.get("metadata", {})
+        assert not meta.get("bundle")

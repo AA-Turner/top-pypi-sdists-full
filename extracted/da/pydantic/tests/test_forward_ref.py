@@ -3,9 +3,12 @@ import platform
 import re
 import sys
 import typing
-from typing import Any, Generic, Optional, TypeVar
+from typing import Annotated, Any, Generic, Optional, TypeVar, Union
 
 import pytest
+from annotated_types import Gt
+from typing_extensions import get_args, get_origin
+from typing_inspection import typing_objects
 
 from pydantic import BaseModel, Field, PydanticUserError, TypeAdapter, ValidationError
 
@@ -1089,10 +1092,12 @@ def test_pydantic_extra_forward_ref_separate_module(create_module: Any) -> None:
     def module_1():
         from pydantic import BaseModel, ConfigDict
 
+        MyDict = dict
+
         class Bar(BaseModel):
             model_config = ConfigDict(defer_build=True, extra='allow')
 
-            __pydantic_extra__: 'dict[str, int]'
+            __pydantic_extra__: 'MyDict[str, int]'
 
     module_2 = create_module(
         f"""
@@ -1110,6 +1115,42 @@ class Foo(BaseModel):
     ]
 
     assert extras_schema == {'type': 'int'}
+
+
+def test_pydantic_extra_forward_ref_separate_module_subclass(create_module: Any) -> None:
+    @create_module
+    def module_1():
+        from pydantic import BaseModel
+
+        MyDict = dict
+
+        class Bar(BaseModel, extra='allow'):
+            __pydantic_extra__: 'MyDict[str, int]'
+
+    module_2 = create_module(
+        f"""
+from pydantic import BaseModel
+
+from {module_1.__name__} import Bar
+
+class Foo(Bar):
+    pass
+        """
+    )
+
+    assert module_2.Foo.__pydantic_core_schema__['schema']['extras_schema'] == {'type': 'int'}
+
+
+# TODO remove when we drop support for Python 3.10, in 3.11+ string annotations are properly evaluated
+# in PEP 585 generics.
+def test_pydantic_extra_forward_ref_evaluated_pep585() -> None:
+    class Bar(BaseModel, extra='allow'):
+        __pydantic_extra__: dict['str', int]
+
+    # This is a way to test that `'str'` is properly evaluated (for Python <3.11, see comments in
+    # `GenerateSchema._get_args_resolving_forward_refs()`) and as such `extra_keys_schema` isn't
+    # set because `str` is the default.
+    assert 'extras_keys_schema' not in Bar.__pydantic_core_schema__['schema']
 
 
 @pytest.mark.xfail(
@@ -1564,3 +1605,90 @@ class Sub(Base):
     ta = TypeAdapter(mod_2.Sub)
 
     assert ta.validate_python({'f': '1'}) == {'f': 1}
+
+
+def test_parameterized_with_annotated_forward_refs() -> None:
+    T = TypeVar('T')
+
+    class Parent(BaseModel, Generic[T]):
+        a: T
+        b: 'MyAnnotated[T, 1]'
+        c: Annotated[T, 2] = Field(gt=2)
+
+    M = Parent[Annotated['MyInt', 3]]
+
+    assert not M.__pydantic_fields_complete__
+
+    MyAnnotated = Annotated
+    MyInt = int
+
+    M.model_rebuild()
+
+    assert M.__pydantic_fields_complete__
+
+    assert M.model_fields['a'].annotation is int
+    assert M.model_fields['b'].annotation is int
+    assert M.model_fields['c'].annotation is int
+
+    assert M.model_fields['a'].metadata == [3]
+    assert M.model_fields['b'].metadata == [3, 1]
+    assert M.model_fields['c'].metadata == [Gt(2), 3, 2]
+
+
+@pytest.mark.xfail(
+    reason=(
+        'Similar to `test_uses_the_correct_globals_to_resolve_model_forward_refs()`,'
+        "the NsResolver used for the `M.model_rebuild()` call doesn't make use of `Parent`, "
+        "so its `__type_params__` aren't available (they contain `T`)."
+    )
+)
+@pytest.mark.skipif(sys.version_info < (3, 12), reason='Test related to PEP 695 syntax.')
+def test_parameterized_pep695_generic_with_annotated_forward_refs(create_module) -> None:
+    mod = create_module(
+        """
+        from typing import Annotated
+
+        from pydantic import BaseModel
+
+        class Parent[T](BaseModel):
+            a: T
+            b: 'MyAnnotated[T, 1]'
+            c: Annotated[T, 2] = Field(gt=2)
+
+        M = Parent[Annotated['MyInt', 3]]
+
+        MyAnnotated = Annotated
+        MyInt = int
+
+        M.model_rebuild()
+        """
+    )
+
+    M = mod.M
+
+    assert M.__pydantic_fields_complete__
+
+    assert M.model_fields['a'].annotation is int
+    assert M.model_fields['b'].annotation is int
+    assert M.model_fields['c'].annotation is int
+
+    assert M.model_fields['a'].metadata == [3]
+    assert M.model_fields['b'].metadata == [3, 1]
+    assert M.model_fields['c'].metadata == [Gt(2), 3, 2]
+
+
+def test_string_annotation_union_type() -> None:
+    """https://github.com/pydantic/pydantic/issues/12732"""
+    T = TypeVar('T')
+
+    class Model(BaseModel, Generic[T]):
+        data: Union[T, int]  # Using `typing.Union` is important here.
+
+    class Main(BaseModel):
+        m: Model['Main']
+
+    Main.model_fields['m'].annotation.model_rebuild()
+    annotation = Main.model_fields['m'].annotation.model_fields['data'].annotation
+
+    assert typing_objects.is_union(get_origin(annotation))
+    assert get_args(annotation)[0] is Main

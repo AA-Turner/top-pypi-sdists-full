@@ -166,7 +166,7 @@ def gather_fields_from_entity(
     context_vars = getattr(entity, "context") or {}
     infer_context_var_type(context_vars_container, context_vars)
     code_snippets = []
-    fields_dict = getattr(entity, "model_fields")
+    fields_dict = type(entity).model_fields
 
     for field_name, field_info in fields_dict.items():
         # field_info.metadata is typically a tuple
@@ -240,7 +240,6 @@ def type_check_code(loader: TPVConfigLoader, preserve_temp_code: bool) -> tuple[
         tmp_file.flush()
 
         mypy_args = [
-            # "--no-incremental", # https://stackoverflow.com/a/65223004/10971151
             tmp_filename,
         ]
         stdout, stderr, exit_code = mypy.api.run(mypy_args)

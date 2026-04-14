@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="sec-api",
-    version="1.0.35",
+    version="1.0.36",
     author="SEC API",
     author_email="support@sec-api.io",
     description="SEC EDGAR Filings API",
@@ -55,8 +55,8 @@ setup(
         "10-K/10-Q/8-K Section Extractor API",
     ],
     project_urls={
-        "Bug Reports": "https://github.com/janlukasschroeder/sec-api-python/issues",
-        "Repository": "https://github.com/janlukasschroeder/sec-api-python",
+        "Bug Reports": "https://github.com/sec-api-io/sec-api-python/issues",
+        "Repository": "https://github.com/sec-api-io/sec-api-python",
         "Documentation": "https://sec-api.io/docs",
     },
 )

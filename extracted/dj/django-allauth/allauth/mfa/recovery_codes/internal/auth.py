@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 import hmac
 import secrets
+import time
 from hashlib import sha1
+
+from django.contrib.auth.base_user import AbstractBaseUser
 
 from allauth.mfa import app_settings
 from allauth.mfa.models import Authenticator
@@ -12,14 +17,14 @@ class RecoveryCodes:
         self.instance = instance
 
     @classmethod
-    def activate(cls, user) -> "RecoveryCodes":
+    def activate(cls, user: AbstractBaseUser) -> "RecoveryCodes":
         instance = Authenticator.objects.filter(
-            user=user, type=Authenticator.Type.RECOVERY_CODES
+            user_id=user.pk, type=Authenticator.Type.RECOVERY_CODES
         ).first()
         if instance:
             return cls(instance)
         instance = Authenticator(
-            user=user,
+            user=user,  # type:ignore[misc]
             type=Authenticator.Type.RECOVERY_CODES,
             data={
                 "seed": encrypt(cls.generate_seed()),
@@ -105,7 +110,17 @@ class RecoveryCodes:
         for i, c in enumerate(self.generate_codes()):
             if self._is_code_used(i):
                 continue
-            if code == c:
+            if secrets.compare_digest(code, c):
                 self._mark_code_used(i)
                 return True
         return False
+
+    def mark_as_viewed(self) -> None:
+        if self.did_view:
+            return
+        self.instance.data["viewed_at"] = time.time()
+        self.instance.save(update_fields=["data"])
+
+    @property
+    def did_view(self) -> bool:
+        return bool(self.instance.data.get("viewed_at"))

@@ -164,6 +164,21 @@ batch.ManagedEc2EcsComputeEnvironment(self, "myEc2ComputeEnv",
 )
 ```
 
+If your image needs GPU resources, specify `ECS_AL2023_NVIDIA`:
+
+```python
+# vpc: ec2.IVpc
+
+
+batch.ManagedEc2EcsComputeEnvironment(self, "myGpuComputeEnv",
+    vpc=vpc,
+    images=[batch.EcsMachineImage(
+        image_type=batch.EcsMachineImageType.ECS_AL2023_NVIDIA
+    )
+    ]
+)
+```
+
 #### Allocation Strategies
 
 | Allocation Strategy           | Optimized for              | Downsides                     |
@@ -3451,6 +3466,32 @@ class CfnJobDefinition(
         return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
+    @jsii.member(jsii_name="parameters")
+    def parameters(self) -> typing.Any:
+        '''Default parameters or parameter substitution placeholders that are set in the job definition.'''
+        return typing.cast(typing.Any, jsii.get(self, "parameters"))
+
+    @parameters.setter
+    def parameters(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0dfa67937c5c5c585d3dedec8653cb0633c802b99afaa23545e8fcc71bf4ef88)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Any:
+        '''The tags that are applied to the job definition.'''
+        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e523eed1bbd28b55b217e2df4a08d397d7fea1eab9961fca2a86f1f43fb0631f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="type")
     def type(self) -> builtins.str:
         '''The type of job definition.'''
@@ -3567,19 +3608,6 @@ class CfnJobDefinition(
         jsii.set(self, "nodeProperties", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="parameters")
-    def parameters(self) -> typing.Any:
-        '''Default parameters or parameter substitution placeholders that are set in the job definition.'''
-        return typing.cast(typing.Any, jsii.get(self, "parameters"))
-
-    @parameters.setter
-    def parameters(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dfa67937c5c5c585d3dedec8653cb0633c802b99afaa23545e8fcc71bf4ef88)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parameters", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="platformCapabilities")
     def platform_capabilities(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The platform capabilities required by the job definition.'''
@@ -3661,19 +3689,6 @@ class CfnJobDefinition(
             type_hints = typing.get_type_hints(_typecheckingstub__dba2bfccdff2acf2f90d4e7a4965d8dcb1ae572e2c9cbd92260bf928e42d7e01)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "schedulingPriority", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Any:
-        '''The tags that are applied to the job definition.'''
-        return typing.cast(typing.Any, jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e523eed1bbd28b55b217e2df4a08d397d7fea1eab9961fca2a86f1f43fb0631f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="timeout")
@@ -14823,7 +14838,7 @@ class EcsMachineImage:
         '''A Batch MachineImage that is compatible with ECS.
 
         :param image: The machine image to use. Default: - chosen by batch
-        :param image_type: Tells Batch which instance type to launch this image on. Default: - 'ECS_AL2' for non-gpu instances, 'ECS_AL2_NVIDIA' for gpu instances
+        :param image_type: Tells Batch which instance type to launch this image on. Default: - 'ECS_AL2' for non-gpu instances, 'ECS_AL2_NVIDIA' for gpu instances. If the '@aws-cdk/aws-batch:defaultToAL2023' feature flag is set, 'ECS_AL2023' will be used instead of 'ECS_AL2'.
 
         :exampleMetadata: fixture=_generated
 
@@ -14864,7 +14879,10 @@ class EcsMachineImage:
     def image_type(self) -> typing.Optional["EcsMachineImageType"]:
         '''Tells Batch which instance type to launch this image on.
 
-        :default: - 'ECS_AL2' for non-gpu instances, 'ECS_AL2_NVIDIA' for gpu instances
+        :default:
+
+        - 'ECS_AL2' for non-gpu instances, 'ECS_AL2_NVIDIA' for gpu instances.
+        If the '@aws-cdk/aws-batch:defaultToAL2023' feature flag is set, 'ECS_AL2023' will be used instead of 'ECS_AL2'.
         '''
         result = self._values.get("image_type")
         return typing.cast(typing.Optional["EcsMachineImageType"], result)
@@ -14910,6 +14928,8 @@ class EcsMachineImageType(enum.Enum):
     '''
     ECS_AL2_NVIDIA = "ECS_AL2_NVIDIA"
     '''Tells Batch that this machine image runs on GPU instances.'''
+    ECS_AL2023_NVIDIA = "ECS_AL2023_NVIDIA"
+    '''Tells Batch that this machine image runs on GPU AL2023 instances.'''
 
 
 class EcsVolume(
@@ -15959,7 +15979,7 @@ class EksMachineImage:
         '''A Batch MachineImage that is compatible with EKS.
 
         :param image: The machine image to use. Default: - chosen by batch
-        :param image_type: Tells Batch which instance type to launch this image on. Default: - 'EKS_AL2' for non-gpu instances, 'EKS_AL2_NVIDIA' for gpu instances
+        :param image_type: Tells Batch which instance type to launch this image on. Default: - 'EKS_AL2' for non-gpu instances, 'EKS_AL2_NVIDIA' for gpu instances. If the '@aws-cdk/aws-batch:defaultToAL2023' feature flag is set, 'EKS_AL2023' will be used instead of 'EKS_AL2'.
 
         :exampleMetadata: fixture=_generated
 
@@ -16000,7 +16020,10 @@ class EksMachineImage:
     def image_type(self) -> typing.Optional["EksMachineImageType"]:
         '''Tells Batch which instance type to launch this image on.
 
-        :default: - 'EKS_AL2' for non-gpu instances, 'EKS_AL2_NVIDIA' for gpu instances
+        :default:
+
+        - 'EKS_AL2' for non-gpu instances, 'EKS_AL2_NVIDIA' for gpu instances.
+        If the '@aws-cdk/aws-batch:defaultToAL2023' feature flag is set, 'EKS_AL2023' will be used instead of 'EKS_AL2'.
         '''
         result = self._values.get("image_type")
         return typing.cast(typing.Optional["EksMachineImageType"], result)
@@ -16025,6 +16048,10 @@ class EksMachineImageType(enum.Enum):
     '''Tells Batch that this machine image runs on non-GPU instances.'''
     EKS_AL2_NVIDIA = "EKS_AL2_NVIDIA"
     '''Tells Batch that this machine image runs on GPU instances.'''
+    EKS_AL2023 = "EKS_AL2023"
+    '''Tells Batch that this machine image runs on non-GPU AL2023 instances.'''
+    EKS_AL2023_NVIDIA = "EKS_AL2023_NVIDIA"
+    '''Tells Batch that this machine image runs on GPU AL2023 instances.'''
 
 
 class EksVolume(
@@ -18921,7 +18948,10 @@ class IManagedEc2EcsComputeEnvironment(
 
         Leave this ``undefined`` to allow Batch to choose the latest AMIs it supports for each instance that it launches.
 
-        :default: - ECS_AL2 compatible AMI ids for non-GPU instances, ECS_AL2_NVIDIA compatible AMI ids for GPU instances
+        :default:
+
+        - ECS_AL2 compatible AMI ids for non-GPU instances, ECS_AL2_NVIDIA compatible AMI ids for GPU instances.
+        If the '@aws-cdk/aws-batch:defaultToAL2023' feature flag is set, ECS_AL2023 will be used instead of ECS_AL2.
         '''
         ...
 
@@ -19073,7 +19103,10 @@ class _IManagedEc2EcsComputeEnvironmentProxy(
 
         Leave this ``undefined`` to allow Batch to choose the latest AMIs it supports for each instance that it launches.
 
-        :default: - ECS_AL2 compatible AMI ids for non-GPU instances, ECS_AL2_NVIDIA compatible AMI ids for GPU instances
+        :default:
+
+        - ECS_AL2 compatible AMI ids for non-GPU instances, ECS_AL2_NVIDIA compatible AMI ids for GPU instances.
+        If the '@aws-cdk/aws-batch:defaultToAL2023' feature flag is set, ECS_AL2023 will be used instead of ECS_AL2.
         '''
         return typing.cast(typing.Optional[typing.List["EcsMachineImage"]], jsii.get(self, "images"))
 
@@ -20600,6 +20633,351 @@ class ManagedComputeEnvironmentProps(ComputeEnvironmentProps):
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_batch.ManagedEc2ComputeEnvironmentProps",
+    jsii_struct_bases=[ManagedComputeEnvironmentProps],
+    name_mapping={
+        "compute_environment_name": "computeEnvironmentName",
+        "enabled": "enabled",
+        "service_role": "serviceRole",
+        "vpc": "vpc",
+        "maxv_cpus": "maxvCpus",
+        "replace_compute_environment": "replaceComputeEnvironment",
+        "security_groups": "securityGroups",
+        "spot": "spot",
+        "terminate_on_update": "terminateOnUpdate",
+        "update_timeout": "updateTimeout",
+        "update_to_latest_image_version": "updateToLatestImageVersion",
+        "vpc_subnets": "vpcSubnets",
+        "instance_classes": "instanceClasses",
+        "instance_types": "instanceTypes",
+    },
+)
+class ManagedEc2ComputeEnvironmentProps(ManagedComputeEnvironmentProps):
+    def __init__(
+        self,
+        *,
+        compute_environment_name: typing.Optional[builtins.str] = None,
+        enabled: typing.Optional[builtins.bool] = None,
+        service_role: typing.Optional["_IRole_235f5d8e"] = None,
+        vpc: "_IVpc_f30d5663",
+        maxv_cpus: typing.Optional[jsii.Number] = None,
+        replace_compute_environment: typing.Optional[builtins.bool] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
+        spot: typing.Optional[builtins.bool] = None,
+        terminate_on_update: typing.Optional[builtins.bool] = None,
+        update_timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        update_to_latest_image_version: typing.Optional[builtins.bool] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        instance_classes: typing.Optional[typing.Sequence["_InstanceClass_85a592e7"]] = None,
+        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
+    ) -> None:
+        '''Props for a ManagedEc2ComputeEnvironment.
+
+        :param compute_environment_name: The name of the ComputeEnvironment. Default: - generated by CloudFormation
+        :param enabled: Whether or not this ComputeEnvironment can accept jobs from a Queue. Enabled ComputeEnvironments can accept jobs from a Queue and can scale instances up or down. Disabled ComputeEnvironments cannot accept jobs from a Queue or scale instances up or down. If you change a ComputeEnvironment from enabled to disabled while it is executing jobs, Jobs in the ``STARTED`` or ``RUNNING`` states will not be interrupted. As jobs complete, the ComputeEnvironment will scale instances down to ``minvCpus``. To ensure you aren't billed for unused capacity, set ``minvCpus`` to ``0``. Default: true
+        :param service_role: The role Batch uses to perform actions on your behalf in your account, such as provision instances to run your jobs. Default: - a serviceRole will be created for managed CEs, none for unmanaged CEs
+        :param vpc: VPC in which this Compute Environment will launch Instances.
+        :param maxv_cpus: The maximum vCpus this ``ManagedComputeEnvironment`` can scale up to. Each vCPU is equivalent to 1024 CPU shares. *Note*: if this Compute Environment uses EC2 resources (not Fargate) with either ``AllocationStrategy.BEST_FIT_PROGRESSIVE`` or ``AllocationStrategy.SPOT_CAPACITY_OPTIMIZED``, or ``AllocationStrategy.BEST_FIT`` with Spot instances, The scheduler may exceed this number by at most one of the instances specified in ``instanceTypes`` or ``instanceClasses``. Default: 256
+        :param replace_compute_environment: Specifies whether this Compute Environment is replaced if an update is made that requires replacing its instances. To enable more properties to be updated, set this property to ``false``. When changing the value of this property to false, do not change any other properties at the same time. If other properties are changed at the same time, and the change needs to be rolled back but it can't, it's possible for the stack to go into the UPDATE_ROLLBACK_FAILED state. You can't update a stack that is in the UPDATE_ROLLBACK_FAILED state. However, if you can continue to roll it back, you can return the stack to its original settings and then try to update it again. The properties which require a replacement of the Compute Environment are: Default: false
+        :param security_groups: The security groups this Compute Environment will launch instances in. Default: new security groups will be created
+        :param spot: Whether or not to use spot instances. Spot instances are less expensive EC2 instances that can be reclaimed by EC2 at any time; your job will be given two minutes of notice before reclamation. Default: false
+        :param terminate_on_update: Whether or not any running jobs will be immediately terminated when an infrastructure update occurs. If this is enabled, any terminated jobs may be retried, depending on the job's retry policy. Default: false
+        :param update_timeout: Only meaningful if ``terminateOnUpdate`` is ``false``. If so, when an infrastructure update is triggered, any running jobs will be allowed to run until ``updateTimeout`` has expired. Default: 30 minutes
+        :param update_to_latest_image_version: Whether or not the AMI is updated to the latest one supported by Batch when an infrastructure update occurs. If you specify a specific AMI, this property will be ignored. Note: the CDK will never set this value by default, ``false`` will set by CFN. This is to avoid a deployment failure that occurs when this value is set. Default: false
+        :param vpc_subnets: The VPC Subnets this Compute Environment will launch instances in. Default: new subnets will be created
+        :param instance_classes: The instance classes that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Batch will automatically choose the instance size. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        :param instance_types: The instance types that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            from aws_cdk import aws_batch as batch
+            from aws_cdk import aws_ec2 as ec2
+            from aws_cdk import aws_iam as iam
+            
+            # instance_type: ec2.InstanceType
+            # role: iam.Role
+            # security_group: ec2.SecurityGroup
+            # subnet: ec2.Subnet
+            # subnet_filter: ec2.SubnetFilter
+            # vpc: ec2.Vpc
+            
+            managed_ec2_compute_environment_props = batch.ManagedEc2ComputeEnvironmentProps(
+                vpc=vpc,
+            
+                # the properties below are optional
+                compute_environment_name="computeEnvironmentName",
+                enabled=False,
+                instance_classes=[ec2.InstanceClass.STANDARD3],
+                instance_types=[instance_type],
+                maxv_cpus=123,
+                replace_compute_environment=False,
+                security_groups=[security_group],
+                service_role=role,
+                spot=False,
+                terminate_on_update=False,
+                update_timeout=cdk.Duration.minutes(30),
+                update_to_latest_image_version=False,
+                vpc_subnets=ec2.SubnetSelection(
+                    availability_zones=["availabilityZones"],
+                    one_per_az=False,
+                    subnet_filters=[subnet_filter],
+                    subnet_group_name="subnetGroupName",
+                    subnets=[subnet],
+                    subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
+                )
+            )
+        '''
+        if isinstance(vpc_subnets, dict):
+            vpc_subnets = _SubnetSelection_e57d76df(**vpc_subnets)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ff061da725d1cd02de7177aa4337828c4f92757d62e557baf1ae41b650472f3)
+            check_type(argname="argument compute_environment_name", value=compute_environment_name, expected_type=type_hints["compute_environment_name"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+            check_type(argname="argument maxv_cpus", value=maxv_cpus, expected_type=type_hints["maxv_cpus"])
+            check_type(argname="argument replace_compute_environment", value=replace_compute_environment, expected_type=type_hints["replace_compute_environment"])
+            check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
+            check_type(argname="argument spot", value=spot, expected_type=type_hints["spot"])
+            check_type(argname="argument terminate_on_update", value=terminate_on_update, expected_type=type_hints["terminate_on_update"])
+            check_type(argname="argument update_timeout", value=update_timeout, expected_type=type_hints["update_timeout"])
+            check_type(argname="argument update_to_latest_image_version", value=update_to_latest_image_version, expected_type=type_hints["update_to_latest_image_version"])
+            check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
+            check_type(argname="argument instance_classes", value=instance_classes, expected_type=type_hints["instance_classes"])
+            check_type(argname="argument instance_types", value=instance_types, expected_type=type_hints["instance_types"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "vpc": vpc,
+        }
+        if compute_environment_name is not None:
+            self._values["compute_environment_name"] = compute_environment_name
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if service_role is not None:
+            self._values["service_role"] = service_role
+        if maxv_cpus is not None:
+            self._values["maxv_cpus"] = maxv_cpus
+        if replace_compute_environment is not None:
+            self._values["replace_compute_environment"] = replace_compute_environment
+        if security_groups is not None:
+            self._values["security_groups"] = security_groups
+        if spot is not None:
+            self._values["spot"] = spot
+        if terminate_on_update is not None:
+            self._values["terminate_on_update"] = terminate_on_update
+        if update_timeout is not None:
+            self._values["update_timeout"] = update_timeout
+        if update_to_latest_image_version is not None:
+            self._values["update_to_latest_image_version"] = update_to_latest_image_version
+        if vpc_subnets is not None:
+            self._values["vpc_subnets"] = vpc_subnets
+        if instance_classes is not None:
+            self._values["instance_classes"] = instance_classes
+        if instance_types is not None:
+            self._values["instance_types"] = instance_types
+
+    @builtins.property
+    def compute_environment_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the ComputeEnvironment.
+
+        :default: - generated by CloudFormation
+        '''
+        result = self._values.get("compute_environment_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether or not this ComputeEnvironment can accept jobs from a Queue.
+
+        Enabled ComputeEnvironments can accept jobs from a Queue and
+        can scale instances up or down.
+        Disabled ComputeEnvironments cannot accept jobs from a Queue or
+        scale instances up or down.
+
+        If you change a ComputeEnvironment from enabled to disabled while it is executing jobs,
+        Jobs in the ``STARTED`` or ``RUNNING`` states will not
+        be interrupted. As jobs complete, the ComputeEnvironment will scale instances down to ``minvCpus``.
+
+        To ensure you aren't billed for unused capacity, set ``minvCpus`` to ``0``.
+
+        :default: true
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def service_role(self) -> typing.Optional["_IRole_235f5d8e"]:
+        '''The role Batch uses to perform actions on your behalf in your account, such as provision instances to run your jobs.
+
+        :default: - a serviceRole will be created for managed CEs, none for unmanaged CEs
+        '''
+        result = self._values.get("service_role")
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
+
+    @builtins.property
+    def vpc(self) -> "_IVpc_f30d5663":
+        '''VPC in which this Compute Environment will launch Instances.'''
+        result = self._values.get("vpc")
+        assert result is not None, "Required property 'vpc' is missing"
+        return typing.cast("_IVpc_f30d5663", result)
+
+    @builtins.property
+    def maxv_cpus(self) -> typing.Optional[jsii.Number]:
+        '''The maximum vCpus this ``ManagedComputeEnvironment`` can scale up to. Each vCPU is equivalent to 1024 CPU shares.
+
+        *Note*: if this Compute Environment uses EC2 resources (not Fargate) with either ``AllocationStrategy.BEST_FIT_PROGRESSIVE`` or
+        ``AllocationStrategy.SPOT_CAPACITY_OPTIMIZED``, or ``AllocationStrategy.BEST_FIT`` with Spot instances,
+        The scheduler may exceed this number by at most one of the instances specified in ``instanceTypes``
+        or ``instanceClasses``.
+
+        :default: 256
+        '''
+        result = self._values.get("maxv_cpus")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def replace_compute_environment(self) -> typing.Optional[builtins.bool]:
+        '''Specifies whether this Compute Environment is replaced if an update is made that requires replacing its instances.
+
+        To enable more properties to be updated,
+        set this property to ``false``. When changing the value of this property to false,
+        do not change any other properties at the same time.
+        If other properties are changed at the same time,
+        and the change needs to be rolled back but it can't,
+        it's possible for the stack to go into the UPDATE_ROLLBACK_FAILED state.
+        You can't update a stack that is in the UPDATE_ROLLBACK_FAILED state.
+        However, if you can continue to roll it back,
+        you can return the stack to its original settings and then try to update it again.
+
+        The properties which require a replacement of the Compute Environment are:
+
+        :default: false
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-updating-stacks-continueupdaterollback.html
+        '''
+        result = self._values.get("replace_compute_environment")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
+        '''The security groups this Compute Environment will launch instances in.
+
+        :default: new security groups will be created
+        '''
+        result = self._values.get("security_groups")
+        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
+
+    @builtins.property
+    def spot(self) -> typing.Optional[builtins.bool]:
+        '''Whether or not to use spot instances.
+
+        Spot instances are less expensive EC2 instances that can be
+        reclaimed by EC2 at any time; your job will be given two minutes
+        of notice before reclamation.
+
+        :default: false
+        '''
+        result = self._values.get("spot")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def terminate_on_update(self) -> typing.Optional[builtins.bool]:
+        '''Whether or not any running jobs will be immediately terminated when an infrastructure update occurs.
+
+        If this is enabled, any terminated jobs may be retried, depending on the job's
+        retry policy.
+
+        :default: false
+
+        :see: https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html
+        '''
+        result = self._values.get("terminate_on_update")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def update_timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
+        '''Only meaningful if ``terminateOnUpdate`` is ``false``.
+
+        If so,
+        when an infrastructure update is triggered, any running jobs
+        will be allowed to run until ``updateTimeout`` has expired.
+
+        :default: 30 minutes
+
+        :see: https://docs.aws.amazon.com/batch/latest/userguide/updating-compute-environments.html
+        '''
+        result = self._values.get("update_timeout")
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    @builtins.property
+    def update_to_latest_image_version(self) -> typing.Optional[builtins.bool]:
+        '''Whether or not the AMI is updated to the latest one supported by Batch when an infrastructure update occurs.
+
+        If you specify a specific AMI, this property will be ignored.
+
+        Note: the CDK will never set this value by default, ``false`` will set by CFN.
+        This is to avoid a deployment failure that occurs when this value is set.
+
+        :default: false
+
+        :see: https://github.com/aws/aws-cdk/issues/27054
+        '''
+        result = self._values.get("update_to_latest_image_version")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
+        '''The VPC Subnets this Compute Environment will launch instances in.
+
+        :default: new subnets will be created
+        '''
+        result = self._values.get("vpc_subnets")
+        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
+
+    @builtins.property
+    def instance_classes(
+        self,
+    ) -> typing.Optional[typing.List["_InstanceClass_85a592e7"]]:
+        '''The instance classes that this Compute Environment can launch.
+
+        Which one is chosen depends on the ``AllocationStrategy`` used.
+        Batch will automatically choose the instance size.
+
+        :default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        '''
+        result = self._values.get("instance_classes")
+        return typing.cast(typing.Optional[typing.List["_InstanceClass_85a592e7"]], result)
+
+    @builtins.property
+    def instance_types(self) -> typing.Optional[typing.List["_InstanceType_f64915b9"]]:
+        '''The instance types that this Compute Environment can launch.
+
+        Which one is chosen depends on the ``AllocationStrategy`` used.
+
+        :default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        '''
+        result = self._values.get("instance_types")
+        return typing.cast(typing.Optional[typing.List["_InstanceType_f64915b9"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ManagedEc2ComputeEnvironmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(IManagedEc2EcsComputeEnvironment, IManagedComputeEnvironment, IComputeEnvironment)
 class ManagedEc2EcsComputeEnvironment(
     _Resource_45bc6135,
@@ -20630,15 +21008,15 @@ class ManagedEc2EcsComputeEnvironment(
         allocation_strategy: typing.Optional["AllocationStrategy"] = None,
         default_instance_classes: typing.Optional[typing.Sequence["DefaultInstanceClass"]] = None,
         images: typing.Optional[typing.Sequence[typing.Union["EcsMachineImage", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_classes: typing.Optional[typing.Sequence["_InstanceClass_85a592e7"]] = None,
         instance_role: typing.Optional["_IRole_235f5d8e"] = None,
-        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
         launch_template: typing.Optional["_ILaunchTemplate_f32c0fd7"] = None,
         minv_cpus: typing.Optional[jsii.Number] = None,
         placement_group: typing.Optional["_IPlacementGroupRef_5d6e601f"] = None,
         spot_bid_percentage: typing.Optional[jsii.Number] = None,
         spot_fleet_role: typing.Optional["_IRole_235f5d8e"] = None,
         use_optimal_instance_classes: typing.Optional[builtins.bool] = None,
+        instance_classes: typing.Optional[typing.Sequence["_InstanceClass_85a592e7"]] = None,
+        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
         vpc: "_IVpc_f30d5663",
         maxv_cpus: typing.Optional[jsii.Number] = None,
         replace_compute_environment: typing.Optional[builtins.bool] = None,
@@ -20657,16 +21035,16 @@ class ManagedEc2EcsComputeEnvironment(
         :param id: -
         :param allocation_strategy: The allocation strategy to use if not enough instances of the best fitting instance type can be allocated. Default: - ``BEST_FIT_PROGRESSIVE`` if not using Spot instances, ``SPOT_PRICE_CAPACITY_OPTIMIZED`` if using Spot instances.
         :param default_instance_classes: Use batch's default instance types. A simpler way to choose up-to-date instance classes based on region instead of specifying exact instance classes. Default: - choose from instanceTypes and instanceClasses
-        :param images: Configure which AMIs this Compute Environment can launch. If you specify this property with only ``image`` specified, then the ``imageType`` will default to ``ECS_AL2``. *If your image needs GPU resources, specify ``ECS_AL2_NVIDIA``; otherwise, the instances will not be able to properly join the ComputeEnvironment*. Default: - ECS_AL2 for non-GPU instances, ECS_AL2_NVIDIA for GPU instances
-        :param instance_classes: The instance classes that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Batch will automatically choose the instance size. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        :param images: Configure which AMIs this Compute Environment can launch. If you specify this property with only ``image`` specified, then the ``imageType`` will default to ``ECS_AL2`` (or ``ECS_AL2023`` if the ``@aws-cdk/aws-batch:defaultToAL2023`` feature flag is set). *If your image needs GPU resources, specify ``ECS_AL2_NVIDIA`` or ``ECS_AL2023_NVIDIA``; otherwise, the instances will not be able to properly join the ComputeEnvironment*. Default: - ECS_AL2 for non-GPU instances, ECS_AL2_NVIDIA for GPU instances. If the '@aws-cdk/aws-batch:defaultToAL2023' feature flag is set, ECS_AL2023 will be used instead of ECS_AL2.
         :param instance_role: The execution Role that instances launched by this Compute Environment will use. Default: - a role will be created
-        :param instance_types: The instance types that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
         :param launch_template: The Launch Template that this Compute Environment will use to provision EC2 Instances. *Note*: if ``securityGroups`` is specified on both your launch template and this Compute Environment, **the ``securityGroup``s on the Compute Environment override the ones on the launch template. Default: no launch template
         :param minv_cpus: The minimum vCPUs that an environment should maintain, even if the compute environment is DISABLED. Default: 0
         :param placement_group: The EC2 placement group to associate with your compute resources. If you intend to submit multi-node parallel jobs to this Compute Environment, you should consider creating a cluster placement group and associate it with your compute resources. This keeps your multi-node parallel job on a logical grouping of instances within a single Availability Zone with high network flow potential. Default: - no placement group
         :param spot_bid_percentage: The maximum percentage that a Spot Instance price can be when compared with the On-Demand price for that instance type before instances are launched. For example, if your maximum percentage is 20%, the Spot price must be less than 20% of the current On-Demand price for that Instance. You always pay the lowest market price and never more than your maximum percentage. For most use cases, Batch recommends leaving this field empty. Implies ``spot == true`` if set Default: 100%
         :param spot_fleet_role: The service-linked role that Spot Fleet needs to launch instances on your behalf. Default: - a new role will be created
         :param use_optimal_instance_classes: Whether or not to use batch's optimal instance type. The optimal instance type is equivalent to adding the C4, M4, and R4 instance classes. You can specify other instance classes (of the same architecture) in addition to the optimal instance classes. Default: true
+        :param instance_classes: The instance classes that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Batch will automatically choose the instance size. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        :param instance_types: The instance types that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
         :param vpc: VPC in which this Compute Environment will launch Instances.
         :param maxv_cpus: The maximum vCpus this ``ManagedComputeEnvironment`` can scale up to. Each vCPU is equivalent to 1024 CPU shares. *Note*: if this Compute Environment uses EC2 resources (not Fargate) with either ``AllocationStrategy.BEST_FIT_PROGRESSIVE`` or ``AllocationStrategy.SPOT_CAPACITY_OPTIMIZED``, or ``AllocationStrategy.BEST_FIT`` with Spot instances, The scheduler may exceed this number by at most one of the instances specified in ``instanceTypes`` or ``instanceClasses``. Default: 256
         :param replace_compute_environment: Specifies whether this Compute Environment is replaced if an update is made that requires replacing its instances. To enable more properties to be updated, set this property to ``false``. When changing the value of this property to false, do not change any other properties at the same time. If other properties are changed at the same time, and the change needs to be rolled back but it can't, it's possible for the stack to go into the UPDATE_ROLLBACK_FAILED state. You can't update a stack that is in the UPDATE_ROLLBACK_FAILED state. However, if you can continue to roll it back, you can return the stack to its original settings and then try to update it again. The properties which require a replacement of the Compute Environment are: Default: false
@@ -20688,15 +21066,15 @@ class ManagedEc2EcsComputeEnvironment(
             allocation_strategy=allocation_strategy,
             default_instance_classes=default_instance_classes,
             images=images,
-            instance_classes=instance_classes,
             instance_role=instance_role,
-            instance_types=instance_types,
             launch_template=launch_template,
             minv_cpus=minv_cpus,
             placement_group=placement_group,
             spot_bid_percentage=spot_bid_percentage,
             spot_fleet_role=spot_fleet_role,
             use_optimal_instance_classes=use_optimal_instance_classes,
+            instance_classes=instance_classes,
+            instance_types=instance_types,
             vpc=vpc,
             maxv_cpus=maxv_cpus,
             replace_compute_environment=replace_compute_environment,
@@ -20810,7 +21188,6 @@ class ManagedEc2EcsComputeEnvironment(
         '''The instance classes that this Compute Environment can launch.
 
         Which one is chosen depends on the ``AllocationStrategy`` used.
-        Batch will automatically choose the size.
         '''
         return typing.cast(typing.List["_InstanceClass_85a592e7"], jsii.get(self, "instanceClasses"))
 
@@ -20988,7 +21365,7 @@ class ManagedEc2EcsComputeEnvironment(
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_batch.ManagedEc2EcsComputeEnvironmentProps",
-    jsii_struct_bases=[ManagedComputeEnvironmentProps],
+    jsii_struct_bases=[ManagedEc2ComputeEnvironmentProps],
     name_mapping={
         "compute_environment_name": "computeEnvironmentName",
         "enabled": "enabled",
@@ -21002,12 +21379,12 @@ class ManagedEc2EcsComputeEnvironment(
         "update_timeout": "updateTimeout",
         "update_to_latest_image_version": "updateToLatestImageVersion",
         "vpc_subnets": "vpcSubnets",
+        "instance_classes": "instanceClasses",
+        "instance_types": "instanceTypes",
         "allocation_strategy": "allocationStrategy",
         "default_instance_classes": "defaultInstanceClasses",
         "images": "images",
-        "instance_classes": "instanceClasses",
         "instance_role": "instanceRole",
-        "instance_types": "instanceTypes",
         "launch_template": "launchTemplate",
         "minv_cpus": "minvCpus",
         "placement_group": "placementGroup",
@@ -21016,7 +21393,7 @@ class ManagedEc2EcsComputeEnvironment(
         "use_optimal_instance_classes": "useOptimalInstanceClasses",
     },
 )
-class ManagedEc2EcsComputeEnvironmentProps(ManagedComputeEnvironmentProps):
+class ManagedEc2EcsComputeEnvironmentProps(ManagedEc2ComputeEnvironmentProps):
     def __init__(
         self,
         *,
@@ -21032,12 +21409,12 @@ class ManagedEc2EcsComputeEnvironmentProps(ManagedComputeEnvironmentProps):
         update_timeout: typing.Optional["_Duration_4839e8c3"] = None,
         update_to_latest_image_version: typing.Optional[builtins.bool] = None,
         vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        instance_classes: typing.Optional[typing.Sequence["_InstanceClass_85a592e7"]] = None,
+        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
         allocation_strategy: typing.Optional["AllocationStrategy"] = None,
         default_instance_classes: typing.Optional[typing.Sequence["DefaultInstanceClass"]] = None,
         images: typing.Optional[typing.Sequence[typing.Union["EcsMachineImage", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_classes: typing.Optional[typing.Sequence["_InstanceClass_85a592e7"]] = None,
         instance_role: typing.Optional["_IRole_235f5d8e"] = None,
-        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
         launch_template: typing.Optional["_ILaunchTemplate_f32c0fd7"] = None,
         minv_cpus: typing.Optional[jsii.Number] = None,
         placement_group: typing.Optional["_IPlacementGroupRef_5d6e601f"] = None,
@@ -21059,12 +21436,12 @@ class ManagedEc2EcsComputeEnvironmentProps(ManagedComputeEnvironmentProps):
         :param update_timeout: Only meaningful if ``terminateOnUpdate`` is ``false``. If so, when an infrastructure update is triggered, any running jobs will be allowed to run until ``updateTimeout`` has expired. Default: 30 minutes
         :param update_to_latest_image_version: Whether or not the AMI is updated to the latest one supported by Batch when an infrastructure update occurs. If you specify a specific AMI, this property will be ignored. Note: the CDK will never set this value by default, ``false`` will set by CFN. This is to avoid a deployment failure that occurs when this value is set. Default: false
         :param vpc_subnets: The VPC Subnets this Compute Environment will launch instances in. Default: new subnets will be created
+        :param instance_classes: The instance classes that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Batch will automatically choose the instance size. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        :param instance_types: The instance types that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
         :param allocation_strategy: The allocation strategy to use if not enough instances of the best fitting instance type can be allocated. Default: - ``BEST_FIT_PROGRESSIVE`` if not using Spot instances, ``SPOT_PRICE_CAPACITY_OPTIMIZED`` if using Spot instances.
         :param default_instance_classes: Use batch's default instance types. A simpler way to choose up-to-date instance classes based on region instead of specifying exact instance classes. Default: - choose from instanceTypes and instanceClasses
-        :param images: Configure which AMIs this Compute Environment can launch. If you specify this property with only ``image`` specified, then the ``imageType`` will default to ``ECS_AL2``. *If your image needs GPU resources, specify ``ECS_AL2_NVIDIA``; otherwise, the instances will not be able to properly join the ComputeEnvironment*. Default: - ECS_AL2 for non-GPU instances, ECS_AL2_NVIDIA for GPU instances
-        :param instance_classes: The instance classes that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Batch will automatically choose the instance size. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        :param images: Configure which AMIs this Compute Environment can launch. If you specify this property with only ``image`` specified, then the ``imageType`` will default to ``ECS_AL2`` (or ``ECS_AL2023`` if the ``@aws-cdk/aws-batch:defaultToAL2023`` feature flag is set). *If your image needs GPU resources, specify ``ECS_AL2_NVIDIA`` or ``ECS_AL2023_NVIDIA``; otherwise, the instances will not be able to properly join the ComputeEnvironment*. Default: - ECS_AL2 for non-GPU instances, ECS_AL2_NVIDIA for GPU instances. If the '@aws-cdk/aws-batch:defaultToAL2023' feature flag is set, ECS_AL2023 will be used instead of ECS_AL2.
         :param instance_role: The execution Role that instances launched by this Compute Environment will use. Default: - a role will be created
-        :param instance_types: The instance types that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
         :param launch_template: The Launch Template that this Compute Environment will use to provision EC2 Instances. *Note*: if ``securityGroups`` is specified on both your launch template and this Compute Environment, **the ``securityGroup``s on the Compute Environment override the ones on the launch template. Default: no launch template
         :param minv_cpus: The minimum vCPUs that an environment should maintain, even if the compute environment is DISABLED. Default: 0
         :param placement_group: The EC2 placement group to associate with your compute resources. If you intend to submit multi-node parallel jobs to this Compute Environment, you should consider creating a cluster placement group and associate it with your compute resources. This keeps your multi-node parallel job on a logical grouping of instances within a single Availability Zone with high network flow potential. Default: - no placement group
@@ -21100,12 +21477,12 @@ class ManagedEc2EcsComputeEnvironmentProps(ManagedComputeEnvironmentProps):
             check_type(argname="argument update_timeout", value=update_timeout, expected_type=type_hints["update_timeout"])
             check_type(argname="argument update_to_latest_image_version", value=update_to_latest_image_version, expected_type=type_hints["update_to_latest_image_version"])
             check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
+            check_type(argname="argument instance_classes", value=instance_classes, expected_type=type_hints["instance_classes"])
+            check_type(argname="argument instance_types", value=instance_types, expected_type=type_hints["instance_types"])
             check_type(argname="argument allocation_strategy", value=allocation_strategy, expected_type=type_hints["allocation_strategy"])
             check_type(argname="argument default_instance_classes", value=default_instance_classes, expected_type=type_hints["default_instance_classes"])
             check_type(argname="argument images", value=images, expected_type=type_hints["images"])
-            check_type(argname="argument instance_classes", value=instance_classes, expected_type=type_hints["instance_classes"])
             check_type(argname="argument instance_role", value=instance_role, expected_type=type_hints["instance_role"])
-            check_type(argname="argument instance_types", value=instance_types, expected_type=type_hints["instance_types"])
             check_type(argname="argument launch_template", value=launch_template, expected_type=type_hints["launch_template"])
             check_type(argname="argument minv_cpus", value=minv_cpus, expected_type=type_hints["minv_cpus"])
             check_type(argname="argument placement_group", value=placement_group, expected_type=type_hints["placement_group"])
@@ -21137,18 +21514,18 @@ class ManagedEc2EcsComputeEnvironmentProps(ManagedComputeEnvironmentProps):
             self._values["update_to_latest_image_version"] = update_to_latest_image_version
         if vpc_subnets is not None:
             self._values["vpc_subnets"] = vpc_subnets
+        if instance_classes is not None:
+            self._values["instance_classes"] = instance_classes
+        if instance_types is not None:
+            self._values["instance_types"] = instance_types
         if allocation_strategy is not None:
             self._values["allocation_strategy"] = allocation_strategy
         if default_instance_classes is not None:
             self._values["default_instance_classes"] = default_instance_classes
         if images is not None:
             self._values["images"] = images
-        if instance_classes is not None:
-            self._values["instance_classes"] = instance_classes
         if instance_role is not None:
             self._values["instance_role"] = instance_role
-        if instance_types is not None:
-            self._values["instance_types"] = instance_types
         if launch_template is not None:
             self._values["launch_template"] = launch_template
         if minv_cpus is not None:
@@ -21323,6 +21700,31 @@ class ManagedEc2EcsComputeEnvironmentProps(ManagedComputeEnvironmentProps):
         return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
 
     @builtins.property
+    def instance_classes(
+        self,
+    ) -> typing.Optional[typing.List["_InstanceClass_85a592e7"]]:
+        '''The instance classes that this Compute Environment can launch.
+
+        Which one is chosen depends on the ``AllocationStrategy`` used.
+        Batch will automatically choose the instance size.
+
+        :default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        '''
+        result = self._values.get("instance_classes")
+        return typing.cast(typing.Optional[typing.List["_InstanceClass_85a592e7"]], result)
+
+    @builtins.property
+    def instance_types(self) -> typing.Optional[typing.List["_InstanceType_f64915b9"]]:
+        '''The instance types that this Compute Environment can launch.
+
+        Which one is chosen depends on the ``AllocationStrategy`` used.
+
+        :default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        '''
+        result = self._values.get("instance_types")
+        return typing.cast(typing.Optional[typing.List["_InstanceType_f64915b9"]], result)
+
+    @builtins.property
     def allocation_strategy(self) -> typing.Optional["AllocationStrategy"]:
         '''The allocation strategy to use if not enough instances of the best fitting instance type can be allocated.
 
@@ -21355,28 +21757,19 @@ class ManagedEc2EcsComputeEnvironmentProps(ManagedComputeEnvironmentProps):
         '''Configure which AMIs this Compute Environment can launch.
 
         If you specify this property with only ``image`` specified, then the
-        ``imageType`` will default to ``ECS_AL2``. *If your image needs GPU resources,
-        specify ``ECS_AL2_NVIDIA``; otherwise, the instances will not be able to properly
-        join the ComputeEnvironment*.
+        ``imageType`` will default to ``ECS_AL2`` (or ``ECS_AL2023`` if the
+        ``@aws-cdk/aws-batch:defaultToAL2023`` feature flag is set).
+        *If your image needs GPU resources,
+        specify ``ECS_AL2_NVIDIA`` or ``ECS_AL2023_NVIDIA``; otherwise, the instances
+        will not be able to properly join the ComputeEnvironment*.
 
-        :default: - ECS_AL2 for non-GPU instances, ECS_AL2_NVIDIA for GPU instances
+        :default:
+
+        - ECS_AL2 for non-GPU instances, ECS_AL2_NVIDIA for GPU instances.
+        If the '@aws-cdk/aws-batch:defaultToAL2023' feature flag is set, ECS_AL2023 will be used instead of ECS_AL2.
         '''
         result = self._values.get("images")
         return typing.cast(typing.Optional[typing.List["EcsMachineImage"]], result)
-
-    @builtins.property
-    def instance_classes(
-        self,
-    ) -> typing.Optional[typing.List["_InstanceClass_85a592e7"]]:
-        '''The instance classes that this Compute Environment can launch.
-
-        Which one is chosen depends on the ``AllocationStrategy`` used.
-        Batch will automatically choose the instance size.
-
-        :default: - the instances Batch considers will be used (currently C4, M4, and R4)
-        '''
-        result = self._values.get("instance_classes")
-        return typing.cast(typing.Optional[typing.List["_InstanceClass_85a592e7"]], result)
 
     @builtins.property
     def instance_role(self) -> typing.Optional["_IRole_235f5d8e"]:
@@ -21386,17 +21779,6 @@ class ManagedEc2EcsComputeEnvironmentProps(ManagedComputeEnvironmentProps):
         '''
         result = self._values.get("instance_role")
         return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
-
-    @builtins.property
-    def instance_types(self) -> typing.Optional[typing.List["_InstanceType_f64915b9"]]:
-        '''The instance types that this Compute Environment can launch.
-
-        Which one is chosen depends on the ``AllocationStrategy`` used.
-
-        :default: - the instances Batch considers will be used (currently C4, M4, and R4)
-        '''
-        result = self._values.get("instance_types")
-        return typing.cast(typing.Optional[typing.List["_InstanceType_f64915b9"]], result)
 
     @builtins.property
     def launch_template(self) -> typing.Optional["_ILaunchTemplate_f32c0fd7"]:
@@ -21573,14 +21955,14 @@ class ManagedEc2EksComputeEnvironment(
         allocation_strategy: typing.Optional["AllocationStrategy"] = None,
         default_instance_classes: typing.Optional[typing.Sequence["DefaultInstanceClass"]] = None,
         images: typing.Optional[typing.Sequence[typing.Union["EksMachineImage", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_classes: typing.Optional[typing.Sequence["_InstanceClass_85a592e7"]] = None,
         instance_role: typing.Optional["_IRole_235f5d8e"] = None,
-        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
         launch_template: typing.Optional["_ILaunchTemplate_f32c0fd7"] = None,
         minv_cpus: typing.Optional[jsii.Number] = None,
         placement_group: typing.Optional["_IPlacementGroupRef_5d6e601f"] = None,
         spot_bid_percentage: typing.Optional[jsii.Number] = None,
         use_optimal_instance_classes: typing.Optional[builtins.bool] = None,
+        instance_classes: typing.Optional[typing.Sequence["_InstanceClass_85a592e7"]] = None,
+        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
         vpc: "_IVpc_f30d5663",
         maxv_cpus: typing.Optional[jsii.Number] = None,
         replace_compute_environment: typing.Optional[builtins.bool] = None,
@@ -21601,15 +21983,15 @@ class ManagedEc2EksComputeEnvironment(
         :param kubernetes_namespace: The namespace of the Cluster.
         :param allocation_strategy: The allocation strategy to use if not enough instances of the best fitting instance type can be allocated. Default: - ``BEST_FIT_PROGRESSIVE`` if not using Spot instances, ``SPOT_PRICE_CAPACITY_OPTIMIZED`` if using Spot instances.
         :param default_instance_classes: Use batch's default instance types. A simpler way to choose up-to-date instance classes based on region instead of specifying exact instance classes. Default: - choose from instanceTypes and instanceClasses
-        :param images: Configure which AMIs this Compute Environment can launch. Default: If ``imageKubernetesVersion`` is specified, - EKS_AL2 for non-GPU instances, EKS_AL2_NVIDIA for GPU instances, Otherwise, - ECS_AL2 for non-GPU instances, ECS_AL2_NVIDIA for GPU instances,
-        :param instance_classes: The instance types that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Batch will automatically choose the instance size. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        :param images: Configure which AMIs this Compute Environment can launch. Default: If ``imageKubernetesVersion`` is specified, - EKS_AL2 for non-GPU instances, EKS_AL2_NVIDIA for GPU instances. Otherwise, - ECS_AL2 for non-GPU instances, ECS_AL2_NVIDIA for GPU instances. If the '@aws-cdk/aws-batch:defaultToAL2023' feature flag is set, EKS_AL2023 / ECS_AL2023 will be used instead.
         :param instance_role: The execution Role that instances launched by this Compute Environment will use. Default: - a role will be created
-        :param instance_types: The instance types that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
         :param launch_template: The Launch Template that this Compute Environment will use to provision EC2 Instances. *Note*: if ``securityGroups`` is specified on both your launch template and this Compute Environment, **the ``securityGroup``s on the Compute Environment override the ones on the launch template.** Default: - no launch template
         :param minv_cpus: The minimum vCPUs that an environment should maintain, even if the compute environment is DISABLED. Default: 0
         :param placement_group: The EC2 placement group to associate with your compute resources. If you intend to submit multi-node parallel jobs to this Compute Environment, you should consider creating a cluster placement group and associate it with your compute resources. This keeps your multi-node parallel job on a logical grouping of instances within a single Availability Zone with high network flow potential. Default: - no placement group
         :param spot_bid_percentage: The maximum percentage that a Spot Instance price can be when compared with the On-Demand price for that instance type before instances are launched. For example, if your maximum percentage is 20%, the Spot price must be less than 20% of the current On-Demand price for that Instance. You always pay the lowest market price and never more than your maximum percentage. For most use cases, Batch recommends leaving this field empty. Implies ``spot == true`` if set Default: - 100%
         :param use_optimal_instance_classes: Whether or not to use batch's optimal instance type. The optimal instance type is equivalent to adding the C4, M4, and R4 instance classes. You can specify other instance classes (of the same architecture) in addition to the optimal instance classes. Default: true
+        :param instance_classes: The instance classes that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Batch will automatically choose the instance size. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        :param instance_types: The instance types that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
         :param vpc: VPC in which this Compute Environment will launch Instances.
         :param maxv_cpus: The maximum vCpus this ``ManagedComputeEnvironment`` can scale up to. Each vCPU is equivalent to 1024 CPU shares. *Note*: if this Compute Environment uses EC2 resources (not Fargate) with either ``AllocationStrategy.BEST_FIT_PROGRESSIVE`` or ``AllocationStrategy.SPOT_CAPACITY_OPTIMIZED``, or ``AllocationStrategy.BEST_FIT`` with Spot instances, The scheduler may exceed this number by at most one of the instances specified in ``instanceTypes`` or ``instanceClasses``. Default: 256
         :param replace_compute_environment: Specifies whether this Compute Environment is replaced if an update is made that requires replacing its instances. To enable more properties to be updated, set this property to ``false``. When changing the value of this property to false, do not change any other properties at the same time. If other properties are changed at the same time, and the change needs to be rolled back but it can't, it's possible for the stack to go into the UPDATE_ROLLBACK_FAILED state. You can't update a stack that is in the UPDATE_ROLLBACK_FAILED state. However, if you can continue to roll it back, you can return the stack to its original settings and then try to update it again. The properties which require a replacement of the Compute Environment are: Default: false
@@ -21633,14 +22015,14 @@ class ManagedEc2EksComputeEnvironment(
             allocation_strategy=allocation_strategy,
             default_instance_classes=default_instance_classes,
             images=images,
-            instance_classes=instance_classes,
             instance_role=instance_role,
-            instance_types=instance_types,
             launch_template=launch_template,
             minv_cpus=minv_cpus,
             placement_group=placement_group,
             spot_bid_percentage=spot_bid_percentage,
             use_optimal_instance_classes=use_optimal_instance_classes,
+            instance_classes=instance_classes,
+            instance_types=instance_types,
             vpc=vpc,
             maxv_cpus=maxv_cpus,
             replace_compute_environment=replace_compute_environment,
@@ -21745,7 +22127,7 @@ class ManagedEc2EksComputeEnvironment(
     @builtins.property
     @jsii.member(jsii_name="instanceClasses")
     def instance_classes(self) -> typing.List["_InstanceClass_85a592e7"]:
-        '''The instance types that this Compute Environment can launch.
+        '''The instance classes that this Compute Environment can launch.
 
         Which one is chosen depends on the ``AllocationStrategy`` used.
         '''
@@ -21927,7 +22309,7 @@ class ManagedEc2EksComputeEnvironment(
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_batch.ManagedEc2EksComputeEnvironmentProps",
-    jsii_struct_bases=[ManagedComputeEnvironmentProps],
+    jsii_struct_bases=[ManagedEc2ComputeEnvironmentProps],
     name_mapping={
         "compute_environment_name": "computeEnvironmentName",
         "enabled": "enabled",
@@ -21941,14 +22323,14 @@ class ManagedEc2EksComputeEnvironment(
         "update_timeout": "updateTimeout",
         "update_to_latest_image_version": "updateToLatestImageVersion",
         "vpc_subnets": "vpcSubnets",
+        "instance_classes": "instanceClasses",
+        "instance_types": "instanceTypes",
         "eks_cluster": "eksCluster",
         "kubernetes_namespace": "kubernetesNamespace",
         "allocation_strategy": "allocationStrategy",
         "default_instance_classes": "defaultInstanceClasses",
         "images": "images",
-        "instance_classes": "instanceClasses",
         "instance_role": "instanceRole",
-        "instance_types": "instanceTypes",
         "launch_template": "launchTemplate",
         "minv_cpus": "minvCpus",
         "placement_group": "placementGroup",
@@ -21956,7 +22338,7 @@ class ManagedEc2EksComputeEnvironment(
         "use_optimal_instance_classes": "useOptimalInstanceClasses",
     },
 )
-class ManagedEc2EksComputeEnvironmentProps(ManagedComputeEnvironmentProps):
+class ManagedEc2EksComputeEnvironmentProps(ManagedEc2ComputeEnvironmentProps):
     def __init__(
         self,
         *,
@@ -21972,14 +22354,14 @@ class ManagedEc2EksComputeEnvironmentProps(ManagedComputeEnvironmentProps):
         update_timeout: typing.Optional["_Duration_4839e8c3"] = None,
         update_to_latest_image_version: typing.Optional[builtins.bool] = None,
         vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
+        instance_classes: typing.Optional[typing.Sequence["_InstanceClass_85a592e7"]] = None,
+        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
         eks_cluster: "_ICluster_6b2b80df",
         kubernetes_namespace: builtins.str,
         allocation_strategy: typing.Optional["AllocationStrategy"] = None,
         default_instance_classes: typing.Optional[typing.Sequence["DefaultInstanceClass"]] = None,
         images: typing.Optional[typing.Sequence[typing.Union["EksMachineImage", typing.Dict[builtins.str, typing.Any]]]] = None,
-        instance_classes: typing.Optional[typing.Sequence["_InstanceClass_85a592e7"]] = None,
         instance_role: typing.Optional["_IRole_235f5d8e"] = None,
-        instance_types: typing.Optional[typing.Sequence["_InstanceType_f64915b9"]] = None,
         launch_template: typing.Optional["_ILaunchTemplate_f32c0fd7"] = None,
         minv_cpus: typing.Optional[jsii.Number] = None,
         placement_group: typing.Optional["_IPlacementGroupRef_5d6e601f"] = None,
@@ -22000,14 +22382,14 @@ class ManagedEc2EksComputeEnvironmentProps(ManagedComputeEnvironmentProps):
         :param update_timeout: Only meaningful if ``terminateOnUpdate`` is ``false``. If so, when an infrastructure update is triggered, any running jobs will be allowed to run until ``updateTimeout`` has expired. Default: 30 minutes
         :param update_to_latest_image_version: Whether or not the AMI is updated to the latest one supported by Batch when an infrastructure update occurs. If you specify a specific AMI, this property will be ignored. Note: the CDK will never set this value by default, ``false`` will set by CFN. This is to avoid a deployment failure that occurs when this value is set. Default: false
         :param vpc_subnets: The VPC Subnets this Compute Environment will launch instances in. Default: new subnets will be created
+        :param instance_classes: The instance classes that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Batch will automatically choose the instance size. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        :param instance_types: The instance types that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
         :param eks_cluster: The cluster that backs this Compute Environment. Required for Compute Environments running Kubernetes jobs. Please ensure that you have followed the steps at https://docs.aws.amazon.com/batch/latest/userguide/getting-started-eks.html before attempting to deploy a ``ManagedEc2EksComputeEnvironment`` that uses this cluster. If you do not follow the steps in the link, the deployment fail with a message that the compute environment did not stabilize.
         :param kubernetes_namespace: The namespace of the Cluster.
         :param allocation_strategy: The allocation strategy to use if not enough instances of the best fitting instance type can be allocated. Default: - ``BEST_FIT_PROGRESSIVE`` if not using Spot instances, ``SPOT_PRICE_CAPACITY_OPTIMIZED`` if using Spot instances.
         :param default_instance_classes: Use batch's default instance types. A simpler way to choose up-to-date instance classes based on region instead of specifying exact instance classes. Default: - choose from instanceTypes and instanceClasses
-        :param images: Configure which AMIs this Compute Environment can launch. Default: If ``imageKubernetesVersion`` is specified, - EKS_AL2 for non-GPU instances, EKS_AL2_NVIDIA for GPU instances, Otherwise, - ECS_AL2 for non-GPU instances, ECS_AL2_NVIDIA for GPU instances,
-        :param instance_classes: The instance types that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Batch will automatically choose the instance size. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        :param images: Configure which AMIs this Compute Environment can launch. Default: If ``imageKubernetesVersion`` is specified, - EKS_AL2 for non-GPU instances, EKS_AL2_NVIDIA for GPU instances. Otherwise, - ECS_AL2 for non-GPU instances, ECS_AL2_NVIDIA for GPU instances. If the '@aws-cdk/aws-batch:defaultToAL2023' feature flag is set, EKS_AL2023 / ECS_AL2023 will be used instead.
         :param instance_role: The execution Role that instances launched by this Compute Environment will use. Default: - a role will be created
-        :param instance_types: The instance types that this Compute Environment can launch. Which one is chosen depends on the ``AllocationStrategy`` used. Default: - the instances Batch considers will be used (currently C4, M4, and R4)
         :param launch_template: The Launch Template that this Compute Environment will use to provision EC2 Instances. *Note*: if ``securityGroups`` is specified on both your launch template and this Compute Environment, **the ``securityGroup``s on the Compute Environment override the ones on the launch template.** Default: - no launch template
         :param minv_cpus: The minimum vCPUs that an environment should maintain, even if the compute environment is DISABLED. Default: 0
         :param placement_group: The EC2 placement group to associate with your compute resources. If you intend to submit multi-node parallel jobs to this Compute Environment, you should consider creating a cluster placement group and associate it with your compute resources. This keeps your multi-node parallel job on a logical grouping of instances within a single Availability Zone with high network flow potential. Default: - no placement group
@@ -22094,14 +22476,14 @@ class ManagedEc2EksComputeEnvironmentProps(ManagedComputeEnvironmentProps):
             check_type(argname="argument update_timeout", value=update_timeout, expected_type=type_hints["update_timeout"])
             check_type(argname="argument update_to_latest_image_version", value=update_to_latest_image_version, expected_type=type_hints["update_to_latest_image_version"])
             check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
+            check_type(argname="argument instance_classes", value=instance_classes, expected_type=type_hints["instance_classes"])
+            check_type(argname="argument instance_types", value=instance_types, expected_type=type_hints["instance_types"])
             check_type(argname="argument eks_cluster", value=eks_cluster, expected_type=type_hints["eks_cluster"])
             check_type(argname="argument kubernetes_namespace", value=kubernetes_namespace, expected_type=type_hints["kubernetes_namespace"])
             check_type(argname="argument allocation_strategy", value=allocation_strategy, expected_type=type_hints["allocation_strategy"])
             check_type(argname="argument default_instance_classes", value=default_instance_classes, expected_type=type_hints["default_instance_classes"])
             check_type(argname="argument images", value=images, expected_type=type_hints["images"])
-            check_type(argname="argument instance_classes", value=instance_classes, expected_type=type_hints["instance_classes"])
             check_type(argname="argument instance_role", value=instance_role, expected_type=type_hints["instance_role"])
-            check_type(argname="argument instance_types", value=instance_types, expected_type=type_hints["instance_types"])
             check_type(argname="argument launch_template", value=launch_template, expected_type=type_hints["launch_template"])
             check_type(argname="argument minv_cpus", value=minv_cpus, expected_type=type_hints["minv_cpus"])
             check_type(argname="argument placement_group", value=placement_group, expected_type=type_hints["placement_group"])
@@ -22134,18 +22516,18 @@ class ManagedEc2EksComputeEnvironmentProps(ManagedComputeEnvironmentProps):
             self._values["update_to_latest_image_version"] = update_to_latest_image_version
         if vpc_subnets is not None:
             self._values["vpc_subnets"] = vpc_subnets
+        if instance_classes is not None:
+            self._values["instance_classes"] = instance_classes
+        if instance_types is not None:
+            self._values["instance_types"] = instance_types
         if allocation_strategy is not None:
             self._values["allocation_strategy"] = allocation_strategy
         if default_instance_classes is not None:
             self._values["default_instance_classes"] = default_instance_classes
         if images is not None:
             self._values["images"] = images
-        if instance_classes is not None:
-            self._values["instance_classes"] = instance_classes
         if instance_role is not None:
             self._values["instance_role"] = instance_role
-        if instance_types is not None:
-            self._values["instance_types"] = instance_types
         if launch_template is not None:
             self._values["launch_template"] = launch_template
         if minv_cpus is not None:
@@ -22318,6 +22700,31 @@ class ManagedEc2EksComputeEnvironmentProps(ManagedComputeEnvironmentProps):
         return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
 
     @builtins.property
+    def instance_classes(
+        self,
+    ) -> typing.Optional[typing.List["_InstanceClass_85a592e7"]]:
+        '''The instance classes that this Compute Environment can launch.
+
+        Which one is chosen depends on the ``AllocationStrategy`` used.
+        Batch will automatically choose the instance size.
+
+        :default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        '''
+        result = self._values.get("instance_classes")
+        return typing.cast(typing.Optional[typing.List["_InstanceClass_85a592e7"]], result)
+
+    @builtins.property
+    def instance_types(self) -> typing.Optional[typing.List["_InstanceType_f64915b9"]]:
+        '''The instance types that this Compute Environment can launch.
+
+        Which one is chosen depends on the ``AllocationStrategy`` used.
+
+        :default: - the instances Batch considers will be used (currently C4, M4, and R4)
+        '''
+        result = self._values.get("instance_types")
+        return typing.cast(typing.Optional[typing.List["_InstanceType_f64915b9"]], result)
+
+    @builtins.property
     def eks_cluster(self) -> "_ICluster_6b2b80df":
         '''The cluster that backs this Compute Environment. Required for Compute Environments running Kubernetes jobs.
 
@@ -22376,26 +22783,13 @@ class ManagedEc2EksComputeEnvironmentProps(ManagedComputeEnvironmentProps):
 
         If ``imageKubernetesVersion`` is specified,
 
-        - EKS_AL2 for non-GPU instances, EKS_AL2_NVIDIA for GPU instances,
+        - EKS_AL2 for non-GPU instances, EKS_AL2_NVIDIA for GPU instances.
         Otherwise,
-        - ECS_AL2 for non-GPU instances, ECS_AL2_NVIDIA for GPU instances,
+        - ECS_AL2 for non-GPU instances, ECS_AL2_NVIDIA for GPU instances.
+        If the '@aws-cdk/aws-batch:defaultToAL2023' feature flag is set, EKS_AL2023 / ECS_AL2023 will be used instead.
         '''
         result = self._values.get("images")
         return typing.cast(typing.Optional[typing.List["EksMachineImage"]], result)
-
-    @builtins.property
-    def instance_classes(
-        self,
-    ) -> typing.Optional[typing.List["_InstanceClass_85a592e7"]]:
-        '''The instance types that this Compute Environment can launch.
-
-        Which one is chosen depends on the ``AllocationStrategy`` used.
-        Batch will automatically choose the instance size.
-
-        :default: - the instances Batch considers will be used (currently C4, M4, and R4)
-        '''
-        result = self._values.get("instance_classes")
-        return typing.cast(typing.Optional[typing.List["_InstanceClass_85a592e7"]], result)
 
     @builtins.property
     def instance_role(self) -> typing.Optional["_IRole_235f5d8e"]:
@@ -22405,17 +22799,6 @@ class ManagedEc2EksComputeEnvironmentProps(ManagedComputeEnvironmentProps):
         '''
         result = self._values.get("instance_role")
         return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
-
-    @builtins.property
-    def instance_types(self) -> typing.Optional[typing.List["_InstanceType_f64915b9"]]:
-        '''The instance types that this Compute Environment can launch.
-
-        Which one is chosen depends on the ``AllocationStrategy`` used.
-
-        :default: - the instances Batch considers will be used (currently C4, M4, and R4)
-        '''
-        result = self._values.get("instance_types")
-        return typing.cast(typing.Optional[typing.List["_InstanceType_f64915b9"]], result)
 
     @builtins.property
     def launch_template(self) -> typing.Optional["_ILaunchTemplate_f32c0fd7"]:
@@ -27117,6 +27500,7 @@ __all__ = [
     "LinuxParameters",
     "LinuxParametersProps",
     "ManagedComputeEnvironmentProps",
+    "ManagedEc2ComputeEnvironmentProps",
     "ManagedEc2EcsComputeEnvironment",
     "ManagedEc2EcsComputeEnvironmentProps",
     "ManagedEc2EksComputeEnvironment",
@@ -27465,6 +27849,18 @@ def _typecheckingstub__710ae17567654ca123f279efb5ee033134bde1c49217d5abca4db2e98
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0dfa67937c5c5c585d3dedec8653cb0633c802b99afaa23545e8fcc71bf4ef88(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e523eed1bbd28b55b217e2df4a08d397d7fea1eab9961fca2a86f1f43fb0631f(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c96b92c09c064b55548b6669735edc8ffa8187ffae08746200ea2113f36cdcc6(
     value: builtins.str,
 ) -> None:
@@ -27507,12 +27903,6 @@ def _typecheckingstub__e9d18dd3dda5e5761ec3a8f3c7af96598c179ac9f1bca0af0078b6aee
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0dfa67937c5c5c585d3dedec8653cb0633c802b99afaa23545e8fcc71bf4ef88(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__df387fd03e7b9707eac2330bd1c2776f56a71ead17f60e9cc8606c21591b2cca(
     value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
@@ -27539,12 +27929,6 @@ def _typecheckingstub__2ac615dba37cd2b5a6e9d6f8cdd4b6beef51ff826d65fe0b5cdc31685
 
 def _typecheckingstub__dba2bfccdff2acf2f90d4e7a4965d8dcb1ae572e2c9cbd92260bf928e42d7e01(
     value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e523eed1bbd28b55b217e2df4a08d397d7fea1eab9961fca2a86f1f43fb0631f(
-    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28875,6 +29259,26 @@ def _typecheckingstub__51df9ed51794bebdb7dab045826300724b220af0103c6da6d43fe17c5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0ff061da725d1cd02de7177aa4337828c4f92757d62e557baf1ae41b650472f3(
+    *,
+    compute_environment_name: typing.Optional[builtins.str] = None,
+    enabled: typing.Optional[builtins.bool] = None,
+    service_role: typing.Optional[_IRole_235f5d8e] = None,
+    vpc: _IVpc_f30d5663,
+    maxv_cpus: typing.Optional[jsii.Number] = None,
+    replace_compute_environment: typing.Optional[builtins.bool] = None,
+    security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+    spot: typing.Optional[builtins.bool] = None,
+    terminate_on_update: typing.Optional[builtins.bool] = None,
+    update_timeout: typing.Optional[_Duration_4839e8c3] = None,
+    update_to_latest_image_version: typing.Optional[builtins.bool] = None,
+    vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    instance_classes: typing.Optional[typing.Sequence[_InstanceClass_85a592e7]] = None,
+    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f512f54787789f74db02e15bede1080e7c35d142bce05240edb789cee96745b7(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -28882,15 +29286,15 @@ def _typecheckingstub__f512f54787789f74db02e15bede1080e7c35d142bce05240edb789cee
     allocation_strategy: typing.Optional[AllocationStrategy] = None,
     default_instance_classes: typing.Optional[typing.Sequence[DefaultInstanceClass]] = None,
     images: typing.Optional[typing.Sequence[typing.Union[EcsMachineImage, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_classes: typing.Optional[typing.Sequence[_InstanceClass_85a592e7]] = None,
     instance_role: typing.Optional[_IRole_235f5d8e] = None,
-    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
     launch_template: typing.Optional[_ILaunchTemplate_f32c0fd7] = None,
     minv_cpus: typing.Optional[jsii.Number] = None,
     placement_group: typing.Optional[_IPlacementGroupRef_5d6e601f] = None,
     spot_bid_percentage: typing.Optional[jsii.Number] = None,
     spot_fleet_role: typing.Optional[_IRole_235f5d8e] = None,
     use_optimal_instance_classes: typing.Optional[builtins.bool] = None,
+    instance_classes: typing.Optional[typing.Sequence[_InstanceClass_85a592e7]] = None,
+    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
     vpc: _IVpc_f30d5663,
     maxv_cpus: typing.Optional[jsii.Number] = None,
     replace_compute_environment: typing.Optional[builtins.bool] = None,
@@ -28941,12 +29345,12 @@ def _typecheckingstub__8eb858d67ed25e3f273cc247ebf45f3c3f60ddc697df4791d3298b29a
     update_timeout: typing.Optional[_Duration_4839e8c3] = None,
     update_to_latest_image_version: typing.Optional[builtins.bool] = None,
     vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    instance_classes: typing.Optional[typing.Sequence[_InstanceClass_85a592e7]] = None,
+    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
     allocation_strategy: typing.Optional[AllocationStrategy] = None,
     default_instance_classes: typing.Optional[typing.Sequence[DefaultInstanceClass]] = None,
     images: typing.Optional[typing.Sequence[typing.Union[EcsMachineImage, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_classes: typing.Optional[typing.Sequence[_InstanceClass_85a592e7]] = None,
     instance_role: typing.Optional[_IRole_235f5d8e] = None,
-    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
     launch_template: typing.Optional[_ILaunchTemplate_f32c0fd7] = None,
     minv_cpus: typing.Optional[jsii.Number] = None,
     placement_group: typing.Optional[_IPlacementGroupRef_5d6e601f] = None,
@@ -28966,14 +29370,14 @@ def _typecheckingstub__9d1d04f77f1ffdbbe37085b164b175a3e5f0615a7fcde154dcc7f2b64
     allocation_strategy: typing.Optional[AllocationStrategy] = None,
     default_instance_classes: typing.Optional[typing.Sequence[DefaultInstanceClass]] = None,
     images: typing.Optional[typing.Sequence[typing.Union[EksMachineImage, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_classes: typing.Optional[typing.Sequence[_InstanceClass_85a592e7]] = None,
     instance_role: typing.Optional[_IRole_235f5d8e] = None,
-    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
     launch_template: typing.Optional[_ILaunchTemplate_f32c0fd7] = None,
     minv_cpus: typing.Optional[jsii.Number] = None,
     placement_group: typing.Optional[_IPlacementGroupRef_5d6e601f] = None,
     spot_bid_percentage: typing.Optional[jsii.Number] = None,
     use_optimal_instance_classes: typing.Optional[builtins.bool] = None,
+    instance_classes: typing.Optional[typing.Sequence[_InstanceClass_85a592e7]] = None,
+    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
     vpc: _IVpc_f30d5663,
     maxv_cpus: typing.Optional[jsii.Number] = None,
     replace_compute_environment: typing.Optional[builtins.bool] = None,
@@ -29016,14 +29420,14 @@ def _typecheckingstub__0a94139ce5fac0f77a3f41888dd3906c6a6876b7e2df289a2bb742a8c
     update_timeout: typing.Optional[_Duration_4839e8c3] = None,
     update_to_latest_image_version: typing.Optional[builtins.bool] = None,
     vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+    instance_classes: typing.Optional[typing.Sequence[_InstanceClass_85a592e7]] = None,
+    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
     eks_cluster: _ICluster_6b2b80df,
     kubernetes_namespace: builtins.str,
     allocation_strategy: typing.Optional[AllocationStrategy] = None,
     default_instance_classes: typing.Optional[typing.Sequence[DefaultInstanceClass]] = None,
     images: typing.Optional[typing.Sequence[typing.Union[EksMachineImage, typing.Dict[builtins.str, typing.Any]]]] = None,
-    instance_classes: typing.Optional[typing.Sequence[_InstanceClass_85a592e7]] = None,
     instance_role: typing.Optional[_IRole_235f5d8e] = None,
-    instance_types: typing.Optional[typing.Sequence[_InstanceType_f64915b9]] = None,
     launch_template: typing.Optional[_ILaunchTemplate_f32c0fd7] = None,
     minv_cpus: typing.Optional[jsii.Number] = None,
     placement_group: typing.Optional[_IPlacementGroupRef_5d6e601f] = None,

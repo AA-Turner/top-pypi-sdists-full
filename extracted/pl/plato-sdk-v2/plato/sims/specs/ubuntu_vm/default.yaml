@@ -1,0 +1,223 @@
+openapi: 3.0.3
+info:
+  title: Desktop Agent API
+  version: 1.0.0
+  description: >-
+    Lightweight API server for remote Ubuntu desktop control.
+    Executes xdotool, scrot, and bash commands on an Ubuntu desktop with xpra display.
+
+servers:
+  - url: ""
+
+paths:
+  /status:
+    get:
+      operationId: getStatus
+      tags:
+        - Status
+      summary: Health check and display info
+      responses:
+        "200":
+          description: Server status and display resolution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+
+  /computer:
+    post:
+      operationId: computer
+      tags:
+        - Computer
+      summary: Execute computer actions (mouse, keyboard, screenshot)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComputerRequest"
+      responses:
+        "200":
+          description: Action result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolResult"
+
+  /bash:
+    post:
+      operationId: bash
+      tags:
+        - Bash
+      summary: Execute a shell command
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BashRequest"
+      responses:
+        "200":
+          description: Command result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolResult"
+
+  /edit:
+    post:
+      operationId: edit
+      tags:
+        - Edit
+      summary: File operations (view, create, str_replace, insert, undo_edit)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditRequest"
+      responses:
+        "200":
+          description: Edit result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ToolResult"
+
+components:
+  schemas:
+    Resolution:
+      type: object
+      properties:
+        width:
+          type: integer
+        height:
+          type: integer
+      required:
+        - width
+        - height
+
+    StatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        display:
+          type: string
+        resolution:
+          $ref: "#/components/schemas/Resolution"
+      required:
+        - status
+        - display
+        - resolution
+
+    ToolResult:
+      type: object
+      properties:
+        output:
+          type: string
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        base64_image:
+          type: string
+          nullable: true
+        system:
+          type: string
+          nullable: true
+
+    ComputerRequest:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum:
+            - screenshot
+            - mouse_move
+            - left_click
+            - right_click
+            - middle_click
+            - double_click
+            - triple_click
+            - left_click_drag
+            - left_mouse_down
+            - left_mouse_up
+            - type
+            - key
+            - hold_key
+            - scroll
+            - wait
+            - cursor_position
+        coordinate:
+          type: array
+          items:
+            type: integer
+          nullable: true
+        text:
+          type: string
+          nullable: true
+        scroll_direction:
+          type: string
+          enum:
+            - up
+            - down
+            - left
+            - right
+          nullable: true
+        scroll_amount:
+          type: integer
+          nullable: true
+        duration:
+          type: number
+          nullable: true
+
+    BashRequest:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          type: string
+        restart:
+          type: boolean
+          default: false
+        timeout:
+          type: integer
+          default: 120
+
+    EditRequest:
+      type: object
+      required:
+        - command
+        - path
+      properties:
+        command:
+          type: string
+          enum:
+            - view
+            - create
+            - str_replace
+            - insert
+            - undo_edit
+        path:
+          type: string
+        file_text:
+          type: string
+          nullable: true
+        view_range:
+          type: array
+          items:
+            type: integer
+          nullable: true
+        old_str:
+          type: string
+          nullable: true
+        new_str:
+          type: string
+          nullable: true
+        insert_line:
+          type: integer
+          nullable: true

@@ -28,6 +28,8 @@ from chalk._gen.chalk.common.v1.upload_features_pb2 import (
     UploadFeaturesResponse,
 )
 from chalk._gen.chalk.engine.v1.query_server_pb2 import (
+    GetPullQueryResultRequest,
+    GetPullQueryResultResponse,
     PingRequest,
     PingResponse,
 )
@@ -85,6 +87,11 @@ class QueryServiceStub:
     and move that request to this service instead.
     buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE
     """
+    GetPullQueryResult: UnaryUnaryMultiCallable[
+        GetPullQueryResultRequest,
+        GetPullQueryResultResponse,
+    ]
+    """Poll for pull query results. Results are stored in Redis keyed by query_id."""
 
 class QueryServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -148,5 +155,12 @@ class QueryServiceServicer(metaclass=ABCMeta):
         and move that request to this service instead.
         buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE
         """
+    @abstractmethod
+    def GetPullQueryResult(
+        self,
+        request: GetPullQueryResultRequest,
+        context: ServicerContext,
+    ) -> GetPullQueryResultResponse:
+        """Poll for pull query results. Results are stored in Redis keyed by query_id."""
 
 def add_QueryServiceServicer_to_server(servicer: QueryServiceServicer, server: Server) -> None: ...

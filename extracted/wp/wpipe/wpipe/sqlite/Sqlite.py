@@ -4,12 +4,106 @@ SQLite database module for storing pipeline execution records.
 
 import json
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import Optional, Union
 
 import pandas as pd
+from pydantic import BaseModel, Field
 from wsqlite import WSQLite
 
+from .tables_dto.log_gestor_model import WsqliteModel
 from .tables_dto.records import RecordModel
+
+
+class Wsqlite:
+    """Simplified SQLite wrapper for pipeline records."""
+
+    id: Optional[int] = None
+
+    def __init__(self, db_name: str = "register.db") -> None:
+        """
+        Initialize Wsqlite wrapper.
+
+        Args:
+            db_name: Path to the SQLite database file.
+        """
+        self.db_name = db_name
+        self._output_db: dict = {}
+        self._details_db: dict = {}
+        self._input_db: dict = {}
+        self.db = WSQLite(WsqliteModel, db_name)
+
+    @property
+    def input(self) -> dict:
+        """Get input data."""
+        return self._input_db
+
+    @input.setter
+    def input(self, value: dict) -> None:
+        """Set input data and create a new record."""
+        self._input_db = value
+        self._create(input_data=value)
+
+    @property
+    def output(self) -> dict:
+        """Get output data."""
+        return self._output_db
+
+    @output.setter
+    def output(self, value: dict) -> None:
+        """Set output data."""
+        self._output_db = value
+
+    @property
+    def details(self) -> dict:
+        """Get details data."""
+        return self._details_db
+
+    @details.setter
+    def details(self, value: dict) -> None:
+        """Set details data."""
+        self._details_db = value
+
+    def _create(self, input_data: dict) -> None:
+        """Create a new record with input data."""
+        import json
+
+        input_data_json = json.dumps(input_data)
+
+        dto_to_insert = WsqliteModel(input=input_data_json)
+
+        record_id = self.db.insert(dto_to_insert)
+
+        if record_id is not None:
+            self.id = record_id
+
+    def _update(self, output: dict, details: Optional[dict] = None) -> None:
+        """Update the current record with output and details."""
+        import json
+
+        details = details or {}
+        if self.id is not None:
+            self.db.update(
+                self.id,
+                WsqliteModel(
+                    id=self.id,
+                    input=json.dumps(self._input_db),
+                    output=json.dumps(output),
+                    details=json.dumps(details),
+                ),
+            )
+
+    def count_records(self) -> int:
+        """Return the number of records in the database."""
+        return self.db.count_records()
+
+    def __enter__(self) -> "Wsqlite":
+        """Enter context manager."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit context manager and update record."""
+        self._update(output=self._output_db, details=self._details_db)
 
 
 class SQLite:
@@ -23,8 +117,11 @@ class SQLite:
             db_name: Path to the SQLite database file.
         """
         self.db_name = db_name
-        self.db = WSQLite(RecordModel, db_name)
         self.executor = ThreadPoolExecutor(max_workers=10)
+        if db_name:
+            self.db = WSQLite(RecordModel, db_name)
+        else:
+            self.db = None
 
     def async_write(
         self,
@@ -49,7 +146,9 @@ class SQLite:
         Write a record to the database.
         """
         # Convert dicts to JSON strings for storage
-        input_str = json.dumps(input_data) if isinstance(input_data, dict) else input_data
+        input_str = (
+            json.dumps(input_data) if isinstance(input_data, dict) else input_data
+        )
 
         if isinstance(output, dict):
             output_str = json.dumps(output)
@@ -61,10 +160,7 @@ class SQLite:
         details_str = json.dumps(details) if isinstance(details, dict) else details
 
         model_data = RecordModel(
-            id=record_id,
-            input=input_str,
-            output=output_str,
-            details=details_str
+            id=record_id, input=input_str, output=output_str, details=details_str
         )
 
         if record_id:
@@ -98,7 +194,7 @@ class SQLite:
     ) -> list:
         """
         Get records within a date range.
-        Note: WSQLite doesn't support complex range queries yet, 
+        Note: WSQLite doesn't support complex range queries yet,
         so we fetch all and filter or use raw SQL if necessary.
         """
         from datetime import datetime, timedelta
@@ -107,12 +203,20 @@ class SQLite:
 
         if days is not None:
             limit = datetime.now() - timedelta(days=days)
-            return [r for r in all_records if datetime.strptime(r.datetime, "%Y-%m-%d %H:%M:%S") >= limit]
+            return [
+                r
+                for r in all_records
+                if datetime.strptime(r.datetime, "%Y-%m-%d %H:%M:%S") >= limit
+            ]
 
         if start_date and end_date:
             s = datetime.fromisoformat(start_date)
             e = datetime.fromisoformat(end_date)
-            return [r for r in all_records if s <= datetime.strptime(r.datetime, "%Y-%m-%d %H:%M:%S") <= e]
+            return [
+                r
+                for r in all_records
+                if s <= datetime.strptime(r.datetime, "%Y-%m-%d %H:%M:%S") <= e
+            ]
 
         return all_records
 
@@ -134,7 +238,9 @@ class SQLite:
         if output:
             current.output = json.dumps(output) if isinstance(output, dict) else output
         if details:
-            current.details = json.dumps(details) if isinstance(details, dict) else details
+            current.details = (
+                json.dumps(details) if isinstance(details, dict) else details
+            )
 
         self.db.update(record_id, current)
 
@@ -144,6 +250,8 @@ class SQLite:
 
     def check_table_exists(self) -> bool:
         """Check if database is accessible."""
+        if not self.db_name:
+            return False
         return self.db is not None
 
     def __enter__(self) -> "SQLite":

@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.7.238"
+version = "0.7.240"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 authors = [
     {name ="Cognite AS", email="support@cognite.com"}

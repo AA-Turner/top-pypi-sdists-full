@@ -1,5 +1,6 @@
 import re
 import sys
+import warnings
 from collections.abc import Sequence
 from copy import deepcopy
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ from pydantic import (
     Field,
     PlainSerializer,
     PlainValidator,
+    RootModel,
     TypeAdapter,
     ValidationError,
     field_validator,
@@ -453,7 +455,9 @@ def test_alias_different():
         pet_type: Literal['dog'] = Field(alias='T')
         d: str
 
-    with pytest.raises(TypeError, match=re.escape("Aliases for discriminator 'pet_type' must be the same (got T, U)")):
+    with pytest.raises(
+        PydanticUserError, match=re.escape("Aliases for discriminator 'pet_type' must be the same (got T, U)")
+    ):
 
         class Model(BaseModel):
             pet: Union[Cat, Dog] = Field(discriminator='pet_type')
@@ -886,7 +890,9 @@ def test_invalid_alias() -> None:
     dog = core_schema.typed_dict_schema(dog_fields)
     schema = core_schema.union_schema([cat, dog])
 
-    with pytest.raises(TypeError, match=re.escape("Alias ['cat', 'CAT'] is not supported in a discriminated union")):
+    with pytest.raises(
+        PydanticUserError, match=re.escape("Alias ['cat', 'CAT'] is not supported in a discriminated union")
+    ):
         apply_discriminator(schema, 'kind')
 
 
@@ -896,7 +902,7 @@ def test_invalid_discriminator_type() -> None:
     cat = core_schema.typed_dict_schema(cat_fields)
     dog = core_schema.typed_dict_schema(dog_fields)
 
-    with pytest.raises(TypeError, match=re.escape("TypedDict needs field 'kind' to be of type `Literal`")):
+    with pytest.raises(PydanticUserError, match=re.escape("TypedDict needs field 'kind' to be of type `Literal`")):
         apply_discriminator(core_schema.union_schema([cat, dog]), 'kind')
 
 
@@ -906,7 +912,7 @@ def test_missing_discriminator_field() -> None:
     cat = core_schema.typed_dict_schema(cat_fields)
     dog = core_schema.typed_dict_schema(dog_fields)
 
-    with pytest.raises(TypeError, match=re.escape("TypedDict needs a discriminator field for key 'kind'")):
+    with pytest.raises(PydanticUserError, match=re.escape("TypedDict needs a discriminator field for key 'kind'")):
         apply_discriminator(core_schema.union_schema([dog, cat]), 'kind')
 
 
@@ -2203,7 +2209,7 @@ def test_deferred_discriminated_union_meta_key_removed() -> None:
     assert Base.__pydantic_core_schema__ == base_schema
 
 
-def test_tagged_discriminator_type_alias() -> None:
+def test_discriminated_discriminator_type_alias_type() -> None:
     """https://github.com/pydantic/pydantic/issues/11930"""
 
     class Pie(BaseModel):
@@ -2231,7 +2237,7 @@ def test_tagged_discriminator_type_alias() -> None:
     assert isinstance(inst.dessert, ApplePie)
 
 
-def test_discriminated_union_type_alias_type() -> None:
+def test_discriminated_union_type_alias_type_not_union() -> None:
     """https://github.com/pydantic/pydantic/issues/11661
 
     This was fixed by making sure we provide the available definitions
@@ -2284,6 +2290,100 @@ def test_deferred_discriminated_union_and_references() -> None:
     assert final_schema['type'] == 'tagged-union'
 
 
+def test_discriminated_union_type_alias_type_separate() -> None:
+    """https://github.com/pydantic/pydantic/issues/12771
+
+    The recommended pattern is to define the type alias with the discriminator metadata,
+    but it is still desirable to support this pattern as well (to some extent, see TBD).
+    """
+
+    class Foo(BaseModel):
+        type: Literal['foo']
+
+    class Bar(BaseModel):
+        type: Literal['bar']
+
+    FooBar = TypeAliasType('BarFoo', Union[Foo, Bar])
+
+    class Main(BaseModel):
+        f: FooBar = Field(discriminator='type')
+
+    # Use the JSON Schema to avoid making assertions on the core schema, that
+    # may be less stable:
+    json_schema = Main.model_json_schema()
+    assert 'Foo' in json_schema['$defs']
+    assert 'Bar' in json_schema['$defs']
+    assert json_schema['properties']['f']['discriminator'] == {
+        'mapping': {'foo': '#/$defs/Foo', 'bar': '#/$defs/Bar'},
+        'propertyName': 'type',
+    }
+    assert json_schema['properties']['f']['oneOf'] == [{'$ref': '#/$defs/Foo'}, {'$ref': '#/$defs/Bar'}]
+
+
+def test_discriminated_union_type_alias_type_separate_callable_discriminator() -> None:
+    """https://github.com/pydantic/pydantic/issues/12843"""
+
+    class Foo(BaseModel):
+        type: Literal['foo']
+
+    class Bar(BaseModel):
+        type: Literal['bar']
+
+    FooBar = TypeAliasType('FooBar', Union[Annotated[Foo, Tag('foo')], Annotated[Bar, Tag('bar')]])
+
+    T = TypeVar('T')
+
+    FooBarTV = TypeAliasType(
+        'FooBarTV', Union[Annotated[Foo, Tag('foo')], Annotated[Bar, Tag('bar')]], type_params=(T,)
+    )
+
+    class Main(BaseModel):
+        f: Annotated[FooBar, Discriminator(lambda v: v['type'])]
+        g: Annotated[FooBarTV[int], Discriminator(lambda v: v['type'])]
+
+    m = Main(f={'type': 'foo'}, g={'type': 'bar'})
+
+    assert m.f == Foo(type='foo')
+    assert m.g == Bar(type='bar')
+
+
+@pytest.mark.xfail(
+    reason="Nested references aren't flattened (see comment in `_ApplyInferredDiscriminator._handle_choice()`)",
+)
+def test_discriminated_union_nested_type_alias() -> None:
+    class Foo1(BaseModel):
+        type: Literal['foo1']
+
+    class Foo2(BaseModel):
+        type: Literal['foo2']
+
+    Foos = TypeAliasType('Foos', Union[Foo1, Foo2])
+
+    class Bar(BaseModel):
+        type: Literal['bar']
+
+    FooBar = TypeAliasType('BarFoo', Union[Foos, Bar])
+
+    class Main(BaseModel):
+        f: FooBar = Field(discriminator='type')
+
+    # Use the JSON Schema to avoid making assertions on the core schema, that
+    # may be less stable:
+    json_schema = Main.model_json_schema()
+    assert 'Foo1' in json_schema['$defs']
+    assert 'Foo2' in json_schema['$defs']
+    assert 'Bar' in json_schema['$defs']
+    assert json_schema['properties']['f']['discriminator'] == {
+        'mapping': {'foo1': '#/$defs/Foo1', 'foo2': '#/$defs/Foo2', 'bar': '#/$defs/Bar'},
+        'propertyName': 'type',
+    }
+    assert json_schema['properties']['f']['oneOf'] == [
+        {'$ref': '#/$defs/Foo1'},
+        {'$ref': '#/$defs/Foo2'},
+        {'$ref': '#/$defs/Bar'},
+    ]
+
+
 def test_recursive_discriminated_union() -> None:
     """https://github.com/pydantic/pydantic/issues/11978"""
 
@@ -2326,3 +2426,89 @@ def test_recursive_discriminated_union() -> None:
     class FilterExpression(BaseModel):
         field: FieldFilterExpression
         paragraph: ParagraphFilterExpression
+
+
+def test_discriminated_union_with_root_model_literal() -> None:
+    """https://github.com/pydantic/pydantic/issues/12605."""
+
+    class Action1(RootModel[Literal['action1']]):
+        pass
+
+    class Action2(RootModel[Literal['action2']]):
+        pass
+
+    class Model1(BaseModel):
+        action: Action1
+
+    class Model2(BaseModel):
+        action: Action2
+
+    ta = TypeAdapter(Annotated[Union[Model1, Model2], Field(discriminator='action')])
+
+    model1 = ta.validate_python({'action': 'action1'})
+    assert isinstance(model1, Model1)
+    assert model1.action.root == 'action1'
+
+    model2 = ta.validate_python({'action': 'action2'})
+    assert isinstance(model2, Model2)
+    assert model2.action.root == 'action2'
+
+    with pytest.raises(ValidationError) as exc_info:
+        ta.validate_python({'action': 'invalid_action'})
+
+    assert exc_info.value.errors()[0]['type'] == 'union_tag_invalid'
+
+
+def test_tagged_union_no_fallback_on_matched_discriminator():
+    """Regression test for https://github.com/pydantic/pydantic/issues/12800.
+
+    When the discriminator successfully identifies the correct variant but
+    serialization of that variant fails, the serializer should NOT fall back
+    to trying all other union members.
+    """
+
+    class MyEnum(str, Enum):
+        ENABLED = 'enabled'
+        DISABLED = 'disabled'
+
+    class InnerTool(BaseModel):
+        type: Literal['inner'] = 'inner'
+        my_enum: MyEnum = MyEnum.ENABLED
+
+    class WrapTool(BaseModel):
+        type: Literal['wrap'] = 'wrap'
+        tool: InnerTool
+
+        @field_validator('tool')
+        @classmethod
+        def _validate_tool(cls, tool):
+            # Setting enum field to a plain string triggers the issue
+            tool.my_enum = 'disabled'
+            return tool
+
+    class ToolType1(BaseModel):
+        type: Literal['type1'] = 'type1'
+
+    class ToolType2(BaseModel):
+        type: Literal['type2'] = 'type2'
+
+    Tool = Annotated[
+        Union[InnerTool, WrapTool, ToolType1, ToolType2],
+        Discriminator('type'),
+    ]
+
+    ta = TypeAdapter(list[Tool])
+    tool = WrapTool(tool=InnerTool())
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('always')
+        data = ta.dump_python([tool])
+
+    assert len(data) == 1
+    assert data[0]['type'] == 'wrap'
+
+    # Only the matched variant (WrapTool) should produce a warning,
+    # not ToolType1 or ToolType2 from a fallback to all members.
+    warning_text = ' '.join(str(warning.message) for warning in w)
+    assert 'ToolType1' not in warning_text
+    assert 'ToolType2' not in warning_text

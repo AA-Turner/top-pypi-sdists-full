@@ -13,6 +13,7 @@ from trilogy.core.graph_models import (
     ReferenceGraph,
     SearchCriteria,
     concept_to_node,
+    datasource_has_filter_sensitive_aggregate,
     get_graph_exact_match,
     prune_sources_for_aggregates,
     prune_sources_for_conditions,
@@ -54,6 +55,16 @@ if TYPE_CHECKING:
     from trilogy.core.processing.nodes.union_node import UnionNode
 
 LOGGER_PREFIX = "[GEN_ROOT_MERGE_NODE]"
+
+
+def _condition_atom_addresses(
+    atom: BuildComparison | BuildConditional | BuildParenthetical,
+) -> set[str]:
+    return {
+        c.canonical_address
+        for c in atom.row_arguments
+        if c.derivation != Derivation.CONSTANT
+    }
 
 
 def extract_address(node: str) -> str:
@@ -322,7 +333,13 @@ def create_pruned_concept_graph(
             g.add_edge(node_address, cnode)
             g.add_edge(cnode, node_address)
 
-    prune_sources_for_conditions(g, criteria, conditions, allow_intersection)
+    prune_sources_for_conditions(
+        g,
+        criteria,
+        conditions,
+        allow_intersection,
+        {c.canonical_address for c in all_concepts},
+    )
     prune_sources_for_aggregates(g, all_concepts, logger)
 
     target_addresses = {c.canonical_address for c in all_concepts}
@@ -456,7 +473,9 @@ def resolve_subgraphs(
         ]
 
     partial_canonical = get_graph_partial_canonical(g, conditions)
-    exact_map = get_graph_exact_match(g, criteria, conditions)
+    exact_map = get_graph_exact_match(
+        g, criteria, conditions, allow_filter_application=False
+    )
     grain_length = get_graph_grains(g)
 
     # compute concept_map and non_partial_map in one pass over subgraphs
@@ -591,7 +610,7 @@ def create_datasource_node(
         datasource_conditions = injected_conditions
 
     if conditions:
-        ds_outputs = {c.address for c in datasource.output_concepts}
+        ds_outputs = {c.canonical_address for c in datasource.output_concepts}
         covered_atoms: set[str] = set()
         if partial_is_full and datasource.non_partial_for:
             covered_atoms = {
@@ -599,9 +618,13 @@ def create_datasource_node(
                 for atom in decompose_condition(datasource.non_partial_for.conditional)
             }
         for atom in decompose_condition(conditions.conditional):
-            if str(atom) in covered_atoms or not is_scalar_condition(atom):
+            if (
+                str(atom) in covered_atoms
+                or atom.existence_arguments
+                or not is_scalar_condition(atom)
+            ):
                 continue
-            if all(c.address in ds_outputs for c in atom.concept_arguments):
+            if _condition_atom_addresses(atom).issubset(ds_outputs):
                 datasource_conditions = (
                     merge_conditions_and_dedup(atom, datasource_conditions)
                     if datasource_conditions
@@ -617,7 +640,9 @@ def create_datasource_node(
             all_inputs.append(x)
 
     # additional single row check
-    satisfies_conditions = all(
+    satisfies_conditions = not datasource_has_filter_sensitive_aggregate(
+        datasource, conditions
+    ) and all(
         x.granularity == Granularity.SINGLE_ROW for x in datasource.output_concepts
     )
     logger.info(
@@ -640,9 +665,13 @@ def create_datasource_node(
         grain=datasource.grain,
         conditions=datasource_conditions,
         preexisting_conditions=(
-            conditions.conditional
-            if (partial_is_full or satisfies_conditions) and conditions
-            else None
+            # partial_is_full only means non_partial_for conditions are satisfied;
+            # any extra conditions in the query must still be applied externally.
+            datasource.non_partial_for.conditional
+            if partial_is_full and datasource.non_partial_for and conditions
+            else (
+                conditions.conditional if satisfies_conditions and conditions else None
+            )
         ),
     )
     return (

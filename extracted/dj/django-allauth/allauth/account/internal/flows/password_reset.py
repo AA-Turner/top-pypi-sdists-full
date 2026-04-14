@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from urllib.parse import quote
 
 from django.contrib import messages
@@ -86,7 +88,9 @@ def get_reset_password_from_key_url(request: HttpRequest, key: str) -> str:
     return url
 
 
-def request_password_reset(request, email: str, users, token_generator) -> None:
+def request_password_reset(
+    request: HttpRequest, email: str, users, token_generator
+) -> None:
     from allauth.account.utils import user_pk_to_url_str, user_username
 
     if not users:

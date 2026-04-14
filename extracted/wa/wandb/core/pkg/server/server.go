@@ -42,8 +42,8 @@ type Server struct {
 	// runSyncManager implements `wandb sync` operations.
 	runSyncManager *runsync.RunSyncManager
 
-	// gpuResourceManager manages costly resources for GPU system metrics.
-	gpuResourceManager *monitor.GPUResourceManager
+	// xpuResourceManager manages costly resources for accelerator system metrics.
+	xpuResourceManager *monitor.XPUResourceManager
 
 	// wg is the WaitGroup to wait for all connections to finish
 	// and for the serve goroutine to finish
@@ -53,6 +53,26 @@ type Server struct {
 	//
 	// The server exits if the parent process is gone.
 	parentPID int
+
+	// detached is whether the server should ignore parent process lifetime.
+	detached bool
+
+	// idleTimeout specifies how long the server should stay alive without any
+	// connected clients before shutting down in detached mode.
+	idleTimeout time.Duration
+
+	// activeConnections is the number of currently connected clients.
+	activeConnections atomic.Int64
+
+	// idleTimer is started when the server has zero connected clients.
+	idleTimer *time.Timer
+
+	// idleTimerMu protects idleTimer.
+	idleTimerMu sync.Mutex
+
+	// idleShutdownStarted reports whether the idle timer callback has started
+	// shutting the server down.
+	idleShutdownStarted bool
 
 	// commit is the W&B Git commit hash.
 	commit string
@@ -75,24 +95,28 @@ type ServerParams struct {
 	LoggerPath          string
 	LogLevel            slog.Level
 	ParentPID           int
+	Detached            bool
+	IdleTimeout         time.Duration
 }
 
-// NewServer creates a new server
 func NewServer(params ServerParams) *Server {
 	serverLifetimeCtx, stopServer := context.WithCancel(context.Background())
 
 	return &Server{
-		serverLifetimeCtx:  serverLifetimeCtx,
-		stopServer:         stopServer,
-		streamMux:          stream.NewStreamMux(),
-		runSyncManager:     runsync.NewRunSyncManager(),
-		gpuResourceManager: monitor.NewGPUResourceManager(params.EnableDCGMProfiling),
-		wg:                 sync.WaitGroup{},
-		parentPID:          params.ParentPID,
-		commit:             params.Commit,
-		listenOnLocalhost:  params.ListenOnLocalhost,
-		loggerPath:         params.LoggerPath,
-		logLevel:           params.LogLevel,
+		serverLifetimeCtx: serverLifetimeCtx,
+		stopServer:        stopServer,
+		streamMux:         stream.NewStreamMux(),
+		runSyncManager:    runsync.NewRunSyncManager(),
+		xpuResourceManager: monitor.NewXPUResourceManager(
+			params.EnableDCGMProfiling),
+		wg:                sync.WaitGroup{},
+		parentPID:         params.ParentPID,
+		detached:          params.Detached,
+		idleTimeout:       params.IdleTimeout,
+		commit:            params.Commit,
+		listenOnLocalhost: params.ListenOnLocalhost,
+		loggerPath:        params.LoggerPath,
+		logLevel:          params.LogLevel,
 	}
 }
 
@@ -124,21 +148,26 @@ func (s *Server) Serve(portFile string) error {
 		return err
 	}
 
-	if s.parentPID != 0 {
+	if s.parentPID != 0 && !s.detached {
 		go s.exitWhenParentIsGone()
 	}
 
+	if s.detached && s.idleTimeout > 0 {
+		// Start the idle timer immediately. If a client connects, it will be stopped.
+		s.startIdleTimer()
+	}
+
 	for _, listener := range listenerList {
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
+		s.wg.Go(func() {
 			s.acceptConnections(listener)
-		}()
+		})
 	}
 
 	// Wait for the signal to shut down.
 	<-s.serverLifetimeCtx.Done()
 	slog.Info("server is shutting down")
+
+	s.stopIdleTimer()
 
 	// Stop accepting new connections.
 	for idx, listener := range listenerList {
@@ -196,11 +225,11 @@ func (s *Server) acceptConnections(listener net.Listener) {
 			return
 		}
 
-		s.wg.Add(1)
-		go func() {
+		s.wg.Go(func() {
+			s.onConnectionStart()
+			defer s.onConnectionEnd()
 			s.handleConnection(conn)
-			s.wg.Done()
-		}()
+		})
 	}
 }
 
@@ -223,10 +252,71 @@ func (s *Server) handleConnection(conn net.Conn) {
 			Conn:               conn,
 			StreamMux:          s.streamMux,
 			RunSyncManager:     s.runSyncManager,
-			GPUResourceManager: s.gpuResourceManager,
+			XPUResourceManager: s.xpuResourceManager,
 			Commit:             s.commit,
 			LoggerPath:         s.loggerPath,
 			LogLevel:           s.logLevel,
 		},
 	).ManageConnectionData()
+}
+
+func (s *Server) onConnectionStart() {
+	if !s.detached || s.idleTimeout <= 0 {
+		return
+	}
+
+	// Stop the idle timer when the first client connects.
+	if s.activeConnections.Add(1) == 1 {
+		s.stopIdleTimer()
+	}
+}
+
+func (s *Server) onConnectionEnd() {
+	if !s.detached || s.idleTimeout <= 0 {
+		return
+	}
+
+	// Start the idle timer when the last client disconnects.
+	if s.activeConnections.Add(-1) == 0 {
+		s.startIdleTimer()
+	}
+}
+
+func (s *Server) startIdleTimer() {
+	s.idleTimerMu.Lock()
+	defer s.idleTimerMu.Unlock()
+
+	if s.idleShutdownStarted ||
+		(s.idleTimer != nil && !s.idleTimer.Stop()) {
+		return
+	}
+
+	s.idleTimer = time.AfterFunc(s.idleTimeout, func() {
+		s.idleTimerMu.Lock()
+		s.idleShutdownStarted = true
+		s.idleTimer = nil
+		s.idleTimerMu.Unlock()
+
+		slog.Info("server: idle timeout reached, shutting down", "idle-timeout", s.idleTimeout)
+		s.stopServer()
+		// Gracefully finish and close all streams.
+		s.streamMux.FinishAndCloseAllStreams(0)
+	})
+}
+
+func (s *Server) stopIdleTimer() {
+	s.idleTimerMu.Lock()
+	defer s.idleTimerMu.Unlock()
+
+	if s.idleShutdownStarted || s.idleTimer == nil {
+		return
+	}
+
+	if !s.idleTimer.Stop() {
+		s.idleShutdownStarted = true
+		s.idleTimer = nil
+		return
+	}
+
+	s.idleTimer = nil
 }

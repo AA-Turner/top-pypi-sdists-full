@@ -264,6 +264,8 @@ __all__ = (
     "GetLimitResponseTypeDef",
     "GetMonitorRequestTypeDef",
     "GetMonitorResponseTypeDef",
+    "GetMonitorSettingsRequestTypeDef",
+    "GetMonitorSettingsResponseTypeDef",
     "GetQueueEnvironmentRequestTypeDef",
     "GetQueueEnvironmentResponseTypeDef",
     "GetQueueFleetAssociationRequestTypeDef",
@@ -490,6 +492,7 @@ __all__ = (
     "UpdateJobRequestTypeDef",
     "UpdateLimitRequestTypeDef",
     "UpdateMonitorRequestTypeDef",
+    "UpdateMonitorSettingsRequestTypeDef",
     "UpdateQueueEnvironmentRequestTypeDef",
     "UpdateQueueFleetAssociationRequestTypeDef",
     "UpdateQueueLimitAssociationRequestTypeDef",
@@ -1222,6 +1225,10 @@ class GetMonitorRequestTypeDef(TypedDict):
     monitorId: str
 
 
+class GetMonitorSettingsRequestTypeDef(TypedDict):
+    monitorId: str
+
+
 class GetQueueEnvironmentRequestTypeDef(TypedDict):
     farmId: str
     queueId: str
@@ -1906,6 +1913,11 @@ class UpdateMonitorRequestTypeDef(TypedDict):
     roleArn: NotRequired[str]
 
 
+class UpdateMonitorSettingsRequestTypeDef(TypedDict):
+    monitorId: str
+    settings: Mapping[str, str]
+
+
 class UpdateQueueEnvironmentRequestTypeDef(TypedDict):
     farmId: str
     queueId: str
@@ -2184,6 +2196,11 @@ class GetMonitorResponseTypeDef(TypedDict):
     createdBy: str
     updatedAt: datetime
     updatedBy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetMonitorSettingsResponseTypeDef(TypedDict):
+    settings: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

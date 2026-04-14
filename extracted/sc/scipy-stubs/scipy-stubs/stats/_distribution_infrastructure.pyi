@@ -11,6 +11,7 @@ from typing import (
     Never,
     Protocol,
     Self,
+    SupportsIndex,
     TypeAlias,
     TypedDict,
     final,
@@ -350,7 +351,7 @@ class _BaseDistribution(_ProbabilityDistribution[_XT_co], Generic[_XT_co, _Shape
     ) -> _XT: ...
     @overload
     def sample(
-        self: _BaseDist0[_XT], /, shape: op.CanIndex, *, method: _SampleMethod | None = None, rng: _ToQRNG = None
+        self: _BaseDist0[_XT], /, shape: SupportsIndex, *, method: _SampleMethod | None = None, rng: _ToQRNG = None
     ) -> onp.Array1D[_XT]: ...
     @overload
     def sample(
@@ -369,14 +370,14 @@ class _BaseDistribution(_ProbabilityDistribution[_XT_co], Generic[_XT_co, _Shape
     def sample(
         self: _BaseDistribution[_XT, _ShapeT1],
         /,
-        shape: op.CanIndex | Iterable[op.CanIndex],
+        shape: SupportsIndex | Iterable[SupportsIndex],
         *,
         method: _SampleMethod | None = None,
         rng: _ToQRNG = None,
     ) -> onp.ArrayND[_XT, _ShapeT1] | onp.ArrayND[_XT]: ...  # first union type is needed on `numpy<2.1`
     @overload
     def sample(
-        self, /, shape: op.CanIndex | Iterable[op.CanIndex], *, method: _SampleMethod | None = None, rng: _ToQRNG = None
+        self, /, shape: SupportsIndex | Iterable[SupportsIndex], *, method: _SampleMethod | None = None, rng: _ToQRNG = None
     ) -> _XT_co | onp.ArrayND[_XT_co, _ShapeT1] | onp.ArrayND[_XT_co]: ...  # first union type is needed on `numpy<2.1`
 
     #
@@ -1519,7 +1520,7 @@ class Mixture(_BaseDistribution[_FloatT_co, _0D], Generic[_FloatT_co]):
     def __init__(self, /, components: Sequence[_CDist0[_FloatT_co]], *, weights: onp.ToFloat1D | None = None) -> None: ...
     #
     @override
-    def kurtosis(self, /, *, method: _SMomentMethod | None = None) -> _OutFloat: ...  # pyright: ignore[reportIncompatibleMethodOverride]  # pyrefly: ignore[bad-override] # ty: ignore[invalid-method-override]
+    def kurtosis(self, /, *, method: _SMomentMethod | None = None) -> _OutFloat: ...  # pyright: ignore[reportIncompatibleMethodOverride] # ty: ignore[invalid-method-override]
 
 ###
 

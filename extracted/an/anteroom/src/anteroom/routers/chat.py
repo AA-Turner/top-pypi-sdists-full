@@ -295,7 +295,7 @@ def _get_request_registries(request: Request, db: Any, space_id: str | None) -> 
         # Copy global skills first, then overlay space-scoped ones
         if hasattr(global_skill, "_skills"):
             skill_reg._skills = dict(global_skill._skills)
-        skill_reg.load_from_artifacts(art_reg)
+        skill_reg.load_from_artifacts(art_reg, db=db)
 
     # Build per-request rule enforcer from space-scoped artifacts
     rule_enf = None
@@ -913,6 +913,15 @@ async def _execute_web_tool(ctx: ToolExecutorContext, tool_name: str, arguments:
     async def _ask_user(question: str, options: list[str] | None = None) -> str:
         return await _web_ask_user_callback(ctx.confirm_ctx, question, options)
 
+    # Skill-scoped tool policy enforcement (#857)
+    from ..services.agent_loop import active_skill_policy
+
+    _sp = active_skill_policy.get(None)
+    if _sp is not None:
+        _sp_ok, _sp_reason = _sp.check_tool(tool_name)
+        if not _sp_ok:
+            return {"error": _sp_reason, "skill_policy_blocked": True}
+
     if tool_name in ("create_canvas", "update_canvas", "patch_canvas"):
         arguments = {
             **arguments,
@@ -952,7 +961,12 @@ async def _execute_web_tool(ctx: ToolExecutorContext, tool_name: str, arguments:
         queue = _message_queues.get(ctx.conversation_id)
         if queue is None:
             return {"error": "Skill invocation unavailable (no active message queue)"}
-        await queue.put({"role": "user", "content": prompt})
+        msg_to_queue: dict[str, Any] = {"role": "user", "content": prompt}
+        from ..cli.skills import SkillPolicy
+
+        if skill.policy != SkillPolicy():
+            msg_to_queue["_skill_policy"] = skill.policy
+        await queue.put(msg_to_queue)
         return {"status": "skill_invoked", "skill": skill_name}
     elif tool_name == "ask_user":
         arguments = {**arguments, "_ask_callback": _ask_user}
@@ -2148,6 +2162,12 @@ async def chat(conversation_id: str, request: Request) -> Any:
     model_override = conv.get("model") or None
     space_instructions: str | None = None
 
+    # Defense in depth: reject model override if not in allowlist
+    _ai_allowed = request.app.state.config.ai.allowed_models
+    if model_override and _ai_allowed and model_override not in _ai_allowed:
+        logger.warning("Model override '%s' not in allowed_models, falling back to default", model_override)
+        model_override = None
+
     # Resolve space context
     space_id = conv.get("space_id")
     if space_id:
@@ -2159,7 +2179,11 @@ async def chat(conversation_id: str, request: Request) -> Any:
                 space_instructions = _space["instructions"]
             # Override model from space if set and no conversation-level override
             if not model_override and _space.get("model"):
-                model_override = _space["model"]
+                _space_model = _space["model"]
+                if _ai_allowed and _space_model not in _ai_allowed:
+                    logger.warning("Space model '%s' not in allowed_models, using default", _space_model)
+                else:
+                    model_override = _space_model
             # Auto-inject space sources
             space_sources = storage.get_space_sources(db, space_id)
             space_source_ids = {s["id"] for s in space_sources}

@@ -20,7 +20,17 @@ from chalk.features.feature_wrapper import FeatureWrapper, ensure_feature, unwra
 from chalk.features.filter import Filter, TimeDelta, after, before
 from chalk.features.hooks import after_all, before_all
 from chalk.features.primary import Primary, is_primary
-from chalk.features.resolver import Cron, Resolver, ResolverProtocol, Sink, make_stream_resolver, offline, online, sink
+from chalk.features.resolver import (
+    Cron,
+    Resolver,
+    ResolverProtocol,
+    Sink,
+    StreamResolver,
+    make_stream_resolver,
+    offline,
+    online,
+    sink,
+)
 from chalk.features.tag import Environments, Tags
 from chalk.features.underscore import Underscore, _, __, underscore
 from chalk.queries.scheduled_query import ScheduledQuery  # import to maintain backwards compatibility
@@ -244,4 +254,5 @@ __all__ = (
     "tags",
     "underscore",
     "unwrap_feature",
+    "StreamResolver",
 )

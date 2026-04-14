@@ -154,6 +154,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
     def __init__(self) -> None:
         super().__init__()
         self.logger = logging.getLogger(f"plato.worlds.{self.name}")
+        self.config: ConfigT = cast(ConfigT, RunConfig())
         self._step_count: int = 0
         self._session_id: str | None = None
         self._chronos_completed: bool = False
@@ -322,6 +323,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
                     primary_workspace=primary_workspace,
                     primary_mount=primary_mount,
                     total_agents=total_agents,
+                    min_warmpool_timeout=self.config.min_warmpool_timeout,
                 )
                 self._agent_execution_managers[manager_key] = manager
             elif total_agents is not None:

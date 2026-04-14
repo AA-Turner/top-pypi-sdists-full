@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: heylead
-Version: 0.10.180
+Version: 0.10.181
 Summary: MCP-native autonomous LinkedIn SDR. Your AI sales rep, one command to fill your pipeline.
 Project-URL: Homepage, https://github.com/D4umak/heylead
 Project-URL: Repository, https://github.com/D4umak/heylead
@@ -60,16 +60,29 @@ MCP (Model Context Protocol) lets AI assistants use external tools. HeyLead give
 
 ### Step 1: Install HeyLead
 
-[**Install in Cursor**](cursor://anysphere.cursor-deeplink/mcp/install?name=heylead&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJoZXlsZWFkIl19)
+[**Install in Cursor**](cursor://anysphere.cursor-deeplink/mcp/install?name=heylead&type=url&config=eyJ1cmwiOiJodHRwczovL2hleWxlYWQuZGV2L21jcCJ9)
 
-Click the link above and Cursor installs it automatically.
+Click the link above and Cursor installs it automatically. HeyLead runs in the cloud — no local install, no updates, always the latest version.
 
 <details>
 <summary>Manual install or using another editor?</summary>
 
-**Cursor (manual):** Settings > MCP > "Add new MCP server" > Name: `heylead`, Command: `uvx heylead`
+**Cursor (manual):** Settings > MCP > "Add new MCP server" > Type: `URL`, Name: `heylead`, URL: `https://heylead.dev/mcp`
 
-**Claude Code:** `claude mcp add heylead -- uvx heylead`
+**Claude Code:**
+```bash
+claude mcp add heylead --transport http https://heylead.dev/mcp
+```
+
+**Any MCP client (streamable-http):**
+```json
+{
+  "heylead": {
+    "type": "url",
+    "url": "https://heylead.dev/mcp"
+  }
+}
+```
 
 **OpenClaw:** Add to your `openclaw.json`:
 ```json
@@ -78,14 +91,36 @@ Click the link above and Cursor installs it automatically.
     "servers": [
       {
         "name": "heylead",
-        "command": "uvx",
-        "args": ["heylead"]
+        "type": "url",
+        "url": "https://heylead.dev/mcp"
       }
     ]
   }
 }
 ```
 Or install from [ClawHub](https://clawhub.ai): search "HeyLead"
+</details>
+
+<details>
+<summary>Prefer local install? (offline/self-hosted)</summary>
+
+If you need offline access or want to self-host, you can run HeyLead locally via stdio:
+
+**Cursor:** Settings > MCP > "Add new MCP server" > Name: `heylead`, Command: `uvx heylead`
+
+**Claude Code:** `claude mcp add heylead -- uvx heylead`
+
+**Any MCP client:**
+```json
+{
+  "heylead": {
+    "command": "uvx",
+    "args": ["heylead"]
+  }
+}
+```
+
+Note: local installs require `uv` and need `uvx --refresh heylead` to update.
 </details>
 
 ### Step 2: Set up your account
@@ -220,10 +255,9 @@ HeyLead gives your AI 31 specialized tools:
 
 ## Privacy
 
-Your data stays on your machine:
-- Contacts and messages — local SQLite database
 - AI calls — routed through HeyLead's backend (Gemini 2.0 Flash) or your own key
-- We don't store your messages or contacts on our servers
+- Cloud MCP — your data is processed server-side but never shared with third parties
+- Local mode — contacts and messages stay on your machine in a local SQLite database
 
 > **Power users:** Pass your own LLM key (Gemini/Claude/OpenAI) during setup to use your own AI. Completely optional.
 
@@ -298,7 +332,17 @@ After publishing, anyone can install with `pip install heylead` or run with `uvx
 
 HeyLead is designed as an MCP-native tool — built for AI agents, not humans clicking buttons.
 
-**Install as MCP server:**
+**Install as MCP server (recommended — cloud, always up to date):**
+```json
+{
+  "heylead": {
+    "type": "url",
+    "url": "https://heylead.dev/mcp"
+  }
+}
+```
+
+**Local install (offline/self-hosted):**
 ```json
 {
   "heylead": {
@@ -312,15 +356,15 @@ HeyLead is designed as an MCP-native tool — built for AI agents, not humans cl
 ```json
 {
   "name": "heylead",
-  "command": "uvx",
-  "args": ["heylead"]
+  "type": "url",
+  "url": "https://heylead.dev/mcp"
 }
 ```
 Also available on [ClawHub](https://clawhub.ai) — search "HeyLead" for one-click install.
 
 **Capabilities:** LinkedIn lead generation, cold outreach automation, ICP generation with buyer personas, voice-matched personalized messaging, multi-touch drip sequences, reply sentiment classification, engagement warm-ups, campaign analytics, and autonomous 24/7 scheduling.
 
-**31 tools** covering the full SDR workflow: prospect discovery → outreach → follow-up → reply handling → deal closing.
+**23 tools** covering the full SDR workflow: prospect discovery → outreach → follow-up → reply handling → deal closing.
 
 See [`AGENTS.md`](AGENTS.md) for the full agent integration guide.
 

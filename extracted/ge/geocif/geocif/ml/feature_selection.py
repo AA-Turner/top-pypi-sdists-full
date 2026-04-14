@@ -3,7 +3,7 @@ import os
 os.environ["MPLBACKEND"] = "Agg"
 
 import numpy as np
-from tqdm import tqdm
+from tqdm.rich import tqdm
 from sklearn.ensemble import RandomForestRegressor
 from collections import Counter
 from pathlib import Path

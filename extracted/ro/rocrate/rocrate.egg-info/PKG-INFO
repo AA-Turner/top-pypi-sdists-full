@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: rocrate
-Version: 0.14.2
+Version: 0.15.0
 Summary: RO-Crate metadata generator/parser
 Home-page: https://github.com/ResearchObject/ro-crate-py/
-Download-URL: https://github.com/researchobject/ro-crate-py/archive/0.14.2.tar.gz
-Author: Daniel Bauer, Eli Chadwick, Paul De Geest, Bert Droesbeke, Ignacio Eguinoa, Alban Gaignard, Matthias Hörtenhuber, Sebastiaan Huber, Bruno Kinoshita, Simone Leo, Luca Pireddu, Laura Rodríguez-Navas, Raül Sirvent, Stian Soiland-Reyes, Laurent Thomas
+Download-URL: https://github.com/researchobject/ro-crate-py/archive/0.15.0.tar.gz
+Author: Daniel Bauer, Eli Chadwick, Paul De Geest, Bert Droesbeke, Ignacio Eguinoa, Alban Gaignard, Matthias Hörtenhuber, Sebastiaan Huber, Bruno Kinoshita, Simone Leo, Pablo Orviz, Luca Pireddu, Laura Rodríguez-Navas, Raül Sirvent, Stian Soiland-Reyes, Laurent Thomas
 Author-email: stain@apache.org
 License: Apache-2.0
 Keywords: researchobject ro-crate ro metadata jsonld
@@ -49,7 +49,7 @@ Dynamic: summary
 
 [![Python package](https://github.com/ResearchObject/ro-crate-py/workflows/Python%20package/badge.svg)](https://github.com/ResearchObject/ro-crate-py/actions?query=workflow%3A%22Python+package%22) [![Upload Python Package](https://github.com/ResearchObject/ro-crate-py/workflows/Upload%20Python%20Package/badge.svg)](https://github.com/ResearchObject/ro-crate-py/actions?query=workflow%3A%22Upload+Python+Package%22) [![PyPI version](https://badge.fury.io/py/rocrate.svg)](https://pypi.org/project/rocrate/) [![DOI](https://zenodo.org/badge/216605684.svg)](https://zenodo.org/badge/latestdoi/216605684)
 
-ro-crate-py is a Python library to create and consume [Research Object Crates](https://w3id.org/ro/crate). It currently supports the [RO-Crate 1.1](https://w3id.org/ro/crate/1.1) specification.
+ro-crate-py is a Python library to create and consume [Research Object Crates](https://w3id.org/ro/crate). It supports the current [RO-Crate 1.2](https://w3id.org/ro/crate/1.2) specification as well as the older [RO-Crate 1.1](https://w3id.org/ro/crate/1.1) and [RO-Crate 1.0](https://w3id.org/ro/crate/1.0).
 
 ## Installation
 
@@ -274,6 +274,25 @@ Note that entities can have multiple types, e.g.:
     "@type" = ["File", "SoftwareSourceCode"]
 ```
 
+#### Selecting the RO-Crate specification version
+
+By default, a newly created RO-Crate conforms to the [RO-Crate 1.2](https://w3id.org/ro/crate/1.2) specification, but 1.0 and 1.1 are still supported:
+
+```pycon
+>>> from rocrate.rocrate import ROCrate
+>>> crate = ROCrate()
+>>> crate.version
+'1.2'
+>>> crate = ROCrate(version="1.0")
+>>> crate.version
+'1.0'
+>>> crate.metadata.id
+'ro-crate-metadata.jsonld'
+```
+
+When consuming an RO-Crate (see below), the `version` parameter is ignored, and the RO-Crate version is read from the metadata descriptor instead.
+
+
 ### Consuming an RO-Crate
 
 An existing RO-Crate package can be loaded from a directory or zip file:
@@ -322,6 +341,145 @@ article = crate.dereference("paper.pdf")
 ```
 
 ## Advanced features
+
+### Detached crates
+
+[RO-Crate 1.2](https://www.researchobject.org/ro-crate/whats-changed-in-1-2) introduces the concept of _detached_ RO-Crates, which have no defined root directory: in detached crates, the metadata is accessed independently, for instance via an API or from a standalone metadata file. By contrast, "traditional" crates that describe a payload of files and directories contained in a root directory are called _attached_.
+
+Both detached and attached crates can have a root data entity with an absolute URI as `@id`. To create an RO-Crate whose root data entity `@id` is different from the default `./`, use the `root_dataset_id` argument in the constructor:
+
+```python
+from rocrate.rocrate import ROCrate
+
+url = "http://example.com/crate/"
+crate = ROCrate(root_dataset_id=url)
+```
+
+In detached crates, _all_ data entities must be web-based, i.e., have an absolute URI as `@id`:
+
+```python
+file_1 = crate.add_file(f"{url}file_1")  # http://example.com/crate/file_1
+```
+
+The [recommended way](https://www.researchobject.org/ro-crate/specification/1.2/structure.html#types-of-ro-crate) to store a detached crate on disk is to write a single metadata file called `${prefix}-ro-crate-metadata.json`, where `${prefix}` is a variable. The library supports this through the `write_detached` method, which takes as argument an arbitrary path (a warning will be issued if the path does not follow the above pattern):
+
+```python
+crate.write_detached("/tmp/example-ro-crate-metadata.json")
+```
+
+One of the ways to consume a detached crate is to read the metadata from a local file. For instance, to read the crate that we just wrote:
+
+```python
+read_crate = ROCrate("/tmp/example-ro-crate-metadata.json")
+read_file_1 = read_crate.dereference(f"{url}file_1")
+```
+
+This also works with a local `file://` URI:
+
+```python
+read_crate = ROCrate("file:///tmp/example-ro-crate-metadata.json")
+```
+
+and with a remote URI:
+
+```python
+base = "https://raw.githubusercontent.com/ResearchObject/ro-crate-py/master/test/test-data/"
+read_crate = ROCrate(f"{base}detached-ro-crate-metadata.json")
+assert read_crate.root_dataset.id == base
+sample_file = read_crate.dereference(f"{base}sample_file.txt")
+test_file_galaxy = read_crate.dereference(f"{base}test_file_galaxy.txt")
+```
+
+Another way to read a detached crate is to pass a JSON dictionary with the RO-Crate metadata directly to `ROCrate`. For instance:
+
+```python
+import json
+from rocrate.rocrate import ROCrate
+
+with open("/tmp/example-ro-crate-metadata.json") as f:
+    metadata = json.load(f)
+crate = ROCrate(metadata)
+```
+
+In the above example we read the metadata from a local file, but you could get it from an API endpoint or any other source.
+
+
+### Subcrates
+
+An RO-Crate can contain one or more nested RO-Crates. For instance, consider the following layout:
+
+```
+crate_with_subcrates/
+|-- file.txt
+|-- ro-crate-metadata.json
+|-- subcrate
+|   |-- ro-crate-metadata.json
+|   |-- subfile.txt
+|   `-- subsubcrate
+|       |-- deepfile.txt
+|       `-- ro-crate-metadata.json
+`-- subcrate2
+    |-- ro-crate-metadata.json
+    `-- subfile.txt
+```
+
+In the JSON-LD metadata, the presence of a nested crate rooted at a given directory is indicated by a `conformsTo` pointing to the generic RO-Crate profile `https://w3id.org/ro/crate` (see [Referencing other RO-Crates](https://www.researchobject.org/ro-crate/specification/1.2/data-entities.html#referencing-other-ro-crates)):
+
+```json
+{
+    "@id": "subcrate/",
+    "@type": "Dataset",
+    "conformsTo": "https://w3id.org/ro/crate"
+}
+```
+
+Since nested crates can potentially contain many and / or large files, they are not loaded by default: to enable their loading, pass `load_subcrates=True` to the `RO-Crate` initializer:
+
+```pycon
+>>> from rocrate.rocrate import ROCrate
+>>> crate = ROCrate("test/test-data/crate_with_subcrates", load_subcrates=True)
+>>> crate.subcrate_entities
+[<subcrate/ Dataset>, <subcrate2/ Dataset>]
+```
+
+At this point, the nested crates have not been loaded yet. You can load a nested crate explicitly:
+
+```pycon
+>>> nested_crate = subcrate.get_crate()
+>>> nested_crate.data_entities
+[<subfile.txt File>, <subsubcrate/ Dataset>]
+>>> nested_crate.subcrate_entities
+[<subsubcrate/ Dataset>]
+```
+
+Alternatively, you can dereference an item from the higher level crate:
+
+```pycon
+>>> crate.dereference("subcrate2/subfile.txt")
+<subfile.txt File>
+```
+
+Up to this point, we have seen how to consume an existing RO-Crate. The following example shows how to create a new one:
+
+```pycon
+>>> crate = ROCrate()
+>>> crate.add_file("test/test-data/test_file_galaxy.txt")
+<test_file_galaxy.txt File>
+>>> subcrate = crate.add_subcrate(dest_path="subcrate/")
+>>> subcrate
+<subcrate/ Dataset>
+>>> assert subcrate.get("conformsTo") == "https://w3id.org/ro/crate"
+>>> assert crate.subcrate_entities == [subcrate]
+>>> subcrate_crate = subcrate.get_crate()
+>>> subcrate_crate
+<rocrate.rocrate.ROCrate object at 0x7e4b79adfad0>
+>>> subsubcrate = subcrate_crate.add_subcrate(dest_path="subsubcrate/")
+>>> assert subcrate_crate.subcrate_entities == [subsubcrate]
+>>> subsubcrate_crate = subsubcrate.get_crate()
+>>> subsubf = subsubcrate_crate.add_file("setup.cfg")
+>>> assert crate.dereference("subcrate/subsubcrate/setup.cfg") is subsubf
+>>> crate.write("/tmp/crate_with_subcrates")
+```
 
 ### Modifying the crate from JSON-LD dictionaries
 
@@ -509,15 +667,16 @@ Options:
 
 ## License
 
-* Copyright 2019-2025 The University of Manchester, UK
-* Copyright 2020-2025 Vlaams Instituut voor Biotechnologie (VIB), BE
-* Copyright 2020-2025 Barcelona Supercomputing Center (BSC), ES
-* Copyright 2020-2025 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
-* Copyright 2022-2025 École Polytechnique Fédérale de Lausanne, CH
-* Copyright 2024-2025 Data Centre, SciLifeLab, SE
-* Copyright 2024-2025 National Institute of Informatics (NII), JP
-* Copyright 2025 Senckenberg Society for Nature Research (SGN), DE
-* Copyright 2025 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+* Copyright 2019-2026 The University of Manchester, UK
+* Copyright 2020-2026 Vlaams Instituut voor Biotechnologie (VIB), BE
+* Copyright 2020-2026 Barcelona Supercomputing Center (BSC), ES
+* Copyright 2020-2026 Center for Advanced Studies, Research and Development in Sardinia (CRS4), IT
+* Copyright 2022-2026 École Polytechnique Fédérale de Lausanne, CH
+* Copyright 2024-2026 Data Centre, SciLifeLab, SE
+* Copyright 2024-2026 National Institute of Informatics (NII), JP
+* Copyright 2025-2026 Senckenberg Society for Nature Research (SGN), DE
+* Copyright 2025-2026 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
+* Copyright 2026 Spanish National Research Council (CSIC), ES
 
 Licensed under the
 Apache License, version 2.0 <https://www.apache.org/licenses/LICENSE-2.0>,

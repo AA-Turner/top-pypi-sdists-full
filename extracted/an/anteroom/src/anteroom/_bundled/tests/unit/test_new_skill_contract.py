@@ -61,28 +61,25 @@ class TestNewSkillContract:
             "to guard against the common content-vs-prompt mistake"
         )
 
-    def test_requires_block_scalar_for_backslash(self) -> None:
-        """Prompt must require block scalar (prompt: |) for backslash/regex content."""
+    def test_uses_skillmd_format(self) -> None:
+        """Prompt must describe SKILL.md directory-based format, not legacy YAML."""
         prompt = _load_prompt()
         prompt_lower = prompt.lower()
-        assert "backslash" in prompt_lower, "Prompt must warn about backslash escaping"
-        assert "block scalar" in prompt_lower or "prompt: |" in prompt, (
-            "Prompt must recommend block scalar for backslash-heavy content"
-        )
+        assert "skill.md" in prompt_lower, "Prompt must reference SKILL.md format"
+        assert "frontmatter" in prompt_lower, "Prompt must mention YAML frontmatter"
 
     def test_requires_post_write_validation(self) -> None:
-        """Prompt must require reading the file back and validating: valid YAML, prompt key, non-empty."""
+        """Prompt must require reading the file back and validating structure."""
         prompt = _load_prompt()
         prompt_lower = prompt.lower()
         assert "read" in prompt_lower and ("back" in prompt_lower or "file" in prompt_lower), (
             "Prompt must instruct to read the file back after writing"
         )
-        has_prompt_check = "prompt" in prompt_lower and (
-            "key" in prompt_lower or "contains" in prompt_lower or "mapping" in prompt_lower
+        assert "---" in prompt and "frontmatter" in prompt_lower, (
+            "Prompt must instruct to verify valid frontmatter delimiters"
         )
-        assert has_prompt_check, "Prompt must instruct to verify the 'prompt' key exists"
         assert "non-empty" in prompt_lower or "non empty" in prompt_lower, (
-            "Prompt must instruct to verify the prompt value is non-empty"
+            "Prompt must instruct to verify the prompt content is non-empty"
         )
 
     def test_loaded_by_skill_registry(self) -> None:

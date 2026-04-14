@@ -478,6 +478,9 @@ async def validate_connection(request: Request) -> ConnectionValidation:
     config = request.app.state.config
     ai_service = create_ai_service(config.ai)
     valid, message, models = await ai_service.validate_connection()
+    if config.ai.allowed_models:
+        allowed = set(config.ai.allowed_models)
+        models = [m for m in models if m in allowed]
     return ConnectionValidation(valid=valid, message=message, models=models)
 
 
@@ -486,8 +489,7 @@ async def list_models(request: Request) -> list[str]:
     config = request.app.state.config
     ai_service = create_ai_service(config.ai)
     try:
-        _, _, models = await ai_service.validate_connection()
-        return sorted(models)
+        return await ai_service.list_models()
     except Exception:
         return []
 

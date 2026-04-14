@@ -472,6 +472,52 @@ def fix_duplicate_content(db: ThreadSafeConnection) -> int:
     return deleted
 
 
+def check_bundle_health(db: ThreadSafeConnection) -> list[HealthIssue]:
+    """Check health of bundled skill artifacts."""
+    from ..cli.skills import MAX_PROMPT_SIZE
+
+    issues: list[HealthIssue] = []
+    skills = artifact_storage.list_artifacts(db, artifact_type="skill")
+    for art in skills:
+        meta = art.get("metadata")
+        if not isinstance(meta, dict) or not meta.get("bundle"):
+            continue
+        content = art.get("content", "")
+        rc = meta.get("resource_count", 0)
+        if rc == 0:
+            issues.append(
+                HealthIssue(
+                    severity=HealthSeverity.WARN,
+                    category="bundle_empty",
+                    message=f"Bundled skill {art.get('fqn', '?')} has bundle=true but resource_count=0",
+                )
+            )
+        content_len = len(content)
+        if content_len > MAX_PROMPT_SIZE:
+            issues.append(
+                HealthIssue(
+                    severity=HealthSeverity.ERROR,
+                    category="bundle_over_budget",
+                    message=(
+                        f"Bundled skill {art.get('fqn', '?')} exceeds "
+                        f"{MAX_PROMPT_SIZE // 1000}KB limit ({content_len // 1000}KB)"
+                    ),
+                )
+            )
+        elif content_len > MAX_PROMPT_SIZE * 4 // 5:
+            issues.append(
+                HealthIssue(
+                    severity=HealthSeverity.WARN,
+                    category="bundle_near_limit",
+                    message=(
+                        f"Bundled skill {art.get('fqn', '?')} at "
+                        f"{content_len // 1000}KB (limit {MAX_PROMPT_SIZE // 1000}KB)"
+                    ),
+                )
+            )
+    return issues
+
+
 def run_health_check(
     db: ThreadSafeConnection,
     *,
@@ -499,6 +545,7 @@ def run_health_check(
     report.issues.extend(check_orphaned_artifacts(db))
     report.issues.extend(check_duplicate_content(db))
     report.issues.extend(check_bloat(db))
+    report.issues.extend(check_bundle_health(db))
 
     # Apply fixes after diagnostics so checks see pre-fix state
     if fix:

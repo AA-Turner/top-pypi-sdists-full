@@ -19,7 +19,6 @@ from typing import (
     Dict,
     List,
     Mapping,
-    MutableMapping,
     Optional,
     Sequence,
     Tuple,
@@ -1051,7 +1050,7 @@ def _process_class(
                     # Build version reference with Feature instances for each version that has this bucket.
                     # Delete `name` so that version expansion assigns it via name_for_version,
                     # which adds the @N suffix for non-v1 versions.
-                    version_reference: dict[int, Feature] = {}
+                    version_reference: dict[int, Feature | Windowed] = {}
                     for ver, v_wind in versions_with_bucket.items():
                         try:
                             ver_feat = v_wind._to_feature(bucket=bucket_s)
@@ -1065,7 +1064,7 @@ def _process_class(
                         version=source_ver,
                         maximum=max_ver,
                         default=default_ver if default_has_bucket else source_ver,
-                        reference=cast(MutableMapping[int, Feature], version_reference),
+                        reference=version_reference,
                         explicitly_enumerated=True,
                         base_name=base_feat.name,
                     )
@@ -1488,6 +1487,8 @@ def _process_class(
                 continue
 
             for i, mapped_feature in f.version.reference.items():
+                if not isinstance(mapped_feature, Feature):
+                    continue
                 f_i = copy.copy(mapped_feature)
                 f_i.namespace = namespace
 

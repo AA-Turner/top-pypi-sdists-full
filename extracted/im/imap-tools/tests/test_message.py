@@ -2,6 +2,8 @@ import os
 import sys
 import unittest
 import datetime
+
+from imap_tools.message import LazyHeaders
 from tests.utils import MailboxTestCase
 
 from imap_tools import MailMessage, MailMessageFlags, EmailAddress
@@ -63,7 +65,7 @@ class MessageTest(MailboxTestCase):
                 self.assertIs(type(message.date_str), str)
                 self.assertIs(type(message.text), str)
                 self.assertIs(type(message.html), str)
-                self.assertIs(type(message.headers), dict)
+                self.assertIs(type(message.headers), LazyHeaders)
                 self.assertIs(type(message.size_rfc822), int)
                 self.assertIs(type(message.size), int)
 

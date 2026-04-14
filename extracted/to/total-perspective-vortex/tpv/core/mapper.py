@@ -211,10 +211,10 @@ class EntityToDestinationMapper(object):
             id=destination.dest_name,
             tags=destination.handler_tags,
             runner=destination.runner,
-            params=destination.params,
-            env=destination.env,
-            resubmit=list(destination.resubmit.values()),
-        )  # type: ignore[no-untyped-call]
+            params=destination.params or {},
+            env=destination.env or [],
+            resubmit=list(destination.resubmit.values()),  # type: ignore[arg-type]
+        )
 
     def _find_matching_entities(
         self, context: dict[str, Any], tool: GalaxyTool, user: GalaxyUser | None

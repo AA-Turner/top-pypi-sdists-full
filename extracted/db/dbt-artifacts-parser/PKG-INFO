@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-artifacts-parser
-Version: 0.13.0
+Version: 0.13.1
 Summary: A dbt artifacts parser in python
 Project-URL: Home, https://github.com/yu-iskw/dbt-artifacts-parser
 Author: yu-iskw
@@ -214,7 +214,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -222,7 +221,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Requires-Dist: pydantic<3.0,>=2.0
 Provides-Extra: dev
 Requires-Dist: build>=1.3.0; extra == 'dev'
@@ -231,7 +230,7 @@ Requires-Dist: mypy>=1.19.1; extra == 'dev'
 Requires-Dist: pdoc3>=0.11.6; extra == 'dev'
 Requires-Dist: pre-commit>=4.3.0; extra == 'dev'
 Requires-Dist: pylint>=3.3.9; extra == 'dev'
-Requires-Dist: pytest>=8.4.2; extra == 'dev'
+Requires-Dist: pytest>=9.0.3; extra == 'dev'
 Requires-Dist: pyyaml>=6.0.3; extra == 'dev'
 Requires-Dist: ruff>=0.14.10; extra == 'dev'
 Description-Content-Type: text/markdown
@@ -273,6 +272,8 @@ This package is primarily designed for dbt-core, enabling seamless interaction w
 ```bash
 pip install -U dbt-artifacts-parser
 ```
+
+Development dependencies are declared as a [PEP 735](https://peps.python.org/pep-0735/) **`dev` dependency group** in `pyproject.toml` (locked in `uv.lock`) and mirrored under **`[project.optional-dependencies].dev`** so `pip install dbt-artifacts-parser[dev]` keeps working. After cloning, run `make setup` or `bash dev/setup.sh --deps development` (uses **`uv sync`**). To add a dev tool: `uv add --group dev <package>`, then update **`[project.optional-dependencies].dev`** to match, and run `uv lock`.
 
 ## Python classes
 

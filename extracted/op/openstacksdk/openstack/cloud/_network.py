@@ -14,6 +14,7 @@ from openstack.cloud import _network_common
 from openstack.cloud import _utils
 from openstack.cloud import exc
 from openstack import exceptions
+from openstack import utils
 
 
 class NetworkCloudMixin(_network_common.NetworkCommonCloudMixin):
@@ -617,7 +618,8 @@ class NetworkCloudMixin(_network_common.NetworkCommonCloudMixin):
         :raises: :class:`~openstack.exceptions.SDKException` if the resource to
             set the quota does not exist.
         """
-        proj = self.identity.find_project(name_or_id, ignore_missing=True)
+        identity = utils.ensure_service_version(self.identity, '3')
+        proj = identity.find_project(name_or_id, ignore_missing=True)
         if not proj:
             raise exceptions.SDKException(
                 f"Project {name_or_id} was requested by was not found "
@@ -636,7 +638,8 @@ class NetworkCloudMixin(_network_common.NetworkCommonCloudMixin):
         :raises: :class:`~openstack.exceptions.SDKException` if it's not a
             valid project
         """
-        proj = self.identity.find_project(name_or_id, ignore_missing=True)
+        identity = utils.ensure_service_version(self.identity, '3')
+        proj = identity.find_project(name_or_id, ignore_missing=True)
         if not proj:
             raise exc.OpenStackCloudException(
                 f"Project {name_or_id} was requested by was not found "
@@ -660,7 +663,8 @@ class NetworkCloudMixin(_network_common.NetworkCommonCloudMixin):
         :raises: :class:`~openstack.exceptions.SDKException` if it's not a
             valid project or the network client call failed
         """
-        proj = self.identity.find_project(name_or_id, ignore_missing=True)
+        identity = utils.ensure_service_version(self.identity, '3')
+        proj = identity.find_project(name_or_id, ignore_missing=True)
         if not proj:
             raise exceptions.SDKException(
                 f"Project {name_or_id} was requested by was not found "
@@ -2484,8 +2488,6 @@ class NetworkCloudMixin(_network_common.NetworkCommonCloudMixin):
         'admin_state_up',
         'mac_address',
         'fixed_ips',
-        'subnet_id',
-        'ip_address',
         'security_groups',
         'allowed_address_pairs',
         'extra_dhcp_opts',
@@ -2523,13 +2525,13 @@ class NetworkCloudMixin(_network_common.NetworkCommonCloudMixin):
                   ...,
               ]
 
-        :param subnet_id: If you specify only a subnet ID, OpenStack Networking
-            allocates an available IP from that subnet to the port. (Optional)
-            If you specify both a subnet ID and an IP address, OpenStack
-            Networking tries to allocate the specified address to the port.
-        :param ip_address: If you specify both a subnet ID and an IP address,
-            OpenStack Networking tries to allocate the specified address to
-            the port.
+            where
+              subnet_id: If you specify only a subnet ID,
+                OpenStack Networking allocates an available IP
+                from that subnet to the port.
+              ip_address:  (Optional) If you specify both a subnet ID and
+                an IP address, OpenStack Networking tries to allocate
+                the specified address to the port.
         :param security_groups: List of security group UUIDs. (Optional)
         :param allowed_address_pairs: Allowed address pairs list (Optional)
             For example::

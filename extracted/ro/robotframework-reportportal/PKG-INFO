@@ -1,24 +1,23 @@
 Metadata-Version: 2.4
 Name: robotframework-reportportal
-Version: 5.6.5
+Version: 5.7.0
 Summary: Agent for reporting RobotFramework test results to ReportPortal
 Home-page: https://github.com/reportportal/agent-Python-RobotFramework
-Download-URL: https://github.com/reportportal/agent-Python-RobotFramework/tarball/5.6.5
+Download-URL: https://github.com/reportportal/agent-Python-RobotFramework/tarball/5.7.0
 Author: ReportPortal Team
 Author-email: support@reportportal.io
 Keywords: testing,reporting,robot framework,reportportal,agent
 Classifier: Framework :: Robot Framework
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: python-dateutil~=2.9.0.post0
-Requires-Dist: reportportal-client~=5.6.7
-Requires-Dist: robotframework
+Requires-Dist: python-dateutil==2.9.0.post0
+Requires-Dist: reportportal-client==5.7.4
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -20,6 +20,7 @@ import tenacity
 if TYPE_CHECKING:
     from playwright.sync_api import Browser, BrowserContext, Page
 
+from plato._generated.api.v2.artifacts import get_artifact
 from plato._generated.api.v2.jobs import get_flows as jobs_get_flows
 from plato._generated.api.v2.jobs import public_url as jobs_public_url
 from plato._generated.api.v2.jobs import wait_for_ready as jobs_wait_for_ready
@@ -201,6 +202,20 @@ class Session:
             except Exception as close_err:
                 logger.warning(f"Failed to close session after ready timeout: {close_err}")
             raise
+
+        # Resolve simulator names from artifact metadata for artifact-based envs
+        if context.envs:
+            for env_ctx in context.envs:
+                if not env_ctx.simulator and env_ctx.artifact_id:
+                    try:
+                        artifact_info = get_artifact.sync(
+                            client=http_client,
+                            artifact_id=env_ctx.artifact_id,
+                            x_api_key=api_key,
+                        )
+                        env_ctx.simulator = artifact_info.simulator_name
+                    except Exception:
+                        pass
 
         logger.info(f"All environments in session {response.session_id} are ready")
         session = cls(

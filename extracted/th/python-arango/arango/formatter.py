@@ -119,6 +119,10 @@ def format_index(body: Json, formatter: bool = True) -> Json:
     # Introduced via Vector Index in 3.12.6
     if "params" in body:
         result["params"] = body["params"]
+    if "errorMessage" in body:
+        result["error_message"] = body["errorMessage"]
+    if "trainingState" in body:
+        result["training_state"] = body["trainingState"]
 
     return verify_format(body, result)
 
@@ -274,6 +278,9 @@ def format_collection(body: Json) -> Json:
 
     if "internalValidatorType" in body:
         result["internal_validator_type"] = body["internalValidatorType"]
+
+    if "supportsRBAC" in body:
+        result["supportsRBAC"] = body["supportsRBAC"]
 
     return verify_format(body, result)
 

@@ -152,7 +152,7 @@ class KeySet:
             return keys[0]
         raise InvalidKeyIdError(f"No key for kid: '{kid}'")
 
-    def pick_random_key(self, algorithm: str | None = None, parameters: KeyParameters | None = None) -> t.Optional[Key]:
+    def pick_random_key(self, algorithm: str | None = None, parameters: KeyParameters | None = None) -> Key | None:
         key_types = self.algorithm_keys.get(algorithm) if algorithm else None
         if key_types:
             keys = [k for k in self.keys if k.key_type in key_types]

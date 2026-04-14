@@ -65,7 +65,7 @@ class JWERegistry:
 
     def __init__(
         self,
-        header_registry: t.Optional[HeaderRegistryDict] = None,
+        header_registry: HeaderRegistryDict | None = None,
         algorithms: list[str] | None = None,
         verify_all_recipients: bool = True,
         strict_check_header: bool = True,
